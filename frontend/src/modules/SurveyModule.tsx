@@ -94,6 +94,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
   const isQC = role === "QC" || role === "Admin";
   const isLead = role === "TN CSKH" || role === "TBP CSKH" || role === "Admin";
   const canSurvey = ["CSKH", "TN CSKH", "TBP CSKH", "Admin"].includes(role ?? "");
+  // NV CSKH (nhan vien khao sat truc tiep) chi can vao "Che do goi khao sat" de xu ly tung ca, khong
+  // can xem "Danh sach chi tiet" (bang lien can khao sat/qua han/cho QC/da xu ly) - tab nay chi danh
+  // cho vai tro quan ly (TN CSKH/TBP CSKH/QC/Admin) theo doi tong the.
+  const canViewDanhSach = role !== "CSKH";
+  const visibleViews = canViewDanhSach ? VIEWS : VIEWS.filter((v) => v.key !== "danh-sach");
+  const effectiveView = canViewDanhSach ? view : "bao-cao";
 
   const filterParams = { khu_vuc: khuVucFilter };
 
@@ -191,7 +197,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap mb-1 mt-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-1 mt-2">
         <Select
           value={khuVucFilter}
           onChange={(v) => {
@@ -204,11 +210,16 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
             ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
         />
+        {canSurvey && (
+          <Btn size="sm" onClick={() => setWorkspaceOpen(true)}>
+            🎧 Vào chế độ gọi khảo sát
+          </Btn>
+        )}
       </div>
 
-      <Tabs active={view} onChange={setView} tabs={VIEWS} />
+      <Tabs active={effectiveView} onChange={setView} tabs={visibleViews} />
 
-      {view === "bao-cao" ? (
+      {effectiveView === "bao-cao" ? (
         <div className="mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
             <Card className="p-4 lg:col-span-2">
@@ -270,7 +281,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
                 <div className="font-display font-bold text-sm">Báo cáo khảo sát theo khu vực</div>
-                <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.</div>
+                {canViewDanhSach && <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.</div>}
               </div>
               <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_khao_sat_khu_vuc.xlsx")}>
                 ⬇ Xuất Excel
@@ -292,24 +303,40 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                     <tr key={r.khu_vuc} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
                       <td className="py-2 pr-3 font-semibold">{r.khu_vuc}</td>
                       <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "can-khao-sat")}>
-                          {r.can_khao_sat}
-                        </button>
+                        {canViewDanhSach ? (
+                          <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "can-khao-sat")}>
+                            {r.can_khao_sat}
+                          </button>
+                        ) : (
+                          r.can_khao_sat
+                        )}
                       </td>
                       <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "qua-han-khao-sat")}>
-                          {r.qua_han_khao_sat}
-                        </button>
+                        {canViewDanhSach ? (
+                          <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "qua-han-khao-sat")}>
+                            {r.qua_han_khao_sat}
+                          </button>
+                        ) : (
+                          r.qua_han_khao_sat
+                        )}
                       </td>
                       <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "cho-qc")}>
-                          {r.cho_qc}
-                        </button>
+                        {canViewDanhSach ? (
+                          <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "cho-qc")}>
+                            {r.cho_qc}
+                          </button>
+                        ) : (
+                          r.cho_qc
+                        )}
                       </td>
                       <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "da-xu-ly")}>
-                          {r.da_xu_ly}
-                        </button>
+                        {canViewDanhSach ? (
+                          <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.khu_vuc, "da-xu-ly")}>
+                            {r.da_xu_ly}
+                          </button>
+                        ) : (
+                          r.da_xu_ly
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -328,11 +355,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
       ) : (
         <div className="mt-4">
           <div className="flex justify-end mb-2 gap-2">
-            {canSurvey && (tab === "can-khao-sat" || tab === "qua-han-khao-sat") && (
-              <Btn size="sm" onClick={() => setWorkspaceOpen(true)}>
-                🎧 Vào chế độ gọi khảo sát
-              </Btn>
-            )}
             <Btn variant="ghost" size="sm" onClick={handleExport}>
               ⬇ Xuất Excel
             </Btn>

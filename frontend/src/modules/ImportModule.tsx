@@ -94,7 +94,7 @@ export function ImportModule() {
     onSuccess: (res) => {
       addToast(`Đồng bộ xong: ${res.thanhCong} dòng giải trình lặp${res.loi ? `, ${res.loi} lỗi` : ""}`);
       qc.invalidateQueries({ queryKey: ["import-history"] });
-      qc.invalidateQueries({ queryKey: ["ca-lap-danh-sach"] });
+      qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
     },
@@ -232,7 +232,7 @@ export function ImportModule() {
             )}
             getErrors={(s) => s.errors}
             successMessage={(s) => `Import thành công: ${s.thanhCong} dòng giải trình lặp`}
-            invalidateKeys={[["ca-lap-danh-sach"], ["ca-lap-tong-quan"], ["notifications-count"]]}
+            invalidateKeys={[["ca-lap-status"], ["ca-lap-tong-quan"], ["notifications-count"]]}
           />
         </>
       )}

@@ -143,6 +143,54 @@ caLap.get("/danh-sach", async (c) => {
   });
 });
 
+// GET /api/ca-lap/danh-sach/list?khu_vuc=&thang= - phan ON DINH cua danh sach (cot case_dvbh +
+// prior_id/prior_ht/gap_days), KHONG gom trang thai xu ly (giai_trinh_lap) - dung cho FE cache
+// theo hash cua /version (xem frontend/src/lib/staticListCache.ts), chi doi khi import kich hoat
+// refreshCaLapPrecompute() (hoac cron an toan hang gio), KHONG doi khi ai do chi giai trinh/chot QC.
+// Tra ve TOAN BO (khong phan trang) vi tong so ca lap con nho (~vai tram), loc trang thai + phan
+// trang se lam o FE sau khi gop voi /status.
+caLap.get("/danh-sach/list", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const scopeClause = khuVucWhereClause(scope, "lap.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("lap.khu_vuc", c.req.query("khu_vuc"));
+  const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
+  const { start, end } = monthBounds(thang);
+
+  const { results } = await c.env.DB.prepare(
+    `${CA_LAP_CTE}
+     SELECT lap.* FROM lap
+     WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}
+     ORDER BY lap.thoi_gian_hoan_thanh DESC`,
+  )
+    .bind(start, end, ...scopeClause.binds, ...khuVucClause.binds)
+    .all();
+
+  return c.json({ rows: results, thang });
+});
+
+// GET /api/ca-lap/danh-sach/status?khu_vuc=&thang= - phan DONG (giai_trinh_lap) cua danh sach -
+// LUON tai moi (khong cache), nhung re vi giai_trinh_lap chi co dong voi ca THAT SU da duoc
+// GS/QC dong gia/chot (nho hon nhieu so voi tong so ca lap). FE gop voi ket qua /list theo case_id.
+caLap.get("/danh-sach/status", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
+  const { start, end } = monthBounds(thang);
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT gl.*
+     FROM giai_trinh_lap gl
+     JOIN case_dvbh c ON c.id = gl.case_id
+     WHERE c.ca_lap_prior_ht IS NOT NULL
+       AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}`,
+  )
+    .bind(start, end, ...scopeClause.binds, ...khuVucClause.binds)
+    .all();
+
+  return c.json({ rows: results });
+});
+
 const LOI_LAP_LOAI = ["Lap do nghiep vu KTV", "Lap do tay nghe KTV"];
 
 // GET /api/ca-lap/tong-quan?khu_vuc=&thang= - KPI + bao cao theo khu vuc/KTV + du lieu bieu do,
@@ -447,6 +495,10 @@ caLap.post("/blacklist", requireRole("Giam sat", "QC", "Admin"), async (c) => {
   )
     .bind(seri, user.email)
     .first();
+  // Blacklist la 1 dieu kien loc NGAY TRONG WHERE cua precompute (xem caLapRefresh.ts) - serial vua
+  // bi tat/bat se doi ca danh sach "ca lap" that su (khong chi 1 truong trang thai), nen phai tinh
+  // lai ngay giong luc import, khong the doi den cron an toan hang gio.
+  c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json(row, 201);
 });
 
@@ -456,6 +508,7 @@ caLap.patch("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c) 
   await c.env.DB.prepare("UPDATE blacklist_serial SET bat_tat = ? WHERE id = ?")
     .bind(body.bat_tat ? 1 : 0, id)
     .run();
+  c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json({ ok: true });
 });
 
@@ -464,6 +517,7 @@ caLap.patch("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c) 
 caLap.delete("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c) => {
   const id = Number(c.req.param("id"));
   await c.env.DB.prepare("DELETE FROM blacklist_serial WHERE id = ?").bind(id).run();
+  c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json({ ok: true });
 });
 
@@ -529,6 +583,7 @@ caLap.post("/blacklist/commit", requireRole("Giam sat", "QC", "Admin"), async (c
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const user = c.get("user");
   const summary = await processBlacklistRows(c.env.DB, body.rows, user.email, true);
+  if (summary.thanhCong > 0) c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json(summary);
 });
 

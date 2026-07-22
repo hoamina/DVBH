@@ -328,7 +328,8 @@ export function CaseDetail({
     const fresh = await fetchCaseDetail(caseId!);
     const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
     qc.setQueryData(["case", caseId], newEntry);
-    qc.invalidateQueries({ queryKey: ["ca-lap-danh-sach"] });
+    qc.invalidateQueries({ queryKey: ["ca-lap-list"] });
+    qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
     qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
   }
 

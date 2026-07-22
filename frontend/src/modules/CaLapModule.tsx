@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -12,9 +12,18 @@ import { ChartCanvas } from "../components/chart/ChartCanvas";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
-import { fmtDateTime, CA_LAP_META, type CaLapListRow, type BlacklistSerialRow, type Paged, type CaLapLoai } from "../types";
+import {
+  fmtDateTime,
+  CA_LAP_META,
+  type CaLapListRow,
+  type CaLapStableRow,
+  type GiaiTrinhLapRow,
+  type BlacklistSerialRow,
+  type CaLapLoai,
+} from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
-import { trangThaiLapOf } from "../lib/caLapStatus";
+import { trangThaiLapOf, trangThaiKeyOf } from "../lib/caLapStatus";
+import { fetchWithHashCache } from "../lib/staticListCache";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import type { VaiTro } from "../auth/AuthContext";
 import { ImportUploader } from "../components/ImportUploader";
@@ -136,14 +145,86 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     enabled: view !== "blacklist",
   });
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["ca-lap-danh-sach", khuVucFilter, thang, trangThai, page],
+  // Danh sach ca lap tach lam 2 phan (xem backend/src/routes/caLap.ts): "list" ON DINH (cache theo
+  // hash /ca-lap/version, chi doi khi import/blacklist kich hoat tinh lai) + "status" DONG (giai_trinh_lap,
+  // luon tai moi vi nho va thay doi thuong xuyen hon). Loc trang thai + phan trang + KPI gop lam o FE
+  // ben duoi thay vi goi lai server moi lan doi tab/trang - xem "phuong an toi uu nhat" da thong nhat.
+  const listCacheKey = `ca-lap-list-${thang}-${khuVucFilter || "all"}`;
+  const {
+    data: listData,
+    isLoading: listLoading,
+    isError: listError,
+    refetch: refetchList,
+  } = useQuery({
+    queryKey: ["ca-lap-list", khuVucFilter, thang],
     queryFn: () =>
-      api.get<Paged<CaLapListRow> & { kpi: KpiResponse }>(
-        `/ca-lap/danh-sach${buildQuery({ khu_vuc: khuVucFilter, thang, trang_thai: trangThai, page, pageSize })}`,
+      fetchWithHashCache<{ rows: CaLapStableRow[] }>(
+        listCacheKey,
+        "/ca-lap/version",
+        `/ca-lap/danh-sach/list${buildQuery({ khu_vuc: khuVucFilter, thang })}`,
       ),
     enabled: view === "danh-sach",
   });
+  const {
+    data: statusData,
+    isLoading: statusLoading,
+    isError: statusError,
+    refetch: refetchStatus,
+  } = useQuery({
+    queryKey: ["ca-lap-status", khuVucFilter, thang],
+    queryFn: () => api.get<{ rows: GiaiTrinhLapRow[] }>(`/ca-lap/danh-sach/status${buildQuery({ khu_vuc: khuVucFilter, thang })}`),
+    enabled: view === "danh-sach",
+  });
+
+  const mergedRows: CaLapListRow[] = useMemo(() => {
+    const statusByCase = new Map((statusData?.rows ?? []).map((s) => [s.case_id, s]));
+    return (listData?.rows ?? []).map((r) => {
+      const s = statusByCase.get(r.id);
+      return {
+        ...r,
+        gt_id: s?.id ?? null,
+        chot_danh_gia_lap: s?.chot_danh_gia_lap ?? null,
+        chot_hinh_thuc_xu_ly: s?.chot_hinh_thuc_xu_ly ?? null,
+        dien_giai_lap: s?.dien_giai_lap ?? null,
+        nguoi_giai_trinh: s?.nguoi_giai_trinh ?? null,
+        ngay_giai_trinh: s?.ngay_giai_trinh ?? null,
+        qc_chot: s?.qc_chot ?? null,
+        qc_ghi_chu: s?.qc_ghi_chu ?? null,
+        nguoi_qc: s?.nguoi_qc ?? null,
+        ngay_qc: s?.ngay_qc ?? null,
+      } as CaLapListRow;
+    });
+  }, [listData, statusData]);
+
+  const filteredRows = useMemo(
+    () => (trangThai ? mergedRows.filter((r) => trangThaiKeyOf(r) === trangThai) : mergedRows),
+    [mergedRows, trangThai],
+  );
+  const pagedRows = useMemo(() => filteredRows.slice((page - 1) * pageSize, page * pageSize), [filteredRows, page]);
+
+  const danhSachKpi: KpiResponse = useMemo(() => {
+    let tongLap = 0;
+    let daChot = 0;
+    let choQc = 0;
+    let quaHanLap = 0;
+    for (const r of mergedRows) {
+      if (trangThaiKeyOf(r) === "qua-han-lap") {
+        quaHanLap++;
+        continue;
+      }
+      tongLap++;
+      if (r.qc_chot) daChot++;
+      else if (r.chot_danh_gia_lap) choQc++;
+    }
+    return { tongLap, daChot, choQc, quaHanLap };
+  }, [mergedRows]);
+
+  const isLoading = listLoading || statusLoading;
+  const isError = listError || statusError;
+  function refetch() {
+    refetchList();
+    refetchStatus();
+  }
 
   const { data: blacklistData } = useQuery({
     queryKey: ["ca-lap-blacklist"],
@@ -158,7 +239,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
       setNewSerial("");
       setAddBlacklistOpen(false);
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
-      qc.invalidateQueries({ queryKey: ["ca-lap-danh-sach"] });
+      qc.invalidateQueries({ queryKey: ["ca-lap-list"] });
+      qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
     },
     onError: () => addToast("Không thể thêm serial vào blacklist, thử lại sau."),
@@ -169,7 +251,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     onSuccess: () => {
       addToast("Đã cập nhật blacklist serial");
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
-      qc.invalidateQueries({ queryKey: ["ca-lap-danh-sach"] });
+      qc.invalidateQueries({ queryKey: ["ca-lap-list"] });
+      qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
     },
   });
@@ -180,7 +263,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
       addToast("Đã xoá serial khỏi blacklist");
       setDeleteConfirmRow(null);
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
-      qc.invalidateQueries({ queryKey: ["ca-lap-danh-sach"] });
+      qc.invalidateQueries({ queryKey: ["ca-lap-list"] });
+      qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
     },
     onError: () => addToast("Không thể xoá serial, thử lại sau."),
@@ -238,7 +322,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     },
   ];
 
-  const kpi = data?.kpi;
+  const kpi = danhSachKpi;
   const khuVucFilterSelect = (
     <Select
       value={khuVucFilter}
@@ -490,13 +574,13 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
           />
           <PaginatedTable
             columns={columns}
-            rows={data?.rows ?? []}
+            rows={pagedRows}
             isLoading={isLoading}
             isError={isError}
             onRetry={refetch}
             page={page}
             pageSize={pageSize}
-            total={data?.total ?? 0}
+            total={filteredRows.length}
             onPageChange={setPage}
             onRowClick={(r) => openCase(r.id)}
             rowKey={(r) => r.id}
@@ -531,7 +615,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
             )}
             getErrors={(s) => s.errors}
             successMessage={(s) => `Import thành công: ${s.thanhCong} serial vào blacklist`}
-            invalidateKeys={[["ca-lap-blacklist"], ["ca-lap-danh-sach"], ["ca-lap-tong-quan"]]}
+            invalidateKeys={[["ca-lap-blacklist"], ["ca-lap-list"], ["ca-lap-status"], ["ca-lap-tong-quan"]]}
           />
           <PaginatedTable
             columns={blacklistColumns}

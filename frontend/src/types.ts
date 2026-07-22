@@ -117,7 +117,17 @@ export interface CaLapDetection {
   serialBlacklisted: boolean;
 }
 
-/** 1 dong trong GET /ca-lap/danh-sach: cac cot case_dvbh + gap_days/prior_id/prior_ht (LAG) + giai_trinh_lap (LEFT JOIN, prefix gt_). */
+/** 1 dong trong GET /ca-lap/danh-sach/list: phan ON DINH (cache theo hash /ca-lap/version), KHONG
+ * gom trang thai xu ly - xem GiaiTrinhLapRow cho phan DONG (/ca-lap/danh-sach/status), FE gop 2
+ * phan nay lai theo case_id (id) truoc khi render, xem CaLapModule.tsx. */
+export interface CaLapStableRow extends CaseRow {
+  gap_days: number;
+  prior_id: string;
+  prior_ht: string;
+}
+
+/** 1 dong trong GET /ca-lap/danh-sach (endpoint goc, van giu cho export/tuong thich cu): cac cot
+ * case_dvbh + gap_days/prior_id/prior_ht (LAG) + giai_trinh_lap (LEFT JOIN, prefix gt_). */
 export interface CaLapListRow extends CaseRow {
   gap_days: number;
   prior_id: string;
