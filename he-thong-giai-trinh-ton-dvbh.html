@@ -1,0 +1,1509 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1400, initial-scale=1.0" />
+<title>DVBH · Hệ thống quản lý giải trình tồn</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ocean-950:#052033; --ocean-900:#06304A; --ocean-800:#0A4666; --ocean-700:#0E5D85;
+    --ocean-600:#1176A6; --ocean-500:#1591C9; --ocean-400:#3FB0E0; --ocean-100:#DDF1FB;
+    --teal-500:#159C93; --teal-100:#DCF5F2;
+    --amber-500:#D98A1F; --amber-100:#FBEBD1;
+    --coral-500:#D84C4C; --coral-100:#FBE1E1;
+    --bg:#F2F6F9; --surface:#FFFFFF; --line:#E1EAF0;
+    --ink-900:#0F2536; --ink-600:#4C6478; --ink-400:#8CA0AF;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink-900);
+    font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .font-display{font-family:'Manrope',sans-serif;}
+  .font-mono{font-family:'IBM Plex Mono',monospace;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#C6D6E0;border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  .ripple-bg{
+    background-image:
+      radial-gradient(circle at 15% 25%, rgba(63,176,224,0.16) 0, transparent 42%),
+      radial-gradient(circle at 85% 15%, rgba(21,156,147,0.12) 0, transparent 38%);
+  }
+  .scrollbar-thin::-webkit-scrollbar{width:6px;height:6px;}
+  @keyframes fadeSlide{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  .anim-in{animation:fadeSlide .22s ease-out;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(12px);}to{opacity:1;transform:translateX(0);}}
+  .toast-in{animation:toastIn .25s ease-out;}
+  .sidebar-scroll::-webkit-scrollbar{width:5px;}
+  .sidebar-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:8px;}
+  table.dense th, table.dense td{white-space:nowrap;}
+  input[type=checkbox]{accent-color:var(--ocean-500);}
+  .focus-ring:focus-visible{outline:2px solid var(--ocean-500);outline-offset:2px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const {useState, useEffect, useMemo, useRef, useCallback} = React;
+
+/* ============================================================
+   1. DỮ LIỆU NỀN / DANH MỤC
+============================================================ */
+const KHU_VUC = ["Hà Nội","TP. Hồ Chí Minh","Đà Nẵng","Hải Phòng","Cần Thơ"];
+const TINH_THEO_KV = {
+  "Hà Nội":["Hà Nội","Bắc Ninh","Hưng Yên"],
+  "TP. Hồ Chí Minh":["TP. Hồ Chí Minh","Bình Dương","Đồng Nai"],
+  "Đà Nẵng":["Đà Nẵng","Quảng Nam"],
+  "Hải Phòng":["Hải Phòng","Quảng Ninh"],
+  "Cần Thơ":["Cần Thơ","Vĩnh Long"]
+};
+const GIAM_SAT_THEO_KV = {
+  "Hà Nội":["Nguyễn Văn An","Trần Thị Bình"],
+  "TP. Hồ Chí Minh":["Lê Văn Cường","Phạm Thị Dung"],
+  "Đà Nẵng":["Hoàng Văn Em"],
+  "Hải Phòng":["Đỗ Thị Phương"],
+  "Cần Thơ":["Vũ Văn Giang"]
+};
+const KTV_THEO_KV = {
+  "Hà Nội":["Nguyễn Hữu Hải","Lê Minh Khôi","Trịnh Văn Long"],
+  "TP. Hồ Chí Minh":["Phan Thanh Mẫn","Đặng Quốc Huy","Bùi Văn Nam"],
+  "Đà Nẵng":["Trương Văn Oanh","Lý Thành Phát"],
+  "Hải Phòng":["Ngô Văn Quý","Đinh Thị Sương"],
+  "Cần Thơ":["Huỳnh Văn Tài","Mai Thị Uyên"]
+};
+const HANG = ["Samsung","LG","Panasonic","Sharp","Electrolux","Casper","Toshiba","Sony"];
+const NHOM_SP = ["Điều hòa","Tủ lạnh","Máy giặt","Ti vi","Máy lọc nước","Lò vi sóng"];
+const NGANH = {"Điều hòa":"Lạnh","Tủ lạnh":"Lạnh","Máy giặt":"Giặt sấy","Ti vi":"Nghe nhìn","Máy lọc nước":"Gia dụng","Lò vi sóng":"Gia dụng"};
+const DOI_TAC = ["Điện Máy Xanh","Nguyễn Kim","Pico","Trần Anh","MediaMart"];
+const CSKH_LIST = ["Ngô Thị Hạnh","Bùi Văn Ích","Đặng Thị Kim","Lý Văn Mạnh","Chu Thị Nga"];
+const TN_CSKH_NAME = "Phan Thị Ngọc";
+const TBP_CSKH_NAME = "Vương Thị Oanh";
+const TBP_DVBH_NAME = "Đinh Văn Phúc";
+const HO_TEN = ["Nguyễn Văn Bảo","Trần Thị Cúc","Lê Văn Đạt","Phạm Thị Én","Hoàng Văn Phong",
+  "Vũ Thị Giang","Đỗ Văn Hùng","Bùi Thị Kiều","Ngô Văn Long","Đặng Thị Mai",
+  "Trịnh Văn Nghĩa","Lý Thị Oanh","Phan Văn Phú","Chu Thị Quỳnh","Mai Văn Sơn"];
+
+const ROLES = ["Admin","Viewer","QC","Giám sát","TBP DVBH","CSKH","TN CSKH","TBP CSKH"];
+
+const LOAI_LOI_META = {
+  "Loi 120p": {label:"Lỗi 120 phút", short:"120'", color:"amber"},
+  "Loi qua han 24h": {label:"Hẹn quá 24h", short:"24h hẹn", color:"ocean"},
+  "Loi lo ke hoach": {label:"Lỡ kế hoạch", short:"Lỡ KH", color:"coral"},
+  "Loi kh hen lai": {label:"KH hẹn lại", short:"KH hẹn lại", color:"teal"},
+};
+const LOAI_LOI_KEYS = Object.keys(LOAI_LOI_META);
+
+/* Settings: lý do chậm */
+let LY_DO_SEED = [
+  {id:1, ten_ly_do:"Thiếu linh kiện thay thế", bat_tat:true, thuoc_thieu_linh_kien:true},
+  {id:2, ten_ly_do:"Khách hàng chủ động hẹn lại lịch", bat_tat:true, thuoc_thieu_linh_kien:false},
+  {id:3, ten_ly_do:"KTV bận lịch trình khác", bat_tat:true, thuoc_thieu_linh_kien:false},
+  {id:4, ten_ly_do:"Chờ duyệt chính sách bảo hành hãng", bat_tat:true, thuoc_thieu_linh_kien:false},
+  {id:5, ten_ly_do:"Sản phẩm cần đưa về xưởng trung tâm", bat_tat:true, thuoc_thieu_linh_kien:false},
+  {id:6, ten_ly_do:"Thời tiết / bất khả kháng", bat_tat:false, thuoc_thieu_linh_kien:false},
+];
+
+let LINH_KIEN_SEED = [
+  {ma:"LK-0001", ten:"Block điều hòa 1.5HP", gia:1250000, nguoi_cap_nhat:"Đinh Văn Phúc", ngay:"2026-06-02", bat_tat:true},
+  {ma:"LK-0002", ten:"Board mạch điều khiển tủ lạnh", gia:680000, nguoi_cap_nhat:"Đinh Văn Phúc", ngay:"2026-06-10", bat_tat:true},
+  {ma:"LK-0003", ten:"Motor máy giặt lồng ngang", gia:920000, nguoi_cap_nhat:"Nguyễn Văn An", ngay:"2026-06-15", bat_tat:true},
+  {ma:"LK-0004", ten:"Màn hình tivi 43 inch", gia:2350000, nguoi_cap_nhat:"Lê Văn Cường", ngay:"2026-06-20", bat_tat:true},
+  {ma:"LK-0005", ten:"Bơm máy lọc nước RO", gia:310000, nguoi_cap_nhat:"Đinh Văn Phúc", ngay:"2026-06-22", bat_tat:false},
+  {ma:"LK-0006", ten:"Gas lạnh R32 (bình 5kg)", gia:1450000, nguoi_cap_nhat:"Vũ Văn Giang", ngay:"2026-07-01", bat_tat:true},
+];
+
+/* Danh sách user (Quản lý User) */
+let USERS_SEED = [
+  {email:"phuc.dinh@company.vn", ten:"Đinh Văn Phúc", vai_tro:"Admin", khu_vuc:["Hà Nội","TP. Hồ Chí Minh","Đà Nẵng","Hải Phòng","Cần Thơ"], trang_thai:"Đã duyệt"},
+  {email:"an.nguyen@company.vn", ten:"Nguyễn Văn An", vai_tro:"Giám sát", khu_vuc:["Hà Nội"], trang_thai:"Đã duyệt"},
+  {email:"binh.tran@company.vn", ten:"Trần Thị Bình", vai_tro:"Giám sát", khu_vuc:["Hà Nội"], trang_thai:"Đã duyệt"},
+  {email:"cuong.le@company.vn", ten:"Lê Văn Cường", vai_tro:"Giám sát", khu_vuc:["TP. Hồ Chí Minh"], trang_thai:"Đã duyệt"},
+  {email:"giang.vu@company.vn", ten:"Vũ Văn Giang", vai_tro:"Giám sát", khu_vuc:["Cần Thơ"], trang_thai:"Đã duyệt"},
+  {email:"tbp.dvbh@company.vn", ten:TBP_DVBH_NAME, vai_tro:"TBP DVBH", khu_vuc:KHU_VUC, trang_thai:"Đã duyệt"},
+  {email:"hanh.ngo@company.vn", ten:"Ngô Thị Hạnh", vai_tro:"CSKH", khu_vuc:[], trang_thai:"Đã duyệt"},
+  {email:"ich.bui@company.vn", ten:"Bùi Văn Ích", vai_tro:"CSKH", khu_vuc:[], trang_thai:"Đã duyệt"},
+  {email:"kim.dang@company.vn", ten:"Đặng Thị Kim", vai_tro:"CSKH", khu_vuc:[], trang_thai:"Đã duyệt"},
+  {email:"ngoc.phan@company.vn", ten:TN_CSKH_NAME, vai_tro:"TN CSKH", khu_vuc:[], trang_thai:"Đã duyệt"},
+  {email:"oanh.vuong@company.vn", ten:TBP_CSKH_NAME, vai_tro:"TBP CSKH", khu_vuc:[], trang_thai:"Đã duyệt"},
+  {email:"qc.kiemsoat@company.vn", ten:"Trịnh Thị Quế", vai_tro:"QC", khu_vuc:KHU_VUC, trang_thai:"Đã duyệt"},
+  {email:"viewer.bod@company.vn", ten:"Mai Văn Sơn", vai_tro:"Viewer", khu_vuc:KHU_VUC, trang_thai:"Đã duyệt"},
+  {email:"moi1.ung@company.vn", ten:"Lý Thị Tân", vai_tro:"Giám sát", khu_vuc:["Đà Nẵng"], trang_thai:"Chờ duyệt"},
+  {email:"moi2.ung@company.vn", ten:"Chu Văn Việt", vai_tro:"CSKH", khu_vuc:[], trang_thai:"Chờ duyệt"},
+];
+
+/* ============================================================
+   2. SINH DỮ LIỆU CASE MẪU
+============================================================ */
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function randInt(a,b){ return a + Math.floor(Math.random()*(b-a+1)); }
+function fmtVND(n){ return (n||0).toLocaleString('vi-VN') + 'đ'; }
+function fmtDateTime(d){
+  if(!d) return "—";
+  const dt = new Date(d);
+  return dt.toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function fmtDate(d){
+  if(!d) return "—";
+  const dt = new Date(d);
+  return dt.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function addHours(d,h){ return new Date(d.getTime() + h*3600*1000); }
+function diffHours(a,b){ return (a.getTime()-b.getTime())/3600000; }
+
+const NOW = new Date("2026-07-16T09:30:00");
+
+function genCases(n){
+  const cases = [];
+  for(let i=0;i<n;i++){
+    const id = 4200000 + i;
+    const kv = pick(KHU_VUC);
+    const tinh = pick(TINH_THEO_KV[kv]);
+    const giamSat = pick(GIAM_SAT_THEO_KV[kv]);
+    const ktv = pick(KTV_THEO_KV[kv]);
+    const hang = pick(HANG);
+    const nhomSp = pick(NHOM_SP);
+    const doiTac = pick(DOI_TAC);
+    const khach = pick(HO_TEN);
+
+    const tiepNhan = addHours(NOW, -randInt(6, 24*20));
+    const coHen = Math.random() > 0.08;
+    let henXuLy = null;
+    if(coHen){
+      // phần lớn hẹn hợp lệ trong 24h, một số vượt 24h để test logic "Hẹn quá 24h"
+      const vuot24 = Math.random() < 0.15;
+      henXuLy = addHours(tiepNhan, vuot24 ? randInt(25,60) : randInt(1,22));
+    }
+
+    const daHoanThanh = Math.random() < 0.62;
+    let hoanThanh = null;
+    let ngayDuKien = henXuLy ? addHours(henXuLy, randInt(2,20)) : addHours(tiepNhan, randInt(24,72));
+    if(daHoanThanh){
+      hoanThanh = addHours(henXuLy || tiepNhan, randInt(1,48));
+      if(hoanThanh > NOW) hoanThanh = addHours(NOW, -randInt(1,72));
+    }
+
+    const ngayImport = addHours(tiepNhan, randInt(1,6));
+    let ngayCapNhat = daHoanThanh ? addHours(hoanThanh, randInt(0,2)) : addHours(NOW, -randInt(0,20));
+    if(ngayCapNhat < ngayImport) ngayCapNhat = ngayImport;
+
+    // Logic 4.1: nghi ngờ vi phạm
+    const loi120 = ((!henXuLy) || (henXuLy && diffHours(henXuLy,tiepNhan) <= 0.25)) &&
+                   (diffHours(ngayImport,tiepNhan) > 2 || diffHours(ngayCapNhat,tiepNhan) > 2) && !daHoanThanh && Math.random()<0.5;
+    const loiQuaHan24h = !!(henXuLy && diffHours(henXuLy,tiepNhan) > 24);
+    const loiLoKeHoach = !daHoanThanh && henXuLy && diffHours(ngayCapNhat,henXuLy) > 24;
+    const lyDoQuaHanHenLai = Math.random() < 0.1;
+    const loiKhHenLai = lyDoQuaHanHenLai;
+
+    const dtSanPham = randInt(2,15) * 500000;
+    const dtLinhKien = Math.random()<0.4 ? randInt(1,8)*150000 : 0;
+    const dtDichVu = randInt(1,4) * 100000;
+
+    const lyDoTonId = !daHoanThanh ? pick(LY_DO_SEED).id : null;
+
+    cases.push({
+      id, khach_hang: khach, seri: "SN"+randInt(100000,999999)+hang.slice(0,2).toUpperCase(),
+      tinh, khu_vuc: kv, giam_sat: giamSat, ktv, hang, nhom_san_pham: nhomSp, nganh: NGANH[nhomSp],
+      doi_tac: doiTac, cskh_tiep_nhan: tiepNhan, hen_xu_ly: henXuLy, hoan_thanh: hoanThanh,
+      ngay_du_kien_hoan_thanh: !daHoanThanh ? ngayDuKien : null,
+      ngay_import: ngayImport, ngay_cap_nhat: ngayCapNhat,
+      loi_120p: loi120, loi_qua_han_24h: loiQuaHan24h, loi_lo_ke_hoach: !!loiLoKeHoach, loi_kh_hen_lai: loiKhHenLai,
+      ly_do_qua_han: lyDoQuaHanHenLai ? "Quá hạn do khách hàng hẹn lại lịch" : "",
+      dt_san_pham: dtSanPham, dt_linh_kien: dtLinhKien, dt_dich_vu: dtDichVu,
+      dung_han: henXuLy ? (diffHours(hoanThanh||NOW,henXuLy) <= 24 ? "Đúng hạn" : "Trễ hạn") : "—",
+      ly_do_ton_id: lyDoTonId,
+      linh_kien_thieu_giai_trinh: null,
+    });
+  }
+  return cases;
+}
+const ALL_CASES = genCases(220);
+const caseById = Object.fromEntries(ALL_CASES.map(c=>[c.id,c]));
+
+/* Sinh vi phạm (theo từng loại lỗi) + workflow ngẫu nhiên cho demo */
+function genViolations(cases){
+  const list = [];
+  let vId = 1, gId = 1;
+  cases.forEach(c=>{
+    LOAI_LOI_KEYS.forEach(key=>{
+      const flagField = {"Loi 120p":"loi_120p","Loi qua han 24h":"loi_qua_han_24h","Loi lo ke hoach":"loi_lo_ke_hoach","Loi kh hen lai":"loi_kh_hen_lai"}[key];
+      if(c[flagField]){
+        const r = Math.random();
+        let trang_thai, ket_qua_cap_1=null, chot_cap_2=null, cskh_phu_trach=null, nguoi_chot_qc=null;
+        if(r < 0.30){ trang_thai = "Nghi ngờ - cần khảo sát"; }
+        else if(r < 0.45){ trang_thai = "Không vi phạm (đã khảo sát)"; cskh_phu_trach = pick(CSKH_LIST); ket_qua_cap_1="Không lỗi"; }
+        else if(r < 0.65){ trang_thai = "Vi phạm cấp 1 - chờ QC"; cskh_phu_trach = pick(CSKH_LIST); ket_qua_cap_1 = pick(["Lỗi không liên hệ","Lỗi sai báo cáo","Lỗi khác"]); }
+        else if(r < 0.85){ trang_thai = "Vi phạm - đã xác nhận (cấp 2)"; cskh_phu_trach = pick(CSKH_LIST); ket_qua_cap_1 = pick(["Lỗi không liên hệ","Lỗi sai báo cáo","Lỗi khác"]); chot_cap_2 = true; nguoi_chot_qc = "Trịnh Thị Quế"; }
+        else { trang_thai = "Không vi phạm (QC bỏ cấp 2)"; cskh_phu_trach = pick(CSKH_LIST); ket_qua_cap_1 = pick(["Lỗi không liên hệ","Lỗi sai báo cáo"]); chot_cap_2 = false; nguoi_chot_qc = "Trịnh Thị Quế"; }
+        list.push({
+          vi_pham_id: "L-"+String(vId++).padStart(6,"0"),
+          case_id: c.id, loai_loi:key, trang_thai, ket_qua_cap_1, chot_cap_2, cskh_phu_trach, nguoi_chot_qc,
+          ngay_ghi_nhan: addHours(c.ngay_cap_nhat, randInt(1,48)),
+          phan_cong: Math.random()<0.5 ? pick(CSKH_LIST) : null,
+        });
+      }
+    });
+  });
+  return list;
+}
+const ALL_VIOLATIONS = genViolations(ALL_CASES);
+
+/* Log giải trình mẫu (case tồn) */
+let GIAI_TRINH_LOG = [];
+(function seedGiaiTrinh(){
+  let id=1;
+  ALL_CASES.filter(c=>!c.hoan_thanh).forEach(c=>{
+    if(Math.random() < 0.45){
+      const lyDo = pick(LY_DO_SEED.filter(l=>l.bat_tat));
+      GIAI_TRINH_LOG.push({
+        id: id++, case_id: c.id, ly_do_cham: lyDo.ten_ly_do, ly_do_id: lyDo.id,
+        noi_dung: "Đã liên hệ khách hàng, dự kiến xử lý theo lịch mới do " + lyDo.ten_ly_do.toLowerCase() + ".",
+        linh_kien_thieu: lyDo.thuoc_thieu_linh_kien ? pick(LINH_KIEN_SEED).ma : null,
+        ngay_du_kien_hoan_thanh: c.ngay_du_kien_hoan_thanh,
+        nguoi_giai_trinh: c.giam_sat, ngay_giai_trinh: addHours(c.ngay_cap_nhat, randInt(1,20)),
+      });
+      if(lyDo.thuoc_thieu_linh_kien) c.ly_do_ton_id = lyDo.id;
+    }
+  });
+})();
+
+/* ============================================================
+   3. TIỆN ÍCH CHUNG UI
+============================================================ */
+function Badge({children, tone="ocean", solid=false}){
+  const map = {
+    ocean:["bg-[var(--ocean-100)] text-[var(--ocean-800)]","bg-[var(--ocean-500)] text-white"],
+    teal:["bg-[var(--teal-100)] text-[var(--teal-500)]","bg-[var(--teal-500)] text-white"],
+    amber:["bg-[var(--amber-100)] text-[var(--amber-500)]","bg-[var(--amber-500)] text-white"],
+    coral:["bg-[var(--coral-100)] text-[var(--coral-500)]","bg-[var(--coral-500)] text-white"],
+    gray:["bg-slate-100 text-slate-600","bg-slate-500 text-white"],
+  };
+  const cls = map[tone][solid?1:0];
+  return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold ${cls}`}>{children}</span>;
+}
+
+function statusTone(status){
+  if(status.includes("đã xác nhận")) return "coral";
+  if(status.includes("chờ QC")) return "amber";
+  if(status.includes("Nghi ngờ")) return "ocean";
+  if(status.includes("Không vi phạm")) return "teal";
+  return "gray";
+}
+
+function Card({className="", children}){
+  return <div className={`bg-white rounded-2xl border border-[var(--line)] shadow-[0_1px_2px_rgba(15,37,54,0.04)] ${className}`}>{children}</div>;
+}
+
+function StatCard({label, value, sub, tone="ocean", icon}){
+  const ring = {ocean:"var(--ocean-500)",teal:"var(--teal-500)",amber:"var(--amber-500)",coral:"var(--coral-500)"}[tone];
+  return (
+    <Card className="p-4 flex-1 min-w-[170px]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">{label}</span>
+        <span className="w-2 h-2 rounded-full" style={{background:ring}}></span>
+      </div>
+      <div className="font-display text-2xl font-extrabold text-[var(--ink-900)]">{value}</div>
+      {sub && <div className="text-xs text-[var(--ink-400)] mt-1">{sub}</div>}
+    </Card>
+  );
+}
+
+function Btn({children, onClick, variant="primary", size="md", className="", disabled}){
+  const sizes = {sm:"px-2.5 py-1.5 text-xs", md:"px-3.5 py-2 text-sm"};
+  const variants = {
+    primary:"bg-[var(--ocean-500)] text-white hover:bg-[var(--ocean-600)] shadow-sm",
+    ghost:"bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50",
+    subtle:"bg-[var(--ocean-100)] text-[var(--ocean-700)] hover:bg-[var(--ocean-100)]/70",
+    danger:"bg-white text-[var(--coral-500)] border border-[var(--coral-100)] hover:bg-[var(--coral-100)]",
+    success:"bg-[var(--teal-500)] text-white hover:opacity-90",
+  };
+  return <button disabled={disabled} onClick={onClick} className={`focus-ring rounded-lg font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${sizes[size]} ${variants[variant]} ${className}`}>{children}</button>;
+}
+
+function Select({value,onChange,options,className=""}){
+  return (
+    <select value={value} onChange={e=>onChange(e.target.value)}
+      className={`focus-ring bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] ${className}`}>
+      {options.map(o=> typeof o==="string" ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
+}
+
+function Modal({open,onClose,title,children,width="max-w-lg"}){
+  if(!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-4">
+      <div className={`bg-white rounded-2xl w-full ${width} max-h-[88vh] overflow-hidden flex flex-col anim-in shadow-2xl`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
+          <h3 className="font-display font-bold text-[var(--ink-900)]">{title}</h3>
+          <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">✕</button>
+        </div>
+        <div className="overflow-y-auto p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Drawer({open,onClose,title,children,width="max-w-2xl"}){
+  return (
+    <div className={`fixed inset-0 z-50 ${open?"":"pointer-events-none"}`}>
+      <div onClick={onClose} className={`absolute inset-0 bg-[rgba(6,32,51,0.45)] transition-opacity duration-200 ${open?"opacity-100":"opacity-0"}`}></div>
+      <div className={`absolute right-0 top-0 h-full w-full ${width} bg-white shadow-2xl transition-transform duration-250 flex flex-col ${open?"translate-x-0":"translate-x-full"}`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
+          <h3 className="font-display font-bold text-[var(--ink-900)]">{title}</h3>
+          <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">✕</button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Tabs({tabs, active, onChange}){
+  return (
+    <div className="flex items-center gap-1 border-b border-[var(--line)] mb-4 overflow-x-auto">
+      {tabs.map(t=>(
+        <button key={t.key} onClick={()=>onChange(t.key)}
+          className={`focus-ring px-3.5 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors ${active===t.key ? "border-[var(--ocean-500)] text-[var(--ocean-600)]":"border-transparent text-[var(--ink-400)] hover:text-[var(--ink-600)]"}`}>
+          {t.label}{t.count!=null && <span className="ml-1.5 text-xs opacity-70">({t.count})</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Toast({toasts}){
+  return (
+    <div className="fixed bottom-5 right-5 z-[60] flex flex-col gap-2">
+      {toasts.map(t=>(
+        <div key={t.id} className="toast-in bg-[var(--ocean-900)] text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--teal-500)]"></span>{t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function exportExcel(filename){
+  // Mô phỏng xuất Excel (demo giao diện — không có backend thực)
+  return filename;
+}
+
+/* Simple bar/line chart wrapper using Chart.js */
+function ChartCanvas({type, data, options, height=220}){
+  const ref = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(()=>{
+    const ctx = ref.current.getContext('2d');
+    if(chartRef.current) chartRef.current.destroy();
+    chartRef.current = new Chart(ctx, {type, data, options: Object.assign({
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display: (data.datasets||[]).length>1, labels:{boxWidth:10,font:{size:11}}}},
+      scales: type==='doughnut'?{}:{ y:{beginAtZero:true, grid:{color:'#EEF3F7'}, ticks:{font:{size:10}}}, x:{grid:{display:false}, ticks:{font:{size:10}}} }
+    }, options||{})});
+    return ()=>{ if(chartRef.current) chartRef.current.destroy(); };
+  },[JSON.stringify(data)]);
+  return <div style={{height}}><canvas ref={ref}></canvas></div>;
+}
+
+/* ============================================================
+   4. LAYOUT: SIDEBAR / TOPBAR
+============================================================ */
+const NAV_GROUPS = [
+  {label:"Tổng quan", items:[
+    {key:"dashboard", label:"Tổng quát", icon:"◧"},
+    {key:"revenue", label:"Báo cáo doanh thu", icon:"◨"},
+  ]},
+  {label:"Vận hành", items:[
+    {key:"backlog", label:"Quản lý tồn", icon:"◫"},
+    {key:"missing-parts", label:"Ca thiếu linh kiện", icon:"⬒"},
+    {key:"survey", label:"Quản lý khảo sát", icon:"◐"},
+  ]},
+  {label:"Hệ thống", items:[
+    {key:"import", label:"Import data", icon:"⇩"},
+    {key:"settings", label:"Settings", icon:"⚙"},
+    {key:"users", label:"Quản lý User", icon:"⚉"},
+  ]},
+];
+// Ràng buộc hiển thị module theo vai trò (demo)
+const ROLE_MODULES = {
+  "Admin": NAV_GROUPS.flatMap(g=>g.items.map(i=>i.key)),
+  "Viewer": ["dashboard","revenue","backlog","missing-parts","survey"],
+  "QC": ["dashboard","backlog","missing-parts","survey"],
+  "Giám sát": ["dashboard","backlog","missing-parts"],
+  "TBP DVBH": ["dashboard","revenue","backlog","missing-parts"],
+  "CSKH": ["dashboard","survey"],
+  "TN CSKH": ["dashboard","survey"],
+  "TBP CSKH": ["dashboard","revenue","survey"],
+};
+
+function Sidebar({active,setActive,role,collapsed,setCollapsed}){
+  return (
+    <aside className={`ripple-bg h-screen sticky top-0 flex flex-col transition-all duration-200 ${collapsed?"w-[72px]":"w-64"}`}
+      style={{background:"linear-gradient(180deg, var(--ocean-950), var(--ocean-900) 60%)"}}>
+      <div className="flex items-center gap-2.5 px-4 h-16 shrink-0 border-b border-white/10">
+        <svg width="30" height="30" viewBox="0 0 40 40" className="shrink-0">
+          <circle cx="20" cy="20" r="4" fill="#3FB0E0"/>
+          <circle cx="20" cy="20" r="10" fill="none" stroke="#3FB0E0" strokeOpacity="0.55" strokeWidth="1.6"/>
+          <circle cx="20" cy="20" r="17" fill="none" stroke="#3FB0E0" strokeOpacity="0.28" strokeWidth="1.6"/>
+        </svg>
+        {!collapsed && <div className="leading-tight">
+          <div className="font-display font-extrabold text-white text-sm tracking-tight">DVBH SUITE</div>
+          <div className="text-[10px] text-[var(--ocean-100)]/60 font-medium">Giải trình tồn &amp; SLA</div>
+        </div>}
+      </div>
+      <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-2.5">
+        {NAV_GROUPS.map(g=>{
+          const items = g.items.filter(i=> (ROLE_MODULES[role]||[]).includes(i.key));
+          if(items.length===0) return null;
+          return (
+            <div key={g.label} className="mb-4">
+              {!collapsed && <div className="text-[10px] uppercase tracking-wider font-bold text-white/35 px-2.5 mb-1.5">{g.label}</div>}
+              {items.map(it=>(
+                <button key={it.key} onClick={()=>setActive(it.key)}
+                  className={`focus-ring w-full flex items-center gap-3 px-2.5 py-2 rounded-xl mb-0.5 text-sm font-semibold transition-colors ${active===it.key ? "bg-white/12 text-white" : "text-white/60 hover:bg-white/6 hover:text-white/90"}`}>
+                  <span className="w-6 text-center text-base opacity-80">{it.icon}</span>
+                  {!collapsed && <span className="truncate">{it.label}</span>}
+                </button>
+              ))}
+            </div>
+          );
+        })}
+      </nav>
+      <button onClick={()=>setCollapsed(!collapsed)} className="focus-ring m-2.5 py-2 rounded-xl text-white/50 hover:bg-white/8 text-xs font-semibold">
+        {collapsed ? "»" : "« Thu gọn"}
+      </button>
+    </aside>
+  );
+}
+
+function GlobalSearch({onFound}){
+  const [q,setQ] = useState("");
+  const [open,setOpen] = useState(false);
+  function submit(e){
+    e.preventDefault();
+    const found = ALL_CASES.find(c=> String(c.id)===q.trim() || c.seri.toLowerCase()===q.trim().toLowerCase());
+    if(found){ onFound(found); setOpen(false); setQ(""); }
+    else onFound(null,true);
+  }
+  return (
+    <form onSubmit={submit} className="relative flex-1 max-w-md">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)] text-sm">🔍</span>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Tra cứu nhanh theo ID hoặc Serial…"
+        className="focus-ring w-full pl-9 pr-3 py-2 rounded-xl bg-slate-100 border border-transparent focus:bg-white focus:border-[var(--ocean-300)] text-sm"/>
+    </form>
+  );
+}
+
+function TopBar({role,setRole,onSearch,areaLabel,user}){
+  const [menuOpen,setMenuOpen]=useState(false);
+  return (
+    <header className="h-16 bg-white border-b border-[var(--line)] flex items-center gap-4 px-5 sticky top-0 z-30">
+      <div>
+        <div className="text-[11px] text-[var(--ink-400)] font-medium">{areaLabel}</div>
+      </div>
+      <GlobalSearch onFound={onSearch}/>
+      <div className="ml-auto flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-1.5 bg-slate-100 rounded-lg px-2 py-1">
+          <span className="text-[10px] font-bold text-[var(--ink-400)] pl-1">DEMO XEM VỚI VAI TRÒ</span>
+          <Select value={role} onChange={setRole} options={ROLES} className="!bg-transparent !border-0 !py-0.5 font-semibold text-[var(--ocean-700)]"/>
+        </div>
+        <button className="focus-ring relative w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--ink-600)]">
+          🔔<span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--coral-500)]"></span>
+        </button>
+        <div className="relative">
+          <button onClick={()=>setMenuOpen(!menuOpen)} className="focus-ring flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-slate-100">
+            <div className="w-8 h-8 rounded-full bg-[var(--ocean-500)] text-white flex items-center justify-center text-xs font-bold">{user.ten.split(" ").slice(-1)[0][0]}</div>
+            <div className="text-left hidden sm:block">
+              <div className="text-xs font-semibold leading-tight">{user.ten}</div>
+              <div className="text-[10px] text-[var(--ink-400)] leading-tight">{role}</div>
+            </div>
+          </button>
+          {menuOpen && <div className="absolute right-0 mt-2 w-48 bg-white border border-[var(--line)] rounded-xl shadow-lg py-1.5 anim-in">
+            <div className="px-3.5 py-2 text-xs text-[var(--ink-400)] border-b border-[var(--line)]">{user.email}</div>
+            <button className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50">Hồ sơ tài khoản</button>
+            <button className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 text-[var(--coral-500)]">Đăng xuất</button>
+          </div>}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ============================================================
+   5. MODULE: TỔNG QUÁT (DASHBOARD)
+============================================================ */
+function FilterBar({filters,setFilters,dims}){
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+      {dims.includes("khu_vuc") && <Select value={filters.khu_vuc} onChange={v=>setFilters({...filters,khu_vuc:v})} options={["Tất cả khu vực",...KHU_VUC]}/>}
+      {dims.includes("hang") && <Select value={filters.hang} onChange={v=>setFilters({...filters,hang:v})} options={["Tất cả hãng",...HANG]}/>}
+      {dims.includes("ky") && <Select value={filters.ky} onChange={v=>setFilters({...filters,ky:v})} options={[{value:"ngay",label:"Theo ngày"},{value:"tuan",label:"Theo tuần"},{value:"thang",label:"Theo tháng"},{value:"nam",label:"Theo năm"},{value:"luy_ke",label:"Lũy kế"}]}/>}
+      <div className="ml-auto"><Btn variant="ghost" size="sm" onClick={()=>exportExcel("bao_cao.xlsx")}>⬇ Xuất Excel</Btn></div>
+    </div>
+  );
+}
+
+function pct(a,b){ return b? Math.round((a/b)*1000)/10 : 0; }
+
+function computeKpis(cases, violations){
+  const total = cases.length;
+  const hoanThanh = cases.filter(c=>c.hoan_thanh).length;
+  const dungHan = cases.filter(c=>c.dung_han==="Đúng hạn").length;
+  const ton = cases.filter(c=>!c.hoan_thanh).length;
+  const daGiaiTrinh = GIAI_TRINH_LOG.filter(g=>cases.some(c=>c.id===g.case_id)).map(g=>g.case_id);
+  const tonDaGiaiTrinh = cases.filter(c=>!c.hoan_thanh && daGiaiTrinh.includes(c.id)).length;
+  const vlist = violations.filter(v=>cases.some(c=>c.id===v.case_id));
+  const nghiNgo = vlist.length;
+  const xacNhan = vlist.filter(v=>v.trang_thai==="Vi phạm - đã xác nhận (cấp 2)" || v.trang_thai==="Vi phạm cấp 1 - chờ QC").length;
+  return {total,hoanThanh,dungHan,ton,tonDaGiaiTrinh,nghiNgo,xacNhan,
+    tySla: pct(dungHan,cases.filter(c=>c.hen_xu_ly).length),
+    ty24h: pct(cases.filter(c=>c.hen_xu_ly && diffHours(c.hen_xu_ly,c.cskh_tiep_nhan)<=24).length, cases.filter(c=>c.hen_xu_ly).length),
+    tyGiaiTrinh: pct(tonDaGiaiTrinh, ton),
+    tyViPham: pct(vlist.filter(v=>v.trang_thai.includes("xác nhận")).length, nghiNgo),
+  };
+}
+
+function DashboardModule({role, myKhuVuc}){
+  const [filters,setFilters] = useState({khu_vuc:"Tất cả khu vực", hang:"Tất cả hãng", ky:"thang"});
+  const scoped = useMemo(()=> ALL_CASES.filter(c=>{
+      if(myKhuVuc && !myKhuVuc.includes(c.khu_vuc)) return false;
+      if(filters.khu_vuc!=="Tất cả khu vực" && c.khu_vuc!==filters.khu_vuc) return false;
+      if(filters.hang!=="Tất cả hãng" && c.hang!==filters.hang) return false;
+      return true;
+  }),[filters, myKhuVuc]);
+  const kpi = useMemo(()=>computeKpis(scoped, ALL_VIOLATIONS),[scoped]);
+
+  const trend = useMemo(()=>{
+    const days = 14;
+    const labels=[], sla=[], v24=[];
+    for(let i=days-1;i>=0;i--){
+      const day = addHours(NOW,-i*24);
+      const key = day.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'});
+      labels.push(key);
+      const dayCases = scoped.filter(c=>c.hen_xu_ly && new Date(c.cskh_tiep_nhan).toDateString()===day.toDateString());
+      sla.push(pct(dayCases.filter(c=>c.dung_han==="Đúng hạn").length, dayCases.length||1));
+      v24.push(pct(dayCases.filter(c=>diffHours(c.hen_xu_ly,c.cskh_tiep_nhan)<=24).length, dayCases.length||1));
+    }
+    return {labels,sla,v24};
+  },[scoped]);
+
+  const violBreak = useMemo(()=>{
+    return LOAI_LOI_KEYS.map(k=> ALL_VIOLATIONS.filter(v=>v.loai_loi===k && scoped.some(c=>c.id===v.case_id)).length);
+  },[scoped]);
+
+  // Pivot table
+  const [pivotDim,setPivotDim] = useState("khu_vuc");
+  const dimGetter = {
+    khu_vuc: c=>c.khu_vuc, doi_tac: c=>c.doi_tac, hang: c=>c.hang, tinh: c=>c.tinh, ktv: c=>c.ktv,
+  }[pivotDim];
+  const pivotRows = useMemo(()=>{
+    const groups = {};
+    scoped.forEach(c=>{
+      const key = dimGetter(c);
+      if(!groups[key]) groups[key]=[];
+      groups[key].push(c);
+    });
+    return Object.entries(groups).map(([key,list])=>{
+      const withHen = list.filter(c=>c.hen_xu_ly);
+      const slaOk = withHen.filter(c=>c.dung_han==="Đúng hạn").length;
+      const ok24 = withHen.filter(c=>diffHours(c.hen_xu_ly,c.cskh_tiep_nhan)<=24).length;
+      const vlist = ALL_VIOLATIONS.filter(v=>list.some(c=>c.id===v.case_id));
+      const confirmed = vlist.filter(v=>v.trang_thai.includes("xác nhận")).length;
+      const byErr = LOAI_LOI_KEYS.map(k=>vlist.filter(v=>v.loai_loi===k).length);
+      return {key, total:list.length, slaOk, ok24, withHen: withHen.length, nghiNgo: vlist.length, confirmed, byErr,
+        tySla: pct(slaOk, withHen.length), ty24: pct(ok24, withHen.length),
+        tyNghiNgo: pct(vlist.length, list.length), tyViPham: pct(confirmed, vlist.length||1)};
+    }).sort((a,b)=>b.total-a.total);
+  },[scoped,pivotDim]);
+
+  return (
+    <div className="anim-in">
+      <FilterBar filters={filters} setFilters={setFilters} dims={["khu_vuc","hang","ky"]}/>
+      <div className="flex flex-wrap gap-3 mb-4">
+        <StatCard label="Tổng số ca" value={kpi.total} tone="ocean" sub={`${kpi.hoanThanh} đã hoàn thành`}/>
+        <StatCard label="Tỷ lệ đạt SLA" value={kpi.tySla+"%"} tone="teal" sub="Hẹn xử lý đúng hạn"/>
+        <StatCard label="Tỷ lệ xử lý ≤24h" value={kpi.ty24h+"%"} tone="ocean" sub="Từ lúc tiếp nhận"/>
+        <StatCard label="Ca tồn đọng" value={kpi.ton} tone="amber" sub={`${kpi.tyGiaiTrinh}% đã giải trình`}/>
+        <StatCard label="Nghi ngờ vi phạm" value={kpi.nghiNgo} tone="coral" sub={`Tỷ lệ vi phạm ${kpi.tyViPham}%`}/>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <Card className="p-4 lg:col-span-2">
+          <div className="font-display font-bold text-sm mb-3">Xu hướng SLA &amp; xử lý ≤24h (14 ngày gần nhất)</div>
+          <ChartCanvas type="line" data={{labels:trend.labels, datasets:[
+            {label:"Tỷ lệ đạt SLA (%)", data:trend.sla, borderColor:"#1591C9", backgroundColor:"rgba(21,145,201,0.1)", tension:.35, fill:true, pointRadius:2},
+            {label:"Xử lý ≤24h (%)", data:trend.v24, borderColor:"#159C93", backgroundColor:"rgba(21,156,147,0.08)", tension:.35, fill:true, pointRadius:2},
+          ]}}/>
+        </Card>
+        <Card className="p-4">
+          <div className="font-display font-bold text-sm mb-3">Cơ cấu nghi ngờ vi phạm</div>
+          <ChartCanvas type="doughnut" height={220} data={{labels:LOAI_LOI_KEYS.map(k=>LOAI_LOI_META[k].label), datasets:[{data:violBreak, backgroundColor:["#D98A1F","#1591C9","#D84C4C","#159C93"]}]}}/>
+        </Card>
+      </div>
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="font-display font-bold text-sm">Bảng pivot phân tích đa chiều</div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-[var(--ink-400)] text-xs font-semibold">Nhóm theo:</span>
+            <Select value={pivotDim} onChange={setPivotDim} options={[{value:"khu_vuc",label:"Khu vực"},{value:"tinh",label:"Tỉnh"},{value:"doi_tac",label:"Đối tác"},{value:"hang",label:"Hãng"},{value:"ktv",label:"KTV"}]}/>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="dense w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                <th className="py-2 pr-3">Nhóm</th>
+                <th className="py-2 pr-3">Tỷ lệ SLA</th>
+                <th className="py-2 pr-3">Tỷ lệ ≤24h</th>
+                <th className="py-2 pr-3">Tỷ lệ nghi ngờ VP</th>
+                <th className="py-2 pr-3">Tỷ lệ vi phạm</th>
+                <th className="py-2 pr-3 border-l border-[var(--line)] pl-3">Số ca</th>
+                <th className="py-2 pr-3">Đạt SLA</th>
+                <th className="py-2 pr-3">Đạt ≤24h</th>
+                {LOAI_LOI_KEYS.map(k=><th key={k} className="py-2 pr-3">{LOAI_LOI_META[k].short}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {pivotRows.map(r=>(
+                <tr key={r.key} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                  <td className="py-2 pr-3 font-semibold">{r.key}</td>
+                  <td className="py-2 pr-3"><span className="font-mono">{r.tySla}%</span></td>
+                  <td className="py-2 pr-3"><span className="font-mono">{r.ty24}%</span></td>
+                  <td className="py-2 pr-3"><span className="font-mono">{r.tyNghiNgo}%</span></td>
+                  <td className="py-2 pr-3"><span className={`font-mono ${r.tyViPham>40?"text-[var(--coral-500)] font-bold":""}`}>{r.tyViPham}%</span></td>
+                  <td className="py-2 pr-3 border-l border-[var(--line)] pl-3 font-mono">{r.total}</td>
+                  <td className="py-2 pr-3 font-mono">{r.slaOk}</td>
+                  <td className="py-2 pr-3 font-mono">{r.ok24}</td>
+                  {r.byErr.map((v,idx)=><td key={idx} className="py-2 pr-3 font-mono">{v}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================================================
+   6. MODULE: BÁO CÁO DOANH THU
+============================================================ */
+function RevenueModule({myKhuVuc}){
+  const [filters,setFilters] = useState({khu_vuc:"Tất cả khu vực", hang:"Tất cả hãng", ky:"thang"});
+  const scoped = useMemo(()=> ALL_CASES.filter(c=>{
+      if(myKhuVuc && !myKhuVuc.includes(c.khu_vuc)) return false;
+      if(filters.khu_vuc!=="Tất cả khu vực" && c.khu_vuc!==filters.khu_vuc) return false;
+      if(filters.hang!=="Tất cả hãng" && c.hang!==filters.hang) return false;
+      return true;
+  }),[filters,myKhuVuc]);
+
+  const totalRev = scoped.reduce((s,c)=>s+c.dt_san_pham+c.dt_linh_kien+c.dt_dich_vu,0);
+  const byKv = KHU_VUC.map(kv=>{
+    const list = scoped.filter(c=>c.khu_vuc===kv);
+    return {kv, rev: list.reduce((s,c)=>s+c.dt_san_pham+c.dt_linh_kien+c.dt_dich_vu,0), n:list.length};
+  }).filter(x=>x.n>0);
+
+  const byGS = useMemo(()=>{
+    const groups={};
+    scoped.forEach(c=>{ groups[c.giam_sat]=(groups[c.giam_sat]||{n:0,rev:0,kv:c.khu_vuc}); groups[c.giam_sat].n++; groups[c.giam_sat].rev += c.dt_san_pham+c.dt_linh_kien+c.dt_dich_vu; });
+    return Object.entries(groups).map(([gs,v])=>({gs,...v})).sort((a,b)=>b.rev-a.rev);
+  },[scoped]);
+
+  return (
+    <div className="anim-in">
+      <FilterBar filters={filters} setFilters={setFilters} dims={["khu_vuc","hang","ky"]}/>
+      <div className="flex flex-wrap gap-3 mb-4">
+        <StatCard label="Tổng doanh thu" value={fmtVND(totalRev)} tone="ocean"/>
+        <StatCard label="DT sản phẩm" value={fmtVND(scoped.reduce((s,c)=>s+c.dt_san_pham,0))} tone="teal"/>
+        <StatCard label="DT linh kiện" value={fmtVND(scoped.reduce((s,c)=>s+c.dt_linh_kien,0))} tone="amber"/>
+        <StatCard label="DT dịch vụ" value={fmtVND(scoped.reduce((s,c)=>s+c.dt_dich_vu,0))} tone="coral"/>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <Card className="p-4">
+          <div className="font-display font-bold text-sm mb-3">Doanh thu theo khu vực</div>
+          <ChartCanvas type="bar" data={{labels:byKv.map(x=>x.kv), datasets:[{label:"Doanh thu",data:byKv.map(x=>x.rev),backgroundColor:"#1591C9",borderRadius:6}]}}/>
+        </Card>
+        <Card className="p-4">
+          <div className="font-display font-bold text-sm mb-3">Doanh thu theo hãng</div>
+          <ChartCanvas type="bar" data={{labels:HANG, datasets:[{label:"Doanh thu",data:HANG.map(h=>scoped.filter(c=>c.hang===h).reduce((s,c)=>s+c.dt_san_pham+c.dt_linh_kien+c.dt_dich_vu,0)),backgroundColor:"#159C93",borderRadius:6}]}}/>
+        </Card>
+      </div>
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-display font-bold text-sm">Doanh thu theo Giám sát</div>
+          <Btn variant="ghost" size="sm" onClick={()=>exportExcel("doanh_thu_giam_sat.xlsx")}>⬇ Xuất Excel</Btn>
+        </div>
+        <table className="dense w-full text-sm">
+          <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+            <th className="py-2 pr-3">Giám sát</th><th className="py-2 pr-3">Khu vực</th><th className="py-2 pr-3">Số ca</th><th className="py-2 pr-3">Doanh thu</th><th className="py-2 pr-3">DT trung bình / ca</th>
+          </tr></thead>
+          <tbody>{byGS.map(r=>(
+            <tr key={r.gs} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+              <td className="py-2 pr-3 font-semibold">{r.gs}</td>
+              <td className="py-2 pr-3">{r.kv}</td>
+              <td className="py-2 pr-3 font-mono">{r.n}</td>
+              <td className="py-2 pr-3 font-mono">{fmtVND(r.rev)}</td>
+              <td className="py-2 pr-3 font-mono">{fmtVND(Math.round(r.rev/r.n))}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================================================
+   7. CASE DETAIL DRAWER (dùng chung: Quản lý tồn / tra cứu ID)
+============================================================ */
+function CaseDetail({caseId, onClose, addToast, canGiaiTrinh}){
+  const [, force] = useState(0);
+  const c = caseById[caseId];
+  if(!c) return null;
+  const logs = GIAI_TRINH_LOG.filter(g=>g.case_id===caseId).sort((a,b)=>new Date(b.ngay_giai_trinh)-new Date(a.ngay_giai_trinh));
+  const violations = ALL_VIOLATIONS.filter(v=>v.case_id===caseId);
+  const [form,setForm] = useState({ly_do_id: LY_DO_SEED[0].id, noi_dung:"", linh_kien:"", ngay_hang:"", ngay_du_kien:""});
+  const lyDoChon = LY_DO_SEED.find(l=>l.id===Number(form.ly_do_id));
+
+  function submitGiaiTrinh(e){
+    e.preventDefault();
+    GIAI_TRINH_LOG.unshift({
+      id: GIAI_TRINH_LOG.length+1, case_id:caseId, ly_do_cham: lyDoChon.ten_ly_do, ly_do_id: lyDoChon.id,
+      noi_dung: form.noi_dung || "(không có ghi chú thêm)",
+      linh_kien_thieu: lyDoChon.thuoc_thieu_linh_kien ? form.linh_kien : null,
+      ngay_du_kien_hoan_thanh: form.ngay_du_kien ? new Date(form.ngay_du_kien) : c.ngay_du_kien_hoan_thanh,
+      nguoi_giai_trinh: "Bạn (Giám sát)", ngay_giai_trinh: new Date(),
+    });
+    if(lyDoChon.thuoc_thieu_linh_kien) c.ly_do_ton_id = lyDoChon.id;
+    if(form.ngay_du_kien) c.ngay_du_kien_hoan_thanh = new Date(form.ngay_du_kien);
+    addToast("Đã ghi nhận giải trình cho ca #"+caseId);
+    setForm({...form, noi_dung:""});
+    force(x=>x+1);
+  }
+
+  return (
+    <Drawer open={!!caseId} onClose={onClose} title={`Chi tiết ca #${caseId}`} width="max-w-2xl">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <Badge tone={c.hoan_thanh?"teal":"amber"}>{c.hoan_thanh?"Đã hoàn thành":"Đang tồn đọng"}</Badge>
+        {violations.map(v=><Badge key={v.vi_pham_id} tone={statusTone(v.trang_thai)}>{LOAI_LOI_META[v.loai_loi].short}: {v.trang_thai}</Badge>)}
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-5">
+        <Field label="Khách hàng" value={c.khach_hang}/>
+        <Field label="Serial" value={<span className="font-mono">{c.seri}</span>}/>
+        <Field label="Khu vực / Tỉnh" value={`${c.khu_vuc} — ${c.tinh}`}/>
+        <Field label="Đối tác" value={c.doi_tac}/>
+        <Field label="Hãng / Nhóm SP" value={`${c.hang} — ${c.nhom_san_pham}`}/>
+        <Field label="Giám sát / KTV" value={`${c.giam_sat} / ${c.ktv}`}/>
+        <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.cskh_tiep_nhan)}/>
+        <Field label="Hẹn xử lý" value={fmtDateTime(c.hen_xu_ly)}/>
+        <Field label="Thời gian hoàn thành" value={fmtDateTime(c.hoan_thanh)}/>
+        <Field label="Dự kiến hoàn thành" value={fmtDateTime(c.ngay_du_kien_hoan_thanh)}/>
+        <Field label="Ngày import" value={fmtDateTime(c.ngay_import)}/>
+        <Field label="Cập nhật gần nhất" value={fmtDateTime(c.ngay_cap_nhat)}/>
+      </div>
+
+      {!c.hoan_thanh && canGiaiTrinh && (
+        <Card className="p-4 mb-5 bg-[var(--ocean-100)]/30 border-[var(--ocean-100)]">
+          <div className="font-display font-bold text-sm mb-3">Giải trình ca tồn</div>
+          <form onSubmit={submitGiaiTrinh} className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do chậm</label>
+              <Select value={form.ly_do_id} onChange={v=>setForm({...form,ly_do_id:v})} className="w-full mt-1"
+                options={LY_DO_SEED.filter(l=>l.bat_tat).map(l=>({value:l.id,label:l.ten_ly_do}))}/>
+            </div>
+            {lyDoChon?.thuoc_thieu_linh_kien && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-[var(--ink-400)]">Linh kiện thiếu</label>
+                  <Select value={form.linh_kien} onChange={v=>setForm({...form,linh_kien:v})} className="w-full mt-1"
+                    options={[{value:"",label:"— Chọn linh kiện —"},...LINH_KIEN_SEED.filter(l=>l.bat_tat).map(l=>({value:l.ma,label:`${l.ma} · ${l.ten}`}))]}/>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày yêu cầu có hàng</label>
+                  <input type="date" value={form.ngay_hang} onChange={e=>setForm({...form,ngay_hang:e.target.value})} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"/>
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Nội dung giải trình</label>
+              <textarea value={form.noi_dung} onChange={e=>setForm({...form,noi_dung:e.target.value})} rows={3}
+                placeholder="Mô tả tình trạng xử lý, kế hoạch tiếp theo…"
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày dự kiến hoàn thành mới</label>
+              <input type="date" value={form.ngay_du_kien} onChange={e=>setForm({...form,ngay_du_kien:e.target.value})} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"/>
+            </div>
+            <Btn size="sm">Gửi giải trình</Btn>
+          </form>
+        </Card>
+      )}
+
+      <div>
+        <div className="font-display font-bold text-sm mb-3">Lịch sử giải trình (log vĩnh viễn)</div>
+        {logs.length===0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có giải trình nào cho ca này.</div>}
+        <div className="space-y-3">
+          {logs.map(l=>(
+            <div key={l.id} className="relative pl-4 border-l-2 border-[var(--ocean-100)]">
+              <div className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-[var(--ocean-500)]"></div>
+              <div className="text-xs text-[var(--ink-400)] mb-0.5">{fmtDateTime(l.ngay_giai_trinh)} · {l.nguoi_giai_trinh}</div>
+              <div className="text-sm font-semibold">{l.ly_do_cham}</div>
+              <div className="text-sm text-[var(--ink-600)]">{l.noi_dung}</div>
+              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">Linh kiện thiếu: {l.linh_kien_thieu}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Drawer>
+  );
+}
+function Field({label,value}){
+  return <div><div className="text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">{label}</div><div className="text-sm font-medium text-[var(--ink-900)]">{value}</div></div>;
+}
+
+/* ============================================================
+   8. MODULE: QUẢN LÝ TỒN
+============================================================ */
+function BacklogModule({myKhuVuc, role, addToast, openCase}){
+  const [tab,setTab] = useState("chua-giai-trinh");
+  const backlog = useMemo(()=>ALL_CASES.filter(c=>!c.hoan_thanh && (!myKhuVuc || myKhuVuc.includes(c.khu_vuc))),[myKhuVuc]);
+  const giaiTrinhIds = new Set(GIAI_TRINH_LOG.map(g=>g.case_id));
+  const daGT = backlog.filter(c=>giaiTrinhIds.has(c.id));
+  const chuaGT = backlog.filter(c=>!giaiTrinhIds.has(c.id));
+  const quaHanDuKien = backlog.filter(c=>c.ngay_du_kien_hoan_thanh && c.ngay_du_kien_hoan_thanh < addHours(NOW,-24));
+  const quaHanGiaiTrinh = backlog.filter(c=>{
+    const log = GIAI_TRINH_LOG.filter(g=>g.case_id===c.id).sort((a,b)=>new Date(b.ngay_giai_trinh)-new Date(a.ngay_giai_trinh))[0];
+    if(!log) return diffHours(NOW,c.ngay_import) > 72;
+    return diffHours(NOW,log.ngay_giai_trinh) >= 72;
+  });
+
+  const dataFor = {"chua-giai-trinh":chuaGT, "da-giai-trinh":daGT, "qua-han-du-kien":quaHanDuKien, "qua-han-giai-trinh":quaHanGiaiTrinh}[tab];
+  const [page,setPage]=useState(1);
+  useEffect(()=>setPage(1),[tab]);
+  const pageSize=10;
+  const paged = dataFor.slice((page-1)*pageSize,page*pageSize);
+
+  return (
+    <div className="anim-in">
+      <div className="flex items-center justify-between mb-1">
+        <div/>
+        <Btn variant="ghost" size="sm" onClick={()=>exportExcel("quan_ly_ton.xlsx")}>⬇ Xuất Excel</Btn>
+      </div>
+      <Tabs active={tab} onChange={setTab} tabs={[
+        {key:"chua-giai-trinh", label:"Chưa giải trình", count:chuaGT.length},
+        {key:"da-giai-trinh", label:"Đã giải trình", count:daGT.length},
+        {key:"qua-han-giai-trinh", label:"Giải trình quá hạn (chu kỳ 3 ngày)", count:quaHanGiaiTrinh.length},
+        {key:"qua-han-du-kien", label:"Quá hạn dự kiến hoàn thành", count:quaHanDuKien.length},
+      ]}/>
+      <Card className="overflow-hidden">
+        <table className="dense w-full text-sm">
+          <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase bg-slate-50 border-b border-[var(--line)]">
+            <th className="py-2.5 px-3">ID</th><th className="py-2.5 px-3">Khách hàng</th><th className="py-2.5 px-3">Khu vực</th>
+            <th className="py-2.5 px-3">Giám sát</th><th className="py-2.5 px-3">Tiếp nhận</th><th className="py-2.5 px-3">Dự kiến HT</th>
+            <th className="py-2.5 px-3">Lý do tồn gần nhất</th><th className="py-2.5 px-3"></th>
+          </tr></thead>
+          <tbody>
+            {paged.map(c=>{
+              const lastLog = GIAI_TRINH_LOG.filter(g=>g.case_id===c.id).sort((a,b)=>new Date(b.ngay_giai_trinh)-new Date(a.ngay_giai_trinh))[0];
+              return (
+              <tr key={c.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer" onClick={()=>openCase(c.id)}>
+                <td className="py-2 px-3 font-mono text-[var(--ocean-600)] font-semibold">#{c.id}</td>
+                <td className="py-2 px-3">{c.khach_hang}</td>
+                <td className="py-2 px-3">{c.khu_vuc}</td>
+                <td className="py-2 px-3">{c.giam_sat}</td>
+                <td className="py-2 px-3 text-xs">{fmtDateTime(c.cskh_tiep_nhan)}</td>
+                <td className="py-2 px-3 text-xs">{fmtDateTime(c.ngay_du_kien_hoan_thanh)}</td>
+                <td className="py-2 px-3">{lastLog ? <Badge tone="ocean">{lastLog.ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>}</td>
+                <td className="py-2 px-3 text-right"><span className="text-[var(--ocean-500)] text-xs font-semibold">Xem / giải trình →</span></td>
+              </tr>
+            )})}
+            {paged.length===0 && <tr><td colSpan={8} className="py-8 text-center text-[var(--ink-400)] text-sm">Không có ca nào trong danh mục này.</td></tr>}
+          </tbody>
+        </table>
+        <div className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--line)] text-xs text-[var(--ink-400)]">
+          <span>{dataFor.length} ca</span>
+          <div className="flex gap-1">
+            <Btn variant="ghost" size="sm" disabled={page===1} onClick={()=>setPage(p=>p-1)}>‹</Btn>
+            <span className="px-2 py-1.5">{page}/{Math.max(1,Math.ceil(dataFor.length/pageSize))}</span>
+            <Btn variant="ghost" size="sm" disabled={page>=Math.ceil(dataFor.length/pageSize)} onClick={()=>setPage(p=>p+1)}>›</Btn>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================================================
+   9. MODULE: CA THIẾU LINH KIỆN
+============================================================ */
+function MissingPartsModule({myKhuVuc, openCase}){
+  const missingReasonIds = new Set(LY_DO_SEED.filter(l=>l.thuoc_thieu_linh_kien).map(l=>l.id));
+  const list = useMemo(()=>ALL_CASES.filter(c=> c.ly_do_ton_id && missingReasonIds.has(c.ly_do_ton_id) && (!myKhuVuc || myKhuVuc.includes(c.khu_vuc))),[myKhuVuc]);
+  return (
+    <div className="anim-in">
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-sm text-[var(--ink-600)]">Danh sách ca tồn có lý do được đánh dấu <b>“thuộc nhóm thiếu linh kiện”</b> trong Settings — theo dõi tách riêng để kiểm soát tồn kho / cấp hàng.</div>
+        <Btn variant="ghost" size="sm" onClick={()=>exportExcel("ca_thieu_linh_kien.xlsx")}>⬇ Xuất Excel</Btn>
+      </div>
+      <div className="flex flex-wrap gap-3 mb-4">
+        <StatCard label="Ca đang chờ linh kiện" value={list.length} tone="amber"/>
+        <StatCard label="Linh kiện đang thiếu (mã)" value={new Set(GIAI_TRINH_LOG.filter(g=>list.some(c=>c.id===g.case_id)).map(g=>g.linh_kien_thieu).filter(Boolean)).size} tone="coral"/>
+        <StatCard label="Giá trị linh kiện dự kiến" value={fmtVND(list.length*randInt(300,900)*1000)} tone="ocean"/>
+      </div>
+      <Card className="overflow-hidden">
+        <table className="dense w-full text-sm">
+          <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase bg-slate-50 border-b border-[var(--line)]">
+            <th className="py-2.5 px-3">ID</th><th className="py-2.5 px-3">Khách hàng</th><th className="py-2.5 px-3">Khu vực</th>
+            <th className="py-2.5 px-3">Linh kiện thiếu</th><th className="py-2.5 px-3">Ngày yêu cầu có hàng</th><th className="py-2.5 px-3">Ngày dự kiến HT</th><th></th>
+          </tr></thead>
+          <tbody>
+            {list.map(c=>{
+              const log = GIAI_TRINH_LOG.find(g=>g.case_id===c.id && g.linh_kien_thieu);
+              const lk = log && LINH_KIEN_SEED.find(l=>l.ma===log.linh_kien_thieu);
+              return (
+              <tr key={c.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer" onClick={()=>openCase(c.id)}>
+                <td className="py-2 px-3 font-mono text-[var(--ocean-600)] font-semibold">#{c.id}</td>
+                <td className="py-2 px-3">{c.khach_hang}</td>
+                <td className="py-2 px-3">{c.khu_vuc}</td>
+                <td className="py-2 px-3">{lk ? <Badge tone="amber">{lk.ma} · {lk.ten}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>}</td>
+                <td className="py-2 px-3 text-xs">{fmtDate(log?.ngay_du_kien_hoan_thanh)}</td>
+                <td className="py-2 px-3 text-xs">{fmtDate(c.ngay_du_kien_hoan_thanh)}</td>
+                <td className="py-2 px-3 text-right text-[var(--ocean-500)] text-xs font-semibold">Xem →</td>
+              </tr>
+            )})}
+            {list.length===0 && <tr><td colSpan={7} className="py-8 text-center text-[var(--ink-400)] text-sm">Không có ca thiếu linh kiện.</td></tr>}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================================================
+   10. MODULE: QUẢN LÝ KHẢO SÁT
+============================================================ */
+function SurveyModule({role, addToast, currentUserName, openCase}){
+  const [tab,setTab] = useState("can-khao-sat");
+  const isQC = role==="QC";
+  const isLead = role==="TN CSKH" || role==="TBP CSKH" || role==="Admin";
+  const canSurvey = ["CSKH","TN CSKH","TBP CSKH","Admin"].includes(role);
+
+  const [, force] = useState(0);
+  const canKhaoSat = ALL_VIOLATIONS.filter(v=>v.trang_thai==="Nghi ngờ - cần khảo sát");
+  const choQC = ALL_VIOLATIONS.filter(v=>v.trang_thai==="Vi phạm cấp 1 - chờ QC");
+  const daXong = ALL_VIOLATIONS.filter(v=>v.trang_thai.includes("Không vi phạm") || v.trang_thai.includes("đã xác nhận"));
+
+  const dataFor = {"can-khao-sat":canKhaoSat, "cho-qc":choQC, "da-xu-ly":daXong}[tab];
+
+  const [callModal,setCallModal] = useState(null); // case object
+  const [assignModal,setAssignModal] = useState(null);
+
+  function groupByCase(list){
+    const g = {};
+    list.forEach(v=>{ (g[v.case_id]=g[v.case_id]||[]).push(v); });
+    return Object.entries(g).map(([cid,vs])=>({caseObj:caseById[cid], vs}));
+  }
+  const grouped = groupByCase(dataFor);
+
+  function submitAssign(cid, cskh, openAll){
+    ALL_VIOLATIONS.filter(v=>v.case_id===cid && v.trang_thai==="Nghi ngờ - cần khảo sát").forEach(v=> v.phan_cong = openAll ? "Mở cho tất cả" : cskh);
+    addToast(`Đã phân công khảo sát ca #${cid}`);
+    setAssignModal(null); force(x=>x+1);
+  }
+
+  function submitCall(cid, results, meta){
+    results.forEach(r=>{
+      const v = ALL_VIOLATIONS.find(v=>v.case_id===cid && v.loai_loi===r.loai && v.trang_thai==="Nghi ngờ - cần khảo sát");
+      if(!v) return;
+      v.cskh_phu_trach = currentUserName;
+      if(r.ketLuan==="loi"){
+        v.trang_thai = "Vi phạm cấp 1 - chờ QC";
+        v.ket_qua_cap_1 = meta.ketQuaCap1;
+      } else {
+        v.trang_thai = "Không vi phạm (đã khảo sát)";
+        v.ket_qua_cap_1 = "Không lỗi";
+      }
+      v.ngay_ghi_nhan = new Date();
+    });
+    addToast(`Đã ghi nhận kết quả khảo sát ca #${cid}`);
+    setCallModal(null); force(x=>x+1);
+  }
+
+  function qcDecide(v, chot){
+    v.chot_cap_2 = chot;
+    v.nguoi_chot_qc = currentUserName;
+    v.trang_thai = chot ? "Vi phạm - đã xác nhận (cấp 2)" : "Không vi phạm (QC bỏ cấp 2)";
+    addToast(`QC đã ${chot?"chốt":"bỏ"} vi phạm cấp 2 cho ${v.vi_pham_id}`);
+    force(x=>x+1);
+  }
+
+  return (
+    <div className="anim-in">
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <div className="text-sm text-[var(--ink-600)] max-w-2xl">Các ca được hệ thống tự động gắn cờ <b>“nghi ngờ vi phạm – cần khảo sát”</b>. CSKH xác minh thực tế qua điện thoại trước khi kết luận có vi phạm hay không.</div>
+        <div className="flex gap-2">
+          <Btn variant="ghost" size="sm">⬇ Tải DS cần khảo sát</Btn>
+          <Btn variant="ghost" size="sm">⬆ Import DS đã khảo sát</Btn>
+        </div>
+      </div>
+      <Tabs active={tab} onChange={setTab} tabs={[
+        {key:"can-khao-sat", label:"Cần khảo sát", count:canKhaoSat.length},
+        {key:"cho-qc", label:"Chờ QC chốt cấp 2", count:choQC.length},
+        {key:"da-xu-ly", label:"Đã xử lý xong", count:daXong.length},
+      ]}/>
+
+      <Card className="overflow-hidden">
+        <table className="dense w-full text-sm">
+          <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase bg-slate-50 border-b border-[var(--line)]">
+            <th className="py-2.5 px-3">Ca</th><th className="py-2.5 px-3">Khách hàng / Khu vực</th><th className="py-2.5 px-3">Loại lỗi nghi ngờ</th>
+            <th className="py-2.5 px-3">Phân công</th><th className="py-2.5 px-3"></th>
+          </tr></thead>
+          <tbody>
+            {grouped.map(({caseObj,vs})=>(
+              <tr key={caseObj.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <td className="py-2.5 px-3 font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={()=>openCase(caseObj.id)}>#{caseObj.id}</td>
+                <td className="py-2.5 px-3">{caseObj.khach_hang}<div className="text-xs text-[var(--ink-400)]">{caseObj.khu_vuc}</div></td>
+                <td className="py-2.5 px-3">
+                  <div className="flex flex-wrap gap-1">
+                    {vs.map(v=><Badge key={v.vi_pham_id} tone={statusTone(v.trang_thai)}>{LOAI_LOI_META[v.loai_loi].short}{v.ket_qua_cap_1?` · ${v.ket_qua_cap_1}`:""}</Badge>)}
+                  </div>
+                </td>
+                <td className="py-2.5 px-3 text-xs">{vs[0].phan_cong || <span className="italic text-[var(--ink-400)]">Chưa phân công</span>}</td>
+                <td className="py-2.5 px-3 text-right">
+                  {tab==="can-khao-sat" && canSurvey && <div className="flex gap-1.5 justify-end">
+                    {isLead && <Btn size="sm" variant="ghost" onClick={()=>setAssignModal({caseObj,vs})}>Phân công</Btn>}
+                    <Btn size="sm" onClick={()=>setCallModal({caseObj,vs})}>Gọi khảo sát</Btn>
+                  </div>}
+                  {tab==="cho-qc" && isQC && <div className="flex gap-1.5 justify-end">
+                    {vs.map(v=><React.Fragment key={v.vi_pham_id}>
+                      <Btn size="sm" variant="success" onClick={()=>qcDecide(v,true)}>Chốt {LOAI_LOI_META[v.loai_loi].short}</Btn>
+                      <Btn size="sm" variant="danger" onClick={()=>qcDecide(v,false)}>Bỏ {LOAI_LOI_META[v.loai_loi].short}</Btn>
+                    </React.Fragment>)}
+                  </div>}
+                  {tab==="cho-qc" && !isQC && <span className="text-xs text-[var(--ink-400)] italic">Chờ QC xử lý</span>}
+                  {tab==="da-xu-ly" && <Btn size="sm" variant="ghost" onClick={()=>openCase(caseObj.id)}>Xem chi tiết</Btn>}
+                </td>
+              </tr>
+            ))}
+            {grouped.length===0 && <tr><td colSpan={5} className="py-8 text-center text-[var(--ink-400)] text-sm">Không có mục nào.</td></tr>}
+          </tbody>
+        </table>
+      </Card>
+
+      {callModal && <CallSurveyModal data={callModal} onClose={()=>setCallModal(null)} onSubmit={submitCall}/>}
+      {assignModal && <AssignModal data={assignModal} onClose={()=>setAssignModal(null)} onSubmit={submitAssign}/>}
+    </div>
+  );
+}
+
+function CallSurveyModal({data, onClose, onSubmit}){
+  const {caseObj, vs} = data;
+  const [selected,setSelected] = useState(Object.fromEntries(vs.map(v=>[v.loai_loi,false])));
+  const [ketLuan,setKetLuan] = useState(Object.fromEntries(vs.map(v=>[v.loai_loi,"khong_loi"])));
+  const [meta,setMeta] = useState({doiTuong:"Khách hàng", ketQua:"Liên hệ thành công", ketQuaCap1:"Lỗi không liên hệ", ghiChu:""});
+
+  function submit(e){
+    e.preventDefault();
+    const chosen = Object.keys(selected).filter(k=>selected[k]);
+    if(chosen.length===0) return;
+    onSubmit(caseObj.id, chosen.map(k=>({loai:k, ketLuan: ketLuan[k]==="loi"?"loi":"khong_loi"})), {ketQuaCap1:meta.ketQuaCap1});
+  }
+  return (
+    <Modal open onClose={onClose} title={`Ghi nhận cuộc gọi khảo sát — Ca #${caseObj.id}`} width="max-w-xl">
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="text-xs font-semibold text-[var(--ink-400)]">Đối tượng liên hệ</label>
+            <Select value={meta.doiTuong} onChange={v=>setMeta({...meta,doiTuong:v})} options={["Khách hàng","KTV","Người thân KH"]} className="w-full mt-1"/></div>
+          <div><label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả cuộc gọi</label>
+            <Select value={meta.ketQua} onChange={v=>setMeta({...meta,ketQua:v})} options={["Liên hệ thành công","Không nghe máy","Số sai / không liên lạc được"]} className="w-full mt-1"/></div>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">Chọn (các) loại lỗi khảo sát trong cuộc gọi này — mỗi loại kết luận độc lập</label>
+          <div className="space-y-2.5">
+            {vs.map(v=>(
+              <div key={v.loai_loi} className="border border-[var(--line)] rounded-xl p-3 flex items-center gap-3 flex-wrap">
+                <label className="flex items-center gap-2 font-semibold text-sm flex-1 min-w-[160px]">
+                  <input type="checkbox" checked={selected[v.loai_loi]} onChange={e=>setSelected({...selected,[v.loai_loi]:e.target.checked})}/>
+                  {LOAI_LOI_META[v.loai_loi].label}
+                </label>
+                <div className="flex gap-1">
+                  <button type="button" disabled={!selected[v.loai_loi]} onClick={()=>setKetLuan({...ketLuan,[v.loai_loi]:"khong_loi"})}
+                    className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${ketLuan[v.loai_loi]==="khong_loi"?"bg-[var(--teal-500)] text-white border-[var(--teal-500)]":"border-[var(--line)] text-[var(--ink-600)]"} disabled:opacity-30`}>Không lỗi</button>
+                  <button type="button" disabled={!selected[v.loai_loi]} onClick={()=>setKetLuan({...ketLuan,[v.loai_loi]:"loi"})}
+                    className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${ketLuan[v.loai_loi]==="loi"?"bg-[var(--coral-500)] text-white border-[var(--coral-500)]":"border-[var(--line)] text-[var(--ink-600)]"} disabled:opacity-30`}>Lỗi</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {Object.values(ketLuan).includes("loi") && Object.keys(selected).some(k=>selected[k] && ketLuan[k]==="loi") &&
+          <div><label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả cấp 1 (áp dụng cho các loại kết luận "Lỗi")</label>
+            <Select value={meta.ketQuaCap1} onChange={v=>setMeta({...meta,ketQuaCap1:v})} options={["Lỗi không liên hệ","Lỗi sai báo cáo","Lỗi khác"]} className="w-full mt-1"/></div>}
+        <div><label className="text-xs font-semibold text-[var(--ink-400)]">Diễn giải / ghi chú</label>
+          <textarea rows={2} value={meta.ghiChu} onChange={e=>setMeta({...meta,ghiChu:e.target.value})} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"/></div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose} type="button">Hủy</Btn>
+          <Btn>Lưu kết quả khảo sát</Btn>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function AssignModal({data,onClose,onSubmit}){
+  const [cskh,setCskh] = useState(CSKH_LIST[0]);
+  const [openAll,setOpenAll] = useState(false);
+  return (
+    <Modal open onClose={onClose} title={`Phân công khảo sát — Ca #${data.caseObj.id}`}>
+      <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={openAll} onChange={e=>setOpenAll(e.target.checked)}/> Mở cho tất cả CSKH cùng nhận (ai gọi trước được tính năng suất)</label>
+        {!openAll && <div><label className="text-xs font-semibold text-[var(--ink-400)]">Phân công cho CSKH cụ thể</label>
+          <Select value={cskh} onChange={setCskh} options={CSKH_LIST} className="w-full mt-1"/></div>}
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose}>Hủy</Btn>
+          <Btn onClick={()=>onSubmit(data.caseObj.id, cskh, openAll)}>Xác nhận phân công</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ============================================================
+   11. MODULE: IMPORT DATA
+============================================================ */
+function ImportModule({addToast}){
+  const [step,setStep] = useState("idle"); // idle -> preview -> done
+  const [preview,setPreview] = useState(null);
+  const [history,setHistory] = useState([
+    {ten:"DATA_20260715.xlsx", nguoi:"Đinh Văn Phúc", ngay:"2026-07-15 08:02", moi:412, doi:1189, boQua:341, loi:0},
+    {ten:"DATA_20260714.xlsx", nguoi:"Đinh Văn Phúc", ngay:"2026-07-14 08:05", moi:388, doi:1204, boQua:298, loi:2},
+    {ten:"DATA_20260713.xlsx", nguoi:"Nguyễn Văn An", ngay:"2026-07-13 08:11", moi:455, doi:1150, boQua:312, loi:0},
+  ]);
+
+  function simulateUpload(){
+    const moi = randInt(300,500), doi=randInt(1000,1300), boQua=randInt(250,400), loi=randInt(0,3);
+    setPreview({filename:"DATA_"+NOW.toISOString().slice(0,10).replace(/-/g,'')+".xlsx", moi, doi, boQua, loi});
+    setStep("preview");
+  }
+  function confirmImport(){
+    setHistory([{ten:preview.filename, nguoi:"Bạn", ngay: fmtDateTime(NOW), moi:preview.moi, doi:preview.doi, boQua:preview.boQua, loi:preview.loi}, ...history]);
+    addToast(`Import thành công: ${preview.moi} ca mới, ${preview.doi} ghi đè`);
+    setStep("idle"); setPreview(null);
+  }
+
+  return (
+    <div className="anim-in">
+      <Card className="p-6 mb-5">
+        <div className="font-display font-bold mb-1">Import dữ liệu Excel hàng ngày</div>
+        <div className="text-sm text-[var(--ink-600)] mb-4">Hệ thống so khớp theo cột <b className="font-mono">ID</b>: ID mới → ghi mới · ID đã có &amp; không đổi (đã hoàn thành) → bỏ qua · ID đã có &amp; chưa hoàn thành → cập nhật "Ngày cập nhật gần nhất" · ID đã có &amp; có thay đổi → ghi đè.</div>
+        {step==="idle" && (
+          <div onClick={simulateUpload} className="cursor-pointer border-2 border-dashed border-[var(--ocean-100)] rounded-2xl p-10 text-center hover:border-[var(--ocean-400)] hover:bg-[var(--ocean-100)]/20 transition-colors">
+            <div className="text-3xl mb-2">⇩</div>
+            <div className="font-semibold text-[var(--ink-900)]">Kéo thả hoặc bấm để chọn file Excel</div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">Định dạng .xlsx — tối đa 25.000 dòng / file</div>
+          </div>
+        )}
+        {step==="preview" && preview && (
+          <div className="anim-in">
+            <div className="flex items-center gap-2 mb-4 bg-slate-50 rounded-xl p-3">
+              <span className="text-xl">📄</span>
+              <div className="flex-1"><div className="font-semibold text-sm">{preview.filename}</div><div className="text-xs text-[var(--ink-400)]">Đã phân tích xong — sẵn sàng import</div></div>
+            </div>
+            <div className="grid grid-cols-4 gap-3 mb-5">
+              <StatCard label="Ghi mới" value={preview.moi} tone="teal"/>
+              <StatCard label="Ghi đè" value={preview.doi} tone="ocean"/>
+              <StatCard label="Bỏ qua" value={preview.boQua} tone="gray"/>
+              <StatCard label="Lỗi định dạng" value={preview.loi} tone={preview.loi>0?"coral":"gray"}/>
+            </div>
+            <div className="flex gap-2">
+              <Btn onClick={confirmImport}>Xác nhận import</Btn>
+              <Btn variant="ghost" onClick={()=>{setStep("idle");setPreview(null);}}>Hủy</Btn>
+            </div>
+          </div>
+        )}
+      </Card>
+      <Card className="p-4">
+        <div className="font-display font-bold text-sm mb-3">Lịch sử import</div>
+        <table className="dense w-full text-sm">
+          <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+            <th className="py-2 pr-3">File</th><th className="py-2 pr-3">Người import</th><th className="py-2 pr-3">Thời gian</th>
+            <th className="py-2 pr-3">Ghi mới</th><th className="py-2 pr-3">Ghi đè</th><th className="py-2 pr-3">Bỏ qua</th><th className="py-2 pr-3">Lỗi</th>
+          </tr></thead>
+          <tbody>{history.map((h,i)=>(
+            <tr key={i} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+              <td className="py-2 pr-3 font-mono text-xs">{h.ten}</td><td className="py-2 pr-3">{h.nguoi}</td><td className="py-2 pr-3 text-xs">{h.ngay}</td>
+              <td className="py-2 pr-3 font-mono text-[var(--teal-500)]">{h.moi}</td><td className="py-2 pr-3 font-mono text-[var(--ocean-600)]">{h.doi}</td>
+              <td className="py-2 pr-3 font-mono text-[var(--ink-400)]">{h.boQua}</td><td className="py-2 pr-3 font-mono">{h.loi>0?<span className="text-[var(--coral-500)] font-bold">{h.loi}</span>:h.loi}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
+
+/* ============================================================
+   12. MODULE: SETTINGS
+============================================================ */
+function SettingsModule({addToast}){
+  const [tab,setTab]=useState("ly-do");
+  const [reasons,setReasons] = useState(LY_DO_SEED);
+  const [parts,setParts] = useState(LINH_KIEN_SEED);
+  const [addOpen,setAddOpen] = useState(false);
+  const [newReason,setNewReason] = useState({ten:"", thieu:false});
+
+  function toggleReason(id, field){
+    setReasons(rs=>rs.map(r=>r.id===id?{...r,[field]:!r[field]}:r));
+    addToast("Đã cập nhật cài đặt lý do chậm");
+  }
+  function addReason(){
+    if(!newReason.ten.trim()) return;
+    setReasons(rs=>[...rs,{id:rs.length+10, ten_ly_do:newReason.ten, bat_tat:true, thuoc_thieu_linh_kien:newReason.thieu}]);
+    setNewReason({ten:"",thieu:false}); setAddOpen(false);
+    addToast("Đã thêm lý do chậm mới");
+  }
+  function togglePart(ma){
+    setParts(ps=>ps.map(p=>p.ma===ma?{...p,bat_tat:!p.bat_tat}:p));
+  }
+
+  return (
+    <div className="anim-in">
+      <Tabs active={tab} onChange={setTab} tabs={[{key:"ly-do",label:"Lý do chậm"},{key:"linh-kien",label:"Danh mục linh kiện"}]}/>
+      {tab==="ly-do" && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">Cấu hình danh sách lý do chậm dùng khi giải trình ca tồn. Đánh dấu "Thuộc thiếu linh kiện" để đẩy ca vào module <b>Ca thiếu linh kiện</b>.</div>
+            <Btn size="sm" onClick={()=>setAddOpen(true)}>+ Thêm lý do</Btn>
+          </div>
+          <table className="dense w-full text-sm">
+            <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+              <th className="py-2 pr-3">Tên lý do</th><th className="py-2 pr-3">Bật / Tắt</th><th className="py-2 pr-3">Thuộc thiếu linh kiện</th>
+            </tr></thead>
+            <tbody>{reasons.map(r=>(
+              <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <td className="py-2.5 pr-3 font-medium">{r.ten_ly_do}</td>
+                <td className="py-2.5 pr-3"><ToggleSwitch checked={r.bat_tat} onChange={()=>toggleReason(r.id,"bat_tat")}/></td>
+                <td className="py-2.5 pr-3"><ToggleSwitch checked={r.thuoc_thieu_linh_kien} onChange={()=>toggleReason(r.id,"thuoc_thieu_linh_kien")}/></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="linh-kien" && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">Danh mục linh kiện dùng khi giải trình ca "thiếu linh kiện".</div>
+            <Btn size="sm">+ Thêm linh kiện</Btn>
+          </div>
+          <table className="dense w-full text-sm">
+            <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+              <th className="py-2 pr-3">Ảnh</th><th className="py-2 pr-3">Mã</th><th className="py-2 pr-3">Tên linh kiện</th><th className="py-2 pr-3">Giá bán</th>
+              <th className="py-2 pr-3">Người cập nhật</th><th className="py-2 pr-3">Ngày cập nhật</th><th className="py-2 pr-3">Hiển thị</th>
+            </tr></thead>
+            <tbody>{parts.map(p=>(
+              <tr key={p.ma} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <td className="py-2.5 pr-3"><div className="w-9 h-9 rounded-lg bg-[var(--ocean-100)] flex items-center justify-center text-[var(--ocean-500)] text-xs font-bold">{p.ten[0]}</div></td>
+                <td className="py-2.5 pr-3 font-mono text-xs">{p.ma}</td>
+                <td className="py-2.5 pr-3 font-medium">{p.ten}</td>
+                <td className="py-2.5 pr-3 font-mono">{fmtVND(p.gia)}</td>
+                <td className="py-2.5 pr-3">{p.nguoi_cap_nhat}</td>
+                <td className="py-2.5 pr-3 text-xs">{p.ngay}</td>
+                <td className="py-2.5 pr-3"><ToggleSwitch checked={p.bat_tat} onChange={()=>togglePart(p.ma)}/></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </Card>
+      )}
+      <Modal open={addOpen} onClose={()=>setAddOpen(false)} title="Thêm lý do chậm mới">
+        <div className="space-y-3">
+          <div><label className="text-xs font-semibold text-[var(--ink-400)]">Tên lý do</label>
+            <input value={newReason.ten} onChange={e=>setNewReason({...newReason,ten:e.target.value})} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"/></div>
+          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={newReason.thieu} onChange={e=>setNewReason({...newReason,thieu:e.target.checked})}/> Thuộc nhóm thiếu linh kiện</label>
+          <div className="flex justify-end gap-2"><Btn variant="ghost" onClick={()=>setAddOpen(false)}>Hủy</Btn><Btn onClick={addReason}>Thêm</Btn></div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+function ToggleSwitch({checked,onChange}){
+  return (
+    <button onClick={onChange} className={`focus-ring w-10 h-5.5 rounded-full transition-colors relative ${checked?"bg-[var(--teal-500)]":"bg-slate-300"}`} style={{height:22}}>
+      <span className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${checked?"translate-x-[20px]":"translate-x-[2px]"}`}></span>
+    </button>
+  );
+}
+
+/* ============================================================
+   13. MODULE: QUẢN LÝ USER
+============================================================ */
+function UsersModule({addToast}){
+  const [users,setUsers] = useState(USERS_SEED);
+  const [tab,setTab] = useState("cho-duyet");
+  const cho = users.filter(u=>u.trang_thai==="Chờ duyệt");
+  const daDuyet = users.filter(u=>u.trang_thai==="Đã duyệt");
+  const list = tab==="cho-duyet"?cho:daDuyet;
+  const [editUser,setEditUser] = useState(null);
+
+  function decide(email, ok){
+    setUsers(us=>us.map(u=>u.email===email?{...u,trang_thai: ok?"Đã duyệt":"Từ chối"}:u));
+    addToast(ok?"Đã duyệt tài khoản":"Đã từ chối tài khoản");
+  }
+  function saveEdit(email, vai_tro, khu_vuc){
+    setUsers(us=>us.map(u=>u.email===email?{...u,vai_tro,khu_vuc}:u));
+    setEditUser(null);
+    addToast("Đã cập nhật phân quyền");
+  }
+
+  return (
+    <div className="anim-in">
+      <Tabs active={tab} onChange={setTab} tabs={[{key:"cho-duyet",label:"Chờ duyệt",count:cho.length},{key:"da-duyet",label:"Đã duyệt / khác",count:daDuyet.length}]}/>
+      <Card className="overflow-hidden">
+        <table className="dense w-full text-sm">
+          <thead><tr className="text-left text-[var(--ink-400)] text-xs uppercase bg-slate-50 border-b border-[var(--line)]">
+            <th className="py-2.5 px-3">Người dùng</th><th className="py-2.5 px-3">Vai trò</th><th className="py-2.5 px-3">Khu vực phụ trách</th><th className="py-2.5 px-3">Trạng thái</th><th className="py-2.5 px-3"></th>
+          </tr></thead>
+          <tbody>{list.map(u=>(
+            <tr key={u.email} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+              <td className="py-2.5 px-3"><div className="font-semibold">{u.ten}</div><div className="text-xs text-[var(--ink-400)] font-mono">{u.email}</div></td>
+              <td className="py-2.5 px-3"><Badge tone="ocean">{u.vai_tro}</Badge></td>
+              <td className="py-2.5 px-3 text-xs">{u.khu_vuc.length? u.khu_vuc.join(", ") : "—"}</td>
+              <td className="py-2.5 px-3"><Badge tone={u.trang_thai==="Đã duyệt"?"teal":u.trang_thai==="Chờ duyệt"?"amber":"coral"}>{u.trang_thai}</Badge></td>
+              <td className="py-2.5 px-3 text-right">
+                {u.trang_thai==="Chờ duyệt" ? (
+                  <div className="flex gap-1.5 justify-end">
+                    <Btn size="sm" variant="success" onClick={()=>decide(u.email,true)}>Duyệt</Btn>
+                    <Btn size="sm" variant="danger" onClick={()=>decide(u.email,false)}>Từ chối</Btn>
+                  </div>
+                ) : <Btn size="sm" variant="ghost" onClick={()=>setEditUser(u)}>Phân quyền</Btn>}
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Card>
+      {editUser && <EditUserModal user={editUser} onClose={()=>setEditUser(null)} onSave={saveEdit}/>}
+    </div>
+  );
+}
+function EditUserModal({user,onClose,onSave}){
+  const [role,setRole] = useState(user.vai_tro);
+  const [kv,setKv] = useState(new Set(user.khu_vuc));
+  function toggle(k){ const s=new Set(kv); s.has(k)?s.delete(k):s.add(k); setKv(s); }
+  return (
+    <Modal open onClose={onClose} title={`Phân quyền — ${user.ten}`}>
+      <div className="space-y-4">
+        <div><label className="text-xs font-semibold text-[var(--ink-400)]">Vai trò</label>
+          <Select value={role} onChange={setRole} options={ROLES} className="w-full mt-1"/></div>
+        <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">Khu vực được xem / quản lý</label>
+          <div className="flex flex-wrap gap-1.5">
+            {KHU_VUC.map(k=>(
+              <button key={k} onClick={()=>toggle(k)} className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${kv.has(k)?"bg-[var(--ocean-500)] text-white border-[var(--ocean-500)]":"border-[var(--line)] text-[var(--ink-600)]"}`}>{k}</button>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-1"><Btn variant="ghost" onClick={onClose}>Hủy</Btn><Btn onClick={()=>onSave(user.email, role, Array.from(kv))}>Lưu</Btn></div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ============================================================
+   14. LOGIN SCREEN
+============================================================ */
+function LoginScreen({onLogin}){
+  return (
+    <div className="min-h-screen ripple-bg flex items-center justify-center" style={{background:"linear-gradient(160deg, var(--ocean-950), var(--ocean-800))"}}>
+      <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-sm text-center anim-in">
+        <svg width="52" height="52" viewBox="0 0 40 40" className="mx-auto mb-3">
+          <circle cx="20" cy="20" r="4" fill="#1591C9"/>
+          <circle cx="20" cy="20" r="10" fill="none" stroke="#1591C9" strokeOpacity="0.5" strokeWidth="1.6"/>
+          <circle cx="20" cy="20" r="17" fill="none" stroke="#1591C9" strokeOpacity="0.25" strokeWidth="1.6"/>
+        </svg>
+        <div className="font-display font-extrabold text-xl mb-1">DVBH Suite</div>
+        <div className="text-sm text-[var(--ink-400)] mb-7">Hệ thống quản lý giải trình tồn &amp; SLA nội bộ</div>
+        <button onClick={onLogin} className="focus-ring w-full flex items-center justify-center gap-2.5 border border-[var(--line)] rounded-xl py-2.5 font-semibold text-sm hover:bg-slate-50 transition-colors">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.1 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.5 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.1 5.1 29.3 3 24 3 16.3 3 9.7 7.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.6 26.7 37.5 24 37.5c-5.3 0-9.7-3.6-11.3-8.4l-6.5 5C9.5 40.6 16.2 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.9 2.6-2.5 4.8-4.7 6.3l6.2 5.2C40.5 36.2 44 30.6 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+          Đăng nhập bằng Google
+        </button>
+        <div className="text-xs text-[var(--ink-400)] mt-5">Chỉ tài khoản đã được Admin phê duyệt mới truy cập được hệ thống.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   15. APP ROOT
+============================================================ */
+const MODULE_TITLES = {
+  dashboard:"Tổng quát", revenue:"Báo cáo doanh thu", backlog:"Quản lý tồn", "missing-parts":"Ca thiếu linh kiện",
+  survey:"Quản lý khảo sát", import:"Import data", settings:"Settings", users:"Quản lý User"
+};
+
+function App(){
+  const [loggedIn,setLoggedIn] = useState(false);
+  const [role,setRole] = useState("Admin");
+  const [active,setActive] = useState("dashboard");
+  const [collapsed,setCollapsed] = useState(false);
+  const [openCaseId,setOpenCaseId] = useState(null);
+  const [toasts,setToasts] = useState([]);
+  const [notFound,setNotFound] = useState(false);
+
+  useEffect(()=>{
+    if(!(ROLE_MODULES[role]||[]).includes(active)) setActive((ROLE_MODULES[role]||["dashboard"])[0]);
+  },[role]);
+
+  function addToast(msg){
+    const id = Date.now()+Math.random();
+    setToasts(t=>[...t,{id,msg}]);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)), 3200);
+  }
+  function handleSearch(found, miss){
+    if(found) setOpenCaseId(found.id);
+    else if(miss){ setNotFound(true); setTimeout(()=>setNotFound(false),2500); }
+  }
+
+  if(!loggedIn) return <LoginScreen onLogin={()=>setLoggedIn(true)}/>;
+
+  const currentUser = USERS_SEED.find(u=>u.vai_tro===role) || USERS_SEED[0];
+  const myKhuVuc = ["Admin","QC","Viewer","TBP DVBH","TBP CSKH","TN CSKH","CSKH"].includes(role) ? null : (currentUser.khu_vuc.length?currentUser.khu_vuc:null);
+  const canGiaiTrinh = ["Giám sát","TBP DVBH","Admin"].includes(role);
+
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar active={active} setActive={setActive} role={role} collapsed={collapsed} setCollapsed={setCollapsed}/>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <TopBar role={role} setRole={setRole} onSearch={handleSearch} areaLabel={"DVBH Suite / " + MODULE_TITLES[active]} user={currentUser}/>
+        <main className="p-5 flex-1">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="font-display text-xl font-extrabold text-[var(--ink-900)]">{MODULE_TITLES[active]}</h1>
+          </div>
+          {active==="dashboard" && <DashboardModule role={role} myKhuVuc={myKhuVuc}/>}
+          {active==="revenue" && <RevenueModule myKhuVuc={myKhuVuc}/>}
+          {active==="backlog" && <BacklogModule myKhuVuc={myKhuVuc} role={role} addToast={addToast} openCase={setOpenCaseId}/>}
+          {active==="missing-parts" && <MissingPartsModule myKhuVuc={myKhuVuc} openCase={setOpenCaseId}/>}
+          {active==="survey" && <SurveyModule role={role} addToast={addToast} currentUserName={currentUser.ten} openCase={setOpenCaseId}/>}
+          {active==="import" && <ImportModule addToast={addToast}/>}
+          {active==="settings" && <SettingsModule addToast={addToast}/>}
+          {active==="users" && <UsersModule addToast={addToast}/>}
+        </main>
+      </div>
+      {openCaseId && <CaseDetail caseId={openCaseId} onClose={()=>setOpenCaseId(null)} addToast={addToast} canGiaiTrinh={canGiaiTrinh}/>}
+      <Toast toasts={toasts}/>
+      {notFound && <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-[var(--coral-500)] text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg z-[70] toast-in">Không tìm thấy ca với ID / Serial này</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

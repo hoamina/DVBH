@@ -1,0 +1,20 @@
+{
+  "name": "dvbh-suite",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev:worker": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "deploy": "npm run build && npm run deploy --workspace backend",
+    "db:migrate:local": "npm run db:migrate:local --workspace backend",
+    "db:migrate:remote": "npm run db:migrate:remote --workspace backend",
+    "deploy:smarttrade": "npm run build && wrangler deploy --config wrangler.smarttrade.jsonc",
+    "db:migrate:smarttrade": "wrangler d1 migrations apply dvbh-db-smarttrade --remote --config wrangler.smarttrade.jsonc"
+  },
+  "devDependencies": {
+    "wrangler": "^4.111.0",
+    "typescript": "^5.6.0"
+  }
+}
