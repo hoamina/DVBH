@@ -16,7 +16,28 @@ export const THEME_PRESETS = [
 ] as const;
 export type ThemePreset = (typeof THEME_PRESETS)[number];
 
-export const FONT_KEYS = ["inter", "manrope", "mono", "serif", "system", "custom"] as const;
+export const FONT_KEYS = [
+  "inter",
+  "manrope",
+  "mono",
+  "serif",
+  "system",
+  "arial",
+  "times",
+  "verdana",
+  "tahoma",
+  "trebuchet",
+  "segoe",
+  "calibri",
+  "cambria",
+  "garamond",
+  "palatino",
+  "century-gothic",
+  "impact",
+  "comic-sans",
+  "consolas",
+  "custom",
+] as const;
 export type FontKey = (typeof FONT_KEYS)[number];
 
 export interface ThemeCustomColors {

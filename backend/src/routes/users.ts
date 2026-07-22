@@ -27,6 +27,29 @@ users.get("/", async (c) => {
   return c.json({ rows });
 });
 
+// GET /api/users/login-log?email=&page=&pageSize= - nhat ky dang nhap, Admin-only (khoa boi
+// middleware "*" o tren). Loc theo email neu co, sap theo thoi gian gan nhat.
+users.get("/login-log", async (c) => {
+  const email = c.req.query("email")?.trim();
+  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const whereSql = email ? " WHERE email = ?" : "";
+  const binds = email ? [email] : [];
+
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM login_log${whereSql}`)
+    .bind(...binds)
+    .first<{ total: number }>();
+
+  const offset = (page - 1) * pageSize;
+  const { results } = await c.env.DB.prepare(
+    `SELECT * FROM login_log${whereSql} ORDER BY thoi_gian DESC LIMIT ? OFFSET ?`,
+  )
+    .bind(...binds, pageSize, offset)
+    .all();
+
+  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+});
+
 // PATCH /api/users/:email - duyet/tu choi/doi vai tro+khu vuc
 users.patch("/:email", async (c) => {
   const email = decodeURIComponent(c.req.param("email"));

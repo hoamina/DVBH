@@ -6,17 +6,26 @@ import { Badge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
-import { api } from "../api/client";
+import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
-import type { UserRow } from "../types";
+import { fmtDateTime, type UserRow } from "../types";
 import { ROLES } from "../constants";
 import { exportRowsToExcel } from "../lib/exportExcel";
 
 const PAGE_SIZE = 20;
 
+interface LoginLogRow {
+  id: number;
+  email: string;
+  thoi_gian: string;
+  ip: string | null;
+  user_agent: string | null;
+}
+
 export function UsersModule() {
   const [tab, setTab] = useState("cho-duyet");
   const [page, setPage] = useState(1);
+  const [logEmailFilter, setLogEmailFilter] = useState("");
   const addToast = useToast();
   const qc = useQueryClient();
   const [editUser, setEditUser] = useState<UserRow | null>(null);
@@ -24,6 +33,16 @@ export function UsersModule() {
   const { data } = useQuery({
     queryKey: ["users", tab],
     queryFn: () => api.get<{ rows: UserRow[] }>(`/users?tab=${tab}`),
+    enabled: tab !== "login-log",
+  });
+
+  const { data: loginLog } = useQuery({
+    queryKey: ["users-login-log", logEmailFilter, page],
+    queryFn: () =>
+      api.get<{ rows: LoginLogRow[]; page: number; pageSize: number; total: number }>(
+        `/users/login-log${buildQuery({ email: logEmailFilter, page, pageSize: PAGE_SIZE })}`,
+      ),
+    enabled: tab === "login-log",
   });
 
   const decide = useMutation({
@@ -86,13 +105,22 @@ export function UsersModule() {
     },
   ];
 
+  const loginLogColumns: Column<LoginLogRow>[] = [
+    { key: "email", header: "Email", render: (r) => <span className="font-mono text-sm">{r.email}</span> },
+    { key: "thoi_gian", header: "Thời gian đăng nhập", render: (r) => fmtDateTime(r.thoi_gian) },
+    { key: "ip", header: "Địa chỉ IP", render: (r) => <span className="font-mono text-xs">{r.ip ?? "—"}</span> },
+    { key: "user_agent", header: "Trình duyệt / thiết bị", render: (r) => <span className="text-xs text-[var(--ink-400)] break-all">{r.user_agent ?? "—"}</span> },
+  ];
+
   return (
     <div className="anim-in">
       <div className="flex items-center justify-between mb-1">
         <div />
-        <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(data?.rows ?? [], "quan_ly_user.xlsx")}>
-          ⬇ Xuất Excel
-        </Btn>
+        {tab !== "login-log" && (
+          <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(data?.rows ?? [], "quan_ly_user.xlsx")}>
+            ⬇ Xuất Excel
+          </Btn>
+        )}
       </div>
       <Tabs
         active={tab}
@@ -103,20 +131,49 @@ export function UsersModule() {
         tabs={[
           { key: "cho-duyet", label: "Chờ duyệt" },
           { key: "da-duyet", label: "Đã duyệt / khác" },
+          { key: "login-log", label: "Lịch sử đăng nhập" },
         ]}
       />
-      <PaginatedTable
-        columns={columns}
-        rows={(data?.rows ?? []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
-        isLoading={false}
-        isError={false}
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={(data?.rows ?? []).length}
-        onPageChange={setPage}
-        rowKey={(u) => u.email}
-        emptyText="Không có người dùng nào."
-      />
+      {tab === "login-log" ? (
+        <>
+          <div className="flex items-center gap-2 mt-3 mb-1">
+            <input
+              value={logEmailFilter}
+              onChange={(e) => {
+                setLogEmailFilter(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Lọc theo email…"
+              className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
+            />
+          </div>
+          <PaginatedTable
+            columns={loginLogColumns}
+            rows={loginLog?.rows ?? []}
+            isLoading={false}
+            isError={false}
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={loginLog?.total ?? 0}
+            onPageChange={setPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có lượt đăng nhập nào."
+          />
+        </>
+      ) : (
+        <PaginatedTable
+          columns={columns}
+          rows={(data?.rows ?? []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+          isLoading={false}
+          isError={false}
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={(data?.rows ?? []).length}
+          onPageChange={setPage}
+          rowKey={(u) => u.email}
+          emptyText="Không có người dùng nào."
+        />
+      )}
       {editUser && (
         <EditUserModal
           user={editUser}

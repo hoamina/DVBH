@@ -89,6 +89,12 @@ auth.get("/callback", async (c) => {
     )
     .run();
 
+  // Ghi nhat ky dang nhap (bao mat noi bo - Admin tra cuu ai dang nhap luc nao tu dau).
+  // CF-Connecting-IP la header Cloudflare tu dong gan, dang tin cay hon so voi client tu khai bao.
+  await c.env.DB.prepare("INSERT INTO login_log (email, ip, user_agent) VALUES (?, ?, ?)")
+    .bind(userInfo.email, c.req.header("CF-Connecting-IP") ?? null, c.req.header("User-Agent") ?? null)
+    .run();
+
   const token = await signSession({ email: userInfo.email }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,

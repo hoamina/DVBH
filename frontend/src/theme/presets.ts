@@ -27,7 +27,27 @@ export interface ThemeCustomColors {
   sidebarTo: string;
 }
 
-export type FontKey = "inter" | "manrope" | "mono" | "serif" | "system" | "custom";
+export type FontKey =
+  | "inter"
+  | "manrope"
+  | "mono"
+  | "serif"
+  | "system"
+  | "arial"
+  | "times"
+  | "verdana"
+  | "tahoma"
+  | "trebuchet"
+  | "segoe"
+  | "calibri"
+  | "cambria"
+  | "garamond"
+  | "palatino"
+  | "century-gothic"
+  | "impact"
+  | "comic-sans"
+  | "consolas"
+  | "custom";
 
 interface FontOptionDef {
   key: FontKey;
@@ -35,14 +55,29 @@ interface FontOptionDef {
   stack: string;
 }
 
-// Chi dung font da nap san (Inter/Manrope/IBM Plex Mono qua @fontsource, xem tokens.css) hoac
-// font he thong - khong them webfont moi de tranh phinh bundle.
+// Nhom 1: font da nap san qua @fontsource (xem tokens.css), khong phu thuoc may nguoi dung co
+// cai hay khong. Nhom 2: font he thong pho bien (Windows/Mac deu co san) - khong tai them webfont
+// nao de tranh phinh bundle, chi dung font co san tren may nguoi dung qua CSS font-stack.
 export const FONT_OPTIONS: FontOptionDef[] = [
   { key: "inter", label: "Mặc định (Inter)", stack: '"Inter", ui-sans-serif, system-ui, sans-serif' },
   { key: "manrope", label: "Manrope (bo tròn)", stack: '"Manrope", ui-sans-serif, system-ui, sans-serif' },
   { key: "mono", label: "Đơn cách (Mono)", stack: '"IBM Plex Mono", ui-monospace, "Courier New", monospace' },
   { key: "serif", label: "Có chân (Serif)", stack: 'Georgia, "Times New Roman", serif' },
   { key: "system", label: "Hệ thống (System UI)", stack: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' },
+  { key: "segoe", label: "Segoe UI (Windows)", stack: '"Segoe UI", Tahoma, sans-serif' },
+  { key: "arial", label: "Arial (phổ thông)", stack: 'Arial, Helvetica, sans-serif' },
+  { key: "verdana", label: "Verdana", stack: 'Verdana, Geneva, sans-serif' },
+  { key: "tahoma", label: "Tahoma", stack: 'Tahoma, Geneva, sans-serif' },
+  { key: "trebuchet", label: "Trebuchet MS", stack: '"Trebuchet MS", Helvetica, sans-serif' },
+  { key: "calibri", label: "Calibri", stack: 'Calibri, Candara, sans-serif' },
+  { key: "century-gothic", label: "Century Gothic (tròn)", stack: '"Century Gothic", AppleGothic, sans-serif' },
+  { key: "times", label: "Times New Roman (cổ điển)", stack: '"Times New Roman", Times, serif' },
+  { key: "cambria", label: "Cambria", stack: 'Cambria, Georgia, serif' },
+  { key: "garamond", label: "Garamond (trang trọng)", stack: 'Garamond, Georgia, serif' },
+  { key: "palatino", label: "Palatino", stack: '"Palatino Linotype", "Book Antiqua", Palatino, serif' },
+  { key: "consolas", label: "Consolas (lập trình)", stack: 'Consolas, "Courier New", monospace' },
+  { key: "impact", label: "Impact (đậm)", stack: 'Impact, Haettenschweiler, sans-serif' },
+  { key: "comic-sans", label: "Comic Sans MS (vui nhộn)", stack: '"Comic Sans MS", "Comic Sans", cursive' },
 ];
 export const DEFAULT_FONT: FontKey = "inter";
 

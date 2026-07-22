@@ -81,23 +81,11 @@ const VIEWS = [
 
 const PAGE_SIZE = 20;
 
-const AGE_BUCKETS: { key: string; label: string; tuoiTu?: string; tuoiDen?: string }[] = [
-  { key: "", label: "Tất cả tuổi tồn" },
-  { key: "gt-1", label: "Tồn trên 1 ngày", tuoiTu: "1" },
-  { key: "gt-3", label: "Tồn trên 3 ngày", tuoiTu: "3" },
-  { key: "gt-5", label: "Tồn trên 5 ngày", tuoiTu: "5" },
-  { key: "gt-7", label: "Tồn trên 7 ngày", tuoiTu: "7" },
-  { key: "custom", label: "Tùy chỉnh…" },
-];
-
 export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
   const [view, setView] = useState("bao-cao");
   const [tab, setTab] = useState("can-khao-sat");
   const [page, setPage] = useState(1);
   const [khuVucFilter, setKhuVucFilter] = useState("");
-  const [ageBucketKey, setAgeBucketKey] = useState("gt-3");
-  const [tuoiTuCustom, setTuoiTuCustom] = useState("");
-  const [tuoiDenCustom, setTuoiDenCustom] = useState("");
   const auth = useAuth();
   const role = auth.status === "authenticated" ? auth.user.vai_tro : null;
   const addToast = useToast();
@@ -107,34 +95,30 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
   const isLead = role === "TN CSKH" || role === "TBP CSKH" || role === "Admin";
   const canSurvey = ["CSKH", "TN CSKH", "TBP CSKH", "Admin"].includes(role ?? "");
 
-  const ageRange =
-    ageBucketKey === "custom"
-      ? { tuoiTu: tuoiTuCustom || undefined, tuoiDen: tuoiDenCustom || undefined }
-      : { tuoiTu: AGE_BUCKETS.find((b) => b.key === ageBucketKey)?.tuoiTu, tuoiDen: AGE_BUCKETS.find((b) => b.key === ageBucketKey)?.tuoiDen };
-  const filterParams = { khu_vuc: khuVucFilter, tuoi_tu: ageRange.tuoiTu, tuoi_den: ageRange.tuoiDen };
+  const filterParams = { khu_vuc: khuVucFilter };
 
   const { data: canKhaoSat } = useQuery({
-    queryKey: ["survey", "can-khao-sat", khuVucFilter, ageRange.tuoiTu, ageRange.tuoiDen],
+    queryKey: ["survey", "can-khao-sat", khuVucFilter],
     queryFn: () => api.get<{ rows: CanKhaoSatRow[] }>(`/survey${buildQuery({ tab: "can-khao-sat", ...filterParams })}`),
     enabled: view === "danh-sach" && tab === "can-khao-sat",
   });
   const { data: quaHanKhaoSat } = useQuery({
-    queryKey: ["survey", "qua-han-khao-sat", khuVucFilter, ageRange.tuoiTu, ageRange.tuoiDen],
+    queryKey: ["survey", "qua-han-khao-sat", khuVucFilter],
     queryFn: () => api.get<{ rows: CanKhaoSatRow[] }>(`/survey${buildQuery({ tab: "qua-han-khao-sat", ...filterParams })}`),
     enabled: view === "danh-sach" && tab === "qua-han-khao-sat",
   });
   const { data: choQc } = useQuery({
-    queryKey: ["survey", "cho-qc", khuVucFilter, ageRange.tuoiTu, ageRange.tuoiDen],
+    queryKey: ["survey", "cho-qc", khuVucFilter],
     queryFn: () => api.get<{ rows: ViPhamRow[] }>(`/survey${buildQuery({ tab: "cho-qc", ...filterParams })}`),
     enabled: view === "danh-sach" && tab === "cho-qc",
   });
   const { data: daXuLy } = useQuery({
-    queryKey: ["survey", "da-xu-ly", khuVucFilter, ageRange.tuoiTu, ageRange.tuoiDen],
+    queryKey: ["survey", "da-xu-ly", khuVucFilter],
     queryFn: () => api.get<{ rows: ViPhamRow[] }>(`/survey${buildQuery({ tab: "da-xu-ly", ...filterParams })}`),
     enabled: view === "danh-sach" && tab === "da-xu-ly",
   });
   const { data: counts } = useQuery({
-    queryKey: ["survey-counts", khuVucFilter, ageRange.tuoiTu, ageRange.tuoiDen],
+    queryKey: ["survey-counts", khuVucFilter],
     queryFn: () => api.get<Record<string, number>>(`/survey/counts${buildQuery(filterParams)}`),
   });
   const { data: khuVucStats } = useQuery({
@@ -177,7 +161,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
     setKhuVucFilter(khuVuc);
     setTab(targetTab);
     setPage(1);
-    setAgeBucketKey(""); // bao cao khong ap dung loc tuoi ton, xoa loc de danh sach khop dung so da bam
     setView("danh-sach");
   }
 
@@ -221,38 +204,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
             ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
         />
-        {view === "danh-sach" && (
-          <>
-            <Select
-              value={ageBucketKey}
-              onChange={(v) => {
-                setAgeBucketKey(v);
-                setPage(1);
-              }}
-              options={AGE_BUCKETS.map((b) => ({ value: b.key, label: b.label }))}
-            />
-            {ageBucketKey === "custom" && (
-              <>
-                <input
-                  type="number"
-                  min={0}
-                  value={tuoiTuCustom}
-                  onChange={(e) => setTuoiTuCustom(e.target.value)}
-                  placeholder="Từ (ngày)"
-                  className="focus-ring w-24 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  value={tuoiDenCustom}
-                  onChange={(e) => setTuoiDenCustom(e.target.value)}
-                  placeholder="Đến (ngày)"
-                  className="focus-ring w-24 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                />
-              </>
-            )}
-          </>
-        )}
       </div>
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
