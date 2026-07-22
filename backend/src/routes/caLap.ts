@@ -8,22 +8,13 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { khuVucAdHocClause } from "../lib/filterParams";
 import { nextSequentialId } from "../lib/idCounter";
 import { runBatched } from "../lib/backfillImportProcessor";
+import { eligibleClause } from "../lib/caLapEligible";
 
 const caLap = new Hono<{ Bindings: Env }>();
 caLap.use("*", verifySessionMiddleware, loadUser);
 
 // Export de notifications.ts dung lai cho badge sidebar (dem "can danh gia"/"cho QC" cua Ca lap).
 export const NGUONG_NGAY_LAP = 45;
-
-// Pham vi xu ly "Ca lap": chi ca da "Hoan thanh XLSC" va hinh thuc bao hanh KHAC "Goi dien tu van"
-// (ca goi dien tu van chi la huong dan qua dien thoai, khong phai 1 lan xu ly thuc te nen khong
-// tinh la "lap"). NULL van giu lai (chua xac dinh hinh thuc bao hanh khac voi "Goi dien tu van" ro
-// rang) - chi loai dung gia tri "Goi dien tu van", khong loai ca chua co du lieu. Dung chung 1 ham
-// (thay vi lap chuoi SQL) vi dieu kien nay ap dung o ca CTE goc lan cac truy van "tong ca can ra
-// soat" trong /tong-quan - phai nhat quan cung 1 dinh nghia "ca thuoc pham vi Ca lap".
-function eligibleClause(prefix: string): string {
-  return ` AND ${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND (${prefix}hinh_thuc_bao_hanh IS NULL OR ${prefix}hinh_thuc_bao_hanh != 'Gọi điện tư vấn')`;
-}
 
 /** "2026-06" -> { start: "2026-06-01", end: "2026-07-01" } - copy y het monthBounds() cua cases.ts
  * (khong gio o ca 2 dau, xem comment goc o do ve bug so sanh chuoi ngay-thuan-vs-co-gio). */
@@ -39,32 +30,26 @@ function monthBounds(thang: string): { start: string; end: string } {
 }
 
 /**
- * Phat hien "ca lap" (cung serial voi ca hoan thanh gan nhat truoc do) bang LAG() window function
- * thay cho vong lap JS cua tool "Radar Lap" cu - quet TOAN BO lich su case_dvbh (khong gioi han
- * "2 thang truoc" thu cong nhu ban cu), tan dung idx_case_seri co san. Cung idiom voi ROW_NUMBER()
- * OVER (PARTITION BY ...) da dung de sua bug trung dong giai_trinh (xem LATEST_GIAI_TRINH_JOIN o
- * cases.ts) - "id ASC" lam tie-breaker khi 2 ca trung dung thoi_gian_hoan_thanh.
- * Loai serial rong/qua ngan (<=4 ky tu) va serial dang bi blacklist (bat_tat=1).
+ * Phat hien "ca lap" (cung serial voi ca hoan thanh gan nhat truoc do). TRUOC DAY tinh truc tiep
+ * bang LAG() window function quet TOAN BO lich su case_dvbh (~15.6 nghin dong) MOI LAN goi - qua
+ * ton kem vi duoc goi lai o nhieu noi (badge thong bao poll moi 5 phut, banner Dashboard, module
+ * Ca lap) va lam rows-read D1 vuot han muc free tier (xem phan tich chi phi D1 2026-07-22).
+ *
+ * GIO DAY: ket qua LAG() duoc TINH SAN dinh ky qua Cron Trigger (lib/caLapRefresh.ts, xem
+ * backend/src/index.ts scheduled()), luu vao 2 cot case_dvbh.ca_lap_prior_id/ca_lap_prior_ht. Doc
+ * "lap" chi con la 1 truy van WHERE don gian tren index rieng (idx_case_ca_lap_prior_ht,
+ * migrations/0017) - chi cham ~816 dong (so ca THAT SU co "lap") thay vi quet ~15.6 nghin dong moi
+ * lan, giam ~19 lan chi phi. Danh doi: du lieu co the cham hon toi da 1 chu ky refresh (vd 20 phut)
+ * so voi thoi diem import/cap nhat that - chap nhan duoc cho 1 bao cao noi bo.
  */
 // Than CTE (khong co tu khoa "WITH" dau) - dung khi can ghep vao GIUA 1 khoi WITH khac (khuVucQuery/
 // ktvQuery ben duoi co WITH rieng cua chung, khong the long them 1 "WITH" thu 2 o giua danh sach CTE).
 const CA_LAP_CTE_BODY = `
-  ranked AS (
-    SELECT c.*,
-      LAG(c.thoi_gian_hoan_thanh) OVER (PARTITION BY c.seri_san_pham ORDER BY c.thoi_gian_hoan_thanh ASC, c.id ASC) AS prior_ht,
-      LAG(c.id) OVER (PARTITION BY c.seri_san_pham ORDER BY c.thoi_gian_hoan_thanh ASC, c.id ASC) AS prior_id
-    FROM case_dvbh c
-    WHERE c.thoi_gian_hoan_thanh IS NOT NULL
-      AND c.seri_san_pham IS NOT NULL AND length(c.seri_san_pham) > 4
-      AND NOT EXISTS (
-        SELECT 1 FROM blacklist_serial b
-        WHERE b.seri_san_pham = UPPER(TRIM(c.seri_san_pham)) AND b.bat_tat = 1
-      )${eligibleClause("c.")}
-  ),
   lap AS (
-    SELECT *, (julianday(thoi_gian_hoan_thanh) - julianday(prior_ht)) AS gap_days
-    FROM ranked
-    WHERE prior_ht IS NOT NULL
+    SELECT *, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
+      (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
+    FROM case_dvbh
+    WHERE ca_lap_prior_ht IS NOT NULL
   )
 `;
 // Ban standalone (co "WITH" dau) - dung khi day la khoi WITH duy nhat cua cau truy van. Export de

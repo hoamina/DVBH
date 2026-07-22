@@ -791,3 +791,21 @@ User gửi ảnh chụp Cloudflare D1 Usage: Rows read 58.65M/5M (vượt ~12 l�
 **Lưu ý còn mở**: đây là cải thiện đáng kể (giảm ~10 lần tần suất poll + giảm 1 nửa chi phí mỗi lần) nhưng KHÔNG loại bỏ hoàn toàn chi phí quét lịch sử — nếu vẫn còn vượt hạn mức sau vài ngày theo dõi, nên cân nhắc bước tiếp theo: cache kết quả phát hiện "ca lặp" (vd tính toán định kỳ qua Cron Trigger, lưu vào bảng/KV, thay vì tính trực tiếp mỗi request).
 
 Tăng version `1.034` → `1.035`. Deploy thành công lên `smarttrade.vp` (Version ID `bb407ec3-cf8b-4d12-85ae-07802a44dc03`).
+
+## 2026-07-22 (đợt 6 cùng ngày) — Triển khai các phương án tối ưu chi phí D1 (#1 + #2 trong báo cáo)
+
+Sau báo cáo phân tích chi tiết (ước lượng chi phí từng thao tác + 3 kịch bản rủi ro), user yêu cầu triển khai các phương án khả thi. Đã làm #1 và #2 (không cần quyết định billing của user); tạm chưa làm #3 (cache tầng Worker) vì cần thiết kế cache-key theo đúng phạm vi khu_vuc từng vai trò để tránh rò rỉ dữ liệu chéo người dùng — để sau nếu cần.
+
+**#1 — `staleTime` cho React Query**: `main.tsx` đổi mặc định từ `0` (moi lan mount lai deu goi lai API) sang `2 phút`. Các nơi cần dữ liệu tức thời sau khi ghi (giải trình, chốt vi phạm...) đã tự gọi `qc.invalidateQueries()` riêng, không bị ảnh hưởng (invalidate luôn ép refetch bất kể staleTime).
+
+**#2 — Tính sẵn "ca lặp" định kỳ thay vì tính mỗi request** (khoản tốn nhất theo báo cáo, dùng lặp lại 11 lần rải rác trong `notifications.ts`/`dailyReport.ts`/`caLap.ts`):
+- `migrations/0017_ca_lap_precompute.sql`: thêm `case_dvbh.ca_lap_prior_id`/`ca_lap_prior_ht`/`ca_lap_computed_at` + index bộ phận `idx_case_ca_lap_prior_ht WHERE ca_lap_prior_ht IS NOT NULL`.
+- `lib/caLapEligible.ts` (mới): tách `eligibleClause()` ra khỏi `caLap.ts` để dùng chung được với hàm refresh mà không tạo vòng lặp import route→lib→route.
+- `lib/caLapRefresh.ts` (mới): `refreshCaLapPrecompute()` — xoá giá trị cũ rồi tính lại 1 lần bằng chính window function `LAG()` gốc, ghi vào 2 cột mới qua `UPDATE ... FROM` (SQLite 3.33+, D1 hỗ trợ).
+- `routes/caLap.ts`: `CA_LAP_CTE_BODY` đổi từ tính trực tiếp window function sang `SELECT *, ca_lap_prior_id AS prior_id, ... FROM case_dvbh WHERE ca_lap_prior_ht IS NOT NULL` — **giữ nguyên tên cột `prior_id`/`prior_ht`/`gap_days` nên KHÔNG cần sửa bất kỳ chỗ nào trong 11 điểm gọi `CA_LAP_CTE`** (notifications.ts, dailyReport.ts, và 8 chỗ trong caLap.ts) — đây là điểm mấu chốt giúp refactor an toàn, rủi ro thấp.
+- `backend/src/index.ts`: `scheduled()` phân nhánh theo `event.cron` — cron cũ (`0 20 * * *`, archive hàng ngày) giữ nguyên, thêm cron mới `*/20 * * * *` (mỗi 20 phút) gọi `refreshCaLapPrecompute()`.
+- `wrangler.jsonc` + `wrangler.smarttrade.jsonc`: thêm `"*/20 * * * *"` vào `triggers.crons` (đã sửa cả 2 file cho đồng bộ codebase, dù không deploy lại `wrangler.jsonc`/meomeo3101 theo đúng quy tắc đã thống nhất).
+
+**Kiểm chứng qua `wrangler dev --local`**: chạy tay SQL refresh (mô phỏng cron) → `EXPLAIN QUERY PLAN` xác nhận đổi từ tính window function sang `SEARCH case_dvbh USING INDEX idx_case_ca_lap_prior_ht` — đúng như thiết kế. `/api/notifications/count` trả `caLap: 561` — khớp TUYỆT ĐỐI với giá trị window-function gốc đã thấy suốt phiên làm việc trước đó (xác nhận không sai số liệu). `/api/ca-lap/tong-quan` (endpoint phức tạp nhất, 8 lần dùng CA_LAP_CTE) trả dữ liệu hợp lý không lỗi. `/api/ca-lap/danh-sach` (dùng `SELECT lap.*`) trả đầy đủ đúng cột. Phát hiện thêm khi test: chỉ **817/15.648** dòng thực sự có "prior" (ca lặp thật) — xác nhận đúng ước tính ~816 trong báo cáo, nghĩa là đọc qua index giảm ~19 lần so với quét window function mỗi lần.
+
+Tăng version `1.035` → `1.036`. Deploy migration + code + cron mới thành công lên `smarttrade.vp` (Version ID `2d670a5d-efbf-49fa-903b-72a43f5d2554`), đã chạy tay 1 lần refresh trên D1 thật để có dữ liệu ngay (817 dòng cập nhật) thay vì chờ tới lượt cron đầu tiên (tối đa 20 phút).
