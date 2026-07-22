@@ -16,6 +16,16 @@ Xem chi tiết: `ban-yeu-cau-he-thong-giai-trinh-ton-DVBH_260715-v2.md`
 
 Xem chi tiết kiến trúc, API, migrations trong mã nguồn thư mục `backend/` và `frontend/`.
 
+### 2.1. Tài khoản Cloudflare (cập nhật 2026-07-22)
+Dự án ban đầu chạy trên tài khoản `meomeo3101@gmail.com` (Worker `dvbh-suite`, D1 `dvbh-db`) —
+**tài khoản này đã DỪNG sử dụng**, không còn thao tác gì thêm lên đó. Toàn bộ công việc từ
+2026-07-22 chuyển hẳn sang tài khoản `smarttrade.vp@gmail.com`:
+- Worker: `dvbh` — domain `https://dvbh.dichvu3t.workers.dev`
+- D1: `dvbh-db-smarttrade` (cùng schema/migrations với D1 cũ, không copy data thật)
+- Config riêng: `wrangler.smarttrade.jsonc` (khác `wrangler.jsonc` cũ, KHÔNG dùng chung)
+- Deploy: `npm run deploy:smarttrade` (build frontend + `wrangler deploy --config wrangler.smarttrade.jsonc`)
+- Google OAuth Client riêng (không dùng chung Client ID/Secret với tài khoản cũ)
+
 ## 3. Sơ đồ dữ liệu (7 bảng + 2 bảng bổ sung)
 `schema.sql` là bản Postgres gốc (tham chiếu lịch sử). Bản chạy thật là D1/SQLite trong
 `migrations/0001_init.sql` (7 bảng, chuyển TEXT[]→JSON text, UUID→crypto.randomUUID(),
@@ -56,6 +66,22 @@ Thực chất là cột **Khu vực** (không phải Trưởng bộ phận DVBH)
 
 ### 4.6. GIAI TRINH / KET QUA GOI / LOI GHI NHAN
 3 bảng này do app tự sinh dữ liệu qua thao tác người dùng — không có nguồn dữ liệu cũ cần migrate.
+
+### 4.7. Cột "Link hình ảnh" (thêm 2026-07-22)
+Cột mới trong file import hàng ngày, nằm ngay sau cột "TBP" — nhiều URL ảnh báo cáo công việc
+cách nhau bởi dấu phẩy, giới hạn tối đa 30 ảnh/ca. Backend (`ratchet.ts`) tách chuỗi và tự đổi
+domain rút gọn `key.com/` thành domain S3 thật (`srt-iotp-prod-storage.s3.ap-southeast-1.amazonaws.com/`)
+NGAY LÚC IMPORT — client không bao giờ nhận giá trị thô, chỉ nhận mảng URL đã xử lý xong (lưu
+`case_dvbh.link_hinh_anh` dạng JSON array string, theo đúng quy ước `TEXT[]→JSON text` của D1).
+Hiển thị dạng gallery ảnh (grid + lightbox) trong Chi tiết ca, mục "Thông tin xử lý".
+
+### 4.8. Múi giờ hiển thị (sửa bug 2026-07-22)
+Mọi timestamp hệ thống tự sinh (`ngay_import`, `ngay_giai_trinh`, `ngay_chot`...) lưu theo UTC
+(`datetime('now')` của SQLite, `new Date().toISOString()` của JS đều là UTC) — đây là quy ước có
+chủ đích (xem `backend/src/lib/ageCalc.ts`), KHÔNG phải bug lưu sai giờ. Frontend phải luôn cộng
++7 khi hiển thị/so sánh (`parseDbDateTime()` trong `frontend/src/types.ts`, ép chuỗi là UTC rồi
+format theo `timeZone: "Asia/Ho_Chi_Minh"`) — trước 2026-07-22 bước cộng +7 này bị thiếu, khiến
+mọi giờ hiển thị chậm hơn thực tế 7 tiếng.
 
 ## 5. Việc còn cần xác nhận / mở
 - Vai trò quản lý bảng `linh_kien`: tạm mặc định Admin only, cần xác nhận có mở thêm vai trò khác không
