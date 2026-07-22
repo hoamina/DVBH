@@ -60,10 +60,13 @@ export function TopBar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
+  // 5 phut (truoc la 60s) - /notifications/count chua truy van CA_LAP_CTE (window function LAG()
+  // quet toan bo lich su case_dvbh, khong dung duoc index de rut gon), poll qua day khi cong don
+  // ca ngay (tab mo lien tuc) da vuot han muc "rows read" free tier cua D1 (xem nhat_ky_lam_viec.md).
   const { data: counts } = useQuery({
     queryKey: ["notifications-count"],
     queryFn: () => api.get<{ canGiaiTrinh: number; choQc: number }>("/notifications/count"),
-    refetchInterval: 60_000,
+    refetchInterval: 5 * 60_000,
   });
   const notifCount = (counts?.canGiaiTrinh ?? 0) + (counts?.choQc ?? 0);
 

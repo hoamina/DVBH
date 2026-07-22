@@ -776,3 +776,18 @@ Tăng version `1.032` → `1.033`. Deploy thành công lên `smarttrade.vp` (Ver
 **Vụ ảnh "Link hình ảnh" chưa hiện**: kiểm tra lại D1 smarttrade — `18475` ca thật, `0` ca có `link_hinh_anh`. Code pipeline (COLUMN_MAP/ratchet/gallery) vẫn nguyên vẹn, đã re-verify. Xác nhận với user: đây KHÔNG PHẢI bug — đơn giản là chưa có lần import/đồng bộ nào có cột "Link hình ảnh" chứa URL thật trong dữ liệu nguồn (Excel/Google Sheet). Cần thêm cột này vào file/Sheet nguồn rồi import/đồng bộ lại thì ảnh mới xuất hiện.
 
 Tăng version `1.033` → `1.034`. Deploy thành công lên `smarttrade.vp` (Version ID `1ecc13e8-b18e-4129-8238-f2ce68e25f0f`).
+
+## 2026-07-22 (đợt 5 cùng ngày) — Điều tra và giảm chi phí "rows read" D1 (user báo 58.65M/5M free tier)
+
+User gửi ảnh chụp Cloudflare D1 Usage: Rows read 58.65M/5M (vượt ~12 lần hạn mức free tier). Điều tra tìm ra nguyên nhân chính: `GET /api/notifications/count` (badge sidebar + chuông thông báo) được poll mỗi 60 giây liên tục khi app mở (Sidebar.tsx + TopBar.tsx, cùng queryKey nhưng phải khớp `refetchInterval` mới thực sự dùng chung nhịp), và bên trong endpoint này chạy **CA_LAP_CTE** — 1 CTE dùng window function `LAG() OVER (PARTITION BY seri_san_pham ORDER BY thoi_gian_hoan_thanh)` quét TOÀN BỘ lịch sử `case_dvbh` (theo đúng comment gốc trong code) — và **chạy 2 LẦN** (1 lần đếm "cần đánh giá", 1 lần đếm "chờ QC") trong CÙNG 1 request. Nếu để tab mở cả ngày (1440 lần poll/ngày), riêng phần này đã có thể tạo ra hàng chục triệu rows-read — khớp đúng độ lớn với con số 58.65M user báo.
+
+**Đã sửa 3 việc**:
+1. `notifications.ts`: gộp 2 truy vấn CA_LAP_CTE (đếm "cần đánh giá" + "chờ QC") thành 1 truy vấn duy nhất dùng `SUM(CASE WHEN...)` — giảm ngay 1 nửa chi phí phần này mỗi lần gọi.
+2. `Sidebar.tsx` + `TopBar.tsx`: giãn `refetchInterval` của "notifications-count" từ 60 giây lên 5 phút (khớp nhịp với "sync-status" đã có sẵn) — giảm số lần gọi endpoint này xuống 5 lần.
+3. `migrations/0016_ca_lap_perf_index.sql`: thêm index `(seri_san_pham, thoi_gian_hoan_thanh)` khớp đúng PARTITION BY/ORDER BY của window function — `EXPLAIN QUERY PLAN` xác nhận đổi từ "SCAN toàn bảng" sang "SEARCH ... USING INDEX idx_case_seri_hoan_thanh".
+
+**Kiểm chứng**: gọi trực tiếp `/api/notifications/count` sau khi sửa, kết quả `caLap: 561` khớp chính xác với giá trị badge đã thấy nhất quán suốt phiên làm việc trước đó (xác nhận query gộp không làm sai số liệu). `EXPLAIN QUERY PLAN` xác nhận index được dùng. `npx tsc --noEmit` sạch cả 2 phía.
+
+**Lưu ý còn mở**: đây là cải thiện đáng kể (giảm ~10 lần tần suất poll + giảm 1 nửa chi phí mỗi lần) nhưng KHÔNG loại bỏ hoàn toàn chi phí quét lịch sử — nếu vẫn còn vượt hạn mức sau vài ngày theo dõi, nên cân nhắc bước tiếp theo: cache kết quả phát hiện "ca lặp" (vd tính toán định kỳ qua Cron Trigger, lưu vào bảng/KV, thay vì tính trực tiếp mỗi request).
+
+Tăng version `1.034` → `1.035`. Deploy thành công lên `smarttrade.vp` (Version ID `bb407ec3-cf8b-4d12-85ae-07802a44dc03`).

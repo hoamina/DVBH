@@ -20,7 +20,7 @@ notifications.get("/count", async (c) => {
   const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
   const scopeClauseLap = khuVucWhereClause(scope, "lap.khu_vuc");
 
-  const [canGiaiTrinh, choQc, caThieuLinhKien, canKhaoSat, caLapCanDanhGia, caLapChoQc] = await Promise.all([
+  const [canGiaiTrinh, choQc, caThieuLinhKien, canKhaoSat, caLapCounts] = await Promise.all([
     c.env.DB.prepare(
       `SELECT COUNT(*) as n FROM case_dvbh
        WHERE thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL
@@ -57,26 +57,28 @@ notifications.get("/count", async (c) => {
     )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),
+    // Gop 2 truy van "can danh gia"/"cho QC" cua Ca lap thanh 1 - CA_LAP_CTE dung window function
+    // LAG() quet TOAN BO lich su case_dvbh (khong dung duoc index de rut gon), rat ton kem neu chay
+    // 2 lan cho cung 1 request (phat hien qua Cloudflare D1 usage: rows read vuot xa binh thuong -
+    // endpoint nay bi poll moi 60s tu Sidebar/TopBar nen nhan chi phi len rat nhieu lan/ngay).
     c.env.DB.prepare(
       `${CA_LAP_CTE}
-       SELECT COUNT(*) as n FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
-       WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NULL${scopeClauseLap.sql}`,
+       SELECT
+         SUM(CASE WHEN gl.chot_danh_gia_lap IS NULL THEN 1 ELSE 0 END) as can_danh_gia,
+         SUM(CASE WHEN gl.chot_danh_gia_lap IS NOT NULL AND gl.qc_chot IS NULL THEN 1 ELSE 0 END) as cho_qc
+       FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
+       WHERE lap.gap_days <= ${NGUONG_NGAY_LAP}${scopeClauseLap.sql}`,
     )
       .bind(...scopeClauseLap.binds)
-      .first<{ n: number }>(),
-    c.env.DB.prepare(
-      `${CA_LAP_CTE}
-       SELECT COUNT(*) as n FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
-       WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NOT NULL AND gl.qc_chot IS NULL${scopeClauseLap.sql}`,
-    )
-      .bind(...scopeClauseLap.binds)
-      .first<{ n: number }>(),
+      .first<{ can_danh_gia: number; cho_qc: number }>(),
   ]);
 
   const role = user.vai_tro;
   const khaoSat =
     role === "QC" ? (choQc?.n ?? 0) : role === "CSKH" || role === "TN CSKH" ? (canKhaoSat?.n ?? 0) : (canKhaoSat?.n ?? 0) + (choQc?.n ?? 0);
-  const caLap = role === "Giam sat" ? (caLapCanDanhGia?.n ?? 0) : role === "QC" ? (caLapChoQc?.n ?? 0) : (caLapCanDanhGia?.n ?? 0) + (caLapChoQc?.n ?? 0);
+  const caLapCanDanhGia = caLapCounts?.can_danh_gia ?? 0;
+  const caLapChoQc = caLapCounts?.cho_qc ?? 0;
+  const caLap = role === "Giam sat" ? caLapCanDanhGia : role === "QC" ? caLapChoQc : caLapCanDanhGia + caLapChoQc;
 
   return c.json({
     canGiaiTrinh: canGiaiTrinh?.n ?? 0,

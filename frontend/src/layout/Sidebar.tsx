@@ -39,11 +39,12 @@ export function Sidebar({
   const isMobile = useIsMobile();
   const allowed = ROLE_MODULES[role] ?? [];
   // Cung queryKey voi TopBar.tsx ("notifications-count") de dung chung 1 cache/fetch, khong goi API
-  // 2 lan cho cung 1 du lieu.
+  // 2 lan cho cung 1 du lieu - refetchInterval PHAI khop voi TopBar.tsx, neu khong observer nao co
+  // interval ngan hon se ep query chay theo nhip do (xem comment trong TopBar.tsx ve chi phi D1).
   const { data: counts } = useQuery({
     queryKey: ["notifications-count"],
     queryFn: () => api.get<NotificationCounts>("/notifications/count"),
-    refetchInterval: 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
   const content = (
