@@ -163,7 +163,7 @@ export function TopBar({
                 </>
               ) : (
                 <div className="px-3.5 py-3">
-                  <LoadingInline className="text-xs text-[var(--ink-400)] italic" />
+                  <LoadingInline className="text-sm font-semibold text-[var(--ink-600)]" />
                 </div>
               )}
             </div>

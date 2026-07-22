@@ -31,7 +31,7 @@ export function App() {
   if (auth.status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <LoadingInline className="text-[var(--ink-400)] text-sm" />
+        <LoadingInline className="text-[var(--ink-700)] text-xl font-bold" />
       </div>
     );
   }

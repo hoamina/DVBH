@@ -57,8 +57,8 @@ export function PaginatedTable<T>({
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={columns.length} className="py-3 px-3 text-center">
-                  <LoadingInline className="text-xs text-[var(--ink-400)] italic" />
+                <td colSpan={columns.length} className="py-4 px-3 text-center">
+                  <LoadingInline className="text-sm font-semibold text-[var(--ink-600)] justify-center" />
                 </td>
               </tr>
             )}

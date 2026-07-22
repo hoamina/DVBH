@@ -760,3 +760,11 @@ Tăng version `1.030` → `1.031`.
 **Kiểm chứng qua `wrangler dev --local` + trình duyệt thật**: xác nhận dropdown tuổi tồn đã biến mất khỏi cả 2 view "Báo cáo"/"Danh sách chi tiết" của Khảo sát. Seed 1 dòng `login_log` test → tab "Lịch sử đăng nhập" hiển thị đúng email/giờ (đã +7 đúng)/IP/user agent. Chọn font "Impact" mới → `GET /api/auth/me` xác nhận `theme_config` lưu đúng `{"font":"impact"}` (không bị 400 như bug lần trước). `npx tsc --noEmit` sạch cả 2 phía. Dọn dữ liệu test.
 
 Tăng version `1.031` → `1.032`. Deploy thành công lên `smarttrade.vp` (Version ID `51550e9c-7852-412b-b340-2b036979c5fc`).
+
+## 2026-07-22 (đợt 3 cùng ngày) — Lời nhắc loading to/rõ hơn kèm emoji, tiếp tục việc GitHub ETX87
+
+**Lời nhắc loading**: `loadingPhrases.ts` đổi từ `string[]` sang `{text, emoji}[]` — gắn 1 emoji phù hợp ngữ cảnh riêng cho từng câu trong 35 câu (không random độc lập). `LoadingCard`/`LoadingInline` tăng cỡ chữ rõ rệt (emoji `text-2xl`→`text-5xl` tùy chỗ, chữ `font-bold`/`font-semibold` cỡ `text-base`/`text-lg`, có `animate-bounce`), áp dụng luôn cho các nơi trước đó bị giữ nhỏ (App.tsx màn khởi động, TopBar dropdown, PaginatedTable) để đồng bộ toàn hệ thống. Xác nhận bằng `react-dom/server` `renderToStaticMarkup` trực tiếp (không qua trình duyệt, do môi trường test không bắt kịp khung hình loading rất nhanh trên localhost) — output HTML đúng như thiết kế.
+
+**GitHub → tổ chức ETX87**: tài khoản `smarttradevp-lgtm` đã được thêm vào tổ chức (user xác nhận), nhưng thử `transfer` repo bị chặn bởi 1 lớp policy khác của GitHub: tổ chức không cho phép **thành viên thường** (không phải Owner) tạo/nhận repo **riêng tư** (lỗi API rõ ràng: "You don't have the permission to create private repositories on ETX87") — khác với việc chỉ là thành viên hay không. User sẽ nhờ người quản lý (Owner) tổ chức xử lý (bật quyền hoặc tự tạo repo + thêm collaborator) — tạm dừng, code vẫn đang ở `github.com/smarttradevp-lgtm/dvbh-suite`.
+
+Tăng version `1.032` → `1.033`. Deploy thành công lên `smarttrade.vp` (Version ID `ae280607-cd31-4a25-807e-f35e0a735536`).
