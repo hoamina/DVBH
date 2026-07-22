@@ -228,8 +228,13 @@ export function fmtVND(n: number | null | undefined): string {
 // tren thuc te (xem backend/src/lib/ageCalc.ts) - phai tu them "Z" truoc khi parse, neu khong JS
 // se hieu nham la gio dia phuong cua trinh duyet va lam moi thoi gian hien thi/so sanh bi CHAM hon
 // thuc te 7 tieng (thieu +7). Dung ham nay o moi noi can Date object chinh xac tu chuoi co gio.
+// LUU Y: mot so gia tri (vd "cachedAt" sinh boi new Date().toISOString() o client) da la ISO day
+// du kem "Z"/offset san - phai kiem tra truoc, khong duoc cong them "Z" nua (se ra chuoi invalid,
+// gay "Invalid Date" o CacheBanner).
 export function parseDbDateTime(d: string): Date {
-  return new Date(`${d.replace(" ", "T")}Z`);
+  const withT = d.replace(" ", "T");
+  const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(withT);
+  return new Date(hasTimezone ? withT : `${withT}Z`);
 }
 
 export function fmtDateTime(d: string | null | undefined): string {

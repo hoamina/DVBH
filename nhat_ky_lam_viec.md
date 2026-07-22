@@ -768,3 +768,11 @@ Tăng version `1.031` → `1.032`. Deploy thành công lên `smarttrade.vp` (Ver
 **GitHub → tổ chức ETX87**: tài khoản `smarttradevp-lgtm` đã được thêm vào tổ chức (user xác nhận), nhưng thử `transfer` repo bị chặn bởi 1 lớp policy khác của GitHub: tổ chức không cho phép **thành viên thường** (không phải Owner) tạo/nhận repo **riêng tư** (lỗi API rõ ràng: "You don't have the permission to create private repositories on ETX87") — khác với việc chỉ là thành viên hay không. User sẽ nhờ người quản lý (Owner) tổ chức xử lý (bật quyền hoặc tự tạo repo + thêm collaborator) — tạm dừng, code vẫn đang ở `github.com/smarttradevp-lgtm/dvbh-suite`.
 
 Tăng version `1.032` → `1.033`. Deploy thành công lên `smarttrade.vp` (Version ID `ae280607-cd31-4a25-807e-f35e0a735536`).
+
+## 2026-07-22 (đợt 4 cùng ngày) — Sửa bug "Invalid Date" do fix +7 giờ gây ra, xác nhận lại vụ ảnh
+
+**Bug hồi quy**: `parseDbDateTime()` (thêm ở đợt sửa +7 giờ) cộng thêm "Z" một cách mù quáng vào MỌI chuỗi datetime — nhưng `cachedAt` (banner "Dữ liệu đã lưu cache", sinh bởi `new Date().toISOString()` phía client) đã LÀ chuỗi ISO đầy đủ kèm sẵn "Z", cộng thêm 1 "Z" nữa thành chuỗi không hợp lệ → hiển thị "Invalid Date". Sửa: `parseDbDateTime` giờ kiểm tra chuỗi đã có timezone (`Z` hoặc `+HH:MM`/`-HH:MM` ở cuối) chưa, chỉ thêm "Z" khi thực sự thiếu. Xác nhận bằng script `tsx` độc lập: chuỗi DB thường (`"2026-07-22 10:00:00"`) vẫn ra đúng `17:00` (giờ VN), còn `cachedAt` không còn lỗi Invalid Date, parse hợp lệ.
+
+**Vụ ảnh "Link hình ảnh" chưa hiện**: kiểm tra lại D1 smarttrade — `18475` ca thật, `0` ca có `link_hinh_anh`. Code pipeline (COLUMN_MAP/ratchet/gallery) vẫn nguyên vẹn, đã re-verify. Xác nhận với user: đây KHÔNG PHẢI bug — đơn giản là chưa có lần import/đồng bộ nào có cột "Link hình ảnh" chứa URL thật trong dữ liệu nguồn (Excel/Google Sheet). Cần thêm cột này vào file/Sheet nguồn rồi import/đồng bộ lại thì ảnh mới xuất hiện.
+
+Tăng version `1.033` → `1.034`. Deploy thành công lên `smarttrade.vp` (Version ID `1ecc13e8-b18e-4129-8238-f2ce68e25f0f`).
