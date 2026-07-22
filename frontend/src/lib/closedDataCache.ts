@@ -14,6 +14,10 @@ const DB_VERSION = 1;
 export interface CacheEntry<T> {
   data: T;
   cachedAt: string;
+  /** Gia tri doi chieu (vd MAX(updated_at) tu /api/cases/data-version) - neu khac gia tri server tra
+   * ve luc sau, coi nhu cache cu can tai lai. Khong bat buoc: noi khong dung version (vd cache 1 ca
+   * theo id trong CaseDetail.tsx) thi de trong, van hoat dong nhu truoc gio. */
+  version?: string;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -46,8 +50,8 @@ export async function getCachedEntry<T>(key: string): Promise<CacheEntry<T> | nu
   }
 }
 
-export async function setCachedEntry<T>(key: string, data: T): Promise<CacheEntry<T>> {
-  const entry: CacheEntry<T> = { data, cachedAt: new Date().toISOString() };
+export async function setCachedEntry<T>(key: string, data: T, version?: string): Promise<CacheEntry<T>> {
+  const entry: CacheEntry<T> = { data, cachedAt: new Date().toISOString(), version };
   try {
     const db = await openDb();
     await new Promise<void>((resolve, reject) => {

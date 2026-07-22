@@ -371,6 +371,23 @@ cases.get("/tong-hop", async (c) => {
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
+// GET /api/cases/data-version - MAX(updated_at) cua toan bo ca DA DONG (thoi_gian_hoan_thanh khong
+// rong). Dung index rieng (migrations/0018) nen SQLite tra loi bang 1 lan doc index (khong quet
+// bang) - gan nhu mien phi, khong can precompute nhu Ca lap. ClosedCasesTab.tsx dung gia tri nay de
+// tu bien co can dong bo lai cache IndexedDB tren may hay khong, thay vi nguoi dung phai tu bam
+// "Dong bo lai" (xem phan tich "diem 6" trong danh sach viec can lam ve dong bo theo thoi gian
+// cap nhat). Chi 1 gia tri toan cuc (khong tach theo thang) vi da du re - GHI_DE/CAP_NHAT_MOC deu
+// bump updated_at (xem importProcessor.ts), nen bat ky sua doi nao (ke ca sua 1 ca thang cu) deu
+// lam gia tri nay doi, khien FE tu dong tai lai DUNG thang dang xem (khong phai toan bo cac thang
+// da cache) - van dung 1 lan doc /cases/da-dong that su cho thang do, khong hon khong kem so voi
+// bam nut "Dong bo lai" thu cong truoc day.
+cases.get("/data-version", async (c) => {
+  const row = await c.env.DB.prepare(
+    "SELECT MAX(updated_at) as version FROM case_dvbh WHERE thoi_gian_hoan_thanh IS NOT NULL",
+  ).first<{ version: string | null }>();
+  return c.json({ version: row?.version ?? "" });
+});
+
 // GET /api/cases/:id
 cases.get("/:id", async (c) => {
   const id = c.req.param("id");

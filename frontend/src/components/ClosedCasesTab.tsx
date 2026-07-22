@@ -38,20 +38,27 @@ export function ClosedCasesTab<T>({
   const qc = useQueryClient();
   const cacheKey = `${cacheKeyPrefix}-${thang}`;
 
+  // So mot gia tri "phien ban du lieu" re (MAX(updated_at) qua index, xem backend/src/routes/cases.ts)
+  // truoc khi quyet dinh dung cache hay tai lai - tu dong phat hien thang cu bi sua (vd GHI_DE tu
+  // import lai) ma khong can nguoi dung tu doan roi bam "Dong bo lai" thu cong.
   const { data: entry, isLoading, isError, refetch } = useQuery({
     queryKey: ["closed-cases", cacheKeyPrefix, thang],
     queryFn: async (): Promise<CacheEntry<T[]>> => {
+      const { version } = await api.get<{ version: string }>("/cases/data-version");
       const cached = await getCachedEntry<T[]>(cacheKey);
-      if (cached) return cached;
+      if (cached && cached.version === version) return cached;
       const res = await api.get<{ rows: T[] }>(buildUrl(thang));
-      return setCachedEntry(cacheKey, res.rows);
+      return setCachedEntry(cacheKey, res.rows, version);
     },
   });
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.get<{ rows: T[] }>(buildUrl(thang));
-      return setCachedEntry(cacheKey, res.rows);
+      const [{ version }, res] = await Promise.all([
+        api.get<{ version: string }>("/cases/data-version"),
+        api.get<{ rows: T[] }>(buildUrl(thang)),
+      ]);
+      return setCachedEntry(cacheKey, res.rows, version);
     },
     onSuccess: (newEntry) => {
       qc.setQueryData(["closed-cases", cacheKeyPrefix, thang], newEntry);

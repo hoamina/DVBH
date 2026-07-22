@@ -20,20 +20,23 @@ export function ArchivedModule({ openCase }: { openCase: (id: string) => void })
   const pageSize = 20;
   const qc = useQueryClient();
 
+  // Cung tin hieu "phien ban du lieu" re nhu ClosedCasesTab.tsx (MAX(updated_at) qua index) - ca da
+  // luu tru la tap con cua ca da dong nen dung chung endpoint, tu dong biet co can tai lai khong.
   const { data: cacheEntry, isLoading, isError, refetch } = useQuery({
     queryKey: ["archived-cache"],
     queryFn: async (): Promise<CacheEntry<CaseRow[]>> => {
+      const { version } = await api.get<{ version: string }>("/cases/data-version");
       const cached = await getCachedEntry<CaseRow[]>(CACHE_KEY);
-      if (cached) return cached;
+      if (cached && cached.version === version) return cached;
       const rows = await fetchAllArchived();
-      return setCachedEntry(CACHE_KEY, rows);
+      return setCachedEntry(CACHE_KEY, rows, version);
     },
   });
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const rows = await fetchAllArchived();
-      return setCachedEntry(CACHE_KEY, rows);
+      const [{ version }, rows] = await Promise.all([api.get<{ version: string }>("/cases/data-version"), fetchAllArchived()]);
+      return setCachedEntry(CACHE_KEY, rows, version);
     },
     onSuccess: (entry) => {
       qc.setQueryData(["archived-cache"], entry);
