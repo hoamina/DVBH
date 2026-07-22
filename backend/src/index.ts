@@ -45,9 +45,12 @@ app.onError((err, c) => {
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
 const ARCHIVE_AFTER = "-3 months";
-// Lich chay hang ngay (archive) - giu nguyen. Them 1 lich moi, day hon (cu 20 phut) rieng cho tinh
-// san "ca lap" (xem lib/caLapRefresh.ts) - phai khai bao ca 2 trong wrangler*.jsonc "triggers.crons".
-const CA_LAP_REFRESH_CRON = "*/20 * * * *";
+// Lich chay hang ngay (archive) - giu nguyen. Cron nay CHI con la luoi an toan du phong cho "ca
+// lap" (vd 1 duong ghi du lieu nao khac quen goi refreshCaLapPrecompute() truc tiep) - co che
+// CHINH gio la goi ngay sau khi import/dong bo ghi du lieu that (xem importRoute.ts), nen giam
+// tan suat xuong 1 gio/lan (truoc la 20 phut/lan) - phai khai bao ca 2 trong wrangler*.jsonc
+// "triggers.crons".
+const CA_LAP_REFRESH_CRON = "0 * * * *";
 
 export default {
   fetch: app.fetch,

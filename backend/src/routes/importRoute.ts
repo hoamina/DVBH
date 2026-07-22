@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -7,6 +8,18 @@ import { processImport } from "../lib/importProcessor";
 import { COLUMN_MAP } from "../lib/ratchet";
 import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
+import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
+
+// Danh sach "ca lap" chi thay doi that su khi co GHI_MOI/GHI_DE that (BO_QUA/CAP_NHAT_MOC_THOI_GIAN
+// khong doi du lieu nghiep vu nen khong anh huong ket qua phat hien lap) - tranh tinh lai vo ich
+// khi import chi toan dong da co san khong doi gi (vd chay lai file cu, hoac Google Sheet dong bo
+// khong co gi moi). Chay qua waitUntil() de KHONG lam cham phan hoi cua nguoi import (tinh lai mat
+// ~1 giay do quet ~15 nghin dong, xem lib/caLapRefresh.ts) - cron */20 phut van con lam luoi an toan.
+function scheduleCaLapRefreshIfChanged(c: Context<{ Bindings: Env }>, summary: { GHI_MOI: number; GHI_DE: number }) {
+  if (summary.GHI_MOI + summary.GHI_DE > 0) {
+    c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+  }
+}
 
 const importRoute = new Hono<{ Bindings: Env }>();
 importRoute.use("*", verifySessionMiddleware, loadUser, requireRole("Admin", "TBP DVBH"));
@@ -48,6 +61,7 @@ importRoute.post("/commit", async (c) => {
     .bind(body.filename, user.email, summary.GHI_MOI, summary.GHI_DE, summary.BO_QUA, summary.LOI)
     .run();
 
+  scheduleCaLapRefreshIfChanged(c, summary);
   return c.json({ filename: body.filename, ...summary });
 });
 
@@ -75,6 +89,7 @@ importRoute.post("/sync-sheet", requireRole("Admin"), async (c) => {
     .bind("Đồng bộ ca mới từ Google Sheet", user.email, summary.GHI_MOI, summary.GHI_DE, summary.BO_QUA, summary.LOI)
     .run();
 
+  scheduleCaLapRefreshIfChanged(c, summary);
   return c.json(summary);
 });
 

@@ -9,12 +9,27 @@ import { khuVucAdHocClause } from "../lib/filterParams";
 import { nextSequentialId } from "../lib/idCounter";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { eligibleClause } from "../lib/caLapEligible";
+import { refreshCaLapPrecompute, CA_LAP_SNAPSHOT_HASH_KEY } from "../lib/caLapRefresh";
 
 const caLap = new Hono<{ Bindings: Env }>();
 caLap.use("*", verifySessionMiddleware, loadUser);
 
 // Export de notifications.ts dung lai cho badge sidebar (dem "can danh gia"/"cho QC" cua Ca lap).
 export const NGUONG_NGAY_LAP = 45;
+
+// GET /api/ca-lap/version - hash cua danh sach "ca lap" da tinh san (KHONG gom trang thai giai
+// trinh, xem comment lib/caLapRefresh.ts) - client dung de quyet dinh co can tai lai bao cao
+// khong (giong co che da co san cho settings_ly_do/linh_kien, xem contentHash.ts). Neu chua co
+// hash nao (truoc lan refresh dau tien) thi tinh luon 1 lan o day de khong tra rong.
+caLap.get("/version", async (c) => {
+  const existing = await c.env.DB.prepare("SELECT hash FROM content_versions WHERE ten_bang = ?")
+    .bind(CA_LAP_SNAPSHOT_HASH_KEY)
+    .first<{ hash: string }>();
+  if (existing) return c.json({ hash: existing.hash });
+
+  const { hash } = await refreshCaLapPrecompute(c.env.DB);
+  return c.json({ hash });
+});
 
 /** "2026-06" -> { start: "2026-06-01", end: "2026-07-01" } - copy y het monthBounds() cua cases.ts
  * (khong gio o ca 2 dau, xem comment goc o do ve bug so sanh chuoi ngay-thuan-vs-co-gio). */
