@@ -8,7 +8,7 @@ import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { exportRowsToExcel } from "../lib/exportExcel";
-import { ImportUploader } from "../components/ImportUploader";
+import { ImportUploader, describeError } from "../components/ImportUploader";
 
 interface CrmSummary {
   GHI_MOI: number;
@@ -77,7 +77,7 @@ export function ImportModule() {
       qc.invalidateQueries({ queryKey: ["backlog-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard-kpis"] });
     },
-    onError: () => addToast("Đồng bộ Google Sheet thất bại, thử lại sau."),
+    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
   });
 
   const syncGiaiTrinhMutation = useMutation({
@@ -86,7 +86,7 @@ export function ImportModule() {
       addToast(`Đồng bộ xong: ${res.thanhCong} dòng giải trình${res.loi ? `, ${res.loi} lỗi` : ""}`);
       qc.invalidateQueries({ queryKey: ["import-history"] });
     },
-    onError: () => addToast("Đồng bộ Google Sheet thất bại, thử lại sau."),
+    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
   });
 
   const syncGiaiTrinhLapMutation = useMutation({
@@ -98,7 +98,7 @@ export function ImportModule() {
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
     },
-    onError: () => addToast("Đồng bộ Google Sheet thất bại, thử lại sau."),
+    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
   });
 
   const syncKhaoSatMutation = useMutation({
@@ -109,7 +109,7 @@ export function ImportModule() {
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
     },
-    onError: () => addToast("Đồng bộ Google Sheet thất bại, thử lại sau."),
+    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
   });
 
   return (

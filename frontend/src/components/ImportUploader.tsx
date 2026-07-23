@@ -2,8 +2,16 @@ import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { Card } from "./ui/Card";
 import { Btn } from "./ui/Btn";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { useToast } from "./ui/Toast";
+
+/** Rut ra thong diep loi cu the tu ApiError (ma loi backend tra ve, hoac HTTP status neu backend
+ * khong tra ma) thay vi luon hien 1 cau chung chung - truoc day moi loi (400/500/mat mang...) deu
+ * hien y het nhau nen nguoi dung khong biet dang loi gi that su. */
+export function describeError(err: unknown): string {
+  if (err instanceof ApiError) return err.code ? err.code : `Loi may chu (HTTP ${err.status})`;
+  return "Mat ket noi hoac may chu khong phan hoi";
+}
 
 async function parseSpreadsheet(file: File, columnMap?: Record<string, string>): Promise<Record<string, unknown>[]> {
   const XLSX = await import("xlsx");
@@ -81,7 +89,7 @@ export function ImportUploader<TSummary>({
       setPreview(summary);
       setStep("preview");
     },
-    onError: () => addToast("Không đọc được file, kiểm tra lại định dạng."),
+    onError: (err) => addToast(`Không đọc được file: ${describeError(err)}`),
   });
 
   const commitMutation = useMutation({
@@ -92,7 +100,7 @@ export function ImportUploader<TSummary>({
       setPreview(null);
       for (const key of invalidateKeys) qc.invalidateQueries({ queryKey: key });
     },
-    onError: () => addToast("Import thất bại, thử lại sau."),
+    onError: (err) => addToast(`Import thất bại: ${describeError(err)}`),
   });
 
   async function handleFileChosen(file: File) {
