@@ -27,6 +27,35 @@ interface BackfillRow {
   ngay_qc?: string;
 }
 
+// Nguoi dien file backfill (GS/QC) tu nhien go dung NHAN HIEN THI tren giao dien (co dau, giong
+// het CA_LAP_META/HINH_THUC_XU_LY_META o frontend/src/types.ts) thay vi ma noi bo khong dau dung
+// de luu DB - phat hien qua bao cao thuc te 2026-07-23 (Sheet toan gia tri "Bỏ qua"/"Lặp do tay
+// nghề kỹ thuật viên"... bi tu choi het vi khong khop dung CA_LAP_LOAI_KEYS). Chap nhan CA 2 dang
+// (nhan hien thi CO dau HOAC ma noi bo KHONG dau dung trong TEMPLATE_CSV) - map ve dung ma noi bo
+// truoc khi validate/ghi DB, tranh bat nguoi dien file phai biet ma noi bo it ai nho duoc.
+const CA_LAP_LABEL_TO_KEY: Record<string, string> = {
+  "Bỏ qua": "Bo qua",
+  "Lặp do nghiệp vụ kỹ thuật viên": "Lap do nghiep vu KTV",
+  "Lặp do tay nghề kỹ thuật viên": "Lap do tay nghe KTV",
+  "Lặp do chất lượng linh kiện": "Lap do chat luong linh kien",
+  "Lặp do sai báo cáo": "Lap do sai bao cao",
+  "Lặp do trùng sự vụ": "Lap do trung su vu",
+};
+const HINH_THUC_XU_LY_LABEL_TO_KEY: Record<string, string> = {
+  "KHÔNG TÍNH LẶP, KHÔNG TÍNH LƯƠNG": "Khong tinh lap khong tinh luong",
+  "TÍNH LẶP, KHÔNG TÍNH LƯƠNG": "Tinh lap khong tinh luong",
+  "TÍNH LƯƠNG": "Tinh luong",
+  "TÍNH LƯƠNG, LỖI BÁO CÁO": "Tinh luong loi bao cao",
+  "KHÔNG TÍNH LƯƠNG, LỖI BÁO CÁO": "Khong tinh luong loi bao cao",
+};
+
+function normalizeCaLapLoai(raw: string): string {
+  return CA_LAP_LABEL_TO_KEY[raw] ?? raw;
+}
+function normalizeHinhThuc(raw: string): string {
+  return HINH_THUC_XU_LY_LABEL_TO_KEY[raw] ?? raw;
+}
+
 const TEMPLATE_CSV =
   "case_id,chot_danh_gia_lap,chot_hinh_thuc_xu_ly,dien_giai_lap,nguoi_giai_trinh,ngay_giai_trinh,qc_chot,qc_ghi_chu,nguoi_qc,ngay_qc\n" +
   "CASE-2026-001,Lap do nghiep vu KTV,Tinh luong,Do KTV thao tac sai quy trinh,giamsat@congty.vn,2026-06-01 09:00:00,Lap do nghiep vu KTV,Da doi chieu voi GS,qc@congty.vn,2026-06-02 10:00:00\n";
@@ -77,8 +106,10 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       summary.errors.push(`Dong ${lineNo}: khong tim thay case_id "${caseId}"`);
       continue;
     }
-    const chotDanhGiaLap = String(row.chot_danh_gia_lap ?? "").trim();
-    const qcChot = String(row.qc_chot ?? "").trim();
+    // Chuan hoa nhan hien thi CO dau (giong CA_LAP_META o frontend) ve dung ma noi bo KHONG dau
+    // truoc khi validate/ghi - xem giai thich o CA_LAP_LABEL_TO_KEY dau file.
+    const chotDanhGiaLap = normalizeCaLapLoai(String(row.chot_danh_gia_lap ?? "").trim());
+    const qcChot = normalizeCaLapLoai(String(row.qc_chot ?? "").trim());
     if (!chotDanhGiaLap && !qcChot) {
       summary.loi++;
       summary.errors.push(`Dong ${lineNo}: phai co it nhat 1 trong 2 cot "chot_danh_gia_lap" hoac "qc_chot"`);
@@ -94,7 +125,7 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       summary.errors.push(`Dong ${lineNo}: qc_chot "${qcChot}" khong hop le`);
       continue;
     }
-    const hinhThuc = String(row.chot_hinh_thuc_xu_ly ?? "").trim();
+    const hinhThuc = normalizeHinhThuc(String(row.chot_hinh_thuc_xu_ly ?? "").trim());
     if (hinhThuc && !HINH_THUC_XU_LY_KEYS.includes(hinhThuc as (typeof HINH_THUC_XU_LY_KEYS)[number])) {
       summary.loi++;
       summary.errors.push(`Dong ${lineNo}: chot_hinh_thuc_xu_ly "${hinhThuc}" khong hop le`);
@@ -120,7 +151,12 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       summary.errors.push(`Dong ${lineNo}: co qc_chot nhung thieu nguoi_qc`);
       continue;
     }
-    validRows.push({ caseId, row });
+    // Ghi lai gia tri DA CHUAN HOA vao row de cac buoc sau (build INSERT) dung dung ma noi bo,
+    // khong dung nhan hien thi co dau tho tu file nguon.
+    validRows.push({
+      caseId,
+      row: { ...row, chot_danh_gia_lap: chotDanhGiaLap || undefined, qc_chot: qcChot || undefined, chot_hinh_thuc_xu_ly: hinhThuc || undefined },
+    });
   }
 
   summary.thanhCong = validRows.length;
