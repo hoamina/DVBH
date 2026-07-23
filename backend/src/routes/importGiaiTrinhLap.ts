@@ -51,10 +51,20 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
 
   // Gop trung case_id trong CUNG 1 file (dong sau de) - khop pattern Map dedup cua blacklist import,
   // vi case_id la UNIQUE nen 2 dong cung case_id trong 1 file khong the tach GS/QC rieng le.
+  // BUG DA SUA (2026-07-23): truoc day dong thieu case_id bi LOAI BO AM THAM o day (khong tang
+  // summary.loi, khong ghi vao summary.errors) - neu file nguon co ten cot khong khop "case_id"
+  // (vd dung nham file/header cua luong import khac, hoac go sai ten cot) thi TOAN BO cac dong deu
+  // bi loai o day ma khong co bat ky thong bao nao, ket qua tra ve {thanhCong:0, loi:0, errors:[]}
+  // trong nhu khong co gi xay ra - nguoi dung khong biet ly do. Gio bat buoc phai bao loi ro rang.
   const byCaseId = new Map<string, { row: BackfillRow; lineNo: number }>();
   rows.forEach((row, i) => {
     const caseId = String(row.case_id ?? "").trim();
-    if (caseId) byCaseId.set(caseId, { row, lineNo: i + 1 });
+    if (caseId) {
+      byCaseId.set(caseId, { row, lineNo: i + 1 });
+    } else {
+      summary.loi++;
+      summary.errors.push(`Dong ${i + 1}: thieu case_id (kiem tra ten cot trong file co dung la "case_id" khong)`);
+    }
   });
 
   const caseIds = [...byCaseId.keys()];
