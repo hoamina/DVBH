@@ -49,11 +49,17 @@ function buildRevenueFilterClause(params: RevenueFilterParams, scope: string[] |
     binds.push(params.hang);
   }
 
+  // Doi strftime('%Y-%m', cot) = ... sang dang RANGE (>=, <) de planner dung duoc index tren
+  // thoi_gian_hoan_thanh thay vi phai quet toan bo case_dvbh (strftime la expression tren cot nen
+  // khong dung duoc index - xem migration 0007 idx_case_hoan_thanh_not_null va migration 0001
+  // idx_case_ton). So sanh chuoi ISO 'YYYY-MM-DD HH:MM:SS' >= 'YYYY-MM-01' va < 'YYYY-MM-01' (thang
+  // ke tiep) tuong duong so thang, giu nguyen ngu nghia. 'now' trong SQLite la UTC nen range cung
+  // tinh theo UTC, khop voi ban goc strftime('%Y-%m','now').
   if (params.thang === CURRENT_MONTH_VALUE) {
-    sql += ` AND (strftime('%Y-%m', ${prefix}thoi_gian_hoan_thanh) = strftime('%Y-%m', 'now') OR ${prefix}thoi_gian_hoan_thanh IS NULL)`;
+    sql += ` AND ((${prefix}thoi_gian_hoan_thanh >= date('now','start of month') AND ${prefix}thoi_gian_hoan_thanh < date('now','start of month','+1 month')) OR ${prefix}thoi_gian_hoan_thanh IS NULL)`;
   } else if (params.thang) {
-    sql += ` AND strftime('%Y-%m', ${prefix}thoi_gian_hoan_thanh) = ?`;
-    binds.push(params.thang);
+    sql += ` AND ${prefix}thoi_gian_hoan_thanh >= ? || '-01' AND ${prefix}thoi_gian_hoan_thanh < date(? || '-01', '+1 month')`;
+    binds.push(params.thang, params.thang);
   }
 
   return { sql, binds };
