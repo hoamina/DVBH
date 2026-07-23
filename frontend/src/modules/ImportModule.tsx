@@ -52,6 +52,12 @@ const TABS = [
 
 export function ImportModule() {
   const [tab, setTab] = useState("crm");
+  // Toast tu dong bien mat sau 3.2s, khong hop de doc het danh sach loi (co the toi hang tram
+  // dong) - luong "Dong bo ngay" (goi thang /sync-sheet, khong qua man hinh preview co san khung
+  // loi cuon nhu ImportUploader) truoc day chi hien DEM SO LUONG loi trong toast roi mat, khong ai
+  // xem duoc NOI DUNG tung dong loi ghi gi ca du backend van tra du trong "errors". Luu lai ket qua
+  // dong bo gan nhat co loi de hien 1 khung rieng, khong tu dong mat, xem duoc het.
+  const [syncErrors, setSyncErrors] = useState<{ title: string; errors: string[] } | null>(null);
   const auth = useAuth();
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
   const addToast = useToast();
@@ -72,6 +78,7 @@ export function ImportModule() {
     mutationFn: () => api.post<CrmSummary>("/import/sync-sheet"),
     onSuccess: (res) => {
       addToast(`Đồng bộ xong: ${res.GHI_MOI} ca mới, ${res.GHI_DE} ghi đè, ${res.BO_QUA} không đổi${res.LOI ? `, ${res.LOI} lỗi` : ""}`);
+      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ CRM hàng ngày", errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
       qc.invalidateQueries({ queryKey: ["backlog"] });
       qc.invalidateQueries({ queryKey: ["backlog-counts"] });
@@ -84,6 +91,7 @@ export function ImportModule() {
     mutationFn: () => api.post<BackfillSummary>("/import/giai-trinh/sync-sheet"),
     onSuccess: (res) => {
       addToast(`Đồng bộ xong: ${res.thanhCong} dòng giải trình${res.loi ? `, ${res.loi} lỗi` : ""}`);
+      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ giải trình cũ", errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
     },
     onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
@@ -93,6 +101,7 @@ export function ImportModule() {
     mutationFn: () => api.post<BackfillSummary>("/import/giai-trinh-lap/sync-sheet"),
     onSuccess: (res) => {
       addToast(`Đồng bộ xong: ${res.thanhCong} dòng giải trình lặp${res.loi ? `, ${res.loi} lỗi` : ""}`);
+      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ giải trình lặp cũ", errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
@@ -105,6 +114,7 @@ export function ImportModule() {
     mutationFn: () => api.post<BackfillSummary>("/import/khao-sat/sync-sheet"),
     onSuccess: (res) => {
       addToast(`Đồng bộ xong: ${res.thanhCong} lượt khảo sát${res.loi ? `, ${res.loi} lỗi` : ""}`);
+      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ khảo sát cũ", errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
@@ -115,6 +125,24 @@ export function ImportModule() {
   return (
     <div className="anim-in">
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
+
+      {syncErrors && (
+        <Card className="p-4 mb-5 border-[var(--coral-300)]">
+          <div className="flex items-center justify-between mb-2">
+            <div className="font-display font-bold text-sm text-[var(--coral-600)]">
+              {syncErrors.title} — {syncErrors.errors.length} lỗi
+            </div>
+            <Btn variant="ghost" size="sm" onClick={() => setSyncErrors(null)}>
+              Đóng
+            </Btn>
+          </div>
+          <div className="text-xs text-[var(--coral-500)] max-h-48 overflow-y-auto space-y-0.5">
+            {syncErrors.errors.map((e, i) => (
+              <div key={i}>{e}</div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {tab === "crm" && (
         <>
