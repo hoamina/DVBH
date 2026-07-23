@@ -377,8 +377,8 @@ survey.post(
       .bind(body.assigned_to ?? null, body.case_id)
       .run();
 
-    // assigned_to nam tren case_dvbh - bump domain "cases" (xem lib/dataVersions.ts).
-    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+    // assigned_to KHONG anh huong bao cao tinh san nao (khong bump domain "cases" - xem R8 trong
+    // YEU_CAU_BAO_CAO_TINH_SAN.md va comment o lib/dataVersions.ts).
 
     return c.json({ ok: true });
   },
@@ -429,8 +429,8 @@ async function processBulkAssign(db: D1Database, rows: BulkAssignRow[], commit: 
       db.prepare("UPDATE case_dvbh SET assigned_to = ? WHERE id = ?").bind(assignedTo, id),
     );
     await runBatched(db, statements);
-    // assigned_to nam tren case_dvbh - bump domain "cases" chi o nhanh COMMIT that (xem lib/dataVersions.ts).
-    await bumpVersions(db, ["cases"]);
+    // assigned_to KHONG anh huong bao cao tinh san nao (khong bump domain "cases" - xem R8 trong
+    // YEU_CAU_BAO_CAO_TINH_SAN.md va comment o lib/dataVersions.ts).
   }
 
   return summary;

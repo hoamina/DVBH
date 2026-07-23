@@ -233,12 +233,12 @@ export async function computeDashboardKpis(db: D1Database, params: DashboardFilt
 }
 
 // GET /api/dashboard/kpis - doc qua reportCache (xem lib/reportCache.ts), chi tinh lai khi domain
-// "cases" hoac "vi_pham" co ghi moi.
+// "cases", "vi_pham" hoac "giai_trinh" co ghi moi (subquery tonDaGiaiTrinh doc bang giai_trinh).
 dashboard.get("/kpis", async (c) => {
   const scope = scopeByKhuVuc(c);
   const params: DashboardFilterParams = { khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
   const key = buildReportKey("dashboard/kpis", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeDashboardKpis(c.env.DB, params, scope));
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "giai_trinh"], () => computeDashboardKpis(c.env.DB, params, scope));
   return c.json(payload);
 });
 

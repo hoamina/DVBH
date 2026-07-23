@@ -7,6 +7,10 @@
  */
 
 // Danh sach domain hop le - phai khop dung 8 domain liet ke trong YEU_CAU_BAO_CAO_TINH_SAN.md.
+// Domain "cases" (R8, chot 2026-07-23): CHI phan anh dung 1 loai su kien - import du lieu case
+// moi/ghi de (POST /api/import/commit hoac /api/import/sync-sheet, khi GHI_MOI+GHI_DE>0). KHONG
+// bump o day cho archive tu dong (cron trong index.ts) hay thao tac nghiep vu khac nhu gan CSKH
+// (survey.ts assign/assign-bulk) - cac ghi do KHONG lam bao cao tinh san tren domain "cases" cu di.
 const ALL_DOMAINS = ["blacklist", "cases", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "settings", "users", "vi_pham"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 

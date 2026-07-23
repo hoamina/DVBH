@@ -69,6 +69,22 @@ Mỗi endpoint được bọc PHẢI tách phần tính toán thành hàm export
 
 Trong importRoute.ts, cùng waitUntil với bump `cases` (chỉ khi GHI_MOI+GHI_DE>0): gọi tuần tự các hàm computeXxx với bộ combo mặc định (scope null + không bộ lọc + tháng hiện tại + dim mặc định) và LƯU vào đúng key mà route sẽ đọc (dùng chung buildReportKey + cachedReport ghi đè). Danh sách warm: dashboard kpis, violation-breakdown, pivot (khu_vuc/hang/ky_thuat_vien), cases/counts, backlog-stats, backlog-by-khu-vuc (dim khu_vuc), missing-parts/by-khu-vuc (dim khu_vuc), survey/counts, revenue (dim khu_vuc + hang). KHÔNG warm các biến thể scope Giám sát (tầng version-tag tự lo khi họ xem).
 
+## R8 — Rà soát domain "cases": chỉ bump khi có IMPORT THẬT (chốt 2026-07-23)
+
+Rà soát trực tiếp SQL của 20 báo cáo đã bọc, đối chiếu với danh sách nơi bump domain "cases". Kết luận + quyết định của chủ hệ thống:
+
+1. **BUG - `dashboard/kpis` thiếu domain `giai_trinh`**: hàm `computeDashboardKpis` (dashboard.ts) đọc bảng `giai_trinh` (subquery `tonDaGiaiTrinh` dùng `EXISTS (SELECT 1 FROM giai_trinh...)`) nhưng domain khai báo tại `cachedReport` hiện chỉ `["cases", "vi_pham"]`. SỬA: thêm `"giai_trinh"` vào mảng domain của lệnh gọi `cachedReport` cho `dashboard/kpis` → `["cases", "vi_pham", "giai_trinh"]`.
+
+2. **Bỏ bump "cases" khỏi thao tác KHÔNG liên quan báo cáo** — `survey.ts` route `POST /assign` và `POST /assign-bulk/commit` hiện đang `bumpVersions(db, ["cases"])` sau khi UPDATE cột `assigned_to`. Đã rà soát: KHÔNG có báo cáo tính sẵn nào (trong toàn bộ 20 endpoint đã bọc cachedReport) đọc cột `assigned_to`. SỬA: XÓA HẲN lệnh gọi `bumpVersions(db, ["cases"])` tại 2 route này (không thay bằng domain khác — thao tác gán CSKH không cần làm bất kỳ báo cáo tính sẵn nào cũ đi).
+
+3. **Bỏ bump "cases" khỏi cron lưu trữ** — `backend/src/index.ts`, nhánh `scheduled()` archive hàng ngày, hiện gọi `bumpVersions(env.DB, ["cases"])` khi `archiveResult.meta.changes > 0`. Chủ hệ thống đã CHỐT (2026-07-23): các báo cáo lấy thẳng từ dữ liệu import (doanh thu, SLA, 24h, pivot, violation-breakdown, monthly-trend...) CHỈ tính lại đúng 1 lần tại thời điểm import thật — cron lưu trữ (tự động, không phải "log công việc mới") KHÔNG được xem là sự kiện làm các báo cáo này cũ đi. SỬA: XÓA lệnh gọi `bumpVersions` khỏi nhánh archive trong `scheduled()`. Sau khi xóa, domain `"cases"` CHỈ còn được bump tại đúng 2 nơi: `POST /api/import/commit` và `POST /api/import/sync-sheet` (cả hai trong `importRoute.ts`, khi `GHI_MOI + GHI_DE > 0`).
+
+4. **Hệ quả cần cập nhật comment**: sau khi sửa mục 3, comment giải thích domain "cases" trong `lib/dataVersions.ts` (nếu có nhắc đến "moi ghi vao case_dvbh" chung chung) nên nói rõ: domain "cases" phản ánh ĐÚNG 1 loại sự kiện — import dữ liệu case mới/ghi đè (commit hoặc sync-sheet), KHÔNG bao gồm archive tự động hay thao tác nghiệp vụ khác (assign...). Cập nhật comment cho khớp thực tế mới, không cần đổi tên domain.
+
+KHÔNG đổi domain nào khác (giai_trinh, vi_pham, giai_trinh_lap, blacklist, settings, users) — các domain đó đã đúng, đã rà soát kỹ khớp với đúng bảng mà từng báo cáo đọc.
+
+Sau khi sửa: `cd backend && npx tsc --noEmit` phải pass. KHÔNG commit/deploy/migrate.
+
 ## Ràng buộc chung cho MỌI hạng mục
 
 - KHÔNG đổi shape response; KHÔNG sửa frontend.
