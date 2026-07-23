@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Select";
+import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, fmtVND, type CaseRow, type Paged } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 
 const PAGE_SIZE = 20;
@@ -32,6 +34,8 @@ const MONTH_TABS = [
 const TABS = [...MONTH_TABS, { key: "dang-ton", label: "Ca đang tồn" }];
 
 export function DanhSachTongModule({ openCase }: { openCase: (id: string) => void }) {
+  const auth = useAuth();
+  const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [tab, setTab] = useState(MONTH_TABS[0].key);
   const [page, setPage] = useState(1);
   const [khuVucFilter, setKhuVucFilter] = useState("");
@@ -108,7 +112,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
         Danh sách ca đã đóng theo từng tháng ({monthLabel(2)} – {monthLabel(0)}) và ca đang tồn đọng — mỗi tab là 1 tệp riêng, dùng để đối chiếu hoặc làm báo cáo.
       </div>
       <div className="flex items-center gap-2 flex-wrap mb-1">
-        <Select
+        <KhuVucFilterControl
           value={khuVucFilter}
           onChange={(v) => {
             setKhuVucFilter(v);
@@ -119,6 +123,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
             { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
             ...(filterOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
+          myAreas={myAreas}
         />
         <Select
           value={hangFilter}

@@ -6,11 +6,13 @@ import { StatCard } from "../components/ui/StatCard";
 import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
+import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { ClosedCasesTab } from "../components/ClosedCasesTab";
 import { api, buildQuery } from "../api/client";
 import { fmtDate, fmtDateTime, fmtVND, type Paged } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 
 interface MissingPartCase {
@@ -66,6 +68,8 @@ const KHU_VUC_BUCKET_COLS: { key: keyof KhuVucRow; label: string; tuoiTu?: strin
 ];
 
 export function MissingPartsModule({ openCase }: { openCase: (id: string) => void }) {
+  const auth = useAuth();
+  const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useState("bao-cao");
   const [trangThai, setTrangThai] = useState("dang-ton");
   const [page, setPage] = useState(1);
@@ -170,7 +174,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
       </div>
 
       <div className="flex items-center gap-2 flex-wrap mb-1">
-        <Select
+        <KhuVucFilterControl
           value={khuVucFilter}
           onChange={(v) => {
             setKhuVucFilter(v);
@@ -181,6 +185,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
             { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
             ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
+          myAreas={myAreas}
         />
         {view === "danh-sach" && trangThai !== "da-dong" && (
           <>

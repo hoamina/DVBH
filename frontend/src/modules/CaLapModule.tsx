@@ -4,6 +4,7 @@ import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
 import { Select } from "../components/ui/Select";
+import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { ToggleSwitch } from "../components/ui/ToggleSwitch";
@@ -25,7 +26,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { trangThaiLapOf, trangThaiKeyOf } from "../lib/caLapStatus";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { QLDVBH_FILTER_VALUE } from "../constants";
-import type { VaiTro } from "../auth/AuthContext";
+import { useAuth, type VaiTro } from "../auth/AuthContext";
 import { ImportUploader } from "../components/ImportUploader";
 
 interface BlacklistImportSummary {
@@ -120,6 +121,8 @@ function conDongColor(rate: number) {
 export function CaLapModule({ openCase, role }: { openCase: (id: string) => void; role: VaiTro | null }) {
   const addToast = useToast();
   const qc = useQueryClient();
+  const auth = useAuth();
+  const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useState("tong-quan");
   const [khuVucFilter, setKhuVucFilter] = useState("");
   const [thang, setThang] = useState(() => new Date().toISOString().slice(0, 7));
@@ -324,7 +327,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
 
   const kpi = danhSachKpi;
   const khuVucFilterSelect = (
-    <Select
+    <KhuVucFilterControl
       value={khuVucFilter}
       onChange={(v) => {
         setKhuVucFilter(v);
@@ -335,6 +338,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
         { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
         ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
       ]}
+      myAreas={myAreas}
     />
   );
   const thangSelect = (

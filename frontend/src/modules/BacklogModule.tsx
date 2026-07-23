@@ -5,6 +5,7 @@ import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
+import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { StatCard } from "../components/ui/StatCard";
 import { ChartCanvas } from "../components/chart/ChartCanvas";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
@@ -12,6 +13,7 @@ import { ClosedCasesTab } from "../components/ClosedCasesTab";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, type CaseRow, type Paged } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 
 interface TongTonStats {
@@ -118,6 +120,8 @@ const TON_TUOI_OPTIONS = [
 ];
 
 export function BacklogModule({ openCase }: { openCase: (id: string) => void }) {
+  const auth = useAuth();
+  const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useState("bao-cao");
   const [page, setPage] = useState(1);
   const [reportDim, setReportDim] = useState("khu_vuc");
@@ -231,7 +235,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
   return (
     <div className="anim-in">
       <div className="flex items-center gap-2 flex-wrap mb-4">
-        <Select
+        <KhuVucFilterControl
           value={khuVucFilter}
           onChange={setKhuVucFilter}
           options={[
@@ -239,6 +243,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
             { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
             ...(filtersData?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
+          myAreas={myAreas}
         />
         {FILTER_FIELDS.map((f) => (
           <Select

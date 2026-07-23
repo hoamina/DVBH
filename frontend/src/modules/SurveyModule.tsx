@@ -6,6 +6,7 @@ import { Badge, statusTone } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
+import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { ChartCanvas } from "../components/chart/ChartCanvas";
 import { api, buildQuery } from "../api/client";
@@ -88,6 +89,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
   const [khuVucFilter, setKhuVucFilter] = useState("");
   const auth = useAuth();
   const role = auth.status === "authenticated" ? auth.user.vai_tro : null;
+  const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const addToast = useToast();
   const qc = useQueryClient();
 
@@ -198,7 +200,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
       </div>
 
       <div className="flex items-center justify-between gap-2 flex-wrap mb-1 mt-2">
-        <Select
+        <KhuVucFilterControl
           value={khuVucFilter}
           onChange={(v) => {
             setKhuVucFilter(v);
@@ -209,6 +211,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
             { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
             ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
+          myAreas={myAreas}
         />
         {canSurvey && (
           <Btn size="sm" onClick={() => setWorkspaceOpen(true)}>

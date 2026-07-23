@@ -18,13 +18,9 @@ export function parseFilterParams(c: Context<{ Bindings: Env }>, prefix = "") {
   const binds: unknown[] = [...scopeClause.binds];
   let sql = ` AND ${prefix}archived_at IS NULL${scopeClause.sql}`;
 
-  const khuVuc = c.req.query("khu_vuc");
-  if (khuVuc === QLDVBH_FILTER_VALUE) {
-    sql += ` AND ${prefix}khu_vuc LIKE '%qldvbh%'`;
-  } else if (khuVuc) {
-    sql += ` AND ${prefix}khu_vuc = ?`;
-    binds.push(khuVuc);
-  }
+  const khuVucClause = khuVucAdHocClause(`${prefix}khu_vuc`, c.req.query("khu_vuc"));
+  sql += khuVucClause.sql;
+  binds.push(...khuVucClause.binds);
 
   const hang = c.req.query("hang");
   if (hang) {
@@ -44,15 +40,26 @@ export function parseFilterParams(c: Context<{ Bindings: Env }>, prefix = "") {
 }
 
 /**
- * Ad-hoc khu_vuc filter (1 gia tri nguoi dung tu chon tren UI, khac voi scopeByKhuVuc la
- * pham vi duoc PHEP xem theo vai tro) - ho tro ca gia tri ao __QLDVBH__. Dung cho cac route
- * khong dung chung whole-clause shape cua parseFilterParams (cases.ts, missingParts.ts,
- * survey.ts - moi route co WHERE goc khac nhau, chi can rieng doan khu_vuc nay).
+ * Ad-hoc khu_vuc filter (nguoi dung tu chon tren UI, khac voi scopeByKhuVuc la pham vi duoc PHEP
+ * xem theo vai tro - 2 tang loc doc lap, luon AND lai voi nhau nen KHONG the dung ad-hoc filter de
+ * "mo rong" ra ngoai pham vi da bi scopeByKhuVuc gioi han). Ho tro ca gia tri ao __QLDVBH__, va
+ * NHIEU khu vuc cung luc (nguoi dung phu trach nhieu khu vuc, chon 1 phan trong so do - xem
+ * KhuVucFilterControl.tsx o frontend) - cac gia tri phan cach boi dau phay, vd "Ha Noi,Da Nang".
+ * Dung cho cac route khong dung chung whole-clause shape cua parseFilterParams (cases.ts,
+ * missingParts.ts, survey.ts, caLap.ts - moi route co WHERE goc khac nhau, chi can rieng doan
+ * khu_vuc nay).
  */
 export function khuVucAdHocClause(column: string, khuVucFilter: string | undefined): { sql: string; binds: unknown[] } {
   if (!khuVucFilter) return { sql: "", binds: [] };
   if (khuVucFilter === QLDVBH_FILTER_VALUE) return { sql: ` AND ${column} LIKE '%qldvbh%'`, binds: [] };
-  return { sql: ` AND ${column} = ?`, binds: [khuVucFilter] };
+  const values = khuVucFilter
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (values.length === 0) return { sql: "", binds: [] };
+  if (values.length === 1) return { sql: ` AND ${column} = ?`, binds: values };
+  const placeholders = values.map(() => "?").join(", ");
+  return { sql: ` AND ${column} IN (${placeholders})`, binds: values };
 }
 
 /**

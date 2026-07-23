@@ -5,6 +5,7 @@ import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { LoadingCard } from "../components/ui/LoadingCard";
 import { Select } from "../components/ui/Select";
+import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
@@ -62,6 +63,7 @@ export function SurveyCallWorkspace({
   const auth = useAuth();
   const me = auth.status === "authenticated" ? auth.user.email : "";
   const role = auth.status === "authenticated" ? auth.user.vai_tro : null;
+  const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const addToast = useToast();
   const qc = useQueryClient();
 
@@ -311,13 +313,14 @@ export function SurveyCallWorkspace({
           />
           Chỉ ca của tôi
         </label>
-        <Select
+        <KhuVucFilterControl
           value={khuVucFilter}
           onChange={(v) => {
             setKhuVucFilter(v);
             setIndex(0);
           }}
           options={[{ value: "", label: "Tất cả khu vực" }, { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" }, ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? [])]}
+          myAreas={myAreas}
         />
         <form
           className="flex items-center gap-1"

@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Select } from "../components/ui/Select";
+import { KhuVucFilterControl } from "./KhuVucFilterControl";
 import { Btn } from "../components/ui/Btn";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE, CURRENT_MONTH_VALUE } from "../constants";
 
 export interface DashboardFilters {
@@ -23,6 +25,9 @@ export function FilterBar({
   setFilters: (f: DashboardFilters) => void;
   onExport?: () => void;
 }) {
+  const auth = useAuth();
+  const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
+
   const { data } = useQuery({
     queryKey: ["dashboard-filters"],
     queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters"),
@@ -45,7 +50,7 @@ export function FilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
-      <Select value={filters.khu_vuc} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} />
+      <KhuVucFilterControl value={filters.khu_vuc} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
       <Select value={filters.hang} onChange={(v) => setFilters({ ...filters, hang: v })} options={[ALL_HANG, ...(data?.hang ?? [])]} />
       <Select value={filters.thang} onChange={(v) => setFilters({ ...filters, thang: v })} options={thangOptions} />
       {onExport && (
