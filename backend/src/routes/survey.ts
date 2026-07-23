@@ -9,6 +9,12 @@ import { findExistingCaseIds, runBatched } from "../lib/backfillImportProcessor"
 import { nextSequentialId } from "../lib/idCounter";
 import { ageFilterClause } from "../lib/ageCalc";
 import { khuVucAdHocClause } from "../lib/filterParams";
+import { bumpVersions } from "../lib/dataVersions";
+import { cachedReport, buildReportKey } from "../lib/reportCache";
+
+// Domain phu thuoc chung cho ca 3 bao cao /counts, /by-khu-vuc, /trend (xem bang R6 trong
+// YEU_CAU_BAO_CAO_TINH_SAN.md - ap dung dong nhat, don gian hon tach rieng tung endpoint).
+const SURVEY_REPORT_DOMAINS = ["cases", "vi_pham", "ket_qua_goi"] as const;
 
 const survey = new Hono<{ Bindings: Env }>();
 survey.use("*", verifySessionMiddleware, loadUser);
@@ -97,12 +103,20 @@ survey.get("/", async (c) => {
   return c.json({ error: "INVALID_TAB" }, 400);
 });
 
-// GET /api/survey/counts?khu_vuc=&tuoi_tu=&tuoi_den= - so ca (khong phai so dong vi_pham) cho ca 4 tab, dung cho hien thi "(N)" tren Tabs
-survey.get("/counts", async (c) => {
-  const scope = scopeByKhuVuc(c);
+export interface SurveyCountsParams {
+  khu_vuc?: string;
+  tuoi_tu?: string;
+  tuoi_den?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
+  // undefined>) - xem lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
+// Tach rieng phan tinh toan cua /counts - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeSurveyCounts(db: D1Database, params: SurveyCountsParams, scope: string[] | null) {
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
-  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const ageClause = ageFilterClause("c.thoi_gian_cskh_tiep_nhan", c.req.query("tuoi_tu"), c.req.query("tuoi_den"));
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
+  const ageClause = ageFilterClause("c.thoi_gian_cskh_tiep_nhan", params.tuoi_tu, params.tuoi_den);
   const extraFilter = khuVucClause.sql + ageClause.sql;
   const extraBinds = [...khuVucClause.binds, ...ageClause.binds];
 
@@ -124,27 +138,44 @@ survey.get("/counts", async (c) => {
   `;
 
   const [canKhaoSat, quaHanKhaoSat, choQc, daXuLy] = await Promise.all([
-    c.env.DB.prepare(canKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
-    c.env.DB.prepare(quaHanKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
-    c.env.DB.prepare(choQcQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
-    c.env.DB.prepare(daXuLyQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
+    db.prepare(canKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
+    db.prepare(quaHanKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
+    db.prepare(choQcQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
+    db.prepare(daXuLyQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
   ]);
 
-  return c.json({
+  return {
     "can-khao-sat": canKhaoSat?.n ?? 0,
     "qua-han-khao-sat": quaHanKhaoSat?.n ?? 0,
     "cho-qc": choQc?.n ?? 0,
     "da-xu-ly": daXuLy?.n ?? 0,
-  });
+  };
+}
+
+// GET /api/survey/counts?khu_vuc=&tuoi_tu=&tuoi_den= - so ca (khong phai so dong vi_pham) cho ca 4
+// tab, dung cho hien thi "(N)" tren Tabs. Doc qua reportCache (xem lib/reportCache.ts).
+survey.get("/counts", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: SurveyCountsParams = { khu_vuc: c.req.query("khu_vuc"), tuoi_tu: c.req.query("tuoi_tu"), tuoi_den: c.req.query("tuoi_den") };
+  const key = buildReportKey("survey/counts", params, scope);
+  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyCounts(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
 // GET /api/survey/by-khu-vuc?khu_vuc= - bao cao khao sat theo khu vuc: so ca can/qua han khao
 // sat, cho QC, da xu ly (khong ap dung tuoi_tu/tuoi_den - bang nay luon hien tong quan, giong
 // quy uoc o /cases/backlog-by-khu-vuc va /missing-parts/by-khu-vuc).
-survey.get("/by-khu-vuc", async (c) => {
-  const scope = scopeByKhuVuc(c);
+export interface SurveyByKhuVucParams {
+  khu_vuc?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
+  // undefined>) - xem lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
+// Tach rieng phan tinh toan cua /by-khu-vuc - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeSurveyByKhuVuc(db: D1Database, params: SurveyByKhuVucParams, scope: string[] | null) {
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
-  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
 
   const canKhaoSatQuery = `
     SELECT c.khu_vuc as khu_vuc, COUNT(*) as n FROM case_dvbh c
@@ -168,10 +199,10 @@ survey.get("/by-khu-vuc", async (c) => {
   `;
 
   const [canKhaoSat, quaHanKhaoSat, choQc, daXuLy] = await Promise.all([
-    c.env.DB.prepare(canKhaoSatQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
-    c.env.DB.prepare(quaHanKhaoSatQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
-    c.env.DB.prepare(choQcQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
-    c.env.DB.prepare(daXuLyQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
+    db.prepare(canKhaoSatQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
+    db.prepare(quaHanKhaoSatQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
+    db.prepare(choQcQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
+    db.prepare(daXuLyQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
   ]);
 
   interface Row {
@@ -196,16 +227,31 @@ survey.get("/by-khu-vuc", async (c) => {
   for (const r of daXuLy.results) ensure(r.khu_vuc).da_xu_ly = r.n;
 
   const rows = Array.from(map.values()).sort((a, b) => b.can_khao_sat + b.qua_han_khao_sat - (a.can_khao_sat + a.qua_han_khao_sat));
-  return c.json({ rows });
+  return { rows };
+}
+
+// GET /api/survey/by-khu-vuc?khu_vuc= - doc qua reportCache (xem lib/reportCache.ts).
+survey.get("/by-khu-vuc", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: SurveyByKhuVucParams = { khu_vuc: c.req.query("khu_vuc") };
+  const key = buildReportKey("survey/by-khu-vuc", params, scope);
+  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyByKhuVuc(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
-// GET /api/survey/trend?days=30 - xu huong so cuoc goi khao sat theo ngay
-survey.get("/trend", async (c) => {
-  const days = Math.min(90, Math.max(1, Number(c.req.query("days") ?? 30)));
-  const scope = scopeByKhuVuc(c);
+export interface SurveyTrendParams {
+  days?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
+  // undefined>) - xem lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
+// Tach rieng phan tinh toan cua /trend - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeSurveyTrend(db: D1Database, params: SurveyTrendParams, scope: string[] | null) {
+  const days = Math.min(90, Math.max(1, Number(params.days ?? 30)));
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
 
-  const { results } = await c.env.DB.prepare(
+  const { results } = await db.prepare(
     `SELECT date(k.ngay_gio_thuc_hien) as ngay, COUNT(*) as so_cuoc_goi
      FROM ket_qua_goi k INNER JOIN case_dvbh c ON c.id = k.case_id
      WHERE k.ngay_gio_thuc_hien IS NOT NULL AND date(k.ngay_gio_thuc_hien) >= date('now', ?)${scopeClause.sql}
@@ -215,7 +261,17 @@ survey.get("/trend", async (c) => {
     .bind(`-${days} days`, ...scopeClause.binds)
     .all();
 
-  return c.json({ rows: results });
+  return { rows: results };
+}
+
+// GET /api/survey/trend?days=30 - xu huong so cuoc goi khao sat theo ngay. Doc qua reportCache,
+// "days" nam trong cache key.
+survey.get("/trend", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: SurveyTrendParams = { days: c.req.query("days") };
+  const key = buildReportKey("survey/trend", params, scope);
+  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyTrend(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
 // POST /api/survey/calls
@@ -284,6 +340,10 @@ survey.post(
       (batchResults[i]?.meta.changes ? daGhiNhan : boQua).push(r.loai_loi);
     });
 
+    // Bump ca "vi_pham" va "ket_qua_goi" - ket_qua_goi luon co dong moi (INSERT tren), vi_pham co
+    // the co hoac khong tuy ON CONFLICT DO NOTHING nhung bump ca 2 cho don gian (xem lib/dataVersions.ts).
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham", "ket_qua_goi"]));
+
     return c.json({ id: ketQuaGoiId, daGhiNhan, boQua }, 201);
   },
 );
@@ -316,6 +376,9 @@ survey.post(
     await c.env.DB.prepare("UPDATE case_dvbh SET assigned_to = ? WHERE id = ?")
       .bind(body.assigned_to ?? null, body.case_id)
       .run();
+
+    // assigned_to nam tren case_dvbh - bump domain "cases" (xem lib/dataVersions.ts).
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
 
     return c.json({ ok: true });
   },
@@ -366,6 +429,8 @@ async function processBulkAssign(db: D1Database, rows: BulkAssignRow[], commit: 
       db.prepare("UPDATE case_dvbh SET assigned_to = ? WHERE id = ?").bind(assignedTo, id),
     );
     await runBatched(db, statements);
+    // assigned_to nam tren case_dvbh - bump domain "cases" chi o nhanh COMMIT that (xem lib/dataVersions.ts).
+    await bumpVersions(db, ["cases"]);
   }
 
   return summary;

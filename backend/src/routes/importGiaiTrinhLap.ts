@@ -7,6 +7,7 @@ import { requireRole } from "../middleware/requireRole";
 import { findExistingCaseIds, ensureUsersExist, runBatched } from "../lib/backfillImportProcessor";
 import { reserveSequentialIds } from "../lib/idCounter";
 import { parseBackfillTsv, fetchSheetText, getSheetUrl } from "../lib/backfillSheetSync";
+import { bumpVersions } from "../lib/dataVersions";
 
 const SHEET_DATE_TIME_FIELDS = new Set(["ngay_giai_trinh", "ngay_qc"]);
 
@@ -150,6 +151,8 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
         ),
     );
     await runBatched(db, statements);
+    // Bump domain "giai_trinh_lap" chi o nhanh COMMIT that (khong bump o preview) - xem lib/dataVersions.ts.
+    await bumpVersions(db, ["giai_trinh_lap"]);
   }
 
   return summary;

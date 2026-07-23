@@ -6,6 +6,7 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause, AGE_ANCHOR } from "../lib/ageCalc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause } from "../lib/filterParams";
 import { CASE_FILTER_TON, CASE_FILTER_DA_DONG_RANGE } from "../lib/needGiaiTrinh";
+import { cachedReport, buildReportKey } from "../lib/reportCache";
 
 const AGE_EXPR = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 
@@ -99,39 +100,59 @@ missingParts.get("/", async (c) => {
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
+export interface MissingPartsByKhuVucParams {
+  dim?: string;
+  khu_vuc?: string;
+  [key: string]: string | undefined;
+}
+
+/** Tach tu missingParts.get("/by-khu-vuc") - xem chu thich route ben duoi. "dim" da qua whitelist
+ * REPORT_DIMS o route (tra 400 NGOAI cache) truoc khi toi day. */
+export async function computeMissingPartsByKhuVuc(db: D1Database, params: MissingPartsByKhuVucParams, scope: string[] | null) {
+  const dimColRaw = REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
+  const dimCol = `c.${dimColRaw}`;
+
+  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
+
+  const { results } = await db
+    .prepare(
+      `SELECT ${dimCol} as nhom,
+         SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tong_ton,
+         SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
+         SUM(CASE WHEN ${AGE_EXPR} >= 5 THEN 1 ELSE 0 END) as tren_5,
+         SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
+         SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN COALESCE(c.dt_linh_kien, 0) ELSE 0 END) as tong_gia_tri_linh_kien,
+         COUNT(DISTINCT CASE WHEN ${AGE_EXPR} >= 1 THEN lg.linh_kien_thieu END) as so_ma_linh_kien,
+         SUM(CASE WHEN ${AGE_EXPR} >= 1 AND c.thoi_gian_hen_xu_ly IS NOT NULL AND c.thoi_gian_hen_xu_ly < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as lo_ke_hoach
+       FROM case_dvbh c
+       ${baseJoin(CASE_FILTER_TON)}
+       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
+       GROUP BY ${dimCol}
+       ORDER BY tong_ton DESC`,
+    )
+    .bind(...scopeClause.binds, ...khuVucClause.binds)
+    .all();
+
+  return { rows: results };
+}
+
 // GET /api/missing-parts/by-khu-vuc?dim=... - bao cao ca thieu linh kien nhom theo 1 cot bat ky
 // trong REPORT_DIMS (mac dinh khu_vuc): tong ton + cac moc "tren N ngay", tong gia tri linh kien
 // du kien, so ma linh kien khac nhau, so ca lo ke hoach. Tra ten cot nhom chung la "nhom" (khong
 // con luon la "khu_vuc") de FE hien 1 kieu bang cho moi dim.
+// Boc qua cachedReport (xem lib/reportCache.ts) - domain: cases, giai_trinh, settings (bang R5 trong
+// YEU_CAU_BAO_CAO_TINH_SAN.md, giong het cases.ts/backlog-by-khu-vuc). Tag "ngay VN" trong
+// cachedReport() tu lo cac moc "tren N ngay" doi khi sang ngay moi.
 missingParts.get("/by-khu-vuc", async (c) => {
   const dimKey = c.req.query("dim") ?? "khu_vuc";
-  const dimColRaw = REPORT_DIMS[dimKey];
-  if (!dimColRaw) return c.json({ error: "INVALID_DIM" }, 400);
-  const dimCol = `c.${dimColRaw}`;
+  if (!REPORT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
 
   const scope = scopeByKhuVuc(c);
-  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
-  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-
-  const { results } = await c.env.DB.prepare(
-    `SELECT ${dimCol} as nhom,
-       SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tong_ton,
-       SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
-       SUM(CASE WHEN ${AGE_EXPR} >= 5 THEN 1 ELSE 0 END) as tren_5,
-       SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
-       SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN COALESCE(c.dt_linh_kien, 0) ELSE 0 END) as tong_gia_tri_linh_kien,
-       COUNT(DISTINCT CASE WHEN ${AGE_EXPR} >= 1 THEN lg.linh_kien_thieu END) as so_ma_linh_kien,
-       SUM(CASE WHEN ${AGE_EXPR} >= 1 AND c.thoi_gian_hen_xu_ly IS NOT NULL AND c.thoi_gian_hen_xu_ly < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as lo_ke_hoach
-     FROM case_dvbh c
-     ${baseJoin(CASE_FILTER_TON)}
-     WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
-     GROUP BY ${dimCol}
-     ORDER BY tong_ton DESC`,
-  )
-    .bind(...scopeClause.binds, ...khuVucClause.binds)
-    .all();
-
-  return c.json({ rows: results });
+  const params: MissingPartsByKhuVucParams = { dim: dimKey, khu_vuc: c.req.query("khu_vuc") };
+  const key = buildReportKey("missing-parts/by-khu-vuc", params, scope);
+  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "settings"], () => computeMissingPartsByKhuVuc(c.env.DB, params, scope));
+  return c.json(data);
 });
 
 export default missingParts;

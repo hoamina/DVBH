@@ -3,12 +3,52 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { parseFilterParams } from "../lib/filterParams";
+import { khuVucAdHocClause, CURRENT_MONTH_VALUE } from "../lib/filterParams";
 import { computeDailyReport } from "../lib/dailyReport";
 import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, scopedFiltersCacheKey } from "../lib/precomputedCache";
+import { cachedReport, buildReportKey } from "../lib/reportCache";
 
 const dashboard = new Hono<{ Bindings: Env }>();
 dashboard.use("*", verifySessionMiddleware, loadUser);
+
+// Bo loc dung chung cho cac bao cao Dashboard (kpis/violation-breakdown/pivot/sla-trend/monthly-trend)
+// - PHIEN BAN KHONG PHU THUOC Context, khac parseFilterParams(c) trong lib/filterParams.ts, vi cac
+// ham computeXxx ben duoi phai goi lai duoc tu R7 warm-up (chi co db + params object thuan + scope,
+// khong co Context - xem "BO SUNG BAT BUOC cho R5/R6" trong YEU_CAU_BAO_CAO_TINH_SAN.md). Logic
+// giong het parseFilterParams, chi khac nguon du lieu dau vao (params object thay vi c.req.query()).
+interface DashboardFilterParams {
+  khu_vuc?: string;
+  hang?: string;
+  thang?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
+  // undefined>) khi bien da duoc gan kieu ten (interface) thay vi object literal - xem
+  // lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
+function buildDashboardFilterClause(params: DashboardFilterParams, scope: string[] | null, prefix = ""): { sql: string; binds: unknown[] } {
+  const scopeClause = khuVucWhereClause(scope, `${prefix}khu_vuc`);
+  const binds: unknown[] = [...scopeClause.binds];
+  let sql = ` AND ${prefix}archived_at IS NULL${scopeClause.sql}`;
+
+  const khuVucClause = khuVucAdHocClause(`${prefix}khu_vuc`, params.khu_vuc);
+  sql += khuVucClause.sql;
+  binds.push(...khuVucClause.binds);
+
+  if (params.hang) {
+    sql += ` AND ${prefix}hang = ?`;
+    binds.push(params.hang);
+  }
+
+  if (params.thang === CURRENT_MONTH_VALUE) {
+    sql += ` AND (strftime('%Y-%m', ${prefix}thoi_gian_hoan_thanh) = strftime('%Y-%m', 'now') OR ${prefix}thoi_gian_hoan_thanh IS NULL)`;
+  } else if (params.thang) {
+    sql += ` AND strftime('%Y-%m', ${prefix}thoi_gian_hoan_thanh) = ?`;
+    binds.push(params.thang);
+  }
+
+  return { sql, binds };
+}
 
 export interface DashboardFiltersPayload {
   khuVuc: (string | null)[];
@@ -105,12 +145,27 @@ dashboard.get("/daily-report", async (c) => {
   return c.json(report);
 });
 
-// GET /api/dashboard/kpis
-dashboard.get("/kpis", async (c) => {
-  const { sql, binds } = parseFilterParams(c);
-  const { sql: sqlC, binds: bindsC } = parseFilterParams(c, "c.");
+export interface DashboardKpisPayload {
+  total: number;
+  hoanThanh: number;
+  ton: number;
+  tonDaGiaiTrinh: number;
+  nghiNgo: number;
+  xacNhan: number;
+  tySla: number;
+  ty24h: number;
+  tyGiaiTrinh: number;
+  tyViPham: number;
+  tyDaKhaoSat: number;
+}
 
-  const base = await c.env.DB.prepare(
+// Tach rieng phan tinh toan cua /kpis (khong goi truc tiep tu route) de dung chung cho ca
+// compute-on-miss (cachedReport ben duoi) va warm-up sau import (R7, xem YEU_CAU_BAO_CAO_TINH_SAN.md).
+export async function computeDashboardKpis(db: D1Database, params: DashboardFilterParams, scope: string[] | null): Promise<DashboardKpisPayload> {
+  const { sql, binds } = buildDashboardFilterClause(params, scope);
+  const { sql: sqlC, binds: bindsC } = buildDashboardFilterClause(params, scope, "c.");
+
+  const base = await db.prepare(
     `SELECT
       SUM(CASE WHEN tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC') THEN 1 ELSE 0 END) as total,
       SUM(CASE WHEN tinh_vao_kpi = 1 AND tien_do_hoan_thanh = 'Hoàn thành XLSC' THEN 1 ELSE 0 END) as hoan_thanh,
@@ -125,14 +180,14 @@ dashboard.get("/kpis", async (c) => {
     .bind(...binds)
     .first<Record<string, number>>();
 
-  const tonDaGiaiTrinh = await c.env.DB.prepare(
+  const tonDaGiaiTrinh = await db.prepare(
     `SELECT COUNT(*) as n FROM case_dvbh c
      WHERE c.thoi_gian_hoan_thanh IS NULL AND EXISTS (SELECT 1 FROM giai_trinh g WHERE g.case_id = c.id)${sqlC}`,
   )
     .bind(...bindsC)
     .first<{ n: number }>();
 
-  const xacNhan = await c.env.DB.prepare(
+  const xacNhan = await db.prepare(
     `SELECT COUNT(*) as n FROM vi_pham v
      INNER JOIN case_dvbh c ON c.id = v.case_id
      WHERE COALESCE(v.chot_bo_cap_2, CASE WHEN v.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1
@@ -143,7 +198,7 @@ dashboard.get("/kpis", async (c) => {
 
   // Da khao sat = so luot co nghi ngo da co ket qua goi ghi nhan (bat ke ket luan Loi/Khong loi),
   // tuc la so dong vi_pham da ton tai cho case trong pham vi loc - khac tyViPham (chi tinh loi da xac nhan).
-  const daKhaoSat = await c.env.DB.prepare(
+  const daKhaoSat = await db.prepare(
     `SELECT COUNT(*) as n FROM vi_pham v
      INNER JOIN case_dvbh c ON c.id = v.case_id
      WHERE 1=1${sqlC}`,
@@ -156,7 +211,7 @@ dashboard.get("/kpis", async (c) => {
   const nghiNgo = base?.nghi_ngo ?? 0;
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
 
-  return c.json({
+  return {
     total,
     hoanThanh: base?.hoan_thanh ?? 0,
     ton,
@@ -168,15 +223,33 @@ dashboard.get("/kpis", async (c) => {
     tyGiaiTrinh: pct(tonDaGiaiTrinh?.n ?? 0, ton),
     tyViPham: pct(xacNhan?.n ?? 0, nghiNgo),
     tyDaKhaoSat: pct(daKhaoSat?.n ?? 0, nghiNgo),
-  });
+  };
+}
+
+// GET /api/dashboard/kpis - doc qua reportCache (xem lib/reportCache.ts), chi tinh lai khi domain
+// "cases" hoac "vi_pham" co ghi moi.
+dashboard.get("/kpis", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: DashboardFilterParams = { khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
+  const key = buildReportKey("dashboard/kpis", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeDashboardKpis(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
-// GET /api/dashboard/sla-trend?days=14
-dashboard.get("/sla-trend", async (c) => {
-  const days = Math.min(90, Math.max(1, Number(c.req.query("days") ?? 14)));
-  const { sql, binds } = parseFilterParams(c);
+export interface TrendRow {
+  [key: string]: unknown;
+}
 
-  const { results } = await c.env.DB.prepare(
+// Tach rieng phan tinh toan cua /sla-trend - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeSlaTrend(
+  db: D1Database,
+  params: DashboardFilterParams & { days?: string },
+  scope: string[] | null,
+): Promise<{ rows: TrendRow[] }> {
+  const days = Math.min(90, Math.max(1, Number(params.days ?? 14)));
+  const { sql, binds } = buildDashboardFilterClause(params, scope);
+
+  const { results } = await db.prepare(
     `SELECT date(thoi_gian_cskh_tiep_nhan) as ngay,
        COUNT(*) as total,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) as dung_han_count,
@@ -189,17 +262,31 @@ dashboard.get("/sla-trend", async (c) => {
      ORDER BY ngay ASC`,
   )
     .bind(`-${days} days`, ...binds)
-    .all();
+    .all<TrendRow>();
 
-  return c.json({ rows: results });
+  return { rows: results };
+}
+
+// GET /api/dashboard/sla-trend?days=14 - doc qua reportCache, "days" nam trong cache key (xem
+// luu y sla-trend/trend trong YEU_CAU_BAO_CAO_TINH_SAN.md).
+dashboard.get("/sla-trend", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params = { days: c.req.query("days"), khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
+  const key = buildReportKey("dashboard/sla-trend", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases"], () => computeSlaTrend(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
-// GET /api/dashboard/monthly-trend?months=12 - xu huong so ca hoan thanh + SLA/24h theo thang
-dashboard.get("/monthly-trend", async (c) => {
-  const months = Math.min(24, Math.max(1, Number(c.req.query("months") ?? 12)));
-  const { sql, binds } = parseFilterParams(c);
+// Tach rieng phan tinh toan cua /monthly-trend - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeMonthlyTrend(
+  db: D1Database,
+  params: DashboardFilterParams & { months?: string },
+  scope: string[] | null,
+): Promise<{ rows: TrendRow[] }> {
+  const months = Math.min(24, Math.max(1, Number(params.months ?? 12)));
+  const { sql, binds } = buildDashboardFilterClause(params, scope);
 
-  const { results } = await c.env.DB.prepare(
+  const { results } = await db.prepare(
     `SELECT strftime('%Y-%m', thoi_gian_hoan_thanh) as thang,
        COUNT(*) as total,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) as dung_han_count,
@@ -212,22 +299,41 @@ dashboard.get("/monthly-trend", async (c) => {
      ORDER BY thang ASC`,
   )
     .bind(`-${months} months`, ...binds)
-    .all();
+    .all<TrendRow>();
 
-  return c.json({ rows: results });
+  return { rows: results };
+}
+
+// GET /api/dashboard/monthly-trend?months=12 - xu huong so ca hoan thanh + SLA/24h theo thang.
+// Doc qua reportCache, "months" nam trong cache key.
+dashboard.get("/monthly-trend", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params = { months: c.req.query("months"), khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
+  const key = buildReportKey("dashboard/monthly-trend", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases"], () => computeMonthlyTrend(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
-// GET /api/dashboard/violation-breakdown
-dashboard.get("/violation-breakdown", async (c) => {
-  const { sql, binds } = parseFilterParams(c);
-  const row = await c.env.DB.prepare(
+// Tach rieng phan tinh toan cua /violation-breakdown - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeViolationBreakdown(db: D1Database, params: DashboardFilterParams, scope: string[] | null): Promise<Record<string, number>> {
+  const { sql, binds } = buildDashboardFilterClause(params, scope);
+  const row = await db.prepare(
     `SELECT SUM(loi_120p) as loi_120p, SUM(loi_qua_han_24h) as loi_qua_han_24h,
             SUM(loi_lo_ke_hoach) as loi_lo_ke_hoach, SUM(loi_kh_hen_lai) as loi_kh_hen_lai
      FROM case_dvbh WHERE 1=1${sql}`,
   )
     .bind(...binds)
     .first<Record<string, number>>();
-  return c.json(row);
+  return row ?? {};
+}
+
+// GET /api/dashboard/violation-breakdown - doc qua reportCache, chi tinh lai khi domain "cases" co ghi moi.
+dashboard.get("/violation-breakdown", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: DashboardFilterParams = { khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
+  const key = buildReportKey("dashboard/violation-breakdown", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases"], () => computeViolationBreakdown(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
 const PIVOT_DIMS: Record<string, string> = {
@@ -238,13 +344,18 @@ const PIVOT_DIMS: Record<string, string> = {
   ky_thuat_vien: "ky_thuat_vien",
 };
 
-// GET /api/dashboard/pivot?dim=khu_vuc|tinh|doi_tac|hang|ky_thuat_vien
-dashboard.get("/pivot", async (c) => {
-  const dim = PIVOT_DIMS[c.req.query("dim") ?? "khu_vuc"];
-  if (!dim) return c.json({ error: "INVALID_DIM" }, 400);
-  const { sql, binds } = parseFilterParams(c);
+// Tach rieng phan tinh toan cua /pivot - dung chung cho compute-on-miss va warm-up (R7). "dimKey" da
+// duoc route validate qua PIVOT_DIMS truoc khi goi (xem duoi) - mac dinh "khu_vuc" neu khong hop le,
+// phong khi warm-up truyen thieu.
+export async function computeDashboardPivot(
+  db: D1Database,
+  params: DashboardFilterParams & { dimKey?: string },
+  scope: string[] | null,
+): Promise<{ rows: TrendRow[] }> {
+  const dim = PIVOT_DIMS[params.dimKey ?? "khu_vuc"] ?? "khu_vuc";
+  const { sql, binds } = buildDashboardFilterClause(params, scope);
 
-  const { results } = await c.env.DB.prepare(
+  const { results } = await db.prepare(
     `SELECT ${dim} as nhom,
        SUM(CASE WHEN tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC') THEN 1 ELSE 0 END) as total,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND tien_do_hoan_thanh = 'Hoàn thành XLSC' THEN 1 ELSE 0 END) as ht_tinh_kpi,
@@ -260,9 +371,21 @@ dashboard.get("/pivot", async (c) => {
      ORDER BY total DESC`,
   )
     .bind(...binds)
-    .all();
+    .all<TrendRow>();
 
-  return c.json({ rows: results });
+  return { rows: results };
+}
+
+// GET /api/dashboard/pivot?dim=khu_vuc|tinh|doi_tac|hang|ky_thuat_vien - doc qua reportCache, "dim"
+// nam trong cache key.
+dashboard.get("/pivot", async (c) => {
+  const dimKey = c.req.query("dim") ?? "khu_vuc";
+  if (!PIVOT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
+  const scope = scopeByKhuVuc(c);
+  const params = { dimKey, khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
+  const key = buildReportKey("dashboard/pivot", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases"], () => computeDashboardPivot(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
 export default dashboard;

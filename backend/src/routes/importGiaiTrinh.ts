@@ -5,6 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { findExistingCaseIds, ensureUsersExist, loadActiveLyDoNames, loadLinhKienLookup, runBatched } from "../lib/backfillImportProcessor";
 import { parseBackfillTsv, fetchSheetText, getSheetUrl } from "../lib/backfillSheetSync";
+import { bumpVersions } from "../lib/dataVersions";
 
 const SHEET_DATE_TIME_FIELDS = new Set(["ngay_giai_trinh"]);
 const SHEET_DATE_ONLY_FIELDS = new Set(["ngay_du_kien_hoan_thanh", "ngay_yeu_cau_co_hang"]);
@@ -104,6 +105,8 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
         ),
     );
     await runBatched(db, statements);
+    // Bump domain "giai_trinh" chi o nhanh COMMIT that (khong bump o preview) - xem lib/dataVersions.ts.
+    await bumpVersions(db, ["giai_trinh"]);
   }
 
   return summary;

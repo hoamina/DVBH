@@ -11,6 +11,8 @@ import { getSheetUrl } from "../lib/backfillSheetSync";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
 import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY } from "../lib/precomputedCache";
 import { computeDashboardFilters, computeDashboardMonths } from "./dashboard";
+import { bumpVersions } from "../lib/dataVersions";
+import { warmDefaultReports } from "../lib/reportWarmup";
 
 // Tinh lai cache /dashboard/filters (pham vi khong gioi han) + /dashboard/months (xem
 // lib/precomputedCache.ts, routes/dashboard.ts) va don cac bien the /dashboard/filters theo
@@ -22,6 +24,15 @@ async function recomputeDashboardCaches(db: D1Database): Promise<void> {
     recompute(db, DASHBOARD_MONTHS_CACHE_KEY, () => computeDashboardMonths(db)),
     invalidateScopedDashboardFilters(db),
   ]);
+}
+
+// Don rac cache bao cao "rpt:%" (xem lib/reportCache.ts) qua han 7 ngay - khac cac key
+// "dashboard-filters"/"dashboard-months" (luon duoc ghi de moi lan lien quan, khong bao gio thanh
+// rac), key "rpt:%" co the ton dong vinh vien khi bo loc/pham vi cu khong con ai doc lai (vd doi
+// khu_vuc_phu_trach cua 1 Giam sat) - don dinh ky sau moi lan import, KHONG phu thuoc GHI_MOI/GHI_DE
+// vi day chi la don rac theo tuoi, khong lien quan viec du lieu co that su doi hay khong.
+async function cleanupOldReportCache(db: D1Database): Promise<void> {
+  await db.prepare("DELETE FROM precomputed_cache WHERE key LIKE 'rpt:%' AND updated_at < datetime('now', '-7 days')").run();
 }
 
 // Danh sach "ca lap" chi thay doi that su khi co GHI_MOI/GHI_DE that (BO_QUA/CAP_NHAT_MOC_THOI_GIAN
@@ -43,7 +54,15 @@ function scheduleCaLapRefreshIfChanged(
     // that su - tinh lai ngay trong waitUntil() cung dot voi refresh "ca lap", khong lam cham phan
     // hoi cho nguoi import (xem KE_HOACH_TOI_UU_D1.md Giai doan 2).
     c.executionCtx.waitUntil(recomputeDashboardCaches(c.env.DB));
+    // Bump domain "cases" (xem lib/dataVersions.ts, YEU_CAU_BAO_CAO_TINH_SAN.md) roi TINH SAN ngay
+    // bo bao cao mac dinh (R7 - warmDefaultReports, xem lib/reportWarmup.ts): "tat ca bao cao se
+    // tinh lai 1 lan duy nhat khi import moi" - bump PHAI xong truoc khi warm de ban tinh san mang
+    // dung version tag moi (neu warm truoc bump, tag cu se bi coi la het han ngay lan doc dau tien,
+    // warm thanh cong coc).
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]).then(() => warmDefaultReports(c.env.DB)));
   }
+  // Don rac "rpt:%" chay moi lan import (khong dieu kien GHI_MOI/GHI_DE, xem cleanupOldReportCache).
+  c.executionCtx.waitUntil(cleanupOldReportCache(c.env.DB));
 }
 
 const importRoute = new Hono<{ Bindings: Env }>();

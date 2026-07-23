@@ -17,6 +17,7 @@ import notificationsRoutes from "./routes/notifications";
 import greetingRoutes from "./routes/greeting";
 import caLapRoutes from "./routes/caLap";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
+import { bumpVersions } from "./lib/dataVersions";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -67,12 +68,18 @@ export default {
 
     // idx_case_archive_pending (migration 0019) phuc vu dung cau nay: chi giu lai cac dong
     // archived_at IS NULL nen SQLite khong phai quet lai ca phan da archive tu lau.
-    await env.DB.prepare(
+    const archiveResult = await env.DB.prepare(
       `UPDATE case_dvbh SET archived_at = datetime('now')
        WHERE thoi_gian_hoan_thanh IS NOT NULL AND archived_at IS NULL
          AND thoi_gian_hoan_thanh < datetime('now', ?)`,
     )
       .bind(ARCHIVE_AFTER)
       .run();
+
+    // archived_at nam tren case_dvbh - bump domain "cases" (xem lib/dataVersions.ts) khi that su
+    // co dong bi archive, tranh bump vo ich moi gio khi khong co gi thay doi.
+    if (archiveResult.meta.changes > 0) {
+      await bumpVersions(env.DB, ["cases"]);
+    }
   },
 };

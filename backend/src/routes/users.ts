@@ -5,6 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { toJsonArray, fromJsonArray } from "../lib/jsonArray";
+import { bumpVersions } from "../lib/dataVersions";
 
 const users = new Hono<{ Bindings: Env }>();
 users.use("*", verifySessionMiddleware, loadUser, requireRole("Admin"));
@@ -81,6 +82,9 @@ users.patch("/:email", async (c) => {
   )
     .bind(next.trang_thai_duyet, next.vai_tro, next.khu_vuc_phu_trach, email)
     .run();
+
+  // Bump domain "users" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
 
   return c.json({ ok: true });
 });

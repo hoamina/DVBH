@@ -10,6 +10,8 @@ import { nextSequentialId } from "../lib/idCounter";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { eligibleClause } from "../lib/caLapEligible";
 import { refreshCaLapPrecompute, CA_LAP_SNAPSHOT_HASH_KEY } from "../lib/caLapRefresh";
+import { bumpVersions } from "../lib/dataVersions";
+import { cachedReport, buildReportKey } from "../lib/reportCache";
 
 const caLap = new Hono<{ Bindings: Env }>();
 caLap.use("*", verifySessionMiddleware, loadUser);
@@ -198,17 +200,25 @@ caLap.get("/danh-sach/status", async (c) => {
 
 const LOI_LAP_LOAI = ["Lap do nghiep vu KTV", "Lap do tay nghe KTV"];
 
-// GET /api/ca-lap/tong-quan?khu_vuc=&thang= - KPI + bao cao theo khu vuc/KTV + du lieu bieu do,
-// tuong duong tab "Bao cao tong quan" cua cong cu Radar Lap cu. "Loai chot hieu luc" luon uu tien
-// QC (COALESCE(qc_chot, chot_danh_gia_lap)) dung y het logic goc "c._loai = qc || giamsat || null".
-caLap.get("/tong-quan", async (c) => {
-  const scope = scopeByKhuVuc(c);
+export interface CaLapTongQuanParams {
+  khu_vuc?: string;
+  thang?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
+  // undefined>) - xem lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
+// Tach rieng TOAN BO phan tinh toan cua /tong-quan (10 query song song) thanh 1 ham - dung chung
+// cho ca compute-on-miss (cachedReport ben duoi) va warm-up sau import (R7, xem
+// YEU_CAU_BAO_CAO_TINH_SAN.md). "Loai chot hieu luc" luon uu tien QC (COALESCE(qc_chot,
+// chot_danh_gia_lap)) dung y het logic goc "c._loai = qc || giamsat || null".
+export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuanParams, scope: string[] | null) {
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
   const scopeClauseLap = khuVucWhereClause(scope, "lap.khu_vuc");
-  const khuVucFilter = c.req.query("khu_vuc");
+  const khuVucFilter = params.khu_vuc;
   const khuVucClause = khuVucAdHocClause("khu_vuc", khuVucFilter);
   const khuVucClauseLap = khuVucAdHocClause("lap.khu_vuc", khuVucFilter);
-  const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
+  const thang = params.thang || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
 
   const raSoatQuery = `SELECT COUNT(*) as n FROM case_dvbh WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
@@ -335,16 +345,16 @@ caLap.get("/tong-quan", async (c) => {
   const lapBinds = [start, end, ...scopeClauseLap.binds, ...khuVucClauseLap.binds];
 
   const [raSoatRow, validRow, lapKpiRow, khuVucRes, ktvRes, trendRes, trangThaiRes, topKtvRes, loaiChotRes, topTinhRes] = await Promise.all([
-    c.env.DB.prepare(raSoatQuery).bind(...rasoatBinds).first<{ n: number }>(),
-    c.env.DB.prepare(validQuery).bind(...rasoatBinds).first<{ n: number }>(),
-    c.env.DB.prepare(lapKpiQuery).bind(...lapBinds).first<Record<string, number>>(),
-    c.env.DB.prepare(khuVucQuery).bind(...rasoatBinds, ...rasoatBinds, ...lapBinds).all(),
-    c.env.DB.prepare(ktvQuery).bind(...rasoatBinds, ...lapBinds).all(),
-    c.env.DB.prepare(trendQuery).bind(...lapBinds).all(),
-    c.env.DB.prepare(trangThaiQuery).bind(...lapBinds).all(),
-    c.env.DB.prepare(topKtvQuery).bind(...lapBinds).all(),
-    c.env.DB.prepare(loaiChotQuery).bind(...lapBinds).all(),
-    c.env.DB.prepare(topTinhQuery).bind(...lapBinds).all(),
+    db.prepare(raSoatQuery).bind(...rasoatBinds).first<{ n: number }>(),
+    db.prepare(validQuery).bind(...rasoatBinds).first<{ n: number }>(),
+    db.prepare(lapKpiQuery).bind(...lapBinds).first<Record<string, number>>(),
+    db.prepare(khuVucQuery).bind(...rasoatBinds, ...rasoatBinds, ...lapBinds).all(),
+    db.prepare(ktvQuery).bind(...rasoatBinds, ...lapBinds).all(),
+    db.prepare(trendQuery).bind(...lapBinds).all(),
+    db.prepare(trangThaiQuery).bind(...lapBinds).all(),
+    db.prepare(topKtvQuery).bind(...lapBinds).all(),
+    db.prepare(loaiChotQuery).bind(...lapBinds).all(),
+    db.prepare(topTinhQuery).bind(...lapBinds).all(),
   ]);
 
   const tongCanRaSoat = raSoatRow?.n ?? 0;
@@ -356,7 +366,7 @@ caLap.get("/tong-quan", async (c) => {
   const loiLapDaChot = lapKpiRow?.loi_lap_da_chot ?? 0;
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
 
-  return c.json({
+  return {
     thang,
     kpi: {
       tongCanRaSoat,
@@ -385,7 +395,18 @@ caLap.get("/tong-quan", async (c) => {
       loaiChot: loaiChotRes.results,
       topTinh: topTinhRes.results,
     },
-  });
+  };
+}
+
+// GET /api/ca-lap/tong-quan?khu_vuc=&thang= - KPI + bao cao theo khu vuc/KTV + du lieu bieu do,
+// tuong duong tab "Bao cao tong quan" cua cong cu Radar Lap cu. Doc qua reportCache (xem
+// lib/reportCache.ts), chi tinh lai khi domain "cases"/"giai_trinh_lap"/"blacklist" co ghi moi.
+caLap.get("/tong-quan", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: CaLapTongQuanParams = { khu_vuc: c.req.query("khu_vuc"), thang: c.req.query("thang") };
+  const key = buildReportKey("ca-lap/tong-quan", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "giai_trinh_lap", "blacklist"], () => computeCaLapTongQuan(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
 /**
@@ -450,6 +471,8 @@ caLap.post("/:caseId/gs", requireRole("Giam sat", "Admin"), async (c) => {
   )
     .bind(id, caseId, body.chot_danh_gia_lap, body.dien_giai_lap ?? null, body.chot_hinh_thuc_xu_ly ?? null, user.email)
     .first();
+  // Bump domain "giai_trinh_lap" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["giai_trinh_lap"]));
   return c.json(row);
 });
 
@@ -476,6 +499,8 @@ caLap.post("/:caseId/qc", requireRole("QC", "Admin"), async (c) => {
   )
     .bind(id, caseId, body.qc_chot, body.qc_ghi_chu ?? null, user.email)
     .first();
+  // Bump domain "giai_trinh_lap" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["giai_trinh_lap"]));
   return c.json(row);
 });
 
@@ -509,6 +534,8 @@ caLap.post("/blacklist", requireRole("Giam sat", "QC", "Admin"), async (c) => {
   // khong the liet ke het bien the tho trong mot menh de IN). Thao tac blacklist hiem nen chi phi
   // full recompute chap nhan duoc.
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+  // Bump domain "blacklist" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["blacklist"]));
   return c.json(row, 201);
 });
 
@@ -520,6 +547,8 @@ caLap.patch("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c) 
     .run();
   // Full recompute - khong incremental duoc voi serial blacklist da chuan hoa, xem POST /blacklist tren.
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+  // Bump domain "blacklist" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["blacklist"]));
   return c.json({ ok: true });
 });
 
@@ -530,6 +559,8 @@ caLap.delete("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c)
   await c.env.DB.prepare("DELETE FROM blacklist_serial WHERE id = ?").bind(id).run();
   // Full recompute - khong incremental duoc voi serial blacklist da chuan hoa, xem POST /blacklist tren.
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+  // Bump domain "blacklist" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["blacklist"]));
   return c.json({ ok: true });
 });
 
@@ -598,7 +629,11 @@ caLap.post("/blacklist/commit", requireRole("Giam sat", "QC", "Admin"), async (c
   const user = c.get("user");
   const { summary } = await processBlacklistRows(c.env.DB, body.rows, user.email, true);
   // Full recompute - khong incremental duoc voi serial blacklist da chuan hoa, xem POST /blacklist tren.
-  if (summary.thanhCong > 0) c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+  if (summary.thanhCong > 0) {
+    c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+    // Bump domain "blacklist" (xem lib/dataVersions.ts).
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["blacklist"]));
+  }
   return c.json(summary);
 });
 

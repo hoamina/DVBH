@@ -4,6 +4,7 @@ import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION } from "../routes/surve
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "../routes/caLap";
 import { latestGiaiTrinhJoin, CASE_FILTER_TON, NEED_TONG } from "./needGiaiTrinh";
 import { kpiEligibleClause } from "./kpiEligible";
+import { cachedReport, buildReportKey } from "./reportCache";
 
 // Giong het baseJoin() cua missingParts.ts: case ma giai_trinh moi nhat co ly_do thuoc nhom
 // "thieu linh kien". Dung ROW_NUMBER() (khong phai MAX() + JOIN nguoc) de tranh nhan dong khi
@@ -55,8 +56,12 @@ export interface DailyReportPayload {
  * Bao cao nhanh dau ngay: dung chung cho ca thong bao 1 lan/ngay lan the "Bao cao nhanh van de
  * trong ngay" o Tong quat. Vai tro "Giam sat" -> loc dung khu vuc phu trach; vai tro khac -> so
  * tong toan he thong (khong loc khu vuc), dung theo yeu cau nghiep vu.
+ *
+ * Ham TINH TOAN THAT SU (khong qua cache) - tach rieng khoi computeDailyReport() (ham boc
+ * cachedReport, export cung ten cu de dashboard.ts KHONG PHAI SUA - xem chu thich computeDailyReport
+ * ben duoi) theo dung yeu cau "tach ham compute" trong YEU_CAU_BAO_CAO_TINH_SAN.md.
  */
-export async function computeDailyReport(db: D1Database, user: AppUser): Promise<DailyReportPayload> {
+export async function computeDailyReportData(db: D1Database, user: AppUser): Promise<DailyReportPayload> {
   const isGiamSat = user.vai_tro === "Giam sat";
   const khuVucList = isGiamSat ? user.khu_vuc_phu_trach : [];
   // Doanh thu la du lieu tai chinh chi danh cho vai tro co module "Bao cao doanh thu" (khop
@@ -142,4 +147,24 @@ export async function computeDailyReport(db: D1Database, user: AppUser): Promise
     caLap: caLapRow?.n ?? 0,
     doanhThuThang: canViewRevenue ? doanhThuRow?.tong ?? 0 : null,
   };
+}
+
+/**
+ * Ham GOI TU dashboard.ts (route GET /api/dashboard/daily-report) - GIU NGUYEN ten + chu ky
+ * (db, user) => Promise<DailyReportPayload> nhu truoc R5 de KHONG PHAI SUA dashboard.ts (file nay
+ * dang duoc nhom khac sua song song, xem pham vi R5 trong YEU_CAU_BAO_CAO_TINH_SAN.md). Boc qua
+ * cachedReport - domain: cases, giai_trinh, vi_pham, settings (bang R5) + giai_trinh_lap va
+ * blacklist (bo sung khi review: so "ca lap" trong bao cao doc tu cot precompute ca_lap_* - cot nay
+ * doi khi blacklist doi ma KHONG bump "cases", va trang thai chot lap doc tu giai_trinh_lap). Key =
+ * scope (Giam sat: khu
+ * vuc phu trach; vai tro khac: "all") + vai_tro - BAT BUOC co vai_tro vi ket qua thuc su khac nhau
+ * theo vai tro NGOAI pham vi khu vuc (isGiamSat/khuVucList/canViewRevenue deu suy ra tu vai_tro, xem
+ * computeDailyReportData() o tren), khong chi phu thuoc email (2 nguoi cung vai tro + cung khu vuc
+ * phu trach luon ra cung 1 ket qua nen KHONG can them email vao key).
+ */
+export async function computeDailyReport(db: D1Database, user: AppUser): Promise<DailyReportPayload> {
+  const isGiamSat = user.vai_tro === "Giam sat";
+  const scope: string[] | null = isGiamSat ? user.khu_vuc_phu_trach : null;
+  const key = buildReportKey("dashboard/daily-report", { vai_tro: user.vai_tro ?? "" }, scope);
+  return cachedReport(db, key, ["cases", "giai_trinh", "vi_pham", "settings", "giai_trinh_lap", "blacklist"], () => computeDailyReportData(db, user));
 }

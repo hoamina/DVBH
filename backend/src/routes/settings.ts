@@ -6,6 +6,7 @@ import { requireRole } from "../middleware/requireRole";
 import { syncLinhKienFromSheet } from "../lib/linhKienSync";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { getSheetUrl } from "../lib/backfillSheetSync";
+import { bumpVersions } from "../lib/dataVersions";
 
 const VALID_LOAI_DONG_BO = new Set(["case", "linh_kien", "giai_trinh_cu", "giai_trinh_lap_cu", "khao_sat_cu"]);
 
@@ -64,6 +65,8 @@ settings.post("/ly-do", adminOnly, async (c) => {
   const user = c.get("user");
   await logAudit(c.env.DB, "settings_ly_do", String((row as { id: number }).id), user.email, "created", null, row);
   await refreshHash(c.env.DB, "settings_ly_do", "settings_ly_do", "id");
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json(row, 201);
 });
 
@@ -87,6 +90,8 @@ settings.patch("/ly-do/:id", adminOnly, async (c) => {
   const user = c.get("user");
   await logAudit(c.env.DB, "settings_ly_do", String(id), user.email, "updated", existing, next);
   await refreshHash(c.env.DB, "settings_ly_do", "settings_ly_do", "id");
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
 });
 
@@ -123,6 +128,8 @@ settings.post("/linh-kien", adminOnly, async (c) => {
 
   await logAudit(c.env.DB, "linh_kien", body.ma_linh_kien, user.email, "created", null, row);
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json(row, 201);
 });
 
@@ -146,6 +153,8 @@ settings.patch("/linh-kien/:ma", adminOnly, async (c) => {
 
   await logAudit(c.env.DB, "linh_kien", ma, user.email, "updated", existing, next);
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
 });
 
@@ -156,6 +165,8 @@ settings.post("/linh-kien/sync-sheet", adminOnly, async (c) => {
   try {
     const summary = await syncLinhKienFromSheet(c.env.DB, url);
     await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+    // Bump domain "settings" (xem lib/dataVersions.ts).
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
     return c.json(summary);
   } catch (err) {
     return c.json({ error: "SYNC_FAILED", message: (err as Error).message }, 502);
@@ -182,6 +193,9 @@ settings.patch("/sheet-urls/:loai", adminOnly, async (c) => {
   )
     .bind(body.url?.trim() || null, user.email, loai)
     .run();
+
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
 
   return c.json({ ok: true });
 });

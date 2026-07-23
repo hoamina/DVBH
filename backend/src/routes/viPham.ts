@@ -4,18 +4,26 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
+import { bumpVersions } from "../lib/dataVersions";
+import { cachedReport, buildReportKey } from "../lib/reportCache";
 
 const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
 
 const XAC_NHAN_EXPR = "COALESCE(v.chot_bo_cap_2, CASE WHEN v.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1";
 
-// GET /api/vi-pham/funnel - phau xu ly nghi ngo vi pham -> can khao sat -> cho QC -> da xu ly
-viPham.get("/funnel", async (c) => {
-  const scope = scopeByKhuVuc(c);
+export interface ViPhamFunnelPayload {
+  nghiNgo: number;
+  canKhaoSat: number;
+  choQc: number;
+  daXuLy: number;
+}
+
+// Tach rieng phan tinh toan cua /funnel - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeViPhamFunnel(db: D1Database, scope: string[] | null): Promise<ViPhamFunnelPayload> {
   const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
 
-  const nghiNgo = await c.env.DB.prepare(
+  const nghiNgo = await db.prepare(
     `SELECT COUNT(*) as n FROM case_dvbh c
      WHERE c.archived_at IS NULL
        AND (c.loi_120p = 1 OR c.loi_qua_han_24h = 1 OR c.loi_lo_ke_hoach = 1 OR c.loi_kh_hen_lai = 1)${scopeClauseC.sql}`,
@@ -23,7 +31,7 @@ viPham.get("/funnel", async (c) => {
     .bind(...scopeClauseC.binds)
     .first<{ n: number }>();
 
-  const canKhaoSat = await c.env.DB.prepare(
+  const canKhaoSat = await db.prepare(
     `SELECT COUNT(*) as n FROM (
        SELECT c.id FROM case_dvbh c
        WHERE c.archived_at IS NULL${scopeClauseC.sql}
@@ -38,36 +46,51 @@ viPham.get("/funnel", async (c) => {
     .bind(...scopeClauseC.binds)
     .first<{ n: number }>();
 
-  const choQc = await c.env.DB.prepare(
+  const choQc = await db.prepare(
     `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
      WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClauseC.sql}`,
   )
     .bind(...scopeClauseC.binds)
     .first<{ n: number }>();
 
-  const daXuLy = await c.env.DB.prepare(
+  const daXuLy = await db.prepare(
     `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
      WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClauseC.sql}`,
   )
     .bind(...scopeClauseC.binds)
     .first<{ n: number }>();
 
-  return c.json({
+  return {
     nghiNgo: nghiNgo?.n ?? 0,
     canKhaoSat: canKhaoSat?.n ?? 0,
     choQc: choQc?.n ?? 0,
     daXuLy: daXuLy?.n ?? 0,
-  });
+  };
+}
+
+// GET /api/vi-pham/funnel - phau xu ly nghi ngo vi pham -> can khao sat -> cho QC -> da xu ly.
+// Doc qua reportCache (xem lib/reportCache.ts), khong co query param nao anh huong ket qua ngoai scope.
+viPham.get("/funnel", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const key = buildReportKey("vi-pham/funnel", {}, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamFunnel(c.env.DB, scope));
+  return c.json(payload);
 });
 
-// GET /api/vi-pham/leaderboard?by=ktv|giam-sat - top 10 nhieu vi pham da xac nhan nhat
-viPham.get("/leaderboard", async (c) => {
-  const by = c.req.query("by") === "giam-sat" ? "giam-sat" : "ktv";
-  const scope = scopeByKhuVuc(c);
+export interface ViPhamLeaderboardParams {
+  by?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
+  // undefined>) - xem lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
+// Tach rieng phan tinh toan cua /leaderboard - dung chung cho compute-on-miss va warm-up (R7).
+export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLeaderboardParams, scope: string[] | null): Promise<{ rows: unknown[] }> {
+  const by = params.by === "giam-sat" ? "giam-sat" : "ktv";
   const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
 
   if (by === "ktv") {
-    const { results } = await c.env.DB.prepare(
+    const { results } = await db.prepare(
       `SELECT c.ky_thuat_vien as nhom, COUNT(*) as so_vi_pham
        FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
        WHERE ${XAC_NHAN_EXPR} AND c.ky_thuat_vien IS NOT NULL${scopeClauseC.sql}
@@ -77,10 +100,10 @@ viPham.get("/leaderboard", async (c) => {
     )
       .bind(...scopeClauseC.binds)
       .all();
-    return c.json({ rows: results });
+    return { rows: results };
   }
 
-  const { results } = await c.env.DB.prepare(
+  const { results } = await db.prepare(
     `SELECT u.email as giam_sat_email, u.ten as giam_sat, COUNT(*) as so_vi_pham
      FROM users u, json_each(u.khu_vuc_phu_trach) jv
      INNER JOIN case_dvbh c ON c.khu_vuc = jv.value
@@ -92,7 +115,17 @@ viPham.get("/leaderboard", async (c) => {
   )
     .bind(...scopeClauseC.binds)
     .all();
-  return c.json({ rows: results });
+  return { rows: results };
+}
+
+// GET /api/vi-pham/leaderboard?by=ktv|giam-sat - top 10 nhieu vi pham da xac nhan nhat. Doc qua
+// reportCache, "by" nam trong cache key.
+viPham.get("/leaderboard", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: ViPhamLeaderboardParams = { by: c.req.query("by") };
+  const key = buildReportKey("vi-pham/leaderboard", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamLeaderboard(c.env.DB, params, scope));
+  return c.json(payload);
 });
 
 // PATCH /api/vi-pham/:id/cap2 - QC chot/bo vi pham cap 2 (final)
@@ -114,6 +147,9 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
   )
     .bind(body.chot ? 1 : 0, user.email, id)
     .run();
+
+  // Bump domain "vi_pham" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
 
   return c.json({ ok: true });
 });

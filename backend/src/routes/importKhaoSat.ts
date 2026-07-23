@@ -8,6 +8,7 @@ import { reserveSequentialIds } from "../lib/idCounter";
 import { toJsonArray } from "../lib/jsonArray";
 import { LOAI_LOI_KEYS } from "../types";
 import { parseBackfillTsv, fetchSheetText, getSheetUrl } from "../lib/backfillSheetSync";
+import { bumpVersions } from "../lib/dataVersions";
 
 const SHEET_DATE_TIME_FIELDS = new Set(["ngay_gio_thuc_hien", "ngay_chot"]);
 
@@ -192,6 +193,8 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       );
     });
     await runBatched(db, statements);
+    // Bump domain "vi_pham" + "ket_qua_goi" chi o nhanh COMMIT that (khong bump o preview) - xem lib/dataVersions.ts.
+    await bumpVersions(db, ["vi_pham", "ket_qua_goi"]);
   }
 
   return summary;
