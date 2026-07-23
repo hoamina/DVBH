@@ -208,11 +208,19 @@ export interface CaLapTongQuanParams {
   [key: string]: string | undefined;
 }
 
-// Tach rieng TOAN BO phan tinh toan cua /tong-quan (10 query song song) thanh 1 ham - dung chung
-// cho ca compute-on-miss (cachedReport ben duoi) va warm-up sau import (R7, xem
-// YEU_CAU_BAO_CAO_TINH_SAN.md). "Loai chot hieu luc" luon uu tien QC (COALESCE(qc_chot,
-// chot_danh_gia_lap)) dung y het logic goc "c._loai = qc || giamsat || null".
-export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuanParams, scope: string[] | null) {
+interface CaLapQueryContext {
+  scopeClause: { sql: string; binds: string[] };
+  scopeClauseLap: { sql: string; binds: string[] };
+  khuVucClause: { sql: string; binds: unknown[] };
+  khuVucClauseLap: { sql: string; binds: unknown[] };
+  thang: string;
+  rasoatBinds: unknown[];
+  lapBinds: unknown[];
+}
+
+// Cac tham so dan xuat tu params/scope (WHERE clause + binds) dung CHUNG cho ca Block A va Block B
+// (R9.3, xem YEU_CAU_BAO_CAO_TINH_SAN.md) - tinh 1 lan duy nhat de tranh 2 khoi bi lech tham so.
+function buildCaLapQueryContext(params: CaLapTongQuanParams, scope: string[] | null): CaLapQueryContext {
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
   const scopeClauseLap = khuVucWhereClause(scope, "lap.khu_vuc");
   const khuVucFilter = params.khu_vuc;
@@ -220,6 +228,44 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
   const khuVucClauseLap = khuVucAdHocClause("lap.khu_vuc", khuVucFilter);
   const thang = params.thang || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
+  const rasoatBinds = [start, end, ...scopeClause.binds, ...khuVucClause.binds];
+  const lapBinds = [start, end, ...scopeClauseLap.binds, ...khuVucClauseLap.binds];
+  return { scopeClause, scopeClauseLap, khuVucClause, khuVucClauseLap, thang, rasoatBinds, lapBinds };
+}
+
+interface KhuVucRowA {
+  nhom: string;
+  raSoat: number;
+  valid_serial: number;
+  serial_sai: number;
+  ty_le_serial_sai: number;
+  lap_n: number;
+  serial_lap: number;
+}
+interface KhuVucRowB {
+  nhom: string;
+  da_giai_trinh: number;
+  loi_chot: number;
+  gs_chua: number;
+  qc_chua: number;
+}
+interface KtvRowA {
+  nhom: string;
+  raSoat: number;
+  lap_n: number;
+}
+interface KtvRowB {
+  nhom: string;
+  da_giai_trinh: number;
+  loi_chot: number;
+}
+
+// Block A (R9.3): CHI doc case_dvbh/blacklist_serial + CTE `lap` (khong JOIN giai_trinh_lap) - cac
+// cot nay khong bao gio doi khi co giai trinh lap moi, nen cache rieng theo domain
+// ["cases","blacklist"] de KHONG bi tinh lai moi lan co giai trinh/QC moi (chi tinh lai khi import
+// hoac blacklist doi).
+async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
+  const { scopeClause, scopeClauseLap, khuVucClause, khuVucClauseLap, rasoatBinds, lapBinds } = ctx;
 
   const raSoatQuery = `SELECT COUNT(*) as n FROM case_dvbh WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
   const validQuery = `SELECT COUNT(*) as n FROM case_dvbh
@@ -228,20 +274,21 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
       AND NOT EXISTS (SELECT 1 FROM blacklist_serial b WHERE b.seri_san_pham = UPPER(TRIM(case_dvbh.seri_san_pham)) AND b.bat_tat = 1)
       ${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
 
-  const lapKpiQuery = `${CA_LAP_CTE}
+  // Tach tu lapKpiQuery goc: 4 cot nay chi doc CTE `lap` (case_dvbh), khong doc gl.* nen khong can
+  // JOIN giai_trinh_lap.
+  const lapKpiQueryA = `${CA_LAP_CTE}
     SELECT
       SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN 1 ELSE 0 END) as tong_lap,
       COUNT(DISTINCT CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN lap.seri_san_pham END) as serial_lap,
       SUM(CASE WHEN lap.gap_days > ${NGUONG_NGAY_LAP} THEN 1 ELSE 0 END) as qua_han_lap,
-      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
-      COUNT(DISTINCT CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN lap.ky_thuat_vien END) as ktv_lien_quan,
-      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND COALESCE(gl.qc_chot, gl.chot_danh_gia_lap) IN ('${LOI_LAP_LOAI[0]}','${LOI_LAP_LOAI[1]}') THEN 1 ELSE 0 END) as loi_lap_da_chot,
-      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NULL THEN 1 ELSE 0 END) as gs_chua,
-      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.qc_chot IS NULL THEN 1 ELSE 0 END) as qc_chua
-    FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
+      COUNT(DISTINCT CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN lap.ky_thuat_vien END) as ktv_lien_quan
+    FROM lap
     WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}`;
 
-  const khuVucQuery = `
+  // lapByKvA: chi lap_n/serial_lap (khong JOIN gl) - con_dong/da_giai_trinh/loi_chot/gs_chua/qc_chua
+  // chuyen sang Block B, merge lai theo "nhom" o computeCaLapTongQuan. Bo ORDER BY con_dong (chua co
+  // o day) - sap xep cuoi cung lam sau khi merge.
+  const khuVucQueryA = `
     WITH raSoatByKv AS (
       SELECT khu_vuc, COUNT(*) as raSoat
       FROM case_dvbh
@@ -258,15 +305,11 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
       GROUP BY khu_vuc
     ),
     ${CA_LAP_CTE_BODY},
-    lapByKv AS (
+    lapByKvA AS (
       SELECT lap.khu_vuc,
         SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN 1 ELSE 0 END) as lap_n,
-        COUNT(DISTINCT CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN lap.seri_san_pham END) as serial_lap,
-        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
-        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND COALESCE(gl.qc_chot, gl.chot_danh_gia_lap) IN ('${LOI_LAP_LOAI[0]}','${LOI_LAP_LOAI[1]}') THEN 1 ELSE 0 END) as loi_chot,
-        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NULL THEN 1 ELSE 0 END) as gs_chua,
-        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.qc_chot IS NULL THEN 1 ELSE 0 END) as qc_chua
-      FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
+        COUNT(DISTINCT CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN lap.seri_san_pham END) as serial_lap
+      FROM lap
       WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
       GROUP BY lap.khu_vuc
     )
@@ -275,18 +318,14 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
       (r.raSoat - COALESCE(v.validSerial,0)) as serial_sai,
       ROUND(CASE WHEN r.raSoat > 0 THEN CAST((r.raSoat - COALESCE(v.validSerial,0)) AS REAL) * 100 / r.raSoat ELSE 0 END, 1) as ty_le_serial_sai,
       COALESCE(l.lap_n,0) as lap_n,
-      COALESCE(l.serial_lap,0) as serial_lap,
-      (COALESCE(l.lap_n,0) - COALESCE(l.da_giai_trinh,0)) as con_dong,
-      COALESCE(l.da_giai_trinh,0) as da_giai_trinh,
-      COALESCE(l.loi_chot,0) as loi_chot,
-      COALESCE(l.gs_chua,0) as gs_chua,
-      COALESCE(l.qc_chua,0) as qc_chua
+      COALESCE(l.serial_lap,0) as serial_lap
     FROM raSoatByKv r
     LEFT JOIN validByKv v ON v.khu_vuc = r.khu_vuc
-    LEFT JOIN lapByKv l ON l.khu_vuc = r.khu_vuc
-    ORDER BY con_dong DESC, lap_n DESC`;
+    LEFT JOIN lapByKvA l ON l.khu_vuc = r.khu_vuc`;
 
-  const ktvQuery = `
+  // lapByKtvA: chi lap_n (khong JOIN gl) - da_giai_trinh/loi_chot chuyen sang Block B. Top 15 +
+  // ORDER BY lap_n van quyet dinh o day (Block A), Block B chi bo sung 2 cot con lai.
+  const ktvQueryA = `
     WITH raSoatByKtv AS (
       SELECT ky_thuat_vien, COUNT(*) as raSoat
       FROM case_dvbh
@@ -294,17 +333,15 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
       GROUP BY ky_thuat_vien
     ),
     ${CA_LAP_CTE_BODY},
-    lapByKtv AS (
+    lapByKtvA AS (
       SELECT lap.ky_thuat_vien,
-        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN 1 ELSE 0 END) as lap_n,
-        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
-        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND COALESCE(gl.qc_chot, gl.chot_danh_gia_lap) IN ('${LOI_LAP_LOAI[0]}','${LOI_LAP_LOAI[1]}') THEN 1 ELSE 0 END) as loi_chot
-      FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
+        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} THEN 1 ELSE 0 END) as lap_n
+      FROM lap
       WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
       GROUP BY lap.ky_thuat_vien
     )
-    SELECT l.ky_thuat_vien as nhom, COALESCE(r.raSoat,0) as raSoat, l.lap_n, l.da_giai_trinh, l.loi_chot
-    FROM lapByKtv l LEFT JOIN raSoatByKtv r ON r.ky_thuat_vien = l.ky_thuat_vien
+    SELECT l.ky_thuat_vien as nhom, COALESCE(r.raSoat,0) as raSoat, l.lap_n
+    FROM lapByKtvA l LEFT JOIN raSoatByKtv r ON r.ky_thuat_vien = l.ky_thuat_vien
     WHERE l.ky_thuat_vien IS NOT NULL AND l.lap_n > 0
     ORDER BY l.lap_n DESC LIMIT 15`;
 
@@ -314,6 +351,84 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
     WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
     GROUP BY ngay ORDER BY ngay ASC`;
 
+  const topKtvQuery = `${CA_LAP_CTE}
+    SELECT lap.ky_thuat_vien as nhom, COUNT(*) as so_ca
+    FROM lap
+    WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND lap.ky_thuat_vien IS NOT NULL AND lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
+    GROUP BY lap.ky_thuat_vien ORDER BY so_ca DESC LIMIT 8`;
+
+  const topTinhQuery = `${CA_LAP_CTE}
+    SELECT lap.tinh as nhom, COUNT(*) as so_ca
+    FROM lap
+    WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND lap.tinh IS NOT NULL AND lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
+    GROUP BY lap.tinh ORDER BY so_ca DESC LIMIT 8`;
+
+  const [raSoatRow, validRow, lapKpiRow, khuVucRes, ktvRes, trendRes, topKtvRes, topTinhRes] = await Promise.all([
+    db.prepare(raSoatQuery).bind(...rasoatBinds).first<{ n: number }>(),
+    db.prepare(validQuery).bind(...rasoatBinds).first<{ n: number }>(),
+    db.prepare(lapKpiQueryA).bind(...lapBinds).first<Record<string, number>>(),
+    db.prepare(khuVucQueryA).bind(...rasoatBinds, ...rasoatBinds, ...lapBinds).all<KhuVucRowA>(),
+    db.prepare(ktvQueryA).bind(...rasoatBinds, ...lapBinds).all<KtvRowA>(),
+    db.prepare(trendQuery).bind(...lapBinds).all(),
+    db.prepare(topKtvQuery).bind(...lapBinds).all(),
+    db.prepare(topTinhQuery).bind(...lapBinds).all(),
+  ]);
+
+  return {
+    tongCanRaSoat: raSoatRow?.n ?? 0,
+    tongSerialChuan: validRow?.n ?? 0,
+    tongLap: lapKpiRow?.tong_lap ?? 0,
+    serialLapCount: lapKpiRow?.serial_lap ?? 0,
+    quaHanLap: lapKpiRow?.qua_han_lap ?? 0,
+    ktvLienQuan: lapKpiRow?.ktv_lien_quan ?? 0,
+    khuVuc: khuVucRes.results,
+    ktv: ktvRes.results,
+    trend: trendRes.results,
+    topKtv: topKtvRes.results,
+    topTinh: topTinhRes.results,
+  };
+}
+
+// Block B (R9.3): cac cot PHAI JOIN giai_trinh_lap (tien do xu ly - "da giai trinh"/"loi lap da
+// chot"/trang thai GS-QC...) - cache rieng theo domain ["cases","giai_trinh_lap","blacklist"], tinh
+// lai moi khi co giai trinh lap moi (dung y muc dich chinh cua cac con so nay).
+async function computeCaLapBlockB(db: D1Database, ctx: CaLapQueryContext) {
+  const { scopeClauseLap, khuVucClauseLap, lapBinds } = ctx;
+
+  const lapKpiQueryB = `${CA_LAP_CTE}
+    SELECT
+      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
+      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NULL THEN 1 ELSE 0 END) as gs_chua,
+      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.qc_chot IS NULL THEN 1 ELSE 0 END) as qc_chua,
+      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND COALESCE(gl.qc_chot, gl.chot_danh_gia_lap) IN ('${LOI_LAP_LOAI[0]}','${LOI_LAP_LOAI[1]}') THEN 1 ELSE 0 END) as loi_lap_da_chot
+    FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
+    WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}`;
+
+  // lapByKvB: da_giai_trinh/loi_chot/gs_chua/qc_chua theo khu_vuc (JOIN gl). con_dong KHONG tinh o
+  // day nua vi can lap_n cua Block A - tinh lai o buoc merge JS (giu dung cong thuc goc lap_n -
+  // da_giai_trinh).
+  const khuVucQueryB = `
+    WITH ${CA_LAP_CTE_BODY},
+    lapByKvB AS (
+      SELECT lap.khu_vuc,
+        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
+        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND COALESCE(gl.qc_chot, gl.chot_danh_gia_lap) IN ('${LOI_LAP_LOAI[0]}','${LOI_LAP_LOAI[1]}') THEN 1 ELSE 0 END) as loi_chot,
+        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NULL THEN 1 ELSE 0 END) as gs_chua,
+        SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.qc_chot IS NULL THEN 1 ELSE 0 END) as qc_chua
+      FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
+      WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
+      GROUP BY lap.khu_vuc
+    )
+    SELECT khu_vuc as nhom, da_giai_trinh, loi_chot, gs_chua, qc_chua FROM lapByKvB`;
+
+  const ktvQueryB = `${CA_LAP_CTE}
+    SELECT lap.ky_thuat_vien as nhom,
+      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND gl.chot_danh_gia_lap IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
+      SUM(CASE WHEN lap.gap_days <= ${NGUONG_NGAY_LAP} AND COALESCE(gl.qc_chot, gl.chot_danh_gia_lap) IN ('${LOI_LAP_LOAI[0]}','${LOI_LAP_LOAI[1]}') THEN 1 ELSE 0 END) as loi_chot
+    FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
+    WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
+    GROUP BY lap.ky_thuat_vien`;
+
   const trangThaiQuery = `${CA_LAP_CTE}
     SELECT
       CASE WHEN gl.qc_chot IS NOT NULL THEN 'da-chot' WHEN gl.chot_danh_gia_lap IS NOT NULL THEN 'cho-qc' ELSE 'can-danh-gia' END as trang_thai,
@@ -322,12 +437,6 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
     WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
     GROUP BY trang_thai`;
 
-  const topKtvQuery = `${CA_LAP_CTE}
-    SELECT lap.ky_thuat_vien as nhom, COUNT(*) as so_ca
-    FROM lap
-    WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND lap.ky_thuat_vien IS NOT NULL AND lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
-    GROUP BY lap.ky_thuat_vien ORDER BY so_ca DESC LIMIT 8`;
-
   const loaiChotQuery = `${CA_LAP_CTE}
     SELECT COALESCE(gl.qc_chot, gl.chot_danh_gia_lap) as loai, COUNT(*) as so_ca
     FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
@@ -335,39 +444,99 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
       AND lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
     GROUP BY loai ORDER BY so_ca DESC`;
 
-  const topTinhQuery = `${CA_LAP_CTE}
-    SELECT lap.tinh as nhom, COUNT(*) as so_ca
-    FROM lap
-    WHERE lap.gap_days <= ${NGUONG_NGAY_LAP} AND lap.tinh IS NOT NULL AND lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClauseLap.sql}${khuVucClauseLap.sql}
-    GROUP BY lap.tinh ORDER BY so_ca DESC LIMIT 8`;
-
-  const rasoatBinds = [start, end, ...scopeClause.binds, ...khuVucClause.binds];
-  const lapBinds = [start, end, ...scopeClauseLap.binds, ...khuVucClauseLap.binds];
-
-  const [raSoatRow, validRow, lapKpiRow, khuVucRes, ktvRes, trendRes, trangThaiRes, topKtvRes, loaiChotRes, topTinhRes] = await Promise.all([
-    db.prepare(raSoatQuery).bind(...rasoatBinds).first<{ n: number }>(),
-    db.prepare(validQuery).bind(...rasoatBinds).first<{ n: number }>(),
-    db.prepare(lapKpiQuery).bind(...lapBinds).first<Record<string, number>>(),
-    db.prepare(khuVucQuery).bind(...rasoatBinds, ...rasoatBinds, ...lapBinds).all(),
-    db.prepare(ktvQuery).bind(...rasoatBinds, ...lapBinds).all(),
-    db.prepare(trendQuery).bind(...lapBinds).all(),
+  const [lapKpiRow, khuVucRes, ktvRes, trangThaiRes, loaiChotRes] = await Promise.all([
+    db.prepare(lapKpiQueryB).bind(...lapBinds).first<Record<string, number>>(),
+    db.prepare(khuVucQueryB).bind(...lapBinds).all<KhuVucRowB>(),
+    db.prepare(ktvQueryB).bind(...lapBinds).all<KtvRowB>(),
     db.prepare(trangThaiQuery).bind(...lapBinds).all(),
-    db.prepare(topKtvQuery).bind(...lapBinds).all(),
     db.prepare(loaiChotQuery).bind(...lapBinds).all(),
-    db.prepare(topTinhQuery).bind(...lapBinds).all(),
   ]);
 
-  const tongCanRaSoat = raSoatRow?.n ?? 0;
-  const tongSerialChuan = validRow?.n ?? 0;
-  const tongLap = lapKpiRow?.tong_lap ?? 0;
-  const daGiaiTrinh = lapKpiRow?.da_giai_trinh ?? 0;
-  const gsChua = lapKpiRow?.gs_chua ?? 0;
-  const qcChua = lapKpiRow?.qc_chua ?? 0;
-  const loiLapDaChot = lapKpiRow?.loi_lap_da_chot ?? 0;
+  return {
+    daGiaiTrinh: lapKpiRow?.da_giai_trinh ?? 0,
+    gsChua: lapKpiRow?.gs_chua ?? 0,
+    qcChua: lapKpiRow?.qc_chua ?? 0,
+    loiLapDaChot: lapKpiRow?.loi_lap_da_chot ?? 0,
+    khuVuc: khuVucRes.results,
+    ktv: ktvRes.results,
+    trangThai: trangThaiRes.results,
+    loaiChot: loaiChotRes.results,
+  };
+}
+
+// Tach rieng TOAN BO phan tinh toan cua /tong-quan thanh 1 ham - dung chung cho ca compute-on-miss
+// (cachedReport ben duoi) va warm-up sau import (R7, xem YEU_CAU_BAO_CAO_TINH_SAN.md). "Loai chot
+// hieu luc" luon uu tien QC (COALESCE(qc_chot, chot_danh_gia_lap)) dung y het logic goc "c._loai =
+// qc || giamsat || null".
+//
+// R9.3: truoc day 1 ham goi 10 query song song trong CUNG 1 cachedReport domain gop ["cases",
+// "giai_trinh_lap","blacklist"] - nghia la moi lan co giai trinh lap moi, CA cac cot thuan import
+// (raSoat/valid/tong_lap...) cung bi tinh lai du gia tri khong doi. GIO DAY tach 2 khoi cache doc
+// lap (Block A domain ["cases","blacklist"], Block B domain ["cases","giai_trinh_lap","blacklist"])
+// roi merge ket qua theo khoa "nhom" (khu_vuc/ky_thuat_vien) bang Map trong JS - 1 khu_vuc/ky_thuat_vien
+// chi xuat hien o 1 trong 2 block van duoc giu dong, cac cot con thieu mac dinh 0 (giong het gia tri
+// COALESCE(...,0) cua cau SQL goc).
+export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuanParams, scope: string[] | null) {
+  const ctx = buildCaLapQueryContext(params, scope);
+  const keyA = buildReportKey("ca-lap/tong-quan-a", params, scope);
+  const keyB = buildReportKey("ca-lap/tong-quan-b", params, scope);
+
+  const [blockA, blockB] = await Promise.all([
+    cachedReport(db, keyA, ["cases", "blacklist"], () => computeCaLapBlockA(db, ctx)),
+    cachedReport(db, keyB, ["cases", "giai_trinh_lap", "blacklist"], () => computeCaLapBlockB(db, ctx)),
+  ]);
+
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+  const { tongCanRaSoat, tongSerialChuan, tongLap, serialLapCount, quaHanLap, ktvLienQuan } = blockA;
+  const { daGiaiTrinh, gsChua, qcChua, loiLapDaChot } = blockB;
+
+  // Merge khuVuc[]: Block A (raSoat/valid_serial/lap_n/serial_lap) LEFT-union Block B (da_giai_trinh/
+  // loi_chot/gs_chua/qc_chua) theo "nhom" = khu_vuc. con_dong tinh lai o day = lap_n (Block A) -
+  // da_giai_trinh (Block B), dung y het cong thuc SQL goc "COALESCE(l.lap_n,0) - COALESCE(l.da_giai_trinh,0)".
+  const khuVucAMap = new Map<string, KhuVucRowA>((blockA.khuVuc as KhuVucRowA[]).map((r) => [r.nhom, r]));
+  const khuVucBMap = new Map<string, KhuVucRowB>((blockB.khuVuc as KhuVucRowB[]).map((r) => [r.nhom, r]));
+  const khuVucKeys = new Set<string>([...khuVucAMap.keys(), ...khuVucBMap.keys()]);
+  const khuVuc = [...khuVucKeys]
+    .map((nhom) => {
+      const a = khuVucAMap.get(nhom);
+      const b = khuVucBMap.get(nhom);
+      const lapN = a?.lap_n ?? 0;
+      const daGiaiTrinhKv = b?.da_giai_trinh ?? 0;
+      return {
+        nhom,
+        raSoat: a?.raSoat ?? 0,
+        valid_serial: a?.valid_serial ?? 0,
+        serial_sai: a?.serial_sai ?? 0,
+        ty_le_serial_sai: a?.ty_le_serial_sai ?? 0,
+        lap_n: lapN,
+        serial_lap: a?.serial_lap ?? 0,
+        con_dong: lapN - daGiaiTrinhKv,
+        da_giai_trinh: daGiaiTrinhKv,
+        loi_chot: b?.loi_chot ?? 0,
+        gs_chua: b?.gs_chua ?? 0,
+        qc_chua: b?.qc_chua ?? 0,
+      };
+    })
+    .sort((x, y) => y.con_dong - x.con_dong || y.lap_n - x.lap_n);
+
+  // Merge ktvTable[]: thanh phan + thu tu (top 15 theo lap_n) do Block A quyet dinh (giong het
+  // WHERE l.lap_n > 0 ORDER BY l.lap_n DESC LIMIT 15 cua cau goc) - Block B chi bo sung
+  // da_giai_trinh/loi_chot cho dung ky_thuat_vien do (mac dinh 0 neu vi ly do nao khong co dong
+  // tuong ung o Block B).
+  const ktvBMap = new Map<string, KtvRowB>((blockB.ktv as KtvRowB[]).map((r) => [r.nhom, r]));
+  const ktvTable = (blockA.ktv as KtvRowA[]).map((row) => {
+    const b = ktvBMap.get(row.nhom);
+    return {
+      nhom: row.nhom,
+      raSoat: row.raSoat,
+      lap_n: row.lap_n,
+      da_giai_trinh: b?.da_giai_trinh ?? 0,
+      loi_chot: b?.loi_chot ?? 0,
+    };
+  });
 
   return {
-    thang,
+    thang: ctx.thang,
     kpi: {
       tongCanRaSoat,
       tongSerialChuan,
@@ -376,36 +545,37 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
       // viet them 1 truy van rieng.
       tySerialSai: pct(tongCanRaSoat - tongSerialChuan, tongCanRaSoat),
       tongLap,
-      serialLapCount: lapKpiRow?.serial_lap ?? 0,
-      quaHanLap: lapKpiRow?.qua_han_lap ?? 0,
+      serialLapCount,
+      quaHanLap,
       daGiaiTrinh,
       chuaGiaiTrinh: tongLap - daGiaiTrinh,
-      ktvLienQuan: lapKpiRow?.ktv_lien_quan ?? 0,
+      ktvLienQuan,
       loiLapDaChot,
       tyLeLoiLap: pct(loiLapDaChot, tongCanRaSoat),
       gsRate: pct(tongLap - gsChua, tongLap),
       qcRate: pct(tongLap - qcChua, tongLap),
     },
-    khuVuc: khuVucRes.results,
-    ktvTable: ktvRes.results,
+    khuVuc,
+    ktvTable,
     charts: {
-      trend: trendRes.results,
-      trangThai: trangThaiRes.results,
-      topKtv: topKtvRes.results,
-      loaiChot: loaiChotRes.results,
-      topTinh: topTinhRes.results,
+      trend: blockA.trend,
+      trangThai: blockB.trangThai,
+      topKtv: blockA.topKtv,
+      loaiChot: blockB.loaiChot,
+      topTinh: blockA.topTinh,
     },
   };
 }
 
 // GET /api/ca-lap/tong-quan?khu_vuc=&thang= - KPI + bao cao theo khu vuc/KTV + du lieu bieu do,
-// tuong duong tab "Bao cao tong quan" cua cong cu Radar Lap cu. Doc qua reportCache (xem
-// lib/reportCache.ts), chi tinh lai khi domain "cases"/"giai_trinh_lap"/"blacklist" co ghi moi.
+// tuong duong tab "Bao cao tong quan" cua cong cu Radar Lap cu. computeCaLapTongQuan() tu quan ly 2
+// cache doc lap ben trong (Block A domain "cases"/"blacklist", Block B them "giai_trinh_lap" - xem
+// R9.3) nen route KHONG boc them 1 lop cachedReport nua o day (se lam vo hieu hoa loi ich tach cache
+// neu boc them).
 caLap.get("/tong-quan", async (c) => {
   const scope = scopeByKhuVuc(c);
   const params: CaLapTongQuanParams = { khu_vuc: c.req.query("khu_vuc"), thang: c.req.query("thang") };
-  const key = buildReportKey("ca-lap/tong-quan", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "giai_trinh_lap", "blacklist"], () => computeCaLapTongQuan(c.env.DB, params, scope));
+  const payload = await computeCaLapTongQuan(c.env.DB, params, scope);
   return c.json(payload);
 });
 

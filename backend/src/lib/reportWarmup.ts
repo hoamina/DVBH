@@ -25,16 +25,28 @@ import { computeCasesCounts, computeBacklogStats, computeBacklogByKhuVuc } from 
 import { computeMissingPartsByKhuVuc } from "../routes/missingParts";
 import { computeSurveyCounts } from "../routes/survey";
 import { computeRevenue } from "../routes/revenue";
+import { computeCaLapTongQuan } from "../routes/caLap";
 
 interface WarmItem {
   endpoint: string;
   params: Record<string, string | undefined>;
   domains: DataDomain[];
   compute: () => Promise<unknown>;
+  // true neu ham compute() da TU boc cachedReport ben trong (vd computeBacklogStats/
+  // computeBacklogByKhuVuc sau R9.3 - moi ham chia nhieu cache block noi bo rieng) - warm-up chi
+  // can GOI THANG compute() de kich hoat cac cache noi bo do tu warm, KHONG duoc boc them 1 lop
+  // cachedReport(...) o vong lap ben duoi nua, neu khong se tao ra 1 dong cache ngoai "key gop"
+  // khong ai doc toi (route that da doc thang tu cac cache con ben trong), ton 1 luot doc + 1
+  // luot ghi thua moi lan import ma khong co loi ich gi.
+  selfCached?: boolean;
 }
 
 export async function warmDefaultReports(db: D1Database): Promise<void> {
   const thang = CURRENT_MONTH_VALUE;
+  // CaLapModule.tsx LUON gui thang="YYYY-MM" thuc te (khac quy uoc CURRENT_MONTH_VALUE="CURRENT"
+  // cua dashboard/revenue) - phai tinh dung gia tri nay (cung cong thuc UTC toISOString().slice(0,7)
+  // nhu frontend) de key warm-up khop CHINH XAC voi key request that, neu khong warm vo ich.
+  const thangCaLap = new Date().toISOString().slice(0, 7);
   const items: WarmItem[] = [
     { endpoint: "dashboard/kpis", params: { thang }, domains: ["cases", "vi_pham"], compute: () => computeDashboardKpis(db, { thang }, null) },
     { endpoint: "dashboard/violation-breakdown", params: { thang }, domains: ["cases"], compute: () => computeViolationBreakdown(db, { thang }, null) },
@@ -44,20 +56,38 @@ export async function warmDefaultReports(db: D1Database): Promise<void> {
     { endpoint: "dashboard/sla-trend", params: { days: "14", thang }, domains: ["cases"], compute: () => computeSlaTrend(db, { days: "14", thang }, null) },
     { endpoint: "dashboard/monthly-trend", params: { months: "12" }, domains: ["cases"], compute: () => computeMonthlyTrend(db, { months: "12" }, null) },
     { endpoint: "cases/counts", params: {}, domains: ["cases", "giai_trinh", "settings"], compute: () => computeCasesCounts(db, {}, null) },
-    { endpoint: "cases/backlog-stats", params: {}, domains: ["cases", "giai_trinh", "settings"], compute: () => computeBacklogStats(db, {}, null) },
-    { endpoint: "cases/backlog-by-khu-vuc", params: { dim: "khu_vuc" }, domains: ["cases", "giai_trinh", "settings"], compute: () => computeBacklogByKhuVuc(db, { dim: "khu_vuc" }, null) },
+    // selfCached: true - computeBacklogStats/computeBacklogByKhuVuc (sau R9.3) tu chia + boc
+    // cachedReport noi bo cho tung nhom cot (thuan import vs phu thuoc giai_trinh) - domains o day
+    // khong con dung de boc ngoai nua, chi con mang tinh mo ta/tai lieu.
+    { endpoint: "cases/backlog-stats", params: {}, domains: ["cases", "giai_trinh", "settings"], compute: () => computeBacklogStats(db, {}, null), selfCached: true },
+    {
+      endpoint: "cases/backlog-by-khu-vuc",
+      params: { dim: "khu_vuc" },
+      domains: ["cases", "giai_trinh", "settings"],
+      compute: () => computeBacklogByKhuVuc(db, { dim: "khu_vuc" }, null),
+      selfCached: true,
+    },
     { endpoint: "missing-parts/by-khu-vuc", params: { dim: "khu_vuc" }, domains: ["cases", "giai_trinh", "settings"], compute: () => computeMissingPartsByKhuVuc(db, { dim: "khu_vuc" }, null) },
     { endpoint: "survey/counts", params: {}, domains: ["cases", "vi_pham", "ket_qua_goi"], compute: () => computeSurveyCounts(db, {}, null) },
     { endpoint: "revenue", params: { dim: "khu_vuc", thang }, domains: ["cases"], compute: () => computeRevenue(db, { dim: "khu_vuc", thang }, null) },
     { endpoint: "revenue", params: { dim: "hang", thang }, domains: ["cases"], compute: () => computeRevenue(db, { dim: "hang", thang }, null) },
+    // selfCached: true - computeCaLapTongQuan (R9.3) tu chia 2 khoi cache noi bo rieng (thuan
+    // import vs phu thuoc giai_trinh_lap). params PHAI khop dung request that cua CaLapModule.tsx
+    // (luon gui thang=YYYY-MM, khong gui khu_vuc khi khong loc) - xem thangCaLap o tren.
+    { endpoint: "ca-lap/tong-quan", params: { thang: thangCaLap }, domains: ["cases", "giai_trinh_lap", "blacklist"], compute: () => computeCaLapTongQuan(db, { thang: thangCaLap }, null), selfCached: true },
   ];
 
   for (const item of items) {
     try {
-      // cachedReport tu so version tag: sau bump "cases" tag chac chan lech -> compute + luu; neu vi
-      // ly do nao do tag van khop (vd 2 import lien tiep, lan truoc vua warm xong) thi tra cache luon,
-      // khong ton them.
-      await cachedReport(db, buildReportKey(item.endpoint, item.params, null), item.domains, item.compute);
+      if (item.selfCached) {
+        // Goi thang - ham compute() tu boc cachedReport noi bo cho tung khoi cache con cua no.
+        await item.compute();
+      } else {
+        // cachedReport tu so version tag: sau bump "cases" tag chac chan lech -> compute + luu; neu
+        // vi ly do nao do tag van khop (vd 2 import lien tiep, lan truoc vua warm xong) thi tra
+        // cache luon, khong ton them.
+        await cachedReport(db, buildReportKey(item.endpoint, item.params, null), item.domains, item.compute);
+      }
     } catch (err) {
       // 1 bao cao warm loi khong duoc lam gay ca chuoi (va cang khong duoc lam fail import da xong) -
       // bao cao do se duoc tinh lai theo co che lazy khi co nguoi xem that.

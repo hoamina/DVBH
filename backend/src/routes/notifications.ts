@@ -75,6 +75,16 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
     // LAG() quet TOAN BO lich su case_dvbh (khong dung duoc index de rut gon), rat ton kem neu chay
     // 2 lan cho cung 1 request (phat hien qua Cloudflare D1 usage: rows read vuot xa binh thuong -
     // endpoint nay bi poll moi 60s tu Sidebar/TopBar nen nhan chi phi len rat nhieu lan/ngay).
+    // Chi dem ca lap co thoi_gian_hoan_thanh trong THANG HIEN TAI - khop pham vi mac dinh cua trang
+    // tong quan Ca lap (monthBounds() khong tham so trong caLap.ts, cung tinh theo UTC qua
+    // getUTCFullYear/getUTCMonth), tranh tinh trang badge sidebar va trang tong quan hien 2 con so
+    // khac nhau (vd 888 vs 862) gay hieu nham cho nguoi dung. Dung date('now', ...) dang RANGE
+    // (khong dung strftime) de tan dung index, va 'now' cua SQLite la UTC nen khop voi cach tinh
+    // tren. Day la hang SQL, khong phai bind param, nen KHONG doi thu tu bind hien tai (query nay
+    // chi bind scopeClauseLap.binds).
+    // Cache: endpoint nay duoc bao boc boi cachedReport voi tag la "ngay VN" (xem route ben duoi),
+    // tu het han moi ngay - nen khi sang thang moi, cache cung tu lam moi va badge tu cap nhat theo
+    // thang moi ma khong can xu ly gi them.
     db
       .prepare(
         `${CA_LAP_CTE}
@@ -82,7 +92,9 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
            SUM(CASE WHEN gl.chot_danh_gia_lap IS NULL THEN 1 ELSE 0 END) as can_danh_gia,
            SUM(CASE WHEN gl.chot_danh_gia_lap IS NOT NULL AND gl.qc_chot IS NULL THEN 1 ELSE 0 END) as cho_qc
          FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
-         WHERE lap.gap_days <= ${NGUONG_NGAY_LAP}${scopeClauseLap.sql}`,
+         WHERE lap.gap_days <= ${NGUONG_NGAY_LAP}
+           AND lap.thoi_gian_hoan_thanh >= date('now','start of month')
+           AND lap.thoi_gian_hoan_thanh < date('now','start of month','+1 month')${scopeClauseLap.sql}`,
       )
       .bind(...scopeClauseLap.binds)
       .first<{ can_danh_gia: number; cho_qc: number }>(),

@@ -85,6 +85,58 @@ KHÔNG đổi domain nào khác (giai_trinh, vi_pham, giai_trinh_lap, blacklist,
 
 Sau khi sửa: `cd backend && npx tsc --noEmit` phải pass. KHÔNG commit/deploy/migrate.
 
+## R9 — Tách cột thuần-import khỏi cột phụ thuộc giải trình (chốt 2026-07-23)
+
+Phát hiện qua báo cáo thực tế của người dùng: nhiều endpoint gộp CHUNG 1 câu SQL 2 loại cột khác bản chất — (a) cột chỉ phụ thuộc `case_dvbh`/`blacklist_serial` (chỉ đổi khi import/blacklist), (b) cột cần JOIN `giai_trinh`/`giai_trinh_lap` (đổi khi có giải trình/chốt đánh giá mới). Vì cả 2 loại đang chung 1 `cachedReport` với domain gộp, mỗi lần có giải trình mới thì CẢ HAI loại cột đều bị tính lại — bao gồm cả loại (a) vốn không hề đổi giá trị. Tách thành 2 câu SQL + 2 cache block độc lập để loại (a) không bị invalidate bởi log giải trình.
+
+**QUAN TRỌNG - không được hiểu lầm "chỉ tính khi import" quá rộng**: các cột kiểu "ĐÃ GIẢI TRÌNH", "CẦN GIẢI TRÌNH", "LỖI LẶP ĐÃ CHỐT" v.v. **PHẢI** tiếp tục phụ thuộc domain giai_trinh/giai_trinh_lap - đây là mục đích chính của con số đó (theo dõi tiến độ xử lý). CHỈ tách cột nào chứng minh được KHÔNG đọc field nào từ `lg.*`/`gl.*` (alias JOIN giai_trinh/giai_trinh_lap) trong công thức SELECT của chính nó.
+
+### R9.1 — `backend/src/routes/cases.ts` — `computeBacklogStats`
+
+Câu `tongTon` hiện SELECT 6 cột trong 1 câu JOIN `latestGiaiTrinhJoin`: `tong, tren_1, tren_3, tren_7, tren_14` (thuần `case_dvbh`, KHÔNG đọc `lg.*`) + `da_giai_trinh` (đọc `lg.case_id`). Tách thành 2 câu:
+- Câu A (KHÔNG JOIN giai_trinh): `SELECT COUNT(*) as tong, SUM(...) as tren_1/tren_3/tren_7/tren_14 FROM case_dvbh c WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scope}${extra}` — domain `["cases"]`.
+- Câu B (giữ nguyên JOIN, chỉ lấy da_giai_trinh): `SELECT SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh FROM case_dvbh c ${latestGiaiTrinhJoin(CASE_FILTER_TON)} WHERE ...` — domain `["cases","giai_trinh"]`.
+
+Câu `aging` đã thuần `case_dvbh` sẵn (không JOIN gì) → giữ nguyên, domain `["cases"]`.
+Câu `byReason` cần `lg.ly_do_cham` → giữ nguyên, domain `["cases","giai_trinh","settings"]` (settings vì `NEED_GIAI_TRINH_CATEGORIES`/dedup dùng settings_ly_do ở nơi khác trong file - kiểm tra lại đúng domain cases.ts đang khai cho endpoint này, giữ nguyên settings nếu route hiện tại có).
+
+Route `/backlog-stats` gọi `cachedReport` 3 lần độc lập (hoặc 1 lần bọc ngoài gọi Promise.all 3 hàm compute con, mỗi hàm tự cachedReport riêng) thay vì 1 lần cho cả `computeBacklogStats`. Giữ nguyên `BacklogStatsPayload` shape trả về cho frontend (gộp lại kết quả 3 phần trước khi return).
+
+### R9.2 — `backend/src/routes/cases.ts` — `computeBacklogByKhuVuc`
+
+1 câu SELECT ${dimCol}, `tong_ton/tren_3/tren_7/tren_14` (thuần `case_dvbh`) CÙNG `da_giai_trinh/can_giai_trinh_tong/lo_ke_hoach/cho_giai_trinh_lai/chua_gt_3_ngay/chua_gt_5_ngay/dieu_hoa_1_ngay/b2b_1_ngay/thieu_linh_kien` (tất cả đọc `lg.*` hoặc EXISTS settings_ly_do). Tách 2 câu GROUP BY riêng theo `${dimCol}`:
+- Câu A (không JOIN giai_trinh): SELECT dimCol, tong_ton, tren_3, tren_7, tren_14 — domain `["cases"]`.
+- Câu B (giữ JOIN + EXISTS settings_ly_do): SELECT dimCol, da_giai_trinh, can_giai_trinh_tong, lo_ke_hoach, cho_giai_trinh_lai, chua_gt_3_ngay, chua_gt_5_ngay, dieu_hoa_1_ngay, b2b_1_ngay, thieu_linh_kien — domain `["cases","giai_trinh","settings"]`.
+
+Merge kết quả 2 câu theo khóa `nhom`/dimCol trong JS (LEFT JOIN thủ công bằng Map, giống pattern `khuVucQuery` cũ ở caLap.ts) trước khi trả về, giữ đúng shape hiện tại (1 mảng rows với đủ tất cả cột như cũ).
+
+### R9.3 — `backend/src/routes/caLap.ts` — `computeCaLapTongQuan`
+
+Đây là endpoint tốn nhất (raSoat/valid quét toàn bộ case đã đóng trong tháng, ~15k dòng). Tách response thành 2 phần độc lập, MERGE lại trong `computeCaLapTongQuan` trước khi return (giữ nguyên 100% shape `CaLapTongQuanPayload` hiện tại cho frontend):
+
+**Block A — domain `["cases","blacklist"]`** (KHÔNG JOIN giai_trinh_lap):
+- `raSoatQuery`, `validQuery` (giữ nguyên y hệt).
+- Từ `lapKpiQuery`: tách ra 1 câu MỚI dùng `${CA_LAP_CTE}` (không JOIN giai_trinh_lap) chỉ lấy `tong_lap, serial_lap, qua_han_lap, ktv_lien_quan` (4 cột này đọc thuần từ CTE `lap`, không đọc `gl.*`).
+- `khuVucQuery`: tách `lapByKv` CTE thành 2 - 1 bản không JOIN gl chỉ lấy `lap_n, serial_lap` theo khu_vuc, giữ nguyên `raSoatByKv`/`validByKv`. Kết quả: SELECT r.khu_vuc, r.raSoat, valid_serial, serial_sai, ty_le_serial_sai, lap_n, serial_lap (KHÔNG có con_dong/da_giai_trinh/loi_chot/gs_chua/qc_chua).
+- `ktvQuery`: tương tự, tách `lapByKtv` chỉ lấy `lap_n` theo ky_thuat_vien (bỏ da_giai_trinh, loi_chot) - giữ `raSoatByKtv`.
+- `trendQuery`, `topKtvQuery`, `topTinhQuery` (đã thuần CTE `lap`, không JOIN gl sẵn) - giữ nguyên, đưa vào Block A.
+
+**Block B — domain `["cases","giai_trinh_lap","blacklist"]`**:
+- `lapKpiQuery` phần còn lại: `da_giai_trinh, gs_chua, qc_chua, loi_lap_da_chot` (JOIN giai_trinh_lap).
+- `khuVucQuery` phần `lapByKv` còn lại: `con_dong, da_giai_trinh, loi_chot, gs_chua, qc_chua` theo khu_vuc (JOIN giai_trinh_lap) - merge vào cùng key `nhom` với Block A ở bước cuối.
+- `ktvQuery` phần `da_giai_trinh, loi_chot` theo ky_thuat_vien - merge cùng key `nhom` với Block A.
+- `trangThaiQuery`, `loaiChotQuery` (cần `gl.qc_chot`/`gl.chot_danh_gia_lap`).
+
+Gọi `cachedReport` 2 lần (1 cho Block A với key `ca-lap/tong-quan-a`, 1 cho Block B với key `ca-lap/tong-quan-b`, cả 2 dùng CHUNG params/scope để buildReportKey), Promise.all cả 2, rồi merge kết quả thành đúng `CaLapTongQuanPayload` như code hiện tại (đối chiếu kỹ trường `kpi.*`, `khuVuc[]`, `ktvTable[]`, `charts.*` không thiếu field nào, không đổi tên field).
+
+### Ràng buộc riêng R9
+
+- **BẮT BUỘC đối chiếu số liệu**: sau khi tách, chạy thử trên D1 local (hoặc viết script so sánh) để xác nhận kết quả TỪNG FIELD giống hệt bản gốc (trước khi tách) với cùng 1 bộ dữ liệu - không được lệch dù 1 số. Nếu không dựng được môi trường so sánh tự động, đối chiếu tay từng công thức SQL trước/sau, ghi rõ trong báo cáo.
+- KHÔNG đổi domain của bất kỳ cột nào đang đúng cần giai_trinh/giai_trinh_lap (xem cảnh báo đầu mục R9).
+- KHÔNG đổi response shape trả về frontend.
+- `cd backend && npx tsc --noEmit` phải pass.
+- R9.1+R9.2 (cases.ts) và R9.3 (caLap.ts) là 2 file khác nhau, có thể làm song song.
+
 ## Ràng buộc chung cho MỌI hạng mục
 
 - KHÔNG đổi shape response; KHÔNG sửa frontend.

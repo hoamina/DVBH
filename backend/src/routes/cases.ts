@@ -145,7 +145,20 @@ export interface BacklogStatsPayload {
   byReason: { ly_do: string; n: number }[];
 }
 
-/** Tach tu cases.get("/backlog-stats") - xem chu thich route ben duoi. */
+/** Tach tu cases.get("/backlog-stats") - xem chu thich route ben duoi.
+ *
+ * R9.1 (YEU_CAU_BAO_CAO_TINH_SAN.md): truoc day ca ham nay chi doc 1 lan qua 1 cachedReport() gop
+ * chung domain ["cases","giai_trinh","settings"] o cap route, nen moi khi co giai trinh moi thi CA
+ * "tong/tren_1/tren_3/tren_7/tren_14" (thuan case_dvbh, khong doc gi tu lg.*) cung bi tinh lai theo.
+ * Tach thanh 3 cachedReport() doc lap NGAY TRONG ham nay (thay vi o route) de cases.ts van la file
+ * duy nhat bi sua (computeBacklogStats() giu nguyen chu ky/kieu tra ve cho reportWarmup.ts):
+ *   - Phan A (khong JOIN giai_trinh): tong/tren_1/tren_3/tren_7/tren_14 + aging (phan bo tuoi, von
+ *     da thuan case_dvbh san) - domain ["cases"].
+ *   - Phan B (JOIN giai_trinh, chi lay da_giai_trinh) - domain ["cases","giai_trinh"].
+ *   - Phan C (byReason, doc lg.ly_do_cham) - domain ["cases","giai_trinh","settings"] (giu dung
+ *     domain route dang khai bao cho endpoint nay).
+ * Cong thuc SQL tung cot GIU NGUYEN 100% so voi ban truoc khi tach (chi tach cau, khong doi dieu
+ * kien) - xem doi chieu chi tiet trong bao cao thuc hien R9.1/R9.2. */
 export async function computeBacklogStats(db: D1Database, params: Record<string, string | undefined>, scope: string[] | null): Promise<BacklogStatsPayload> {
   const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
   const khuVucClauseC = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
@@ -153,47 +166,70 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
   const extraFilter = khuVucClauseC.sql + sharedClause.sql;
   const extraBinds = [...khuVucClauseC.binds, ...sharedClause.binds];
 
-  const tongTon = await db
-    .prepare(
-      `SELECT
-         COUNT(*) as tong,
-         SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tren_1,
-         SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
-         SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
-         SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14,
-         SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
-       FROM case_dvbh c
-       ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
-       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
-    )
-    .bind(...scopeClauseC.binds, ...extraBinds)
-    .first<Record<string, number>>();
+  const keyA = buildReportKey("cases/backlog-stats/khong-join", params, scope);
+  const partA = cachedReport(db, keyA, ["cases"], async () => {
+    const tongTon = await db
+      .prepare(
+        `SELECT
+           COUNT(*) as tong,
+           SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tren_1,
+           SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
+           SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
+           SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14
+         FROM case_dvbh c
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
+      )
+      .bind(...scopeClauseC.binds, ...extraBinds)
+      .first<Record<string, number>>();
 
-  const aging = await db
-    .prepare(
-      `SELECT
-         SUM(CASE WHEN ${AGE_EXPR} < 1 THEN 1 ELSE 0 END) as duoi_1_ngay,
-         SUM(CASE WHEN ${AGE_EXPR} >= 1 AND ${AGE_EXPR} < 3 THEN 1 ELSE 0 END) as tu_1_den_3,
-         SUM(CASE WHEN ${AGE_EXPR} >= 3 AND ${AGE_EXPR} < 7 THEN 1 ELSE 0 END) as tu_3_den_7,
-         SUM(CASE WHEN ${AGE_EXPR} >= 7 AND ${AGE_EXPR} < 14 THEN 1 ELSE 0 END) as tu_7_den_14,
-         SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14_ngay
-       FROM case_dvbh c
-       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
-    )
-    .bind(...scopeClauseC.binds, ...extraBinds)
-    .first<Record<string, number>>();
+    const aging = await db
+      .prepare(
+        `SELECT
+           SUM(CASE WHEN ${AGE_EXPR} < 1 THEN 1 ELSE 0 END) as duoi_1_ngay,
+           SUM(CASE WHEN ${AGE_EXPR} >= 1 AND ${AGE_EXPR} < 3 THEN 1 ELSE 0 END) as tu_1_den_3,
+           SUM(CASE WHEN ${AGE_EXPR} >= 3 AND ${AGE_EXPR} < 7 THEN 1 ELSE 0 END) as tu_3_den_7,
+           SUM(CASE WHEN ${AGE_EXPR} >= 7 AND ${AGE_EXPR} < 14 THEN 1 ELSE 0 END) as tu_7_den_14,
+           SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14_ngay
+         FROM case_dvbh c
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
+      )
+      .bind(...scopeClauseC.binds, ...extraBinds)
+      .first<Record<string, number>>();
 
-  const { results: byReason } = await db
-    .prepare(
-      `SELECT COALESCE(lg.ly_do_cham, 'Chưa giải trình') as ly_do, COUNT(*) as n
-       FROM case_dvbh c
-       ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
-       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}
-       GROUP BY ly_do
-       ORDER BY n DESC`,
-    )
-    .bind(...scopeClauseC.binds, ...extraBinds)
-    .all<{ ly_do: string; n: number }>();
+    return { tongTon, aging };
+  });
+
+  const keyB = buildReportKey("cases/backlog-stats/join", params, scope);
+  const partB = cachedReport(db, keyB, ["cases", "giai_trinh"], async () => {
+    const row = await db
+      .prepare(
+        `SELECT SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
+         FROM case_dvbh c
+         ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
+      )
+      .bind(...scopeClauseC.binds, ...extraBinds)
+      .first<Record<string, number>>();
+    return row?.da_giai_trinh ?? 0;
+  });
+
+  const keyC = buildReportKey("cases/backlog-stats/by-reason", params, scope);
+  const partC = cachedReport(db, keyC, ["cases", "giai_trinh", "settings"], async () => {
+    const { results } = await db
+      .prepare(
+        `SELECT COALESCE(lg.ly_do_cham, 'Chưa giải trình') as ly_do, COUNT(*) as n
+         FROM case_dvbh c
+         ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}
+         GROUP BY ly_do
+         ORDER BY n DESC`,
+      )
+      .bind(...scopeClauseC.binds, ...extraBinds)
+      .all<{ ly_do: string; n: number }>();
+    return results;
+  });
+
+  const [{ tongTon, aging }, daGiaiTrinh, byReason] = await Promise.all([partA, partB, partC]);
 
   return {
     tongTon: {
@@ -202,7 +238,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
       tren3: tongTon?.tren_3 ?? 0,
       tren7: tongTon?.tren_7 ?? 0,
       tren14: tongTon?.tren_14 ?? 0,
-      daGiaiTrinh: tongTon?.da_giai_trinh ?? 0,
+      daGiaiTrinh: daGiaiTrinh ?? 0,
     },
     aging: {
       duoi1: aging?.duoi_1_ngay ?? 0,
@@ -216,7 +252,19 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
 }
 
 /** Tach tu cases.get("/backlog-by-khu-vuc") - xem chu thich route ben duoi. "dim" (ten cot nhom, da
- * qua whitelist REPORT_DIMS o route) nam trong params.dim. */
+ * qua whitelist REPORT_DIMS o route) nam trong params.dim.
+ *
+ * R9.2 (YEU_CAU_BAO_CAO_TINH_SAN.md): tach 1 cau SELECT ...GROUP BY duy nhat (gop ca cot thuan
+ * case_dvbh lan cot doc lg.* hoac EXISTS settings_ly_do) thanh 2 cachedReport() doc lap NGAY TRONG ham
+ * nay (giu nguyen chu ky computeBacklogByKhuVuc() cho reportWarmup.ts, chi sua cases.ts):
+ *   - Cau A (khong JOIN giai_trinh): nhom, tong_ton/tren_3/tren_7/tren_14 - domain ["cases"].
+ *   - Cau B (JOIN giai_trinh + EXISTS settings_ly_do): nhom, da_giai_trinh/can_giai_trinh_tong/
+ *     lo_ke_hoach/cho_giai_trinh_lai/chua_gt_3_ngay/chua_gt_5_ngay/dieu_hoa_1_ngay/b2b_1_ngay/
+ *     thieu_linh_kien - domain ["cases","giai_trinh","settings"].
+ * Merge 2 mang ket qua theo khoa "nhom" bang Map (LEFT JOIN thu cong) truoc khi tra ve, giu dung
+ * shape { rows } nhu cu (du tat ca cot, khong thieu field nao dù 1 ben khong co dong tuong ung -
+ * ly thuyet khong xay ra vi ca A va B cung GROUP BY 1 dimCol tren cung tap ca dang ton, nhung van
+ * fallback 0 cho an toan). Cong thuc SQL tung cot GIU NGUYEN 100% so voi ban truoc khi tach. */
 export async function computeBacklogByKhuVuc(db: D1Database, params: Record<string, string | undefined>, scope: string[] | null): Promise<{ rows: Record<string, string | number>[] }> {
   const dimColRaw = REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
   const dimCol = `c.${dimColRaw}`;
@@ -227,30 +275,73 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
   const extraFilter = khuVucClauseC.sql + sharedClause.sql;
   const extraBinds = [...khuVucClauseC.binds, ...sharedClause.binds];
 
-  const { results: rows } = await db
-    .prepare(
-      `SELECT ${dimCol} as nhom,
-         SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tong_ton,
-         SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
-         SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
-         SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14,
-         SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
-         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.tong} THEN 1 ELSE 0 END) as can_giai_trinh_tong,
-         SUM(CASE WHEN ${NEED_LO_KE_HOACH} THEN 1 ELSE 0 END) as lo_ke_hoach,
-         SUM(CASE WHEN ${NEED_TAI_GIAI_TRINH} THEN 1 ELSE 0 END) as cho_giai_trinh_lai,
-         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_3_ngay} THEN 1 ELSE 0 END) as chua_gt_3_ngay,
-         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_5_ngay} THEN 1 ELSE 0 END) as chua_gt_5_ngay,
-         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dieu_hoa} THEN 1 ELSE 0 END) as dieu_hoa_1_ngay,
-         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b_1_ngay,
-         SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
-       FROM case_dvbh c
-       ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
-       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
-       GROUP BY ${dimCol}
-       ORDER BY tong_ton DESC`,
-    )
-    .bind(...scopeClauseC.binds, ...extraBinds)
-    .all<Record<string, string | number>>();
+  const keyA = buildReportKey("cases/backlog-by-khu-vuc/khong-join", params, scope);
+  const partA = cachedReport(db, keyA, ["cases"], async () => {
+    const { results } = await db
+      .prepare(
+        `SELECT ${dimCol} as nhom,
+           SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tong_ton,
+           SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
+           SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
+           SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14
+         FROM case_dvbh c
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
+         GROUP BY ${dimCol}
+         ORDER BY tong_ton DESC`,
+      )
+      .bind(...scopeClauseC.binds, ...extraBinds)
+      .all<Record<string, string | number>>();
+    return results;
+  });
+
+  const keyB = buildReportKey("cases/backlog-by-khu-vuc/join", params, scope);
+  const partB = cachedReport(db, keyB, ["cases", "giai_trinh", "settings"], async () => {
+    const { results } = await db
+      .prepare(
+        `SELECT ${dimCol} as nhom,
+           SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
+           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.tong} THEN 1 ELSE 0 END) as can_giai_trinh_tong,
+           SUM(CASE WHEN ${NEED_LO_KE_HOACH} THEN 1 ELSE 0 END) as lo_ke_hoach,
+           SUM(CASE WHEN ${NEED_TAI_GIAI_TRINH} THEN 1 ELSE 0 END) as cho_giai_trinh_lai,
+           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_3_ngay} THEN 1 ELSE 0 END) as chua_gt_3_ngay,
+           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_5_ngay} THEN 1 ELSE 0 END) as chua_gt_5_ngay,
+           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dieu_hoa} THEN 1 ELSE 0 END) as dieu_hoa_1_ngay,
+           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b_1_ngay,
+           SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
+         FROM case_dvbh c
+         ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
+         GROUP BY ${dimCol}`,
+      )
+      .bind(...scopeClauseC.binds, ...extraBinds)
+      .all<Record<string, string | number>>();
+    return results;
+  });
+
+  const [rowsA, rowsB] = await Promise.all([partA, partB]);
+
+  const mapB = new Map<string | number, Record<string, string | number>>();
+  for (const r of rowsB) mapB.set(r.nhom, r);
+
+  const rows = rowsA.map((a) => {
+    const b = mapB.get(a.nhom);
+    return {
+      nhom: a.nhom,
+      tong_ton: a.tong_ton,
+      tren_3: a.tren_3,
+      tren_7: a.tren_7,
+      tren_14: a.tren_14,
+      da_giai_trinh: b?.da_giai_trinh ?? 0,
+      can_giai_trinh_tong: b?.can_giai_trinh_tong ?? 0,
+      lo_ke_hoach: b?.lo_ke_hoach ?? 0,
+      cho_giai_trinh_lai: b?.cho_giai_trinh_lai ?? 0,
+      chua_gt_3_ngay: b?.chua_gt_3_ngay ?? 0,
+      chua_gt_5_ngay: b?.chua_gt_5_ngay ?? 0,
+      dieu_hoa_1_ngay: b?.dieu_hoa_1_ngay ?? 0,
+      b2b_1_ngay: b?.b2b_1_ngay ?? 0,
+      thieu_linh_kien: b?.thieu_linh_kien ?? 0,
+    };
+  });
 
   return { rows };
 }
@@ -390,13 +481,13 @@ cases.get("/counts", async (c) => {
 
 // GET /api/cases/backlog-stats - tong ton hien tai theo nguong tuoi (1/3/7/14 ngay) + phan bo tuoi
 // ca ton (cho bieu do) + co cau theo ly do cham gan nhat
-// Boc qua cachedReport - domain: cases, giai_trinh, settings (bang R5). Tag "ngay VN" trong
-// cachedReport() tu lo viec cac nguong tuoi (>=1/3/7/14 ngay) doi khi sang ngay moi.
+// R9.1 (YEU_CAU_BAO_CAO_TINH_SAN.md): computeBacklogStats() tu goi cachedReport 3 lan doc lap ben
+// trong (domain rieng cho phan thuan case_dvbh vs phan can JOIN giai_trinh) - route KHONG boc them
+// 1 lop cachedReport gop domain nua de tranh luu trung du lieu (xem chu thich computeBacklogStats).
 cases.get("/backlog-stats", async (c) => {
   const scope = scopeByKhuVuc(c);
   const params = readReportFilterParams(c);
-  const key = buildReportKey("cases/backlog-stats", params, scope);
-  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "settings"], () => computeBacklogStats(c.env.DB, params, scope));
+  const data = await computeBacklogStats(c.env.DB, params, scope);
   return c.json(data);
 });
 
@@ -404,16 +495,17 @@ cases.get("/backlog-stats", async (c) => {
 // thang) nhom theo 1 cot bat ky trong REPORT_DIMS (mac dinh khu_vuc): tong ton + tung nguong tuoi
 // (1/3/7/14 ngay), so ca thieu linh kien, so/ty le da giai trinh, va 5 nhom "can giai trinh" (dung
 // chung dinh nghia needGiaiTrinh.ts voi phan con lai cua he thong). Tra ten cot nhom chung la "nhom".
-// Boc qua cachedReport - domain: cases, giai_trinh, settings (bang R5). "dim" (validate qua
-// REPORT_DIMS truoc, tra 400 NGOAI cache) + cac param con lai deu nam trong key.
+// R9.2 (YEU_CAU_BAO_CAO_TINH_SAN.md): computeBacklogByKhuVuc() tu goi cachedReport 2 lan doc lap
+// ben trong (domain rieng cho phan thuan case_dvbh vs phan can JOIN giai_trinh/settings) - route
+// KHONG boc them 1 lop cachedReport gop domain nua (xem chu thich computeBacklogByKhuVuc). "dim"
+// van validate qua REPORT_DIMS truoc, tra 400 NGOAI moi cache.
 cases.get("/backlog-by-khu-vuc", async (c) => {
   const dimKey = c.req.query("dim") ?? "khu_vuc";
   if (!REPORT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
 
   const scope = scopeByKhuVuc(c);
   const params = { ...readReportFilterParams(c), dim: dimKey };
-  const key = buildReportKey("cases/backlog-by-khu-vuc", params, scope);
-  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "settings"], () => computeBacklogByKhuVuc(c.env.DB, params, scope));
+  const data = await computeBacklogByKhuVuc(c.env.DB, params, scope);
   return c.json(data);
 });
 
