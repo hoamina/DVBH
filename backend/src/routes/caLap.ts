@@ -59,11 +59,16 @@ function monthBounds(thang: string): { start: string; end: string } {
  */
 // Than CTE (khong co tu khoa "WITH" dau) - dung khi can ghep vao GIUA 1 khoi WITH khac (khuVucQuery/
 // ktvQuery ben duoi co WITH rieng cua chung, khong the long them 1 "WITH" thu 2 o giua danh sach CTE).
+// INDEXED BY bat buoc planner dung partial index 0017 (~816 dong "lap"): khi cau ngoai co them dieu
+// kien thoi_gian_hoan_thanh >= ?/< ?, SQLite lam phang CTE roi hay chon NHAM idx_case_hoan_thanh_
+// not_null theo range - quet ~17.9 nghin ca da dong moi lan goi thay vi 816 dong (do thuc te bang
+// d1 insights 2026-07-23, xac nhan bang EXPLAIN QUERY PLAN). Neu index nay bi xoa, cau lenh se BAO
+// LOI ngay (fail-fast) thay vi am tham quet cham - dung quen apply migration 0017 truoc khi deploy.
 const CA_LAP_CTE_BODY = `
   lap AS (
     SELECT *, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
       (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
-    FROM case_dvbh
+    FROM case_dvbh INDEXED BY idx_case_ca_lap_prior_ht
     WHERE ca_lap_prior_ht IS NOT NULL
   )
 `;
