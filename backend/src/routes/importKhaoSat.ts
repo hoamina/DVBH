@@ -72,12 +72,66 @@ async function loadExistingViPhamPairs(db: D1Database, caseIds: string[]): Promi
   return pairs;
 }
 
+// Khoa trung lap ket_qua_goi dung STRING KEY (khong dua vao UNIQUE constraint SQL) - cung ly
+// do/pattern voi buildGiaiTrinhKey trong importGiaiTrinh.ts: SQLite coi 2 gia tri NULL la
+// "khac nhau" trong UNIQUE nen ON CONFLICT DO NOTHING khong dam bao chan duoc trung khi
+// ket_qua_cuoc_goi/dien_giai la NULL. Day la dedup THEM cho ket_qua_goi, doc lap voi
+// existingViPhamPairs o tren (dedup cho vi_pham, giu nguyen khong doi).
+function buildKetQuaGoiKey(f: {
+  caseId: string;
+  loaiKhaoSat: string;
+  nguoiThucHien: string;
+  ngayGioThucHien: string;
+  ketQuaCuocGoi: string;
+  dienGiai: string;
+}): string {
+  return [f.caseId, f.loaiKhaoSat, f.nguoiThucHien, f.ngayGioThucHien, f.ketQuaCuocGoi, f.dienGiai].join("|");
+}
+
+async function loadExistingKetQuaGoiKeys(db: D1Database, caseIds: string[]): Promise<Set<string>> {
+  const uniqueIds = Array.from(new Set(caseIds.filter(Boolean)));
+  const keys = new Set<string>();
+  for (let i = 0; i < uniqueIds.length; i += 100) {
+    const chunk = uniqueIds.slice(i, i + 100);
+    if (chunk.length === 0) continue;
+    const placeholders = chunk.map(() => "?").join(", ");
+    const { results } = await db
+      .prepare(
+        `SELECT case_id, loai_khao_sat, nguoi_thuc_hien, ngay_gio_thuc_hien, ket_qua_cuoc_goi, dien_giai
+         FROM ket_qua_goi WHERE case_id IN (${placeholders})`,
+      )
+      .bind(...chunk)
+      .all<{
+        case_id: string;
+        loai_khao_sat: string;
+        nguoi_thuc_hien: string;
+        ngay_gio_thuc_hien: string;
+        ket_qua_cuoc_goi: string | null;
+        dien_giai: string | null;
+      }>();
+    for (const row of results) {
+      keys.add(
+        buildKetQuaGoiKey({
+          caseId: row.case_id,
+          loaiKhaoSat: row.loai_khao_sat,
+          nguoiThucHien: row.nguoi_thuc_hien,
+          ngayGioThucHien: row.ngay_gio_thuc_hien,
+          ketQuaCuocGoi: row.ket_qua_cuoc_goi ?? "",
+          dienGiai: row.dien_giai ?? "",
+        }),
+      );
+    }
+  }
+  return keys;
+}
+
 async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean) {
-  const summary = { thanhCong: 0, loi: 0, errors: [] as string[] };
+  const summary = { thanhCong: 0, loi: 0, trungLap: 0, errors: [] as string[] };
   const caseIds = rows.map((r) => String(r.case_id ?? "").trim());
-  const [existingCaseIds, existingViPhamPairs] = await Promise.all([
+  const [existingCaseIds, existingViPhamPairs, existingKetQuaGoiKeys] = await Promise.all([
     findExistingCaseIds(db, caseIds),
     loadExistingViPhamPairs(db, caseIds),
+    loadExistingKetQuaGoiKeys(db, caseIds),
   ]);
 
   interface ValidRow {
@@ -90,6 +144,7 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
   }
   const validRows: ValidRow[] = [];
   const seenInFile = new Set<string>();
+  const seenKetQuaGoiInFile = new Set<string>();
 
   rows.forEach((row, i) => {
     const caseId = String(row.case_id ?? "").trim();
@@ -128,7 +183,25 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       summary.errors.push(`Dong ${i + 1}: ca "${caseId}" da co vi pham ghi nhan cho loai loi "${loaiLoiRaw}" (bo qua de tranh trung lap)`);
       return;
     }
+    // Dedup THEM cho ket_qua_goi (doc lap voi check vi_pham o tren): neu dong nay khop het
+    // (case_id, loai_khao_sat, nguoi_thuc_hien, ngay_gio_thuc_hien, ket_qua_cuoc_goi, dien_giai)
+    // voi 1 ket_qua_goi da ton tai (DB hoac cung file) thi bo qua CA CAP ket_qua_goi + vi_pham
+    // cua dong nay, khong insert gi ca.
+    const ketQuaGoiKey = buildKetQuaGoiKey({
+      caseId,
+      loaiKhaoSat: toJsonArray([loaiLoiRaw]),
+      nguoiThucHien,
+      ngayGioThucHien: String(row.ngay_gio_thuc_hien ?? "").trim(),
+      ketQuaCuocGoi: String(row.ket_qua_cuoc_goi ?? "").trim(),
+      dienGiai: String(row.dien_giai ?? "").trim(),
+    });
+    if (existingKetQuaGoiKeys.has(ketQuaGoiKey) || seenKetQuaGoiInFile.has(ketQuaGoiKey)) {
+      summary.trungLap++;
+      summary.errors.push(`Dong ${i + 1}: ket qua khao sat nay da ton tai (trung lap voi du lieu da import), bo qua`);
+      return;
+    }
     seenInFile.add(pairKey);
+    seenKetQuaGoiInFile.add(ketQuaGoiKey);
     validRows.push({ row, caseId, loaiLoi: loaiLoiRaw as LoaiLoi, ketQuaCap1, chotBoCap2, nguoiThucHien });
   });
 
@@ -150,11 +223,17 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       const ketQuaGoiId = ketQuaGoiIds[i];
       const viPhamId = viPhamIds[i];
 
+      // Hang rao chinh chan trung lap la buildKetQuaGoiKey/loadExistingKetQuaGoiKeys o tren.
+      // ON CONFLICT DO NOTHING chi la luoi an toan thu 2 (defense in depth) phong 2 request
+      // commit chay dong thoi race nhau qua pre-check - ket_qua_goi co UNIQUE(case_id,
+      // loai_khao_sat, nguoi_thuc_hien, ngay_gio_thuc_hien, ket_qua_cuoc_goi, dien_giai)
+      // tu migration 0022.
       statements.push(
         db
           .prepare(
             `INSERT INTO ket_qua_goi (id, case_id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, dien_giai, ghi_chu, ly_do_that_bai, can_goi_lai, nguoi_thuc_hien, ngay_gio_thuc_hien)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+             ON CONFLICT(case_id, loai_khao_sat, nguoi_thuc_hien, ngay_gio_thuc_hien, ket_qua_cuoc_goi, dien_giai) DO NOTHING`,
           )
           .bind(
             ketQuaGoiId,
