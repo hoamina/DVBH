@@ -33,7 +33,10 @@ users.get("/login-log", async (c) => {
   const email = c.req.query("email")?.trim();
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(100, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
-  const whereSql = email ? " WHERE email = ?" : "";
+  // Khi khong loc email: gioi han 90 ngay gan nhat (dung idx_login_log_thoi_gian) - bang login_log
+  // tang vo han theo thoi gian (moi lan dang nhap them 1 dong), neu khong gioi han thi COUNT(*) va
+  // SELECT se doc lai TOAN BO bang moi lan Admin mo trang nay.
+  const whereSql = email ? " WHERE email = ?" : " WHERE thoi_gian >= datetime('now', '-90 days')";
   const binds = email ? [email] : [];
 
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM login_log${whereSql}`)

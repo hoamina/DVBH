@@ -2,22 +2,27 @@ import type { AppUser } from "../types";
 import { ROLES_XEM_TOAN_BO } from "../types";
 import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION } from "../routes/survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "../routes/caLap";
-import { LATEST_GIAI_TRINH_JOIN, NEED_TONG } from "./needGiaiTrinh";
+import { latestGiaiTrinhJoin, CASE_FILTER_TON, NEED_TONG } from "./needGiaiTrinh";
 import { kpiEligibleClause } from "./kpiEligible";
 
-// Giong het BASE_JOIN cua missingParts.ts: case ma giai_trinh moi nhat co ly_do thuoc nhom
+// Giong het baseJoin() cua missingParts.ts: case ma giai_trinh moi nhat co ly_do thuoc nhom
 // "thieu linh kien". Dung ROW_NUMBER() (khong phai MAX() + JOIN nguoc) de tranh nhan dong khi
-// >=2 ban ghi giai_trinh trung gio - xem giai thich chi tiet o cases.ts.
-const MISSING_PARTS_JOIN = `
+// >=2 ban ghi giai_trinh trung gio - xem giai thich chi tiet o needGiaiTrinh.ts. caseFilterSql
+// gioi han subquery vao dung tap case dang xet (xem giai thich an toan/superset o
+// latestGiaiTrinhJoin() trong needGiaiTrinh.ts).
+function missingPartsJoin(caseFilterSql: string): string {
+  return `
   INNER JOIN (
     SELECT case_id, ly_do_cham FROM (
       SELECT gt.case_id, gt.ly_do_cham,
              ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
       FROM giai_trinh gt
+      WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE ${caseFilterSql})
     ) WHERE rn = 1
   ) lg ON lg.case_id = c.id
   INNER JOIN settings_ly_do sld ON sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1
 `;
+}
 
 const REVENUE_EXPR_C = "COALESCE(c.dt_san_pham,0) + COALESCE(c.dt_linh_kien,0) + COALESCE(c.dt_dich_vu,0)";
 
@@ -87,7 +92,7 @@ export async function computeDailyReport(db: D1Database, user: AppUser): Promise
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh c
-         ${LATEST_GIAI_TRINH_JOIN}
+         ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${NEED_TONG}${khuVucClause}`,
       )
       .bind(...khuVucBinds)
@@ -95,7 +100,7 @@ export async function computeDailyReport(db: D1Database, user: AppUser): Promise
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh c
-         ${MISSING_PARTS_JOIN}
+         ${missingPartsJoin(CASE_FILTER_TON)}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${khuVucClause}`,
       )
       .bind(...khuVucBinds)

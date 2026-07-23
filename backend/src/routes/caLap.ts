@@ -497,7 +497,12 @@ caLap.post("/blacklist", requireRole("Giam sat", "QC", "Admin"), async (c) => {
     .first();
   // Blacklist la 1 dieu kien loc NGAY TRONG WHERE cua precompute (xem caLapRefresh.ts) - serial vua
   // bi tat/bat se doi ca danh sach "ca lap" that su (khong chi 1 truong trang thai), nen phai tinh
-  // lai ngay giong luc import, khong the doi den cron an toan hang gio.
+  // lai ngay giong luc import, khong the doi den cron an toan hang gio. LUON FULL recompute (KHONG
+  // truyen serial de incremental): blacklist luu serial da CHUAN HOA (trim + toUpperCase) trong khi
+  // case_dvbh.seri_san_pham la gia tri THO - so khop IN (...) theo gia tri tho se BO SOT cac case co
+  // serial viet thuong/thua khoang trang (dieu kien NOT EXISTS trong CTE so sanh qua UPPER(TRIM(...)),
+  // khong the liet ke het bien the tho trong mot menh de IN). Thao tac blacklist hiem nen chi phi
+  // full recompute chap nhan duoc.
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json(row, 201);
 });
@@ -508,6 +513,7 @@ caLap.patch("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c) 
   await c.env.DB.prepare("UPDATE blacklist_serial SET bat_tat = ? WHERE id = ?")
     .bind(body.bat_tat ? 1 : 0, id)
     .run();
+  // Full recompute - khong incremental duoc voi serial blacklist da chuan hoa, xem POST /blacklist tren.
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json({ ok: true });
 });
@@ -517,6 +523,7 @@ caLap.patch("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c) 
 caLap.delete("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c) => {
   const id = Number(c.req.param("id"));
   await c.env.DB.prepare("DELETE FROM blacklist_serial WHERE id = ?").bind(id).run();
+  // Full recompute - khong incremental duoc voi serial blacklist da chuan hoa, xem POST /blacklist tren.
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json({ ok: true });
 });
@@ -539,6 +546,7 @@ interface BlacklistImportRow {
 
 async function processBlacklistRows(db: D1Database, rows: BlacklistImportRow[], nguoiThem: string, commit: boolean) {
   const summary = { thanhCong: 0, boQua: 0, errors: [] as string[] };
+  const serials: string[] = [];
 
   // Chuan hoa + loc trung ngay trong file (Map giu dong CUOI cung neu 1 serial xuat hien nhieu lan,
   // khop hanh vi "ghi de" cua ON CONFLICT DO UPDATE khi commit that).
@@ -554,9 +562,10 @@ async function processBlacklistRows(db: D1Database, rows: BlacklistImportRow[], 
   });
 
   summary.thanhCong = bySeri.size;
+  serials.push(...bySeri.keys());
 
   if (commit && bySeri.size > 0) {
-    const statements = [...bySeri.keys()].map((seri) =>
+    const statements = serials.map((seri) =>
       db
         .prepare(`INSERT INTO blacklist_serial (seri_san_pham, nguoi_them) VALUES (?, ?)
                   ON CONFLICT(seri_san_pham) DO UPDATE SET bat_tat = 1`)
@@ -565,7 +574,7 @@ async function processBlacklistRows(db: D1Database, rows: BlacklistImportRow[], 
     await runBatched(db, statements);
   }
 
-  return summary;
+  return { summary, serials };
 }
 
 // POST /api/ca-lap/blacklist/preview
@@ -573,7 +582,7 @@ caLap.post("/blacklist/preview", requireRole("Giam sat", "QC", "Admin"), async (
   const body = await c.req.json<{ rows: BlacklistImportRow[] }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const user = c.get("user");
-  const summary = await processBlacklistRows(c.env.DB, body.rows, user.email, false);
+  const { summary } = await processBlacklistRows(c.env.DB, body.rows, user.email, false);
   return c.json(summary);
 });
 
@@ -582,7 +591,8 @@ caLap.post("/blacklist/commit", requireRole("Giam sat", "QC", "Admin"), async (c
   const body = await c.req.json<{ rows: BlacklistImportRow[] }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const user = c.get("user");
-  const summary = await processBlacklistRows(c.env.DB, body.rows, user.email, true);
+  const { summary } = await processBlacklistRows(c.env.DB, body.rows, user.email, true);
+  // Full recompute - khong incremental duoc voi serial blacklist da chuan hoa, xem POST /blacklist tren.
   if (summary.thanhCong > 0) c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   return c.json(summary);
 });

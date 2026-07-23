@@ -16,7 +16,7 @@ import revenueRoutes from "./routes/revenue";
 import notificationsRoutes from "./routes/notifications";
 import greetingRoutes from "./routes/greeting";
 import caLapRoutes from "./routes/caLap";
-import { refreshCaLapPrecompute } from "./lib/caLapRefresh";
+import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -57,10 +57,16 @@ export default {
 
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
     if (event.cron === CA_LAP_REFRESH_CRON) {
+      // Guard: chi thuc su recompute (full - luoi an toan) khi du lieu nguon THAT SU doi ke tu lan
+      // refresh truoc (xem shouldSkipCronRefresh o caLapRefresh.ts) - tranh quet toan bang moi gio
+      // du khong co import/dong bo/sua ca nao xay ra trong khung gio do.
+      if (await shouldSkipCronRefresh(env.DB)) return;
       await refreshCaLapPrecompute(env.DB);
       return;
     }
 
+    // idx_case_archive_pending (migration 0019) phuc vu dung cau nay: chi giu lai cac dong
+    // archived_at IS NULL nen SQLite khong phai quet lai ca phan da archive tu lau.
     await env.DB.prepare(
       `UPDATE case_dvbh SET archived_at = datetime('now')
        WHERE thoi_gian_hoan_thanh IS NOT NULL AND archived_at IS NULL

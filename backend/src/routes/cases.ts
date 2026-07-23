@@ -6,7 +6,14 @@ import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause as ageFilterClauseFor } from "../lib/ageCalc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters } from "../lib/filterParams";
-import { LATEST_GIAI_TRINH_JOIN, NEED_GIAI_TRINH_CATEGORIES, NEED_LO_KE_HOACH, NEED_TAI_GIAI_TRINH } from "../lib/needGiaiTrinh";
+import {
+  latestGiaiTrinhJoin,
+  CASE_FILTER_TON,
+  CASE_FILTER_DA_DONG_RANGE,
+  NEED_GIAI_TRINH_CATEGORIES,
+  NEED_LO_KE_HOACH,
+  NEED_TAI_GIAI_TRINH,
+} from "../lib/needGiaiTrinh";
 import { getCaLapDetection } from "./caLap";
 
 const cases = new Hono<{ Bindings: Env }>();
@@ -67,12 +74,15 @@ cases.get("/", async (c) => {
     const khuVucClause = khuVucAdHocClause("c.khu_vuc", khuVucFilter);
     const hang = c.req.query("hang");
     const hangClause: { sql: string; binds: unknown[] } = hang ? { sql: " AND c.hang = ?", binds: [hang] } : { sql: "", binds: [] };
-    const binds: unknown[] = [start, end, ...scopeClause.binds, ...khuVucClause.binds, ...hangClause.binds, ...dimClause.binds, ...sharedClause.binds, ...idClause.binds];
+    // Join gioi han vao dung tap ca DONG trong khoang [start, end) - CASE_FILTER_DA_DONG_RANGE co 2
+    // bind param (start, end) nam TRUOC 2 bind (start, end) cua WHERE ngoai trong chuoi SQL cuoi
+    // cung (mau JOIN dung truoc mau WHERE), nen phai bind (start, end) 2 LAN lien tiep.
+    const binds: unknown[] = [start, end, start, end, ...scopeClause.binds, ...khuVucClause.binds, ...hangClause.binds, ...dimClause.binds, ...sharedClause.binds, ...idClause.binds];
     const { results } = await c.env.DB.prepare(
       `SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
               lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh
        FROM case_dvbh c
-       ${LATEST_GIAI_TRINH_JOIN}
+       ${latestGiaiTrinhJoin(CASE_FILTER_DA_DONG_RANGE)}
        WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${hangClause.sql}${dimClause.sql}${sharedClause.sql}${idClause.sql}
        ORDER BY c.thoi_gian_hoan_thanh DESC`,
     )
@@ -105,8 +115,13 @@ cases.get("/", async (c) => {
 
   const whereSql = `WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${tabFilter}${scopeClause.sql}${extraFilter}`;
 
+  // Tat ca cac tab o day (ton-hien-tai/can-giai-trinh/da-giai-trinh) deu bat buoc WHERE ngoai co
+  // "thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL" (xem whereSql) => an toan dung preset
+  // CASE_FILTER_TON (khong bind param) de gioi han subquery ROW_NUMBER().
+  const join = latestGiaiTrinhJoin(CASE_FILTER_TON);
+
   const countRow = await c.env.DB.prepare(
-    `SELECT COUNT(*) as total FROM case_dvbh c ${LATEST_GIAI_TRINH_JOIN} ${whereSql}`,
+    `SELECT COUNT(*) as total FROM case_dvbh c ${join} ${whereSql}`,
   )
     .bind(...binds)
     .first<{ total: number }>();
@@ -115,7 +130,7 @@ cases.get("/", async (c) => {
     SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
            lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh
     FROM case_dvbh c
-    ${LATEST_GIAI_TRINH_JOIN}
+    ${join}
     ${whereSql}
     ORDER BY c.${sortBy} ${sortDir}
   `;
@@ -175,7 +190,7 @@ cases.get("/counts", async (c) => {
        SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b,
        SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
      FROM case_dvbh c
-     ${LATEST_GIAI_TRINH_JOIN}
+     ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
      WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClause.sql}${extraFilter}`,
   )
     .bind(...scopeClause.binds, ...extraBinds)
@@ -212,7 +227,7 @@ cases.get("/backlog-stats", async (c) => {
        SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14,
        SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
      FROM case_dvbh c
-     ${LATEST_GIAI_TRINH_JOIN}
+     ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
      WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
   )
     .bind(...scopeClauseC.binds, ...extraBinds)
@@ -234,7 +249,7 @@ cases.get("/backlog-stats", async (c) => {
   const { results: byReason } = await c.env.DB.prepare(
     `SELECT COALESCE(lg.ly_do_cham, 'Chưa giải trình') as ly_do, COUNT(*) as n
      FROM case_dvbh c
-     ${LATEST_GIAI_TRINH_JOIN}
+     ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
      WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}
      GROUP BY ly_do
      ORDER BY n DESC`,
@@ -295,7 +310,7 @@ cases.get("/backlog-by-khu-vuc", async (c) => {
        SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b_1_ngay,
        SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
      FROM case_dvbh c
-     ${LATEST_GIAI_TRINH_JOIN}
+     ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
      WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
      GROUP BY ${dimCol}
      ORDER BY tong_ton DESC`,

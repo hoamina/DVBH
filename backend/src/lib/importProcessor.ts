@@ -32,13 +32,28 @@ export interface ImportSummary {
   GHI_DE: number;
   LOI: number;
   errors: string[];
+  // Tap DISTINCT seri_san_pham cua CAC DONG GHI_MOI/GHI_DE (BO_QUA/CAP_NHAT_MOC_THOI_GIAN khong doi
+  // du lieu nghiep vu nen khong dua vao day) - truyen cho refreshCaLapPrecompute() (lib/caLapRefresh.ts)
+  // de tinh lai "ca lap" INCREMENTAL chi trong pham vi serial bi anh huong, thay vi full recompute
+  // (xem importRoute.ts scheduleCaLapRefreshIfChanged). Voi dong GHI_DE, gom CA serial CU (truoc khi
+  // ghi de) lan serial MOI, phong truong hop 1 case doi serial giua 2 lan import - LAG() PARTITION BY
+  // seri_san_pham thi ca 2 partition (cu va moi) deu co the doi, khong chi partition moi.
+  affectedSerials: string[];
 }
 
 const CHUNK_SIZE_SELECT = 100; // an toan voi gioi han bind-param cua SQLite
 const CHUNK_SIZE_BATCH = 500; // duoi gioi han batch 1000 (free tier D1)
 
 function emptySummary(): ImportSummary {
-  return { GHI_MOI: 0, BO_QUA: 0, CAP_NHAT_MOC_THOI_GIAN: 0, GHI_DE: 0, LOI: 0, errors: [] };
+  return { GHI_MOI: 0, BO_QUA: 0, CAP_NHAT_MOC_THOI_GIAN: 0, GHI_DE: 0, LOI: 0, errors: [], affectedSerials: [] };
+}
+
+// Them 1 gia tri seri_san_pham (co the la unknown tho tu file import hoac tu dong DB cu) vao tap
+// serial bi anh huong, bo qua gia tri rong/null - xem giai thich o field affectedSerials tren.
+function addAffectedSerial(set: Set<string>, rawValue: unknown): void {
+  if (rawValue === null || rawValue === undefined) return;
+  const seri = String(rawValue).trim();
+  if (seri.length > 0) set.add(seri);
 }
 
 function validateRows(rows: unknown[]): { valid: ImportRow[]; errors: string[] } {
@@ -165,6 +180,7 @@ export async function processImport(
 
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
   const statements: D1PreparedStatement[] = [];
+  const affectedSerials = new Set<string>();
 
   for (const incoming of valid) {
     const existing = existingById.get(incoming.id);
@@ -174,6 +190,7 @@ export async function processImport(
 
     if (!existing) {
       summary.GHI_MOI++;
+      addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
       if (commit) statements.push(buildInsertStatement(db, incoming, now));
       continue;
     }
@@ -199,8 +216,14 @@ export async function processImport(
     }
 
     summary.GHI_DE++;
+    // Gom ca serial CU (truoc khi ghi de, tu row DB da doc san o fetchExistingRows) lan serial MOI -
+    // xem giai thich o field affectedSerials cua ImportSummary.
+    addAffectedSerial(affectedSerials, existing.seri_san_pham);
+    addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
     if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, now));
   }
+
+  summary.affectedSerials = [...affectedSerials];
 
   if (commit) {
     for (let i = 0; i < statements.length; i += CHUNK_SIZE_BATCH) {

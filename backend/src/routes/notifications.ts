@@ -5,6 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION } from "./survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "./caLap";
+import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
 
 const notifications = new Hono<{ Bindings: Env }>();
 notifications.use("*", verifySessionMiddleware, loadUser);
@@ -37,13 +38,16 @@ notifications.get("/count", async (c) => {
     )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),
-    // Dung dung dieu kien BASE_JOIN + trang_thai=dang-ton mac dinh cua missingParts.ts.
+    // Dung dung dieu kien baseJoin() + trang_thai=dang-ton mac dinh cua missingParts.ts. Subquery
+    // gioi han vao dung tap case DANG TON (CASE_FILTER_TON, khop het WHERE ben duoi) thay vi quet
+    // toan bo bang giai_trinh - xem giai thich an toan o latestGiaiTrinhJoin() trong needGiaiTrinh.ts.
     c.env.DB.prepare(
       `SELECT COUNT(*) as n FROM case_dvbh c
        INNER JOIN (
          SELECT case_id, ly_do_cham FROM (
            SELECT gt.case_id, gt.ly_do_cham, ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
            FROM giai_trinh gt
+           WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE ${CASE_FILTER_TON})
          ) WHERE rn = 1
        ) lg ON lg.case_id = c.id
        INNER JOIN settings_ly_do sld ON sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1

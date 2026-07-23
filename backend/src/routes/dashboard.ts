@@ -5,18 +5,30 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { parseFilterParams } from "../lib/filterParams";
 import { computeDailyReport } from "../lib/dailyReport";
+import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, scopedFiltersCacheKey } from "../lib/precomputedCache";
 
 const dashboard = new Hono<{ Bindings: Env }>();
 dashboard.use("*", verifySessionMiddleware, loadUser);
 
-// GET /api/dashboard/filters - danh sach gia tri duy nhat cua tung dim (cho dropdown loc), theo pham
-// vi user - dung chung cho moi bo loc REPORT_DIMS (BacklogModule bao cao ton can giai trinh, v.v.)
-dashboard.get("/filters", async (c) => {
-  const scope = scopeByKhuVuc(c);
+export interface DashboardFiltersPayload {
+  khuVuc: (string | null)[];
+  hang: (string | null)[];
+  tinh: (string | null)[];
+  doiTac: (string | null)[];
+  nhomSanPham: (string | null)[];
+  nhomKh: (string | null)[];
+  nganh: (string | null)[];
+}
+
+// Tinh that su 7 SELECT DISTINCT (ton kem - moi cau quet toan bo case_dvbh vi 6/7 cot khong index,
+// xem KE_HOACH_TOI_UU_D1.md Giai doan 2). Tach rieng ham nay (khong goi truc tiep tu route) de dung
+// chung cho ca compute-on-miss (route /filters ben duoi) va recompute sau import (importRoute.ts).
+export async function computeDashboardFilters(db: D1Database, scope: string[] | null): Promise<DashboardFiltersPayload> {
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
 
   const distinctOf = (col: string) =>
-    c.env.DB.prepare(`SELECT DISTINCT ${col} FROM case_dvbh WHERE ${col} IS NOT NULL${scopeClause.sql} ORDER BY ${col}`)
+    db
+      .prepare(`SELECT DISTINCT ${col} FROM case_dvbh WHERE ${col} IS NOT NULL${scopeClause.sql} ORDER BY ${col}`)
       .bind(...scopeClause.binds)
       .all<Record<string, string>>();
 
@@ -30,7 +42,7 @@ dashboard.get("/filters", async (c) => {
     distinctOf("nganh"),
   ]);
 
-  return c.json({
+  return {
     khuVuc: khuVucRes.results.map((r) => r.khu_vuc),
     hang: hangRes.results.map((r) => r.hang),
     tinh: tinhRes.results.map((r) => r.tinh),
@@ -38,7 +50,19 @@ dashboard.get("/filters", async (c) => {
     nhomSanPham: nhomSanPhamRes.results.map((r) => r.nhom_san_pham),
     nhomKh: nhomKhRes.results.map((r) => r.nhom_kh),
     nganh: nganhRes.results.map((r) => r.nganh),
-  });
+  };
+}
+
+// GET /api/dashboard/filters - danh sach gia tri duy nhat cua tung dim (cho dropdown loc), theo pham
+// vi user - dung chung cho moi bo loc REPORT_DIMS (BacklogModule bao cao ton can giai trinh, v.v.)
+// Doc qua precomputed_cache (xem lib/precomputedCache.ts) - gia tri chi thay doi khi import ghi
+// case_dvbh nen khong can tinh lai moi request; key tach theo pham vi khu_vuc cua user (Giam sat
+// bi gioi han co key rieng, xem scopedFiltersCacheKey) de khong lo du lieu giua cac pham vi khac nhau.
+dashboard.get("/filters", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const key = scopedFiltersCacheKey(scope);
+  const payload = await getOrCompute(c.env.DB, key, () => computeDashboardFilters(c.env.DB, scope));
+  return c.json(payload);
 });
 
 // GET /api/dashboard/sync-status - thoi gian tiep nhan cua ca gan nhat da import, dung lam moc
@@ -50,13 +74,28 @@ dashboard.get("/sync-status", async (c) => {
   return c.json({ lastSynced: row?.last_synced ?? null });
 });
 
-// GET /api/dashboard/months - danh sach thang xu ly (theo thoi_gian_hoan_thanh) de loc bao cao
+export interface DashboardMonthsPayload {
+  months: string[];
+}
+
+// Quet toan bo ca da dong de liet ke cac thang co du lieu (ton kem - xem KE_HOACH_TOI_UU_D1.md
+// Giai doan 2). Tach rieng de dung chung cho compute-on-miss va recompute sau import.
+export async function computeDashboardMonths(db: D1Database): Promise<DashboardMonthsPayload> {
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT strftime('%Y-%m', thoi_gian_hoan_thanh) as thang FROM case_dvbh
+       WHERE thoi_gian_hoan_thanh IS NOT NULL ORDER BY thang DESC`,
+    )
+    .all<{ thang: string }>();
+  return { months: results.map((r) => r.thang) };
+}
+
+// GET /api/dashboard/months - danh sach thang xu ly (theo thoi_gian_hoan_thanh) de loc bao cao.
+// Doc qua precomputed_cache - danh sach thang chi doi khi co ca dong moi, ma dieu do cung chi
+// xay ra qua import (xem importRoute.ts).
 dashboard.get("/months", async (c) => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT DISTINCT strftime('%Y-%m', thoi_gian_hoan_thanh) as thang FROM case_dvbh
-     WHERE thoi_gian_hoan_thanh IS NOT NULL ORDER BY thang DESC`,
-  ).all<{ thang: string }>();
-  return c.json({ months: results.map((r) => r.thang) });
+  const payload = await getOrCompute(c.env.DB, DASHBOARD_MONTHS_CACHE_KEY, () => computeDashboardMonths(c.env.DB));
+  return c.json(payload);
 });
 
 // GET /api/dashboard/daily-report - bao cao nhanh van de trong ngay theo vai tro (Giam sat: loc

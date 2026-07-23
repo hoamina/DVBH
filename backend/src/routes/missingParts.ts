@@ -5,24 +5,30 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause, AGE_ANCHOR } from "../lib/ageCalc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause } from "../lib/filterParams";
+import { CASE_FILTER_TON, CASE_FILTER_DA_DONG_RANGE } from "../lib/needGiaiTrinh";
 
 const AGE_EXPR = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 
 const missingParts = new Hono<{ Bindings: Env }>();
 missingParts.use("*", verifySessionMiddleware, loadUser);
 
-// "Moi nhat" theo case_id qua ROW_NUMBER() - xem giai thich chi tiet o LATEST_GIAI_TRINH_JOIN trong
-// cases.ts (MAX() + JOIN nguoc lai se nhan doi dong khi co >=2 ban ghi giai_trinh trung gio).
-const BASE_JOIN = `
+// "Moi nhat" theo case_id qua ROW_NUMBER() - xem giai thich chi tiet o latestGiaiTrinhJoin() trong
+// needGiaiTrinh.ts (MAX() + JOIN nguoc lai se nhan doi dong khi co >=2 ban ghi giai_trinh trung
+// gio). caseFilterSql gioi han subquery vao dung tap case dang xet - xem giai thich an toan
+// (superset) o latestGiaiTrinhJoin() trong needGiaiTrinh.ts, ap dung y het cho ham nay.
+function baseJoin(caseFilterSql: string): string {
+  return `
   INNER JOIN (
     SELECT case_id, ly_do_cham, linh_kien_thieu, ngay_yeu_cau_co_hang, ngay_du_kien_hoan_thanh FROM (
       SELECT gt.case_id, gt.ly_do_cham, gt.linh_kien_thieu, gt.ngay_yeu_cau_co_hang, gt.ngay_du_kien_hoan_thanh,
              ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
       FROM giai_trinh gt
+      WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE ${caseFilterSql})
     ) WHERE rn = 1
   ) lg ON lg.case_id = c.id
   INNER JOIN settings_ly_do sld ON sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1
 `;
+}
 
 const SELECT_COLS = `c.*, lg.ly_do_cham as last_ly_do_cham, lg.linh_kien_thieu as last_linh_kien_thieu,
        lg.ngay_yeu_cau_co_hang as last_ngay_yeu_cau_co_hang, lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh`;
@@ -55,11 +61,13 @@ missingParts.get("/", async (c) => {
     const { results } = await c.env.DB.prepare(
       `SELECT ${SELECT_COLS}
        FROM case_dvbh c
-       ${BASE_JOIN}
+       ${baseJoin(CASE_FILTER_DA_DONG_RANGE)}
        WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${dimClause.sql}
        ORDER BY c.thoi_gian_hoan_thanh DESC`,
     )
-      .bind(start, end, ...scopeClause.binds, ...khuVucClause.binds, ...dimClause.binds)
+      // CASE_FILTER_DA_DONG_RANGE (trong baseJoin) co 2 bind (start, end) nam TRUOC 2 bind (start,
+      // end) cua WHERE ngoai trong chuoi SQL cuoi cung - bind (start, end) 2 lan lien tiep.
+      .bind(start, end, start, end, ...scopeClause.binds, ...khuVucClause.binds, ...dimClause.binds)
       .all();
     return c.json({ rows: results, thang });
   }
@@ -76,7 +84,7 @@ missingParts.get("/", async (c) => {
   const query = `
     SELECT ${SELECT_COLS}
     FROM case_dvbh c
-    ${BASE_JOIN}
+    ${baseJoin(CASE_FILTER_TON)}
     WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClause.sql}${extraFilter}
   `;
   const binds = [...scopeClause.binds, ...extraBinds];
@@ -115,7 +123,7 @@ missingParts.get("/by-khu-vuc", async (c) => {
        COUNT(DISTINCT CASE WHEN ${AGE_EXPR} >= 1 THEN lg.linh_kien_thieu END) as so_ma_linh_kien,
        SUM(CASE WHEN ${AGE_EXPR} >= 1 AND c.thoi_gian_hen_xu_ly IS NOT NULL AND c.thoi_gian_hen_xu_ly < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as lo_ke_hoach
      FROM case_dvbh c
-     ${BASE_JOIN}
+     ${baseJoin(CASE_FILTER_TON)}
      WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
      GROUP BY ${dimCol}
      ORDER BY tong_ton DESC`,

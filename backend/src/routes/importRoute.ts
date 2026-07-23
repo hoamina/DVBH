@@ -9,15 +9,40 @@ import { COLUMN_MAP } from "../lib/ratchet";
 import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
+import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY } from "../lib/precomputedCache";
+import { computeDashboardFilters, computeDashboardMonths } from "./dashboard";
+
+// Tinh lai cache /dashboard/filters (pham vi khong gioi han) + /dashboard/months (xem
+// lib/precomputedCache.ts, routes/dashboard.ts) va don cac bien the /dashboard/filters theo
+// khu_vuc_phu_trach (Giam sat) de chung tu compute-on-miss lai voi du lieu moi o lan doc tiep theo -
+// xem comment invalidateScopedDashboardFilters ve ly do khong recompute() truc tiep duoc cac bien the nay.
+async function recomputeDashboardCaches(db: D1Database): Promise<void> {
+  await Promise.all([
+    recompute(db, DASHBOARD_FILTERS_CACHE_KEY, () => computeDashboardFilters(db, null)),
+    recompute(db, DASHBOARD_MONTHS_CACHE_KEY, () => computeDashboardMonths(db)),
+    invalidateScopedDashboardFilters(db),
+  ]);
+}
 
 // Danh sach "ca lap" chi thay doi that su khi co GHI_MOI/GHI_DE that (BO_QUA/CAP_NHAT_MOC_THOI_GIAN
 // khong doi du lieu nghiep vu nen khong anh huong ket qua phat hien lap) - tranh tinh lai vo ich
 // khi import chi toan dong da co san khong doi gi (vd chay lai file cu, hoac Google Sheet dong bo
-// khong co gi moi). Chay qua waitUntil() de KHONG lam cham phan hoi cua nguoi import (tinh lai mat
-// ~1 giay do quet ~15 nghin dong, xem lib/caLapRefresh.ts) - cron */20 phut van con lam luoi an toan.
-function scheduleCaLapRefreshIfChanged(c: Context<{ Bindings: Env }>, summary: { GHI_MOI: number; GHI_DE: number }) {
+// khong co gi moi). Chay qua waitUntil() de KHONG lam cham phan hoi cua nguoi import - cron hang
+// gio (co guard shouldSkipCronRefresh, xem lib/caLapRefresh.ts) van con lam luoi an toan.
+// Cung dot nay tinh lai luon cache dashboard filters/months (xem recomputeDashboardCaches).
+function scheduleCaLapRefreshIfChanged(
+  c: Context<{ Bindings: Env }>,
+  summary: { GHI_MOI: number; GHI_DE: number; affectedSerials: string[] },
+) {
   if (summary.GHI_MOI + summary.GHI_DE > 0) {
-    c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+    // Truyen affectedSerials de refreshCaLapPrecompute() chi tinh lai INCREMENTAL trong pham vi
+    // serial bi anh huong (xem lib/caLapRefresh.ts + lib/importProcessor.ts) - neu rong sau loc,
+    // ham tu dong roi ve full recompute (luoi an toan).
+    c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB, summary.affectedSerials));
+    // Danh sach dim (khu_vuc/hang/tinh/...) va danh sach thang chi co the doi khi co GHI_MOI/GHI_DE
+    // that su - tinh lai ngay trong waitUntil() cung dot voi refresh "ca lap", khong lam cham phan
+    // hoi cho nguoi import (xem KE_HOACH_TOI_UU_D1.md Giai doan 2).
+    c.executionCtx.waitUntil(recomputeDashboardCaches(c.env.DB));
   }
 }
 
