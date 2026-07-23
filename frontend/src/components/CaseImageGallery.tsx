@@ -1,10 +1,26 @@
 import { useEffect, useState } from "react";
 
+// Loc trung URL ngay tai day (nguon dung chung cho ca tieu de dem so anh lan gallery ben duoi) -
+// du lieu CRM doi luc chua cung 1 URL lap lai nhieu lan trong 1 ca, giu nguyen thu tu xuat hien dau tien.
+// Chuan hoa "%2F" -> "/" TRUOC khi so trung: cung 1 anh doi luc bi ma hoa "/" thanh "%2F" o 1 vai
+// URL (phan segment path cua S3 key), khien 2 URL thuc chat giong het nhau lai bi coi la khac nhau
+// neu so sanh chuoi tho.
 export function parseLinkHinhAnh(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    const urls: string[] = [];
+    for (const v of parsed) {
+      if (typeof v !== "string" || !v) continue;
+      const normalized = v.replaceAll("%2F", "/");
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        urls.push(normalized);
+      }
+    }
+    return urls;
   } catch {
     return [];
   }
@@ -29,7 +45,14 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [lightboxIndex, urls.length]);
 
-  if (urls.length === 0) return null;
+  if (urls.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1.5 py-6 text-[var(--ink-400)] text-sm text-center">
+        <span className="text-2xl">🖼️</span>
+        Rất tiếc! báo cáo này hiện chưa có bất kỳ ảnh nào
+      </div>
+    );
+  }
 
   return (
     <>

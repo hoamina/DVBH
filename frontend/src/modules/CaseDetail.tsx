@@ -112,14 +112,13 @@ function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlackli
         </div>
       </Card>
 
-      {parseLinkHinhAnh(c.link_hinh_anh).length > 0 && (
-        <Card className="p-4 mb-3">
-          <div className="font-display font-bold text-sm mb-3">
-            Hình ảnh báo cáo công việc ({parseLinkHinhAnh(c.link_hinh_anh).length})
-          </div>
-          <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />
-        </Card>
-      )}
+      <Card className="p-4 mb-3">
+        <div className="font-display font-bold text-sm mb-3">
+          Hình ảnh báo cáo công việc
+          {parseLinkHinhAnh(c.link_hinh_anh).length > 0 && ` (${parseLinkHinhAnh(c.link_hinh_anh).length})`}
+        </div>
+        <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />
+      </Card>
 
       <Card className="p-4 mb-3">
         <div className="font-display font-bold text-sm mb-3">Doanh thu</div>
