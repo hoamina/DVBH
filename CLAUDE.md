@@ -151,9 +151,15 @@ particular is now referenced by ~10 other tables, so this pattern can no longer 
 no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected and always safe.
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
-Migration files are numbered sequentially, applied in filename order — check
-`migrations/` for the current max number before adding a new one (there are currently two files
-both prefixed `0030`; don't add a third — resolve/renumber before extending further).
+Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
+current max number before adding a new one (currently `0032`). **`0030` is intentionally used by two
+files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
+like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
+`d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
+production DB (2026-07-25) before the duplicate was noticed. Renaming it to `0031` to "fix" the
+numbering breaks production (wrangler no longer recognizes the file as applied, re-runs `CREATE
+TABLE`, fails with "already exists") — confirmed by hitting exactly this in production on
+2026-07-28. Leave it as-is; never rename an already-applied migration file.
 
 ### Frontend (`frontend/src/`)
 
