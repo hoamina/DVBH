@@ -621,6 +621,19 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
 // 1 nut duy nhat "Chot lap", khong con endpoint /hinh-thuc rieng nua).
 caLap.post("/:caseId/gs", requireRole("Giam sat", "Admin"), async (c) => {
   const caseId = c.req.param("caseId");
+
+  // Kiem tra pham vi khu_vuc - dung y het pattern o cases.ts POST /:id/giai-trinh va napGas.ts
+  // PATCH /:id/danh-gia (khong duoc bo sot cho endpoint ghi nao cua vai tro Giam sat, neu khong 1
+  // Giam sat khu vuc A co the ghi danh gia "ca lap" cho case thuoc khu vuc B chi can biet caseId).
+  const caseRow = await c.env.DB.prepare("SELECT khu_vuc FROM case_dvbh WHERE id = ?")
+    .bind(caseId)
+    .first<{ khu_vuc: string | null }>();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+
   const body = await c.req.json<{ chot_danh_gia_lap: string; dien_giai_lap?: string; chot_hinh_thuc_xu_ly?: string }>();
   if (!CA_LAP_LOAI_KEYS.includes(body.chot_danh_gia_lap as (typeof CA_LAP_LOAI_KEYS)[number])) {
     return c.json({ error: "INVALID_CHOT_DANH_GIA_LAP" }, 400);
