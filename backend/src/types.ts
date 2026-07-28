@@ -29,7 +29,12 @@ export interface Env {
   SESSION_SECRET: string;
 }
 
-export const ROLES_XEM_TOAN_BO: VaiTro[] = ["Admin", "Viewer", "TBP DVBH", "TBP CSKH"];
+// QC them vao 2026-07-29: HANDOFF.md ghi "QC (nhu Viewer + chot/bo vi pham cap 2)" - truoc do QC
+// khong nam trong danh sach nay nen moi bao cao/danh sach co scope (dashboard, backlog...) bi gioi
+// han theo khu_vuc_phu_trach cua QC, TRONG KHI 2 endpoint ghi cua QC (vi-pham/:id/cap2,
+// ca-lap/:caseId/qc) lai khong kiem tra scope gi ca - mau thuan doc/ghi. Chot voi chu he thong: QC
+// xem toan bo, khong gioi han khu vuc, dung nghia "nhu Viewer".
+export const ROLES_XEM_TOAN_BO: VaiTro[] = ["Admin", "Viewer", "TBP DVBH", "TBP CSKH", "QC"];
 
 export const LOAI_LOI_KEYS = [
   "Loi 120 phut",

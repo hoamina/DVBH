@@ -60,7 +60,8 @@ export function useAuth() {
   return ctx;
 }
 
-export const ROLES_XEM_TOAN_BO: VaiTro[] = ["Admin", "Viewer", "TBP DVBH", "TBP CSKH"];
+// Giu dong bo voi backend/src/types.ts (QC them 2026-07-29 - xem chu thich o do).
+export const ROLES_XEM_TOAN_BO: VaiTro[] = ["Admin", "Viewer", "TBP DVBH", "TBP CSKH", "QC"];
 
 export function scopeKhuVuc(user: AppUser): string[] | null {
   if (user.vai_tro && ROLES_XEM_TOAN_BO.includes(user.vai_tro)) return null;
