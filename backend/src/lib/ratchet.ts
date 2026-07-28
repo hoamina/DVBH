@@ -122,48 +122,51 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
   return incoming[field] ?? null;
 }
 
-// Cac cot so thuc - so sanh bang String() truc tiep de "100000" (DB) vs "100000.0" (Excel) bi
-// coi la khac nhau du cung gia tri, gay GHI_DE thua khong can thiet moi lan import.
+// Cac cot so thuc - chuan hoa qua Number() truoc khi hash de "100000" (DB) vs "100000.0" (Excel)
+// khong bi coi la khac nhau du cung gia tri, tranh GHI_DE thua khong can thiet moi lan import.
 const NUMERIC_BUSINESS_FIELDS = new Set(["dt_san_pham", "dt_linh_kien", "dt_dich_vu", "so_phut_xu_ly"]);
 
-export function hasBusinessDataChanged(
-  existingRow: Record<string, unknown>,
-  incomingRow: Record<string, unknown>,
-): boolean {
-  for (const field of BUSINESS_FIELDS) {
-    if (field === "tinh_vao_kpi") {
-      // existingRow den tu DB nen la 1/0 sach; incomingRow la du lieu tho tu file/sheet, phai
-      // chuan hoa truoc khi so sanh, neu khong "1" (DB) vs "TRUE" (file) se luon bi coi la khac nhau.
-      const oldBool = existingRow[field] === 1 || existingRow[field] === true;
-      const newBool = normalizeTinhVaoKpi(incomingRow[field]);
-      if (oldBool !== newBool) return true;
-      continue;
-    }
-
-    if (field === "link_hinh_anh") {
-      // existingRow la JSON array string da xu ly tu lan import truoc; incomingRow la chuoi tho
-      // "key.com/a.jpg,key.com/b.jpg" tu file/sheet - phai chay qua parseLinkHinhAnh roi moi so
-      // sanh, neu khong se luon bi coi la khac nhau (GHI_DE gia moi lan import du anh khong doi).
-      const oldVal = existingRow[field] ?? null;
-      const newVal = parseLinkHinhAnh(incomingRow[field]);
-      if (oldVal !== newVal) return true;
-      continue;
-    }
-
-    const oldVal = existingRow[field] ?? null;
-    const newVal = incomingRow[field] ?? null;
-
-    if (NUMERIC_BUSINESS_FIELDS.has(field)) {
-      const oldNum = oldVal === null ? null : Number(oldVal);
-      const newNum = newVal === null ? null : Number(newVal);
-      if (oldNum !== null && newNum !== null && Number.isFinite(oldNum) && Number.isFinite(newNum)) {
-        if (oldNum !== newNum) return true;
-        continue;
-      }
-      // 1 trong 2 phia khong parse duoc thanh so huu han (null/rac) - roi xuong so sanh chuoi ben duoi
-    }
-
-    if (String(oldVal) !== String(newVal)) return true;
+function canonicalizeForHash(field: string, rawValue: unknown): string {
+  if (rawValue === null || rawValue === undefined || rawValue === "") return "";
+  if (NUMERIC_BUSINESS_FIELDS.has(field)) {
+    const n = Number(rawValue);
+    if (Number.isFinite(n)) return String(n);
   }
-  return false;
+  return String(rawValue);
+}
+
+/**
+ * Hash SHA-256 cua toan bo BUSINESS_FIELDS, tinh tu gia tri DA qua businessFieldValue() (dung y het
+ * phep chuan hoa se ghi vao DB - tinh_vao_kpi/link_hinh_anh...) roi ghep chuoi theo THU TU CO DINH
+ * (BUSINESS_FIELDS) truoc khi hash, dam bao 2 lan goi cung du lieu luon ra cung hash bat ke thu tu
+ * key trong object dau vao. Thay the hasBusinessDataChanged() (so sanh tung cot, can doc full row) -
+ * dung khi CHI doc crm_hash cu tu DB (xem importProcessor.ts fetchExistingRows, KHONG con SELECT *)
+ * roi so voi hash tinh tu dong nhap moi. Cot ky thuat (updated_at, ngay_import,
+ * ngay_cap_nhat_gan_nhat) va VIOLATION_FIELDS KHONG nam trong hash nay - vi pham so sanh rieng qua
+ * ratchetFlag(), khong duoc lam "che mat" thay doi du lieu nghiep vu that su.
+ */
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function computeCrmHash(incoming: Record<string, unknown>): Promise<string> {
+  const parts = BUSINESS_FIELDS.map((f) => `${f}=${canonicalizeForHash(f, businessFieldValue(f, incoming))}`);
+  return sha256Hex(parts.join("|"));
+}
+
+/**
+ * Bien the cua computeCrmHash() dung cho BACKFILL: gia tri dau vao la 1 dong DA CO san trong DB (da
+ * qua businessFieldValue() tu lan ghi truoc), KHONG duoc goi lai businessFieldValue()/parseLinkHinhAnh()
+ * len no lan 2 - vd link_hinh_anh trong DB da la JSON array string ("[\"url1\",\"url2\"]"), goi
+ * parseLinkHinhAnh() (tach theo dau phay) len chuoi nay se cat nham thanh nhieu "URL" rac. Dung
+ * canonicalizeForHash() truc tiep tren gia tri DB - phai cho ra hash GIONG HET computeCrmHash() cho
+ * cung 1 du lieu nghiep vu, de dong duoc backfill roi khong bi coi la "doi" o lan import that tiep
+ * theo (xem routes/importRoute.ts POST /backfill-crm-hash).
+ */
+export async function computeCrmHashFromDbRow(dbRow: Record<string, unknown>): Promise<string> {
+  const parts = BUSINESS_FIELDS.map((f) => `${f}=${canonicalizeForHash(f, dbRow[f])}`);
+  return sha256Hex(parts.join("|"));
 }

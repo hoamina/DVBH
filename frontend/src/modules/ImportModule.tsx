@@ -13,7 +13,6 @@ import { ImportUploader, describeError } from "../components/ImportUploader";
 interface CrmSummary {
   GHI_MOI: number;
   BO_QUA: number;
-  CAP_NHAT_MOC_THOI_GIAN: number;
   GHI_DE: number;
   LOI: number;
   errors: string[];

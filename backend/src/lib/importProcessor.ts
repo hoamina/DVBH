@@ -3,7 +3,7 @@ import {
   VIOLATION_FIELDS,
   normalizeViolationFlag,
   ratchetFlag,
-  hasBusinessDataChanged,
+  computeCrmHash,
   businessFieldValue,
 } from "./ratchet";
 import { nowVN } from "./vnTime";
@@ -19,7 +19,7 @@ import { nowVN } from "./vnTime";
  *   3. Gom cac cau INSERT/UPDATE, thuc thi qua db.batch() theo lo <=1000
  */
 
-export type ImportAction = "GHI_MOI" | "BO_QUA" | "CAP_NHAT_MOC_THOI_GIAN" | "GHI_DE";
+export type ImportAction = "GHI_MOI" | "BO_QUA" | "GHI_DE";
 
 export interface ImportRow {
   id: string;
@@ -29,12 +29,11 @@ export interface ImportRow {
 export interface ImportSummary {
   GHI_MOI: number;
   BO_QUA: number;
-  CAP_NHAT_MOC_THOI_GIAN: number;
   GHI_DE: number;
   LOI: number;
   errors: string[];
-  // Tap DISTINCT seri_san_pham cua CAC DONG GHI_MOI/GHI_DE (BO_QUA/CAP_NHAT_MOC_THOI_GIAN khong doi
-  // du lieu nghiep vu nen khong dua vao day) - truyen cho refreshCaLapPrecompute() (lib/caLapRefresh.ts)
+  // Tap DISTINCT seri_san_pham cua CAC DONG GHI_MOI/GHI_DE (BO_QUA khong doi du lieu nghiep vu/co vi
+  // pham nen khong dua vao day) - truyen cho refreshCaLapPrecompute() (lib/caLapRefresh.ts)
   // de tinh lai "ca lap" INCREMENTAL chi trong pham vi serial bi anh huong, thay vi full recompute
   // (xem importRoute.ts scheduleCaLapRefreshIfChanged). Voi dong GHI_DE, gom CA serial CU (truoc khi
   // ghi de) lan serial MOI, phong truong hop 1 case doi serial giua 2 lan import - LAG() PARTITION BY
@@ -52,7 +51,7 @@ const CHUNK_SIZE_SELECT = 100; // an toan voi gioi han bind-param cua SQLite
 const CHUNK_SIZE_BATCH = 500; // duoi gioi han batch 1000 (free tier D1)
 
 function emptySummary(): ImportSummary {
-  return { GHI_MOI: 0, BO_QUA: 0, CAP_NHAT_MOC_THOI_GIAN: 0, GHI_DE: 0, LOI: 0, errors: [], affectedSerials: [], affectedDates: [] };
+  return { GHI_MOI: 0, BO_QUA: 0, GHI_DE: 0, LOI: 0, errors: [], affectedSerials: [], affectedDates: [] };
 }
 
 // Them 1 gia tri seri_san_pham (co the la unknown tho tu file import hoac tu dong DB cu) vao tap
@@ -97,6 +96,13 @@ function dedupeById(rows: ImportRow[]): { rows: ImportRow[]; duplicateCount: num
   return { rows: [...byId.values()], duplicateCount: rows.length - byId.size };
 }
 
+// Projection toi thieu: CHI cot can cho quyet dinh GHI_MOI/BO_QUA/GHI_DE va cho affectedSerials/
+// affectedDates (gia tri CU truoc khi ghi de) - khong con SELECT * (xem BAO_CAO_RAO_SOAT_IMPORT_CRM_
+// CACHE_2026-07-28.md P1). "crm_hash" la nguon so sanh chinh (xem ratchet.ts computeCrmHash); 4 cot
+// loi_* + nghi_ngo_nap_gas can rieng de tinh flagsChanged (ratchet co the doi ke ca khi crm_hash
+// khong doi, vi hash CHI tinh tren BUSINESS_FIELDS, khong gom VIOLATION_FIELDS).
+const EXISTING_ROW_COLUMNS = ["id", "crm_hash", "thoi_gian_hoan_thanh", "seri_san_pham", ...VIOLATION_FIELDS];
+
 async function fetchExistingRows(
   db: D1Database,
   ids: string[],
@@ -107,7 +113,7 @@ async function fetchExistingRows(
     if (chunk.length === 0) continue;
     const placeholders = chunk.map(() => "?").join(", ");
     const { results } = await db
-      .prepare(`SELECT * FROM case_dvbh WHERE id IN (${placeholders})`)
+      .prepare(`SELECT ${EXISTING_ROW_COLUMNS.join(", ")} FROM case_dvbh WHERE id IN (${placeholders})`)
       .bind(...chunk)
       .all();
     for (const row of results as Record<string, unknown>[]) {
@@ -117,16 +123,17 @@ async function fetchExistingRows(
   return map;
 }
 
-function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string): D1PreparedStatement {
+function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, crmHash: string): D1PreparedStatement {
   const normalizedFlags = Object.fromEntries(
     VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f]) ? 1 : 0]),
   );
   const businessValues = Object.fromEntries(BUSINESS_FIELDS.map((f) => [f, businessFieldValue(f, incoming)]));
-  const fields = ["id", ...BUSINESS_FIELDS, ...VIOLATION_FIELDS, "ngay_import", "ngay_cap_nhat_gan_nhat"];
+  const fields = ["id", ...BUSINESS_FIELDS, ...VIOLATION_FIELDS, "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
   const values = {
     id: incoming.id,
     ...businessValues,
     ...normalizedFlags,
+    crm_hash: crmHash,
     ngay_import: now,
     ngay_cap_nhat_gan_nhat: now,
   };
@@ -136,35 +143,12 @@ function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string):
     .bind(...fields.map((f) => values[f as keyof typeof values]));
 }
 
-function buildTimestampOnlyUpdate(
-  db: D1Database,
-  id: string,
-  finalFlags: Record<string, number>,
-  now: string,
-): D1PreparedStatement {
-  return db
-    .prepare(
-      `UPDATE case_dvbh SET ngay_cap_nhat_gan_nhat = ?, updated_at = ?,
-         loi_120p = ?, loi_qua_han_24h = ?, loi_lo_ke_hoach = ?, loi_kh_hen_lai = ?, nghi_ngo_nap_gas = ?
-       WHERE id = ?`,
-    )
-    .bind(
-      now,
-      now,
-      finalFlags.loi_120p,
-      finalFlags.loi_qua_han_24h,
-      finalFlags.loi_lo_ke_hoach,
-      finalFlags.loi_kh_hen_lai,
-      finalFlags.nghi_ngo_nap_gas,
-      id,
-    );
-}
-
 function buildFullOverwrite(
   db: D1Database,
   incoming: ImportRow,
   finalFlags: Record<string, number>,
   now: string,
+  crmHash: string,
 ): D1PreparedStatement {
   const setClauses: string[] = [];
   const values: unknown[] = [];
@@ -176,6 +160,8 @@ function buildFullOverwrite(
     setClauses.push(`${field} = ?`);
     values.push(finalFlags[field]);
   }
+  setClauses.push("crm_hash = ?");
+  values.push(crmHash);
   setClauses.push("ngay_cap_nhat_gan_nhat = ?");
   values.push(now);
   setClauses.push("updated_at = ?");
@@ -220,16 +206,20 @@ export async function processImport(
     const normalizedFlags = Object.fromEntries(
       VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f])]),
     ) as Record<string, boolean>;
+    const incomingHash = await computeCrmHash(incoming);
 
     if (!existing) {
       summary.GHI_MOI++;
       addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
       addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
-      if (commit) statements.push(buildInsertStatement(db, incoming, now));
+      if (commit) statements.push(buildInsertStatement(db, incoming, now, incomingHash));
       continue;
     }
 
-    const dataChanged = hasBusinessDataChanged(existing, incoming);
+    // crm_hash NULL (dong tu truoc khi co cot nay, chua duoc backfill - xem POST /api/import/
+    // backfill-crm-hash) luon bi coi la "khac" o lan cham dau tien, tu dong tinh lai hash that su
+    // roi ghi lai - tu hoi phuc dan, khong can chan tinh dung ve lau dai.
+    const dataChanged = existing.crm_hash !== incomingHash;
 
     if (existing.thoi_gian_hoan_thanh && !dataChanged) {
       summary.BO_QUA++;
@@ -243,10 +233,17 @@ export async function processImport(
       ]),
     ) as Record<string, number>;
 
+    // Ca dang ton (chua hoan thanh), du lieu nghiep vu (crm_hash) khong doi: CHI ghi khi ratchet
+    // co vi pham that su lam doi it nhat 1 co (vd CRM vua bao co loi nhung cac truong nghiep vu
+    // khac giu nguyen) - neu khong thi bo qua hoan toan, khong con ghi lai "da xuat hien trong file
+    // hom nay" don thuan nhu truoc nua (quyet dinh nghiep vu 2026-07-28, xem BAO_CAO_RAO_SOAT_
+    // IMPORT_CRM_CACHE_2026-07-28.md muc "Chong cheo can xu ly" #3).
     if (!dataChanged) {
-      summary.CAP_NHAT_MOC_THOI_GIAN++;
-      if (commit) statements.push(buildTimestampOnlyUpdate(db, incoming.id, finalFlags, now));
-      continue;
+      const flagsChanged = VIOLATION_FIELDS.some((f) => finalFlags[f] !== (existing[f] ? 1 : 0));
+      if (!flagsChanged) {
+        summary.BO_QUA++;
+        continue;
+      }
     }
 
     summary.GHI_DE++;
@@ -257,7 +254,7 @@ export async function processImport(
     // Tuong tu: gom ca ngay hoan thanh CU (truoc khi ghi de) lan ngay MOI - xem field affectedDates.
     addAffectedDate(affectedDates, existing.thoi_gian_hoan_thanh);
     addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
-    if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, now));
+    if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, now, incomingHash));
   }
 
   summary.affectedSerials = [...affectedSerials];
