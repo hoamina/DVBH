@@ -7,7 +7,10 @@
  *    scheduleCaLapRefreshIfChanged() (routes/importRoute.ts) sau import commit/sync-sheet co
  *    GHI_MOI+GHI_DE>0 - xem memory r2-json-write-trigger-rule.md, phai hoi chu he thong truoc khi
  *    them trigger ghi R2 moi.
- * 2. Hash SHA-256 luu trong r2_snapshot_manifest (migration 0031).
+ * 2. Hash SHA-256 luu trong r2_snapshot_manifest (migration 0030_r2_snapshot_manifest.sql - so
+ *    trung ten voi 0030_revert_thoi_gian_wallclock_utc.sql la chu y, xem migrations/README neu co
+ *    hoac commit lich su: production da ap file nay truoc khi phat hien trung so, doi ten se lam
+ *    wrangler chay lai CREATE TABLE va loi "already exists" - GIU NGUYEN ten file, khong danh so lai).
  * 3. Rate-limit tai theo file - dung chung bang r2_download_log (migration 0029) voi chunk_ngay
  *    co dinh la SNAPSHOT_KEY.
  *
