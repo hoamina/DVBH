@@ -66,6 +66,25 @@ export async function setCachedEntry<T>(key: string, data: T, version?: string):
   return entry;
 }
 
+/** Liet ke toan bo key hien co trong cache bat dau bang "prefix" - dung de biet nhung chunk nao
+ * (vd "da-dong-day-2026-07-24") da co san cuc bo truoc khi so hash voi server (xem
+ * hooks/useDaDongChunked.ts). IDBKeyRange.bound quet theo thu tu string, "￿" du lon de bao
+ * trum moi ky tu theo sau prefix. */
+export async function getAllKeysWithPrefix(prefix: string): Promise<string[]> {
+  try {
+    const db = await openDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const range = IDBKeyRange.bound(prefix, prefix + "￿");
+      const req = tx.objectStore(STORE_NAME).getAllKeys(range);
+      req.onsuccess = () => resolve((req.result as string[]) ?? []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Xoa toan bo cache khi dang xuat - tranh may dung chung lo du lieu giua 2 tai khoan khac pham vi truy cap. */
 export async function clearAllCache(): Promise<void> {
   try {

@@ -7,6 +7,8 @@
  * tren content_versions, khong bao gio phai doc lai toan bo bang lon de kiem tra.
  */
 
+import { nowVN } from "./vnTime";
+
 async function sha256Hex(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -19,10 +21,10 @@ export async function computeAndStoreHash(db: D1Database, tenBang: string, rows:
   const hash = await sha256Hex(JSON.stringify(rows));
   await db
     .prepare(
-      `INSERT INTO content_versions (ten_bang, hash, updated_at) VALUES (?, ?, datetime('now'))
+      `INSERT INTO content_versions (ten_bang, hash, updated_at) VALUES (?, ?, ?)
        ON CONFLICT(ten_bang) DO UPDATE SET hash = excluded.hash, updated_at = excluded.updated_at`,
     )
-    .bind(tenBang, hash)
+    .bind(tenBang, hash, nowVN())
     .run();
   return hash;
 }

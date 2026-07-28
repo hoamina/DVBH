@@ -4,6 +4,8 @@
  * NGUOI CAP NHAT (email ngoai he thong CRM), NGAY CAP NHAT (DD/MM/YYYY HH:MM[:SS]).
  */
 
+import { nowVN } from "./vnTime";
+
 export interface SheetRow {
   maLinhKien: string;
   tenLinhKien: string;
@@ -124,7 +126,7 @@ export async function syncLinhKienFromSheet(db: D1Database, sheetUrl: string): P
              nguoi_cap_nhat = excluded.nguoi_cap_nhat,
              ngay_cap_nhat = excluded.ngay_cap_nhat`,
         )
-        .bind(row.maLinhKien, row.tenLinhKien, row.giaBan, row.anhDemo, row.nguoiCapNhat, row.ngayCapNhat ?? new Date().toISOString()),
+        .bind(row.maLinhKien, row.tenLinhKien, row.giaBan, row.anhDemo, row.nguoiCapNhat, row.ngayCapNhat ?? nowVN()),
     );
   }
 

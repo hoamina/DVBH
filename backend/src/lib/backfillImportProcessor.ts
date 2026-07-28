@@ -8,6 +8,8 @@
  *     nhap Google lan dau, chi khac la chua duoc duyet nen chua dang nhap duoc.
  */
 
+import { nowVN } from "./vnTime";
+
 const CHUNK_SIZE_SELECT = 100;
 export const CHUNK_SIZE_BATCH = 500;
 
@@ -80,4 +82,22 @@ export async function runBatched(db: D1Database, statements: D1PreparedStatement
     const chunk = statements.slice(i, i + CHUNK_SIZE_BATCH);
     if (chunk.length > 0) await db.batch(chunk);
   }
+}
+
+// Ghi 1 dong vao import_history (bang dung chung voi CRM hang ngay, xem migration 0027) cho cac
+// luong backfill du lieu cu (giai_trinh_cu/giai_trinh_lap_cu/khao_sat_cu/nap_gas_danh_gia_cu) - de
+// tab "Import data" hien duoc "Lich su import" giong het CRM. Cac luong backfill khong phan biet
+// ghi_moi/ghi_de/bo_qua nhu CRM (chi co 1 khai niem "thanh cong") nen dua het vao cot ghi_moi, giu
+// ghi_de/bo_qua = 0 - tan dung lai dung 1 bang/1 UI hien thi thay vi them cot/bang rieng.
+export async function logImportHistory(
+  db: D1Database,
+  params: { loai: string; tenFile: string; nguoiImport: string; thanhCong: number; loi: number },
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO import_history (loai, ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi, thoi_gian)
+       VALUES (?, ?, ?, ?, 0, 0, ?, ?)`,
+    )
+    .bind(params.loai, params.tenFile, params.nguoiImport, params.thanhCong, params.loi, nowVN())
+    .run();
 }

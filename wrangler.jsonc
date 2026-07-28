@@ -21,6 +21,13 @@
     }
   ],
 
+  "r2_buckets": [
+    {
+      "binding": "REPORTS",
+      "bucket_name": "dvbh-reports"
+    }
+  ],
+
   "triggers": {
     "crons": ["0 20 * * *", "0 * * * *"]
   },

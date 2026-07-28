@@ -3,8 +3,9 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
-import { findExistingCaseIds, ensureUsersExist, loadActiveLyDoNames, loadLinhKienLookup, runBatched } from "../lib/backfillImportProcessor";
+import { findExistingCaseIds, ensureUsersExist, loadActiveLyDoNames, loadLinhKienLookup, runBatched, logImportHistory } from "../lib/backfillImportProcessor";
 import { parseBackfillTsv, fetchSheetText, getSheetUrl } from "../lib/backfillSheetSync";
+import { csvTemplateResponse } from "../lib/csvTemplate";
 import { bumpVersions } from "../lib/dataVersions";
 
 const SHEET_DATE_TIME_FIELDS = new Set(["ngay_giai_trinh"]);
@@ -30,12 +31,7 @@ const TEMPLATE_CSV =
   "CASE-2026-001,Do KTV,Da lien he khach hang hen lai lich,,,,,giamsat@congty.vn,2026-06-01 09:00:00\n";
 
 // GET /api/import/giai-trinh/template
-importGiaiTrinh.get("/template", (c) =>
-  c.body(TEMPLATE_CSV, 200, {
-    "Content-Type": "text/csv; charset=utf-8",
-    "Content-Disposition": "attachment; filename=mau_import_giai_trinh_cu.csv",
-  }),
-);
+importGiaiTrinh.get("/template", (c) => csvTemplateResponse(c, TEMPLATE_CSV, "mau_import_giai_trinh_cu.csv"));
 
 // Khoa trung lap giai_trinh dung STRING KEY (khong dua vao UNIQUE constraint SQL) vi
 // SQLite coi 2 gia tri NULL la "khac nhau" trong UNIQUE, nen ON CONFLICT DO NOTHING se
@@ -190,7 +186,7 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
         .prepare(
           `INSERT INTO giai_trinh (id, case_id, ly_do_cham, noi_dung, linh_kien_thieu, ngay_du_kien_hoan_thanh,
              ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan, nguoi_giai_trinh, ngay_giai_trinh)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now', '+7 hours')))
            ON CONFLICT(case_id, ly_do_cham, nguoi_giai_trinh, ngay_giai_trinh, noi_dung, linh_kien_thieu,
              ngay_du_kien_hoan_thanh, ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan) DO NOTHING`,
         )
@@ -225,9 +221,19 @@ importGiaiTrinh.post("/preview", async (c) => {
 
 // POST /api/import/giai-trinh/commit
 importGiaiTrinh.post("/commit", async (c) => {
-  const body = await c.req.json<{ rows: BackfillRow[] }>();
+  const body = await c.req.json<{ rows: BackfillRow[]; filename?: string }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const summary = await processRows(c.env.DB, body.rows, true);
+  const user = c.get("user");
+  c.executionCtx.waitUntil(
+    logImportHistory(c.env.DB, {
+      loai: "giai_trinh_cu",
+      tenFile: body.filename || "(không rõ tên file)",
+      nguoiImport: user.email,
+      thanhCong: summary.thanhCong,
+      loi: summary.loi,
+    }),
+  );
   return c.json(summary);
 });
 
@@ -246,6 +252,16 @@ importGiaiTrinh.post("/sync-sheet", requireRole("Admin"), async (c) => {
   }
 
   const summary = await processRows(c.env.DB, rows, true);
+  const user = c.get("user");
+  c.executionCtx.waitUntil(
+    logImportHistory(c.env.DB, {
+      loai: "giai_trinh_cu",
+      tenFile: "Đồng bộ giải trình cũ từ Google Sheet",
+      nguoiImport: user.email,
+      thanhCong: summary.thanhCong,
+      loi: summary.loi,
+    }),
+  );
   return c.json(summary);
 });
 

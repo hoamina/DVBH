@@ -17,6 +17,7 @@ export interface NotificationsCountPayload {
   caThieuLinhKien: number;
   khaoSat: number;
   caLap: number;
+  danhGiaNapGas: number;
 }
 
 /** Tach tu notifications.get("/count") - xem chu thich route ben duoi. "khaoSat"/"caLap" ca nhan
@@ -27,7 +28,7 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
   const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
   const scopeClauseLap = khuVucWhereClause(scope, "lap.khu_vuc");
 
-  const [canGiaiTrinh, choQc, caThieuLinhKien, canKhaoSat, caLapCounts] = await Promise.all([
+  const [canGiaiTrinh, choQc, caThieuLinhKien, canKhaoSat, caLapCounts, danhGiaNapGas] = await Promise.all([
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh
@@ -98,6 +99,23 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
       )
       .bind(...scopeClauseLap.binds)
       .first<{ can_danh_gia: number; cho_qc: number }>(),
+    // "Danh gia nap gas" - doc tu bang rieng nap_gas_danh_gia (xem migration 0025), KHONG con dua
+    // vao bang giai_trinh chung nhu truoc (bang do thiet ke cho "giai trinh ca ton", khac muc dich).
+    // Nguon "nghi ngo nap gas" van doc thang tu case_dvbh.nghi_ngo_nap_gas (xem NAP_GAS_ELIGIBLE o
+    // routes/napGas.ts - CHI ca "Hoan thanh XLSC", khop dung dieu kien module dung). Chi dem so ca
+    // CHUA co dong nap_gas_danh_gia nao - khop dinh nghia "chua danh gia" cua the "Danh gia nap gas
+    // (xxx)". KHONG loc theo thang: badge la tong CHUA danh gia tren TOAN BO danh sach co dinh
+    // (khong phu thuoc thang dang xem trong module, xem yeu cau goc "danh sach co dinh...cho den
+    // khi co import moi"). scopeClauseC (theo c.khu_vuc) da tu dam bao badge chi tinh theo khu vuc
+    // nguoi dung dang xem duoc.
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM case_dvbh c
+         WHERE c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC'
+           AND NOT EXISTS (SELECT 1 FROM nap_gas_danh_gia ndg WHERE ndg.case_id = c.id)${scopeClauseC.sql}`,
+      )
+      .bind(...scopeClauseC.binds)
+      .first<{ n: number }>(),
   ]);
 
   const role = params.vai_tro;
@@ -113,6 +131,7 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
     caThieuLinhKien: caThieuLinhKien?.n ?? 0,
     khaoSat,
     caLap,
+    danhGiaNapGas: danhGiaNapGas?.n ?? 0,
   };
 }
 
@@ -121,16 +140,16 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
 // tro dang nhap (CSKH/TN CSKH thay "can khao sat", QC thay "cho QC", vai tro khac thay tong ca hai -
 // giong cach da lam voi mac dinh tab trang_thai cua module Ca lap).
 // Boc qua cachedReport (xem lib/reportCache.ts) - domain: cases, giai_trinh, vi_pham, giai_trinh_lap,
-// blacklist (bang R5 trong YEU_CAU_BAO_CAO_TINH_SAN.md). Key BAT BUOC co them vai_tro (ngoai scope
-// khu_vuc): khaoSat/caLap tra ve GIA TRI KHAC NHAU theo vai_tro voi CUNG 1 scope (vd 2 nguoi cung
-// khu vuc nhung 1 nguoi la QC, 1 nguoi la CSKH) - thieu vai_tro trong key se lam 1 vai tro doc nham
-// cache cua vai tro kia.
+// blacklist, nap_gas_danh_gia (bang R5 trong YEU_CAU_BAO_CAO_TINH_SAN.md + migration 0025). Key BAT
+// BUOC co them vai_tro (ngoai scope khu_vuc): khaoSat/caLap tra ve GIA TRI KHAC NHAU theo vai_tro voi
+// CUNG 1 scope (vd 2 nguoi cung khu vuc nhung 1 nguoi la QC, 1 nguoi la CSKH) - thieu vai_tro trong
+// key se lam 1 vai tro doc nham cache cua vai tro kia.
 notifications.get("/count", async (c) => {
   const user = c.get("user");
   const scope = scopeByKhuVuc(c);
   const params = { vai_tro: user.vai_tro ?? "" };
   const key = buildReportKey("notifications/count", params, scope);
-  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "vi_pham", "giai_trinh_lap", "blacklist"], () =>
+  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "vi_pham", "giai_trinh_lap", "blacklist", "nap_gas_danh_gia"], () =>
     computeNotificationsCount(c.env.DB, params, scope),
   );
   return c.json(data);

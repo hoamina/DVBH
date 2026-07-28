@@ -8,11 +8,15 @@ import { processImport } from "../lib/importProcessor";
 import { COLUMN_MAP } from "../lib/ratchet";
 import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
+import { csvTemplateResponse } from "../lib/csvTemplate";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
 import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY } from "../lib/precomputedCache";
 import { computeDashboardFilters, computeDashboardMonths } from "./dashboard";
 import { bumpVersions } from "../lib/dataVersions";
 import { warmDefaultReports } from "../lib/reportWarmup";
+import { nowVN } from "../lib/vnTime";
+import { recomputeDaDongDayChunks } from "../lib/daDongDayChunks";
+import { recomputeSurveySnapshot } from "../lib/surveySnapshot";
 
 // Tinh lai cache /dashboard/filters (pham vi khong gioi han) + /dashboard/months (xem
 // lib/precomputedCache.ts, routes/dashboard.ts) va don cac bien the /dashboard/filters theo
@@ -43,7 +47,7 @@ async function cleanupOldReportCache(db: D1Database): Promise<void> {
 // Cung dot nay tinh lai luon cache dashboard filters/months (xem recomputeDashboardCaches).
 function scheduleCaLapRefreshIfChanged(
   c: Context<{ Bindings: Env }>,
-  summary: { GHI_MOI: number; GHI_DE: number; affectedSerials: string[] },
+  summary: { GHI_MOI: number; GHI_DE: number; affectedSerials: string[]; affectedDates: string[] },
 ) {
   if (summary.GHI_MOI + summary.GHI_DE > 0) {
     // Truyen affectedSerials de refreshCaLapPrecompute() chi tinh lai INCREMENTAL trong pham vi
@@ -60,6 +64,14 @@ function scheduleCaLapRefreshIfChanged(
     // dung version tag moi (neu warm truoc bump, tag cu se bi coi la het han ngay lan doc dau tien,
     // warm thanh cong coc).
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]).then(() => warmDefaultReports(c.env.DB)));
+    // Snapshot R2 "ca da dong" theo tung ngay (xem lib/daDongDayChunks.ts) - DAY LA NOI DUY NHAT
+    // duoc phep tao/ghi de JSON len R2 cho tinh nang nay (nguyen tac chot voi chu he thong, xem
+    // memory r2-json-write-trigger-rule.md) - chi tinh lai DUNG nhung ngay trong affectedDates,
+    // khong dung cron/compute-on-miss nao khac.
+    c.executionCtx.waitUntil(recomputeDaDongDayChunks(c.env, summary.affectedDates));
+    // Snapshot R2 "ung vien khao sat" (xem lib/surveySnapshot.ts) - cung DUY NHAT 1 diem ghi nay,
+    // dung nguyen tac voi snapshot ca da dong o tren.
+    c.executionCtx.waitUntil(recomputeSurveySnapshot(c.env));
   }
   // Don rac "rpt:%" chay moi lan import (khong dieu kien GHI_MOI/GHI_DE, xem cleanupOldReportCache).
   c.executionCtx.waitUntil(cleanupOldReportCache(c.env.DB));
@@ -75,10 +87,7 @@ importRoute.get("/column-map", async (c) => c.json({ columnMap: COLUMN_MAP }));
 importRoute.get("/template", (c) => {
   const headers = Object.keys(COLUMN_MAP);
   const csv = headers.join(",") + "\n";
-  return c.body(csv, 200, {
-    "Content-Type": "text/csv; charset=utf-8",
-    "Content-Disposition": "attachment; filename=mau_import_crm_hang_ngay.csv",
-  });
+  return csvTemplateResponse(c, csv, "mau_import_crm_hang_ngay.csv");
 });
 
 // POST /api/import/preview - khong ghi DB, chi tra ve so luong du kien theo 4 nhanh
@@ -99,10 +108,10 @@ importRoute.post("/commit", async (c) => {
   const user = c.get("user");
 
   await c.env.DB.prepare(
-    `INSERT INTO import_history (ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO import_history (ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi, thoi_gian)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(body.filename, user.email, summary.GHI_MOI, summary.GHI_DE, summary.BO_QUA, summary.LOI)
+    .bind(body.filename, user.email, summary.GHI_MOI, summary.GHI_DE, summary.BO_QUA, summary.LOI, nowVN())
     .run();
 
   scheduleCaLapRefreshIfChanged(c, summary);
@@ -127,23 +136,26 @@ importRoute.post("/sync-sheet", requireRole("Admin"), async (c) => {
   const user = c.get("user");
 
   await c.env.DB.prepare(
-    `INSERT INTO import_history (ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO import_history (ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi, thoi_gian)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind("Đồng bộ ca mới từ Google Sheet", user.email, summary.GHI_MOI, summary.GHI_DE, summary.BO_QUA, summary.LOI)
+    .bind("Đồng bộ ca mới từ Google Sheet", user.email, summary.GHI_MOI, summary.GHI_DE, summary.BO_QUA, summary.LOI, nowVN())
     .run();
 
   scheduleCaLapRefreshIfChanged(c, summary);
   return c.json(summary);
 });
 
-// GET /api/import/history
+// GET /api/import/history?loai=&export= - "loai" loc theo nguon (crm/giai_trinh_cu/giai_trinh_lap_cu/
+// khao_sat_cu/nap_gas_danh_gia_cu, xem migration 0027) de moi tab trong module Import data chi thay
+// lich su cua dung minh, khong bi lan lich su cua cac loai import khac.
 importRoute.get("/history", async (c) => {
   const limit = c.req.query("export") === "true" ? 5000 : 50;
+  const loai = c.req.query("loai");
   const { results } = await c.env.DB.prepare(
-    "SELECT * FROM import_history ORDER BY thoi_gian DESC LIMIT ?",
+    loai ? "SELECT * FROM import_history WHERE loai = ? ORDER BY thoi_gian DESC LIMIT ?" : "SELECT * FROM import_history ORDER BY thoi_gian DESC LIMIT ?",
   )
-    .bind(limit)
+    .bind(...(loai ? [loai, limit] : [limit]))
     .all();
   return c.json({ rows: results });
 });

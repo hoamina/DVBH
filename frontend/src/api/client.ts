@@ -3,10 +3,12 @@ const BASE = "/api";
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(status: number, code?: string) {
+  detail?: string;
+  constructor(status: number, code?: string, detail?: string) {
     super(code ?? `HTTP_${status}`);
     this.status = status;
     this.code = code;
+    this.detail = detail;
   }
 }
 
@@ -25,12 +27,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     let code: string | undefined;
+    let detail: string | undefined;
     try {
-      code = (await res.json()).error;
+      const body = await res.json();
+      code = body.error;
+      // "message" - vai backend tra them mo ta cu the (vd NO_ROWS_PARSED cua importNapGas.ts,
+      // FETCH_FAILED cua cac route sync-sheet) - uu tien hien noi dung nay hon ma loi tho trong
+      // describeError() ben duoi, giup nguoi dung hieu ngay can sua gi thay vi chi thay 1 ma loi.
+      if (typeof body.message === "string") detail = body.message;
     } catch {
       /* body khong phai JSON */
     }
-    throw new ApiError(res.status, code);
+    throw new ApiError(res.status, code, detail);
   }
 
   if (res.status === 204) return undefined as T;

@@ -3,7 +3,8 @@ import type { Env, LoaiLoi } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
-import { findExistingCaseIds, ensureUsersExist, runBatched } from "../lib/backfillImportProcessor";
+import { findExistingCaseIds, ensureUsersExist, runBatched, logImportHistory } from "../lib/backfillImportProcessor";
+import { csvTemplateResponse } from "../lib/csvTemplate";
 import { reserveSequentialIds } from "../lib/idCounter";
 import { toJsonArray } from "../lib/jsonArray";
 import { LOAI_LOI_KEYS } from "../types";
@@ -39,12 +40,7 @@ const TEMPLATE_CSV =
   `CASE-2026-001,${LOAI_LOI_KEYS[0]},Khach hang,Lien he thanh cong,,,,,Khong loi,,cskh@congty.vn,2026-06-01 10:00:00,,\n`;
 
 // GET /api/import/khao-sat/template
-importKhaoSat.get("/template", (c) =>
-  c.body(TEMPLATE_CSV, 200, {
-    "Content-Type": "text/csv; charset=utf-8",
-    "Content-Disposition": "attachment; filename=mau_import_khao_sat_cu.csv",
-  }),
-);
+importKhaoSat.get("/template", (c) => csvTemplateResponse(c, TEMPLATE_CSV, "mau_import_khao_sat_cu.csv"));
 
 // raw co the la number (SheetJS tra ve kieu number cho o toan chu so, vd "1"), khong the tin
 // tuong kieu string | undefined khai bao tinh - phai ep String() truoc khi goi .trim().
@@ -232,7 +228,7 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
         db
           .prepare(
             `INSERT INTO ket_qua_goi (id, case_id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, dien_giai, ghi_chu, ly_do_that_bai, can_goi_lai, nguoi_thuc_hien, ngay_gio_thuc_hien)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now', '+7 hours')))
              ON CONFLICT(case_id, loai_khao_sat, nguoi_thuc_hien, ngay_gio_thuc_hien, ket_qua_cuoc_goi, dien_giai) DO NOTHING`,
           )
           .bind(
@@ -254,7 +250,7 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
         db
           .prepare(
             `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
-             VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now', '+7 hours')), ?, ?, ?)
              ON CONFLICT(case_id, loai_loi) DO NOTHING`,
           )
           .bind(
@@ -289,9 +285,19 @@ importKhaoSat.post("/preview", async (c) => {
 
 // POST /api/import/khao-sat/commit
 importKhaoSat.post("/commit", async (c) => {
-  const body = await c.req.json<{ rows: BackfillRow[] }>();
+  const body = await c.req.json<{ rows: BackfillRow[]; filename?: string }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const summary = await processRows(c.env.DB, body.rows, true);
+  const user = c.get("user");
+  c.executionCtx.waitUntil(
+    logImportHistory(c.env.DB, {
+      loai: "khao_sat_cu",
+      tenFile: body.filename || "(không rõ tên file)",
+      nguoiImport: user.email,
+      thanhCong: summary.thanhCong,
+      loi: summary.loi,
+    }),
+  );
   return c.json(summary);
 });
 
@@ -310,6 +316,16 @@ importKhaoSat.post("/sync-sheet", requireRole("Admin"), async (c) => {
   }
 
   const summary = await processRows(c.env.DB, rows, true);
+  const user = c.get("user");
+  c.executionCtx.waitUntil(
+    logImportHistory(c.env.DB, {
+      loai: "khao_sat_cu",
+      tenFile: "Đồng bộ khảo sát cũ từ Google Sheet",
+      nguoiImport: user.email,
+      thanhCong: summary.thanhCong,
+      loi: summary.loi,
+    }),
+  );
   return c.json(summary);
 });
 

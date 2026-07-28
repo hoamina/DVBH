@@ -12,6 +12,7 @@ import { useAuth } from "../auth/AuthContext";
 import { LOAI_LOI_META, fmtDateTime, type LoaiLoi, type CaseRow, type ViPhamRow } from "../types";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { CanKhaoSatRow, neededLoaiLoi } from "./SurveyModule";
+import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 
 type QueueSource = "qua-han" | "can-khao-sat" | "ad-hoc";
 interface QueueItem extends CanKhaoSatRow {
@@ -84,15 +85,23 @@ export function SurveyCallWorkspace({
     queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters"),
   });
 
-  const quaHanQuery = useQuery({
-    queryKey: ["survey", "qua-han-khao-sat", khuVucFilter, undefined, undefined],
-    queryFn: () => api.get<{ rows: CanKhaoSatRow[] }>(`/survey${buildQuery({ tab: "qua-han-khao-sat", khu_vuc: khuVucFilter })}`),
-  });
-  const canKhaoSatQuery = useQuery({
-    queryKey: ["survey", "can-khao-sat", khuVucFilter, undefined, undefined],
-    queryFn: () => api.get<{ rows: CanKhaoSatRow[] }>(`/survey${buildQuery({ tab: "can-khao-sat", khu_vuc: khuVucFilter })}`),
-  });
-  const initialLoading = quaHanQuery.isLoading || canKhaoSatQuery.isLoading;
+  // Tinh san tu snapshot R2 1 file (xem hooks/useSurveyCandidates.ts) - dung chung voi SurveyModule.tsx,
+  // khong con goi song server moi lan mo workspace.
+  const { canKhaoSat: canKhaoSatAll, quaHanKhaoSat: quaHanKhaoSatAll, isLoading: candidatesLoading, refetch: refetchCandidates } = useSurveyCandidates();
+
+  function matchKhuVuc(khuVuc: string | null): boolean {
+    if (!khuVucFilter) return true;
+    if (khuVucFilter === QLDVBH_FILTER_VALUE) return !!khuVuc && khuVuc.includes("qldvbh");
+    const set = new Set(
+      khuVucFilter
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean),
+    );
+    return !!khuVuc && set.has(khuVuc);
+  }
+
+  const initialLoading = candidatesLoading;
 
   const { data: adHocDetail, isFetching: adHocLoading } = useQuery({
     queryKey: ["survey-workspace-case", adHocId],
@@ -104,8 +113,8 @@ export function SurveyCallWorkspace({
   // khảo sát; loc theo onlyMine + bo qua ca da xu ly xong trong phien nay; bump len cuoi neu goi
   // khong lien he duoc (con_goi_lai) de quay lai thu sau, khong bi ket cung 1 cho.
   const pool = useMemo<QueueItem[]>(() => {
-    const quaHanRows = (quaHanQuery.data?.rows ?? []).map((r) => ({ ...r, __source: "qua-han" as const }));
-    const canKhaoSatRows = (canKhaoSatQuery.data?.rows ?? []).map((r) => ({ ...r, __source: "can-khao-sat" as const }));
+    const quaHanRows = quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "qua-han" as const }));
+    const canKhaoSatRows = canKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "can-khao-sat" as const }));
     const merged = [...quaHanRows, ...canKhaoSatRows]
       .filter((r) => !calledIds.has(r.id))
       .filter((r) => !onlyMine || !r.assigned_to || r.assigned_to === me);
@@ -124,7 +133,7 @@ export function SurveyCallWorkspace({
       return a.id.localeCompare(b.id);
     });
     return merged;
-  }, [quaHanQuery.data, canKhaoSatQuery.data, calledIds, onlyMine, me, bumpOrder]);
+  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, me, bumpOrder]);
 
   const currentIndex = pool.length === 0 ? -1 : Math.min(index, pool.length - 1);
   const queueRow = currentIndex >= 0 ? pool[currentIndex] : null;
@@ -218,8 +227,8 @@ export function SurveyCallWorkspace({
       });
       setCalledIds((prev) => new Set(prev).add(activeRow.id));
       setSessionDone((n) => n + 1);
-      qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
+      refetchCandidates();
       if (adHocId) setAdHocId(null);
       if (data.boQua.length > 0) {
         const label = data.boQua.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ");
@@ -367,7 +376,7 @@ export function SurveyCallWorkspace({
                     variant="ghost"
                     type="button"
                     onClick={() => {
-                      qc.invalidateQueries({ queryKey: ["survey"] });
+                      refetchCandidates();
                     }}
                   >
                     ↻ Làm mới hàng đợi

@@ -5,7 +5,7 @@ export interface NavItem {
   label: string;
   icon: string;
   /** Neu co, Sidebar se hien "(N)" canh nhan sau khi doi chieu voi GET /notifications/count. */
-  countKey?: "backlog" | "missingParts" | "survey" | "caLap";
+  countKey?: "backlog" | "missingParts" | "survey" | "caLap" | "napGas";
 }
 export interface NavGroup {
   label: string;
@@ -25,6 +25,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "backlog", label: "Quản lý tồn", icon: "◫", countKey: "backlog" },
       { key: "missing-parts", label: "Ca thiếu linh kiện", icon: "⬒", countKey: "missingParts" },
+      { key: "tranh-chap", label: "Quản lý tranh chấp", icon: "⚖" },
+      { key: "nap-gas", label: "Đánh giá nạp gas", icon: "🛢", countKey: "napGas" },
       { key: "survey", label: "Quản lý khảo sát", icon: "◐", countKey: "survey" },
       { key: "ca-lap", label: "Ca lặp", icon: "🔁", countKey: "caLap" },
       { key: "danh-sach-tong", label: "Danh sách tổng", icon: "📋" },
@@ -51,13 +53,17 @@ export const NAV_GROUPS: NavGroup[] = [
 // localStorage active-module dang luu cua nguoi dung hien tai.
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "survey", "ca-lap", "archived", "danh-sach-tong", "giao-dien"],
-  QC: ["dashboard", "backlog", "missing-parts", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "Giam sat": ["dashboard", "backlog", "missing-parts", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "ca-lap", "danh-sach-tong", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "archived", "danh-sach-tong", "giao-dien"],
+  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
   "TBP CSKH": ["dashboard", "revenue", "survey", "danh-sach-tong", "giao-dien"],
+  // KSNB Doi tac: CHI xem (khong con giai trinh duoc, chot 2026-07-24 - xem canGiaiTrinh trong
+  // App.tsx) bao cao tranh chap, khong duoc vao module nao khac (quyet dinh nghiep vu rieng - xem
+  // scopeTranhChap() trong tranhChap.ts).
+  "KSNB Doi tac": ["tranh-chap", "giao-dien"],
 };
 
 export const MODULE_TITLES: Record<string, string> = {
@@ -65,6 +71,8 @@ export const MODULE_TITLES: Record<string, string> = {
   revenue: "Báo cáo doanh thu",
   backlog: "Quản lý tồn",
   "missing-parts": "Ca thiếu linh kiện",
+  "tranh-chap": "Quản lý tranh chấp",
+  "nap-gas": "Đánh giá nạp gas",
   survey: "Quản lý khảo sát",
   "ca-lap": "Ca lặp",
   "danh-sach-tong": "Danh sách tổng",

@@ -21,6 +21,13 @@
     }
   ],
 
+  "r2_buckets": [
+    {
+      "binding": "REPORTS",
+      "bucket_name": "dvbh-reports-smarttrade"
+    }
+  ],
+
   "triggers": {
     "crons": ["0 20 * * *", "0 * * * *"]
   },

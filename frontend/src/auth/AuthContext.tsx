@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { ThemeConfig } from "../theme/presets";
 
-export type VaiTro = "Admin" | "Viewer" | "QC" | "Giam sat" | "TBP DVBH" | "CSKH" | "TN CSKH" | "TBP CSKH";
+export type VaiTro = "Admin" | "Viewer" | "QC" | "Giam sat" | "TBP DVBH" | "CSKH" | "TN CSKH" | "TBP CSKH" | "KSNB Doi tac";
 export type GioiTinh = "nam" | "nu";
 
 export interface AppUser {

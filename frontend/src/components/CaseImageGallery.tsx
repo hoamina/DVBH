@@ -26,6 +26,12 @@ export function parseLinkHinhAnh(raw: string | null | undefined): string[] {
   }
 }
 
+// URL video (vd bao cao dinh kem quay man hinh) lan trong danh sach "anh" - phan biet qua duoi
+// ".mp4" o cuoi path (bo qua query/hash) de render <video> thay vi <img>, tranh loi vo hinh o <img>.
+function isVideoUrl(url: string): boolean {
+  return /\.mp4(?:[?#]|$)/i.test(url);
+}
+
 // Gallery anh bao cao cong viec cua 1 ca - toi da 30 anh (gioi han o backend luc import). Grid
 // thumbnail de luot nhanh, bam mo lightbox toan man hinh de xem/doi chieu chi tiet tung anh (zoom
 // qua trinh duyet, dieu huong prev/next bang nut hoac phim mui ten - phuc vu rà soat nhieu anh lien tiep).
@@ -140,16 +146,32 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               key={i}
               type="button"
               onClick={() => setLightboxIndex(i)}
-              className="focus-ring aspect-square rounded-lg border border-[var(--line)] overflow-hidden hover:opacity-80 transition-opacity"
-              title={`Ảnh ${i + 1}/${urls.length}`}
+              className="focus-ring relative aspect-square rounded-lg border border-[var(--line)] overflow-hidden hover:opacity-80 transition-opacity"
+              title={`${isVideoUrl(url) ? "Video" : "Ảnh"} ${i + 1}/${urls.length}`}
             >
-              <img
-                src={url}
-                alt={`Ảnh báo cáo ${i + 1}`}
-                loading="lazy"
-                className="w-full h-full object-cover"
-                onError={() => setBrokenUrls((prev) => new Set(prev).add(url))}
-              />
+              {isVideoUrl(url) ? (
+                <>
+                  <video
+                    src={url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-cover"
+                    onError={() => setBrokenUrls((prev) => new Set(prev).add(url))}
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <span className="w-6 h-6 rounded-full bg-black/50 text-white text-xs flex items-center justify-center">▶</span>
+                  </span>
+                </>
+              ) : (
+                <img
+                  src={url}
+                  alt={`Ảnh báo cáo ${i + 1}`}
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                  onError={() => setBrokenUrls((prev) => new Set(prev).add(url))}
+                />
+              )}
             </button>
           ),
         )}
@@ -182,19 +204,30 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
             </button>
           )}
 
-          <img
-            src={urls[lightboxIndex]}
-            alt={`Ảnh báo cáo ${lightboxIndex + 1}`}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={onImageMouseDown}
-            onDoubleClick={toggleDoubleClickZoom}
-            draggable={false}
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-              cursor: zoom > ZOOM_MIN ? (dragging ? "grabbing" : "grab") : "zoom-in",
-            }}
-            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg shadow-2xl select-none"
-          />
+          {isVideoUrl(urls[lightboxIndex]) ? (
+            <video
+              key={urls[lightboxIndex]}
+              src={urls[lightboxIndex]}
+              controls
+              autoPlay
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[85vh] max-w-[90vw] rounded-lg shadow-2xl"
+            />
+          ) : (
+            <img
+              src={urls[lightboxIndex]}
+              alt={`Ảnh báo cáo ${lightboxIndex + 1}`}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={onImageMouseDown}
+              onDoubleClick={toggleDoubleClickZoom}
+              draggable={false}
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                cursor: zoom > ZOOM_MIN ? (dragging ? "grabbing" : "grab") : "zoom-in",
+              }}
+              className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg shadow-2xl select-none"
+            />
+          )}
 
           {urls.length > 1 && (
             <button
@@ -213,36 +246,40 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
             className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 text-white text-xs bg-black/40 rounded-full px-3 py-1.5 z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              title="Thu nhỏ"
-              disabled={zoom <= ZOOM_MIN}
-              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.4))}
-              className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-sm leading-none"
-            >
-              −
-            </button>
-            <span className="tabular-nums w-9 text-center">{Math.round(zoom * 100)}%</span>
-            <button
-              type="button"
-              title="Phóng to"
-              disabled={zoom >= ZOOM_MAX}
-              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.4))}
-              className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-sm leading-none"
-            >
-              +
-            </button>
-            {zoom > ZOOM_MIN && (
-              <button type="button" title="Về kích thước gốc" onClick={() => setZoom(ZOOM_MIN)} className="underline hover:no-underline">
-                100%
-              </button>
+            {!isVideoUrl(urls[lightboxIndex]) && (
+              <>
+                <button
+                  type="button"
+                  title="Thu nhỏ"
+                  disabled={zoom <= ZOOM_MIN}
+                  onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.4))}
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-sm leading-none"
+                >
+                  −
+                </button>
+                <span className="tabular-nums w-9 text-center">{Math.round(zoom * 100)}%</span>
+                <button
+                  type="button"
+                  title="Phóng to"
+                  disabled={zoom >= ZOOM_MAX}
+                  onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.4))}
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-sm leading-none"
+                >
+                  +
+                </button>
+                {zoom > ZOOM_MIN && (
+                  <button type="button" title="Về kích thước gốc" onClick={() => setZoom(ZOOM_MIN)} className="underline hover:no-underline">
+                    100%
+                  </button>
+                )}
+                <span className="w-px h-3 bg-white/25" />
+              </>
             )}
-            <span className="w-px h-3 bg-white/25" />
             <span>
               {lightboxIndex + 1} / {urls.length}
             </span>
             <a href={urls[lightboxIndex]} target="_blank" rel="noreferrer" className="underline font-semibold">
-              Mở ảnh gốc
+              {isVideoUrl(urls[lightboxIndex]) ? "Mở video gốc" : "Mở ảnh gốc"}
             </a>
           </div>
         </div>

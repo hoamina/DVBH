@@ -37,7 +37,7 @@ export function buildReportKey(endpoint: string, params: Record<string, string |
  * thuoc TUOI TON (>1/3/7/14 ngay, tinh theo moc 0h sang VN - xem AGE_ANCHOR trong ageCalc.ts) nen con
  * so co the doi khi sang ngay moi du KHONG co ghi nao vao data_versions - dua ngay VN vao tag coi nhu
  * 1 "domain ao" luon duoc kiem tra, dam bao cache tu invalidate dung dau ngay moi. */
-function getVnDateStr(): string {
+export function getVnDateStr(): string {
   return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 

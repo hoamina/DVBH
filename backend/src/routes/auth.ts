@@ -5,6 +5,7 @@ import { signSession } from "../lib/jwt";
 import { verifySessionMiddleware, SESSION_COOKIE } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { sanitizeThemeConfig } from "../lib/theme";
+import { nowVN } from "../lib/vnTime";
 
 const STATE_COOKIE = "dvbh_oauth_state";
 const SESSION_TTL_SECONDS = 8 * 60 * 60; // 8h, phu hop ca lam viec noi bo
@@ -79,20 +80,21 @@ auth.get("/callback", async (c) => {
   await c.env.DB.prepare(
     `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet)
      VALUES (?, ?, ?, ?)
-     ON CONFLICT(email) DO UPDATE SET ten = excluded.ten, updated_at = datetime('now')`,
+     ON CONFLICT(email) DO UPDATE SET ten = excluded.ten, updated_at = ?`,
   )
     .bind(
       userInfo.email,
       userInfo.name ?? null,
       isBootstrapAdmin ? "Admin" : null,
       isBootstrapAdmin ? "Da duyet" : "Cho duyet",
+      nowVN(),
     )
     .run();
 
   // Ghi nhat ky dang nhap (bao mat noi bo - Admin tra cuu ai dang nhap luc nao tu dau).
   // CF-Connecting-IP la header Cloudflare tu dong gan, dang tin cay hon so voi client tu khai bao.
-  await c.env.DB.prepare("INSERT INTO login_log (email, ip, user_agent) VALUES (?, ?, ?)")
-    .bind(userInfo.email, c.req.header("CF-Connecting-IP") ?? null, c.req.header("User-Agent") ?? null)
+  await c.env.DB.prepare("INSERT INTO login_log (email, thoi_gian, ip, user_agent) VALUES (?, ?, ?, ?)")
+    .bind(userInfo.email, nowVN(), c.req.header("CF-Connecting-IP") ?? null, c.req.header("User-Agent") ?? null)
     .run();
 
   const token = await signSession({ email: userInfo.email }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);

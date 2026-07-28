@@ -1,6 +1,6 @@
 import type { ThemeConfig } from "./lib/theme";
 
-export const VAI_TRO_VALUES = ["Admin", "Viewer", "QC", "Giam sat", "TBP DVBH", "CSKH", "TN CSKH", "TBP CSKH"] as const;
+export const VAI_TRO_VALUES = ["Admin", "Viewer", "QC", "Giam sat", "TBP DVBH", "CSKH", "TN CSKH", "TBP CSKH", "KSNB Doi tac"] as const;
 export type VaiTro = (typeof VAI_TRO_VALUES)[number];
 
 export type TrangThaiDuyet = "Cho duyet" | "Da duyet" | "Tu choi";
@@ -19,6 +19,7 @@ export interface AppUser {
 
 export interface Env {
   DB: D1Database;
+  REPORTS: R2Bucket;
   ASSETS: Fetcher;
   BOOTSTRAP_ADMIN_EMAIL: string;
   GOOGLE_REDIRECT_URI: string;
@@ -56,6 +57,24 @@ export const HINH_THUC_XU_LY_KEYS = [
   "Khong tinh luong loi bao cao",
 ] as const;
 export type HinhThucXuLy = (typeof HINH_THUC_XU_LY_KEYS)[number];
+
+export const NAP_GAS_DANH_GIA_KEYS = [
+  "Tu nap gas",
+  "Khong nap gas",
+  "Gui ve Hang nap gas",
+  "Tu nap gas thay Block",
+  "Sua chua khac",
+  "Kiem tra",
+] as const;
+export type NapGasDanhGia = (typeof NAP_GAS_DANH_GIA_KEYS)[number];
+
+export const NAP_GAS_PHI_DICH_VU_KEYS = [
+  "Khong thu phi DV",
+  "Khong nap gas",
+  "Da thu phi DV",
+  "Loi khong thu phi DV",
+] as const;
+export type NapGasPhiDichVu = (typeof NAP_GAS_PHI_DICH_VU_KEYS)[number];
 
 declare module "hono" {
   interface ContextVariableMap {

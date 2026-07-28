@@ -8,6 +8,8 @@ export interface Column<T> {
   header: string;
   render: (row: T) => ReactNode;
   className?: string;
+  /** Neu co, header cot nay co the bam de sap xep (xem sortBy/sortDir/onSortChange o PaginatedTableProps). */
+  sortKey?: string;
 }
 
 interface PaginatedTableProps<T> {
@@ -23,6 +25,10 @@ interface PaginatedTableProps<T> {
   onRowClick?: (row: T) => void;
   emptyText?: string;
   rowKey: (row: T) => string | number;
+  /** Sap xep (tuy chon) - chi cot co Column.sortKey moi hien header bam duoc, chi khi onSortChange duoc truyen vao. */
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  onSortChange?: (sortBy: string, sortDir: "asc" | "desc") => void;
 }
 
 export function PaginatedTable<T>({
@@ -38,8 +44,20 @@ export function PaginatedTable<T>({
   onRowClick,
   emptyText = "Không có dữ liệu.",
   rowKey,
+  sortBy,
+  sortDir,
+  onSortChange,
 }: PaginatedTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  function handleSortClick(col: Column<T>) {
+    if (!col.sortKey || !onSortChange) return;
+    if (sortBy === col.sortKey) {
+      onSortChange(col.sortKey, sortDir === "asc" ? "desc" : "asc");
+    } else {
+      onSortChange(col.sortKey, "asc");
+    }
+  }
 
   return (
     <Card className="overflow-hidden">
@@ -47,11 +65,20 @@ export function PaginatedTable<T>({
         <table className="dense w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--ink-400)] text-xs uppercase bg-slate-50 border-b border-[var(--line)]">
-              {columns.map((col) => (
-                <th key={col.key} className={`py-2.5 px-3 ${col.className ?? ""}`}>
-                  {col.header}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const sortable = !!col.sortKey && !!onSortChange;
+                const isActive = sortable && sortBy === col.sortKey;
+                return (
+                  <th
+                    key={col.key}
+                    className={`py-2.5 px-3 ${col.className ?? ""} ${sortable ? "cursor-pointer select-none hover:text-[var(--ink-600)]" : ""}`}
+                    onClick={sortable ? () => handleSortClick(col) : undefined}
+                  >
+                    {col.header}
+                    {isActive && <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>

@@ -7,8 +7,9 @@ import { syncLinhKienFromSheet } from "../lib/linhKienSync";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { bumpVersions } from "../lib/dataVersions";
+import { nowVN } from "../lib/vnTime";
 
-const VALID_LOAI_DONG_BO = new Set(["case", "linh_kien", "giai_trinh_cu", "giai_trinh_lap_cu", "khao_sat_cu"]);
+const VALID_LOAI_DONG_BO = new Set(["case", "linh_kien", "giai_trinh_cu", "giai_trinh_lap_cu", "khao_sat_cu", "nap_gas_danh_gia_cu"]);
 
 async function refreshHash(db: D1Database, tenBang: string, table: string, orderBy: string) {
   const { results } = await db.prepare(`SELECT * FROM ${table} ORDER BY ${orderBy}`).all();
@@ -53,13 +54,13 @@ settings.get("/ly-do/version", async (c) => {
 });
 
 settings.post("/ly-do", adminOnly, async (c) => {
-  const body = await c.req.json<{ ten_ly_do: string; thuoc_thieu_linh_kien?: boolean }>();
+  const body = await c.req.json<{ ten_ly_do: string; thuoc_thieu_linh_kien?: boolean; thuoc_tranh_chap?: boolean }>();
   if (!body.ten_ly_do?.trim()) return c.json({ error: "MISSING_TEN_LY_DO" }, 400);
 
   const row = await c.env.DB.prepare(
-    `INSERT INTO settings_ly_do (ten_ly_do, thuoc_thieu_linh_kien) VALUES (?, ?) RETURNING *`,
+    `INSERT INTO settings_ly_do (ten_ly_do, thuoc_thieu_linh_kien, thuoc_tranh_chap) VALUES (?, ?, ?) RETURNING *`,
   )
-    .bind(body.ten_ly_do.trim(), body.thuoc_thieu_linh_kien ? 1 : 0)
+    .bind(body.ten_ly_do.trim(), body.thuoc_thieu_linh_kien ? 1 : 0, body.thuoc_tranh_chap ? 1 : 0)
     .first();
 
   const user = c.get("user");
@@ -72,7 +73,7 @@ settings.post("/ly-do", adminOnly, async (c) => {
 
 settings.patch("/ly-do/:id", adminOnly, async (c) => {
   const id = Number(c.req.param("id"));
-  const body = await c.req.json<{ bat_tat?: boolean; thuoc_thieu_linh_kien?: boolean }>();
+  const body = await c.req.json<{ bat_tat?: boolean; thuoc_thieu_linh_kien?: boolean; thuoc_tranh_chap?: boolean }>();
   const existing = await c.env.DB.prepare("SELECT * FROM settings_ly_do WHERE id = ?").bind(id).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -80,11 +81,13 @@ settings.patch("/ly-do/:id", adminOnly, async (c) => {
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
     thuoc_thieu_linh_kien:
       body.thuoc_thieu_linh_kien !== undefined ? (body.thuoc_thieu_linh_kien ? 1 : 0) : existing.thuoc_thieu_linh_kien,
+    thuoc_tranh_chap:
+      body.thuoc_tranh_chap !== undefined ? (body.thuoc_tranh_chap ? 1 : 0) : existing.thuoc_tranh_chap,
   };
   await c.env.DB.prepare(
-    "UPDATE settings_ly_do SET bat_tat = ?, thuoc_thieu_linh_kien = ?, updated_at = datetime('now') WHERE id = ?",
+    "UPDATE settings_ly_do SET bat_tat = ?, thuoc_thieu_linh_kien = ?, thuoc_tranh_chap = ?, updated_at = ? WHERE id = ?",
   )
-    .bind(next.bat_tat, next.thuoc_thieu_linh_kien, id)
+    .bind(next.bat_tat, next.thuoc_thieu_linh_kien, next.thuoc_tranh_chap, nowVN(), id)
     .run();
 
   const user = c.get("user");
@@ -120,10 +123,10 @@ settings.post("/linh-kien", adminOnly, async (c) => {
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, nguoi_cap_nhat)
-     VALUES (?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?) RETURNING *`,
   )
-    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, user.email)
+    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, user.email, nowVN())
     .first();
 
   await logAudit(c.env.DB, "linh_kien", body.ma_linh_kien, user.email, "created", null, row);
@@ -146,9 +149,9 @@ settings.patch("/linh-kien/:ma", adminOnly, async (c) => {
     gia_ban: body.gia_ban !== undefined ? body.gia_ban : existing.gia_ban,
   };
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = datetime('now') WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.bat_tat, next.gia_ban, user.email, ma)
+    .bind(next.bat_tat, next.gia_ban, user.email, nowVN(), ma)
     .run();
 
   await logAudit(c.env.DB, "linh_kien", ma, user.email, "updated", existing, next);
@@ -189,9 +192,9 @@ settings.patch("/sheet-urls/:loai", adminOnly, async (c) => {
   const body = await c.req.json<{ url: string | null }>();
   const user = c.get("user");
   await c.env.DB.prepare(
-    "UPDATE settings_sheet_urls SET url = ?, updated_at = datetime('now'), updated_by = ? WHERE loai_dong_bo = ?",
+    "UPDATE settings_sheet_urls SET url = ?, updated_at = ?, updated_by = ? WHERE loai_dong_bo = ?",
   )
-    .bind(body.url?.trim() || null, user.email, loai)
+    .bind(body.url?.trim() || null, nowVN(), user.email, loai)
     .run();
 
   // Bump domain "settings" (xem lib/dataVersions.ts).

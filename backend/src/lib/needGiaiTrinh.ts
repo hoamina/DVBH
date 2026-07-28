@@ -62,7 +62,9 @@ const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
  *   hien thi uu tien cao hon trong UI, khong lam thay doi tong so ca can giai trinh).
  * - DIEU_HOA_1_NGAY / B2B_1_NGAY: SLA nhanh hon (1 ngay thay vi 3) cho ca CHUA giai trinh thuoc
  *   nhom san pham Dieu hoa hoac doi tac co chua "b2b" trong ten (vd "[B2B-BAUER]").
- * - TONG: hop (OR) ca 5 nhom chinh (khong tinh CHUA_GT_5_NGAY, da la tap con) - 1 ca thuoc nhieu
+ * - NSKX_2_NGAY: SLA rieng (2 ngay thay vi 3) cho ca CHUA giai trinh cua doi tac "NSKX" (dung khop
+ *   chinh xac c.doi_tac, khong phai LIKE nhu B2B).
+ * - TONG: hop (OR) ca 6 nhom chinh (khong tinh CHUA_GT_5_NGAY, da la tap con) - 1 ca thuoc nhieu
  *   nhom van chi dem 1 lan khi dung TONG.
  */
 export const NEED_LO_KE_HOACH = `(lg.ngay_du_kien_hoan_thanh IS NOT NULL AND date(lg.ngay_du_kien_hoan_thanh) < date(${AGE_ANCHOR}))`;
@@ -71,7 +73,8 @@ export const NEED_CHUA_GT_3_NGAY = `(lg.case_id IS NULL AND ${AGE_C} >= 3)`;
 export const NEED_CHUA_GT_5_NGAY = `(lg.case_id IS NULL AND ${AGE_C} >= 5)`;
 export const NEED_DIEU_HOA_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = 'Điều hòa' AND ${AGE_C} >= 1)`;
 export const NEED_B2B_1_NGAY = `(lg.case_id IS NULL AND c.doi_tac LIKE '%b2b%' AND ${AGE_C} >= 1)`;
-export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_CHUA_GT_3_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_B2B_1_NGAY})`;
+export const NEED_NSKX_2_NGAY = `(lg.case_id IS NULL AND c.doi_tac = 'NSKX' AND ${AGE_C} >= 2)`;
+export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_CHUA_GT_3_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_B2B_1_NGAY} OR ${NEED_NSKX_2_NGAY})`;
 
 export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   tong: NEED_TONG,
@@ -81,4 +84,5 @@ export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   chua_gt_5_ngay: NEED_CHUA_GT_5_NGAY,
   dieu_hoa: NEED_DIEU_HOA_1_NGAY,
   b2b: NEED_B2B_1_NGAY,
+  nskx: NEED_NSKX_2_NGAY,
 };

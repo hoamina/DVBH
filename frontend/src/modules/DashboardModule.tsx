@@ -5,7 +5,7 @@ import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { Btn } from "../components/ui/Btn";
 import { ChartCanvas } from "../components/chart/ChartCanvas";
-import { FilterBar, ALL_KHU_VUC, ALL_HANG, ALL_THANG, type DashboardFilters } from "../components/FilterBar";
+import { FilterBar, ALL_KHU_VUC, ALL_HANG, type DashboardFilters } from "../components/FilterBar";
 import { CURRENT_MONTH_VALUE } from "../constants";
 import { api, buildQuery } from "../api/client";
 import { LOAI_LOI_META, LOAI_LOI_KEYS, fmtVND } from "../types";
@@ -91,7 +91,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   const filterParams = {
     khu_vuc: filters.khu_vuc !== ALL_KHU_VUC ? filters.khu_vuc : undefined,
     hang: filters.hang !== ALL_HANG ? filters.hang : undefined,
-    thang: filters.thang !== ALL_THANG ? filters.thang : undefined,
+    thang: filters.thang,
   };
   const query = buildQuery(filterParams);
 
@@ -274,7 +274,26 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                 { value: "ky_thuat_vien", label: "KTV" },
               ]}
             />
-            <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(pivot?.rows ?? [], `pivot_${pivotDim}.xlsx`)}>
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                exportRowsToExcel(pivot?.rows ?? [], `pivot_${pivotDim}.xlsx`, "Data", {
+                  nhom: "Nhóm",
+                  sla_ok: "Đạt SLA",
+                  dung_han_tinh: "Số ca tính SLA",
+                  duoi_24h_count: "Đạt ≤24h",
+                  co_tinh_24h: "Số ca tính ≤24h",
+                  nghi_ngo: "Nghi ngờ vi phạm",
+                  total: "Số ca đã đóng",
+                  ht_tinh_kpi: "Số ca HT tính KPIS",
+                  loi_120p: LOAI_LOI_META["Loi 120 phut"].label,
+                  loi_qua_han_24h: LOAI_LOI_META["Hen qua 24h"].label,
+                  loi_lo_ke_hoach: LOAI_LOI_META["Loi lo ke hoach"].label,
+                  loi_kh_hen_lai: LOAI_LOI_META["KH hen lai"].label,
+                })
+              }
+            >
               ⬇ Xuất Excel
             </Btn>
           </div>

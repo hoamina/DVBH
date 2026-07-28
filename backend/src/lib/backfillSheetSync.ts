@@ -8,15 +8,24 @@
 
 import { parseSheetDateTime, parseSheetDateOnly } from "./sheetDateParser";
 
+// "columnMap" (optional): anh xa ten cot Sheet (vd tieng Viet co dau nguoi dung quen go, giong
+// COLUMN_MAP cua CRM/nap-gas) -> ten cot chuan hoa dung trong DB - ap dung TRUOC khi so voi
+// dateTimeFields/dateOnlyFields (2 Set nay luon dung ten chuan hoa). Khong truyen thi giu nguyen
+// header goc (hanh vi cu, dung cho giai_trinh_cu/giai_trinh_lap_cu/khao_sat_cu - cac sheet nay yeu
+// cau header da la snake_case tu truoc gio). BUG DA SUA (2026-07-24): truoc day nap-gas sync-sheet
+// KHONG dung columnMap nen sheet header tieng Viet (dung dinh dang huong dan cho nguoi dung) bi doc
+// thanh 0 dong ma KHONG BAO LOI GI (hasCaseId luon false vi khong co header nao ten dung "case_id"),
+// import "thanh cong 0 dong" trong im lang - rat de gay hieu nham da import xong.
 export function parseBackfillTsv(
   tsvText: string,
   dateTimeFields: Set<string>,
   dateOnlyFields: Set<string> = new Set(),
+  columnMap?: Record<string, string>,
 ): Record<string, unknown>[] {
   const lines = tsvText.split(/\r?\n/).filter((l) => l.length > 0);
   if (lines.length <= 1) return [];
 
-  const headers = lines[0].split("\t").map((h) => h.trim());
+  const headers = lines[0].split("\t").map((h) => columnMap?.[h.trim()] ?? h.trim());
 
   const rows: Record<string, unknown>[] = [];
   for (let i = 1; i < lines.length; i++) {

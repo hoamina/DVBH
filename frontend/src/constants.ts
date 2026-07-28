@@ -1,4 +1,4 @@
-export const ROLES = ["Admin", "Viewer", "QC", "Giam sat", "TBP DVBH", "CSKH", "TN CSKH", "TBP CSKH"];
+export const ROLES = ["Admin", "Viewer", "QC", "Giam sat", "TBP DVBH", "CSKH", "TN CSKH", "TBP CSKH", "KSNB Doi tac"];
 
 /** Gia tri ao dai dien nhom "tat ca khu vuc co chua 'qldvbh'" trong FilterBar */
 export const QLDVBH_FILTER_VALUE = "__QLDVBH__";

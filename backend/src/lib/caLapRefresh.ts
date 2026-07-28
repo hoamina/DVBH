@@ -1,5 +1,6 @@
 import { eligibleClause } from "./caLapEligible";
 import { computeAndStoreHash } from "./contentHash";
+import { nowVN } from "./vnTime";
 
 // Ten dong trong content_versions (dung chung co che voi contentHash.ts/staticListCache.ts da
 // dung cho settings_ly_do/linh_kien) - client co the GET /api/ca-lap/version de biet danh sach
@@ -35,10 +36,10 @@ async function readSourceMarker(db: D1Database): Promise<string | null> {
 async function writeSourceMarker(db: D1Database, value: string): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO content_versions (ten_bang, hash, updated_at) VALUES (?, ?, datetime('now'))
+      `INSERT INTO content_versions (ten_bang, hash, updated_at) VALUES (?, ?, ?)
        ON CONFLICT(ten_bang) DO UPDATE SET hash = excluded.hash, updated_at = excluded.updated_at`,
     )
-    .bind(CA_LAP_SOURCE_MARKER_KEY, value)
+    .bind(CA_LAP_SOURCE_MARKER_KEY, value, nowVN())
     .run();
 }
 
@@ -133,7 +134,7 @@ export async function refreshCaLapPrecompute(
   db: D1Database,
   affectedSerials?: string[],
 ): Promise<{ cleared: number; updated: number; hash: string }> {
-  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const now = nowVN();
   const sourceMaxUpdated = await getSourceMaxUpdated(db);
   const serials = normalizeAffectedSerials(affectedSerials);
 

@@ -6,6 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { toJsonArray, fromJsonArray } from "../lib/jsonArray";
 import { bumpVersions } from "../lib/dataVersions";
+import { nowVN } from "../lib/vnTime";
 
 const users = new Hono<{ Bindings: Env }>();
 users.use("*", verifySessionMiddleware, loadUser, requireRole("Admin"));
@@ -78,9 +79,9 @@ users.patch("/:email", async (c) => {
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, updated_at = datetime('now') WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, updated_at = ? WHERE email = ?",
   )
-    .bind(next.trang_thai_duyet, next.vai_tro, next.khu_vuc_phu_trach, email)
+    .bind(next.trang_thai_duyet, next.vai_tro, next.khu_vuc_phu_trach, nowVN(), email)
     .run();
 
   // Bump domain "users" (xem lib/dataVersions.ts).

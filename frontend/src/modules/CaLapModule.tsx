@@ -23,6 +23,7 @@ import {
   type CaLapLoai,
 } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { trangThaiLapOf, trangThaiKeyOf } from "../lib/caLapStatus";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { QLDVBH_FILTER_VALUE } from "../constants";
@@ -131,6 +132,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
   const [addBlacklistOpen, setAddBlacklistOpen] = useState(false);
   const [newSerial, setNewSerial] = useState("");
   const [deleteConfirmRow, setDeleteConfirmRow] = useState<BlacklistSerialRow | null>(null);
+  const [sortBy, setSortBy] = useState("thoi_gian_hoan_thanh");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const pageSize = 20;
 
   const { data: khuVucOptions } = useQuery({
@@ -203,7 +206,23 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     () => (trangThai ? mergedRows.filter((r) => trangThaiKeyOf(r) === trangThai) : mergedRows),
     [mergedRows, trangThai],
   );
-  const pagedRows = useMemo(() => filteredRows.slice((page - 1) * pageSize, page * pageSize), [filteredRows, page]);
+  // Sap xep client-side (khong goi lai server) - toan bo danh sach ca lap trong thang da nam san o
+  // FE qua fetchWithHashCache (xem chu thich o /ca-lap/danh-sach/list phia backend), nen sap xep tai
+  // day tranh phai them tham so sortBy vao endpoint dang cache theo hash /version.
+  const sortedRows = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filteredRows].sort((a, b) => {
+      const av = (a as unknown as Record<string, unknown>)[sortBy];
+      const bv = (b as unknown as Record<string, unknown>)[sortBy];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+  }, [filteredRows, sortBy, sortDir]);
+  const pagedRows = useMemo(() => sortedRows.slice((page - 1) * pageSize, page * pageSize), [sortedRows, page]);
 
   const danhSachKpi: KpiResponse = useMemo(() => {
     let tongLap = 0;
@@ -273,11 +292,43 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     onError: () => addToast("Không thể xoá serial, thử lại sau."),
   });
 
+  // Khop dung cot hien tren PaginatedTable "Danh sach ca lap" ben duoi (mang "columns").
+  const CA_LAP_EXPORT_LABELS: Record<string, string> = {
+    ...CASE_FIELD_LABELS,
+    gap_days: "Khoảng cách (ngày)",
+    prior_id: "Ca trước",
+    prior_ht: "Hoàn thành ca trước",
+    chot_hinh_thuc_xu_ly: "Chốt hình thức xử lý",
+    dien_giai_lap: "Diễn giải lặp",
+    nguoi_giai_trinh: "Người giải trình",
+    ngay_giai_trinh: "Ngày giải trình",
+    qc_chot: "QC chốt",
+    qc_ghi_chu: "Ghi chú QC",
+    nguoi_qc: "Người QC",
+    ngay_qc: "Ngày QC",
+  };
+
+  // Khop dung thead cua bang "Bao cao theo khu vuc" o duoi.
+  const CA_LAP_KHU_VUC_EXPORT_LABELS: Record<string, string> = {
+    nhom: "Khu vực",
+    raSoat: "Tổng cần rà soát",
+    valid_serial: "Serial chuẩn",
+    serial_sai: "Serial sai",
+    ty_le_serial_sai: "Tỷ lệ sai",
+    lap_n: "Ca lặp",
+    serial_lap: "Serial lặp",
+    con_dong: "Tồn đọng",
+    da_giai_trinh: "Đã giải trình",
+    loi_chot: "Lỗi lặp đã chốt",
+    gs_chua: "Chờ GS xử lý",
+    qc_chua: "Chờ QC xử lý",
+  };
+
   async function handleExport() {
     const all = await api.get<{ rows: CaLapListRow[] }>(
       `/ca-lap/danh-sach${buildQuery({ khu_vuc: khuVucFilter, thang, trang_thai: trangThai, export: true })}`,
     );
-    await exportRowsToExcel(all.rows, `ca_lap_${thang}.xlsx`);
+    await exportRowsToExcel(all.rows, `ca_lap_${thang}.xlsx`, "Data", CA_LAP_EXPORT_LABELS);
   }
 
   const columns: Column<CaLapListRow>[] = [
@@ -286,7 +337,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
     { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
     { key: "ky_thuat_vien", header: "KTV", render: (r) => r.ky_thuat_vien ?? "—" },
-    { key: "hoan_thanh", header: "Hoàn thành", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
+    { key: "hoan_thanh", header: "Hoàn thành", sortKey: "thoi_gian_hoan_thanh", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
     { key: "prior_id", header: "Ca trước", render: (r) => <span className="font-mono text-xs">{r.prior_id}</span> },
     { key: "gap_days", header: "Khoảng cách (ngày)", render: (r) => <span className="font-mono">{r.gap_days.toFixed(1)}</span> },
     {
@@ -383,7 +434,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
                 <div className="font-display font-bold text-sm">Báo cáo theo khu vực</div>
                 <div className="text-xs text-[var(--ink-400)] mt-0.5">Sắp xếp theo số ca tồn đọng (chưa giải trình)</div>
               </div>
-              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(tq?.khuVuc ?? [], `ca_lap_khu_vuc_${thang}.xlsx`)}>
+              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(tq?.khuVuc ?? [], `ca_lap_khu_vuc_${thang}.xlsx`, "Data", CA_LAP_KHU_VUC_EXPORT_LABELS)}>
                 ⬇ Xuất Excel
               </Btn>
             </div>
@@ -589,6 +640,13 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
             onRowClick={(r) => openCase(r.id)}
             rowKey={(r) => r.id}
             emptyText="Không có ca lặp nào trong phạm vi đã lọc."
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSortChange={(newSortBy, newSortDir) => {
+              setSortBy(newSortBy);
+              setSortDir(newSortDir);
+              setPage(1);
+            }}
           />
         </div>
       )}

@@ -21,7 +21,7 @@ export const BUSINESS_FIELDS = [
 ] as const;
 
 export const VIOLATION_FIELDS = [
-  "loi_120p", "loi_qua_han_24h", "loi_lo_ke_hoach", "loi_kh_hen_lai",
+  "loi_120p", "loi_qua_han_24h", "loi_lo_ke_hoach", "loi_kh_hen_lai", "nghi_ngo_nap_gas",
 ] as const;
 
 // Ten cot Excel (tieng Viet co dau) -> ten cot chuan hoa trong DB
@@ -69,6 +69,7 @@ export const COLUMN_MAP: Record<string, string> = {
   "Lỗi quá hẹn 24h": "loi_qua_han_24h",
   "Lỗi lỡ kế hoạch": "loi_lo_ke_hoach",
   "Lỗi KH hẹn lại": "loi_kh_hen_lai",
+  "Nghi ngờ nạp gas": "nghi_ngo_nap_gas",
 };
 
 export function normalizeViolationFlag(rawValue: unknown): boolean {
@@ -112,7 +113,9 @@ export function parseLinkHinhAnh(rawValue: unknown): string | null {
 
 // Gia tri se ghi vao DB cho 1 cot BUSINESS_FIELDS - hau het chi truyen thang, rieng tinh_vao_kpi
 // can chuan hoa ve 1/0 (chap nhan TRUE/FALSE dang chu, dang bool, dang so tu Excel/Sheet), va
-// link_hinh_anh can tach + doi domain (xem parseLinkHinhAnh o tren).
+// link_hinh_anh can tach + doi domain (xem parseLinkHinhAnh o tren). Cac cot gio (thoi_gian_*) duoc
+// GIU NGUYEN gia tri nhap - toan bo he thong quy uoc luu gio VN dia phuong (khong phai UTC), xem
+// ageCalc.ts AGE_ANCHOR va frontend/src/types.ts fmtDateTime.
 export function businessFieldValue(field: string, incoming: Record<string, unknown>): unknown {
   if (field === "tinh_vao_kpi") return normalizeTinhVaoKpi(incoming[field]) ? 1 : 0;
   if (field === "link_hinh_anh") return parseLinkHinhAnh(incoming[field]);

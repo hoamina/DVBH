@@ -14,7 +14,6 @@ export interface DashboardFilters {
 
 export const ALL_KHU_VUC = "Tất cả khu vực";
 export const ALL_HANG = "Tất cả hãng";
-export const ALL_THANG = "Tất cả các tháng";
 
 export function FilterBar({
   filters,
@@ -42,11 +41,10 @@ export function FilterBar({
     { value: QLDVBH_FILTER_VALUE, label: "Tất cả QLDVBH (MB/MN...)" },
     ...(data?.khuVuc ?? []),
   ];
-  const thangOptions = [
-    ALL_THANG,
-    { value: CURRENT_MONTH_VALUE, label: "Tháng hiện tại" },
-    ...(monthsData?.months ?? []),
-  ];
+  // Chot 2026-07-24: chi cho chon 1 thang co dinh, khong con tuy chon "Tat ca cac thang" (lap he
+  // thong quet toan bo lich su moi lan chon) - mac dinh luon la thang hien tai (xem filters.thang
+  // khoi tao CURRENT_MONTH_VALUE o DashboardModule.tsx/RevenueModule.tsx).
+  const thangOptions = [{ value: CURRENT_MONTH_VALUE, label: "Tháng hiện tại" }, ...(monthsData?.months ?? [])];
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">

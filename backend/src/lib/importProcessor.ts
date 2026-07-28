@@ -6,6 +6,7 @@ import {
   hasBusinessDataChanged,
   businessFieldValue,
 } from "./ratchet";
+import { nowVN } from "./vnTime";
 
 /**
  * Luong import hang ngay - port tu import.js (thiet ke Node.js/pg ban goc).
@@ -39,13 +40,19 @@ export interface ImportSummary {
   // ghi de) lan serial MOI, phong truong hop 1 case doi serial giua 2 lan import - LAG() PARTITION BY
   // seri_san_pham thi ca 2 partition (cu va moi) deu co the doi, khong chi partition moi.
   affectedSerials: string[];
+  // Tap DISTINCT ngay lich (YYYY-MM-DD, tu thoi_gian_hoan_thanh) cua CAC DONG GHI_MOI/GHI_DE - dung
+  // cho recomputeDaDongDayChunks() (lib/daDongDayChunks.ts) de biet DUNG nhung ngay nao can tinh lai
+  // snapshot R2, thay vi tinh lai ca thang. Cung logic voi affectedSerials: GHI_DE gom ca ngay CU
+  // (truoc khi ghi de) lan ngay MOI, phong truong hop 1 case doi ngay hoan thanh giua 2 lan import
+  // (vd sua lai ngay dong ca, hoac case dang ton moi duoc danh dau hoan thanh).
+  affectedDates: string[];
 }
 
 const CHUNK_SIZE_SELECT = 100; // an toan voi gioi han bind-param cua SQLite
 const CHUNK_SIZE_BATCH = 500; // duoi gioi han batch 1000 (free tier D1)
 
 function emptySummary(): ImportSummary {
-  return { GHI_MOI: 0, BO_QUA: 0, CAP_NHAT_MOC_THOI_GIAN: 0, GHI_DE: 0, LOI: 0, errors: [], affectedSerials: [] };
+  return { GHI_MOI: 0, BO_QUA: 0, CAP_NHAT_MOC_THOI_GIAN: 0, GHI_DE: 0, LOI: 0, errors: [], affectedSerials: [], affectedDates: [] };
 }
 
 // Them 1 gia tri seri_san_pham (co the la unknown tho tu file import hoac tu dong DB cu) vao tap
@@ -54,6 +61,14 @@ function addAffectedSerial(set: Set<string>, rawValue: unknown): void {
   if (rawValue === null || rawValue === undefined) return;
   const seri = String(rawValue).trim();
   if (seri.length > 0) set.add(seri);
+}
+
+// Them 1 ngay lich (YYYY-MM-DD, lay 10 ky tu dau cua thoi_gian_hoan_thanh dang UTC "YYYY-MM-DD
+// HH:MM:SS") vao tap ngay bi anh huong, bo qua null/rong - xem giai thich o field affectedDates tren.
+function addAffectedDate(set: Set<string>, rawValue: unknown): void {
+  if (rawValue === null || rawValue === undefined) return;
+  const ngay = String(rawValue).trim().slice(0, 10);
+  if (ngay.length === 10) set.add(ngay);
 }
 
 function validateRows(rows: unknown[]): { valid: ImportRow[]; errors: string[] } {
@@ -69,6 +84,17 @@ function validateRows(rows: unknown[]): { valid: ImportRow[]; errors: string[] }
     valid.push({ ...row, id: idStr });
   }
   return { valid, errors };
+}
+
+// File co the chua nhieu dong cung "id" (loi nhap lieu nguon/CRM xuat trung). Neu khong loc truoc,
+// 2 dong ID moi giong nhau se cung sinh buildInsertStatement() trong cung db.batch() -> vi pham
+// PRIMARY KEY, roll back ca lo (xem CHUNK_SIZE_BATCH). Giu dong CUOI CUNG xuat hien trong file (gia
+// dinh la ban ghi moi nhat neu CRM xuat theo thu tu thoi gian) - khong bao loi cung LOI (do khong
+// phai loi dinh dang tung dong) ma ghi rieng vao errors[] de nguoi import biet co trung id.
+function dedupeById(rows: ImportRow[]): { rows: ImportRow[]; duplicateCount: number } {
+  const byId = new Map<string, ImportRow>();
+  for (const row of rows) byId.set(row.id, row);
+  return { rows: [...byId.values()], duplicateCount: rows.length - byId.size };
 }
 
 async function fetchExistingRows(
@@ -119,7 +145,7 @@ function buildTimestampOnlyUpdate(
   return db
     .prepare(
       `UPDATE case_dvbh SET ngay_cap_nhat_gan_nhat = ?, updated_at = ?,
-         loi_120p = ?, loi_qua_han_24h = ?, loi_lo_ke_hoach = ?, loi_kh_hen_lai = ?
+         loi_120p = ?, loi_qua_han_24h = ?, loi_lo_ke_hoach = ?, loi_kh_hen_lai = ?, nghi_ngo_nap_gas = ?
        WHERE id = ?`,
     )
     .bind(
@@ -129,6 +155,7 @@ function buildTimestampOnlyUpdate(
       finalFlags.loi_qua_han_24h,
       finalFlags.loi_lo_ke_hoach,
       finalFlags.loi_kh_hen_lai,
+      finalFlags.nghi_ngo_nap_gas,
       id,
     );
 }
@@ -169,18 +196,24 @@ export async function processImport(
   commit: boolean,
 ): Promise<ImportSummary> {
   const summary = emptySummary();
-  const { valid, errors } = validateRows(rawRows);
+  const { valid: validRaw, errors } = validateRows(rawRows);
   summary.errors = errors;
-  summary.LOI = errors.length;
+  summary.LOI = errors.length; // chi tinh loi dinh dang tung dong (thieu/sai ID), khong tinh trung ID
+
+  const { rows: valid, duplicateCount } = dedupeById(validRaw);
+  if (duplicateCount > 0) {
+    summary.errors.push(`${duplicateCount} dong ID trung lap trong file - da gop, giu dong cuoi cung xuat hien`);
+  }
 
   const existingById = await fetchExistingRows(
     db,
     valid.map((r) => r.id),
   );
 
-  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const now = nowVN();
   const statements: D1PreparedStatement[] = [];
   const affectedSerials = new Set<string>();
+  const affectedDates = new Set<string>();
 
   for (const incoming of valid) {
     const existing = existingById.get(incoming.id);
@@ -191,6 +224,7 @@ export async function processImport(
     if (!existing) {
       summary.GHI_MOI++;
       addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
+      addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
       if (commit) statements.push(buildInsertStatement(db, incoming, now));
       continue;
     }
@@ -220,10 +254,14 @@ export async function processImport(
     // xem giai thich o field affectedSerials cua ImportSummary.
     addAffectedSerial(affectedSerials, existing.seri_san_pham);
     addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
+    // Tuong tu: gom ca ngay hoan thanh CU (truoc khi ghi de) lan ngay MOI - xem field affectedDates.
+    addAffectedDate(affectedDates, existing.thoi_gian_hoan_thanh);
+    addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
     if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, now));
   }
 
   summary.affectedSerials = [...affectedSerials];
+  summary.affectedDates = [...affectedDates];
 
   if (commit) {
     for (let i = 0; i < statements.length; i += CHUNK_SIZE_BATCH) {

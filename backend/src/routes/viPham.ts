@@ -143,7 +143,7 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
 
   const user = c.get("user");
   await c.env.DB.prepare(
-    "UPDATE vi_pham SET chot_bo_cap_2 = ?, nguoi_chot = ?, ngay_chot = datetime('now') WHERE id = ?",
+    "UPDATE vi_pham SET chot_bo_cap_2 = ?, nguoi_chot = ?, ngay_chot = datetime('now', '+7 hours') WHERE id = ?",
   )
     .bind(body.chot ? 1 : 0, user.email, id)
     .run();

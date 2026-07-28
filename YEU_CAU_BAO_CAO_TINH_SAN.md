@@ -5,7 +5,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 ## Nguyên lý
 
 1. Bảng `data_versions(domain TEXT PK, version INTEGER, updated_at)` — mỗi domain 1 dòng.
-2. Domain: `cases`, `giai_trinh`, `vi_pham`, `ket_qua_goi`, `giai_trinh_lap`, `blacklist`, `settings`, `users`.
+2. Domain: `cases`, `giai_trinh`, `vi_pham`, `ket_qua_goi`, `giai_trinh_lap`, `blacklist`, `settings`, `users`, `nap_gas_danh_gia` (thêm 2026-07-24, xem migration 0025).
 3. Mọi đường GHI bump version domain tương ứng (UPSERT +1, chạy trong cùng batch/waitUntil với ghi chính).
 4. Endpoint báo cáo bọc qua `cachedReport(db, key, domains, compute)`:
    - key = tên endpoint + toàn bộ query param chuẩn hóa (sort key) + scope khu_vuc của user (sorted). Ví dụ: `rpt:cases/counts|khu_vuc=Hà Nội|scope=MB1,MB2`.
@@ -26,6 +26,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
   - `blacklist`: caLap.ts blacklist POST/PATCH/DELETE/commit.
   - `settings`: settings.ts các route ghi (ly-do, linh-kien, sheet-urls).
   - `users`: users.ts PATCH /:email.
+  - `nap_gas_danh_gia` (thêm 2026-07-24): napGas.ts PUT /:id/danh-gia.
 - Dọn rác rpt:% 7 ngày trong importRoute.ts (mục 5).
 
 ## R5 — Bọc nhóm endpoint TỒN/GIẢI TRÌNH (sau R4). CHỈ đụng các file này
@@ -36,8 +37,9 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 | GET /cases/backlog-stats | cases.ts | cases, giai_trinh, settings |
 | GET /cases/backlog-by-khu-vuc | cases.ts | cases, giai_trinh, settings |
 | GET /missing-parts/by-khu-vuc | missingParts.ts | cases, giai_trinh, settings |
-| GET /notifications/count | notifications.ts | cases, giai_trinh, vi_pham, giai_trinh_lap, blacklist |
+| GET /notifications/count | notifications.ts | cases, giai_trinh, vi_pham, giai_trinh_lap, blacklist, nap_gas_danh_gia |
 | GET /dashboard/daily-report | dailyReport.ts (computeDailyReport) | cases, giai_trinh, vi_pham, settings |
+| GET /nap-gas/by-khu-vuc (thêm 2026-07-24) | napGas.ts | cases, nap_gas_danh_gia |
 
 Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /missing-parts list) — chỉ bọc thống kê/đếm. daily-report: key thêm email/scope user (scope + vai trò ảnh hưởng kết quả).
 

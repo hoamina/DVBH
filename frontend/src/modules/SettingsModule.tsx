@@ -27,6 +27,7 @@ const LOAI_DONG_BO_LABELS: Record<string, string> = {
   giai_trinh_cu: "Giải trình cũ",
   giai_trinh_lap_cu: "Giải trình lặp cũ",
   khao_sat_cu: "Khảo sát cũ",
+  nap_gas_danh_gia_cu: "Đánh giá nạp gas cũ",
 };
 
 export function SettingsModule() {
@@ -34,7 +35,7 @@ export function SettingsModule() {
   const addToast = useToast();
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
-  const [newReason, setNewReason] = useState({ ten: "", thieu: false });
+  const [newReason, setNewReason] = useState({ ten: "", thieu: false, tranhChap: false });
   const [addLinhKienOpen, setAddLinhKienOpen] = useState(false);
   const [newLinhKien, setNewLinhKien] = useState({ ma: "", ten: "", gia: "" });
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
@@ -55,7 +56,8 @@ export function SettingsModule() {
   });
 
   const toggleReason = useMutation({
-    mutationFn: ({ id, field, value }: { id: number; field: "bat_tat" | "thuoc_thieu_linh_kien"; value: boolean }) => api.patch(`/settings/ly-do/${id}`, { [field]: value }),
+    mutationFn: ({ id, field, value }: { id: number; field: "bat_tat" | "thuoc_thieu_linh_kien" | "thuoc_tranh_chap"; value: boolean }) =>
+      api.patch(`/settings/ly-do/${id}`, { [field]: value }),
     onSuccess: () => {
       addToast("Đã cập nhật cài đặt lý do chậm");
       qc.invalidateQueries({ queryKey: ["settings-ly-do"] });
@@ -63,10 +65,10 @@ export function SettingsModule() {
   });
 
   const addReasonMutation = useMutation({
-    mutationFn: () => api.post("/settings/ly-do", { ten_ly_do: newReason.ten, thuoc_thieu_linh_kien: newReason.thieu }),
+    mutationFn: () => api.post("/settings/ly-do", { ten_ly_do: newReason.ten, thuoc_thieu_linh_kien: newReason.thieu, thuoc_tranh_chap: newReason.tranhChap }),
     onSuccess: () => {
       addToast("Đã thêm lý do chậm mới");
-      setNewReason({ ten: "", thieu: false });
+      setNewReason({ ten: "", thieu: false, tranhChap: false });
       setAddOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-ly-do"] });
     },
@@ -122,6 +124,11 @@ export function SettingsModule() {
       header: "Thuộc thiếu linh kiện",
       render: (r) => <ToggleSwitch checked={!!r.thuoc_thieu_linh_kien} onChange={() => toggleReason.mutate({ id: r.id, field: "thuoc_thieu_linh_kien", value: !r.thuoc_thieu_linh_kien })} />,
     },
+    {
+      key: "thuoc_tranh_chap",
+      header: "Thuộc tranh chấp",
+      render: (r) => <ToggleSwitch checked={!!r.thuoc_tranh_chap} onChange={() => toggleReason.mutate({ id: r.id, field: "thuoc_tranh_chap", value: !r.thuoc_tranh_chap })} />,
+    },
   ];
 
   const linhKienColumns: Column<LinhKienRow>[] = [
@@ -151,7 +158,19 @@ export function SettingsModule() {
               Cấu hình danh sách lý do chậm dùng khi giải trình ca tồn. Đánh dấu "Thuộc thiếu linh kiện" để đẩy ca vào module <b>Ca thiếu linh kiện</b>.
             </div>
             <div className="flex gap-2 shrink-0">
-              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(reasons?.rows ?? [], "ly_do_cham.xlsx")}>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  exportRowsToExcel(reasons?.rows ?? [], "ly_do_cham.xlsx", "Data", {
+                    id: "ID",
+                    ten_ly_do: "Tên lý do",
+                    bat_tat: "Bật / Tắt",
+                    thuoc_thieu_linh_kien: "Thuộc thiếu linh kiện",
+                    thuoc_tranh_chap: "Thuộc tranh chấp",
+                  })
+                }
+              >
                 ⬇ Xuất Excel
               </Btn>
               <Btn size="sm" onClick={() => setAddOpen(true)}>
@@ -178,7 +197,20 @@ export function SettingsModule() {
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">Danh mục linh kiện dùng khi giải trình ca "thiếu linh kiện".</div>
             <div className="flex gap-2 shrink-0">
-              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(parts?.rows ?? [], "danh_muc_linh_kien.xlsx")}>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  exportRowsToExcel(parts?.rows ?? [], "danh_muc_linh_kien.xlsx", "Data", {
+                    ma_linh_kien: "Mã",
+                    ten_linh_kien: "Tên linh kiện",
+                    gia_ban: "Giá bán",
+                    nguoi_cap_nhat: "Người cập nhật",
+                    ngay_cap_nhat: "Ngày cập nhật",
+                    bat_tat: "Hiển thị",
+                  })
+                }
+              >
                 ⬇ Xuất Excel
               </Btn>
               <Btn variant="ghost" size="sm" onClick={() => syncSheetMutation.mutate()} disabled={syncSheetMutation.isPending}>
@@ -248,6 +280,9 @@ export function SettingsModule() {
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input type="checkbox" checked={newReason.thieu} onChange={(e) => setNewReason({ ...newReason, thieu: e.target.checked })} /> Thuộc nhóm thiếu linh kiện
+          </label>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" checked={newReason.tranhChap} onChange={(e) => setNewReason({ ...newReason, tranhChap: e.target.checked })} /> Thuộc nhóm tranh chấp
           </label>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddOpen(false)}>

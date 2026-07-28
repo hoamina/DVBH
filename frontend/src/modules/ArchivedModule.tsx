@@ -6,7 +6,10 @@ import { Btn } from "../components/ui/Btn";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, type CaseRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { getCachedEntry, setCachedEntry, type CacheEntry } from "../lib/closedDataCache";
+
+const EXPORT_LABELS: Record<string, string> = { ...CASE_FIELD_LABELS, thoi_gian_hoan_thanh: "Hoàn thành" };
 
 const CACHE_KEY = "archived-cases-all";
 
@@ -45,7 +48,7 @@ export function ArchivedModule({ openCase }: { openCase: (id: string) => void })
   });
 
   async function handleExport() {
-    await exportRowsToExcel(cacheEntry?.data ?? [], "ca_luu_tru.xlsx");
+    await exportRowsToExcel(cacheEntry?.data ?? [], "ca_luu_tru.xlsx", "Data", EXPORT_LABELS);
   }
 
   const allRows = cacheEntry?.data ?? [];

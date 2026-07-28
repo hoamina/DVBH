@@ -8,10 +8,12 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { khuVucAdHocClause } from "../lib/filterParams";
 import { nextSequentialId } from "../lib/idCounter";
 import { runBatched } from "../lib/backfillImportProcessor";
+import { csvTemplateResponse } from "../lib/csvTemplate";
 import { eligibleClause } from "../lib/caLapEligible";
 import { refreshCaLapPrecompute, CA_LAP_SNAPSHOT_HASH_KEY } from "../lib/caLapRefresh";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { nowVN } from "../lib/vnTime";
 
 const caLap = new Hono<{ Bindings: Env }>();
 caLap.use("*", verifySessionMiddleware, loadUser);
@@ -630,7 +632,7 @@ caLap.post("/:caseId/gs", requireRole("Giam sat", "Admin"), async (c) => {
   const id = await nextSequentialId(c.env.DB, "giai_trinh_lap", "CL", 6);
   const row = await c.env.DB.prepare(
     `INSERT INTO giai_trinh_lap (id, case_id, chot_danh_gia_lap, dien_giai_lap, chot_hinh_thuc_xu_ly, nguoi_giai_trinh, ngay_giai_trinh)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now', '+7 hours'))
      ON CONFLICT(case_id) DO UPDATE SET
        chot_danh_gia_lap = excluded.chot_danh_gia_lap,
        dien_giai_lap = excluded.dien_giai_lap,
@@ -659,7 +661,7 @@ caLap.post("/:caseId/qc", requireRole("QC", "Admin"), async (c) => {
   const id = await nextSequentialId(c.env.DB, "giai_trinh_lap", "CL", 6);
   const row = await c.env.DB.prepare(
     `INSERT INTO giai_trinh_lap (id, case_id, qc_chot, qc_ghi_chu, nguoi_qc, ngay_qc)
-     VALUES (?, ?, ?, ?, ?, datetime('now'))
+     VALUES (?, ?, ?, ?, ?, datetime('now', '+7 hours'))
      ON CONFLICT(case_id) DO UPDATE SET
        qc_chot = excluded.qc_chot,
        qc_ghi_chu = excluded.qc_ghi_chu,
@@ -689,11 +691,11 @@ caLap.post("/blacklist", requireRole("Giam sat", "QC", "Admin"), async (c) => {
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO blacklist_serial (seri_san_pham, nguoi_them) VALUES (?, ?)
+    `INSERT INTO blacklist_serial (seri_san_pham, nguoi_them, ngay_them) VALUES (?, ?, ?)
      ON CONFLICT(seri_san_pham) DO UPDATE SET bat_tat = 1
      RETURNING *`,
   )
-    .bind(seri, user.email)
+    .bind(seri, user.email, nowVN())
     .first();
   // Blacklist la 1 dieu kien loc NGAY TRONG WHERE cua precompute (xem caLapRefresh.ts) - serial vua
   // bi tat/bat se doi ca danh sach "ca lap" that su (khong chi 1 truong trang thai), nen phai tinh
@@ -739,12 +741,7 @@ caLap.delete("/blacklist/:id", requireRole("Giam sat", "QC", "Admin"), async (c)
 const BLACKLIST_TEMPLATE_CSV = "seri_san_pham\nSN00012345\n";
 
 // GET /api/ca-lap/blacklist/template
-caLap.get("/blacklist/template", (c) =>
-  c.body(BLACKLIST_TEMPLATE_CSV, 200, {
-    "Content-Type": "text/csv; charset=utf-8",
-    "Content-Disposition": "attachment; filename=mau_import_blacklist_serial.csv",
-  }),
-);
+caLap.get("/blacklist/template", (c) => csvTemplateResponse(c, BLACKLIST_TEMPLATE_CSV, "mau_import_blacklist_serial.csv"));
 
 interface BlacklistImportRow {
   seri_san_pham?: string | number;
@@ -771,11 +768,12 @@ async function processBlacklistRows(db: D1Database, rows: BlacklistImportRow[], 
   serials.push(...bySeri.keys());
 
   if (commit && bySeri.size > 0) {
+    const addedAt = nowVN();
     const statements = serials.map((seri) =>
       db
-        .prepare(`INSERT INTO blacklist_serial (seri_san_pham, nguoi_them) VALUES (?, ?)
+        .prepare(`INSERT INTO blacklist_serial (seri_san_pham, nguoi_them, ngay_them) VALUES (?, ?, ?)
                   ON CONFLICT(seri_san_pham) DO UPDATE SET bat_tat = 1`)
-        .bind(seri, nguoiThem),
+        .bind(seri, nguoiThem, addedAt),
     );
     await runBatched(db, statements);
   }

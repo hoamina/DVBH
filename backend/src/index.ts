@@ -3,12 +3,15 @@ import type { Env } from "./types";
 import authRoutes from "./routes/auth";
 import casesRoutes from "./routes/cases";
 import missingPartsRoutes from "./routes/missingParts";
+import tranhChapRoutes from "./routes/tranhChap";
+import napGasRoutes from "./routes/napGas";
 import surveyRoutes from "./routes/survey";
 import viPhamRoutes from "./routes/viPham";
 import importRoutes from "./routes/importRoute";
 import importGiaiTrinhRoutes from "./routes/importGiaiTrinh";
 import importGiaiTrinhLapRoutes from "./routes/importGiaiTrinhLap";
 import importKhaoSatRoutes from "./routes/importKhaoSat";
+import importNapGasRoutes from "./routes/importNapGas";
 import settingsRoutes from "./routes/settings";
 import usersRoutes from "./routes/users";
 import dashboardRoutes from "./routes/dashboard";
@@ -23,12 +26,15 @@ const app = new Hono<{ Bindings: Env }>();
 app.route("/api/auth", authRoutes);
 app.route("/api/cases", casesRoutes);
 app.route("/api/missing-parts", missingPartsRoutes);
+app.route("/api/tranh-chap", tranhChapRoutes);
+app.route("/api/nap-gas", napGasRoutes);
 app.route("/api/survey", surveyRoutes);
 app.route("/api/vi-pham", viPhamRoutes);
 app.route("/api/import", importRoutes);
 app.route("/api/import/giai-trinh", importGiaiTrinhRoutes);
 app.route("/api/import/giai-trinh-lap", importGiaiTrinhLapRoutes);
 app.route("/api/import/khao-sat", importKhaoSatRoutes);
+app.route("/api/import/nap-gas", importNapGasRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/users", usersRoutes);
 app.route("/api/dashboard", dashboardRoutes);
@@ -71,9 +77,9 @@ export default {
     // import (commit/sync-sheet) moi bump domain nay (xem R8 trong YEU_CAU_BAO_CAO_TINH_SAN.md
     // va comment o lib/dataVersions.ts).
     await env.DB.prepare(
-      `UPDATE case_dvbh SET archived_at = datetime('now')
+      `UPDATE case_dvbh SET archived_at = datetime('now', '+7 hours')
        WHERE thoi_gian_hoan_thanh IS NOT NULL AND archived_at IS NULL
-         AND thoi_gian_hoan_thanh < datetime('now', ?)`,
+         AND thoi_gian_hoan_thanh < datetime('now', '+7 hours', ?)`,
     )
       .bind(ARCHIVE_AFTER)
       .run();

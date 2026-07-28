@@ -26,12 +26,17 @@ import {
   CA_LAP_KEYS,
   HINH_THUC_XU_LY_META,
   HINH_THUC_XU_LY_KEYS,
+  NAP_GAS_DANH_GIA_META,
+  NAP_GAS_DANH_GIA_KEYS,
+  NAP_GAS_PHI_DICH_VU_META,
+  NAP_GAS_PHI_DICH_VU_KEYS,
   type CaseRow,
   type GiaiTrinhRow,
   type LyDoRow,
   type LinhKienRow,
   type ViPhamRow,
   type CaLapDetection,
+  type NapGasDanhGiaRow,
 } from "../types";
 
 type ViewMode = "compact" | "expanded";
@@ -42,6 +47,7 @@ interface CaseDetailResponse {
   ketQuaGoi: unknown[];
   viPham: ViPhamRow[];
   caLap: CaLapDetection;
+  napGasDanhGia: NapGasDanhGiaRow | null;
 }
 
 async function fetchCaseDetail(caseId: string): Promise<CaseDetailResponse> {
@@ -166,6 +172,7 @@ export function CaseDetail({
   canGiaiTrinh,
   canGsLap,
   canQcLap,
+  canNapGas,
   canGoBack,
   onBack,
   onBackToRoot,
@@ -181,6 +188,7 @@ export function CaseDetail({
   canGiaiTrinh: boolean;
   canGsLap: boolean;
   canQcLap: boolean;
+  canNapGas: boolean;
   canGoBack: boolean;
   onBack: () => void;
   onBackToRoot: () => void;
@@ -237,6 +245,7 @@ export function CaseDetail({
   const [form, setForm] = useState({ ly_do_cham: "", noi_dung: "", linh_kien_thieu: "", ngay_du_kien: "", ngay_yeu_cau_co_hang: "", ma_xuat_hang: "" });
   const [gsLapForm, setGsLapForm] = useState({ chot_danh_gia_lap: "", dien_giai_lap: "" });
   const [qcLapForm, setQcLapForm] = useState({ qc_chot: "", qc_ghi_chu: "" });
+  const [napGasForm, setNapGasForm] = useState({ danh_gia_nap_gas: "", phi_dich_vu: "" });
   const [hinhThucForm, setHinhThucForm] = useState("");
   const lyDoChon = activeLyDo.find((l) => l.ten_ly_do === form.ly_do_cham) ?? activeLyDo[0];
   const giaiTrinhList = data?.giaiTrinh ?? [];
@@ -247,6 +256,7 @@ export function CaseDetail({
   useEffect(() => {
     setGsLapForm({ chot_danh_gia_lap: "", dien_giai_lap: "" });
     setQcLapForm({ qc_chot: "", qc_ghi_chu: "" });
+    setNapGasForm({ danh_gia_nap_gas: "", phi_dich_vu: "" });
     setHinhThucForm("");
     setCaLapModalOpen(false);
     setBlacklistConfirmOpen(false);
@@ -310,6 +320,15 @@ export function CaseDetail({
   const effectiveQcChot = qcLapForm.qc_chot || caLap?.giaiTrinhLap?.qc_chot || "";
   const effectiveQcGhiChu = qcLapForm.qc_ghi_chu || caLap?.giaiTrinhLap?.qc_ghi_chu || "";
 
+  const napGasDanhGia = data?.napGasDanhGia ?? null;
+  // Chi hien tab/form "Danh gia nap gas" cho ca THUOC DIEN nghi ngo nap gas VA da dong voi dung
+  // trang thai "Hoan thanh XLSC" - khop chinh xac NAP_GAS_ELIGIBLE o backend/src/routes/napGas.ts
+  // (ca dang ton hoac hoan thanh voi tien do khac se KHONG the chot danh gia o backend, nen an tab
+  // di cho gon thay vi hien 1 form luon bao loi khi bam Luu).
+  const napGasEligible = !!(c && c.nghi_ngo_nap_gas === 1 && c.tien_do_hoan_thanh === "Hoàn thành XLSC");
+  const effectiveNapGasDanhGia = napGasForm.danh_gia_nap_gas || napGasDanhGia?.danh_gia_nap_gas || "";
+  const effectiveNapGasPhiDichVu = napGasForm.phi_dich_vu || napGasDanhGia?.phi_dich_vu || "";
+
   const lapStatus = caLap?.detection
     ? trangThaiLapOf({
         gap_days: caLap.detection.gapDays,
@@ -366,6 +385,29 @@ export function CaseDetail({
       await refreshCaLapQueries();
     },
     onError: () => addToast("Không thể chốt lặp, thử lại sau."),
+  });
+
+  // Nap gas cung la ca DA DONG (chi ap dung khi thoi_gian_hoan_thanh + tien_do_hoan_thanh = "Hoan
+  // thanh XLSC" - xem NAP_GAS_ELIGIBLE trong backend/src/routes/napGas.ts), nen dung y het pattern
+  // refreshCaLapQueries() o tren: phai fetch that + ghi de closedDataCache, khong the chi
+  // invalidateQueries suong (queryFn se tra ve dung cache cu vi thoi_gian_hoan_thanh khong doi).
+  async function refreshNapGasQueries() {
+    const fresh = await fetchCaseDetail(caseId!);
+    const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+    qc.setQueryData(["case", caseId], newEntry);
+    qc.invalidateQueries({ queryKey: ["nap-gas"] });
+    qc.invalidateQueries({ queryKey: ["nap-gas-by-khu-vuc"] });
+    qc.invalidateQueries({ queryKey: ["notifications-count"] });
+  }
+
+  const saveNapGas = useMutation({
+    mutationFn: () =>
+      api.patch(`/nap-gas/${caseId}/danh-gia`, { danh_gia_nap_gas: effectiveNapGasDanhGia, phi_dich_vu: effectiveNapGasPhiDichVu }),
+    onSuccess: async () => {
+      addToast("Đã chốt đánh giá nạp gas");
+      await refreshNapGasQueries();
+    },
+    onError: () => addToast("Không thể chốt đánh giá nạp gas, thử lại sau."),
   });
 
   if (!caseId) return null;
@@ -589,6 +631,62 @@ export function CaseDetail({
     </div>
   );
 
+  const napGasContent = (
+    <div>
+      {!napGasEligible && <div className="text-sm text-[var(--ink-400)] italic">Ca này không thuộc diện "Nghi ngờ nạp gas".</div>}
+      {napGasEligible && (
+        <>
+          {canNapGas ? (
+            <Card className="p-3 space-y-2">
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá nạp gas</label>
+              <Select
+                value={effectiveNapGasDanhGia}
+                onChange={(v) => setNapGasForm({ ...napGasForm, danh_gia_nap_gas: v })}
+                className="w-full"
+                options={[{ value: "", label: "— Chọn đánh giá —" }, ...NAP_GAS_DANH_GIA_KEYS.map((k) => ({ value: k, label: NAP_GAS_DANH_GIA_META[k].label }))]}
+              />
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Phí dịch vụ</label>
+              <Select
+                value={effectiveNapGasPhiDichVu}
+                onChange={(v) => setNapGasForm({ ...napGasForm, phi_dich_vu: v })}
+                className="w-full"
+                options={[{ value: "", label: "— Chọn phí dịch vụ —" }, ...NAP_GAS_PHI_DICH_VU_KEYS.map((k) => ({ value: k, label: NAP_GAS_PHI_DICH_VU_META[k].label }))]}
+              />
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                <Btn
+                  size="sm"
+                  onClick={() => saveNapGas.mutate()}
+                  disabled={!effectiveNapGasDanhGia || !effectiveNapGasPhiDichVu || saveNapGas.isPending}
+                >
+                  {saveNapGas.isPending ? "Đang lưu…" : napGasDanhGia ? "🔒 Chốt lại đánh giá" : "🔒 Chốt đánh giá"}
+                </Btn>
+                {napGasDanhGia && (
+                  <span className="text-xs text-[var(--ink-400)]">
+                    {napGasDanhGia.nguoi_chot} · {fmtDateTime(napGasDanhGia.ngay_chot)}
+                  </span>
+                )}
+              </div>
+            </Card>
+          ) : (
+            <div className="text-xs flex flex-wrap items-center gap-1.5">
+              {napGasDanhGia ? (
+                <>
+                  <Badge tone="ocean">{NAP_GAS_DANH_GIA_META[napGasDanhGia.danh_gia_nap_gas].label}</Badge>
+                  <span className="text-[var(--ink-400)]">Phí dịch vụ: {NAP_GAS_PHI_DICH_VU_META[napGasDanhGia.phi_dich_vu].label}</span>
+                  <span className="text-[var(--ink-400)]">
+                    · {napGasDanhGia.nguoi_chot} · {fmtDateTime(napGasDanhGia.ngay_chot)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-[var(--ink-400)] italic">Chưa có đánh giá nạp gas.</span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   const tabsList: TabItem[] =
     viewMode === "compact"
       ? [
@@ -596,11 +694,13 @@ export function CaseDetail({
           { key: "giai-trinh", label: "Giải trình tồn", count: giaiTrinhList.length },
           { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
+          ...(napGasEligible ? [{ key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 }] : []),
         ]
       : [
           { key: "giai-trinh", label: "Giải trình tồn", count: giaiTrinhList.length },
           { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
+          ...(napGasEligible ? [{ key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 }] : []),
         ];
 
   const viewModeToggle = (
@@ -722,6 +822,7 @@ export function CaseDetail({
               {tab === "giai-trinh" && giaiTrinhContent}
               {tab === "vi-pham" && viPhamContent}
               {tab === "ca-lap" && caLapContent}
+              {tab === "nap-gas" && napGasContent}
             </div>
           </div>
         )}
@@ -733,6 +834,7 @@ export function CaseDetail({
             {tab === "giai-trinh" && giaiTrinhContent}
             {tab === "vi-pham" && viPhamContent}
             {tab === "ca-lap" && caLapContent}
+            {tab === "nap-gas" && napGasContent}
           </div>
         )}
       </div>

@@ -42,6 +42,7 @@ export interface CaseRow {
   loi_qua_han_24h: number;
   loi_lo_ke_hoach: number;
   loi_kh_hen_lai: number;
+  nghi_ngo_nap_gas: number;
   last_ly_do_cham?: string | null;
   last_ngay_giai_trinh?: string | null;
   last_ngay_du_kien_hoan_thanh?: string | null;
@@ -199,11 +200,49 @@ export const HINH_THUC_XU_LY_KEYS: HinhThucXuLy[] = [
   "Khong tinh luong loi bao cao",
 ];
 
+export type NapGasDanhGiaLoai = "Tu nap gas" | "Khong nap gas" | "Gui ve Hang nap gas" | "Tu nap gas thay Block" | "Sua chua khac" | "Kiem tra";
+
+export const NAP_GAS_DANH_GIA_META: Record<NapGasDanhGiaLoai, { label: string }> = {
+  "Tu nap gas": { label: "Tự nạp gas" },
+  "Khong nap gas": { label: "Không nạp gas" },
+  "Gui ve Hang nap gas": { label: "Gửi về Hãng nạp gas" },
+  "Tu nap gas thay Block": { label: "Tự nạp gas + thay Block" },
+  "Sua chua khac": { label: "Sửa chữa khác" },
+  "Kiem tra": { label: "Kiểm tra" },
+};
+export const NAP_GAS_DANH_GIA_KEYS: NapGasDanhGiaLoai[] = [
+  "Tu nap gas",
+  "Khong nap gas",
+  "Gui ve Hang nap gas",
+  "Tu nap gas thay Block",
+  "Sua chua khac",
+  "Kiem tra",
+];
+
+export type NapGasPhiDichVuLoai = "Khong thu phi DV" | "Khong nap gas" | "Da thu phi DV" | "Loi khong thu phi DV";
+
+export const NAP_GAS_PHI_DICH_VU_META: Record<NapGasPhiDichVuLoai, { label: string }> = {
+  "Khong thu phi DV": { label: "Không thu phí DV" },
+  "Khong nap gas": { label: "Không nạp gas" },
+  "Da thu phi DV": { label: "Đã thu phí DV" },
+  "Loi khong thu phi DV": { label: "Lỗi không thu phí DV" },
+};
+export const NAP_GAS_PHI_DICH_VU_KEYS: NapGasPhiDichVuLoai[] = ["Khong thu phi DV", "Khong nap gas", "Da thu phi DV", "Loi khong thu phi DV"];
+
+export interface NapGasDanhGiaRow {
+  case_id: string;
+  danh_gia_nap_gas: NapGasDanhGiaLoai;
+  phi_dich_vu: NapGasPhiDichVuLoai;
+  nguoi_chot: string;
+  ngay_chot: string;
+}
+
 export interface LyDoRow {
   id: number;
   ten_ly_do: string;
   bat_tat: number;
   thuoc_thieu_linh_kien: number;
+  thuoc_tranh_chap: number;
 }
 
 export interface LinhKienRow {
@@ -234,17 +273,18 @@ export interface Paged<T> {
 export function fmtVND(n: number | null | undefined): string {
   return (n ?? 0).toLocaleString("vi-VN") + "đ";
 }
-// Moi chuoi datetime tra ve tu API (dang "YYYY-MM-DD HH:MM:SS", KHONG co timezone) deu la gio UTC
-// tren thuc te (xem backend/src/lib/ageCalc.ts) - phai tu them "Z" truoc khi parse, neu khong JS
-// se hieu nham la gio dia phuong cua trinh duyet va lam moi thoi gian hien thi/so sanh bi CHAM hon
-// thuc te 7 tieng (thieu +7). Dung ham nay o moi noi can Date object chinh xac tu chuoi co gio.
+// Moi chuoi datetime tra ve tu API (dang "YYYY-MM-DD HH:MM:SS", KHONG co timezone) deu la gio VN
+// dia phuong tren thuc te (toan he thong quy uoc luu gio VN, ca du lieu nhap Excel/Sheet giu nguyen
+// lan cot he thong tu sinh - xem backend/src/lib/vnTime.ts, ratchet.ts) - phai tu them "+07:00"
+// truoc khi parse, neu khong JS se hieu nham la gio dia phuong CUA TRINH DUYET (co the khac VN) hoac
+// UTC. Dung ham nay o moi noi can Date object chinh xac (epoch dung) tu chuoi co gio.
 // LUU Y: mot so gia tri (vd "cachedAt" sinh boi new Date().toISOString() o client) da la ISO day
-// du kem "Z"/offset san - phai kiem tra truoc, khong duoc cong them "Z" nua (se ra chuoi invalid,
-// gay "Invalid Date" o CacheBanner).
+// du kem "Z"/offset that (UTC that, khong phai VN) - phai kiem tra truoc, khong duoc cong them
+// "+07:00" nua (se ra sai lech hoac chuoi invalid, gay "Invalid Date" o CacheBanner).
 export function parseDbDateTime(d: string): Date {
   const withT = d.replace(" ", "T");
   const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(withT);
-  return new Date(hasTimezone ? withT : `${withT}Z`);
+  return new Date(hasTimezone ? withT : `${withT}+07:00`);
 }
 
 export function fmtDateTime(d: string | null | undefined): string {

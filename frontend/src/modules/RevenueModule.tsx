@@ -4,7 +4,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Card } from "../components/ui/Card";
 import { Btn } from "../components/ui/Btn";
 import { ChartCanvas } from "../components/chart/ChartCanvas";
-import { FilterBar, ALL_KHU_VUC, ALL_HANG, ALL_THANG, type DashboardFilters } from "../components/FilterBar";
+import { FilterBar, ALL_KHU_VUC, ALL_HANG, type DashboardFilters } from "../components/FilterBar";
 import { CURRENT_MONTH_VALUE } from "../constants";
 import { api, buildQuery } from "../api/client";
 import { fmtVND } from "../types";
@@ -31,7 +31,7 @@ export function RevenueModule() {
   const filterParams = {
     khu_vuc: filters.khu_vuc !== ALL_KHU_VUC ? filters.khu_vuc : undefined,
     hang: filters.hang !== ALL_HANG ? filters.hang : undefined,
-    thang: filters.thang !== ALL_THANG ? filters.thang : undefined,
+    thang: filters.thang,
   };
 
   const { data: byKhuVuc } = useQuery({
@@ -97,7 +97,15 @@ export function RevenueModule() {
           <Btn
             variant="ghost"
             size="sm"
-            onClick={() => exportRowsToExcel(giamSat?.rows ?? [], "doanh_thu_giam_sat.xlsx")}
+            onClick={() =>
+              exportRowsToExcel(giamSat?.rows ?? [], "doanh_thu_giam_sat.xlsx", "Data", {
+                giam_sat: "Giám sát",
+                giam_sat_email: "Email giám sát",
+                khu_vuc: "Khu vực",
+                so_ca: "Số ca",
+                doanh_thu: "Doanh thu",
+              })
+            }
           >
             ⬇ Xuất Excel
           </Btn>

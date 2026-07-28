@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
@@ -8,12 +8,101 @@ import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
-import { ClosedCasesTab } from "../components/ClosedCasesTab";
+import { useMissingPartsDaDongChunked, type MissingPartClosedCase } from "../hooks/useMissingPartsDaDongChunked";
 import { api, buildQuery } from "../api/client";
 import { fmtDate, fmtDateTime, fmtVND, type Paged } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
+
+// Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
+// theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
+// ClosedCasesTab (mo hinh cache theo request cu).
+function MissingPartsDaDongList({
+  columns,
+  khuVucFilter,
+  dimFilter,
+  onRowClick,
+}: {
+  columns: Column<MissingPartClosedCase>[];
+  khuVucFilter: string;
+  dimFilter: { dim?: string; dim_value?: string };
+  onRowClick: (c: MissingPartClosedCase) => void;
+}) {
+  const { data: monthsData } = useQuery({
+    queryKey: ["dashboard-months"],
+    queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
+  });
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [thang, setThang] = useState(currentMonth);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const { rows: allRows, isLoading, isError, refetch, throttled } = useMissingPartsDaDongChunked(thang);
+
+  const rows = useMemo(() => {
+    let r = allRows;
+    if (khuVucFilter === QLDVBH_FILTER_VALUE) {
+      r = r.filter((row) => (row.khu_vuc ?? "").includes("qldvbh"));
+    } else if (khuVucFilter) {
+      const set = new Set(
+        khuVucFilter
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean),
+      );
+      r = r.filter((row) => row.khu_vuc && set.has(row.khu_vuc));
+    }
+    if (dimFilter.dim && dimFilter.dim_value && dimFilter.dim !== "khu_vuc") {
+      const key = dimFilter.dim as keyof MissingPartClosedCase;
+      r = r.filter((row) => row[key] === dimFilter.dim_value);
+    }
+    return r;
+  }, [allRows, khuVucFilter, dimFilter]);
+
+  const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  const monthOptions = (monthsData?.months ?? []).map((m) => ({ value: m, label: m }));
+  if (!monthOptions.some((o) => o.value === currentMonth)) {
+    monthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-semibold text-[var(--ink-400)]">Tháng:</span>
+        <Select
+          value={thang}
+          onChange={(v) => {
+            setThang(v);
+            setPage(1);
+          }}
+          options={monthOptions}
+        />
+      </div>
+      {throttled.length > 0 && (
+        <div className="text-xs text-[var(--ink-400)] italic mb-2">
+          {throttled.length} ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.
+        </div>
+      )}
+      <PaginatedTable
+        columns={columns}
+        rows={pagedRows}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
+        page={page}
+        pageSize={pageSize}
+        total={rows.length}
+        onPageChange={setPage}
+        onRowClick={onRowClick}
+        rowKey={(c) => c.id}
+        emptyText="Không có ca thiếu linh kiện đã đóng trong tháng này."
+      />
+    </div>
+  );
+}
 
 interface MissingPartCase {
   id: string;
@@ -130,11 +219,31 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
     setView("danh-sach");
   }
 
+  // Khop dung cot hien tren PaginatedTable "columns" ben duoi (rows thuc te la nguyen CaseRow +
+  // cac field last_* tu giai_trinh, xem SELECT_COLS o backend/src/routes/missingParts.ts).
+  const EXPORT_LABELS: Record<string, string> = {
+    ...CASE_FIELD_LABELS,
+    last_linh_kien_thieu: "Linh kiện thiếu",
+    last_ngay_yeu_cau_co_hang: "Ngày yêu cầu có hàng",
+    last_ngay_du_kien_hoan_thanh: "Ngày dự kiến HT",
+  };
+
+  // Khop dung thead cua bang pivot "Bao cao linh kien ton theo ..." o duoi (cot "nhom" doi ten theo
+  // dim dang chon).
+  const KHU_VUC_EXPORT_LABELS: Record<string, string> = {
+    nhom: REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? "Nhóm",
+    tong_ton: "Tổng tồn",
+    ...Object.fromEntries(KHU_VUC_BUCKET_COLS.map((c) => [c.key, c.label])),
+    tong_gia_tri_linh_kien: "Giá trị linh kiện dự kiến",
+    so_ma_linh_kien: "Số mã linh kiện",
+    lo_ke_hoach: "Lỡ kế hoạch",
+  };
+
   async function handleExport() {
     const all = await api.get<Paged<MissingPartCase>>(
       `/missing-parts${buildQuery({ page: 1, pageSize: 5000, khu_vuc: khuVucFilter, tuoi_tu: ageRange.tuoiTu, tuoi_den: ageRange.tuoiDen, ...dimFilter })}`,
     );
-    await exportRowsToExcel(all.rows, "ca_thieu_linh_kien.xlsx");
+    await exportRowsToExcel(all.rows, "ca_thieu_linh_kien.xlsx", "Data", EXPORT_LABELS);
   }
 
   const totalDtLinhKien = (data?.rows ?? []).reduce((s, r) => s + (r.dt_linh_kien ?? 0), 0);
@@ -154,7 +263,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
-  const closedColumns: Column<MissingPartCase>[] = [
+  const closedColumns: Column<MissingPartClosedCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
     { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
@@ -232,7 +341,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
             </div>
             <div className="flex items-center gap-2">
               <Select value={reportDim} onChange={setReportDim} options={REPORT_DIM_OPTIONS} />
-              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_linh_kien_ton.xlsx")}>
+              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_linh_kien_ton.xlsx", "Data", KHU_VUC_EXPORT_LABELS)}>
                 ⬇ Xuất Excel
               </Btn>
             </div>
@@ -314,14 +423,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
             ]}
           />
           {trangThai === "da-dong" ? (
-            <ClosedCasesTab<MissingPartCase>
-              cacheKeyPrefix="missing-parts-da-dong"
-              buildUrl={(thang) => `/missing-parts${buildQuery({ trang_thai: "da-dong", thang, khu_vuc: khuVucFilter, ...dimFilter })}`}
-              columns={closedColumns}
-              rowKey={(c) => c.id}
-              onRowClick={(c) => openCase(c.id)}
-              emptyText="Không có ca thiếu linh kiện đã đóng trong tháng này."
-            />
+            <MissingPartsDaDongList columns={closedColumns} khuVucFilter={khuVucFilter} dimFilter={dimFilter} onRowClick={(c) => openCase(c.id)} />
           ) : (
             <PaginatedTable
               columns={columns}

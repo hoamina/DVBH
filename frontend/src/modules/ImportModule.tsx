@@ -4,7 +4,7 @@ import { Card } from "../components/ui/Card";
 import { Btn } from "../components/ui/Btn";
 import { StatCard } from "../components/ui/StatCard";
 import { Tabs } from "../components/ui/Tabs";
-import { api } from "../api/client";
+import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -48,7 +48,81 @@ const TABS = [
   { key: "giai-trinh", label: "Import giải trình cũ" },
   { key: "giai-trinh-lap", label: "Import giải trình lặp cũ" },
   { key: "khao-sat", label: "Import khảo sát cũ" },
+  { key: "nap-gas", label: "Import đánh giá nạp gas cũ" },
 ];
+
+// "Lich su import" rieng cho tung loai (loc theo "loai" - xem migration 0027) - dung chung cho CA 5
+// tab, khong con chi CRM moi co nhu truoc. queryKey ["import-history", loai] khac nhau theo loai nen
+// invalidateQueries({queryKey: ["import-history"]}) (khong "exact") van tu dong invalidate DUNG bien
+// the loai dang xem, khong can sua invalidateKeys o cac noi goi ImportUploader/mutation dong bo.
+function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileName: string }) {
+  const { data: history } = useQuery({
+    queryKey: ["import-history", loai],
+    queryFn: () => api.get<{ rows: ImportHistoryRow[] }>(`/import/history${buildQuery({ loai })}`),
+  });
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-display font-bold text-sm">Lịch sử import</div>
+        <Btn
+          variant="ghost"
+          size="sm"
+          onClick={async () => {
+            const res = await api.get<{ rows: ImportHistoryRow[] }>(`/import/history${buildQuery({ loai, export: true })}`);
+            await exportRowsToExcel(res.rows, exportFileName, "Data", {
+              id: "ID",
+              ten_file: "File",
+              nguoi_import: "Người import",
+              thoi_gian: "Thời gian",
+              ghi_moi: "Ghi mới / Thành công",
+              ghi_de: "Ghi đè",
+              bo_qua: "Bỏ qua",
+              loi: "Lỗi",
+            });
+          }}
+        >
+          ⬇ Xuất Excel
+        </Btn>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="dense w-full text-sm">
+          <thead>
+            <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+              <th className="py-2 pr-3">File</th>
+              <th className="py-2 pr-3">Người import</th>
+              <th className="py-2 pr-3">Thời gian</th>
+              <th className="py-2 pr-3">Ghi mới / Thành công</th>
+              <th className="py-2 pr-3">Ghi đè</th>
+              <th className="py-2 pr-3">Bỏ qua</th>
+              <th className="py-2 pr-3">Lỗi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(history?.rows ?? []).map((h) => (
+              <tr key={h.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <td className="py-2 pr-3 font-mono text-xs">{h.ten_file}</td>
+                <td className="py-2 pr-3">{h.nguoi_import}</td>
+                <td className="py-2 pr-3 text-xs">{h.thoi_gian}</td>
+                <td className="py-2 pr-3 font-mono text-[var(--teal-500)]">{h.ghi_moi}</td>
+                <td className="py-2 pr-3 font-mono text-[var(--ocean-600)]">{h.ghi_de}</td>
+                <td className="py-2 pr-3 font-mono text-[var(--ink-400)]">{h.bo_qua}</td>
+                <td className="py-2 pr-3 font-mono">{h.loi > 0 ? <span className="text-[var(--coral-500)] font-bold">{h.loi}</span> : h.loi}</td>
+              </tr>
+            ))}
+            {(history?.rows ?? []).length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-6 text-center text-[var(--ink-400)] text-sm">
+                  Chưa có lịch sử import.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
 
 export function ImportModule() {
   const [tab, setTab] = useState("crm");
@@ -62,10 +136,6 @@ export function ImportModule() {
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
   const addToast = useToast();
   const qc = useQueryClient();
-  const { data: history } = useQuery({
-    queryKey: ["import-history"],
-    queryFn: () => api.get<{ rows: ImportHistoryRow[] }>("/import/history"),
-  });
 
   const { data: sheetUrls } = useQuery({
     queryKey: ["settings-sheet-urls"],
@@ -105,6 +175,19 @@ export function ImportModule() {
       qc.invalidateQueries({ queryKey: ["import-history"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
+      qc.invalidateQueries({ queryKey: ["notifications-count"] });
+    },
+    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
+  });
+
+  const syncNapGasMutation = useMutation({
+    mutationFn: () => api.post<BackfillSummary>("/import/nap-gas/sync-sheet"),
+    onSuccess: (res) => {
+      addToast(`Đồng bộ xong: ${res.thanhCong} dòng đánh giá nạp gas${res.loi ? `, ${res.loi} lỗi` : ""}`);
+      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ đánh giá nạp gas cũ", errors: res.errors } : null);
+      qc.invalidateQueries({ queryKey: ["import-history"] });
+      qc.invalidateQueries({ queryKey: ["nap-gas"] });
+      qc.invalidateQueries({ queryKey: ["nap-gas-by-khu-vuc"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
     },
     onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
@@ -183,6 +266,7 @@ export function ImportModule() {
             successMessage={(s) => `Import thành công: ${s.GHI_MOI} ca mới, ${s.GHI_DE} ghi đè`}
             invalidateKeys={[["import-history"], ["backlog"], ["backlog-counts"], ["dashboard-kpis"]]}
           />
+          <ImportHistoryCard loai="crm" exportFileName="lich_su_import_crm.xlsx" />
         </>
       )}
 
@@ -211,7 +295,7 @@ export function ImportModule() {
           templateUrl="/api/import/giai-trinh/template"
           previewUrl="/import/giai-trinh/preview"
           commitUrl="/import/giai-trinh/commit"
-          buildBody={(rows) => ({ rows })}
+          buildBody={(rows, filename) => ({ rows, filename })}
           renderSummary={(s) => (
             <div className="grid grid-cols-2 gap-3 mb-2">
               <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
@@ -220,8 +304,9 @@ export function ImportModule() {
           )}
           getErrors={(s) => s.errors}
           successMessage={(s) => `Import thành công: ${s.thanhCong} dòng giải trình`}
-          invalidateKeys={[]}
+          invalidateKeys={[["import-history"]]}
           />
+          <ImportHistoryCard loai="giai_trinh_cu" exportFileName="lich_su_import_giai_trinh_cu.xlsx" />
         </>
       )}
 
@@ -251,7 +336,7 @@ export function ImportModule() {
             templateUrl="/api/import/giai-trinh-lap/template"
             previewUrl="/import/giai-trinh-lap/preview"
             commitUrl="/import/giai-trinh-lap/commit"
-            buildBody={(rows) => ({ rows })}
+            buildBody={(rows, filename) => ({ rows, filename })}
             renderSummary={(s) => (
               <div className="grid grid-cols-2 gap-3 mb-2">
                 <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
@@ -260,8 +345,9 @@ export function ImportModule() {
             )}
             getErrors={(s) => s.errors}
             successMessage={(s) => `Import thành công: ${s.thanhCong} dòng giải trình lặp`}
-            invalidateKeys={[["ca-lap-status"], ["ca-lap-tong-quan"], ["notifications-count"]]}
+            invalidateKeys={[["import-history"], ["ca-lap-status"], ["ca-lap-tong-quan"], ["notifications-count"]]}
           />
+          <ImportHistoryCard loai="giai_trinh_lap_cu" exportFileName="lich_su_import_giai_trinh_lap_cu.xlsx" />
         </>
       )}
 
@@ -289,7 +375,7 @@ export function ImportModule() {
           templateUrl="/api/import/khao-sat/template"
           previewUrl="/import/khao-sat/preview"
           commitUrl="/import/khao-sat/commit"
-          buildBody={(rows) => ({ rows })}
+          buildBody={(rows, filename) => ({ rows, filename })}
           renderSummary={(s) => (
             <div className="grid grid-cols-2 gap-3 mb-2">
               <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
@@ -298,62 +384,52 @@ export function ImportModule() {
           )}
           getErrors={(s) => s.errors}
           successMessage={(s) => `Import thành công: ${s.thanhCong} lượt khảo sát`}
-          invalidateKeys={[["survey"], ["survey-counts"]]}
+          invalidateKeys={[["import-history"], ["survey"], ["survey-counts"]]}
           />
+          <ImportHistoryCard loai="khao_sat_cu" exportFileName="lich_su_import_khao_sat_cu.xlsx" />
         </>
       )}
 
-      {tab === "crm" && (
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-display font-bold text-sm">Lịch sử import</div>
-            <Btn
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                const res = await api.get<{ rows: ImportHistoryRow[] }>("/import/history?export=true");
-                await exportRowsToExcel(res.rows, "lich_su_import.xlsx");
-              }}
-            >
-              ⬇ Xuất Excel
-            </Btn>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="dense w-full text-sm">
-              <thead>
-                <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                  <th className="py-2 pr-3">File</th>
-                  <th className="py-2 pr-3">Người import</th>
-                  <th className="py-2 pr-3">Thời gian</th>
-                  <th className="py-2 pr-3">Ghi mới</th>
-                  <th className="py-2 pr-3">Ghi đè</th>
-                  <th className="py-2 pr-3">Bỏ qua</th>
-                  <th className="py-2 pr-3">Lỗi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(history?.rows ?? []).map((h) => (
-                  <tr key={h.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                    <td className="py-2 pr-3 font-mono text-xs">{h.ten_file}</td>
-                    <td className="py-2 pr-3">{h.nguoi_import}</td>
-                    <td className="py-2 pr-3 text-xs">{h.thoi_gian}</td>
-                    <td className="py-2 pr-3 font-mono text-[var(--teal-500)]">{h.ghi_moi}</td>
-                    <td className="py-2 pr-3 font-mono text-[var(--ocean-600)]">{h.ghi_de}</td>
-                    <td className="py-2 pr-3 font-mono text-[var(--ink-400)]">{h.bo_qua}</td>
-                    <td className="py-2 pr-3 font-mono">{h.loi > 0 ? <span className="text-[var(--coral-500)] font-bold">{h.loi}</span> : h.loi}</td>
-                  </tr>
-                ))}
-                {(history?.rows ?? []).length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-6 text-center text-[var(--ink-400)] text-sm">
-                      Chưa có lịch sử import.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+      {tab === "nap-gas" && (
+        <>
+          {isAdmin && hasSheetUrl("nap_gas_danh_gia_cu") && (
+            <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <div className="font-display font-bold text-sm">Đồng bộ đánh giá nạp gas cũ từ Google Sheet</div>
+                <div className="text-xs text-[var(--ink-600)] mt-0.5">
+                  Tự động tải và ghi các dòng đánh giá nạp gas cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.
+                </div>
+              </div>
+              <Btn variant="ghost" size="sm" onClick={() => syncNapGasMutation.mutate()} disabled={syncNapGasMutation.isPending}>
+                {syncNapGasMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ ngay"}
+              </Btn>
+            </Card>
+          )}
+          <ImportUploader<BackfillSummary>
+            description={
+              <>
+                Nhập lại chốt đánh giá nạp gas (Đánh giá nạp gas + Phí dịch vụ) cho các ca đã từng xử lý trước khi tính năng này ra đời. Mỗi dòng ghi vào 1 ca đã có sẵn (theo{" "}
+                <b className="font-mono">case_id</b>) — cần đủ cả <b className="font-mono">danh_gia_nap_gas</b>, <b className="font-mono">phi_dich_vu</b>,{" "}
+                <b className="font-mono">nguoi_chot</b> và <b className="font-mono">ngay_chot</b>.
+              </>
+            }
+            templateUrl="/api/import/nap-gas/template"
+            previewUrl="/import/nap-gas/preview"
+            commitUrl="/import/nap-gas/commit"
+            columnMapUrl="/import/nap-gas/column-map"
+            buildBody={(rows, filename) => ({ rows, filename })}
+            renderSummary={(s) => (
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
+                <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+              </div>
+            )}
+            getErrors={(s) => s.errors}
+            successMessage={(s) => `Import thành công: ${s.thanhCong} dòng đánh giá nạp gas`}
+            invalidateKeys={[["import-history"], ["nap-gas"], ["nap-gas-by-khu-vuc"], ["notifications-count"]]}
+          />
+          <ImportHistoryCard loai="nap_gas_danh_gia_cu" exportFileName="lich_su_import_nap_gas_cu.xlsx" />
+        </>
       )}
     </div>
   );

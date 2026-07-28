@@ -46,11 +46,15 @@ function buildDashboardFilterClause(params: DashboardFilterParams, scope: string
   // idx_case_ton). So sanh chuoi ISO 'YYYY-MM-DD HH:MM:SS' >= 'YYYY-MM-01' va < 'YYYY-MM-01' (thang
   // ke tiep) tuong duong so thang, giu nguyen ngu nghia. 'now' trong SQLite la UTC nen range cung
   // tinh theo UTC, khop voi ban goc strftime('%Y-%m','now').
-  if (params.thang === CURRENT_MONTH_VALUE) {
+  // Chot 2026-07-24: BAT BUOC luon gioi han theo 1 thang (khong con nhanh "khong chon = toan thoi
+  // gian") - "thang" rong/thieu mac dinh ve CURRENT_MONTH_VALUE ngay o day, phong truong hop 1 loi
+  // goi API truc tiep khong kem "thang" (FE luon gui san, day la lop phong ve thu 2).
+  const thang = params.thang || CURRENT_MONTH_VALUE;
+  if (thang === CURRENT_MONTH_VALUE) {
     sql += ` AND ((${prefix}thoi_gian_hoan_thanh >= date('now','start of month') AND ${prefix}thoi_gian_hoan_thanh < date('now','start of month','+1 month')) OR ${prefix}thoi_gian_hoan_thanh IS NULL)`;
-  } else if (params.thang) {
+  } else {
     sql += ` AND ${prefix}thoi_gian_hoan_thanh >= ? || '-01' AND ${prefix}thoi_gian_hoan_thanh < date(? || '-01', '+1 month')`;
-    binds.push(params.thang, params.thang);
+    binds.push(thang, thang);
   }
 
   return { sql, binds };

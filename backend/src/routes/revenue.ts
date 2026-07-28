@@ -8,13 +8,17 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { khuVucAdHocClause, CURRENT_MONTH_VALUE } from "../lib/filterParams";
 import { kpiEligibleClause } from "../lib/kpiEligible";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { fromJsonArray } from "../lib/jsonArray";
 
 const revenue = new Hono<{ Bindings: Env }>();
 // Doanh thu la du lieu tai chinh - chi cho vai tro co module "Bao cao doanh thu" o frontend
-// (navConfig.ts: Admin/Viewer/TBP DVBH/TBP CSKH, trung khop ROLES_XEM_TOAN_BO). Truoc day route
-// nay chi dua vao viec an module o UI, khong chan o backend - vai tro khac goi thang API van
-// xem duoc doanh thu khu vuc minh phu trach.
-revenue.use("*", verifySessionMiddleware, loadUser, requireRole(...ROLES_XEM_TOAN_BO));
+// (navConfig.ts: Admin/Viewer/TBP DVBH/TBP CSKH + Giam sat, trung khop ROLES_XEM_TOAN_BO cong them
+// "Giam sat"). Truoc day route nay chi dua vao viec an module o UI, khong chan o backend - vai tro
+// khac goi thang API van xem duoc doanh thu khu vuc minh phu trach.
+// Giam sat KHONG duoc them vao ROLES_XEM_TOAN_BO (hang so do dung o scopeByKhuVuc de nghia "xem toan
+// bo khong gioi han khu vuc") - Giam sat chi duoc mo quyen truy cap route nay, con ket qua van bi
+// scopeByKhuVuc/khuVucWhereClause thu hep theo khu_vuc_phu_trach cua ho o tung handler ben duoi.
+revenue.use("*", verifySessionMiddleware, loadUser, requireRole(...ROLES_XEM_TOAN_BO, "Giam sat"));
 
 const REVENUE_EXPR = "COALESCE(dt_san_pham,0) + COALESCE(dt_linh_kien,0) + COALESCE(dt_dich_vu,0)";
 const REVENUE_EXPR_C = "COALESCE(c.dt_san_pham,0) + COALESCE(c.dt_linh_kien,0) + COALESCE(c.dt_dich_vu,0)";
@@ -55,11 +59,15 @@ function buildRevenueFilterClause(params: RevenueFilterParams, scope: string[] |
   // idx_case_ton). So sanh chuoi ISO 'YYYY-MM-DD HH:MM:SS' >= 'YYYY-MM-01' va < 'YYYY-MM-01' (thang
   // ke tiep) tuong duong so thang, giu nguyen ngu nghia. 'now' trong SQLite la UTC nen range cung
   // tinh theo UTC, khop voi ban goc strftime('%Y-%m','now').
-  if (params.thang === CURRENT_MONTH_VALUE) {
+  // Chot 2026-07-24: BAT BUOC luon gioi han theo 1 thang (khong con nhanh "khong chon = toan thoi
+  // gian") - "thang" rong/thieu mac dinh ve CURRENT_MONTH_VALUE ngay o day, phong truong hop 1 loi
+  // goi API truc tiep khong kem "thang" (FE luon gui san, day la lop phong ve thu 2).
+  const thang = params.thang || CURRENT_MONTH_VALUE;
+  if (thang === CURRENT_MONTH_VALUE) {
     sql += ` AND ((${prefix}thoi_gian_hoan_thanh >= date('now','start of month') AND ${prefix}thoi_gian_hoan_thanh < date('now','start of month','+1 month')) OR ${prefix}thoi_gian_hoan_thanh IS NULL)`;
-  } else if (params.thang) {
+  } else {
     sql += ` AND ${prefix}thoi_gian_hoan_thanh >= ? || '-01' AND ${prefix}thoi_gian_hoan_thanh < date(? || '-01', '+1 month')`;
-    binds.push(params.thang, params.thang);
+    binds.push(thang, thang);
   }
 
   return { sql, binds };
@@ -137,20 +145,44 @@ revenue.get("/trend", async (c) => {
 });
 
 // Tach rieng phan tinh toan cua /giam-sat - dung chung cho compute-on-miss va warm-up (R7).
+//
+// TRUOC DAY ham nay join thang "users x json_each(khu_vuc_phu_trach) INNER JOIN case_dvbh" - tuc
+// la case_dvbh bi quet/doi chieu 1 LAN CHO MOI CAP (Giam sat, khu_vuc), roi moi loc theo scope SAU
+// khi join xong (dieu kien "c.khu_vuc IN (...)" trong ${sql} chi thu hep KET QUA join, khong giup
+// giam so lan quet case_dvbh). Do thuc te (2026-07-24, insights D1): 1 lan goi doc trung binh
+// 388,072 dong, 13 lan goi/ngay = 5.04 trieu dong doc (~46% han muc 5M/ngay). Sua lai: quet
+// case_dvbh CHI 1 LAN (gom theo khu_vuc), lay danh sach Giam sat (bang users rat nho) rieng, roi
+// GOP O TANG JS thay vi SQL join - giu nguyen 100% cong thuc/dieu kien loc (KPI_ELIGIBLE_CLAUSE_C +
+// buildRevenueFilterClause khong doi), chi doi cach ket hop du lieu.
 export async function computeRevenueGiamSat(db: D1Database, params: RevenueFilterParams, scope: string[] | null): Promise<{ rows: unknown[] }> {
   const { sql, binds } = buildRevenueFilterClause(params, scope, "c.");
-  const { results } = await db.prepare(
-    `SELECT u.email as giam_sat_email, u.ten as giam_sat, jv.value as khu_vuc,
-            COUNT(c.id) as so_ca, SUM(${REVENUE_EXPR_C}) as doanh_thu
-     FROM users u, json_each(u.khu_vuc_phu_trach) jv
-     INNER JOIN case_dvbh c ON c.khu_vuc = jv.value
-     WHERE u.vai_tro = 'Giam sat' AND ${KPI_ELIGIBLE_CLAUSE_C}${sql}
-     GROUP BY u.email, jv.value
-     ORDER BY doanh_thu DESC`,
-  )
-    .bind(...binds)
-    .all();
-  return { rows: results };
+
+  const [byKhuVuc, giamSatUsers] = await Promise.all([
+    db
+      .prepare(
+        `SELECT c.khu_vuc as khu_vuc, COUNT(*) as so_ca, SUM(${REVENUE_EXPR_C}) as doanh_thu
+         FROM case_dvbh c
+         WHERE ${KPI_ELIGIBLE_CLAUSE_C}${sql}
+         GROUP BY c.khu_vuc`,
+      )
+      .bind(...binds)
+      .all<{ khu_vuc: string; so_ca: number; doanh_thu: number }>(),
+    db.prepare("SELECT email, ten, khu_vuc_phu_trach FROM users WHERE vai_tro = 'Giam sat'").all<{ email: string; ten: string | null; khu_vuc_phu_trach: string | null }>(),
+  ]);
+
+  const byKhuVucMap = new Map(byKhuVuc.results.map((r) => [r.khu_vuc, r]));
+
+  const rows: { giam_sat_email: string; giam_sat: string | null; khu_vuc: string; so_ca: number; doanh_thu: number }[] = [];
+  for (const u of giamSatUsers.results) {
+    for (const kv of fromJsonArray(u.khu_vuc_phu_trach)) {
+      const agg = byKhuVucMap.get(kv);
+      if (!agg) continue; // giong INNER JOIN goc: khu_vuc khong co ca nao khop thi khong xuat hien
+      rows.push({ giam_sat_email: u.email, giam_sat: u.ten, khu_vuc: kv, so_ca: agg.so_ca, doanh_thu: agg.doanh_thu });
+    }
+  }
+  rows.sort((a, b) => b.doanh_thu - a.doanh_thu);
+
+  return { rows };
 }
 
 // GET /api/revenue/giam-sat - Giam sat la vai tro user gan voi khu_vuc_phu_trach (JSON array),

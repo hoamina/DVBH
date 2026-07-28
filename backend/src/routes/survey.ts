@@ -11,6 +11,9 @@ import { ageFilterClause } from "../lib/ageCalc";
 import { khuVucAdHocClause } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { nowVN } from "../lib/vnTime";
+import { getSurveySnapshotManifest, getSurveySnapshotContent, getViPhamExistingLoaiLoi, SURVEY_SNAPSHOT_KEY } from "../lib/surveySnapshot";
+import { checkAndConsumeDownloadQuota } from "../lib/r2DownloadRateLimit";
 
 // Domain phu thuoc chung cho ca 3 bao cao /counts, /by-khu-vuc, /trend (xem bang R6 trong
 // YEU_CAU_BAO_CAO_TINH_SAN.md - ap dung dong nhat, don gian hon tach rieng tung endpoint).
@@ -40,6 +43,39 @@ survey.get("/cskh-list", requireRole("TN CSKH", "TBP CSKH", "Admin"), async (c) 
   return c.json({ rows: results });
 });
 
+// GET /api/survey/candidates-manifest - hash + so dong cua snapshot R2 "ung vien khao sat" (xem
+// lib/surveySnapshot.ts, khong dung R2, khong rate-limit) + trang thai "da co dong vi_pham" theo
+// case_id (de client tu tinh lai NEED_SURVEY_CONDITION) + assigned_to (bang case_dvbh nho, doc
+// song vi doi ngoai luc import - xem routes/survey.ts POST /assign).
+survey.get("/candidates-manifest", async (c) => {
+  const manifest = await getSurveySnapshotManifest(c.env.DB);
+  const viPhamExistingLoaiLoi = await getViPhamExistingLoaiLoi(c.env.DB);
+  // assigned_to doi ngoai luc import (POST /assign, /assign-bulk/commit - khong bump domain
+  // "cases") nen KHONG the nam trong snapshot bat bien - doc song, bang case_dvbh da gioi han
+  // "archived_at IS NULL" nen re (~vai nghin dong).
+  const { results: assignedRows } = await c.env.DB.prepare(
+    "SELECT id, assigned_to FROM case_dvbh WHERE archived_at IS NULL AND assigned_to IS NOT NULL",
+  ).all<{ id: string; assigned_to: string }>();
+  const assignedTo: Record<string, string> = {};
+  for (const r of assignedRows) assignedTo[r.id] = r.assigned_to;
+
+  return c.json({ hash: manifest?.hash ?? null, rowCount: manifest?.rowCount ?? 0, viPhamExistingLoaiLoi, assignedTo });
+});
+
+// POST /api/survey/candidates-content - doc noi dung file R2 (rate-limit theo file, dung chung co
+// che voi lib/r2DownloadRateLimit.ts), loc theo scope (khu_vuc_phu_trach) TRUOC KHI tra ve.
+survey.post("/candidates-content", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const user = c.get("user");
+
+  const quota = await checkAndConsumeDownloadQuota(c.env.DB, user.email, SURVEY_SNAPSHOT_KEY);
+  if (!quota.allowed) return c.json({ throttled: true, retryAfterSeconds: quota.retryAfterSeconds ?? 60 });
+
+  const rows = await getSurveySnapshotContent(c.env);
+  const filtered = scope === null ? rows : rows.filter((row) => scope.length > 0 && typeof row.khu_vuc === "string" && scope.includes(row.khu_vuc as string));
+  return c.json({ throttled: false, rows: filtered });
+});
+
 // GET /api/survey?tab=can-khao-sat|cho-qc|da-xu-ly&khu_vuc=&tuoi_tu=&tuoi_den=
 survey.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "can-khao-sat";
@@ -51,28 +87,9 @@ survey.get("/", async (c) => {
   const extraBinds = [...khuVucClause.binds, ...ageClause.binds];
   const limit = c.req.query("export") === "true" ? 5000 : 200;
 
-  if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") {
-    const timeCondition = tab === "can-khao-sat" ? RECENT_OR_OPEN_CONDITION : OVERDUE_SURVEY_CONDITION;
-    const query = `
-      SELECT * FROM (
-        SELECT c.id, c.khach_hang, c.khu_vuc, c.assigned_to,
-          c.mo_ta_loi, c.ky_thuat_vien, c.tinh, c.quan_huyen,
-          c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hen_xu_ly, c.thoi_gian_hoan_thanh,
-          c.link_crm, c.noi_dung_xu_ly,
-          (c.loi_120p = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi 120 phut')) AS need_loi_120p,
-          (c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h')) AS need_loi_qua_han_24h,
-          (c.loi_lo_ke_hoach = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi lo ke hoach')) AS need_loi_lo_ke_hoach,
-          (c.loi_kh_hen_lai = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'KH hen lai')) AS need_loi_kh_hen_lai
-        FROM case_dvbh c
-        WHERE c.archived_at IS NULL AND ${timeCondition}${scopeClause.sql}${extraFilter}
-      ) t
-      WHERE need_loi_120p OR need_loi_qua_han_24h OR need_loi_lo_ke_hoach OR need_loi_kh_hen_lai
-      ORDER BY id DESC
-      LIMIT ?
-    `;
-    const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
-    return c.json({ rows: results });
-  }
+  // "can-khao-sat"/"qua-han-khao-sat" da tach thanh /candidates-manifest + /candidates-content
+  // (snapshot R2 1 file, xem lib/surveySnapshot.ts) - khong con query song o day.
+  if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") return c.json({ error: "DEPRECATED_USE_MANIFEST_ENDPOINT" }, 410);
 
   if (tab === "cho-qc") {
     const query = `
@@ -302,8 +319,8 @@ survey.post(
     const ketQuaGoiId = await nextSequentialId(c.env.DB, "ket_qua_goi", "CG", 6);
 
     await c.env.DB.prepare(
-      `INSERT INTO ket_qua_goi (id, case_id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, ghi_chu, ly_do_that_bai, can_goi_lai, nguoi_thuc_hien)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ket_qua_goi (id, case_id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, ghi_chu, ly_do_that_bai, can_goi_lai, nguoi_thuc_hien, ngay_gio_thuc_hien)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         ketQuaGoiId,
@@ -315,6 +332,7 @@ survey.post(
         body.ly_do_that_bai ?? null,
         body.can_goi_lai === undefined ? null : body.can_goi_lai ? 1 : 0,
         user.email,
+        nowVN(),
       )
       .run();
 
@@ -326,10 +344,10 @@ survey.post(
         c.env.DB.prepare(
           // ON CONFLICT: neu da co nguoi khac ghi nhan cung (case_id, loai_loi) truoc (rang buoc UNIQUE
           // chan race 2 CSKH cung khao sat 1 luc), bo qua dong nay thay vi loi ca request
-          `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan)
-           VALUES (?, ?, ?, ?, ?, ?)
+          `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan, ngay_ghi_nhan)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(case_id, loai_loi) DO NOTHING`,
-        ).bind(viPhamId, ketQuaGoiId, body.case_id, r.loai_loi, ketQuaCap1, user.email),
+        ).bind(viPhamId, ketQuaGoiId, body.case_id, r.loai_loi, ketQuaCap1, user.email, nowVN()),
       );
     }
     const batchResults = statements.length > 0 ? await c.env.DB.batch(statements) : [];

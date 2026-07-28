@@ -11,12 +11,14 @@ interface NotificationCounts {
   caThieuLinhKien: number;
   khaoSat: number;
   caLap: number;
+  danhGiaNapGas: number;
 }
 const COUNT_FIELD: Record<NonNullable<NavItem["countKey"]>, keyof NotificationCounts> = {
   backlog: "canGiaiTrinh",
   missingParts: "caThieuLinhKien",
   survey: "khaoSat",
   caLap: "caLap",
+  napGas: "danhGiaNapGas",
 };
 
 export function Sidebar({

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -9,17 +9,108 @@ import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { StatCard } from "../components/ui/StatCard";
 import { ChartCanvas } from "../components/chart/ChartCanvas";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
-import { ClosedCasesTab } from "../components/ClosedCasesTab";
+import { useDaDongChunked } from "../hooks/useDaDongChunked";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, type CaseRow, type Paged } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
+
+// Tab "Ca da dong" trong Backlog: chon 1 thang, dung useDaDongChunked (snapshot R2 tung ngay, xem
+// hooks/useDaDongChunked.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
+// ClosedCasesTab (cache theo request cu, da doi sang co che chunk R2 khong con dinh kem filter vao
+// request nua).
+function DaDongMonthList({
+  columns,
+  khuVucFilter,
+  dimFilters,
+  onRowClick,
+}: {
+  columns: Column<CaseRow>[];
+  khuVucFilter: string;
+  dimFilters: Record<string, string>;
+  onRowClick: (c: CaseRow) => void;
+}) {
+  const { data: monthsData } = useQuery({
+    queryKey: ["dashboard-months"],
+    queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
+  });
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const [thang, setThang] = useState(currentMonth);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const { rows: allRows, isLoading, isError, refetch, throttled } = useDaDongChunked(thang);
+
+  const rows = useMemo(() => {
+    let r = allRows;
+    if (khuVucFilter === QLDVBH_FILTER_VALUE) {
+      r = r.filter((row) => (row.khu_vuc ?? "").includes("qldvbh"));
+    } else if (khuVucFilter) {
+      const set = new Set(
+        khuVucFilter
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean),
+      );
+      r = r.filter((row) => row.khu_vuc && set.has(row.khu_vuc));
+    }
+    for (const [key, value] of Object.entries(dimFilters)) {
+      if (!value) continue;
+      r = r.filter((row) => row[key as keyof CaseRow] === value);
+    }
+    return r;
+  }, [allRows, khuVucFilter, dimFilters]);
+
+  const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+
+  const monthOptions = (monthsData?.months ?? []).map((m) => ({ value: m, label: m }));
+  if (!monthOptions.some((o) => o.value === currentMonth)) {
+    monthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-semibold text-[var(--ink-400)]">Tháng:</span>
+        <Select
+          value={thang}
+          onChange={(v) => {
+            setThang(v);
+            setPage(1);
+          }}
+          options={monthOptions}
+        />
+      </div>
+      {throttled.length > 0 && (
+        <div className="text-xs text-[var(--ink-400)] italic mb-2">
+          {throttled.length} ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.
+        </div>
+      )}
+      <PaginatedTable
+        columns={columns}
+        rows={pagedRows}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
+        page={page}
+        pageSize={pageSize}
+        total={rows.length}
+        onPageChange={setPage}
+        onRowClick={onRowClick}
+        rowKey={(c) => c.id}
+        emptyText="Không có ca nào trong tháng này."
+      />
+    </div>
+  );
+}
 
 interface TongTonStats {
   tong: number;
   tren1: number;
   tren3: number;
+  tren5: number;
   tren7: number;
   tren14: number;
   daGiaiTrinh: number;
@@ -39,6 +130,7 @@ interface CanGiaiTrinhCounts {
   chua_gt_5_ngay: number;
   dieu_hoa: number;
   b2b: number;
+  nskx: number;
   da_giai_trinh: number;
 }
 
@@ -56,6 +148,7 @@ interface KhuVucRow {
   chua_gt_5_ngay: number;
   dieu_hoa_1_ngay: number;
   b2b_1_ngay: number;
+  nskx_2_ngay: number;
   thieu_linh_kien: number;
 }
 
@@ -107,6 +200,7 @@ const NHOM_OPTIONS = [
   { value: "can-giai-trinh:chua_gt_5_ngay", label: "— Chưa giải trình >5 ngày (ưu tiên xử lý)" },
   { value: "can-giai-trinh:dieu_hoa", label: "— Điều hòa >1 ngày" },
   { value: "can-giai-trinh:b2b", label: "— B2B >1 ngày" },
+  { value: "can-giai-trinh:nskx", label: "— NSKX >=2 ngày" },
   { value: "da-giai-trinh", label: "Đã giải trình" },
   { value: "da-dong", label: "Ca đã đóng" },
 ];
@@ -115,6 +209,7 @@ const TON_TUOI_OPTIONS = [
   { value: "", label: "Tất cả tuổi tồn" },
   { value: "1", label: "Trên 1 ngày" },
   { value: "3", label: "Trên 3 ngày" },
+  { value: "5", label: "Trên 5 ngày" },
   { value: "7", label: "Trên 7 ngày" },
   { value: "14", label: "Trên 14 ngày" },
 ];
@@ -128,6 +223,8 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
   const [nhomKey, setNhomKey] = useState("can-giai-trinh:tong");
   const [dsTuoiTu, setDsTuoiTu] = useState("");
   const [idSearch, setIdSearch] = useState("");
+  const [sortBy, setSortBy] = useState("id");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const [khuVucFilter, setKhuVucFilter] = useState("");
   const [dimFilters, setDimFilters] = useState<Record<string, string>>({
@@ -168,6 +265,8 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
     id: idSearch || undefined,
     page,
     pageSize,
+    sortBy,
+    sortDir,
     ...sharedFilterParams,
   };
   const { data, isLoading, isError, refetch } = useQuery({
@@ -196,16 +295,47 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
     goToDanhSach(nhom, tuoiTu);
   }
 
+  // Nhan cot khop dung voi cot hien tren PaginatedTable ben duoi (mang "columns") - "tiep_nhan"/
+  // "du_kien"/"ly_do" la key hien thi noi bo, doi lai dung ten field goc cua CaseRow lam key Excel.
+  const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
+    ...CASE_FIELD_LABELS,
+    thoi_gian_cskh_tiep_nhan: "Tiếp nhận",
+    last_ngay_du_kien_hoan_thanh: "Dự kiến HT",
+    last_ly_do_cham: "Lý do tồn gần nhất",
+  };
+
+  // Nhan cot cho bang pivot "Bao cao ton theo ..." - khop dung thead cua bang o duoi (cot "nhom" doi
+  // ten theo dim dang chon, vd "Khu vuc"/"Tinh"...).
+  function pivotExportLabels(): Record<string, string> {
+    return {
+      nhom: REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? "Nhóm",
+      tong_ton: "Tổng tồn",
+      tren_3: "Trên 3 ngày",
+      tren_7: "Trên 7 ngày",
+      tren_14: "Trên 14 ngày",
+      da_giai_trinh: "Đã giải trình",
+      can_giai_trinh_tong: "Cần giải trình (tổng)",
+      lo_ke_hoach: "Lỡ kế hoạch",
+      cho_giai_trinh_lai: "Tái giải trình",
+      chua_gt_3_ngay: "Chưa GT >3 ngày",
+      chua_gt_5_ngay: "Chưa GT >5 ngày",
+      dieu_hoa_1_ngay: "Điều hòa >1 ngày",
+      b2b_1_ngay: "B2B >1 ngày",
+      nskx_2_ngay: "NSKX >=2 ngày",
+      thieu_linh_kien: "Thiếu linh kiện",
+    };
+  }
+
   async function handleExport() {
     const all = await api.get<{ rows: CaseRow[] }>(`/cases${buildQuery({ ...listParams, page: undefined, pageSize: undefined, export: true })}`);
-    await exportRowsToExcel(all.rows, "quan_ly_ton.xlsx");
+    await exportRowsToExcel(all.rows, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
   }
 
   const columns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
     { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
-    { key: "tiep_nhan", header: "Tiếp nhận", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
+    { key: "tiep_nhan", header: "Tiếp nhận", sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
     { key: "du_kien", header: "Dự kiến HT", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
     {
       key: "ly_do",
@@ -260,10 +390,11 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
       {view === "bao-cao" ? (
         <>
           <div className="mb-1 mt-4 text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Tồn hiện tại</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
             <StatCard label="Tổng tồn hiện tại" value={tongTon?.tong ?? 0} tone="ocean" onClick={() => goToDanhSach("ton-hien-tai")} />
             <StatCard label="Tồn trên 1 ngày" value={tongTon?.tren1 ?? 0} tone="teal" onClick={() => goToDanhSach("ton-hien-tai", "1")} />
             <StatCard label="Tồn trên 3 ngày" value={tongTon?.tren3 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
+            <StatCard label="Tồn >=5 ngày" value={tongTon?.tren5 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
             <StatCard label="Tồn trên 7 ngày" value={tongTon?.tren7 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
             <StatCard label="Tồn trên 14 ngày" value={tongTon?.tren14 ?? 0} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
             <StatCard label="Đã giải trình" value={tongTon?.daGiaiTrinh ?? 0} tone="teal" onClick={() => goToDanhSach("da-giai-trinh")} />
@@ -278,6 +409,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
             <StatCard label="Chưa giải trình >5 ngày (ưu tiên xử lý)" value={counts?.chua_gt_5_ngay ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")} />
             <StatCard label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
             <StatCard label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
+            <StatCard label="NSKX >=2 ngày" value={counts?.nskx ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
@@ -319,7 +451,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Select value={reportDim} onChange={setReportDim} options={REPORT_DIM_OPTIONS} />
-                <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_ton.xlsx")}>
+                <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_ton.xlsx", "Data", pivotExportLabels())}>
                   ⬇ Xuất Excel
                 </Btn>
               </div>
@@ -341,6 +473,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
                     <th className="py-2 pr-3">Chưa GT &gt;5 ngày</th>
                     <th className="py-2 pr-3">Điều hòa &gt;1 ngày</th>
                     <th className="py-2 pr-3">B2B &gt;1 ngày</th>
+                    <th className="py-2 pr-3">NSKX &gt;=2 ngày</th>
                     <th className="py-2 pr-3">Thiếu linh kiện</th>
                   </tr>
                 </thead>
@@ -404,12 +537,17 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
                           {r.b2b_1_ngay}
                         </button>
                       </td>
+                      <td className="py-2 pr-3 font-mono">
+                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:nskx")}>
+                          {r.nskx_2_ngay}
+                        </button>
+                      </td>
                       <td className="py-2 pr-3 font-mono">{r.thieu_linh_kien}</td>
                     </tr>
                   ))}
                   {(khuVucStats?.rows ?? []).length === 0 && (
                     <tr>
-                      <td colSpan={14} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                      <td colSpan={15} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
                       </td>
                     </tr>
@@ -463,13 +601,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
             )}
           </div>
           {dsTab === "da-dong" ? (
-            <ClosedCasesTab<CaseRow>
-              cacheKeyPrefix="backlog-da-dong"
-              buildUrl={(thang) => `/cases${buildQuery({ tab: "da-dong", thang, id: idSearch || undefined, ...sharedFilterParams })}`}
-              columns={closedColumns}
-              rowKey={(c) => c.id}
-              onRowClick={(c) => openCase(c.id)}
-            />
+            <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} dimFilters={dimFilters} onRowClick={(c) => openCase(c.id)} />
           ) : (
             <PaginatedTable
               columns={columns}
@@ -484,6 +616,13 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
               onRowClick={(c) => openCase(c.id)}
               rowKey={(c) => c.id}
               emptyText="Không có ca nào trong nhóm này."
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSortChange={(newSortBy, newSortDir) => {
+                setSortBy(newSortBy);
+                setSortDir(newSortDir);
+                setPage(1);
+              }}
             />
           )}
         </div>

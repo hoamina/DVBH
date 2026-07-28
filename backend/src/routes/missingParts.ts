@@ -5,8 +5,9 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause, AGE_ANCHOR } from "../lib/ageCalc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause } from "../lib/filterParams";
-import { CASE_FILTER_TON, CASE_FILTER_DA_DONG_RANGE } from "../lib/needGiaiTrinh";
+import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { getDaDongManifest, getDaDongReasons, getThieuLinhKienLyDoList } from "../lib/daDongDayChunks";
 
 const AGE_EXPR = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 
@@ -55,23 +56,9 @@ missingParts.get("/", async (c) => {
 
   const dimClause = dimAdHocClause(`c.${REPORT_DIMS[c.req.query("dim") ?? ""] ?? "khu_vuc"}`, c.req.query("dim"), c.req.query("dim_value"));
 
-  if (trangThai === "da-dong") {
-    const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
-    const { start, end } = monthBounds(thang);
-    const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-    const { results } = await c.env.DB.prepare(
-      `SELECT ${SELECT_COLS}
-       FROM case_dvbh c
-       ${baseJoin(CASE_FILTER_DA_DONG_RANGE)}
-       WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${dimClause.sql}
-       ORDER BY c.thoi_gian_hoan_thanh DESC`,
-    )
-      // CASE_FILTER_DA_DONG_RANGE (trong baseJoin) co 2 bind (start, end) nam TRUOC 2 bind (start,
-      // end) cua WHERE ngoai trong chuoi SQL cuoi cung - bind (start, end) 2 lan lien tiep.
-      .bind(start, end, start, end, ...scopeClause.binds, ...khuVucClause.binds, ...dimClause.binds)
-      .all();
-    return c.json({ rows: results, thang });
-  }
+  // "Da dong" (tab thieu linh kien) da tach thanh /da-dong-manifest, dung chung file R2 theo ngay
+  // voi cases.ts (xem lib/daDongDayChunks.ts) - noi dung chunk goi qua POST /api/cases/da-dong-chunks.
+  if (trangThai === "da-dong") return c.json({ error: "DEPRECATED_USE_MANIFEST_ENDPOINT" }, 410);
 
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
@@ -98,6 +85,23 @@ missingParts.get("/", async (c) => {
     .all();
 
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+});
+
+// GET /api/missing-parts/da-dong-manifest?thang=YYYY-MM - hash tung ngay (dung chung voi
+// cases.ts/da-dong-manifest, cung bang da_dong_chunk_manifest + cung file R2 theo ngay) + "ly do/linh
+// kien thieu gan nhat" (getDaDongReasons, mo rong them linh_kien_thieu/ngay_yeu_cau_co_hang) + danh
+// sach ten ly_do thuoc nhom "thieu linh kien" de client tu loc dung nhu INNER JOIN settings_ly_do
+// truoc day. Noi dung chunk thuc su goi qua POST /api/cases/da-dong-chunks (dung chung, khong tao
+// endpoint rieng vi la CUNG 1 file R2).
+missingParts.get("/da-dong-manifest", async (c) => {
+  const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
+  const { start, end } = monthBounds(thang);
+  const [chunks, reasons, thieuLinhKienLyDo] = await Promise.all([
+    getDaDongManifest(c.env.DB, start, end),
+    getDaDongReasons(c.env.DB, thang, start, end),
+    getThieuLinhKienLyDoList(c.env.DB),
+  ]);
+  return c.json({ thang, chunks, reasons, thieuLinhKienLyDo });
 });
 
 export interface MissingPartsByKhuVucParams {

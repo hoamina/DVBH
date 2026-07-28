@@ -11,6 +11,8 @@ import { DashboardModule } from "./modules/DashboardModule";
 import { RevenueModule } from "./modules/RevenueModule";
 import { BacklogModule } from "./modules/BacklogModule";
 import { MissingPartsModule } from "./modules/MissingPartsModule";
+import { TranhChapModule } from "./modules/TranhChapModule";
+import { NapGasModule } from "./modules/NapGasModule";
 import { SurveyModule } from "./modules/SurveyModule";
 import { CaLapModule } from "./modules/CaLapModule";
 import { DanhSachTongModule } from "./modules/DanhSachTongModule";
@@ -100,16 +102,24 @@ function MainApp({
     return <LoginScreen variant="pending" />;
   }
 
+  // "KSNB Doi tac" DA BO KHOI danh sach nay (chot 2026-07-24) - vai tro nay truoc chi duoc giai
+  // trinh ca dang TON thuoc tranh chap, nhung Quan ly tranh chap gio CHI con tinh tren ca DA DONG
+  // (xem TRANH_CHAP_ELIGIBLE trong backend/src/routes/tranhChap.ts) nen quyen giai trinh rieng cua
+  // vai tro nay vinh vien khong dung duoc nua - da go bo dong bo voi backend (cases.ts requireRole).
   const canGiaiTrinh = ["Giam sat", "TBP DVBH", "Admin"].includes(role);
   const canGsLap = ["Giam sat", "Admin"].includes(role);
   const canQcLap = ["QC", "Admin"].includes(role);
+  // Khac canGiaiTrinh, KHONG gom "KSNB Doi tac" - vai tro do chi duoc gioi han trong module Tranh
+  // chap (xem ROLE_MODULES trong layout/navConfig.ts, khong co "nap-gas" trong danh sach module cua
+  // KSNB Doi tac).
+  const canNapGas = ["Giam sat", "TBP DVBH", "Admin"].includes(role);
 
   // Tab dau tien phu hop cho tung viewMode - "info" chi ton tai o "compact" (giu dung tab cu),
   // "expanded" khong co tab info rieng vi cot trai da ghim san thong tin khach hang.
   const FIRST_TAB: Record<"compact" | "expanded", string> = { compact: "info", expanded: "giai-trinh" };
   const VALID_TABS: Record<"compact" | "expanded", string[]> = {
-    compact: ["info", "giai-trinh", "vi-pham", "ca-lap"],
-    expanded: ["giai-trinh", "vi-pham", "ca-lap"],
+    compact: ["info", "giai-trinh", "vi-pham", "ca-lap", "nap-gas"],
+    expanded: ["giai-trinh", "vi-pham", "ca-lap", "nap-gas"],
   };
 
   // openCase() bat dau phien MOI (reset stack) - dung cho moi noi mo ca tu 1 danh sach/tim kiem.
@@ -185,6 +195,8 @@ function MainApp({
           {active === "revenue" && <RevenueModule />}
           {active === "backlog" && <BacklogModule openCase={openCase} />}
           {active === "missing-parts" && <MissingPartsModule openCase={openCase} />}
+          {active === "tranh-chap" && <TranhChapModule openCase={openCase} />}
+          {active === "nap-gas" && <NapGasModule openCase={openCase} />}
           {active === "survey" && <SurveyModule openCase={openCase} />}
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}
           {active === "danh-sach-tong" && <DanhSachTongModule openCase={openCase} />}
@@ -210,6 +222,7 @@ function MainApp({
         canGiaiTrinh={canGiaiTrinh}
         canGsLap={canGsLap}
         canQcLap={canQcLap}
+        canNapGas={canNapGas}
       />
     </div>
   );

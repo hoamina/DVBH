@@ -7,10 +7,11 @@ import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause as ageFilterClauseFor } from "../lib/ageCalc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters } from "../lib/filterParams";
+import { getDaDongManifest, getDaDongChunks, getDaDongReasons } from "../lib/daDongDayChunks";
+import { checkAndConsumeDownloadQuota } from "../lib/r2DownloadRateLimit";
 import {
   latestGiaiTrinhJoin,
   CASE_FILTER_TON,
-  CASE_FILTER_DA_DONG_RANGE,
   NEED_GIAI_TRINH_CATEGORIES,
   NEED_LO_KE_HOACH,
   NEED_TAI_GIAI_TRINH,
@@ -18,6 +19,7 @@ import {
 import { getCaLapDetection } from "./caLap";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { nowVN } from "../lib/vnTime";
 
 const cases = new Hono<{ Bindings: Env }>();
 cases.use("*", verifySessionMiddleware, loadUser);
@@ -95,6 +97,7 @@ export interface CasesCountsPayload {
   chua_gt_5_ngay: number;
   dieu_hoa: number;
   b2b: number;
+  nskx: number;
   da_giai_trinh: number;
 }
 
@@ -119,6 +122,7 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_5_ngay} THEN 1 ELSE 0 END) as chua_gt_5_ngay,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dieu_hoa} THEN 1 ELSE 0 END) as dieu_hoa,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b,
+         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as nskx,
          SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
        FROM case_dvbh c
        ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
@@ -135,12 +139,13 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
     chua_gt_5_ngay: row?.chua_gt_5_ngay ?? 0,
     dieu_hoa: row?.dieu_hoa ?? 0,
     b2b: row?.b2b ?? 0,
+    nskx: row?.nskx ?? 0,
     da_giai_trinh: row?.da_giai_trinh ?? 0,
   };
 }
 
 export interface BacklogStatsPayload {
-  tongTon: { tong: number; tren1: number; tren3: number; tren7: number; tren14: number; daGiaiTrinh: number };
+  tongTon: { tong: number; tren1: number; tren3: number; tren5: number; tren7: number; tren14: number; daGiaiTrinh: number };
   aging: { duoi1: number; tu1den3: number; tu3den7: number; tu7den14: number; tren14: number };
   byReason: { ly_do: string; n: number }[];
 }
@@ -152,7 +157,7 @@ export interface BacklogStatsPayload {
  * "tong/tren_1/tren_3/tren_7/tren_14" (thuan case_dvbh, khong doc gi tu lg.*) cung bi tinh lai theo.
  * Tach thanh 3 cachedReport() doc lap NGAY TRONG ham nay (thay vi o route) de cases.ts van la file
  * duy nhat bi sua (computeBacklogStats() giu nguyen chu ky/kieu tra ve cho reportWarmup.ts):
- *   - Phan A (khong JOIN giai_trinh): tong/tren_1/tren_3/tren_7/tren_14 + aging (phan bo tuoi, von
+ *   - Phan A (khong JOIN giai_trinh): tong/tren_1/tren_3/tren_5/tren_7/tren_14 + aging (phan bo tuoi, von
  *     da thuan case_dvbh san) - domain ["cases"].
  *   - Phan B (JOIN giai_trinh, chi lay da_giai_trinh) - domain ["cases","giai_trinh"].
  *   - Phan C (byReason, doc lg.ly_do_cham) - domain ["cases","giai_trinh","settings"] (giu dung
@@ -174,6 +179,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
            COUNT(*) as tong,
            SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tren_1,
            SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
+           SUM(CASE WHEN ${AGE_EXPR} >= 5 THEN 1 ELSE 0 END) as tren_5,
            SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
            SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14
          FROM case_dvbh c
@@ -236,6 +242,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
       tong: tongTon?.tong ?? 0,
       tren1: tongTon?.tren_1 ?? 0,
       tren3: tongTon?.tren_3 ?? 0,
+      tren5: tongTon?.tren_5 ?? 0,
       tren7: tongTon?.tren_7 ?? 0,
       tren14: tongTon?.tren_14 ?? 0,
       daGiaiTrinh: daGiaiTrinh ?? 0,
@@ -260,7 +267,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
  *   - Cau A (khong JOIN giai_trinh): nhom, tong_ton/tren_3/tren_7/tren_14 - domain ["cases"].
  *   - Cau B (JOIN giai_trinh + EXISTS settings_ly_do): nhom, da_giai_trinh/can_giai_trinh_tong/
  *     lo_ke_hoach/cho_giai_trinh_lai/chua_gt_3_ngay/chua_gt_5_ngay/dieu_hoa_1_ngay/b2b_1_ngay/
- *     thieu_linh_kien - domain ["cases","giai_trinh","settings"].
+ *     nskx_2_ngay/thieu_linh_kien - domain ["cases","giai_trinh","settings"].
  * Merge 2 mang ket qua theo khoa "nhom" bang Map (LEFT JOIN thu cong) truoc khi tra ve, giu dung
  * shape { rows } nhu cu (du tat ca cot, khong thieu field nao dù 1 ben khong co dong tuong ung -
  * ly thuyet khong xay ra vi ca A va B cung GROUP BY 1 dimCol tren cung tap ca dang ton, nhung van
@@ -307,6 +314,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_5_ngay} THEN 1 ELSE 0 END) as chua_gt_5_ngay,
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dieu_hoa} THEN 1 ELSE 0 END) as dieu_hoa_1_ngay,
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b_1_ngay,
+           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as nskx_2_ngay,
            SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
          FROM case_dvbh c
          ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
@@ -339,6 +347,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
       chua_gt_5_ngay: b?.chua_gt_5_ngay ?? 0,
       dieu_hoa_1_ngay: b?.dieu_hoa_1_ngay ?? 0,
       b2b_1_ngay: b?.b2b_1_ngay ?? 0,
+      nskx_2_ngay: b?.nskx_2_ngay ?? 0,
       thieu_linh_kien: b?.thieu_linh_kien ?? 0,
     };
   });
@@ -363,30 +372,9 @@ cases.get("/", async (c) => {
   const idFilter = (c.req.query("id") ?? "").trim();
   const idClause: { sql: string; binds: unknown[] } = idFilter ? { sql: " AND c.id LIKE ?", binds: [`%${idFilter}%`] } : { sql: "", binds: [] };
 
-  // "Ca da dong" - tra cuu lich su giai trinh/thong tin ca theo thang hoan thanh, khong phan trang
-  // server (da gioi han theo thang nen tap du liệu nho, phan trang thuan client sau khi cache).
-  if (tab === "da-dong") {
-    const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
-    const { start, end } = monthBounds(thang);
-    const khuVucClause = khuVucAdHocClause("c.khu_vuc", khuVucFilter);
-    const hang = c.req.query("hang");
-    const hangClause: { sql: string; binds: unknown[] } = hang ? { sql: " AND c.hang = ?", binds: [hang] } : { sql: "", binds: [] };
-    // Join gioi han vao dung tap ca DONG trong khoang [start, end) - CASE_FILTER_DA_DONG_RANGE co 2
-    // bind param (start, end) nam TRUOC 2 bind (start, end) cua WHERE ngoai trong chuoi SQL cuoi
-    // cung (mau JOIN dung truoc mau WHERE), nen phai bind (start, end) 2 LAN lien tiep.
-    const binds: unknown[] = [start, end, start, end, ...scopeClause.binds, ...khuVucClause.binds, ...hangClause.binds, ...dimClause.binds, ...sharedClause.binds, ...idClause.binds];
-    const { results } = await c.env.DB.prepare(
-      `SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
-              lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh
-       FROM case_dvbh c
-       ${latestGiaiTrinhJoin(CASE_FILTER_DA_DONG_RANGE)}
-       WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${hangClause.sql}${dimClause.sql}${sharedClause.sql}${idClause.sql}
-       ORDER BY c.thoi_gian_hoan_thanh DESC`,
-    )
-      .bind(...binds)
-      .all();
-    return c.json({ rows: results, thang });
-  }
+  // "Ca da dong" (tab=da-dong) da tach rieng thanh 2 route ben duoi (da-dong-manifest/da-dong-chunks)
+  // - snapshot theo tung ngay tren R2, chi ghi khi import (xem lib/daDongDayChunks.ts).
+  if (tab === "da-dong") return c.json({ error: "DEPRECATED_USE_MANIFEST_ENDPOINT" }, 410);
 
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
@@ -448,6 +436,54 @@ cases.get("/", async (c) => {
     pageSize,
     total: countRow?.total ?? 0,
   });
+});
+
+// GET /api/cases/da-dong-manifest?thang=YYYY-MM - hash + so dong tung ngay trong thang (khong dung
+// R2, khong rate-limit - chi doc bang manifest nho + cache "ly do gan nhat" co san). Client so hash
+// nay voi cache IndexedDB cuc bo de biet ngay nao can goi POST /da-dong-chunks.
+cases.get("/da-dong-manifest", async (c) => {
+  const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
+  const { start, end } = monthBounds(thang);
+  const [chunks, reasons] = await Promise.all([
+    getDaDongManifest(c.env.DB, start, end),
+    getDaDongReasons(c.env.DB, thang, start, end),
+  ]);
+  return c.json({ thang, chunks, reasons });
+});
+
+// POST /api/cases/da-dong-chunks {ngay: string[]} - tai noi dung chunk R2 cho tung ngay trong danh
+// sach. Loc theo scope (khu_vuc_phu_trach) TRUOC KHI tra ve - ranh gioi bao mat, khong doi so voi
+// truoc day. Loc ad-hoc (khu_vuc nguoi dung tu chon/hang/dim/id) KHONG con o server nua, chuyen het
+// sang client (khong phai ranh gioi bao mat, chi la thu hep them trong pham vi da duoc phep xem).
+// Rate-limit RIENG cho tung ngay (xem lib/r2DownloadRateLimit.ts) - ngay nao bi chan thi xep vao
+// "throttled", KHONG chan cac ngay con lai trong cung request.
+cases.post("/da-dong-chunks", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const user = c.get("user");
+  const body = await c.req.json<{ ngay?: unknown }>().catch(() => ({ ngay: [] }));
+  const requested = Array.isArray(body.ngay)
+    ? [...new Set(body.ngay.filter((n): n is string => typeof n === "string" && /^\d{4}-\d{2}-\d{2}$/.test(n)))]
+    : [];
+  if (requested.length === 0) return c.json({ chunks: {}, throttled: {} });
+
+  const allowedDates: string[] = [];
+  const throttled: Record<string, { retryAfterSeconds: number }> = {};
+  for (const ngay of requested) {
+    const quota = await checkAndConsumeDownloadQuota(c.env.DB, user.email, ngay);
+    if (quota.allowed) allowedDates.push(ngay);
+    else throttled[ngay] = { retryAfterSeconds: quota.retryAfterSeconds ?? 60 };
+  }
+
+  const rawChunks = allowedDates.length > 0 ? await getDaDongChunks(c.env, allowedDates) : {};
+  const chunks: Record<string, Record<string, unknown>[]> = {};
+  for (const [ngay, rows] of Object.entries(rawChunks)) {
+    chunks[ngay] =
+      scope === null
+        ? rows
+        : rows.filter((row) => scope.length > 0 && typeof row.khu_vuc === "string" && scope.includes(row.khu_vuc as string));
+  }
+
+  return c.json({ chunks, throttled });
 });
 
 // GET /api/cases/search?q= - tra cuu nhanh theo ID hoac Serial (TopBar)
@@ -604,11 +640,14 @@ cases.get("/:id", async (c) => {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
 
-  const [giaiTrinhLog, ketQuaGoi, viPham, caLap] = await Promise.all([
+  const [giaiTrinhLog, ketQuaGoi, viPham, caLap, napGasDanhGia] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC").bind(id).all(),
     getCaLapDetection(c.env.DB, id),
+    // Danh gia nap gas (xem migration 0025 + backend/src/routes/napGas.ts) - moi ca chi co 1 dong
+    // (case_id la PRIMARY KEY), null neu chua tung duoc chot.
+    c.env.DB.prepare("SELECT * FROM nap_gas_danh_gia WHERE case_id = ?").bind(id).first(),
   ]);
 
   return c.json({
@@ -617,10 +656,17 @@ cases.get("/:id", async (c) => {
     ketQuaGoi: ketQuaGoi.results,
     viPham: viPham.results,
     caLap,
+    napGasDanhGia: napGasDanhGia ?? null,
   });
 });
 
-// POST /api/cases/:id/giai-trinh - append-only, khong bao gio UPDATE/DELETE
+// POST /api/cases/:id/giai-trinh - append-only, khong bao gio UPDATE/DELETE. "KSNB Doi tac" DA BO
+// KHOI danh sach vai tro duoc phep (chot 2026-07-24): vai tro nay truoc chi duoc giai trinh ca dang
+// TON thuoc tranh chap, nhung tranh chap gio CHI con tinh tren ca DA DONG (xem TRANH_CHAP_ELIGIBLE
+// trong tranhChap.ts) - ma route nay chi nhan giai trinh cho ca dang MO (xem check CASE_ALREADY_DONE
+// ben duoi), nen 2 dieu kien "dang ton" + "thuoc tranh chap" khong con the nao cung dung mot luc,
+// lam quyen rieng cua KSNB Doi tac vinh vien khong dung duoc - da go bo hoan toan (khong con code
+// chet), vai tro nay van GIU quyen xem (chi doc) module Quan ly tranh chap.
 cases.post("/:id/giai-trinh", requireRole("Giam sat", "TBP DVBH", "Admin"), async (c) => {
   const id = c.req.param("id");
   if (!id) return c.json({ error: "INVALID_ID" }, 400);
@@ -630,6 +676,8 @@ cases.post("/:id/giai-trinh", requireRole("Giam sat", "TBP DVBH", "Admin"), asyn
     .first<{ id: string; khu_vuc: string | null; thoi_gian_hoan_thanh: string | null }>();
   if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
   if (caseRow.thoi_gian_hoan_thanh) return c.json({ error: "CASE_ALREADY_DONE" }, 400);
+
+  const user = c.get("user");
 
   const scope = scopeByKhuVuc(c);
   if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
@@ -662,13 +710,12 @@ cases.post("/:id/giai-trinh", requireRole("Giam sat", "TBP DVBH", "Admin"), asyn
     if (!body.ma_xuat_hang_lien_quan) return c.json({ error: "MISSING_MA_XUAT_HANG" }, 400);
   }
 
-  const user = c.get("user");
   const giaiTrinhId = crypto.randomUUID();
 
   await c.env.DB.prepare(
     `INSERT INTO giai_trinh (id, case_id, ly_do_cham, noi_dung, linh_kien_thieu, ngay_du_kien_hoan_thanh,
-       ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan, nguoi_giai_trinh)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan, nguoi_giai_trinh, ngay_giai_trinh)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       giaiTrinhId,
@@ -680,6 +727,7 @@ cases.post("/:id/giai-trinh", requireRole("Giam sat", "TBP DVBH", "Admin"), asyn
       body.ngay_yeu_cau_co_hang ?? null,
       body.ma_xuat_hang_lien_quan ?? null,
       user.email,
+      nowVN(),
     )
     .run();
 

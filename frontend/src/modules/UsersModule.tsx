@@ -14,6 +14,15 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 
 const PAGE_SIZE = 20;
 
+// Khop dung cot hien tren PaginatedTable "columns" ben duoi.
+const USER_EXPORT_LABELS: Record<string, string> = {
+  email: "Email",
+  ten: "Tên",
+  vai_tro: "Vai trò",
+  khu_vuc_phu_trach: "Khu vực phụ trách",
+  trang_thai_duyet: "Trạng thái",
+};
+
 interface LoginLogRow {
   id: number;
   email: string;
@@ -75,7 +84,22 @@ export function UsersModule() {
       ),
     },
     { key: "vai_tro", header: "Vai trò", render: (u) => (u.vai_tro ? <Badge tone="ocean">{u.vai_tro}</Badge> : <span className="text-xs text-[var(--ink-400)] italic">Chưa gán</span>) },
-    { key: "khu_vuc_phu_trach", header: "Khu vực phụ trách", render: (u) => <span className="text-xs">{u.khu_vuc_phu_trach.length ? u.khu_vuc_phu_trach.join(", ") : "—"}</span> },
+    {
+      key: "khu_vuc_phu_trach",
+      header: "Khu vực phụ trách",
+      render: (u) =>
+        u.khu_vuc_phu_trach.length ? (
+          <div className="flex flex-wrap gap-1 max-w-xs">
+            {u.khu_vuc_phu_trach.map((kv) => (
+              <Badge key={kv} tone="gray">
+                {kv}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-[var(--ink-400)]">—</span>
+        ),
+    },
     {
       key: "trang_thai_duyet",
       header: "Trạng thái",
@@ -117,7 +141,7 @@ export function UsersModule() {
       <div className="flex items-center justify-between mb-1">
         <div />
         {tab !== "login-log" && (
-          <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(data?.rows ?? [], "quan_ly_user.xlsx")}>
+          <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(data?.rows ?? [], "quan_ly_user.xlsx", "Data", USER_EXPORT_LABELS)}>
             ⬇ Xuất Excel
           </Btn>
         )}

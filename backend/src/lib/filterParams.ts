@@ -34,10 +34,12 @@ export function parseFilterParams(c: Context<{ Bindings: Env }>, prefix = "") {
   // idx_case_ton). So sanh chuoi ISO 'YYYY-MM-DD HH:MM:SS' >= 'YYYY-MM-01' va < 'YYYY-MM-01' (thang
   // ke tiep) tuong duong so thang, giu nguyen ngu nghia. 'now' trong SQLite la UTC nen range cung
   // tinh theo UTC, khop voi ban goc strftime('%Y-%m','now').
-  const thang = c.req.query("thang");
+  // Chot 2026-07-24: BAT BUOC luon gioi han theo 1 thang - "thang" rong/thieu mac dinh ve
+  // CURRENT_MONTH_VALUE, khong con nhanh "khong chon = toan thoi gian".
+  const thang = c.req.query("thang") || CURRENT_MONTH_VALUE;
   if (thang === CURRENT_MONTH_VALUE) {
     sql += ` AND ((${prefix}thoi_gian_hoan_thanh >= date('now','start of month') AND ${prefix}thoi_gian_hoan_thanh < date('now','start of month','+1 month')) OR ${prefix}thoi_gian_hoan_thanh IS NULL)`;
-  } else if (thang) {
+  } else {
     sql += ` AND ${prefix}thoi_gian_hoan_thanh >= ? || '-01' AND ${prefix}thoi_gian_hoan_thanh < date(? || '-01', '+1 month')`;
     binds.push(thang, thang);
   }

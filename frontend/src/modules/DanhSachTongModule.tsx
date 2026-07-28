@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Select";
@@ -9,7 +9,9 @@ import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, fmtVND, type CaseRow, type Paged } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
+import { useDaDongChunked } from "../hooks/useDaDongChunked";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 
 const PAGE_SIZE = 20;
@@ -48,18 +50,16 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
 
   const monthTab = MONTH_TABS.find((t) => t.key === tab);
 
-  // Moi thang da dong tai nguyen 1 lan toan bo (tap du lieu gioi han theo 1 thang, khong qua
-  // lon), roi phan trang thuan phia client - cung 1 kieu voi ClosedCasesTab dung o noi khac.
+  // Snapshot R2 tung ngay (xem hooks/useDaDongChunked.ts + backend/src/lib/daDongDayChunks.ts) -
+  // hook tu quan ly cache IndexedDB + hash-diff + rate-limit, roi phan trang + loc khu_vuc/hang
+  // thuan phia client (khong con dinh kem vao request server nua).
   const {
-    data: monthData,
+    rows: monthRowsAll,
     isLoading: monthLoading,
     isError: monthError,
     refetch: monthRefetch,
-  } = useQuery({
-    queryKey: ["cases-tong-hop-thang", monthTab?.thang, khuVucFilter, hangFilter],
-    queryFn: () => api.get<{ rows: CaseRow[] }>(`/cases${buildQuery({ tab: "da-dong", thang: monthTab!.thang, khu_vuc: khuVucFilter, hang: hangFilter })}`),
-    enabled: !!monthTab,
-  });
+    throttled: monthThrottled,
+  } = useDaDongChunked(monthTab?.thang ?? MONTH_TABS[0].thang, !!monthTab);
 
   // Ca dang ton co the doi bat cu luc nao - giu phan trang server-side + luon fetch moi, khong
   // cache toan bo nhu 3 tab thang (von la du lieu da chot, khong doi nua).
@@ -74,15 +74,32 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
     enabled: tab === "dang-ton",
   });
 
-  const monthRows = monthData?.rows ?? [];
+  const monthRows = useMemo(() => {
+    let rows = monthRowsAll;
+    if (khuVucFilter === QLDVBH_FILTER_VALUE) {
+      rows = rows.filter((r) => (r.khu_vuc ?? "").includes("qldvbh"));
+    } else if (khuVucFilter) {
+      const set = new Set(
+        khuVucFilter
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean),
+      );
+      rows = rows.filter((r) => r.khu_vuc && set.has(r.khu_vuc));
+    }
+    if (hangFilter) {
+      rows = rows.filter((r) => r.hang === hangFilter);
+    }
+    return rows;
+  }, [monthRowsAll, khuVucFilter, hangFilter]);
   const pagedMonthRows = monthRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function handleExport() {
     if (tab === "dang-ton") {
       const all = await api.get<{ rows: CaseRow[] }>(`/cases/tong-hop${buildQuery({ trang_thai: "dang-ton", export: true, khu_vuc: khuVucFilter, hang: hangFilter })}`);
-      await exportRowsToExcel(all.rows, "danh_sach_tong_dang_ton.xlsx");
+      await exportRowsToExcel(all.rows, "danh_sach_tong_dang_ton.xlsx", "Data", CASE_FIELD_LABELS);
     } else {
-      await exportRowsToExcel(monthRows, `danh_sach_tong_thang_${monthTab!.thang}.xlsx`);
+      await exportRowsToExcel(monthRows, `danh_sach_tong_thang_${monthTab!.thang}.xlsx`, "Data", CASE_FIELD_LABELS);
     }
   }
 
@@ -147,6 +164,11 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           ⬇ Xuất Excel
         </Btn>
       </div>
+      {tab !== "dang-ton" && monthThrottled.length > 0 && (
+        <div className="text-xs text-[var(--ink-400)] italic mb-2">
+          {monthThrottled.length} ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.
+        </div>
+      )}
       {tab === "dang-ton" ? (
         <PaginatedTable
           columns={columns}

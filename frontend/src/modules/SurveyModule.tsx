@@ -14,8 +14,30 @@ import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { LOAI_LOI_META, LOAI_LOI_KEYS, type LoaiLoi, type ViPhamRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
+
+// Khop dung field tra ve tu backend GET /survey?tab=... (xem SELECT trong backend/src/routes/survey.ts) -
+// gop ca 2 hinh dang hang co the co (CanKhaoSatRow cho can-khao-sat/qua-han-khao-sat, ViPhamRow cho
+// cho-qc/da-xu-ly), du 1 lan xuat chi co 1 trong 2 hinh dang.
+const SURVEY_EXPORT_LABELS: Record<string, string> = {
+  ...CASE_FIELD_LABELS,
+  case_id: "Ca",
+  ket_qua_goi_id: "ID cuộc gọi khảo sát",
+  loai_loi: "Loại lỗi",
+  ket_qua_cap_1: "Kết quả cấp 1",
+  chot_bo_cap_2: "Chốt cấp 2",
+  nguoi_ghi_nhan: "Người ghi nhận",
+  ngay_ghi_nhan: "Ngày ghi nhận",
+  nguoi_chot: "Người chốt",
+  ngay_chot: "Ngày chốt",
+  need_loi_120p: "Nghi ngờ lỗi 120 phút",
+  need_loi_qua_han_24h: "Nghi ngờ hẹn quá 24h",
+  need_loi_lo_ke_hoach: "Nghi ngờ lỡ kế hoạch",
+  need_loi_kh_hen_lai: "Nghi ngờ KH hẹn lại",
+};
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { SurveyCallWorkspace } from "./SurveyCallWorkspace";
+import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 
 interface FunnelData {
   nghiNgo: number;
@@ -105,16 +127,26 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
 
   const filterParams = { khu_vuc: khuVucFilter };
 
-  const { data: canKhaoSat } = useQuery({
-    queryKey: ["survey", "can-khao-sat", khuVucFilter],
-    queryFn: () => api.get<{ rows: CanKhaoSatRow[] }>(`/survey${buildQuery({ tab: "can-khao-sat", ...filterParams })}`),
-    enabled: view === "danh-sach" && tab === "can-khao-sat",
-  });
-  const { data: quaHanKhaoSat } = useQuery({
-    queryKey: ["survey", "qua-han-khao-sat", khuVucFilter],
-    queryFn: () => api.get<{ rows: CanKhaoSatRow[] }>(`/survey${buildQuery({ tab: "qua-han-khao-sat", ...filterParams })}`),
-    enabled: view === "danh-sach" && tab === "qua-han-khao-sat",
-  });
+  // "Can khao sat"/"Qua han khao sat" tinh san tu snapshot R2 1 file (xem hooks/useSurveyCandidates.ts
+  // + backend/src/lib/surveySnapshot.ts) - khong con goi song server moi lan xem, chi loc khu_vuc
+  // client-side ben duoi (matchKhuVuc).
+  const { canKhaoSat: canKhaoSatAll, quaHanKhaoSat: quaHanKhaoSatAll, isThrottled: candidatesThrottled, refetch: refetchCandidates } = useSurveyCandidates();
+
+  function matchKhuVuc(khuVuc: string | null): boolean {
+    if (!khuVucFilter) return true;
+    if (khuVucFilter === QLDVBH_FILTER_VALUE) return !!khuVuc && khuVuc.includes("qldvbh");
+    const set = new Set(
+      khuVucFilter
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean),
+    );
+    return !!khuVuc && set.has(khuVuc);
+  }
+
+  const canKhaoSatRows = useMemo(() => canKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)), [canKhaoSatAll, khuVucFilter]);
+  const quaHanKhaoSatRows = useMemo(() => quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)), [quaHanKhaoSatAll, khuVucFilter]);
+
   const { data: choQc } = useQuery({
     queryKey: ["survey", "cho-qc", khuVucFilter],
     queryFn: () => api.get<{ rows: ViPhamRow[] }>(`/survey${buildQuery({ tab: "cho-qc", ...filterParams })}`),
@@ -187,8 +219,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
   });
 
   async function handleExport() {
+    if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") {
+      const rows = tab === "can-khao-sat" ? canKhaoSatRows : quaHanKhaoSatRows;
+      await exportRowsToExcel(rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
+      return;
+    }
     const res = await api.get<{ rows: Record<string, unknown>[] }>(`/survey${buildQuery({ tab, export: true, ...filterParams })}`);
-    await exportRowsToExcel(res.rows, `khao_sat_${tab}.xlsx`);
+    await exportRowsToExcel(res.rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
   }
 
   return (
@@ -286,7 +323,19 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                 <div className="font-display font-bold text-sm">Báo cáo khảo sát theo khu vực</div>
                 {canViewDanhSach && <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.</div>}
               </div>
-              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_khao_sat_khu_vuc.xlsx")}>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_khao_sat_khu_vuc.xlsx", "Data", {
+                    khu_vuc: "Khu vực",
+                    can_khao_sat: "Cần khảo sát",
+                    qua_han_khao_sat: "Quá hạn khảo sát",
+                    cho_qc: "Chờ QC chốt cấp 2",
+                    da_xu_ly: "Đã xử lý xong",
+                  })
+                }
+              >
                 ⬇ Xuất Excel
               </Btn>
             </div>
@@ -383,15 +432,18 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
               </Btn>
             </div>
           )}
-          {bulkAssignOpen && <BulkAssignModal onClose={() => setBulkAssignOpen(false)} />}
+          {bulkAssignOpen && <BulkAssignModal onClose={() => setBulkAssignOpen(false)} canKhaoSatRows={canKhaoSatRows} onDataChanged={refetchCandidates} />}
 
           {tab === "qua-han-khao-sat" && (
             <div className="text-xs text-[var(--ink-400)] mb-2">Ca đã hoàn thành quá 3 ngày mà chưa khảo sát — có thể gọi hoặc bỏ qua nếu đã quá muộn.</div>
           )}
+          {(tab === "can-khao-sat" || tab === "qua-han-khao-sat") && candidatesThrottled && (
+            <div className="text-xs text-[var(--ink-400)] italic mb-2">Đã đạt giới hạn tải, đang hiển thị dữ liệu đã lưu gần nhất — tự thử lại sau ít phút.</div>
+          )}
 
           {(tab === "can-khao-sat" || tab === "qua-han-khao-sat") &&
             (() => {
-              const fullRows = tab === "can-khao-sat" ? canKhaoSat?.rows ?? [] : quaHanKhaoSat?.rows ?? [];
+              const fullRows = tab === "can-khao-sat" ? canKhaoSatRows : quaHanKhaoSatRows;
               const columns: Column<CanKhaoSatRow>[] = [
                 { key: "id", header: "Ca", render: (row) => (
                   <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(row.id)}>
@@ -532,14 +584,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
         </div>
       )}
 
-      {callModal && <CallSurveyModal row={callModal} onClose={() => setCallModal(null)} />}
-      {assignModal && <AssignModal row={assignModal} onClose={() => setAssignModal(null)} />}
+      {callModal && <CallSurveyModal row={callModal} onClose={() => setCallModal(null)} onDataChanged={refetchCandidates} />}
+      {assignModal && <AssignModal row={assignModal} onClose={() => setAssignModal(null)} onDataChanged={refetchCandidates} />}
       {workspaceOpen && <SurveyCallWorkspace onExit={() => setWorkspaceOpen(false)} openCase={openCase} initialKhuVuc={khuVucFilter} />}
     </div>
   );
 }
 
-function CallSurveyModal({ row, onClose }: { row: CanKhaoSatRow; onClose: () => void }) {
+function CallSurveyModal({ row, onClose, onDataChanged }: { row: CanKhaoSatRow; onClose: () => void; onDataChanged: () => void }) {
   const needed = neededLoaiLoi(row);
   const [selected, setSelected] = useState<Record<string, boolean>>(Object.fromEntries(needed.map((k) => [k, false])));
   const [ketLuan, setKetLuan] = useState<Record<string, "loi" | "khong_loi">>(Object.fromEntries(needed.map((k) => [k, "khong_loi"])));
@@ -569,6 +621,7 @@ function CallSurveyModal({ row, onClose }: { row: CanKhaoSatRow; onClose: () => 
       }
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
+      onDataChanged();
       onClose();
     },
     onError: () => addToast("Không thể ghi nhận kết quả khảo sát."),
@@ -657,7 +710,7 @@ function CallSurveyModal({ row, onClose }: { row: CanKhaoSatRow; onClose: () => 
   );
 }
 
-function AssignModal({ row, onClose }: { row: CanKhaoSatRow; onClose: () => void }) {
+function AssignModal({ row, onClose, onDataChanged }: { row: CanKhaoSatRow; onClose: () => void; onDataChanged: () => void }) {
   const { data: cskhList } = useQuery({
     queryKey: ["cskh-list"],
     queryFn: () => api.get<{ rows: { email: string; ten: string | null }[] }>("/survey/cskh-list"),
@@ -673,6 +726,7 @@ function AssignModal({ row, onClose }: { row: CanKhaoSatRow; onClose: () => void
       addToast(`Đã phân công khảo sát ca ${row.id}`);
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
+      onDataChanged();
       onClose();
     },
   });
@@ -713,7 +767,15 @@ interface BulkAssignSummary {
   errors: string[];
 }
 
-function BulkAssignModal({ onClose }: { onClose: () => void }) {
+function BulkAssignModal({
+  onClose,
+  canKhaoSatRows,
+  onDataChanged,
+}: {
+  onClose: () => void;
+  canKhaoSatRows: CanKhaoSatRow[];
+  onDataChanged: () => void;
+}) {
   const [step, setStep] = useState<"idle" | "preview">("idle");
   const [preview, setPreview] = useState<BulkAssignSummary | null>(null);
   const [rows, setRows] = useState<{ id?: string; assigned_to?: string }[]>([]);
@@ -722,8 +784,7 @@ function BulkAssignModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
 
   async function handleDownload() {
-    const res = await api.get<{ rows: CanKhaoSatRow[] }>("/survey?tab=can-khao-sat&export=true");
-    await exportRowsToExcel(res.rows, "can_khao_sat_gan_cskh.xlsx");
+    await exportRowsToExcel(canKhaoSatRows, "can_khao_sat_gan_cskh.xlsx");
   }
 
   const previewMutation = useMutation({
@@ -741,6 +802,7 @@ function BulkAssignModal({ onClose }: { onClose: () => void }) {
       addToast(`Đã gán CSKH cho ${summary.capNhat} ca`);
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
+      onDataChanged();
       onClose();
     },
     onError: () => addToast("Gán CSKH hàng loạt thất bại, thử lại sau."),

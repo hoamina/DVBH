@@ -9,7 +9,7 @@ import { useToast } from "./ui/Toast";
  * khong tra ma) thay vi luon hien 1 cau chung chung - truoc day moi loi (400/500/mat mang...) deu
  * hien y het nhau nen nguoi dung khong biet dang loi gi that su. */
 export function describeError(err: unknown): string {
-  if (err instanceof ApiError) return err.code ? err.code : `Loi may chu (HTTP ${err.status})`;
+  if (err instanceof ApiError) return err.detail ?? (err.code ? err.code : `Loi may chu (HTTP ${err.status})`);
   return "Mat ket noi hoac may chu khong phan hoi";
 }
 

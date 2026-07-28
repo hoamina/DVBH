@@ -11,7 +11,7 @@
 // moi/ghi de (POST /api/import/commit hoac /api/import/sync-sheet, khi GHI_MOI+GHI_DE>0). KHONG
 // bump o day cho archive tu dong (cron trong index.ts) hay thao tac nghiep vu khac nhu gan CSKH
 // (survey.ts assign/assign-bulk) - cac ghi do KHONG lam bao cao tinh san tren domain "cases" cu di.
-const ALL_DOMAINS = ["blacklist", "cases", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "settings", "users", "vi_pham"] as const;
+const ALL_DOMAINS = ["blacklist", "cases", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "settings", "users", "vi_pham"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay
