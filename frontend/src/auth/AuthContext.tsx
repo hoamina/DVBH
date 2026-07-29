@@ -65,7 +65,11 @@ export function useAuth() {
 // Giu dong bo voi backend/src/types.ts (QC them 2026-07-29 - xem chu thich o do).
 export const ROLES_XEM_TOAN_BO: VaiTro[] = ["Admin", "Viewer", "TBP DVBH", "TBP CSKH", "QC"];
 
+// Giu dong bo voi scopeByKhuVuc() trong backend/src/middleware/scopeByKhuVuc.ts - "Viewer" la
+// truong hop rieng (chot 2026-07-29): mac dinh xem toan bo khi chua gan khu vuc, nhung neu duoc
+// gan 1-2 khu vuc cu the thi chi xem duoc dung khu vuc do (giong Giam sat).
 export function scopeKhuVuc(user: AppUser): string[] | null {
+  if (user.vai_tro === "Viewer") return user.khu_vuc_phu_trach.length ? user.khu_vuc_phu_trach : null;
   if (user.vai_tro && ROLES_XEM_TOAN_BO.includes(user.vai_tro)) return null;
   return user.khu_vuc_phu_trach.length ? user.khu_vuc_phu_trach : null;
 }
