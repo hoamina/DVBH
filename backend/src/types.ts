@@ -15,6 +15,10 @@ export interface AppUser {
   khu_vuc_phu_trach: string[];
   trang_thai_duyet: TrangThaiDuyet;
   theme_config: ThemeConfig | null;
+  // Danh dau "KSNB Doi tac" cho tinh nang tranh chap - TACH KHOI vai_tro vi users.vai_tro CHECK
+  // chua ho tro gia tri nay (xem migration 0035_tranh_chap_tien_trinh.sql). Nguoi dung van giu 1
+  // vai_tro hop le (vd Viewer) de vao duoc module, co nay chi quyet dinh quyen GHI tranh chap.
+  la_ksnb_doi_tac: boolean;
 }
 
 export interface Env {

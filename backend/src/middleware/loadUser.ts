@@ -12,9 +12,10 @@ interface UserRow {
   khu_vuc_phu_trach: string | null;
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
   theme_config: string | null;
+  la_ksnb_doi_tac: number;
 }
 
-const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, trang_thai_duyet, theme_config";
+const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, trang_thai_duyet, theme_config, la_ksnb_doi_tac";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -51,6 +52,7 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     khu_vuc_phu_trach: fromJsonArray(row.khu_vuc_phu_trach),
     trang_thai_duyet: row.trang_thai_duyet,
     theme_config: parseThemeConfig(row.theme_config),
+    la_ksnb_doi_tac: !!row.la_ksnb_doi_tac,
   };
   c.set("user", user);
   await next();

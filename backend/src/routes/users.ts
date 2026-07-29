@@ -62,6 +62,7 @@ users.patch("/:email", async (c) => {
     trang_thai_duyet?: "Da duyet" | "Tu choi";
     vai_tro?: VaiTro;
     khu_vuc_phu_trach?: string[];
+    la_ksnb_doi_tac?: boolean;
   }>();
 
   if (body.vai_tro !== undefined && !(VAI_TRO_VALUES as readonly string[]).includes(body.vai_tro)) {
@@ -76,12 +77,13 @@ users.patch("/:email", async (c) => {
     vai_tro: body.vai_tro !== undefined ? body.vai_tro : existing.vai_tro,
     khu_vuc_phu_trach:
       body.khu_vuc_phu_trach !== undefined ? toJsonArray(body.khu_vuc_phu_trach) : existing.khu_vuc_phu_trach,
+    la_ksnb_doi_tac: body.la_ksnb_doi_tac !== undefined ? (body.la_ksnb_doi_tac ? 1 : 0) : existing.la_ksnb_doi_tac,
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, la_ksnb_doi_tac = ?, updated_at = ? WHERE email = ?",
   )
-    .bind(next.trang_thai_duyet, next.vai_tro, next.khu_vuc_phu_trach, nowVN(), email)
+    .bind(next.trang_thai_duyet, next.vai_tro, next.khu_vuc_phu_trach, next.la_ksnb_doi_tac, nowVN(), email)
     .run();
 
   // Bump domain "users" (xem lib/dataVersions.ts).

@@ -4,156 +4,481 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause } from "../lib/filterParams";
-import { CASE_FILTER_DA_DONG_RANGE, latestGiaiTrinhJoin } from "../lib/needGiaiTrinh";
+import { khuVucAdHocClause } from "../lib/filterParams";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { nextSequentialId } from "../lib/idCounter";
+import { nowVN } from "../lib/vnTime";
+import { bumpVersions } from "../lib/dataVersions";
+import { AGE_ANCHOR } from "../lib/ageCalc";
+import {
+  ALL_TRANG_THAI_LOG,
+  TRANH_CHAP_TRANG_THAI_DONG,
+  TRANG_THAI_CAN_KET_QUA,
+  MUC_DO_VALUES,
+  HAI_LONG_VALUES,
+  CASE_TRANH_CHAP_STATUS_EXPR,
+  TUOI_TIEN_TRINH_EXPR,
+  latestLogStatusOfTienTrinh,
+  canWriteTranhChap,
+  canEditTienTrinhMeta,
+} from "../lib/tranhChapTienTrinh";
 
 const tranhChap = new Hono<{ Bindings: Env }>();
 tranhChap.use("*", verifySessionMiddleware, loadUser);
 
-// Vai tro "KSNB Doi tac" xem TOAN BO tranh chap, khong gioi han khu_vuc - quyet dinh nghiep vu
-// rieng cho tinh nang nay (khac scopeByKhuVuc() dung chung, chi tra null cho ROLES_XEM_TOAN_BO).
-// KHONG them "KSNB Doi tac" vao ROLES_XEM_TOAN_BO trong types.ts vi hang so do dung o nhieu noi
-// khac trong he thong (cac module ma KSNB Doi tac KHONG duoc xem). CHOT 2026-07-24: vai tro nay
-// KHONG con duoc "giai trinh" tranh chap nua (xem cases.ts POST /:id/giai-trinh + App.tsx
-// canGiaiTrinh) - tranh chap gio CHI tinh tren ca DA DONG nen khai niem "giai trinh ca dang ton
-// thuoc tranh chap" khong con y nghia (giai_trinh chi nhan duoc tren ca dang MO), nhung vai tro nay
-// VAN giu quyen XEM (chi doc) module nay - chi bo di quyen ghi.
+// Nguoi dung co co "la_ksnb_doi_tac" (xem types.ts + migration 0035) xem TOAN BO tranh chap,
+// khong gioi han khu_vuc - quyet dinh nghiep vu rieng cho tinh nang nay (khac scopeByKhuVuc() dung
+// chung, chi tra null cho ROLES_XEM_TOAN_BO). CHOT 2026-07-29: dung co rieng nay THAY THE hoan toan
+// kiem tra "vai_tro === 'KSNB Doi tac'" cu - vai tro do KHONG the gan duoc trong CHECK cua bang
+// users (xem canh bao dai trong migration 0023_tranh_chap.sql: mo rong CHECK doi hoi recreate ca
+// chuoi ~13 bang co FK toi users, ke ca case_dvbh - qua rui ro cho production), nen nguoi lam KSNB
+// Doi tac trong thuc te van giu 1 vai_tro hop le khac (vd Viewer) + duoc bat co nay.
 function scopeTranhChap(c: Context<{ Bindings: Env }>): string[] | null {
   const user = c.get("user");
-  if (user.vai_tro === "KSNB Doi tac") return null;
+  if (user.la_ksnb_doi_tac) return null;
   return scopeByKhuVuc(c);
 }
 
 // "Thuoc tranh chap" - CHOT 2026-07-29: doc truc tiep cot case_dvbh.nghi_ngo_tranh_chap (cot import,
 // CRM dien khi DONG ca, ratchet 1 chieu giong nghi_ngo_nap_gas - xem VIOLATION_FIELDS trong
-// lib/ratchet.ts va migration 0034_nghi_ngo_tranh_chap.sql). THAY THE HOAN TOAN logic cu dua vao
-// settings_ly_do.thuoc_tranh_chap qua JOIN voi ly_do_qua_han (chot 2026-07-24, xem migration
-// 0023_tranh_chap.sql) - logic cu KHONG con duoc dung, cot/toggle "Thuoc tranh chap" trong Settings
-// van con trong DB nhung tro thanh du lieu chet. Ly do doi: nguon 1 cot true/false CRM tra ve truc
-// tiep don gian, dang tin cay hon viec phai khop ten "ly do qua han" voi danh muc cau hinh rieng.
-// Van giu dieu kien CHI ca DA DONG (Hoan thanh XLSC hoac Khong hoan thanh XLSC - dung 2 gia tri
-// tien_do_hoan_thanh "da dong" giong dashboard.ts) - tranh chap khong co khai niem "dang ton".
+// lib/ratchet.ts va migration 0034_nghi_ngo_tranh_chap.sql). Van giu dieu kien CHI ca DA DONG
+// (Hoan thanh XLSC hoac Khong hoan thanh XLSC - dung 2 gia tri tien_do_hoan_thanh "da dong" giong
+// dashboard.ts) - tranh chap khong co khai niem "dang ton".
+//
+// CHOT 2026-07-29 (cau hoi F): TOAN BO khai niem cu "da giai trinh / chua giai trinh" (dua vao bang
+// giai_trinh, chi co y nghia khi ca con dang MO) da bi THAY THE HOAN TOAN boi khai niem tien trinh
+// xu ly tranh chap moi (tranh_chap_tien_trinh/tranh_chap_log, ben duoi) - da XOA GET / va GET
+// /by-khu-vuc cu (tung tra "chuaGiaiTrinh"/bao cao theo da_giai_trinh) cung cac ham/hang so chi
+// phuc vu rieng 2 route do (baseJoin, SELECT_COLS, monthBounds, computeTranhChapByKhuVuc).
 const TRANH_CHAP_ELIGIBLE = `c.nghi_ngo_tranh_chap = 1 AND c.tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC')`;
 
-// lg (latestGiaiTrinhJoin) o day CHI dung de hien thi trang thai "da/chua giai trinh" (co the co tu
-// LUC CA CON DANG MO, truoc khi dong) - khong anh huong TRANH_CHAP_ELIGIBLE. "caseFilterSql" gioi
-// han subquery latestGiaiTrinhJoin - dung CASE_FILTER_DA_DONG_RANGE vi pham vi cau hoi luon la "ca
-// da dong trong 1 khoang thoi gian". Khong con JOIN settings_ly_do (xem TRANH_CHAP_ELIGIBLE o tren).
-function baseJoin(caseFilterSql: string): string {
-  return latestGiaiTrinhJoin(caseFilterSql);
+// ============================================================
+// "Quan ly tranh chap" - tien trinh xu ly + log (them 2026-07-29, xem migration
+// 0035_tranh_chap_tien_trinh.sql + lib/tranhChapTienTrinh.ts). 2 danh sach:
+//  1) GET /cho-xu-ly - ca DU DIEU KIEN (TRANH_CHAP_ELIGIBLE) nhung CHUA TUNG co tien trinh nao.
+//  2) GET /tien-trinh (+ /tien-trinh/stats, /tien-trinh/:id) - quan ly tien trinh da tao, xem/ghi log.
+// ============================================================
+
+/** Ngay hom sau (chi lay ngay, khong gio), theo gio VN - dung lam goi y mac dinh "ngay du kien xu
+ * ly xong" cho log dau tien khi CHUA co log nao truoc do de tham chieu (chot cau hoi E). */
+function nextDayVN(): string {
+  return new Date(Date.now() + 7 * 60 * 60 * 1000 + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-// "last_ly_do_cham" gio la c.ly_do_qua_han truc tiep (nguon DUY NHAT xac dinh tranh chap) - khong
-// con can CASE WHEN uu tien nguon giai_trinh nhu truoc.
-const SELECT_COLS = `c.*, c.ly_do_qua_han as last_ly_do_cham,
-  CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END as da_giai_trinh`;
-
-// KHONG them gio "00:00:00" vao bound - xem giai thich chi tiet o monthBounds() trong cases.ts
-// (mot so ca co thoi_gian_hoan_thanh chi la ngay thuan, so sanh chuoi voi bound co gio se sai).
-function monthBounds(thang: string): { start: string; end: string } {
-  const m = thang.match(/^(\d{4})-(\d{2})$/);
-  const now = new Date();
-  const [y, mo] = m ? [Number(m[1]), Number(m[2])] : [now.getUTCFullYear(), now.getUTCMonth() + 1];
-  const start = `${String(y).padStart(4, "0")}-${String(mo).padStart(2, "0")}-01`;
-  const nextMo = mo === 12 ? 1 : mo + 1;
-  const nextY = mo === 12 ? y + 1 : y;
-  const end = `${String(nextY).padStart(4, "0")}-${String(nextMo).padStart(2, "0")}-01`;
-  return { start, end };
-}
-
-// GET /api/tranh-chap?khu_vuc=&thang=&dim=&dim_value=&trang_thai=&page=&pageSize= - danh sach ca
-// tranh chap (xem TRANH_CHAP_ELIGIBLE) DONG trong 1 thang. "trang_thai=da-giai-trinh|chua-giai-trinh"
-// loc them theo da/chua tung co giai trinh (log tu luc ca con mo). Tra "chuaGiaiTrinh" (so ca CHUA
-// tung giai trinh trong PHAM VI DANG LOC) cho StatCard cua tab "Danh sach chi tiet".
-tranhChap.get("/", async (c) => {
+// GET /api/tranh-chap/cho-xu-ly?khu_vuc=&page=&pageSize= - ca thuoc tranh chap (dong, xem
+// TRANH_CHAP_ELIGIBLE) nhung CHUA TUNG tao tien trinh xu ly nao. Sap theo thoi_gian_hoan_thanh tang
+// dan (cho LAU NHAT len dau) - dung nghia "uu tien xu ly ca cho lau". Tra kem 2 nguong StatCard
+// (cho > 3 ngay / > 7 ngay) tinh tren CUNG dieu kien loc dang ap dung (khong phai toan bo).
+tranhChap.get("/cho-xu-ly", async (c) => {
   const scope = scopeTranhChap(c);
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
-  const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
-  const { start, end } = monthBounds(thang);
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const dimClause = dimAdHocClause(`c.${REPORT_DIMS[c.req.query("dim") ?? ""] ?? "khu_vuc"}`, c.req.query("dim"), c.req.query("dim_value"));
-  const trangThai = c.req.query("trang_thai");
-  const trangThaiClause = trangThai === "da-giai-trinh" ? " AND lg.case_id IS NOT NULL" : trangThai === "chua-giai-trinh" ? " AND lg.case_id IS NULL" : "";
+  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+
+  const whereSql = `${TRANH_CHAP_ELIGIBLE} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id)${scopeClause.sql}${khuVucClause.sql}`;
+  const binds = [...scopeClause.binds, ...khuVucClause.binds];
+  const ageColExpr = `CAST((julianday(${AGE_ANCHOR}) - julianday(c.thoi_gian_hoan_thanh)) AS INTEGER)`;
+
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${whereSql}`)
+    .bind(...binds)
+    .first<{ total: number }>();
+  const bucketRow = await c.env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN ${ageColExpr} > 3 THEN 1 ELSE 0 END) as cho_hon_3_ngay,
+       SUM(CASE WHEN ${ageColExpr} > 7 THEN 1 ELSE 0 END) as cho_hon_7_ngay
+     FROM case_dvbh c WHERE ${whereSql}`,
+  )
+    .bind(...binds)
+    .first<{ cho_hon_3_ngay: number; cho_hon_7_ngay: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.id, c.khach_hang, c.khu_vuc, c.thoi_gian_hoan_thanh, c.ly_do_qua_han as last_ly_do_cham,
+       ${ageColExpr} as so_ngay_cho
+     FROM case_dvbh c WHERE ${whereSql}
+     ORDER BY c.thoi_gian_hoan_thanh ASC
+     LIMIT ? OFFSET ?`,
+  )
+    .bind(...binds, pageSize, offset)
+    .all();
+
+  return c.json({
+    rows: results,
+    page,
+    pageSize,
+    total: countRow?.total ?? 0,
+    choHon3Ngay: bucketRow?.cho_hon_3_ngay ?? 0,
+    choHon7Ngay: bucketRow?.cho_hon_7_ngay ?? 0,
+  });
+});
+
+// POST /api/tranh-chap/:caseId/tiep-nhan - KSNB Doi tac (co la_ksnb_doi_tac) hoac Giam sat dung khu
+// vuc/TBP DVBH/Admin (xem canWriteTranhChap) tao 1 tien trinh MOI cho 1 ca + log dau tien "KSNB da
+// tiep nhan". Chi cho tao neu ca CHUA co tien trinh nao dang MO (tien trinh gan nhat, neu co, phai
+// da o trang thai dong) - tranh 2 tien trinh dang xu ly song song cho cung 1 ca (xem muc 7 ke hoach,
+// tao tien trinh thu 2 tro di dung CHINH route nay, goi lai sau khi tien trinh truoc da dong).
+tranhChap.post("/:caseId/tiep-nhan", async (c) => {
+  const caseId = c.req.param("caseId");
+  const body = await c.req.json<{ phan_loai_tranh_chap: string; muc_do: string; ghi_chu?: string; thoi_gian_du_kien_xong?: string }>();
+  if (!body.phan_loai_tranh_chap?.trim()) return c.json({ error: "MISSING_PHAN_LOAI" }, 400);
+  if (!(MUC_DO_VALUES as readonly string[]).includes(body.muc_do)) return c.json({ error: "INVALID_MUC_DO" }, 400);
+
+  const caseRow = await c.env.DB.prepare(
+    "SELECT khu_vuc, nghi_ngo_tranh_chap, tien_do_hoan_thanh FROM case_dvbh WHERE id = ?",
+  )
+    .bind(caseId)
+    .first<{ khu_vuc: string | null; nghi_ngo_tranh_chap: number; tien_do_hoan_thanh: string | null }>();
+  if (!caseRow) return c.json({ error: "CASE_NOT_FOUND" }, 404);
+
+  const isDaDong = caseRow.tien_do_hoan_thanh === "Hoàn thành XLSC" || caseRow.tien_do_hoan_thanh === "Không hoàn thành XLSC";
+  if (caseRow.nghi_ngo_tranh_chap !== 1 || !isDaDong) return c.json({ error: "CASE_NOT_ELIGIBLE" }, 400);
+
+  if (!canWriteTranhChap(c, caseRow.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+
+  const latest = await c.env.DB.prepare(
+    `SELECT tt.id, ${latestLogStatusOfTienTrinh("tt.id")} as trang_thai FROM tranh_chap_tien_trinh tt WHERE tt.case_id = ? ORDER BY tt.id DESC LIMIT 1`,
+  )
+    .bind(caseId)
+    .first<{ id: string; trang_thai: string | null }>();
+  if (latest?.trang_thai && !(TRANH_CHAP_TRANG_THAI_DONG as readonly string[]).includes(latest.trang_thai)) {
+    return c.json({ error: "TIEN_TRINH_DANG_MO", tienTrinhId: latest.id }, 409);
+  }
+
+  const user = c.get("user");
+  const id = await nextSequentialId(c.env.DB, "tranh_chap_tien_trinh", "TC", 6);
+  const now = nowVN();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO tranh_chap_tien_trinh (id, case_id, phan_loai_tranh_chap, muc_do, nguoi_tao, ngay_tao) VALUES (?, ?, ?, ?, ?, ?)",
+    ).bind(id, caseId, body.phan_loai_tranh_chap.trim(), body.muc_do, user.email, now),
+    c.env.DB.prepare(
+      "INSERT INTO tranh_chap_log (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu) VALUES (?, ?, ?, 'KSNB da tiep nhan', ?, ?)",
+    ).bind(id, user.email, now, body.thoi_gian_du_kien_xong ?? nextDayVN(), body.ghi_chu ?? null),
+  ]);
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  return c.json({ id }, 201);
+});
+
+// GET /api/tranh-chap/tien-trinh?khu_vuc=&phan_loai=&trang_thai=&han=&cua_toi=&page=&pageSize= -
+// danh sach tien trinh (KHONG bo qua cachedReport - day la danh sach phan trang, xem quy uoc
+// "KHONG boc endpoint tra danh sach" trong YEU_CAU_BAO_CAO_TINH_SAN.md). Mac dinh (khong truyen
+// trang_thai) AN 2 trang thai dong - nguoi dung phai chu dong bat "trang_thai" chua 2 gia tri do
+// moi thay lai (tranh rac man hinh chinh voi tien trinh da xong). "han=qua-han|sap-den-han" loc
+// theo thoi_gian_du_kien_xong cua LOG MOI NHAT so voi AGE_ANCHOR (0h sang VN hom nay).
+tranhChap.get("/tien-trinh", async (c) => {
+  const scope = scopeTranhChap(c);
+  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const phanLoai = c.req.query("phan_loai");
+  const mucDo = c.req.query("muc_do");
+  const trangThaiParam = c.req.query("trang_thai");
+  const han = c.req.query("han");
+  const cuaToi = c.req.query("cua_toi") === "1";
+  const user = c.get("user");
+
+  const binds: unknown[] = [...scopeClause.binds, ...khuVucClause.binds];
+  let whereSql = `1=1${scopeClause.sql}${khuVucClause.sql}`;
+  if (phanLoai) {
+    whereSql += " AND tt.phan_loai_tranh_chap = ?";
+    binds.push(phanLoai);
+  }
+  if (mucDo) {
+    whereSql += " AND tt.muc_do = ?";
+    binds.push(mucDo);
+  }
+  const dongList = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
+  if (trangThaiParam) {
+    const list = trangThaiParam
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length) {
+      whereSql += ` AND ll.trang_thai_xu_ly IN (${list.map(() => "?").join(", ")})`;
+      binds.push(...list);
+    }
+  } else {
+    whereSql += ` AND ll.trang_thai_xu_ly NOT IN (${dongList.map(() => "?").join(", ")})`;
+    binds.push(...dongList);
+  }
+  if (han === "qua-han") {
+    whereSql += ` AND ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong < ${AGE_ANCHOR} AND ll.trang_thai_xu_ly NOT IN (${dongList.map(() => "?").join(", ")})`;
+    binds.push(...dongList);
+  } else if (han === "sap-den-han") {
+    whereSql += ` AND ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong >= ${AGE_ANCHOR} AND ll.thoi_gian_du_kien_xong < date(${AGE_ANCHOR}, '+2 day') AND ll.trang_thai_xu_ly NOT IN (${dongList.map(() => "?").join(", ")})`;
+    binds.push(...dongList);
+  }
+  if (cuaToi) {
+    whereSql += " AND ll.nguoi_xu_ly = ?";
+    binds.push(user.email);
+  }
 
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
 
-  const query = `
-    SELECT ${SELECT_COLS}
-    FROM case_dvbh c
-    ${baseJoin(CASE_FILTER_DA_DONG_RANGE)}
-    WHERE ${TRANH_CHAP_ELIGIBLE} AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${dimClause.sql}${trangThaiClause}
-  `;
-  // CASE_FILTER_DA_DONG_RANGE (trong latestGiaiTrinhJoin, qua baseJoin) co 2 bind (start, end) nam
-  // TRUOC 2 bind (start, end) cua WHERE ngoai trong chuoi SQL cuoi cung - bind (start, end) 2 lan
-  // lien tiep.
-  const binds = [start, end, start, end, ...scopeClause.binds, ...khuVucClause.binds, ...dimClause.binds];
+  const baseFrom = `FROM tranh_chap_tien_trinh tt
+    JOIN case_dvbh c ON c.id = tt.case_id
+    LEFT JOIN tranh_chap_log ll ON ll.id = (SELECT id FROM tranh_chap_log WHERE tien_trinh_id = tt.id ORDER BY id DESC LIMIT 1)
+    WHERE ${whereSql}`;
 
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM (${query})`)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total ${baseFrom}`)
     .bind(...binds)
     .first<{ total: number }>();
-  const chuaGiaiTrinhRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM (${query}) WHERE da_giai_trinh = 0`)
-    .bind(...binds)
-    .first<{ total: number }>();
-  const { results } = await c.env.DB.prepare(`${query} ORDER BY c.thoi_gian_hoan_thanh DESC LIMIT ? OFFSET ?`)
+  const { results } = await c.env.DB.prepare(
+    `SELECT tt.id, tt.case_id, tt.phan_loai_tranh_chap, tt.muc_do, tt.ngay_tao,
+       c.khach_hang, c.khu_vuc,
+       ll.trang_thai_xu_ly, ll.nguoi_xu_ly, ll.ngay_xu_ly, ll.thoi_gian_du_kien_xong, ll.ghi_chu as log_ghi_chu,
+       ${TUOI_TIEN_TRINH_EXPR} as so_ngay_ton
+     ${baseFrom}
+     ORDER BY
+       CASE WHEN ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong < ${AGE_ANCHOR} THEN 0 ELSE 1 END,
+       CASE WHEN ll.thoi_gian_du_kien_xong IS NULL THEN 1 ELSE 0 END,
+       ll.thoi_gian_du_kien_xong ASC
+     LIMIT ? OFFSET ?`,
+  )
     .bind(...binds, pageSize, offset)
     .all();
 
-  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0, chuaGiaiTrinh: chuaGiaiTrinhRow?.total ?? 0, thang });
+  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
-export interface TranhChapByKhuVucParams {
-  dim?: string;
-  khu_vuc?: string;
-  thang?: string;
-  [key: string]: string | undefined;
-}
-
-/** Tach tu tranhChap.get("/by-khu-vuc") - xem chu thich route ben duoi. "dim" da qua whitelist
- * REPORT_DIMS o route (tra 400 NGOAI cache) truoc khi toi day. */
-export async function computeTranhChapByKhuVuc(db: D1Database, params: TranhChapByKhuVucParams, scope: string[] | null) {
-  const dimColRaw = REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
-  const dimCol = `c.${dimColRaw}`;
-  const thang = params.thang || new Date().toISOString().slice(0, 7);
-  const { start, end } = monthBounds(thang);
-
+/** Tach tu tranhChap.get("/tien-trinh/stats") - so lieu StatCard cua tab quan ly tien trinh. */
+export async function computeTienTrinhStats(db: D1Database, scope: string[] | null) {
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
-  const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
-
-  const { results } = await db
+  const dongList = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
+  const dongPlaceholders = dongList.map(() => "?").join(", ");
+  const row = await db
     .prepare(
-      `SELECT ${dimCol} as nhom,
-         COUNT(*) as tong,
-         SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
-         SUM(CASE WHEN lg.case_id IS NULL THEN 1 ELSE 0 END) as chua_giai_trinh
-       FROM case_dvbh c
-       ${baseJoin(CASE_FILTER_DA_DONG_RANGE)}
-       WHERE ${TRANH_CHAP_ELIGIBLE} AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${dimCol} IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
-       GROUP BY ${dimCol}
-       ORDER BY tong DESC`,
+      `SELECT
+         SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) THEN 1 ELSE 0 END) as dang_mo,
+         SUM(CASE WHEN ll.trang_thai_xu_ly = 'KSNB da tiep nhan' THEN 1 ELSE 0 END) as ksnb_tiep_nhan,
+         SUM(CASE WHEN ll.trang_thai_xu_ly = 'Giam sat dang xu ly' THEN 1 ELSE 0 END) as giam_sat_xu_ly,
+         SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) AND ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as qua_han,
+         SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) AND ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong >= ${AGE_ANCHOR} AND ll.thoi_gian_du_kien_xong < date(${AGE_ANCHOR}, '+2 day') THEN 1 ELSE 0 END) as sap_den_han
+       FROM tranh_chap_tien_trinh tt
+       JOIN case_dvbh c ON c.id = tt.case_id
+       LEFT JOIN tranh_chap_log ll ON ll.id = (SELECT id FROM tranh_chap_log WHERE tien_trinh_id = tt.id ORDER BY id DESC LIMIT 1)
+       WHERE 1=1${scopeClause.sql}`,
     )
-    .bind(start, end, start, end, ...scopeClause.binds, ...khuVucClause.binds)
-    .all();
-
-  return { rows: results, thang };
+    .bind(...dongList, ...dongList, ...dongList, ...scopeClause.binds)
+    .first<{ dang_mo: number; ksnb_tiep_nhan: number; giam_sat_xu_ly: number; qua_han: number; sap_den_han: number }>();
+  return {
+    dangMo: row?.dang_mo ?? 0,
+    ksnbTiepNhan: row?.ksnb_tiep_nhan ?? 0,
+    giamSatXuLy: row?.giam_sat_xu_ly ?? 0,
+    quaHan: row?.qua_han ?? 0,
+    sapDenHan: row?.sap_den_han ?? 0,
+  };
 }
 
-// GET /api/tranh-chap/by-khu-vuc?dim=&khu_vuc=&thang= - bao cao ca tranh chap DA DONG trong 1
-// thang, nhom theo 1 cot bat ky trong REPORT_DIMS (mac dinh khu_vuc). Boc qua cachedReport (xem
-// lib/reportCache.ts) - domain "cases"+"giai_trinh" (giai_trinh anh huong cot da_giai_trinh/
-// chua_giai_trinh qua latestGiaiTrinhJoin). KHONG con "settings" tu 2026-07-29 - TRANH_CHAP_ELIGIBLE
-// gio doc thang c.nghi_ngo_tranh_chap, khong con JOIN settings_ly_do nua.
-tranhChap.get("/by-khu-vuc", async (c) => {
-  const dimKey = c.req.query("dim") ?? "khu_vuc";
-  if (!REPORT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
-
+tranhChap.get("/tien-trinh/stats", async (c) => {
   const scope = scopeTranhChap(c);
-  const params: TranhChapByKhuVucParams = { dim: dimKey, khu_vuc: c.req.query("khu_vuc"), thang: c.req.query("thang") };
-  const key = buildReportKey("tranh-chap/by-khu-vuc", params, scope);
-  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh"], () => computeTranhChapByKhuVuc(c.env.DB, params, scope));
+  const key = buildReportKey("tranh-chap/tien-trinh/stats", {}, scope);
+  const data = await cachedReport(c.env.DB, key, ["cases", "tranh_chap"], () => computeTienTrinhStats(c.env.DB, scope));
   return c.json(data);
 });
+
+// GET /api/tranh-chap/tien-trinh/:id - chi tiet 1 tien trinh + toan bo log (moi nhat truoc, id
+// DESC) + thong tin ca goc de "truy van nguoc" (khach_hang, khu_vuc, tien_do_hoan_thanh...).
+tranhChap.get("/tien-trinh/:id", async (c) => {
+  const id = c.req.param("id");
+  const tt = await c.env.DB.prepare(
+    `SELECT tt.*, c.khach_hang, c.khu_vuc, c.tien_do_hoan_thanh, c.thoi_gian_hoan_thanh
+     FROM tranh_chap_tien_trinh tt JOIN case_dvbh c ON c.id = tt.case_id WHERE tt.id = ?`,
+  )
+    .bind(id)
+    .first<{ khu_vuc: string | null }>();
+  if (!tt) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const scope = scopeTranhChap(c);
+  if (scope !== null && (!tt.khu_vuc || !scope.includes(tt.khu_vuc))) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+
+  const { results: logs } = await c.env.DB.prepare("SELECT * FROM tranh_chap_log WHERE tien_trinh_id = ? ORDER BY id DESC").bind(id).all();
+  return c.json({ tienTrinh: tt, logs });
+});
+
+// PATCH /api/tranh-chap/tien-trinh/:id - sua phan_loai_tranh_chap va/hoac muc_do CUA TIEN TRINH
+// (khac PATCH /log/:id sua 1 DONG LOG) - chi KSNB Doi tac/TBP DVBH/Admin (canEditTienTrinhMeta,
+// HEP HON canWriteTranhChap - khong gom Giam sat), chi khi tien trinh CHUA DONG (chot 2026-07-29:
+// "KSNB co the thay doi cho den khi tranh chap duoc dong").
+tranhChap.patch("/tien-trinh/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{ phan_loai_tranh_chap?: string; muc_do?: string }>();
+  if (body.muc_do !== undefined && !(MUC_DO_VALUES as readonly string[]).includes(body.muc_do)) {
+    return c.json({ error: "INVALID_MUC_DO" }, 400);
+  }
+
+  const tt = await c.env.DB.prepare(
+    `SELECT tt.phan_loai_tranh_chap, tt.muc_do, ${latestLogStatusOfTienTrinh("tt.id")} as trang_thai FROM tranh_chap_tien_trinh tt WHERE tt.id = ?`,
+  )
+    .bind(id)
+    .first<{ phan_loai_tranh_chap: string; muc_do: string; trang_thai: string | null }>();
+  if (!tt) return c.json({ error: "NOT_FOUND" }, 404);
+  if (tt.trang_thai && (TRANH_CHAP_TRANG_THAI_DONG as readonly string[]).includes(tt.trang_thai)) {
+    return c.json({ error: "TIEN_TRINH_DA_DONG" }, 409);
+  }
+  if (!canEditTienTrinhMeta(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+
+  const next = {
+    phan_loai_tranh_chap: body.phan_loai_tranh_chap?.trim() || tt.phan_loai_tranh_chap,
+    muc_do: body.muc_do ?? tt.muc_do,
+  };
+  await c.env.DB.prepare("UPDATE tranh_chap_tien_trinh SET phan_loai_tranh_chap = ?, muc_do = ? WHERE id = ?")
+    .bind(next.phan_loai_tranh_chap, next.muc_do, id)
+    .run();
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  return c.json({ ok: true });
+});
+
+// POST /api/tranh-chap/tien-trinh/:id/log - them 1 log xu ly moi. "thoi_gian_du_kien_xong" khong
+// truyen se lay theo log GAN NHAT truoc do (chot cau hoi E) - CHUA co log nao truoc (khong xay ra
+// thuc te vi log dau tien luon tao cung /tiep-nhan, nhung van xu ly an toan) thi mac dinh ngay mai.
+tranhChap.post("/tien-trinh/:id/log", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{
+    trang_thai_xu_ly: string;
+    thoi_gian_du_kien_xong?: string;
+    ghi_chu?: string;
+    ngay_xu_ly?: string;
+    ket_qua_xu_ly?: string;
+    hai_long_sau_tranh_chap?: string;
+  }>();
+  if (!(ALL_TRANG_THAI_LOG as readonly string[]).includes(body.trang_thai_xu_ly)) return c.json({ error: "INVALID_TRANG_THAI" }, 400);
+  // "Da ket thuc tranh chap" bat buoc 2 truong ket qua (chot 2026-07-29) - "Da huy bo tranh chap"
+  // KHONG bat buoc (xem TRANG_THAI_CAN_KET_QUA).
+  if (body.trang_thai_xu_ly === TRANG_THAI_CAN_KET_QUA) {
+    if (!body.ket_qua_xu_ly?.trim()) return c.json({ error: "MISSING_KET_QUA_XU_LY" }, 400);
+    if (!body.hai_long_sau_tranh_chap || !(HAI_LONG_VALUES as readonly string[]).includes(body.hai_long_sau_tranh_chap)) {
+      return c.json({ error: "MISSING_HAI_LONG" }, 400);
+    }
+  }
+
+  const tt = await c.env.DB.prepare("SELECT tt.case_id, c.khu_vuc FROM tranh_chap_tien_trinh tt JOIN case_dvbh c ON c.id = tt.case_id WHERE tt.id = ?")
+    .bind(id)
+    .first<{ case_id: string; khu_vuc: string | null }>();
+  if (!tt) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!canWriteTranhChap(c, tt.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+
+  let thoiGianDuKien = body.thoi_gian_du_kien_xong;
+  if (thoiGianDuKien === undefined) {
+    const prevLog = await c.env.DB.prepare("SELECT thoi_gian_du_kien_xong FROM tranh_chap_log WHERE tien_trinh_id = ? ORDER BY id DESC LIMIT 1")
+      .bind(id)
+      .first<{ thoi_gian_du_kien_xong: string | null }>();
+    thoiGianDuKien = prevLog?.thoi_gian_du_kien_xong ?? nextDayVN();
+  }
+
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    `INSERT INTO tranh_chap_log
+       (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu, ket_qua_xu_ly, hai_long_sau_tranh_chap)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      id,
+      user.email,
+      body.ngay_xu_ly ?? nowVN(),
+      body.trang_thai_xu_ly,
+      thoiGianDuKien ?? null,
+      body.ghi_chu ?? null,
+      body.ket_qua_xu_ly?.trim() || null,
+      body.hai_long_sau_tranh_chap || null,
+    )
+    .run();
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  return c.json({ ok: true }, 201);
+});
+
+// PATCH /api/tranh-chap/log/:id - sua 1 log DA GHI. Chi cho phep neu CA 3: (1) chinh minh la tac
+// gia, (2) con trong 24h ke tu luc tao, (3) log nay VAN la log moi nhat cua tien trinh (chua bi
+// "vuot mat" boi 1 log moi hon) - chot theo cau hoi D.
+tranhChap.patch("/log/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{
+    trang_thai_xu_ly?: string;
+    thoi_gian_du_kien_xong?: string;
+    ghi_chu?: string;
+    ket_qua_xu_ly?: string;
+    hai_long_sau_tranh_chap?: string;
+  }>();
+
+  const log = await c.env.DB.prepare("SELECT * FROM tranh_chap_log WHERE id = ?").bind(id).first<{
+    id: number;
+    tien_trinh_id: string;
+    nguoi_xu_ly: string;
+    created_at: string;
+    trang_thai_xu_ly: string;
+    thoi_gian_du_kien_xong: string | null;
+    ghi_chu: string | null;
+    ket_qua_xu_ly: string | null;
+    hai_long_sau_tranh_chap: string | null;
+  }>();
+  if (!log) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const user = c.get("user");
+  if (log.nguoi_xu_ly !== user.email) return c.json({ error: "FORBIDDEN_NOT_AUTHOR" }, 403);
+
+  const latestRow = await c.env.DB.prepare("SELECT id FROM tranh_chap_log WHERE tien_trinh_id = ? ORDER BY id DESC LIMIT 1")
+    .bind(log.tien_trinh_id)
+    .first<{ id: number }>();
+  if (latestRow?.id !== log.id) return c.json({ error: "NOT_LATEST_LOG" }, 409);
+
+  const hoursRow = await c.env.DB.prepare("SELECT (julianday(?) - julianday(created_at)) * 24 as hours FROM tranh_chap_log WHERE id = ?")
+    .bind(nowVN(), id)
+    .first<{ hours: number }>();
+  if ((hoursRow?.hours ?? 999) > 24) return c.json({ error: "EDIT_WINDOW_EXPIRED" }, 403);
+
+  if (body.trang_thai_xu_ly !== undefined && !(ALL_TRANG_THAI_LOG as readonly string[]).includes(body.trang_thai_xu_ly)) {
+    return c.json({ error: "INVALID_TRANG_THAI" }, 400);
+  }
+
+  const next = {
+    trang_thai_xu_ly: body.trang_thai_xu_ly ?? log.trang_thai_xu_ly,
+    thoi_gian_du_kien_xong: body.thoi_gian_du_kien_xong !== undefined ? body.thoi_gian_du_kien_xong : log.thoi_gian_du_kien_xong,
+    ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu : log.ghi_chu,
+    ket_qua_xu_ly: body.ket_qua_xu_ly !== undefined ? body.ket_qua_xu_ly.trim() || null : log.ket_qua_xu_ly,
+    hai_long_sau_tranh_chap: body.hai_long_sau_tranh_chap !== undefined ? body.hai_long_sau_tranh_chap : log.hai_long_sau_tranh_chap,
+  };
+  // Neu (sau khi sua) trang thai la "Da ket thuc tranh chap" thi 2 truong ket qua BAT BUOC phai co
+  // gia tri hop le - kiem tra tren gia tri SAU CUNG (co the da co san tu luc tao, hoac vua sua trong
+  // chinh request nay).
+  if (next.trang_thai_xu_ly === TRANG_THAI_CAN_KET_QUA) {
+    if (!next.ket_qua_xu_ly) return c.json({ error: "MISSING_KET_QUA_XU_LY" }, 400);
+    if (!next.hai_long_sau_tranh_chap || !(HAI_LONG_VALUES as readonly string[]).includes(next.hai_long_sau_tranh_chap)) {
+      return c.json({ error: "MISSING_HAI_LONG" }, 400);
+    }
+  }
+
+  await c.env.DB.prepare(
+    `UPDATE tranh_chap_log
+     SET trang_thai_xu_ly = ?, thoi_gian_du_kien_xong = ?, ghi_chu = ?, ket_qua_xu_ly = ?, hai_long_sau_tranh_chap = ?, updated_at = ?
+     WHERE id = ?`,
+  )
+    .bind(next.trang_thai_xu_ly, next.thoi_gian_du_kien_xong, next.ghi_chu, next.ket_qua_xu_ly, next.hai_long_sau_tranh_chap, nowVN(), id)
+    .run();
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  return c.json({ ok: true });
+});
+
+/** Dung boi notifications.ts computeNotificationsCount() - so ca "chua xu ly xong" tranh chap (xem
+ * CASE_TRANH_CHAP_STATUS_EXPR: gom ca ca CHUA TUNG co tien trinh lan ca co tien trinh dang mo). */
+export async function computeTranhChapCount(db: D1Database, scope: string[] | null): Promise<number> {
+  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const dongList = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) as n FROM case_dvbh c
+       WHERE ${TRANH_CHAP_ELIGIBLE}${scopeClause.sql}
+         AND ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${dongList.map(() => "?").join(", ")})`,
+    )
+    .bind(...scopeClause.binds, ...dongList)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
 
 export default tranhChap;

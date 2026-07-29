@@ -7,6 +7,7 @@ import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION } from "./survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "./caLap";
 import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { computeTranhChapCount } from "./tranhChap";
 
 const notifications = new Hono<{ Bindings: Env }>();
 notifications.use("*", verifySessionMiddleware, loadUser);
@@ -18,17 +19,26 @@ export interface NotificationsCountPayload {
   khaoSat: number;
   caLap: number;
   danhGiaNapGas: number;
+  tranhChap: number;
 }
 
 /** Tach tu notifications.get("/count") - xem chu thich route ben duoi. "khaoSat"/"caLap" ca nhan
  * hoa theo vai_tro (params.vai_tro) nen KET QUA THAT SU PHU THUOC vai_tro, khong chi phu thuoc
- * scope khu_vuc - route ben duoi dua vai_tro vao cache key vi ly do nay (xem chu thich route). */
-export async function computeNotificationsCount(db: D1Database, params: { vai_tro?: string }, scope: string[] | null): Promise<NotificationsCountPayload> {
+ * scope khu_vuc - route ben duoi dua vai_tro vao cache key vi ly do nay (xem chu thich route).
+ * "la_ksnb_doi_tac" (them 2026-07-29): rieng badge "tranhChap" dung pham vi KHONG gioi han khu_vuc
+ * cho nguoi co co nay (giong scopeTranhChap() trong tranhChap.ts) - khac voi "scope" chung (theo
+ * vai_tro qua ROLES_XEM_TOAN_BO) dung cho moi count con lai. */
+export async function computeNotificationsCount(
+  db: D1Database,
+  params: { vai_tro?: string; la_ksnb_doi_tac?: string },
+  scope: string[] | null,
+): Promise<NotificationsCountPayload> {
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
   const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
   const scopeClauseLap = khuVucWhereClause(scope, "lap.khu_vuc");
+  const tranhChapScope = params.la_ksnb_doi_tac === "1" ? null : scope;
 
-  const [canGiaiTrinh, choQc, caThieuLinhKien, canKhaoSat, caLapCounts, danhGiaNapGas] = await Promise.all([
+  const [canGiaiTrinh, choQc, caThieuLinhKien, canKhaoSat, caLapCounts, danhGiaNapGas, tranhChap] = await Promise.all([
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh
@@ -116,6 +126,7 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
       )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),
+    computeTranhChapCount(db, tranhChapScope),
   ]);
 
   const role = params.vai_tro;
@@ -132,6 +143,7 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
     khaoSat,
     caLap,
     danhGiaNapGas: danhGiaNapGas?.n ?? 0,
+    tranhChap,
   };
 }
 
@@ -140,17 +152,21 @@ export async function computeNotificationsCount(db: D1Database, params: { vai_tr
 // tro dang nhap (CSKH/TN CSKH thay "can khao sat", QC thay "cho QC", vai tro khac thay tong ca hai -
 // giong cach da lam voi mac dinh tab trang_thai cua module Ca lap).
 // Boc qua cachedReport (xem lib/reportCache.ts) - domain: cases, giai_trinh, vi_pham, giai_trinh_lap,
-// blacklist, nap_gas_danh_gia (bang R5 trong YEU_CAU_BAO_CAO_TINH_SAN.md + migration 0025). Key BAT
-// BUOC co them vai_tro (ngoai scope khu_vuc): khaoSat/caLap tra ve GIA TRI KHAC NHAU theo vai_tro voi
-// CUNG 1 scope (vd 2 nguoi cung khu vuc nhung 1 nguoi la QC, 1 nguoi la CSKH) - thieu vai_tro trong
-// key se lam 1 vai tro doc nham cache cua vai tro kia.
+// blacklist, nap_gas_danh_gia (bang R5 trong YEU_CAU_BAO_CAO_TINH_SAN.md + migration 0025), tranh_chap
+// (them 2026-07-29). Key BAT BUOC co them vai_tro (ngoai scope khu_vuc): khaoSat/caLap tra ve GIA TRI
+// KHAC NHAU theo vai_tro voi CUNG 1 scope (vd 2 nguoi cung khu vuc nhung 1 nguoi la QC, 1 nguoi la
+// CSKH) - thieu vai_tro trong key se lam 1 vai tro doc nham cache cua vai tro kia. "la_ksnb_doi_tac"
+// cung phai co trong key vi lam thay doi pham vi (khong gioi han khu_vuc) rieng cho "tranhChap".
 notifications.get("/count", async (c) => {
   const user = c.get("user");
   const scope = scopeByKhuVuc(c);
-  const params = { vai_tro: user.vai_tro ?? "" };
+  const params = { vai_tro: user.vai_tro ?? "", la_ksnb_doi_tac: user.la_ksnb_doi_tac ? "1" : "" };
   const key = buildReportKey("notifications/count", params, scope);
-  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "vi_pham", "giai_trinh_lap", "blacklist", "nap_gas_danh_gia"], () =>
-    computeNotificationsCount(c.env.DB, params, scope),
+  const data = await cachedReport(
+    c.env.DB,
+    key,
+    ["cases", "giai_trinh", "vi_pham", "giai_trinh_lap", "blacklist", "nap_gas_danh_gia", "tranh_chap"],
+    () => computeNotificationsCount(c.env.DB, params, scope),
   );
   return c.json(data);
 });

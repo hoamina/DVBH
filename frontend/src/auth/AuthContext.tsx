@@ -13,6 +13,8 @@ export interface AppUser {
   khu_vuc_phu_trach: string[];
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
   theme_config: ThemeConfig | null;
+  // Co rieng "KSNB Doi tac", tach khoi vai_tro - xem backend/src/types.ts.
+  la_ksnb_doi_tac: boolean;
 }
 
 type AuthState =

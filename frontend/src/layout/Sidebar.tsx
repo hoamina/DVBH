@@ -12,6 +12,7 @@ interface NotificationCounts {
   khaoSat: number;
   caLap: number;
   danhGiaNapGas: number;
+  tranhChap: number;
 }
 const COUNT_FIELD: Record<NonNullable<NavItem["countKey"]>, keyof NotificationCounts> = {
   backlog: "canGiaiTrinh",
@@ -19,6 +20,7 @@ const COUNT_FIELD: Record<NonNullable<NavItem["countKey"]>, keyof NotificationCo
   survey: "khaoSat",
   caLap: "caLap",
   napGas: "danhGiaNapGas",
+  tranhChap: "tranhChap",
 };
 
 export function Sidebar({

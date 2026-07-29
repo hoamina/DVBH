@@ -246,6 +246,18 @@ export interface LyDoRow {
   thuoc_tranh_chap: number;
 }
 
+export interface PhanLoaiTranhChapRow {
+  id: number;
+  ten_phan_loai: string;
+  bat_tat: number;
+}
+
+export interface KetQuaXuLyTranhChapRow {
+  id: number;
+  ten_ket_qua: string;
+  bat_tat: number;
+}
+
 export interface LinhKienRow {
   ma_linh_kien: string;
   ten_linh_kien: string;
@@ -262,6 +274,7 @@ export interface UserRow {
   vai_tro: string | null;
   khu_vuc_phu_trach: string[];
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
+  la_ksnb_doi_tac: number;
 }
 
 export interface Paged<T> {

@@ -21,6 +21,7 @@ const USER_EXPORT_LABELS: Record<string, string> = {
   vai_tro: "Vai trò",
   khu_vuc_phu_trach: "Khu vực phụ trách",
   trang_thai_duyet: "Trạng thái",
+  la_ksnb_doi_tac: "KSNB Đối tác",
 };
 
 interface LoginLogRow {
@@ -63,8 +64,8 @@ export function UsersModule() {
   });
 
   const saveEdit = useMutation({
-    mutationFn: ({ email, vai_tro, khu_vuc }: { email: string; vai_tro: string; khu_vuc: string[] }) =>
-      api.patch(`/users/${encodeURIComponent(email)}`, { vai_tro, khu_vuc_phu_trach: khu_vuc }),
+    mutationFn: ({ email, vai_tro, khu_vuc, la_ksnb_doi_tac }: { email: string; vai_tro: string; khu_vuc: string[]; la_ksnb_doi_tac: boolean }) =>
+      api.patch(`/users/${encodeURIComponent(email)}`, { vai_tro, khu_vuc_phu_trach: khu_vuc, la_ksnb_doi_tac }),
     onSuccess: () => {
       addToast("Đã cập nhật phân quyền");
       setEditUser(null);
@@ -83,7 +84,16 @@ export function UsersModule() {
         </>
       ),
     },
-    { key: "vai_tro", header: "Vai trò", render: (u) => (u.vai_tro ? <Badge tone="ocean">{u.vai_tro}</Badge> : <span className="text-xs text-[var(--ink-400)] italic">Chưa gán</span>) },
+    {
+      key: "vai_tro",
+      header: "Vai trò",
+      render: (u) => (
+        <div className="flex flex-wrap gap-1 items-center">
+          {u.vai_tro ? <Badge tone="ocean">{u.vai_tro}</Badge> : <span className="text-xs text-[var(--ink-400)] italic">Chưa gán</span>}
+          {!!u.la_ksnb_doi_tac && <Badge tone="amber">KSNB Đối tác</Badge>}
+        </div>
+      ),
+    },
     {
       key: "khu_vuc_phu_trach",
       header: "Khu vực phụ trách",
@@ -202,16 +212,25 @@ export function UsersModule() {
         <EditUserModal
           user={editUser}
           onClose={() => setEditUser(null)}
-          onSave={(vai_tro, khu_vuc) => saveEdit.mutate({ email: editUser.email, vai_tro, khu_vuc })}
+          onSave={(vai_tro, khu_vuc, la_ksnb_doi_tac) => saveEdit.mutate({ email: editUser.email, vai_tro, khu_vuc, la_ksnb_doi_tac })}
         />
       )}
     </div>
   );
 }
 
-function EditUserModal({ user, onClose, onSave }: { user: UserRow; onClose: () => void; onSave: (vaiTro: string, khuVuc: string[]) => void }) {
+function EditUserModal({
+  user,
+  onClose,
+  onSave,
+}: {
+  user: UserRow;
+  onClose: () => void;
+  onSave: (vaiTro: string, khuVuc: string[], laKsnbDoiTac: boolean) => void;
+}) {
   const [role, setRole] = useState(user.vai_tro ?? ROLES[0]);
   const [kv, setKv] = useState<Set<string>>(new Set(user.khu_vuc_phu_trach));
+  const [laKsnb, setLaKsnb] = useState(!!user.la_ksnb_doi_tac);
   // Danh sach khu vuc lay truc tiep tu du lieu case_dvbh that (khong hardcode) vi gia tri
   // thuc te la ma doi nhom CRM (vd "(qldvbh.mb2) Quan ly khu vuc MB2"), khong phai ten tinh/thanh.
   const { data: filters } = useQuery({
@@ -248,11 +267,20 @@ function EditUserModal({ user, onClose, onSave }: { user: UserRow; onClose: () =
             {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">Chưa có dữ liệu khu vực (chưa import case nào).</span>}
           </div>
         </div>
+        <div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={laKsnb} onChange={(e) => setLaKsnb(e.target.checked)} className="w-4 h-4" />
+            <span className="font-semibold">Là KSNB Đối tác</span>
+          </label>
+          <div className="text-xs text-[var(--ink-400)] mt-1">
+            Được xem toàn bộ + ghi log xử lý tranh chấp (module "Tranh chấp, khiếu nại"), độc lập với vai trò ở trên.
+          </div>
+        </div>
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>
             Hủy
           </Btn>
-          <Btn onClick={() => onSave(role, Array.from(kv))}>Lưu</Btn>
+          <Btn onClick={() => onSave(role, Array.from(kv), laKsnb)}>Lưu</Btn>
         </div>
       </div>
     </Modal>

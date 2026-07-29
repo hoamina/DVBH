@@ -8,7 +8,7 @@ import { ToggleSwitch } from "../components/ui/ToggleSwitch";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
-import { fmtVND, type LinhKienRow, type LyDoRow } from "../types";
+import { fmtVND, type LinhKienRow, type LyDoRow, type PhanLoaiTranhChapRow, type KetQuaXuLyTranhChapRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
 
@@ -38,9 +38,15 @@ export function SettingsModule() {
   const [newReason, setNewReason] = useState({ ten: "", thieu: false, tranhChap: false });
   const [addLinhKienOpen, setAddLinhKienOpen] = useState(false);
   const [newLinhKien, setNewLinhKien] = useState({ ma: "", ten: "", gia: "" });
+  const [addPhanLoaiOpen, setAddPhanLoaiOpen] = useState(false);
+  const [newPhanLoai, setNewPhanLoai] = useState("");
+  const [addKetQuaOpen, setAddKetQuaOpen] = useState(false);
+  const [newKetQua, setNewKetQua] = useState("");
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [lyDoPage, setLyDoPage] = useState(1);
   const [linhKienPage, setLinhKienPage] = useState(1);
+  const [phanLoaiPage, setPhanLoaiPage] = useState(1);
+  const [ketQuaPage, setKetQuaPage] = useState(1);
 
   const { data: reasons } = useQuery({
     queryKey: ["settings-ly-do"],
@@ -53,6 +59,14 @@ export function SettingsModule() {
   const { data: sheetUrls } = useQuery({
     queryKey: ["settings-sheet-urls"],
     queryFn: () => api.get<{ rows: SheetUrlRow[] }>("/settings/sheet-urls"),
+  });
+  const { data: phanLoaiTranhChap } = useQuery({
+    queryKey: ["settings-phan-loai-tranh-chap"],
+    queryFn: () => api.get<{ rows: PhanLoaiTranhChapRow[] }>("/settings/phan-loai-tranh-chap"),
+  });
+  const { data: ketQuaXuLyTranhChap } = useQuery({
+    queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
+    queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
   });
 
   const toggleReason = useMutation({
@@ -100,6 +114,44 @@ export function SettingsModule() {
     onError: () => addToast("Không lưu được link, thử lại sau."),
   });
 
+  const togglePhanLoai = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/phan-loai-tranh-chap/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật phân loại tranh chấp");
+      qc.invalidateQueries({ queryKey: ["settings-phan-loai-tranh-chap"] });
+    },
+  });
+
+  const addPhanLoaiMutation = useMutation({
+    mutationFn: () => api.post("/settings/phan-loai-tranh-chap", { ten_phan_loai: newPhanLoai }),
+    onSuccess: () => {
+      addToast("Đã thêm phân loại tranh chấp mới");
+      setNewPhanLoai("");
+      setAddPhanLoaiOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-phan-loai-tranh-chap"] });
+    },
+    onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
+  });
+
+  const toggleKetQua = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/ket-qua-xu-ly-tranh-chap/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật kết quả xử lý tranh chấp");
+      qc.invalidateQueries({ queryKey: ["settings-ket-qua-xu-ly-tranh-chap"] });
+    },
+  });
+
+  const addKetQuaMutation = useMutation({
+    mutationFn: () => api.post("/settings/ket-qua-xu-ly-tranh-chap", { ten_ket_qua: newKetQua }),
+    onSuccess: () => {
+      addToast("Đã thêm kết quả xử lý tranh chấp mới");
+      setNewKetQua("");
+      setAddKetQuaOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-ket-qua-xu-ly-tranh-chap"] });
+    },
+    onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
+  });
+
   const addLinhKienMutation = useMutation({
     mutationFn: () =>
       api.post("/settings/linh-kien", {
@@ -131,6 +183,16 @@ export function SettingsModule() {
     },
   ];
 
+  const phanLoaiColumns: Column<PhanLoaiTranhChapRow>[] = [
+    { key: "ten_phan_loai", header: "Tên phân loại", render: (r) => <span className="font-medium">{r.ten_phan_loai}</span> },
+    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => togglePhanLoai.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+  ];
+
+  const ketQuaColumns: Column<KetQuaXuLyTranhChapRow>[] = [
+    { key: "ten_ket_qua", header: "Tên kết quả", render: (r) => <span className="font-medium">{r.ten_ket_qua}</span> },
+    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleKetQua.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+  ];
+
   const linhKienColumns: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-medium">{p.ten_linh_kien}</span> },
@@ -148,6 +210,8 @@ export function SettingsModule() {
         tabs={[
           { key: "ly-do", label: "Lý do chậm" },
           { key: "linh-kien", label: "Danh mục linh kiện" },
+          { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
+          { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
         ]}
       />
@@ -236,6 +300,56 @@ export function SettingsModule() {
         </div>
       )}
 
+      {tab === "phan-loai-tranh-chap" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Danh mục phân loại dùng khi KSNB Đối tác "Tiếp nhận" 1 ca tranh chấp (module <b>Tranh chấp, khiếu nại</b>).
+            </div>
+            <Btn size="sm" onClick={() => setAddPhanLoaiOpen(true)}>
+              + Thêm phân loại
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={phanLoaiColumns}
+            rows={(phanLoaiTranhChap?.rows ?? []).slice((phanLoaiPage - 1) * PAGE_SIZE, phanLoaiPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={phanLoaiPage}
+            pageSize={PAGE_SIZE}
+            total={(phanLoaiTranhChap?.rows ?? []).length}
+            onPageChange={setPhanLoaiPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có phân loại tranh chấp nào."
+          />
+        </div>
+      )}
+
+      {tab === "ket-qua-xu-ly-tranh-chap" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Danh mục "Kết quả xử lý" bắt buộc chọn khi đóng 1 tiến trình tranh chấp với trạng thái "Đã kết thúc tranh chấp" (module <b>Tranh chấp, khiếu nại</b>).
+            </div>
+            <Btn size="sm" onClick={() => setAddKetQuaOpen(true)}>
+              + Thêm kết quả
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={ketQuaColumns}
+            rows={(ketQuaXuLyTranhChap?.rows ?? []).slice((ketQuaPage - 1) * PAGE_SIZE, ketQuaPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={ketQuaPage}
+            pageSize={PAGE_SIZE}
+            total={(ketQuaXuLyTranhChap?.rows ?? []).length}
+            onPageChange={setKetQuaPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có kết quả xử lý nào."
+          />
+        </div>
+      )}
+
       {tab === "sheet-urls" && (
         <Card className="p-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
@@ -289,6 +403,50 @@ export function SettingsModule() {
               Hủy
             </Btn>
             <Btn onClick={() => addReasonMutation.mutate()} disabled={!newReason.ten.trim() || addReasonMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={addPhanLoaiOpen} onClose={() => setAddPhanLoaiOpen(false)} title="Thêm phân loại tranh chấp mới">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên phân loại</label>
+            <input
+              value={newPhanLoai}
+              onChange={(e) => setNewPhanLoai(e.target.value)}
+              placeholder="Vd: Đổi trả, Khiếu nại…"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddPhanLoaiOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => addPhanLoaiMutation.mutate()} disabled={!newPhanLoai.trim() || addPhanLoaiMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={addKetQuaOpen} onClose={() => setAddKetQuaOpen(false)} title="Thêm kết quả xử lý tranh chấp mới">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên kết quả</label>
+            <input
+              value={newKetQua}
+              onChange={(e) => setNewKetQua(e.target.value)}
+              placeholder="Vd: Đã xử lý dứt điểm, Đã tư vấn…"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddKetQuaOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => addKetQuaMutation.mutate()} disabled={!newKetQua.trim() || addKetQuaMutation.isPending}>
               Thêm
             </Btn>
           </div>

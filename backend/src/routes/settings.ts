@@ -24,7 +24,7 @@ const adminOnly = requireRole("Admin");
 
 async function logAudit(
   db: D1Database,
-  bang: "settings_ly_do" | "linh_kien",
+  bang: "settings_ly_do" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap",
   banGhiId: string,
   nguoiThayDoi: string,
   truongThayDoi: string,
@@ -93,6 +93,86 @@ settings.patch("/ly-do/:id", adminOnly, async (c) => {
   const user = c.get("user");
   await logAudit(c.env.DB, "settings_ly_do", String(id), user.email, "updated", existing, next);
   await refreshHash(c.env.DB, "settings_ly_do", "settings_ly_do", "id");
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true });
+});
+
+// ---------- Phan loai tranh chap ----------
+
+settings.get("/phan-loai-tranh-chap", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_phan_loai_tranh_chap ORDER BY id").all();
+  return c.json({ rows: results });
+});
+
+settings.post("/phan-loai-tranh-chap", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten_phan_loai: string }>();
+  if (!body.ten_phan_loai?.trim()) return c.json({ error: "MISSING_TEN_PHAN_LOAI" }, 400);
+
+  const row = await c.env.DB.prepare(`INSERT INTO settings_phan_loai_tranh_chap (ten_phan_loai) VALUES (?) RETURNING *`)
+    .bind(body.ten_phan_loai.trim())
+    .first();
+
+  const user = c.get("user");
+  await logAudit(c.env.DB, "settings_phan_loai_tranh_chap", String((row as { id: number }).id), user.email, "created", null, row);
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json(row, 201);
+});
+
+settings.patch("/phan-loai-tranh-chap/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ bat_tat?: boolean }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_phan_loai_tranh_chap WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const next = { bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat };
+  await c.env.DB.prepare("UPDATE settings_phan_loai_tranh_chap SET bat_tat = ?, updated_at = ? WHERE id = ?")
+    .bind(next.bat_tat, nowVN(), id)
+    .run();
+
+  const user = c.get("user");
+  await logAudit(c.env.DB, "settings_phan_loai_tranh_chap", String(id), user.email, "updated", existing, next);
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true });
+});
+
+// ---------- Ket qua xu ly tranh chap ----------
+
+settings.get("/ket-qua-xu-ly-tranh-chap", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_ket_qua_xu_ly_tranh_chap ORDER BY id").all();
+  return c.json({ rows: results });
+});
+
+settings.post("/ket-qua-xu-ly-tranh-chap", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten_ket_qua: string }>();
+  if (!body.ten_ket_qua?.trim()) return c.json({ error: "MISSING_TEN_KET_QUA" }, 400);
+
+  const row = await c.env.DB.prepare(`INSERT INTO settings_ket_qua_xu_ly_tranh_chap (ten_ket_qua) VALUES (?) RETURNING *`)
+    .bind(body.ten_ket_qua.trim())
+    .first();
+
+  const user = c.get("user");
+  await logAudit(c.env.DB, "settings_ket_qua_xu_ly_tranh_chap", String((row as { id: number }).id), user.email, "created", null, row);
+  // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json(row, 201);
+});
+
+settings.patch("/ket-qua-xu-ly-tranh-chap/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ bat_tat?: boolean }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_ket_qua_xu_ly_tranh_chap WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const next = { bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat };
+  await c.env.DB.prepare("UPDATE settings_ket_qua_xu_ly_tranh_chap SET bat_tat = ?, updated_at = ? WHERE id = ?")
+    .bind(next.bat_tat, nowVN(), id)
+    .run();
+
+  const user = c.get("user");
+  await logAudit(c.env.DB, "settings_ket_qua_xu_ly_tranh_chap", String(id), user.email, "updated", existing, next);
   // Bump domain "settings" (xem lib/dataVersions.ts).
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
