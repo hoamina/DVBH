@@ -468,3 +468,76 @@ export function buildGreeting(tod: TimeOfDay, weather: WeatherInfo | null): stri
   if (!weather) return pick(TIME_TEMPLATES[tod]);
   return Math.random() < 0.5 ? pick(TIME_TEMPLATES[tod]) : pick(weatherRemarks(weather));
 }
+
+/**
+ * Loi chao sinh boi Gemini (GET /api/greeting/ai, xem routes/greeting.ts) - hoan toan tach rieng
+ * khoi buildGreeting() o tren: FE hien buildGreeting() (mau co san) NGAY LAP TUC, roi goi endpoint
+ * nay SAU o nen, thay vao neu thanh cong - khong bao gio chan/lam cham lan hien dau tien. Cung
+ * nguyen tac "khong duoc lam vo trang" nhu fetchWeather(): moi loi (mang, timeout, key sai, model
+ * tra ve rong/qua dai/khong dung dinh dang) deu nuot va tra null, KHONG throw.
+ */
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
+const GEMINI_TIMEOUT_MS = 4000;
+const AI_MESSAGE_MAX_LEN = 150;
+
+const TIME_LABEL: Record<TimeOfDay, string> = {
+  sang_som: "sang som tinh mo",
+  sang: "buoi sang",
+  trua: "buoi trua",
+  chieu: "buoi chieu",
+  toi: "buoi toi",
+  khuya: "dem khuya",
+};
+
+function weatherLabel(w: WeatherInfo): string {
+  const t = Math.round(w.tempC);
+  if (w.isRain) return `troi ${w.city} dang mua, ${t} do C`;
+  if (w.isHot) return `troi ${w.city} nang nong ${t} do C`;
+  if (w.isCold) return `troi ${w.city} se lanh ${t} do C`;
+  if (w.isFog) return `troi ${w.city} co suong mu, ${t} do C`;
+  return `troi ${w.city} de chiu, ${t} do C`;
+}
+
+function buildAiPrompt(tod: TimeOfDay, weather: WeatherInfo | null): string {
+  const boiCanh = weather ? `${TIME_LABEL[tod]}, ${weatherLabel(weather)}` : TIME_LABEL[tod];
+  return [
+    "Viet DUNG 1 cau chao ngan gon, than thien, tu nhien bang tieng Viet co dau, danh cho nhan vien noi bo mot he thong quan ly dich vu bao hanh dang mo web luc dau ngay lam viec.",
+    `Boi canh hien tai: ${boiCanh}.`,
+    `Yeu cau bat buoc: khong qua ${AI_MESSAGE_MAX_LEN} ky tu, khong dung dau ngoac kep, khong dung markdown/dau *, toi da 1 emoji, giong gan gui vui ve nhu dong nghiep, KHONG nhac lai nguyen van boi canh vua neu.`,
+    "Chi tra ve dung 1 cau duy nhat, khong giai thich, khong ghi chu gi them.",
+  ].join(" ");
+}
+
+interface GeminiResponse {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+}
+
+export async function fetchAiGreeting(apiKey: string, tod: TimeOfDay, weather: WeatherInfo | null): Promise<string | null> {
+  if (!apiKey) return null;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: buildAiPrompt(tod, weather) }] }] }),
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as GeminiResponse;
+    const text = data.candidates?.[0]?.content?.parts
+      ?.map((p) => p.text ?? "")
+      .join("")
+      .trim();
+    if (!text) return null;
+
+    // AI khong luon tuan thu dung yeu cau prompt (ban chat khong dam bao tuyet doi cua LLM) - bo
+    // dau ngoac kep neu AI tu them, roi loai bo neu qua dai/rong sau khi lam sach thay vi hien 1
+    // cau bi cat cut hoac sai dinh dang.
+    const cleaned = text.replace(/^["“”']+|["“”']+$/g, "").trim();
+    if (cleaned.length === 0 || cleaned.length > AI_MESSAGE_MAX_LEN) return null;
+    return cleaned;
+  } catch {
+    return null;
+  }
+}

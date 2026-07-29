@@ -19,6 +19,20 @@ function GreetingInner() {
     retry: false,
   });
 
+  // Ban chao "nang cap" boi Gemini (xem routes/greeting.ts GET /ai) - goi RIENG, chi bat dau SAU
+  // khi ban mau (data.message tu buildGreeting()) da co san, khong bao gio lam cham/chan lan hien
+  // dau tien. "message: null" (loi mang/AI khong san sang) hoac chua co ket qua -> displayMessage
+  // ben duoi tu dong roi ve ban mau, khong hien loi/khoang trong.
+  const { data: aiData } = useQuery({
+    queryKey: ["greeting-ai"],
+    queryFn: () => api.get<{ message: string | null }>("/greeting/ai"),
+    staleTime: 30 * 60_000,
+    retry: false,
+    enabled: !!data,
+  });
+
+  const displayMessage = aiData?.message ?? data?.message;
+
   const boxRef = useRef<HTMLDivElement>(null);
   const [needsScroll, setNeedsScroll] = useState(false);
 
@@ -27,9 +41,10 @@ function GreetingInner() {
     if (!el) return;
     // scrollWidth do duoc do o trang thai chua cuon (chua gan class marquee) nen phan anh dung
     // do rong that cua ca cau, so voi khoang trong thuc te (clientWidth) de quyet dinh co can
-    // cuon hay khong - cau ngan vua khung thi hien tinh, khong cuon vo ich.
+    // cuon hay khong - cau ngan vua khung thi hien tinh, khong cuon vo ich. Chay lai khi
+    // displayMessage doi (vd ban AI vua thay vao ban mau) de do lai dung do rong cau moi.
     setNeedsScroll(el.scrollWidth > el.clientWidth + 1);
-  }, [data?.namePrefix, data?.message]);
+  }, [data?.namePrefix, displayMessage]);
 
   if (isLoading || isError || !data) return null;
 
@@ -40,7 +55,7 @@ function GreetingInner() {
   return (
     <div ref={boxRef} className="hidden lg:block min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-[var(--ink-600)]">
       <span className={needsScroll ? "greeting-marquee" : undefined}>
-        <b className="font-bold">{data.namePrefix}</b>, {data.message}
+        <b className="font-bold">{data.namePrefix}</b>, {displayMessage}
       </span>
     </div>
   );
