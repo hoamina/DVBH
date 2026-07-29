@@ -513,7 +513,10 @@ interface GeminiResponse {
 }
 
 export async function fetchAiGreeting(apiKey: string, tod: TimeOfDay, weather: WeatherInfo | null): Promise<string | null> {
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.error("[greeting-ai] thieu GEMINI_API_KEY");
+    return null;
+  }
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
     const res = await fetch(url, {
@@ -522,22 +525,34 @@ export async function fetchAiGreeting(apiKey: string, tod: TimeOfDay, weather: W
       body: JSON.stringify({ contents: [{ parts: [{ text: buildAiPrompt(tod, weather) }] }] }),
       signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Log loi that (khong lo key that vi apiKey khong nam trong body/response) - can biet DUNG
+      // nguyen nhan (401 key sai, 404 model sai, 429 het quota...) thay vi chi biet "that bai".
+      console.error(`[greeting-ai] Gemini tra ve ${res.status}: ${(await res.text()).slice(0, 500)}`);
+      return null;
+    }
 
     const data = (await res.json()) as GeminiResponse;
     const text = data.candidates?.[0]?.content?.parts
       ?.map((p) => p.text ?? "")
       .join("")
       .trim();
-    if (!text) return null;
+    if (!text) {
+      console.error(`[greeting-ai] Gemini tra ve 200 nhung khong co text: ${JSON.stringify(data).slice(0, 500)}`);
+      return null;
+    }
 
     // AI khong luon tuan thu dung yeu cau prompt (ban chat khong dam bao tuyet doi cua LLM) - bo
     // dau ngoac kep neu AI tu them, roi loai bo neu qua dai/rong sau khi lam sach thay vi hien 1
     // cau bi cat cut hoac sai dinh dang.
     const cleaned = text.replace(/^["“”']+|["“”']+$/g, "").trim();
-    if (cleaned.length === 0 || cleaned.length > AI_MESSAGE_MAX_LEN) return null;
+    if (cleaned.length === 0 || cleaned.length > AI_MESSAGE_MAX_LEN) {
+      console.error(`[greeting-ai] cau sau khi lam sach khong hop le (do dai ${cleaned.length}): ${cleaned.slice(0, 200)}`);
+      return null;
+    }
     return cleaned;
-  } catch {
+  } catch (err) {
+    console.error("[greeting-ai] loi khi goi Gemini:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
