@@ -172,6 +172,7 @@ tranhChap.get("/tien-trinh", async (c) => {
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
   const phanLoai = c.req.query("phan_loai");
   const mucDo = c.req.query("muc_do");
+  const caseId = c.req.query("case_id");
   const trangThaiParam = c.req.query("trang_thai");
   const han = c.req.query("han");
   const cuaToi = c.req.query("cua_toi") === "1";
@@ -186,6 +187,12 @@ tranhChap.get("/tien-trinh", async (c) => {
   if (mucDo) {
     whereSql += " AND tt.muc_do = ?";
     binds.push(mucDo);
+  }
+  // "case_id" - dung boi tab "Tranh chap, khieu nai" trong CaseDetail.tsx de liet ke TOAN BO tien
+  // trinh (ke ca da dong, xem "trang_thai" client tu truyen day du 4 gia tri) cua 1 ca cu the.
+  if (caseId) {
+    whereSql += " AND tt.case_id = ?";
+    binds.push(caseId);
   }
   const dongList = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
   if (trangThaiParam) {

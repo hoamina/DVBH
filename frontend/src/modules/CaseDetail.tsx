@@ -10,12 +10,23 @@ import { Modal } from "../components/ui/Modal";
 import { CacheBanner } from "../components/ui/CacheBanner";
 import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
 import { LoadingInline } from "../components/ui/LoadingInline";
-import { api } from "../api/client";
+import { TiepNhanModal, TienTrinhPanel } from "../components/TienTrinhPanel";
+import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
+import { useAuth } from "../auth/AuthContext";
 import { getCachedEntry, setCachedEntry, type CacheEntry } from "../lib/closedDataCache";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { trangThaiLapOf } from "../lib/caLapStatus";
 import { computeCaseTickers } from "../lib/caseTickers";
+import {
+  TRANG_THAI_LABELS,
+  TRANG_THAI_DONG,
+  canWriteTranhChap,
+  describeTranhChapError,
+  type TienTrinhRow,
+  type PhanLoaiTranhChapRow,
+  type KetQuaXuLyTranhChapRow,
+} from "../lib/tranhChapShared";
 import {
   fmtDateTime,
   fmtDate,
@@ -37,6 +48,7 @@ import {
   type ViPhamRow,
   type CaLapDetection,
   type NapGasDanhGiaRow,
+  type Paged,
 } from "../types";
 
 type ViewMode = "compact" | "expanded";
@@ -235,6 +247,49 @@ export function CaseDetail({
     enabled: caseId !== null,
   });
 
+  // "Tranh chap, khieu nai" - tab moi, dung chung component TienTrinhPanel/TiepNhanModal voi
+  // module TranhChapModule.tsx (xem components/TienTrinhPanel.tsx). Dung CHUNG queryKey
+  // "settings-phan-loai-tranh-chap"/"settings-ket-qua-xu-ly-tranh-chap" voi module do de tan dung
+  // cache neu ca 2 dang mo cung luc.
+  const auth = useAuth();
+  const currentUser = auth.status === "authenticated" ? auth.user : null;
+  const { data: phanLoaiOptions } = useQuery({
+    queryKey: ["settings-phan-loai-tranh-chap"],
+    queryFn: () => api.get<{ rows: PhanLoaiTranhChapRow[] }>("/settings/phan-loai-tranh-chap"),
+    enabled: caseId !== null,
+  });
+  const { data: ketQuaOptions } = useQuery({
+    queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
+    queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
+    enabled: caseId !== null,
+  });
+  // "trang_thai" truyen du ca 4 gia tri (ke ca 2 trang thai dong) - khac danh sach chinh cua
+  // TranhChapModule (mac dinh an dong), o day can XEM DUOC TOAN BO lich su tien trinh cua ca nay.
+  const { data: tienTrinhCaseData } = useQuery({
+    queryKey: ["tranh-chap-tien-trinh-case", caseId],
+    queryFn: () =>
+      api.get<Paged<TienTrinhRow>>(
+        `/tranh-chap/tien-trinh${buildQuery({ case_id: caseId!, trang_thai: Object.keys(TRANG_THAI_LABELS).join(","), pageSize: 50 })}`,
+      ),
+    enabled: caseId !== null,
+  });
+  const [tiepNhanTranhChapOpen, setTiepNhanTranhChapOpen] = useState(false);
+
+  const tiepNhanTranhChap = useMutation({
+    mutationFn: (body: { phan_loai_tranh_chap: string; muc_do: string; ghi_chu?: string; thoi_gian_du_kien_xong?: string }) =>
+      api.post(`/tranh-chap/${caseId}/tiep-nhan`, body),
+    onSuccess: () => {
+      addToast("Đã tiếp nhận xử lý tranh chấp");
+      setTiepNhanTranhChapOpen(false);
+      qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-case", caseId] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-stats"] });
+      qc.invalidateQueries({ queryKey: ["notifications-count"] });
+    },
+    onError: (err) => addToast(describeTranhChapError(err, "Không thể tiếp nhận, thử lại sau.")),
+  });
+
   const [giaiTrinhModalOpen, setGiaiTrinhModalOpen] = useState(false);
   const [caLapModalOpen, setCaLapModalOpen] = useState(false);
   const [blacklistConfirmOpen, setBlacklistConfirmOpen] = useState(false);
@@ -328,6 +383,16 @@ export function CaseDetail({
   const napGasEligible = !!(c && c.nghi_ngo_nap_gas === 1 && c.tien_do_hoan_thanh === "Hoàn thành XLSC");
   const effectiveNapGasDanhGia = napGasForm.danh_gia_nap_gas || napGasDanhGia?.danh_gia_nap_gas || "";
   const effectiveNapGasPhiDichVu = napGasForm.phi_dich_vu || napGasDanhGia?.phi_dich_vu || "";
+
+  // "Tranh chap, khieu nai" - CHI ca DA DONG (Hoan thanh XLSC hoac Khong hoan thanh XLSC) VA co
+  // "Nghi ngo tranh chap" moi thuoc dien - khop dung TRANH_CHAP_ELIGIBLE o backend/src/routes/tranhChap.ts.
+  const tranhChapEligible = !!(c && c.nghi_ngo_tranh_chap === 1 && (c.tien_do_hoan_thanh === "Hoàn thành XLSC" || c.tien_do_hoan_thanh === "Không hoàn thành XLSC"));
+  const tienTrinhListForCase = tienTrinhCaseData?.rows ?? [];
+  // Cho phep "Tiep nhan" tien trinh MOI (ke ca lan 2 tro di) khi: ca thuoc dien, CHUA co tien trinh
+  // nao, HOAC toan bo tien trinh hien co deu da o trang thai dong - khop dung dieu kien backend
+  // POST /:caseId/tiep-nhan (chi 409 TIEN_TRINH_DANG_MO khi tien trinh gan nhat con mo).
+  const canTiepNhanTranhChapMoi =
+    tranhChapEligible && (tienTrinhListForCase.length === 0 || tienTrinhListForCase.every((tt) => tt.trang_thai_xu_ly && TRANG_THAI_DONG.includes(tt.trang_thai_xu_ly)));
 
   const lapStatus = caLap?.detection
     ? trangThaiLapOf({
@@ -687,6 +752,25 @@ export function CaseDetail({
     </div>
   );
 
+  const tranhChapContent = (
+    <div className="space-y-4">
+      {!tranhChapEligible && <div className="text-sm text-[var(--ink-400)] italic">Ca này không thuộc diện tranh chấp.</div>}
+      {tranhChapEligible && tienTrinhListForCase.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">Ca này chưa có tiến trình xử lý tranh chấp nào.</div>
+      )}
+      {tranhChapEligible && canTiepNhanTranhChapMoi && currentUser && canWriteTranhChap(currentUser, c?.khu_vuc ?? null) && (
+        <div className="flex justify-end">
+          <Btn size="sm" onClick={() => setTiepNhanTranhChapOpen(true)}>
+            + Tiếp nhận xử lý tranh chấp
+          </Btn>
+        </div>
+      )}
+      {tienTrinhListForCase.map((tt) => (
+        <TienTrinhPanel key={tt.id} id={tt.id} currentUser={currentUser} phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []} ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []} />
+      ))}
+    </div>
+  );
+
   const tabsList: TabItem[] =
     viewMode === "compact"
       ? [
@@ -695,12 +779,14 @@ export function CaseDetail({
           { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           ...(napGasEligible ? [{ key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 }] : []),
+          ...(tranhChapEligible ? [{ key: "tranh-chap", label: "Tranh chấp, khiếu nại", count: tienTrinhListForCase.length }] : []),
         ]
       : [
           { key: "giai-trinh", label: "Giải trình tồn", count: giaiTrinhList.length },
           { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           ...(napGasEligible ? [{ key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 }] : []),
+          ...(tranhChapEligible ? [{ key: "tranh-chap", label: "Tranh chấp, khiếu nại", count: tienTrinhListForCase.length }] : []),
         ];
 
   const viewModeToggle = (
@@ -823,6 +909,7 @@ export function CaseDetail({
               {tab === "vi-pham" && viPhamContent}
               {tab === "ca-lap" && caLapContent}
               {tab === "nap-gas" && napGasContent}
+              {tab === "tranh-chap" && tranhChapContent}
             </div>
           </div>
         )}
@@ -835,6 +922,7 @@ export function CaseDetail({
             {tab === "vi-pham" && viPhamContent}
             {tab === "ca-lap" && caLapContent}
             {tab === "nap-gas" && napGasContent}
+            {tab === "tranh-chap" && tranhChapContent}
           </div>
         )}
       </div>
@@ -1072,6 +1160,16 @@ export function CaseDetail({
             </Btn>
           </div>
         </Modal>
+      )}
+
+      {tiepNhanTranhChapOpen && c && (
+        <TiepNhanModal
+          caseRow={{ id: c.id, khach_hang: c.khach_hang, khu_vuc: c.khu_vuc }}
+          phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
+          onClose={() => setTiepNhanTranhChapOpen(false)}
+          onSubmit={(body) => tiepNhanTranhChap.mutate(body)}
+          isPending={tiepNhanTranhChap.isPending}
+        />
       )}
     </div>
   );
