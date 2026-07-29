@@ -215,9 +215,24 @@ export type SheetSyncResult =
 
 /** Dung chung cho route POST /sync-sheet (nguoi bam tay) VA cron tu dong (xem index.ts scheduled()
  * + SHEET_SYNC_CRON) - xem chu thich day du o ham cung ten trong routes/importGiaiTrinh.ts. */
+const TEN_FILE_SYNC = "Đồng bộ đánh giá nạp gas cũ từ Google Sheet";
+
+// "bgError" - ghi luon vao lich su (khong chi tra ve response) de cron tu dong (khong ai xem
+// response HTTP) van co cho tra cuu lai duoc ly do that bai/danh sach loi tung dong - xem
+// logImportHistory() o backfillImportProcessor.ts.
 export async function syncNapGasFromSheet(db: D1Database, actorEmail: string): Promise<SheetSyncResult> {
   const url = await getSheetUrl(db, "nap_gas_danh_gia_cu");
-  if (!url) return { ok: false, reason: "MISSING_SHEET_URL" };
+  if (!url) {
+    await logImportHistory(db, {
+      loai: "nap_gas_danh_gia_cu",
+      tenFile: TEN_FILE_SYNC,
+      nguoiImport: actorEmail,
+      thanhCong: 0,
+      loi: 0,
+      bgError: "Chưa cấu hình link Google Sheet (xem Settings > Đường dẫn đồng bộ).",
+    });
+    return { ok: false, reason: "MISSING_SHEET_URL" };
+  }
 
   let rows: BackfillRow[];
   try {
@@ -227,7 +242,16 @@ export async function syncNapGasFromSheet(db: D1Database, actorEmail: string): P
     // parseBackfillTsv trong lib/backfillSheetSync.ts).
     rows = parseBackfillTsv(text, SHEET_DATE_TIME_FIELDS, new Set(), COLUMN_MAP) as BackfillRow[];
   } catch (err) {
-    return { ok: false, reason: "FETCH_FAILED", message: (err as Error).message };
+    const message = (err as Error).message;
+    await logImportHistory(db, {
+      loai: "nap_gas_danh_gia_cu",
+      tenFile: TEN_FILE_SYNC,
+      nguoiImport: actorEmail,
+      thanhCong: 0,
+      loi: 0,
+      bgError: `Không tải được Google Sheet: ${message}`,
+    });
+    return { ok: false, reason: "FETCH_FAILED", message };
   }
 
   // BAO LOI RO RANG thay vi tra "thanh cong 0 dong" trong im lang khi Sheet khong parse duoc dong
@@ -235,16 +259,25 @@ export async function syncNapGasFromSheet(db: D1Database, actorEmail: string): P
   // day chinh la loi thuc te da xay ra (2026-07-24): nguoi dung tuong da dong bo xong vi khong thay
   // bao loi gi, nhung thuc ra 0 dong nao duoc doc.
   if (rows.length === 0) {
+    await logImportHistory(db, {
+      loai: "nap_gas_danh_gia_cu",
+      tenFile: TEN_FILE_SYNC,
+      nguoiImport: actorEmail,
+      thanhCong: 0,
+      loi: 0,
+      bgError: "Không đọc được dòng dữ liệu nào từ Sheet - kiểm tra lại tên cột (ID, ĐÁNH GIÁ NẠP GAS, PHÍ DỊCH VỤ, NGƯỜI CHỐT, NGÀY CHỐT) và đảm bảo Sheet có dữ liệu.",
+    });
     return { ok: false, reason: "NO_ROWS_PARSED" };
   }
 
   const summary = await processRows(db, rows, true);
   await logImportHistory(db, {
     loai: "nap_gas_danh_gia_cu",
-    tenFile: "Đồng bộ đánh giá nạp gas cũ từ Google Sheet",
+    tenFile: TEN_FILE_SYNC,
     nguoiImport: actorEmail,
     thanhCong: summary.thanhCong,
     loi: summary.loi,
+    bgError: summary.errors.length > 0 ? summary.errors.join("\n") : null,
   });
   return { ok: true, summary };
 }

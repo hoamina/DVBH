@@ -33,6 +33,10 @@ interface ImportHistoryRow {
   bo_qua: number;
   loi: number;
   thoi_gian: string;
+  // Chi tiet loi/canh bao (ly do that bai khi dong bo tu dong qua cron, hoac danh sach loi tung
+  // dong) - xem logImportHistory() o backfillImportProcessor.ts. Co the rat dai (nhieu dong loi
+  // gop lai) - KHONG cat bot, hien day du trong bang (xem cell ben duoi).
+  bg_error: string | null;
 }
 
 interface SheetUrlRow {
@@ -78,6 +82,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
               ghi_de: "Ghi đè",
               bo_qua: "Bỏ qua",
               loi: "Lỗi",
+              bg_error: "Ghi chú / Lỗi chi tiết",
             });
           }}
         >
@@ -95,6 +100,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
               <th className="py-2 pr-3">Ghi đè</th>
               <th className="py-2 pr-3">Bỏ qua</th>
               <th className="py-2 pr-3">Lỗi</th>
+              <th className="py-2 pr-3">Ghi chú / Lỗi chi tiết</th>
             </tr>
           </thead>
           <tbody>
@@ -107,11 +113,15 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
                 <td className="py-2 pr-3 font-mono text-[var(--ocean-600)]">{h.ghi_de}</td>
                 <td className="py-2 pr-3 font-mono text-[var(--ink-400)]">{h.bo_qua}</td>
                 <td className="py-2 pr-3 font-mono">{h.loi > 0 ? <span className="text-[var(--coral-500)] font-bold">{h.loi}</span> : h.loi}</td>
+                {/* whitespace-pre-wrap + break-words: bg_error co the la nhieu dong loi gop lai
+                    (xem logImportHistory()) - KHONG cat bot/truncate, hien nguyen van du dai bao
+                    nhieu, xuong dong tu nhien thay vi tran ra ngoai bang. */}
+                <td className="py-2 pr-3 max-w-md whitespace-pre-wrap break-words text-xs text-[var(--coral-500)]">{h.bg_error}</td>
               </tr>
             ))}
             {(history?.rows ?? []).length === 0 && (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-[var(--ink-400)] text-sm">
+                <td colSpan={8} className="py-6 text-center text-[var(--ink-400)] text-sm">
                   Chưa có lịch sử import.
                 </td>
               </tr>

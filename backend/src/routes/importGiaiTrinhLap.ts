@@ -233,25 +233,50 @@ export type SheetSyncResult =
 
 /** Dung chung cho route POST /sync-sheet (nguoi bam tay) VA cron tu dong (xem index.ts scheduled()
  * + SHEET_SYNC_CRON) - xem chu thich day du o ham cung ten trong routes/importGiaiTrinh.ts. */
+const TEN_FILE_SYNC = "Đồng bộ giải trình lặp cũ từ Google Sheet";
+
+// "bgError" - ghi luon vao lich su (khong chi tra ve response) de cron tu dong (khong ai xem
+// response HTTP) van co cho tra cuu lai duoc ly do that bai/danh sach loi tung dong - xem
+// logImportHistory() o backfillImportProcessor.ts.
 export async function syncGiaiTrinhLapFromSheet(db: D1Database, actorEmail: string): Promise<SheetSyncResult> {
   const url = await getSheetUrl(db, "giai_trinh_lap_cu");
-  if (!url) return { ok: false, reason: "MISSING_SHEET_URL" };
+  if (!url) {
+    await logImportHistory(db, {
+      loai: "giai_trinh_lap_cu",
+      tenFile: TEN_FILE_SYNC,
+      nguoiImport: actorEmail,
+      thanhCong: 0,
+      loi: 0,
+      bgError: "Chưa cấu hình link Google Sheet (xem Settings > Đường dẫn đồng bộ).",
+    });
+    return { ok: false, reason: "MISSING_SHEET_URL" };
+  }
 
   let rows: BackfillRow[];
   try {
     const text = await fetchSheetText(url);
     rows = parseBackfillTsv(text, SHEET_DATE_TIME_FIELDS) as BackfillRow[];
   } catch (err) {
-    return { ok: false, reason: "FETCH_FAILED", message: (err as Error).message };
+    const message = (err as Error).message;
+    await logImportHistory(db, {
+      loai: "giai_trinh_lap_cu",
+      tenFile: TEN_FILE_SYNC,
+      nguoiImport: actorEmail,
+      thanhCong: 0,
+      loi: 0,
+      bgError: `Không tải được Google Sheet: ${message}`,
+    });
+    return { ok: false, reason: "FETCH_FAILED", message };
   }
 
   const summary = await processRows(db, rows, true);
   await logImportHistory(db, {
     loai: "giai_trinh_lap_cu",
-    tenFile: "Đồng bộ giải trình lặp cũ từ Google Sheet",
+    tenFile: TEN_FILE_SYNC,
     nguoiImport: actorEmail,
     thanhCong: summary.thanhCong,
     loi: summary.loi,
+    bgError: summary.errors.length > 0 ? summary.errors.join("\n") : null,
   });
   return { ok: true, summary };
 }

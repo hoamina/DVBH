@@ -89,15 +89,19 @@ export async function runBatched(db: D1Database, statements: D1PreparedStatement
 // tab "Import data" hien duoc "Lich su import" giong het CRM. Cac luong backfill khong phan biet
 // ghi_moi/ghi_de/bo_qua nhu CRM (chi co 1 khai niem "thanh cong") nen dua het vao cot ghi_moi, giu
 // ghi_de/bo_qua = 0 - tan dung lai dung 1 bang/1 UI hien thi thay vi them cot/bang rieng.
+// "bgError" (migration 0032) - chi tiet loi/canh bao KHONG the hien qua cac cot dem (vd ly do
+// khong tai duoc Sheet, hoac chi tiet tung dong loi cua processRows()) - can thiet rieng cho cac
+// syncXxxFromSheet() vi ban chay tu dong qua cron (index.ts) khong co response HTTP nao de bao loi
+// cho nguoi dung nhu luc bam tay, nen phai ghi thang vao lich su de xem lai duoc.
 export async function logImportHistory(
   db: D1Database,
-  params: { loai: string; tenFile: string; nguoiImport: string; thanhCong: number; loi: number },
+  params: { loai: string; tenFile: string; nguoiImport: string; thanhCong: number; loi: number; bgError?: string | null },
 ): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO import_history (loai, ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi, thoi_gian)
-       VALUES (?, ?, ?, ?, 0, 0, ?, ?)`,
+      `INSERT INTO import_history (loai, ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi, thoi_gian, bg_error)
+       VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?)`,
     )
-    .bind(params.loai, params.tenFile, params.nguoiImport, params.thanhCong, params.loi, nowVN())
+    .bind(params.loai, params.tenFile, params.nguoiImport, params.thanhCong, params.loi, nowVN(), params.bgError ?? null)
     .run();
 }
