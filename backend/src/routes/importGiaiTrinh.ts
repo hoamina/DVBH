@@ -237,32 +237,51 @@ importGiaiTrinh.post("/commit", async (c) => {
   return c.json(summary);
 });
 
-// POST /api/import/giai-trinh/sync-sheet - dong bo giai trinh cu tu Google Sheet, chi Admin
-// (link cau hinh o Settings > sheet-urls, loai_dong_bo = 'giai_trinh_cu')
-importGiaiTrinh.post("/sync-sheet", requireRole("Admin"), async (c) => {
-  const url = await getSheetUrl(c.env.DB, "giai_trinh_cu");
-  if (!url) return c.json({ error: "MISSING_SHEET_URL" }, 400);
+export type SheetSyncResult =
+  | { ok: true; summary: Awaited<ReturnType<typeof processRows>> }
+  | { ok: false; reason: "MISSING_SHEET_URL" }
+  | { ok: false; reason: "FETCH_FAILED"; message: string };
+
+/** Dung chung cho route POST /sync-sheet (nguoi bam tay) VA cron tu dong (xem index.ts scheduled()
+ * + SHEET_SYNC_CRON) - tach rieng de khong lap logic giua 2 noi goi. "actorEmail" ghi vao
+ * import_history.nguoi_import (co FK REFERENCES users(email), xem migration 0002) - route truyen
+ * email nguoi dang nhap that, cron truyen email "he thong" co dinh (migration 0033). Tra ve NGUYEN
+ * "summary" tu processRows() (thanhCong/loi/trungLap/errors) - giu dung 100% hinh dang response cu,
+ * FE (ImportModule.tsx) doc truc tiep res.errors.length nen KHONG duoc rut gon shape nay. */
+export async function syncGiaiTrinhFromSheet(db: D1Database, actorEmail: string): Promise<SheetSyncResult> {
+  const url = await getSheetUrl(db, "giai_trinh_cu");
+  if (!url) return { ok: false, reason: "MISSING_SHEET_URL" };
 
   let rows: BackfillRow[];
   try {
     const text = await fetchSheetText(url);
     rows = parseBackfillTsv(text, SHEET_DATE_TIME_FIELDS, SHEET_DATE_ONLY_FIELDS) as BackfillRow[];
   } catch (err) {
-    return c.json({ error: "FETCH_FAILED", message: (err as Error).message }, 502);
+    return { ok: false, reason: "FETCH_FAILED", message: (err as Error).message };
   }
 
-  const summary = await processRows(c.env.DB, rows, true);
+  const summary = await processRows(db, rows, true);
+  await logImportHistory(db, {
+    loai: "giai_trinh_cu",
+    tenFile: "Đồng bộ giải trình cũ từ Google Sheet",
+    nguoiImport: actorEmail,
+    thanhCong: summary.thanhCong,
+    loi: summary.loi,
+  });
+  return { ok: true, summary };
+}
+
+// POST /api/import/giai-trinh/sync-sheet - dong bo giai trinh cu tu Google Sheet, chi Admin
+// (link cau hinh o Settings > sheet-urls, loai_dong_bo = 'giai_trinh_cu'). Tu dong 3 lan/ngay qua
+// cron (xem index.ts) - route nay van giu de Admin chu dong dong bo ngay khi can, khong doi cron.
+importGiaiTrinh.post("/sync-sheet", requireRole("Admin"), async (c) => {
   const user = c.get("user");
-  c.executionCtx.waitUntil(
-    logImportHistory(c.env.DB, {
-      loai: "giai_trinh_cu",
-      tenFile: "Đồng bộ giải trình cũ từ Google Sheet",
-      nguoiImport: user.email,
-      thanhCong: summary.thanhCong,
-      loi: summary.loi,
-    }),
-  );
-  return c.json(summary);
+  const result = await syncGiaiTrinhFromSheet(c.env.DB, user.email);
+  if (!result.ok) {
+    if (result.reason === "MISSING_SHEET_URL") return c.json({ error: "MISSING_SHEET_URL" }, 400);
+    return c.json({ error: "FETCH_FAILED", message: result.message }, 502);
+  }
+  return c.json(result.summary);
 });
 
 export default importGiaiTrinh;

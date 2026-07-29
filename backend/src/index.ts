@@ -20,6 +20,10 @@ import notificationsRoutes from "./routes/notifications";
 import greetingRoutes from "./routes/greeting";
 import caLapRoutes from "./routes/caLap";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
+import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
+import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
+import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
+import { syncNapGasFromSheet } from "./routes/importNapGas";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -58,6 +62,29 @@ const ARCHIVE_AFTER = "-3 months";
 // "triggers.crons".
 const CA_LAP_REFRESH_CRON = "0 * * * *";
 
+// 3 lan/ngay - 9h/13h/16h gio VN = 2h/6h/9h UTC (chot voi chu he thong 2026-07-29) - tu dong dong
+// bo 4 Google Sheet "cu" (giai_trinh/giai_trinh_lap/khao_sat/nap_gas_danh_gia) do AppSheet dien du
+// lieu, thay cho viec phai tu bam "Dong bo ngay" trong module Import moi ngay. KHONG dong toi CRM
+// chinh (case_dvbh, POST /api/import/sync-sheet) - van dong bo tay theo yeu cau rieng cua chu he
+// thong. Actor la user "he thong" co dinh (migration 0033) - can vi import_history.nguoi_import co
+// FK REFERENCES users(email), khong the ghi 1 email tuy y.
+const SHEET_SYNC_CRON = "0 2,6,9 * * *";
+const SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
+
+// Chay 1 sync, ghi log neu that bai (nuot loi - KHONG throw) de 1 sync loi khong chan cac sync con
+// lai trong cung dot cron. Log qua console.error (xem qua `wrangler tail`) vi day la tac vu nen,
+// khong co response HTTP nao de bao loi cho nguoi dung nhu route /sync-sheet thu cong.
+async function runSheetSync(label: string, fn: () => Promise<{ ok: boolean; reason?: string; message?: string }>): Promise<void> {
+  try {
+    const result = await fn();
+    if (!result.ok) {
+      console.error(`[cron-sheet-sync] ${label} that bai (${result.reason})${result.message ? `: ${result.message}` : ""}`);
+    }
+  } catch (err) {
+    console.error(`[cron-sheet-sync] ${label} loi khong mong doi:`, err instanceof Error ? err.message : String(err));
+  }
+}
+
 export default {
   fetch: app.fetch,
 
@@ -68,6 +95,16 @@ export default {
       // du khong co import/dong bo/sua ca nao xay ra trong khung gio do.
       if (await shouldSkipCronRefresh(env.DB)) return;
       await refreshCaLapPrecompute(env.DB);
+      return;
+    }
+
+    if (event.cron === SHEET_SYNC_CRON) {
+      // Tuan tu (khong Promise.all) - 4 sync doc lap nhau, khong can chay song song; don gian va
+      // de doc log theo dung thu tu hon la chay dong thoi khong can thiet.
+      await runSheetSync("giai_trinh_cu", () => syncGiaiTrinhFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      await runSheetSync("giai_trinh_lap_cu", () => syncGiaiTrinhLapFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      await runSheetSync("khao_sat_cu", () => syncKhaoSatFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      await runSheetSync("nap_gas_danh_gia_cu", () => syncNapGasFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
       return;
     }
 

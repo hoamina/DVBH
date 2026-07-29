@@ -207,11 +207,17 @@ importNapGas.post("/commit", async (c) => {
   return c.json(summary);
 });
 
-// POST /api/import/nap-gas/sync-sheet - dong bo danh gia nap gas cu tu Google Sheet, chi Admin
-// (link cau hinh o Settings > sheet-urls, loai_dong_bo = 'nap_gas_danh_gia_cu')
-importNapGas.post("/sync-sheet", requireRole("Admin"), async (c) => {
-  const url = await getSheetUrl(c.env.DB, "nap_gas_danh_gia_cu");
-  if (!url) return c.json({ error: "MISSING_SHEET_URL" }, 400);
+export type SheetSyncResult =
+  | { ok: true; summary: Awaited<ReturnType<typeof processRows>> }
+  | { ok: false; reason: "MISSING_SHEET_URL" }
+  | { ok: false; reason: "FETCH_FAILED"; message: string }
+  | { ok: false; reason: "NO_ROWS_PARSED" };
+
+/** Dung chung cho route POST /sync-sheet (nguoi bam tay) VA cron tu dong (xem index.ts scheduled()
+ * + SHEET_SYNC_CRON) - xem chu thich day du o ham cung ten trong routes/importGiaiTrinh.ts. */
+export async function syncNapGasFromSheet(db: D1Database, actorEmail: string): Promise<SheetSyncResult> {
+  const url = await getSheetUrl(db, "nap_gas_danh_gia_cu");
+  if (!url) return { ok: false, reason: "MISSING_SHEET_URL" };
 
   let rows: BackfillRow[];
   try {
@@ -221,7 +227,7 @@ importNapGas.post("/sync-sheet", requireRole("Admin"), async (c) => {
     // parseBackfillTsv trong lib/backfillSheetSync.ts).
     rows = parseBackfillTsv(text, SHEET_DATE_TIME_FIELDS, new Set(), COLUMN_MAP) as BackfillRow[];
   } catch (err) {
-    return c.json({ error: "FETCH_FAILED", message: (err as Error).message }, 502);
+    return { ok: false, reason: "FETCH_FAILED", message: (err as Error).message };
   }
 
   // BAO LOI RO RANG thay vi tra "thanh cong 0 dong" trong im lang khi Sheet khong parse duoc dong
@@ -229,21 +235,37 @@ importNapGas.post("/sync-sheet", requireRole("Admin"), async (c) => {
   // day chinh la loi thuc te da xay ra (2026-07-24): nguoi dung tuong da dong bo xong vi khong thay
   // bao loi gi, nhung thuc ra 0 dong nao duoc doc.
   if (rows.length === 0) {
-    return c.json({ error: "NO_ROWS_PARSED", message: "Không đọc được dòng dữ liệu nào từ Sheet - kiểm tra lại tên cột (ID, ĐÁNH GIÁ NẠP GAS, PHÍ DỊCH VỤ, NGƯỜI CHỐT, NGÀY CHỐT) và đảm bảo Sheet có dữ liệu." }, 400);
+    return { ok: false, reason: "NO_ROWS_PARSED" };
   }
 
-  const summary = await processRows(c.env.DB, rows, true);
+  const summary = await processRows(db, rows, true);
+  await logImportHistory(db, {
+    loai: "nap_gas_danh_gia_cu",
+    tenFile: "Đồng bộ đánh giá nạp gas cũ từ Google Sheet",
+    nguoiImport: actorEmail,
+    thanhCong: summary.thanhCong,
+    loi: summary.loi,
+  });
+  return { ok: true, summary };
+}
+
+// POST /api/import/nap-gas/sync-sheet - dong bo danh gia nap gas cu tu Google Sheet, chi Admin
+// (link cau hinh o Settings > sheet-urls, loai_dong_bo = 'nap_gas_danh_gia_cu'). Tu dong 3 lan/ngay
+// qua cron (xem index.ts).
+importNapGas.post("/sync-sheet", requireRole("Admin"), async (c) => {
   const user = c.get("user");
-  c.executionCtx.waitUntil(
-    logImportHistory(c.env.DB, {
-      loai: "nap_gas_danh_gia_cu",
-      tenFile: "Đồng bộ đánh giá nạp gas cũ từ Google Sheet",
-      nguoiImport: user.email,
-      thanhCong: summary.thanhCong,
-      loi: summary.loi,
-    }),
-  );
-  return c.json(summary);
+  const result = await syncNapGasFromSheet(c.env.DB, user.email);
+  if (!result.ok) {
+    if (result.reason === "MISSING_SHEET_URL") return c.json({ error: "MISSING_SHEET_URL" }, 400);
+    if (result.reason === "NO_ROWS_PARSED") {
+      return c.json(
+        { error: "NO_ROWS_PARSED", message: "Không đọc được dòng dữ liệu nào từ Sheet - kiểm tra lại tên cột (ID, ĐÁNH GIÁ NẠP GAS, PHÍ DỊCH VỤ, NGƯỜI CHỐT, NGÀY CHỐT) và đảm bảo Sheet có dữ liệu." },
+        400,
+      );
+    }
+    return c.json({ error: "FETCH_FAILED", message: result.message }, 502);
+  }
+  return c.json(result.summary);
 });
 
 export default importNapGas;

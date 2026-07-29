@@ -301,32 +301,47 @@ importKhaoSat.post("/commit", async (c) => {
   return c.json(summary);
 });
 
-// POST /api/import/khao-sat/sync-sheet - dong bo khao sat cu tu Google Sheet, chi Admin
-// (link cau hinh o Settings > sheet-urls, loai_dong_bo = 'khao_sat_cu')
-importKhaoSat.post("/sync-sheet", requireRole("Admin"), async (c) => {
-  const url = await getSheetUrl(c.env.DB, "khao_sat_cu");
-  if (!url) return c.json({ error: "MISSING_SHEET_URL" }, 400);
+export type SheetSyncResult =
+  | { ok: true; summary: Awaited<ReturnType<typeof processRows>> }
+  | { ok: false; reason: "MISSING_SHEET_URL" }
+  | { ok: false; reason: "FETCH_FAILED"; message: string };
+
+/** Dung chung cho route POST /sync-sheet (nguoi bam tay) VA cron tu dong (xem index.ts scheduled()
+ * + SHEET_SYNC_CRON) - xem chu thich day du o ham cung ten trong routes/importGiaiTrinh.ts. */
+export async function syncKhaoSatFromSheet(db: D1Database, actorEmail: string): Promise<SheetSyncResult> {
+  const url = await getSheetUrl(db, "khao_sat_cu");
+  if (!url) return { ok: false, reason: "MISSING_SHEET_URL" };
 
   let rows: BackfillRow[];
   try {
     const text = await fetchSheetText(url);
     rows = parseBackfillTsv(text, SHEET_DATE_TIME_FIELDS) as BackfillRow[];
   } catch (err) {
-    return c.json({ error: "FETCH_FAILED", message: (err as Error).message }, 502);
+    return { ok: false, reason: "FETCH_FAILED", message: (err as Error).message };
   }
 
-  const summary = await processRows(c.env.DB, rows, true);
+  const summary = await processRows(db, rows, true);
+  await logImportHistory(db, {
+    loai: "khao_sat_cu",
+    tenFile: "Đồng bộ khảo sát cũ từ Google Sheet",
+    nguoiImport: actorEmail,
+    thanhCong: summary.thanhCong,
+    loi: summary.loi,
+  });
+  return { ok: true, summary };
+}
+
+// POST /api/import/khao-sat/sync-sheet - dong bo khao sat cu tu Google Sheet, chi Admin
+// (link cau hinh o Settings > sheet-urls, loai_dong_bo = 'khao_sat_cu'). Tu dong 3 lan/ngay qua
+// cron (xem index.ts).
+importKhaoSat.post("/sync-sheet", requireRole("Admin"), async (c) => {
   const user = c.get("user");
-  c.executionCtx.waitUntil(
-    logImportHistory(c.env.DB, {
-      loai: "khao_sat_cu",
-      tenFile: "Đồng bộ khảo sát cũ từ Google Sheet",
-      nguoiImport: user.email,
-      thanhCong: summary.thanhCong,
-      loi: summary.loi,
-    }),
-  );
-  return c.json(summary);
+  const result = await syncKhaoSatFromSheet(c.env.DB, user.email);
+  if (!result.ok) {
+    if (result.reason === "MISSING_SHEET_URL") return c.json({ error: "MISSING_SHEET_URL" }, 400);
+    return c.json({ error: "FETCH_FAILED", message: result.message }, 502);
+  }
+  return c.json(result.summary);
 });
 
 export default importKhaoSat;
