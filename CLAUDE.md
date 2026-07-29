@@ -58,6 +58,12 @@ but always with `--local`, so they're safe regardless. **Never run `npm run depl
 `db:migrate:remote`** (the un-suffixed scripts) — those hit the unused legacy target. When asked to
 "deploy" with no target specified, use `deploy:smarttrade` directly.
 
+**Always bump `APP_VERSION` in `frontend/src/version.ts` by `+0.001` before every `deploy:smarttrade`**
+(e.g. `"1.055"` → `"1.056"`) — this is the version string shown in the UI footer ("Hệ thống nội bộ
+không chia sẻ dưới mọi hình thức. Phiên bản vX.XXX") and the only way anyone can tell a deploy
+actually landed. Bump by hand, not by decimal arithmetic (`0.1 + 0.001` floating-point-rounds badly
+in JS) — read the current string, increment the integer suffix, write it back as a string.
+
 ## Architecture
 
 **Stack**: Cloudflare Workers (Hono) serving both the API and the built frontend as static assets
@@ -83,14 +89,24 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via
   `loadUser.ts` and sets `user`; `requireRole.ts` gates by role; `scopeByKhuVuc.ts` builds the
   region-scoping `WHERE` clause every list/report query needs — roles in `ROLES_XEM_TOAN_BO`
-  (`types.ts`) see everything, everyone else is restricted to their assigned `khu_vuc_phu_trach`.
+  (`types.ts`: `Admin, Viewer, TBP DVBH, TBP CSKH, QC` — QC added 2026-07-29, "xem như Viewer" per
+  `HANDOFF.md`) see everything, everyone else is restricted to their assigned `khu_vuc_phu_trach`.
+  This same constant also gates `requireRole` on `routes/revenue.ts` — adding a role here grants it
+  both unrestricted region scope *and* Revenue API access, two different things bundled in one flag;
+  keep that in mind before adding another role to the list.
 - `lib/` — shared business logic, not framework code. Notable ones:
   - `ratchet.ts` — column mapping (Vietnamese Excel headers → DB columns) and the one-way "ratchet"
     rule for the 4 violation-flag columns: once `true` in DB, an import can never flip it back to
     `false`. This is a direct port of the original Node/pg `import.js` (kept in repo root for
     reference, not used at runtime).
-  - `importProcessor.ts` — the 4-branch decision per imported row (new / no-op / timestamp-only
-    update / real overwrite) described in `HANDOFF.md`.
+  - `importProcessor.ts` — the 3-branch decision per imported row (`GHI_MOI` new / `BO_QUA` no-op /
+    `GHI_DE` real overwrite). Change detection compares `crm_hash` (SHA-256 of `BUSINESS_FIELDS`,
+    see `ratchet.ts computeCrmHash`) instead of `SELECT *` + field-by-field diff — a 4th branch that
+    used to fire a no-op "seen today" write for open cases with zero data change (`CAP_NHAT_MOC_
+    THOI_GIAN`) was removed 2026-07-28 (business decision: not needed). Legacy rows with `crm_hash
+    IS NULL` self-heal on next touch; run `POST /api/import/backfill-crm-hash` (Admin, paginated,
+    loop until `remaining: 0`) once after deploying this feature to a DB that predates it, or the
+    next import will treat every untouched row as "changed" in one batch.
   - `ageCalc.ts` — case age is computed against a fixed "00:00 Vietnam time" anchor
     (`AGE_ANCHOR`), not `datetime('now')` directly — D1's `datetime('now')` is UTC and must be
     shifted `+7 hours` first. All `thoi_gian_*` columns are stored as Vietnam **local** wall-clock
@@ -122,8 +138,44 @@ Read-heavy report/stat endpoints don't query source tables live on every request
    comment block at the top of `dataVersions.ts` before adding a new bump site.
 
 This system exists because of a real production incident: live-computed stats were reading ~5.7M
-rows/hour before caching. D1 has a 5M-rows-read/day soft budget — see `KE_HOACH_TOI_UU_D1.md` for
-the full cost audit and remaining optimization stages if query costs come up again.
+rows/hour before caching. D1 has a 5M-rows-read/day soft budget on the Free plan — see
+`KE_HOACH_TOI_UU_D1.md` for the full cost audit and remaining optimization stages if query costs
+come up again.
+
+#### D1 read-budget discipline: how "rows read/written" are actually counted
+
+Before proposing a D1 query optimization, know what actually moves the billed number
+([source](https://developers.cloudflare.com/d1/platform/pricing/)):
+
+- **Billing is per row scanned, not per column, and not per byte.** `SELECT *` vs `SELECT id` on
+  the same matched rows costs the *same* `rows_read` — column count/row size never affects the
+  count. Narrowing a `SELECT` list only saves bytes transferred (Worker↔D1 latency/CPU), not the
+  metered `rows_read` figure. Don't justify a `SELECT *` → narrow-projection change by "fewer rows
+  read" — it isn't; justify it by "less to transfer" or "simpler comparison logic" if that's the
+  real reason.
+- **`rows_read` counts rows *scanned* to answer the query, not rows returned.** A `WHERE` on an
+  unindexed column still has to scan every candidate row to decide which to keep, even if the
+  result set is tiny — e.g. `computeDashboardFilters()`'s 7 `SELECT DISTINCT` calls
+  (`routes/dashboard.ts`) each scan the full `case_dvbh` table because most of those dims aren't
+  indexed, regardless of how few distinct values come back. A `WHERE id IN (...)` lookup (primary
+  key) is the opposite case: it's a direct index seek, one row read per matched `id`, and narrowing
+  the column list changes nothing about that count.
+- **`rows_written` counts one row for the base table plus one more per index that the write's
+  changed columns touch.** Updating an indexed column costs 2+ "rows written" (table + each index),
+  not 1 — this is why `KE_HOACH_TOI_UU_D1.md` Giai đoạn 4 treats adding new dim indexes as a
+  tradeoff to measure, not a free win, and it's real leverage for reducing writes: cutting an
+  unnecessary `UPDATE` (e.g. the removed `CAP_NHAT_MOC_THOI_GIAN` branch, see `importProcessor.ts`
+  above) saves more than trimming that same write's column list ever would.
+- **Practical implication:** the actual lever for cutting `rows_read` is reducing *rows scanned*
+  (a matching index, or a narrower `WHERE`/`IN` set) — not reducing columns selected. The lever for
+  cutting `rows_written` is reducing *how many rows get written at all* (skip no-op writes) and
+  *how many indexes a hot column touches* — not the payload size of the write.
+- **Free vs Paid plan, for scale context:** Free = 5M rows-read/day hard cap (queries fail past it),
+  100k rows-written/day hard cap. Workers Paid ($5/mo base, a specific dashboard subscription
+  distinct from just having a card on file for R2 pay-as-you-go) = 25 **billion** rows-read/month
+  included (≈833M/day-equivalent) + $0.001/million overage, 50 million rows-written/month included
+  + $1/million overage — no hard cap, metered instead. Check current plan status in the Cloudflare
+  dashboard (Workers & Pages → Plans) before treating the 5M/day figure as the live constraint.
 
 #### R2 usage rules (important — ask before changing)
 
