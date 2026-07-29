@@ -43,6 +43,7 @@ export interface CaseRow {
   loi_lo_ke_hoach: number;
   loi_kh_hen_lai: number;
   nghi_ngo_nap_gas: number;
+  nghi_ngo_tranh_chap: number;
   last_ly_do_cham?: string | null;
   last_ngay_giai_trinh?: string | null;
   last_ngay_du_kien_hoan_thanh?: string | null;

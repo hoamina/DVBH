@@ -21,7 +21,7 @@ export const BUSINESS_FIELDS = [
 ] as const;
 
 export const VIOLATION_FIELDS = [
-  "loi_120p", "loi_qua_han_24h", "loi_lo_ke_hoach", "loi_kh_hen_lai", "nghi_ngo_nap_gas",
+  "loi_120p", "loi_qua_han_24h", "loi_lo_ke_hoach", "loi_kh_hen_lai", "nghi_ngo_nap_gas", "nghi_ngo_tranh_chap",
 ] as const;
 
 // Ten cot Excel (tieng Viet co dau) -> ten cot chuan hoa trong DB
@@ -70,6 +70,7 @@ export const COLUMN_MAP: Record<string, string> = {
   "Lỗi lỡ kế hoạch": "loi_lo_ke_hoach",
   "Lỗi KH hẹn lại": "loi_kh_hen_lai",
   "Nghi ngờ nạp gas": "nghi_ngo_nap_gas",
+  "Nghi ngờ tranh chấp": "nghi_ngo_tranh_chap",
 };
 
 export function normalizeViolationFlag(rawValue: unknown): boolean {

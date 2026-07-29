@@ -49,6 +49,7 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   loi_lo_ke_hoach: "Lỗi lỡ kế hoạch",
   loi_kh_hen_lai: "KH hẹn lại",
   nghi_ngo_nap_gas: "Nghi ngờ nạp gas",
+  nghi_ngo_tranh_chap: "Nghi ngờ tranh chấp",
   last_ly_do_cham: "Lý do tồn gần nhất",
   last_ngay_giai_trinh: "Ngày giải trình gần nhất",
   last_ngay_du_kien_hoan_thanh: "Ngày dự kiến hoàn thành gần nhất",

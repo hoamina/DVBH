@@ -25,25 +25,23 @@ function scopeTranhChap(c: Context<{ Bindings: Env }>): string[] | null {
   return scopeByKhuVuc(c);
 }
 
-// "Thuoc tranh chap" - CHOT 2026-07-24: CHI con 1 nguon duy nhat la case_dvbh.ly_do_qua_han (cot
-// import, CRM dien khi DONG ca) thuoc nhom thuoc_tranh_chap=1 trong settings_ly_do - BO HOAN TOAN
-// nguon giai_trinh (truoc day ket hop OR voi ly do cham cua giai_trinh moi nhat) vi giai_trinh la 1
-// LOG DONG (bat ky vai tro co quyen giai trinh nao cung sua duoc bat ky luc nao), khien danh sach
-// tranh chap co the doi ma KHONG can co import CRM moi - trai voi nguyen tac "danh sach chi doi khi
-// co import moi" ap dung dong nhat voi module Danh gia nap gas (xem backend/src/routes/napGas.ts).
-// Ket hop dieu kien CHI ca DA DONG (Hoan thanh XLSC hoac Khong hoan thanh XLSC - dung 2 gia tri
-// tien_do_hoan_thanh "da dong" giong dashboard.ts) - tranh chap khong con khai niem "dang ton" nua.
-const TRANH_CHAP_ELIGIBLE = `sld2.id IS NOT NULL AND c.tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC')`;
+// "Thuoc tranh chap" - CHOT 2026-07-29: doc truc tiep cot case_dvbh.nghi_ngo_tranh_chap (cot import,
+// CRM dien khi DONG ca, ratchet 1 chieu giong nghi_ngo_nap_gas - xem VIOLATION_FIELDS trong
+// lib/ratchet.ts va migration 0034_nghi_ngo_tranh_chap.sql). THAY THE HOAN TOAN logic cu dua vao
+// settings_ly_do.thuoc_tranh_chap qua JOIN voi ly_do_qua_han (chot 2026-07-24, xem migration
+// 0023_tranh_chap.sql) - logic cu KHONG con duoc dung, cot/toggle "Thuoc tranh chap" trong Settings
+// van con trong DB nhung tro thanh du lieu chet. Ly do doi: nguon 1 cot true/false CRM tra ve truc
+// tiep don gian, dang tin cay hon viec phai khop ten "ly do qua han" voi danh muc cau hinh rieng.
+// Van giu dieu kien CHI ca DA DONG (Hoan thanh XLSC hoac Khong hoan thanh XLSC - dung 2 gia tri
+// tien_do_hoan_thanh "da dong" giong dashboard.ts) - tranh chap khong co khai niem "dang ton".
+const TRANH_CHAP_ELIGIBLE = `c.nghi_ngo_tranh_chap = 1 AND c.tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC')`;
 
 // lg (latestGiaiTrinhJoin) o day CHI dung de hien thi trang thai "da/chua giai trinh" (co the co tu
-// LUC CA CON DANG MO, truoc khi dong) - KHONG con anh huong TRANH_CHAP_ELIGIBLE (xem giai thich o
-// tren). "caseFilterSql" gioi han subquery latestGiaiTrinhJoin - dung CASE_FILTER_DA_DONG_RANGE vi
-// pham vi cau hoi luon la "ca da dong trong 1 khoang thoi gian", giong nguyen ban truoc day.
+// LUC CA CON DANG MO, truoc khi dong) - khong anh huong TRANH_CHAP_ELIGIBLE. "caseFilterSql" gioi
+// han subquery latestGiaiTrinhJoin - dung CASE_FILTER_DA_DONG_RANGE vi pham vi cau hoi luon la "ca
+// da dong trong 1 khoang thoi gian". Khong con JOIN settings_ly_do (xem TRANH_CHAP_ELIGIBLE o tren).
 function baseJoin(caseFilterSql: string): string {
-  return `
-  LEFT JOIN settings_ly_do sld2 ON sld2.ten_ly_do = c.ly_do_qua_han AND sld2.thuoc_tranh_chap = 1
-  ${latestGiaiTrinhJoin(caseFilterSql)}
-`;
+  return latestGiaiTrinhJoin(caseFilterSql);
 }
 
 // "last_ly_do_cham" gio la c.ly_do_qua_han truc tiep (nguon DUY NHAT xac dinh tranh chap) - khong
@@ -144,8 +142,9 @@ export async function computeTranhChapByKhuVuc(db: D1Database, params: TranhChap
 
 // GET /api/tranh-chap/by-khu-vuc?dim=&khu_vuc=&thang= - bao cao ca tranh chap DA DONG trong 1
 // thang, nhom theo 1 cot bat ky trong REPORT_DIMS (mac dinh khu_vuc). Boc qua cachedReport (xem
-// lib/reportCache.ts) - domain "cases"+"giai_trinh"+"settings" (giai_trinh anh huong cot
-// da_giai_trinh/chua_giai_trinh, settings anh huong TRANH_CHAP_ELIGIBLE qua thuoc_tranh_chap).
+// lib/reportCache.ts) - domain "cases"+"giai_trinh" (giai_trinh anh huong cot da_giai_trinh/
+// chua_giai_trinh qua latestGiaiTrinhJoin). KHONG con "settings" tu 2026-07-29 - TRANH_CHAP_ELIGIBLE
+// gio doc thang c.nghi_ngo_tranh_chap, khong con JOIN settings_ly_do nua.
 tranhChap.get("/by-khu-vuc", async (c) => {
   const dimKey = c.req.query("dim") ?? "khu_vuc";
   if (!REPORT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
@@ -153,7 +152,7 @@ tranhChap.get("/by-khu-vuc", async (c) => {
   const scope = scopeTranhChap(c);
   const params: TranhChapByKhuVucParams = { dim: dimKey, khu_vuc: c.req.query("khu_vuc"), thang: c.req.query("thang") };
   const key = buildReportKey("tranh-chap/by-khu-vuc", params, scope);
-  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "settings"], () => computeTranhChapByKhuVuc(c.env.DB, params, scope));
+  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh"], () => computeTranhChapByKhuVuc(c.env.DB, params, scope));
   return c.json(data);
 });
 
