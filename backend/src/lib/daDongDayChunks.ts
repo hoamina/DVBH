@@ -2,10 +2,14 @@
  * Snapshot "ca da dong" tren R2, chia theo TUNG NGAY (khong phai ca thang) - xem
  * KE_HOACH_TOI_UU_D1.md + memory r2-json-write-trigger-rule.md. Nguyen tac chot voi chu he thong:
  *
- * 1. CHI duoc ghi/ghi de JSON len R2 tu recomputeDaDongDayChunks(), goi DUY NHAT tu
- *    scheduleCaLapRefreshIfChanged() (routes/importRoute.ts) sau khi import commit/sync-sheet co
- *    GHI_MOI+GHI_DE>0. KHONG duoc them compute-on-miss hay bat ky trigger nao khac ghi R2 o day -
- *    phai hoi chu he thong truoc (xem memory).
+ * 1. CHI duoc ghi/ghi de JSON len R2 qua recomputeDaDongDayChunks() - co 2 DIEM GOI duoc chot voi
+ *    chu he thong (khong duoc them diem thu 3 ma khong hoi truoc):
+ *      a. scheduleCaLapRefreshIfChanged() (routes/importRoute.ts) sau khi import commit/sync-sheet
+ *         co GHI_MOI+GHI_DE>0 - diem goi CHINH, chay ngay sau khi biet chac ngay nao bi anh huong.
+ *      b. selfHealDaDongDayChunks() (cuoi file nay) - luoi an toan du phong, chot 2026-07-29: goi
+ *         tu cron hang gio (index.ts CA_LAP_REFRESH_CRON) de bat lai truong hop diem (a) lo mat 1
+ *         lan (vd 1 tac vu nen khac trong cung dot loi/ngop tai nguyen, xem bg_error 2026-07-29) ma
+ *         ngay bi anh huong sau do khong con bi dong tiep nen khong bao gio duoc tu dong bat lai.
  * 2. Moi file/ngay co hash SHA-256 luu trong da_dong_chunk_manifest (migration 0029) - client so
  *    hash cua minh voi hash server de biet ngay nao can tai lai.
  * 3. Rate-limit tai chunk theo tung file/ngay rieng - xem lib/r2DownloadRateLimit.ts, ap dung o
@@ -21,6 +25,7 @@
  */
 import type { Env } from "../types";
 import { cachedReport, buildReportKey } from "./reportCache";
+import { nowVN } from "./vnTime";
 
 interface DaDongManifestEntry {
   hash: string;
@@ -168,4 +173,79 @@ export async function getDaDongReasons(db: D1Database, thang: string, start: str
 export async function getThieuLinhKienLyDoList(db: D1Database): Promise<string[]> {
   const { results } = await db.prepare("SELECT ten_ly_do FROM settings_ly_do WHERE thuoc_thieu_linh_kien = 1").all<{ ten_ly_do: string }>();
   return results.map((r) => r.ten_ly_do);
+}
+
+// ---------- Self-healing (luoi an toan du phong cho diem ghi R2 chinh o importRoute.ts) ----------
+
+// Dung chung 1 dong trong content_versions (bang co san, cung co che voi CA_LAP_SOURCE_MARKER_KEY o
+// lib/caLapRefresh.ts) - "hash" cua dong nay KHONG phai SHA-256 ma la chuoi MAX(updated_at) tho, chi
+// de so sanh bang (==) giua 2 lan chay.
+const SELF_HEAL_MARKER_KEY = "da-dong-self-heal-max-updated";
+
+// Di qua idx_case_updated_at_closed (migration 0018, dung chung voi caLapRefresh.ts) - doc index,
+// KHONG quet toan bang.
+async function getClosedCaseMaxUpdated(db: D1Database): Promise<string | null> {
+  const row = await db
+    .prepare(`SELECT MAX(updated_at) as max_updated FROM case_dvbh WHERE thoi_gian_hoan_thanh IS NOT NULL`)
+    .first<{ max_updated: string | null }>();
+  return row?.max_updated ?? null;
+}
+
+async function readSelfHealMarker(db: D1Database): Promise<string | null> {
+  const row = await db.prepare("SELECT hash FROM content_versions WHERE ten_bang = ?").bind(SELF_HEAL_MARKER_KEY).first<{ hash: string }>();
+  return row?.hash ?? null;
+}
+
+async function writeSelfHealMarker(db: D1Database, value: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO content_versions (ten_bang, hash, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(ten_bang) DO UPDATE SET hash = excluded.hash, updated_at = excluded.updated_at`,
+    )
+    .bind(SELF_HEAL_MARKER_KEY, value, nowVN())
+    .run();
+}
+
+/**
+ * Tu do + tu va (self-healing) cho snapshot R2 "ca da dong" - goi tu cron hang gio (index.ts
+ * CA_LAP_REFRESH_CRON), KHONG phai diem ghi R2 moi (van goi lai dung recomputeDaDongDayChunks() da
+ * co, xem nguyen tac o dau file). Muc dich: bat lai truong hop diem ghi CHINH (sau import) lo mat 1
+ * lan vi ly do gi do, ma ngay bi anh huong sau do khong con bi dong tiep nen se bi ket qua sai VINH
+ * VIEN neu khong co luoi an toan nay (xem thao luan 2026-07-29).
+ *
+ * Chi phi 2 tang, KHONG quet toan bo case_dvbh:
+ *  1. So sanh 1 gia tri MAX(updated_at) (qua index, ~1 dong doc) voi marker luu tu lan chay truoc -
+ *     giong het khong doi thi dung ngay, khong doc gi them.
+ *  2. Chi khi CO doi: doc DANH SACH NGAY co dong THAT SU bi sua ke tu marker cu (van qua index tren,
+ *     WHERE updated_at > marker - chi cac dong vua doi, khong phai toan bo ca da dong).
+ * Ket qua buoc 2 duoc truyen vao recomputeDaDongDayChunks() nhu binh thuong - ham do da co san co
+ * che "so hash, giong thi bo qua khong ghi R2 thua" nen goi lai an toan du noi dung khong doi that.
+ */
+export async function selfHealDaDongDayChunks(env: Env): Promise<{ checked: boolean; healedDates: string[] }> {
+  const db = env.DB;
+  const currentMax = await getClosedCaseMaxUpdated(db);
+  if (currentMax === null) return { checked: true, healedDates: [] }; // chua co ca nao dong
+
+  const marker = await readSelfHealMarker(db);
+  if (marker !== null && marker === currentMax) {
+    return { checked: false, healedDates: [] }; // khong co gi doi tu lan kiem tra truoc - dung ngay
+  }
+
+  // marker=null (lan dau chay) se doc toan bo ca da dong 1 LAN DUY NHAT de khoi tao trang thai ban
+  // dau - cac lan sau chi doc phan thay doi. Chap nhan duoc vi day la chi phi 1 lan, khong lap lai.
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT date(thoi_gian_hoan_thanh) as ngay FROM case_dvbh
+       WHERE thoi_gian_hoan_thanh IS NOT NULL AND updated_at > ?`,
+    )
+    .bind(marker ?? "0000-00-00")
+    .all<{ ngay: string }>();
+
+  const dates = results.map((r) => r.ngay).filter((d): d is string => !!d && d.length === 10);
+  if (dates.length > 0) {
+    await recomputeDaDongDayChunks(env, dates);
+  }
+
+  await writeSelfHealMarker(db, currentMax);
+  return { checked: true, healedDates: dates };
 }

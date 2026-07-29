@@ -20,6 +20,7 @@ import notificationsRoutes from "./routes/notifications";
 import greetingRoutes from "./routes/greeting";
 import caLapRoutes from "./routes/caLap";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
+import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
 import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
 import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
@@ -93,8 +94,17 @@ export default {
       // Guard: chi thuc su recompute (full - luoi an toan) khi du lieu nguon THAT SU doi ke tu lan
       // refresh truoc (xem shouldSkipCronRefresh o caLapRefresh.ts) - tranh quet toan bang moi gio
       // du khong co import/dong bo/sua ca nao xay ra trong khung gio do.
-      if (await shouldSkipCronRefresh(env.DB)) return;
-      await refreshCaLapPrecompute(env.DB);
+      if (!(await shouldSkipCronRefresh(env.DB))) {
+        await refreshCaLapPrecompute(env.DB);
+      }
+      // Tu do + tu va snapshot R2 "ca da dong" (xem lib/daDongDayChunks.ts selfHealDaDongDayChunks)
+      // - doc lap voi ca lap, boc rieng try/catch de 1 ben loi khong chan ben con lai (dung nguyen
+      // tac voi runBgTask o importRoute.ts). Rat re khi khong co gi doi (xem chu thich trong ham).
+      try {
+        await selfHealDaDongDayChunks(env);
+      } catch (err) {
+        console.error("[self-heal] da-dong-day-chunks loi:", err instanceof Error ? err.message : String(err));
+      }
       return;
     }
 
