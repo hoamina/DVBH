@@ -25,7 +25,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "backlog", label: "Quản lý tồn", icon: "◫", countKey: "backlog" },
       { key: "missing-parts", label: "Ca thiếu linh kiện", icon: "⬒", countKey: "missingParts" },
-      { key: "tranh-chap", label: "Tranh chấp, khiếu nại", icon: "⚖", countKey: "tranhChap" },
+      { key: "tranh-chap", label: "Tranh chấp, KN", icon: "⚖", countKey: "tranhChap" },
       { key: "nap-gas", label: "Đánh giá nạp gas", icon: "🛢", countKey: "napGas" },
       { key: "survey", label: "Quản lý khảo sát", icon: "◐", countKey: "survey" },
       { key: "ca-lap", label: "Ca lặp", icon: "🔁", countKey: "caLap" },
@@ -71,7 +71,7 @@ export const MODULE_TITLES: Record<string, string> = {
   revenue: "Báo cáo doanh thu",
   backlog: "Quản lý tồn",
   "missing-parts": "Ca thiếu linh kiện",
-  "tranh-chap": "Tranh chấp, khiếu nại",
+  "tranh-chap": "Tranh chấp, KN",
   "nap-gas": "Đánh giá nạp gas",
   survey: "Quản lý khảo sát",
   "ca-lap": "Ca lặp",

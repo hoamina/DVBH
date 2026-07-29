@@ -16,7 +16,20 @@ interface DailyReport {
   doanhThuThang: number;
 }
 
-function GlobalSearch({ onFound }: { onFound: (id: string | null) => void }) {
+// "className" tuy chinh do rong/hien-an tu noi goi - dung LAI 1 component cho ca 2 ngu canh: o
+// tim kiem gon trong header desktop/tablet (md+), VA o tim kiem bung rong het chieu ngang khi
+// nguoi dung tren dien thoai bam icon 🔍 rieng de mo (xem TopBar ben duoi).
+function GlobalSearch({
+  onFound,
+  onSubmitted,
+  autoFocus,
+  className = "w-40 lg:w-52",
+}: {
+  onFound: (id: string | null) => void;
+  onSubmitted?: () => void;
+  autoFocus?: boolean;
+  className?: string;
+}) {
   const [q, setQ] = useState("");
 
   async function submit(e: React.FormEvent) {
@@ -29,12 +42,14 @@ function GlobalSearch({ onFound }: { onFound: (id: string | null) => void }) {
     } catch {
       onFound(null);
     }
+    onSubmitted?.();
   }
 
   return (
-    <form onSubmit={submit} className="relative w-40 sm:w-52 shrink-0 hidden sm:block">
+    <form onSubmit={submit} className={`relative shrink-0 ${className}`}>
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)] text-sm">🔍</span>
       <input
+        autoFocus={autoFocus}
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Tra cứu ID/Serial…"
@@ -59,6 +74,13 @@ export function TopBar({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Duoi 768px (md - khop nguong "mobile" cua useIsMobile()/Sidebar), o tim kiem + loi chao AN
+  // HAN (khong du cho, xem GlobalSearch/Greeting) - thay bang 1 icon 🔍 rieng, bam vao moi bung
+  // ra o nhap FULL WIDTH thay cho toan bo phan con lai cua header (tranh mat han tinh nang tim
+  // kiem tren dien thoai, chot 2026-07-30 sau khi phat hien o tim kiem/loi chao dung 2 nguong
+  // response khac nhau (sm/lg) gay canh "o tim kiem hien le loi, loi chao bien mat" tren man hinh
+  // trung gian 640-1024px).
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   // 5 phut (truoc la 60s) - /notifications/count chua truy van CA_LAP_CTE (window function LAG()
   // quet toan bo lich su case_dvbh, khong dung duoc index de rut gon), poll qua day khi cong don
@@ -104,12 +126,43 @@ export function TopBar({
 
   const displayName = user.ten || user.email;
 
+  if (mobileSearchOpen) {
+    return (
+      <header className="h-16 bg-[var(--topbar-bg)] border-b border-[var(--line)] flex items-center gap-2 px-5 sticky top-0 z-30">
+        <button
+          onClick={() => setMobileSearchOpen(false)}
+          className="focus-ring w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--ink-600)] shrink-0"
+          aria-label="Đóng tìm kiếm"
+        >
+          ←
+        </button>
+        <GlobalSearch
+          onFound={(id) => {
+            onSearch(id);
+            setMobileSearchOpen(false);
+          }}
+          onSubmitted={() => setMobileSearchOpen(false)}
+          autoFocus
+          className="flex-1"
+        />
+      </header>
+    );
+  }
+
   return (
     <header className="h-16 bg-[var(--topbar-bg)] border-b border-[var(--line)] flex items-center gap-4 px-5 sticky top-0 z-30">
-      <button onClick={onOpenMobileMenu} className="focus-ring md:hidden w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--ink-600)]">
+      <button onClick={onOpenMobileMenu} className="focus-ring md:hidden w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--ink-600)] shrink-0">
         ☰
       </button>
-      <GlobalSearch onFound={onSearch} />
+      <button
+        onClick={() => setMobileSearchOpen(true)}
+        className="focus-ring md:hidden w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--ink-600)] shrink-0"
+        aria-label="Tra cứu ID/Serial"
+        title="Tra cứu ID/Serial"
+      >
+        🔍
+      </button>
+      <GlobalSearch onFound={onSearch} className="hidden md:block w-40 lg:w-52" />
       <Greeting />
       <div className="ml-auto flex items-center gap-3">
         <button onClick={() => goTo("giao-dien")} className="focus-ring w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-base" title="Đổi giao diện">

@@ -778,15 +778,15 @@ export function CaseDetail({
           { key: "giai-trinh", label: "Giải trình tồn", count: giaiTrinhList.length },
           { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
-          ...(napGasEligible ? [{ key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 }] : []),
-          ...(tranhChapEligible ? [{ key: "tranh-chap", label: "Tranh chấp, khiếu nại", count: tienTrinhListForCase.length }] : []),
+          { key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 },
+          { key: "tranh-chap", label: "Tranh chấp, KN", count: tienTrinhListForCase.length },
         ]
       : [
           { key: "giai-trinh", label: "Giải trình tồn", count: giaiTrinhList.length },
           { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
-          ...(napGasEligible ? [{ key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 }] : []),
-          ...(tranhChapEligible ? [{ key: "tranh-chap", label: "Tranh chấp, khiếu nại", count: tienTrinhListForCase.length }] : []),
+          { key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 },
+          { key: "tranh-chap", label: "Tranh chấp, KN", count: tienTrinhListForCase.length },
         ];
 
   const viewModeToggle = (

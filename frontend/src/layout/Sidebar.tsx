@@ -89,10 +89,13 @@ export function Sidebar({
                   >
                     <span className="w-6 text-center text-base">{it.icon}</span>
                     {(!collapsed || isMobile) && (
-                      <span className="truncate flex-1 text-left">
-                        {it.label}
-                        {count > 0 && <span className="text-[var(--sidebar-ink-dim)] font-medium"> ({count})</span>}
-                      </span>
+                      <>
+                        {/* "truncate" chi ap dung cho ten module - so dem (x123) tach rieng "shrink-0"
+                            de KHONG BAO GIO bi cat mat du ten module dai den dau (fix loi cu: so dem
+                            nam chung 1 span voi ten nen bi an theo khi truncate kich hoat). */}
+                        <span className="truncate flex-1 text-left min-w-0">{it.label}</span>
+                        {count > 0 && <span className="shrink-0 text-xs text-[var(--sidebar-ink-dim)] font-medium">({count})</span>}
+                      </>
                     )}
                   </button>
                 );

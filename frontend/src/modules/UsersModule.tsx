@@ -273,7 +273,7 @@ function EditUserModal({
             <span className="font-semibold">Là KSNB Đối tác</span>
           </label>
           <div className="text-xs text-[var(--ink-400)] mt-1">
-            Được xem toàn bộ + ghi log xử lý tranh chấp (module "Tranh chấp, khiếu nại"), độc lập với vai trò ở trên.
+            Được xem toàn bộ + ghi log xử lý tranh chấp (module "Tranh chấp, KN"), độc lập với vai trò ở trên.
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-1">

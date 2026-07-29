@@ -304,7 +304,7 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh mục phân loại dùng khi KSNB Đối tác "Tiếp nhận" 1 ca tranh chấp (module <b>Tranh chấp, khiếu nại</b>).
+              Danh mục phân loại dùng khi KSNB Đối tác "Tiếp nhận" 1 ca tranh chấp (module <b>Tranh chấp, KN</b>).
             </div>
             <Btn size="sm" onClick={() => setAddPhanLoaiOpen(true)}>
               + Thêm phân loại
@@ -329,7 +329,7 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh mục "Kết quả xử lý" bắt buộc chọn khi đóng 1 tiến trình tranh chấp với trạng thái "Đã kết thúc tranh chấp" (module <b>Tranh chấp, khiếu nại</b>).
+              Danh mục "Kết quả xử lý" bắt buộc chọn khi đóng 1 tiến trình tranh chấp với trạng thái "Đã kết thúc tranh chấp" (module <b>Tranh chấp, KN</b>).
             </div>
             <Btn size="sm" onClick={() => setAddKetQuaOpen(true)}>
               + Thêm kết quả

@@ -5,9 +5,8 @@ import { Badge } from "../components/ui/Badge";
 import { StatCard } from "../components/ui/StatCard";
 import { Tabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Select";
-import { Modal } from "../components/ui/Modal";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
-import { TiepNhanModal, TienTrinhPanel } from "../components/TienTrinhPanel";
+import { TiepNhanModal } from "../components/TienTrinhPanel";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, type Paged } from "../types";
@@ -28,7 +27,6 @@ import {
   type ChoXuLyCase,
   type TienTrinhRow,
   type PhanLoaiTranhChapRow,
-  type KetQuaXuLyTranhChapRow,
 } from "../lib/tranhChapShared";
 
 interface TienTrinhStats {
@@ -44,7 +42,7 @@ const VIEWS = [
   { key: "tien-trinh", label: "Quản lý tiến trình" },
 ];
 
-export function TranhChapModule({ openCase }: { openCase: (id: string) => void }) {
+export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const user = auth.status === "authenticated" ? auth.user : null;
   const myAreas = user?.khu_vuc_phu_trach ?? [];
@@ -64,7 +62,6 @@ export function TranhChapModule({ openCase }: { openCase: (id: string) => void }
   const [ttCuaToi, setTtCuaToi] = useState(false);
 
   const [tiepNhanCase, setTiepNhanCase] = useState<ChoXuLyCase | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
 
   const { data: khuVucOptions } = useQuery({
     queryKey: ["dashboard-filters"],
@@ -73,10 +70,6 @@ export function TranhChapModule({ openCase }: { openCase: (id: string) => void }
   const { data: phanLoaiOptions } = useQuery({
     queryKey: ["settings-phan-loai-tranh-chap"],
     queryFn: () => api.get<{ rows: PhanLoaiTranhChapRow[] }>("/settings/phan-loai-tranh-chap"),
-  });
-  const { data: ketQuaOptions } = useQuery({
-    queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
-    queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
   });
 
   const khuVucSelectOptions = [
@@ -134,7 +127,13 @@ export function TranhChapModule({ openCase }: { openCase: (id: string) => void }
       className: "text-right",
       render: (c) =>
         !user || canWriteTranhChap(user, c.khu_vuc) ? (
-          <Btn size="sm" onClick={() => setTiepNhanCase(c)}>
+          <Btn
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTiepNhanCase(c);
+            }}
+          >
             Tiếp nhận xử lý
           </Btn>
         ) : (
@@ -175,21 +174,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string) => void }
 
   const tienTrinhColumns: Column<TienTrinhRow>[] = [
     { key: "id", header: "Tiến trình", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
-    {
-      key: "case_id",
-      header: "Ca sự vụ",
-      render: (r) => (
-        <button
-          className="font-mono text-xs text-[var(--ocean-600)] hover:underline"
-          onClick={(e) => {
-            e.stopPropagation();
-            openCase(r.case_id);
-          }}
-        >
-          {r.case_id}
-        </button>
-      ),
-    },
+    { key: "case_id", header: "Ca sự vụ", render: (r) => <span className="font-mono text-xs text-[var(--ocean-600)]">{r.case_id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
     { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
     { key: "phan_loai", header: "Phân loại", render: (r) => <Badge tone="gray">{r.phan_loai_tranh_chap}</Badge> },
@@ -238,6 +223,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string) => void }
             pageSize={10}
             total={choXuLy?.total ?? 0}
             onPageChange={setPage}
+            onRowClick={(c) => openCase(c.id, "tranh-chap")}
             rowKey={(c) => c.id}
             emptyText="Không có ca nào đang chờ xử lý tranh chấp."
           />
@@ -292,7 +278,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string) => void }
             pageSize={10}
             total={ttData?.total ?? 0}
             onPageChange={setTtPage}
-            onRowClick={(r) => setDetailId(r.id)}
+            onRowClick={(r) => openCase(r.case_id, "tranh-chap")}
             rowKey={(r) => r.id}
             emptyText="Không có tiến trình nào khớp bộ lọc."
           />
@@ -307,18 +293,6 @@ export function TranhChapModule({ openCase }: { openCase: (id: string) => void }
           onSubmit={(body) => tiepNhan.mutate(body)}
           isPending={tiepNhan.isPending}
         />
-      )}
-
-      {detailId && (
-        <Modal open onClose={() => setDetailId(null)} title={`Tiến trình ${detailId}`} width="max-w-2xl">
-          <TienTrinhPanel
-            id={detailId}
-            currentUser={user}
-            phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
-            ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []}
-            onOpenCase={openCase}
-          />
-        </Modal>
       )}
     </div>
   );

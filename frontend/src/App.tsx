@@ -116,20 +116,26 @@ function MainApp({
 
   // Tab dau tien phu hop cho tung viewMode - "info" chi ton tai o "compact" (giu dung tab cu),
   // "expanded" khong co tab info rieng vi cot trai da ghim san thong tin khach hang.
+  // "tranh-chap" them 2026-07-29 (tab moi trong CaseDetail.tsx) - PHAI co mat o day, thieu se lam
+  // pushCase()/setTopViewMode() tuong nham la tab khong hop le va tu dong reset ve FIRST_TAB moi khi
+  // dieu huong ca lien quan hoac doi che do xem, mat tab dang xem cua nguoi dung.
   const FIRST_TAB: Record<"compact" | "expanded", string> = { compact: "info", expanded: "giai-trinh" };
   const VALID_TABS: Record<"compact" | "expanded", string[]> = {
-    compact: ["info", "giai-trinh", "vi-pham", "ca-lap", "nap-gas"],
-    expanded: ["giai-trinh", "vi-pham", "ca-lap", "nap-gas"],
+    compact: ["info", "giai-trinh", "vi-pham", "ca-lap", "nap-gas", "tranh-chap"],
+    expanded: ["giai-trinh", "vi-pham", "ca-lap", "nap-gas", "tranh-chap"],
   };
 
   // openCase() bat dau phien MOI (reset stack) - dung cho moi noi mo ca tu 1 danh sach/tim kiem.
+  // "tab" tuy chon (vd module Tranh chap goi openCase(id, "tranh-chap") de mo thang vao dung tab
+  // lien quan thay vi tab mac dinh) - rot lai FIRST_TAB.expanded neu khong truyen hoac gia tri la.
   // pushCase() chi dung TU BEN TRONG popup (vd: bam vao ca lien quan trong chuoi lich su Ca lap)
   // de giu lai lich su cho nut "Quay lai" - LUON mo ca duoc tro toi o "expanded" (de nguoi kiem
   // soat thay chi tiet day du ngay), ke ca khi dang dung "compact" o tang truoc - popCase() vi vay
   // se tu phuc hoi dung "compact" da luu rieng cho tang truoc do. popCase()/backToRoot()/closeCase()
   // dieu khien nut Quay lai / shortcut ve ca goc / dong han popup.
-  function openCase(id: string) {
-    setCaseStack([{ id, viewMode: "expanded", tab: FIRST_TAB.expanded }]);
+  function openCase(id: string, tab?: string) {
+    const validTab = tab && VALID_TABS.expanded.includes(tab) ? tab : FIRST_TAB.expanded;
+    setCaseStack([{ id, viewMode: "expanded", tab: validTab }]);
   }
   function pushCase(id: string) {
     setCaseStack((s) => {

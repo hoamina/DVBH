@@ -92,11 +92,31 @@ export function TiepNhanModal({
   );
 }
 
+const MUC_DO_ACCENT: Record<string, string> = { "Binh thuong": "var(--line)", Cao: "var(--amber-500)", "Rat nghiem trong": "var(--coral-500)" };
+const TRANG_THAI_DOT: Record<string, string> = {
+  "KSNB da tiep nhan": "var(--ocean-500)",
+  "Giam sat dang xu ly": "var(--amber-500)",
+  "Da ket thuc tranh chap": "var(--teal-500)",
+  "Da huy bo tranh chap": "var(--ink-400)",
+};
+
+/** So ngay qua han (duong) / con lai (am) so voi hom nay, gio VN - null neu khong co han hoac da dong. */
+function dueUrgency(dueDate: string | null, isDaDong: boolean): { label: string; tone: "coral" | "amber" } | null {
+  if (!dueDate || isDaDong) return null;
+  const todayVN = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const diffDays = Math.round((new Date(`${todayVN}T00:00:00Z`).getTime() - new Date(`${dueDate.slice(0, 10)}T00:00:00Z`).getTime()) / 86400000);
+  if (diffDays > 0) return { label: `⚠ Quá hạn ${diffDays} ngày`, tone: "coral" };
+  if (diffDays === 0) return { label: "⏰ Đến hạn hôm nay", tone: "amber" };
+  if (diffDays === -1) return { label: "⏰ Sắp đến hạn (còn 1 ngày)", tone: "amber" };
+  return null;
+}
+
 /**
- * Noi dung 1 tien trinh tranh chap: thong tin/sua phan loai+muc do, timeline log, form them/sua
- * log - dung chung boi TranhChapModule.tsx (boc trong Modal) va CaseDetail.tsx (nhung inline
- * ngay trong tab, khong can Modal rieng vi da o trong the chi tiet ca roi). "onOpenCase" bo qua
- * (undefined) khi da o trong dung ngu canh ca do san (CaseDetail) - an nut "Xem ca su vu".
+ * Noi dung 1 tien trinh tranh chap: header "me" (trang thai/phan loai/muc do/canh bao qua han) +
+ * timeline log "con" (thu gon, chi hien chi tiet khi can) + nut "+ Them log" mo popup rieng thay vi
+ * hien san form inline - dung chung boi TranhChapModule.tsx (boc trong Modal) va CaseDetail.tsx
+ * (nhung inline ngay trong tab, khong can Modal rieng vi da o trong the chi tiet ca roi). "onOpenCase"
+ * bo qua (undefined) khi da o trong dung ngu canh ca do san (CaseDetail) - an nut "Xem ca su vu".
  */
 export function TienTrinhPanel({
   id,
@@ -113,15 +133,9 @@ export function TienTrinhPanel({
 }) {
   const addToast = useToast();
   const qc = useQueryClient();
-  const [newTrangThai, setNewTrangThai] = useState("");
-  const [newNgayDuKien, setNewNgayDuKien] = useState("");
-  const [newGhiChu, setNewGhiChu] = useState("");
-  const [newKetQua, setNewKetQua] = useState("");
-  const [newHaiLong, setNewHaiLong] = useState("");
-  const [editingLogId, setEditingLogId] = useState<number | null>(null);
-  const [editingMeta, setEditingMeta] = useState(false);
-  const [editPhanLoai, setEditPhanLoai] = useState("");
-  const [editMucDo, setEditMucDo] = useState("");
+  const [addLogOpen, setAddLogOpen] = useState(false);
+  const [editingLog, setEditingLog] = useState<TranhChapLogRow | null>(null);
+  const [editMetaOpen, setEditMetaOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["tranh-chap-tien-trinh-detail", id],
@@ -132,8 +146,8 @@ export function TienTrinhPanel({
     qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-detail", id] });
     qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh"] });
     qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-stats"] });
+    qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-case"] });
     qc.invalidateQueries({ queryKey: ["notifications-count"] });
-    qc.invalidateQueries({ queryKey: ["case", data?.tienTrinh.case_id] });
   }
 
   const addLog = useMutation({
@@ -146,11 +160,7 @@ export function TienTrinhPanel({
     }) => api.post(`/tranh-chap/tien-trinh/${encodeURIComponent(id)}/log`, body),
     onSuccess: () => {
       addToast("Đã thêm log xử lý");
-      setNewTrangThai("");
-      setNewNgayDuKien("");
-      setNewGhiChu("");
-      setNewKetQua("");
-      setNewHaiLong("");
+      setAddLogOpen(false);
       invalidateAfterWrite();
     },
     onError: (err) => addToast(describeTranhChapError(err, "Không thể thêm log, thử lại sau.")),
@@ -166,7 +176,7 @@ export function TienTrinhPanel({
     }) => api.patch(`/tranh-chap/log/${logId}`, body),
     onSuccess: () => {
       addToast("Đã cập nhật log");
-      setEditingLogId(null);
+      setEditingLog(null);
       invalidateAfterWrite();
     },
     onError: (err) => addToast(describeTranhChapError(err, "Không thể sửa log, thử lại sau.")),
@@ -176,7 +186,7 @@ export function TienTrinhPanel({
     mutationFn: (body: { phan_loai_tranh_chap?: string; muc_do?: string }) => api.patch(`/tranh-chap/tien-trinh/${encodeURIComponent(id)}`, body),
     onSuccess: () => {
       addToast("Đã cập nhật phân loại/mức độ");
-      setEditingMeta(false);
+      setEditMetaOpen(false);
       invalidateAfterWrite();
     },
     onError: (err) => addToast(describeTranhChapError(err, "Không thể cập nhật, thử lại sau.")),
@@ -188,235 +198,292 @@ export function TienTrinhPanel({
   const isDaDong = latestLog ? TRANG_THAI_DONG.includes(latestLog.trang_thai_xu_ly) : false;
   const canWrite = currentUser ? canWriteTranhChap(currentUser, tt?.khu_vuc ?? null) : false;
   const canEditMeta = currentUser ? canEditTienTrinhMeta(currentUser) && !isDaDong : false;
-
-  function startEditMeta() {
-    if (!tt) return;
-    setEditPhanLoai(tt.phan_loai_tranh_chap);
-    setEditMucDo(tt.muc_do);
-    setEditingMeta(true);
-  }
+  const urgency = latestLog ? dueUrgency(latestLog.thoi_gian_du_kien_xong, isDaDong) : null;
 
   if (isLoading || !tt) {
     return <div className="text-sm text-[var(--ink-400)] py-6 text-center">Đang tải…</div>;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="border border-[var(--line)] rounded-xl p-3 flex items-center justify-between flex-wrap gap-2">
-        <div className="text-sm flex-1 min-w-[200px]">
-          <div className="font-semibold">
-            Tiến trình <span className="font-mono">{tt.id}</span>
-            {" · "}
-            {tt.khach_hang ?? "—"}
+    <div className="space-y-3">
+      {/* ---- "Me": tien trinh - trang thai/phan loai/muc do/canh bao noi bat ---- */}
+      <div
+        className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4"
+        style={{ borderLeft: `4px solid ${urgency?.tone === "coral" ? "var(--coral-500)" : MUC_DO_ACCENT[tt.muc_do] ?? "var(--line)"}` }}
+      >
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-mono text-xs text-[var(--ink-400)]">{tt.id}</span>
+              {latestLog && <Badge tone={TRANG_THAI_TONE[latestLog.trang_thai_xu_ly] ?? "gray"}>{TRANG_THAI_LABELS[latestLog.trang_thai_xu_ly] ?? latestLog.trang_thai_xu_ly}</Badge>}
+            </div>
+            <div className="font-display font-bold text-base text-[var(--ink-900)] truncate">{tt.khach_hang ?? "—"}</div>
+            <div className="text-xs text-[var(--ink-400)] mt-0.5">
+              {tt.khu_vuc ?? "—"} · Tạo {fmtDateTime(tt.ngay_tao)}
+            </div>
           </div>
-          {editingMeta ? (
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <Select value={editPhanLoai} onChange={setEditPhanLoai} options={phanLoaiOptions.map((p) => p.ten_phan_loai)} />
-              <Select value={editMucDo} onChange={setEditMucDo} options={MUC_DO_OPTIONS} />
-              <Btn size="sm" variant="ghost" onClick={() => setEditingMeta(false)}>
-                Hủy
-              </Btn>
-              <Btn size="sm" onClick={() => editMeta.mutate({ phan_loai_tranh_chap: editPhanLoai, muc_do: editMucDo })} disabled={editMeta.isPending}>
-                Lưu
-              </Btn>
-            </div>
-          ) : (
-            <div className="text-xs text-[var(--ink-400)] mt-0.5 flex items-center gap-1.5 flex-wrap">
-              {tt.khu_vuc ?? "—"} · <Badge tone="gray">{tt.phan_loai_tranh_chap}</Badge>
-              <Badge tone={MUC_DO_TONE[tt.muc_do] ?? "gray"}>{MUC_DO_LABELS[tt.muc_do] ?? tt.muc_do}</Badge>
-              {canEditMeta && (
-                <button className="text-[var(--ocean-600)] underline" onClick={startEditMeta}>
-                  Sửa
-                </button>
-              )}
-            </div>
+          {onOpenCase && (
+            <Btn variant="ghost" size="sm" onClick={() => onOpenCase(tt.case_id)} className="shrink-0">
+              Xem ca sự vụ ({tt.case_id}) →
+            </Btn>
           )}
         </div>
-        {onOpenCase && (
-          <Btn variant="ghost" size="sm" onClick={() => onOpenCase(tt.case_id)}>
-            Xem ca sự vụ ({tt.case_id}) →
-          </Btn>
+
+        <div className="flex items-center gap-1.5 flex-wrap mt-3">
+          <Badge tone="gray">{tt.phan_loai_tranh_chap}</Badge>
+          <Badge tone={MUC_DO_TONE[tt.muc_do] ?? "gray"}>{MUC_DO_LABELS[tt.muc_do] ?? tt.muc_do}</Badge>
+          {canEditMeta && (
+            <button className="text-xs text-[var(--ocean-600)] underline ml-0.5" onClick={() => setEditMetaOpen(true)}>
+              ✎ Sửa
+            </button>
+          )}
+        </div>
+
+        {urgency && (
+          <div
+            className={`mt-3 inline-flex items-center gap-1.5 text-xs font-bold rounded-lg px-2.5 py-1.5 ${
+              urgency.tone === "coral" ? "bg-[var(--coral-100)] text-[var(--coral-500)]" : "bg-[var(--amber-100)] text-[var(--amber-500)]"
+            }`}
+          >
+            {urgency.label}
+          </div>
         )}
       </div>
 
+      {/* ---- "Con": timeline log xu ly ---- */}
       <div>
-        <div className="text-xs font-semibold text-[var(--ink-400)] uppercase mb-2">Lịch sử xử lý</div>
-        <div className="space-y-2 max-h-80 overflow-y-auto">
+        <div className="flex items-center justify-between mb-2 px-0.5">
+          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Lịch sử xử lý ({logs.length})</div>
+          {canWrite && !isDaDong && (
+            <Btn size="sm" variant="subtle" onClick={() => setAddLogOpen(true)}>
+              + Thêm log
+            </Btn>
+          )}
+        </div>
+
+        {logs.length === 0 && <div className="text-xs text-[var(--ink-400)] italic px-0.5">Chưa có log nào.</div>}
+
+        <div className="space-y-2.5">
           {logs.map((log, idx) => {
             const isLatest = idx === 0;
             const isAuthor = currentUser?.email === log.nguoi_xu_ly;
             const hoursSince = (Date.now() - new Date(log.created_at.replace(" ", "T") + "Z").getTime()) / 3600000 - 7;
             const canEdit = isLatest && isAuthor && hoursSince < 24;
-            const isEditing = editingLogId === log.id;
             return (
-              <div key={log.id} className="border border-[var(--line)] rounded-lg p-2.5 text-sm">
-                {isEditing ? (
-                  <EditLogForm
-                    log={log}
-                    ketQuaOptions={ketQuaOptions}
-                    onCancel={() => setEditingLogId(null)}
-                    onSave={(body) => editLog.mutate({ logId: log.id, body })}
-                    isPending={editLog.isPending}
-                  />
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <Badge tone={TRANG_THAI_TONE[log.trang_thai_xu_ly] ?? "gray"}>{TRANG_THAI_LABELS[log.trang_thai_xu_ly] ?? log.trang_thai_xu_ly}</Badge>
-                      {canEdit && (
-                        <button className="text-xs text-[var(--ocean-600)] underline" onClick={() => setEditingLogId(log.id)}>
-                          Sửa (còn {Math.max(0, Math.ceil(24 - hoursSince))}h)
-                        </button>
+              <div key={log.id} className="relative pl-4">
+                <span
+                  className="absolute -left-[3px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--surface)]"
+                  style={{ background: TRANG_THAI_DOT[log.trang_thai_xu_ly] ?? "var(--ink-400)" }}
+                ></span>
+                {idx < logs.length - 1 && <span className="absolute left-[1.5px] top-4 bottom-[-14px] w-px bg-[var(--line)]"></span>}
+                <div className="border border-[var(--line)] rounded-xl p-2.5 text-sm bg-[var(--surface)]">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Badge tone={TRANG_THAI_TONE[log.trang_thai_xu_ly] ?? "gray"}>{TRANG_THAI_LABELS[log.trang_thai_xu_ly] ?? log.trang_thai_xu_ly}</Badge>
+                    {canEdit && (
+                      <button className="text-xs text-[var(--ocean-600)] underline" onClick={() => setEditingLog(log)}>
+                        Sửa (còn {Math.max(0, Math.ceil(24 - hoursSince))}h)
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-xs text-[var(--ink-400)] mt-1">
+                    {log.nguoi_xu_ly} · {fmtDateTime(log.ngay_xu_ly)}
+                    {log.thoi_gian_du_kien_xong ? ` · Dự kiến xong: ${log.thoi_gian_du_kien_xong}` : ""}
+                  </div>
+                  {(log.ket_qua_xu_ly || log.hai_long_sau_tranh_chap) && (
+                    <div className="text-xs mt-1.5 flex gap-1.5 flex-wrap">
+                      {log.ket_qua_xu_ly && <Badge tone="ocean">{log.ket_qua_xu_ly}</Badge>}
+                      {log.hai_long_sau_tranh_chap && (
+                        <Badge tone="teal">{HAI_LONG_OPTIONS.find((h) => h.value === log.hai_long_sau_tranh_chap)?.label ?? log.hai_long_sau_tranh_chap}</Badge>
                       )}
                     </div>
-                    <div className="text-xs text-[var(--ink-400)] mt-1">
-                      {log.nguoi_xu_ly} · {fmtDateTime(log.ngay_xu_ly)}
-                      {log.thoi_gian_du_kien_xong ? ` · Dự kiến xong: ${log.thoi_gian_du_kien_xong}` : ""}
-                    </div>
-                    {(log.ket_qua_xu_ly || log.hai_long_sau_tranh_chap) && (
-                      <div className="text-xs mt-1 flex gap-1.5 flex-wrap">
-                        {log.ket_qua_xu_ly && <Badge tone="ocean">{log.ket_qua_xu_ly}</Badge>}
-                        {log.hai_long_sau_tranh_chap && (
-                          <Badge tone="teal">{HAI_LONG_OPTIONS.find((h) => h.value === log.hai_long_sau_tranh_chap)?.label ?? log.hai_long_sau_tranh_chap}</Badge>
-                        )}
-                      </div>
-                    )}
-                    {log.ghi_chu && <div className="text-xs mt-1 whitespace-pre-wrap">{log.ghi_chu}</div>}
-                  </>
-                )}
+                  )}
+                  {log.ghi_chu && <div className="text-xs mt-1.5 whitespace-pre-wrap text-[var(--ink-600)]">{log.ghi_chu}</div>}
+                </div>
               </div>
             );
           })}
-          {logs.length === 0 && <div className="text-xs text-[var(--ink-400)] italic">Chưa có log nào.</div>}
         </div>
+
+        {isDaDong && <div className="text-xs text-[var(--ink-400)] italic mt-2 px-0.5">Tiến trình đã đóng.</div>}
       </div>
 
-      {canWrite && (
-        <div className="border-t border-[var(--line)] pt-3">
-          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase mb-2">{isDaDong ? "Tiến trình đã đóng" : "Thêm log xử lý mới"}</div>
-          {!isDaDong && (
-            <div className="space-y-2">
-              <Select value={newTrangThai} onChange={setNewTrangThai} options={[{ value: "", label: "Chọn trạng thái…" }, ...TRANG_THAI_LOG_OPTIONS]} className="w-full" />
-              <input
-                type="date"
-                value={newNgayDuKien}
-                onChange={(e) => setNewNgayDuKien(e.target.value)}
-                placeholder="Ngày dự kiến xong (để trống = giữ theo log trước)"
-                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-              />
-              {newTrangThai === TRANG_THAI_CAN_KET_QUA && (
-                <>
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả xử lý *</label>
-                    {ketQuaOptions.length ? (
-                      <Select
-                        value={newKetQua}
-                        onChange={setNewKetQua}
-                        options={[{ value: "", label: "Chọn kết quả xử lý…" }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
-                        className="w-full mt-1"
-                      />
-                    ) : (
-                      <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Kết quả xử lý tranh chấp để thêm trước.</div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--ink-400)]">Hài lòng sau tranh chấp *</label>
-                    <Select
-                      value={newHaiLong}
-                      onChange={setNewHaiLong}
-                      options={[{ value: "", label: "Chọn mức hài lòng…" }, ...HAI_LONG_OPTIONS]}
-                      className="w-full mt-1"
-                    />
-                  </div>
-                </>
-              )}
-              <textarea
-                value={newGhiChu}
-                onChange={(e) => setNewGhiChu(e.target.value)}
-                rows={2}
-                placeholder="Ghi chú…"
-                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-              />
-              <div className="flex justify-end">
-                <Btn
-                  size="sm"
-                  onClick={() =>
-                    addLog.mutate({
-                      trang_thai_xu_ly: newTrangThai,
-                      thoi_gian_du_kien_xong: newNgayDuKien || undefined,
-                      ghi_chu: newGhiChu.trim() || undefined,
-                      ket_qua_xu_ly: newTrangThai === TRANG_THAI_CAN_KET_QUA ? newKetQua : undefined,
-                      hai_long_sau_tranh_chap: newTrangThai === TRANG_THAI_CAN_KET_QUA ? newHaiLong : undefined,
-                    })
-                  }
-                  disabled={!newTrangThai || (newTrangThai === TRANG_THAI_CAN_KET_QUA && (!newKetQua || !newHaiLong)) || addLog.isPending}
-                >
-                  Thêm log
-                </Btn>
-              </div>
-            </div>
-          )}
-        </div>
+      {addLogOpen && (
+        <LogFormModal
+          title="Thêm log xử lý mới"
+          submitLabel="Thêm log"
+          initial={{ trang_thai_xu_ly: "", thoi_gian_du_kien_xong: latestLog?.thoi_gian_du_kien_xong ?? "", ghi_chu: "", ket_qua_xu_ly: "", hai_long_sau_tranh_chap: "" }}
+          ketQuaOptions={ketQuaOptions}
+          onClose={() => setAddLogOpen(false)}
+          onSubmit={(body) => addLog.mutate(body)}
+          isPending={addLog.isPending}
+        />
+      )}
+
+      {editingLog && (
+        <LogFormModal
+          title={`Sửa log — ${TRANG_THAI_LABELS[editingLog.trang_thai_xu_ly] ?? editingLog.trang_thai_xu_ly}`}
+          submitLabel="Lưu"
+          initial={{
+            trang_thai_xu_ly: editingLog.trang_thai_xu_ly,
+            thoi_gian_du_kien_xong: editingLog.thoi_gian_du_kien_xong ?? "",
+            ghi_chu: editingLog.ghi_chu ?? "",
+            ket_qua_xu_ly: editingLog.ket_qua_xu_ly ?? "",
+            hai_long_sau_tranh_chap: editingLog.hai_long_sau_tranh_chap ?? "",
+          }}
+          ketQuaOptions={ketQuaOptions}
+          onClose={() => setEditingLog(null)}
+          onSubmit={(body) => editLog.mutate({ logId: editingLog.id, body })}
+          isPending={editLog.isPending}
+        />
+      )}
+
+      {editMetaOpen && (
+        <EditMetaModal
+          phanLoai={tt.phan_loai_tranh_chap}
+          mucDo={tt.muc_do}
+          phanLoaiOptions={phanLoaiOptions}
+          onClose={() => setEditMetaOpen(false)}
+          onSubmit={(body) => editMeta.mutate(body)}
+          isPending={editMeta.isPending}
+        />
       )}
     </div>
   );
 }
 
-function EditLogForm({
-  log,
+function LogFormModal({
+  title,
+  submitLabel,
+  initial,
   ketQuaOptions,
-  onCancel,
-  onSave,
+  onClose,
+  onSubmit,
   isPending,
 }: {
-  log: TranhChapLogRow;
+  title: string;
+  submitLabel: string;
+  initial: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong: string; ghi_chu: string; ket_qua_xu_ly: string; hai_long_sau_tranh_chap: string };
   ketQuaOptions: KetQuaXuLyTranhChapRow[];
-  onCancel: () => void;
-  onSave: (body: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string }) => void;
+  onClose: () => void;
+  onSubmit: (body: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string }) => void;
   isPending: boolean;
 }) {
-  const [trangThai, setTrangThai] = useState(log.trang_thai_xu_ly);
-  const [ngayDuKien, setNgayDuKien] = useState(log.thoi_gian_du_kien_xong ?? "");
-  const [ghiChu, setGhiChu] = useState(log.ghi_chu ?? "");
-  const [ketQua, setKetQua] = useState(log.ket_qua_xu_ly ?? "");
-  const [haiLong, setHaiLong] = useState(log.hai_long_sau_tranh_chap ?? "");
+  const [trangThai, setTrangThai] = useState(initial.trang_thai_xu_ly);
+  const [ngayDuKien, setNgayDuKien] = useState(initial.thoi_gian_du_kien_xong);
+  const [ghiChu, setGhiChu] = useState(initial.ghi_chu);
+  const [ketQua, setKetQua] = useState(initial.ket_qua_xu_ly);
+  const [haiLong, setHaiLong] = useState(initial.hai_long_sau_tranh_chap);
   const canKetQua = trangThai === TRANG_THAI_CAN_KET_QUA;
 
   return (
-    <div className="space-y-2">
-      <Select value={trangThai} onChange={setTrangThai} options={TRANG_THAI_LOG_OPTIONS} className="w-full" />
-      <input type="date" value={ngayDuKien} onChange={(e) => setNgayDuKien(e.target.value)} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-      {canKetQua && (
-        <>
-          <Select
-            value={ketQua}
-            onChange={setKetQua}
-            options={[{ value: "", label: "Chọn kết quả xử lý…" }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
-            className="w-full"
+    <Modal open onClose={onClose} title={title} width="max-w-lg">
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Trạng thái xử lý</label>
+          <Select value={trangThai} onChange={setTrangThai} options={[{ value: "", label: "Chọn trạng thái…" }, ...TRANG_THAI_LOG_OPTIONS]} className="w-full mt-1" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày dự kiến xử lý xong</label>
+          <input
+            type="date"
+            value={ngayDuKien}
+            onChange={(e) => setNgayDuKien(e.target.value)}
+            className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
           />
-          <Select value={haiLong} onChange={setHaiLong} options={[{ value: "", label: "Chọn mức hài lòng…" }, ...HAI_LONG_OPTIONS]} className="w-full" />
-        </>
-      )}
-      <textarea value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} rows={2} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-      <div className="flex justify-end gap-2">
-        <Btn variant="ghost" size="sm" onClick={onCancel}>
-          Hủy
-        </Btn>
-        <Btn
-          size="sm"
-          onClick={() =>
-            onSave({
-              trang_thai_xu_ly: trangThai,
-              thoi_gian_du_kien_xong: ngayDuKien || undefined,
-              ghi_chu: ghiChu.trim() || undefined,
-              ket_qua_xu_ly: canKetQua ? ketQua : undefined,
-              hai_long_sau_tranh_chap: canKetQua ? haiLong : undefined,
-            })
-          }
-          disabled={isPending || (canKetQua && (!ketQua || !haiLong))}
-        >
-          Lưu
-        </Btn>
+        </div>
+        {canKetQua && (
+          <>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả xử lý *</label>
+              {ketQuaOptions.length ? (
+                <Select
+                  value={ketQua}
+                  onChange={setKetQua}
+                  options={[{ value: "", label: "Chọn kết quả xử lý…" }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
+                  className="w-full mt-1"
+                />
+              ) : (
+                <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Kết quả xử lý tranh chấp để thêm trước.</div>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Hài lòng sau tranh chấp *</label>
+              <Select value={haiLong} onChange={setHaiLong} options={[{ value: "", label: "Chọn mức hài lòng…" }, ...HAI_LONG_OPTIONS]} className="w-full mt-1" />
+            </div>
+          </>
+        )}
+        <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+          <textarea
+            value={ghiChu}
+            onChange={(e) => setGhiChu(e.target.value)}
+            rows={3}
+            placeholder="Ghi chú…"
+            className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose}>
+            Hủy
+          </Btn>
+          <Btn
+            onClick={() =>
+              onSubmit({
+                trang_thai_xu_ly: trangThai,
+                thoi_gian_du_kien_xong: ngayDuKien || undefined,
+                ghi_chu: ghiChu.trim() || undefined,
+                ket_qua_xu_ly: canKetQua ? ketQua : undefined,
+                hai_long_sau_tranh_chap: canKetQua ? haiLong : undefined,
+              })
+            }
+            disabled={!trangThai || (canKetQua && (!ketQua || !haiLong)) || isPending}
+          >
+            {isPending ? "Đang lưu…" : submitLabel}
+          </Btn>
+        </div>
       </div>
-    </div>
+    </Modal>
+  );
+}
+
+function EditMetaModal({
+  phanLoai,
+  mucDo,
+  phanLoaiOptions,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  phanLoai: string;
+  mucDo: string;
+  phanLoaiOptions: PhanLoaiTranhChapRow[];
+  onClose: () => void;
+  onSubmit: (body: { phan_loai_tranh_chap: string; muc_do: string }) => void;
+  isPending: boolean;
+}) {
+  const [phanLoaiValue, setPhanLoaiValue] = useState(phanLoai);
+  const [mucDoValue, setMucDoValue] = useState(mucDo);
+
+  return (
+    <Modal open onClose={onClose} title="Sửa phân loại / mức độ" width="max-w-md">
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Phân loại tranh chấp</label>
+          <Select value={phanLoaiValue} onChange={setPhanLoaiValue} options={phanLoaiOptions.map((p) => p.ten_phan_loai)} className="w-full mt-1" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Mức độ</label>
+          <Select value={mucDoValue} onChange={setMucDoValue} options={MUC_DO_OPTIONS} className="w-full mt-1" />
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose}>
+            Hủy
+          </Btn>
+          <Btn onClick={() => onSubmit({ phan_loai_tranh_chap: phanLoaiValue, muc_do: mucDoValue })} disabled={isPending}>
+            {isPending ? "Đang lưu…" : "Lưu"}
+          </Btn>
+        </div>
+      </div>
+    </Modal>
   );
 }

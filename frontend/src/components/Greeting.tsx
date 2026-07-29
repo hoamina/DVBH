@@ -53,7 +53,7 @@ function GreetingInner() {
   // ngang kieu bang tin (marquee) de cuoi cung van doc duoc het ca cau. Phan "Chao {Ten} {cach
   // goi}" to dam rieng, phan noi dung con lai giu kieu chu thuong.
   return (
-    <div ref={boxRef} className="hidden lg:block min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-[var(--ink-600)]">
+    <div ref={boxRef} className="hidden md:block min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm text-[var(--ink-600)]">
       <span className={needsScroll ? "greeting-marquee" : undefined}>
         <b className="font-bold">{data.namePrefix}</b>, {displayMessage}
       </span>
