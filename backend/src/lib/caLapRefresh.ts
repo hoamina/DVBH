@@ -146,12 +146,18 @@ export async function refreshCaLapPrecompute(
       const chunk = serials.slice(i, i + CHUNK_SIZE_SERI);
       const placeholders = chunk.map(() => "?").join(", ");
 
+      // "now" noi thang vao chuoi SQL (khong bind ?) - GIONG HET pattern updateResult ben duoi -
+      // vi D1 gioi han CUNG 100 tham so bind/cau lenh (xem developers.cloudflare.com/d1/platform/
+      // limits/). Bind ca "now" LAN 100 serial cua CHUNK_SIZE_SERI se thanh 101 tham so, vuot gioi
+      // han dung 1 - loi that da gap tren production (2026-07-29, "too many SQL variables") khi 1
+      // lo du 100 serial (import lon bat thuong). "now" la chuoi server tu sinh (nowVN()), khong
+      // phai input nguoi dung, an toan de noi truc tiep.
       const clearResult = await db
         .prepare(
-          `UPDATE case_dvbh SET ca_lap_prior_id = NULL, ca_lap_prior_ht = NULL, ca_lap_computed_at = ?
+          `UPDATE case_dvbh SET ca_lap_prior_id = NULL, ca_lap_prior_ht = NULL, ca_lap_computed_at = '${now}'
            WHERE ca_lap_prior_ht IS NOT NULL AND seri_san_pham IN (${placeholders})`,
         )
-        .bind(now, ...chunk)
+        .bind(...chunk)
         .run();
       cleared += clearResult.meta.changes ?? 0;
 
