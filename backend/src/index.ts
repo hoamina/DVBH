@@ -12,6 +12,7 @@ import importGiaiTrinhRoutes from "./routes/importGiaiTrinh";
 import importGiaiTrinhLapRoutes from "./routes/importGiaiTrinhLap";
 import importKhaoSatRoutes from "./routes/importKhaoSat";
 import importNapGasRoutes from "./routes/importNapGas";
+import externalImportRoutes from "./routes/externalImport";
 import settingsRoutes from "./routes/settings";
 import usersRoutes from "./routes/users";
 import dashboardRoutes from "./routes/dashboard";
@@ -40,6 +41,9 @@ app.route("/api/import/giai-trinh", importGiaiTrinhRoutes);
 app.route("/api/import/giai-trinh-lap", importGiaiTrinhLapRoutes);
 app.route("/api/import/khao-sat", importKhaoSatRoutes);
 app.route("/api/import/nap-gas", importNapGasRoutes);
+// Prefix rieng biet hoan toan voi "/api/import" (khong dung verifySessionMiddleware - xem
+// routes/externalImport.ts) - pipeline Python QuickSight goi qua API key tinh.
+app.route("/api/external-import", externalImportRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/users", usersRoutes);
 app.route("/api/dashboard", dashboardRoutes);

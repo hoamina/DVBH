@@ -64,7 +64,7 @@ async function runBgTask(env: Env, importHistoryId: number, label: string, task:
 // moi). Chay qua waitUntil() de KHONG lam cham phan hoi cua nguoi import - cron hang gio (co guard
 // shouldSkipCronRefresh, xem lib/caLapRefresh.ts) van con lam luoi an toan.
 // Cung dot nay tinh lai luon cache dashboard filters/months (xem recomputeDashboardCaches).
-function scheduleCaLapRefreshIfChanged(
+export function scheduleCaLapRefreshIfChanged(
   c: Context<{ Bindings: Env }>,
   summary: { GHI_MOI: number; GHI_DE: number; affectedSerials: string[]; affectedDates: string[] },
   importHistoryId: number,
