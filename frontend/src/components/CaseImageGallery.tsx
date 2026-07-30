@@ -32,6 +32,15 @@ function isVideoUrl(url: string): boolean {
   return /\.mp4(?:[?#]|$)/i.test(url);
 }
 
+// Fallback khi 1 URL KHONG the hotlink truc tiep qua <img src> (xac nhan voi chu he thong
+// 2026-07-31: mot so URL KAROFI tra ve trang HTML cua trinh xem "CRM Media" (Smarthiz) thay vi anh
+// nhi phan that - <img> luon that bai vi trinh duyet khong decode duoc HTML nhu anh). Trang do lai
+// hien thi anh binh thuong khi dieu huong THANG toi (JS cua no tu fetch + render anh), nen anh nao
+// <img> that bai se duoc chuyen sang nhung <iframe> toi URL nay thay vi chi bao "Khong tai duoc".
+function authMediaUrl(url: string): string {
+  return `https://auth-media.smarthiz.vn/?media=${encodeURIComponent(url)}`;
+}
+
 // Gallery anh bao cao cong viec cua 1 ca - toi da 30 anh (gioi han o backend luc import). Grid
 // thumbnail de luot nhanh, bam mo lightbox toan man hinh de xem/doi chieu chi tiet tung anh (zoom
 // qua trinh duyet, dieu huong prev/next bang nut hoac phim mui ten - phuc vu rà soat nhieu anh lien tiep).
@@ -134,13 +143,16 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
         {urls.map((url, i) =>
           brokenUrls.has(url) ? (
-            <div
+            <button
               key={i}
-              className="aspect-square rounded-lg border border-[var(--line)] bg-slate-50 flex flex-col items-center justify-center text-[var(--ink-400)] text-[10px] gap-0.5 p-1 text-center"
+              type="button"
+              onClick={() => setLightboxIndex(i)}
+              className="focus-ring aspect-square rounded-lg border border-[var(--line)] bg-slate-50 flex flex-col items-center justify-center text-[var(--ink-400)] text-[10px] gap-0.5 p-1 text-center hover:opacity-80 transition-opacity"
+              title={`Ảnh ${i + 1}/${urls.length} — bấm để xem qua CRM Media`}
             >
               <span className="text-lg">🖼️</span>
-              Không tải được
-            </div>
+              Bấm để xem
+            </button>
           ) : (
             <button
               key={i}
@@ -213,6 +225,14 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               onClick={(e) => e.stopPropagation()}
               className="max-h-[85vh] max-w-[90vw] rounded-lg shadow-2xl"
             />
+          ) : brokenUrls.has(urls[lightboxIndex]) ? (
+            <iframe
+              key={urls[lightboxIndex]}
+              src={authMediaUrl(urls[lightboxIndex])}
+              onClick={(e) => e.stopPropagation()}
+              title={`Ảnh báo cáo ${lightboxIndex + 1} (qua CRM Media)`}
+              className="w-[90vw] h-[85vh] rounded-lg shadow-2xl bg-white"
+            />
           ) : (
             <img
               src={urls[lightboxIndex]}
@@ -220,6 +240,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               onClick={(e) => e.stopPropagation()}
               onMouseDown={onImageMouseDown}
               onDoubleClick={toggleDoubleClickZoom}
+              onError={() => setBrokenUrls((prev) => new Set(prev).add(urls[lightboxIndex]))}
               draggable={false}
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
@@ -246,7 +267,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
             className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 text-white text-xs bg-black/40 rounded-full px-3 py-1.5 z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            {!isVideoUrl(urls[lightboxIndex]) && (
+            {!isVideoUrl(urls[lightboxIndex]) && !brokenUrls.has(urls[lightboxIndex]) && (
               <>
                 <button
                   type="button"
@@ -278,8 +299,13 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
             <span>
               {lightboxIndex + 1} / {urls.length}
             </span>
-            <a href={urls[lightboxIndex]} target="_blank" rel="noreferrer" className="underline font-semibold">
-              {isVideoUrl(urls[lightboxIndex]) ? "Mở video gốc" : "Mở ảnh gốc"}
+            <a
+              href={brokenUrls.has(urls[lightboxIndex]) ? authMediaUrl(urls[lightboxIndex]) : urls[lightboxIndex]}
+              target="_blank"
+              rel="noreferrer"
+              className="underline font-semibold"
+            >
+              {isVideoUrl(urls[lightboxIndex]) ? "Mở video gốc" : brokenUrls.has(urls[lightboxIndex]) ? "Mở qua CRM Media" : "Mở ảnh gốc"}
             </a>
           </div>
         </div>
