@@ -68,11 +68,15 @@ export interface DashboardFiltersPayload {
   nhomSanPham: (string | null)[];
   nhomKh: (string | null)[];
   nganh: (string | null)[];
+  kyThuatVien: (string | null)[];
+  // Tinh -> danh sach quan/huyen cua tinh do (dung cho filter cascade tinh->huyen o Bao cao khao
+  // sat theo khu vuc) - khac 7 distinct-list phia tren (deu la 1 cot don), day la nhom theo 2 cot.
+  tinhHuyen: Record<string, string[]>;
 }
 
-// Tinh that su 7 SELECT DISTINCT (ton kem - moi cau quet toan bo case_dvbh vi 6/7 cot khong index,
-// xem KE_HOACH_TOI_UU_D1.md Giai doan 2). Tach rieng ham nay (khong goi truc tiep tu route) de dung
-// chung cho ca compute-on-miss (route /filters ben duoi) va recompute sau import (importRoute.ts).
+// Tinh that su 8 SELECT DISTINCT (ton kem - moi cau quet toan bo case_dvbh vi hau het cot khong
+// index, xem KE_HOACH_TOI_UU_D1.md Giai doan 2). Tach rieng ham nay (khong goi truc tiep tu route)
+// de dung chung cho ca compute-on-miss (route /filters ben duoi) va recompute sau import (importRoute.ts).
 export async function computeDashboardFilters(db: D1Database, scope: string[] | null): Promise<DashboardFiltersPayload> {
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
 
@@ -82,7 +86,12 @@ export async function computeDashboardFilters(db: D1Database, scope: string[] | 
       .bind(...scopeClause.binds)
       .all<Record<string, string>>();
 
-  const [khuVucRes, hangRes, tinhRes, doiTacRes, nhomSanPhamRes, nhomKhRes, nganhRes] = await Promise.all([
+  const tinhHuyenRes = db
+    .prepare(`SELECT DISTINCT tinh, quan_huyen FROM case_dvbh WHERE tinh IS NOT NULL AND quan_huyen IS NOT NULL${scopeClause.sql} ORDER BY tinh, quan_huyen`)
+    .bind(...scopeClause.binds)
+    .all<{ tinh: string; quan_huyen: string }>();
+
+  const [khuVucRes, hangRes, tinhRes, doiTacRes, nhomSanPhamRes, nhomKhRes, nganhRes, kyThuatVienRes, tinhHuyenRows] = await Promise.all([
     distinctOf("khu_vuc"),
     distinctOf("hang"),
     distinctOf("tinh"),
@@ -90,7 +99,14 @@ export async function computeDashboardFilters(db: D1Database, scope: string[] | 
     distinctOf("nhom_san_pham"),
     distinctOf("nhom_kh"),
     distinctOf("nganh"),
+    distinctOf("ky_thuat_vien"),
+    tinhHuyenRes,
   ]);
+
+  const tinhHuyen: Record<string, string[]> = {};
+  for (const r of tinhHuyenRows.results) {
+    (tinhHuyen[r.tinh] ??= []).push(r.quan_huyen);
+  }
 
   return {
     khuVuc: khuVucRes.results.map((r) => r.khu_vuc),
@@ -100,6 +116,8 @@ export async function computeDashboardFilters(db: D1Database, scope: string[] | 
     nhomSanPham: nhomSanPhamRes.results.map((r) => r.nhom_san_pham),
     nhomKh: nhomKhRes.results.map((r) => r.nhom_kh),
     nganh: nganhRes.results.map((r) => r.nganh),
+    kyThuatVien: kyThuatVienRes.results.map((r) => r.ky_thuat_vien),
+    tinhHuyen,
   };
 }
 

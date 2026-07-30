@@ -70,6 +70,10 @@ export function SurveyCallWorkspace({
 
   const [khuVucFilter, setKhuVucFilter] = useState(initialKhuVuc ?? "");
   const [onlyMine, setOnlyMine] = useState(role === "CSKH");
+  // Tach rieng voi onlyMine: ca chua gan ai chi duoc nap vao pool sau khi bam nut "Goi them ca
+  // chua gan" (xem man hinh het hang doi ben duoi) - khong tu dong bat, khong luu qua phien lam
+  // viec khac (reset ve false moi lan mo lai workspace).
+  const [includeUnassigned, setIncludeUnassigned] = useState(false);
   const [index, setIndex] = useState(0);
   const [sessionDone, setSessionDone] = useState(0);
   const [sessionRetry, setSessionRetry] = useState(0);
@@ -117,8 +121,16 @@ export function SurveyCallWorkspace({
     const canKhaoSatRows = canKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "can-khao-sat" as const }));
     const merged = [...quaHanRows, ...canKhaoSatRows]
       .filter((r) => !calledIds.has(r.id))
-      .filter((r) => !onlyMine || !r.assigned_to || r.assigned_to === me);
+      .filter((r) => !onlyMine || !r.assigned_to || r.assigned_to === me)
+      // Khi onlyMine bat: ca chua gan ai (tier 1) chi vao pool sau khi CSKH chu dong bam "Goi them
+      // ca chua gan" (includeUnassigned) - truoc do hang doi chi gom ca da gan dung minh (tier 0).
+      // Khi onlyMine tat (lead xem toan doi), khong tier hoa - giu nguyen hanh vi cu.
+      .filter((r) => !onlyMine || includeUnassigned || r.assigned_to === me);
     const srcRank = (x: QueueItem) => (x.__source === "qua-han" ? 0 : 1);
+    // Ca da gan dung nguoi dang goi (tier 0) luon xep truoc ca chua gan ai (tier 1) - dung cho ca
+    // 2 che do onlyMine: bat (chi tier 0 cho toi khi bam nut mo rong) hoac tat (tier hoa toan bo
+    // hang doi cua ca doi, nhung van uu tien ca da gan cho minh truoc).
+    const tierOf = (x: QueueItem) => (x.assigned_to === me ? 0 : 1);
     // Ca "goi lai sau" (da bump) luon xep sau MOI ca chua thu goi lan nao, bat ke tier khan cap -
     // neu khong, 1 ca qua han duy nhat con lai se cu quay lai ngay lap tuc sau khi bam "goi lai sau",
     // pha vo cam giac "tu dong next" ma telesale can.
@@ -127,13 +139,25 @@ export function SurveyCallWorkspace({
       const bumpB = bumpOrder.get(b.id) ?? 0;
       const attemptedDiff = (bumpA > 0 ? 1 : 0) - (bumpB > 0 ? 1 : 0);
       if (attemptedDiff !== 0) return attemptedDiff;
+      const tierDiff = tierOf(a) - tierOf(b);
+      if (tierDiff !== 0) return tierDiff;
       const rankDiff = srcRank(a) - srcRank(b);
       if (rankDiff !== 0) return rankDiff;
       if (bumpA > 0 && bumpA !== bumpB) return bumpA - bumpB;
       return a.id.localeCompare(b.id);
     });
     return merged;
-  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, me, bumpOrder]);
+  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned, me, bumpOrder]);
+
+  // Con ca chua gan ai trong pham vi loc hien tai (chua tinh includeUnassigned) - dung de quyet
+  // dinh co hien nut "Goi them ca chua gan" hay khong (chi hien khi tier 0 that su da can).
+  const hasUnassignedAvailable = useMemo(() => {
+    if (!onlyMine || includeUnassigned) return false;
+    const quaHanRows = quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc));
+    const canKhaoSatRows = canKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc));
+    return [...quaHanRows, ...canKhaoSatRows].some((r) => !calledIds.has(r.id) && !r.assigned_to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned]);
 
   const currentIndex = pool.length === 0 ? -1 : Math.min(index, pool.length - 1);
   const queueRow = currentIndex >= 0 ? pool[currentIndex] : null;
@@ -317,6 +341,7 @@ export function SurveyCallWorkspace({
             checked={onlyMine}
             onChange={(e) => {
               setOnlyMine(e.target.checked);
+              setIncludeUnassigned(false);
               setIndex(0);
             }}
           />
@@ -369,9 +394,24 @@ export function SurveyCallWorkspace({
             <div className="max-w-3xl mx-auto">
               <Card className="p-8 text-center">
                 <div className="text-2xl mb-2">🎉</div>
-                <div className="font-display font-bold text-lg mb-1">Hết ca cần khảo sát trong hàng đợi hiện tại!</div>
-                <div className="text-sm text-[var(--ink-400)] mb-4">Đổi bộ lọc, hoặc làm mới để kiểm tra ca mới phát sinh.</div>
-                <div className="flex justify-center gap-2">
+                <div className="font-display font-bold text-lg mb-1">
+                  {hasUnassignedAvailable ? "Hết ca đã giao cho bạn trong hàng đợi hiện tại!" : "Hết ca cần khảo sát trong hàng đợi hiện tại!"}
+                </div>
+                <div className="text-sm text-[var(--ink-400)] mb-4">
+                  {hasUnassignedAvailable ? "Vẫn còn ca chưa gán ai trong hệ thống — bạn có thể nhận thêm." : "Đổi bộ lọc, hoặc làm mới để kiểm tra ca mới phát sinh."}
+                </div>
+                <div className="flex justify-center gap-2 flex-wrap">
+                  {hasUnassignedAvailable && (
+                    <Btn
+                      type="button"
+                      onClick={() => {
+                        setIncludeUnassigned(true);
+                        setIndex(0);
+                      }}
+                    >
+                      🔓 Gọi thêm ca chưa gán
+                    </Btn>
+                  )}
                   <Btn
                     variant="ghost"
                     type="button"
@@ -399,6 +439,7 @@ export function SurveyCallWorkspace({
                       <span className="font-mono text-lg font-bold text-[var(--ocean-600)]">{activeRow.id}</span>
                       {adHocId && <Badge tone="amber">Tìm thủ công</Badge>}
                       {activeRow.__source === "qua-han" && <Badge tone="coral">Quá hạn khảo sát</Badge>}
+                      {!adHocId && (activeRow.assigned_to === me ? <Badge tone="ocean">Của bạn</Badge> : <Badge tone="gray">Chưa gán ai</Badge>)}
                     </div>
                     <div className="text-xl font-display font-extrabold text-[var(--ink-900)] mt-0.5">{activeRow.khach_hang ?? "—"}</div>
                     <div className="text-sm text-[var(--ink-400)] mt-0.5">

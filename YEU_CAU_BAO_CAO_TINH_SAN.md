@@ -57,6 +57,7 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 | GET /dashboard/monthly-trend | dashboard.ts | cases |
 | GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases (+users cho giam-sat) |
 | GET /survey/counts, /by-khu-vuc, /trend | survey.ts | cases, vi_pham, ket_qua_goi |
+| GET /survey/bao-cao-khu-vuc (thêm 2026-07-30) | survey.ts | cases, vi_pham, ket_qua_goi |
 | GET /vi-pham/funnel, /leaderboard | viPham.ts | cases, vi_pham |
 | GET /ca-lap/tong-quan | caLap.ts | cases, giai_trinh_lap, blacklist |
 

@@ -8,7 +8,7 @@ import { toJsonArray } from "../lib/jsonArray";
 import { findExistingCaseIds, runBatched } from "../lib/backfillImportProcessor";
 import { nextSequentialId } from "../lib/idCounter";
 import { ageFilterClause } from "../lib/ageCalc";
-import { khuVucAdHocClause } from "../lib/filterParams";
+import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
@@ -76,15 +76,23 @@ survey.post("/candidates-content", async (c) => {
   return c.json({ throttled: false, rows: filtered });
 });
 
-// GET /api/survey?tab=can-khao-sat|cho-qc|da-xu-ly&khu_vuc=&tuoi_tu=&tuoi_den=
+// GET /api/survey?tab=can-khao-sat|cho-qc|da-xu-ly&khu_vuc=&tuoi_tu=&tuoi_den=&tinh=&quan_huyen=&ky_thuat_vien=
 survey.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "can-khao-sat";
   const scope = scopeByKhuVuc(c);
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
   const ageClause = ageFilterClause("c.thoi_gian_cskh_tiep_nhan", c.req.query("tuoi_tu"), c.req.query("tuoi_den"));
-  const extraFilter = khuVucClause.sql + ageClause.sql;
-  const extraBinds = [...khuVucClause.binds, ...ageClause.binds];
+  // 3 bo loc them cho drill-down tu Bao cao khao sat theo khu vuc (Phan C) - quan_huyen chi ap
+  // dung khi da chon 1 tinh cu the, giong quy uoc o computeSurveyKhuVucReport.
+  const tinhClause = dimAdHocClause("c.tinh", "tinh", c.req.query("tinh"));
+  const quanHuyenSql = c.req.query("tinh") && c.req.query("quan_huyen") ? " AND c.quan_huyen = ?" : "";
+  const quanHuyenBinds = c.req.query("tinh") && c.req.query("quan_huyen") ? [c.req.query("quan_huyen")] : [];
+  const ktv = c.req.query("ky_thuat_vien");
+  const ktvSql = ktv ? " AND c.ky_thuat_vien = ?" : "";
+  const ktvBinds = ktv ? [ktv] : [];
+  const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql;
+  const extraBinds = [...khuVucClause.binds, ...ageClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds];
   const limit = c.req.query("export") === "true" ? 5000 : 200;
 
   // "can-khao-sat"/"qua-han-khao-sat" da tach thanh /candidates-manifest + /candidates-content
@@ -288,6 +296,307 @@ survey.get("/trend", async (c) => {
   const params: SurveyTrendParams = { days: c.req.query("days") };
   const key = buildReportKey("survey/trend", params, scope);
   const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyTrend(c.env.DB, params, scope));
+  return c.json(payload);
+});
+
+// ---------- Bao cao khao sat theo khu vuc (Phan C, xem SRS/plan) ----------
+
+// Whitelist "nhom theo" RIENG cho bao cao nay - KHONG them vao REPORT_DIMS dung chung o
+// filterParams.ts vi se anh huong pham vi ca cases.ts/missingParts.ts/napGas.ts (cac endpoint
+// khac dang dung REPORT_DIMS). "quan_huyen" chi co y nghia khi da loc theo 1 tinh cu the (xem
+// quanHuyenClause ben duoi); "ky_thuat_vien" la cot thuan tren case_dvbh, chua tung dung de
+// nhom/loc o dau khac.
+const SURVEY_REPORT_DIMS: Record<string, string> = {
+  khu_vuc: "khu_vuc",
+  tinh: "tinh",
+  quan_huyen: "quan_huyen",
+  ky_thuat_vien: "ky_thuat_vien",
+};
+
+// KHONG them gio "00:00:00" vao bound - xem giai thich chi tiet o monthBounds() trong cases.ts
+// (mot so ca co thoi_gian_hoan_thanh/thoi_gian_cskh_tiep_nhan chi la ngay thuan, so sanh chuoi
+// voi bound co gio se sai).
+function monthBounds(thang: string): { start: string; end: string } {
+  const m = thang.match(/^(\d{4})-(\d{2})$/);
+  const now = new Date();
+  const [y, mo] = m ? [Number(m[1]), Number(m[2])] : [now.getUTCFullYear(), now.getUTCMonth() + 1];
+  const start = `${String(y).padStart(4, "0")}-${String(mo).padStart(2, "0")}-01`;
+  const nextMo = mo === 12 ? 1 : mo + 1;
+  const nextY = mo === 12 ? y + 1 : y;
+  const end = `${String(nextY).padStart(4, "0")}-${String(nextMo).padStart(2, "0")}-01`;
+  return { start, end };
+}
+
+const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+
+// Doc tat ca dim con lai TRU khu_vuc/tinh (2 dim da co rieng khuVucAdHocClause/dimAdHocClause ben
+// duoi) tu REPORT_DIMS dung chung - dong nhat voi sharedReportFiltersFromParams trong cases.ts.
+function extraDimFiltersFromParams(params: Record<string, string | undefined>): { sql: string; binds: unknown[] } {
+  let sql = "";
+  const binds: unknown[] = [];
+  for (const [dimKey, col] of Object.entries(REPORT_DIMS)) {
+    if (dimKey === "khu_vuc" || dimKey === "tinh") continue;
+    const value = params[dimKey];
+    if (value) {
+      sql += ` AND c.${col} = ?`;
+      binds.push(value);
+    }
+  }
+  return { sql, binds };
+}
+
+export interface SurveyKhuVucParams {
+  dim?: string;
+  thang?: string;
+  khu_vuc?: string;
+  tinh?: string;
+  quan_huyen?: string;
+  ky_thuat_vien?: string;
+  nguoi_khao_sat?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() - xem lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
+interface SurveyKhuVucRow {
+  nhom: string;
+  tong_tiep_nhan: number;
+  tong_hoan_thanh: number;
+  nghi_ngo_120p: number;
+  nghi_ngo_24h: number;
+  nghi_ngo_lkh: number;
+  nghi_ngo_hl: number;
+  da_goi_120p: number;
+  da_goi_24h: number;
+  da_goi_lkh: number;
+  da_goi_hl: number;
+  vi_pham_120p: number;
+  vi_pham_24h: number;
+  vi_pham_lkh: number;
+  vi_pham_hl: number;
+  tong_cuoc_goi: number;
+  goi_thanh_cong: number;
+  ty_le_nghi_ngo_120p: number;
+  ty_le_nghi_ngo_24h: number;
+  ty_le_nghi_ngo_lkh: number;
+  ty_le_nghi_ngo_hl: number;
+  ty_le_vi_pham_120p: number;
+  ty_le_vi_pham_24h: number;
+  ty_le_vi_pham_lkh: number;
+  ty_le_vi_pham_hl: number;
+  ty_le_da_goi_120p: number;
+  ty_le_da_goi_24h: number;
+  ty_le_da_goi_lkh: number;
+  ty_le_da_goi_hl: number;
+  ty_le_vi_pham_tren_da_goi_120p: number;
+  ty_le_vi_pham_tren_da_goi_24h: number;
+  ty_le_vi_pham_tren_da_goi_lkh: number;
+  ty_le_vi_pham_tren_da_goi_hl: number;
+  ty_le_da_goi_hen_lai_toan_he_thong: number;
+  ty_le_ktv_chu_dong_toan_he_thong: number;
+  ty_le_goi_thanh_cong: number;
+}
+
+// Tach rieng phan tinh toan cua /bao-cao-khu-vuc - dung chung cho compute-on-miss va warm-up (R7).
+// 4 khoi query doc lap (khong join qua nhieu bang trong 1 cau) merge theo "nhom" bang Map, giong
+// pattern R9.2 o cases.ts computeBacklogByKhuVuc - moi khoi la 1 muc dich khac nhau, gop lai de doc
+// va toi uu (D1 tinh rows_read theo so dong QUET, tach khoi khong lam tang tong so dong quet).
+export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKhuVucParams, scope: string[] | null) {
+  const dimColRaw = SURVEY_REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
+  const dimCol = `c.${dimColRaw}`;
+  const thang = params.thang || new Date().toISOString().slice(0, 7);
+  const { start, end } = monthBounds(thang);
+
+  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
+  const tinhClause = dimAdHocClause("c.tinh", "tinh", params.tinh);
+  // quan_huyen chi ap dung khi da chon 1 tinh cu the (tranh loc mo ho - nhieu tinh co the trung ten
+  // huyen, vd "Thanh pho" o nhieu tinh khac nhau).
+  const quanHuyenSql = params.tinh && params.quan_huyen ? " AND c.quan_huyen = ?" : "";
+  const quanHuyenBinds = params.tinh && params.quan_huyen ? [params.quan_huyen] : [];
+  const ktvSql = params.ky_thuat_vien ? " AND c.ky_thuat_vien = ?" : "";
+  const ktvBinds = params.ky_thuat_vien ? [params.ky_thuat_vien] : [];
+  const extraClause = extraDimFiltersFromParams(params);
+
+  const commonFilterSql = `${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${quanHuyenSql}${ktvSql}${extraClause.sql}`;
+  const commonFilterBinds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds, ...extraClause.binds];
+
+  // Khoi 1: tiep nhan trong thang (thoi_gian_cskh_tiep_nhan, dung duoc idx_case_thoi_gian_tiep_nhan)
+  // + so nghi ngo tung loai.
+  const khoi1 = db
+    .prepare(
+      `SELECT ${dimCol} as nhom,
+         COUNT(*) as tong_tiep_nhan,
+         SUM(CASE WHEN c.loi_120p=1 THEN 1 ELSE 0 END) as nghi_ngo_120p,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 THEN 1 ELSE 0 END) as nghi_ngo_24h,
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 THEN 1 ELSE 0 END) as nghi_ngo_lkh,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 THEN 1 ELSE 0 END) as nghi_ngo_hl
+       FROM case_dvbh c
+       WHERE c.archived_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
+       GROUP BY ${dimCol}`,
+    )
+    .bind(start, end, ...commonFilterBinds)
+    .all<{ nhom: string; tong_tiep_nhan: number; nghi_ngo_120p: number; nghi_ngo_24h: number; nghi_ngo_lkh: number; nghi_ngo_hl: number }>();
+
+  // Khoi 2: hoan thanh trong thang (thoi_gian_hoan_thanh, khac cot voi khoi 1).
+  const khoi2 = db
+    .prepare(
+      `SELECT ${dimCol} as nhom, COUNT(*) as tong_hoan_thanh
+       FROM case_dvbh c
+       WHERE c.archived_at IS NULL AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
+       GROUP BY ${dimCol}`,
+    )
+    .bind(start, end, ...commonFilterBinds)
+    .all<{ nhom: string; tong_hoan_thanh: number }>();
+
+  // Khoi 3: da goi + vi pham da xac nhan tung loai, JOIN vi_pham 4 lan (1 lan/loai_loi). Neu co loc
+  // "nguoi_khao_sat" (CSKH khao sat), dieu kien nam trong ON cua JOIN chu KHONG phai WHERE - de mau
+  // so (tong_tiep_nhan/nghi_ngo o khoi 1) khong bi thu hep theo nguoi khao sat, chi tu so (da_goi/
+  // vi_pham) bi gioi han dung nguoi da khao sat. "Vi pham da xac nhan" dung dung bieu thuc
+  // XAC_NHAN_EXPR o routes/viPham.ts/dashboard.ts: QC da chot la vi pham, hoac chua QC xet nhung
+  // CSKH da ket luan loi cap 1.
+  const nguoiKhaoSatJoinSql = params.nguoi_khao_sat ? " AND %ALIAS%.nguoi_ghi_nhan = ?" : "";
+  const xacNhanExpr = (alias: string) => `COALESCE(${alias}.chot_bo_cap_2, CASE WHEN ${alias}.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1`;
+  const khoi3JoinBinds = params.nguoi_khao_sat ? [params.nguoi_khao_sat, params.nguoi_khao_sat, params.nguoi_khao_sat, params.nguoi_khao_sat] : [];
+  const khoi3 = db
+    .prepare(
+      `SELECT ${dimCol} as nhom,
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_120p,
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND ${xacNhanExpr("v120")} THEN 1 ELSE 0 END) as vi_pham_120p,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_24h,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL AND ${xacNhanExpr("v24h")} THEN 1 ELSE 0 END) as vi_pham_24h,
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_lkh,
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL AND ${xacNhanExpr("vlkh")} THEN 1 ELSE 0 END) as vi_pham_lkh,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_hl,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} THEN 1 ELSE 0 END) as vi_pham_hl
+       FROM case_dvbh c
+       LEFT JOIN vi_pham v120 ON v120.case_id = c.id AND v120.loai_loi = 'Loi 120 phut'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "v120")}
+       LEFT JOIN vi_pham v24h ON v24h.case_id = c.id AND v24h.loai_loi = 'Hen qua 24h'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "v24h")}
+       LEFT JOIN vi_pham vlkh ON vlkh.case_id = c.id AND vlkh.loai_loi = 'Loi lo ke hoach'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "vlkh")}
+       LEFT JOIN vi_pham vhl ON vhl.case_id = c.id AND vhl.loai_loi = 'KH hen lai'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "vhl")}
+       WHERE c.archived_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
+       GROUP BY ${dimCol}`,
+    )
+    .bind(...khoi3JoinBinds, start, end, ...commonFilterBinds)
+    .all<{ nhom: string; da_goi_120p: number; vi_pham_120p: number; da_goi_24h: number; vi_pham_24h: number; da_goi_lkh: number; vi_pham_lkh: number; da_goi_hl: number; vi_pham_hl: number }>();
+
+  // Khoi 4: ty le goi thanh cong - moc thang dung ngay THUC HIEN cuoc goi (k.ngay_gio_thuc_hien),
+  // KHAC moc thang cua khoi 1-3 (ngay tiep nhan ca) - da xac nhan voi nguoi dung, vi 1 cuoc goi
+  // khao sat co the xay ra o thang sau so voi thang ca duoc tiep nhan.
+  const khoi4 = db
+    .prepare(
+      `SELECT ${dimCol} as nhom,
+         COUNT(*) as tong_cuoc_goi,
+         SUM(CASE WHEN k.ket_qua_cuoc_goi = 'Liên hệ thành công' THEN 1 ELSE 0 END) as goi_thanh_cong
+       FROM ket_qua_goi k
+       INNER JOIN case_dvbh c ON c.id = k.case_id
+       WHERE k.ngay_gio_thuc_hien >= ? AND k.ngay_gio_thuc_hien < ? AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${commonFilterSql}${params.nguoi_khao_sat ? " AND k.nguoi_thuc_hien = ?" : ""}
+       GROUP BY ${dimCol}`,
+    )
+    .bind(start, end, ...commonFilterBinds, ...(params.nguoi_khao_sat ? [params.nguoi_khao_sat] : []))
+    .all<{ nhom: string; tong_cuoc_goi: number; goi_thanh_cong: number }>();
+
+  const [r1, r2, r3, r4] = await Promise.all([khoi1, khoi2, khoi3, khoi4]);
+
+  const map = new Map<string, SurveyKhuVucRow>();
+  const ensure = (nhom: string): SurveyKhuVucRow => {
+    let row = map.get(nhom);
+    if (!row) {
+      row = {
+        nhom,
+        tong_tiep_nhan: 0,
+        tong_hoan_thanh: 0,
+        nghi_ngo_120p: 0,
+        nghi_ngo_24h: 0,
+        nghi_ngo_lkh: 0,
+        nghi_ngo_hl: 0,
+        da_goi_120p: 0,
+        da_goi_24h: 0,
+        da_goi_lkh: 0,
+        da_goi_hl: 0,
+        vi_pham_120p: 0,
+        vi_pham_24h: 0,
+        vi_pham_lkh: 0,
+        vi_pham_hl: 0,
+        tong_cuoc_goi: 0,
+        goi_thanh_cong: 0,
+        ty_le_nghi_ngo_120p: 0,
+        ty_le_nghi_ngo_24h: 0,
+        ty_le_nghi_ngo_lkh: 0,
+        ty_le_nghi_ngo_hl: 0,
+        ty_le_vi_pham_120p: 0,
+        ty_le_vi_pham_24h: 0,
+        ty_le_vi_pham_lkh: 0,
+        ty_le_vi_pham_hl: 0,
+        ty_le_da_goi_120p: 0,
+        ty_le_da_goi_24h: 0,
+        ty_le_da_goi_lkh: 0,
+        ty_le_da_goi_hl: 0,
+        ty_le_vi_pham_tren_da_goi_120p: 0,
+        ty_le_vi_pham_tren_da_goi_24h: 0,
+        ty_le_vi_pham_tren_da_goi_lkh: 0,
+        ty_le_vi_pham_tren_da_goi_hl: 0,
+        ty_le_da_goi_hen_lai_toan_he_thong: 0,
+        ty_le_ktv_chu_dong_toan_he_thong: 0,
+        ty_le_goi_thanh_cong: 0,
+      };
+      map.set(nhom, row);
+    }
+    return row;
+  };
+
+  for (const r of r1.results) Object.assign(ensure(r.nhom), r);
+  for (const r of r2.results) Object.assign(ensure(r.nhom), r);
+  for (const r of r3.results) Object.assign(ensure(r.nhom), r);
+  for (const r of r4.results) Object.assign(ensure(r.nhom), r);
+
+  for (const row of map.values()) {
+    row.ty_le_nghi_ngo_120p = pct(row.nghi_ngo_120p, row.tong_tiep_nhan);
+    row.ty_le_nghi_ngo_24h = pct(row.nghi_ngo_24h, row.tong_tiep_nhan);
+    row.ty_le_nghi_ngo_lkh = pct(row.nghi_ngo_lkh, row.tong_tiep_nhan);
+    row.ty_le_nghi_ngo_hl = pct(row.nghi_ngo_hl, row.tong_tiep_nhan);
+    row.ty_le_vi_pham_120p = pct(row.vi_pham_120p, row.tong_tiep_nhan);
+    row.ty_le_vi_pham_24h = pct(row.vi_pham_24h, row.tong_tiep_nhan);
+    row.ty_le_vi_pham_lkh = pct(row.vi_pham_lkh, row.tong_tiep_nhan);
+    row.ty_le_vi_pham_hl = pct(row.vi_pham_hl, row.tong_tiep_nhan);
+    row.ty_le_da_goi_120p = pct(row.da_goi_120p, row.tong_tiep_nhan);
+    row.ty_le_da_goi_24h = pct(row.da_goi_24h, row.tong_tiep_nhan);
+    row.ty_le_da_goi_lkh = pct(row.da_goi_lkh, row.tong_tiep_nhan);
+    row.ty_le_da_goi_hl = pct(row.da_goi_hl, row.tong_tiep_nhan);
+    row.ty_le_vi_pham_tren_da_goi_120p = pct(row.vi_pham_120p, row.da_goi_120p);
+    row.ty_le_vi_pham_tren_da_goi_24h = pct(row.vi_pham_24h, row.da_goi_24h);
+    row.ty_le_vi_pham_tren_da_goi_lkh = pct(row.vi_pham_lkh, row.da_goi_lkh);
+    row.ty_le_vi_pham_tren_da_goi_hl = pct(row.vi_pham_hl, row.da_goi_hl);
+    // Metric 5/6 (da xac nhan voi nguoi dung dung "vi pham 120'" trong ca 2 cong thuc, khong phai
+    // "hen lai" du ten chi so nhac den hen lai):
+    row.ty_le_da_goi_hen_lai_toan_he_thong = pct(row.tong_tiep_nhan - (row.nghi_ngo_120p - row.da_goi_120p), row.tong_tiep_nhan);
+    row.ty_le_ktv_chu_dong_toan_he_thong = pct(row.tong_tiep_nhan - row.nghi_ngo_120p, row.tong_tiep_nhan);
+    row.ty_le_goi_thanh_cong = pct(row.goi_thanh_cong, row.tong_cuoc_goi);
+  }
+
+  return { rows: Array.from(map.values()).sort((a, b) => b.tong_tiep_nhan - a.tong_tiep_nhan), thang };
+}
+
+// GET /api/survey/bao-cao-khu-vuc?dim=&thang=&khu_vuc=&tinh=&quan_huyen=&ky_thuat_vien=&nguoi_khao_sat=&doi_tac=&hang=&nhom_san_pham=&nhom_kh=&nganh=
+survey.get("/bao-cao-khu-vuc", async (c) => {
+  const dimKey = c.req.query("dim") ?? "khu_vuc";
+  if (!SURVEY_REPORT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
+
+  const scope = scopeByKhuVuc(c);
+  const params: SurveyKhuVucParams = {
+    dim: dimKey,
+    thang: c.req.query("thang"),
+    khu_vuc: c.req.query("khu_vuc"),
+    tinh: c.req.query("tinh"),
+    quan_huyen: c.req.query("quan_huyen"),
+    ky_thuat_vien: c.req.query("ky_thuat_vien"),
+    nguoi_khao_sat: c.req.query("nguoi_khao_sat"),
+  };
+  for (const dk of Object.keys(REPORT_DIMS)) {
+    if (dk === "khu_vuc" || dk === "tinh") continue;
+    params[dk] = c.req.query(dk);
+  }
+  const key = buildReportKey("survey/bao-cao-khu-vuc", params, scope);
+  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
   return c.json(payload);
 });
 
