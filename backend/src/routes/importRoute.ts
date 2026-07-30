@@ -126,6 +126,19 @@ export function scheduleCaLapRefreshIfChanged(
 const importRoute = new Hono<{ Bindings: Env }>();
 importRoute.use("*", verifySessionMiddleware, loadUser, requireRole("Admin", "TBP DVBH"));
 
+// POST /api/import/refresh-reports - ep tinh lai toan bo cache bao cao dashboard mac dinh NGAY LAP
+// TUC, khong doi import moi. Dung khi cache bi "dong cung" sai (vd bi de boi 1 chuoi warm cu hon -
+// xem comment ve warmReports o scheduleCaLapRefreshIfChanged ben tren, CHOT 2026-07-30 sau su co
+// bieu do SLA-trend hien 0% dù co du lieu that). Goi TUAN TU, cho xong hoan toan (khong waitUntil -
+// day la hanh dong nguoi dung chu dong bam, can biet ket qua ngay) - bumpVersions truoc de moi cache
+// cu (ke ca cac key khac "scope=all" mac dinh) deu het han dung, roi warmDefaultReports() tinh san
+// lai bo tham so mac dinh cho nguoi xem tiep theo khong phai cho.
+importRoute.post("/refresh-reports", async (c) => {
+  await bumpVersions(c.env.DB, ["cases"]);
+  await warmDefaultReports(c.env.DB);
+  return c.json({ ok: true });
+});
+
 // GET /api/import/column-map - anh xa cot Excel -> cot DB, de frontend parse dung tren trinh duyet
 importRoute.get("/column-map", async (c) => c.json({ columnMap: COLUMN_MAP }));
 

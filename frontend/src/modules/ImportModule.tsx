@@ -215,8 +215,31 @@ export function ImportModule() {
     onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
   });
 
+  // Ep tinh lai cache bao cao dashboard NGAY, khong doi import moi - dung khi cache bi "dong cung"
+  // sai (vd bi 1 chuoi warm cu hon de mat ket qua dung cua chuoi khac, xem comment o
+  // scheduleCaLapRefreshIfChanged trong backend/src/routes/importRoute.ts). Chi Admin.
+  const refreshReportsMutation = useMutation({
+    mutationFn: () => api.post("/import/refresh-reports"),
+    onSuccess: () => addToast("Đã làm mới xong toàn bộ báo cáo dashboard."),
+    onError: (err) => addToast(`Làm mới báo cáo thất bại: ${describeError(err)}`),
+  });
+
   return (
     <div className="anim-in">
+      {isAdmin && (
+        <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="font-display font-bold text-sm">Làm mới báo cáo dashboard</div>
+            <div className="text-xs text-[var(--ink-600)] mt-0.5">
+              Ép tính lại toàn bộ số liệu dashboard (KPI, xu hướng SLA, doanh thu, ca lặp...) ngay lập tức — dùng khi thấy số liệu có vẻ "đứng im" sai dù dữ
+              liệu thật đã đổi. Không cần đợi import mới.
+            </div>
+          </div>
+          <Btn variant="ghost" size="sm" onClick={() => refreshReportsMutation.mutate()} disabled={refreshReportsMutation.isPending}>
+            {refreshReportsMutation.isPending ? "Đang làm mới…" : "🔄 Làm mới báo cáo"}
+          </Btn>
+        </Card>
+      )}
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
       {syncErrors && (
