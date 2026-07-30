@@ -5,7 +5,6 @@ import { Field } from "../components/ui/Field";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { ChoiceSelect } from "../components/ui/ChoiceSelect";
-import { SearchableSelect } from "../components/ui/SearchableSelect";
 import { Btn } from "../components/ui/Btn";
 import { Tabs, type TabItem } from "../components/ui/Tabs";
 import { Modal } from "../components/ui/Modal";
@@ -386,19 +385,31 @@ export function CaseDetail({
   // trang thai "Hoan thanh XLSC" - khop chinh xac NAP_GAS_ELIGIBLE o backend/src/routes/napGas.ts
   // (ca dang ton hoac hoan thanh voi tien do khac se KHONG the chot danh gia o backend, nen an tab
   // di cho gon thay vi hien 1 form luon bao loi khi bam Luu).
+  // CHOT 2026-07-30: "nghi_ngo_nap_gas=1" KHONG con la dieu kien bat buoc de danh gia - Giam sat khu
+  // vuc duoc chu dong danh gia BAT KY ca "Hoan thanh XLSC" nao, chi con dung de hien thi thong tin
+  // (khong con chan form). Van gioi han: ca phai da "Hoan thanh XLSC" (napGasDaDong), VA khoa chot
+  // sau NAP_GAS_LOCK_DAYS ngay ke tu ngay hoan thanh (napGasLocked) - khop dung backend PATCH
+  // /nap-gas/:id/danh-gia (xem NAP_GAS_DANH_GIA_LOCK_DAYS o backend/src/routes/napGas.ts).
+  const NAP_GAS_LOCK_DAYS = 45;
   const napGasEligible = !!(c && c.nghi_ngo_nap_gas === 1 && c.tien_do_hoan_thanh === "Hoàn thành XLSC");
+  const napGasDaDong = !!(c && c.tien_do_hoan_thanh === "Hoàn thành XLSC");
+  const napGasLocked = !!(c?.thoi_gian_hoan_thanh && (Date.now() - new Date(c.thoi_gian_hoan_thanh).getTime()) / 86400000 > NAP_GAS_LOCK_DAYS);
   const effectiveNapGasDanhGia = napGasForm.danh_gia_nap_gas || napGasDanhGia?.danh_gia_nap_gas || "";
   const effectiveNapGasPhiDichVu = napGasForm.phi_dich_vu || napGasDanhGia?.phi_dich_vu || "";
 
-  // "Tranh chap, khieu nai" - CHI ca DA DONG (Hoan thanh XLSC hoac Khong hoan thanh XLSC) VA co
-  // "Nghi ngo tranh chap" moi thuoc dien - khop dung TRANH_CHAP_ELIGIBLE o backend/src/routes/tranhChap.ts.
+  // "Tranh chap, khieu nai" - ca DA DONG (Hoan thanh XLSC hoac Khong hoan thanh XLSC) la dieu kien
+  // BAT BUOC (khop dung backend POST /:caseId/tiep-nhan). Co "Nghi ngo tranh chap" (co CRM import
+  // tu dong gan) KHONG con la dieu kien bat buoc de tao tien trinh moi nua - CHOT 2026-07-30: KSNB/
+  // Giam sat khu vuc duoc chu dong tao yeu cau ke ca ca chua duoc CRM gan co tranh chap, chi con
+  // dung "tranhChapEligible" de hien thi thong tin (khong con chan nut).
   const tranhChapEligible = !!(c && c.nghi_ngo_tranh_chap === 1 && (c.tien_do_hoan_thanh === "Hoàn thành XLSC" || c.tien_do_hoan_thanh === "Không hoàn thành XLSC"));
+  const caseDaDongChoTranhChap = !!(c && (c.tien_do_hoan_thanh === "Hoàn thành XLSC" || c.tien_do_hoan_thanh === "Không hoàn thành XLSC"));
   const tienTrinhListForCase = tienTrinhCaseData?.rows ?? [];
-  // Cho phep "Tiep nhan" tien trinh MOI (ke ca lan 2 tro di) khi: ca thuoc dien, CHUA co tien trinh
+  // Cho phep "Tiep nhan" tien trinh MOI (ke ca lan 2 tro di) khi: ca da dong, CHUA co tien trinh
   // nao, HOAC toan bo tien trinh hien co deu da o trang thai dong - khop dung dieu kien backend
   // POST /:caseId/tiep-nhan (chi 409 TIEN_TRINH_DANG_MO khi tien trinh gan nhat con mo).
   const canTiepNhanTranhChapMoi =
-    tranhChapEligible && (tienTrinhListForCase.length === 0 || tienTrinhListForCase.every((tt) => tt.trang_thai_xu_ly && TRANG_THAI_DONG.includes(tt.trang_thai_xu_ly)));
+    caseDaDongChoTranhChap && (tienTrinhListForCase.length === 0 || tienTrinhListForCase.every((tt) => tt.trang_thai_xu_ly && TRANG_THAI_DONG.includes(tt.trang_thai_xu_ly)));
 
   const lapStatus = caLap?.detection
     ? trangThaiLapOf({
@@ -761,10 +772,18 @@ export function CaseDetail({
 
   const napGasContent = (
     <div>
-      {!napGasEligible && <div className="text-sm text-[var(--ink-400)] italic">Ca này không thuộc diện "Nghi ngờ nạp gas".</div>}
-      {napGasEligible && (
+      {!napGasDaDong && <div className="text-sm text-[var(--ink-400)] italic">Ca chưa hoàn thành XLSC — chưa thể đánh giá nạp gas.</div>}
+      {napGasDaDong && (
         <>
-          {canNapGas ? (
+          {!napGasEligible && (
+            <div className="text-xs text-[var(--ink-400)] italic mb-2">Ca này chưa được CRM đánh dấu "Nghi ngờ nạp gas" — vẫn có thể đánh giá thủ công bên dưới nếu cần.</div>
+          )}
+          {canNapGas && napGasLocked && (
+            <div className="text-xs text-[var(--coral-500)] italic mb-2">
+              🔒 Đã quá {NAP_GAS_LOCK_DAYS} ngày kể từ khi hoàn thành — khóa chốt đánh giá nạp gas.
+            </div>
+          )}
+          {canNapGas && !napGasLocked ? (
             <Card className="p-3 space-y-2">
               <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá nạp gas</label>
               <Select
@@ -815,16 +834,24 @@ export function CaseDetail({
     </div>
   );
 
+  const canWriteTranhChapForCase = !!(currentUser && canWriteTranhChap(currentUser, c?.khu_vuc ?? null));
+
   const tranhChapContent = (
     <div className="space-y-4">
-      {!tranhChapEligible && <div className="text-sm text-[var(--ink-400)] italic">Ca này không thuộc diện tranh chấp.</div>}
-      {tranhChapEligible && tienTrinhListForCase.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">Ca này chưa có tiến trình xử lý tranh chấp nào.</div>
+      {tienTrinhListForCase.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">
+          {tranhChapEligible
+            ? "Ca này chưa có tiến trình xử lý tranh chấp nào."
+            : "Ca này chưa được CRM đánh dấu nghi ngờ tranh chấp — vẫn có thể tạo yêu cầu xử lý thủ công bên dưới nếu cần."}
+        </div>
       )}
-      {tranhChapEligible && canTiepNhanTranhChapMoi && currentUser && canWriteTranhChap(currentUser, c?.khu_vuc ?? null) && (
+      {!caseDaDongChoTranhChap && canWriteTranhChapForCase && (
+        <div className="text-xs text-[var(--ink-400)] italic">Ca chưa hoàn thành XLSC — chưa thể tạo yêu cầu giải quyết tranh chấp, khiếu nại.</div>
+      )}
+      {canTiepNhanTranhChapMoi && canWriteTranhChapForCase && (
         <div className="flex justify-end">
           <Btn size="sm" onClick={() => setTiepNhanTranhChapOpen(true)}>
-            + Tiếp nhận xử lý tranh chấp
+            + Tạo yêu cầu giải quyết tranh chấp, khiếu nại
           </Btn>
         </div>
       )}
@@ -1032,12 +1059,11 @@ export function CaseDetail({
                   <label className="text-xs font-semibold text-[var(--ink-400)]">
                     Linh kiện thiếu <span className="text-[var(--coral-500)]">*</span>
                   </label>
-                  <SearchableSelect
+                  <Select
                     value={form.linh_kien_thieu}
                     onChange={(v) => setForm({ ...form, linh_kien_thieu: v })}
-                    className="mt-1"
-                    placeholder="Gõ mã hoặc tên linh kiện để tìm…"
-                    options={activeLinhKien.map((l) => ({ value: l.ma_linh_kien, label: `${l.ma_linh_kien} · ${l.ten_linh_kien}`, searchText: `${l.ma_linh_kien} ${l.ten_linh_kien}` }))}
+                    className="w-full mt-1"
+                    options={activeLinhKien.map((l) => ({ value: l.ma_linh_kien, label: `${l.ma_linh_kien} · ${l.ten_linh_kien}` }))}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">

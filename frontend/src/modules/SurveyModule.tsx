@@ -216,7 +216,7 @@ const VIEWS = [
 
 const PAGE_SIZE = 20;
 
-export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
+export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const [view, setView] = useState("bao-cao");
   const [tab, setTab] = useState("can-khao-sat");
   const [page, setPage] = useState(1);
@@ -681,16 +681,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
               const fullRows = tab === "can-khao-sat" ? canKhaoSatRows : quaHanKhaoSatRows;
               const columns: Column<CanKhaoSatRow>[] = [
                 { key: "id", header: "Ca", render: (row) => (
-                  <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(row.id)}>
+                  <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(row.id, "vi-pham")}>
                     {row.id}
                   </span>
                 ) },
-                { key: "khach_hang", header: "Khách hàng / Khu vực", render: (row) => (
-                  <>
-                    {row.khach_hang}
-                    <div className="text-xs text-[var(--ink-400)]">{row.khu_vuc}</div>
-                  </>
-                ) },
+                { key: "khach_hang", header: "Khách hàng", render: (row) => row.khach_hang },
+                { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (row) => <span className="text-xs">{row.ky_thuat_vien ?? "—"}</span> },
                 { key: "loai_loi", header: "Loại lỗi nghi ngờ", render: (row) => (
                   <div className="flex flex-wrap gap-1">
                     {neededLoaiLoi(row).map((loai) => (
@@ -701,6 +697,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                   </div>
                 ) },
                 { key: "assigned_to", header: "Phân công", render: (row) => <span className="text-xs">{row.assigned_to || <span className="italic text-[var(--ink-400)]">Chưa phân công</span>}</span> },
+                { key: "khu_vuc", header: "Khu vực", render: (row) => row.khu_vuc ?? "—" },
                 {
                   key: "action",
                   header: "",
@@ -727,6 +724,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                   onPageChange={setPage}
                   rowKey={(row) => row.id}
                   emptyText="Không có mục nào."
+                  storageKey="survey-can-khao-sat"
                 />
               );
             })()}
@@ -738,20 +736,20 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                   key: "caseId",
                   header: "Ca",
                   render: ({ caseId }) => (
-                    <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(caseId)}>
+                    <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(caseId, "vi-pham")}>
                       #{caseId}
                     </span>
                   ),
                 },
                 {
                   key: "khach_hang",
-                  header: "Khách hàng / Khu vực",
-                  render: ({ vs }) => (
-                    <>
-                      {vs[0].khach_hang}
-                      <div className="text-xs text-[var(--ink-400)]">{vs[0].khu_vuc}</div>
-                    </>
-                  ),
+                  header: "Khách hàng",
+                  render: ({ vs }) => vs[0].khach_hang,
+                },
+                {
+                  key: "ky_thuat_vien",
+                  header: "Kỹ thuật viên",
+                  render: ({ vs }) => <span className="text-xs">{vs[0].ky_thuat_vien ?? "—"}</span>,
                 },
                 {
                   key: "ket_qua",
@@ -765,6 +763,11 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                       ))}
                     </div>
                   ),
+                },
+                {
+                  key: "khu_vuc",
+                  header: "Khu vực",
+                  render: ({ vs }) => vs[0].khu_vuc ?? "—",
                 },
                 {
                   key: "action",
@@ -788,7 +791,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                       )}
                       {tab === "cho-qc" && !isQC && <span className="text-xs text-[var(--ink-400)] italic">Chờ QC xử lý</span>}
                       {tab === "da-xu-ly" && (
-                        <Btn size="sm" variant="ghost" onClick={() => openCase(caseId)}>
+                        <Btn size="sm" variant="ghost" onClick={() => openCase(caseId, "vi-pham")}>
                           Xem chi tiết
                         </Btn>
                       )}
@@ -808,6 +811,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string) => void }) {
                   onPageChange={setPage}
                   rowKey={({ caseId }) => caseId}
                   emptyText="Không có mục nào."
+                  storageKey="survey-cho-qc-da-xu-ly"
                 />
               );
             })()}

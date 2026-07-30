@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Card } from "./Card";
 import { Btn } from "./Btn";
 import { LoadingInline } from "./LoadingInline";
@@ -10,6 +10,18 @@ export interface Column<T> {
   className?: string;
   /** Neu co, header cot nay co the bam de sap xep (xem sortBy/sortDir/onSortChange o PaginatedTableProps). */
   sortKey?: string;
+}
+
+const MIN_COL_WIDTH = 60;
+
+function loadColWidths(storageKey: string | undefined): Record<string, number> {
+  if (!storageKey || typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(`col-widths:${storageKey}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
 }
 
 interface PaginatedTableProps<T> {
@@ -29,6 +41,11 @@ interface PaginatedTableProps<T> {
   sortBy?: string;
   sortDir?: "asc" | "desc";
   onSortChange?: (sortBy: string, sortDir: "asc" | "desc") => void;
+  /** Bat tinh nang keo doi rong tung cot (o mep phai header), luu theo key nay vao localStorage
+   * cua trinh duyet - CHI luu cuc bo tren may nguoi dung, khong dong bo len server, moi bang
+   * (moi "storageKey" khac nhau) nho do rong rieng. Bo qua prop nay se giu nguyen hanh vi cu
+   * (do rong cot tu dong theo noi dung, khong keo duoc). */
+  storageKey?: string;
 }
 
 export function PaginatedTable<T>({
@@ -47,8 +64,17 @@ export function PaginatedTable<T>({
   sortBy,
   sortDir,
   onSortChange,
+  storageKey,
 }: PaginatedTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColWidths(storageKey));
+  const dragState = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  // Doi bang (storageKey doi) - doc lai do rong da luu rieng cho bang moi thay vi giu do rong cua
+  // bang truoc do.
+  useEffect(() => {
+    setColWidths(loadColWidths(storageKey));
+  }, [storageKey]);
 
   function handleSortClick(col: Column<T>) {
     if (!col.sortKey || !onSortChange) return;
@@ -57,6 +83,40 @@ export function PaginatedTable<T>({
     } else {
       onSortChange(col.sortKey, "asc");
     }
+  }
+
+  function handleResizeStart(e: React.MouseEvent, colKey: string, startWidth: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragState.current = { key: colKey, startX: e.clientX, startWidth };
+
+    function onMove(ev: MouseEvent) {
+      if (!dragState.current) return;
+      // Bat key/startX/startWidth ra bien local NGAY o day (khong doc lai dragState.current ben
+      // trong callback updater ben duoi) - React co the hoan lai viec goi callback updater cua
+      // setState sang sau (vd nhieu su kien mousemove/mouseup don don trong 1 tick), luc do
+      // dragState.current co the da bi onUp() gan ve null mat roi, gay TypeError "Cannot read
+      // properties of null (reading 'key')" va crash toan bo app (khong co error boundary).
+      const { key, startX, startWidth } = dragState.current;
+      const next = Math.max(MIN_COL_WIDTH, startWidth + (ev.clientX - startX));
+      setColWidths((prev) => ({ ...prev, [key]: next }));
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      dragState.current = null;
+      if (!storageKey) return;
+      setColWidths((prev) => {
+        try {
+          window.localStorage.setItem(`col-widths:${storageKey}`, JSON.stringify(prev));
+        } catch {
+          /* localStorage day/private mode - tinh nang phu, bo qua loi */
+        }
+        return prev;
+      });
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   }
 
   return (
@@ -68,14 +128,24 @@ export function PaginatedTable<T>({
               {columns.map((col) => {
                 const sortable = !!col.sortKey && !!onSortChange;
                 const isActive = sortable && sortBy === col.sortKey;
+                const width = colWidths[col.key];
                 return (
                   <th
                     key={col.key}
+                    style={storageKey ? { width, maxWidth: width, position: "relative" } : undefined}
                     className={`py-2.5 px-3 ${col.className ?? ""} ${sortable ? "cursor-pointer select-none hover:text-[var(--ink-600)]" : ""}`}
                     onClick={sortable ? () => handleSortClick(col) : undefined}
                   >
                     {col.header}
                     {isActive && <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>}
+                    {storageKey && (
+                      <span
+                        onMouseDown={(e) => handleResizeStart(e, col.key, width ?? (e.currentTarget.parentElement as HTMLElement).offsetWidth)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-0 right-0 h-full w-2 cursor-col-resize select-none hover:bg-[var(--ocean-300)]/60"
+                        title="Kéo để đổi độ rộng cột"
+                      />
+                    )}
                   </th>
                 );
               })}
@@ -129,11 +199,18 @@ export function PaginatedTable<T>({
                   className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""}`}
                   onClick={() => onRowClick?.(row)}
                 >
-                  {columns.map((col) => (
-                    <td key={col.key} className={`py-2 px-3 ${col.className ?? ""}`}>
-                      {col.render(row)}
-                    </td>
-                  ))}
+                  {columns.map((col) => {
+                    const width = colWidths[col.key];
+                    return (
+                      <td
+                        key={col.key}
+                        style={storageKey && width ? { width, maxWidth: width, overflow: "hidden" } : undefined}
+                        className={`py-2 px-3 ${col.className ?? ""}`}
+                      >
+                        {col.render(row)}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
           </tbody>

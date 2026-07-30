@@ -99,6 +99,7 @@ function MissingPartsDaDongList({
         onRowClick={onRowClick}
         rowKey={(c) => c.id}
         emptyText="Không có ca thiếu linh kiện đã đóng trong tháng này."
+        storageKey="missing-parts-closed"
       />
     </div>
   );
@@ -108,6 +109,7 @@ interface MissingPartCase {
   id: string;
   khach_hang: string | null;
   khu_vuc: string | null;
+  ky_thuat_vien: string | null;
   last_linh_kien_thieu: string | null;
   last_ngay_yeu_cau_co_hang: string | null;
   last_ngay_du_kien_hoan_thanh: string | null;
@@ -156,7 +158,7 @@ const KHU_VUC_BUCKET_COLS: { key: keyof KhuVucRow; label: string; tuoiTu?: strin
   { key: "tren_7", label: "Trên 7 ngày", tuoiTu: "7" },
 ];
 
-export function MissingPartsModule({ openCase }: { openCase: (id: string) => void }) {
+export function MissingPartsModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useState("bao-cao");
@@ -252,7 +254,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
   const columns: Column<MissingPartCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
+    { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     {
       key: "linh_kien",
       header: "Linh kiện thiếu",
@@ -260,19 +262,20 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
     },
     { key: "ngay_yeu_cau", header: "Ngày yêu cầu có hàng", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_yeu_cau_co_hang)}</span> },
     { key: "ngay_du_kien", header: "Ngày dự kiến HT", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_du_kien_hoan_thanh)}</span> },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
   const closedColumns: Column<MissingPartClosedCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     {
       key: "linh_kien",
       header: "Linh kiện thiếu",
       render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber">{c.last_linh_kien_thieu}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>),
     },
     { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
@@ -423,7 +426,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
             ]}
           />
           {trangThai === "da-dong" ? (
-            <MissingPartsDaDongList columns={closedColumns} khuVucFilter={khuVucFilter} dimFilter={dimFilter} onRowClick={(c) => openCase(c.id)} />
+            <MissingPartsDaDongList columns={closedColumns} khuVucFilter={khuVucFilter} dimFilter={dimFilter} onRowClick={(c) => openCase(c.id, "giai-trinh")} />
           ) : (
             <PaginatedTable
               columns={columns}
@@ -435,9 +438,10 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string) => voi
               pageSize={pageSize}
               total={data?.total ?? 0}
               onPageChange={setPage}
-              onRowClick={(c) => openCase(c.id)}
+              onRowClick={(c) => openCase(c.id, "giai-trinh")}
               rowKey={(c) => c.id}
               emptyText="Không có ca thiếu linh kiện."
+              storageKey="missing-parts-list"
             />
           )}
         </div>

@@ -19,6 +19,7 @@ interface NapGasCase {
   id: string;
   khach_hang: string | null;
   khu_vuc: string | null;
+  ky_thuat_vien: string | null;
   thoi_gian_hoan_thanh: string | null;
   danh_gia_nap_gas: NapGasDanhGiaLoai | null;
   phi_dich_vu: NapGasPhiDichVuLoai | null;
@@ -72,7 +73,7 @@ const VIEWS = [
   { key: "danh-sach", label: "Danh sách chi tiết" },
 ];
 
-export function NapGasModule({ openCase }: { openCase: (id: string) => void }) {
+export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useState("tong-quan");
@@ -172,7 +173,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string) => void }) {
   const columns: Column<NapGasCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
+    { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     {
       key: "danh_gia_nap_gas",
       header: "Đánh giá nạp gas",
@@ -182,6 +183,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string) => void }) {
     { key: "nguoi_chot", header: "Người chốt", render: (c) => c.nguoi_chot ?? "—" },
     { key: "ngay_chot", header: "Ngày chốt", render: (c) => <span className="text-xs">{fmtDateTime(c.ngay_chot)}</span> },
     { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
@@ -341,9 +343,10 @@ export function NapGasModule({ openCase }: { openCase: (id: string) => void }) {
             pageSize={pageSize}
             total={data?.total ?? 0}
             onPageChange={setPage}
-            onRowClick={(c) => openCase(c.id)}
+            onRowClick={(c) => openCase(c.id, "nap-gas")}
             rowKey={(c) => c.id}
             emptyText="Không có ca nghi ngờ nạp gas trong tháng này."
+            storageKey="nap-gas-list"
           />
         </div>
       )}

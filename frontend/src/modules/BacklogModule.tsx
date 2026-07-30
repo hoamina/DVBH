@@ -101,6 +101,7 @@ function DaDongMonthList({
         onRowClick={onRowClick}
         rowKey={(c) => c.id}
         emptyText="Không có ca nào trong tháng này."
+        storageKey="backlog-closed"
       />
     </div>
   );
@@ -227,7 +228,7 @@ const TON_TUOI_OPTIONS = [
   { value: "14", label: "Trên 14 ngày" },
 ];
 
-export function BacklogModule({ openCase }: { openCase: (id: string) => void }) {
+export function BacklogModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useState("bao-cao");
@@ -254,7 +255,10 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
   });
   const pageSize = 10;
 
-  const sharedFilterParams = { khu_vuc: khuVucFilter, ...dimFilters };
+  // "ky_thuat_vien" nam trong sharedFilterParams (dung chung ca Bao cao lan Danh sach chi tiet) -
+  // rieng tab "Ca da dong" (du lieu tu snapshot R2) khong loc theo KTV, ghi de lai ve undefined
+  // trong listParams ben duoi (PHAI dat SAU spread sharedFilterParams de gia tri nay thang the).
+  const sharedFilterParams = { khu_vuc: khuVucFilter, ky_thuat_vien: ktvFilter, ...dimFilters };
 
   const [dsTab, dsCategory] = nhomKey.split(":");
 
@@ -280,12 +284,12 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
     category: dsTab === "can-giai-trinh" ? dsCategory : undefined,
     tuoi_tu: dsTab === "ton-hien-tai" ? dsTuoiTu || undefined : undefined,
     id: idSearch || undefined,
-    ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
     page,
     pageSize,
     sortBy,
     sortDir,
     ...sharedFilterParams,
+    ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
   };
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["backlog-list", listParams],
@@ -359,7 +363,6 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
   const columns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     { key: "tiep_nhan", header: "Tiếp nhận", sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
     { key: "du_kien", header: "Dự kiến HT", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
@@ -386,19 +389,20 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
         );
       },
     },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem / giải trình →</span> },
   ];
 
   const closedColumns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     {
       key: "ly_do",
       header: "Lý do tồn gần nhất",
       render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>),
     },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
@@ -427,6 +431,16 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
             options={[{ value: "", label: `Tất cả ${f.label.toLowerCase()}` }, ...(filtersData?.[f.optionsKey].map((v) => ({ value: v, label: v })) ?? [])]}
           />
         ))}
+        {/* Dung chung ca Bao cao (pivot "Bao cao ton theo...") lan Danh sach chi tiet - xem
+            sharedFilterParams. Tab "Ca da dong" (snapshot R2) khong ap dung filter nay. */}
+        <Select
+          value={ktvFilter}
+          onChange={(v) => {
+            setKtvFilter(v);
+            setPage(1);
+          }}
+          options={[{ value: "", label: "Tất cả KTV" }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
+        />
       </div>
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
@@ -637,16 +651,6 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
               />
             )}
             {dsTab !== "da-dong" && (
-              <Select
-                value={ktvFilter}
-                onChange={(v) => {
-                  setKtvFilter(v);
-                  setPage(1);
-                }}
-                options={[{ value: "", label: "Tất cả KTV" }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
-              />
-            )}
-            {dsTab !== "da-dong" && (
               <div className="ml-auto">
                 <Btn variant="ghost" size="sm" onClick={handleExport}>
                   ⬇ Xuất Excel
@@ -655,7 +659,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
             )}
           </div>
           {dsTab === "da-dong" ? (
-            <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} dimFilters={dimFilters} onRowClick={(c) => openCase(c.id)} />
+            <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} dimFilters={dimFilters} onRowClick={(c) => openCase(c.id, "giai-trinh")} />
           ) : (
             <PaginatedTable
               columns={columns}
@@ -667,7 +671,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
               pageSize={pageSize}
               total={data?.total ?? 0}
               onPageChange={setPage}
-              onRowClick={(c) => openCase(c.id)}
+              onRowClick={(c) => openCase(c.id, "giai-trinh")}
               rowKey={(c) => c.id}
               emptyText="Không có ca nào trong nhóm này."
               sortBy={sortBy}
@@ -677,6 +681,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
                 setSortDir(newSortDir);
                 setPage(1);
               }}
+              storageKey="backlog-list"
             />
           )}
         </div>

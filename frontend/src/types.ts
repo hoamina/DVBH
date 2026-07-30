@@ -97,6 +97,7 @@ export interface ViPhamRow {
   ngay_chot: string | null;
   khach_hang?: string;
   khu_vuc?: string;
+  ky_thuat_vien?: string | null;
 }
 
 export type LoaiLoi = "Loi 120 phut" | "Hen qua 24h" | "Loi lo ke hoach" | "KH hen lai";

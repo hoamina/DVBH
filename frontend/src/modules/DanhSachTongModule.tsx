@@ -106,7 +106,6 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
   const columns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
     { key: "hang", header: "Hãng", render: (r) => r.hang ?? "—" },
     { key: "nhom_san_pham", header: "Model", render: (r) => r.nhom_san_pham ?? "—" },
     { key: "ky_thuat_vien", header: "KTV", render: (r) => r.ky_thuat_vien ?? "—" },
@@ -126,6 +125,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
       header: "DT tổng",
       render: (r) => <span className="font-mono">{fmtVND((r.dt_san_pham ?? 0) + (r.dt_linh_kien ?? 0) + (r.dt_dich_vu ?? 0))}</span>,
     },
+    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
   ];
 
   return (
@@ -188,6 +188,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           onRowClick={(r) => openCase(r.id)}
           rowKey={(r) => r.id}
           emptyText="Không có ca đang tồn."
+          storageKey="danh-sach-tong"
         />
       ) : (
         <PaginatedTable
@@ -203,6 +204,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           onRowClick={(r) => openCase(r.id)}
           rowKey={(r) => r.id}
           emptyText="Không có ca nào trong tháng này."
+          storageKey="danh-sach-tong-thang"
         />
       )}
     </div>

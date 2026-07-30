@@ -64,9 +64,11 @@ function ageFilterClause(tuoiTu?: string, tuoiDen?: string): { sql: string; bind
 
 /** Doc khu_vuc (ad-hoc) + tat ca dim con lai trong REPORT_DIMS (tru khu_vuc, da co rieng) tu query
  * string - dung lam "params" cho ca buildReportKey() lan computeXxx() ben duoi, thay the viec goi
- * thang sharedReportFilters(c, ...) (nhan Context) trong than ham compute. */
+ * thang sharedReportFilters(c, ...) (nhan Context) trong than ham compute. Them "ky_thuat_vien"
+ * RIENG cho cases.ts (khong dua vao REPORT_DIMS dung chung o filterParams.ts vi se anh huong
+ * missingParts.ts/napGas.ts/survey.ts - giong quyet dinh o computeSurveyKhuVucReport truoc do). */
 function readReportFilterParams(c: Context<{ Bindings: Env }>): Record<string, string | undefined> {
-  const params: Record<string, string | undefined> = { khu_vuc: c.req.query("khu_vuc") };
+  const params: Record<string, string | undefined> = { khu_vuc: c.req.query("khu_vuc"), ky_thuat_vien: c.req.query("ky_thuat_vien") };
   for (const dimKey of Object.keys(REPORT_DIMS)) {
     if (dimKey === "khu_vuc") continue;
     params[dimKey] = c.req.query(dimKey);
@@ -76,7 +78,8 @@ function readReportFilterParams(c: Context<{ Bindings: Env }>): Record<string, s
 
 /** Ban sao cua sharedReportFilters() trong lib/filterParams.ts nhung nhan "params" (Record thuan)
  * thay vi Context - de dung duoc trong computeXxx (khong co Context o R7 warm-up). Logic PHAI khop
- * y het sharedReportFilters (cung doc tu REPORT_DIMS, bo qua khu_vuc). */
+ * y het sharedReportFilters (cung doc tu REPORT_DIMS, bo qua khu_vuc), CONG THEM ky_thuat_vien
+ * (xem readReportFilterParams). */
 function sharedReportFiltersFromParams(params: Record<string, string | undefined>, prefix = ""): { sql: string; binds: unknown[] } {
   let sql = "";
   const binds: unknown[] = [];
@@ -87,6 +90,10 @@ function sharedReportFiltersFromParams(params: Record<string, string | undefined
       sql += ` AND ${prefix}${col} = ?`;
       binds.push(value);
     }
+  }
+  if (params.ky_thuat_vien) {
+    sql += ` AND ${prefix}ky_thuat_vien = ?`;
+    binds.push(params.ky_thuat_vien);
   }
   return { sql, binds };
 }

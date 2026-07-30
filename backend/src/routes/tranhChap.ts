@@ -130,8 +130,13 @@ tranhChap.post("/:caseId/tiep-nhan", async (c) => {
     .first<{ khu_vuc: string | null; nghi_ngo_tranh_chap: number; tien_do_hoan_thanh: string | null }>();
   if (!caseRow) return c.json({ error: "CASE_NOT_FOUND" }, 404);
 
+  // CHOT 2026-07-30: bo dieu kien nghi_ngo_tranh_chap=1 (co CRM tu dong gan) - KSNB Doi tac/Giam sat
+  // khu vuc duoc chu dong tao yeu cau xu ly tranh chap/khieu nai cho BAT KY ca da dong nao, khong
+  // con gioi han phai la ca da duoc he thong danh dau nghi ngo tranh chap. Van giu dieu kien ca
+  // PHAI DA DONG (Hoan thanh XLSC / Khong hoan thanh XLSC) - dung nghiep vu chi xu ly tranh chap sau
+  // khi cong tac dich vu da ket thuc.
   const isDaDong = caseRow.tien_do_hoan_thanh === "Hoàn thành XLSC" || caseRow.tien_do_hoan_thanh === "Không hoàn thành XLSC";
-  if (caseRow.nghi_ngo_tranh_chap !== 1 || !isDaDong) return c.json({ error: "CASE_NOT_ELIGIBLE" }, 400);
+  if (!isDaDong) return c.json({ error: "CASE_NOT_ELIGIBLE" }, 400);
 
   if (!canWriteTranhChap(c, caseRow.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
 

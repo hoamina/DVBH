@@ -58,7 +58,7 @@ export function SurveyCallWorkspace({
   initialKhuVuc,
 }: {
   onExit: () => void;
-  openCase: (id: string) => void;
+  openCase: (id: string, tab?: string) => void;
   initialKhuVuc?: string;
 }) {
   const auth = useAuth();
@@ -456,7 +456,7 @@ export function SurveyCallWorkspace({
                         </Btn>
                       </a>
                     )}
-                    <Btn size="sm" variant="ghost" type="button" onClick={() => openCase(activeRow.id)}>
+                    <Btn size="sm" variant="ghost" type="button" onClick={() => openCase(activeRow.id, "vi-pham")}>
                       Xem hồ sơ đầy đủ
                     </Btn>
                   </div>
@@ -511,7 +511,7 @@ export function SurveyCallWorkspace({
                 <Card className="p-6 text-center text-sm text-[var(--ink-400)]">
                   Ca này hiện không còn lỗi nào cần khảo sát (có thể đã được người khác ghi nhận).
                   <div className="mt-3 flex justify-center gap-2">
-                    <Btn size="sm" variant="ghost" type="button" onClick={() => openCase(activeRow.id)}>
+                    <Btn size="sm" variant="ghost" type="button" onClick={() => openCase(activeRow.id, "vi-pham")}>
                       Xem hồ sơ
                     </Btn>
                     {adHocId ? (

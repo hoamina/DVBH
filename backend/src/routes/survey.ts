@@ -108,7 +108,7 @@ survey.get("/", async (c) => {
 
   if (tab === "cho-qc") {
     const query = `
-      SELECT v.*, c.khach_hang, c.khu_vuc
+      SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien
       FROM vi_pham v
       INNER JOIN case_dvbh c ON c.id = v.case_id
       WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}
@@ -121,7 +121,7 @@ survey.get("/", async (c) => {
 
   if (tab === "da-xu-ly") {
     const query = `
-      SELECT v.*, c.khach_hang, c.khu_vuc
+      SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien
       FROM vi_pham v
       INNER JOIN case_dvbh c ON c.id = v.case_id
       WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}

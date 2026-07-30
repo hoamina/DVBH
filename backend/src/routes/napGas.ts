@@ -8,6 +8,12 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { ageExpr } from "../lib/ageCalc";
+
+// So ngay toi da ke tu thoi_gian_hoan_thanh de con duoc chot/chot lai danh gia nap gas thu cong (xem
+// PATCH /:id/danh-gia ben duoi) - CHOT 2026-07-30 cung luc bo dieu kien "nghi_ngo_nap_gas=1" cho
+// thao tac nay, tranh sua danh gia cho ca qua cu vo thoi han.
+const NAP_GAS_DANH_GIA_LOCK_DAYS = 45;
 
 const napGas = new Hono<{ Bindings: Env }>();
 napGas.use("*", verifySessionMiddleware, loadUser);
@@ -99,10 +105,19 @@ napGas.patch(
     const id = c.req.param("id");
     if (!id) return c.json({ error: "INVALID_ID" }, 400);
 
-    const caseRow = await c.env.DB.prepare(`SELECT id, khu_vuc FROM case_dvbh c WHERE c.id = ? AND ${NAP_GAS_ELIGIBLE}`)
+    // CHOT 2026-07-30: bo dieu kien nghi_ngo_nap_gas=1 (NAP_GAS_ELIGIBLE, danh cho danh sach/bao cao
+    // "nghi ngo nap gas" chinh thuc) - Giam sat khu vuc duoc chu dong danh gia BAT KY ca da "Hoan
+    // thanh XLSC" nao. Van gioi han: ca phai da Hoan thanh XLSC, chua bi huy, VA chua qua
+    // NAP_GAS_DANH_GIA_LOCK_DAYS ngay ke tu thoi_gian_hoan_thanh (khoa chot ca qua cu).
+    const caseRow = await c.env.DB.prepare(
+      `SELECT id, khu_vuc, ${ageExpr("c.thoi_gian_hoan_thanh")} as tuoi_hoan_thanh
+       FROM case_dvbh c
+       WHERE c.id = ? AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC' AND c.huy_bo_at IS NULL`,
+    )
       .bind(id)
-      .first<{ id: string; khu_vuc: string | null }>();
+      .first<{ id: string; khu_vuc: string | null; tuoi_hoan_thanh: number }>();
     if (!caseRow) return c.json({ error: "NOT_FOUND_OR_NOT_ELIGIBLE" }, 404);
+    if (caseRow.tuoi_hoan_thanh > NAP_GAS_DANH_GIA_LOCK_DAYS) return c.json({ error: "NAP_GAS_DANH_GIA_LOCKED" }, 400);
 
     const scope = scopeByKhuVuc(c);
     if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {

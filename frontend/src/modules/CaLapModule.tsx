@@ -119,7 +119,7 @@ function conDongColor(rate: number) {
   return "var(--teal-500)";
 }
 
-export function CaLapModule({ openCase, role }: { openCase: (id: string) => void; role: VaiTro | null }) {
+export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: string) => void; role: VaiTro | null }) {
   const addToast = useToast();
   const qc = useQueryClient();
   const auth = useAuth();
@@ -335,7 +335,6 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     { key: "id", header: "ID", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
     { key: "seri_san_pham", header: "Serial", render: (r) => <span className="font-mono text-xs">{r.seri_san_pham}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
     { key: "ky_thuat_vien", header: "KTV", render: (r) => r.ky_thuat_vien ?? "—" },
     { key: "hoan_thanh", header: "Hoàn thành", sortKey: "thoi_gian_hoan_thanh", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
     { key: "prior_id", header: "Ca trước", render: (r) => <span className="font-mono text-xs">{r.prior_id}</span> },
@@ -350,6 +349,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
     },
     { key: "chot_hinh_thuc_xu_ly", header: "Chốt hình thức xử lý", render: (r) => <span className="text-xs">{r.chot_hinh_thuc_xu_ly ?? "—"}</span> },
     { key: "nguoi_giai_trinh", header: "Người giải trình", render: (r) => <span className="text-xs">{r.nguoi_giai_trinh ?? "—"}</span> },
+    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
   ];
 
   const blacklistColumns: Column<BlacklistSerialRow>[] = [
@@ -637,7 +637,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
             pageSize={pageSize}
             total={filteredRows.length}
             onPageChange={setPage}
-            onRowClick={(r) => openCase(r.id)}
+            onRowClick={(r) => openCase(r.id, "ca-lap")}
             rowKey={(r) => r.id}
             emptyText="Không có ca lặp nào trong phạm vi đã lọc."
             sortBy={sortBy}
@@ -647,6 +647,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string) => void
               setSortDir(newSortDir);
               setPage(1);
             }}
+            storageKey="ca-lap-list"
           />
         </div>
       )}
