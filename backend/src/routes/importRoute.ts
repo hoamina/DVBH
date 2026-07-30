@@ -64,11 +64,29 @@ async function runBgTask(env: Env, importHistoryId: number, label: string, task:
 // moi). Chay qua waitUntil() de KHONG lam cham phan hoi cua nguoi import - cron hang gio (co guard
 // shouldSkipCronRefresh, xem lib/caLapRefresh.ts) van con lam luoi an toan.
 // Cung dot nay tinh lai luon cache dashboard filters/months (xem recomputeDashboardCaches).
+//
+// "warmReports" (mac dinh true, xem externalImport.ts truyen false) - CHOT 2026-07-30 sau khi phat
+// hien bug rang so lieu dashboard "dong cung" sai (SLA-trend hien 0% cho ca ngay co du lieu that):
+// pipeline QuickSight tu dong (POST /api/external-import/commit) ban nhieu file lien tiep trong 1
+// dot chay (moi file 1 request rieng), MOI request tu spawn 1 chuoi nen doc lap "bump + warm 15 bao
+// cao mac dinh" (xem warmDefaultReports() trong lib/reportWarmup.ts) - cac chuoi nay chay CHONG LAP
+// khong co khoa dieu phoi, deu ghi vao CUNG 1 dong cache theo key bao cao. Chuoi nao ghi xong SAU se
+// de chuoi ghi truoc, KHONG lien quan chuoi nao tinh dung/du du lieu hon - neu 1 chuoi tu file nho
+// (tinh nhanh nhung dua tren du lieu tai thoi diem som, truoc khi cac file lon hon kip ghi xong) lai
+// ghi xong SAU CUNG, no de mat ket qua dung cua chuoi khac. Tag version van ghi dung (doc version
+// MOI NHAT tai luc ghi) nen trong nhu "con han", co che lazy-invalidate khong phat hien duoc dang bi
+// de boi du lieu cu hon - bao cao "dong cung" sai cho toi khi sang ngay VN moi (tag co "ngay:").
+// Giai phap: BO buoc warm (tinh san truoc) cho pipeline tu dong - van bumpVersions (dam bao cache cu
+// het han dung), chi khong CHU DONG tinh lai ngay nua (de nguoi xem that dau tien tu kich hoat
+// compute-on-miss, tranh nhieu chuoi nen doc lap cung ghi de nhau). Import thu cong (mot nguoi, mot
+// luot) khong co rui ro dua tranh nay nen giu nguyen warm=true.
 export function scheduleCaLapRefreshIfChanged(
   c: Context<{ Bindings: Env }>,
   summary: { GHI_MOI: number; GHI_DE: number; affectedSerials: string[]; affectedDates: string[] },
   importHistoryId: number,
+  options?: { warmReports?: boolean },
 ) {
+  const warmReports = options?.warmReports ?? true;
   if (summary.GHI_MOI + summary.GHI_DE > 0) {
     // Truyen affectedSerials de refreshCaLapPrecompute() chi tinh lai INCREMENTAL trong pham vi
     // serial bi anh huong (xem lib/caLapRefresh.ts + lib/importProcessor.ts) - neu rong sau loc,
@@ -79,12 +97,18 @@ export function scheduleCaLapRefreshIfChanged(
     // hoi cho nguoi import (xem KE_HOACH_TOI_UU_D1.md Giai doan 2).
     c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "cache dashboard filters/months", recomputeDashboardCaches(c.env.DB)));
     // Bump domain "cases" (xem lib/dataVersions.ts, YEU_CAU_BAO_CAO_TINH_SAN.md) roi TINH SAN ngay
-    // bo bao cao mac dinh (R7 - warmDefaultReports, xem lib/reportWarmup.ts): "tat ca bao cao se
-    // tinh lai 1 lan duy nhat khi import moi" - bump PHAI xong truoc khi warm de ban tinh san mang
-    // dung version tag moi (neu warm truoc bump, tag cu se bi coi la het han ngay lan doc dau tien,
-    // warm thanh cong coc).
+    // bo bao cao mac dinh (R7 - warmDefaultReports, xem lib/reportWarmup.ts) KHI warmReports=true:
+    // "tat ca bao cao se tinh lai 1 lan duy nhat khi import moi" - bump PHAI xong truoc khi warm de
+    // ban tinh san mang dung version tag moi (neu warm truoc bump, tag cu se bi coi la het han ngay
+    // lan doc dau tien, warm thanh cong coc). Khi warmReports=false, CHI bump (khong warm) - xem
+    // giai thich rui ro dua tranh o comment dau ham.
     c.executionCtx.waitUntil(
-      runBgTask(c.env, importHistoryId, "bump version + warm bao cao", bumpVersions(c.env.DB, ["cases"]).then(() => warmDefaultReports(c.env.DB))),
+      runBgTask(
+        c.env,
+        importHistoryId,
+        "bump version + warm bao cao",
+        bumpVersions(c.env.DB, ["cases"]).then(() => (warmReports ? warmDefaultReports(c.env.DB) : undefined)),
+      ),
     );
     // Snapshot R2 "ca da dong" theo tung ngay (xem lib/daDongDayChunks.ts) - DAY LA NOI DUY NHAT
     // duoc phep tao/ghi de JSON len R2 cho tinh nang nay (nguyen tac chot voi chu he thong, xem

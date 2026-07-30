@@ -45,7 +45,11 @@ externalImport.post("/commit", async (c) => {
     .bind(body.filename, SYSTEM_USER_EMAIL, summary.GHI_MOI, summary.GHI_DE, summary.BO_QUA, summary.LOI, nowVN())
     .run();
 
-  scheduleCaLapRefreshIfChanged(c, summary, inserted.meta.last_row_id);
+  // warmReports:false - pipeline nay ban nhieu file lien tiep trong 1 dot chay, moi file tu spawn 1
+  // chuoi nen doc lap; bat warm o day gay dua tranh ghi de cache bao cao (xem giai thich chi tiet o
+  // comment cua scheduleCaLapRefreshIfChanged trong importRoute.ts). Van bumpVersions binh thuong -
+  // cache cu van het han dung, chi khong chu dong tinh lai truoc nua.
+  scheduleCaLapRefreshIfChanged(c, summary, inserted.meta.last_row_id, { warmReports: false });
   return c.json({ filename: body.filename, ...summary });
 });
 
