@@ -101,14 +101,51 @@ const LINK_HINH_ANH_SHORT_DOMAIN = "key.com/";
 const LINK_HINH_ANH_S3_BASE = "https://srt-iotp-prod-storage.s3.ap-southeast-1.amazonaws.com/";
 const LINK_HINH_ANH_MAX = 30;
 
+// Tach chi tai vi tri dau phay NGAY TRUOC "key.com" (bao gio cung danh dau bat dau 1 anh moi), KHONG
+// tach o MOI dau phay - vi 1 so nguon CRM (vd KAROFI) chen ten file goc ngay sau URL, cach nhau boi
+// dau phay (vd "key.com/xxx,Ten file.jpeg,key.com/yyy,..."), khien split(",") cu cat nham ten file
+// thanh 1 "anh" rieng (hien loi "Khong tai duoc" vi ten file khong phai URL hop le). Da xac nhan voi
+// chu he thong 2026-07-30: giu nguyen phan ten file dinh kem sau URL (khong cat bo) - link kem duoi
+// nay van tai anh binh thuong.
+function escapeRegExpLiteral(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+const LINK_HINH_ANH_SPLIT_RE = new RegExp(`,(?=${escapeRegExpLiteral(LINK_HINH_ANH_SHORT_DOMAIN)})`);
+
 export function parseLinkHinhAnh(rawValue: unknown): string | null {
   if (rawValue === undefined || rawValue === null || rawValue === "") return null;
   const urls = String(rawValue)
-    .split(",")
+    .split(LINK_HINH_ANH_SPLIT_RE)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
     .slice(0, LINK_HINH_ANH_MAX)
     .map((s) => s.replaceAll(LINK_HINH_ANH_SHORT_DOMAIN, LINK_HINH_ANH_S3_BASE));
+  return urls.length > 0 ? JSON.stringify(urls) : null;
+}
+
+// Backfill cho cac dong link_hinh_anh DA CO SAN trong DB tu TRUOC ban fix o tren (JSON array bi tach
+// nham 1 anh thanh 2 phan tu do URL luon kem ten file goc ngay sau, xem parseLinkHinhAnh()). INPUT la
+// gia tri HIEN CO trong DB (JSON array cua chuoi DA qua domain-replace, khong con "key.com/" nua),
+// khong phai chuoi CRM tho - ghep lai bang dau phay se tai tao dung lai chuoi da domain-replace ban
+// dau (lan tach truoc chi sai VI TRI, khong mat noi dung), roi tach lai dung vi tri: truoc
+// LINK_HINH_ANH_S3_BASE (domain o day DA duoc doi roi) thay vi truoc LINK_HINH_ANH_SHORT_DOMAIN nhu
+// parseLinkHinhAnh() dung cho du lieu tho. Dung boi route backfill trong importRoute.ts.
+const LINK_HINH_ANH_RESPLIT_RE = new RegExp(`,(?=${escapeRegExpLiteral(LINK_HINH_ANH_S3_BASE)})`);
+
+export function resplitStoredLinkHinhAnh(dbValue: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(dbValue);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
+  const rejoined = parsed.filter((v): v is string => typeof v === "string").join(",");
+  const urls = rejoined
+    .split(LINK_HINH_ANH_RESPLIT_RE)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, LINK_HINH_ANH_MAX);
   return urls.length > 0 ? JSON.stringify(urls) : null;
 }
 

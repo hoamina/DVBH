@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { processImport } from "../lib/importProcessor";
-import { COLUMN_MAP, BUSINESS_FIELDS, computeCrmHashFromDbRow } from "../lib/ratchet";
+import { COLUMN_MAP, BUSINESS_FIELDS, computeCrmHashFromDbRow, resplitStoredLinkHinhAnh } from "../lib/ratchet";
 import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { csvTemplateResponse } from "../lib/csvTemplate";
@@ -236,6 +236,43 @@ importRoute.post("/backfill-crm-hash", requireRole("Admin"), async (c) => {
 
   const remainingRow = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM case_dvbh WHERE crm_hash IS NULL").first<{ n: number }>();
   return c.json({ updated: results.length, remaining: remainingRow?.n ?? 0 });
+});
+
+// POST /api/import/backfill-link-hinh-anh - chi Admin, chay THU CONG 1 lan sau khi deploy fix tach
+// anh (xem parseLinkHinhAnh()/resplitStoredLinkHinhAnh() trong ratchet.ts) - sua lai cac dong
+// link_hinh_anh DA CO SAN trong DB tu truoc ban fix (JSON array bi tach nham 1 anh thanh 2 phan tu
+// do URL luon kem ten file goc phia sau, cach nhau boi dau phay, khien phan ten file bi hien "Khong
+// tai duoc" trong gallery). Phat hien dong loi qua json_each: bat ky phan tu nao trong array KHONG
+// bat dau bang "http" la dau hieu bi tach sai tu truoc. Xu ly theo lo (limit) - goi lai nhieu lan
+// (dua vao "hasMore") toi khi false. Idempotent - dong da sua se khong con phan tu nao thieu "http"
+// nen khong bi chon lai o lan sau. KHONG dong bo lai crm_hash o day - lan import CRM that tiep theo
+// cham vao ca nay se thay hash lech (vi link_hinh_anh da doi) va tu GHI_DE 1 lan, giong co che
+// "self-heal" da co san cho crm_hash IS NULL (xem importProcessor.ts), khong can xu ly gi them.
+importRoute.post("/backfill-link-hinh-anh", requireRole("Admin"), async (c) => {
+  const limitParam = Number(c.req.query("limit"));
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 200;
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, link_hinh_anh FROM case_dvbh WHERE id IN (
+       SELECT DISTINCT c.id FROM case_dvbh c, json_each(c.link_hinh_anh) je
+       WHERE c.link_hinh_anh IS NOT NULL AND c.link_hinh_anh != '[]' AND je.value NOT LIKE 'http%'
+       ORDER BY c.id LIMIT ?
+     )`,
+  )
+    .bind(limit)
+    .all<{ id: string; link_hinh_anh: string }>();
+
+  if (results.length === 0) {
+    return c.json({ updated: 0, hasMore: false });
+  }
+
+  const statements = results.map((row) => {
+    const fixed = resplitStoredLinkHinhAnh(row.link_hinh_anh);
+    return c.env.DB.prepare("UPDATE case_dvbh SET link_hinh_anh = ? WHERE id = ?").bind(fixed, row.id);
+  });
+  await c.env.DB.batch(statements);
+
+  return c.json({ updated: results.length, hasMore: results.length === limit });
 });
 
 // GET /api/import/history?loai=&export= - "loai" loc theo nguon (crm/giai_trinh_cu/giai_trinh_lap_cu/
