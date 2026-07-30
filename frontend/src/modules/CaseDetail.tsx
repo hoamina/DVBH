@@ -4,6 +4,8 @@ import { Badge, statusTone } from "../components/ui/Badge";
 import { Field } from "../components/ui/Field";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
+import { ChoiceSelect } from "../components/ui/ChoiceSelect";
+import { SearchableSelect } from "../components/ui/SearchableSelect";
 import { Btn } from "../components/ui/Btn";
 import { Tabs, type TabItem } from "../components/ui/Tabs";
 import { Modal } from "../components/ui/Modal";
@@ -1014,7 +1016,7 @@ export function CaseDetail({
               <label className="text-xs font-semibold text-[var(--ink-400)]">
                 Lý do chậm <span className="text-[var(--coral-500)]">*</span>
               </label>
-              <Select
+              <ChoiceSelect
                 value={form.ly_do_cham || lyDoChon?.ten_ly_do || ""}
                 onChange={(v) => setForm({ ...form, ly_do_cham: v })}
                 className="w-full mt-1"
@@ -1030,11 +1032,12 @@ export function CaseDetail({
                   <label className="text-xs font-semibold text-[var(--ink-400)]">
                     Linh kiện thiếu <span className="text-[var(--coral-500)]">*</span>
                   </label>
-                  <Select
+                  <SearchableSelect
                     value={form.linh_kien_thieu}
                     onChange={(v) => setForm({ ...form, linh_kien_thieu: v })}
-                    className="w-full mt-1"
-                    options={[{ value: "", label: "— Chọn linh kiện —" }, ...activeLinhKien.map((l) => ({ value: l.ma_linh_kien, label: `${l.ma_linh_kien} · ${l.ten_linh_kien}` }))]}
+                    className="mt-1"
+                    placeholder="Gõ mã hoặc tên linh kiện để tìm…"
+                    options={activeLinhKien.map((l) => ({ value: l.ma_linh_kien, label: `${l.ma_linh_kien} · ${l.ten_linh_kien}`, searchText: `${l.ma_linh_kien} ${l.ten_linh_kien}` }))}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1106,14 +1109,14 @@ export function CaseDetail({
               {canGsLap ? (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-[var(--ink-400)]">Hình thức xử lý</label>
-                  <Select
+                  <ChoiceSelect
                     value={effectiveHinhThuc}
                     onChange={setHinhThucForm}
                     className="w-full"
                     options={HINH_THUC_XU_LY_KEYS.map((k) => ({ value: k, label: HINH_THUC_XU_LY_META[k].label }))}
                   />
                   <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá lặp</label>
-                  <Select
+                  <ChoiceSelect
                     value={effectiveChotDanhGiaLap}
                     onChange={(v) => setGsLapForm({ ...gsLapForm, chot_danh_gia_lap: v })}
                     className="w-full"
@@ -1162,7 +1165,7 @@ export function CaseDetail({
               <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">QC chốt (lần 2)</div>
               {canQcLap ? (
                 <div className="space-y-1.5">
-                  <Select
+                  <ChoiceSelect
                     value={effectiveQcChot}
                     onChange={(v) => setQcLapForm({ ...qcLapForm, qc_chot: v })}
                     className="w-full"

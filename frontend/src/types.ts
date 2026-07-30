@@ -50,6 +50,15 @@ export interface CaseRow {
   last_ly_do_cham?: string | null;
   last_ngay_giai_trinh?: string | null;
   last_ngay_du_kien_hoan_thanh?: string | null;
+  // "Nhom ton" (BacklogModule.tsx Danh sach chi tiet) - chi co tren GET /cases (khong co tren
+  // R2 snapshot "Ca da dong"), tinh san server-side tu NEED_GIAI_TRINH_CATEGORIES.
+  need_lo_ke_hoach?: number;
+  need_tai_giai_trinh?: number;
+  need_chua_gt_3_ngay?: number;
+  need_chua_gt_5_ngay?: number;
+  need_dieu_hoa?: number;
+  need_b2b?: number;
+  need_nskx?: number;
 }
 
 export interface GiaiTrinhRow {

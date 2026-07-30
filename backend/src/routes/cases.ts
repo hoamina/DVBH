@@ -397,8 +397,18 @@ cases.get("/", async (c) => {
 
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", khuVucFilter);
   const ageClause = ageFilterClause(c.req.query("tuoi_tu"), c.req.query("tuoi_den"));
-  const extraFilter = khuVucClause.sql + ageClause.sql + dimClause.sql + sharedClause.sql + idClause.sql;
-  const binds: unknown[] = [...scopeClause.binds, ...khuVucClause.binds, ...ageClause.binds, ...dimClause.binds, ...sharedClause.binds, ...idClause.binds];
+  const ktv = c.req.query("ky_thuat_vien");
+  const ktvClause: { sql: string; binds: unknown[] } = ktv ? { sql: " AND c.ky_thuat_vien = ?", binds: [ktv] } : { sql: "", binds: [] };
+  const extraFilter = khuVucClause.sql + ageClause.sql + dimClause.sql + sharedClause.sql + idClause.sql + ktvClause.sql;
+  const binds: unknown[] = [
+    ...scopeClause.binds,
+    ...khuVucClause.binds,
+    ...ageClause.binds,
+    ...dimClause.binds,
+    ...sharedClause.binds,
+    ...idClause.binds,
+    ...ktvClause.binds,
+  ];
 
   const whereSql = `WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${tabFilter}${scopeClause.sql}${extraFilter}`;
 
@@ -413,9 +423,21 @@ cases.get("/", async (c) => {
     .bind(...binds)
     .first<{ total: number }>();
 
+  // Cot "nhom ton" (Danh sach chi tiet BacklogModule.tsx) - tinh san server-side, tai dung DUNG
+  // bieu thuc NEED_GIAI_TRINH_CATEGORIES (needGiaiTrinh.ts) de dam bao khop 100% voi cac StatCard/
+  // pivot dang dung cung dinh nghia, thay vi tinh lai tuoi ca o client (de sai lech moc VN). Them
+  // cot KHONG lam tang so dong quet (van cung 1 WHERE/JOIN, D1 tinh phi theo dong quet chu khong
+  // theo so cot - xem CLAUDE.md "D1 read-budget discipline").
   const baseQuery = `
     SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
-           lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh
+           lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.lo_ke_hoach} THEN 1 ELSE 0 END) as need_lo_ke_hoach,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.tai_giai_trinh} THEN 1 ELSE 0 END) as need_tai_giai_trinh,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_3_ngay} THEN 1 ELSE 0 END) as need_chua_gt_3_ngay,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_5_ngay} THEN 1 ELSE 0 END) as need_chua_gt_5_ngay,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dieu_hoa} THEN 1 ELSE 0 END) as need_dieu_hoa,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as need_b2b,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as need_nskx
     FROM case_dvbh c
     ${join}
     ${whereSql}

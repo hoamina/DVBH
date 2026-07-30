@@ -160,7 +160,20 @@ interface FiltersData {
   nhomSanPham: string[];
   nhomKh: string[];
   nganh: string[];
+  kyThuatVien: string[];
 }
+
+// Nhan hien thi ngan gon cho badge "Nhom ton" trong Danh sach chi tiet - khop dung 7 cot need_*
+// server tra ve (xem backend/src/routes/cases.ts GET / + lib/needGiaiTrinh.ts).
+const NHOM_TON_BADGES: { key: keyof CaseRow; label: string }[] = [
+  { key: "need_lo_ke_hoach", label: "Lỡ kế hoạch" },
+  { key: "need_tai_giai_trinh", label: "Tái giải trình" },
+  { key: "need_chua_gt_3_ngay", label: "Chưa GT >3 ngày" },
+  { key: "need_chua_gt_5_ngay", label: "Chưa GT >5 ngày" },
+  { key: "need_dieu_hoa", label: "Điều hòa" },
+  { key: "need_b2b", label: "B2B" },
+  { key: "need_nskx", label: "NSKX" },
+];
 
 const REPORT_DIM_OPTIONS = [
   { value: "khu_vuc", label: "Khu vực" },
@@ -223,6 +236,10 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
   const [nhomKey, setNhomKey] = useState("can-giai-trinh:tong");
   const [dsTuoiTu, setDsTuoiTu] = useState("");
   const [idSearch, setIdSearch] = useState("");
+  // Loc theo KTV - rieng cho Danh sach chi tiet (ton hien tai/can giai trinh/da giai trinh), khong
+  // ap dung cho the Bao cao/pivot (nam ngoai pham vi yeu cau) va khong ap dung cho tab "Ca da dong"
+  // (du lieu tu snapshot R2, khong co dieu kien loc rieng theo KTV o day).
+  const [ktvFilter, setKtvFilter] = useState("");
   const [sortBy, setSortBy] = useState("id");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -263,6 +280,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
     category: dsTab === "can-giai-trinh" ? dsCategory : undefined,
     tuoi_tu: dsTab === "ton-hien-tai" ? dsTuoiTu || undefined : undefined,
     id: idSearch || undefined,
+    ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
     page,
     pageSize,
     sortBy,
@@ -302,6 +320,13 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
     thoi_gian_cskh_tiep_nhan: "Tiếp nhận",
     last_ngay_du_kien_hoan_thanh: "Dự kiến HT",
     last_ly_do_cham: "Lý do tồn gần nhất",
+    need_lo_ke_hoach: "Lỡ kế hoạch",
+    need_tai_giai_trinh: "Tái giải trình",
+    need_chua_gt_3_ngay: "Chưa GT >3 ngày",
+    need_chua_gt_5_ngay: "Chưa GT >5 ngày",
+    need_dieu_hoa: "Điều hòa",
+    need_b2b: "B2B",
+    need_nskx: "NSKX",
   };
 
   // Nhan cot cho bang pivot "Bao cao ton theo ..." - khop dung thead cua bang o duoi (cot "nhom" doi
@@ -335,12 +360,31 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
     { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
+    { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     { key: "tiep_nhan", header: "Tiếp nhận", sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
     { key: "du_kien", header: "Dự kiến HT", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
     {
       key: "ly_do",
       header: "Lý do tồn gần nhất",
       render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>),
+    },
+    {
+      key: "nhom_ton",
+      header: "Nhóm tồn",
+      render: (c) => {
+        const active = NHOM_TON_BADGES.filter((b) => c[b.key]);
+        return active.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {active.map((b) => (
+              <Badge key={b.key} tone="amber">
+                {b.label}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <span className="text-[var(--ink-400)] text-xs">—</span>
+        );
+      },
     },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem / giải trình →</span> },
   ];
@@ -590,6 +634,16 @@ export function BacklogModule({ openCase }: { openCase: (id: string) => void }) 
                 }}
                 placeholder="Tìm theo ID…"
                 className="focus-ring w-40 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            )}
+            {dsTab !== "da-dong" && (
+              <Select
+                value={ktvFilter}
+                onChange={(v) => {
+                  setKtvFilter(v);
+                  setPage(1);
+                }}
+                options={[{ value: "", label: "Tất cả KTV" }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
               />
             )}
             {dsTab !== "da-dong" && (
