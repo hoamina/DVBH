@@ -3,6 +3,7 @@ import type { Env } from "../types";
 import { processImport } from "../lib/importProcessor";
 import { nowVN } from "../lib/vnTime";
 import { scheduleCaLapRefreshIfChanged } from "./importRoute";
+import { warmDefaultReports } from "../lib/reportWarmup";
 
 /**
  * Import tu dong cho pipeline QuickSight (Python, chay nen - xem
@@ -51,6 +52,18 @@ externalImport.post("/commit", async (c) => {
   // cache cu van het han dung, chi khong chu dong tinh lai truoc nua.
   scheduleCaLapRefreshIfChanged(c, summary, inserted.meta.last_row_id, { warmReports: false });
   return c.json({ filename: body.filename, ...summary });
+});
+
+// POST /api/external-import/refresh-reports - tin hieu "da day xong 1 dot" tu pipeline, goi DUNG 1
+// LAN sau khi da thu day het cac file trong dot (bat ke tung file thanh cong hay loi - luon goi o
+// buoc cuoi cung, khong dieu kien). Tinh lai dong bo toan bo cache bao cao dashboard mac dinh NGAY,
+// thay vi de moi file rieng le tu warm (gay dua tranh ghi de - xem warmReports:false o /commit
+// phia tren). Khong can bumpVersions lai o day - moi file da tu bump dung khi GHI_MOI/GHI_DE > 0;
+// endpoint nay chi lam nhiem vu tinh sang. An toan goi lai nhieu lan (idempotent, khong tac dung phu
+// len du lieu nghiep vu) - pipeline goi trung hoac retry do timeout khong sao ca.
+externalImport.post("/refresh-reports", async (c) => {
+  await warmDefaultReports(c.env.DB);
+  return c.json({ ok: true });
 });
 
 export default externalImport;

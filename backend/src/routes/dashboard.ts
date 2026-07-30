@@ -26,10 +26,32 @@ interface DashboardFilterParams {
   [key: string]: string | undefined;
 }
 
-function buildDashboardFilterClause(params: DashboardFilterParams, scope: string[] | null, prefix = ""): { sql: string; binds: unknown[] } {
+// Nguon FROM cho case_dvbh, da loc SAN theo dieu kien "thang hien tai HOAC con ton" bang UNION ALL
+// 2 nhanh, MOI nhanh ep dung 1 index chon loc rieng qua INDEXED BY - CHOT 2026-07-30 sau khi phat
+// hien bug hieu nang nghiem trong: viet dieu kien nay duoi dang 1 cau WHERE co OR (ban cu, xem git
+// history) khien SQLite/D1 CHON SAI index (idx_case_huy_bo_at - gan nhu khong chon loc, huy_bo_at
+// IS NULL khop ~96% bang) thay vi 2 index rat chon loc co san (idx_case_ton cho ca con ton,
+// idx_case_hoan_thanh_not_null cho khoang ngay thang nay) - EXPLAIN QUERY PLAN xac nhan dung index
+// sai, va do that tren production: 1 truy van dai dien giam tu 74,510 dong doc con 28,035 (~62%)
+// sau khi tach UNION ALL + INDEXED BY (test them voi GROUP BY: 99,043 -> 52,579, ~47%). Ket qua
+// CUOI CUNG giong het truoc (cung 1 tap dong), chi khac duong doc - AN TOAN doi voi moi noi goi.
+// "archived_at"/"huy_bo_at" da loc SAN NGAY BEN TRONG day, khong con nam trong WHERE con lai nua.
+function currentMonthOrOpenSource(alias: string): string {
+  return `(
+    SELECT * FROM case_dvbh INDEXED BY idx_case_ton
+      WHERE thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL AND huy_bo_at IS NULL
+    UNION ALL
+    SELECT * FROM case_dvbh INDEXED BY idx_case_hoan_thanh_not_null
+      WHERE thoi_gian_hoan_thanh >= date('now','start of month') AND thoi_gian_hoan_thanh < date('now','start of month','+1 month')
+        AND archived_at IS NULL AND huy_bo_at IS NULL
+  ) ${alias}`;
+}
+
+function buildDashboardFilterClause(params: DashboardFilterParams, scope: string[] | null, prefix = ""): { from: string; sql: string; binds: unknown[] } {
+  const alias = prefix ? prefix.slice(0, -1) : "case_dvbh";
   const scopeClause = khuVucWhereClause(scope, `${prefix}khu_vuc`);
   const binds: unknown[] = [...scopeClause.binds];
-  let sql = ` AND ${prefix}archived_at IS NULL AND ${prefix}huy_bo_at IS NULL${scopeClause.sql}`;
+  let sql = scopeClause.sql;
 
   const khuVucClause = khuVucAdHocClause(`${prefix}khu_vuc`, params.khu_vuc);
   sql += khuVucClause.sql;
@@ -51,13 +73,14 @@ function buildDashboardFilterClause(params: DashboardFilterParams, scope: string
   // goi API truc tiep khong kem "thang" (FE luon gui san, day la lop phong ve thu 2).
   const thang = params.thang || CURRENT_MONTH_VALUE;
   if (thang === CURRENT_MONTH_VALUE) {
-    sql += ` AND ((${prefix}thoi_gian_hoan_thanh >= date('now','start of month') AND ${prefix}thoi_gian_hoan_thanh < date('now','start of month','+1 month')) OR ${prefix}thoi_gian_hoan_thanh IS NULL)`;
-  } else {
-    sql += ` AND ${prefix}thoi_gian_hoan_thanh >= ? || '-01' AND ${prefix}thoi_gian_hoan_thanh < date(? || '-01', '+1 month')`;
-    binds.push(thang, thang);
+    return { from: currentMonthOrOpenSource(alias), sql, binds };
   }
 
-  return { sql, binds };
+  const from = prefix ? `case_dvbh ${alias}` : "case_dvbh";
+  sql = ` AND ${prefix}archived_at IS NULL AND ${prefix}huy_bo_at IS NULL${sql}`;
+  sql += ` AND ${prefix}thoi_gian_hoan_thanh >= ? || '-01' AND ${prefix}thoi_gian_hoan_thanh < date(? || '-01', '+1 month')`;
+  binds.push(thang, thang);
+  return { from, sql, binds };
 }
 
 export interface DashboardFiltersPayload {
@@ -190,8 +213,8 @@ export interface DashboardKpisPayload {
 // Tach rieng phan tinh toan cua /kpis (khong goi truc tiep tu route) de dung chung cho ca
 // compute-on-miss (cachedReport ben duoi) va warm-up sau import (R7, xem YEU_CAU_BAO_CAO_TINH_SAN.md).
 export async function computeDashboardKpis(db: D1Database, params: DashboardFilterParams, scope: string[] | null): Promise<DashboardKpisPayload> {
-  const { sql, binds } = buildDashboardFilterClause(params, scope);
-  const { sql: sqlC, binds: bindsC } = buildDashboardFilterClause(params, scope, "c.");
+  const { from, sql, binds } = buildDashboardFilterClause(params, scope);
+  const { from: fromC, sql: sqlC, binds: bindsC } = buildDashboardFilterClause(params, scope, "c.");
 
   const base = await db.prepare(
     `SELECT
@@ -203,13 +226,13 @@ export async function computeDashboardKpis(db: D1Database, params: DashboardFilt
       SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as co_tinh_24h,
       SUM(CASE WHEN thoi_gian_hoan_thanh IS NULL THEN 1 ELSE 0 END) as ton,
       SUM(loi_120p + loi_qua_han_24h + loi_lo_ke_hoach + loi_kh_hen_lai) as nghi_ngo
-    FROM case_dvbh WHERE 1=1${sql}`,
+    FROM ${from} WHERE 1=1${sql}`,
   )
     .bind(...binds)
     .first<Record<string, number>>();
 
   const tonDaGiaiTrinh = await db.prepare(
-    `SELECT COUNT(*) as n FROM case_dvbh c
+    `SELECT COUNT(*) as n FROM ${fromC}
      WHERE c.thoi_gian_hoan_thanh IS NULL AND EXISTS (SELECT 1 FROM giai_trinh g WHERE g.case_id = c.id)${sqlC}`,
   )
     .bind(...bindsC)
@@ -217,7 +240,7 @@ export async function computeDashboardKpis(db: D1Database, params: DashboardFilt
 
   const xacNhan = await db.prepare(
     `SELECT COUNT(*) as n FROM vi_pham v
-     INNER JOIN case_dvbh c ON c.id = v.case_id
+     INNER JOIN ${fromC} ON c.id = v.case_id
      WHERE COALESCE(v.chot_bo_cap_2, CASE WHEN v.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1
        ${sqlC}`,
   )
@@ -228,7 +251,7 @@ export async function computeDashboardKpis(db: D1Database, params: DashboardFilt
   // tuc la so dong vi_pham da ton tai cho case trong pham vi loc - khac tyViPham (chi tinh loi da xac nhan).
   const daKhaoSat = await db.prepare(
     `SELECT COUNT(*) as n FROM vi_pham v
-     INNER JOIN case_dvbh c ON c.id = v.case_id
+     INNER JOIN ${fromC} ON c.id = v.case_id
      WHERE 1=1${sqlC}`,
   )
     .bind(...bindsC)
@@ -275,7 +298,7 @@ export async function computeSlaTrend(
   scope: string[] | null,
 ): Promise<{ rows: TrendRow[] }> {
   const days = Math.min(90, Math.max(1, Number(params.days ?? 14)));
-  const { sql, binds } = buildDashboardFilterClause(params, scope);
+  const { from, sql, binds } = buildDashboardFilterClause(params, scope);
 
   const { results } = await db.prepare(
     `SELECT date(thoi_gian_cskh_tiep_nhan) as ngay,
@@ -284,7 +307,7 @@ export async function computeSlaTrend(
        SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han IS NOT NULL THEN 1 ELSE 0 END) as dung_han_tinh,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket = '0. Dưới 24h' THEN 1 ELSE 0 END) as duoi_24h_count,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as co_tinh_24h
-     FROM case_dvbh WHERE thoi_gian_cskh_tiep_nhan IS NOT NULL
+     FROM ${from} WHERE thoi_gian_cskh_tiep_nhan IS NOT NULL
        AND date(thoi_gian_cskh_tiep_nhan) >= date('now', ?)${sql}
      GROUP BY date(thoi_gian_cskh_tiep_nhan)
      ORDER BY ngay ASC`,
@@ -312,7 +335,7 @@ export async function computeMonthlyTrend(
   scope: string[] | null,
 ): Promise<{ rows: TrendRow[] }> {
   const months = Math.min(24, Math.max(1, Number(params.months ?? 12)));
-  const { sql, binds } = buildDashboardFilterClause(params, scope);
+  const { from, sql, binds } = buildDashboardFilterClause(params, scope);
 
   const { results } = await db.prepare(
     `SELECT strftime('%Y-%m', thoi_gian_hoan_thanh) as thang,
@@ -321,7 +344,7 @@ export async function computeMonthlyTrend(
        SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han IS NOT NULL THEN 1 ELSE 0 END) as dung_han_tinh,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket = '0. Dưới 24h' THEN 1 ELSE 0 END) as duoi_24h_count,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as co_tinh_24h
-     FROM case_dvbh WHERE thoi_gian_hoan_thanh IS NOT NULL
+     FROM ${from} WHERE thoi_gian_hoan_thanh IS NOT NULL
        AND thoi_gian_hoan_thanh >= datetime('now', ?)${sql}
      GROUP BY thang
      ORDER BY thang ASC`,
@@ -344,11 +367,11 @@ dashboard.get("/monthly-trend", async (c) => {
 
 // Tach rieng phan tinh toan cua /violation-breakdown - dung chung cho compute-on-miss va warm-up (R7).
 export async function computeViolationBreakdown(db: D1Database, params: DashboardFilterParams, scope: string[] | null): Promise<Record<string, number>> {
-  const { sql, binds } = buildDashboardFilterClause(params, scope);
+  const { from, sql, binds } = buildDashboardFilterClause(params, scope);
   const row = await db.prepare(
     `SELECT SUM(loi_120p) as loi_120p, SUM(loi_qua_han_24h) as loi_qua_han_24h,
             SUM(loi_lo_ke_hoach) as loi_lo_ke_hoach, SUM(loi_kh_hen_lai) as loi_kh_hen_lai
-     FROM case_dvbh WHERE 1=1${sql}`,
+     FROM ${from} WHERE 1=1${sql}`,
   )
     .bind(...binds)
     .first<Record<string, number>>();
@@ -381,7 +404,7 @@ export async function computeDashboardPivot(
   scope: string[] | null,
 ): Promise<{ rows: TrendRow[] }> {
   const dim = PIVOT_DIMS[params.dimKey ?? "khu_vuc"] ?? "khu_vuc";
-  const { sql, binds } = buildDashboardFilterClause(params, scope);
+  const { from, sql, binds } = buildDashboardFilterClause(params, scope);
 
   const { results } = await db.prepare(
     `SELECT ${dim} as nhom,
@@ -394,7 +417,7 @@ export async function computeDashboardPivot(
        SUM(loi_120p + loi_qua_han_24h + loi_lo_ke_hoach + loi_kh_hen_lai) as nghi_ngo,
        SUM(loi_120p) as loi_120p, SUM(loi_qua_han_24h) as loi_qua_han_24h,
        SUM(loi_lo_ke_hoach) as loi_lo_ke_hoach, SUM(loi_kh_hen_lai) as loi_kh_hen_lai
-     FROM case_dvbh WHERE ${dim} IS NOT NULL${sql}
+     FROM ${from} WHERE ${dim} IS NOT NULL${sql}
      GROUP BY ${dim}
      ORDER BY total DESC`,
   )

@@ -240,14 +240,27 @@ importRoute.post("/backfill-crm-hash", requireRole("Admin"), async (c) => {
 
 // GET /api/import/history?loai=&export= - "loai" loc theo nguon (crm/giai_trinh_cu/giai_trinh_lap_cu/
 // khao_sat_cu/nap_gas_danh_gia_cu, xem migration 0027) de moi tab trong module Import data chi thay
-// lich su cua dung minh, khong bi lan lich su cua cac loai import khac.
+// lich su cua dung minh, khong bi lan lich su cua cac loai import khac. Ho tro "loai" la DANH SACH
+// phan cach dau phay (vd "crm,quicksight_auto") - CHOT 2026-07-30: tab "Import CRM hang ngay" can
+// gop CA lich su tu pipeline QuickSight tu dong (loai='quicksight_auto', xem externalImport.ts) VOI
+// import thu cong (loai='crm' - mac dinh cua cot, xem migration 0028) vao CUNG 1 bang, vi voi nguoi
+// dung day deu la "dong bo CRM hang ngay", chi khac nguon kich hoat (nguoi_import da phan biet ro
+// "he-thong-tu-dong@dvbh.internal" voi email nguoi that trong bang).
 importRoute.get("/history", async (c) => {
   const limit = c.req.query("export") === "true" ? 5000 : 50;
-  const loai = c.req.query("loai");
+  const loaiParam = c.req.query("loai");
+  const loaiList = loaiParam
+    ? loaiParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
   const { results } = await c.env.DB.prepare(
-    loai ? "SELECT * FROM import_history WHERE loai = ? ORDER BY thoi_gian DESC LIMIT ?" : "SELECT * FROM import_history ORDER BY thoi_gian DESC LIMIT ?",
+    loaiList.length > 0
+      ? `SELECT * FROM import_history WHERE loai IN (${loaiList.map(() => "?").join(", ")}) ORDER BY thoi_gian DESC LIMIT ?`
+      : "SELECT * FROM import_history ORDER BY thoi_gian DESC LIMIT ?",
   )
-    .bind(...(loai ? [loai, limit] : [limit]))
+    .bind(...loaiList, limit)
     .all();
   return c.json({ rows: results });
 });

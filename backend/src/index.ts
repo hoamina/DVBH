@@ -22,6 +22,7 @@ import greetingRoutes from "./routes/greeting";
 import caLapRoutes from "./routes/caLap";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
+import { warmDefaultReports } from "./lib/reportWarmup";
 import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
 import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
 import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
@@ -108,6 +109,16 @@ export default {
         await selfHealDaDongDayChunks(env);
       } catch (err) {
         console.error("[self-heal] da-dong-day-chunks loi:", err instanceof Error ? err.message : String(err));
+      }
+      // Luoi an toan cho bao cao dashboard - co che CHINH la pipeline QuickSight tu goi
+      // POST /api/external-import/refresh-reports dung 1 lan sau moi dot day file (xem
+      // externalImport.ts). Neu tin hieu do bi mat (loi mang, pipeline quen goi...), cache van tu
+      // lam moi toi da sau 1 gio nho nhanh nay - warmDefaultReports() tu bo qua (chi 1 luot doc re)
+      // nhung bao cao nao chua doi tu lan tinh truoc, khong ton kem khi khong co gi moi.
+      try {
+        await warmDefaultReports(env.DB);
+      } catch (err) {
+        console.error("[cron-hourly] warmDefaultReports loi:", err instanceof Error ? err.message : String(err));
       }
       return;
     }

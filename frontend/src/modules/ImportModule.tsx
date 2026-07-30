@@ -299,7 +299,7 @@ export function ImportModule() {
             successMessage={(s) => `Import thành công: ${s.GHI_MOI} ca mới, ${s.GHI_DE} ghi đè`}
             invalidateKeys={[["import-history"], ["backlog"], ["backlog-counts"], ["dashboard-kpis"]]}
           />
-          <ImportHistoryCard loai="crm" exportFileName="lich_su_import_crm.xlsx" />
+          <ImportHistoryCard loai="crm,quicksight_auto" exportFileName="lich_su_import_crm.xlsx" />
         </>
       )}
 
