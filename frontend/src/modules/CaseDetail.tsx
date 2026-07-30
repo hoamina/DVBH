@@ -355,9 +355,18 @@ export function CaseDetail({
       setForm({ ly_do_cham: "", noi_dung: "", linh_kien_thieu: "", ngay_du_kien: "", ngay_yeu_cau_co_hang: "", ma_xuat_hang: "" });
       setGiaiTrinhModalOpen(false);
       qc.invalidateQueries({ queryKey: ["case", caseId] });
-      qc.invalidateQueries({ queryKey: ["backlog"] });
+      // CHOT 2026-07-30: fix bug "giai trinh xong khong tu cap nhat Danh sach chi tiet cua Quan ly
+      // ton, phai load lai trang" - key cu "backlog" KHONG khop voi bat ky query nao thuc su dang
+      // dung trong BacklogModule.tsx (da tach thanh "backlog-list"/"backlog-stats"/
+      // "backlog-by-khu-vuc" tu truoc, invalidateQueries so khop CHINH XAC tung phan tu key, khong
+      // phai so khop tien to chuoi - "backlog" != "backlog-list" nen khong bao gio khop) - liet ke
+      // dung ca 3 key.
+      qc.invalidateQueries({ queryKey: ["backlog-list"] });
+      qc.invalidateQueries({ queryKey: ["backlog-stats"] });
+      qc.invalidateQueries({ queryKey: ["backlog-by-khu-vuc"] });
       qc.invalidateQueries({ queryKey: ["backlog-counts"] });
       qc.invalidateQueries({ queryKey: ["missing-parts"] });
+      qc.invalidateQueries({ queryKey: ["missing-parts-by-khu-vuc"] });
     },
     onError: () => addToast("Không thể ghi nhận giải trình, thử lại sau."),
   });

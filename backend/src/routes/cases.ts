@@ -273,7 +273,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
  * R9.2 (YEU_CAU_BAO_CAO_TINH_SAN.md): tach 1 cau SELECT ...GROUP BY duy nhat (gop ca cot thuan
  * case_dvbh lan cot doc lg.* hoac EXISTS settings_ly_do) thanh 2 cachedReport() doc lap NGAY TRONG ham
  * nay (giu nguyen chu ky computeBacklogByKhuVuc() cho reportWarmup.ts, chi sua cases.ts):
- *   - Cau A (khong JOIN giai_trinh): nhom, tong_ton/tren_3/tren_7/tren_14 - domain ["cases"].
+ *   - Cau A (khong JOIN giai_trinh): nhom, tong_ton/tren_3/tren_5/tren_7/tren_14 - domain ["cases"].
  *   - Cau B (JOIN giai_trinh + EXISTS settings_ly_do): nhom, da_giai_trinh/can_giai_trinh_tong/
  *     lo_ke_hoach/cho_giai_trinh_lai/chua_gt_3_ngay/chua_gt_5_ngay/dieu_hoa_1_ngay/b2b_1_ngay/
  *     nskx_2_ngay/thieu_linh_kien - domain ["cases","giai_trinh","settings"].
@@ -298,6 +298,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
         `SELECT ${dimCol} as nhom,
            SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN 1 ELSE 0 END) as tong_ton,
            SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
+           SUM(CASE WHEN ${AGE_EXPR} >= 5 THEN 1 ELSE 0 END) as tren_5,
            SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
            SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14
          FROM case_dvbh c
@@ -346,6 +347,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
       nhom: a.nhom,
       tong_ton: a.tong_ton,
       tren_3: a.tren_3,
+      tren_5: a.tren_5,
       tren_7: a.tren_7,
       tren_14: a.tren_14,
       da_giai_trinh: b?.da_giai_trinh ?? 0,
@@ -574,32 +576,6 @@ cases.get("/backlog-by-khu-vuc", async (c) => {
   const params = { ...readReportFilterParams(c), dim: dimKey };
   const data = await computeBacklogByKhuVuc(c.env.DB, params, scope);
   return c.json(data);
-});
-
-// GET /api/cases/archived
-cases.get("/archived", requireRole("Admin", "Viewer"), async (c) => {
-  const countRow = await c.env.DB.prepare(
-    "SELECT COUNT(*) as total FROM case_dvbh WHERE archived_at IS NOT NULL",
-  ).first<{ total: number }>();
-
-  if (c.req.query("export") === "true") {
-    const { results } = await c.env.DB.prepare(
-      "SELECT * FROM case_dvbh WHERE archived_at IS NOT NULL ORDER BY archived_at DESC LIMIT 5000",
-    ).all();
-    return c.json({ rows: results });
-  }
-
-  const page = Math.max(1, Number(c.req.query("page") ?? 1));
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
-  const offset = (page - 1) * pageSize;
-
-  const { results } = await c.env.DB.prepare(
-    "SELECT * FROM case_dvbh WHERE archived_at IS NOT NULL ORDER BY archived_at DESC LIMIT ? OFFSET ?",
-  )
-    .bind(pageSize, offset)
-    .all();
-
-  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
 // GET /api/cases/tong-hop?khu_vuc=&hang=&trang_thai=&page=&pageSize=&export=

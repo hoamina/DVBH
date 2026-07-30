@@ -19,7 +19,6 @@ import { DanhSachTongModule } from "./modules/DanhSachTongModule";
 import { ImportModule } from "./modules/ImportModule";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
-import { ArchivedModule } from "./modules/ArchivedModule";
 import { ThemeModule } from "./modules/ThemeModule";
 import { useToast } from "./components/ui/Toast";
 import { LoadingInline } from "./components/ui/LoadingInline";
@@ -212,7 +211,6 @@ function MainApp({
           {active === "import" && <ImportModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}
-          {active === "archived" && <ArchivedModule openCase={openCase} />}
           {active === "giao-dien" && <ThemeModule />}
         </main>
       </div>

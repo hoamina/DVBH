@@ -38,7 +38,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "import", label: "Import data", icon: "⇩" },
       { key: "settings", label: "Settings", icon: "⚙" },
       { key: "users", label: "Quản lý User", icon: "⚉" },
-      { key: "archived", label: "Ca lưu trữ", icon: "🗄" },
     ],
   },
   {
@@ -53,7 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
 // localStorage active-module dang luu cua nguoi dung hien tai.
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "archived", "danh-sach-tong", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
   QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
   "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
   "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
@@ -79,6 +78,5 @@ export const MODULE_TITLES: Record<string, string> = {
   import: "Import data",
   settings: "Settings",
   users: "Quản lý User",
-  archived: "Ca lưu trữ",
   "giao-dien": "Cài đặt cá nhân",
 };

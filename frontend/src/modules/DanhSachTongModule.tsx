@@ -16,29 +16,30 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 
 const PAGE_SIZE = 20;
 
-function monthValue(offset: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - offset, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+function currentMonthValue(): string {
+  return new Date().toISOString().slice(0, 7);
 }
-function monthLabel(offset: number): string {
-  const [y, m] = monthValue(offset).split("-");
+function formatThangLabel(thang: string): string {
+  const [y, m] = thang.split("-");
   return `${m}/${y}`;
 }
 
-// 3 "file" thang rieng biet (hien tai + 2 thang truoc) + 1 "file" ca dang ton - moi tab la 1 tap
-// du lieu doc lap, co nut Xuat Excel rieng, thay vi gop chung tat ca vao 1 bang dai nhu truoc.
-const MONTH_TABS = [
-  { key: "thang-0", label: `Tháng ${monthLabel(0)} (hiện tại)`, thang: monthValue(0) },
-  { key: "thang-1", label: `Tháng ${monthLabel(1)}`, thang: monthValue(1) },
-  { key: "thang-2", label: `Tháng ${monthLabel(2)}`, thang: monthValue(2) },
+// CHOT 2026-07-30: bo the "Ca luu tru" rieng - gop hoan toan vao day. Snapshot R2 tung ngay (xem
+// hooks/useDaDongChunked.ts) van giu nguyen du lieu cho MOI ngay ca da dong tu truoc den nay, KHONG
+// phu thuoc case do sau nay co bi cron danh dau archived_at hay khong (xem computeDayRows() trong
+// backend/src/lib/daDongDayChunks.ts - loc theo thoi_gian_hoan_thanh, khong loc archived_at) - nen
+// chi can cho phep chon BAT KY thang nao (khong con gioi han co dinh "thang hien tai + 2 thang
+// truoc") la du thay the "Ca luu tru" hoan toan, khong mat kha nang xem/xuat du lieu cu.
+const TABS = [
+  { key: "thang", label: "Theo tháng" },
+  { key: "dang-ton", label: "Ca đang tồn" },
 ];
-const TABS = [...MONTH_TABS, { key: "dang-ton", label: "Ca đang tồn" }];
 
 export function DanhSachTongModule({ openCase }: { openCase: (id: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
-  const [tab, setTab] = useState(MONTH_TABS[0].key);
+  const [tab, setTab] = useState(TABS[0].key);
+  const [thang, setThang] = useState(currentMonthValue);
   const [page, setPage] = useState(1);
   const [khuVucFilter, setKhuVucFilter] = useState("");
   const [hangFilter, setHangFilter] = useState("");
@@ -47,8 +48,22 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
     queryKey: ["dashboard-filters"],
     queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters"),
   });
-
-  const monthTab = MONTH_TABS.find((t) => t.key === tab);
+  // Danh sach thang thuc su co ca da dong (xem computeDashboardMonths trong dashboard.ts) - dung
+  // chung queryKey "dashboard-months" voi CaLapModule/NapGasModule nen tan dung cache co san, khong
+  // ton them request. Luon dam bao thang hien tai co mat trong danh sach (du chua co ca nao dong)
+  // de nguoi dung luon chon duoc, giong pattern da co o 2 module tren.
+  const { data: monthsData } = useQuery({
+    queryKey: ["dashboard-months"],
+    queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
+  });
+  const currentMonth = currentMonthValue();
+  const monthOptions = (monthsData?.months ?? []).map((m) => ({
+    value: m,
+    label: `Tháng ${formatThangLabel(m)}${m === currentMonth ? " (hiện tại)" : ""}`,
+  }));
+  if (!monthOptions.some((o) => o.value === currentMonth)) {
+    monthOptions.unshift({ value: currentMonth, label: `Tháng ${formatThangLabel(currentMonth)} (hiện tại)` });
+  }
 
   // Snapshot R2 tung ngay (xem hooks/useDaDongChunked.ts + backend/src/lib/daDongDayChunks.ts) -
   // hook tu quan ly cache IndexedDB + hash-diff + rate-limit, roi phan trang + loc khu_vuc/hang
@@ -59,10 +74,10 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
     isError: monthError,
     refetch: monthRefetch,
     throttled: monthThrottled,
-  } = useDaDongChunked(monthTab?.thang ?? MONTH_TABS[0].thang, !!monthTab);
+  } = useDaDongChunked(thang, tab === "thang");
 
   // Ca dang ton co the doi bat cu luc nao - giu phan trang server-side + luon fetch moi, khong
-  // cache toan bo nhu 3 tab thang (von la du lieu da chot, khong doi nua).
+  // cache toan bo nhu tab "Theo thang" (von la du lieu da chot, khong doi nua).
   const {
     data: openData,
     isLoading: openLoading,
@@ -99,7 +114,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
       const all = await api.get<{ rows: CaseRow[] }>(`/cases/tong-hop${buildQuery({ trang_thai: "dang-ton", export: true, khu_vuc: khuVucFilter, hang: hangFilter })}`);
       await exportRowsToExcel(all.rows, "danh_sach_tong_dang_ton.xlsx", "Data", CASE_FIELD_LABELS);
     } else {
-      await exportRowsToExcel(monthRows, `danh_sach_tong_thang_${monthTab!.thang}.xlsx`, "Data", CASE_FIELD_LABELS);
+      await exportRowsToExcel(monthRows, `danh_sach_tong_thang_${thang}.xlsx`, "Data", CASE_FIELD_LABELS);
     }
   }
 
@@ -131,7 +146,8 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
   return (
     <div className="anim-in">
       <div className="text-sm text-[var(--ink-600)] mb-4">
-        Danh sách ca đã đóng theo từng tháng ({monthLabel(2)} – {monthLabel(0)}) và ca đang tồn đọng — mỗi tab là 1 tệp riêng, dùng để đối chiếu hoặc làm báo cáo.
+        Danh sách ca đã đóng theo từng tháng bất kỳ (kể cả tháng cũ đã lưu trữ) và ca đang tồn đọng — chọn tháng ở bộ lọc bên dưới, mỗi lượt xem là 1 tệp riêng, dùng để đối
+        chiếu hoặc làm báo cáo.
       </div>
       <div className="flex items-center gap-2 flex-wrap mb-1">
         <KhuVucFilterControl
@@ -155,6 +171,16 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           }}
           options={[{ value: "", label: "Tất cả hãng" }, ...(filterOptions?.hang.map((h) => ({ value: h, label: h })) ?? [])]}
         />
+        {tab === "thang" && (
+          <Select
+            value={thang}
+            onChange={(v) => {
+              setThang(v);
+              setPage(1);
+            }}
+            options={monthOptions}
+          />
+        )}
       </div>
       <Tabs
         active={tab}
@@ -169,7 +195,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           ⬇ Xuất Excel
         </Btn>
       </div>
-      {tab !== "dang-ton" && monthThrottled.length > 0 && (
+      {tab === "thang" && monthThrottled.length > 0 && (
         <div className="text-xs text-[var(--ink-400)] italic mb-2">
           {monthThrottled.length} ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.
         </div>

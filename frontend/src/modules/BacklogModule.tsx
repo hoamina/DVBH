@@ -139,6 +139,7 @@ interface KhuVucRow {
   nhom: string;
   tong_ton: number;
   tren_3: number;
+  tren_5: number;
   tren_7: number;
   tren_14: number;
   da_giai_trinh: number;
@@ -340,6 +341,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
       nhom: REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? "Nhóm",
       tong_ton: "Tổng tồn",
       tren_3: "Trên 3 ngày",
+      tren_5: "Trên 5 ngày",
       tren_7: "Trên 7 ngày",
       tren_14: "Trên 14 ngày",
       da_giai_trinh: "Đã giải trình",
@@ -521,6 +523,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                     <th className="py-2 pr-3">{REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label}</th>
                     <th className="py-2 pr-3">Tổng tồn</th>
                     <th className="py-2 pr-3">Trên 3 ngày</th>
+                    <th className="py-2 pr-3">Trên 5 ngày</th>
                     <th className="py-2 pr-3">Trên 7 ngày</th>
                     <th className="py-2 pr-3">Trên 14 ngày</th>
                     <th className="py-2 pr-3 border-l border-[var(--line)] pl-3">Đã giải trình</th>
@@ -547,6 +550,11 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                       <td className="py-2 pr-3 font-mono">
                         <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "3")}>
                           {r.tren_3}
+                        </button>
+                      </td>
+                      <td className="py-2 pr-3 font-mono">
+                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "5")}>
+                          {r.tren_5}
                         </button>
                       </td>
                       <td className="py-2 pr-3 font-mono">
@@ -605,7 +613,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                   ))}
                   {(khuVucStats?.rows ?? []).length === 0 && (
                     <tr>
-                      <td colSpan={15} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                      <td colSpan={16} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
                       </td>
                     </tr>

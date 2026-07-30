@@ -160,7 +160,11 @@ export function ImportModule() {
       addToast(`Đồng bộ xong: ${res.GHI_MOI} ca mới, ${res.GHI_DE} ghi đè, ${res.BO_QUA} không đổi${res.LOI ? `, ${res.LOI} lỗi` : ""}`);
       setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ CRM hàng ngày", errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
-      qc.invalidateQueries({ queryKey: ["backlog"] });
+      // "backlog" khong khop query key thuc te (da tach "backlog-list"/"backlog-stats"/
+      // "backlog-by-khu-vuc" - xem giai thich chi tiet o CaseDetail.tsx cung sua).
+      qc.invalidateQueries({ queryKey: ["backlog-list"] });
+      qc.invalidateQueries({ queryKey: ["backlog-stats"] });
+      qc.invalidateQueries({ queryKey: ["backlog-by-khu-vuc"] });
       qc.invalidateQueries({ queryKey: ["backlog-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard-kpis"] });
     },
@@ -297,7 +301,14 @@ export function ImportModule() {
             )}
             getErrors={(s) => s.errors}
             successMessage={(s) => `Import thành công: ${s.GHI_MOI} ca mới, ${s.GHI_DE} ghi đè`}
-            invalidateKeys={[["import-history"], ["backlog"], ["backlog-counts"], ["dashboard-kpis"]]}
+            invalidateKeys={[
+              ["import-history"],
+              ["backlog-list"],
+              ["backlog-stats"],
+              ["backlog-by-khu-vuc"],
+              ["backlog-counts"],
+              ["dashboard-kpis"],
+            ]}
           />
           <ImportHistoryCard loai="crm,quicksight_auto" exportFileName="lich_su_import_crm.xlsx" />
         </>
