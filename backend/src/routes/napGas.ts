@@ -19,7 +19,7 @@ napGas.use("*", verifySessionMiddleware, loadUser);
 // dong, giong Ca lap (xem frontend/src/modules/CaLapModule.tsx, backend/src/routes/caLap.ts) -
 // dung chung idiom voi kpiEligibleClause()/caLapEligible.ts (cung check tien_do_hoan_thanh =
 // 'Hoàn thành XLSC').
-const NAP_GAS_ELIGIBLE = "c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC'";
+const NAP_GAS_ELIGIBLE = "c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC' AND c.huy_bo_at IS NULL";
 
 // "Da danh gia" = co dong trong nap_gas_danh_gia (bang log rieng, xem migration 0025) - THAY THE
 // cach cu dua vao bang giai_trinh chung (von thiet ke cho "giai trinh ca ton", khac muc dich).

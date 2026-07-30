@@ -25,7 +25,7 @@ export async function computeViPhamFunnel(db: D1Database, scope: string[] | null
 
   const nghiNgo = await db.prepare(
     `SELECT COUNT(*) as n FROM case_dvbh c
-     WHERE c.archived_at IS NULL
+     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
        AND (c.loi_120p = 1 OR c.loi_qua_han_24h = 1 OR c.loi_lo_ke_hoach = 1 OR c.loi_kh_hen_lai = 1)${scopeClauseC.sql}`,
   )
     .bind(...scopeClauseC.binds)
@@ -34,7 +34,7 @@ export async function computeViPhamFunnel(db: D1Database, scope: string[] | null
   const canKhaoSat = await db.prepare(
     `SELECT COUNT(*) as n FROM (
        SELECT c.id FROM case_dvbh c
-       WHERE c.archived_at IS NULL${scopeClauseC.sql}
+       WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}
          AND (
            (c.loi_120p = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi 120 phut'))
            OR (c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h'))

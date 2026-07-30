@@ -73,7 +73,7 @@ missingParts.get("/", async (c) => {
     SELECT ${SELECT_COLS}
     FROM case_dvbh c
     ${baseJoin(CASE_FILTER_TON)}
-    WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClause.sql}${extraFilter}
+    WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}
   `;
   const binds = [...scopeClause.binds, ...extraBinds];
 
@@ -131,7 +131,7 @@ export async function computeMissingPartsByKhuVuc(db: D1Database, params: Missin
          SUM(CASE WHEN ${AGE_EXPR} >= 1 AND c.thoi_gian_hen_xu_ly IS NOT NULL AND c.thoi_gian_hen_xu_ly < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as lo_ke_hoach
        FROM case_dvbh c
        ${baseJoin(CASE_FILTER_TON)}
-       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
+       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
        GROUP BY ${dimCol}
        ORDER BY tong_ton DESC`,
     )

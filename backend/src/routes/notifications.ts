@@ -42,7 +42,7 @@ export async function computeNotificationsCount(
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh
-         WHERE thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL
+         WHERE thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL AND huy_bo_at IS NULL
            AND NOT EXISTS (SELECT 1 FROM giai_trinh g WHERE g.case_id = case_dvbh.id)${scopeClause.sql}`,
       )
       .bind(...scopeClause.binds)
@@ -71,14 +71,14 @@ export async function computeNotificationsCount(
            ) WHERE rn = 1
          ) lg ON lg.case_id = c.id
          INNER JOIN settings_ly_do sld ON sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}`,
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}`,
       )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh c
-         WHERE c.archived_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND ${NEED_SURVEY_CONDITION}${scopeClauseC.sql}`,
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND ${NEED_SURVEY_CONDITION}${scopeClauseC.sql}`,
       )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),

@@ -113,7 +113,12 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
     {
       key: "trang_thai",
       header: "Trạng thái",
-      render: (r) => <Badge tone={r.thoi_gian_hoan_thanh ? "teal" : "amber"}>{r.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn"}</Badge>,
+      render: (r) => (
+        <div className="flex flex-wrap gap-1">
+          <Badge tone={r.thoi_gian_hoan_thanh ? "teal" : "amber"}>{r.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn"}</Badge>
+          {r.huy_bo_at && <Badge tone="gray">🚫 Đã hủy</Badge>}
+        </div>
+      ),
     },
     { key: "thoi_gian_hoan_thanh", header: "Thời gian hoàn thành", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
     {

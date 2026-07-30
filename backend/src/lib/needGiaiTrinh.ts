@@ -32,7 +32,7 @@ export function latestGiaiTrinhJoin(caseFilterSql: string): string {
 
 // Preset 1: tap ca DANG TON (khong phan biet da/chua giai trinh) - dung cho hau het endpoint Backlog/
 // thong bao/bao cao nhanh, KHONG co bind param.
-export const CASE_FILTER_TON = "thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL";
+export const CASE_FILTER_TON = "thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL AND huy_bo_at IS NULL";
 
 // Preset 2: tap ca DA DONG trong 1 khoang thoi gian [start, end) - CO 2 bind param theo dung thu tu
 // (start, end). Vi subquery nay nam trong mau JOIN (dung TRUOC mau WHERE cua cau lenh ngoai trong

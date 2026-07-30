@@ -9,6 +9,8 @@ import { ageExpr, ageFilterClause as ageFilterClauseFor } from "../lib/ageCalc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters } from "../lib/filterParams";
 import { getDaDongManifest, getDaDongChunks, getDaDongReasons } from "../lib/daDongDayChunks";
 import { checkAndConsumeDownloadQuota } from "../lib/r2DownloadRateLimit";
+import { findExistingCaseIds, runBatched, logImportHistory } from "../lib/backfillImportProcessor";
+import { csvTemplateResponse } from "../lib/csvTemplate";
 import {
   latestGiaiTrinhJoin,
   CASE_FILTER_TON,
@@ -126,7 +128,7 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
          SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
        FROM case_dvbh c
        ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
-       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClause.sql}${extraFilter}`,
+       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}`,
     )
     .bind(...scopeClause.binds, ...extraBinds)
     .first<Record<string, number>>();
@@ -183,7 +185,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
            SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
            SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14
          FROM case_dvbh c
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}${extraFilter}`,
       )
       .bind(...scopeClauseC.binds, ...extraBinds)
       .first<Record<string, number>>();
@@ -197,7 +199,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
            SUM(CASE WHEN ${AGE_EXPR} >= 7 AND ${AGE_EXPR} < 14 THEN 1 ELSE 0 END) as tu_7_den_14,
            SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14_ngay
          FROM case_dvbh c
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}${extraFilter}`,
       )
       .bind(...scopeClauseC.binds, ...extraBinds)
       .first<Record<string, number>>();
@@ -212,7 +214,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
         `SELECT SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
          FROM case_dvbh c
          ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}`,
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}${extraFilter}`,
       )
       .bind(...scopeClauseC.binds, ...extraBinds)
       .first<Record<string, number>>();
@@ -226,7 +228,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
         `SELECT COALESCE(lg.ly_do_cham, 'Chưa giải trình') as ly_do, COUNT(*) as n
          FROM case_dvbh c
          ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${scopeClauseC.sql}${extraFilter}
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}${extraFilter}
          GROUP BY ly_do
          ORDER BY n DESC`,
       )
@@ -292,7 +294,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
            SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
            SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14
          FROM case_dvbh c
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
          GROUP BY ${dimCol}
          ORDER BY tong_ton DESC`,
       )
@@ -318,7 +320,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
            SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
          FROM case_dvbh c
          ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
+         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
          GROUP BY ${dimCol}`,
       )
       .bind(...scopeClauseC.binds, ...extraBinds)
@@ -398,7 +400,7 @@ cases.get("/", async (c) => {
   const extraFilter = khuVucClause.sql + ageClause.sql + dimClause.sql + sharedClause.sql + idClause.sql;
   const binds: unknown[] = [...scopeClause.binds, ...khuVucClause.binds, ...ageClause.binds, ...dimClause.binds, ...sharedClause.binds, ...idClause.binds];
 
-  const whereSql = `WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND ${tabFilter}${scopeClause.sql}${extraFilter}`;
+  const whereSql = `WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${tabFilter}${scopeClause.sql}${extraFilter}`;
 
   // Tat ca cac tab o day (ton-hien-tai/can-giai-trinh/da-giai-trinh) deu bat buoc WHERE ngoai co
   // "thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL" (xem whereSql) => an toan dung preset
@@ -736,6 +738,133 @@ cases.post("/:id/giai-trinh", requireRole("Giam sat", "TBP DVBH", "Admin"), asyn
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["giai_trinh"]));
 
   return c.json({ id: giaiTrinhId }, 201);
+});
+
+// POST /api/cases/:id/huy - Admin danh dau 1 ca "huy bo" (khong can xu ly): an khoi moi hang doi
+// can xu ly (backlog/khao sat/ca lap/nap gas...) + loai KPI, nhung van xem duoc o CaseDetail va
+// "Danh sach tong". Ghi vao 3 cot huy_bo_* (migration 0037) - nam NGOAI BUSINESS_FIELDS nen khong
+// bao gio bi importProcessor.ts ghi de, song sot qua moi lan import CRM. Co the dao nguoc (POST
+// /bo-huy ben duoi).
+cases.post("/:id/huy", requireRole("Admin"), async (c) => {
+  const id = c.req.param("id");
+  if (!id) return c.json({ error: "INVALID_ID" }, 400);
+
+  const caseRow = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE id = ?").bind(id).first();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const body = await c.req.json<{ ly_do?: string }>().catch(() => ({ ly_do: undefined }));
+  const user = c.get("user");
+
+  await c.env.DB.prepare("UPDATE case_dvbh SET huy_bo_at = ?, huy_bo_by = ?, huy_bo_ly_do = ? WHERE id = ?")
+    .bind(nowVN(), user.email, body.ly_do || null, id)
+    .run();
+
+  // Bump "cases" - huy ca anh huong KPI/backlog/khao sat/ca lap (khac assigned_to o survey.ts von
+  // co y bo qua bump vi khong anh huong bao cao nao).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+
+  return c.json({ ok: true });
+});
+
+// POST /api/cases/:id/bo-huy - dao nguoc /huy, tra ca ve trang thai binh thuong.
+cases.post("/:id/bo-huy", requireRole("Admin"), async (c) => {
+  const id = c.req.param("id");
+  if (!id) return c.json({ error: "INVALID_ID" }, 400);
+
+  const caseRow = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE id = ?").bind(id).first();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+
+  await c.env.DB.prepare("UPDATE case_dvbh SET huy_bo_at = NULL, huy_bo_by = NULL, huy_bo_ly_do = NULL WHERE id = ?")
+    .bind(id)
+    .run();
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+
+  return c.json({ ok: true });
+});
+
+// GET /api/cases/huy-bulk/template - file CSV mau (id, ly_do) cho import huy ca hang loat.
+cases.get("/huy-bulk/template", requireRole("Admin"), (c) => {
+  return csvTemplateResponse(c, "id,ly_do\n1234567,Ca trung du lieu CRM\n", "mau_huy_ca_hang_loat.csv");
+});
+
+interface HuyBulkRow {
+  id?: string;
+  ly_do?: string;
+}
+interface HuyBulkSummary {
+  thanhCong: number;
+  loi: number;
+  errors: string[];
+}
+
+async function processBulkHuy(db: D1Database, rows: HuyBulkRow[], nguoiHuy: string, commit: boolean): Promise<HuyBulkSummary> {
+  const summary: HuyBulkSummary = { thanhCong: 0, loi: 0, errors: [] };
+
+  // File Excel/CSV nguoi dung tai len: SheetJS co the tra ve cell toan chu so (vd id "1014874")
+  // dang kieu number chu khong phai string - ep String() truoc .trim() (giong processBulkAssign
+  // trong survey.ts) de tranh loi.
+  const idsRaw = rows.map((r) => String(r.id ?? "").trim());
+  const existingIds = await findExistingCaseIds(db, idsRaw);
+
+  const validRows: { id: string; lyDo: string | null }[] = [];
+  const seen = new Set<string>();
+  rows.forEach((row, i) => {
+    const id = String(row.id ?? "").trim();
+    if (!id) return; // dong trong (thuong do file co dong cuoi rong) - bo qua tham lang
+    if (!existingIds.has(id)) {
+      summary.loi++;
+      summary.errors.push(`Dòng ${i + 2}: không tìm thấy case_id "${id}"`);
+      return;
+    }
+    if (seen.has(id)) return; // trung id trong cung file - chi xu ly 1 lan, khong tinh loi
+    seen.add(id);
+    validRows.push({ id, lyDo: row.ly_do ? String(row.ly_do).trim() || null : null });
+  });
+
+  summary.thanhCong = validRows.length;
+
+  if (commit && validRows.length > 0) {
+    const now = nowVN();
+    const statements = validRows.map(({ id, lyDo }) =>
+      db.prepare("UPDATE case_dvbh SET huy_bo_at = ?, huy_bo_by = ?, huy_bo_ly_do = ? WHERE id = ?").bind(now, nguoiHuy, lyDo, id),
+    );
+    await runBatched(db, statements);
+  }
+
+  return summary;
+}
+
+// POST /api/cases/huy-bulk/preview
+cases.post("/huy-bulk/preview", requireRole("Admin"), async (c) => {
+  const body = await c.req.json<{ rows: HuyBulkRow[] }>();
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  const user = c.get("user");
+  const summary = await processBulkHuy(c.env.DB, body.rows, user.email, false);
+  return c.json(summary);
+});
+
+// POST /api/cases/huy-bulk/commit
+cases.post("/huy-bulk/commit", requireRole("Admin"), async (c) => {
+  const body = await c.req.json<{ rows: HuyBulkRow[]; filename?: string }>();
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  const user = c.get("user");
+  const summary = await processBulkHuy(c.env.DB, body.rows, user.email, true);
+
+  if (summary.thanhCong > 0) {
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+    c.executionCtx.waitUntil(
+      logImportHistory(c.env.DB, {
+        loai: "huy_ca_bulk",
+        tenFile: body.filename ?? "huy_ca.csv",
+        nguoiImport: user.email,
+        thanhCong: summary.thanhCong,
+        loi: summary.loi,
+      }),
+    );
+  }
+
+  return c.json(summary);
 });
 
 export default cases;

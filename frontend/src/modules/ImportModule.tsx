@@ -52,6 +52,7 @@ const TABS = [
   { key: "giai-trinh-lap", label: "Import giải trình lặp cũ" },
   { key: "khao-sat", label: "Import khảo sát cũ" },
   { key: "nap-gas", label: "Import đánh giá nạp gas cũ" },
+  { key: "huy-ca", label: "Hủy ca hàng loạt" },
 ];
 
 // "Lich su import" rieng cho tung loai (loc theo "loai" - xem migration 0027) - dung chung cho CA 5
@@ -438,6 +439,48 @@ export function ImportModule() {
             invalidateKeys={[["import-history"], ["nap-gas"], ["nap-gas-by-khu-vuc"], ["notifications-count"]]}
           />
           <ImportHistoryCard loai="nap_gas_danh_gia_cu" exportFileName="lich_su_import_nap_gas_cu.xlsx" />
+        </>
+      )}
+
+      {tab === "huy-ca" && (
+        <>
+          <ImportUploader<BackfillSummary>
+            description={
+              <>
+                Đánh dấu hàng loạt các ca "hủy bỏ" (không cần xử lý) theo danh sách <b className="font-mono">id</b> — mỗi dòng 1 ca, cột{" "}
+                <b className="font-mono">ly_do</b> tùy chọn. Ca hủy sẽ ẩn khỏi mọi hàng đợi cần xử lý (giải trình, khảo sát, ca lặp, thiếu linh
+                kiện, nạp gas) và không tính vào KPI — có thể bỏ hủy lại từng ca trong trang chi tiết ca.
+              </>
+            }
+            templateUrl="/api/cases/huy-bulk/template"
+            previewUrl="/cases/huy-bulk/preview"
+            commitUrl="/cases/huy-bulk/commit"
+            buildBody={(rows, filename) => ({ rows, filename })}
+            renderSummary={(s) => (
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <StatCard label="Hợp lệ, sẽ hủy" value={s.thanhCong} tone="teal" />
+                <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+              </div>
+            )}
+            getErrors={(s) => s.errors}
+            successMessage={(s) => `Đã hủy ${s.thanhCong} ca`}
+            invalidateKeys={[
+              ["import-history"],
+              ["notifications-count"],
+              ["backlog-list"],
+              ["backlog-stats"],
+              ["backlog-counts"],
+              ["backlog-by-khu-vuc"],
+              ["survey-counts"],
+              ["survey-bao-cao-khu-vuc"],
+              ["ca-lap-list"],
+              ["ca-lap-status"],
+              ["ca-lap-tong-quan"],
+              ["missing-parts"],
+              ["nap-gas"],
+            ]}
+          />
+          <ImportHistoryCard loai="huy_ca_bulk" exportFileName="lich_su_huy_ca.xlsx" />
         </>
       )}
     </div>

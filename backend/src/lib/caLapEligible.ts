@@ -5,5 +5,5 @@
 // (thay vi de trong routes/caLap.ts) de dung chung duoc voi lib/caLapRefresh.ts (cron refresh) ma
 // khong tao vong lap import route -> lib -> route.
 export function eligibleClause(prefix: string): string {
-  return ` AND ${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND (${prefix}hinh_thuc_bao_hanh IS NULL OR ${prefix}hinh_thuc_bao_hanh != 'Gọi điện tư vấn')`;
+  return ` AND ${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND (${prefix}hinh_thuc_bao_hanh IS NULL OR ${prefix}hinh_thuc_bao_hanh != 'Gọi điện tư vấn') AND ${prefix}huy_bo_at IS NULL`;
 }

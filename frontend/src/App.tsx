@@ -113,6 +113,9 @@ function MainApp({
   // chap (xem ROLE_MODULES trong layout/navConfig.ts, khong co "nap-gas" trong danh sach module cua
   // KSNB Doi tac).
   const canNapGas = ["Giam sat", "TBP DVBH", "Admin"].includes(role);
+  // "Huy ca" - chi Admin, an ca khoi moi hang doi can xu ly + KPI, co the dao nguoc (xem
+  // backend/src/routes/cases.ts POST /:id/huy, /bo-huy).
+  const canHuyCa = role === "Admin";
 
   // Tab dau tien phu hop cho tung viewMode - "info" chi ton tai o "compact" (giu dung tab cu),
   // "expanded" khong co tab info rieng vi cot trai da ghim san thong tin khach hang.
@@ -229,6 +232,7 @@ function MainApp({
         canGsLap={canGsLap}
         canQcLap={canQcLap}
         canNapGas={canNapGas}
+        canHuyCa={canHuyCa}
       />
     </div>
   );

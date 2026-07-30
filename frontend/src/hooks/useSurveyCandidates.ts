@@ -34,6 +34,7 @@ interface ManifestResponse {
   rowCount: number;
   viPhamExistingLoaiLoi: Record<string, string[]>;
   assignedTo: Record<string, string>;
+  cancelledIds: string[];
 }
 
 interface ContentResponse {
@@ -91,9 +92,11 @@ export function useSurveyCandidates() {
 
       const can: CanKhaoSatRow[] = [];
       const quaHan: CanKhaoSatRow[] = [];
+      const cancelledIds = new Set(manifest.cancelledIds ?? []);
 
       for (const row of rawRows) {
         const id = row.id as string;
+        if (cancelledIds.has(id)) continue; // ca da bi Admin "huy bo" - an khoi hang doi khao sat
         const surveyedLoaiLoi = new Set(manifest.viPhamExistingLoaiLoi[id] ?? []);
         const needFlags: Record<string, number> = {};
         let anyNeed = false;

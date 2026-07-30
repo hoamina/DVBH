@@ -185,6 +185,7 @@ export function CaseDetail({
   canGsLap,
   canQcLap,
   canNapGas,
+  canHuyCa,
   canGoBack,
   onBack,
   onBackToRoot,
@@ -201,6 +202,7 @@ export function CaseDetail({
   canGsLap: boolean;
   canQcLap: boolean;
   canNapGas: boolean;
+  canHuyCa: boolean;
   canGoBack: boolean;
   onBack: () => void;
   onBackToRoot: () => void;
@@ -293,6 +295,8 @@ export function CaseDetail({
   const [giaiTrinhModalOpen, setGiaiTrinhModalOpen] = useState(false);
   const [caLapModalOpen, setCaLapModalOpen] = useState(false);
   const [blacklistConfirmOpen, setBlacklistConfirmOpen] = useState(false);
+  const [huyCaConfirmOpen, setHuyCaConfirmOpen] = useState(false);
+  const [huyCaLyDo, setHuyCaLyDo] = useState("");
 
   const activeLyDo = (lyDoData?.rows ?? []).filter((l) => l.bat_tat);
   const activeLinhKien = (linhKienData?.rows ?? []).filter((l) => l.bat_tat);
@@ -427,6 +431,48 @@ export function CaseDetail({
     onError: () => addToast("Không thể thêm serial vào blacklist, thử lại sau."),
   });
 
+  // "Huy ca" (Admin) - an ca khoi moi hang doi can xu ly + KPI (xem backend/src/routes/cases.ts
+  // POST /:id/huy, /bo-huy), co the dao nguoc. Sau khi doi trang thai, phai fetch lai that (giong
+  // refreshCaLapQueries/refreshNapGasQueries) vi case co the da nam trong closedDataCache (IndexedDB),
+  // roi invalidate cac danh sach "can xu ly" khac ma ca nay vua bien mat/xuat hien tro lai.
+  async function refreshAfterHuyCa() {
+    const fresh = await fetchCaseDetail(caseId!);
+    const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+    qc.setQueryData(["case", caseId], newEntry);
+    qc.invalidateQueries({ queryKey: ["notifications-count"] });
+    qc.invalidateQueries({ queryKey: ["backlog-list"] });
+    qc.invalidateQueries({ queryKey: ["backlog-stats"] });
+    qc.invalidateQueries({ queryKey: ["backlog-counts"] });
+    qc.invalidateQueries({ queryKey: ["backlog-by-khu-vuc"] });
+    qc.invalidateQueries({ queryKey: ["survey-counts"] });
+    qc.invalidateQueries({ queryKey: ["survey-bao-cao-khu-vuc"] });
+    qc.invalidateQueries({ queryKey: ["ca-lap-list"] });
+    qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
+    qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
+    qc.invalidateQueries({ queryKey: ["missing-parts"] });
+    qc.invalidateQueries({ queryKey: ["nap-gas"] });
+  }
+
+  const huyCa = useMutation({
+    mutationFn: () => api.post(`/cases/${caseId}/huy`, { ly_do: huyCaLyDo || undefined }),
+    onSuccess: async () => {
+      addToast(`Đã hủy ca ${caseId}`);
+      setHuyCaConfirmOpen(false);
+      setHuyCaLyDo("");
+      await refreshAfterHuyCa();
+    },
+    onError: () => addToast("Không thể hủy ca, thử lại sau."),
+  });
+
+  const boHuyCa = useMutation({
+    mutationFn: () => api.post(`/cases/${caseId}/bo-huy`, {}),
+    onSuccess: async () => {
+      addToast(`Đã bỏ hủy ca ${caseId}`);
+      await refreshAfterHuyCa();
+    },
+    onError: () => addToast("Không thể bỏ hủy ca, thử lại sau."),
+  });
+
   // Giam sat "Chot lap": 1 nut duy nhat luu ca Hinh thuc xu ly + Danh gia lap + Dien giai cung luc
   // (gop 3 API rieng le truoc day thanh 1 lan goi /gs, xem backend/src/routes/caLap.ts).
   const saveGsLap = useMutation({
@@ -484,6 +530,21 @@ export function CaseDetail({
     <>
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <Badge tone={c.thoi_gian_hoan_thanh ? "teal" : "amber"}>{c.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn đọng"}</Badge>
+        {c.huy_bo_at && (
+          <Badge tone="gray" solid>
+            🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
+          </Badge>
+        )}
+        {canHuyCa &&
+          (c.huy_bo_at ? (
+            <Btn size="sm" variant="ghost" onClick={() => boHuyCa.mutate()} disabled={boHuyCa.isPending}>
+              {boHuyCa.isPending ? "Đang bỏ hủy…" : "Bỏ hủy ca"}
+            </Btn>
+          ) : (
+            <Btn size="sm" variant="danger" onClick={() => setHuyCaConfirmOpen(true)}>
+              Hủy ca
+            </Btn>
+          ))}
       </div>
 
       {viewMode === "compact" && isFromCache && entry && (
@@ -1157,6 +1218,31 @@ export function CaseDetail({
             </Btn>
             <Btn onClick={() => addBlacklist.mutate()} disabled={addBlacklist.isPending}>
               {addBlacklist.isPending ? "Đang thêm…" : "Xác nhận thêm"}
+            </Btn>
+          </div>
+        </Modal>
+      )}
+
+      {huyCaConfirmOpen && (
+        <Modal open onClose={() => setHuyCaConfirmOpen(false)} title="Xác nhận hủy ca" width="max-w-md">
+          <div className="text-sm text-[var(--ink-600)] mb-4">
+            Hủy ca <span className="font-mono font-semibold">{caseId}</span>? Ca sẽ bị ẩn khỏi mọi hàng đợi cần xử lý (giải trình tồn, khảo sát, ca lặp, thiếu linh kiện, nạp gas) và không tính vào KPI/doanh thu — vẫn xem được ở đây và trong "Danh sách tổng". Có thể bỏ hủy sau nếu cần.
+          </div>
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do hủy (tùy chọn)</label>
+            <textarea
+              rows={2}
+              value={huyCaLyDo}
+              onChange={(e) => setHuyCaLyDo(e.target.value)}
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setHuyCaConfirmOpen(false)}>
+              Hủy bỏ
+            </Btn>
+            <Btn variant="danger" onClick={() => huyCa.mutate()} disabled={huyCa.isPending}>
+              {huyCa.isPending ? "Đang hủy…" : "Xác nhận hủy ca"}
             </Btn>
           </div>
         </Modal>

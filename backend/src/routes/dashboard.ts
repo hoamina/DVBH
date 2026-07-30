@@ -29,7 +29,7 @@ interface DashboardFilterParams {
 function buildDashboardFilterClause(params: DashboardFilterParams, scope: string[] | null, prefix = ""): { sql: string; binds: unknown[] } {
   const scopeClause = khuVucWhereClause(scope, `${prefix}khu_vuc`);
   const binds: unknown[] = [...scopeClause.binds];
-  let sql = ` AND ${prefix}archived_at IS NULL${scopeClause.sql}`;
+  let sql = ` AND ${prefix}archived_at IS NULL AND ${prefix}huy_bo_at IS NULL${scopeClause.sql}`;
 
   const khuVucClause = khuVucAdHocClause(`${prefix}khu_vuc`, params.khu_vuc);
   sql += khuVucClause.sql;

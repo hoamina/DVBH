@@ -38,6 +38,9 @@ export interface CaseRow {
   ngay_cap_nhat_gan_nhat: string;
   assigned_to: string | null;
   archived_at: string | null;
+  huy_bo_at: string | null;
+  huy_bo_by: string | null;
+  huy_bo_ly_do: string | null;
   loi_120p: number;
   loi_qua_han_24h: number;
   loi_lo_ke_hoach: number;

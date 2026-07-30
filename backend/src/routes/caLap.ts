@@ -73,7 +73,7 @@ const CA_LAP_CTE_BODY = `
     SELECT *, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
       (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
     FROM case_dvbh INDEXED BY idx_case_ca_lap_prior_ht
-    WHERE ca_lap_prior_ht IS NOT NULL
+    WHERE ca_lap_prior_ht IS NOT NULL AND huy_bo_at IS NULL
   )
 `;
 // Ban standalone (co "WITH" dau) - dung khi day la khoi WITH duy nhat cua cau truy van. Export de
