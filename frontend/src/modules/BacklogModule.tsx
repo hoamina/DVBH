@@ -133,6 +133,10 @@ interface CanGiaiTrinhCounts {
   b2b: number;
   nskx: number;
   da_giai_trinh: number;
+  dmx_3_ngay: number;
+  dmx_chua_gt_3_ngay: number;
+  dmx_tai_giai_trinh: number;
+  dmx_lo_ke_hoach: number;
 }
 
 interface KhuVucRow {
@@ -146,7 +150,7 @@ interface KhuVucRow {
   can_giai_trinh_tong: number;
   lo_ke_hoach: number;
   cho_giai_trinh_lai: number;
-  chua_gt_3_ngay: number;
+  dmx_chua_gt_3_ngay: number;
   chua_gt_5_ngay: number;
   dieu_hoa_1_ngay: number;
   b2b_1_ngay: number;
@@ -211,7 +215,10 @@ const NHOM_OPTIONS = [
   { value: "can-giai-trinh:tong", label: "Cần giải trình (tổng)" },
   { value: "can-giai-trinh:lo_ke_hoach", label: "— Lỡ kế hoạch" },
   { value: "can-giai-trinh:tai_giai_trinh", label: "— Cần tái giải trình" },
-  { value: "can-giai-trinh:chua_gt_3_ngay", label: "— Chưa giải trình >3 ngày (cảnh báo sớm)" },
+  { value: "can-giai-trinh:dmx_3_ngay", label: "— Chưa giải trình >3 (ĐMX)" },
+  { value: "can-giai-trinh:dmx_chua_gt_3_ngay", label: "—— Chưa GT >3 ngày (ĐMX)" },
+  { value: "can-giai-trinh:dmx_tai_giai_trinh", label: "—— Tái giải trình (ĐMX)" },
+  { value: "can-giai-trinh:dmx_lo_ke_hoach", label: "—— Lỡ kế hoạch (ĐMX)" },
   { value: "can-giai-trinh:chua_gt_5_ngay", label: "— Chưa giải trình >5 ngày (ưu tiên xử lý)" },
   { value: "can-giai-trinh:dieu_hoa", label: "— Điều hòa >1 ngày" },
   { value: "can-giai-trinh:b2b", label: "— B2B >1 ngày" },
@@ -228,6 +235,57 @@ const TON_TUOI_OPTIONS = [
   { value: "7", label: "Trên 7 ngày" },
   { value: "14", label: "Trên 14 ngày" },
 ];
+
+// CHOT 2026-07-31: thay the StatCard don "Chua giai trinh >3 ngay (canh bao som)" - so ĐMX gio la
+// TONG cua 3 nhom van de (chua giai trinh >3 ngay + tai giai trinh + lo ke hoach, cung loc dieu kien
+// "KH DMX", xem needGiaiTrinh.ts backend) nen luon hien SAN chi tiet 3 dong ben duoi (khong an sau 1
+// buoc bam nua) - dung tinh than "minh bach" chu he thong yeu cau, dong thoi van giu dung ngon ngu
+// hinh anh cua StatCard (label + cham mau + so lon) de nhat quan voi cac the con lai.
+function DmxBreakdownCard({
+  total,
+  chuaGt3,
+  taiGiaiTrinh,
+  loKeHoach,
+  onClickTotal,
+  onClickChuaGt3,
+  onClickTaiGiaiTrinh,
+  onClickLoKeHoach,
+}: {
+  total: number;
+  chuaGt3: number;
+  taiGiaiTrinh: number;
+  loKeHoach: number;
+  onClickTotal: () => void;
+  onClickChuaGt3: () => void;
+  onClickTaiGiaiTrinh: () => void;
+  onClickLoKeHoach: () => void;
+}) {
+  return (
+    <Card className="p-4 flex-1 min-w-[170px]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Chưa giải trình &gt;3 (ĐMX)</span>
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--amber-500)" }}></span>
+      </div>
+      <button type="button" className="font-display text-2xl font-extrabold text-[var(--ink-900)] hover:underline text-left block" onClick={onClickTotal}>
+        {total}
+      </button>
+      <div className="mt-2 space-y-1 border-t border-[var(--line)] pt-2">
+        <button type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={onClickChuaGt3}>
+          <span>— Chưa GT &gt;3 ngày</span>
+          <span className="font-mono font-semibold">{chuaGt3}</span>
+        </button>
+        <button type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={onClickTaiGiaiTrinh}>
+          <span>— Tái giải trình</span>
+          <span className="font-mono font-semibold">{taiGiaiTrinh}</span>
+        </button>
+        <button type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={onClickLoKeHoach}>
+          <span>— Lỡ kế hoạch</span>
+          <span className="font-mono font-semibold">{loKeHoach}</span>
+        </button>
+      </div>
+    </Card>
+  );
+}
 
 export function BacklogModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
@@ -348,7 +406,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
       can_giai_trinh_tong: "Cần giải trình (tổng)",
       lo_ke_hoach: "Lỡ kế hoạch",
       cho_giai_trinh_lai: "Tái giải trình",
-      chua_gt_3_ngay: "Chưa GT >3 ngày",
+      dmx_chua_gt_3_ngay: "ĐMX chưa GT >3 ngày",
       chua_gt_5_ngay: "Chưa GT >5 ngày",
       dieu_hoa_1_ngay: "Điều hòa >1 ngày",
       b2b_1_ngay: "B2B >1 ngày",
@@ -465,7 +523,16 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
             <StatCard label="Tổng cần giải trình" value={counts?.can_giai_trinh_tong ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:tong")} />
             <StatCard label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
             <StatCard label="Cần tái giải trình" value={counts?.tai_giai_trinh ?? 0} tone="amber" onClick={() => goToDanhSach("can-giai-trinh:tai_giai_trinh")} />
-            <StatCard label="Chưa giải trình >3 ngày (cảnh báo sớm)" value={counts?.chua_gt_3_ngay ?? 0} tone="amber" onClick={() => goToDanhSach("can-giai-trinh:chua_gt_3_ngay")} />
+            <DmxBreakdownCard
+              total={counts?.dmx_3_ngay ?? 0}
+              chuaGt3={counts?.dmx_chua_gt_3_ngay ?? 0}
+              taiGiaiTrinh={counts?.dmx_tai_giai_trinh ?? 0}
+              loKeHoach={counts?.dmx_lo_ke_hoach ?? 0}
+              onClickTotal={() => goToDanhSach("can-giai-trinh:dmx_3_ngay")}
+              onClickChuaGt3={() => goToDanhSach("can-giai-trinh:dmx_chua_gt_3_ngay")}
+              onClickTaiGiaiTrinh={() => goToDanhSach("can-giai-trinh:dmx_tai_giai_trinh")}
+              onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
+            />
             <StatCard label="Chưa giải trình >5 ngày (ưu tiên xử lý)" value={counts?.chua_gt_5_ngay ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")} />
             <StatCard label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
             <StatCard label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
@@ -530,7 +597,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                     <th className="py-2 pr-3 border-l border-[var(--line)] pl-3 font-bold">Cần giải trình (tổng)</th>
                     <th className="py-2 pr-3">Lỡ kế hoạch</th>
                     <th className="py-2 pr-3">Tái giải trình</th>
-                    <th className="py-2 pr-3">Chưa GT &gt;3 ngày</th>
+                    <th className="py-2 pr-3">ĐMX chưa GT &gt;3 ngày</th>
                     <th className="py-2 pr-3">Chưa GT &gt;5 ngày</th>
                     <th className="py-2 pr-3">Điều hòa &gt;1 ngày</th>
                     <th className="py-2 pr-3">B2B &gt;1 ngày</th>
@@ -584,8 +651,8 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                         </button>
                       </td>
                       <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:chua_gt_3_ngay")}>
-                          {r.chua_gt_3_ngay}
+                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:dmx_chua_gt_3_ngay")}>
+                          {r.dmx_chua_gt_3_ngay}
                         </button>
                       </td>
                       <td className="py-2 pr-3 font-mono">

@@ -108,6 +108,10 @@ export interface CasesCountsPayload {
   b2b: number;
   nskx: number;
   da_giai_trinh: number;
+  dmx_3_ngay: number;
+  dmx_chua_gt_3_ngay: number;
+  dmx_tai_giai_trinh: number;
+  dmx_lo_ke_hoach: number;
 }
 
 /** Tach tu cases.get("/counts") - xem chu thich route ben duoi. Domain phu thuoc (khai bao o route
@@ -132,7 +136,11 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dieu_hoa} THEN 1 ELSE 0 END) as dieu_hoa,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as nskx,
-         SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
+         SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
+         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_3_ngay} THEN 1 ELSE 0 END) as dmx_3_ngay,
+         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_chua_gt_3_ngay} THEN 1 ELSE 0 END) as dmx_chua_gt_3_ngay,
+         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_tai_giai_trinh} THEN 1 ELSE 0 END) as dmx_tai_giai_trinh,
+         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_lo_ke_hoach} THEN 1 ELSE 0 END) as dmx_lo_ke_hoach
        FROM case_dvbh c
        ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
        WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}`,
@@ -150,6 +158,10 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
     b2b: row?.b2b ?? 0,
     nskx: row?.nskx ?? 0,
     da_giai_trinh: row?.da_giai_trinh ?? 0,
+    dmx_3_ngay: row?.dmx_3_ngay ?? 0,
+    dmx_chua_gt_3_ngay: row?.dmx_chua_gt_3_ngay ?? 0,
+    dmx_tai_giai_trinh: row?.dmx_tai_giai_trinh ?? 0,
+    dmx_lo_ke_hoach: row?.dmx_lo_ke_hoach ?? 0,
   };
 }
 
@@ -320,7 +332,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.tong} THEN 1 ELSE 0 END) as can_giai_trinh_tong,
            SUM(CASE WHEN ${NEED_LO_KE_HOACH} THEN 1 ELSE 0 END) as lo_ke_hoach,
            SUM(CASE WHEN ${NEED_TAI_GIAI_TRINH} THEN 1 ELSE 0 END) as cho_giai_trinh_lai,
-           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_3_ngay} THEN 1 ELSE 0 END) as chua_gt_3_ngay,
+           SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_chua_gt_3_ngay} THEN 1 ELSE 0 END) as dmx_chua_gt_3_ngay,
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_5_ngay} THEN 1 ELSE 0 END) as chua_gt_5_ngay,
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dieu_hoa} THEN 1 ELSE 0 END) as dieu_hoa_1_ngay,
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b_1_ngay,
@@ -354,7 +366,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
       can_giai_trinh_tong: b?.can_giai_trinh_tong ?? 0,
       lo_ke_hoach: b?.lo_ke_hoach ?? 0,
       cho_giai_trinh_lai: b?.cho_giai_trinh_lai ?? 0,
-      chua_gt_3_ngay: b?.chua_gt_3_ngay ?? 0,
+      dmx_chua_gt_3_ngay: b?.dmx_chua_gt_3_ngay ?? 0,
       chua_gt_5_ngay: b?.chua_gt_5_ngay ?? 0,
       dieu_hoa_1_ngay: b?.dieu_hoa_1_ngay ?? 0,
       b2b_1_ngay: b?.b2b_1_ngay ?? 0,

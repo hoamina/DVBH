@@ -76,6 +76,19 @@ export const NEED_B2B_1_NGAY = `(lg.case_id IS NULL AND c.doi_tac LIKE '%b2b%' A
 export const NEED_NSKX_2_NGAY = `(lg.case_id IS NULL AND c.doi_tac = 'NSKX' AND ${AGE_C} >= 2)`;
 export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_CHUA_GT_3_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_B2B_1_NGAY} OR ${NEED_NSKX_2_NGAY})`;
 
+// "KH DMX" (chot 2026-07-31, thay the the "Chua giai trinh >3 ngay (canh bao som)" cu) - khach hang
+// thuoc nhom DMX: c.khach_hang chua "DMX"/"DMX" (khong dau, dung LIKE ca 2 dang vi du lieu CRM
+// khong luon nhat quan dau) HOAC c.nhom_kh chua dung "KH DMX" (khop CHINH XAC gia tri danh muc
+// "03. KH DMX", KHONG khop "2. KRF-Kho DMX"/"04. Kho DMX" - 2 gia tri do la "Kho DMX" khac nghia,
+// khong phai "KH DMX"). Xac nhan voi chu he thong bang doi chieu README - tong 3 nhom cong nhau
+// (chua_gt_3_ngay + tai_giai_trinh + lo_ke_hoach, cung loc DMX) khop CHINH XAC voi bao cao thu cong
+// (91/91) tai thoi diem doi chieu.
+export const NEED_DMX_CUSTOMER = `((c.khach_hang LIKE '%ĐMX%' OR c.khach_hang LIKE '%DMX%') OR c.nhom_kh LIKE '%KH ĐMX%')`;
+export const NEED_DMX_CHUA_GT_3_NGAY = `(${NEED_DMX_CUSTOMER} AND ${NEED_CHUA_GT_3_NGAY})`;
+export const NEED_DMX_TAI_GIAI_TRINH = `(${NEED_DMX_CUSTOMER} AND ${NEED_TAI_GIAI_TRINH})`;
+export const NEED_DMX_LO_KE_HOACH = `(${NEED_DMX_CUSTOMER} AND ${NEED_LO_KE_HOACH})`;
+export const NEED_DMX_3_NGAY = `(${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_DMX_TAI_GIAI_TRINH} OR ${NEED_DMX_LO_KE_HOACH})`;
+
 export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   tong: NEED_TONG,
   lo_ke_hoach: NEED_LO_KE_HOACH,
@@ -85,4 +98,8 @@ export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   dieu_hoa: NEED_DIEU_HOA_1_NGAY,
   b2b: NEED_B2B_1_NGAY,
   nskx: NEED_NSKX_2_NGAY,
+  dmx_3_ngay: NEED_DMX_3_NGAY,
+  dmx_chua_gt_3_ngay: NEED_DMX_CHUA_GT_3_NGAY,
+  dmx_tai_giai_trinh: NEED_DMX_TAI_GIAI_TRINH,
+  dmx_lo_ke_hoach: NEED_DMX_LO_KE_HOACH,
 };
