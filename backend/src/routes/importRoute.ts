@@ -240,7 +240,7 @@ importRoute.post("/backfill-crm-hash", requireRole("Admin"), async (c) => {
 
 // POST /api/import/backfill-link-hinh-anh - chi Admin, chay THU CONG sau khi deploy fix tach anh
 // (xem parseLinkHinhAnh()/resplitStoredLinkHinhAnh() trong ratchet.ts) - sua lai cac dong
-// link_hinh_anh DA CO SAN trong DB tu truoc ban fix. Phat hien 2 dang loi qua json_each:
+// link_hinh_anh DA CO SAN trong DB tu truoc ban fix. Phat hien 3 dang loi qua json_each:
 // (1) phan tu nao KHONG bat dau bang "http" - JSON array bi tach nham 1 anh thanh 2 phan tu rieng
 // (URL / ten file) tu ban parseLinkHinhAnh() cu, phan ten file hien "Khong tai duoc" trong gallery;
 // (2) phan tu la URL nhung co dau phay KHONG kem khoang trang theo sau ("http%,%" nhung khong khop
@@ -249,11 +249,14 @@ importRoute.post("/backfill-crm-hash", requireRole("Admin"), async (c) => {
 // nhung .trim() trong ban parseLinkHinhAnh() cu da xoa mat dau cach nay tu truoc khi backfill lan 1
 // chay, nen chi gop lai bang dau phay thuong khong khoi phuc duoc; thieu dau cach nay khien
 // auth-media.smarthiz.vn khong khop dung anh goc du domain/path deu dung - xac nhan voi chu he
-// thong 2026-07-31). Xu ly theo lo (limit) - goi lai nhieu lan (dua vao "hasMore") toi khi false.
-// Idempotent - dong da sua dung dinh dang se khong con khop ca 2 dieu kien tren nen khong bi chon
-// lai o lan sau. KHONG dong bo lai crm_hash o day - lan import CRM that tiep theo cham vao ca nay se
-// thay hash lech (vi link_hinh_anh da doi) va tu GHI_DE 1 lan, giong co che "self-heal" da co san
-// cho crm_hash IS NULL (xem importProcessor.ts), khong can xu ly gi them.
+// thong 2026-07-31); (3) phan tu ket thuc bang dau phay (co hoac khong kem khoang trang) - ANH CUOI
+// CUNG trong chuoi CRM tho thuong con dinh 1 dau phay o cuoi cung (khong co domain nao theo sau de
+// tach), nen tach xong van con dinh vao URL cuoi, khien anh cuoi cung cua MOI ca bi loi hien thi -
+// xac nhan voi chu he thong 2026-07-31. Xu ly theo lo (limit) - goi lai nhieu lan (dua vao "hasMore")
+// toi khi false. Idempotent - dong da sua dung dinh dang se khong con khop dieu kien nao tren nen
+// khong bi chon lai o lan sau. KHONG dong bo lai crm_hash o day - lan import CRM that tiep theo cham
+// vao ca nay se thay hash lech (vi link_hinh_anh da doi) va tu GHI_DE 1 lan, giong co che "self-heal"
+// da co san cho crm_hash IS NULL (xem importProcessor.ts), khong can xu ly gi them.
 importRoute.post("/backfill-link-hinh-anh", requireRole("Admin"), async (c) => {
   const limitParam = Number(c.req.query("limit"));
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 200;
@@ -262,7 +265,12 @@ importRoute.post("/backfill-link-hinh-anh", requireRole("Admin"), async (c) => {
     `SELECT id, link_hinh_anh FROM case_dvbh WHERE id IN (
        SELECT DISTINCT c.id FROM case_dvbh c, json_each(c.link_hinh_anh) je
        WHERE c.link_hinh_anh IS NOT NULL AND c.link_hinh_anh != '[]'
-         AND (je.value NOT LIKE 'http%' OR (je.value LIKE 'http%,%' AND je.value NOT LIKE 'http%, %'))
+         AND (
+           je.value NOT LIKE 'http%'
+           OR (je.value LIKE 'http%,%' AND je.value NOT LIKE 'http%, %')
+           OR je.value LIKE '%,'
+           OR je.value LIKE '%, '
+         )
        ORDER BY c.id LIMIT ?
      )`,
   )

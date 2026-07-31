@@ -116,7 +116,10 @@ export function parseLinkHinhAnh(rawValue: unknown): string | null {
   if (rawValue === undefined || rawValue === null || rawValue === "") return null;
   const urls = String(rawValue)
     .split(LINK_HINH_ANH_SPLIT_RE)
-    .map((s) => s.trim())
+    // Anh CUOI CUNG trong chuoi tho thuong con dinh 1 dau phay (hoac dau phay + khoang trang) o cuoi
+    // cung (khong co "key.com" nao theo sau de tach), vi vay tach xong van con dinh vao segment cuoi -
+    // cat bo moi dau phay/khoang trang o CUOI moi doan (khong chi trim khoang trang thong thuong).
+    .map((s) => s.trim().replace(/[,\s]+$/, ""))
     .filter((s) => s.length > 0)
     .slice(0, LINK_HINH_ANH_MAX)
     .map((s) => s.replaceAll(LINK_HINH_ANH_SHORT_DOMAIN, LINK_HINH_ANH_S3_BASE));
@@ -157,9 +160,11 @@ export function resplitStoredLinkHinhAnh(dbValue: string): string | null {
     rejoined += (prevIsUrl && !currIsUrl ? ", " : ",") + strs[i];
   }
 
+  // Anh CUOI CUNG thuong con dinh 1 dau phay (hoac dau phay + khoang trang) o cuoi cung (khong co
+  // domain nao theo sau de tach) - cat bo moi dau phay/khoang trang o CUOI moi doan.
   const segments = rejoined
     .split(LINK_HINH_ANH_RESPLIT_RE)
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/[,\s]+$/, ""))
     .filter((s) => s.length > 0)
     .slice(0, LINK_HINH_ANH_MAX);
 
