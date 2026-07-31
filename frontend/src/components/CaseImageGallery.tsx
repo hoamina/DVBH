@@ -37,8 +37,26 @@ function isVideoUrl(url: string): boolean {
 // nhi phan that - <img> luon that bai vi trinh duyet khong decode duoc HTML nhu anh). Trang do lai
 // hien thi anh binh thuong khi dieu huong THANG toi (JS cua no tu fetch + render anh), nen anh nao
 // <img> that bai se duoc chuyen sang nhung <iframe> toi URL nay thay vi chi bao "Khong tai duoc".
+//
+// Domain doi dieu kien: DB dang luu domain S3 cua Smarttrade (LINK_HINH_ANH_S3_BASE trong
+// backend/src/lib/ratchet.ts) - domain nay hotlink duoc cho da so anh, nhung mot so anh (nguon
+// KAROFI) chi ton tai that su o storage rieng cua KAROFI. Da xac nhan voi chu he thong 2026-07-31
+// bang 3 cap URL that: doi domain S3 sang domain KAROFI ("srt-iam-api.karofi.com/storage/key/",
+// CUNG path suffix "crm/incident/images/...") roi boc qua auth-media.smarthiz.vn thi anh hien dung -
+// chi ap dung domain KAROFI o day, KHONG doi domain luu trong DB (S3 van la lua chon dung cho da so
+// anh, chi fallback sang KAROFI khi <img> that bai).
+const LINK_HINH_ANH_S3_BASE = "https://srt-iotp-prod-storage.s3.ap-southeast-1.amazonaws.com/";
+const LINK_HINH_ANH_KAROFI_BASE = "https://srt-iam-api.karofi.com/storage/key/";
+
+// Cong thuc encode CHINH XAC da xac nhan voi chu he thong 2026-07-31 qua 3 cap URL that (khong phai
+// encodeURIComponent don thuan - chu he thong da tu mo link va bat duoc dang trinh duyet redirect
+// toi, dang nay giu nguyen ":" va "," nhung ma hoa "/" thanh "%2F"): encodeURI() truoc (ma hoa
+// khoang trang + ky tu Unicode/dau tieng Viet, GIU NGUYEN "/" ":" ","), sau do thay tiep TOAN BO "/"
+// con lai (ke ca trong "https://") thanh "%2F".
 function authMediaUrl(url: string): string {
-  return `https://auth-media.smarthiz.vn/?media=${encodeURIComponent(url)}`;
+  const karofiUrl = url.startsWith(LINK_HINH_ANH_S3_BASE) ? LINK_HINH_ANH_KAROFI_BASE + url.slice(LINK_HINH_ANH_S3_BASE.length) : url;
+  const mediaParam = encodeURI(karofiUrl).replaceAll("/", "%2F");
+  return `https://auth-media.smarthiz.vn/?media=${mediaParam}`;
 }
 
 // Gallery anh bao cao cong viec cua 1 ca - toi da 30 anh (gioi han o backend luc import). Grid
