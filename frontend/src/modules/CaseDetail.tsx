@@ -80,6 +80,40 @@ async function fetchCaseDetailCached(id: string): Promise<CacheEntry<CaseDetailR
   return { data: fresh, cachedAt: new Date().toISOString() };
 }
 
+// "Cach thuc xu ly" trong "Chuoi lich su theo serial" (tab Ca lap) - du lieu thuc te thuong la ca 1
+// nhat ky dai (700+ ky tu, nhieu lan cap nhat CRM gop lai), khong phai 1 nhan ngan nhu KTV/tien do.
+// CRM co quy uoc noi bo bat dau bang "[CTXL] <tom tat cach xu ly>" roi moi den "[NOTE] <nhat ky chi
+// tiet>" - uu tien hien phan TOM TAT (truoc "[NOTE]") lam preview mac dinh, vi day moi la thong tin
+// GS/QC can luot nhanh de so sanh cach xu ly co lap lai qua nhieu lan hay khong; bam vao de xem full
+// (bao gom ca nhat ky) khi can dieu tra sau, thay vi cat ky tu vo nghia hoac nhoi ca 700 ky tu vao 1
+// dong danh sach dang lam mat kha nang doi chieu nhanh.
+function ctxlSummary(text: string): string {
+  const noteIdx = text.indexOf("[NOTE]");
+  return (noteIdx > -1 ? text.slice(0, noteIdx) : text).trim();
+}
+
+function CachThucXuLyLine({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const summary = ctxlSummary(text);
+  const hasMore = summary !== text.trim();
+
+  return (
+    <div
+      className={`text-[11px] text-[var(--ink-400)] mt-0.5 ${hasMore ? "cursor-pointer hover:text-[var(--ink-600)]" : ""}`}
+      onClick={(e) => {
+        if (!hasMore) return;
+        e.stopPropagation();
+        setExpanded((v) => !v);
+      }}
+    >
+      <span className={expanded ? "whitespace-pre-wrap" : "truncate block"} title={expanded ? undefined : summary}>
+        🛠 {expanded ? text : summary || text}
+      </span>
+      {hasMore && <span className="text-[var(--ocean-500)] font-semibold">{expanded ? " Thu gọn ↑" : " Xem đầy đủ ↓"}</span>}
+    </div>
+  );
+}
+
 // Phan "chi doc" cua thong tin khach hang (fields grid + 3 Card) - dung chung cho ca goc (cot trai,
 // co them nut hanh dong bao quanh o noi goi) va ca doi chieu (cot giua, thuan tham khao, khong nut
 // hanh dong). "serialExtra" la phan tu dat canh Serial (nut them Blacklist hoac badge da blacklist).
@@ -766,6 +800,10 @@ export function CaseDetail({
                           ID <span className="font-mono">{h.id}</span> · {h.ky_thuat_vien ?? "—"}
                           {h.tien_do_hoan_thanh && ` · ${h.tien_do_hoan_thanh}`}
                         </div>
+                        {/* Dong rieng (khong gop vao dong ID/KTV/tien do) - xem CachThucXuLyLine o
+                            tren, du lieu thuc te la nhat ky dai nen can preview + bam de xem full,
+                            khong the gop chung 1 dong dot-separated nhu KTV/tien do (qua dai). */}
+                        {h.cach_thuc_xu_ly && <CachThucXuLyLine text={h.cach_thuc_xu_ly} />}
                       </div>
                     </div>
                     {gapDays !== null && <div className="text-[11px] text-[var(--ink-400)] pl-4 pb-1">↳ cách ca sau {gapDays.toFixed(1)} ngày</div>}

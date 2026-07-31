@@ -128,7 +128,14 @@ export interface GiaiTrinhLapRow {
 export interface CaLapDetection {
   detection: { gapDays: number; priorId: string; priorHt: string } | null;
   giaiTrinhLap: GiaiTrinhLapRow | null;
-  lichSu: { id: string; thoi_gian_hoan_thanh: string | null; ky_thuat_vien: string | null; tien_do_hoan_thanh: string | null; link_crm: string | null }[];
+  lichSu: {
+    id: string;
+    thoi_gian_hoan_thanh: string | null;
+    ky_thuat_vien: string | null;
+    tien_do_hoan_thanh: string | null;
+    cach_thuc_xu_ly: string | null;
+    link_crm: string | null;
+  }[];
   serialBlacklisted: boolean;
 }
 

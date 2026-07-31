@@ -599,7 +599,7 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
     db.prepare("SELECT * FROM giai_trinh_lap WHERE case_id = ?").bind(caseId).first(),
     db
       .prepare(
-        "SELECT id, thoi_gian_hoan_thanh, ky_thuat_vien, tien_do_hoan_thanh, link_crm FROM case_dvbh WHERE seri_san_pham = ? ORDER BY thoi_gian_hoan_thanh DESC",
+        "SELECT id, thoi_gian_hoan_thanh, ky_thuat_vien, tien_do_hoan_thanh, cach_thuc_xu_ly, link_crm FROM case_dvbh WHERE seri_san_pham = ? ORDER BY thoi_gian_hoan_thanh DESC",
       )
       .bind(seri)
       .all(),
