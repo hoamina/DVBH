@@ -64,8 +64,16 @@ const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
  *   nhom san pham Dieu hoa hoac doi tac co chua "b2b" trong ten (vd "[B2B-BAUER]").
  * - NSKX_2_NGAY: SLA rieng (2 ngay thay vi 3) cho ca CHUA giai trinh cua doi tac "NSKX" (dung khop
  *   chinh xac c.doi_tac, khong phai LIKE nhu B2B).
- * - TONG: hop (OR) ca 6 nhom chinh (khong tinh CHUA_GT_5_NGAY, da la tap con) - 1 ca thuoc nhieu
- *   nhom van chi dem 1 lan khi dung TONG.
+ * - TONG (doi 2026-07-31, xem chot voi chu he thong): truoc day nhanh "chua tung giai trinh" trong
+ *   TONG dung CHUA_GT_3_NGAY chung cho MOI khach hang; gio CHI khach hang DMX moi duoc tinh o
+ *   nguong 3 ngay (DMX_CHUA_GT_3_NGAY, xem dinh nghia NEED_DMX_CUSTOMER ben duoi) - khach hang
+ *   thuong phai toi nguong 5 ngay (CHUA_GT_5_NGAY, KHONG loc DMX) moi tinh vao TONG. Ly do: bang
+ *   "Bao cao ton theo khu vuc" chi con hien cot "DMX chua GT >3 ngay" (khong con cot chua GT >3 ngay
+ *   chung cho moi khach hang nhu truoc), neu TONG van cong ca nhom khach thuong 3-4 ngay thi so
+ *   TONG se KHONG khop tong cac cot hien thi tren bao cao (da xay ra thuc te, chu he thong phat hien
+ *   qua vi du hang "TỔNG=9" nhung cac cot con hien chi cong ra 3). CHUA_GT_5_NGAY vi vay PHAI co mat
+ *   rieng trong TONG (khac truoc day, khi no la tap con tu dong cua CHUA_GT_3_NGAY nen khong can
+ *   liet ke rieng).
  */
 export const NEED_LO_KE_HOACH = `(lg.ngay_du_kien_hoan_thanh IS NOT NULL AND date(lg.ngay_du_kien_hoan_thanh) < date(${AGE_ANCHOR}))`;
 export const NEED_TAI_GIAI_TRINH = `(lg.case_id IS NOT NULL AND ${ageExpr("lg.ngay_giai_trinh")} >= 3)`;
@@ -74,7 +82,6 @@ export const NEED_CHUA_GT_5_NGAY = `(lg.case_id IS NULL AND ${AGE_C} >= 5)`;
 export const NEED_DIEU_HOA_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = 'Điều hòa' AND ${AGE_C} >= 1)`;
 export const NEED_B2B_1_NGAY = `(lg.case_id IS NULL AND c.doi_tac LIKE '%b2b%' AND ${AGE_C} >= 1)`;
 export const NEED_NSKX_2_NGAY = `(lg.case_id IS NULL AND c.doi_tac = 'NSKX' AND ${AGE_C} >= 2)`;
-export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_CHUA_GT_3_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_B2B_1_NGAY} OR ${NEED_NSKX_2_NGAY})`;
 
 // "KH DMX" (chot 2026-07-31, thay the the "Chua giai trinh >3 ngay (canh bao som)" cu) - khach hang
 // thuoc nhom DMX: c.khach_hang chua "DMX"/"DMX" (khong dau, dung LIKE ca 2 dang vi du lieu CRM
@@ -88,6 +95,8 @@ export const NEED_DMX_CHUA_GT_3_NGAY = `(${NEED_DMX_CUSTOMER} AND ${NEED_CHUA_GT
 export const NEED_DMX_TAI_GIAI_TRINH = `(${NEED_DMX_CUSTOMER} AND ${NEED_TAI_GIAI_TRINH})`;
 export const NEED_DMX_LO_KE_HOACH = `(${NEED_DMX_CUSTOMER} AND ${NEED_LO_KE_HOACH})`;
 export const NEED_DMX_3_NGAY = `(${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_DMX_TAI_GIAI_TRINH} OR ${NEED_DMX_LO_KE_HOACH})`;
+
+export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_CHUA_GT_5_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_B2B_1_NGAY} OR ${NEED_NSKX_2_NGAY})`;
 
 export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   tong: NEED_TONG,
