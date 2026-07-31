@@ -71,23 +71,59 @@ export interface KetQuaXuLyTranhChapRow {
   bat_tat: number;
 }
 
+// Redesign 2026-07-31: 2 giai doan xu ly tranh chap - Giam sat TRUOC (5 trang thai), "Giam sat
+// chuyen CSKH" ban giao sang CSKH (4 trang thai rieng). Khop CHINH XAC voi
+// backend/src/lib/tranhChapTienTrinh.ts (GIAM_SAT_STATUSES/CSKH_STATUSES/phaseOfStatus).
+export const GIAM_SAT_STATUS_VALUES = [
+  "Giam sat chua xu ly",
+  "Giam sat dang xu ly",
+  "Giam sat dong hoan thanh",
+  "Giam sat dong that bai",
+  "Giam sat chuyen CSKH",
+] as const;
+export const CSKH_STATUS_VALUES = ["CSKH chua tiep nhan", "CSKH dang xu ly", "CSKH khong can xu ly", "CSKH xu ly xong"] as const;
+
 export const TRANG_THAI_LABELS: Record<string, string> = {
-  "KSNB da tiep nhan": "KSNB đã tiếp nhận",
+  "Giam sat chua xu ly": "Giám sát chưa xử lý",
   "Giam sat dang xu ly": "Giám sát đang xử lý",
-  "Da ket thuc tranh chap": "Đã kết thúc tranh chấp",
-  "Da huy bo tranh chap": "Đã huỷ bỏ tranh chấp",
+  "Giam sat dong hoan thanh": "Giám sát đóng hoàn thành",
+  "Giam sat dong that bai": "Giám sát đóng thất bại",
+  "Giam sat chuyen CSKH": "Giám sát chuyển CSKH",
+  "CSKH chua tiep nhan": "CSKH chưa tiếp nhận",
+  "CSKH dang xu ly": "CSKH đang xử lý",
+  "CSKH khong can xu ly": "CSKH không cần xử lý",
+  "CSKH xu ly xong": "CSKH xử lý xong",
 };
 export const TRANG_THAI_TONE: Record<string, BadgeTone> = {
-  "KSNB da tiep nhan": "ocean",
+  "Giam sat chua xu ly": "gray",
   "Giam sat dang xu ly": "amber",
-  "Da ket thuc tranh chap": "teal",
-  "Da huy bo tranh chap": "gray",
+  "Giam sat dong hoan thanh": "teal",
+  "Giam sat dong that bai": "coral",
+  "Giam sat chuyen CSKH": "ocean",
+  "CSKH chua tiep nhan": "gray",
+  "CSKH dang xu ly": "ocean",
+  "CSKH khong can xu ly": "gray",
+  "CSKH xu ly xong": "teal",
 };
-export const TRANG_THAI_LOG_OPTIONS = Object.entries(TRANG_THAI_LABELS).map(([value, label]) => ({ value, label }));
-export const TRANG_THAI_DONG = ["Da ket thuc tranh chap", "Da huy bo tranh chap"];
-// Trang thai bat buoc 2 truong "Ket qua xu ly"/"Hai long sau tranh chap" (chot 2026-07-29) - khop
-// TRANG_THAI_CAN_KET_QUA trong backend/src/lib/tranhChapTienTrinh.ts.
-export const TRANG_THAI_CAN_KET_QUA = "Da ket thuc tranh chap";
+export const GIAM_SAT_STATUS_OPTIONS = GIAM_SAT_STATUS_VALUES.map((value) => ({ value, label: TRANG_THAI_LABELS[value] }));
+export const CSKH_STATUS_OPTIONS = CSKH_STATUS_VALUES.map((value) => ({ value, label: TRANG_THAI_LABELS[value] }));
+export const TRANG_THAI_LOG_OPTIONS = [...GIAM_SAT_STATUS_OPTIONS, ...CSKH_STATUS_OPTIONS];
+export const TRANG_THAI_DONG = ["Giam sat dong hoan thanh", "Giam sat dong that bai", "CSKH khong can xu ly", "CSKH xu ly xong"];
+// 2 trang thai KSNB (la_ksnb_doi_tac) can theo doi - diem ban giao Giam sat -> CSKH (chot 2026-07-31
+// diem 4) - khop KSNB_WATCH_STATUSES backend.
+export const KSNB_WATCH_STATUSES = ["Giam sat chuyen CSKH", "CSKH dang xu ly"];
+// Chi 2 trang thai "thanh cong" bat buoc "Ket qua xu ly"/"Hai long sau tranh chap" (chot 2026-07-31) -
+// khop TRANG_THAI_CAN_KET_QUA trong backend/src/lib/tranhChapTienTrinh.ts.
+export const TRANG_THAI_CAN_KET_QUA = ["Giam sat dong hoan thanh", "CSKH xu ly xong"];
+
+/** Giai doan hien tai cua 1 tien trinh, tinh tu trang thai log MOI NHAT - dung de gioi han dropdown
+ * chon trang thai o log TIEP THEO chi trong dung giai doan (khong quay lai duoc Giam sat sau khi da
+ * chuyen CSKH). Mirror dung logic backend phaseOfStatus(). */
+export function phaseOfStatus(status: string | null): "giam-sat" | "cskh" {
+  if (status === "Giam sat chuyen CSKH") return "cskh";
+  if ((CSKH_STATUS_VALUES as readonly string[]).includes(status ?? "")) return "cskh";
+  return "giam-sat";
+}
 
 export const MUC_DO_OPTIONS = [
   { value: "Binh thuong", label: "Bình thường" },

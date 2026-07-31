@@ -12,13 +12,17 @@ import { bumpVersions } from "../lib/dataVersions";
 import { AGE_ANCHOR } from "../lib/ageCalc";
 import {
   ALL_TRANG_THAI_LOG,
+  GIAM_SAT_STATUSES,
+  CSKH_STATUSES,
   TRANH_CHAP_TRANG_THAI_DONG,
   TRANG_THAI_CAN_KET_QUA,
+  KSNB_WATCH_STATUSES,
   MUC_DO_VALUES,
   HAI_LONG_VALUES,
   CASE_TRANH_CHAP_STATUS_EXPR,
   TUOI_TIEN_TRINH_EXPR,
   latestLogStatusOfTienTrinh,
+  phaseOfStatus,
   canWriteTranhChap,
   canEditTienTrinhMeta,
 } from "../lib/tranhChapTienTrinh";
@@ -119,9 +123,27 @@ tranhChap.get("/cho-xu-ly", async (c) => {
 // tao tien trinh thu 2 tro di dung CHINH route nay, goi lai sau khi tien trinh truoc da dong).
 tranhChap.post("/:caseId/tiep-nhan", async (c) => {
   const caseId = c.req.param("caseId");
-  const body = await c.req.json<{ phan_loai_tranh_chap: string; muc_do: string; ghi_chu?: string; thoi_gian_du_kien_xong?: string }>();
+  const body = await c.req.json<{
+    phan_loai_tranh_chap: string;
+    muc_do: string;
+    trang_thai_xu_ly: string;
+    ghi_chu?: string;
+    thoi_gian_du_kien_xong?: string;
+    ket_qua_xu_ly?: string;
+    hai_long_sau_tranh_chap?: string;
+  }>();
   if (!body.phan_loai_tranh_chap?.trim()) return c.json({ error: "MISSING_PHAN_LOAI" }, 400);
   if (!(MUC_DO_VALUES as readonly string[]).includes(body.muc_do)) return c.json({ error: "INVALID_MUC_DO" }, 400);
+  // Trang thai dau tien cua tien trinh LUON thuoc giai doan Giam sat (chot 2026-07-31 diem 1/3) - neu
+  // nguoi tao chon thang 1 trong 2 trang thai "dong" (hoan thanh/that bai) thi tien trinh dong NGAY
+  // (khong can logic dac biet, trang thai van suy tu log moi nhat nhu binh thuong).
+  if (!(GIAM_SAT_STATUSES as readonly string[]).includes(body.trang_thai_xu_ly)) return c.json({ error: "INVALID_TRANG_THAI" }, 400);
+  if ((TRANG_THAI_CAN_KET_QUA as readonly string[]).includes(body.trang_thai_xu_ly)) {
+    if (!body.ket_qua_xu_ly?.trim()) return c.json({ error: "MISSING_KET_QUA_XU_LY" }, 400);
+    if (!body.hai_long_sau_tranh_chap || !(HAI_LONG_VALUES as readonly string[]).includes(body.hai_long_sau_tranh_chap)) {
+      return c.json({ error: "MISSING_HAI_LONG" }, 400);
+    }
+  }
 
   const caseRow = await c.env.DB.prepare(
     "SELECT khu_vuc, nghi_ngo_tranh_chap, tien_do_hoan_thanh FROM case_dvbh WHERE id = ?",
@@ -157,8 +179,19 @@ tranhChap.post("/:caseId/tiep-nhan", async (c) => {
       "INSERT INTO tranh_chap_tien_trinh (id, case_id, phan_loai_tranh_chap, muc_do, nguoi_tao, ngay_tao) VALUES (?, ?, ?, ?, ?, ?)",
     ).bind(id, caseId, body.phan_loai_tranh_chap.trim(), body.muc_do, user.email, now),
     c.env.DB.prepare(
-      "INSERT INTO tranh_chap_log (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu) VALUES (?, ?, ?, 'KSNB da tiep nhan', ?, ?)",
-    ).bind(id, user.email, now, body.thoi_gian_du_kien_xong ?? nextDayVN(), body.ghi_chu ?? null),
+      `INSERT INTO tranh_chap_log
+         (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu, ket_qua_xu_ly, hai_long_sau_tranh_chap)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      id,
+      user.email,
+      now,
+      body.trang_thai_xu_ly,
+      body.thoi_gian_du_kien_xong ?? nextDayVN(),
+      body.ghi_chu ?? null,
+      body.ket_qua_xu_ly?.trim() || null,
+      body.hai_long_sau_tranh_chap || null,
+    ),
   ]);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
@@ -264,8 +297,9 @@ export async function computeTienTrinhStats(db: D1Database, scope: string[] | nu
     .prepare(
       `SELECT
          SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) THEN 1 ELSE 0 END) as dang_mo,
-         SUM(CASE WHEN ll.trang_thai_xu_ly = 'KSNB da tiep nhan' THEN 1 ELSE 0 END) as ksnb_tiep_nhan,
-         SUM(CASE WHEN ll.trang_thai_xu_ly = 'Giam sat dang xu ly' THEN 1 ELSE 0 END) as giam_sat_xu_ly,
+         SUM(CASE WHEN ll.trang_thai_xu_ly = 'Giam sat chua xu ly' THEN 1 ELSE 0 END) as giam_sat_chua_xu_ly,
+         SUM(CASE WHEN ll.trang_thai_xu_ly = 'Giam sat chuyen CSKH' THEN 1 ELSE 0 END) as giam_sat_chuyen_cskh,
+         SUM(CASE WHEN ll.trang_thai_xu_ly = 'CSKH dang xu ly' THEN 1 ELSE 0 END) as cskh_dang_xu_ly,
          SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) AND ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as qua_han,
          SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) AND ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong >= ${AGE_ANCHOR} AND ll.thoi_gian_du_kien_xong < date(${AGE_ANCHOR}, '+2 day') THEN 1 ELSE 0 END) as sap_den_han
        FROM tranh_chap_tien_trinh tt
@@ -274,11 +308,12 @@ export async function computeTienTrinhStats(db: D1Database, scope: string[] | nu
        WHERE 1=1${scopeClause.sql}`,
     )
     .bind(...dongList, ...dongList, ...dongList, ...scopeClause.binds)
-    .first<{ dang_mo: number; ksnb_tiep_nhan: number; giam_sat_xu_ly: number; qua_han: number; sap_den_han: number }>();
+    .first<{ dang_mo: number; giam_sat_chua_xu_ly: number; giam_sat_chuyen_cskh: number; cskh_dang_xu_ly: number; qua_han: number; sap_den_han: number }>();
   return {
     dangMo: row?.dang_mo ?? 0,
-    ksnbTiepNhan: row?.ksnb_tiep_nhan ?? 0,
-    giamSatXuLy: row?.giam_sat_xu_ly ?? 0,
+    giamSatChuaXuLy: row?.giam_sat_chua_xu_ly ?? 0,
+    giamSatChuyenCskh: row?.giam_sat_chuyen_cskh ?? 0,
+    cskhDangXuLy: row?.cskh_dang_xu_ly ?? 0,
     quaHan: row?.qua_han ?? 0,
     sapDenHan: row?.sap_den_han ?? 0,
   };
@@ -360,20 +395,28 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
     hai_long_sau_tranh_chap?: string;
   }>();
   if (!(ALL_TRANG_THAI_LOG as readonly string[]).includes(body.trang_thai_xu_ly)) return c.json({ error: "INVALID_TRANG_THAI" }, 400);
-  // "Da ket thuc tranh chap" bat buoc 2 truong ket qua (chot 2026-07-29) - "Da huy bo tranh chap"
-  // KHONG bat buoc (xem TRANG_THAI_CAN_KET_QUA).
-  if (body.trang_thai_xu_ly === TRANG_THAI_CAN_KET_QUA) {
+  // Chi 2 trang thai "thanh cong" bat buoc 2 truong ket qua (chot 2026-07-31) - xem TRANG_THAI_CAN_KET_QUA.
+  if ((TRANG_THAI_CAN_KET_QUA as readonly string[]).includes(body.trang_thai_xu_ly)) {
     if (!body.ket_qua_xu_ly?.trim()) return c.json({ error: "MISSING_KET_QUA_XU_LY" }, 400);
     if (!body.hai_long_sau_tranh_chap || !(HAI_LONG_VALUES as readonly string[]).includes(body.hai_long_sau_tranh_chap)) {
       return c.json({ error: "MISSING_HAI_LONG" }, 400);
     }
   }
 
-  const tt = await c.env.DB.prepare("SELECT tt.case_id, c.khu_vuc FROM tranh_chap_tien_trinh tt JOIN case_dvbh c ON c.id = tt.case_id WHERE tt.id = ?")
+  const tt = await c.env.DB.prepare(
+    `SELECT tt.case_id, c.khu_vuc, ${latestLogStatusOfTienTrinh("tt.id")} as trang_thai FROM tranh_chap_tien_trinh tt JOIN case_dvbh c ON c.id = tt.case_id WHERE tt.id = ?`,
+  )
     .bind(id)
-    .first<{ case_id: string; khu_vuc: string | null }>();
+    .first<{ case_id: string; khu_vuc: string | null; trang_thai: string | null }>();
   if (!tt) return c.json({ error: "NOT_FOUND" }, 404);
   if (!canWriteTranhChap(c, tt.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // Trang thai moi phai thuoc DUNG giai doan hien tai cua tien trinh (chot 2026-07-31 diem 1: khong
+  // duoc quay lai giai doan Giam sat sau khi da chuyen CSKH).
+  const currentPhase = phaseOfStatus(tt.trang_thai);
+  const allowedForPhase = currentPhase === "cskh" ? CSKH_STATUSES : GIAM_SAT_STATUSES;
+  if (!(allowedForPhase as readonly string[]).includes(body.trang_thai_xu_ly)) {
+    return c.json({ error: "INVALID_PHASE_TRANSITION" }, 400);
+  }
 
   let thoiGianDuKien = body.thoi_gian_du_kien_xong;
   if (thoiGianDuKien === undefined) {
@@ -447,6 +490,18 @@ tranhChap.patch("/log/:id", async (c) => {
   if (body.trang_thai_xu_ly !== undefined && !(ALL_TRANG_THAI_LOG as readonly string[]).includes(body.trang_thai_xu_ly)) {
     return c.json({ error: "INVALID_TRANG_THAI" }, 400);
   }
+  // Giai doan tinh tu log NGAY TRUOC log dang sua (khong phai chinh no) - tranh tu chan chinh minh
+  // (chot 2026-07-31, xem phaseOfStatus()).
+  if (body.trang_thai_xu_ly !== undefined) {
+    const prevLog = await c.env.DB.prepare("SELECT trang_thai_xu_ly FROM tranh_chap_log WHERE tien_trinh_id = ? AND id < ? ORDER BY id DESC LIMIT 1")
+      .bind(log.tien_trinh_id, log.id)
+      .first<{ trang_thai_xu_ly: string }>();
+    const currentPhase = phaseOfStatus(prevLog?.trang_thai_xu_ly ?? null);
+    const allowedForPhase = currentPhase === "cskh" ? CSKH_STATUSES : GIAM_SAT_STATUSES;
+    if (!(allowedForPhase as readonly string[]).includes(body.trang_thai_xu_ly)) {
+      return c.json({ error: "INVALID_PHASE_TRANSITION" }, 400);
+    }
+  }
 
   const next = {
     trang_thai_xu_ly: body.trang_thai_xu_ly ?? log.trang_thai_xu_ly,
@@ -455,10 +510,10 @@ tranhChap.patch("/log/:id", async (c) => {
     ket_qua_xu_ly: body.ket_qua_xu_ly !== undefined ? body.ket_qua_xu_ly.trim() || null : log.ket_qua_xu_ly,
     hai_long_sau_tranh_chap: body.hai_long_sau_tranh_chap !== undefined ? body.hai_long_sau_tranh_chap : log.hai_long_sau_tranh_chap,
   };
-  // Neu (sau khi sua) trang thai la "Da ket thuc tranh chap" thi 2 truong ket qua BAT BUOC phai co
-  // gia tri hop le - kiem tra tren gia tri SAU CUNG (co the da co san tu luc tao, hoac vua sua trong
-  // chinh request nay).
-  if (next.trang_thai_xu_ly === TRANG_THAI_CAN_KET_QUA) {
+  // Neu (sau khi sua) trang thai la 1 trong 2 trang thai "thanh cong" thi 2 truong ket qua BAT BUOC
+  // phai co gia tri hop le - kiem tra tren gia tri SAU CUNG (co the da co san tu luc tao, hoac vua
+  // sua trong chinh request nay).
+  if ((TRANG_THAI_CAN_KET_QUA as readonly string[]).includes(next.trang_thai_xu_ly)) {
     if (!next.ket_qua_xu_ly) return c.json({ error: "MISSING_KET_QUA_XU_LY" }, 400);
     if (!next.hai_long_sau_tranh_chap || !(HAI_LONG_VALUES as readonly string[]).includes(next.hai_long_sau_tranh_chap)) {
       return c.json({ error: "MISSING_HAI_LONG" }, 400);
@@ -478,17 +533,21 @@ tranhChap.patch("/log/:id", async (c) => {
 });
 
 /** Dung boi notifications.ts computeNotificationsCount() - so ca "chua xu ly xong" tranh chap (xem
- * CASE_TRANH_CHAP_STATUS_EXPR: gom ca ca CHUA TUNG co tien trinh lan ca co tien trinh dang mo). */
-export async function computeTranhChapCount(db: D1Database, scope: string[] | null): Promise<number> {
+ * CASE_TRANH_CHAP_STATUS_EXPR: gom ca ca CHUA TUNG co tien trinh lan ca co tien trinh dang mo).
+ * "isKsnb" (chot 2026-07-31 diem 4): KSNB (la_ksnb_doi_tac) chi can quan tam ca dang o dung
+ * KSNB_WATCH_STATUSES (diem ban giao Giam sat -> CSKH) - vai tro khac giu nguyen hanh vi cu (moi ca
+ * chua dong). */
+export async function computeTranhChapCount(db: D1Database, scope: string[] | null, isKsnb: boolean): Promise<number> {
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
-  const dongList = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
+  const statusList = (isKsnb ? KSNB_WATCH_STATUSES : TRANH_CHAP_TRANG_THAI_DONG) as readonly string[];
+  const cond = isKsnb ? "IN" : "NOT IN";
   const row = await db
     .prepare(
       `SELECT COUNT(*) as n FROM case_dvbh c
        WHERE ${TRANH_CHAP_ELIGIBLE}${scopeClause.sql}
-         AND ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${dongList.map(() => "?").join(", ")})`,
+         AND ${CASE_TRANH_CHAP_STATUS_EXPR} ${cond} (${statusList.map(() => "?").join(", ")})`,
     )
-    .bind(...scopeClause.binds, ...dongList)
+    .bind(...scopeClause.binds, ...statusList)
     .first<{ n: number }>();
   return row?.n ?? 0;
 }

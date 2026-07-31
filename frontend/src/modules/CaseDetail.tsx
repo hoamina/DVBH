@@ -313,8 +313,15 @@ export function CaseDetail({
   const [tiepNhanTranhChapOpen, setTiepNhanTranhChapOpen] = useState(false);
 
   const tiepNhanTranhChap = useMutation({
-    mutationFn: (body: { phan_loai_tranh_chap: string; muc_do: string; ghi_chu?: string; thoi_gian_du_kien_xong?: string }) =>
-      api.post(`/tranh-chap/${caseId}/tiep-nhan`, body),
+    mutationFn: (body: {
+      phan_loai_tranh_chap: string;
+      muc_do: string;
+      trang_thai_xu_ly: string;
+      ghi_chu?: string;
+      thoi_gian_du_kien_xong?: string;
+      ket_qua_xu_ly?: string;
+      hai_long_sau_tranh_chap?: string;
+    }) => api.post(`/tranh-chap/${caseId}/tiep-nhan`, body),
     onSuccess: () => {
       addToast("Đã tiếp nhận xử lý tranh chấp");
       setTiepNhanTranhChapOpen(false);
@@ -1328,6 +1335,7 @@ export function CaseDetail({
         <TiepNhanModal
           caseRow={{ id: c.id, khach_hang: c.khach_hang, khu_vuc: c.khu_vuc }}
           phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
+          ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []}
           onClose={() => setTiepNhanTranhChapOpen(false)}
           onSubmit={(body) => tiepNhanTranhChap.mutate(body)}
           isPending={tiepNhanTranhChap.isPending}

@@ -18,6 +18,7 @@ import {
   TRANG_THAI_TONE,
   TRANG_THAI_LOG_OPTIONS,
   TRANG_THAI_DONG,
+  KSNB_WATCH_STATUSES,
   MUC_DO_OPTIONS,
   MUC_DO_TONE,
   MUC_DO_LABELS,
@@ -27,12 +28,14 @@ import {
   type ChoXuLyCase,
   type TienTrinhRow,
   type PhanLoaiTranhChapRow,
+  type KetQuaXuLyTranhChapRow,
 } from "../lib/tranhChapShared";
 
 interface TienTrinhStats {
   dangMo: number;
-  ksnbTiepNhan: number;
-  giamSatXuLy: number;
+  giamSatChuaXuLy: number;
+  giamSatChuyenCskh: number;
+  cskhDangXuLy: number;
   quaHan: number;
   sapDenHan: number;
 }
@@ -71,6 +74,10 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     queryKey: ["settings-phan-loai-tranh-chap"],
     queryFn: () => api.get<{ rows: PhanLoaiTranhChapRow[] }>("/settings/phan-loai-tranh-chap"),
   });
+  const { data: ketQuaOptions } = useQuery({
+    queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
+    queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
+  });
 
   const khuVucSelectOptions = [
     { value: "", label: "Tất cả khu vực" },
@@ -90,8 +97,15 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
   });
 
   const tiepNhan = useMutation({
-    mutationFn: (body: { phan_loai_tranh_chap: string; muc_do: string; ghi_chu?: string; thoi_gian_du_kien_xong?: string }) =>
-      api.post(`/tranh-chap/${encodeURIComponent(tiepNhanCase?.id ?? "")}/tiep-nhan`, body),
+    mutationFn: (body: {
+      phan_loai_tranh_chap: string;
+      muc_do: string;
+      trang_thai_xu_ly: string;
+      ghi_chu?: string;
+      thoi_gian_du_kien_xong?: string;
+      ket_qua_xu_ly?: string;
+      hai_long_sau_tranh_chap?: string;
+    }) => api.post(`/tranh-chap/${encodeURIComponent(tiepNhanCase?.id ?? "")}/tiep-nhan`, body),
     onSuccess: () => {
       addToast("Đã tiếp nhận xử lý tranh chấp");
       setTiepNhanCase(null);
@@ -245,7 +259,12 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             <Select
               value={ttTrangThai}
               onChange={(v) => { setTtTrangThai(v); setTtPage(1); }}
-              options={[{ value: "", label: "Đang mở (mặc định)" }, ...TRANG_THAI_LOG_OPTIONS, { value: Object.keys(TRANG_THAI_LABELS).join(","), label: "Tất cả (gồm đã đóng)" }]}
+              options={[
+                { value: "", label: "Đang mở (mặc định)" },
+                { value: KSNB_WATCH_STATUSES.join(","), label: "🔎 Cần KSNB theo dõi (Chuyển CSKH / CSKH đang xử lý)" },
+                ...TRANG_THAI_LOG_OPTIONS,
+                { value: Object.keys(TRANG_THAI_LABELS).join(","), label: "Tất cả (gồm đã đóng)" },
+              ]}
             />
             <Select value={ttHan} onChange={(v) => { setTtHan(v); setTtPage(1); }} options={HAN_OPTIONS} />
             <Btn
@@ -262,8 +281,13 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
 
           <div className="flex flex-wrap gap-3 mb-4">
             <StatCard label="Đang mở" value={ttStats?.dangMo ?? 0} tone="ocean" onClick={() => resetTtFilterTo({})} />
-            <StatCard label="KSNB đã tiếp nhận" value={ttStats?.ksnbTiepNhan ?? 0} tone="ocean" onClick={() => resetTtFilterTo({ trangThai: "KSNB da tiep nhan" })} />
-            <StatCard label="Giám sát đang xử lý" value={ttStats?.giamSatXuLy ?? 0} tone="teal" onClick={() => resetTtFilterTo({ trangThai: "Giam sat dang xu ly" })} />
+            <StatCard label="Giám sát chưa xử lý" value={ttStats?.giamSatChuaXuLy ?? 0} tone="gray" onClick={() => resetTtFilterTo({ trangThai: "Giam sat chua xu ly" })} />
+            <StatCard
+              label="🔎 Cần KSNB theo dõi"
+              value={(ttStats?.giamSatChuyenCskh ?? 0) + (ttStats?.cskhDangXuLy ?? 0)}
+              tone="teal"
+              onClick={() => resetTtFilterTo({ trangThai: KSNB_WATCH_STATUSES.join(",") })}
+            />
             <StatCard label="Sắp đến hạn (≤1 ngày)" value={ttStats?.sapDenHan ?? 0} tone="amber" onClick={() => resetTtFilterTo({ han: "sap-den-han" })} />
             <StatCard label="Quá hạn chưa đóng" value={ttStats?.quaHan ?? 0} tone="coral" onClick={() => resetTtFilterTo({ han: "qua-han" })} />
           </div>
@@ -289,6 +313,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
         <TiepNhanModal
           caseRow={tiepNhanCase}
           phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
+          ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []}
           onClose={() => setTiepNhanCase(null)}
           onSubmit={(body) => tiepNhan.mutate(body)}
           isPending={tiepNhan.isPending}

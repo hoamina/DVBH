@@ -126,7 +126,7 @@ export async function computeNotificationsCount(
       )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),
-    computeTranhChapCount(db, tranhChapScope),
+    computeTranhChapCount(db, tranhChapScope, params.la_ksnb_doi_tac === "1"),
   ]);
 
   const role = params.vai_tro;

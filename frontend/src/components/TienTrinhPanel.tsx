@@ -11,9 +11,11 @@ import type { AppUser } from "../auth/AuthContext";
 import {
   TRANG_THAI_LABELS,
   TRANG_THAI_TONE,
-  TRANG_THAI_LOG_OPTIONS,
   TRANG_THAI_DONG,
   TRANG_THAI_CAN_KET_QUA,
+  GIAM_SAT_STATUS_OPTIONS,
+  CSKH_STATUS_OPTIONS,
+  phaseOfStatus,
   MUC_DO_OPTIONS,
   MUC_DO_TONE,
   MUC_DO_LABELS,
@@ -35,20 +37,36 @@ import {
 export function TiepNhanModal({
   caseRow,
   phanLoaiOptions,
+  ketQuaOptions,
   onClose,
   onSubmit,
   isPending,
 }: {
   caseRow: ChoXuLyCase;
   phanLoaiOptions: PhanLoaiTranhChapRow[];
+  ketQuaOptions: KetQuaXuLyTranhChapRow[];
   onClose: () => void;
-  onSubmit: (body: { phan_loai_tranh_chap: string; muc_do: string; ghi_chu?: string; thoi_gian_du_kien_xong?: string }) => void;
+  onSubmit: (body: {
+    phan_loai_tranh_chap: string;
+    muc_do: string;
+    trang_thai_xu_ly: string;
+    ghi_chu?: string;
+    thoi_gian_du_kien_xong?: string;
+    ket_qua_xu_ly?: string;
+    hai_long_sau_tranh_chap?: string;
+  }) => void;
   isPending: boolean;
 }) {
   const [phanLoai, setPhanLoai] = useState(phanLoaiOptions[0]?.ten_phan_loai ?? "");
   const [mucDo, setMucDo] = useState("Binh thuong");
+  // Trang thai dau tien LUON thuoc giai doan Giam sat (chot 2026-07-31 diem 1/3) - mac dinh "chua xu
+  // ly", nhung co the chon thang 1 trong 2 trang thai dong de ket thuc tranh chap ngay luc tiep nhan.
+  const [trangThai, setTrangThai] = useState("Giam sat chua xu ly");
   const [ngayDuKien, setNgayDuKien] = useState("");
   const [ghiChu, setGhiChu] = useState("");
+  const [ketQua, setKetQua] = useState("");
+  const [haiLong, setHaiLong] = useState("");
+  const canKetQua = TRANG_THAI_CAN_KET_QUA.includes(trangThai);
 
   return (
     <Modal open onClose={onClose} title={`Tiếp nhận xử lý tranh chấp — ${caseRow.id}`}>
@@ -69,9 +87,34 @@ export function TiepNhanModal({
           <Select value={mucDo} onChange={setMucDo} options={MUC_DO_OPTIONS} className="w-full mt-1" />
         </div>
         <div>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Trạng thái</label>
+          <Select value={trangThai} onChange={setTrangThai} options={GIAM_SAT_STATUS_OPTIONS} className="w-full mt-1" />
+        </div>
+        <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày dự kiến xử lý xong</label>
           <input type="date" value={ngayDuKien} onChange={(e) => setNgayDuKien(e.target.value)} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
         </div>
+        {canKetQua && (
+          <>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả xử lý *</label>
+              {ketQuaOptions.length ? (
+                <Select
+                  value={ketQua}
+                  onChange={setKetQua}
+                  options={[{ value: "", label: "Chọn kết quả xử lý…" }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
+                  className="w-full mt-1"
+                />
+              ) : (
+                <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Kết quả xử lý tranh chấp để thêm trước.</div>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Hài lòng sau tranh chấp *</label>
+              <Select value={haiLong} onChange={setHaiLong} options={[{ value: "", label: "Chọn mức hài lòng…" }, ...HAI_LONG_OPTIONS]} className="w-full mt-1" />
+            </div>
+          </>
+        )}
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
           <textarea value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
@@ -81,8 +124,18 @@ export function TiepNhanModal({
             Hủy
           </Btn>
           <Btn
-            onClick={() => onSubmit({ phan_loai_tranh_chap: phanLoai, muc_do: mucDo, ghi_chu: ghiChu.trim() || undefined, thoi_gian_du_kien_xong: ngayDuKien || undefined })}
-            disabled={!phanLoai || !mucDo || isPending}
+            onClick={() =>
+              onSubmit({
+                phan_loai_tranh_chap: phanLoai,
+                muc_do: mucDo,
+                trang_thai_xu_ly: trangThai,
+                ghi_chu: ghiChu.trim() || undefined,
+                thoi_gian_du_kien_xong: ngayDuKien || undefined,
+                ket_qua_xu_ly: canKetQua ? ketQua : undefined,
+                hai_long_sau_tranh_chap: canKetQua ? haiLong : undefined,
+              })
+            }
+            disabled={!phanLoai || !mucDo || !trangThai || (canKetQua && (!ketQua || !haiLong)) || isPending}
           >
             Tiếp nhận
           </Btn>
@@ -94,10 +147,15 @@ export function TiepNhanModal({
 
 const MUC_DO_ACCENT: Record<string, string> = { "Binh thuong": "var(--line)", Cao: "var(--amber-500)", "Rat nghiem trong": "var(--coral-500)" };
 const TRANG_THAI_DOT: Record<string, string> = {
-  "KSNB da tiep nhan": "var(--ocean-500)",
+  "Giam sat chua xu ly": "var(--ink-400)",
   "Giam sat dang xu ly": "var(--amber-500)",
-  "Da ket thuc tranh chap": "var(--teal-500)",
-  "Da huy bo tranh chap": "var(--ink-400)",
+  "Giam sat dong hoan thanh": "var(--teal-500)",
+  "Giam sat dong that bai": "var(--coral-500)",
+  "Giam sat chuyen CSKH": "var(--ocean-500)",
+  "CSKH chua tiep nhan": "var(--ink-400)",
+  "CSKH dang xu ly": "var(--ocean-500)",
+  "CSKH khong can xu ly": "var(--ink-400)",
+  "CSKH xu ly xong": "var(--teal-500)",
 };
 
 /** So ngay qua han (duong) / con lai (am) so voi hom nay, gio VN - null neu khong co han hoac da dong. */
@@ -313,6 +371,7 @@ export function TienTrinhPanel({
           submitLabel="Thêm log"
           initial={{ trang_thai_xu_ly: "", thoi_gian_du_kien_xong: latestLog?.thoi_gian_du_kien_xong ?? "", ghi_chu: "", ket_qua_xu_ly: "", hai_long_sau_tranh_chap: "" }}
           ketQuaOptions={ketQuaOptions}
+          latestTrangThai={latestLog?.trang_thai_xu_ly ?? null}
           onClose={() => setAddLogOpen(false)}
           onSubmit={(body) => addLog.mutate(body)}
           isPending={addLog.isPending}
@@ -331,6 +390,9 @@ export function TienTrinhPanel({
             hai_long_sau_tranh_chap: editingLog.hai_long_sau_tranh_chap ?? "",
           }}
           ketQuaOptions={ketQuaOptions}
+          // Giai doan tinh tu log NGAY TRUOC log dang sua (khong phai chinh no) - editingLog luon la
+          // logs[0] (chi log moi nhat moi sua duoc, xem canEdit), nen log truoc no la logs[1].
+          latestTrangThai={logs[1]?.trang_thai_xu_ly ?? null}
           onClose={() => setEditingLog(null)}
           onSubmit={(body) => editLog.mutate({ logId: editingLog.id, body })}
           isPending={editLog.isPending}
@@ -356,6 +418,7 @@ function LogFormModal({
   submitLabel,
   initial,
   ketQuaOptions,
+  latestTrangThai,
   onClose,
   onSubmit,
   isPending,
@@ -364,6 +427,9 @@ function LogFormModal({
   submitLabel: string;
   initial: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong: string; ghi_chu: string; ket_qua_xu_ly: string; hai_long_sau_tranh_chap: string };
   ketQuaOptions: KetQuaXuLyTranhChapRow[];
+  // Trang thai cua log NGAY TRUOC log dang them/sua - quyet dinh giai doan (Giam sat/CSKH) duoc phep
+  // chon o day (chot 2026-07-31 diem 1: khong cho quay lai giai doan Giam sat sau khi da chuyen CSKH).
+  latestTrangThai: string | null;
   onClose: () => void;
   onSubmit: (body: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string }) => void;
   isPending: boolean;
@@ -373,14 +439,15 @@ function LogFormModal({
   const [ghiChu, setGhiChu] = useState(initial.ghi_chu);
   const [ketQua, setKetQua] = useState(initial.ket_qua_xu_ly);
   const [haiLong, setHaiLong] = useState(initial.hai_long_sau_tranh_chap);
-  const canKetQua = trangThai === TRANG_THAI_CAN_KET_QUA;
+  const canKetQua = TRANG_THAI_CAN_KET_QUA.includes(trangThai);
+  const phaseOptions = phaseOfStatus(latestTrangThai) === "cskh" ? CSKH_STATUS_OPTIONS : GIAM_SAT_STATUS_OPTIONS;
 
   return (
     <Modal open onClose={onClose} title={title} width="max-w-lg">
       <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Trạng thái xử lý</label>
-          <Select value={trangThai} onChange={setTrangThai} options={[{ value: "", label: "Chọn trạng thái…" }, ...TRANG_THAI_LOG_OPTIONS]} className="w-full mt-1" />
+          <Select value={trangThai} onChange={setTrangThai} options={[{ value: "", label: "Chọn trạng thái…" }, ...phaseOptions]} className="w-full mt-1" />
         </div>
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày dự kiến xử lý xong</label>
