@@ -140,12 +140,35 @@ export function resplitStoredLinkHinhAnh(dbValue: string): string | null {
     return null;
   }
   if (!Array.isArray(parsed) || parsed.length === 0) return null;
-  const rejoined = parsed.filter((v): v is string => typeof v === "string").join(",");
-  const urls = rejoined
+  const strs = parsed.filter((v): v is string => typeof v === "string");
+  if (strs.length === 0) return null;
+
+  // Dinh dang CRM goc la "URL, Ten file.jpeg" (CO dau cach sau dau phay) - nhung ban parseLinkHinhAnh()
+  // cu da .trim() xoa mat dau cach nay khi tach nham thanh 2 phan tu rieng (URL / ten file), nen ghep
+  // lai bang dau phay THUONG se mat vinh vien dau cach do. Xac nhan voi chu he thong 2026-07-31: thieu
+  // dau cach nay khien auth-media.smarthiz.vn khong khop dung anh goc (van bao loi du domain/path
+  // dung). Ghep lai co chu y: dau cach CHI chen giua 1 URL va phan tu KHONG-phai-URL di ngay sau no
+  // (dung la ten file), KHONG chen giua ten file va URL anh tiep theo (dinh dang goc khong co dau
+  // cach o do).
+  let rejoined = strs[0];
+  for (let i = 1; i < strs.length; i++) {
+    const prevIsUrl = /^https?:\/\//i.test(strs[i - 1]);
+    const currIsUrl = /^https?:\/\//i.test(strs[i]);
+    rejoined += (prevIsUrl && !currIsUrl ? ", " : ",") + strs[i];
+  }
+
+  const segments = rejoined
     .split(LINK_HINH_ANH_RESPLIT_RE)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
     .slice(0, LINK_HINH_ANH_MAX);
+
+  // Truong hop dong DA qua 1 lan backfill truoc (chi con 1 phan tu/anh dang "https://...,TenFile.jpeg"
+  // - dau phay dinh lien ten file, khong co dau cach, vi lan ghep truoc cung mat dau cach) - them dau
+  // cach ngay sau dau phay DAU TIEN chua co khoang trang trong tung doan (khong dung lai lan 2 tren
+  // doan da dung dinh dang, vi regex chi thay dau phay CHUA co khoang trang theo sau).
+  const urls = segments.map((s) => s.replace(/,(?!\s)/, ", "));
+
   return urls.length > 0 ? JSON.stringify(urls) : null;
 }
 
