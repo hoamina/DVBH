@@ -292,6 +292,14 @@ export interface TrendRow {
 }
 
 // Tach rieng phan tinh toan cua /sla-trend - dung chung cho compute-on-miss va warm-up (R7).
+//
+// CHOT 2026-07-31: truc ngay cua bieu do nay PHAI la ngay HOAN THANH (thoi_gian_hoan_thanh), khong
+// phai ngay tiep nhan (thoi_gian_cskh_tiep_nhan) nhu ban truoc - day la bieu do "xu huong SLA/xu ly
+// 24h theo tung ngay", tuc la ket qua xu ly cua nhung ca DONG trong ngay do, giong het cach
+// computeMonthlyTrend() da lam dung tu truoc (group by thoi_gian_hoan_thanh). Dung sai truc ngay lam
+// lech han so sanh thu cong: xac nhan voi chu he thong bang file Excel doi chieu tay, sau khi doi
+// sang thoi_gian_hoan_thanh (giu nguyen dieu kien tinh_vao_kpi = 1, chu he thong xac nhan day van la
+// chuan dung) thi so khop gan nhu tuyet doi (vd 26/07: 135/263 khop CHINH XAC voi Excel).
 export async function computeSlaTrend(
   db: D1Database,
   params: DashboardFilterParams & { days?: string },
@@ -301,15 +309,15 @@ export async function computeSlaTrend(
   const { from, sql, binds } = buildDashboardFilterClause(params, scope);
 
   const { results } = await db.prepare(
-    `SELECT date(thoi_gian_cskh_tiep_nhan) as ngay,
+    `SELECT date(thoi_gian_hoan_thanh) as ngay,
        COUNT(*) as total,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) as dung_han_count,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han IS NOT NULL THEN 1 ELSE 0 END) as dung_han_tinh,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket = '0. Dưới 24h' THEN 1 ELSE 0 END) as duoi_24h_count,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as co_tinh_24h
-     FROM ${from} WHERE thoi_gian_cskh_tiep_nhan IS NOT NULL
-       AND date(thoi_gian_cskh_tiep_nhan) >= date('now', ?)${sql}
-     GROUP BY date(thoi_gian_cskh_tiep_nhan)
+     FROM ${from} WHERE thoi_gian_hoan_thanh IS NOT NULL
+       AND date(thoi_gian_hoan_thanh) >= date('now', ?)${sql}
+     GROUP BY date(thoi_gian_hoan_thanh)
      ORDER BY ngay ASC`,
   )
     .bind(`-${days} days`, ...binds)
