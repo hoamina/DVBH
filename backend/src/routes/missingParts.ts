@@ -126,6 +126,7 @@ export async function computeMissingPartsByKhuVuc(db: D1Database, params: Missin
          SUM(CASE WHEN ${AGE_EXPR} >= 3 THEN 1 ELSE 0 END) as tren_3,
          SUM(CASE WHEN ${AGE_EXPR} >= 5 THEN 1 ELSE 0 END) as tren_5,
          SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
+         SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14,
          SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN COALESCE(c.dt_linh_kien, 0) ELSE 0 END) as tong_gia_tri_linh_kien,
          COUNT(DISTINCT CASE WHEN ${AGE_EXPR} >= 1 THEN lg.linh_kien_thieu END) as so_ma_linh_kien,
          SUM(CASE WHEN ${AGE_EXPR} >= 1 AND c.thoi_gian_hen_xu_ly IS NOT NULL AND c.thoi_gian_hen_xu_ly < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as lo_ke_hoach

@@ -123,6 +123,7 @@ interface KhuVucRow {
   tren_3: number;
   tren_5: number;
   tren_7: number;
+  tren_14: number;
   tong_gia_tri_linh_kien: number;
   so_ma_linh_kien: number;
   lo_ke_hoach: number;
@@ -156,6 +157,7 @@ const KHU_VUC_BUCKET_COLS: { key: keyof KhuVucRow; label: string; tuoiTu?: strin
   { key: "tren_3", label: "Trên 3 ngày", tuoiTu: "3" },
   { key: "tren_5", label: "Trên 5 ngày", tuoiTu: "5" },
   { key: "tren_7", label: "Trên 7 ngày", tuoiTu: "7" },
+  { key: "tren_14", label: "Trên 14 ngày", tuoiTu: "14" },
 ];
 
 export function MissingPartsModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
