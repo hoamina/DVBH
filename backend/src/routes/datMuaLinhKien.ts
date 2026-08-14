@@ -139,7 +139,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
 
   for (const dh of body.don_hang) {
     if (!dh.ma_lk?.trim() || !dh.so_luong_de_xuat || dh.so_luong_de_xuat <= 0) return c.json({ error: "INVALID_DON_HANG" }, 400);
-    const lk = await c.env.DB.prepare("SELECT ten_lk, gia_tham_chieu FROM lk_danh_muc WHERE ma_lk = ?")
+    const lk = await c.env.DB.prepare("SELECT ten_linh_kien as ten_lk, gia_tham_chieu FROM linh_kien WHERE ma_linh_kien = ?")
       .bind(dh.ma_lk.trim())
       .first<{ ten_lk: string; gia_tham_chieu: number | null }>();
     if (!lk) return c.json({ error: "MA_LK_NOT_FOUND", ma_lk: dh.ma_lk }, 400);
