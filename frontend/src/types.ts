@@ -50,6 +50,12 @@ export interface CaseRow {
   last_ly_do_cham?: string | null;
   last_ngay_giai_trinh?: string | null;
   last_ngay_du_kien_hoan_thanh?: string | null;
+  // CHOT 2026-08-06: cung tu latestGiaiTrinhJoin() (khong ton them chi phi doc D1 - xem
+  // backend/src/routes/cases.ts) - dung cho 2 cot tuy chon "Ma/Ten linh kien thieu gan nhat" va
+  // tinh "SL don mua" (BacklogModule.tsx, khop logic voi matchMuaHang() dang dung o CaseDetail.tsx).
+  last_ma_linh_kien_thieu?: string | null;
+  last_ma_xuat_hang_lien_quan?: string | null;
+  last_noi_dung_giai_trinh?: string | null;
   // "Nhom ton" (BacklogModule.tsx Danh sach chi tiet) - chi co tren GET /cases (khong co tren
   // R2 snapshot "Ca da dong"), tinh san server-side tu NEED_GIAI_TRINH_CATEGORIES.
   need_lo_ke_hoach?: number;
@@ -59,6 +65,10 @@ export interface CaseRow {
   need_dieu_hoa?: number;
   need_b2b?: number;
   need_nskx?: number;
+  need_loc_tong_bcn?: number;
+  // So ngay ton tinh tu thoi_gian_cskh_tiep_nhan den moc 00:00 VN hom nay (ageExpr() trong
+  // ageCalc.ts) - cung chi co tren GET /cases nhu cac cot need_* o tren.
+  tuoi_ton?: number;
 }
 
 export interface GiaiTrinhRow {
@@ -98,6 +108,28 @@ export interface ViPhamRow {
   khach_hang?: string;
   khu_vuc?: string;
   ky_thuat_vien?: string | null;
+  seri_san_pham?: string | null;
+}
+
+export interface KetQuaGoiRow {
+  id: string;
+  case_id: string;
+  /** JSON array string, vd '["Loi 120 phut","Hen qua 24h"]' - rong "[]" khi la cuoc goi that bai (khong nghe may...) */
+  loai_khao_sat: string;
+  doi_tuong_lien_he: string | null;
+  ket_qua_cuoc_goi: string | null;
+  dien_giai: string | null;
+  ghi_chu: string | null;
+  ly_do_that_bai: string | null;
+  can_goi_lai: number | null;
+  nguoi_thuc_hien: string;
+  ngay_gio_thuc_hien: string;
+  khach_hang?: string;
+  khu_vuc?: string;
+  tinh?: string | null;
+  quan_huyen?: string | null;
+  ky_thuat_vien?: string | null;
+  seri_san_pham?: string | null;
 }
 
 export type LoaiLoi = "Loi 120 phut" | "Hen qua 24h" | "Loi lo ke hoach" | "KH hen lai";
@@ -109,6 +141,18 @@ export const LOAI_LOI_META: Record<LoaiLoi, { label: string; short: string }> = 
   "KH hen lai": { label: "KH hẹn lại", short: "KH hẹn lại" },
 };
 export const LOAI_LOI_KEYS: LoaiLoi[] = ["Loi 120 phut", "Hen qua 24h", "Loi lo ke hoach", "KH hen lai"];
+
+/** ket_qua_goi.loai_khao_sat luu JSON array string (vd '["Loi 120 phut"]', rong "[]" khi la cuoc goi
+ * that bai/khong ket luan) - dung ham nay o moi noi hien thi thay vi JSON.parse truc tiep. */
+export function parseLoaiKhaoSat(raw: string | null | undefined): LoaiLoi[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as LoaiLoi[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 export interface GiaiTrinhLapRow {
   id: string;
@@ -130,11 +174,19 @@ export interface CaLapDetection {
   giaiTrinhLap: GiaiTrinhLapRow | null;
   lichSu: {
     id: string;
+    thoi_gian_cskh_tiep_nhan: string | null;
     thoi_gian_hoan_thanh: string | null;
     ky_thuat_vien: string | null;
     tien_do_hoan_thanh: string | null;
     cach_thuc_xu_ly: string | null;
     link_crm: string | null;
+    huy_bo_at?: string | null;
+    // Khop dung dieu kien hien nut "Xu ly ca lap" (co detection + chua huy + gap <= 45 ngay) - dung
+    // de quyet dinh hien nut "Danh gia lap" hay nhan "Khong tinh lap" cho dong nay (CHOT 2026-08-05).
+    eligible_for_eval: number;
+    // Trang thai da chot (neu co) - hien "(GS: ... QC: ...)" canh moc gio dong ca (CHOT 2026-08-05).
+    chot_danh_gia_lap: CaLapLoai | null;
+    qc_chot: CaLapLoai | null;
   }[];
   serialBlacklisted: boolean;
 }
@@ -204,7 +256,8 @@ export type HinhThucXuLy =
   | "Tinh lap khong tinh luong"
   | "Tinh luong"
   | "Tinh luong loi bao cao"
-  | "Khong tinh luong loi bao cao";
+  | "Khong tinh luong loi bao cao"
+  | "Tinh luong kiem tra loi bao cao";
 
 export const HINH_THUC_XU_LY_META: Record<HinhThucXuLy, { label: string }> = {
   "Khong tinh lap khong tinh luong": { label: "KHÔNG TÍNH LẶP, KHÔNG TÍNH LƯƠNG" },
@@ -212,6 +265,7 @@ export const HINH_THUC_XU_LY_META: Record<HinhThucXuLy, { label: string }> = {
   "Tinh luong": { label: "TÍNH LƯƠNG" },
   "Tinh luong loi bao cao": { label: "TÍNH LƯƠNG, LỖI BÁO CÁO" },
   "Khong tinh luong loi bao cao": { label: "KHÔNG TÍNH LƯƠNG, LỖI BÁO CÁO" },
+  "Tinh luong kiem tra loi bao cao": { label: "TÍNH LƯƠNG KIỂM TRA, LỖI BÁO CÁO" },
 };
 export const HINH_THUC_XU_LY_KEYS: HinhThucXuLy[] = [
   "Khong tinh lap khong tinh luong",
@@ -219,6 +273,7 @@ export const HINH_THUC_XU_LY_KEYS: HinhThucXuLy[] = [
   "Tinh luong",
   "Tinh luong loi bao cao",
   "Khong tinh luong loi bao cao",
+  "Tinh luong kiem tra loi bao cao",
 ];
 
 export type NapGasDanhGiaLoai = "Tu nap gas" | "Khong nap gas" | "Gui ve Hang nap gas" | "Tu nap gas thay Block" | "Sua chua khac" | "Kiem tra";
@@ -278,6 +333,43 @@ export interface KetQuaXuLyTranhChapRow {
   bat_tat: number;
 }
 
+export interface GreetingGifRow {
+  id: number;
+  gif_url: string;
+  bat_tat: number;
+}
+
+export interface GreetingMessageRow {
+  id: number;
+  noi_dung: string;
+  bat_tat: number;
+}
+
+// Ngay loai tru khoi luy ke/ty le giai trinh thang cua "Quan ly ton" - xem migration
+// 0046_giai_trinh_exclude_ngay.sql. khu_vuc = "__ALL__" nghia la loai tru ca he thong ngay do.
+export interface GiaiTrinhExcludeNgayRow {
+  id: number;
+  ngay: string;
+  khu_vuc: string;
+  ghi_chu: string | null;
+  nguoi_tao: string | null;
+  created_at: string;
+}
+
+// Key API cho doi tac ngoai quet du lieu CRM (xem PARTNER_API_GUIDE.md). api_key o day luon la BAN
+// CHE (vd "dvbh_ab12cd34...ef56") - key day du chi tra ve 1 lan duy nhat trong response cua
+// POST /settings/partner-keys, khong con cach nao xem lai sau do.
+export interface PartnerApiKeyRow {
+  id: number;
+  ten_doi_tac: string;
+  api_key: string;
+  active: number;
+  ghi_chu: string | null;
+  created_at: string;
+  created_by: string | null;
+  revoked_at: string | null;
+}
+
 export interface LinhKienRow {
   ma_linh_kien: string;
   ten_linh_kien: string;
@@ -288,6 +380,15 @@ export interface LinhKienRow {
   bat_tat: number;
 }
 
+export interface KtvLienHeRow {
+  ma_ktv: string;
+  ten_hien_thi: string | null;
+  sdt: string;
+  ghi_chu: string | null;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
 export interface UserRow {
   email: string;
   ten: string | null;
@@ -295,6 +396,15 @@ export interface UserRow {
   khu_vuc_phu_trach: string[];
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
   la_ksnb_doi_tac: number;
+  modules: string[] | null;
+  bi_khoa: number;
+  co_the_import_tranh_chap: number;
+  la_ktv_dvbh: number;
+  la_ve_tinh: number;
+  la_kho: number;
+  la_ke_toan: number;
+  tram_cha: string | null;
+  giam_sat_quan_ly: string | null;
 }
 
 export interface Paged<T> {

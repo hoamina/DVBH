@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { VaiTro } from "../auth/AuthContext";
-import { NAV_GROUPS, ROLE_MODULES, type NavItem } from "./navConfig";
+import { NAV_GROUPS, type NavItem } from "./navConfig";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
 import { api } from "../api/client";
@@ -26,7 +25,7 @@ const COUNT_FIELD: Record<NonNullable<NavItem["countKey"]>, keyof NotificationCo
 export function Sidebar({
   active,
   setActive,
-  role,
+  allowedModules,
   collapsed,
   setCollapsed,
   mobileOpen,
@@ -34,14 +33,13 @@ export function Sidebar({
 }: {
   active: string;
   setActive: (key: string) => void;
-  role: VaiTro;
+  allowedModules: string[];
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
   const isMobile = useIsMobile();
-  const allowed = ROLE_MODULES[role] ?? [];
   // Cung queryKey voi TopBar.tsx ("notifications-count") de dung chung 1 cache/fetch, khong goi API
   // 2 lan cho cung 1 du lieu - refetchInterval PHAI khop voi TopBar.tsx, neu khong observer nao co
   // interval ngan hon se ep query chay theo nhip do (xem comment trong TopBar.tsx ve chi phi D1).
@@ -67,7 +65,7 @@ export function Sidebar({
       </div>
       <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-2.5">
         {NAV_GROUPS.map((g) => {
-          const items = g.items.filter((i) => allowed.includes(i.key));
+          const items = g.items.filter((i) => allowedModules.includes(i.key));
           if (items.length === 0) return null;
           return (
             <div key={g.label} className="mb-4">

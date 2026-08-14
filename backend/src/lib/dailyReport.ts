@@ -11,7 +11,7 @@ import { cachedReport, buildReportKey } from "./reportCache";
 // >=2 ban ghi giai_trinh trung gio - xem giai thich chi tiet o needGiaiTrinh.ts. caseFilterSql
 // gioi han subquery vao dung tap case dang xet (xem giai thich an toan/superset o
 // latestGiaiTrinhJoin() trong needGiaiTrinh.ts).
-function missingPartsJoin(caseFilterSql: string): string {
+export function missingPartsJoin(caseFilterSql: string): string {
   return `
   INNER JOIN (
     SELECT case_id, ly_do_cham FROM (
@@ -25,13 +25,13 @@ function missingPartsJoin(caseFilterSql: string): string {
 `;
 }
 
-const REVENUE_EXPR_C = "COALESCE(c.dt_san_pham,0) + COALESCE(c.dt_linh_kien,0) + COALESCE(c.dt_dich_vu,0)";
+export const REVENUE_EXPR_C = "COALESCE(c.dt_san_pham,0) + COALESCE(c.dt_linh_kien,0) + COALESCE(c.dt_dich_vu,0)";
 
 // KHONG them gio "00:00:00" vao bound - xem giai thich chi tiet o monthBounds() trong cases.ts
 // (mot so ca co thoi_gian_hoan_thanh chi la ngay thuan, so sanh chuoi voi bound co gio se sai va
 // lam doanh thu thang bi thieu dung nhung ca dong vao ngay dau thang).
 /** Thang hien tai theo lich VN -> [start, end) de tan dung index thay vi strftime(...) = ?. */
-function currentMonthBoundsVN(): { start: string; end: string } {
+export function currentMonthBoundsVN(): { start: string; end: string } {
   const now = new Date(Date.now() + 7 * 60 * 60 * 1000); // dich sang gio VN de lay dung nam/thang lich VN
   const y = now.getUTCFullYear();
   const mo = now.getUTCMonth() + 1;

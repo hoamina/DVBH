@@ -30,6 +30,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "survey", label: "Quản lý khảo sát", icon: "◐", countKey: "survey" },
       { key: "ca-lap", label: "Ca lặp", icon: "🔁", countKey: "caLap" },
       { key: "danh-sach-tong", label: "Danh sách tổng", icon: "📋" },
+      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "◈" },
+      { key: "tra-hang", label: "Đơn trả hàng", icon: "↩" },
     ],
   },
   {
@@ -52,12 +54,12 @@ export const NAV_GROUPS: NavGroup[] = [
 // localStorage active-module dang luu cua nguoi dung hien tai.
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
-  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
-  CSKH: ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
-  "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
+  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
+  CSKH: ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
+  "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "TBP CSKH": ["dashboard", "revenue", "survey", "danh-sach-tong", "giao-dien"],
   // KSNB Doi tac: CHI xem (khong con giai trinh duoc, chot 2026-07-24 - xem canGiaiTrinh trong
   // App.tsx) bao cao tranh chap, khong duoc vao module nao khac (quyet dinh nghiep vu rieng - xem
@@ -79,4 +81,6 @@ export const MODULE_TITLES: Record<string, string> = {
   settings: "Settings",
   users: "Quản lý User",
   "giao-dien": "Cài đặt cá nhân",
+  "dat-mua-lk": "Đặt mua linh kiện",
+  "tra-hang": "Đơn trả hàng",
 };

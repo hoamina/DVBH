@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { processImport } from "../lib/importProcessor";
-import { COLUMN_MAP, BUSINESS_FIELDS, computeCrmHashFromDbRow, resplitStoredLinkHinhAnh } from "../lib/ratchet";
+import { COLUMN_MAP, BUSINESS_FIELDS, businessFieldValue, computeCrmHashFromDbRow, resplitStoredLinkHinhAnh } from "../lib/ratchet";
 import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { csvTemplateResponse } from "../lib/csvTemplate";
@@ -14,9 +14,9 @@ import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KE
 import { computeDashboardFilters, computeDashboardMonths } from "./dashboard";
 import { bumpVersions } from "../lib/dataVersions";
 import { warmDefaultReports } from "../lib/reportWarmup";
+import { generateDailySnapshot, generateKhuVucBacklogSnapshots } from "../lib/dailySnapshot";
 import { nowVN } from "../lib/vnTime";
 import { recomputeDaDongDayChunks } from "../lib/daDongDayChunks";
-import { recomputeSurveySnapshot } from "../lib/surveySnapshot";
 
 // Tinh lai cache /dashboard/filters (pham vi khong gioi han) + /dashboard/months (xem
 // lib/precomputedCache.ts, routes/dashboard.ts) va don cac bien the /dashboard/filters theo
@@ -36,7 +36,22 @@ async function recomputeDashboardCaches(db: D1Database): Promise<void> {
 // khu_vuc_phu_trach cua 1 Giam sat) - don dinh ky sau moi lan import, KHONG phu thuoc GHI_MOI/GHI_DE
 // vi day chi la don rac theo tuoi, khong lien quan viec du lieu co that su doi hay khong.
 async function cleanupOldReportCache(db: D1Database): Promise<void> {
-  await db.prepare("DELETE FROM precomputed_cache WHERE key LIKE 'rpt:%' AND updated_at < datetime('now', '-7 days')").run();
+  // Dọn dẹp các cache quá hạn 7 ngày, đồng thời giới hạn giữ lại tối đa 1000 bản ghi cache báo cáo
+  // hoạt động gần đây nhất để ngăn chặn kẻ tấn công cố tình spam làm tràn dung lượng D1.
+  await db.batch([
+    db.prepare("DELETE FROM precomputed_cache WHERE key LIKE 'rpt:%' AND updated_at < datetime('now', '-7 days')"),
+    db.prepare(`
+      DELETE FROM precomputed_cache
+      WHERE key LIKE 'rpt:%' AND key NOT IN (
+        SELECT key FROM (
+          SELECT key FROM precomputed_cache
+          WHERE key LIKE 'rpt:%'
+          ORDER BY updated_at DESC
+          LIMIT 1000
+        )
+      )
+    `),
+  ]);
 }
 
 // Boc 1 tac vu nen (waitUntil) de loi khong con roi mat tich vao Worker log - ghi noi vao cot
@@ -115,9 +130,6 @@ export function scheduleCaLapRefreshIfChanged(
     // memory r2-json-write-trigger-rule.md) - chi tinh lai DUNG nhung ngay trong affectedDates,
     // khong dung cron/compute-on-miss nao khac.
     c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "snapshot R2 ca da dong", recomputeDaDongDayChunks(c.env, summary.affectedDates)));
-    // Snapshot R2 "ung vien khao sat" (xem lib/surveySnapshot.ts) - cung DUY NHAT 1 diem ghi nay,
-    // dung nguyen tac voi snapshot ca da dong o tren.
-    c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "snapshot R2 ung vien khao sat", recomputeSurveySnapshot(c.env)));
   }
   // Don rac "rpt:%" chay moi lan import (khong dieu kien GHI_MOI/GHI_DE, xem cleanupOldReportCache).
   c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "don rac rpt cache", cleanupOldReportCache(c.env.DB)));
@@ -136,11 +148,27 @@ importRoute.use("*", verifySessionMiddleware, loadUser, requireRole("Admin", "TB
 importRoute.post("/refresh-reports", async (c) => {
   await bumpVersions(c.env.DB, ["cases"]);
   await warmDefaultReports(c.env.DB);
+  // Cung 1 nut "Lam moi bao cao" (Import data) con dung de tinh lai NGAY "Bao cao ngay 08:00" (banner
+  // Tong quat, xem lib/dailySnapshot.ts) thay vi cho den cron 08:00 hom sau - boc rieng try/catch,
+  // loi o day khong duoc lam that bai request refresh-reports goc (2 co che doc lap nhau).
+  try {
+    await generateDailySnapshot(c.env.DB, c.get("user").email);
+  } catch (err) {
+    console.error("refresh-reports: loi khi generateDailySnapshot", err);
+  }
+  try {
+    await generateKhuVucBacklogSnapshots(c.env.DB, c.get("user").email);
+  } catch (err) {
+    console.error("refresh-reports: loi khi generateKhuVucBacklogSnapshots", err);
+  }
   return c.json({ ok: true });
 });
 
-// GET /api/import/column-map - anh xa cot Excel -> cot DB, de frontend parse dung tren trinh duyet
-importRoute.get("/column-map", async (c) => c.json({ columnMap: COLUMN_MAP }));
+// GET /api/import/column-map - anh xa cot Excel -> cot DB, de frontend parse dung tren trinh duyet.
+// updatableColumns: danh sach cot duoc phep dung cho tinh nang "cap nhat 1 cot theo ID"
+// (/import/update-column/*) - khac COLUMN_MAP o cho COLUMN_MAP con chua ca 6 cot vi pham
+// (VIOLATION_FIELDS), khong duoc phep sua tay qua tinh nang nay (chi ratchet tu import CRM that).
+importRoute.get("/column-map", async (c) => c.json({ columnMap: COLUMN_MAP, updatableColumns: BUSINESS_FIELDS }));
 
 // GET /api/import/template - file mau CSV voi dung header tieng Viet nhu COLUMN_MAP
 importRoute.get("/template", (c) => {
@@ -288,6 +316,123 @@ importRoute.post("/backfill-link-hinh-anh", requireRole("Admin"), async (c) => {
   await c.env.DB.batch(statements);
 
   return c.json({ updated: results.length, hasMore: results.length === limit });
+});
+
+// ---------- Cap nhat rieng 1 cot theo ID (khong dung processImport - KHONG ghi de cac cot khac) ----------
+// CHOT 2026-08-03: chu he thong can bo sung du lieu con thieu (vd link hinh anh) cho cac ca DA CO
+// san trong DB, chi bang file gom cot ID + DUNG 1 cot can cap nhat - dung processImport()/GHI_DE binh
+// thuong se XOA MAT moi cot khac ve NULL (buildFullOverwrite ghi DE TOAN BO BUSINESS_FIELDS, cot nao
+// khong co trong file la undefined -> null, xem businessFieldValue). Route nay CHI UPDATE dung 1 cot,
+// khong dung crm_hash/ratchet - giong dung nguyen tac da chot cho /backfill-link-hinh-anh (KHONG dong
+// bo lai crm_hash sau khi sua tay, lan import CRM that tiep theo se tu GHI_DE lai neu du lieu nguon
+// CRM khac - chap nhan duoc, khong co cach nao tranh vi hash luon tinh tu du lieu file CRM THAT su,
+// khong biet gi ve ban va tay nay).
+const UPDATABLE_COLUMNS = new Set<string>(BUSINESS_FIELDS);
+
+interface UpdateColumnRow {
+  id?: unknown;
+  [key: string]: unknown;
+}
+
+function validateUpdateColumnBody(body: { column?: string; rows?: unknown }): { column: string; rows: UpdateColumnRow[] } | null {
+  if (!body.column || !UPDATABLE_COLUMNS.has(body.column) || !Array.isArray(body.rows)) return null;
+  return { column: body.column, rows: body.rows as UpdateColumnRow[] };
+}
+
+// Gop trung ID trong cung file (giu dong CUOI CUNG xuat hien) + loai bo dong thieu ID - dung chung
+// cho ca preview lan commit de 2 ben LUON tra ve cung so lieu.
+function dedupeUpdateColumnRows(rows: UpdateColumnRow[]): { valid: Map<string, UpdateColumnRow>; missingIdCount: number } {
+  const valid = new Map<string, UpdateColumnRow>();
+  let missingIdCount = 0;
+  for (const row of rows) {
+    const id = String(row.id ?? "").trim();
+    if (!id) {
+      missingIdCount++;
+      continue;
+    }
+    valid.set(id, row);
+  }
+  return { valid, missingIdCount };
+}
+
+async function findExistingIds(db: D1Database, ids: string[]): Promise<Set<string>> {
+  const existing = new Set<string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const placeholders = chunk.map(() => "?").join(", ");
+    const { results } = await db.prepare(`SELECT id FROM case_dvbh WHERE id IN (${placeholders})`).bind(...chunk).all<{ id: string }>();
+    for (const r of results) existing.add(r.id);
+  }
+  return existing;
+}
+
+// GET /api/import/update-column/template?column=<db_field> - file mau CSV 2 cot: ID + dung header
+// tieng Viet cua cot da chon (tra ve tu COLUMN_MAP, dao nguoc gia tri->key). 400 neu column khong
+// hop le/khong duoc phep sua tay qua tinh nang nay.
+importRoute.get("/update-column/template", (c) => {
+  const column = c.req.query("column") ?? "";
+  if (!UPDATABLE_COLUMNS.has(column)) return c.json({ error: "INVALID_COLUMN" }, 400);
+  const label = Object.entries(COLUMN_MAP).find(([, dbCol]) => dbCol === column)?.[0] ?? column;
+  const csv = `ID,${label}\n`;
+  return csvTemplateResponse(c, csv, `mau_cap_nhat_${column}.csv`);
+});
+
+// POST /api/import/update-column/preview - than: { column: string, rows: [{id, [column]: gia_tri}] }.
+// Khong ghi DB - chi dem so ID hop le/khong ton tai de nguoi dung xem truoc.
+importRoute.post("/update-column/preview", requireRole("Admin"), async (c) => {
+  const body = await c.req.json<{ column?: string; rows?: unknown }>();
+  const parsed = validateUpdateColumnBody(body);
+  if (!parsed) return c.json({ error: "INVALID_BODY" }, 400);
+
+  const { valid, missingIdCount } = dedupeUpdateColumnRows(parsed.rows);
+  const existing = await findExistingIds(c.env.DB, [...valid.keys()]);
+  const khongTonTai = [...valid.keys()].filter((id) => !existing.has(id));
+
+  return c.json({
+    column: parsed.column,
+    capNhat: existing.size,
+    khongTonTai: khongTonTai.length,
+    khongTonTaiList: khongTonTai.slice(0, 200),
+    thieuId: missingIdCount,
+  });
+});
+
+// POST /api/import/update-column/commit - thuc thi that: UPDATE case_dvbh SET <column> = ? WHERE id = ?
+// cho TUNG ID ton tai - KHONG dung cac cot BUSINESS_FIELDS khac, KHONG dong bo crm_hash (xem giai
+// thich o comment dau khoi).
+importRoute.post("/update-column/commit", requireRole("Admin"), async (c) => {
+  const body = await c.req.json<{ column?: string; rows?: unknown; filename?: string }>();
+  const parsed = validateUpdateColumnBody(body);
+  if (!parsed) return c.json({ error: "INVALID_BODY" }, 400);
+
+  const { valid, missingIdCount } = dedupeUpdateColumnRows(parsed.rows);
+  const existing = await findExistingIds(c.env.DB, [...valid.keys()]);
+  const khongTonTai = [...valid.keys()].filter((id) => !existing.has(id));
+
+  const statements = [...existing].map((id) => {
+    const row = valid.get(id)!;
+    const value = businessFieldValue(parsed.column, row);
+    return c.env.DB.prepare(`UPDATE case_dvbh SET ${parsed.column} = ?, updated_at = ? WHERE id = ?`).bind(value, nowVN(), id);
+  });
+  for (let i = 0; i < statements.length; i += 500) {
+    await c.env.DB.batch(statements.slice(i, i + 500));
+  }
+
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    `INSERT INTO import_history (ten_file, nguoi_import, ghi_moi, ghi_de, bo_qua, loi, thoi_gian, loai)
+     VALUES (?, ?, 0, ?, 0, ?, ?, 'update_column')`,
+  )
+    .bind(body.filename ?? `Cập nhật cột "${parsed.column}"`, user.email, existing.size, khongTonTai.length + missingIdCount, nowVN())
+    .run();
+
+  return c.json({
+    column: parsed.column,
+    capNhat: existing.size,
+    khongTonTai: khongTonTai.length,
+    khongTonTaiList: khongTonTai.slice(0, 200),
+    thieuId: missingIdCount,
+  });
 });
 
 // GET /api/import/history?loai=&export= - "loai" loc theo nguon (crm/giai_trinh_cu/giai_trinh_lap_cu/

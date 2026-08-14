@@ -23,12 +23,15 @@ import {
   type CaLapLoai,
 } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { trangThaiLapOf, trangThaiKeyOf } from "../lib/caLapStatus";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useAuth, type VaiTro } from "../auth/AuthContext";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { ImportUploader } from "../components/ImportUploader";
+import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 
 interface BlacklistImportSummary {
   thanhCong: number;
@@ -124,16 +127,18 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const qc = useQueryClient();
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
-  const [view, setView] = useState("tong-quan");
-  const [khuVucFilter, setKhuVucFilter] = useState("");
-  const [thang, setThang] = useState(() => new Date().toISOString().slice(0, 7));
-  const [trangThai, setTrangThai] = useState(() => (role === "Giam sat" ? "can-danh-gia" : role === "QC" ? "cho-qc" : ""));
+  const [view, setView] = useLocalStorageState("filters:ca-lap-view", "tong-quan");
+  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:ca-lap-khu-vuc", "");
+  const [thang, setThang] = useLocalStorageState("filters:ca-lap-thang", new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
+  const [trangThai, setTrangThai] = useLocalStorageState("filters:ca-lap-trang-thai", role === "Giam sat" ? "can-danh-gia" : role === "QC" ? "cho-qc" : "");
   const [page, setPage] = useState(1);
   const [addBlacklistOpen, setAddBlacklistOpen] = useState(false);
   const [newSerial, setNewSerial] = useState("");
   const [deleteConfirmRow, setDeleteConfirmRow] = useState<BlacklistSerialRow | null>(null);
   const [sortBy, setSortBy] = useState("thoi_gian_hoan_thanh");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [idSearch, setIdSearch] = useState("");
+  const [blacklistSearch, setBlacklistSearch] = useState("");
   const pageSize = 20;
 
   const { data: khuVucOptions } = useQuery({
@@ -150,6 +155,30 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     queryFn: () => api.get<TongQuanResponse>(`/ca-lap/tong-quan${buildQuery({ khu_vuc: khuVucFilter, thang })}`),
     enabled: view !== "blacklist",
   });
+
+  // Dong "Tong cong" dau bang "Bao cao theo khu vuc" - cong don cac cot dem tren cac dong dang hien,
+  // tinh lai ty_le_serial_sai tu tong serial_sai/raSoat (khong cong trung binh % tung dong).
+  // "serial_lap" (COUNT DISTINCT serial bi lap) KHONG cong duoc - 1 serial co the thuoc nhieu nhom
+  // khac nhau, de trong (—) thay vi hien so sai.
+  const khuVucTotal = useMemo(() => {
+    const rows = tq?.khuVuc ?? [];
+    const sum = (key: keyof KhuVucRow) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+    return {
+      raSoat: sum("raSoat"),
+      valid_serial: sum("valid_serial"),
+      serial_sai: sum("serial_sai"),
+      lap_n: sum("lap_n"),
+      con_dong: sum("con_dong"),
+      da_giai_trinh: sum("da_giai_trinh"),
+      loi_chot: sum("loi_chot"),
+      gs_chua: sum("gs_chua"),
+      qc_chua: sum("qc_chua"),
+    };
+  }, [tq]);
+
+  // Cot dau tien sap A-Z (chi bang "Bao cao theo khu vuc" - bang "10 KTV co nhieu ca lap nhat" ben
+  // duoi la bang xep hang, khong sap A-Z).
+  const sortedKhuVucRows = [...(tq?.khuVuc ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
 
   // Danh sach ca lap tach lam 2 phan (xem backend/src/routes/caLap.ts): "list" ON DINH (cache theo
   // hash /ca-lap/version, chi doi khi import/blacklist kich hoat tinh lai) + "status" DONG (giai_trinh_lap,
@@ -202,10 +231,12 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     });
   }, [listData, statusData]);
 
-  const filteredRows = useMemo(
-    () => (trangThai ? mergedRows.filter((r) => trangThaiKeyOf(r) === trangThai) : mergedRows),
-    [mergedRows, trangThai],
-  );
+  const filteredRows = useMemo(() => {
+    let rows = trangThai ? mergedRows.filter((r) => trangThaiKeyOf(r) === trangThai) : mergedRows;
+    const q = idSearch.trim().toLowerCase();
+    if (q) rows = rows.filter((r) => r.id.toLowerCase().includes(q) || (r.seri_san_pham ?? "").toLowerCase().includes(q));
+    return rows;
+  }, [mergedRows, trangThai, idSearch]);
   // Sap xep client-side (khong goi lai server) - toan bo danh sach ca lap trong thang da nam san o
   // FE qua fetchWithHashCache (xem chu thich o /ca-lap/danh-sach/list phia backend), nen sap xep tai
   // day tranh phai them tham so sortBy vao endpoint dang cache theo hash /version.
@@ -328,7 +359,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     const all = await api.get<{ rows: CaLapListRow[] }>(
       `/ca-lap/danh-sach${buildQuery({ khu_vuc: khuVucFilter, thang, trang_thai: trangThai, export: true })}`,
     );
-    await exportRowsToExcel(all.rows, `ca_lap_${thang}.xlsx`, "Data", CA_LAP_EXPORT_LABELS);
+    await exportRowsToExcel(all.rows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) })), `ca_lap_${thang}.xlsx`, "Data", CA_LAP_EXPORT_LABELS);
   }
 
   const columns: Column<CaLapListRow>[] = [
@@ -349,7 +380,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     },
     { key: "chot_hinh_thuc_xu_ly", header: "Chốt hình thức xử lý", render: (r) => <span className="text-xs">{r.chot_hinh_thuc_xu_ly ?? "—"}</span> },
     { key: "nguoi_giai_trinh", header: "Người giải trình", render: (r) => <span className="text-xs">{r.nguoi_giai_trinh ?? "—"}</span> },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
+    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
   ];
 
   const blacklistColumns: Column<BlacklistSerialRow>[] = [
@@ -432,9 +463,20 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
                 <div className="font-display font-bold text-sm">Báo cáo theo khu vực</div>
-                <div className="text-xs text-[var(--ink-400)] mt-0.5">Sắp xếp theo số ca tồn đọng (chưa giải trình)</div>
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">Sắp xếp theo tên khu vực (A-Z)</div>
               </div>
-              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(tq?.khuVuc ?? [], `ca_lap_khu_vuc_${thang}.xlsx`, "Data", CA_LAP_KHU_VUC_EXPORT_LABELS)}>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  exportRowsToExcel(
+                    sortedKhuVucRows.map((r) => ({ ...r, nhom: shortKhuVuc(r.nhom) })),
+                    `ca_lap_khu_vuc_${thang}.xlsx`,
+                    "Data",
+                    CA_LAP_KHU_VUC_EXPORT_LABELS,
+                  )
+                }
+              >
                 ⬇ Xuất Excel
               </Btn>
             </div>
@@ -458,12 +500,45 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
                   </tr>
                 </thead>
                 <tbody>
-                  {(tq?.khuVuc ?? []).map((r) => {
+                  {sortedKhuVucRows.length > 0 &&
+                    (() => {
+                      const totalRate = pct(khuVucTotal.con_dong, khuVucTotal.lap_n);
+                      const totalColor = conDongColor(totalRate);
+                      return (
+                        <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
+                          <td className="py-2 pr-3">Tổng cộng</td>
+                          <td className="py-2 pr-3 font-mono">{khuVucTotal.raSoat}</td>
+                          <td className="py-2 pr-3 font-mono">{khuVucTotal.valid_serial}</td>
+                          <td className="py-2 pr-3 font-mono">{khuVucTotal.serial_sai}</td>
+                          <td className="py-2 pr-3 font-mono">{pct(khuVucTotal.serial_sai, khuVucTotal.raSoat)}%</td>
+                          <td className="py-2 pr-3 font-mono">{khuVucTotal.lap_n}</td>
+                          <td className="py-2 pr-3 font-mono text-[var(--ink-400)]" title="Không cộng được (đếm serial khác nhau, có thể trùng giữa các nhóm)">
+                            —
+                          </td>
+                          <td className="py-2 pr-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono" style={{ color: totalColor }}>
+                                {khuVucTotal.con_dong}
+                              </span>
+                              <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden min-w-[50px]">
+                                <div className="h-full rounded-full" style={{ width: `${Math.min(100, totalRate)}%`, background: totalColor }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2 pr-3 font-mono">{khuVucTotal.da_giai_trinh}</td>
+                          <td className="py-2 pr-3 font-mono">{khuVucTotal.loi_chot}</td>
+                          <td className="py-2 pr-3 font-mono">
+                            {khuVucTotal.gs_chua} / {khuVucTotal.qc_chua}
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                  {sortedKhuVucRows.map((r) => {
                     const rate = pct(r.con_dong, r.lap_n);
                     const color = conDongColor(rate);
                     return (
                       <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                        <td className="py-2 pr-3 font-semibold">{r.nhom}</td>
+                        <td className="py-2 pr-3 font-semibold">{shortKhuVuc(r.nhom)}</td>
                         <td className="py-2 pr-3 font-mono">{r.raSoat}</td>
                         <td className="py-2 pr-3 font-mono">{r.valid_serial}</td>
                         <td className="py-2 pr-3 font-mono">{r.serial_sai}</td>
@@ -490,7 +565,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
                       </tr>
                     );
                   })}
-                  {(tq?.khuVuc ?? []).length === 0 && (
+                  {sortedKhuVucRows.length === 0 && (
                     <tr>
                       <td colSpan={11} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
@@ -604,6 +679,13 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
           <div className="flex items-center gap-2 flex-wrap mb-4">
             {khuVucFilterSelect}
             {thangSelect}
+            <IdSerialSearchInput
+              value={idSearch}
+              onChange={(v) => {
+                setIdSearch(v);
+                setPage(1);
+              }}
+            />
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
@@ -680,17 +762,21 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             successMessage={(s) => `Import thành công: ${s.thanhCong} serial vào blacklist`}
             invalidateKeys={[["ca-lap-blacklist"], ["ca-lap-list"], ["ca-lap-status"], ["ca-lap-tong-quan"]]}
           />
+          <div className="flex justify-end mb-2">
+            <IdSerialSearchInput value={blacklistSearch} onChange={setBlacklistSearch} placeholder="Tìm theo Serial…" />
+          </div>
           <PaginatedTable
             columns={blacklistColumns}
-            rows={blacklistData?.rows ?? []}
+            rows={(blacklistData?.rows ?? []).filter((r) => r.seri_san_pham.toLowerCase().includes(blacklistSearch.trim().toLowerCase()))}
             isLoading={false}
             isError={false}
             page={1}
             pageSize={200}
-            total={blacklistData?.rows.length ?? 0}
+            total={(blacklistData?.rows ?? []).filter((r) => r.seri_san_pham.toLowerCase().includes(blacklistSearch.trim().toLowerCase())).length}
             onPageChange={() => {}}
             rowKey={(r) => r.id}
             emptyText="Chưa có serial nào trong blacklist."
+            storageKey="ca-lap-blacklist"
           />
         </div>
       )}

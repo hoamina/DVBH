@@ -824,3 +824,21 @@ User xác nhận kiến trúc đề xuất trước đó, làm rõ thêm 1 nguy�
 **Chưa làm** (giải thích rõ lý do thay vì bỏ qua âm thầm): KHÔNG áp `fetchWithHashCache` cho `/tong-quan`/`/danh-sach` phía client, vì 2 endpoint này trả về CẢ danh sách ca lặp LẪN trạng thái xử lý gộp chung 1 response — nếu cache theo hash chỉ phản ánh danh sách (không phản ánh trạng thái), người dùng có thể thấy trạng thái cũ sau khi GS/QC vừa xử lý xong. Endpoint `/version` đã sẵn sàng cho tương lai nếu tách được 2 phần response.
 
 Tăng version `1.036` → `1.037`. Deploy thành công lên `smarttrade.vp` (Version ID `4ee2ca93-2399-4427-9eed-9aa16d0949b2`).
+
+## 2026-08-13 — "Giao diện" (gam màu + phông chữ) chuyển hẳn sang localStorage, bỏ lưu server; thêm chế độ "Ngẫu nhiên"
+
+User yêu cầu: trong thẻ "Cài đặt cá nhân", chỉ mục "Thông tin cá nhân" (`ten_goi`, `gioi_tinh`) mới cần lưu server — phần còn lại ("Giao diện": gam màu + phông chữ) chỉ cần lưu cache máy người dùng, không cần ghi/đọc D1 nữa. Đồng thời thêm 1 lựa chọn "Ngẫu nhiên" cho cả gam màu lẫn phông chữ, độc lập với nhau: mỗi lần mở lại app sẽ tự đổi ngẫu nhiên, cho đến khi người dùng tự chọn cố định 1 giá trị thì dừng random. Mặc định (người dùng chưa từng chỉnh) là chế độ Ngẫu nhiên cho cả 2.
+
+**Backend**: bỏ hẳn `theme_config` khỏi `users` — xoá xử lý trong `routes/auth.ts` PATCH `/me` (route giờ chỉ còn nhận `ten_goi`/`gioi_tinh`), bỏ khỏi `USER_COLUMNS`/`UserRow`/object dựng `AppUser` trong `middleware/loadUser.ts`, bỏ field khỏi `types.ts`, xoá hẳn `lib/theme.ts` (không còn nơi nào dùng `sanitizeThemeConfig`/`parseThemeConfig`). Cột `users.theme_config` trong DB để nguyên (không migration DROP COLUMN) — dữ liệu cũ không cần dọn, chỉ đơn giản không còn đọc/ghi tới nữa, rủi ro migration không đáng để đổi lấy lợi ích rất nhỏ.
+
+**Frontend**: 
+- `theme/presets.ts`: thêm biến thể `"random"` vào cả `ThemePresetKey` và `FontKey`; thêm `pickRandomPreset()`/`pickRandomFont()` (loại trừ `"custom"` khỏi tập ngẫu nhiên) và `resolveEffectiveThemeConfig(raw)` — hàm "tung" random 1 LẦN, chuyển config thô (có thể chứa `"random"`) thành config cụ thể để áp dụng lên trang.
+- `theme/localThemeConfig.ts` (mới): `loadLocalThemeConfig()`/`saveLocalThemeConfig()` đọc/ghi `localStorage["theme-config"]`, mặc định `{ preset: "random", font: "random" }`.
+- `theme/ThemeProvider.tsx`: bỏ phụ thuộc `useAuth()`/`auth.user.theme_config` — đọc thẳng từ `localThemeConfig`, gọi `resolveEffectiveThemeConfig()` trong `useState` initializer (chỉ tung random đúng 1 lần lúc mount, không tính lại mỗi render để tránh nhấp nháy).
+- `components/ThemeSettingsPanel.tsx`: bỏ `useMutation`/gọi `PATCH /auth/me` — mọi lựa chọn giờ lưu đồng bộ (không còn trạng thái "Đang lưu…") qua `saveLocalThemeConfig`. Thêm nút "🎲 Ngẫu nhiên" ở đầu lưới chọn gam màu và lưới chọn phông chữ (preview ngay 1 giá trị ngẫu nhiên khi bấm, nhưng giá trị LƯU LẠI là chế độ `"random"` chứ không phải giá trị vừa preview).
+
+**Chưa làm / cố tình bỏ qua**: không di trú `theme_config` cũ (nếu ai đã từng tuỳ chỉnh) sang localStorage — vì làm vậy cần thêm 1 lượt đọc server trước khi bỏ hẳn cột, ngược với mục tiêu giảm đọc/ghi của yêu cầu này. Tài khoản đã từng tuỳ chỉnh giao diện sẽ thấy giao diện về lại mặc định (Ngẫu nhiên) sau khi bản này lên production — có thể tự chọn lại nhanh nếu muốn cố định.
+
+**Chưa kiểm chứng qua trình duyệt thật** (cần đăng nhập Google, môi trường này không tự động hoá được) — đã chạy `tsc --noEmit` sạch cả 2 phía và `npm run build` thành công.
+
+Tăng version `1.166` → `1.167`.

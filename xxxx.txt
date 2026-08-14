@@ -1,0 +1,3 @@
+npx wrangler d1 migrations list dvbh-db-smarttrade --remote --config wrangler.smarttrade.jsonc
+npm run db:migrate:smarttrade
+npm run deploy:smarttrade

@@ -1,7 +1,7 @@
 import type { Context, Next } from "hono";
 import type { AppUser, Env, VaiTro } from "../types";
 import { fromJsonArray } from "../lib/jsonArray";
-import { parseThemeConfig } from "../lib/theme";
+import { parseModulesColumn } from "../lib/moduleAccess";
 
 interface UserRow {
   email: string;
@@ -11,11 +11,21 @@ interface UserRow {
   vai_tro: VaiTro | null;
   khu_vuc_phu_trach: string | null;
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
-  theme_config: string | null;
   la_ksnb_doi_tac: number;
+  modules: string | null;
+  bi_khoa: number;
+  co_the_import_tranh_chap: number;
+  la_ktv_dvbh: number;
+  la_ve_tinh: number;
+  la_kho: number;
+  la_ke_toan: number;
+  tram_cha: string | null;
+  giam_sat_quan_ly: string | null;
 }
 
-const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, trang_thai_duyet, theme_config, la_ksnb_doi_tac";
+// Chot 2026-08-13: bo "theme_config" khoi danh sach cot doc - giao dien da chuyen han sang
+// localStorage phia client (xem frontend/src/theme/localThemeConfig.ts), khong con dung server.
+const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, trang_thai_duyet, la_ksnb_doi_tac, modules, bi_khoa, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, tram_cha, giam_sat_quan_ly";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -36,6 +46,9 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
 
   if (!row) return c.json({ error: "USER_LOAD_FAILED" }, 500);
 
+  if (row.bi_khoa) {
+    return c.json({ error: "DISABLED" }, 403);
+  }
   if (row.trang_thai_duyet === "Cho duyet") {
     return c.json({ error: "PENDING_APPROVAL" }, 403);
   }
@@ -51,8 +64,16 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     vai_tro: row.vai_tro,
     khu_vuc_phu_trach: fromJsonArray(row.khu_vuc_phu_trach),
     trang_thai_duyet: row.trang_thai_duyet,
-    theme_config: parseThemeConfig(row.theme_config),
     la_ksnb_doi_tac: !!row.la_ksnb_doi_tac,
+    modules: parseModulesColumn(row.modules),
+    bi_khoa: !!row.bi_khoa,
+    co_the_import_tranh_chap: !!row.co_the_import_tranh_chap,
+    la_ktv_dvbh: !!row.la_ktv_dvbh,
+    la_ve_tinh: !!row.la_ve_tinh,
+    la_kho: !!row.la_kho,
+    la_ke_toan: !!row.la_ke_toan,
+    tram_cha: row.tram_cha ?? null,
+    giam_sat_quan_ly: row.giam_sat_quan_ly ?? null,
   };
   c.set("user", user);
   await next();

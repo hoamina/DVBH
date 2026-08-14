@@ -6,11 +6,33 @@ import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { khuVucReportExclusionClause } from "../lib/filterParams";
 
 const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
 
 const XAC_NHAN_EXPR = "COALESCE(v.chot_bo_cap_2, CASE WHEN v.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1";
+
+// KHONG them gio "00:00:00" vao bound - xem giai thich chi tiet o monthBounds() trong cases.ts.
+function monthBounds(thang: string): { start: string; end: string } {
+  const m = thang.match(/^(\d{4})-(\d{2})$/);
+  const now = new Date();
+  const [y, mo] = m ? [Number(m[1]), Number(m[2])] : [now.getUTCFullYear(), now.getUTCMonth() + 1];
+  const start = `${String(y).padStart(4, "0")}-${String(mo).padStart(2, "0")}-01`;
+  const nextMo = mo === 12 ? 1 : mo + 1;
+  const nextY = mo === 12 ? y + 1 : y;
+  const end = `${String(nextY).padStart(4, "0")}-${String(nextMo).padStart(2, "0")}-01`;
+  return { start, end };
+}
+
+// Khop dung 4 cot loi_* tren case_dvbh voi ten loai_loi tren vi_pham - dung chung cho ca nghiNgo lan
+// canKhaoSat (xem computeViPhamFunnel) va cho 4 index tung phan trong migration 0045.
+const FLAG_BRANCHES: { flagCol: string; loaiLoi: string }[] = [
+  { flagCol: "loi_120p", loaiLoi: "Loi 120 phut" },
+  { flagCol: "loi_qua_han_24h", loaiLoi: "Hen qua 24h" },
+  { flagCol: "loi_lo_ke_hoach", loaiLoi: "Loi lo ke hoach" },
+  { flagCol: "loi_kh_hen_lai", loaiLoi: "KH hen lai" },
+];
 
 export interface ViPhamFunnelPayload {
   nghiNgo: number;
@@ -20,44 +42,57 @@ export interface ViPhamFunnelPayload {
 }
 
 // Tach rieng phan tinh toan cua /funnel - dung chung cho compute-on-miss va warm-up (R7).
-export async function computeViPhamFunnel(db: D1Database, scope: string[] | null): Promise<ViPhamFunnelPayload> {
-  const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
+// CHOT 2026-08-03: gioi han theo THANG (thoi_gian_cskh_tiep_nhan, giong logic da chot o
+// survey.ts/cases.ts) VA viet lai OR-4-cot thanh UNION 4 nhanh rieng, moi nhanh dung dung 1 index
+// tung phan (migration 0045_vi_pham_funnel_indexes.sql) thay vi quet toan bo case_dvbh nhu truoc -
+// xem giai thich D1 read-budget trong CLAUDE.md.
+export async function computeViPhamFunnel(db: D1Database, scope: string[] | null, thang?: string): Promise<ViPhamFunnelPayload> {
+  const scopeClauseCBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClauseC = { sql: scopeClauseCBase.sql + exclusionC.sql, binds: [...scopeClauseCBase.binds, ...exclusionC.binds] };
+  const { start, end } = monthBounds(thang || new Date().toISOString().slice(0, 7));
 
   const nghiNgo = await db.prepare(
-    `SELECT COUNT(*) as n FROM case_dvbh c
-     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
-       AND (c.loi_120p = 1 OR c.loi_qua_han_24h = 1 OR c.loi_lo_ke_hoach = 1 OR c.loi_kh_hen_lai = 1)${scopeClauseC.sql}`,
+    `SELECT COUNT(*) as n FROM (
+       ${FLAG_BRANCHES.map(
+         (b) =>
+           `SELECT c.id FROM case_dvbh c
+            WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.${b.flagCol} = 1
+              AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+       ).join(" UNION ")}
+     )`,
   )
-    .bind(...scopeClauseC.binds)
+    .bind(...FLAG_BRANCHES.flatMap(() => [start, end, ...scopeClauseC.binds]))
     .first<{ n: number }>();
 
   const canKhaoSat = await db.prepare(
     `SELECT COUNT(*) as n FROM (
-       SELECT c.id FROM case_dvbh c
-       WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}
-         AND (
-           (c.loi_120p = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi 120 phut'))
-           OR (c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h'))
-           OR (c.loi_lo_ke_hoach = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi lo ke hoach'))
-           OR (c.loi_kh_hen_lai = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'KH hen lai'))
-         )
+       ${FLAG_BRANCHES.map(
+         (b) =>
+           `SELECT c.id FROM case_dvbh c
+            WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.${b.flagCol} = 1
+              AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
+              AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = '${b.loaiLoi}')`,
+       ).join(" UNION ")}
      )`,
   )
-    .bind(...scopeClauseC.binds)
+    .bind(...FLAG_BRANCHES.flatMap(() => [start, end, ...scopeClauseC.binds]))
     .first<{ n: number }>();
 
   const choQc = await db.prepare(
     `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
-     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClauseC.sql}`,
+     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL
+       AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
   )
-    .bind(...scopeClauseC.binds)
+    .bind(start, end, ...scopeClauseC.binds)
     .first<{ n: number }>();
 
   const daXuLy = await db.prepare(
     `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
-     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClauseC.sql}`,
+     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)
+       AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
   )
-    .bind(...scopeClauseC.binds)
+    .bind(start, end, ...scopeClauseC.binds)
     .first<{ n: number }>();
 
   return {
@@ -68,12 +103,14 @@ export async function computeViPhamFunnel(db: D1Database, scope: string[] | null
   };
 }
 
-// GET /api/vi-pham/funnel - phau xu ly nghi ngo vi pham -> can khao sat -> cho QC -> da xu ly.
-// Doc qua reportCache (xem lib/reportCache.ts), khong co query param nao anh huong ket qua ngoai scope.
+// GET /api/vi-pham/funnel?thang=YYYY-MM - phau xu ly nghi ngo vi pham -> can khao sat -> cho QC ->
+// da xu ly, gioi han theo dung 1 thang (mac dinh thang hien tai neu khong truyen). Doc qua
+// reportCache (xem lib/reportCache.ts), "thang" nam trong cache key.
 viPham.get("/funnel", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const key = buildReportKey("vi-pham/funnel", {}, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamFunnel(c.env.DB, scope));
+  const params = { thang: c.req.query("thang") };
+  const key = buildReportKey("vi-pham/funnel", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamFunnel(c.env.DB, scope, params.thang));
   return c.json(payload);
 });
 
@@ -87,7 +124,9 @@ export interface ViPhamLeaderboardParams {
 // Tach rieng phan tinh toan cua /leaderboard - dung chung cho compute-on-miss va warm-up (R7).
 export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLeaderboardParams, scope: string[] | null): Promise<{ rows: unknown[] }> {
   const by = params.by === "giam-sat" ? "giam-sat" : "ktv";
-  const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
+  const scopeClauseCBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClauseC = { sql: scopeClauseCBase.sql + exclusionC.sql, binds: [...scopeClauseCBase.binds, ...exclusionC.binds] };
 
   if (by === "ktv") {
     const { results } = await db.prepare(

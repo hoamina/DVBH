@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
+import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
@@ -12,12 +13,15 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { useDaDongChunked } from "../hooks/useDaDongChunked";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { QLDVBH_FILTER_VALUE } from "../constants";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
+import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 
 const PAGE_SIZE = 20;
 
 function currentMonthValue(): string {
-  return new Date().toISOString().slice(0, 7);
+  return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7);
 }
 function formatThangLabel(thang: string): string {
   const [y, m] = thang.split("-");
@@ -38,15 +42,20 @@ const TABS = [
 export function DanhSachTongModule({ openCase }: { openCase: (id: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
-  const [tab, setTab] = useState(TABS[0].key);
-  const [thang, setThang] = useState(currentMonthValue);
+  const role = auth.status === "authenticated" ? auth.user.vai_tro : null;
+  const [tab, setTab] = useLocalStorageState("filters:danh-sach-tong-tab", TABS[0].key);
+  const [thang, setThang] = useLocalStorageState("filters:danh-sach-tong-thang", currentMonthValue());
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useState("");
-  const [hangFilter, setHangFilter] = useState("");
+  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:danh-sach-tong-khu-vuc", "");
+  const [hangFilter, setHangFilter] = useLocalStorageState("filters:danh-sach-tong-hang", "");
+  const [idSearch, setIdSearch] = useState("");
 
+  // CHOT 2026-08-01: "full_khu_vuc=true" - Danh sach tong la noi DUY NHAT van con hien 2 khu_vuc bi
+  // an khoi moi bao cao khac (xem KHU_VUC_AN_KHOI_BAO_CAO), nen can danh sach khu_vuc DAY DU cho bo
+  // loc, khac queryKey rieng voi cac module khac (deu dung "dashboard-filters" khong tham so).
   const { data: filterOptions } = useQuery({
-    queryKey: ["dashboard-filters"],
-    queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters"),
+    queryKey: ["dashboard-filters", "full"],
+    queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters?full_khu_vuc=true"),
   });
   // Danh sach thang thuc su co ca da dong (xem computeDashboardMonths trong dashboard.ts) - dung
   // chung queryKey "dashboard-months" voi CaLapModule/NapGasModule nen tan dung cache co san, khong
@@ -84,8 +93,9 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
     isError: openError,
     refetch: openRefetch,
   } = useQuery({
-    queryKey: ["cases-tong-hop-dang-ton", page, khuVucFilter, hangFilter],
-    queryFn: () => api.get<Paged<CaseRow>>(`/cases/tong-hop${buildQuery({ trang_thai: "dang-ton", page, pageSize: PAGE_SIZE, khu_vuc: khuVucFilter, hang: hangFilter })}`),
+    queryKey: ["cases-tong-hop-dang-ton", page, khuVucFilter, hangFilter, idSearch],
+    queryFn: () =>
+      api.get<Paged<CaseRow>>(`/cases/tong-hop${buildQuery({ trang_thai: "dang-ton", page, pageSize: PAGE_SIZE, khu_vuc: khuVucFilter, hang: hangFilter, id: idSearch || undefined })}`),
     enabled: tab === "dang-ton",
   });
 
@@ -105,16 +115,24 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
     if (hangFilter) {
       rows = rows.filter((r) => r.hang === hangFilter);
     }
+    const q = idSearch.trim().toLowerCase();
+    if (q) rows = rows.filter((r) => r.id.toLowerCase().includes(q) || (r.seri_san_pham ?? "").toLowerCase().includes(q));
     return rows;
-  }, [monthRowsAll, khuVucFilter, hangFilter]);
+  }, [monthRowsAll, khuVucFilter, hangFilter, idSearch]);
   const pagedMonthRows = monthRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // CHOT 2026-08-03: rieng Admin, "Danh sach tong" van xuat duoc cot Link hinh anh (can tra cuu anh
+  // khi xu ly khieu nai/doi soat) - moi noi xuat Excel khac trong app van loai bo cot nay theo mac
+  // dinh (xem exportExcel.ts EXCLUDED_EXPORT_FIELDS).
+  const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  const exportOptions = isAdmin ? { includeFields: ["link_hinh_anh"] } : undefined;
 
   async function handleExport() {
     if (tab === "dang-ton") {
-      const all = await api.get<{ rows: CaseRow[] }>(`/cases/tong-hop${buildQuery({ trang_thai: "dang-ton", export: true, khu_vuc: khuVucFilter, hang: hangFilter })}`);
-      await exportRowsToExcel(all.rows, "danh_sach_tong_dang_ton.xlsx", "Data", CASE_FIELD_LABELS);
+      const all = await api.get<{ rows: CaseRow[] }>(`/cases/tong-hop${buildQuery({ trang_thai: "dang-ton", export: true, khu_vuc: khuVucFilter, hang: hangFilter, id: idSearch || undefined })}`);
+      await exportRowsToExcel(all.rows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) })), "danh_sach_tong_dang_ton.xlsx", "Data", CASE_FIELD_LABELS, exportOptions);
     } else {
-      await exportRowsToExcel(monthRows, `danh_sach_tong_thang_${thang}.xlsx`, "Data", CASE_FIELD_LABELS);
+      await exportRowsToExcel(monthRows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) })), `danh_sach_tong_thang_${thang}.xlsx`, "Data", CASE_FIELD_LABELS, exportOptions);
     }
   }
 
@@ -123,7 +141,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
     { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
     { key: "hang", header: "Hãng", render: (r) => r.hang ?? "—" },
     { key: "nhom_san_pham", header: "Model", render: (r) => r.nhom_san_pham ?? "—" },
-    { key: "ky_thuat_vien", header: "KTV", render: (r) => r.ky_thuat_vien ?? "—" },
+    { key: "ky_thuat_vien", header: "KTV", render: (r) => <KtvNameWithPhone kyThuatVien={r.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /> },
     {
       key: "trang_thai",
       header: "Trạng thái",
@@ -140,7 +158,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
       header: "DT tổng",
       render: (r) => <span className="font-mono">{fmtVND((r.dt_san_pham ?? 0) + (r.dt_linh_kien ?? 0) + (r.dt_dich_vu ?? 0))}</span>,
     },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
+    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
   ];
 
   return (
@@ -181,6 +199,13 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
             options={monthOptions}
           />
         )}
+        <IdSerialSearchInput
+          value={idSearch}
+          onChange={(v) => {
+            setIdSearch(v);
+            setPage(1);
+          }}
+        />
       </div>
       <Tabs
         active={tab}

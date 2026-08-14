@@ -5,6 +5,8 @@
   "compatibility_date": "2026-07-16",
   "compatibility_flags": ["nodejs_compat"],
 
+  "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }],
+
   "assets": {
     "directory": "./frontend/dist",
     "binding": "ASSETS",
@@ -29,7 +31,7 @@
   ],
 
   "triggers": {
-    "crons": ["0 20 * * *", "0 * * * *", "0 2,6,9 * * *"]
+    "crons": ["0 20 1 * *", "0 2,6,9 * * *", "0 1 * * *", "30 10 * * *"]
   },
 
   "vars": {

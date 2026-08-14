@@ -34,6 +34,10 @@ export function latestGiaiTrinhJoin(caseFilterSql: string): string {
 // thong bao/bao cao nhanh, KHONG co bind param.
 export const CASE_FILTER_TON = "thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL AND huy_bo_at IS NULL";
 
+// Preset 1.5: tap ca dang ton hoac moi dong trong 2 ngay gan day - de gia han thoi gian giai trinh va lay dung Ly do ton gan nhat cua ca moi hoan thanh.
+export const CASE_FILTER_TON_AND_CLOSED_RECENTLY = "(thoi_gian_hoan_thanh IS NULL OR thoi_gian_hoan_thanh >= date(datetime('now', '+7 hours', '-2 days'))) AND archived_at IS NULL AND huy_bo_at IS NULL";
+
+
 // Preset 2: tap ca DA DONG trong 1 khoang thoi gian [start, end) - CO 2 bind param theo dung thu tu
 // (start, end). Vi subquery nay nam trong mau JOIN (dung TRUOC mau WHERE cua cau lenh ngoai trong
 // chuoi SQL cuoi cung), nguoi goi PHAI bind 2 gia tri (start, end) nay TRUOC cac bind cua WHERE
@@ -74,6 +78,10 @@ const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
  *   qua vi du hang "TỔNG=9" nhung cac cot con hien chi cong ra 3). CHUA_GT_5_NGAY vi vay PHAI co mat
  *   rieng trong TONG (khac truoc day, khi no la tap con tu dong cua CHUA_GT_3_NGAY nen khong can
  *   liet ke rieng).
+ * - TONG (chot lai 2026-08-01, chu he thong phat hien nham logic): B2B_1_NGAY va NSKX_2_NGAY TUNG bi
+ *   cong nham vao TONG - 2 nhom nay la hang muc rieng (van con card/cot B2B, NSKX o UI), KHONG duoc
+ *   tinh vao "Tong can giai trinh". Cong thuc dung: lo ke hoach + tai giai trinh + DMX chua GT >3
+ *   ngay + chua GT >5 ngay + dieu hoa >1 ngay - CHINH XAC 5 nhanh, khong hon.
  */
 export const NEED_LO_KE_HOACH = `(lg.ngay_du_kien_hoan_thanh IS NOT NULL AND date(lg.ngay_du_kien_hoan_thanh) < date(${AGE_ANCHOR}))`;
 export const NEED_TAI_GIAI_TRINH = `(lg.case_id IS NOT NULL AND ${ageExpr("lg.ngay_giai_trinh")} >= 3)`;
@@ -82,6 +90,10 @@ export const NEED_CHUA_GT_5_NGAY = `(lg.case_id IS NULL AND ${AGE_C} >= 5)`;
 export const NEED_DIEU_HOA_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = 'Điều hòa' AND ${AGE_C} >= 1)`;
 export const NEED_B2B_1_NGAY = `(lg.case_id IS NULL AND c.doi_tac LIKE '%b2b%' AND ${AGE_C} >= 1)`;
 export const NEED_NSKX_2_NGAY = `(lg.case_id IS NULL AND c.doi_tac = 'NSKX' AND ${AGE_C} >= 2)`;
+// CHOT 2026-08-12: "chi tieu phu" moi, cung kieu B2B/NSKX (canh bao rieng theo nhom Model, KHONG
+// cong vao NEED_TONG - xem chu thich NEED_TONG ben duoi) - ca CHUA giai trinh, Model = "Loc tong"
+// HOAC "Loc nuoc BCN", ton >=1 ngay.
+export const NEED_LOC_TONG_BCN_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = 'Lọc tổng' AND ${AGE_C} >= 1)`;
 
 // "KH DMX" (chot 2026-07-31, thay the the "Chua giai trinh >3 ngay (canh bao som)" cu) - khach hang
 // thuoc nhom DMX: c.khach_hang chua "DMX"/"DMX" (khong dau, dung LIKE ca 2 dang vi du lieu CRM
@@ -96,7 +108,45 @@ export const NEED_DMX_TAI_GIAI_TRINH = `(${NEED_DMX_CUSTOMER} AND ${NEED_TAI_GIA
 export const NEED_DMX_LO_KE_HOACH = `(${NEED_DMX_CUSTOMER} AND ${NEED_LO_KE_HOACH})`;
 export const NEED_DMX_3_NGAY = `(${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_DMX_TAI_GIAI_TRINH} OR ${NEED_DMX_LO_KE_HOACH})`;
 
-export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_CHUA_GT_5_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_B2B_1_NGAY} OR ${NEED_NSKX_2_NGAY})`;
+// CHOT 2026-08-01: "Lo ke hoach"/"Tai giai trinh" chia nho theo tuoi ca (AGE_C, tinh tu CSKH tiep
+// nhan - giong "Ton tren N ngay" hien co, KHONG phai tu ngay du kien hoan thanh) - dung cho 2 breakdown
+// card rieng trong Quan ly ton (khong lien quan gi den TONG, chi la lens hien thi bo sung).
+export const NEED_LO_KE_HOACH_DMX_5_NGAY = `(${NEED_LO_KE_HOACH} AND ${NEED_DMX_CUSTOMER} AND ${AGE_C} >= 5)`;
+export const NEED_LO_KE_HOACH_14_NGAY = `(${NEED_LO_KE_HOACH} AND ${AGE_C} >= 14)`;
+export const NEED_TAI_GIAI_TRINH_DMX_5_NGAY = `(${NEED_TAI_GIAI_TRINH} AND ${NEED_DMX_CUSTOMER} AND ${AGE_C} >= 5)`;
+export const NEED_TAI_GIAI_TRINH_14_NGAY = `(${NEED_TAI_GIAI_TRINH} AND ${AGE_C} >= 14)`;
+
+// CHOT 2026-08-01: bo B2B_1_NGAY/NSKX_2_NGAY khoi TONG (xem chu thich "chot lai" o tren) - dung
+// CHINH XAC 5 nhanh, khong con 7 nhu truoc.
+export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_CHUA_GT_5_NGAY} OR ${NEED_DIEU_HOA_1_NGAY})`;
+
+// Moc 08:00 sang VN cua NGAY HOM NAY (dung ky thuat +7h giong AGE_ANCHOR, nhung KHONG lam tron ve 0h
+// - day la moc "chot bao cao", khac moc "0h tinh tuoi ton" cua AGE_ANCHOR).
+export const TON_ANCHOR_0800 = "(date(datetime('now','+7 hours')) || ' 08:00:00')";
+
+/**
+ * Dieu kien "dang ton TAI THOI DIEM 08:00 hom nay" (CHOT 2026-08-01, chu he thong xac nhan qua vi
+ * du: "neu ca co ngay hoan thanh SAU 08:00 hom nay thi van tinh la ca ton can giai trinh"): case dang
+ * mo NGAY BAY GIO (thoi_gian_hoan_thanh IS NULL), HOAC da hoan thanh nhung SAU moc 08:00 (tuc van con
+ * "ton" tai thoi diem 08:00, chi la duoc dong sau do trong ngay). Muc dich: baseline cua "Bao cao ngay
+ * 08:00" (lib/dailySnapshot.ts computeBacklogBuckets) KHONG duoc phu thuoc gio THUC SU Admin bam "Lam
+ * moi bao cao" hay cron chay xong - du chay luc 09:30, 1 ca hoan thanh luc 08:45 (SAU 08:00) van phai
+ * duoc tinh vao baseline "ton can giai trinh" cua ngay hom do.
+ *
+ * Khac CASE_FILTER_TON (chi xet "dang mo ngay bay gio", dung cho MOI noi khac trong he thong ngoai
+ * pham vi nay) - KHONG dung ham nay thay CASE_FILTER_TON o cac noi khac.
+ *
+ * QUAN TRONG: khi dung dieu kien nay lam outer WHERE cho 1 truy van co latestGiaiTrinhJoin(), PHAI
+ * truyen CHINH XAC ham nay (cung alias r?ng, tuc caseFilterTonAt0800() khong tham so) lam
+ * caseFilterSql cho latestGiaiTrinhJoin() trong CUNG truy van do - neu van truyen CASE_FILTER_TON cho
+ * join thi subquery se KHONG con la superset an toan cua outer WHERE nua (outer WHERE gio RONG HON,
+ * gom them ca case hoan thanh sau 08:00 ma CASE_FILTER_TON khong gom), lam "giai trinh gan nhat" tra
+ * ve sai/NULL cho dung nhung case do (xem canh bao trong docstring latestGiaiTrinhJoin()).
+ */
+export function caseFilterTonAt0800(alias = ""): string {
+  const p = alias ? `${alias}.` : "";
+  return `(${p}thoi_gian_hoan_thanh IS NULL OR ${p}thoi_gian_hoan_thanh >= ${TON_ANCHOR_0800})`;
+}
 
 export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   tong: NEED_TONG,
@@ -107,8 +157,13 @@ export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   dieu_hoa: NEED_DIEU_HOA_1_NGAY,
   b2b: NEED_B2B_1_NGAY,
   nskx: NEED_NSKX_2_NGAY,
+  loc_tong_bcn: NEED_LOC_TONG_BCN_1_NGAY,
   dmx_3_ngay: NEED_DMX_3_NGAY,
   dmx_chua_gt_3_ngay: NEED_DMX_CHUA_GT_3_NGAY,
   dmx_tai_giai_trinh: NEED_DMX_TAI_GIAI_TRINH,
   dmx_lo_ke_hoach: NEED_DMX_LO_KE_HOACH,
+  lo_ke_hoach_dmx_5: NEED_LO_KE_HOACH_DMX_5_NGAY,
+  lo_ke_hoach_14: NEED_LO_KE_HOACH_14_NGAY,
+  tai_giai_trinh_dmx_5: NEED_TAI_GIAI_TRINH_DMX_5_NGAY,
+  tai_giai_trinh_14: NEED_TAI_GIAI_TRINH_14_NGAY,
 };

@@ -97,8 +97,11 @@ export function ChartCanvas({
       chartRef.current?.destroy();
       chartRef.current = null;
     };
+    // JSON.stringify (khong phai reference truc tiep) cho ca data LAN options - nhieu noi goi
+    // truyen "options" dang object literal inline, tao reference moi moi lan render cha, neu dung
+    // truc tiep se ve lai chart moi lan render thay vi chi khi noi dung thuc su doi.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(data)]);
+  }, [type, JSON.stringify(data), JSON.stringify(options)]);
 
   return (
     <div style={{ height }}>

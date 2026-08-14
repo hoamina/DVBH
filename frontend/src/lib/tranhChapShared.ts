@@ -27,6 +27,7 @@ export interface TienTrinhRow {
   ngay_xu_ly: string | null;
   thoi_gian_du_kien_xong: string | null;
   log_ghi_chu: string | null;
+  dang_cho_nguoi_xu_ly: string | null;
   so_ngay_ton: number;
 }
 
@@ -40,6 +41,7 @@ export interface TranhChapLogRow {
   ghi_chu: string | null;
   ket_qua_xu_ly: string | null;
   hai_long_sau_tranh_chap: string | null;
+  dang_cho_nguoi_xu_ly: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -165,7 +167,6 @@ export function canEditTienTrinhMeta(user: AppUser): boolean {
 export function describeTranhChapError(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
     if (err.code === "FORBIDDEN_ROLE") return "Bạn không có quyền thao tác trên ca/khu vực này.";
-    if (err.code === "CASE_NOT_ELIGIBLE") return "Ca này không (còn) thuộc diện tranh chấp.";
     if (err.code === "TIEN_TRINH_DANG_MO") return "Ca này đang có 1 tiến trình chưa đóng — không thể tạo tiến trình mới.";
     if (err.code === "TIEN_TRINH_DA_DONG") return "Tiến trình đã đóng — không thể sửa phân loại/mức độ nữa.";
     if (err.code === "NOT_LATEST_LOG") return "Đã có log mới hơn được thêm — không thể sửa log này nữa.";

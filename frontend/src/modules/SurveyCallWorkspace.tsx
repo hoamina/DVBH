@@ -6,6 +6,7 @@ import { Card } from "../components/ui/Card";
 import { LoadingCard } from "../components/ui/LoadingCard";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
+import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
@@ -13,6 +14,7 @@ import { LOAI_LOI_META, fmtDateTime, type LoaiLoi, type CaseRow, type ViPhamRow 
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { CanKhaoSatRow, neededLoaiLoi } from "./SurveyModule";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
 
 type QueueSource = "qua-han" | "can-khao-sat" | "ad-hoc";
 interface QueueItem extends CanKhaoSatRow {
@@ -23,6 +25,7 @@ const KET_QUA_GOI_OPTIONS = [
   { value: "Liên hệ thành công", label: "✅ Liên hệ thành công" },
   { value: "Không nghe máy", label: "📵 Không nghe máy" },
   { value: "Số sai / không liên lạc được", label: "🚫 Số sai / không liên lạc được" },
+  { value: "Không cần khảo sát", label: "➖ Không cần khảo sát" },
 ];
 
 const LY_DO_THAT_BAI_OPTIONS = ["Khách không nghe máy", "Thuê bao không liên lạc được", "Số điện thoại sai", "Khách hẹn gọi lại giờ khác", "Khác"];
@@ -56,10 +59,12 @@ export function SurveyCallWorkspace({
   onExit,
   openCase,
   initialKhuVuc,
+  initialAdHocId,
 }: {
   onExit: () => void;
   openCase: (id: string, tab?: string) => void;
   initialKhuVuc?: string;
+  initialAdHocId?: string;
 }) {
   const auth = useAuth();
   const me = auth.status === "authenticated" ? auth.user.email : "";
@@ -69,6 +74,9 @@ export function SurveyCallWorkspace({
   const qc = useQueryClient();
 
   const [khuVucFilter, setKhuVucFilter] = useState(initialKhuVuc ?? "");
+  // CHOT 2026-08-02: hang doi gioi han theo thang mo ca (thoi_gian_cskh_tiep_nhan) - mac dinh thang
+  // hien tai, xem hooks/useSurveyCandidates.ts + backend/src/routes/survey.ts GET /candidates.
+  const [thang, setThang] = useState(new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
   const [onlyMine, setOnlyMine] = useState(role === "CSKH");
   // Tach rieng voi onlyMine: ca chua gan ai chi duoc nap vao pool sau khi bam nut "Goi them ca
   // chua gan" (xem man hinh het hang doi ben duoi) - khong tu dong bat, khong luu qua phien lam
@@ -80,18 +88,37 @@ export function SurveyCallWorkspace({
   const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
   const [bumpOrder, setBumpOrder] = useState<Map<string, number>>(new Map());
   const bumpCounter = useRef(0);
-  const [adHocId, setAdHocId] = useState<string | null>(null);
+  const [adHocId, setAdHocId] = useState<string | null>(initialAdHocId ?? null);
   const [searchQ, setSearchQ] = useState("");
   const [searching, setSearching] = useState(false);
+  const [workspaceSort, setWorkspaceSort] = useState<"default" | "ngay-tao" | "ktv">("default");
+  const [workspaceKtv, setWorkspaceKtv] = useState("");
 
   const { data: khuVucOptions } = useQuery({
     queryKey: ["dashboard-filters"],
     queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters"),
   });
+  const { data: monthOptions } = useQuery({
+    queryKey: ["dashboard-months"],
+    queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
+  });
+  const thangSelectOptions = (monthOptions?.months ?? []).map((m) => ({ value: m, label: m }));
+  if (!thangSelectOptions.some((o) => o.value === thang)) {
+    thangSelectOptions.unshift({ value: thang, label: `${thang} (hiện tại)` });
+  }
 
-  // Tinh san tu snapshot R2 1 file (xem hooks/useSurveyCandidates.ts) - dung chung voi SurveyModule.tsx,
-  // khong con goi song server moi lan mo workspace.
-  const { canKhaoSat: canKhaoSatAll, quaHanKhaoSat: quaHanKhaoSatAll, isLoading: candidatesLoading, refetch: refetchCandidates } = useSurveyCandidates();
+  // Doc song tu D1, gioi han theo thang mo ca (xem hooks/useSurveyCandidates.ts) - dung chung
+  // hook/queryKey voi SurveyModule.tsx nen 2 man cung mo 1 thang se chia se 1 lan fetch.
+  const { canKhaoSat: canKhaoSatAll, quaHanKhaoSat: quaHanKhaoSatAll, isLoading: candidatesLoading, refetch: refetchCandidates } = useSurveyCandidates({ thang });
+
+  const availableWorkspaceKtvs = useMemo(() => {
+    const ktvs = new Set<string>();
+    const merged = [...(quaHanKhaoSatAll ?? []), ...(canKhaoSatAll ?? [])];
+    for (const r of merged) {
+      if (r.ky_thuat_vien) ktvs.add(r.ky_thuat_vien.trim());
+    }
+    return Array.from(ktvs).sort((a, b) => a.localeCompare(b, "vi"));
+  }, [quaHanKhaoSatAll, canKhaoSatAll]);
 
   function matchKhuVuc(khuVuc: string | null): boolean {
     if (!khuVucFilter) return true;
@@ -119,13 +146,19 @@ export function SurveyCallWorkspace({
   const pool = useMemo<QueueItem[]>(() => {
     const quaHanRows = quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "qua-han" as const }));
     const canKhaoSatRows = canKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "can-khao-sat" as const }));
-    const merged = [...quaHanRows, ...canKhaoSatRows]
+    let merged = [...quaHanRows, ...canKhaoSatRows]
       .filter((r) => !calledIds.has(r.id))
       .filter((r) => !onlyMine || !r.assigned_to || r.assigned_to === me)
       // Khi onlyMine bat: ca chua gan ai (tier 1) chi vao pool sau khi CSKH chu dong bam "Goi them
       // ca chua gan" (includeUnassigned) - truoc do hang doi chi gom ca da gan dung minh (tier 0).
       // Khi onlyMine tat (lead xem toan doi), khong tier hoa - giu nguyen hanh vi cu.
       .filter((r) => !onlyMine || includeUnassigned || r.assigned_to === me);
+
+    // Lọc theo KTV trong workspace
+    if (workspaceKtv) {
+      merged = merged.filter((r) => r.ky_thuat_vien?.trim() === workspaceKtv.trim());
+    }
+
     const srcRank = (x: QueueItem) => (x.__source === "qua-han" ? 0 : 1);
     // Ca da gan dung nguoi dang goi (tier 0) luon xep truoc ca chua gan ai (tier 1) - dung cho ca
     // 2 che do onlyMine: bat (chi tier 0 cho toi khi bam nut mo rong) hoac tat (tier hoa toan bo
@@ -139,15 +172,32 @@ export function SurveyCallWorkspace({
       const bumpB = bumpOrder.get(b.id) ?? 0;
       const attemptedDiff = (bumpA > 0 ? 1 : 0) - (bumpB > 0 ? 1 : 0);
       if (attemptedDiff !== 0) return attemptedDiff;
-      const tierDiff = tierOf(a) - tierOf(b);
-      if (tierDiff !== 0) return tierDiff;
-      const rankDiff = srcRank(a) - srcRank(b);
-      if (rankDiff !== 0) return rankDiff;
+
+      // Sắp xếp theo chế độ lựa chọn
+      if (workspaceSort === "ngay-tao") {
+        const da = a.thoi_gian_cskh_tiep_nhan ? new Date(a.thoi_gian_cskh_tiep_nhan).getTime() : 0;
+        const db = b.thoi_gian_cskh_tiep_nhan ? new Date(b.thoi_gian_cskh_tiep_nhan).getTime() : 0;
+        if (da !== db) return da - db; // cũ nhất trước
+      } else if (workspaceSort === "ktv") {
+        const ktvA = a.ky_thuat_vien ?? "";
+        const ktvB = b.ky_thuat_vien ?? "";
+        const ktvDiff = ktvA.localeCompare(ktvB, "vi");
+        if (ktvDiff !== 0) return ktvDiff;
+        const da = a.thoi_gian_cskh_tiep_nhan ? new Date(a.thoi_gian_cskh_tiep_nhan).getTime() : 0;
+        const db = b.thoi_gian_cskh_tiep_nhan ? new Date(b.thoi_gian_cskh_tiep_nhan).getTime() : 0;
+        if (da !== db) return da - db;
+      } else {
+        const tierDiff = tierOf(a) - tierOf(b);
+        if (tierDiff !== 0) return tierDiff;
+        const rankDiff = srcRank(a) - srcRank(b);
+        if (rankDiff !== 0) return rankDiff;
+      }
+
       if (bumpA > 0 && bumpA !== bumpB) return bumpA - bumpB;
       return a.id.localeCompare(b.id);
     });
     return merged;
-  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned, me, bumpOrder]);
+  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned, me, bumpOrder, workspaceKtv, workspaceSort]);
 
   // Con ca chua gan ai trong pham vi loc hien tai (chua tinh includeUnassigned) - dung de quyet
   // dinh co hien nut "Goi them ca chua gan" hay khong (chi hien khi tier 0 that su da can).
@@ -185,12 +235,16 @@ export function SurveyCallWorkspace({
     }
     setSearching(true);
     try {
-      const res = await api.get<{ found: string | null }>(`/cases/search?q=${encodeURIComponent(q)}`);
-      if (!res.found) {
+      // Khong can popup nhieu ket qua nhu TopBar (xem GlobalSearch) - workspace nay chi can 1 ca de
+      // khao sat ad-hoc, lay ca dau tien (moi hoan thanh nhat, do /search ORDER BY thoi_gian_hoan_thanh
+      // DESC) neu Serial trung nhieu ca.
+      const res = await api.get<{ matches: { id: string }[] }>(`/cases/search?q=${encodeURIComponent(q)}`);
+      const foundId = res.matches[0]?.id ?? null;
+      if (!foundId) {
         addToast("Không tìm thấy ca với ID / Serial này.");
         return;
       }
-      setAdHocId(res.found);
+      setAdHocId(foundId);
       setSearchQ("");
     } finally {
       setSearching(false);
@@ -237,7 +291,7 @@ export function SurveyCallWorkspace({
     if (!activeRow) return;
     const needed = neededLoaiLoi(activeRow);
     const chosen = needed.filter((k) => selected[k]);
-    if (chosen.length === 0) {
+    if (callResult === "Liên hệ thành công" && chosen.length === 0) {
       addToast("Chọn kết luận cho ít nhất 1 loại lỗi trước khi lưu.");
       return;
     }
@@ -247,14 +301,32 @@ export function SurveyCallWorkspace({
         doi_tuong_lien_he: contactType,
         ket_qua_cuoc_goi: callResult,
         ghi_chu: ghiChu || undefined,
-        results: chosen.map((loai) => ({ loai_loi: loai, ket_luan: ketLuan[loai], ket_qua_cap_1: ketLuan[loai] === "loi" ? ketQuaCap1 : undefined })),
+        results: callResult === "Không cần khảo sát"
+          ? needed.map((loai) => ({ loai_loi: loai, ket_luan: "khong_loi" as const }))
+          : chosen.map((loai) => ({ loai_loi: loai, ket_luan: ketLuan[loai], ket_qua_cap_1: ketLuan[loai] === "loi" ? ketQuaCap1 : undefined })),
       });
-      setCalledIds((prev) => new Set(prev).add(activeRow.id));
+      // Case chi thuc su "xong" (roi khoi hang doi) khi TAT CA loai_loi can khao sat da co ket qua -
+      // gom ca loai vua ghi nhan (daGhiNhan) LAN loai da duoc nguoi khac ghi nhan truoc do (boQua).
+      // Neu agent chi chon 1 phan (vd 1/2 loai_loi), cac loai con lai VAN can xu ly - khong duoc
+      // them vao calledIds (se an vinh vien case khoi hang doi phien nay, xem BUG report).
+      const resolvedThisRound = new Set([...data.daGhiNhan, ...data.boQua]);
+      const remaining = needed.filter((k) => !resolvedThisRound.has(k));
+      if (remaining.length === 0) {
+        setCalledIds((prev) => new Set(prev).add(activeRow.id));
+      } else {
+        // Dung dung co che "goi lai sau" cua submitFailedCall - day case xuong cuoi hang doi thay vi
+        // an di, van tu dong chuyen sang ca tiep theo qua currentIndex.
+        bumpCounter.current += 1;
+        setBumpOrder((prev) => new Map(prev).set(activeRow.id, bumpCounter.current));
+      }
       setSessionDone((n) => n + 1);
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
       refetchCandidates();
       if (adHocId) setAdHocId(null);
-      if (data.boQua.length > 0) {
+      if (remaining.length > 0) {
+        const remainLabel = remaining.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ");
+        addToast(`Đã lưu kết quả cho ca ${activeRow.id}. Còn "${remainLabel}" chưa xử lý — ca sẽ quay lại cuối hàng đợi để hoàn tất.`);
+      } else if (data.boQua.length > 0) {
         const label = data.boQua.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ");
         addToast(
           data.daGhiNhan.length > 0
@@ -300,7 +372,7 @@ export function SurveyCallWorkspace({
       if (e.ctrlKey && e.key === "Enter") {
         if (!activeRow || neededLoaiLoi(activeRow).length === 0) return;
         e.preventDefault();
-        if (callResult === "Liên hệ thành công") void submitSuccessCall();
+        if (callResult === "Liên hệ thành công" || callResult === "Không cần khảo sát") void submitSuccessCall();
         else void submitFailedCall();
         return;
       }
@@ -347,6 +419,14 @@ export function SurveyCallWorkspace({
           />
           Chỉ ca của tôi
         </label>
+        <Select
+          value={thang}
+          onChange={(v) => {
+            setThang(v);
+            setIndex(0);
+          }}
+          options={thangSelectOptions}
+        />
         <KhuVucFilterControl
           value={khuVucFilter}
           onChange={(v) => {
@@ -355,6 +435,29 @@ export function SurveyCallWorkspace({
           }}
           options={[{ value: "", label: "Tất cả khu vực" }, { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" }, ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? [])]}
           myAreas={myAreas}
+        />
+        <Select
+          value={workspaceSort}
+          onChange={(v) => {
+            setWorkspaceSort(v as "default" | "ngay-tao" | "ktv");
+            setIndex(0);
+          }}
+          options={[
+            { value: "default", label: "⏱ Hàng đợi mặc định" },
+            { value: "ngay-tao", label: "📅 Ngày tạo tăng dần" },
+            { value: "ktv", label: "👤 Sắp xếp theo KTV" },
+          ]}
+        />
+        <Select
+          value={workspaceKtv}
+          onChange={(v) => {
+            setWorkspaceKtv(v);
+            setIndex(0);
+          }}
+          options={[
+            { value: "", label: "Tất cả KTV" },
+            ...availableWorkspaceKtvs.map((k) => ({ value: k, label: `KTV: ${k}` })),
+          ]}
         />
         <form
           className="flex items-center gap-1"
@@ -443,7 +546,7 @@ export function SurveyCallWorkspace({
                     </div>
                     <div className="text-xl font-display font-extrabold text-[var(--ink-900)] mt-0.5">{activeRow.khach_hang ?? "—"}</div>
                     <div className="text-sm text-[var(--ink-400)] mt-0.5">
-                      {activeRow.khu_vuc ?? "—"}
+                      {shortKhuVuc(activeRow.khu_vuc)}
                       {activeRow.tinh ? ` — ${activeRow.tinh}` : ""}
                       {activeRow.quan_huyen ? ` — ${activeRow.quan_huyen}` : ""}
                     </div>
@@ -475,7 +578,7 @@ export function SurveyCallWorkspace({
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm mb-3 bg-slate-50 rounded-xl p-3">
                   <div>
                     <span className="text-[var(--ink-400)]">Kỹ thuật viên: </span>
-                    {activeRow.ky_thuat_vien ?? "—"}
+                    <KtvNameWithPhone kyThuatVien={activeRow.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} />
                   </div>
                   <div>
                     <span className="text-[var(--ink-400)]">Tiếp nhận CSKH: </span>
@@ -590,6 +693,29 @@ export function SurveyCallWorkspace({
                           </Btn>
                         </div>
                         <Btn onClick={submitSuccessCall} disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k])}>
+                          {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
+                        </Btn>
+                      </div>
+                    </>
+                  ) : callResult === "Không cần khảo sát" ? (
+                    <>
+                      <div className="bg-[var(--ocean-50)] text-[var(--ocean-700)] border border-[var(--ocean-100)] rounded-xl p-4 text-xs mb-4">
+                        ℹ️ <strong>Lưu ý:</strong> Ca này sẽ được ghi nhận là <strong>Không lỗi</strong> cho toàn bộ các loại lỗi nghi ngờ ({needed.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ")}). Hệ thống sẽ tự động hoàn thành khảo sát ca này và chuyển sang ca tiếp theo.
+                      </div>
+                      <div className="mb-4">
+                        <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú lý do không cần khảo sát</label>
+                        <textarea rows={2} value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} placeholder="Nhập lý do tại đây..." className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+                      </div>
+                      <div className="flex justify-between items-center gap-2 flex-wrap">
+                        <div className="flex gap-2">
+                          <Btn variant="ghost" type="button" onClick={goPrev}>
+                            ◀ Ca trước
+                          </Btn>
+                          <Btn variant="ghost" type="button" onClick={goNext}>
+                            Bỏ qua ⏭
+                          </Btn>
+                        </div>
+                        <Btn onClick={submitSuccessCall} disabled={submitCall.isPending}>
                           {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
                         </Btn>
                       </div>

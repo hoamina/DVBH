@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, statusTone } from "../components/ui/Badge";
+import { Badge, statusTone, type BadgeTone } from "../components/ui/Badge";
 import { Field } from "../components/ui/Field";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
@@ -10,6 +10,9 @@ import { Tabs, type TabItem } from "../components/ui/Tabs";
 import { Modal } from "../components/ui/Modal";
 import { CacheBanner } from "../components/ui/CacheBanner";
 import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
+import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
+import { CaLapEvalModal } from "../components/CaLapEvalModal";
+import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { LoadingInline } from "../components/ui/LoadingInline";
 import { TiepNhanModal, TienTrinhPanel } from "../components/TienTrinhPanel";
 import { api, buildQuery } from "../api/client";
@@ -19,6 +22,9 @@ import { getCachedEntry, setCachedEntry, type CacheEntry } from "../lib/closedDa
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { trangThaiLapOf } from "../lib/caLapStatus";
 import { computeCaseTickers } from "../lib/caseTickers";
+import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
+import { matchMuaHang, matchBaoHanh, matchThieuHang } from "../lib/purchaseWarrantyMatch";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import {
   TRANG_THAI_LABELS,
   TRANG_THAI_DONG,
@@ -35,9 +41,6 @@ import {
   parseDbDateTime,
   LOAI_LOI_META,
   CA_LAP_META,
-  CA_LAP_KEYS,
-  HINH_THUC_XU_LY_META,
-  HINH_THUC_XU_LY_KEYS,
   NAP_GAS_DANH_GIA_META,
   NAP_GAS_DANH_GIA_KEYS,
   NAP_GAS_PHI_DICH_VU_META,
@@ -49,15 +52,61 @@ import {
   type ViPhamRow,
   type CaLapDetection,
   type NapGasDanhGiaRow,
+  type KetQuaGoiRow,
   type Paged,
+  parseLoaiKhaoSat,
 } from "../types";
 
 type ViewMode = "compact" | "expanded";
 
+// CHOT 2026-08-12: nhan hien thi cho Modal "Xem day du" cua tab Mua hang/Bao hanh - liet ke DUNG
+// het cac field da project san trong SheetRow (xem FIELD_ALIASES trong lib/purchaseWarrantySync.ts),
+// gom ca vai field hien KHONG hien trong the rut gon (vd idXuat/maSuCoLienQuan, nguonTao/
+// tinhTrangBaoHanh/maYeuCau/maYeuCauNhapTay) - dat rieng o day (khong dua vao FIELD_ALIASES) vi do la
+// key noi bo (tieng Anh, khong dung lam nhan hien thi truc tiep).
+const MUA_HANG_DETAIL_LABELS: Record<string, string> = {
+  id: "ID",
+  idXuat: "ID xuất",
+  linhKien: "Linh kiện",
+  maLinhKien: "Mã linh kiện",
+  loaiDeXuat: "Loại đề xuất",
+  soLuongDeXuat: "Số lượng đề xuất",
+  ngayTao: "Ngày tạo",
+  trangThaiDuyet: "Trạng thái duyệt",
+  soLuongThucXuat: "Số lượng thực xuất",
+  lyDoTuChoi: "Lý do từ chối",
+  trangThaiGuiHang: "Trạng thái gửi hàng",
+  ngayKtvNhanHang: "Ngày KTV nhận hàng",
+  giaDeXuat: "Giá đề xuất",
+  maSuCoLienQuan: "Mã yêu cầu của sự cố liên quan",
+};
+
+const BAO_HANH_DETAIL_LABELS: Record<string, string> = {
+  id: "ID",
+  nguonTao: "Nguồn tạo",
+  tinhTrangBaoHanh: "Tình trạng bảo hành",
+  trangThai: "Trạng thái",
+  maYeuCau: "Mã yêu cầu",
+  maYeuCauNhapTay: "Mã yêu cầu nhập tay",
+  modelSanPham: "Model sản phẩm",
+  hang: "Hãng",
+  serial: "Serial",
+  linhKienSua: "Linh kiện sửa",
+  tinhTrangHuHong: "Tình trạng hư hỏng",
+  phuongAnXuLy: "Phương án xử lý",
+  cachThucXuLy: "Cách thức xử lý",
+  nguyenNhanCham: "Nguyên nhân chậm",
+  ngayGui: "Ngày gửi",
+  ngayGioTraXong: "Ngày giờ trả xong",
+  danhGiaKetQua: "Đánh giá kết quả sau sửa chữa",
+  nguoiSua: "Người sửa",
+  ghiChu: "Ghi chú",
+};
+
 interface CaseDetailResponse {
   case: CaseRow;
   giaiTrinh: GiaiTrinhRow[];
-  ketQuaGoi: unknown[];
+  ketQuaGoi: KetQuaGoiRow[];
   viPham: ViPhamRow[];
   caLap: CaLapDetection;
   napGasDanhGia: NapGasDanhGiaRow | null;
@@ -80,44 +129,10 @@ async function fetchCaseDetailCached(id: string): Promise<CacheEntry<CaseDetailR
   return { data: fresh, cachedAt: new Date().toISOString() };
 }
 
-// "Cach thuc xu ly" trong "Chuoi lich su theo serial" (tab Ca lap) - du lieu thuc te thuong la ca 1
-// nhat ky dai (700+ ky tu, nhieu lan cap nhat CRM gop lai), khong phai 1 nhan ngan nhu KTV/tien do.
-// CRM co quy uoc noi bo bat dau bang "[CTXL] <tom tat cach xu ly>" roi moi den "[NOTE] <nhat ky chi
-// tiet>" - uu tien hien phan TOM TAT (truoc "[NOTE]") lam preview mac dinh, vi day moi la thong tin
-// GS/QC can luot nhanh de so sanh cach xu ly co lap lai qua nhieu lan hay khong; bam vao de xem full
-// (bao gom ca nhat ky) khi can dieu tra sau, thay vi cat ky tu vo nghia hoac nhoi ca 700 ky tu vao 1
-// dong danh sach dang lam mat kha nang doi chieu nhanh.
-function ctxlSummary(text: string): string {
-  const noteIdx = text.indexOf("[NOTE]");
-  return (noteIdx > -1 ? text.slice(0, noteIdx) : text).trim();
-}
-
-function CachThucXuLyLine({ text }: { text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const summary = ctxlSummary(text);
-  const hasMore = summary !== text.trim();
-
-  return (
-    <div
-      className={`text-[11px] text-[var(--ink-400)] mt-0.5 ${hasMore ? "cursor-pointer hover:text-[var(--ink-600)]" : ""}`}
-      onClick={(e) => {
-        if (!hasMore) return;
-        e.stopPropagation();
-        setExpanded((v) => !v);
-      }}
-    >
-      <span className={expanded ? "whitespace-pre-wrap" : "truncate block"} title={expanded ? undefined : summary}>
-        🛠 {expanded ? text : summary || text}
-      </span>
-      {hasMore && <span className="text-[var(--ocean-500)] font-semibold">{expanded ? " Thu gọn ↑" : " Xem đầy đủ ↓"}</span>}
-    </div>
-  );
-}
-
 // Phan "chi doc" cua thong tin khach hang (fields grid + 3 Card) - dung chung cho ca goc (cot trai,
 // co them nut hanh dong bao quanh o noi goi) va ca doi chieu (cot giua, thuan tham khao, khong nut
 // hanh dong). "serialExtra" la phan tu dat canh Serial (nut them Blacklist hoac badge da blacklist).
-function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlacklisted?: boolean) {
+function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlacklisted?: boolean, canEditKtvPhone?: boolean) {
   return (
     <>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">
@@ -131,9 +146,9 @@ function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlackli
             </span>
           }
         />
-        <Field label="Khu vực / Tỉnh" value={`${c.khu_vuc ?? "—"} — ${c.tinh ?? "—"} ${c.quan_huyen ? "— " + c.quan_huyen : ""}`} />
+        <Field label="Khu vực / Tỉnh" value={`${shortKhuVuc(c.khu_vuc)} — ${c.tinh ?? "—"} ${c.quan_huyen ? "— " + c.quan_huyen : ""}`} />
         <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />
-        <Field label="Kỹ thuật viên" value={c.ky_thuat_vien ?? "—"} />
+        <Field label="Kỹ thuật viên" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />
         <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />
         <Field label="Hẹn xử lý" value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />
         <Field label="Thời gian hoàn thành" value={fmtDateTime(c.thoi_gian_hoan_thanh)} />
@@ -336,7 +351,14 @@ export function CaseDetail({
 
   const [giaiTrinhModalOpen, setGiaiTrinhModalOpen] = useState(false);
   const [caLapModalOpen, setCaLapModalOpen] = useState(false);
+  // "Danh gia lap" tu 1 dong BAT KY trong Chuoi lich su theo serial (CHOT 2026-08-05, khac
+  // caLapModalOpen chi mo duoc cho DUNG ca dang hien) - luu case_id cua dong duoc bam, null = dong.
+  const [evalRowCaseId, setEvalRowCaseId] = useState<string | null>(null);
   const [blacklistConfirmOpen, setBlacklistConfirmOpen] = useState(false);
+  // CHOT 2026-08-12: modal "Xem day du" cho 1 dong Mua hang/Bao hanh (the rut gon o tab tuong ung
+  // khong hien HET moi cot cua Google Sheet - vd idXuat/maSuCoLienQuan/nguonTao/tinhTrangBaoHanh/
+  // maYeuCau/maYeuCauNhapTay) - luu ca nhan "labels" de Modal dung chung 1 renderer cho ca 2 dataset.
+  const [detailModalRow, setDetailModalRow] = useState<{ title: string; row: Record<string, string>; labels: Record<string, string> } | null>(null);
   const [huyCaConfirmOpen, setHuyCaConfirmOpen] = useState(false);
   const [huyCaLyDo, setHuyCaLyDo] = useState("");
 
@@ -344,10 +366,7 @@ export function CaseDetail({
   const activeLinhKien = (linhKienData?.rows ?? []).filter((l) => l.bat_tat);
 
   const [form, setForm] = useState({ ly_do_cham: "", noi_dung: "", linh_kien_thieu: "", ngay_du_kien: "", ngay_yeu_cau_co_hang: "", ma_xuat_hang: "" });
-  const [gsLapForm, setGsLapForm] = useState({ chot_danh_gia_lap: "", dien_giai_lap: "" });
-  const [qcLapForm, setQcLapForm] = useState({ qc_chot: "", qc_ghi_chu: "" });
   const [napGasForm, setNapGasForm] = useState({ danh_gia_nap_gas: "", phi_dich_vu: "" });
-  const [hinhThucForm, setHinhThucForm] = useState("");
   const lyDoChon = activeLyDo.find((l) => l.ten_ly_do === form.ly_do_cham) ?? activeLyDo[0];
   const giaiTrinhList = data?.giaiTrinh ?? [];
 
@@ -355,11 +374,9 @@ export function CaseDetail({
   // dieu khien theo tung tang cua case stack, xem comment o App.tsx) moi khi caseId doi - tranh du
   // lieu go do o ca A "ri" sang ca B khi dieu huong qua chuoi ca lap ma chua luu.
   useEffect(() => {
-    setGsLapForm({ chot_danh_gia_lap: "", dien_giai_lap: "" });
-    setQcLapForm({ qc_chot: "", qc_ghi_chu: "" });
     setNapGasForm({ danh_gia_nap_gas: "", phi_dich_vu: "" });
-    setHinhThucForm("");
     setCaLapModalOpen(false);
+    setEvalRowCaseId(null);
     setBlacklistConfirmOpen(false);
     setCompareId(null);
   }, [caseId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -391,11 +408,21 @@ export function CaseDetail({
         ngay_yeu_cau_co_hang: lyDoChon?.thuoc_thieu_linh_kien ? form.ngay_yeu_cau_co_hang || undefined : undefined,
         ma_xuat_hang_lien_quan: lyDoChon?.thuoc_thieu_linh_kien ? form.ma_xuat_hang || undefined : undefined,
       }),
-    onSuccess: () => {
+    onSuccess: async () => {
       addToast(`Đã ghi nhận giải trình cho ca ${caseId}`);
       setForm({ ly_do_cham: "", noi_dung: "", linh_kien_thieu: "", ngay_du_kien: "", ngay_yeu_cau_co_hang: "", ma_xuat_hang: "" });
       setGiaiTrinhModalOpen(false);
-      qc.invalidateQueries({ queryKey: ["case", caseId] });
+      // CHOT 2026-08-11 (mo rong 2026-08-12: giai trinh nay gio ap dung duoc cho MOI ca da dong, ke ca
+      // da dong tu lau, khong con gioi han "trong vong 1 ngay" - xem POST /cases/:id/giai-trinh o
+      // backend): fetchCaseDetailCached() doc IndexedDB (closedDataCache) TRUOC ca goi API (vi
+      // c.thoi_gian_hoan_thanh da co san), nen chi invalidateQueries suong se khien queryFn tra ve
+      // DUNG cache cu, khong bao gio thay log vua ghi (phai bam nut "Dong bo lai" thu cong moi thay) -
+      // dung y het pattern refreshCaLapQueries/refreshAfterHuyCa/refreshNapGasQueries: fetch that + ghi
+      // de closedDataCache truoc khi set lai query data - tu dong hien log moi, khong can nguoi dung
+      // tu bam "Dong bo lai".
+      const fresh = await fetchCaseDetail(caseId!);
+      const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+      qc.setQueryData(["case", caseId], newEntry);
       // CHOT 2026-07-30: fix bug "giai trinh xong khong tu cap nhat Danh sach chi tiet cua Quan ly
       // ton, phai load lai trang" - key cu "backlog" KHONG khop voi bat ky query nao thuc su dang
       // dung trong BacklogModule.tsx (da tach thanh "backlog-list"/"backlog-stats"/
@@ -415,20 +442,17 @@ export function CaseDetail({
   const c = data?.case;
   const caLap = data?.caLap;
 
-  const viPhamList = data?.viPham ?? [];
+  // Doi chieu "Don mua hang/bao hanh/xu ly thieu hang lien quan" - du lieu 3 Google Sheet da dong
+  // bo NGAM ve cache trinh duyet (xem hooks/usePurchaseWarrantyData.ts, kich hoat tu App.tsx),
+  // KHONG qua server. Chi tinh lai khi caseId/giaiTrinhList hoac du lieu sheet doi.
+  const { muaHang, baoHanh, thieuHang, isSyncing: purchaseSyncing, isRefreshing: purchaseRefreshing, lastSyncedAt: purchaseSyncedAt, refreshAll: refreshPurchaseData } =
+    usePurchaseWarrantyData();
+  const muaHangMatched = useMemo(() => (c ? matchMuaHang(c.id, giaiTrinhList, muaHang) : []), [c, giaiTrinhList, muaHang]);
+  const baoHanhMatched = useMemo(() => (c ? matchBaoHanh(c.id, baoHanh) : []), [c, baoHanh]);
+  const thieuHangMatched = useMemo(() => matchThieuHang(muaHangMatched, baoHanhMatched, thieuHang), [muaHangMatched, baoHanhMatched, thieuHang]);
 
-  // Gia tri "hieu luc" thuc su dung de hien thi/luu/kiem tra disabled - UU TIEN gia tri nguoi dung
-  // vua sua (form state) > gia tri da luu tren server > mac dinh nghiep vu. Truoc day cac cho Luu
-  // deu kiem tra thang state RAW (vd "!gsLapForm.chot_danh_gia_lap") nen khi mo lai 1 ca DA CO danh
-  // gia (chi hien qua fallback server, form state van rong) nut Luu bi disable oan, hoac khi luu se
-  // gui "undefined" de va XOA MAT du lieu cu (dien_giai_lap) chi vi nguoi dung khong dung toi o.
-  // "Hinh thuc xu ly" rieng: mac dinh nghiep vu la "Tinh luong" (khong phai rong) - xem them trong
-  // nhat_ky_lam_viec.md muc sua bug chon "Bo qua" khong luu duoc.
-  const effectiveHinhThuc = hinhThucForm || caLap?.giaiTrinhLap?.chot_hinh_thuc_xu_ly || "Tinh luong";
-  const effectiveChotDanhGiaLap = gsLapForm.chot_danh_gia_lap || caLap?.giaiTrinhLap?.chot_danh_gia_lap || "";
-  const effectiveDienGiaiLap = gsLapForm.dien_giai_lap || caLap?.giaiTrinhLap?.dien_giai_lap || "";
-  const effectiveQcChot = qcLapForm.qc_chot || caLap?.giaiTrinhLap?.qc_chot || "";
-  const effectiveQcGhiChu = qcLapForm.qc_ghi_chu || caLap?.giaiTrinhLap?.qc_ghi_chu || "";
+  const viPhamList = data?.viPham ?? [];
+  const ketQuaGoiList = data?.ketQuaGoi ?? [];
 
   const napGasDanhGia = data?.napGasDanhGia ?? null;
   // Chi hien tab/form "Danh gia nap gas" cho ca THUOC DIEN nghi ngo nap gas VA da dong voi dung
@@ -447,19 +471,19 @@ export function CaseDetail({
   const effectiveNapGasDanhGia = napGasForm.danh_gia_nap_gas || napGasDanhGia?.danh_gia_nap_gas || "";
   const effectiveNapGasPhiDichVu = napGasForm.phi_dich_vu || napGasDanhGia?.phi_dich_vu || "";
 
-  // "Tranh chap, khieu nai" - ca DA DONG (Hoan thanh XLSC hoac Khong hoan thanh XLSC) la dieu kien
-  // BAT BUOC (khop dung backend POST /:caseId/tiep-nhan). Co "Nghi ngo tranh chap" (co CRM import
-  // tu dong gan) KHONG con la dieu kien bat buoc de tao tien trinh moi nua - CHOT 2026-07-30: KSNB/
-  // Giam sat khu vuc duoc chu dong tao yeu cau ke ca ca chua duoc CRM gan co tranh chap, chi con
-  // dung "tranhChapEligible" de hien thi thong tin (khong con chan nut).
+  // "Tranh chap, khieu nai" - CHOT 2026-08-05: bo dieu kien "ca phai da dong (Hoan thanh XLSC/Khong
+  // hoan thanh XLSC)" - truoc day tranh chap "khong co khai niem dang ton", gio KSNB/Giam sat khu vuc
+  // duoc chu dong tao yeu cau xu ly tranh chap/khieu nai cho CA CA DANG TON (chua hoan thanh), khong
+  // chi ca da dong nua (khop dung backend POST /:caseId/tiep-nhan). "Nghi ngo tranh chap" (co CRM
+  // import tu dong gan) van KHONG phai dieu kien bat buoc de tao tien trinh moi (tu CHOT 2026-07-30),
+  // "tranhChapEligible" chi con dung de hien thi thong tin.
   const tranhChapEligible = !!(c && c.nghi_ngo_tranh_chap === 1 && (c.tien_do_hoan_thanh === "Hoàn thành XLSC" || c.tien_do_hoan_thanh === "Không hoàn thành XLSC"));
-  const caseDaDongChoTranhChap = !!(c && (c.tien_do_hoan_thanh === "Hoàn thành XLSC" || c.tien_do_hoan_thanh === "Không hoàn thành XLSC"));
   const tienTrinhListForCase = tienTrinhCaseData?.rows ?? [];
-  // Cho phep "Tiep nhan" tien trinh MOI (ke ca lan 2 tro di) khi: ca da dong, CHUA co tien trinh
-  // nao, HOAC toan bo tien trinh hien co deu da o trang thai dong - khop dung dieu kien backend
-  // POST /:caseId/tiep-nhan (chi 409 TIEN_TRINH_DANG_MO khi tien trinh gan nhat con mo).
+  // Cho phep "Tiep nhan" tien trinh MOI (ke ca lan 2 tro di) khi: CHUA co tien trinh nao, HOAC toan
+  // bo tien trinh hien co deu da o trang thai dong - khop dung dieu kien backend POST
+  // /:caseId/tiep-nhan (chi 409 TIEN_TRINH_DANG_MO khi tien trinh gan nhat con mo).
   const canTiepNhanTranhChapMoi =
-    caseDaDongChoTranhChap && (tienTrinhListForCase.length === 0 || tienTrinhListForCase.every((tt) => tt.trang_thai_xu_ly && TRANG_THAI_DONG.includes(tt.trang_thai_xu_ly)));
+    tienTrinhListForCase.length === 0 || tienTrinhListForCase.every((tt) => tt.trang_thai_xu_ly && TRANG_THAI_DONG.includes(tt.trang_thai_xu_ly));
 
   const lapStatus = caLap?.detection
     ? trangThaiLapOf({
@@ -492,6 +516,25 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
     },
     onError: () => addToast("Không thể thêm serial vào blacklist, thử lại sau."),
+  });
+
+  // "Bo qua" nhanh 1 dong trong Chuoi lich su theo serial (CHOT 2026-08-05) - thay vi mo modal chon
+  // tay, luu thang "Bo qua" + "Tinh luong" cho DUNG PHAN nguoi dung hien dang co quyen (canGsLap ->
+  // goi /gs, canQcLap -> goi /qc, Admin co ca 2 quyen se goi ca 2 cung luc) - tai dung y het 2
+  // endpoint /gs, /qc hien co (khong bypass requireRole cua tung endpoint), nen 1 Giam sat thuong
+  // (khong phai QC/Admin) bam nut nay chi luu duoc phan Giam sat, khong dung cham toi phan QC.
+  const boQuaLap = useMutation({
+    mutationFn: async (targetCaseId: string) => {
+      const calls: Promise<unknown>[] = [];
+      if (canGsLap) calls.push(api.post(`/ca-lap/${targetCaseId}/gs`, { chot_danh_gia_lap: "Bo qua", chot_hinh_thuc_xu_ly: "Tinh luong" }));
+      if (canQcLap) calls.push(api.post(`/ca-lap/${targetCaseId}/qc`, { qc_chot: "Bo qua", chot_hinh_thuc_xu_ly: "Tinh luong" }));
+      await Promise.all(calls);
+    },
+    onSuccess: async () => {
+      addToast("Đã bỏ qua đánh giá lặp");
+      await refreshCaLapQueries();
+    },
+    onError: () => addToast("Không thể lưu, thử lại sau."),
   });
 
   // "Huy ca" (Admin) - an ca khoi moi hang doi can xu ly + KPI (xem backend/src/routes/cases.ts
@@ -534,31 +577,6 @@ export function CaseDetail({
       await refreshAfterHuyCa();
     },
     onError: () => addToast("Không thể bỏ hủy ca, thử lại sau."),
-  });
-
-  // Giam sat "Chot lap": 1 nut duy nhat luu ca Hinh thuc xu ly + Danh gia lap + Dien giai cung luc
-  // (gop 3 API rieng le truoc day thanh 1 lan goi /gs, xem backend/src/routes/caLap.ts).
-  const saveGsLap = useMutation({
-    mutationFn: () =>
-      api.post(`/ca-lap/${caseId}/gs`, {
-        chot_danh_gia_lap: effectiveChotDanhGiaLap,
-        dien_giai_lap: effectiveDienGiaiLap || undefined,
-        chot_hinh_thuc_xu_ly: effectiveHinhThuc,
-      }),
-    onSuccess: async () => {
-      addToast("Đã chốt lặp (Giám sát)");
-      await refreshCaLapQueries();
-    },
-    onError: () => addToast("Không thể chốt lặp, thử lại sau."),
-  });
-
-  const saveQcLap = useMutation({
-    mutationFn: () => api.post(`/ca-lap/${caseId}/qc`, { qc_chot: effectiveQcChot, qc_ghi_chu: effectiveQcGhiChu || undefined }),
-    onSuccess: async () => {
-      addToast("Đã chốt lặp (QC)");
-      await refreshCaLapQueries();
-    },
-    onError: () => addToast("Không thể chốt lặp, thử lại sau."),
   });
 
   // Nap gas cung la ca DA DONG (chi ap dung khi thoi_gian_hoan_thanh + tien_do_hoan_thanh = "Hoan
@@ -614,7 +632,7 @@ export function CaseDetail({
         <CacheBanner cachedAt={entry.cachedAt} onSync={() => syncCaseMutation.mutate()} isSyncing={syncCaseMutation.isPending} />
       )}
 
-      {!c.thoi_gian_hoan_thanh && canGiaiTrinh && (
+      {canGiaiTrinh && (
         <div className="flex justify-end mb-3">
           <Btn size="sm" onClick={openGiaiTrinhModal}>
             + Thêm giải trình
@@ -639,6 +657,7 @@ export function CaseDetail({
           )
         ),
         caLap?.serialBlacklisted,
+        !!currentUser?.vai_tro && KTV_PHONE_EDIT_ROLES.includes(currentUser.vai_tro),
       )}
     </>
   );
@@ -674,7 +693,7 @@ export function CaseDetail({
 
   const giaiTrinhContent = c && (
     <>
-      {!c.thoi_gian_hoan_thanh && canGiaiTrinh && (
+      {canGiaiTrinh && (
         <div className="flex justify-end mb-4">
           <Btn size="sm" onClick={openGiaiTrinhModal}>
             + Thêm giải trình
@@ -734,6 +753,43 @@ export function CaseDetail({
     </div>
   );
 
+  const khaoSatContent = (
+    <div>
+      {ketQuaGoiList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có cuộc gọi khảo sát nào cho ca này.</div>}
+      <div className="space-y-3">
+        {ketQuaGoiList.map((k) => {
+          const loaiList = parseLoaiKhaoSat(k.loai_khao_sat);
+          return (
+            <Card key={k.id} className="p-3">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+                <span className="font-semibold text-sm">{k.ket_qua_cuoc_goi ?? "—"}</span>
+                <div className="flex items-center gap-1.5">
+                  {k.can_goi_lai !== null && <Badge tone={k.can_goi_lai ? "amber" : "gray"}>{k.can_goi_lai ? "Cần gọi lại" : "Không cần gọi lại"}</Badge>}
+                  <span className="text-xs text-[var(--ink-400)]">{fmtDateTime(k.ngay_gio_thuc_hien)}</span>
+                </div>
+              </div>
+              {loaiList.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {loaiList.map((loai) => (
+                    <Badge key={loai} tone="ocean">
+                      {LOAI_LOI_META[loai]?.short ?? loai}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+                <Field label="Đối tượng liên hệ" value={k.doi_tuong_lien_he ?? "—"} />
+                <Field label="Người thực hiện" value={k.nguoi_thuc_hien} />
+                {k.ly_do_that_bai && <Field label="Lý do thất bại" value={k.ly_do_that_bai} />}
+                {k.ghi_chu && <Field label="Ghi chú" value={k.ghi_chu} />}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const caLapContent = (
     <div>
       {!caLap?.detection && <div className="text-sm text-[var(--ink-400)] italic">Không phát hiện ca lặp (cùng serial, hoàn thành trong 45 ngày) cho ca này.</div>}
@@ -768,10 +824,22 @@ export function CaseDetail({
                 const isCurrent = h.id === caseId;
                 const isCompareSelected = h.id === compareId;
                 const next = caLap.lichSu[i + 1];
+                // CHOT 2026-08-05: "cach ca sau X ngay" = tu luc DONG ca truoc (next, cu hon vi da
+                // sap xep DESC theo thoi_gian_cskh_tiep_nhan) den luc MO ca sau (h) - dung y nghia
+                // nghiep vu "may lai hong sau bao lau", KHONG phai khoang cach giua 2 lan DONG ca
+                // (cong thuc cu). Vd: ca truoc hoan thanh 15/07, ca sau tiep nhan 20/07 -> 5 ngay.
+                // parseDbDateTime() gia dinh CO gio (them "T00:00:00" truoc khi cong offset se sai
+                // dang neu goi truc tiep tren chuoi ngay thuan) - mot so ca backfill thang 7/2026
+                // thoi_gian_cskh_tiep_nhan chi la ngay thuan (xem chu thich fmtDateTime), nen can
+                // them "T00:00:00" truoc khi parse cho dung dinh dang ma parseDbDateTime cho phep.
+                const parseFlexibleDate = (v: string) => parseDbDateTime(v.includes(":") ? v : `${v} 00:00:00`);
                 const gapDays =
-                  next?.thoi_gian_hoan_thanh && h.thoi_gian_hoan_thanh
-                    ? (parseDbDateTime(h.thoi_gian_hoan_thanh).getTime() - parseDbDateTime(next.thoi_gian_hoan_thanh).getTime()) / 86400000
+                  next?.thoi_gian_hoan_thanh && h.thoi_gian_cskh_tiep_nhan
+                    ? (parseFlexibleDate(h.thoi_gian_cskh_tiep_nhan).getTime() - parseFlexibleDate(next.thoi_gian_hoan_thanh).getTime()) / 86400000
                     : null;
+                // CHOT 2026-08-07: Show button danh gia lap cho tat ca cac ca trong danh sach (ke ca ca hien tai)
+                // ngoai tru ca bi huy bo (huy_bo_at), khong co KTV, hoac ca "Khong hoan thanh XLSC".
+                const canEvalThisRow = !h.huy_bo_at && h.ky_thuat_vien && h.tien_do_hoan_thanh !== "Không hoàn thành XLSC";
                 // "expanded": bam dong gia goc se dong bang doi chieu, bam dong khac se
                 // mo/dong bang doi chieu tai cho (khong dieu huong ca popup). "compact": giu
                 // nguyen hanh vi cu - dieu huong ca popup sang ca do (mo o "expanded").
@@ -788,23 +856,70 @@ export function CaseDetail({
                     <div
                       onClick={handleRowClick}
                       className={`flex items-start gap-2 py-1.5 px-1.5 -mx-1.5 rounded-lg border cursor-pointer hover:bg-slate-50 ${
-                        isCurrent ? "border-[var(--coral-500)]" : isCompareSelected ? "border-[var(--ocean-500)]" : "border-transparent"
+                        isCurrent ? "border-[var(--coral-500)] bg-[var(--coral-100)]" : isCompareSelected ? "border-[var(--ocean-500)]" : "border-transparent"
                       }`}
                     >
                       <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isCurrent ? "bg-[var(--coral-500)]" : "bg-[var(--teal-500)]"}`}></span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold">{fmtDateTime(h.thoi_gian_hoan_thanh)}</span>
-                          {h.link_crm && (
-                            <a href={h.link_crm} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                              <Btn size="sm" variant="subtle" type="button">
-                                🔗 CRM
-                              </Btn>
-                            </a>
-                          )}
+                          <span className="text-xs font-semibold">
+                            {/* CHOT 2026-08-12: lam noi bat ro rang dong ung voi ca DANG XEM trong
+                                popup (truoc chi co border/cham mau nhat, chu he thong bao khong de
+                                nhan ra giua danh sach nhieu dong) - them nen mau (xem className cha)
+                                + nhan "Ca dang xem" ngay canh gio. */}
+                            {isCurrent && <Badge tone="coral">📍 Ca đang xem</Badge>}{" "}
+                            {fmtDateTime(h.thoi_gian_hoan_thanh)}
+                            {/* Trang thai da chot (neu co) - CHOT 2026-08-05, xem chu thich lichSu
+                                phia backend (LEFT JOIN giai_trinh_lap). Chi hien khi co IT NHAT 1
+                                ben da chot, tranh "(GS: — QC: —)" ram tren moi dong chua ai xu ly. */}
+                            {(h.chot_danh_gia_lap || h.qc_chot) && (
+                              <span className="text-[var(--ink-400)] font-normal ml-1">
+                                (GS: {h.chot_danh_gia_lap ? CA_LAP_META[h.chot_danh_gia_lap].label : "—"} QC: {h.qc_chot ? CA_LAP_META[h.qc_chot].label : "—"})
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* CHOT 2026-08-07: Show button danh gia lap cho tat ca cac ca trong danh sach (ke ca ca hien tai)
+                                ngoai tru ca bi huy bo (huy_bo_at), khong co KTV, hoac ca "Khong hoan thanh XLSC". */}
+                            {(canGsLap || canQcLap) && (
+                              canEvalThisRow ? (
+                                <>
+                                  <Btn size="sm" variant="subtle" type="button" onClick={(e) => { e.stopPropagation(); setEvalRowCaseId(h.id); }}>
+                                    🔒 Đánh giá lặp
+                                  </Btn>
+                                  {/* "Bo qua" nhanh (CHOT 2026-08-05) - luu thang "Bo qua" + "Tinh
+                                      luong" cho phan nguoi dung hien co quyen, khong can mo modal. */}
+                                  <Btn
+                                    size="sm"
+                                    variant="subtle"
+                                    type="button"
+                                    disabled={boQuaLap.isPending}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      boQuaLap.mutate(h.id);
+                                    }}
+                                  >
+                                    Bỏ qua
+                                  </Btn>
+                                </>
+                              ) : (
+                                <span className="text-xs text-[var(--ink-400)] italic px-2 py-1 shrink-0">Không tính lặp</span>
+                              )
+                            )}
+                            {h.link_crm && (
+                              <a href={h.link_crm} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                                <Btn size="sm" variant="subtle" type="button">
+                                  🔗 CRM
+                                </Btn>
+                              </a>
+                            )}
+                          </div>
                         </div>
                         <div className="text-xs text-[var(--ink-600)]">
-                          ID <span className="font-mono">{h.id}</span> · {h.ky_thuat_vien ?? "—"}
+                          {/* CHOT 2026-08-12: "ID {id}" lam noi bat (dam + mau ocean, khop style dung
+                              o SearchResultsPopup/DanhSachTongModule) tren MOI dong cua danh sach -
+                              chu he thong can de mat thay so ID giua nhieu dong cung mau chu nhat. */}
+                          <span className="font-mono font-semibold text-[var(--ocean-600)]">ID {h.id}</span> · {h.ky_thuat_vien ?? "—"}
                           {h.tien_do_hoan_thanh && ` · ${h.tien_do_hoan_thanh}`}
                         </div>
                         {/* Dong rieng (khong gop vao dong ID/KTV/tien do) - xem CachThucXuLyLine o
@@ -888,6 +1003,138 @@ export function CaseDetail({
     </div>
   );
 
+  // 3 tab tra cuu du lieu Google Sheet mua hang/bao hanh/xu ly thieu hang - CHOT 2026-08-02, xem
+  // hooks/usePurchaseWarrantyData.ts + lib/purchaseWarrantyMatch.ts. Dung chung 1 banner dong bo
+  // (CacheBanner) o dau moi tab vi ca 3 tap du lieu duoc dong bo CUNG LUC boi refreshAll().
+  function muaHangTone(trangThai: string): BadgeTone {
+    if (trangThai.includes("ĐỒNG Ý")) return "teal";
+    if (trangThai.includes("TỪ CHỐI")) return "coral";
+    return "gray";
+  }
+  function statusWordTone(text: string): BadgeTone {
+    const t = text.toLowerCase();
+    if (t.includes("hoàn thành") || t.includes("xong") || t.includes("đã xử lý")) return "teal";
+    if (t.includes("từ chối") || t.includes("hủy")) return "coral";
+    if (t.includes("đang")) return "amber";
+    return "gray";
+  }
+
+  const purchaseSyncBanner = purchaseSyncedAt ? (
+    <CacheBanner cachedAt={purchaseSyncedAt} onSync={refreshPurchaseData} isSyncing={purchaseRefreshing} />
+  ) : (
+    <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-100 text-xs text-[var(--ink-600)]">
+      <LoadingInline /> Đang đồng bộ dữ liệu mua hàng/bảo hành từ Google Sheet lần đầu…
+    </div>
+  );
+
+  const muaHangContent = (
+    <div>
+      {purchaseSyncBanner}
+      {!purchaseSyncing && muaHangMatched.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn mua hàng liên quan đến ca này.</div>
+      )}
+      <div className="space-y-3">
+        {muaHangMatched.map((r) => (
+          <Card key={r.id} className="p-3">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+              <span className="font-semibold text-sm">{r.linhKien || "(chưa rõ linh kiện)"}</span>
+              <div className="flex items-center gap-1.5">
+                {r._region && <Badge tone="gray">{r._region}</Badge>}
+                {r.trangThaiDuyet && <Badge tone={muaHangTone(r.trangThaiDuyet)}>{r.trangThaiDuyet}</Badge>}
+              </div>
+            </div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+              <Field label="Mã linh kiện" value={r.maLinhKien || "—"} />
+              <Field label="Loại đề xuất" value={r.loaiDeXuat || "—"} />
+              <Field label="SL đề xuất / thực xuất" value={`${r.soLuongDeXuat || "—"} / ${r.soLuongThucXuat || "—"}`} />
+              <Field label="Giá đề xuất" value={r.giaDeXuat || "—"} />
+              <Field label="Ngày tạo" value={r.ngayTao || "—"} />
+              <Field label="Ngày KTV nhận hàng" value={r.ngayKtvNhanHang || "—"} />
+              <Field label="Trạng thái gửi hàng" value={r.trangThaiGuiHang || "—"} />
+              {r.lyDoTuChoi && <Field label="Lý do từ chối" value={r.lyDoTuChoi} />}
+            </div>
+            <div className="flex justify-end mt-2">
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn mua hàng ${r.id}`, row: r, labels: MUA_HANG_DETAIL_LABELS })}>
+                🔍 Xem đầy đủ
+              </Btn>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+  const baoHanhContent = (
+    <div>
+      {purchaseSyncBanner}
+      {!purchaseSyncing && baoHanhMatched.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn bảo hành liên quan đến ca này.</div>
+      )}
+      <div className="space-y-3">
+        {baoHanhMatched.map((r) => (
+          <Card key={r.id} className="p-3">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+              <span className="font-semibold text-sm">{r.modelSanPham || "(chưa rõ model)"}</span>
+              <div className="flex items-center gap-1.5">
+                {r._region && <Badge tone="gray">{r._region}</Badge>}
+                {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
+              </div>
+            </div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+              <Field label="Serial" value={r.serial || "—"} />
+              <Field label="Hãng" value={r.hang || "—"} />
+              <Field label="Linh kiện sửa" value={r.linhKienSua || "—"} />
+              <Field label="Tình trạng hư hỏng" value={r.tinhTrangHuHong || "—"} />
+              <Field label="Phương án xử lý" value={r.phuongAnXuLy || "—"} />
+              <Field label="Cách thức xử lý" value={r.cachThucXuLy || "—"} />
+              <Field label="Nguyên nhân chậm" value={r.nguyenNhanCham || "—"} />
+              <Field label="Người sửa" value={r.nguoiSua || "—"} />
+              <Field label="Ngày gửi" value={r.ngayGui || "—"} />
+              <Field label="Ngày giờ trả xong" value={r.ngayGioTraXong || "—"} />
+              {r.danhGiaKetQua && <Field label="Đánh giá kết quả sau sửa chữa" value={r.danhGiaKetQua} />}
+              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+            </div>
+            <div className="flex justify-end mt-2">
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn bảo hành ${r.id}`, row: r, labels: BAO_HANH_DETAIL_LABELS })}>
+                🔍 Xem đầy đủ
+              </Btn>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+  const thieuHangContent = (
+    <div>
+      {purchaseSyncBanner}
+      {!purchaseSyncing && thieuHangMatched.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">Không có yêu cầu xử lý thiếu hàng liên quan đến ca này.</div>
+      )}
+      <div className="space-y-3">
+        {thieuHangMatched.map((r) => (
+          <Card key={r.id} className="p-3">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+              <span className="font-semibold text-sm">{r.lyDoLuaChon || "(chưa rõ lý do)"}</span>
+              {r.trangThaiXuLy && <Badge tone={statusWordTone(r.trangThaiXuLy)}>{r.trangThaiXuLy}</Badge>}
+            </div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+              <Field label="Nguồn" value={r.nguon || "—"} />
+              <Field label="Ngày dự kiến có hàng" value={r.ngayDuKienCoHang || "—"} />
+              <Field label="Ngày kho xác nhận hàng về" value={r.ngayKhoXacNhan || "—"} />
+              <Field label="Thay đổi ngày dự kiến" value={r.thayDoiNgayDuKien || "—"} />
+              {r.giaiThichLyDo && <Field label="Giải thích lý do thiếu hàng" value={r.giaiThichLyDo} />}
+              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
   const canWriteTranhChapForCase = !!(currentUser && canWriteTranhChap(currentUser, c?.khu_vuc ?? null));
 
   const tranhChapContent = (
@@ -898,9 +1145,6 @@ export function CaseDetail({
             ? "Ca này chưa có tiến trình xử lý tranh chấp nào."
             : "Ca này chưa được CRM đánh dấu nghi ngờ tranh chấp — vẫn có thể tạo yêu cầu xử lý thủ công bên dưới nếu cần."}
         </div>
-      )}
-      {!caseDaDongChoTranhChap && canWriteTranhChapForCase && (
-        <div className="text-xs text-[var(--ink-400)] italic">Ca chưa hoàn thành XLSC — chưa thể tạo yêu cầu giải quyết tranh chấp, khiếu nại.</div>
       )}
       {canTiepNhanTranhChapMoi && canWriteTranhChapForCase && (
         <div className="flex justify-end">
@@ -918,19 +1162,27 @@ export function CaseDetail({
   const tabsList: TabItem[] =
     viewMode === "compact"
       ? [
-          { key: "info", label: "Thông tin khách hàng" },
-          { key: "giai-trinh", label: "Giải trình tồn", count: giaiTrinhList.length },
-          { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
+          { key: "info", label: "Thông tin" },
+          { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
+          { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
+          { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
-          { key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 },
-          { key: "tranh-chap", label: "Tranh chấp, KN", count: tienTrinhListForCase.length },
+          { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
+          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
+          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
+          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
         ]
       : [
-          { key: "giai-trinh", label: "Giải trình tồn", count: giaiTrinhList.length },
-          { key: "vi-pham", label: "Vi phạm ghi nhận", count: viPhamList.length },
+          { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
+          { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
+          { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
-          { key: "nap-gas", label: "Đánh giá nạp gas", count: napGasDanhGia ? 1 : 0 },
-          { key: "tranh-chap", label: "Tranh chấp, KN", count: tienTrinhListForCase.length },
+          { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
+          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
+          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
+          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
         ];
 
   const viewModeToggle = (
@@ -1051,8 +1303,12 @@ export function CaseDetail({
               <Tabs active={tab} onChange={onTabChange} tabs={tabsList} />
               {tab === "giai-trinh" && giaiTrinhContent}
               {tab === "vi-pham" && viPhamContent}
+              {tab === "khao-sat" && khaoSatContent}
               {tab === "ca-lap" && caLapContent}
               {tab === "nap-gas" && napGasContent}
+              {tab === "mua-hang" && muaHangContent}
+              {tab === "bao-hanh" && baoHanhContent}
+              {tab === "thieu-hang" && thieuHangContent}
               {tab === "tranh-chap" && tranhChapContent}
             </div>
           </div>
@@ -1064,8 +1320,12 @@ export function CaseDetail({
             {tab === "info" && infoContent}
             {tab === "giai-trinh" && giaiTrinhContent}
             {tab === "vi-pham" && viPhamContent}
+            {tab === "khao-sat" && khaoSatContent}
             {tab === "ca-lap" && caLapContent}
             {tab === "nap-gas" && napGasContent}
+            {tab === "mua-hang" && muaHangContent}
+            {tab === "bao-hanh" && baoHanhContent}
+            {tab === "thieu-hang" && thieuHangContent}
             {tab === "tranh-chap" && tranhChapContent}
           </div>
         )}
@@ -1181,114 +1441,11 @@ export function CaseDetail({
         );
       })()}
 
-      {caLapModalOpen && caLap?.detection && (
-        <Modal open onClose={() => setCaLapModalOpen(false)} title={`Giải trình / Chốt lặp — Ca ${caseId}`} width="max-w-xl">
-          <Card className="p-3 divide-y divide-[var(--line)]">
-            <div className="pb-2.5">
-              <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">Giám sát (lần 1)</div>
-              {canGsLap ? (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[var(--ink-400)]">Hình thức xử lý</label>
-                  <ChoiceSelect
-                    value={effectiveHinhThuc}
-                    onChange={setHinhThucForm}
-                    className="w-full"
-                    options={HINH_THUC_XU_LY_KEYS.map((k) => ({ value: k, label: HINH_THUC_XU_LY_META[k].label }))}
-                  />
-                  <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá lặp</label>
-                  <ChoiceSelect
-                    value={effectiveChotDanhGiaLap}
-                    onChange={(v) => setGsLapForm({ ...gsLapForm, chot_danh_gia_lap: v })}
-                    className="w-full"
-                    options={[{ value: "", label: "— Chọn đánh giá —" }, ...CA_LAP_KEYS.map((k) => ({ value: k, label: CA_LAP_META[k].label }))]}
-                  />
-                  <textarea
-                    value={effectiveDienGiaiLap}
-                    onChange={(e) => setGsLapForm({ ...gsLapForm, dien_giai_lap: e.target.value })}
-                    rows={2}
-                    placeholder="Mô tả nguyên nhân, bối cảnh…"
-                    className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
-                  />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Btn size="sm" onClick={() => saveGsLap.mutate()} disabled={!effectiveChotDanhGiaLap || saveGsLap.isPending}>
-                      {saveGsLap.isPending ? "Đang lưu…" : "🔒 Chốt lặp"}
-                    </Btn>
-                    {caLap.giaiTrinhLap?.nguoi_giai_trinh && (
-                      <span className="text-xs text-[var(--ink-400)]">
-                        {caLap.giaiTrinhLap.nguoi_giai_trinh} · {fmtDateTime(caLap.giaiTrinhLap.ngay_giai_trinh)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs flex flex-wrap items-center gap-1.5">
-                  {caLap.giaiTrinhLap?.chot_danh_gia_lap ? (
-                    <>
-                      <Badge tone="ocean">{CA_LAP_META[caLap.giaiTrinhLap.chot_danh_gia_lap].label}</Badge>
-                      <span className="text-[var(--ink-400)]">
-                        Hình thức: {caLap.giaiTrinhLap.chot_hinh_thuc_xu_ly ? HINH_THUC_XU_LY_META[caLap.giaiTrinhLap.chot_hinh_thuc_xu_ly].label : "—"}
-                      </span>
-                      {caLap.giaiTrinhLap.nguoi_giai_trinh && (
-                        <span className="text-[var(--ink-400)]">
-                          · {caLap.giaiTrinhLap.nguoi_giai_trinh} · {fmtDateTime(caLap.giaiTrinhLap.ngay_giai_trinh)}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-[var(--ink-400)] italic">Chưa có giải trình.</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-2.5">
-              <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">QC chốt (lần 2)</div>
-              {canQcLap ? (
-                <div className="space-y-1.5">
-                  <ChoiceSelect
-                    value={effectiveQcChot}
-                    onChange={(v) => setQcLapForm({ ...qcLapForm, qc_chot: v })}
-                    className="w-full"
-                    options={[{ value: "", label: "— Chọn đánh giá —" }, ...CA_LAP_KEYS.map((k) => ({ value: k, label: CA_LAP_META[k].label }))]}
-                  />
-                  <textarea
-                    value={effectiveQcGhiChu}
-                    onChange={(e) => setQcLapForm({ ...qcLapForm, qc_ghi_chu: e.target.value })}
-                    rows={2}
-                    placeholder="Ghi chú kiểm tra, đối chiếu…"
-                    className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
-                  />
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Btn size="sm" onClick={() => saveQcLap.mutate()} disabled={!effectiveQcChot || saveQcLap.isPending}>
-                      {saveQcLap.isPending ? "Đang lưu…" : "🔒 Chốt lặp"}
-                    </Btn>
-                    {caLap.giaiTrinhLap?.nguoi_qc && (
-                      <span className="text-xs text-[var(--ink-400)]">
-                        {caLap.giaiTrinhLap.nguoi_qc} · {fmtDateTime(caLap.giaiTrinhLap.ngay_qc)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-xs flex flex-wrap items-center gap-1.5">
-                  {caLap.giaiTrinhLap?.qc_chot ? (
-                    <>
-                      <Badge tone="teal">{CA_LAP_META[caLap.giaiTrinhLap.qc_chot].label}</Badge>
-                      {caLap.giaiTrinhLap.nguoi_qc && (
-                        <span className="text-[var(--ink-400)]">
-                          · {caLap.giaiTrinhLap.nguoi_qc} · {fmtDateTime(caLap.giaiTrinhLap.ngay_qc)}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-[var(--ink-400)] italic">Chưa có chốt từ QC.</span>
-                  )}
-                </div>
-              )}
-            </div>
-          </Card>
-        </Modal>
-      )}
+      {/* CHOT 2026-08-05: "Xu ly ca lap" tach thanh component dung chung CaLapEvalModal (nhan caseId
+          lam prop) - dung 2 lan doc lap: nut o dau tab (danh gia CHINH ca dang mo) va tu 1 dong bat
+          ky trong "Chuoi lich su theo serial" (danh gia ca do, xem evalRowCaseId). */}
+      {caLapModalOpen && caLap?.detection && <CaLapEvalModal caseId={caseId!} canGsLap={canGsLap} canQcLap={canQcLap} onClose={() => setCaLapModalOpen(false)} />}
+      {evalRowCaseId && <CaLapEvalModal caseId={evalRowCaseId} canGsLap={canGsLap} canQcLap={canQcLap} onClose={() => setEvalRowCaseId(null)} />}
 
       {blacklistConfirmOpen && (
         <Modal open onClose={() => setBlacklistConfirmOpen(false)} title="Xác nhận thêm vào blacklist" width="max-w-md">
@@ -1302,6 +1459,16 @@ export function CaseDetail({
             <Btn onClick={() => addBlacklist.mutate()} disabled={addBlacklist.isPending}>
               {addBlacklist.isPending ? "Đang thêm…" : "Xác nhận thêm"}
             </Btn>
+          </div>
+        </Modal>
+      )}
+
+      {detailModalRow && (
+        <Modal open onClose={() => setDetailModalRow(null)} title={detailModalRow.title} width="max-w-lg">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            {Object.entries(detailModalRow.labels).map(([key, label]) => (
+              <Field key={key} label={label} value={detailModalRow.row[key] || "—"} />
+            ))}
           </div>
         </Modal>
       )}

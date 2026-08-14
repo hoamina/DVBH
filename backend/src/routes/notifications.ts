@@ -1,13 +1,14 @@
 import { Hono } from "hono";
-import type { Env } from "../types";
+import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION } from "./survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "./caLap";
-import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
+import { khuVucReportExclusionClause } from "../lib/filterParams";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { computeTranhChapCount } from "./tranhChap";
+import { getDailyReportWithDelta } from "../lib/dailySnapshot";
+import { NEED_SURVEY_CONDITION } from "./survey";
 
 const notifications = new Hono<{ Bindings: Env }>();
 notifications.use("*", verifySessionMiddleware, loadUser);
@@ -22,33 +23,32 @@ export interface NotificationsCountPayload {
   tranhChap: number;
 }
 
-/** Tach tu notifications.get("/count") - xem chu thich route ben duoi. "khaoSat"/"caLap" ca nhan
- * hoa theo vai_tro (params.vai_tro) nen KET QUA THAT SU PHU THUOC vai_tro, khong chi phu thuoc
- * scope khu_vuc - route ben duoi dua vai_tro vao cache key vi ly do nay (xem chu thich route).
- * "la_ksnb_doi_tac" (them 2026-07-29): rieng badge "tranhChap" dung pham vi KHONG gioi han khu_vuc
- * cho nguoi co co nay (giong scopeTranhChap() trong tranhChap.ts) - khac voi "scope" chung (theo
- * vai_tro qua ROLES_XEM_TOAN_BO) dung cho moi count con lai. */
-export async function computeNotificationsCount(
-  db: D1Database,
-  params: { vai_tro?: string; la_ksnb_doi_tac?: string },
-  scope: string[] | null,
-): Promise<NotificationsCountPayload> {
-  const scopeClause = khuVucWhereClause(scope, "khu_vuc");
-  const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
-  const scopeClauseLap = khuVucWhereClause(scope, "lap.khu_vuc");
-  const tranhChapScope = params.la_ksnb_doi_tac === "1" ? null : scope;
+/** Tach tu notifications.get("/count") - xem chu thich route ben duoi.
+ *
+ * CHOT 2026-08-01 (chu he thong phat hien chuong thong bao bi lech logic voi Quan ly ton/Tong
+ * quat): truoc day "canGiaiTrinh"/"caThieuLinhKien"/phan "canKhaoSat" cua "khaoSat"/phan
+ * "can_danh_gia" cua "caLap" deu tu tinh RIENG 1 cong thuc SONG (vd "canGiaiTrinh" dung "chua tung
+ * giai trinh", khac han NEED_TONG 5 nhanh dung o moi noi khac) - vua sai logic, vua khong "dong
+ * bang" theo Bao cao 08:00 nhu phan con lai cua he thong (badge sidebar tung hien so KHAC voi so
+ * "Tong can giai trinh" hien ngay trong trang Quan ly ton, gay hieu nham). Gio doc THANG tu
+ * getDailyReportWithDelta() (dung CHUNG ham voi GET /dashboard/daily-report - chinh la nguon du
+ * lieu chuong thong bao "an theo") lay .remaining cua 4 bucket tonCanGiaiTrinh/thieuLinhKien/
+ * caLap/canKhaoSat - dam bao MOI noi hien dung 1 con so nhat quan. "choQc" (cho QC chot cap 2) va
+ * "danhGiaNapGas"/"tranhChap" KHONG co bucket dong bang tuong ung nen giu nguyen tinh song. */
+export async function computeNotificationsCount(db: D1Database, user: AppUser, scope: string[] | null): Promise<NotificationsCountPayload> {
+  const scopeClauseCBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const scopeClauseLapBase = khuVucWhereClause(scope, "lap.khu_vuc");
+  const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
+  const exclusionLap = khuVucReportExclusionClause("lap.khu_vuc");
+  const scopeClauseC = { sql: scopeClauseCBase.sql + exclusionC.sql, binds: [...scopeClauseCBase.binds, ...exclusionC.binds] };
+  const scopeClauseLap = { sql: scopeClauseLapBase.sql + exclusionLap.sql, binds: [...scopeClauseLapBase.binds, ...exclusionLap.binds] };
+  const tranhChapScope = user.la_ksnb_doi_tac ? null : scope;
 
-  const [canGiaiTrinh, choQc, caThieuLinhKien, canKhaoSat, caLapCounts, danhGiaNapGas, tranhChap] = await Promise.all([
-    db
-      .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh
-         WHERE thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL AND huy_bo_at IS NULL
-           AND NOT EXISTS (SELECT 1 FROM giai_trinh g WHERE g.case_id = case_dvbh.id)${scopeClause.sql}`,
-      )
-      .bind(...scopeClause.binds)
-      .first<{ n: number }>(),
+  const [dailyReport, choQc, danhGiaNapGas, tranhChap] = await Promise.all([
+    getDailyReportWithDelta(db, user),
     // Phai JOIN case_dvbh + loc theo khu_vuc giong het tab "cho-qc" cua survey.ts, neu khong so
     // dem o chuong thong bao se lon hon danh sach that nguoi dung bi gioi han khu vuc xem duoc.
+    // Khong co bucket dong bang tuong ung (chua nam trong Bao cao 08:00) nen giu tinh song.
     db
       .prepare(
         `SELECT COUNT(*) as n FROM vi_pham v
@@ -57,58 +57,6 @@ export async function computeNotificationsCount(
       )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),
-    // Dung dung dieu kien baseJoin() + trang_thai=dang-ton mac dinh cua missingParts.ts. Subquery
-    // gioi han vao dung tap case DANG TON (CASE_FILTER_TON, khop het WHERE ben duoi) thay vi quet
-    // toan bo bang giai_trinh - xem giai thich an toan o latestGiaiTrinhJoin() trong needGiaiTrinh.ts.
-    db
-      .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
-         INNER JOIN (
-           SELECT case_id, ly_do_cham FROM (
-             SELECT gt.case_id, gt.ly_do_cham, ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
-             FROM giai_trinh gt
-             WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE ${CASE_FILTER_TON})
-           ) WHERE rn = 1
-         ) lg ON lg.case_id = c.id
-         INNER JOIN settings_ly_do sld ON sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}`,
-      )
-      .bind(...scopeClauseC.binds)
-      .first<{ n: number }>(),
-    db
-      .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
-         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND ${NEED_SURVEY_CONDITION}${scopeClauseC.sql}`,
-      )
-      .bind(...scopeClauseC.binds)
-      .first<{ n: number }>(),
-    // Gop 2 truy van "can danh gia"/"cho QC" cua Ca lap thanh 1 - CA_LAP_CTE dung window function
-    // LAG() quet TOAN BO lich su case_dvbh (khong dung duoc index de rut gon), rat ton kem neu chay
-    // 2 lan cho cung 1 request (phat hien qua Cloudflare D1 usage: rows read vuot xa binh thuong -
-    // endpoint nay bi poll moi 60s tu Sidebar/TopBar nen nhan chi phi len rat nhieu lan/ngay).
-    // Chi dem ca lap co thoi_gian_hoan_thanh trong THANG HIEN TAI - khop pham vi mac dinh cua trang
-    // tong quan Ca lap (monthBounds() khong tham so trong caLap.ts, cung tinh theo UTC qua
-    // getUTCFullYear/getUTCMonth), tranh tinh trang badge sidebar va trang tong quan hien 2 con so
-    // khac nhau (vd 888 vs 862) gay hieu nham cho nguoi dung. Dung date('now', ...) dang RANGE
-    // (khong dung strftime) de tan dung index, va 'now' cua SQLite la UTC nen khop voi cach tinh
-    // tren. Day la hang SQL, khong phai bind param, nen KHONG doi thu tu bind hien tai (query nay
-    // chi bind scopeClauseLap.binds).
-    // Cache: endpoint nay duoc bao boc boi cachedReport voi tag la "ngay VN" (xem route ben duoi),
-    // tu het han moi ngay - nen khi sang thang moi, cache cung tu lam moi va badge tu cap nhat theo
-    // thang moi ma khong can xu ly gi them.
-    db
-      .prepare(
-        `${CA_LAP_CTE}
-         SELECT
-           SUM(CASE WHEN gl.chot_danh_gia_lap IS NULL THEN 1 ELSE 0 END) as can_danh_gia,
-           SUM(CASE WHEN gl.chot_danh_gia_lap IS NOT NULL AND gl.qc_chot IS NULL THEN 1 ELSE 0 END) as cho_qc
-         FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
-         WHERE lap.gap_days <= ${NGUONG_NGAY_LAP}
-           AND lap.thoi_gian_hoan_thanh >= date('now','start of month')
-           AND lap.thoi_gian_hoan_thanh < date('now','start of month','+1 month')${scopeClauseLap.sql}`,
-      )
-      .bind(...scopeClauseLap.binds)
-      .first<{ can_danh_gia: number; cho_qc: number }>(),
     // "Danh gia nap gas" - doc tu bang rieng nap_gas_danh_gia (xem migration 0025), KHONG con dua
     // vao bang giai_trinh chung nhu truoc (bang do thiet ke cho "giai trinh ca ton", khac muc dich).
     // Nguon "nghi ngo nap gas" van doc thang tu case_dvbh.nghi_ngo_nap_gas (xem NAP_GAS_ELIGIBLE o
@@ -126,22 +74,42 @@ export async function computeNotificationsCount(
       )
       .bind(...scopeClauseC.binds)
       .first<{ n: number }>(),
-    computeTranhChapCount(db, tranhChapScope, params.la_ksnb_doi_tac === "1"),
+    computeTranhChapCount(db, tranhChapScope, user.la_ksnb_doi_tac),
   ]);
 
-  const role = params.vai_tro;
-  const khaoSat =
-    role === "QC" ? (choQc?.n ?? 0) : role === "CSKH" || role === "TN CSKH" ? (canKhaoSat?.n ?? 0) : (canKhaoSat?.n ?? 0) + (choQc?.n ?? 0);
-  const caLapCanDanhGia = caLapCounts?.can_danh_gia ?? 0;
-  const caLapChoQc = caLapCounts?.cho_qc ?? 0;
-  const caLap = role === "Giam sat" ? caLapCanDanhGia : role === "QC" ? caLapChoQc : caLapCanDanhGia + caLapChoQc;
+  // CHOT 2026-08-07: "khaoSat" badge chi can dem tong ca vi pham con can khao sat trong thang hien tai
+  // (theo phan quyen moi vai tro, co nghia la ap dung scopeClauseC nhu cu).
+  const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const thangStr = now.toISOString().slice(0, 7); // e.g. "2026-08"
+  const y = parseInt(thangStr.slice(0, 4), 10);
+  const m = parseInt(thangStr.slice(5, 7), 10);
+  const startMonth = `${thangStr}-01`;
+  const nextM = m === 12 ? 1 : m + 1;
+  const nextY = m === 12 ? y + 1 : y;
+  const endMonth = `${nextY}-${String(nextM).padStart(2, "0")}-01`;
+
+  const surveyCountRow = await db
+    .prepare(
+      `SELECT COUNT(*) as n FROM case_dvbh c
+       WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
+         AND ${NEED_SURVEY_CONDITION}
+         AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?
+         ${scopeClauseC.sql}`,
+    )
+    .bind(startMonth, endMonth, ...scopeClauseC.binds)
+    .first<{ n: number }>();
+
+  const khaoSat = surveyCountRow?.n ?? 0;
 
   return {
-    canGiaiTrinh: canGiaiTrinh?.n ?? 0,
+    canGiaiTrinh: dailyReport.tonCanGiaiTrinh.remaining,
     choQc: choQc?.n ?? 0,
-    caThieuLinhKien: caThieuLinhKien?.n ?? 0,
+    caThieuLinhKien: dailyReport.thieuLinhKien.remaining,
     khaoSat,
-    caLap,
+    // dailyReport.caLap da tu tinh theo dung "vai_tro" (roleVariantOf trong dailySnapshot.ts: Giam
+    // sat = "can_danh_gia", QC = "cho_qc", con lai = ca hai) - khop dung ban chat "can_danh_gia"/
+    // "cho_qc" ca nhan hoa cua ban song truoc day, khong can tu cong lai o day nua.
+    caLap: dailyReport.caLap.remaining,
     danhGiaNapGas: danhGiaNapGas?.n ?? 0,
     tranhChap,
   };
@@ -166,7 +134,7 @@ notifications.get("/count", async (c) => {
     c.env.DB,
     key,
     ["cases", "giai_trinh", "vi_pham", "giai_trinh_lap", "blacklist", "nap_gas_danh_gia", "tranh_chap"],
-    () => computeNotificationsCount(c.env.DB, params, scope),
+    () => computeNotificationsCount(c.env.DB, user, scope),
   );
   return c.json(data);
 });

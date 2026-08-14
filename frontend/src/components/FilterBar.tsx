@@ -39,7 +39,7 @@ export function FilterBar({
   const khuVucOptions = [
     ALL_KHU_VUC,
     { value: QLDVBH_FILTER_VALUE, label: "Tất cả QLDVBH (MB/MN...)" },
-    ...(data?.khuVuc ?? []),
+    ...(data?.khuVuc ?? []).map((k) => ({ value: k, label: k })),
   ];
   // Chot 2026-07-24: chi cho chon 1 thang co dinh, khong con tuy chon "Tat ca cac thang" (lap he
   // thong quet toan bo lich su moi lan chon) - mac dinh luon la thang hien tai (xem filters.thang

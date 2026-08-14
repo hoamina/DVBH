@@ -7,7 +7,8 @@ import { Modal } from "./ui/Modal";
 import { api } from "../api/client";
 import { fmtDateTime } from "../types";
 import { useToast } from "./ui/Toast";
-import type { AppUser } from "../auth/AuthContext";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { useAuth, type AppUser } from "../auth/AuthContext";
 import {
   TRANG_THAI_LABELS,
   TRANG_THAI_TONE,
@@ -72,7 +73,7 @@ export function TiepNhanModal({
     <Modal open onClose={onClose} title={`Tiếp nhận xử lý tranh chấp — ${caseRow.id}`}>
       <div className="space-y-3">
         <div className="text-sm text-[var(--ink-600)]">
-          {caseRow.khach_hang ?? "—"} · {caseRow.khu_vuc ?? "—"}
+          {caseRow.khach_hang ?? "—"} · {shortKhuVuc(caseRow.khu_vuc)}
         </div>
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Phân loại tranh chấp</label>
@@ -277,7 +278,7 @@ export function TienTrinhPanel({
             </div>
             <div className="font-display font-bold text-base text-[var(--ink-900)] truncate">{tt.khach_hang ?? "—"}</div>
             <div className="text-xs text-[var(--ink-400)] mt-0.5">
-              {tt.khu_vuc ?? "—"} · Tạo {fmtDateTime(tt.ngay_tao)}
+              {shortKhuVuc(tt.khu_vuc)} · Tạo {fmtDateTime(tt.ngay_tao)}
             </div>
           </div>
           {onOpenCase && (
@@ -369,7 +370,7 @@ export function TienTrinhPanel({
         <LogFormModal
           title="Thêm log xử lý mới"
           submitLabel="Thêm log"
-          initial={{ trang_thai_xu_ly: "", thoi_gian_du_kien_xong: latestLog?.thoi_gian_du_kien_xong ?? "", ghi_chu: "", ket_qua_xu_ly: "", hai_long_sau_tranh_chap: "" }}
+          initial={{ trang_thai_xu_ly: "", thoi_gian_du_kien_xong: latestLog?.thoi_gian_du_kien_xong ?? "", ghi_chu: "", ket_qua_xu_ly: "", hai_long_sau_tranh_chap: "", dang_cho_nguoi_xu_ly: "" }}
           ketQuaOptions={ketQuaOptions}
           latestTrangThai={latestLog?.trang_thai_xu_ly ?? null}
           onClose={() => setAddLogOpen(false)}
@@ -388,6 +389,7 @@ export function TienTrinhPanel({
             ghi_chu: editingLog.ghi_chu ?? "",
             ket_qua_xu_ly: editingLog.ket_qua_xu_ly ?? "",
             hai_long_sau_tranh_chap: editingLog.hai_long_sau_tranh_chap ?? "",
+            dang_cho_nguoi_xu_ly: editingLog.dang_cho_nguoi_xu_ly ?? "",
           }}
           ketQuaOptions={ketQuaOptions}
           // Giai doan tinh tu log NGAY TRUOC log dang sua (khong phai chinh no) - editingLog luon la
@@ -425,13 +427,13 @@ function LogFormModal({
 }: {
   title: string;
   submitLabel: string;
-  initial: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong: string; ghi_chu: string; ket_qua_xu_ly: string; hai_long_sau_tranh_chap: string };
+  initial: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong: string; ghi_chu: string; ket_qua_xu_ly: string; hai_long_sau_tranh_chap: string; dang_cho_nguoi_xu_ly?: string | null };
   ketQuaOptions: KetQuaXuLyTranhChapRow[];
   // Trang thai cua log NGAY TRUOC log dang them/sua - quyet dinh giai doan (Giam sat/CSKH) duoc phep
   // chon o day (chot 2026-07-31 diem 1: khong cho quay lai giai doan Giam sat sau khi da chuyen CSKH).
   latestTrangThai: string | null;
   onClose: () => void;
-  onSubmit: (body: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string }) => void;
+  onSubmit: (body: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string; dang_cho_nguoi_xu_ly?: string | null }) => void;
   isPending: boolean;
 }) {
   const [trangThai, setTrangThai] = useState(initial.trang_thai_xu_ly);
@@ -439,8 +441,31 @@ function LogFormModal({
   const [ghiChu, setGhiChu] = useState(initial.ghi_chu);
   const [ketQua, setKetQua] = useState(initial.ket_qua_xu_ly);
   const [haiLong, setHaiLong] = useState(initial.hai_long_sau_tranh_chap);
+  const [dangCho, setDangCho] = useState(initial.dang_cho_nguoi_xu_ly || "");
+
+  const auth = useAuth();
+  const user = auth.status === "authenticated" ? auth.user : null;
+
   const canKetQua = TRANG_THAI_CAN_KET_QUA.includes(trangThai);
-  const phaseOptions = phaseOfStatus(latestTrangThai) === "cskh" ? CSKH_STATUS_OPTIONS : GIAM_SAT_STATUS_OPTIONS;
+  const currentPhase = phaseOfStatus(latestTrangThai);
+  let phaseOptions: { value: string; label: string }[] = currentPhase === "cskh"
+    ? CSKH_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
+    : GIAM_SAT_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }));
+
+  const isKsnbOrAdmin = !!user?.la_ksnb_doi_tac || user?.vai_tro === "Admin";
+  if (isKsnbOrAdmin && currentPhase === "cskh") {
+    if (!phaseOptions.some((opt) => opt.value === "Giam sat chua xu ly")) {
+      phaseOptions.push({ value: "Giam sat chua xu ly", label: "Chuyển lại giám sát xử lý" });
+    }
+  }
+
+  const { data: handlingUsersData } = useQuery({
+    queryKey: ["tranh-chap-handling-users"],
+    queryFn: () => api.get<{ rows: { email: string; ten: string; vai_tro: string }[] }>("/tranh-chap/handling-users"),
+  });
+  const handlingUsers = handlingUsersData?.rows ?? [];
+
+  const showDangCho = trangThai === "Giam sat dang xu ly" || trangThai === "CSKH dang xu ly";
 
   return (
     <Modal open onClose={onClose} title={title} width="max-w-lg">
@@ -449,6 +474,20 @@ function LogFormModal({
           <label className="text-xs font-semibold text-[var(--ink-400)]">Trạng thái xử lý</label>
           <Select value={trangThai} onChange={setTrangThai} options={[{ value: "", label: "Chọn trạng thái…" }, ...phaseOptions]} className="w-full mt-1" />
         </div>
+        {showDangCho && (
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Đang chờ người xử lý</label>
+            <Select
+              value={dangCho}
+              onChange={setDangCho}
+              options={[
+                { value: "", label: "Chọn người xử lý…" },
+                ...handlingUsers.map((u) => ({ value: u.email, label: `${u.ten} (${u.vai_tro} - ${u.email})` })),
+              ]}
+              className="w-full mt-1"
+            />
+          </div>
+        )}
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày dự kiến xử lý xong</label>
           <input
@@ -466,7 +505,10 @@ function LogFormModal({
                 <Select
                   value={ketQua}
                   onChange={setKetQua}
-                  options={[{ value: "", label: "Chọn kết quả xử lý…" }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
+                  options={[
+                    { value: "", label: "Chọn kết quả xử lý…" },
+                    ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua })),
+                  ]}
                   className="w-full mt-1"
                 />
               ) : (
@@ -501,6 +543,7 @@ function LogFormModal({
                 ghi_chu: ghiChu.trim() || undefined,
                 ket_qua_xu_ly: canKetQua ? ketQua : undefined,
                 hai_long_sau_tranh_chap: canKetQua ? haiLong : undefined,
+                dang_cho_nguoi_xu_ly: showDangCho ? dangCho || null : null,
               })
             }
             disabled={!trangThai || (canKetQua && (!ketQua || !haiLong)) || isPending}

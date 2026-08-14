@@ -1,8 +1,9 @@
-export function LoginScreen({ variant = "login" }: { variant?: "login" | "pending" | "rejected" }) {
+export function LoginScreen({ variant = "login" }: { variant?: "login" | "pending" | "rejected" | "disabled" }) {
   const messages: Record<string, { title: string; sub: string }> = {
     login: { title: "Ông Thợ 3T - DVBH", sub: "Hệ thống quản lý giải trình tồn & SLA nội bộ" },
     pending: { title: "Đang chờ duyệt", sub: "Tài khoản của bạn đã được ghi nhận, vui lòng chờ Admin phê duyệt và gán vai trò." },
     rejected: { title: "Tài khoản bị từ chối", sub: "Liên hệ Admin nếu bạn cho rằng đây là nhầm lẫn." },
+    disabled: { title: "Tài khoản đã bị khóa", sub: "Liên hệ Admin để được mở khóa lại." },
   };
   const { title, sub } = messages[variant];
 

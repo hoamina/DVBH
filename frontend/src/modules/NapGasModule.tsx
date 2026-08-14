@@ -14,6 +14,9 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 
 interface NapGasCase {
   id: string;
@@ -76,14 +79,15 @@ const VIEWS = [
 export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
-  const [view, setView] = useState("tong-quan");
+  const [view, setView] = useLocalStorageState("filters:nap-gas-view", "tong-quan");
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useState("");
-  const [reportDim, setReportDim] = useState("khu_vuc");
+  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:nap-gas-khu-vuc", "");
+  const [reportDim, setReportDim] = useLocalStorageState("filters:nap-gas-report-dim", "khu_vuc");
   const [drillDim, setDrillDim] = useState("khu_vuc");
   const [drillValue, setDrillValue] = useState("");
-  const [trangThai, setTrangThai] = useState("");
-  const [thang, setThang] = useState(() => new Date().toISOString().slice(0, 7));
+  const [trangThai, setTrangThai] = useLocalStorageState("filters:nap-gas-trang-thai", "");
+  const [thang, setThang] = useLocalStorageState("filters:nap-gas-thang", new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
+  const [idSearch, setIdSearch] = useState("");
   const pageSize = 10;
 
   // Chi gui dim/dim_value cho danh sach chi tiet khi drill-down tu 1 dong KHONG phai khu_vuc -
@@ -100,10 +104,10 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
   });
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["nap-gas", page, khuVucFilter, thang, drillDim, drillValue, trangThai],
+    queryKey: ["nap-gas", page, khuVucFilter, thang, drillDim, drillValue, trangThai, idSearch],
     queryFn: () =>
       api.get<Paged<NapGasCase> & { chuaDanhGia: number }>(
-        `/nap-gas${buildQuery({ page, pageSize, khu_vuc: khuVucFilter, thang, trang_thai: trangThai, ...dimFilter })}`,
+        `/nap-gas${buildQuery({ page, pageSize, khu_vuc: khuVucFilter, thang, trang_thai: trangThai, id: idSearch || undefined, ...dimFilter })}`,
       ),
     enabled: view === "danh-sach",
   });
@@ -113,10 +117,19 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
     enabled: view === "tong-quan",
   });
 
-  const tongQuanKpi = (khuVucStats?.rows ?? []).reduce(
+  // Cot dau tien sap A-Z.
+  const sortedKhuVucRows = [...(khuVucStats?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+
+  const tongQuanKpi = sortedKhuVucRows.reduce(
     (acc, r) => ({ tong: acc.tong + r.tong, daDanhGia: acc.daDanhGia + r.da_danh_gia, chuaDanhGia: acc.chuaDanhGia + r.chua_danh_gia }),
     { tong: 0, daDanhGia: 0, chuaDanhGia: 0 },
   );
+
+  // Dong "Tong cong" dau bang - cong don tat ca cot so (bao gom cac cot phan loai danh gia) tren cac
+  // dong dang hien.
+  const khuVucTotalBreakdown = Object.fromEntries(
+    DANH_GIA_BREAKDOWN_COLS.map((col) => [col.key, sortedKhuVucRows.reduce((acc, r) => acc + (Number(r[col.key]) || 0), 0)]),
+  ) as Record<string, number>;
 
   function drillDown(value: string, trangThaiFilter?: string) {
     if (reportDim === "khu_vuc") {
@@ -165,9 +178,9 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
 
   async function handleExport() {
     const all = await api.get<Paged<NapGasCase>>(
-      `/nap-gas${buildQuery({ page: 1, pageSize: 5000, khu_vuc: khuVucFilter, thang, trang_thai: trangThai, ...dimFilter })}`,
+      `/nap-gas${buildQuery({ page: 1, pageSize: 5000, khu_vuc: khuVucFilter, thang, trang_thai: trangThai, id: idSearch || undefined, ...dimFilter })}`,
     );
-    await exportRowsToExcel(all.rows, `danh_gia_nap_gas_${thang}.xlsx`, "Data", EXPORT_LABELS);
+    await exportRowsToExcel(all.rows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) })), `danh_gia_nap_gas_${thang}.xlsx`, "Data", EXPORT_LABELS);
   }
 
   const columns: Column<NapGasCase>[] = [
@@ -183,7 +196,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
     { key: "nguoi_chot", header: "Người chốt", render: (c) => c.nguoi_chot ?? "—" },
     { key: "ngay_chot", header: "Ngày chốt", render: (c) => <span className="text-xs">{fmtDateTime(c.ngay_chot)}</span> },
     { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
@@ -255,7 +268,18 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
               </div>
               <div className="flex items-center gap-2">
                 <Select value={reportDim} onChange={setReportDim} options={REPORT_DIM_OPTIONS} />
-                <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], `bao_cao_nap_gas_${thang}.xlsx`, "Data", KHU_VUC_EXPORT_LABELS)}>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    exportRowsToExcel(
+                      reportDim === "khu_vuc" ? sortedKhuVucRows.map((r) => ({ ...r, nhom: shortKhuVuc(r.nhom) })) : sortedKhuVucRows,
+                      `bao_cao_nap_gas_${thang}.xlsx`,
+                      "Data",
+                      KHU_VUC_EXPORT_LABELS,
+                    )
+                  }
+                >
                   ⬇ Xuất Excel
                 </Btn>
               </div>
@@ -276,9 +300,22 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
                   </tr>
                 </thead>
                 <tbody>
-                  {(khuVucStats?.rows ?? []).map((r) => (
+                  {sortedKhuVucRows.length > 0 && (
+                    <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
+                      <td className="py-2 pr-3">Tổng cộng</td>
+                      <td className="py-2 pr-3 font-mono">{tongQuanKpi.tong}</td>
+                      <td className="py-2 pr-3 font-mono">{tongQuanKpi.daDanhGia}</td>
+                      <td className="py-2 pr-3 font-mono">{tongQuanKpi.chuaDanhGia}</td>
+                      {DANH_GIA_BREAKDOWN_COLS.map((col) => (
+                        <td key={col.key} className="py-2 pr-3 font-mono">
+                          {khuVucTotalBreakdown[col.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  )}
+                  {sortedKhuVucRows.map((r) => (
                     <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                      <td className="py-2 pr-3 font-semibold">{r.nhom}</td>
+                      <td className="py-2 pr-3 font-semibold">{reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
                       <td className="py-2 pr-3 font-mono">
                         <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom)}>
                           {r.tong}
@@ -301,7 +338,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
                       ))}
                     </tr>
                   ))}
-                  {(khuVucStats?.rows ?? []).length === 0 && (
+                  {sortedKhuVucRows.length === 0 && (
                     <tr>
                       <td colSpan={4 + DANH_GIA_BREAKDOWN_COLS.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
@@ -319,6 +356,13 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
             {khuVucFilterSelect}
             {thangSelect}
             {trangThaiSelect}
+            <IdSerialSearchInput
+              value={idSearch}
+              onChange={(v) => {
+                setIdSearch(v);
+                setPage(1);
+              }}
+            />
           </div>
 
           <div className="flex items-center justify-between mb-1">

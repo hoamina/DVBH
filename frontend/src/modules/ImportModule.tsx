@@ -9,6 +9,7 @@ import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { ImportUploader, describeError } from "../components/ImportUploader";
+import { Select } from "../components/ui/Select";
 
 interface CrmSummary {
   GHI_MOI: number;
@@ -46,6 +47,14 @@ interface SheetUrlRow {
   updated_by: string | null;
 }
 
+interface UpdateColumnSummary {
+  column: string;
+  capNhat: number;
+  khongTonTai: number;
+  khongTonTaiList: string[];
+  thieuId: number;
+}
+
 const TABS = [
   { key: "crm", label: "Import CRM hàng ngày" },
   { key: "giai-trinh", label: "Import giải trình cũ" },
@@ -53,6 +62,7 @@ const TABS = [
   { key: "khao-sat", label: "Import khảo sát cũ" },
   { key: "nap-gas", label: "Import đánh giá nạp gas cũ" },
   { key: "huy-ca", label: "Hủy ca hàng loạt" },
+  { key: "update-column", label: "Cập nhật 1 cột theo ID" },
 ];
 
 // "Lich su import" rieng cho tung loai (loc theo "loai" - xem migration 0027) - dung chung cho CA 5
@@ -136,6 +146,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
 
 export function ImportModule() {
   const [tab, setTab] = useState("crm");
+  const [updateColumnField, setUpdateColumnField] = useState("");
   // Toast tu dong bien mat sau 3.2s, khong hop de doc het danh sach loi (co the toi hang tram
   // dong) - luong "Dong bo ngay" (goi thang /sync-sheet, khong qua man hinh preview co san khung
   // loi cuon nhu ImportUploader) truoc day chi hien DEM SO LUONG loi trong toast roi mat, khong ai
@@ -153,6 +164,20 @@ export function ImportModule() {
     enabled: isAdmin,
   });
   const hasSheetUrl = (loai: string) => !!sheetUrls?.rows.find((r) => r.loai_dong_bo === loai)?.url;
+
+  const { data: columnMapData } = useQuery({
+    queryKey: ["import-column-map-full"],
+    queryFn: () => api.get<{ columnMap: Record<string, string>; updatableColumns: string[] }>("/import/column-map"),
+    enabled: isAdmin,
+  });
+  // Danh sach {field, label} de chon cot can cap nhat - dao nguoc columnMap (gia tri DB -> nhan
+  // tieng Viet) chi cho cac cot trong updatableColumns (BUSINESS_FIELDS, KHONG gom 6 cot vi pham).
+  const updateColumnOptions = (columnMapData?.updatableColumns ?? [])
+    .map((field) => ({
+      field,
+      label: Object.entries(columnMapData?.columnMap ?? {}).find(([, dbCol]) => dbCol === field)?.[0] ?? field,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, "vi"));
 
   const syncSheetMutation = useMutation({
     mutationFn: () => api.post<CrmSummary>("/import/sync-sheet"),
@@ -224,7 +249,10 @@ export function ImportModule() {
   // scheduleCaLapRefreshIfChanged trong backend/src/routes/importRoute.ts). Chi Admin.
   const refreshReportsMutation = useMutation({
     mutationFn: () => api.post("/import/refresh-reports"),
-    onSuccess: () => addToast("Đã làm mới xong toàn bộ báo cáo dashboard."),
+    onSuccess: () => {
+      addToast("Đã làm mới xong toàn bộ báo cáo dashboard.");
+      qc.invalidateQueries({ queryKey: ["daily-report"] });
+    },
     onError: (err) => addToast(`Làm mới báo cáo thất bại: ${describeError(err)}`),
   });
 
@@ -236,7 +264,7 @@ export function ImportModule() {
             <div className="font-display font-bold text-sm">Làm mới báo cáo dashboard</div>
             <div className="text-xs text-[var(--ink-600)] mt-0.5">
               Ép tính lại toàn bộ số liệu dashboard (KPI, xu hướng SLA, doanh thu, ca lặp...) ngay lập tức — dùng khi thấy số liệu có vẻ "đứng im" sai dù dữ
-              liệu thật đã đổi. Không cần đợi import mới.
+              liệu thật đã đổi. Đồng thời tính lại luôn "Báo cáo ngày 08:00" (banner Tổng quát) thay vì đợi đến 08:00 sáng hôm sau. Không cần đợi import mới.
             </div>
           </div>
           <Btn variant="ghost" size="sm" onClick={() => refreshReportsMutation.mutate()} disabled={refreshReportsMutation.isPending}>
@@ -515,6 +543,59 @@ export function ImportModule() {
             ]}
           />
           <ImportHistoryCard loai="huy_ca_bulk" exportFileName="lich_su_huy_ca.xlsx" />
+        </>
+      )}
+
+      {tab === "update-column" && (
+        <>
+          <Card className="p-4 mb-5">
+            <div className="font-display font-bold text-sm mb-1">Cập nhật riêng 1 cột theo ID</div>
+            <div className="text-xs text-[var(--ink-600)] mb-3">
+              Dùng khi cần bổ sung/sửa dữ liệu của <b>đúng 1 cột</b> cho các ca đã có sẵn (ví dụ thiếu Link hình ảnh), mà không muốn đụng tới các cột khác của
+              ca. File chỉ cần 2 cột: <b className="font-mono">ID</b> và cột đã chọn bên dưới. ID không tồn tại trong hệ thống sẽ bị bỏ qua và báo lỗi, không
+              chặn các dòng còn lại. Lưu ý: nếu lần đồng bộ CRM thật tiếp theo vẫn mang dữ liệu khác cho đúng cột này, giá trị vừa cập nhật tay có thể bị ghi
+              đè lại — không có cách nào tránh hoàn toàn vì so khớp import luôn dựa vào dữ liệu CRM gốc.
+            </div>
+            <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Chọn cột cần cập nhật</label>
+            <Select
+              className="max-w-sm"
+              value={updateColumnField}
+              onChange={setUpdateColumnField}
+              options={[{ value: "", label: "— Chọn cột —" }, ...updateColumnOptions.map((o) => ({ value: o.field, label: o.label }))]}
+            />
+          </Card>
+
+          {updateColumnField && (
+            <ImportUploader<UpdateColumnSummary>
+              key={updateColumnField}
+              description={
+                <>
+                  Cập nhật cột <b>{updateColumnOptions.find((o) => o.field === updateColumnField)?.label}</b> theo <b className="font-mono">ID</b> — các cột
+                  khác của ca giữ nguyên không đổi.
+                </>
+              }
+              templateUrl={`/api/import/update-column/template?column=${updateColumnField}`}
+              previewUrl="/import/update-column/preview"
+              commitUrl="/import/update-column/commit"
+              columnMap={{
+                ID: "id",
+                [updateColumnOptions.find((o) => o.field === updateColumnField)?.label ?? updateColumnField]: updateColumnField,
+              }}
+              requireAllColumns
+              buildBody={(rows, filename) => ({ column: updateColumnField, rows, filename })}
+              renderSummary={(s) => (
+                <div className="grid grid-cols-3 gap-3 mb-2">
+                  <StatCard label="Sẽ cập nhật" value={s.capNhat} tone="teal" />
+                  <StatCard label="ID không tồn tại" value={s.khongTonTai} tone={s.khongTonTai > 0 ? "coral" : "gray"} />
+                  <StatCard label="Thiếu ID" value={s.thieuId} tone={s.thieuId > 0 ? "coral" : "gray"} />
+                </div>
+              )}
+              getErrors={(s) => s.khongTonTaiList.map((id) => `ID không tồn tại trong hệ thống: ${id}`)}
+              successMessage={(s) => `Đã cập nhật ${s.capNhat} ca${s.khongTonTai ? `, ${s.khongTonTai} ID không tồn tại (bỏ qua)` : ""}`}
+              invalidateKeys={[["import-history"]]}
+            />
+          )}
+          <ImportHistoryCard loai="update_column" exportFileName="lich_su_cap_nhat_cot.xlsx" />
         </>
       )}
     </div>

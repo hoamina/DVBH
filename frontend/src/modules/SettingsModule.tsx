@@ -6,11 +6,32 @@ import { Btn } from "../components/ui/Btn";
 import { Modal } from "../components/ui/Modal";
 import { ToggleSwitch } from "../components/ui/ToggleSwitch";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
+import { StatCard } from "../components/ui/StatCard";
+import { ImportUploader } from "../components/ImportUploader";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
-import { fmtVND, type LinhKienRow, type LyDoRow, type PhanLoaiTranhChapRow, type KetQuaXuLyTranhChapRow } from "../types";
+import {
+  fmtVND,
+  type LinhKienRow,
+  type LyDoRow,
+  type PhanLoaiTranhChapRow,
+  type KetQuaXuLyTranhChapRow,
+  type GreetingGifRow,
+  type GreetingMessageRow,
+  type GiaiTrinhExcludeNgayRow,
+  type PartnerApiKeyRow,
+  type KtvLienHeRow,
+} from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
+import { KTV_PHONE_QUERY_KEY } from "../lib/ktvPhone";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
+
+interface KtvImportSummary {
+  thanhCong: number;
+  loi: number;
+  errors: string[];
+}
 
 const PAGE_SIZE = 20;
 
@@ -42,11 +63,32 @@ export function SettingsModule() {
   const [newPhanLoai, setNewPhanLoai] = useState("");
   const [addKetQuaOpen, setAddKetQuaOpen] = useState(false);
   const [newKetQua, setNewKetQua] = useState("");
+  const [addGreetingGifOpen, setAddGreetingGifOpen] = useState(false);
+  const [newGreetingGif, setNewGreetingGif] = useState("");
+  const [addGreetingMessageOpen, setAddGreetingMessageOpen] = useState(false);
+  const [newGreetingMessage, setNewGreetingMessage] = useState("");
+  const [addExcludeNgayOpen, setAddExcludeNgayOpen] = useState(false);
+  const [newExcludeNgay, setNewExcludeNgay] = useState<{ ngay: string; khuVucList: string[]; toanBo: boolean; ghiChu: string }>({
+    ngay: "",
+    khuVucList: [],
+    toanBo: false,
+    ghiChu: "",
+  });
+  const [addPartnerKeyOpen, setAddPartnerKeyOpen] = useState(false);
+  const [newPartnerKey, setNewPartnerKey] = useState({ tenDoiTac: "", ghiChu: "" });
+  const [createdPartnerKey, setCreatedPartnerKey] = useState<{ tenDoiTac: string; apiKey: string } | null>(null);
+  const [partnerKeyPage, setPartnerKeyPage] = useState(1);
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [lyDoPage, setLyDoPage] = useState(1);
   const [linhKienPage, setLinhKienPage] = useState(1);
   const [phanLoaiPage, setPhanLoaiPage] = useState(1);
   const [ketQuaPage, setKetQuaPage] = useState(1);
+  const [greetingGifPage, setGreetingGifPage] = useState(1);
+  const [greetingMessagePage, setGreetingMessagePage] = useState(1);
+  const [ktvPage, setKtvPage] = useState(1);
+  const [ktvModalOpen, setKtvModalOpen] = useState(false);
+  const [editingKtvMa, setEditingKtvMa] = useState<string | null>(null);
+  const [ktvForm, setKtvForm] = useState({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "" });
 
   const { data: reasons } = useQuery({
     queryKey: ["settings-ly-do"],
@@ -55,6 +97,10 @@ export function SettingsModule() {
   const { data: parts } = useQuery({
     queryKey: ["settings-linh-kien"],
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
+  });
+  const { data: ktvLienHe } = useQuery({
+    queryKey: KTV_PHONE_QUERY_KEY,
+    queryFn: () => fetchWithHashCache<{ rows: KtvLienHeRow[] }>("settings-ktv-lien-he", "/settings/ktv-lien-he/version", "/settings/ktv-lien-he"),
   });
   const { data: sheetUrls } = useQuery({
     queryKey: ["settings-sheet-urls"],
@@ -67,6 +113,26 @@ export function SettingsModule() {
   const { data: ketQuaXuLyTranhChap } = useQuery({
     queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
     queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
+  });
+  const { data: greetingGifs } = useQuery({
+    queryKey: ["settings-greeting-gif"],
+    queryFn: () => api.get<{ rows: GreetingGifRow[] }>("/settings/greeting-gif"),
+  });
+  const { data: greetingMessages } = useQuery({
+    queryKey: ["settings-greeting-message"],
+    queryFn: () => api.get<{ rows: GreetingMessageRow[] }>("/settings/greeting-message"),
+  });
+  const { data: excludeNgayRows } = useQuery({
+    queryKey: ["settings-giai-trinh-exclude-ngay"],
+    queryFn: () => api.get<{ rows: GiaiTrinhExcludeNgayRow[] }>("/settings/giai-trinh-exclude-ngay"),
+  });
+  const { data: dashboardFilters } = useQuery({
+    queryKey: ["dashboard-filters"],
+    queryFn: () => api.get<{ khuVuc: string[] }>("/dashboard/filters"),
+  });
+  const { data: partnerKeys } = useQuery({
+    queryKey: ["settings-partner-keys"],
+    queryFn: () => api.get<{ rows: PartnerApiKeyRow[] }>("/settings/partner-keys"),
   });
 
   const toggleReason = useMutation({
@@ -152,6 +218,91 @@ export function SettingsModule() {
     onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
   });
 
+  const toggleGreetingGif = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/greeting-gif/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật GIF chào mừng");
+      qc.invalidateQueries({ queryKey: ["settings-greeting-gif"] });
+    },
+  });
+
+  const addGreetingGifMutation = useMutation({
+    mutationFn: () => api.post("/settings/greeting-gif", { gif_url: newGreetingGif }),
+    onSuccess: () => {
+      addToast("Đã thêm GIF chào mừng mới");
+      setNewGreetingGif("");
+      setAddGreetingGifOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-greeting-gif"] });
+    },
+    onError: () => addToast("Không thể thêm (link có thể đã tồn tại)."),
+  });
+
+  const toggleGreetingMessage = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/greeting-message/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật lời chào");
+      qc.invalidateQueries({ queryKey: ["settings-greeting-message"] });
+    },
+  });
+
+  const addGreetingMessageMutation = useMutation({
+    mutationFn: () => api.post("/settings/greeting-message", { noi_dung: newGreetingMessage }),
+    onSuccess: () => {
+      addToast("Đã thêm lời chào mới");
+      setNewGreetingMessage("");
+      setAddGreetingMessageOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-greeting-message"] });
+    },
+    onError: () => addToast("Không thể thêm (nội dung có thể đã tồn tại)."),
+  });
+
+  const addExcludeNgayMutation = useMutation({
+    mutationFn: () =>
+      api.post("/settings/giai-trinh-exclude-ngay", {
+        ngay: newExcludeNgay.ngay,
+        khuVucList: newExcludeNgay.toanBo ? ["__ALL__"] : newExcludeNgay.khuVucList,
+        ghiChu: newExcludeNgay.ghiChu || undefined,
+      }),
+    onSuccess: () => {
+      addToast("Đã thêm ngày loại trừ");
+      setNewExcludeNgay({ ngay: "", khuVucList: [], toanBo: false, ghiChu: "" });
+      setAddExcludeNgayOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-giai-trinh-exclude-ngay"] });
+    },
+    onError: () => addToast("Không thể thêm ngày loại trừ."),
+  });
+
+  const deleteExcludeNgayMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/settings/giai-trinh-exclude-ngay/${id}`),
+    onSuccess: () => {
+      addToast("Đã xóa ngày loại trừ");
+      qc.invalidateQueries({ queryKey: ["settings-giai-trinh-exclude-ngay"] });
+    },
+  });
+
+  const addPartnerKeyMutation = useMutation({
+    mutationFn: () =>
+      api.post<PartnerApiKeyRow>("/settings/partner-keys", {
+        ten_doi_tac: newPartnerKey.tenDoiTac,
+        ghi_chu: newPartnerKey.ghiChu || undefined,
+      }),
+    onSuccess: (row) => {
+      setCreatedPartnerKey({ tenDoiTac: row.ten_doi_tac, apiKey: row.api_key });
+      setNewPartnerKey({ tenDoiTac: "", ghiChu: "" });
+      setAddPartnerKeyOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-partner-keys"] });
+    },
+    onError: () => addToast("Không thể tạo key (tên đối tác trống?)."),
+  });
+
+  const togglePartnerKeyMutation = useMutation({
+    mutationFn: ({ id, active }: { id: number; active: boolean }) => api.patch(`/settings/partner-keys/${id}`, { active }),
+    onSuccess: (_data, vars) => {
+      addToast(vars.active ? "Đã cấp lại key" : "Đã thu hồi key");
+      qc.invalidateQueries({ queryKey: ["settings-partner-keys"] });
+    },
+  });
+
   const addLinhKienMutation = useMutation({
     mutationFn: () =>
       api.post("/settings/linh-kien", {
@@ -166,6 +317,33 @@ export function SettingsModule() {
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
     onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
+  });
+
+  const saveKtvMutation = useMutation({
+    mutationFn: () =>
+      api.post("/settings/ktv-lien-he", {
+        ma_ktv: ktvForm.ma_ktv,
+        ten_hien_thi: ktvForm.ten_hien_thi || undefined,
+        sdt: ktvForm.sdt,
+        ghi_chu: ktvForm.ghi_chu || undefined,
+      }),
+    onSuccess: () => {
+      addToast(editingKtvMa ? "Đã cập nhật số điện thoại KTV" : "Đã thêm số điện thoại KTV");
+      setKtvModalOpen(false);
+      setEditingKtvMa(null);
+      setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "" });
+      qc.invalidateQueries({ queryKey: KTV_PHONE_QUERY_KEY });
+    },
+    onError: () => addToast("Không thể lưu, thử lại sau."),
+  });
+
+  const deleteKtvMutation = useMutation({
+    mutationFn: (ma: string) => api.delete(`/settings/ktv-lien-he/${encodeURIComponent(ma)}`),
+    onSuccess: () => {
+      addToast("Đã xóa số điện thoại KTV");
+      qc.invalidateQueries({ queryKey: KTV_PHONE_QUERY_KEY });
+    },
+    onError: () => addToast("Không thể xóa, thử lại sau."),
   });
 
   const lyDoColumns: Column<LyDoRow>[] = [
@@ -193,6 +371,83 @@ export function SettingsModule() {
     { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleKetQua.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
+  const greetingGifColumns: Column<GreetingGifRow>[] = [
+    {
+      key: "gif_url",
+      header: "GIF",
+      render: (r) => (
+        <a href={r.gif_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[var(--ocean-600)] hover:underline">
+          <img src={r.gif_url} alt="" className="w-10 h-10 object-cover rounded-md" />
+          <span className="text-xs break-all">{r.gif_url}</span>
+        </a>
+      ),
+    },
+    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleGreetingGif.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+  ];
+
+  const greetingMessageColumns: Column<GreetingMessageRow>[] = [
+    { key: "noi_dung", header: "Nội dung", render: (r) => <span className="font-medium">{r.noi_dung}</span> },
+    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleGreetingMessage.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+  ];
+
+  const excludeNgayColumns: Column<GiaiTrinhExcludeNgayRow>[] = [
+    { key: "ngay", header: "Ngày", render: (r) => <span className="font-mono font-medium">{r.ngay}</span> },
+    {
+      key: "khu_vuc",
+      header: "Khu vực",
+      render: (r) => (r.khu_vuc === "__ALL__" ? <span className="font-semibold text-[var(--coral-500)]">Tất cả khu vực</span> : shortKhuVuc(r.khu_vuc)),
+    },
+    { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
+    { key: "nguoi_tao", header: "Người tạo", render: (r) => <span className="text-xs">{r.nguoi_tao ?? "—"}</span> },
+    {
+      key: "action",
+      header: "",
+      render: (r) => (
+        <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteExcludeNgayMutation.mutate(r.id)}>
+          Xóa
+        </button>
+      ),
+    },
+  ];
+
+  const partnerKeyColumns: Column<PartnerApiKeyRow>[] = [
+    { key: "ten_doi_tac", header: "Đối tác", render: (r) => <span className="font-medium">{r.ten_doi_tac}</span> },
+    { key: "api_key", header: "API Key", render: (r) => <span className="font-mono text-xs">{r.api_key}</span> },
+    {
+      key: "active",
+      header: "Trạng thái",
+      render: (r) =>
+        r.active ? (
+          <span className="text-[var(--teal-500)] font-semibold">Đang hoạt động</span>
+        ) : (
+          <span className="text-[var(--coral-500)] font-semibold">Đã thu hồi</span>
+        ),
+    },
+    { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
+    {
+      key: "created_at",
+      header: "Ngày tạo",
+      render: (r) => (
+        <span className="text-xs text-[var(--ink-400)]">
+          {r.created_at}
+          {r.created_by ? ` · ${r.created_by}` : ""}
+        </span>
+      ),
+    },
+    {
+      key: "action",
+      header: "",
+      render: (r) => (
+        <button
+          className={r.active ? "text-xs text-[var(--coral-500)] hover:underline" : "text-xs text-[var(--ocean-600)] hover:underline"}
+          onClick={() => togglePartnerKeyMutation.mutate({ id: r.id, active: !r.active })}
+        >
+          {r.active ? "Thu hồi" : "Cấp lại"}
+        </button>
+      ),
+    },
+  ];
+
   const linhKienColumns: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-medium">{p.ten_linh_kien}</span> },
@@ -200,6 +455,37 @@ export function SettingsModule() {
     { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (p) => p.nguoi_cap_nhat },
     { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (p) => <span className="text-xs">{p.ngay_cap_nhat}</span> },
     { key: "bat_tat", header: "Hiển thị", render: (p) => <ToggleSwitch checked={!!p.bat_tat} onChange={() => togglePart.mutate({ ma: p.ma_linh_kien, bat_tat: !p.bat_tat })} /> },
+  ];
+
+  const ktvColumns: Column<KtvLienHeRow>[] = [
+    { key: "ma_ktv", header: "Mã KTV", render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
+    { key: "ten_hien_thi", header: "Tên hiển thị", render: (r) => <span className="font-medium">{r.ten_hien_thi ?? "—"}</span> },
+    { key: "sdt", header: "Số điện thoại", render: (r) => <span className="font-mono">{r.sdt}</span> },
+    { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
+    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ?? "—"}</span> },
+    { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (r) => <span className="text-xs">{r.ngay_cap_nhat}</span> },
+    {
+      key: "action",
+      header: "",
+      className: "text-right whitespace-nowrap",
+      render: (r) => (
+        <div className="flex gap-2 justify-end">
+          <button
+            className="text-xs text-[var(--ocean-600)] hover:underline"
+            onClick={() => {
+              setEditingKtvMa(r.ma_ktv);
+              setKtvForm({ ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi ?? "", sdt: r.sdt, ghi_chu: r.ghi_chu ?? "" });
+              setKtvModalOpen(true);
+            }}
+          >
+            Sửa
+          </button>
+          <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteKtvMutation.mutate(r.ma_ktv)}>
+            Xóa
+          </button>
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -210,9 +496,13 @@ export function SettingsModule() {
         tabs={[
           { key: "ly-do", label: "Lý do chậm" },
           { key: "linh-kien", label: "Danh mục linh kiện" },
+          { key: "ktv-lien-he", label: "SĐT kỹ thuật viên" },
           { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
           { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
+          { key: "loi-chao", label: "Lời chào" },
+          { key: "giai-trinh-exclude-ngay", label: "Ngày loại trừ giải trình" },
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
+          { key: "partner-keys", label: "API đối tác" },
         ]}
       />
       {tab === "ly-do" && (
@@ -253,6 +543,7 @@ export function SettingsModule() {
             onPageChange={setLyDoPage}
             rowKey={(r) => r.id}
             emptyText="Chưa có lý do chậm nào."
+            storageKey="settings-ly-do"
           />
         </div>
       )}
@@ -296,6 +587,78 @@ export function SettingsModule() {
             onPageChange={setLinhKienPage}
             rowKey={(p) => p.ma_linh_kien}
             emptyText="Chưa có linh kiện nào."
+            storageKey="settings-linh-kien"
+          />
+        </div>
+      )}
+
+      {tab === "ktv-lien-he" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Số điện thoại kỹ thuật viên — hiển thị cạnh tên KTV ở các màn hình CSKH gọi khảo sát. CSKH cũng có thể tự thêm/sửa/xóa bằng cách bấm vào tên KTV khi xem 1 ca.
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  exportRowsToExcel(ktvLienHe?.rows ?? [], "sdt_ky_thuat_vien.xlsx", "Data", {
+                    ma_ktv: "Mã KTV",
+                    ten_hien_thi: "Tên hiển thị",
+                    sdt: "Số điện thoại",
+                    ghi_chu: "Ghi chú",
+                    nguoi_cap_nhat: "Người cập nhật",
+                    ngay_cap_nhat: "Ngày cập nhật",
+                  })
+                }
+              >
+                ⬇ Xuất Excel
+              </Btn>
+              <Btn
+                size="sm"
+                onClick={() => {
+                  setEditingKtvMa(null);
+                  setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "" });
+                  setKtvModalOpen(true);
+                }}
+              >
+                + Thêm SĐT
+              </Btn>
+            </div>
+          </div>
+          <ImportUploader<KtvImportSummary>
+            description={
+              <>
+                Nhập hàng loạt SĐT KTV từ file Excel/CSV (cột <b className="font-mono">ma_ktv</b>, <b className="font-mono">sdt</b> bắt buộc). Mã KTV đã có sẽ được cập nhật lại.
+              </>
+            }
+            templateUrl="/api/settings/ktv-lien-he/template"
+            previewUrl="/settings/ktv-lien-he/import/preview"
+            commitUrl="/settings/ktv-lien-he/import/commit"
+            buildBody={(rows) => ({ rows })}
+            renderSummary={(s) => (
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <StatCard label="Sẵn sàng ghi" value={s.thanhCong} tone="teal" />
+                <StatCard label="Dòng lỗi" value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
+              </div>
+            )}
+            getErrors={(s) => s.errors}
+            successMessage={(s) => `Import thành công: ${s.thanhCong} SĐT kỹ thuật viên`}
+            invalidateKeys={[KTV_PHONE_QUERY_KEY]}
+          />
+          <PaginatedTable
+            columns={ktvColumns}
+            rows={(ktvLienHe?.rows ?? []).slice((ktvPage - 1) * PAGE_SIZE, ktvPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={ktvPage}
+            pageSize={PAGE_SIZE}
+            total={(ktvLienHe?.rows ?? []).length}
+            onPageChange={setKtvPage}
+            rowKey={(r) => r.ma_ktv}
+            emptyText="Chưa có số điện thoại KTV nào."
+            storageKey="settings-ktv-lien-he"
           />
         </div>
       )}
@@ -321,6 +684,7 @@ export function SettingsModule() {
             onPageChange={setPhanLoaiPage}
             rowKey={(r) => r.id}
             emptyText="Chưa có phân loại tranh chấp nào."
+            storageKey="settings-phan-loai-tranh-chap"
           />
         </div>
       )}
@@ -346,6 +710,84 @@ export function SettingsModule() {
             onPageChange={setKetQuaPage}
             rowKey={(r) => r.id}
             emptyText="Chưa có kết quả xử lý nào."
+            storageKey="settings-ket-qua-xu-ly-tranh-chap"
+          />
+        </div>
+      )}
+
+      {tab === "loi-chao" && (
+        <div className="mt-4 space-y-6">
+          <div className="text-sm text-[var(--ink-600)]">
+            Popup chào mừng ngẫu nhiên hiện khi đăng nhập/mở lại web — mỗi lần hiện, hệ thống chọn ngẫu nhiên 1 GIF và 1 lời chào đang <b>bật</b> trong 2 danh sách dưới đây.
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold">Danh sách GIF</div>
+              <Btn size="sm" onClick={() => setAddGreetingGifOpen(true)}>
+                + Thêm GIF
+              </Btn>
+            </div>
+            <PaginatedTable
+              columns={greetingGifColumns}
+              rows={(greetingGifs?.rows ?? []).slice((greetingGifPage - 1) * PAGE_SIZE, greetingGifPage * PAGE_SIZE)}
+              isLoading={false}
+              isError={false}
+              page={greetingGifPage}
+              pageSize={PAGE_SIZE}
+              total={(greetingGifs?.rows ?? []).length}
+              onPageChange={setGreetingGifPage}
+              rowKey={(r) => r.id}
+              emptyText="Chưa có GIF nào."
+              storageKey="settings-greeting-gif"
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold">Danh sách lời chào</div>
+              <Btn size="sm" onClick={() => setAddGreetingMessageOpen(true)}>
+                + Thêm lời chào
+              </Btn>
+            </div>
+            <PaginatedTable
+              columns={greetingMessageColumns}
+              rows={(greetingMessages?.rows ?? []).slice((greetingMessagePage - 1) * PAGE_SIZE, greetingMessagePage * PAGE_SIZE)}
+              isLoading={false}
+              isError={false}
+              page={greetingMessagePage}
+              pageSize={PAGE_SIZE}
+              total={(greetingMessages?.rows ?? []).length}
+              onPageChange={setGreetingMessagePage}
+              rowKey={(r) => r.id}
+              emptyText="Chưa có lời chào nào."
+              storageKey="settings-greeting-message"
+            />
+          </div>
+        </div>
+      )}
+
+      {tab === "giai-trinh-exclude-ngay" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3 gap-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Danh sách ngày <b>không tính</b> vào lũy kế/tỷ lệ giải trình tháng của "Quản lý tồn" (bảng "Báo cáo tồn theo khu vực" và "Tỷ lệ giải trình theo ngày"). <b>Mọi Chủ nhật đã tự động bị loại trừ</b>, không
+              cần thêm ở đây — chỉ thêm các ngày khác (vd nghỉ lễ).
+            </div>
+            <Btn size="sm" onClick={() => setAddExcludeNgayOpen(true)}>
+              + Thêm ngày loại trừ
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={excludeNgayColumns}
+            rows={excludeNgayRows?.rows ?? []}
+            isLoading={false}
+            isError={false}
+            page={1}
+            pageSize={(excludeNgayRows?.rows ?? []).length || 1}
+            total={(excludeNgayRows?.rows ?? []).length}
+            onPageChange={() => {}}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có ngày loại trừ nào ngoài Chủ nhật."
+            storageKey="settings-giai-trinh-exclude-ngay"
           />
         </div>
       )}
@@ -384,6 +826,33 @@ export function SettingsModule() {
             })}
           </div>
         </Card>
+      )}
+
+      {tab === "partner-keys" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3 gap-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Key cấp cho đối tác bên ngoài để tự động quét dữ liệu CRM qua <code>GET /api/partner/cases</code> (xem <b>PARTNER_API_GUIDE.md</b>). Mỗi key hiện đầy đủ
+              <b> đúng 1 lần</b> ngay sau khi tạo — sau đó chỉ còn xem được bản che.
+            </div>
+            <Btn size="sm" onClick={() => setAddPartnerKeyOpen(true)}>
+              + Cấp key mới
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={partnerKeyColumns}
+            rows={(partnerKeys?.rows ?? []).slice((partnerKeyPage - 1) * PAGE_SIZE, partnerKeyPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={partnerKeyPage}
+            pageSize={PAGE_SIZE}
+            total={(partnerKeys?.rows ?? []).length}
+            onPageChange={setPartnerKeyPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa cấp key nào cho đối tác."
+            storageKey="settings-partner-keys"
+          />
+        </div>
       )}
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm lý do chậm mới">
@@ -453,6 +922,114 @@ export function SettingsModule() {
         </div>
       </Modal>
 
+      <Modal open={addGreetingGifOpen} onClose={() => setAddGreetingGifOpen(false)} title="Thêm GIF chào mừng mới">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Link GIF trực tiếp</label>
+            <input
+              value={newGreetingGif}
+              onChange={(e) => setNewGreetingGif(e.target.value)}
+              placeholder="Vd: https://media1.tenor.com/m/xxxx/ten-file.gif"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+            <div className="text-xs text-[var(--ink-400)] mt-1">Cần là link ảnh trực tiếp (đuôi .gif), không phải link trang xem của Tenor/Giphy.</div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddGreetingGifOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => addGreetingGifMutation.mutate()} disabled={!newGreetingGif.trim() || addGreetingGifMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={addGreetingMessageOpen} onClose={() => setAddGreetingMessageOpen(false)} title="Thêm lời chào mới">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Nội dung lời chào</label>
+            <input
+              value={newGreetingMessage}
+              onChange={(e) => setNewGreetingMessage(e.target.value)}
+              placeholder="Vd: Chào bạn! Rất vui vì lại được đồng hành cùng bạn hôm nay."
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddGreetingMessageOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => addGreetingMessageMutation.mutate()} disabled={!newGreetingMessage.trim() || addGreetingMessageMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={addExcludeNgayOpen} onClose={() => setAddExcludeNgayOpen(false)} title="Thêm ngày loại trừ">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày</label>
+            <input
+              type="date"
+              value={newExcludeNgay.ngay}
+              onChange={(e) => setNewExcludeNgay((s) => ({ ...s, ngay: e.target.value }))}
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <input
+                type="checkbox"
+                checked={newExcludeNgay.toanBo}
+                onChange={(e) => setNewExcludeNgay((s) => ({ ...s, toanBo: e.target.checked, khuVucList: [] }))}
+              />
+              Tất cả khu vực
+            </label>
+            {!newExcludeNgay.toanBo && (
+              <div className="max-h-48 overflow-y-auto border border-[var(--line)] rounded-lg p-2 space-y-1">
+                {(dashboardFilters?.khuVuc ?? []).map((kv) => (
+                  <label key={kv} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={newExcludeNgay.khuVucList.includes(kv)}
+                      onChange={(e) =>
+                        setNewExcludeNgay((s) => ({
+                          ...s,
+                          khuVucList: e.target.checked ? [...s.khuVucList, kv] : s.khuVucList.filter((x) => x !== kv),
+                        }))
+                      }
+                    />
+                    {kv}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú (tùy chọn)</label>
+            <input
+              value={newExcludeNgay.ghiChu}
+              onChange={(e) => setNewExcludeNgay((s) => ({ ...s, ghiChu: e.target.value }))}
+              placeholder="Vd: Nghỉ lễ Quốc khánh"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddExcludeNgayOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn
+              onClick={() => addExcludeNgayMutation.mutate()}
+              disabled={!newExcludeNgay.ngay || (!newExcludeNgay.toanBo && newExcludeNgay.khuVucList.length === 0) || addExcludeNgayMutation.isPending}
+            >
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={addLinhKienOpen} onClose={() => setAddLinhKienOpen(false)} title="Thêm linh kiện mới">
         <div className="space-y-3">
           <div>
@@ -476,6 +1053,112 @@ export function SettingsModule() {
             </Btn>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={ktvModalOpen}
+        onClose={() => {
+          setKtvModalOpen(false);
+          setEditingKtvMa(null);
+        }}
+        title={editingKtvMa ? "Sửa số điện thoại KTV" : "Thêm số điện thoại KTV"}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã KTV</label>
+            <input
+              value={ktvForm.ma_ktv}
+              onChange={(e) => setKtvForm({ ...ktvForm, ma_ktv: e.target.value })}
+              disabled={!!editingKtvMa}
+              placeholder="Vd: huannt.mb"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm disabled:bg-slate-50 disabled:text-[var(--ink-400)]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên hiển thị</label>
+            <input value={ktvForm.ten_hien_thi} onChange={(e) => setKtvForm({ ...ktvForm, ten_hien_thi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Số điện thoại</label>
+            <input value={ktvForm.sdt} onChange={(e) => setKtvForm({ ...ktvForm, sdt: e.target.value })} placeholder="09xxxxxxxx" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+            <textarea value={ktvForm.ghi_chu} onChange={(e) => setKtvForm({ ...ktvForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn
+              variant="ghost"
+              onClick={() => {
+                setKtvModalOpen(false);
+                setEditingKtvMa(null);
+              }}
+            >
+              Hủy
+            </Btn>
+            <Btn onClick={() => saveKtvMutation.mutate()} disabled={!ktvForm.ma_ktv.trim() || !ktvForm.sdt.trim() || saveKtvMutation.isPending}>
+              {editingKtvMa ? "Lưu" : "Thêm"}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={addPartnerKeyOpen} onClose={() => setAddPartnerKeyOpen(false)} title="Cấp key API cho đối tác mới">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên đối tác</label>
+            <input
+              value={newPartnerKey.tenDoiTac}
+              onChange={(e) => setNewPartnerKey({ ...newPartnerKey, tenDoiTac: e.target.value })}
+              placeholder="Vd: Đối tác XYZ"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú (tùy chọn)</label>
+            <input
+              value={newPartnerKey.ghiChu}
+              onChange={(e) => setNewPartnerKey({ ...newPartnerKey, ghiChu: e.target.value })}
+              placeholder="Vd: Dùng cho hệ thống đối soát nội bộ của đối tác"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddPartnerKeyOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => addPartnerKeyMutation.mutate()} disabled={!newPartnerKey.tenDoiTac.trim() || addPartnerKeyMutation.isPending}>
+              Tạo key
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!createdPartnerKey} onClose={() => setCreatedPartnerKey(null)} title="Đã tạo key mới">
+        {createdPartnerKey && (
+          <div className="space-y-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Key cho đối tác <b>{createdPartnerKey.tenDoiTac}</b> — sao chép và gửi cho đối tác ngay, hệ thống <b>sẽ không hiển thị lại</b> key này sau khi đóng cửa sổ này.
+            </div>
+            <div className="flex gap-2">
+              <input readOnly value={createdPartnerKey.apiKey} className="focus-ring flex-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs font-mono" />
+              <Btn
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(createdPartnerKey.apiKey);
+                  addToast("Đã sao chép key");
+                }}
+              >
+                Sao chép
+              </Btn>
+            </div>
+            <div className="flex justify-end">
+              <Btn variant="ghost" onClick={() => setCreatedPartnerKey(null)}>
+                Đóng
+              </Btn>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

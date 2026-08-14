@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause } from "../lib/filterParams";
+import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, khuVucReportExclusionClause } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { ageExpr } from "../lib/ageCalc";
@@ -60,12 +60,20 @@ function monthBounds(thang: string): { start: string; end: string } {
 // ke ca sau khi ap trang_thai) cho StatCard cua tab "Danh sach chi tiet".
 napGas.get("/", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
   const dimClause = dimAdHocClause(`c.${REPORT_DIMS[c.req.query("dim") ?? ""] ?? "khu_vuc"}`, c.req.query("dim"), c.req.query("dim_value"));
   const trangThai = trangThaiClause(c.req.query("trang_thai"));
+  // CHOT 2026-08-12: o tim ID/Serial rieng cho "Danh sach chi tiet" (giong pattern idClause cua
+  // cases.ts GET "/") - khop CA id lan seri_san_pham.
+  const idFilter = (c.req.query("id") ?? "").trim();
+  const idClause: { sql: string; binds: unknown[] } = idFilter
+    ? { sql: " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)", binds: [`%${idFilter}%`, `%${idFilter}%`] }
+    : { sql: "", binds: [] };
 
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
@@ -75,9 +83,9 @@ napGas.get("/", async (c) => {
     SELECT ${SELECT_COLS}
     FROM case_dvbh c
     ${JOIN_DANH_GIA}
-    WHERE ${NAP_GAS_ELIGIBLE} AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${dimClause.sql}${trangThai}
+    WHERE ${NAP_GAS_ELIGIBLE} AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${dimClause.sql}${trangThai}${idClause.sql}
   `;
-  const binds = [start, end, ...scopeClause.binds, ...khuVucClause.binds, ...dimClause.binds];
+  const binds = [start, end, ...scopeClause.binds, ...khuVucClause.binds, ...dimClause.binds, ...idClause.binds];
 
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM (${query})`)
     .bind(...binds)
@@ -165,7 +173,9 @@ export async function computeNapGasByKhuVuc(db: D1Database, params: NapGasByKhuV
   const thang = params.thang || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
 
-  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
 
   const { results } = await db

@@ -6,6 +6,32 @@ export const QLDVBH_FILTER_VALUE = "__QLDVBH__";
 export const CURRENT_MONTH_VALUE = "CURRENT";
 
 /**
+ * CHOT 2026-08-01 (chu he thong xac nhan): 2 khu_vuc nay bi AN KHOI MOI he thong bao cao/thong ke
+ * (Tong quat, Doanh thu, Quan ly ton, Ca lap, Danh gia nap gas, Khao sat, Tranh chap, Ca thieu linh
+ * kien - ke ca dropdown loc khu_vuc dung chung) - CHI con hien trong "Danh sach tong" (route
+ * /cases/tong-hop, KHONG ap dung khuVucReportExclusionClause() o do). Khong phai xoa du lieu, chi an
+ * khoi thong ke/bao cao - "(teamkdbl.krf) Kinh doanh ban le KRF" va "Quan ly DMX CSKH" la 2 don vi
+ * kinh doanh KHAC, khong thuoc luong "giai trinh ton" DVBH ma Quan ly ton/cac bao cao con lai theo
+ * doi. KHONG dung o: route /cases/tong-hop, cac route chi tiet/sua 1 case theo id, va cac duong ghi
+ * (import) - xem chi tiet tung diem ap dung o filterParams.ts va cac file dung ham nay.
+ */
+// CHOT 2026-08-13: them "Bản nháp đẩy lên drive truy vấn NSKX" - gia tri khu_vuc rac (khong phai don
+// vi kinh doanh that, chi la nhan/ghi chu lot vao du lieu CRM) chu he thong yeu cau an khoi danh sach
+// loc khu vuc - ap dung CHUNG co che voi 2 gia tri cu (an khoi bao cao, KHONG xoa du lieu, van hien o
+// "Danh sach tong").
+export const KHU_VUC_AN_KHOI_BAO_CAO = ["(teamkdbl.krf) Kinh doanh bán lẻ KRF", "Quản lý ĐMX CSKH", "Bản nháp đẩy lên drive truy vấn NSKX"];
+
+/** Doan " AND <column> NOT IN (...)" + bind - ghep vao CUOI (hoac bat ky vi tri nao trong) 1 WHERE da
+ * co san cua cac truy van bao cao/thong ke doc case_dvbh. AN TOAN de ghep vao outer WHERE cua truy van
+ * co latestGiaiTrinhJoin()/missingPartsJoin() (khac voi dieu kien "ton theo moc 08:00" o needGiaiTrinh.ts
+ * PHAI khop voi join - dieu kien nay chi THU HEP outer WHERE, khong lam no rong hon join scope, nen
+ * khong pha vo tinh chat "superset" cua join). */
+export function khuVucReportExclusionClause(column = "khu_vuc"): { sql: string; binds: string[] } {
+  const placeholders = KHU_VUC_AN_KHOI_BAO_CAO.map(() => "?").join(", ");
+  return { sql: ` AND ${column} NOT IN (${placeholders})`, binds: [...KHU_VUC_AN_KHOI_BAO_CAO] };
+}
+
+/**
  * Doc khu_vuc (ke ca gia tri ao __QLDVBH__ - gop tat ca khu vuc co chua "qldvbh")
  * va thang (thang xu ly, dua theo thoi_gian_hoan_thanh) tu query string, tra ve
  * mot doan WHERE + bind dung chung cho dashboard.ts/revenue.ts.
@@ -21,6 +47,10 @@ export function parseFilterParams(c: Context<{ Bindings: Env }>, prefix = "") {
   const khuVucClause = khuVucAdHocClause(`${prefix}khu_vuc`, c.req.query("khu_vuc"));
   sql += khuVucClause.sql;
   binds.push(...khuVucClause.binds);
+
+  const exclusionClause = khuVucReportExclusionClause(`${prefix}khu_vuc`);
+  sql += exclusionClause.sql;
+  binds.push(...exclusionClause.binds);
 
   const hang = c.req.query("hang");
   if (hang) {

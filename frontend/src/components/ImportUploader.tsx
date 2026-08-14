@@ -13,7 +13,15 @@ export function describeError(err: unknown): string {
   return "Mat ket noi hoac may chu khong phan hoi";
 }
 
-async function parseSpreadsheet(file: File, columnMap?: Record<string, string>): Promise<Record<string, unknown>[]> {
+// CHOT 2026-08-03: phat hien "cot Excel khong khop tieu de" - truoc day neu 1 header trong columnMap
+// khong ton tai trong file (sai chinh ta, thieu dau, khac tieu de mau...), raw[excelCol] luon
+// undefined -> ?? null -> TOAN BO dong ghi gia tri null cho cot do, ma khong co canh bao gi (preview/
+// commit van bao "thanh cong"). Xay ra that: import "Link hinh anh" qua /update-column ghi de NULL
+// len 10185 ca vi file nguoi dung dung tieu de khac file mau, khong 1 dong loi nao duoc bao. Chi bat
+// buoc kiem tra khi requireAllColumns=true (dung cho /update-column, noi CHI co 2 cot nen KHONG co ly
+// do hop le nao de 1 cot bi thieu) - KHONG bat cho CRM import thuong (columnMap ~40 cot, file that co
+// the hop le thieu vai cot khong bat buoc).
+async function parseSpreadsheet(file: File, columnMap?: Record<string, string>, requireAllColumns?: boolean): Promise<Record<string, unknown>[]> {
   const XLSX = await import("xlsx");
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -26,6 +34,15 @@ async function parseSpreadsheet(file: File, columnMap?: Record<string, string>):
         if (!columnMap) {
           resolve(rawRows);
           return;
+        }
+        if (requireAllColumns) {
+          const headerRow = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })[0] ?? [];
+          const headerSet = new Set(headerRow.map((h) => String(h ?? "").trim()));
+          const missing = Object.keys(columnMap).filter((h) => !headerSet.has(h));
+          if (missing.length > 0) {
+            reject(new Error(`Không tìm thấy cột "${missing.join('", "')}" trong file — kiểm tra lại tên cột (phải khớp chính xác với file mẫu, kể cả dấu).`));
+            return;
+          }
         }
         const mapped = rawRows.map((raw) => {
           const row: Record<string, unknown> = {};
@@ -50,6 +67,14 @@ export interface ImportUploaderProps<TSummary> {
   previewUrl: string;
   commitUrl: string;
   columnMapUrl?: string;
+  // Anh xa Excel->DB truyen thang tu component cha, dung khi map thay doi dong theo lua chon cua
+  // nguoi dung (vd chon cot can cap nhat) - khong the fetch tinh 1 lan qua columnMapUrl duoc. Neu
+  // ca 2 cung truyen, columnMap (truc tiep) duoc uu tien.
+  columnMap?: Record<string, string>;
+  // Bat buoc TAT CA header trong columnMap phai co that trong file (xem giai thich o parseSpreadsheet)
+  // - dung cho cac luong "vai cot co dinh, bat buoc" nhu /update-column, KHONG bat cho CRM import
+  // thuong (nhieu cot, co the hop le thieu vai cot khong bat buoc).
+  requireAllColumns?: boolean;
   buildBody: (rows: Record<string, unknown>[], filename: string) => unknown;
   renderSummary: (summary: TSummary) => ReactNode;
   getErrors: (summary: TSummary) => string[];
@@ -63,6 +88,8 @@ export function ImportUploader<TSummary>({
   previewUrl,
   commitUrl,
   columnMapUrl,
+  columnMap,
+  requireAllColumns,
   buildBody,
   renderSummary,
   getErrors,
@@ -104,11 +131,15 @@ export function ImportUploader<TSummary>({
   });
 
   async function handleFileChosen(file: File) {
-    if (columnMapUrl && !columnMapData) return;
+    if (columnMapUrl && !columnMap && !columnMapData) return;
     setFilename(file.name);
-    const rows = await parseSpreadsheet(file, columnMapData?.columnMap);
-    setParsedRows(rows);
-    previewMutation.mutate(rows);
+    try {
+      const rows = await parseSpreadsheet(file, columnMap ?? columnMapData?.columnMap, requireAllColumns);
+      setParsedRows(rows);
+      previewMutation.mutate(rows);
+    } catch (err) {
+      addToast(`Không đọc được file: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   const errors = preview ? getErrors(preview) : [];

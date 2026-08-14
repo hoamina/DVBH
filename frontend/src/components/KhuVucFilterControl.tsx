@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Select, type SelectOption } from "./ui/Select";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
 
 /**
  * Bo loc "khu vuc" dung chung cho moi module (FilterBar + 6 module co Select khu_vuc rieng le).
@@ -32,6 +33,11 @@ export function KhuVucFilterControl({
   const [showFullList, setShowFullList] = useState(false);
   const firstOption = options[0];
   const allValue = typeof firstOption === "string" ? firstOption : (firstOption?.value ?? "");
+  // Rut gon nhan hien thi (khong doi "value") - ap dung 1 cho o day la phu het moi noi goi component
+  // nay, xem lib/khuVucShortLabel.ts. Chi xu ly dang {value,label} - moi noi goi component nay deu
+  // dung dang nay cho options khu_vuc (khong dung string thuan, xem cac callsite), nen KHONG dong
+  // cham dang string de tranh rui ro lam value bien thanh nhan rut gon.
+  const shortOptions: SelectOption[] = options.map((o) => (typeof o === "string" ? o : { value: o.value, label: shortKhuVuc(o.label) }));
 
   // Tu dong chon san khu vuc duy nhat cua ho ngay lan dau (chi khi dang o gia tri "Tat ca" mac
   // dinh) - chi ap dung cho truong hop CHINH XAC 1 khu vuc, vi 2+ khu vuc da co che do chip rieng
@@ -45,7 +51,7 @@ export function KhuVucFilterControl({
   if (myAreas.length <= 1 || showFullList) {
     return (
       <div className="flex items-center gap-1.5">
-        <Select value={value} onChange={onChange} options={options} />
+        <Select value={value} onChange={onChange} options={shortOptions} />
         {myAreas.length > 1 && (
           <button
             type="button"
@@ -83,7 +89,7 @@ export function KhuVucFilterControl({
                 : "bg-white text-[var(--ink-400)] border-[var(--line)] hover:border-[var(--ocean-300)]"
             }`}
           >
-            {area}
+            {shortKhuVuc(area)}
           </button>
         );
       })}

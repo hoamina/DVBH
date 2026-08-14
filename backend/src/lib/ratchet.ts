@@ -73,8 +73,15 @@ export const COLUMN_MAP: Record<string, string> = {
   "Nghi ngờ tranh chấp": "nghi_ngo_tranh_chap",
 };
 
+// CHOT 2026-08-03: them nhanh chuoi "TRUE" (khong phan biet hoa/thuong) - pipeline QuickSight tu
+// dong va file Excel upload thu cong co the gui cot co/khong dang chuoi chu "TRUE" (SheetJS doc
+// nguyen kieu cell nguon, khong ep ve "1") thay vi so 1/chuoi "1", khien 1 dong co lỗi thuc su bi
+// normalize nham thanh false va ratchetFlag() khong bao gio bat len duoc - da xac nhan qua ca that
+// (case 1278879, "Lỗi 120 phút"=TRUE trong file import nhung DB luu 0). caseSheetSync.ts/
+// normalizeTinhVaoKpi() da xu ly dung truong hop nay tu truoc, chi rieng ham nay bi bo sot.
 export function normalizeViolationFlag(rawValue: unknown): boolean {
   if (rawValue === true || rawValue === 1 || rawValue === "1") return true;
+  if (typeof rawValue === "string" && rawValue.trim().toUpperCase() === "TRUE") return true;
   return false; // false/0/rong/NaN/undefined/null -> false
 }
 

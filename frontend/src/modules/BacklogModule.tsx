@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -7,44 +7,66 @@ import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { StatCard } from "../components/ui/StatCard";
-import { ChartCanvas } from "../components/chart/ChartCanvas";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { useDaDongChunked } from "../hooks/useDaDongChunked";
 import { api, buildQuery } from "../api/client";
-import { fmtDateTime, type CaseRow, type Paged } from "../types";
+import { fmtDateTime, fmtVND, type CaseRow, type Paged, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
-import { QLDVBH_FILTER_VALUE } from "../constants";
+import { QLDVBH_FILTER_VALUE, KHU_VUC_AN_KHOI_BAO_CAO } from "../constants";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
+import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
+import { fetchWithHashCache } from "../lib/staticListCache";
+import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
+import { matchMuaHang, matchBaoHanh } from "../lib/purchaseWarrantyMatch";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+
+function pct(a: number, b: number) {
+  return b ? Math.round((a / b) * 1000) / 10 : 0;
+}
+
+function deltaSub(bucket: DeltaBucket): string {
+  return `Đầu ngày: ${bucket.baseline} · Đã xử lý: ${bucket.resolved} (${pct(bucket.resolved, bucket.baseline)}%)`;
+}
 
 // Tab "Ca da dong" trong Backlog: chon 1 thang, dung useDaDongChunked (snapshot R2 tung ngay, xem
-// hooks/useDaDongChunked.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
-// ClosedCasesTab (cache theo request cu, da doi sang co che chunk R2 khong con dinh kem filter vao
-// request nua).
+// hooks/useDaDongChunked.ts) roi loc khu_vuc + phan trang thuan phia client - thay the ClosedCasesTab
+// (cache theo request cu, da doi sang co che chunk R2 khong con dinh kem filter vao request nua).
 function DaDongMonthList({
   columns,
   khuVucFilter,
-  dimFilters,
   onRowClick,
 }: {
   columns: Column<CaseRow>[];
   khuVucFilter: string;
-  dimFilters: Record<string, string>;
   onRowClick: (c: CaseRow) => void;
 }) {
   const { data: monthsData } = useQuery({
     queryKey: ["dashboard-months"],
     queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
   });
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7);
   const [thang, setThang] = useState(currentMonth);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
   const { rows: allRows, isLoading, isError, refetch, throttled } = useDaDongChunked(thang);
+  const [idSearch, setIdSearch] = useState("");
+
+  // khuVucFilter la prop (doi khong remount component nay) - neu khong reset, dang o trang cuoi
+  // roi thu hep bo loc khu vuc co the de "page" tro qua het so trang moi, hien bang rong sai (xem
+  // BUG report: Codex).
+  useEffect(() => {
+    setPage(1);
+  }, [khuVucFilter]);
 
   const rows = useMemo(() => {
-    let r = allRows;
+    // CHOT 2026-08-01: R2 day-chunk (useDaDongChunked) doc THANG data, khong qua endpoint co loc san
+    // KHU_VUC_AN_KHOI_BAO_CAO (endpoint do dung chung voi DanhSachTongModule - noi DUY NHAT van hien
+    // 2 khu_vuc nay) - phai tu loc o day.
+    let r = allRows.filter((row) => !row.khu_vuc || !KHU_VUC_AN_KHOI_BAO_CAO.includes(row.khu_vuc));
     if (khuVucFilter === QLDVBH_FILTER_VALUE) {
       r = r.filter((row) => (row.khu_vuc ?? "").includes("qldvbh"));
     } else if (khuVucFilter) {
@@ -56,12 +78,12 @@ function DaDongMonthList({
       );
       r = r.filter((row) => row.khu_vuc && set.has(row.khu_vuc));
     }
-    for (const [key, value] of Object.entries(dimFilters)) {
-      if (!value) continue;
-      r = r.filter((row) => row[key as keyof CaseRow] === value);
-    }
+    // CHOT 2026-08-12: du lieu thang da tai het ve client (useDaDongChunked) nen loc ID/Serial thuan
+    // phia client, khong can them request server.
+    const q = idSearch.trim().toLowerCase();
+    if (q) r = r.filter((row) => row.id.toLowerCase().includes(q) || (row.seri_san_pham ?? "").toLowerCase().includes(q));
     return r;
-  }, [allRows, khuVucFilter, dimFilters]);
+  }, [allRows, khuVucFilter, idSearch]);
 
   const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
 
@@ -72,7 +94,7 @@ function DaDongMonthList({
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-xs font-semibold text-[var(--ink-400)]">Tháng:</span>
         <Select
           value={thang}
@@ -81,6 +103,13 @@ function DaDongMonthList({
             setPage(1);
           }}
           options={monthOptions}
+        />
+        <IdSerialSearchInput
+          value={idSearch}
+          onChange={(v) => {
+            setIdSearch(v);
+            setPage(1);
+          }}
         />
       </div>
       {throttled.length > 0 && (
@@ -132,6 +161,7 @@ interface CanGiaiTrinhCounts {
   dieu_hoa: number;
   b2b: number;
   nskx: number;
+  loc_tong_bcn: number;
   da_giai_trinh: number;
   dmx_3_ngay: number;
   dmx_chua_gt_3_ngay: number;
@@ -158,6 +188,82 @@ interface KhuVucRow {
   thieu_linh_kien: number;
 }
 
+interface DeltaBucket {
+  baseline: number;
+  resolved: number;
+  remaining: number;
+}
+
+// Khop dung shape KhuVucReportRow cua backend/src/lib/dailySnapshot.ts - cot TINH (khong delta) cua
+// bang "Bao cao ton theo khu vuc" khi nhom theo Khu vuc va co dong bang.
+interface KhuVucReportRow {
+  tong_ton: number;
+  tren_3: number;
+  tren_5: number;
+  tren_7: number;
+  tren_14: number;
+  da_giai_trinh: number;
+  lo_ke_hoach: number;
+  cho_giai_trinh_lai: number;
+  dmx_chua_gt_3_ngay: number;
+  chua_gt_5_ngay: number;
+  dieu_hoa_1_ngay: number;
+  b2b_1_ngay: number;
+  nskx_2_ngay: number;
+  thieu_linh_kien: number;
+}
+
+// Khop dung shape BacklogDailyPayload cua backend/src/lib/dailySnapshot.ts (getBacklogDailyWithDelta
+// / getBacklogDailyForKhuVuc) - "Bao cao ngay 08:00" cho Quan ly ton, chi co y nghia khi khong co bo
+// loc phu nao HOAC loc dung 1 khu_vuc (xem isFrozenEligible trong component ben duoi).
+interface BacklogDailyPayload {
+  generatedAt: string;
+  generatedBy: string;
+  tongTon: DeltaBucket;
+  tren3: number;
+  tren5: number;
+  tren7: number;
+  tren14: number;
+  canGiaiTrinh: {
+    tong: DeltaBucket;
+    loKeHoach: DeltaBucket;
+    taiGiaiTrinh: DeltaBucket;
+    chuaGt3NgayDmx: DeltaBucket;
+    chuaGt5Ngay: DeltaBucket;
+    dieuHoa: DeltaBucket;
+    loKeHoachDmx5: DeltaBucket;
+    loKeHoach14: DeltaBucket;
+    taiGiaiTrinhDmx5: DeltaBucket;
+    taiGiaiTrinh14: DeltaBucket;
+    b2b: DeltaBucket;
+    nskx: DeltaBucket;
+    locTongBcn: DeltaBucket;
+  };
+  byKhuVuc: Record<string, DeltaBucket>;
+  khuVucRows: Record<string, KhuVucReportRow>;
+  // "Can giai trinh (tong luy ke)" / "Da giai trinh (trong thang)" - cong don SUM tu ngay 01 thang
+  // nay den hom nay, tu giai_trinh_daily_log (chot 17h30) - xem giai thich chi tiet trong
+  // backend/src/lib/dailySnapshot.ts computeBacklogDeltaPayload.
+  byKhuVucMonthly: Record<string, { canGiaiTrinhLuyKe: number; daGiaiTrinhThang: number }>;
+}
+
+interface GiaiTrinhTrendDay {
+  ngay: string;
+  can_giai_trinh: number;
+  da_giai_trinh: number;
+}
+interface GiaiTrinhTrendRow {
+  khu_vuc: string;
+  days: GiaiTrinhTrendDay[];
+}
+// Ngay/khu_vuc bi loai tru khoi luy ke/ty le thang (settings_giai_trinh_exclude_ngay, migration
+// 0046) - khu_vuc = "__ALL__" nghia la loai tru CA HE THONG ngay do. Chu nhat KHONG nam trong danh
+// sach nay (quy tac cung, tu tinh o isNgayExcluded ben duoi), server chi tra ve phan THEM tay.
+interface ExcludedNgayRow {
+  ngay: string;
+  khu_vuc: string;
+}
+
 interface FiltersData {
   khuVuc: string[];
   hang: string[];
@@ -179,6 +285,7 @@ const NHOM_TON_BADGES: { key: keyof CaseRow; label: string }[] = [
   { key: "need_dieu_hoa", label: "Điều hòa" },
   { key: "need_b2b", label: "B2B" },
   { key: "need_nskx", label: "NSKX" },
+  { key: "need_loc_tong_bcn", label: "Lọc tổng" },
 ];
 
 const REPORT_DIM_OPTIONS = [
@@ -189,18 +296,6 @@ const REPORT_DIM_OPTIONS = [
   { value: "nhom_san_pham", label: "Model" },
   { value: "nhom_kh", label: "Nhóm KH" },
   { value: "nganh", label: "Ngành" },
-];
-
-// Cac bo loc dung chung cho CA the bao cao (bieu do + bang pivot + danh sach chi tiet) - moi field
-// map thang toi 1 cot REPORT_DIMS ben backend (xem filterParams.ts sharedReportFilters). "khu_vuc"
-// rieng vi co gia tri ao QLDVBH_FILTER_VALUE.
-const FILTER_FIELDS: { key: string; label: string; optionsKey: keyof FiltersData }[] = [
-  { key: "tinh", label: "Tỉnh", optionsKey: "tinh" },
-  { key: "doi_tac", label: "Đối tác", optionsKey: "doiTac" },
-  { key: "hang", label: "Hãng", optionsKey: "hang" },
-  { key: "nhom_san_pham", label: "Model", optionsKey: "nhomSanPham" },
-  { key: "nhom_kh", label: "Nhóm KH", optionsKey: "nhomKh" },
-  { key: "nganh", label: "Ngành", optionsKey: "nganh" },
 ];
 
 const VIEWS = [
@@ -223,7 +318,13 @@ const NHOM_OPTIONS = [
   { value: "can-giai-trinh:dieu_hoa", label: "— Điều hòa >1 ngày" },
   { value: "can-giai-trinh:b2b", label: "— B2B >1 ngày" },
   { value: "can-giai-trinh:nskx", label: "— NSKX >=2 ngày" },
+  { value: "can-giai-trinh:loc_tong_bcn", label: "— Lọc tổng >1 ngày" },
+  { value: "can-giai-trinh:lo_ke_hoach_dmx_5", label: "—— Lỡ kế hoạch, ĐMX >5 ngày" },
+  { value: "can-giai-trinh:lo_ke_hoach_14", label: "—— Lỡ kế hoạch >14 ngày" },
+  { value: "can-giai-trinh:tai_giai_trinh_dmx_5", label: "—— Tái giải trình, ĐMX >5 ngày" },
+  { value: "can-giai-trinh:tai_giai_trinh_14", label: "—— Tái giải trình >14 ngày" },
   { value: "da-giai-trinh", label: "Đã giải trình" },
+  { value: "da-giai-trinh-trong-ngay", label: "Đã giải trình trong ngày" },
   { value: "da-dong", label: "Ca đã đóng" },
 ];
 
@@ -260,64 +361,168 @@ function DmxBreakdownCard({
   onClickTaiGiaiTrinh: () => void;
   onClickLoKeHoach: () => void;
 }) {
+  const rows = [
+    { label: "— Chưa GT >3 ngày", value: chuaGt3, onClick: onClickChuaGt3 },
+    { label: "— Tái giải trình", value: taiGiaiTrinh, onClick: onClickTaiGiaiTrinh },
+    { label: "— Lỡ kế hoạch", value: loKeHoach, onClick: onClickLoKeHoach },
+  ];
   return (
-    <Card className="p-4 flex-1 min-w-[170px]">
-      <div className="flex items-center justify-between mb-2">
+    <Card className="p-3 sm:p-4 flex-1 min-w-[150px]">
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
         <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Chưa giải trình &gt;3 (ĐMX)</span>
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "var(--amber-500)" }}></span>
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: total > 0 ? "var(--amber-500)" : "var(--ink-400)" }}></span>
       </div>
-      <button type="button" className="font-display text-2xl font-extrabold text-[var(--ink-900)] hover:underline text-left block" onClick={onClickTotal}>
+      <button
+        type="button"
+        className={`font-display text-xl sm:text-2xl font-extrabold hover:underline text-left block ${total > 0 ? "text-[var(--ink-900)]" : "text-[var(--ink-400)]"}`}
+        onClick={onClickTotal}
+      >
         {total}
       </button>
       <div className="mt-2 space-y-1 border-t border-[var(--line)] pt-2">
-        <button type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={onClickChuaGt3}>
-          <span>— Chưa GT &gt;3 ngày</span>
-          <span className="font-mono font-semibold">{chuaGt3}</span>
-        </button>
-        <button type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={onClickTaiGiaiTrinh}>
-          <span>— Tái giải trình</span>
-          <span className="font-mono font-semibold">{taiGiaiTrinh}</span>
-        </button>
-        <button type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={onClickLoKeHoach}>
-          <span>— Lỡ kế hoạch</span>
-          <span className="font-mono font-semibold">{loKeHoach}</span>
-        </button>
+        {rows.map((r) => (
+          <button key={r.label} type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={r.onClick}>
+            <span className={r.value > 0 ? "" : "text-[var(--ink-400)]"}>{r.label}</span>
+            <span className={`font-mono font-semibold ${r.value > 0 ? "px-1.5 rounded bg-[var(--amber-100)] text-[var(--amber-500)]" : "text-[var(--ink-400)]"}`}>{r.value}</span>
+          </button>
+        ))}
       </div>
     </Card>
   );
 }
 
+// CHOT 2026-08-01: "Bao cao ngay 08:00" cho Quan ly ton (dong bang + delta trong ngay, xem
+// lib/dailySnapshot.ts getBacklogDailyWithDelta o backend) - the tong quat hoa DmxBreakdownCard o
+// tren de dung chung cho "Tong ton hien tai"/"Lo ke hoach"/"Tai giai trinh" (co breakdown con) LAN
+// cac the don ("Chua GT >5 ngay", "Dieu hoa >1 ngay"...) qua "rows" rong. Moi dong con la 1 DeltaBucket
+// day du (khong chi 1 so) - dung cho yeu cau "xxx ca DMX >5 ngay (da giai trinh 4 con 2)".
+// primaryValue/primarySub tach rieng (khong nhan thang 1 DeltaBucket cho so lon) vi 2 ngu canh dung
+// component nay co ngu nghia so lon KHAC nhau: "Can giai trinh" (con lai la so chinh, giong Tong
+// quat) vs "Tong ton" (baseline la so chinh - giai trinh KHONG lam case roi khoi "ton", chi la thao
+// tac trong ngay tren backlog, xem Context trong plan).
+function DeltaBreakdownCard({
+  label,
+  tone,
+  primaryValue,
+  primarySub,
+  onClickPrimary,
+  rows,
+  // "Cần giải trình" (Lỡ kế hoạch/Cần tái giải trình) la so viec CAN LAM - lam mo khi = 0, to sang
+  // khi > 0. "Tổng tồn hiện tại" chi la so lieu tong quan, KHONG bat theo quy tac nay (mac dinh false).
+  mutable = false,
+}: {
+  label: string;
+  tone: "ocean" | "teal" | "amber" | "coral";
+  primaryValue: number;
+  primarySub?: string;
+  onClickPrimary: () => void;
+  rows: { label: string; bucket: DeltaBucket; onClick: () => void }[];
+  mutable?: boolean;
+}) {
+  const dotColor = { ocean: "var(--ocean-500)", teal: "var(--teal-500)", amber: "var(--amber-500)", coral: "var(--coral-500)" }[tone];
+  const textColor = { ocean: "text-[var(--ocean-500)]", teal: "text-[var(--teal-500)]", amber: "text-[var(--amber-500)]", coral: "text-[var(--coral-500)]" }[tone];
+  const chipBg = { ocean: "bg-[var(--ocean-100)] text-[var(--ocean-500)]", teal: "bg-[var(--teal-100)] text-[var(--teal-500)]", amber: "bg-[var(--amber-100)] text-[var(--amber-500)]", coral: "bg-[var(--coral-100)] text-[var(--coral-500)]" }[
+    tone
+  ];
+  const primaryMuted = mutable && primaryValue === 0;
+  return (
+    <Card className="p-3 sm:p-4 flex-1 min-w-[170px]">
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+        <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">{label}</span>
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: primaryMuted ? "var(--ink-400)" : dotColor }}></span>
+      </div>
+      <button
+        type="button"
+        className={`font-display text-xl sm:text-2xl font-extrabold hover:underline text-left block ${primaryMuted ? "text-[var(--ink-400)]" : textColor}`}
+        onClick={onClickPrimary}
+      >
+        {primaryValue}
+      </button>
+      {primarySub && <div className="text-[11px] text-[var(--ink-400)] mt-0.5">{primarySub}</div>}
+      {rows.length > 0 && (
+        <div className="mt-2 space-y-1 border-t border-[var(--line)] pt-2">
+          {rows.map((r) => {
+            const rowMuted = mutable && r.bucket.remaining === 0;
+            return (
+              <button key={r.label} type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={r.onClick}>
+                <span className={rowMuted ? "text-[var(--ink-400)]" : ""}>{r.label}</span>
+                <span className={`font-mono font-semibold ${rowMuted ? "text-[var(--ink-400)]" : `px-1.5 rounded ${chipBg}`}`}>
+                  {r.bucket.remaining}
+                  <span className={rowMuted ? "font-normal" : "font-normal opacity-80"}> (đã GT {r.bucket.resolved}/{r.bucket.baseline})</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// O so trong bang "Bao cao ton theo..." cho nhom cot "Can giai trinh" - CHOT 2026-08-03: gia tri >0
+// (con viec can xu ly) duoc to chip mau coral noi bat, gia tri 0 hien mo/xam - giup nguoi dung quet
+// nhanh bang nhieu cot/nhieu dong ma khong bi "loang" giua so 0 va so co y nghia.
+function NumCell({ value, onClick, bold = false }: { value: number; onClick?: () => void; bold?: boolean }) {
+  if (value > 0) {
+    const cls = `font-mono px-1.5 py-0.5 rounded bg-[var(--coral-100)] text-[var(--coral-500)] ${bold ? "font-bold" : "font-semibold"}`;
+    return onClick ? (
+      <button className={`${cls} hover:underline`} onClick={onClick}>
+        {value}
+      </button>
+    ) : (
+      <span className={cls}>{value}</span>
+    );
+  }
+  return onClick ? (
+    <button className="font-mono text-[var(--ink-400)] hover:underline" onClick={onClick}>
+      {value}
+    </button>
+  ) : (
+    <span className="font-mono text-[var(--ink-400)]">{value}</span>
+  );
+}
+
+// 14 ngay gan nhat (ke ca hom nay), "YYYY-MM-DD" gio VN - dung lam cot co dinh cho bang "Ty le giai
+// trinh theo ngay" (moi khu vuc co the thieu du lieu 1 vai ngay, van giu du 14 cot de so sanh).
+function last14Days(): string[] {
+  const days: string[] = [];
+  const nowVN = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(nowVN);
+    d.setUTCDate(d.getUTCDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+function fmtDayShort(ngay: string): string {
+  const [, m, d] = ngay.split("-");
+  return `${d}/${m}`;
+}
+
 export function BacklogModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
-  const [view, setView] = useState("bao-cao");
+  const [view, setView] = useLocalStorageState("filters:backlog-view", "bao-cao");
   const [page, setPage] = useState(1);
-  const [reportDim, setReportDim] = useState("khu_vuc");
-  const [nhomKey, setNhomKey] = useState("can-giai-trinh:tong");
+  // Drill-down tu bao cao 08:00 phai giu ca da dong trong ngay trong danh sach can giai trinh.
+  const [listFromSnapshot0800, setListFromSnapshot0800] = useState(false);
+  const [reportDim, setReportDim] = useLocalStorageState("filters:backlog-report-dim", "khu_vuc");
+  const [nhomKey, setNhomKey] = useLocalStorageState("filters:backlog-nhom-key", "can-giai-trinh:tong");
   const [dsTuoiTu, setDsTuoiTu] = useState("");
   const [idSearch, setIdSearch] = useState("");
-  // Loc theo KTV - rieng cho Danh sach chi tiet (ton hien tai/can giai trinh/da giai trinh), khong
-  // ap dung cho the Bao cao/pivot (nam ngoai pham vi yeu cau) va khong ap dung cho tab "Ca da dong"
-  // (du lieu tu snapshot R2, khong co dieu kien loc rieng theo KTV o day).
-  const [ktvFilter, setKtvFilter] = useState("");
   const [sortBy, setSortBy] = useState("id");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const [khuVucFilter, setKhuVucFilter] = useState("");
-  const [dimFilters, setDimFilters] = useState<Record<string, string>>({
-    tinh: "",
-    doi_tac: "",
-    hang: "",
-    nhom_san_pham: "",
-    nhom_kh: "",
-    nganh: "",
-  });
+  // CHOT 2026-08-01: bo het bo loc phu (tinh/doi tac/hang/model/nhom KH/nganh/KTV) khoi thanh loc
+  // chung (sharedFilterParams) theo yeu cau - chi con giu lai khu_vuc o do.
+  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:backlog-khu-vuc", "");
+  // CHOT 2026-08-01: rieng KTV duoc them LAI nhung CHI cho tab "Danh sach chi tiet" (khong dua vao
+  // sharedFilterParams - khong anh huong isDefaultBacklogFilter/isFrozenEligible cua khoi Bao cao).
+  const [ktvFilter, setKtvFilter] = useState("");
   const pageSize = 10;
 
-  // "ky_thuat_vien" nam trong sharedFilterParams (dung chung ca Bao cao lan Danh sach chi tiet) -
-  // rieng tab "Ca da dong" (du lieu tu snapshot R2) khong loc theo KTV, ghi de lai ve undefined
-  // trong listParams ben duoi (PHAI dat SAU spread sharedFilterParams de gia tri nay thang the).
-  const sharedFilterParams = { khu_vuc: khuVucFilter, ky_thuat_vien: ktvFilter, ...dimFilters };
+  const sharedFilterParams = { khu_vuc: khuVucFilter };
 
   const [dsTab, dsCategory] = nhomKey.split(":");
 
@@ -325,18 +530,241 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     queryKey: ["dashboard-filters"],
     queryFn: () => api.get<FiltersData>("/dashboard/filters"),
   });
+  // CHOT 2026-08-06: du lieu cho 4 cot tuy chon moi cua "Danh sach chi tiet" (Ma/Ten linh kien thieu
+  // gan nhat, SL don mua, SL don bao hanh) - "settings-linh-kien" dung CHUNG queryKey voi
+  // SettingsModule.tsx/CaseDetail.tsx (khong fetch lai neu da co san trong cache), usePurchaseWarrantyData()
+  // cung la hook dung chung toan app (mount san o App.tsx), khong ton chi phi fetch them.
+  const { data: linhKienData } = useQuery({
+    queryKey: ["settings-linh-kien"],
+    queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
+  });
+  const linhKienTenMap = useMemo(() => new Map((linhKienData?.rows ?? []).map((r) => [r.ma_linh_kien, r.ten_linh_kien])), [linhKienData]);
+  const { muaHang, baoHanh } = usePurchaseWarrantyData();
+  // CHOT 2026-08-11: cac the so o tab "Bao cao" (vd "Tong can giai trinh") co the doi CHI VI thoi
+  // gian troi qua (1 ca vuot moc tuoi ton 3/5/7/14 ngay) hoac do NGUOI KHAC thao tac (giai trinh 1 ca,
+  // import CRM...) - khong co mutation cuc bo nao de invalidateQueries khi do, nen neu nguoi dung cu
+  // mo tab nay lien tuc (khong unmount/remount lai) so lieu se dung yen mai cho toi khi F5 lai trang
+  // (bug chu he thong bao "phai load lai web moi cap nhat"). Them refetchInterval rieng cho 4 query
+  // nuoi cac the/bang o day (staleTime mac dinh 2 phut o main.tsx khong tu kich hoat refetch neu
+  // khong remount/focus) - backend da co cachedReport()/tinh delta re (xem dailySnapshot.ts), polling
+  // vai phut/lan khong dang ke so voi ngan sach doc D1.
+  const BACKLOG_REPORT_REFETCH_MS = 3 * 60_000;
   const { data: stats } = useQuery({
     queryKey: ["backlog-stats", sharedFilterParams],
     queryFn: () => api.get<BacklogStats>(`/cases/backlog-stats${buildQuery(sharedFilterParams)}`),
+    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
   const { data: counts } = useQuery({
     queryKey: ["backlog-counts", sharedFilterParams],
     queryFn: () => api.get<CanGiaiTrinhCounts>(`/cases/counts${buildQuery(sharedFilterParams)}`),
+    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
+  // CHOT 2026-08-01: "Bao cao ngay 08:00" (dong bang + delta trong ngay, xem lib/dailySnapshot.ts)
+  // CHI co y nghia khi khong bat bo loc phu nao (khong the dong bang truoc moi to hop filter) -
+  // giong het isDefaultReportParams() da dung cho Dashboard/Revenue, ap dung rieng cho Quan ly ton
+  // vi bo loc phu (tinh/doi tac/hang/model/nhom KH/nganh/KTV) da bi go bo, chi con khu_vuc.
+  const isDefaultBacklogFilter = !khuVucFilter;
+  // CHOT 2026-08-01 (mo rong theo yeu cau): khi nguoi dung loc DUNG 1 khu_vuc cu the (khong phai gia
+  // tri ao QLDVBH_FILTER_VALUE gop nhieu khu_vuc, khong phai danh sach nhieu khu_vuc cach dau phay)
+  // van co the doc dong bang - backend tinh san 1 snapshot rieng cho TUNG khu_vuc co that (xem
+  // generateKhuVucBacklogSnapshots), khong chi ban "tat ca".
+  const isSingleKhuVucOnly = !!khuVucFilter && khuVucFilter !== QLDVBH_FILTER_VALUE && !khuVucFilter.includes(",");
+  // CHOT 2026-08-01 (chu he thong phat hien "Tat ca DVBH" bi roi ve so song): gia tri ao
+  // QLDVBH_FILTER_VALUE van doc dong bang duoc - backend cong don san cac snapshot rieng cua TUNG
+  // khu_vuc thuc te co chua "qldvbh" (xem getBacklogDailyForKhuVucGroup), khong can tinh song.
+  const isQldvbhGroup = khuVucFilter === QLDVBH_FILTER_VALUE;
+  const isFrozenEligible = isDefaultBacklogFilter || isSingleKhuVucOnly || isQldvbhGroup;
+  // Bo qua khi dang xem bang dong bang (nhom Khu vuc + du dieu kien dong bang) - da co du lieu tu
+  // backlogDaily.khuVucRows, khong can doc song them qua route nay (do rows_read).
   const { data: khuVucStats } = useQuery({
     queryKey: ["backlog-by-khu-vuc", reportDim, sharedFilterParams],
     queryFn: () => api.get<{ rows: KhuVucRow[] }>(`/cases/backlog-by-khu-vuc${buildQuery({ dim: reportDim, ...sharedFilterParams })}`),
+    enabled: !(reportDim === "khu_vuc" && isFrozenEligible),
+    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
+  const { data: backlogDaily } = useQuery({
+    queryKey: ["backlog-daily", isSingleKhuVucOnly || isQldvbhGroup ? khuVucFilter : null],
+    queryFn: () => api.get<BacklogDailyPayload | null>(`/cases/backlog-daily${isSingleKhuVucOnly || isQldvbhGroup ? buildQuery({ khu_vuc: khuVucFilter }) : ""}`),
+    enabled: isFrozenEligible,
+    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
+  });
+  // Bang lich su "Ty le giai trinh theo ngay" (chot 17h30, xem giai_trinh_daily_log) - KHONG phu
+  // thuoc bo loc phu (chi loc theo pham vi khu_vuc cua nguoi xem o backend), nen luon fetch khi dang
+  // xem tab Bao cao, khong gate theo isFrozenEligible.
+  const { data: giaiTrinhTrend } = useQuery({
+    queryKey: ["giai-trinh-daily-trend"],
+    queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] }>("/cases/giai-trinh-daily-trend?days=14"),
+    enabled: view === "bao-cao",
+  });
+  // "Ngay loai tru" khoi luy ke/ty le thang - Chu nhat (quy tac cung) HOAC co trong danh sach Admin
+  // them tay (khu_vuc "__ALL__" ap dung ca he thong) - dung de to mau khac trong bang "Ty le giai
+  // trinh theo ngay", KHOP DUNG logic backend (buildNgayExcludedChecker trong dailySnapshot.ts).
+  const isNgayExcluded = useMemo(() => {
+    const rows = giaiTrinhTrend?.excludedNgay ?? [];
+    const manualSet = new Set(rows.map((r) => `${r.ngay}|${r.khu_vuc}`));
+    const allSet = new Set(rows.filter((r) => r.khu_vuc === "__ALL__").map((r) => r.ngay));
+    return (ngay: string, khuVuc: string) => {
+      const isSunday = new Date(`${ngay}T00:00:00Z`).getUTCDay() === 0;
+      return isSunday || allSet.has(ngay) || manualSet.has(`${ngay}|${khuVuc}`);
+    };
+  }, [giaiTrinhTrend]);
+  const trendDays = last14Days();
+  // Cot dau tien (Khu vuc) sap A-Z.
+  const sortedTrendRows: GiaiTrinhTrendRow[] = [...(giaiTrinhTrend?.rows ?? [])].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi"));
+  // Dong "Tong cong" cho bang "Ty le giai trinh theo ngay" - MOI cot ngay cong rieng can_giai_trinh/
+  // da_giai_trinh cua tat ca khu vuc co du lieu ngay do, roi tinh % tu tong (khong cong trung binh
+  // % tung dong).
+  const trendTotalByDay = useMemo(() => {
+    const rows = giaiTrinhTrend?.rows ?? [];
+    const result: Record<string, { can: number; da: number }> = {};
+    for (const day of trendDays) {
+      let can = 0;
+      let da = 0;
+      for (const row of rows) {
+        const found = row.days.find((d) => d.ngay === day);
+        if (found) {
+          can += found.can_giai_trinh;
+          da += found.da_giai_trinh;
+        }
+      }
+      result[day] = { can, da };
+    }
+    return result;
+  }, [giaiTrinhTrend, trendDays]);
+  // Trang thai loai tru cua dong "Tong cong" cho 1 ngay: "full" = TAT CA khu vuc co du lieu ngay do
+  // deu bi loai tru (to giong cac o khu vuc rieng le), "partial" = CHI MOT SO khu vuc bi loai tru (to
+  // mau RIENG, khac han - canh bao "Tong cong" ngay nay khong dai dien du 100% khu vuc"), "none" =
+  // khong khu vuc nao bi loai tru.
+  const trendDayExclusionStatus = useMemo(() => {
+    const result: Record<string, "none" | "partial" | "full"> = {};
+    for (const day of trendDays) {
+      let total = 0;
+      let excluded = 0;
+      for (const row of sortedTrendRows) {
+        if (row.days.find((d) => d.ngay === day)) {
+          total++;
+          if (isNgayExcluded(day, row.khu_vuc)) excluded++;
+        }
+      }
+      result[day] = total === 0 || excluded === 0 ? "none" : excluded === total ? "full" : "partial";
+    }
+    return result;
+  }, [sortedTrendRows, trendDays, isNgayExcluded]);
+  // 3 cot moi cua bang "Bao cao ton theo khu vuc" (Can giai trinh trong ngay/Da giai trinh/Ty le) -
+  // CHI khi dang nhom theo Khu vuc (yeu cau goc "chi can ty le theo Khu vuc") VA co dong bang (mac
+  // dinh hoac loc dung 1 khu_vuc).
+  const showDailyCols = reportDim === "khu_vuc" && isFrozenEligible && !!backlogDaily;
+  // CHOT 2026-08-03: khi co dong bang (showDailyCols), toan bo cac cot con lai cua bang "Bao cao ton
+  // theo khu vuc" (Tong ton/Tren 3-14/Da giai trinh/Can giai trinh (tong)/Lo ke hoach/...) CUNG phai
+  // chot cung tu backlogDaily thay vi doc song qua khuVucStats. "da_giai_trinh" va "can_giai_trinh_tong"
+  // gio la 2 chi tieu LUY KE THANG (khong con la so tinh/tuc thoi nhu truoc) - lay tu
+  // byKhuVucMonthly.daGiaiTrinhThang / canGiaiTrinhLuyKe (cong don SUM tu giai_trinh_daily_log,
+  // xem chu thich BacklogDailyPayload.byKhuVucMonthly) - khong con dung r.da_giai_trinh (khuVucRows,
+  // so tinh tuc thoi) hay byKhuVuc.baseline (so cua rieng hom nay) nua.
+  const frozenKhuVucRows: KhuVucRow[] = useMemo(() => {
+    if (!showDailyCols || !backlogDaily) return [];
+    return Object.entries(backlogDaily.khuVucRows)
+      .map(([nhom, r]) => ({
+        nhom,
+        tong_ton: r.tong_ton,
+        tren_3: r.tren_3,
+        tren_5: r.tren_5,
+        tren_7: r.tren_7,
+        tren_14: r.tren_14,
+        da_giai_trinh: backlogDaily.byKhuVucMonthly[nhom]?.daGiaiTrinhThang ?? 0,
+        can_giai_trinh_tong: backlogDaily.byKhuVucMonthly[nhom]?.canGiaiTrinhLuyKe ?? 0,
+        lo_ke_hoach: r.lo_ke_hoach,
+        cho_giai_trinh_lai: r.cho_giai_trinh_lai,
+        dmx_chua_gt_3_ngay: r.dmx_chua_gt_3_ngay,
+        chua_gt_5_ngay: r.chua_gt_5_ngay,
+        dieu_hoa_1_ngay: r.dieu_hoa_1_ngay,
+        b2b_1_ngay: r.b2b_1_ngay,
+        nskx_2_ngay: r.nskx_2_ngay,
+        thieu_linh_kien: r.thieu_linh_kien,
+      }))
+      .sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  }, [showDailyCols, backlogDaily]);
+  // CHOT 2026-08-01: cot dau tien (nhom) sap A-Z - ap dung du nguon la dong bang hay song.
+  const displayKhuVucRows: KhuVucRow[] = [...(showDailyCols ? frozenKhuVucRows : (khuVucStats?.rows ?? []))].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+
+  // CHOT 2026-08-06: khi showDailyCols, bang hien THEM 4 cot "trong ngay" (Ty le GT thang/Can GT
+  // ngay/Da GT ngay/Ty le GT ngay - tinh tu backlogDaily.byKhuVuc, KHONG nam trong KhuVucRow) - truoc
+  // "Xuat Excel" chi xuat nguyen displayKhuVucRows nen file tai ve THIEU dung 4 cot nay so voi man
+  // hinh dang xem (chu he thong bao cao). Bo sung rieng cho file xuat, khong dung lam kieu hien thi
+  // (component hien thi van doc thang tu backlogDaily.byKhuVuc[r.nhom] nhu cu).
+  const exportKhuVucRowsBody = displayKhuVucRows.map((r) => {
+    if (!showDailyCols || !backlogDaily) return reportDim === "khu_vuc" ? { ...r, nhom: shortKhuVuc(r.nhom) } : r;
+    const bucket = backlogDaily.byKhuVuc[r.nhom];
+    return {
+      ...r,
+      nhom: reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom,
+      ty_le_gt_thang: r.can_giai_trinh_tong ? `${pct(r.da_giai_trinh, r.can_giai_trinh_tong)}%` : "—",
+      can_giai_trinh_ngay: bucket?.baseline ?? 0,
+      da_giai_trinh_ngay: bucket?.resolved ?? 0,
+      ty_le_gt_ngay: bucket ? `${pct(bucket.resolved, bucket.baseline)}%` : "—",
+    };
+  });
+
+  // Dong "Tong cong" o dau bang "Bao cao ton theo ..." - cong don tat ca cot so tren CHINH cac dong
+  // dang hien (displayKhuVucRows), nen tu doi theo bo loc/nhom hien tai khong can logic rieng. Cot
+  // "trong ngay" (khi showDailyCols) cong rieng tu backlogDaily.byKhuVuc roi tinh lai % tu tong da
+  // giai trinh/tong can giai trinh (khong cong trung binh cac % dong), giong dung nguyen tac ap
+  // dung cho moi bang bao cao khac trong app.
+  const khuVucTotal = useMemo(() => {
+    const sum = (key: keyof KhuVucRow) => displayKhuVucRows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+    let trongNgayBaseline = 0;
+    let trongNgayResolved = 0;
+    if (showDailyCols && backlogDaily) {
+      for (const r of displayKhuVucRows) {
+        const bucket = backlogDaily.byKhuVuc[r.nhom];
+        if (bucket) {
+          trongNgayBaseline += bucket.baseline;
+          trongNgayResolved += bucket.resolved;
+        }
+      }
+    }
+    return {
+      tong_ton: sum("tong_ton"),
+      tren_3: sum("tren_3"),
+      tren_5: sum("tren_5"),
+      tren_7: sum("tren_7"),
+      tren_14: sum("tren_14"),
+      da_giai_trinh: sum("da_giai_trinh"),
+      can_giai_trinh_tong: sum("can_giai_trinh_tong"),
+      trongNgayBaseline,
+      trongNgayResolved,
+      lo_ke_hoach: sum("lo_ke_hoach"),
+      cho_giai_trinh_lai: sum("cho_giai_trinh_lai"),
+      dmx_chua_gt_3_ngay: sum("dmx_chua_gt_3_ngay"),
+      chua_gt_5_ngay: sum("chua_gt_5_ngay"),
+      dieu_hoa_1_ngay: sum("dieu_hoa_1_ngay"),
+      b2b_1_ngay: sum("b2b_1_ngay"),
+      nskx_2_ngay: sum("nskx_2_ngay"),
+      thieu_linh_kien: sum("thieu_linh_kien"),
+    };
+  }, [displayKhuVucRows, showDailyCols, backlogDaily]);
+
+  // CHOT 2026-08-12: file xuat Excel truoc day THIEU dong "Tong cong" (dong dau tien tren man hinh,
+  // xem <tr> "Tong cong" ngay truoc vong lap displayKhuVucRows ben duoi) - them lai bang cach ghep
+  // dong nay (tinh tu khuVucTotal, cung cong thuc % nhu hien thi tren man hinh) vao DAU mang xuat.
+  const exportKhuVucRows =
+    displayKhuVucRows.length === 0
+      ? exportKhuVucRowsBody
+      : [
+          {
+            ...khuVucTotal,
+            nhom: "Tổng cộng",
+            ...(showDailyCols
+              ? {
+                  ty_le_gt_thang: khuVucTotal.can_giai_trinh_tong ? `${pct(khuVucTotal.da_giai_trinh, khuVucTotal.can_giai_trinh_tong)}%` : "—",
+                  can_giai_trinh_ngay: khuVucTotal.trongNgayBaseline,
+                  da_giai_trinh_ngay: khuVucTotal.trongNgayResolved,
+                  ty_le_gt_ngay: khuVucTotal.trongNgayBaseline ? `${pct(khuVucTotal.trongNgayResolved, khuVucTotal.trongNgayBaseline)}%` : "—",
+                }
+              : {}),
+          },
+          ...exportKhuVucRowsBody,
+        ];
 
   const listParams = {
     tab: dsTab,
@@ -347,6 +775,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     pageSize,
     sortBy,
     sortDir,
+    snapshot_0800: listFromSnapshot0800 && dsTab === "can-giai-trinh" ? true : undefined,
     ...sharedFilterParams,
     ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
   };
@@ -358,6 +787,9 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
 
   function goToDanhSach(nhom: string, tuoiTu?: string) {
     setNhomKey(nhom);
+    // Tap ID snapshot theo vai tro (khong co bo loc) la nguon duy nhat co the drill-down khop 100%
+    // voi so 08:00. Bo loc khu vuc rieng tam thoi dung nhanh bao gom ca dong sau 08:00 o backend.
+    setListFromSnapshot0800(!!backlogDaily && isFrozenEligible && (nhom.startsWith("can-giai-trinh:") || nhom === "da-giai-trinh-trong-ngay"));
     setDsTuoiTu(tuoiTu ?? "");
     setIdSearch("");
     setPage(1);
@@ -370,8 +802,6 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
   function drillDown(value: string, nhom: string, tuoiTu?: string) {
     if (reportDim === "khu_vuc") {
       setKhuVucFilter(value);
-    } else {
-      setDimFilters((f) => ({ ...f, [reportDim]: value }));
     }
     goToDanhSach(nhom, tuoiTu);
   }
@@ -390,6 +820,13 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     need_dieu_hoa: "Điều hòa",
     need_b2b: "B2B",
     need_nskx: "NSKX",
+    need_loc_tong_bcn: "Lọc tổng",
+    tuoi_ton: "Tuổi tồn",
+    // CHOT 2026-08-06: cac cot tinh rieng o frontend (khong co san tren CaseRow tu API) - xem enrichForExport().
+    last_ten_linh_kien_thieu: "Tên linh kiện thiếu gần nhất",
+    sl_don_mua: "SL đơn mua",
+    sl_don_bao_hanh: "SL đơn bảo hành",
+    khoang_ton: "Khoảng tồn",
   };
 
   // Nhan cot cho bang pivot "Bao cao ton theo ..." - khop dung thead cua bang o duoi (cot "nhom" doi
@@ -402,8 +839,12 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
       tren_5: "Trên 5 ngày",
       tren_7: "Trên 7 ngày",
       tren_14: "Trên 14 ngày",
-      da_giai_trinh: "Đã giải trình",
-      can_giai_trinh_tong: "Cần giải trình (tổng)",
+      da_giai_trinh: showDailyCols ? "Đã giải trình (tháng)" : "Đã giải trình",
+      can_giai_trinh_tong: showDailyCols ? "Cần giải trình (lũy kế)" : "Cần giải trình (tổng)",
+      ty_le_gt_thang: "Tỷ lệ GT tháng",
+      can_giai_trinh_ngay: "Cần giải trình (ngày)",
+      da_giai_trinh_ngay: "Đã giải trình (ngày)",
+      ty_le_gt_ngay: "Tỷ lệ GT ngày",
       lo_ke_hoach: "Lỡ kế hoạch",
       cho_giai_trinh_lai: "Tái giải trình",
       dmx_chua_gt_3_ngay: "ĐMX chưa GT >3 ngày",
@@ -417,7 +858,18 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
 
   async function handleExport() {
     const all = await api.get<{ rows: CaseRow[] }>(`/cases${buildQuery({ ...listParams, page: undefined, pageSize: undefined, export: true })}`);
-    await exportRowsToExcel(all.rows, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
+    // Cot "Ten linh kien thieu gan nhat"/"SL don mua"/"SL don bao hanh" chi co tren frontend (tra
+    // cuu qua linhKienTenMap/matchMuaHang/matchBaoHanh da cache san) - ghi de vao TUNG dong truoc khi
+    // xuat, giu nguyen cac cot con lai tu API.
+    const enriched = all.rows.map((r) => ({
+      ...r,
+      khu_vuc: shortKhuVuc(r.khu_vuc),
+      last_ten_linh_kien_thieu: r.last_ma_linh_kien_thieu ? (linhKienTenMap.get(r.last_ma_linh_kien_thieu) ?? r.last_ma_linh_kien_thieu) : null,
+      sl_don_mua: slDonMua(r),
+      sl_don_bao_hanh: slDonBaoHanh(r),
+      khoang_ton: khoangTon(r),
+    }));
+    await exportRowsToExcel(enriched, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
   }
 
   const columns: Column<CaseRow>[] = [
@@ -449,8 +901,124 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
         );
       },
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
+    {
+      key: "tuoi_ton",
+      header: "Tuổi tồn",
+      render: (c) => (c.tuoi_ton != null ? <span className="text-xs font-mono">{c.tuoi_ton} ngày</span> : <span className="text-[var(--ink-400)] text-xs">—</span>),
+    },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem / giải trình →</span> },
+  ];
+
+  // Cot bo sung cho bang "Danh sach chi tiet" - AN mac dinh, nguoi dung tu bat qua nut "⚙" canh cot
+  // ID (xem PaginatedTable.tsx storageKey/optionalColumns). Nhan lay tu CASE_FIELD_LABELS (dung 1
+  // nguon nhan tieng Viet voi Excel export) de khong lech chu voi cho khac trong app.
+  const textCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
+    key,
+    header,
+    render: (c) => <span className="text-xs">{(c[key] as unknown as string | null) ?? "—"}</span>,
+  });
+  const dateCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
+    key,
+    header,
+    render: (c) => <span className="text-xs">{fmtDateTime(c[key] as unknown as string | null)}</span>,
+  });
+  const moneyCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
+    key,
+    header,
+    render: (c) => <span className="text-xs font-mono">{fmtVND(c[key] as unknown as number | null)}</span>,
+  });
+  // "SL don mua"/"SL don bao hanh" - dung LAI matchMuaHang/matchBaoHanh (lib/purchaseWarrantyMatch.ts,
+  // dang dung o CaseDetail.tsx) tren 2 tap Google Sheet da cache o trinh duyet - xem chu thich uoc
+  // luong o cot "sl_don_mua" ben duoi ve gioi han cua "last_ma_xuat_hang_lien_quan".
+  function slDonMua(c: CaseRow): number {
+    return matchMuaHang(c.id, c.last_ma_xuat_hang_lien_quan ? [{ ma_xuat_hang_lien_quan: c.last_ma_xuat_hang_lien_quan }] : [], muaHang).length;
+  }
+  function slDonBaoHanh(c: CaseRow): number {
+    return matchBaoHanh(c.id, baoHanh).length;
+  }
+  // "Khoang ton" (CHOT 2026-08-06) - nhom tu cot "Tuoi ton" (c.tuoi_ton, da tinh san server-side, xem
+  // AGE_EXPR trong backend/src/routes/cases.ts) thanh dai, hoan toan frontend - khong doi gi backend.
+  // Moc duoi cua moi dai la ">=" (khop quy uoc "Cho >=X ngay" da dung o TranhChapModule.tsx), moc
+  // tren la "<" - vd tuoi_ton = 3 roi vao dai "3-5 ngay", khong phai "1-3 ngay".
+  const KHOANG_TON_BUCKETS: { label: string; min: number; max: number | null }[] = [
+    { label: "Dưới 1 ngày", min: 0, max: 1 },
+    { label: "1-3 ngày", min: 1, max: 3 },
+    { label: "3-5 ngày", min: 3, max: 5 },
+    { label: "5-7 ngày", min: 5, max: 7 },
+    { label: "7-10 ngày", min: 7, max: 10 },
+    { label: "10-14 ngày", min: 10, max: 14 },
+    { label: "Trên 14 ngày", min: 14, max: null },
+  ];
+  function khoangTon(c: CaseRow): string {
+    if (c.tuoi_ton == null) return "—";
+    const bucket = KHOANG_TON_BUCKETS.find((b) => c.tuoi_ton! >= b.min && (b.max === null || c.tuoi_ton! < b.max));
+    return bucket?.label ?? "—";
+  }
+  const optionalCaseColumns: Column<CaseRow>[] = [
+    textCol("seri_san_pham", CASE_FIELD_LABELS.seri_san_pham),
+    textCol("tinh", CASE_FIELD_LABELS.tinh),
+    textCol("quan_huyen", CASE_FIELD_LABELS.quan_huyen),
+    textCol("hang", CASE_FIELD_LABELS.hang),
+    textCol("nhom_san_pham", CASE_FIELD_LABELS.nhom_san_pham),
+    textCol("nganh", CASE_FIELD_LABELS.nganh),
+    textCol("doi_tac", CASE_FIELD_LABELS.doi_tac),
+    textCol("nhom_kh", CASE_FIELD_LABELS.nhom_kh),
+    textCol("mo_ta_loi", CASE_FIELD_LABELS.mo_ta_loi),
+    dateCol("thoi_gian_hen_xu_ly", CASE_FIELD_LABELS.thoi_gian_hen_xu_ly),
+    textCol("nhom_yeu_cau", CASE_FIELD_LABELS.nhom_yeu_cau),
+    textCol("loai_yeu_cau", CASE_FIELD_LABELS.loai_yeu_cau),
+    textCol("hinh_thuc_bao_hanh", CASE_FIELD_LABELS.hinh_thuc_bao_hanh),
+    textCol("tien_do_hoan_thanh", CASE_FIELD_LABELS.tien_do_hoan_thanh),
+    textCol("noi_dung_xu_ly", CASE_FIELD_LABELS.noi_dung_xu_ly),
+    moneyCol("dt_san_pham", CASE_FIELD_LABELS.dt_san_pham),
+    moneyCol("dt_linh_kien", CASE_FIELD_LABELS.dt_linh_kien),
+    moneyCol("dt_dich_vu", CASE_FIELD_LABELS.dt_dich_vu),
+    dateCol("ngay_mua", CASE_FIELD_LABELS.ngay_mua),
+    dateCol("last_ngay_giai_trinh", CASE_FIELD_LABELS.last_ngay_giai_trinh),
+    textCol("last_noi_dung_giai_trinh", CASE_FIELD_LABELS.last_noi_dung_giai_trinh),
+    {
+      key: "khoang_ton",
+      header: "Khoảng tồn",
+      render: (c) => <span className="text-xs">{khoangTon(c)}</span>,
+    },
+    textCol("last_ma_linh_kien_thieu", CASE_FIELD_LABELS.last_ma_linh_kien_thieu),
+    {
+      // "Ten linh kien" khong co san tren CaseRow (chi co ma) - tra cuu qua danh muc linh_kien da
+      // cache o linhKienTenMap (settings-linh-kien), thuan frontend, khong goi them API rieng.
+      key: "last_ten_linh_kien_thieu",
+      header: "Tên linh kiện thiếu gần nhất",
+      render: (c) => <span className="text-xs">{c.last_ma_linh_kien_thieu ? (linhKienTenMap.get(c.last_ma_linh_kien_thieu) ?? c.last_ma_linh_kien_thieu) : "—"}</span>,
+    },
+    {
+      // Dem tren 2 tap du lieu Google Sheet (mua hang/bao hanh) da cache san o trinh duyet qua
+      // usePurchaseWarrantyData() - dung LAI y het logic doi chieu cua CaseDetail.tsx
+      // (matchMuaHang/matchBaoHanh, lib/purchaseWarrantyMatch.ts), khong tinh toan rieng o day de
+      // khong lech ket qua giua 2 man hinh. matchMuaHang can du lieu giai_trinh cua ca de doi chieu
+      // ma xuat hang - "Danh sach chi tiet" chi co giai trinh GAN NHAT (last_ma_xuat_hang_lien_quan,
+      // tu lg.* co san) chu khong co ca lich su, nen SL don mua o day la UOC LUONG (co the thap hon
+      // so voi xem chi tiet 1 ca neu ma xuat hang gan voi 1 lan giai trinh CU hon lan gan nhat).
+      key: "sl_don_mua",
+      header: "SL đơn mua",
+      render: (c) => <span className="text-xs font-mono">{slDonMua(c)}</span>,
+    },
+    {
+      key: "sl_don_bao_hanh",
+      header: "SL đơn bảo hành",
+      render: (c) => <span className="text-xs font-mono">{slDonBaoHanh(c)}</span>,
+    },
+    {
+      key: "link_crm",
+      header: CASE_FIELD_LABELS.link_crm,
+      render: (c) =>
+        c.link_crm ? (
+          <a href={c.link_crm} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline text-xs" onClick={(e) => e.stopPropagation()}>
+            Mở CRM
+          </a>
+        ) : (
+          <span className="text-[var(--ink-400)] text-xs">—</span>
+        ),
+    },
   ];
 
   const closedColumns: Column<CaseRow>[] = [
@@ -462,13 +1030,11 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
       header: "Lý do tồn gần nhất",
       render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
   const tongTon = stats?.tongTon;
-  const aging = stats?.aging;
-  const byReason = stats?.byReason ?? [];
 
   return (
     <div className="anim-in">
@@ -483,92 +1049,187 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
           ]}
           myAreas={myAreas}
         />
-        {FILTER_FIELDS.map((f) => (
-          <Select
-            key={f.key}
-            value={dimFilters[f.key]}
-            onChange={(v) => setDimFilters((prev) => ({ ...prev, [f.key]: v }))}
-            options={[{ value: "", label: `Tất cả ${f.label.toLowerCase()}` }, ...(filtersData?.[f.optionsKey].map((v) => ({ value: v, label: v })) ?? [])]}
-          />
-        ))}
-        {/* Dung chung ca Bao cao (pivot "Bao cao ton theo...") lan Danh sach chi tiet - xem
-            sharedFilterParams. Tab "Ca da dong" (snapshot R2) khong ap dung filter nay. */}
-        <Select
-          value={ktvFilter}
-          onChange={(v) => {
-            setKtvFilter(v);
-            setPage(1);
-          }}
-          options={[{ value: "", label: "Tất cả KTV" }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
-        />
       </div>
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
 
       {view === "bao-cao" ? (
         <>
-          <div className="mb-1 mt-4 text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Tồn hiện tại</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
-            <StatCard label="Tổng tồn hiện tại" value={tongTon?.tong ?? 0} tone="ocean" onClick={() => goToDanhSach("ton-hien-tai")} />
-            <StatCard label="Tồn trên 1 ngày" value={tongTon?.tren1 ?? 0} tone="teal" onClick={() => goToDanhSach("ton-hien-tai", "1")} />
-            <StatCard label="Tồn trên 3 ngày" value={tongTon?.tren3 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
-            <StatCard label="Tồn >=5 ngày" value={tongTon?.tren5 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
-            <StatCard label="Tồn trên 7 ngày" value={tongTon?.tren7 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
-            <StatCard label="Tồn trên 14 ngày" value={tongTon?.tren14 ?? 0} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
-            <StatCard label="Đã giải trình" value={tongTon?.daGiaiTrinh ?? 0} tone="teal" onClick={() => goToDanhSach("da-giai-trinh")} />
+          <div className="mb-1 mt-4 flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Tồn hiện tại</span>
           </div>
-
-          <div className="mb-1 text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Cần giải trình</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
-            <StatCard label="Tổng cần giải trình" value={counts?.can_giai_trinh_tong ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:tong")} />
-            <StatCard label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
-            <StatCard label="Cần tái giải trình" value={counts?.tai_giai_trinh ?? 0} tone="amber" onClick={() => goToDanhSach("can-giai-trinh:tai_giai_trinh")} />
-            <DmxBreakdownCard
-              total={counts?.dmx_3_ngay ?? 0}
-              chuaGt3={counts?.dmx_chua_gt_3_ngay ?? 0}
-              taiGiaiTrinh={counts?.dmx_tai_giai_trinh ?? 0}
-              loKeHoach={counts?.dmx_lo_ke_hoach ?? 0}
-              onClickTotal={() => goToDanhSach("can-giai-trinh:dmx_3_ngay")}
-              onClickChuaGt3={() => goToDanhSach("can-giai-trinh:dmx_chua_gt_3_ngay")}
-              onClickTaiGiaiTrinh={() => goToDanhSach("can-giai-trinh:dmx_tai_giai_trinh")}
-              onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
-            />
-            <StatCard label="Chưa giải trình >5 ngày (ưu tiên xử lý)" value={counts?.chua_gt_5_ngay ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")} />
-            <StatCard label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
-            <StatCard label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
-            <StatCard label="NSKX >=2 ngày" value={counts?.nskx ?? 0} tone="coral" onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Phân bố tuổi ca tồn</div>
-              <ChartCanvas
-                type="bar"
-                data={{
-                  labels: ["Dưới 1 ngày", "1–3 ngày", "3–7 ngày", "7–14 ngày", "Trên 14 ngày"],
-                  datasets: [
-                    {
-                      label: "Số ca",
-                      data: [aging?.duoi1 ?? 0, aging?.tu1den3 ?? 0, aging?.tu3den7 ?? 0, aging?.tu7den14 ?? 0, aging?.tren14 ?? 0],
-                      backgroundColor: ["#159C93", "#1591C9", "#D98A1F", "#D98A1F", "#D84C4C"],
-                      borderRadius: 6,
-                    },
-                  ],
-                }}
+          {isFrozenEligible && backlogDaily && (
+            <div className="text-xs text-[var(--ink-400)] mb-2">
+              Báo cáo được cập nhật lúc: {fmtGeneratedAt(backlogDaily.generatedAt)} bởi{" "}
+              {backlogDaily.generatedBy === "auto" ? "tự động" : backlogDaily.generatedBy}
+            </div>
+          )}
+          {isFrozenEligible && backlogDaily ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+              <DeltaBreakdownCard
+                label="Tổng tồn hiện tại"
+                tone="ocean"
+                primaryValue={backlogDaily.tongTon.baseline}
+                onClickPrimary={() => goToDanhSach("ton-hien-tai")}
+                rows={[{ label: "Đã giải trình hôm nay", bucket: backlogDaily.tongTon, onClick: () => goToDanhSach("da-giai-trinh-trong-ngay") }]}
               />
-            </Card>
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Cơ cấu ca tồn theo lý do chậm gần nhất</div>
-              <ChartCanvas
-                type="doughnut"
-                height={220}
-                data={{
-                  labels: byReason.map((r) => r.ly_do),
-                  datasets: [{ data: byReason.map((r) => r.n), backgroundColor: ["#1591C9", "#159C93", "#D98A1F", "#D84C4C", "#8B5CF6", "#EC4899", "#64748B", "#22C55E", "#F59E0B", "#0EA5E9"] }],
-                }}
-              />
-            </Card>
+              <StatCard label="Tồn trên 3 ngày" value={backlogDaily.tren3} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
+              <StatCard label="Tồn trên 5 ngày" value={backlogDaily.tren5} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
+              <StatCard label="Tồn trên 7 ngày" value={backlogDaily.tren7} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
+              <StatCard label="Tồn trên 14 ngày" value={backlogDaily.tren14} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
+              <StatCard label="Tổng tồn hiện tại" value={tongTon?.tong ?? 0} tone="ocean" onClick={() => goToDanhSach("ton-hien-tai")} />
+              <StatCard label="Tồn trên 1 ngày" value={tongTon?.tren1 ?? 0} tone="teal" onClick={() => goToDanhSach("ton-hien-tai", "1")} />
+              <StatCard label="Tồn trên 3 ngày" value={tongTon?.tren3 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
+              <StatCard label="Tồn >=5 ngày" value={tongTon?.tren5 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
+              <StatCard label="Tồn trên 7 ngày" value={tongTon?.tren7 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
+              <StatCard label="Tồn trên 14 ngày" value={tongTon?.tren14 ?? 0} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
+              <StatCard label="Đã giải trình" value={tongTon?.daGiaiTrinh ?? 0} tone="teal" onClick={() => goToDanhSach("da-giai-trinh")} />
+            </div>
+          )}
+
+          <div className="mb-1 text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide flex items-center gap-2 flex-wrap">
+            <span>Cần giải trình</span>
+            {!isFrozenEligible && (
+              <span className="normal-case font-normal text-[var(--amber-600)]">
+                — đang có nhiều bộ lọc cùng lúc (tỉnh/đối tác/hãng/model/nhóm KH/ngành/KTV, hoặc chọn nhiều khu vực) nên hiện số liệu trực tiếp, không đóng băng theo báo cáo 08:00. Chỉ lọc
+                đúng 1 khu vực (hoặc bỏ hết bộ lọc) để xem "Đầu ngày / Đã xử lý".
+              </span>
+            )}
           </div>
+          {isFrozenEligible && backlogDaily ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+              <StatCard
+                label="Tổng cần giải trình"
+                value={backlogDaily.canGiaiTrinh.tong.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.tong)}
+                tone="coral"
+                muted={backlogDaily.canGiaiTrinh.tong.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:tong")}
+              />
+              <DeltaBreakdownCard
+                label="Lỡ kế hoạch"
+                tone="coral"
+                mutable
+                primaryValue={backlogDaily.canGiaiTrinh.loKeHoach.remaining}
+                primarySub={deltaSub(backlogDaily.canGiaiTrinh.loKeHoach)}
+                onClickPrimary={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")}
+                rows={[
+                  { label: "ĐMX >5 ngày", bucket: backlogDaily.canGiaiTrinh.loKeHoachDmx5, onClick: () => goToDanhSach("can-giai-trinh:lo_ke_hoach_dmx_5") },
+                  { label: ">14 ngày", bucket: backlogDaily.canGiaiTrinh.loKeHoach14, onClick: () => goToDanhSach("can-giai-trinh:lo_ke_hoach_14") },
+                ]}
+              />
+              <DeltaBreakdownCard
+                label="Cần tái giải trình"
+                tone="amber"
+                mutable
+                primaryValue={backlogDaily.canGiaiTrinh.taiGiaiTrinh.remaining}
+                primarySub={deltaSub(backlogDaily.canGiaiTrinh.taiGiaiTrinh)}
+                onClickPrimary={() => goToDanhSach("can-giai-trinh:tai_giai_trinh")}
+                rows={[
+                  { label: "ĐMX >5 ngày", bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinhDmx5, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_dmx_5") },
+                  { label: ">14 ngày", bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinh14, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_14") },
+                ]}
+              />
+              <DmxBreakdownCard
+                total={counts?.dmx_3_ngay ?? 0}
+                chuaGt3={counts?.dmx_chua_gt_3_ngay ?? 0}
+                taiGiaiTrinh={counts?.dmx_tai_giai_trinh ?? 0}
+                loKeHoach={counts?.dmx_lo_ke_hoach ?? 0}
+                onClickTotal={() => goToDanhSach("can-giai-trinh:dmx_3_ngay")}
+                onClickChuaGt3={() => goToDanhSach("can-giai-trinh:dmx_chua_gt_3_ngay")}
+                onClickTaiGiaiTrinh={() => goToDanhSach("can-giai-trinh:dmx_tai_giai_trinh")}
+                onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
+              />
+              <StatCard
+                label="Chưa giải trình >5 ngày (ưu tiên xử lý)"
+                value={backlogDaily.canGiaiTrinh.chuaGt5Ngay.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.chuaGt5Ngay)}
+                tone="coral"
+                muted={backlogDaily.canGiaiTrinh.chuaGt5Ngay.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")}
+              />
+              <StatCard
+                label="Điều hòa >1 ngày"
+                value={backlogDaily.canGiaiTrinh.dieuHoa.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.dieuHoa)}
+                tone="ocean"
+                muted={backlogDaily.canGiaiTrinh.dieuHoa.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")}
+              />
+              <StatCard
+                label="B2B >1 ngày"
+                value={backlogDaily.canGiaiTrinh.b2b.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.b2b)}
+                tone="ocean"
+                muted={backlogDaily.canGiaiTrinh.b2b.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:b2b")}
+              />
+              <StatCard
+                label="NSKX >=2 ngày"
+                value={backlogDaily.canGiaiTrinh.nskx.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.nskx)}
+                tone="coral"
+                muted={backlogDaily.canGiaiTrinh.nskx.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:nskx")}
+              />
+              <StatCard
+                label="Lọc tổng >1 ngày"
+                value={backlogDaily.canGiaiTrinh.locTongBcn.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.locTongBcn)}
+                tone="amber"
+                muted={backlogDaily.canGiaiTrinh.locTongBcn.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+              <StatCard
+                label="Tổng cần giải trình"
+                value={counts?.can_giai_trinh_tong ?? 0}
+                tone="coral"
+                muted={!counts?.can_giai_trinh_tong}
+                onClick={() => goToDanhSach("can-giai-trinh:tong")}
+              />
+              <StatCard label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" muted={!counts?.lo_ke_hoach} onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
+              <StatCard
+                label="Cần tái giải trình"
+                value={counts?.tai_giai_trinh ?? 0}
+                tone="amber"
+                muted={!counts?.tai_giai_trinh}
+                onClick={() => goToDanhSach("can-giai-trinh:tai_giai_trinh")}
+              />
+              <DmxBreakdownCard
+                total={counts?.dmx_3_ngay ?? 0}
+                chuaGt3={counts?.dmx_chua_gt_3_ngay ?? 0}
+                taiGiaiTrinh={counts?.dmx_tai_giai_trinh ?? 0}
+                loKeHoach={counts?.dmx_lo_ke_hoach ?? 0}
+                onClickTotal={() => goToDanhSach("can-giai-trinh:dmx_3_ngay")}
+                onClickChuaGt3={() => goToDanhSach("can-giai-trinh:dmx_chua_gt_3_ngay")}
+                onClickTaiGiaiTrinh={() => goToDanhSach("can-giai-trinh:dmx_tai_giai_trinh")}
+                onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
+              />
+              <StatCard
+                label="Chưa giải trình >5 ngày (ưu tiên xử lý)"
+                value={counts?.chua_gt_5_ngay ?? 0}
+                tone="coral"
+                muted={!counts?.chua_gt_5_ngay}
+                onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")}
+              />
+              <StatCard label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" muted={!counts?.dieu_hoa} onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
+              <StatCard label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" muted={!counts?.b2b} onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
+              <StatCard label="NSKX >=2 ngày" value={counts?.nskx ?? 0} tone="coral" muted={!counts?.nskx} onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
+              <StatCard
+                label="Lọc tổng, BCN >1 ngày"
+                value={counts?.loc_tong_bcn ?? 0}
+                tone="amber"
+                muted={!counts?.loc_tong_bcn}
+                onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
+              />
+            </div>
+          )}
 
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -578,7 +1239,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Select value={reportDim} onChange={setReportDim} options={REPORT_DIM_OPTIONS} />
-                <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(khuVucStats?.rows ?? [], "bao_cao_ton.xlsx", "Data", pivotExportLabels())}>
+                <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(exportKhuVucRows, "bao_cao_ton.xlsx", "Data", pivotExportLabels())}>
                   ⬇ Xuất Excel
                 </Btn>
               </div>
@@ -586,102 +1247,237 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
             <div className="overflow-x-auto">
               <table className="dense w-full text-sm">
                 <thead>
-                  <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th className="py-2 pr-3">{REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label}</th>
-                    <th className="py-2 pr-3">Tổng tồn</th>
-                    <th className="py-2 pr-3">Trên 3 ngày</th>
-                    <th className="py-2 pr-3">Trên 5 ngày</th>
-                    <th className="py-2 pr-3">Trên 7 ngày</th>
-                    <th className="py-2 pr-3">Trên 14 ngày</th>
-                    <th className="py-2 pr-3 border-l border-[var(--line)] pl-3">Đã giải trình</th>
-                    <th className="py-2 pr-3 border-l border-[var(--line)] pl-3 font-bold">Cần giải trình (tổng)</th>
-                    <th className="py-2 pr-3">Lỡ kế hoạch</th>
-                    <th className="py-2 pr-3">Tái giải trình</th>
-                    <th className="py-2 pr-3">ĐMX chưa GT &gt;3 ngày</th>
-                    <th className="py-2 pr-3">Chưa GT &gt;5 ngày</th>
-                    <th className="py-2 pr-3">Điều hòa &gt;1 ngày</th>
-                    <th className="py-2 pr-3">B2B &gt;1 ngày</th>
-                    <th className="py-2 pr-3">NSKX &gt;=2 ngày</th>
-                    <th className="py-2 pr-3">Thiếu linh kiện</th>
+                  <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                    <th className="py-2 px-2 sticky left-0 bg-[var(--surface)] z-10 text-left">{REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label}</th>
+                    <th className="py-2 px-2 text-center">Tổng tồn</th>
+                    <th className="py-2 px-2 text-center">Trên 3n</th>
+                    <th className="py-2 px-2 text-center">Trên 5n</th>
+                    <th className="py-2 px-2 text-center">Trên 7n</th>
+                    <th className="py-2 px-2 text-center">Trên 14n</th>
+                    <th className="py-2 px-2 border-l border-[var(--line)] text-center">{showDailyCols ? "Đã GT (tháng)" : "Đã GT"}</th>
+                    <th className="py-2 px-2 border-l border-[var(--line)] font-bold text-center">{showDailyCols ? "Cần GT (lũy kế)" : "Cần GT (tổng)"}</th>
+                    {showDailyCols && (
+                      <>
+                        <th className="py-2 px-2 text-center">Tỷ lệ GT tháng</th>
+                        <th className="py-2 px-2 border-l border-[var(--line)] bg-amber-50 text-amber-700 font-bold text-center">Cần GT (ngày)</th>
+                        <th className="py-2 px-2 text-center">Đã GT (ngày)</th>
+                        <th className="py-2 px-2 text-center">Tỷ lệ GT ngày</th>
+                      </>
+                    )}
+                    <th className="py-2 px-2 text-center">Lỡ KH</th>
+                    <th className="py-2 px-2 text-center">Tái GT</th>
+                    <th className="py-2 px-2 text-center">ĐMX chưa GT &gt;3n</th>
+                    <th className="py-2 px-2 text-center">Chưa GT &gt;5n</th>
+                    <th className="py-2 px-2 text-center">Điều hòa &gt;1n</th>
+                    <th className="py-2 px-2 text-center">B2B &gt;1n</th>
+                    <th className="py-2 px-2 text-center">NSKX &gt;=2n</th>
+                    <th className="py-2 px-2 text-center">Thiếu LK</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(khuVucStats?.rows ?? []).map((r) => (
-                    <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                      <td className="py-2 pr-3 font-semibold">{r.nhom}</td>
-                      <td className="py-2 pr-3 font-mono">
+                  {displayKhuVucRows.length > 0 && (
+                    <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
+                      <td className="py-2 px-2 sticky left-0 bg-slate-50 z-10 text-left">Tổng cộng</td>
+                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tong_ton}</td>
+                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_3}</td>
+                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_5}</td>
+                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_7}</td>
+                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_14}</td>
+                      <td className="py-2 px-2 border-l border-[var(--line)] text-center font-mono">{khuVucTotal.da_giai_trinh}</td>
+                      <td className="py-2 px-2 border-l border-[var(--line)] text-center">
+                        <NumCell value={khuVucTotal.can_giai_trinh_tong} bold />
+                      </td>
+                      {showDailyCols && (
+                        <>
+                          <td className="py-2 px-2 text-center font-mono">{pct(khuVucTotal.da_giai_trinh, khuVucTotal.can_giai_trinh_tong)}%</td>
+                          <td className="py-2 px-2 border-l border-[var(--line)] text-center bg-amber-50/70 font-mono text-amber-800 font-bold">{khuVucTotal.trongNgayBaseline}</td>
+                          <td className="py-2 px-2 text-center font-mono">{khuVucTotal.trongNgayResolved}</td>
+                          <td className="py-2 px-2 text-center font-mono">{pct(khuVucTotal.trongNgayResolved, khuVucTotal.trongNgayBaseline)}%</td>
+                        </>
+                      )}
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={khuVucTotal.lo_ke_hoach} />
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={khuVucTotal.cho_giai_trinh_lai} />
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={khuVucTotal.dmx_chua_gt_3_ngay} />
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={khuVucTotal.chua_gt_5_ngay} />
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={khuVucTotal.dieu_hoa_1_ngay} />
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={khuVucTotal.b2b_1_ngay} />
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={khuVucTotal.nskx_2_ngay} />
+                      </td>
+                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.thieu_linh_kien}</td>
+                    </tr>
+                  )}
+                  {displayKhuVucRows.map((r) => (
+                    <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 group">
+                      <td className="py-2 px-2 font-semibold sticky left-0 bg-[var(--surface)] group-hover:bg-slate-50 z-10 text-left">{reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
+                      <td className="py-2 px-2 text-center font-mono">
                         <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "1")}>
                           {r.tong_ton}
                         </button>
                       </td>
-                      <td className="py-2 pr-3 font-mono">
+                      <td className="py-2 px-2 text-center font-mono">
                         <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "3")}>
                           {r.tren_3}
                         </button>
                       </td>
-                      <td className="py-2 pr-3 font-mono">
+                      <td className="py-2 px-2 text-center font-mono">
                         <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "5")}>
                           {r.tren_5}
                         </button>
                       </td>
-                      <td className="py-2 pr-3 font-mono">
+                      <td className="py-2 px-2 text-center font-mono">
                         <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "7")}>
                           {r.tren_7}
                         </button>
                       </td>
-                      <td className="py-2 pr-3 font-mono">
+                      <td className="py-2 px-2 text-center font-mono">
                         <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "14")}>
                           {r.tren_14}
                         </button>
                       </td>
-                      <td className="py-2 pr-3 border-l border-[var(--line)] pl-3 font-mono">{r.da_giai_trinh}</td>
-                      <td className="py-2 pr-3 border-l border-[var(--line)] pl-3 font-mono font-bold">
-                        <button className="text-[var(--coral-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:tong")}>
-                          {r.can_giai_trinh_tong}
-                        </button>
+                      <td className="py-2 px-2 border-l border-[var(--line)] text-center font-mono">{r.da_giai_trinh}</td>
+                      <td className="py-2 px-2 border-l border-[var(--line)] text-center">
+                        {/* showDailyCols: gia tri la tong luy ke thang (SUM nhieu ngay), khong con khop 1 danh
+                            sach case id co dinh nao de "drill down" nua - chi con clickable o che do live. */}
+                        <NumCell value={r.can_giai_trinh_tong} bold onClick={showDailyCols ? undefined : () => drillDown(r.nhom, "can-giai-trinh:tong")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:lo_ke_hoach")}>
-                          {r.lo_ke_hoach}
-                        </button>
+                      {showDailyCols && (
+                        <td className="py-2 px-2 text-center font-mono">{r.can_giai_trinh_tong ? `${pct(r.da_giai_trinh, r.can_giai_trinh_tong)}%` : "—"}</td>
+                      )}
+                      {showDailyCols &&
+                        (() => {
+                          const bucket = backlogDaily?.byKhuVuc[r.nhom];
+                          return (
+                            <>
+                              <td className="py-2 px-2 border-l border-[var(--line)] text-center bg-amber-50/50 font-mono text-amber-800 font-semibold">
+                                {bucket && bucket.baseline > 0 ? (
+                                  <button className="text-amber-700 hover:underline font-bold" onClick={() => drillDown(r.nhom, "can-giai-trinh:tong")}>
+                                    {bucket.baseline}
+                                  </button>
+                                ) : (
+                                  bucket?.baseline ?? "—"
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-center font-mono">{bucket?.resolved ?? "—"}</td>
+                              <td className="py-2 px-2 text-center font-mono">{bucket ? `${pct(bucket.resolved, bucket.baseline)}%` : "—"}</td>
+                            </>
+                          );
+                        })()}
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={r.lo_ke_hoach} onClick={() => drillDown(r.nhom, "can-giai-trinh:lo_ke_hoach")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:tai_giai_trinh")}>
-                          {r.cho_giai_trinh_lai}
-                        </button>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={r.cho_giai_trinh_lai} onClick={() => drillDown(r.nhom, "can-giai-trinh:tai_giai_trinh")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:dmx_chua_gt_3_ngay")}>
-                          {r.dmx_chua_gt_3_ngay}
-                        </button>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={r.dmx_chua_gt_3_ngay} onClick={() => drillDown(r.nhom, "can-giai-trinh:dmx_chua_gt_3_ngay")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:chua_gt_5_ngay")}>
-                          {r.chua_gt_5_ngay}
-                        </button>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={r.chua_gt_5_ngay} onClick={() => drillDown(r.nhom, "can-giai-trinh:chua_gt_5_ngay")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:dieu_hoa")}>
-                          {r.dieu_hoa_1_ngay}
-                        </button>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={r.dieu_hoa_1_ngay} onClick={() => drillDown(r.nhom, "can-giai-trinh:dieu_hoa")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:b2b")}>
-                          {r.b2b_1_ngay}
-                        </button>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={r.b2b_1_ngay} onClick={() => drillDown(r.nhom, "can-giai-trinh:b2b")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-giai-trinh:nskx")}>
-                          {r.nskx_2_ngay}
-                        </button>
+                      <td className="py-2 px-2 text-center">
+                        <NumCell value={r.nskx_2_ngay} onClick={() => drillDown(r.nhom, "can-giai-trinh:nskx")} />
                       </td>
-                      <td className="py-2 pr-3 font-mono">{r.thieu_linh_kien}</td>
+                      <td className="py-2 px-2 text-center font-mono">{r.thieu_linh_kien}</td>
                     </tr>
                   ))}
-                  {(khuVucStats?.rows ?? []).length === 0 && (
+                  {displayKhuVucRows.length === 0 && (
                     <tr>
-                      <td colSpan={16} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                      <td colSpan={showDailyCols ? 20 : 16} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card className="p-4 mt-4">
+            <div className="font-display font-bold text-sm mb-1">Tỷ lệ giải trình theo ngày</div>
+            <div className="text-xs text-[var(--ink-400)] mb-3">Chốt lúc 17h30 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
+            <div className="overflow-x-auto">
+              <table className="dense w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                    <th className="py-2 pr-3 sticky left-0 bg-[var(--surface)] z-10">Khu vực</th>
+                    {trendDays.map((day) => (
+                      <th key={day} className="py-2 px-2 text-center">
+                        {fmtDayShort(day)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedTrendRows.length > 0 && (
+                    <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
+                      <td className="py-2 pr-3 sticky left-0 bg-slate-50 z-10">Tổng cộng</td>
+                      {trendDays.map((day) => {
+                        const t = trendTotalByDay[day];
+                        const status = trendDayExclusionStatus[day];
+                        const cellBg = status === "partial" ? "bg-[var(--coral-100)]" : status === "full" ? "bg-[var(--amber-100)]" : "";
+                        return (
+                          <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? "1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực" : status === "full" ? "Ngày loại trừ" : undefined}>
+                            {t && t.can > 0 ? (
+                              <div>
+                                <div className="font-mono">{pct(t.da, t.can)}%</div>
+                                <div className="text-[10px] text-[var(--ink-400)] font-normal">
+                                  {t.da}/{t.can}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[var(--ink-400)]">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  )}
+                  {sortedTrendRows.map((row) => (
+                    <tr key={row.khu_vuc} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 group">
+                      <td className="py-2 pr-3 font-semibold sticky left-0 bg-[var(--surface)] group-hover:bg-slate-50 z-10">{shortKhuVuc(row.khu_vuc)}</td>
+                      {trendDays.map((day) => {
+                        const found = row.days.find((d) => d.ngay === day);
+                        const excluded = found && isNgayExcluded(day, row.khu_vuc);
+                        return (
+                          <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : ""}`} title={excluded ? "Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng" : undefined}>
+                            {found ? (
+                              <div>
+                                <div className="font-mono font-semibold">{pct(found.da_giai_trinh, found.can_giai_trinh)}%</div>
+                                <div className="text-[10px] text-[var(--ink-400)]">
+                                  {found.da_giai_trinh}/{found.can_giai_trinh}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[var(--ink-400)]">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  {sortedTrendRows.length === 0 && (
+                    <tr>
+                      <td colSpan={1 + trendDays.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                        Chưa có dữ liệu lịch sử (bắt đầu ghi nhận từ khi tính năng này triển khai).
                       </td>
                     </tr>
                   )}
@@ -698,6 +1494,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
               value={nhomKey}
               onChange={(v) => {
                 setNhomKey(v);
+                setListFromSnapshot0800(false);
                 setDsTuoiTu("");
                 setPage(1);
               }}
@@ -714,6 +1511,16 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
               />
             )}
             {dsTab !== "da-dong" && (
+              <Select
+                value={ktvFilter}
+                onChange={(v) => {
+                  setKtvFilter(v);
+                  setPage(1);
+                }}
+                options={[{ value: "", label: "Tất cả KTV" }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
+              />
+            )}
+            {dsTab !== "da-dong" && (
               <input
                 type="text"
                 value={idSearch}
@@ -721,7 +1528,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                   setIdSearch(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Tìm theo ID…"
+                placeholder="Tìm theo ID/Serial…"
                 className="focus-ring w-40 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
             )}
@@ -734,7 +1541,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
             )}
           </div>
           {dsTab === "da-dong" ? (
-            <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} dimFilters={dimFilters} onRowClick={(c) => openCase(c.id, "giai-trinh")} />
+            <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} onRowClick={(c) => openCase(c.id, "giai-trinh")} />
           ) : (
             <PaginatedTable
               columns={columns}
@@ -757,6 +1564,8 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 setPage(1);
               }}
               storageKey="backlog-list"
+              optionalColumns={optionalCaseColumns}
+              defaultVisibleOptionalKeys={["sl_don_mua", "sl_don_bao_hanh"]}
             />
           )}
         </div>

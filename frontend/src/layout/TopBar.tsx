@@ -6,14 +6,34 @@ import { fmtDateTime, fmtVND } from "../types";
 import { clearAllCache } from "../lib/closedDataCache";
 import { Greeting } from "../components/Greeting";
 import { LoadingInline } from "../components/ui/LoadingInline";
+import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
+import { SearchResultsPopup, type SearchMatchRow } from "../components/SearchResultsPopup";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
 
+interface DeltaBucket {
+  baseline: number;
+  resolved: number;
+  remaining: number;
+}
+
+// CHOT 2026-08-01: khop dung DailyReportWithDeltaPayload cua backend/src/lib/dailySnapshot.ts -
+// "Bao cao ngay 08:00" (dong bang + delta trong ngay), chuong thong bao "an theo" bao cao nay thay
+// vi tinh song (truoc day interface o day sai hoan toan shape thuc te - tonTren3Ngay/nghiNgoViPham
+// khong con ton tai - la nguyen nhan panel "Bao cao nhanh" hien rong/sai khi bam chuong).
 interface DailyReport {
   scope: "khu_vuc" | "toan_he_thong";
   khuVucList: string[];
-  tonTren3Ngay: number;
-  thieuLinhKien: number;
-  nghiNgoViPham: number;
-  doanhThuThang: number;
+  generatedAt: string;
+  generatedBy: string;
+  tonCanGiaiTrinh: DeltaBucket;
+  thieuLinhKien: DeltaBucket;
+  caLap: DeltaBucket;
+  canKhaoSat: DeltaBucket;
+  doanhThuThang: number | null;
+}
+
+function deltaSub(bucket: DeltaBucket): string {
+  return `Đầu ngày ${bucket.baseline} · đã xử lý ${bucket.resolved}`;
 }
 
 // "className" tuy chinh do rong/hien-an tu noi goi - dung LAI 1 component cho ca 2 ngu canh: o
@@ -31,14 +51,23 @@ function GlobalSearch({
   className?: string;
 }) {
   const [q, setQ] = useState("");
+  // >1 ket qua khi tim theo Serial (trung nhieu ca) - hien popup de nguoi dung tu chon, thay vi
+  // nuot bot con lai nhu truoc (chi tra ve 1 ID dau tien). Tim theo ID luon ra dung 1 ket qua nen
+  // hanh vi "nhay thang vao ca" khong doi - chi them nhanh MOI cho truong hop >1.
+  const [multiMatches, setMultiMatches] = useState<{ query: string; rows: SearchMatchRow[] } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!q.trim()) return;
+    const query = q.trim();
+    if (!query) return;
     try {
-      const res = await api.get<{ found: string | null }>(`/cases/search?q=${encodeURIComponent(q.trim())}`);
-      onFound(res.found);
-      if (res.found) setQ("");
+      const res = await api.get<{ matches: SearchMatchRow[] }>(`/cases/search?q=${encodeURIComponent(query)}`);
+      if (res.matches.length > 1) {
+        setMultiMatches({ query, rows: res.matches });
+      } else {
+        onFound(res.matches[0]?.id ?? null);
+        if (res.matches[0]) setQ("");
+      }
     } catch {
       onFound(null);
     }
@@ -46,16 +75,30 @@ function GlobalSearch({
   }
 
   return (
-    <form onSubmit={submit} className={`relative shrink-0 ${className}`}>
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)] text-sm">🔍</span>
-      <input
-        autoFocus={autoFocus}
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Tra cứu ID/Serial…"
-        className="focus-ring w-full pl-9 pr-3 py-2 rounded-xl bg-slate-100 border border-transparent focus:bg-white focus:border-[var(--ocean-400)] text-sm"
-      />
-    </form>
+    <>
+      <form onSubmit={submit} className={`relative shrink-0 ${className}`}>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-400)] text-sm">🔍</span>
+        <input
+          autoFocus={autoFocus}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Tra cứu ID/Serial…"
+          className="focus-ring w-full pl-9 pr-3 py-2 rounded-xl bg-slate-100 border border-transparent focus:bg-white focus:border-[var(--ocean-400)] text-sm"
+        />
+      </form>
+      {multiMatches && (
+        <SearchResultsPopup
+          query={multiMatches.query}
+          matches={multiMatches.rows}
+          onClose={() => setMultiMatches(null)}
+          onSelect={(id) => {
+            setMultiMatches(null);
+            setQ("");
+            onFound(id);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -179,42 +222,57 @@ export function TopBar({
           </button>
           {notifOpen && (
             <div className="absolute right-0 mt-2 w-80 bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 anim-in">
-              <div className="px-3.5 py-2 text-xs text-[var(--ink-600)] border-b border-[var(--line)] flex items-center gap-1.5" title="Thời gian tiếp nhận của ca gần nhất đã được import vào hệ thống">
+              <div className="px-3.5 py-2 text-xs text-[var(--ink-600)] border-b border-[var(--line)] flex items-center gap-1.5" title="Thời điểm xuất dữ liệu CRM mới nhất được cập nhật vào hệ thống">
                 <span>🔄</span>
                 <span>
                   Đồng bộ đến: <b className="font-semibold">{syncStatus?.lastSynced ? fmtDateTime(syncStatus.lastSynced) : "—"}</b>
                 </span>
               </div>
               <div className="px-3.5 py-2 text-xs font-semibold text-[var(--ink-400)] border-b border-[var(--line)]">Việc cần xử lý</div>
-              <button onClick={() => goTo("backlog")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
-                <span>Ca cần giải trình</span>
-                <span className="font-semibold text-[var(--coral-500)]">{counts?.canGiaiTrinh ?? 0}</span>
-              </button>
               <button onClick={() => goTo("survey")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
                 <span>Ca chờ QC chốt cấp 2</span>
                 <span className="font-semibold text-[var(--coral-500)]">{counts?.choQc ?? 0}</span>
               </button>
-              <div className="px-3.5 py-2 text-xs font-semibold text-[var(--ink-400)] border-y border-[var(--line)] mt-1">📊 Báo cáo nhanh trong ngày</div>
+              <div className="px-3.5 py-2 text-xs font-semibold text-[var(--ink-400)] border-y border-[var(--line)] mt-1">📊 Báo cáo lúc 08:00</div>
               {dailyReport ? (
                 <>
+                  <div className="px-3.5 pt-1 pb-1.5 text-[10px] text-[var(--ink-400)]">Cập nhật lúc {fmtGeneratedAt(dailyReport.generatedAt)}</div>
                   <button onClick={() => goTo("backlog")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
-                    <span>Tồn &gt;3 ngày cần giải trình</span>
-                    <span className="font-semibold">{dailyReport.tonTren3Ngay}</span>
+                    <span>Cần giải trình</span>
+                    <span className="text-right">
+                      <span className="font-semibold text-[var(--coral-500)]">{dailyReport.tonCanGiaiTrinh.remaining}</span>
+                      <div className="text-[10px] text-[var(--ink-400)] font-normal">{deltaSub(dailyReport.tonCanGiaiTrinh)}</div>
+                    </span>
                   </button>
                   <button onClick={() => goTo("missing-parts")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
                     <span>Ca thiếu linh kiện tồn đọng</span>
-                    <span className="font-semibold">{dailyReport.thieuLinhKien}</span>
+                    <span className="text-right">
+                      <span className="font-semibold">{dailyReport.thieuLinhKien.remaining}</span>
+                      <div className="text-[10px] text-[var(--ink-400)] font-normal">{deltaSub(dailyReport.thieuLinhKien)}</div>
+                    </span>
+                  </button>
+                  <button onClick={() => goTo("ca-lap")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
+                    <span>Ca lặp cần xử lý</span>
+                    <span className="text-right">
+                      <span className="font-semibold">{dailyReport.caLap.remaining}</span>
+                      <div className="text-[10px] text-[var(--ink-400)] font-normal">{deltaSub(dailyReport.caLap)}</div>
+                    </span>
                   </button>
                   <button onClick={() => goTo("survey")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
-                    <span>Ca nghi ngờ vi phạm</span>
-                    <span className="font-semibold">{dailyReport.nghiNgoViPham}</span>
+                    <span>Cần khảo sát</span>
+                    <span className="text-right">
+                      <span className="font-semibold">{dailyReport.canKhaoSat.remaining}</span>
+                      <div className="text-[10px] text-[var(--ink-400)] font-normal">{deltaSub(dailyReport.canKhaoSat)}</div>
+                    </span>
                   </button>
-                  <div className="w-full px-3.5 py-2 text-sm flex items-center justify-between">
-                    <span>Doanh thu tháng này</span>
-                    <span className="font-semibold text-[var(--teal-500)]">{fmtVND(dailyReport.doanhThuThang)}</span>
-                  </div>
+                  {dailyReport.doanhThuThang !== null && (
+                    <div className="w-full px-3.5 py-2 text-sm flex items-center justify-between">
+                      <span>Doanh thu tháng này</span>
+                      <span className="font-semibold text-[var(--teal-500)]">{fmtVND(dailyReport.doanhThuThang)}</span>
+                    </div>
+                  )}
                   {dailyReport.scope === "khu_vuc" && dailyReport.khuVucList.length > 0 && (
-                    <div className="px-3.5 pb-2 text-[10px] text-[var(--ink-400)]">Khu vực: {dailyReport.khuVucList.join(", ")}</div>
+                    <div className="px-3.5 pb-2 text-[10px] text-[var(--ink-400)]">Khu vực: {dailyReport.khuVucList.map(shortKhuVuc).join(", ")}</div>
                   )}
                 </>
               ) : (

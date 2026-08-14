@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { ThemeConfig } from "../theme/presets";
 
 export type VaiTro = "Admin" | "Viewer" | "QC" | "Giam sat" | "TBP DVBH" | "CSKH" | "TN CSKH" | "TBP CSKH" | "KSNB Doi tac";
 export type GioiTinh = "nam" | "nu";
@@ -12,9 +11,23 @@ export interface AppUser {
   vai_tro: VaiTro | null;
   khu_vuc_phu_trach: string[];
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
-  theme_config: ThemeConfig | null;
   // Co rieng "KSNB Doi tac", tach khoi vai_tro - xem backend/src/types.ts.
   la_ksnb_doi_tac: boolean;
+  // Danh sach module (sidebar) tuy chinh rieng - xem backend/src/types.ts + migration 0042. NULL =
+  // chua tuy chinh (dung ROLE_MODULES[vai_tro] mac dinh, xem layout/navConfig.ts).
+  modules: string[] | null;
+  // Khoa tai khoan - xem backend/src/types.ts + migration 0043. Luon false o day tren thuc te vi
+  // tai khoan bi khoa bi chan tai loadUser.ts, khong bao gio den duoc trang thai "authenticated".
+  bi_khoa: boolean;
+  // Quyen import hang loat tranh chap theo ID - xem backend/src/types.ts + migration 0052.
+  co_the_import_tranh_chap: boolean;
+  // Cac co module "Dat mua linh kien" - xem backend/src/types.ts + migration 0053.
+  la_ktv_dvbh: boolean;
+  la_ve_tinh: boolean;
+  la_kho: boolean;
+  la_ke_toan: boolean;
+  tram_cha: string | null;
+  giam_sat_quan_ly: string | null;
 }
 
 type AuthState =
@@ -22,6 +35,7 @@ type AuthState =
   | { status: "anonymous" }
   | { status: "pending" }
   | { status: "rejected" }
+  | { status: "disabled" }
   | { status: "authenticated"; user: AppUser; showDailyReport: boolean };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -43,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         if (body.error === "PENDING_APPROVAL") setState({ status: "pending" });
         else if (body.error === "REJECTED") setState({ status: "rejected" });
+        else if (body.error === "DISABLED") setState({ status: "disabled" });
         else setState({ status: "anonymous" });
       } catch {
         if (!cancelled) setState({ status: "anonymous" });

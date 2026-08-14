@@ -50,18 +50,19 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 
 | Endpoint | File | Domains |
 |---|---|---|
-| GET /dashboard/kpis | dashboard.ts | cases, vi_pham |
-| GET /dashboard/violation-breakdown | dashboard.ts | cases |
-| GET /dashboard/pivot | dashboard.ts | cases |
-| GET /dashboard/sla-trend | dashboard.ts | cases |
-| GET /dashboard/monthly-trend | dashboard.ts | cases |
-| GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases (+users cho giam-sat) |
+| GET /dashboard/kpis | dashboard.ts | cases, vi_pham, giai_trinh (+ xem CHỐT 2026-08-01 dưới) |
+| GET /dashboard/pivot | dashboard.ts | cases (+ xem CHỐT 2026-08-01 dưới) |
+| GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases (+users cho giam-sat) (+ xem CHỐT 2026-08-01 dưới) |
 | GET /survey/counts, /by-khu-vuc, /trend | survey.ts | cases, vi_pham, ket_qua_goi |
 | GET /survey/bao-cao-khu-vuc (thêm 2026-07-30) | survey.ts | cases, vi_pham, ket_qua_goi |
 | GET /vi-pham/funnel, /leaderboard | viPham.ts | cases, vi_pham |
 | GET /ca-lap/tong-quan | caLap.ts | cases, giai_trinh_lap, blacklist |
 
 Lưu ý sla-trend/trend có param days/months — đưa vào key. KHÔNG bọc /survey danh sách, /ca-lap/danh-sach* (đã rẻ nhờ index 816 dòng).
+
+**CHỐT 2026-08-01 (thay thế mô tả gốc phía trên cho 3 endpoint kpis/pivot/revenue*):**
+- Đã **xoá hẳn** `GET /dashboard/sla-trend`, `GET /dashboard/violation-breakdown`, `GET /dashboard/monthly-trend` (cùng compute function + widget frontend) — chủ hệ thống chốt không dùng nữa, không còn trong codebase.
+- `GET /dashboard/kpis`, `GET /dashboard/pivot`, `GET /revenue`, `GET /revenue/trend`, `GET /revenue/giam-sat`: với bộ lọc **mặc định** (không `khu_vuc`/`hang`, `thang` hiện tại — xem `isDefaultReportParams()` trong `lib/dailySnapshot.ts`) KHÔNG còn đọc qua `cachedReport`/`data_versions` nữa — đọc thẳng từ bảng `daily_snapshot` ("Báo cáo ngày 08:00", tính 1 lần lúc cron 08:00 VN hoặc khi Admin bấm "Làm mới báo cáo", đứng yên cả ngày). Bộ lọc KHÁC mặc định (người dùng tự đổi khu vực/hãng/tháng) vẫn rơi về đúng cơ chế `cachedReport` cũ mô tả ở bảng trên, không đổi. Xem chi tiết kiến trúc trong docstring đầu file `lib/dailySnapshot.ts`.
 
 ## BỔ SUNG BẮT BUỘC (phát hiện 2026-07-23): thành phần "ngày VN" trong version tag
 
@@ -73,7 +74,9 @@ Mỗi endpoint được bọc PHẢI tách phần tính toán thành hàm export
 
 ## R7 — Warm-up sau import (làm SAU KHI R5+R6 xong)
 
-Trong importRoute.ts, cùng waitUntil với bump `cases` (chỉ khi GHI_MOI+GHI_DE>0): gọi tuần tự các hàm computeXxx với bộ combo mặc định (scope null + không bộ lọc + tháng hiện tại + dim mặc định) và LƯU vào đúng key mà route sẽ đọc (dùng chung buildReportKey + cachedReport ghi đè). Danh sách warm: dashboard kpis, violation-breakdown, pivot (khu_vuc/hang/ky_thuat_vien), cases/counts, backlog-stats, backlog-by-khu-vuc (dim khu_vuc), missing-parts/by-khu-vuc (dim khu_vuc), survey/counts, revenue (dim khu_vuc + hang). KHÔNG warm các biến thể scope Giám sát (tầng version-tag tự lo khi họ xem).
+Trong importRoute.ts, cùng waitUntil với bump `cases` (chỉ khi GHI_MOI+GHI_DE>0): gọi tuần tự các hàm computeXxx với bộ combo mặc định (scope null + không bộ lọc + tháng hiện tại + dim mặc định) và LƯU vào đúng key mà route sẽ đọc (dùng chung buildReportKey + cachedReport ghi đè). Danh sách warm: cases/counts, backlog-stats, backlog-by-khu-vuc (dim khu_vuc), missing-parts/by-khu-vuc (dim khu_vuc), survey/counts, ca-lap/tong-quan. KHÔNG warm các biến thể scope Giám sát (tầng version-tag tự lo khi họ xem).
+
+**CHỐT 2026-08-01:** dashboard kpis/pivot/revenue* (dim khu_vuc/hang/ky_thuat_vien...) đã bị GỠ khỏi danh sách warm này — bộ lọc mặc định của các endpoint đó nay đọc từ `daily_snapshot` ("Báo cáo ngày 08:00", xem lib/dailySnapshot.ts + ghi chú ở bảng R6 phía trên), không còn tính lại sau MỖI import nữa (chỉ tính lại lúc cron 08:00 hoặc Admin bấm "Làm mới báo cáo").
 
 ## R8 — Rà soát domain "cases": chỉ bump khi có IMPORT THẬT (chốt 2026-07-23)
 

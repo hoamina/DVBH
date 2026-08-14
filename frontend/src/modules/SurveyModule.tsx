@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -7,14 +7,17 @@ import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
+import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { ChartCanvas } from "../components/chart/ChartCanvas";
 import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
-import { LOAI_LOI_META, LOAI_LOI_KEYS, type LoaiLoi, type ViPhamRow } from "../types";
+import { LOAI_LOI_META, LOAI_LOI_KEYS, parseLoaiKhaoSat, type LoaiLoi, type ViPhamRow, type KetQuaGoiRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
 
 // Khop dung field tra ve tu backend GET /survey?tab=... (xem SELECT trong backend/src/routes/survey.ts) -
 // gop ca 2 hinh dang hang co the co (CanKhaoSatRow cho can-khao-sat/qua-han-khao-sat, ViPhamRow cho
@@ -34,7 +37,21 @@ const SURVEY_EXPORT_LABELS: Record<string, string> = {
   need_loi_qua_han_24h: "Nghi ngờ hẹn quá 24h",
   need_loi_lo_ke_hoach: "Nghi ngờ lỡ kế hoạch",
   need_loi_kh_hen_lai: "Nghi ngờ KH hẹn lại",
+  loai_khao_sat: "Loại khảo sát",
+  doi_tuong_lien_he: "Đối tượng liên hệ",
+  ket_qua_cuoc_goi: "Kết quả cuộc gọi",
+  dien_giai: "Diễn giải",
+  ghi_chu: "Ghi chú",
+  ly_do_that_bai: "Lý do thất bại",
+  can_goi_lai: "Cần gọi lại",
+  nguoi_thuc_hien: "Người thực hiện",
+  ngay_gio_thuc_hien: "Ngày giờ thực hiện",
 };
+
+// Khop dung gia tri backend/src/routes/survey.ts POST /calls chap nhan (xem KET_QUA_GOI_OPTIONS
+// trong SurveyCallWorkspace.tsx) - lap lai o day thay vi import de tranh vong lap module
+// (SurveyCallWorkspace.tsx da import nguoc lai tu file nay).
+const KET_QUA_CUOC_GOI_OPTIONS = ["Liên hệ thành công", "Không nghe máy", "Số sai / không liên lạc được", "Không cần khảo sát"];
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { SurveyCallWorkspace } from "./SurveyCallWorkspace";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
@@ -61,6 +78,7 @@ export interface CanKhaoSatRow {
   id: string;
   khach_hang: string | null;
   khu_vuc: string | null;
+  seri_san_pham?: string | null;
   assigned_to: string | null;
   need_loi_120p: number;
   need_loi_qua_han_24h: number;
@@ -95,6 +113,16 @@ interface SurveyBaoCaoRow {
   vi_pham_hl: number;
   tong_cuoc_goi: number;
   goi_thanh_cong: number;
+  can_khao_sat: number;
+  tong_nghi_ngo: number;
+  tong_vi_pham: number;
+  ksnb_chot: number;
+  ksnb_bo: number;
+  da_khao_sat: number;
+  cho_khao_sat: number;
+  khao_sat_that_bai: number;
+  cho_khao_sat_lai: number;
+  bo_qua_khong_khao_sat: number;
   ty_le_nghi_ngo_120p: number;
   ty_le_nghi_ngo_24h: number;
   ty_le_nghi_ngo_lkh: number;
@@ -124,8 +152,18 @@ const SURVEY_REPORT_DIM_OPTIONS = [
 
 const SURVEY_BAO_CAO_EXPORT_LABELS: Record<string, string> = {
   nhom: "Nhóm",
-  tong_tiep_nhan: "Tiếp nhận",
-  tong_hoan_thanh: "Hoàn thành",
+  tong_tiep_nhan: "Ca CRM mở mới",
+  tong_hoan_thanh: "Ca CRM đã đóng",
+  can_khao_sat: "Cần khảo sát",
+  tong_nghi_ngo: "Tổng nghi ngờ",
+  tong_vi_pham: "Tổng vi phạm",
+  ksnb_chot: "KSNB chốt lỗi",
+  ksnb_bo: "KSNB bỏ lỗi",
+  da_khao_sat: "Đã khảo sát",
+  cho_khao_sat: "Chờ khảo sát",
+  khao_sat_that_bai: "Khảo sát thất bại",
+  cho_khao_sat_lai: "Đang chờ khảo sát lại",
+  bo_qua_khong_khao_sat: "Bỏ qua không khảo sát",
   nghi_ngo_120p: "Nghi ngờ 120 phút",
   ty_le_nghi_ngo_120p: "% Nghi ngờ 120 phút",
   da_goi_120p: "Đã gọi 120 phút",
@@ -154,11 +192,11 @@ const SURVEY_BAO_CAO_EXPORT_LABELS: Record<string, string> = {
   vi_pham_hl: "Vi phạm hẹn lại",
   ty_le_vi_pham_hl: "% Vi phạm hẹn lại",
   ty_le_vi_pham_tren_da_goi_hl: "% Vi phạm / đã gọi hẹn lại",
-  ty_le_da_goi_hen_lai_toan_he_thong: "% Đã gọi hẹn lại toàn hệ thống",
-  ty_le_ktv_chu_dong_toan_he_thong: "% KTV chủ động toàn hệ thống",
+  ty_le_da_goi_hen_lai_toan_he_thong: "Tỷ lệ % đã gọi hẹn 120'",
+  ty_le_ktv_chu_dong_toan_he_thong: "% KTV chủ động 120'",
   tong_cuoc_goi: "Tổng cuộc gọi",
-  goi_thanh_cong: "Gọi thành công",
-  ty_le_goi_thanh_cong: "% Gọi thành công",
+  goi_thanh_cong: "Khảo sát thành công",
+  ty_le_goi_thanh_cong: "% Khảo sát thành công",
 };
 
 // 1 o trong bang "Bao cao khao sat theo khu vuc" cho 1 loai nghi ngo (120p/24h/lo-ke-hoach/hen-lai) -
@@ -217,19 +255,57 @@ const VIEWS = [
 const PAGE_SIZE = 20;
 
 export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
-  const [view, setView] = useState("bao-cao");
-  const [tab, setTab] = useState("can-khao-sat");
+  const [view, setView] = useLocalStorageState("filters:survey-view", "bao-cao");
+  const [tab, setTab] = useLocalStorageState("filters:survey-tab", "can-khao-sat");
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useState("");
+  const [localKtvFilter, setLocalKtvFilter] = useState("");
+  const [localLoaiLoiFilter, setLocalLoaiLoiFilter] = useState("");
+  // CHOT 2026-08-06: doi tu 1 ngay don sang khoang ngay (tu/den) - loc bang so sanh chuoi ISO
+  // (YYYY-MM-DD) tren 10 ky tu dau cua truong ngay, dung ca voi truong chi co ngay lan truong co
+  // gio (thoi_gian_cskh_tiep_nhan/ngay_ghi_nhan/ngay_gio_thuc_hien).
+  const [localNgayTuFilter, setLocalNgayTuFilter] = useState("");
+  const [localNgayDenFilter, setLocalNgayDenFilter] = useState("");
+  // CHOT 2026-08-06: loc theo ID ca - dung chung cho CA 5 tab cua "Danh sach chi tiet" (khong rieng
+  // 1 tab nao), va "Ket qua cuoc goi" - rieng cho tab "Lich su khao sat" (cac tab khac khong co du
+  // lieu nay o dang phang, "cho-qc"/"da-xu-ly" la case_id gop nhieu vi_pham nen khong hop).
+  const [localIdFilter, setLocalIdFilter] = useState("");
+  const [localKetQuaFilter, setLocalKetQuaFilter] = useState("");
+  const [workspaceInitialAdHocId, setWorkspaceInitialAdHocId] = useState<string | null>(null);
+
+  const [localNguoiGoiFilter, setLocalNguoiGoiFilter] = useState("");
+  const [localLoaiKhaoSatFilter, setLocalLoaiKhaoSatFilter] = useState("");
+
+  useEffect(() => {
+    setLocalKtvFilter("");
+    setLocalLoaiLoiFilter("");
+    setLocalNgayTuFilter("");
+    setLocalNgayDenFilter("");
+    setLocalIdFilter("");
+    setLocalKetQuaFilter("");
+    setLocalNguoiGoiFilter("");
+    setLocalLoaiKhaoSatFilter("");
+    setPage(1);
+  }, [tab, view]);
+
+  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:survey-khu-vuc", "");
+  // Thang cho "Danh sach chi tiet" (tab can-khao-sat/qua-han-khao-sat) - CHOT 2026-08-02: gioi han
+  // theo thoi_gian_cskh_tiep_nhan (thoi diem mo ca), xem GET /survey/candidates. Khong anh huong
+  // cho-qc/da-xu-ly (khac nguon du lieu, van khong gioi han thang nhu truoc).
+  const [thangDanhSach, setThangDanhSach] = useLocalStorageState("filters:survey-danh-sach-thang", new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
   // Bo loc mo rong cho "Bao cao khao sat theo khu vuc" (Phan C) - tinh/quanHuyen/ktv cung duoc
   // drillDown() set khi bam vao 1 o so trong bang pivot (giong khuVucFilter da co), nen anh huong
-  // ca "Danh sach chi tiet" (xem matchAllFilters/filterParams ben duoi), khong chi rieng bang pivot.
-  const [reportDim, setReportDim] = useState("khu_vuc");
-  const [tinhFilter, setTinhFilter] = useState("");
-  const [quanHuyenFilter, setQuanHuyenFilter] = useState("");
-  const [ktvFilter, setKtvFilter] = useState("");
-  const [nguoiKhaoSatFilter, setNguoiKhaoSatFilter] = useState("");
-  const [thangReport, setThangReport] = useState(() => new Date().toISOString().slice(0, 7));
+  // ca "Danh sach chi tiet" (xem filterParams ben duoi), khong chi rieng bang pivot.
+  const [reportDim, setReportDim] = useLocalStorageState("filters:survey-report-dim", "khu_vuc");
+  const [tinhFilter, setTinhFilter] = useLocalStorageState("filters:survey-tinh", "");
+  const [quanHuyenFilter, setQuanHuyenFilter] = useLocalStorageState("filters:survey-quan-huyen", "");
+  const [ktvFilter, setKtvFilter] = useLocalStorageState("filters:survey-ktv", "");
+  const [nguoiKhaoSatFilter, setNguoiKhaoSatFilter] = useLocalStorageState("filters:survey-nguoi-khao-sat", "");
+  const [thangReport, setThangReport] = useLocalStorageState("filters:survey-thang-report", new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
+  const [ngayGoiTuReport, setNgayGoiTuReport] = useLocalStorageState("filters:survey-ngay-goi-tu-report", "");
+  const [ngayGoiDenReport, setNgayGoiDenReport] = useLocalStorageState("filters:survey-ngay-goi-den-report", "");
+  // CHOT 2026-08-06: "Nguon CRM" - suy tu ky tu dau ID ca (T... = CRM 3T, con lai = CRM KRF), xem
+  // nguonCrmClause() trong backend/src/routes/survey.ts.
+  const [nguonCrmFilter, setNguonCrmFilter] = useLocalStorageState("filters:survey-nguon-crm", "");
   const auth = useAuth();
   const role = auth.status === "authenticated" ? auth.user.vai_tro : null;
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
@@ -239,49 +315,32 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const isQC = role === "QC" || role === "Admin";
   const isLead = role === "TN CSKH" || role === "TBP CSKH" || role === "Admin";
   const canSurvey = ["CSKH", "TN CSKH", "TBP CSKH", "Admin"].includes(role ?? "");
-  // NV CSKH (nhan vien khao sat truc tiep) chi can vao "Che do goi khao sat" de xu ly tung ca, khong
-  // can xem "Danh sach chi tiet" (bang lien can khao sat/qua han/cho QC/da xu ly) - tab nay chi danh
-  // cho vai tro quan ly (TN CSKH/TBP CSKH/QC/Admin) theo doi tong the.
-  const canViewDanhSach = role !== "CSKH";
+  // CHOT 2026-08-05: Mo quyen xem "Danh sach chi tiet" cho vai tro CSKH theo yeu cau cua chu he thong
+  const canViewDanhSach = true;
   const visibleViews = canViewDanhSach ? VIEWS : VIEWS.filter((v) => v.key !== "danh-sach");
   const effectiveView = canViewDanhSach ? view : "bao-cao";
 
   const filterParams = { khu_vuc: khuVucFilter, tinh: tinhFilter, quan_huyen: quanHuyenFilter, ky_thuat_vien: ktvFilter };
 
-  // "Can khao sat"/"Qua han khao sat" tinh san tu snapshot R2 1 file (xem hooks/useSurveyCandidates.ts
-  // + backend/src/lib/surveySnapshot.ts) - khong con goi song server moi lan xem, chi loc client-side
-  // ben duoi (matchAllFilters) - ke ca tinh/quan_huyen/ky_thuat_vien moi them cho Phan C, vi cac
-  // truong nay da co san tren CanKhaoSatRow (snapshot).
-  const { canKhaoSat: canKhaoSatAll, quaHanKhaoSat: quaHanKhaoSatAll, isThrottled: candidatesThrottled, refetch: refetchCandidates } = useSurveyCandidates();
-
-  function matchAllFilters(row: { khu_vuc: string | null; tinh?: string | null; quan_huyen?: string | null; ky_thuat_vien?: string | null }): boolean {
-    if (khuVucFilter) {
-      if (khuVucFilter === QLDVBH_FILTER_VALUE) {
-        if (!row.khu_vuc || !row.khu_vuc.includes("qldvbh")) return false;
-      } else {
-        const set = new Set(
-          khuVucFilter
-            .split(",")
-            .map((v) => v.trim())
-            .filter(Boolean),
-        );
-        if (!row.khu_vuc || !set.has(row.khu_vuc)) return false;
-      }
-    }
-    if (tinhFilter && row.tinh !== tinhFilter) return false;
-    if (quanHuyenFilter && row.quan_huyen !== quanHuyenFilter) return false;
-    if (ktvFilter && row.ky_thuat_vien !== ktvFilter) return false;
-    return true;
+  const { data: monthOptions } = useQuery({
+    queryKey: ["dashboard-months"],
+    queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
+  });
+  const currentMonth = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7);
+  const danhSachMonthOptions = (monthOptions?.months ?? []).map((m) => ({ value: m, label: m }));
+  if (!danhSachMonthOptions.some((o) => o.value === currentMonth)) {
+    danhSachMonthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
   }
 
-  const canKhaoSatRows = useMemo(
-    () => canKhaoSatAll.filter(matchAllFilters),
-    [canKhaoSatAll, khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter],
-  );
-  const quaHanKhaoSatRows = useMemo(
-    () => quaHanKhaoSatAll.filter(matchAllFilters),
-    [quaHanKhaoSatAll, khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter],
-  );
+  // "Can khao sat"/"Qua han khao sat" - CHOT 2026-08-02: doc song tu D1, gioi han theo thang mo ca
+  // (xem hooks/useSurveyCandidates.ts + backend/src/routes/survey.ts GET /candidates) - loc
+  // khu_vuc/tinh/quan_huyen/ky_thuat_vien da chuyen sang server-side (query param), khong con loc
+  // client-side nhu truoc.
+  const {
+    canKhaoSat: canKhaoSatRows,
+    quaHanKhaoSat: quaHanKhaoSatRows,
+    refetch: refetchCandidates,
+  } = useSurveyCandidates({ thang: thangDanhSach, khuVuc: khuVucFilter, tinh: tinhFilter, quanHuyen: quanHuyenFilter, ktv: ktvFilter });
 
   const { data: choQc } = useQuery({
     queryKey: ["survey", "cho-qc", filterParams],
@@ -293,12 +352,19 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     queryFn: () => api.get<{ rows: ViPhamRow[] }>(`/survey${buildQuery({ tab: "da-xu-ly", ...filterParams })}`),
     enabled: view === "danh-sach" && tab === "da-xu-ly",
   });
+  // "Lich su khao sat" (CHOT 2026-08-06) - toan bo cuoc goi (ket_qua_goi) trong thang, gioi han
+  // giong "Can khao sat"/"Qua han khao sat" (dung chung thangDanhSach) - xem GET /survey/call-history.
+  const { data: callHistory } = useQuery({
+    queryKey: ["survey", "lich-su-khao-sat", thangDanhSach, filterParams],
+    queryFn: () => api.get<{ rows: KetQuaGoiRow[] }>(`/survey/call-history${buildQuery({ thang: thangDanhSach, ...filterParams })}`),
+    enabled: view === "danh-sach" && tab === "lich-su-khao-sat",
+  });
   const { data: counts } = useQuery({
-    queryKey: ["survey-counts", khuVucFilter],
-    queryFn: () => api.get<Record<string, number>>(`/survey/counts${buildQuery({ khu_vuc: khuVucFilter })}`),
+    queryKey: ["survey-counts", khuVucFilter, thangDanhSach],
+    queryFn: () => api.get<Record<string, number>>(`/survey/counts${buildQuery({ khu_vuc: khuVucFilter, thang: thangDanhSach })}`),
   });
   const { data: baoCaoKhuVuc } = useQuery({
-    queryKey: ["survey-bao-cao-khu-vuc", reportDim, khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter, nguoiKhaoSatFilter, thangReport],
+    queryKey: ["survey-bao-cao-khu-vuc", reportDim, khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter, nguoiKhaoSatFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
     queryFn: () =>
       api.get<{ rows: SurveyBaoCaoRow[]; thang: string }>(
         `/survey/bao-cao-khu-vuc${buildQuery({
@@ -309,9 +375,99 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           ky_thuat_vien: ktvFilter,
           nguoi_khao_sat: nguoiKhaoSatFilter,
           thang: thangReport,
+          ngay_goi_tu: ngayGoiTuReport || undefined,
+          ngay_goi_den: ngayGoiDenReport || undefined,
+          nguon_crm: nguonCrmFilter || undefined,
         })}`,
       ),
   });
+
+  // Dong "Tong cong" dau bang "Bao cao khao sat theo khu vuc" - cong don cac cot dem tren cac dong
+  // dang hien, roi tinh lai TAT CA cot % tu tong (khong cong trung binh % tung dong) - dung CHINH
+  // XAC cong thuc backend/src/routes/survey.ts computeSurveyKhuVucReport() (dong 575-595) de khop
+  // dung y nghia tung ty le.
+  const baoCaoTotal = useMemo(() => {
+    const rows = baoCaoKhuVuc?.rows ?? [];
+    const pctLocal = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+    const sum = (key: keyof SurveyBaoCaoRow) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+    const tong_tiep_nhan = sum("tong_tiep_nhan");
+    const tong_hoan_thanh = sum("tong_hoan_thanh");
+    const nghi_ngo_120p = sum("nghi_ngo_120p");
+    const nghi_ngo_24h = sum("nghi_ngo_24h");
+    const nghi_ngo_lkh = sum("nghi_ngo_lkh");
+    const nghi_ngo_hl = sum("nghi_ngo_hl");
+    const da_goi_120p = sum("da_goi_120p");
+    const da_goi_24h = sum("da_goi_24h");
+    const da_goi_lkh = sum("da_goi_lkh");
+    const da_goi_hl = sum("da_goi_hl");
+    const vi_pham_120p = sum("vi_pham_120p");
+    const vi_pham_24h = sum("vi_pham_24h");
+    const vi_pham_lkh = sum("vi_pham_lkh");
+    const vi_pham_hl = sum("vi_pham_hl");
+    const tong_cuoc_goi = sum("tong_cuoc_goi");
+    const goi_thanh_cong = sum("goi_thanh_cong");
+    const can_khao_sat = sum("can_khao_sat");
+    const tong_nghi_ngo = sum("tong_nghi_ngo");
+    const tong_vi_pham = sum("tong_vi_pham");
+    const ksnb_chot = sum("ksnb_chot");
+    const ksnb_bo = sum("ksnb_bo");
+    const da_khao_sat = sum("da_khao_sat");
+    const khao_sat_that_bai = sum("khao_sat_that_bai");
+    const cho_khao_sat_lai = sum("cho_khao_sat_lai");
+    const bo_qua_khong_khao_sat = sum("bo_qua_khong_khao_sat");
+    const row: SurveyBaoCaoRow = {
+      nhom: "Tổng cộng",
+      tong_tiep_nhan,
+      tong_hoan_thanh,
+      nghi_ngo_120p,
+      nghi_ngo_24h,
+      nghi_ngo_lkh,
+      nghi_ngo_hl,
+      da_goi_120p,
+      da_goi_24h,
+      da_goi_lkh,
+      da_goi_hl,
+      vi_pham_120p,
+      vi_pham_24h,
+      vi_pham_lkh,
+      vi_pham_hl,
+      tong_cuoc_goi,
+      goi_thanh_cong,
+      can_khao_sat,
+      tong_nghi_ngo,
+      tong_vi_pham,
+      ksnb_chot,
+      ksnb_bo,
+      da_khao_sat,
+      cho_khao_sat: Math.max(0, can_khao_sat - da_khao_sat),
+      khao_sat_that_bai,
+      cho_khao_sat_lai,
+      bo_qua_khong_khao_sat,
+      ty_le_nghi_ngo_120p: pctLocal(nghi_ngo_120p, tong_tiep_nhan),
+      ty_le_nghi_ngo_24h: pctLocal(nghi_ngo_24h, tong_tiep_nhan),
+      ty_le_nghi_ngo_lkh: pctLocal(nghi_ngo_lkh, tong_tiep_nhan),
+      ty_le_nghi_ngo_hl: pctLocal(nghi_ngo_hl, tong_tiep_nhan),
+      ty_le_vi_pham_120p: pctLocal(vi_pham_120p, tong_tiep_nhan),
+      ty_le_vi_pham_24h: pctLocal(vi_pham_24h, tong_tiep_nhan),
+      ty_le_vi_pham_lkh: pctLocal(vi_pham_lkh, tong_tiep_nhan),
+      ty_le_vi_pham_hl: pctLocal(vi_pham_hl, tong_tiep_nhan),
+      ty_le_da_goi_120p: pctLocal(da_goi_120p, tong_tiep_nhan),
+      ty_le_da_goi_24h: pctLocal(da_goi_24h, tong_tiep_nhan),
+      ty_le_da_goi_lkh: pctLocal(da_goi_lkh, tong_tiep_nhan),
+      ty_le_da_goi_hl: pctLocal(da_goi_hl, tong_tiep_nhan),
+      ty_le_vi_pham_tren_da_goi_120p: pctLocal(vi_pham_120p, da_goi_120p),
+      ty_le_vi_pham_tren_da_goi_24h: pctLocal(vi_pham_24h, da_goi_24h),
+      ty_le_vi_pham_tren_da_goi_lkh: pctLocal(vi_pham_lkh, da_goi_lkh),
+      ty_le_vi_pham_tren_da_goi_hl: pctLocal(vi_pham_hl, da_goi_hl),
+      ty_le_da_goi_hen_lai_toan_he_thong: pctLocal(tong_tiep_nhan - (nghi_ngo_120p - da_goi_120p), tong_tiep_nhan),
+      ty_le_ktv_chu_dong_toan_he_thong: pctLocal(tong_tiep_nhan - nghi_ngo_120p, tong_tiep_nhan),
+      ty_le_goi_thanh_cong: pctLocal(goi_thanh_cong, tong_cuoc_goi),
+    };
+    return row;
+  }, [baoCaoKhuVuc]);
+
+  // Cot dau tien sap A-Z.
+  const sortedBaoCaoRows = [...(baoCaoKhuVuc?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
   const { data: khuVucOptions } = useQuery({
     queryKey: ["dashboard-filters"],
     queryFn: () =>
@@ -323,8 +479,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     enabled: isLead,
   });
   const { data: funnel } = useQuery({
-    queryKey: ["vi-pham-funnel"],
-    queryFn: () => api.get<FunnelData>("/vi-pham/funnel"),
+    queryKey: ["vi-pham-funnel", thangReport],
+    queryFn: () => api.get<FunnelData>(`/vi-pham/funnel${buildQuery({ thang: thangReport })}`),
   });
   const { data: ktvBoard } = useQuery({
     queryKey: ["vi-pham-leaderboard", "ktv"],
@@ -349,6 +505,117 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     }
     return Array.from(g.entries()).map(([caseId, vs]) => ({ caseId, vs }));
   }, [tab, choQc, daXuLy]);
+
+  const availableKtvs = useMemo(() => {
+    const ktvs = new Set<string>();
+    if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") {
+      const source = tab === "can-khao-sat" ? canKhaoSatRows : quaHanKhaoSatRows;
+      for (const r of source) {
+        if (r.ky_thuat_vien) ktvs.add(r.ky_thuat_vien.trim());
+      }
+    } else if (tab === "lich-su-khao-sat") {
+      for (const r of callHistory?.rows ?? []) {
+        if (r.ky_thuat_vien) ktvs.add(r.ky_thuat_vien.trim());
+      }
+    } else {
+      const source = groupedViPham;
+      for (const { vs } of source) {
+        for (const v of vs) {
+          if (v.ky_thuat_vien) ktvs.add(v.ky_thuat_vien.trim());
+        }
+      }
+    }
+    return Array.from(ktvs).sort((a, b) => a.localeCompare(b, "vi"));
+  }, [tab, canKhaoSatRows, quaHanKhaoSatRows, groupedViPham, callHistory]);
+
+  // Danh sach nguoi goi thuc te co trong du lieu thang dang xem (khong phai toan bo CSKH) - dung cho
+  // filter "Nguoi goi" o tab "Lich su khao sat", CHOT 2026-08-06.
+  const availableNguoiGoi = useMemo(() => {
+    const nguoiGoi = new Set<string>();
+    for (const r of callHistory?.rows ?? []) {
+      if (r.nguoi_thuc_hien) nguoiGoi.add(r.nguoi_thuc_hien);
+    }
+    return Array.from(nguoiGoi).sort((a, b) => a.localeCompare(b, "vi"));
+  }, [callHistory]);
+
+  const filteredRows = useMemo(() => {
+    let rows = tab === "can-khao-sat" ? canKhaoSatRows : quaHanKhaoSatRows;
+    if (localKtvFilter) {
+      rows = rows.filter((r) => r.ky_thuat_vien?.trim() === localKtvFilter.trim());
+    }
+    if (localLoaiLoiFilter) {
+      rows = rows.filter((r) => neededLoaiLoi(r).includes(localLoaiLoiFilter as LoaiLoi));
+    }
+    if (localNgayTuFilter) {
+      rows = rows.filter((r) => r.thoi_gian_cskh_tiep_nhan && r.thoi_gian_cskh_tiep_nhan.slice(0, 10) >= localNgayTuFilter);
+    }
+    if (localNgayDenFilter) {
+      rows = rows.filter((r) => r.thoi_gian_cskh_tiep_nhan && r.thoi_gian_cskh_tiep_nhan.slice(0, 10) <= localNgayDenFilter);
+    }
+    if (localIdFilter) {
+      const q = localIdFilter.trim().toLowerCase();
+      rows = rows.filter((r) => r.id.toLowerCase().includes(q) || (r.seri_san_pham ?? "").toLowerCase().includes(q));
+    }
+    return [...rows].sort((a, b) => {
+      const da = a.thoi_gian_cskh_tiep_nhan ? new Date(a.thoi_gian_cskh_tiep_nhan).getTime() : 0;
+      const db = b.thoi_gian_cskh_tiep_nhan ? new Date(b.thoi_gian_cskh_tiep_nhan).getTime() : 0;
+      if (da !== db) return da - db;
+      return a.id.localeCompare(b.id);
+    });
+  }, [tab, canKhaoSatRows, quaHanKhaoSatRows, localKtvFilter, localLoaiLoiFilter, localNgayTuFilter, localNgayDenFilter, localIdFilter]);
+
+  const filteredGroupedViPham = useMemo(() => {
+    let list = groupedViPham;
+    if (localKtvFilter) {
+      list = list.filter(({ vs }) => vs.some((v) => v.ky_thuat_vien?.trim() === localKtvFilter.trim()));
+    }
+    if (localLoaiLoiFilter) {
+      list = list.filter(({ vs }) => vs.some((v) => v.loai_loi === localLoaiLoiFilter));
+    }
+    if (localNgayTuFilter) {
+      list = list.filter(({ vs }) => vs.some((v) => v.ngay_ghi_nhan && v.ngay_ghi_nhan.slice(0, 10) >= localNgayTuFilter));
+    }
+    if (localNgayDenFilter) {
+      list = list.filter(({ vs }) => vs.some((v) => v.ngay_ghi_nhan && v.ngay_ghi_nhan.slice(0, 10) <= localNgayDenFilter));
+    }
+    if (localIdFilter) {
+      const q = localIdFilter.trim().toLowerCase();
+      list = list.filter(({ caseId, vs }) => caseId.toLowerCase().includes(q) || vs.some((v) => (v.seri_san_pham ?? "").toLowerCase().includes(q)));
+    }
+    return [...list].sort((a, b) => {
+      const da = a.vs[0]?.ngay_ghi_nhan ? new Date(a.vs[0].ngay_ghi_nhan).getTime() : 0;
+      const db = b.vs[0]?.ngay_ghi_nhan ? new Date(b.vs[0].ngay_ghi_nhan).getTime() : 0;
+      if (da !== db) return da - db;
+      return a.caseId.localeCompare(b.caseId);
+    });
+  }, [groupedViPham, localKtvFilter, localLoaiLoiFilter, localNgayTuFilter, localNgayDenFilter, localIdFilter]);
+
+  const filteredCallHistory = useMemo(() => {
+    let rows = callHistory?.rows ?? [];
+    if (localIdFilter) {
+      const q = localIdFilter.trim().toLowerCase();
+      rows = rows.filter((r) => r.case_id.toLowerCase().includes(q) || (r.seri_san_pham ?? "").toLowerCase().includes(q));
+    }
+    if (localKtvFilter) {
+      rows = rows.filter((r) => r.ky_thuat_vien?.trim() === localKtvFilter.trim());
+    }
+    if (localKetQuaFilter) {
+      rows = rows.filter((r) => r.ket_qua_cuoc_goi === localKetQuaFilter);
+    }
+    if (localNgayTuFilter) {
+      rows = rows.filter((r) => r.ngay_gio_thuc_hien && r.ngay_gio_thuc_hien.slice(0, 10) >= localNgayTuFilter);
+    }
+    if (localNgayDenFilter) {
+      rows = rows.filter((r) => r.ngay_gio_thuc_hien && r.ngay_gio_thuc_hien.slice(0, 10) <= localNgayDenFilter);
+    }
+    if (localNguoiGoiFilter) {
+      rows = rows.filter((r) => r.nguoi_thuc_hien === localNguoiGoiFilter);
+    }
+    if (localLoaiKhaoSatFilter) {
+      rows = rows.filter((r) => parseLoaiKhaoSat(r.loai_khao_sat).includes(localLoaiKhaoSatFilter as LoaiLoi));
+    }
+    return [...rows].sort((a, b) => new Date(b.ngay_gio_thuc_hien).getTime() - new Date(a.ngay_gio_thuc_hien).getTime());
+  }, [callHistory, localIdFilter, localKtvFilter, localKetQuaFilter, localNgayTuFilter, localNgayDenFilter, localNguoiGoiFilter, localLoaiKhaoSatFilter]);
 
   // Bam vao 1 o so trong bang "Bao cao khao sat theo khu vuc" - gan gia tri dong do vao dung bo loc
   // ung voi reportDim dang chon (giong drillDown trong BacklogModule.tsx), roi chuyen sang Danh
@@ -379,12 +646,31 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
   async function handleExport() {
     if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") {
-      const rows = tab === "can-khao-sat" ? canKhaoSatRows : quaHanKhaoSatRows;
+      const rows = filteredRows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) }));
+      await exportRowsToExcel(rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
+      return;
+    }
+    if (tab === "lich-su-khao-sat") {
+      const rows = filteredCallHistory.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) }));
       await exportRowsToExcel(rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
       return;
     }
     const res = await api.get<{ rows: Record<string, unknown>[] }>(`/survey${buildQuery({ tab, export: true, ...filterParams })}`);
-    await exportRowsToExcel(res.rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
+    let rows = res.rows;
+    if (localKtvFilter) {
+      rows = rows.filter((r) => r.ky_thuat_vien === localKtvFilter);
+    }
+    if (localLoaiLoiFilter) {
+      rows = rows.filter((r) => r.loai_loi === localLoaiLoiFilter);
+    }
+    if (localNgayTuFilter) {
+      rows = rows.filter((r) => typeof r.ngay_ghi_nhan === "string" && r.ngay_ghi_nhan.slice(0, 10) >= localNgayTuFilter);
+    }
+    if (localNgayDenFilter) {
+      rows = rows.filter((r) => typeof r.ngay_ghi_nhan === "string" && r.ngay_ghi_nhan.slice(0, 10) <= localNgayDenFilter);
+    }
+    rows = rows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(typeof r.khu_vuc === "string" ? r.khu_vuc : null) }));
+    await exportRowsToExcel(rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
   }
 
   return (
@@ -422,7 +708,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
         <div className="mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
             <Card className="p-4 lg:col-span-2">
-              <div className="font-display font-bold text-sm mb-3">Phễu xử lý vi phạm</div>
+              <div className="font-display font-bold text-sm mb-3">
+                Phễu xử lý vi phạm <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, theo thời gian mở ca)</span>
+              </div>
               <ChartCanvas
                 type="bar"
                 data={{
@@ -486,7 +774,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 variant="ghost"
                 size="sm"
                 onClick={() =>
-                  exportRowsToExcel(baoCaoKhuVuc?.rows ?? [], "bao_cao_khao_sat_khu_vuc.xlsx", "Data", SURVEY_BAO_CAO_EXPORT_LABELS)
+                  exportRowsToExcel(
+                    reportDim === "khu_vuc" ? sortedBaoCaoRows.map((r) => ({ ...r, nhom: shortKhuVuc(r.nhom) })) : sortedBaoCaoRows,
+                    "bao_cao_khao_sat_khu_vuc.xlsx",
+                    "Data",
+                    SURVEY_BAO_CAO_EXPORT_LABELS,
+                  )
                 }
               >
                 ⬇ Xuất Excel
@@ -518,6 +811,18 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 onChange={setKtvFilter}
                 options={[{ value: "", label: "Tất cả KTV" }, ...(khuVucOptions?.kyThuatVien ?? []).map((k) => ({ value: k, label: k }))]}
               />
+              <Select
+                value={nguonCrmFilter}
+                onChange={(v) => {
+                  setNguonCrmFilter(v);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "", label: "Nguồn CRM: Toàn bộ" },
+                  { value: "crm_3t", label: "CRM 3T" },
+                  { value: "crm_krf", label: "CRM KRF" },
+                ]}
+              />
               {isLead && (
                 <Select
                   value={nguoiKhaoSatFilter}
@@ -531,6 +836,44 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 onChange={(e) => setThangReport(e.target.value)}
                 className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-[var(--ink-400)]">Từ ngày</span>
+                <input
+                  type="date"
+                  value={ngayGoiTuReport}
+                  onChange={(e) => {
+                    setNgayGoiTuReport(e.target.value);
+                    setPage(1);
+                  }}
+                  className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                  title="Lọc theo khoảng ngày gọi - từ ngày"
+                />
+                <span className="text-xs text-[var(--ink-400)]">đến</span>
+                <input
+                  type="date"
+                  value={ngayGoiDenReport}
+                  onChange={(e) => {
+                    setNgayGoiDenReport(e.target.value);
+                    setPage(1);
+                  }}
+                  className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                  title="Lọc theo khoảng ngày gọi - đến ngày"
+                />
+                {(ngayGoiTuReport || ngayGoiDenReport) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNgayGoiTuReport("");
+                      setNgayGoiDenReport("");
+                      setPage(1);
+                    }}
+                    className="text-xs text-[var(--ink-400)] hover:text-[var(--ink-600)] whitespace-nowrap"
+                    title="Xóa lọc theo ngày"
+                  >
+                    ✖ Xóa lọc ngày
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -538,23 +881,122 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th className="py-2 pr-3">{SURVEY_REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? (reportDim === "quan_huyen" ? "Quận/Huyện" : "Nhóm")}</th>
-                    <th className="py-2 pr-3">Tiếp nhận</th>
-                    <th className="py-2 pr-3">Hoàn thành</th>
+                    <th className="py-2 pr-3">Ca CRM mở mới</th>
+                    <th className="py-2 pr-3">Ca CRM đã đóng</th>
+                    <th className="py-2 pr-3">% KTV chủ động 120'</th>
+                    <th className="py-2 pr-3">Tỷ lệ % đã gọi hẹn 120'</th>
+                    <th className="py-2 pr-3">Cần khảo sát</th>
+                    <th className="py-2 pr-3">Tổng nghi ngờ</th>
+                    <th className="py-2 pr-3">Tổng vi phạm</th>
+                    <th className="py-2 pr-3">KSNB chốt lỗi</th>
+                    <th className="py-2 pr-3">KSNB bỏ lỗi</th>
+                    <th className="py-2 pr-3">Đã khảo sát</th>
+                    <th className="py-2 pr-3">Khảo sát thành công</th>
+                    <th className="py-2 pr-3">Khảo sát thất bại</th>
+                    <th className="py-2 pr-3">Đang chờ khảo sát lại</th>
+                    <th className="py-2 pr-3">Bỏ qua không khảo sát</th>
+                    <th className="py-2 pr-3">Chờ khảo sát</th>
                     <th className="py-2 pr-3">120 phút</th>
                     <th className="py-2 pr-3">Quá 24h</th>
                     <th className="py-2 pr-3">Lỡ kế hoạch</th>
                     <th className="py-2 pr-3">Hẹn lại</th>
-                    <th className="py-2 pr-3">% Gọi hẹn lại toàn HT</th>
-                    <th className="py-2 pr-3">% KTV chủ động toàn HT</th>
-                    <th className="py-2 pr-3">Gọi thành công</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(baoCaoKhuVuc?.rows ?? []).map((r) => (
+                  {sortedBaoCaoRows.length > 0 && (
+                    <tr className="border-b border-[var(--line)] bg-slate-50 font-bold align-top">
+                      <td className="py-2 pr-3">Tổng cộng</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_tiep_nhan}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_hoan_thanh}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_ktv_chu_dong_toan_he_thong}%</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.can_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_nghi_ngo}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_vi_pham}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_chot}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_bo}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.da_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">
+                        {baoCaoTotal.goi_thanh_cong}/{baoCaoTotal.tong_cuoc_goi} ({baoCaoTotal.ty_le_goi_thanh_cong}%)
+                      </td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.khao_sat_that_bai}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat_lai}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.bo_qua_khong_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat}</td>
+                      <td className="py-2 pr-3 font-normal">
+                        {renderLoaiCell({
+                          nghiNgo: baoCaoTotal.nghi_ngo_120p,
+                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_120p,
+                          daGoi: baoCaoTotal.da_goi_120p,
+                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_120p,
+                          viPham: baoCaoTotal.vi_pham_120p,
+                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_120p,
+                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_120p,
+                        })}
+                      </td>
+                      <td className="py-2 pr-3 font-normal">
+                        {renderLoaiCell({
+                          nghiNgo: baoCaoTotal.nghi_ngo_24h,
+                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_24h,
+                          daGoi: baoCaoTotal.da_goi_24h,
+                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_24h,
+                          viPham: baoCaoTotal.vi_pham_24h,
+                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_24h,
+                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_24h,
+                        })}
+                      </td>
+                      <td className="py-2 pr-3 font-normal">
+                        {renderLoaiCell({
+                          nghiNgo: baoCaoTotal.nghi_ngo_lkh,
+                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_lkh,
+                          daGoi: baoCaoTotal.da_goi_lkh,
+                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_lkh,
+                          viPham: baoCaoTotal.vi_pham_lkh,
+                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_lkh,
+                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_lkh,
+                        })}
+                      </td>
+                      <td className="py-2 pr-3 font-normal">
+                        {renderLoaiCell({
+                          nghiNgo: baoCaoTotal.nghi_ngo_hl,
+                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_hl,
+                          daGoi: baoCaoTotal.da_goi_hl,
+                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_hl,
+                          viPham: baoCaoTotal.vi_pham_hl,
+                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_hl,
+                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_hl,
+                        })}
+                      </td>
+                    </tr>
+                  )}
+                  {sortedBaoCaoRows.map((r) => (
                     <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 align-top">
-                      <td className="py-2 pr-3 font-semibold">{r.nhom}</td>
+                      <td className="py-2 pr-3 font-semibold">{reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
                       <td className="py-2 pr-3 font-mono">{r.tong_tiep_nhan}</td>
                       <td className="py-2 pr-3 font-mono">{r.tong_hoan_thanh}</td>
+                      <td className="py-2 pr-3 font-mono">{r.ty_le_ktv_chu_dong_toan_he_thong}%</td>
+                      <td className="py-2 pr-3 font-mono">{r.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
+                      <td className="py-2 pr-3 font-mono">
+                        {canViewDanhSach ? (
+                          <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-khao-sat")}>
+                            {r.can_khao_sat}
+                          </button>
+                        ) : (
+                          r.can_khao_sat
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 font-mono">{r.tong_nghi_ngo}</td>
+                      <td className="py-2 pr-3 font-mono">{r.tong_vi_pham}</td>
+                      <td className="py-2 pr-3 font-mono">{r.ksnb_chot}</td>
+                      <td className="py-2 pr-3 font-mono">{r.ksnb_bo}</td>
+                      <td className="py-2 pr-3 font-mono">{r.da_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">
+                        {r.goi_thanh_cong}/{r.tong_cuoc_goi} ({r.ty_le_goi_thanh_cong}%)
+                      </td>
+                      <td className="py-2 pr-3 font-mono">{r.khao_sat_that_bai}</td>
+                      <td className="py-2 pr-3 font-mono">{r.cho_khao_sat_lai}</td>
+                      <td className="py-2 pr-3 font-mono">{r.bo_qua_khong_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">{r.cho_khao_sat}</td>
                       <td className="py-2 pr-3">
                         {renderLoaiCell({
                           nghiNgo: r.nghi_ngo_120p,
@@ -603,16 +1045,11 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                           onNghiNgoClick: canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined,
                         })}
                       </td>
-                      <td className="py-2 pr-3 font-mono">{r.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
-                      <td className="py-2 pr-3 font-mono">{r.ty_le_ktv_chu_dong_toan_he_thong}%</td>
-                      <td className="py-2 pr-3 font-mono">
-                        {r.goi_thanh_cong}/{r.tong_cuoc_goi} ({r.ty_le_goi_thanh_cong}%)
-                      </td>
                     </tr>
                   ))}
-                  {(baoCaoKhuVuc?.rows ?? []).length === 0 && (
+                  {sortedBaoCaoRows.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                      <td colSpan={20} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
                       </td>
                     </tr>
@@ -657,6 +1094,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               { key: "qua-han-khao-sat", label: "Quá hạn khảo sát", count: counts?.["qua-han-khao-sat"] },
               { key: "cho-qc", label: "Chờ QC chốt cấp 2", count: counts?.["cho-qc"] },
               { key: "da-xu-ly", label: "Đã xử lý xong", count: counts?.["da-xu-ly"] },
+              { key: "lich-su-khao-sat", label: "Lịch sử khảo sát" },
             ]}
           />
 
@@ -669,16 +1107,142 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           )}
           {bulkAssignOpen && <BulkAssignModal onClose={() => setBulkAssignOpen(false)} canKhaoSatRows={canKhaoSatRows} onDataChanged={refetchCandidates} />}
 
+          <div className="flex items-center gap-4 mb-3 flex-wrap bg-slate-50 p-2.5 rounded-lg border border-[var(--line)]">
+            {(tab === "can-khao-sat" || tab === "qua-han-khao-sat" || tab === "lich-su-khao-sat") && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-[var(--ink-600)]">Tháng:</span>
+                <Select value={thangDanhSach} onChange={(v) => { setThangDanhSach(v); setPage(1); }} options={danhSachMonthOptions} />
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-[var(--ink-600)]">ID/Serial:</span>
+              <input
+                type="text"
+                value={localIdFilter}
+                onChange={(e) => { setLocalIdFilter(e.target.value); setPage(1); }}
+                placeholder="Nhập ID/Serial..."
+                className="px-2 py-1 text-xs border border-[var(--line)] rounded bg-white text-[var(--ink-800)] w-32 focus:outline-none focus:border-[var(--ocean-500)]"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-[var(--ink-600)]">KTV trong danh sách:</span>
+              <Select
+                value={localKtvFilter}
+                onChange={(v) => { setLocalKtvFilter(v); setPage(1); }}
+                options={[
+                  { value: "", label: "Tất cả KTV" },
+                  ...availableKtvs.map((k) => ({ value: k, label: k }))
+                ]}
+              />
+            </div>
+
+            {tab !== "lich-su-khao-sat" && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-[var(--ink-600)]">Loại lỗi nghi ngờ:</span>
+                <Select
+                  value={localLoaiLoiFilter}
+                  onChange={(v) => { setLocalLoaiLoiFilter(v); setPage(1); }}
+                  options={[
+                    { value: "", label: "Tất cả lỗi" },
+                    ...LOAI_LOI_KEYS.map((k) => ({ value: k, label: LOAI_LOI_META[k].label }))
+                  ]}
+                />
+              </div>
+            )}
+
+            {tab === "lich-su-khao-sat" && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-[var(--ink-600)]">Kết quả cuộc gọi:</span>
+                <Select
+                  value={localKetQuaFilter}
+                  onChange={(v) => { setLocalKetQuaFilter(v); setPage(1); }}
+                  options={[
+                    { value: "", label: "Tất cả kết quả" },
+                    ...KET_QUA_CUOC_GOI_OPTIONS.map((k) => ({ value: k, label: k }))
+                  ]}
+                />
+              </div>
+            )}
+
+            {tab === "lich-su-khao-sat" && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-[var(--ink-600)]">Người gọi:</span>
+                <Select
+                  value={localNguoiGoiFilter}
+                  onChange={(v) => { setLocalNguoiGoiFilter(v); setPage(1); }}
+                  options={[
+                    { value: "", label: "Tất cả người gọi" },
+                    ...availableNguoiGoi.map((k) => ({ value: k, label: k }))
+                  ]}
+                />
+              </div>
+            )}
+
+            {tab === "lich-su-khao-sat" && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-[var(--ink-600)]">Loại khảo sát:</span>
+                <Select
+                  value={localLoaiKhaoSatFilter}
+                  onChange={(v) => { setLocalLoaiKhaoSatFilter(v); setPage(1); }}
+                  options={[
+                    { value: "", label: "Tất cả loại" },
+                    ...LOAI_LOI_KEYS.map((k) => ({ value: k, label: LOAI_LOI_META[k].label }))
+                  ]}
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              {/* CHOT 2026-08-05: 1 filter dung chung nhung loc theo 2 truong KHAC NHAU tuy tab (xem
+                  filteredRows/filteredGroupedViPham/filteredCallHistory ben tren) - "Can khao sat"/
+                  "Qua han khao sat" chua co cuoc goi nao nen loc theo thoi_gian_cskh_tiep_nhan (ngay
+                  mo ca), con cac tab con lai da co ket qua goi nen loc theo ngay goi thuc te - nhan
+                  phai doi theo tab de dung y nghia, tranh nham la "ngay tao ca". */}
+              <span className="text-xs font-semibold text-[var(--ink-600)]">{tab === "can-khao-sat" || tab === "qua-han-khao-sat" ? "Ngày tạo nghi vấn:" : "Ngày gọi:"}</span>
+              <span className="text-xs text-[var(--ink-400)]">Từ</span>
+              <input
+                type="date"
+                value={localNgayTuFilter}
+                onChange={(e) => { setLocalNgayTuFilter(e.target.value); setPage(1); }}
+                className="px-2 py-1 text-xs border border-[var(--line)] rounded bg-white text-[var(--ink-800)] focus:outline-none focus:border-[var(--ocean-500)]"
+              />
+              <span className="text-xs text-[var(--ink-400)]">đến</span>
+              <input
+                type="date"
+                value={localNgayDenFilter}
+                onChange={(e) => { setLocalNgayDenFilter(e.target.value); setPage(1); }}
+                className="px-2 py-1 text-xs border border-[var(--line)] rounded bg-white text-[var(--ink-800)] focus:outline-none focus:border-[var(--ocean-500)]"
+              />
+            </div>
+
+            {(localKtvFilter || localLoaiLoiFilter || localNgayTuFilter || localNgayDenFilter || localIdFilter || localKetQuaFilter || localNguoiGoiFilter || localLoaiKhaoSatFilter) && (
+              <button
+                className="text-xs text-[var(--ocean-600)] hover:underline ml-auto font-medium"
+                onClick={() => {
+                  setLocalKtvFilter("");
+                  setLocalLoaiLoiFilter("");
+                  setLocalNgayTuFilter("");
+                  setLocalNgayDenFilter("");
+                  setLocalIdFilter("");
+                  setLocalKetQuaFilter("");
+                  setLocalNguoiGoiFilter("");
+                  setLocalLoaiKhaoSatFilter("");
+                  setPage(1);
+                }}
+              >
+                Xóa lọc nhanh
+              </button>
+            )}
+          </div>
           {tab === "qua-han-khao-sat" && (
             <div className="text-xs text-[var(--ink-400)] mb-2">Ca đã hoàn thành quá 3 ngày mà chưa khảo sát — có thể gọi hoặc bỏ qua nếu đã quá muộn.</div>
-          )}
-          {(tab === "can-khao-sat" || tab === "qua-han-khao-sat") && candidatesThrottled && (
-            <div className="text-xs text-[var(--ink-400)] italic mb-2">Đã đạt giới hạn tải, đang hiển thị dữ liệu đã lưu gần nhất — tự thử lại sau ít phút.</div>
           )}
 
           {(tab === "can-khao-sat" || tab === "qua-han-khao-sat") &&
             (() => {
-              const fullRows = tab === "can-khao-sat" ? canKhaoSatRows : quaHanKhaoSatRows;
+              const fullRows = filteredRows;
               const columns: Column<CanKhaoSatRow>[] = [
                 { key: "id", header: "Ca", render: (row) => (
                   <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(row.id, "vi-pham")}>
@@ -686,7 +1250,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   </span>
                 ) },
                 { key: "khach_hang", header: "Khách hàng", render: (row) => row.khach_hang },
-                { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (row) => <span className="text-xs">{row.ky_thuat_vien ?? "—"}</span> },
+                { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (row) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={row.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span> },
                 { key: "loai_loi", header: "Loại lỗi nghi ngờ", render: (row) => (
                   <div className="flex flex-wrap gap-1">
                     {neededLoaiLoi(row).map((loai) => (
@@ -697,19 +1261,36 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   </div>
                 ) },
                 { key: "assigned_to", header: "Phân công", render: (row) => <span className="text-xs">{row.assigned_to || <span className="italic text-[var(--ink-400)]">Chưa phân công</span>}</span> },
-                { key: "khu_vuc", header: "Khu vực", render: (row) => row.khu_vuc ?? "—" },
+                { key: "khu_vuc", header: "Khu vực", render: (row) => shortKhuVuc(row.khu_vuc) },
                 {
                   key: "action",
                   header: "",
-                  className: "text-right",
-                  render: (row) =>
-                    isLead ? (
+                  className: "text-right whitespace-nowrap",
+                  render: (row) => {
+                    const hasAction = canSurvey || isLead;
+                    if (!hasAction) return null;
+                    return (
                       <div className="flex gap-1.5 justify-end">
-                        <Btn size="sm" variant="ghost" onClick={() => setAssignModal(row)}>
-                          Phân công
-                        </Btn>
+                        {canSurvey && (
+                          <Btn
+                            size="sm"
+                            variant="primary"
+                            onClick={() => {
+                              setWorkspaceInitialAdHocId(row.id);
+                              setWorkspaceOpen(true);
+                            }}
+                          >
+                            ☎ Báo cáo cuộc gọi
+                          </Btn>
+                        )}
+                        {isLead && (
+                          <Btn size="sm" variant="ghost" onClick={() => setAssignModal(row)}>
+                            Phân công
+                          </Btn>
+                        )}
                       </div>
-                    ) : null,
+                    );
+                  },
                 },
               ];
               return (
@@ -749,7 +1330,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 {
                   key: "ky_thuat_vien",
                   header: "Kỹ thuật viên",
-                  render: ({ vs }) => <span className="text-xs">{vs[0].ky_thuat_vien ?? "—"}</span>,
+                  render: ({ vs }) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={vs[0].ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span>,
                 },
                 {
                   key: "ket_qua",
@@ -767,7 +1348,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 {
                   key: "khu_vuc",
                   header: "Khu vực",
-                  render: ({ vs }) => vs[0].khu_vuc ?? "—",
+                  render: ({ vs }) => shortKhuVuc(vs[0].khu_vuc),
                 },
                 {
                   key: "action",
@@ -802,12 +1383,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               return (
                 <PaginatedTable
                   columns={columns}
-                  rows={groupedViPham.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+                  rows={filteredGroupedViPham.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
                   isLoading={false}
                   isError={false}
                   page={page}
                   pageSize={PAGE_SIZE}
-                  total={groupedViPham.length}
+                  total={filteredGroupedViPham.length}
                   onPageChange={setPage}
                   rowKey={({ caseId }) => caseId}
                   emptyText="Không có mục nào."
@@ -815,11 +1396,88 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 />
               );
             })()}
+
+          {tab === "lich-su-khao-sat" &&
+            (() => {
+              const columns: Column<KetQuaGoiRow>[] = [
+                {
+                  key: "ngay_gio_thuc_hien",
+                  header: "Ngày giờ gọi",
+                  render: (r) => <span className="text-xs whitespace-nowrap">{r.ngay_gio_thuc_hien}</span>,
+                },
+                {
+                  key: "case_id",
+                  header: "Ca",
+                  render: (r) => (
+                    <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(r.case_id, "khao-sat")}>
+                      {r.case_id}
+                    </span>
+                  ),
+                },
+                { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
+                {
+                  key: "ky_thuat_vien",
+                  header: "Kỹ thuật viên",
+                  render: (r) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={r.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span>,
+                },
+                {
+                  key: "loai_khao_sat",
+                  header: "Loại khảo sát",
+                  render: (r) => {
+                    const loaiList = parseLoaiKhaoSat(r.loai_khao_sat);
+                    return loaiList.length === 0 ? (
+                      <span className="text-xs text-[var(--ink-400)] italic">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {loaiList.map((loai) => (
+                          <Badge key={loai} tone="ocean">
+                            {LOAI_LOI_META[loai]?.short ?? loai}
+                          </Badge>
+                        ))}
+                      </div>
+                    );
+                  },
+                },
+                { key: "ket_qua_cuoc_goi", header: "Kết quả cuộc gọi", render: (r) => r.ket_qua_cuoc_goi ?? "—" },
+                {
+                  key: "can_goi_lai",
+                  header: "Cần gọi lại",
+                  render: (r) => (r.can_goi_lai === null ? "—" : <Badge tone={r.can_goi_lai ? "amber" : "gray"}>{r.can_goi_lai ? "Có" : "Không"}</Badge>),
+                },
+                { key: "nguoi_thuc_hien", header: "Người thực hiện", render: (r) => <span className="text-xs">{r.nguoi_thuc_hien}</span> },
+              ];
+              return (
+                <PaginatedTable
+                  columns={columns}
+                  rows={filteredCallHistory.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+                  isLoading={false}
+                  isError={false}
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={filteredCallHistory.length}
+                  onPageChange={setPage}
+                  rowKey={(r) => r.id}
+                  emptyText="Không có cuộc gọi nào trong tháng này."
+                  storageKey="survey-lich-su-khao-sat"
+                />
+              );
+            })()}
         </div>
       )}
 
       {assignModal && <AssignModal row={assignModal} onClose={() => setAssignModal(null)} onDataChanged={refetchCandidates} />}
-      {workspaceOpen && <SurveyCallWorkspace onExit={() => setWorkspaceOpen(false)} openCase={openCase} initialKhuVuc={khuVucFilter} />}
+      {workspaceOpen && (
+        <SurveyCallWorkspace
+          initialAdHocId={workspaceInitialAdHocId ?? undefined}
+          onExit={() => {
+            setWorkspaceOpen(false);
+            setWorkspaceInitialAdHocId(null);
+            refetchCandidates();
+          }}
+          openCase={openCase}
+          initialKhuVuc={khuVucFilter}
+        />
+      )}
     </div>
   );
 }

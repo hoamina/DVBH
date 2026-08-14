@@ -1,0 +1,215 @@
+import { Hono } from "hono";
+import type { Env } from "../types";
+import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
+import { findActivePartnerKey, checkRateLimit, logPartnerApiCall } from "../lib/partnerApiAuth";
+import { buildPartnerExcel, type PartnerCaseRow, type GiaiTrinhHistoryRow } from "../lib/partnerExcel";
+
+/**
+ * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
+ * session/OAuth (khong co nguoi ngoi truoc may), xac thuc bang X-API-Key rieng cho tung doi tac
+ * (partner_api_keys, xem lib/partnerApiAuth.ts), KHAC voi EXTERNAL_IMPORT_API_KEY (1 secret tinh
+ * dung chung cho pipeline QuickSight noi bo, xem routes/externalImport.ts) vi day la nhieu doi tac
+ * ben ngoai, moi ben can 1 key rieng co the thu hoi doc lap.
+ *
+ * Mount o prefix rieng "/api/partner" (xem index.ts), tach biet hoan toan middleware session cua cac
+ * route con lai.
+ *
+ * CO Y KHONG ap KHU_VUC_AN_KHOI_BAO_CAO (filterParams.ts khuVucReportExclusionClause) o day - danh
+ * sach do chi dung de an 2 don vi kinh doanh khoi THONG KE/BAO CAO NOI BO (xem giai thich o
+ * filterParams.ts), khong phai "case khong ton tai". API nay la xuat du lieu CRM tho cho doi tac
+ * ngoai, an di se lam mat that su ca sự co trong file ho nhan duoc - khac ban chat voi 1 bao cao
+ * tong hop noi bo.
+ */
+const partnerApi = new Hono<{ Bindings: Env }>();
+
+// IP rate limit & API Key validity caching bang Cache API (giúp chặn DDoS/DoS miễn phí không tốn D1)
+partnerApi.use("*", async (c, next) => {
+  const cache = caches.default;
+  const ip = c.req.header("CF-Connecting-IP") || "local-ip";
+  const ipCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-ip-limit/${encodeURIComponent(ip)}`);
+
+  const cachedIp = await cache.match(ipCacheKey);
+  if (cachedIp) {
+    const data = (await cachedIp.json()) as { count: number; exp: number };
+    if (data.count > 60) {
+      return c.json({ error: "TOO_MANY_REQUESTS_IP" }, 429);
+    }
+    data.count++;
+    c.executionCtx.waitUntil(
+      cache.put(
+        ipCacheKey,
+        new Response(JSON.stringify(data), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": `max-age=${Math.max(1, Math.round((data.exp - Date.now()) / 1000))}`,
+          },
+        })
+      )
+    );
+  } else {
+    const exp = Date.now() + 60_000;
+    c.executionCtx.waitUntil(
+      cache.put(
+        ipCacheKey,
+        new Response(JSON.stringify({ count: 1, exp }), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "max-age=60",
+          },
+        })
+      )
+    );
+  }
+
+  // Kiểm tra nhanh trong cache xem API Key này đã từng bị xác định là sai trước đó không
+  const apiKey = c.req.header("X-API-Key") || "";
+  if (!apiKey) return c.json({ error: "MISSING_API_KEY" }, 401);
+
+  const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
+  const cachedKey = await cache.match(keyCacheKey);
+  if (cachedKey) {
+    const keyData = (await cachedKey.json()) as { valid: boolean };
+    if (!keyData.valid) {
+      return c.json({ error: "INVALID_API_KEY" }, 401);
+    }
+  }
+
+  await next();
+});
+
+const MAX_ROWS = 20_000;
+const MAX_RANGE_DAYS = 31;
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const CASE_COLUMNS =
+  "id, khach_hang, khu_vuc, tinh, doi_tac, hang, nhom_san_pham, seri_san_pham, mo_ta_loi, " +
+  "thoi_gian_cskh_tiep_nhan, thoi_gian_hen_xu_ly, thoi_gian_hoan_thanh, tien_do_hoan_thanh";
+
+// "YYYY-MM-DD" -> Date (UTC-neutral, chi dung de tinh khoang cach ngay/cong 1 ngay - khong lien quan
+// gio VN thuc te cua thoi_gian_hoan_thanh, cot do van la text so sanh truc tiep).
+function parseDateOnly(s: string): Date | null {
+  if (!DATE_ONLY_RE.test(s)) return null;
+  const d = new Date(`${s}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return null;
+  return d;
+}
+
+function addDays(d: Date, days: number): string {
+  return new Date(d.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+function todayVN(): string {
+  return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+partnerApi.get("/cases", async (c) => {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    // Cache kết quả sai trong 5 phút để tránh bị spam làm cạn kiệt Quota đọc D1
+    const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
+    c.executionCtx.waitUntil(
+      caches.default.put(
+        keyCacheKey,
+        new Response(JSON.stringify({ valid: false }), {
+          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
+        })
+      )
+    );
+    return c.json({ error: "INVALID_API_KEY" }, 401);
+  }
+
+  const mode = c.req.query("mode");
+  if (mode !== "da-dong" && mode !== "dang-ton") return c.json({ error: "INVALID_MODE" }, 400);
+
+  let whereSql: string;
+  let whereBinds: unknown[];
+  let filenameSuffix: string;
+
+  if (mode === "dang-ton") {
+    whereSql = CASE_FILTER_TON;
+    whereBinds = [];
+    filenameSuffix = `dang_ton_${todayVN()}`;
+  } else {
+    const tuNgay = c.req.query("tu_ngay") ?? "";
+    const denNgay = c.req.query("den_ngay") ?? "";
+    const tuDate = parseDateOnly(tuNgay);
+    const denDate = parseDateOnly(denNgay);
+    if (!tuDate || !denDate || tuDate.getTime() > denDate.getTime()) {
+      return c.json({ error: "INVALID_DATE_RANGE" }, 400);
+    }
+    const rangeDays = Math.round((denDate.getTime() - tuDate.getTime()) / 86_400_000) + 1;
+    if (rangeDays > MAX_RANGE_DAYS) return c.json({ error: "RANGE_TOO_LARGE" }, 400);
+
+    whereSql = "thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?";
+    whereBinds = [`${tuNgay} 00:00:00`, `${addDays(denDate, 1)} 00:00:00`];
+    filenameSuffix = `da_dong_${tuNgay}_${denNgay}`;
+  }
+
+  // Tải trước số dòng kết quả từ D1
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as cnt FROM case_dvbh WHERE ${whereSql}`)
+    .bind(...whereBinds)
+    .first<{ cnt: number }>();
+  const totalCount = countRow?.cnt ?? 0;
+
+  if (totalCount > MAX_ROWS) return c.json({ error: "TOO_MANY_ROWS" }, 400);
+
+  // Ghi log và đồng thời kiểm tra rate limit trong 1 câu truy vấn nguyên tử (chống Race Condition TOCTOU)
+  const insertLog = await c.env.DB.prepare(`
+    INSERT INTO partner_api_call_log (api_key_id, mode, so_dong)
+    SELECT ?1, ?2, ?3
+    WHERE (
+      SELECT COUNT(*) FROM partner_api_call_log
+      WHERE api_key_id = ?1 AND date(called_at) = date('now', '+7 hours')
+    ) < 30
+    AND (
+      NOT EXISTS (SELECT 1 FROM partner_api_call_log WHERE api_key_id = ?1)
+      OR
+      (
+        SELECT (strftime('%s', datetime('now', '+7 hours')) - strftime('%s', called_at))
+        FROM partner_api_call_log
+        WHERE api_key_id = ?1
+        ORDER BY called_at DESC LIMIT 1
+      ) >= 60
+    )
+  `)
+    .bind(keyRow.id, mode, totalCount)
+    .run();
+
+  if ((insertLog.meta.changes ?? 0) === 0) {
+    // Nếu chèn thất bại tức là đã vượt qua giới hạn rate limit. Kiểm tra xem lỗi nào để phản hồi đúng
+    const todayCount = await c.env.DB.prepare(
+      "SELECT COUNT(*) as cnt FROM partner_api_call_log WHERE api_key_id = ? AND date(called_at) = date('now', '+7 hours')"
+    )
+      .bind(keyRow.id)
+      .first<{ cnt: number }>();
+    if ((todayCount?.cnt ?? 0) >= 30) {
+      return c.json({ error: "DAILY_LIMIT_EXCEEDED" }, 429);
+    }
+    return c.json({ error: "MIN_INTERVAL_NOT_MET" }, 429);
+  }
+
+  const { results: caseRows } = await c.env.DB.prepare(
+    `SELECT ${CASE_COLUMNS} FROM case_dvbh WHERE ${whereSql} ORDER BY id`,
+  )
+    .bind(...whereBinds)
+    .all<PartnerCaseRow>();
+
+  const { results: historyRows } = await c.env.DB.prepare(
+    `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh FROM giai_trinh
+     WHERE case_id IN (SELECT id FROM case_dvbh WHERE ${whereSql})
+     ORDER BY case_id, ngay_giai_trinh ASC`,
+  )
+    .bind(...whereBinds)
+    .all<GiaiTrinhHistoryRow>();
+
+  const buffer = buildPartnerExcel(caseRows, historyRows);
+  // Ep kieu ArrayBuffer - xlsx tra ve Uint8Array<ArrayBufferLike> (TS lib khong biet chac khong phai
+  // SharedArrayBuffer), trong khi day thuc su la Uint8Array thuong tu XLSX.write({type:"array"}).
+  return c.body(buffer as unknown as ArrayBuffer, 200, {
+    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "Content-Disposition": `attachment; filename="dvbh_${filenameSuffix}.xlsx"`,
+  });
+});
+
+export default partnerApi;

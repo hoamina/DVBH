@@ -12,7 +12,7 @@ export function ThemeModule() {
       </Card>
       <Card className="p-4 max-w-2xl">
         <div className="font-display font-bold text-sm mb-1">Giao diện</div>
-        <div className="text-sm text-[var(--ink-600)] mb-4">Chọn gam màu và phông chữ cho riêng tài khoản của bạn — lưu tự động, không ảnh hưởng người dùng khác.</div>
+        <div className="text-sm text-[var(--ink-600)] mb-4">Chọn gam màu và phông chữ — chỉ lưu trên máy/trình duyệt này (không đồng bộ sang máy khác, không ảnh hưởng người dùng khác).</div>
         <ThemeSettingsPanel />
       </Card>
     </div>

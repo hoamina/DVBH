@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause } from "../lib/filterParams";
+import { khuVucAdHocClause, khuVucReportExclusionClause } from "../lib/filterParams";
 import { nextSequentialId } from "../lib/idCounter";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { csvTemplateResponse } from "../lib/csvTemplate";
@@ -88,7 +88,9 @@ const GT_LAP_COLUMNS = `
 // GET /api/ca-lap/danh-sach?khu_vuc=&thang=&trang_thai=&page=&pageSize=&export=
 caLap.get("/danh-sach", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const scopeClause = khuVucWhereClause(scope, "lap.khu_vuc");
+  const scopeClauseBase = khuVucWhereClause(scope, "lap.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("lap.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("lap.khu_vuc", c.req.query("khu_vuc"));
   const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
@@ -160,7 +162,9 @@ caLap.get("/danh-sach", async (c) => {
 // trang se lam o FE sau khi gop voi /status.
 caLap.get("/danh-sach/list", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const scopeClause = khuVucWhereClause(scope, "lap.khu_vuc");
+  const scopeClauseBase = khuVucWhereClause(scope, "lap.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("lap.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("lap.khu_vuc", c.req.query("khu_vuc"));
   const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
@@ -182,7 +186,9 @@ caLap.get("/danh-sach/list", async (c) => {
 // GS/QC dong gia/chot (nho hon nhieu so voi tong so ca lap). FE gop voi ket qua /list theo case_id.
 caLap.get("/danh-sach/status", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
   const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
@@ -223,8 +229,12 @@ interface CaLapQueryContext {
 // Cac tham so dan xuat tu params/scope (WHERE clause + binds) dung CHUNG cho ca Block A va Block B
 // (R9.3, xem YEU_CAU_BAO_CAO_TINH_SAN.md) - tinh 1 lan duy nhat de tranh 2 khoi bi lech tham so.
 function buildCaLapQueryContext(params: CaLapTongQuanParams, scope: string[] | null): CaLapQueryContext {
-  const scopeClause = khuVucWhereClause(scope, "khu_vuc");
-  const scopeClauseLap = khuVucWhereClause(scope, "lap.khu_vuc");
+  const scopeClauseBase = khuVucWhereClause(scope, "khu_vuc");
+  const scopeClauseLapBase = khuVucWhereClause(scope, "lap.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("khu_vuc");
+  const exclusionLap = khuVucReportExclusionClause("lap.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
+  const scopeClauseLap = { sql: scopeClauseLapBase.sql + exclusionLap.sql, binds: [...scopeClauseLapBase.binds, ...exclusionLap.binds] };
   const khuVucFilter = params.khu_vuc;
   const khuVucClause = khuVucAdHocClause("khu_vuc", khuVucFilter);
   const khuVucClauseLap = khuVucAdHocClause("lap.khu_vuc", khuVucFilter);
@@ -597,9 +607,25 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
       .bind(caseId)
       .first<{ id: string; gap_days: number; prior_id: string; prior_ht: string }>(),
     db.prepare("SELECT * FROM giai_trinh_lap WHERE case_id = ?").bind(caseId).first(),
+    // CHOT 2026-08-05: sap xep + tinh khoang cach giua cac ca lap gio dua theo thoi_gian_cskh_tiep_nhan
+    // (khong phai thoi_gian_hoan_thanh nhu truoc) - "khoang cach" nghiep vu dung phai la "may lai bi
+    // hong lai sau bao lau", tuc tu luc DONG ca truoc den luc MO ca sau, khong phai tu luc DONG ca
+    // truoc den luc DONG ca sau (xem cong thuc gapDays o CaseDetail.tsx "Chuoi lich su theo serial").
+    // "eligible_for_eval" (CHOT 2026-08-05) - khop CHINH XAC dieu kien hien nut "Xu ly ca lap"/tao
+    // duoc detection (ca_lap_prior_ht IS NOT NULL, chua bi huy, gap <= NGUONG_NGAY_LAP) de FE quyet
+    // dinh hien nut "Danh gia lap" hay nhan "Khong tinh lap" cho TUNG dong - tranh hien nut roi bam
+    // vao moi biet khong danh gia duoc (vd ca da huy - "Hủy ca" an ca khoi MOI hang doi can xu ly,
+    // ca lap cung khong ngoai le, xem dialog xac nhan Huy ca).
+    // LEFT JOIN giai_trinh_lap de tra kem trang thai danh gia lap DA CHOT (chot_danh_gia_lap/qc_chot)
+    // cua TUNG ca trong chuoi (CHOT 2026-08-05) - hien "(GS: ... QC: ...)" canh moc gio dong ca, giup
+    // nguoi xem biet nhanh ca nao da duoc xu ly ma khong phai bam vao tung ca de kiem tra.
     db
       .prepare(
-        "SELECT id, thoi_gian_hoan_thanh, ky_thuat_vien, tien_do_hoan_thanh, cach_thuc_xu_ly, link_crm FROM case_dvbh WHERE seri_san_pham = ? ORDER BY thoi_gian_hoan_thanh DESC",
+        `SELECT c.id, c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hoan_thanh, c.ky_thuat_vien, c.tien_do_hoan_thanh, c.cach_thuc_xu_ly, c.link_crm, c.huy_bo_at,
+                (c.ca_lap_prior_ht IS NOT NULL AND c.huy_bo_at IS NULL AND (julianday(c.thoi_gian_hoan_thanh) - julianday(c.ca_lap_prior_ht)) <= ${NGUONG_NGAY_LAP}) as eligible_for_eval,
+                gl.chot_danh_gia_lap, gl.qc_chot
+         FROM case_dvbh c LEFT JOIN giai_trinh_lap gl ON gl.case_id = c.id
+         WHERE c.seri_san_pham = ? ORDER BY c.thoi_gian_cskh_tiep_nhan DESC`,
       )
       .bind(seri)
       .all(),
@@ -615,6 +641,22 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
     serialBlacklisted: !!blacklistRow,
   };
 }
+
+// GET /api/ca-lap/:caseId/detection - ban rut gon cua getCaLapDetection() (chi detection +
+// giaiTrinhLap, bo lichSu/serialBlacklisted khong can) - dung boi CaLapEvalModal.tsx de danh gia lap
+// cho 1 ca BAT KY trong "Chuoi lich su theo serial" (khong chi ca dang mo o CaseDetail), tranh phai
+// tai toan bo GET /cases/:id (nang hon nhieu, gom ca giai_trinh/vi_pham/... khong lien quan).
+caLap.get("/:caseId/detection", async (c) => {
+  const caseId = c.req.param("caseId");
+  const caseRow = await c.env.DB.prepare("SELECT khu_vuc FROM case_dvbh WHERE id = ?").bind(caseId).first<{ khu_vuc: string | null }>();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+  const { detection, giaiTrinhLap } = await getCaLapDetection(c.env.DB, caseId);
+  return c.json({ detection, giaiTrinhLap });
+});
 
 // POST /api/ca-lap/:caseId/gs - Giam sat "Chot lap": ghi nhan Chot danh gia lap (cap 1) CUNG LUC
 // voi Hinh thuc xu ly (chot_hinh_thuc_xu_ly optional - frontend luon gui kem vi da gop UI thanh
@@ -633,6 +675,8 @@ caLap.post("/:caseId/gs", requireRole("Giam sat", "Admin"), async (c) => {
   if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
+
+
 
   const body = await c.req.json<{ chot_danh_gia_lap: string; dien_giai_lap?: string; chot_hinh_thuc_xu_ly?: string }>();
   if (!CA_LAP_LOAI_KEYS.includes(body.chot_danh_gia_lap as (typeof CA_LAP_LOAI_KEYS)[number])) {
@@ -666,23 +710,42 @@ caLap.post("/:caseId/gs", requireRole("Giam sat", "Admin"), async (c) => {
 // sat truoc - QC co the tu tao moi dong giai_trinh_lap tu dau (upsert giong het pattern /gs, /hinh-thuc).
 caLap.post("/:caseId/qc", requireRole("QC", "Admin"), async (c) => {
   const caseId = c.req.param("caseId");
-  const body = await c.req.json<{ qc_chot: string; qc_ghi_chu?: string }>();
+
+  // QC khong gioi han khu_vuc (QC nam trong ROLES_XEM_TOAN_BO - "xem nhu Viewer", xem types.ts) nen
+  // khong can scope check nhu /gs, nhung VAN can xac nhan case ton tai + la "ca lap" thuc su truoc
+  // khi INSERT - giong het pattern eligibility o /gs ben tren. Thieu buoc nay: case_id sai hien nay
+  // roi vao FK violation (giai_trinh_lap.case_id REFERENCES case_dvbh) -> loi 500 chung chung thay
+  // vi 1 loi nghiep vu ro rang.
+  const caseRow = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE id = ?").bind(caseId).first();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+
+
+  // CHOT 2026-08-05: QC gio duoc sua lai CA "Hinh thuc xu ly" (truoc chi Giam sat moi dat duoc, QC
+  // chi xem) - dung CHUNG 1 cot chot_hinh_thuc_xu_ly voi /gs (QC "chot" la tieng noi cuoi cung, y
+  // het cach qc_chot da "de de" len chot_danh_gia_lap o moi noi doc COALESCE(qc_chot,
+  // chot_danh_gia_lap)). chot_hinh_thuc_xu_ly optional + COALESCE-giu-nguyen-neu-khong-gui, dung y
+  // het pattern /gs - QC khong gui thi khong lam mat gia tri Giam sat da dat.
+  const body = await c.req.json<{ qc_chot: string; qc_ghi_chu?: string; chot_hinh_thuc_xu_ly?: string }>();
   if (!CA_LAP_LOAI_KEYS.includes(body.qc_chot as (typeof CA_LAP_LOAI_KEYS)[number])) {
     return c.json({ error: "INVALID_QC_CHOT" }, 400);
+  }
+  if (body.chot_hinh_thuc_xu_ly !== undefined && !HINH_THUC_XU_LY_KEYS.includes(body.chot_hinh_thuc_xu_ly as (typeof HINH_THUC_XU_LY_KEYS)[number])) {
+    return c.json({ error: "INVALID_HINH_THUC_XU_LY" }, 400);
   }
   const user = c.get("user");
   const id = await nextSequentialId(c.env.DB, "giai_trinh_lap", "CL", 6);
   const row = await c.env.DB.prepare(
-    `INSERT INTO giai_trinh_lap (id, case_id, qc_chot, qc_ghi_chu, nguoi_qc, ngay_qc)
-     VALUES (?, ?, ?, ?, ?, datetime('now', '+7 hours'))
+    `INSERT INTO giai_trinh_lap (id, case_id, qc_chot, qc_ghi_chu, chot_hinh_thuc_xu_ly, nguoi_qc, ngay_qc)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now', '+7 hours'))
      ON CONFLICT(case_id) DO UPDATE SET
        qc_chot = excluded.qc_chot,
        qc_ghi_chu = excluded.qc_ghi_chu,
+       chot_hinh_thuc_xu_ly = COALESCE(excluded.chot_hinh_thuc_xu_ly, giai_trinh_lap.chot_hinh_thuc_xu_ly),
        nguoi_qc = excluded.nguoi_qc,
        ngay_qc = excluded.ngay_qc
      RETURNING *`,
   )
-    .bind(id, caseId, body.qc_chot, body.qc_ghi_chu ?? null, user.email)
+    .bind(id, caseId, body.qc_chot, body.qc_ghi_chu ?? null, body.chot_hinh_thuc_xu_ly ?? null, user.email)
     .first();
   // Bump domain "giai_trinh_lap" (xem lib/dataVersions.ts).
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["giai_trinh_lap"]));

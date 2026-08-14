@@ -20,9 +20,12 @@ import { ImportModule } from "./modules/ImportModule";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
 import { ThemeModule } from "./modules/ThemeModule";
+import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { useToast } from "./components/ui/Toast";
 import { LoadingInline } from "./components/ui/LoadingInline";
 import { ThemeProvider } from "./theme/ThemeProvider";
+import { usePurchaseWarrantyData } from "./hooks/usePurchaseWarrantyData";
+import { GreetingPopup } from "./components/GreetingPopup";
 
 const ACTIVE_MODULE_KEY = "dvbh_active_module";
 
@@ -39,6 +42,7 @@ export function App() {
   if (auth.status === "anonymous") return <LoginScreen variant="login" />;
   if (auth.status === "pending") return <LoginScreen variant="pending" />;
   if (auth.status === "rejected") return <LoginScreen variant="rejected" />;
+  if (auth.status === "disabled") return <LoginScreen variant="disabled" />;
 
   return (
     <ThemeProvider>
@@ -55,7 +59,16 @@ function MainApp({
   showDailyReport: boolean;
 }) {
   const role = user.vai_tro;
-  const allowedModules = role ? ROLE_MODULES[role] ?? [] : [];
+  // CHOT 2026-08-01: danh sach module gio tuy chinh HOAN TOAN theo tung tai khoan (user.modules,
+  // xem migration 0042) - NULL = chua tuy chinh, fallback ve mac dinh theo vai_tro nhu truoc.
+  // Admin luon full (khop dung logic hasModule() o backend/src/lib/moduleAccess.ts).
+  let allowedModules = role === "Admin" ? ROLE_MODULES.Admin : (user.modules ?? (role ? ROLE_MODULES[role] ?? [] : []));
+  // Cap them "dat-mua-lk"/"tra-hang" tu dong khi bat 1 trong 4 co "Dat mua linh kien" - phai khop
+  // dung effectiveModules() o backend/src/lib/moduleAccess.ts, khong co co che dung chung giua 2
+  // codebase nen phai tu dong bo tay.
+  if (role !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan)) {
+    allowedModules = [...new Set([...allowedModules, "dat-mua-lk", "tra-hang"])];
+  }
   const [active, setActive] = useState(() => {
     const saved = localStorage.getItem(ACTIVE_MODULE_KEY);
     return saved && allowedModules.includes(saved) ? saved : allowedModules[0] ?? "dashboard";
@@ -72,6 +85,11 @@ function MainApp({
   const [caseStack, setCaseStack] = useState<{ id: string; viewMode: "compact" | "expanded"; tab: string }[]>([]);
   const addToast = useToast();
   const dailyReportShown = useRef(false);
+
+  // Kich hoat dong bo NGAM du lieu mua hang/bao hanh/xu ly thieu hang (Google Sheet -> cache
+  // trinh duyet, xem hooks/usePurchaseWarrantyData.ts) ngay sau khi dang nhap - khong cho ket qua o
+  // day, CaseDetail.tsx tu doc lai cung query (TanStack Query chia se cache theo key).
+  usePurchaseWarrantyData();
 
   useEffect(() => {
     if (!allowedModules.includes(active)) setActive(allowedModules[0] ?? "dashboard");
@@ -123,8 +141,8 @@ function MainApp({
   // dieu huong ca lien quan hoac doi che do xem, mat tab dang xem cua nguoi dung.
   const FIRST_TAB: Record<"compact" | "expanded", string> = { compact: "info", expanded: "giai-trinh" };
   const VALID_TABS: Record<"compact" | "expanded", string[]> = {
-    compact: ["info", "giai-trinh", "vi-pham", "ca-lap", "nap-gas", "tranh-chap"],
-    expanded: ["giai-trinh", "vi-pham", "ca-lap", "nap-gas", "tranh-chap"],
+    compact: ["info", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap"],
+    expanded: ["giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap"],
   };
 
   // openCase() bat dau phien MOI (reset stack) - dung cho moi noi mo ca tu 1 danh sach/tim kiem.
@@ -178,10 +196,11 @@ function MainApp({
 
   return (
     <div className="flex min-h-screen">
+      <GreetingPopup />
       <Sidebar
         active={active}
         setActive={setActive}
-        role={role}
+        allowedModules={allowedModules}
         collapsed={collapsed}
         setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
@@ -212,6 +231,8 @@ function MainApp({
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}
           {active === "giao-dien" && <ThemeModule />}
+          {active === "dat-mua-lk" && <DatMuaLinhKienModule />}
+          {active === "tra-hang" && <DatMuaLinhKienModule forceView="tra-hang" />}
         </main>
       </div>
       <CaseDetail

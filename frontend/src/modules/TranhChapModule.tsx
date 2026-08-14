@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
+import { Card } from "../components/ui/Card";
 import { StatCard } from "../components/ui/StatCard";
 import { Tabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Select";
@@ -13,6 +14,11 @@ import { fmtDateTime, type Paged } from "../types";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
+import { exportRowsToExcel } from "../lib/exportExcel";
+import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+import { ImportUploader } from "../components/ImportUploader";
 import {
   TRANG_THAI_LABELS,
   TRANG_THAI_TONE,
@@ -40,6 +46,12 @@ interface TienTrinhStats {
   sapDenHan: number;
 }
 
+interface TranhChapImportSummary {
+  thanhCong: number;
+  boQua: number;
+  errors: string[];
+}
+
 const VIEWS = [
   { key: "cho-xu-ly", label: "Chờ xử lý" },
   { key: "tien-trinh", label: "Quản lý tiến trình" },
@@ -51,20 +63,64 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
   const myAreas = user?.khu_vuc_phu_trach ?? [];
   const addToast = useToast();
   const qc = useQueryClient();
+  // CHOT 2026-08-12: quyen import hang loat tranh chap theo ID - rieng biet voi canWriteTranhChap()
+  // (ghi tung ca qua "Tiep nhan"), xem migration 0052_users_import_tranh_chap.sql.
+  const canImportTranhChap = user?.vai_tro === "Admin" || !!user?.co_the_import_tranh_chap;
+  const [showImport, setShowImport] = useState(false);
 
-  const [view, setView] = useState("cho-xu-ly");
+  const [view, setView] = useLocalStorageState("filters:tranh-chap-view", "cho-xu-ly");
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useState("");
+  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:tranh-chap-khu-vuc", "");
+  const [thangFilter, setThangFilter] = useLocalStorageState("filters:tranh-chap-thang", new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
 
   const [ttPage, setTtPage] = useState(1);
-  const [ttKhuVuc, setTtKhuVuc] = useState("");
-  const [ttPhanLoai, setTtPhanLoai] = useState("");
-  const [ttMucDo, setTtMucDo] = useState("");
-  const [ttTrangThai, setTtTrangThai] = useState("");
-  const [ttHan, setTtHan] = useState("");
+  const [ttKhuVuc, setTtKhuVuc] = useLocalStorageState("filters:tranh-chap-tt-khu-vuc", "");
+  const [ttPhanLoai, setTtPhanLoai] = useLocalStorageState("filters:tranh-chap-tt-phan-loai", "");
+  const [ttMucDo, setTtMucDo] = useLocalStorageState("filters:tranh-chap-tt-muc-do", "");
+  const [ttTrangThai, setTtTrangThai] = useLocalStorageState("filters:tranh-chap-tt-trang-thai", "");
+  const [ttHan, setTtHan] = useLocalStorageState("filters:tranh-chap-tt-han", "");
   const [ttCuaToi, setTtCuaToi] = useState(false);
+  const [ttNguoiDangXuLy, setTtNguoiDangXuLy] = useLocalStorageState("filters:tranh-chap-tt-nguoi-dang-xu-ly", "");
+  const [ttLoaiDangXuLy, setTtLoaiDangXuLy] = useLocalStorageState("filters:tranh-chap-tt-loai-dang-xu-ly", "");
+  const [ttIdSearch, setTtIdSearch] = useState("");
 
   const [tiepNhanCase, setTiepNhanCase] = useState<ChoXuLyCase | null>(null);
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const res = await api.get<Paged<ChoXuLyCase & { thoi_gian_hoan_thanh: string | null; last_ly_do_cham: string | null; so_ngay_cho: number }>>(
+        `/tranh-chap/cho-xu-ly${buildQuery({ page: 1, pageSize: 1000, khu_vuc: khuVucFilter, thang: thangFilter, min_days: minDaysFilter !== null ? String(minDaysFilter) : "", id: idSearch || undefined })}`
+      );
+      
+      const headerLabels = {
+        id: "Mã ca",
+        khach_hang: "Khách hàng",
+        khu_vuc: "Khu vực",
+        thoi_gian_hoan_thanh: "Thời gian hoàn thành",
+        so_ngay_cho: "Số ngày chờ",
+        last_ly_do_cham: "Lý do tồn gần nhất",
+      };
+
+      const mappedRows = res.rows.map((row) => ({
+        id: row.id,
+        khach_hang: row.khach_hang,
+        khu_vuc: row.khu_vuc,
+        thoi_gian_hoan_thanh: row.thoi_gian_hoan_thanh ? fmtDateTime(row.thoi_gian_hoan_thanh) : "",
+        so_ngay_cho: row.so_ngay_cho,
+        last_ly_do_cham: row.last_ly_do_cham || "",
+      }));
+
+      await exportRowsToExcel(mappedRows, "danh_sach_cho_xu_ly_tranh_chap.xlsx", "ChoXuLy", headerLabels);
+      addToast("Xuất Excel thành công!");
+    } catch (err) {
+      addToast("Xuất Excel thất bại: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const { data: khuVucOptions } = useQuery({
     queryKey: ["dashboard-filters"],
@@ -79,22 +135,123 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
   });
 
+  const { data: monthData } = useQuery({
+    queryKey: ["dashboard-months"],
+    queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
+  });
+
+  const { data: handlingUsersData } = useQuery({
+    queryKey: ["tranh-chap-handling-users"],
+    queryFn: () => api.get<{ rows: { email: string; ten: string; vai_tro: string }[] }>("/tranh-chap/handling-users"),
+  });
+  const handlingUsers = handlingUsersData?.rows ?? [];
+
+  const { data: filterUsersData } = useQuery({
+    queryKey: ["tranh-chap-filter-users", ttKhuVuc],
+    queryFn: () => api.get<{ rows: { email: string; ten: string; vai_tro: string }[] }>(`/tranh-chap/tai-khoan-ton${buildQuery({ khu_vuc: ttKhuVuc })}`),
+  });
+  const filterUsers = filterUsersData?.rows ?? [];
+
+  const { data: taiKhoanTonData, isLoading: taiKhoanTonLoading } = useQuery({
+    queryKey: ["tranh-chap-tai-khoan-ton", khuVucFilter, thangFilter],
+    queryFn: () => api.get<{ rows: { email: string; ten: string; vai_tro: string; chua_xong_count: number; duoc_nhac_ten_count: number }[] }>(`/tranh-chap/tai-khoan-ton${buildQuery({ khu_vuc: khuVucFilter, thang: thangFilter })}`),
+    enabled: view === "cho-xu-ly",
+  });
+  const taiKhoanTonRows = taiKhoanTonData?.rows ?? [];
+
+  const handleAccountCountClick = (email: string, type: "chua-xong" | "duoc-nhac-ten") => {
+    setView("tien-trinh");
+    setTtNguoiDangXuLy(email);
+    setTtLoaiDangXuLy(type);
+    
+    // Clear other restrictive filters so we can load the selected user's cases successfully
+    setTtKhuVuc("");
+    setTtPhanLoai("");
+    setTtMucDo("");
+    setTtTrangThai("");
+    setTtHan("");
+    setTtCuaToi(false);
+    
+    setTtPage(1);
+  };
+
   const khuVucSelectOptions = [
     { value: "", label: "Tất cả khu vực" },
     { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
     ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
   ];
 
+  const monthSelectOptions = [
+    ...(monthData?.months.map((m) => ({ value: m, label: m })) ?? []),
+  ];
+
   // ---------- Tab "Cho xu ly" ----------
+  const [minDaysFilter, setMinDaysFilter] = useState<number | null>(null);
+  const [idSearch, setIdSearch] = useState("");
+
   const { data: choXuLy, isLoading: choXuLyLoading, isError: choXuLyError, refetch: refetchChoXuLy } = useQuery({
-    queryKey: ["tranh-chap-cho-xu-ly", page, khuVucFilter],
+    queryKey: ["tranh-chap-cho-xu-ly", page, khuVucFilter, thangFilter, minDaysFilter, idSearch],
     queryFn: () =>
       api.get<Paged<ChoXuLyCase & { thoi_gian_hoan_thanh: string | null; last_ly_do_cham: string | null; so_ngay_cho: number }> & {
-        choHon3Ngay: number;
-        choHon7Ngay: number;
-      }>(`/tranh-chap/cho-xu-ly${buildQuery({ page, pageSize: 10, khu_vuc: khuVucFilter })}`),
+        choTuNgay3: number;
+        choTuNgay7: number;
+        choTuNgay10: number;
+        choTuNgay14: number;
+        unfilteredTotal: number;
+      }>(`/tranh-chap/cho-xu-ly${buildQuery({ page, pageSize: 10, khu_vuc: khuVucFilter, thang: thangFilter, min_days: minDaysFilter !== null ? String(minDaysFilter) : "", id: idSearch || undefined })}`),
     enabled: view === "cho-xu-ly",
   });
+
+  interface TranhChapKhuVucReportRow {
+    khu_vuc: string | null;
+    count_nghi_ngo: number;
+    count_phat_sinh_ngoai: number;
+    count_chua_xu_ly: number;
+    count_da_xu_ly: number;
+    count_gs_da_xu_ly: number;
+    count_gs_dang_xu_ly: number;
+    count_gs_ket_thuc: number;
+    count_chuyen_qgkn: number;
+    count_qgkn_dang_xu_ly: number;
+    count_qgkn_da_dong: number;
+  }
+
+  const { data: reportData, isLoading: reportLoading } = useQuery({
+    queryKey: ["tranh-chap-bao-cao-khu-vuc", thangFilter],
+    queryFn: () => api.get<{ rows: TranhChapKhuVucReportRow[] }>(`/tranh-chap/bao-cao-khu-vuc${buildQuery({ thang: thangFilter })}`),
+    enabled: view === "cho-xu-ly",
+  });
+
+  const totals = useMemo(() => {
+    const rows = reportData?.rows ?? [];
+    return rows.reduce(
+      (acc, r) => {
+        acc.nghi_ngo += r.count_nghi_ngo ?? 0;
+        acc.phat_sinh_ngoai += r.count_phat_sinh_ngoai ?? 0;
+        acc.chua_xu_ly += r.count_chua_xu_ly ?? 0;
+        acc.da_xu_ly += r.count_da_xu_ly ?? 0;
+        acc.gs_da_xu_ly += r.count_gs_da_xu_ly ?? 0;
+        acc.gs_dang_xu_ly += r.count_gs_dang_xu_ly ?? 0;
+        acc.gs_ket_thuc += r.count_gs_ket_thuc ?? 0;
+        acc.chuyen_qgkn += r.count_chuyen_qgkn ?? 0;
+        acc.qgkn_dang_xu_ly += r.count_qgkn_dang_xu_ly ?? 0;
+        acc.qgkn_da_dong += r.count_qgkn_da_dong ?? 0;
+        return acc;
+      },
+      {
+        nghi_ngo: 0,
+        phat_sinh_ngoai: 0,
+        chua_xu_ly: 0,
+        da_xu_ly: 0,
+        gs_da_xu_ly: 0,
+        gs_dang_xu_ly: 0,
+        gs_ket_thuc: 0,
+        chuyen_qgkn: 0,
+        qgkn_dang_xu_ly: 0,
+        qgkn_da_dong: 0,
+      }
+    );
+  }, [reportData]);
 
   const tiepNhan = useMutation({
     mutationFn: (body: {
@@ -120,10 +277,22 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
 
   type ChoXuLyRow = ChoXuLyCase & { thoi_gian_hoan_thanh: string | null; last_ly_do_cham: string | null; so_ngay_cho: number };
 
+  // Cung 1 thang mau leo thang voi 4 StatCard "Cho >=X ngay" o duoi - CHOT 2026-08-06 (thiet ke lai
+  // dong bo): 0-2 ngay binh thuong, 3-6 amber, 7-9 coral nhat, 10-13 coral dam hon, >=14 coral to dac
+  // (nen dam + chu trang) de tach biet ro nhat nhom qua han nghiem trong nhat.
+  function soNgayChoPill(days: number) {
+    const base = "font-mono font-bold text-xs px-2 py-0.5 rounded-full";
+    if (days >= 14) return <span className={`${base} bg-[var(--coral-500)] text-white`}>{days}</span>;
+    if (days >= 10) return <span className={`${base} bg-[var(--coral-100)] text-[var(--coral-500)] ring-1 ring-[var(--coral-500)]`}>{days}</span>;
+    if (days >= 7) return <span className={`${base} bg-[var(--coral-100)] text-[var(--coral-500)]`}>{days}</span>;
+    if (days >= 3) return <span className={`${base} bg-[var(--amber-100)] text-[var(--amber-500)]`}>{days}</span>;
+    return <span className="font-mono text-xs text-[var(--ink-600)]">{days}</span>;
+  }
+
   const choXuLyColumns: Column<ChoXuLyRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => c.khu_vuc ?? "—" },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
     {
       key: "ly_do",
       header: "Lý do quá hạn",
@@ -133,7 +302,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     {
       key: "so_ngay_cho",
       header: "Số ngày chờ",
-      render: (c) => <span className={`font-mono font-semibold ${c.so_ngay_cho > 7 ? "text-[var(--coral-500)]" : c.so_ngay_cho > 3 ? "text-[var(--amber-500)]" : ""}`}>{c.so_ngay_cho}</span>,
+      render: (c) => soNgayChoPill(c.so_ngay_cho),
     },
     {
       key: "action",
@@ -163,7 +332,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     enabled: view === "tien-trinh",
   });
   const { data: ttData, isLoading: ttLoading, isError: ttError, refetch: refetchTt } = useQuery({
-    queryKey: ["tranh-chap-tien-trinh", ttPage, ttKhuVuc, ttPhanLoai, ttMucDo, ttTrangThai, ttHan, ttCuaToi],
+    queryKey: ["tranh-chap-tien-trinh", ttPage, ttKhuVuc, ttPhanLoai, ttMucDo, ttTrangThai, ttHan, ttCuaToi, ttNguoiDangXuLy, ttLoaiDangXuLy, ttIdSearch],
     queryFn: () =>
       api.get<Paged<TienTrinhRow>>(
         `/tranh-chap/tien-trinh${buildQuery({
@@ -175,6 +344,9 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
           trang_thai: ttTrangThai,
           han: ttHan,
           cua_toi: ttCuaToi ? "1" : "",
+          nguoi_dang_xu_ly: ttNguoiDangXuLy,
+          loai_dang_xu_ly: ttLoaiDangXuLy,
+          id: ttIdSearch || undefined,
         })}`,
       ),
     enabled: view === "tien-trinh",
@@ -183,6 +355,8 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
   function resetTtFilterTo(partial: Partial<{ trangThai: string; han: string }>) {
     setTtTrangThai(partial.trangThai ?? "");
     setTtHan(partial.han ?? "");
+    setTtNguoiDangXuLy("");
+    setTtLoaiDangXuLy("");
     setTtPage(1);
   }
 
@@ -190,7 +364,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     { key: "id", header: "Tiến trình", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
     { key: "case_id", header: "Ca sự vụ", render: (r) => <span className="font-mono text-xs text-[var(--ocean-600)]">{r.case_id}</span> },
     { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc ?? "—" },
+    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
     { key: "phan_loai", header: "Phân loại", render: (r) => <Badge tone="gray">{r.phan_loai_tranh_chap}</Badge> },
     { key: "muc_do", header: "Mức độ", render: (r) => <Badge tone={MUC_DO_TONE[r.muc_do] ?? "gray"}>{MUC_DO_LABELS[r.muc_do] ?? r.muc_do}</Badge> },
     {
@@ -199,6 +373,15 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
       render: (r) => (r.trang_thai_xu_ly ? <Badge tone={TRANG_THAI_TONE[r.trang_thai_xu_ly] ?? "gray"}>{TRANG_THAI_LABELS[r.trang_thai_xu_ly] ?? r.trang_thai_xu_ly}</Badge> : "—"),
     },
     { key: "nguoi_xu_ly", header: "Người xử lý gần nhất", render: (r) => r.nguoi_xu_ly ?? "—" },
+    {
+      key: "dang_cho_nguoi_xu_ly",
+      header: "Đang chờ ai?",
+      render: (r) => {
+        if (!r.dang_cho_nguoi_xu_ly) return <span className="text-[var(--ink-400)] text-xs italic">—</span>;
+        const u = handlingUsers.find((user) => user.email === r.dang_cho_nguoi_xu_ly);
+        return <span className="text-xs font-semibold text-[var(--ocean-600)]">{u ? u.ten : r.dang_cho_nguoi_xu_ly}</span>;
+      }
+    },
     {
       key: "han",
       header: "Ngày dự kiến xong",
@@ -221,12 +404,263 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
           <div className="text-sm text-[var(--ink-600)] mb-4">
             Ca có <b>"Nghi ngờ tranh chấp"</b> (điền bởi CRM khi đóng ca) nhưng <b>chưa từng tạo tiến trình xử lý</b>. Sắp theo số ngày chờ giảm dần — ưu tiên xử lý ca chờ lâu nhất.
           </div>
-          <div className="flex items-center gap-2 flex-wrap mb-4">{<KhuVucFilterControl value={khuVucFilter} onChange={(v) => { setKhuVucFilter(v); setPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />}</div>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Tổng ca chờ xử lý" value={choXuLy?.total ?? 0} tone="ocean" />
-            <StatCard label="Chờ > 3 ngày" value={choXuLy?.choHon3Ngay ?? 0} tone="amber" />
-            <StatCard label="Chờ > 7 ngày" value={choXuLy?.choHon7Ngay ?? 0} tone="coral" />
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <KhuVucFilterControl value={khuVucFilter} onChange={(v) => { setKhuVucFilter(v); setPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
+            <Select
+              value={thangFilter}
+              onChange={(v) => { setThangFilter(v); setPage(1); }}
+              options={monthSelectOptions}
+            />
+            <IdSerialSearchInput
+              value={idSearch}
+              onChange={(v) => {
+                setIdSearch(v);
+                setPage(1);
+              }}
+            />
+            {canImportTranhChap && (
+              <Btn variant="ghost" size="sm" onClick={() => setShowImport((v) => !v)}>
+                {showImport ? "Đóng import" : "📥 Import tranh chấp theo ID"}
+              </Btn>
+            )}
+            <Btn variant="subtle" size="sm" onClick={handleExport} disabled={isExporting} className={canImportTranhChap ? "" : "ml-auto"}>
+              {isExporting ? "📥 Đang tải..." : "📥 Tải danh sách chi tiết"}
+            </Btn>
           </div>
+          {/* CHOT 2026-08-12: import hang loat tranh chap theo ID - chi hien voi tai khoan duoc cap
+              quyen (canImportTranhChap, xem migration 0052) hoac Admin, an mac dinh sau nut bat/tat
+              (showImport) de khong choan man hinh voi da so nguoi dung khong dung tinh nang nay. */}
+          {canImportTranhChap && showImport && (
+            <ImportUploader<TranhChapImportSummary>
+              description={
+                <>
+                  Nhập hàng loạt ca vào hàng đợi tranh chấp từ file Excel/CSV (3 cột <b className="font-mono">id</b>, <b className="font-mono">phan_loai_tranh_chap</b>,{" "}
+                  <b className="font-mono">muc_do</b>). Mỗi ca tạo 1 tiến trình mới ở trạng thái "Giám sát chưa xử lý" — ca đã có tiến trình đang mở sẽ bị bỏ qua.
+                </>
+              }
+              templateUrl="/api/tranh-chap/import/template"
+              previewUrl="/tranh-chap/import/preview"
+              commitUrl="/tranh-chap/import/commit"
+              buildBody={(rows) => ({ rows })}
+              renderSummary={(s) => (
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <StatCard label="Sẵn sàng tạo tiến trình" value={s.thanhCong} tone="teal" />
+                  <StatCard label="Bỏ qua" value={s.boQua} tone={s.boQua > 0 ? "amber" : "gray"} />
+                </div>
+              )}
+              getErrors={(s) => s.errors}
+              successMessage={(s) => `Import thành công: ${s.thanhCong} tiến trình tranh chấp mới`}
+              invalidateKeys={[
+                ["tranh-chap-cho-xu-ly"],
+                ["tranh-chap-tien-trinh"],
+                ["tranh-chap-tien-trinh-stats"],
+                ["tranh-chap-bao-cao-khu-vuc"],
+                ["notifications-count"],
+              ]}
+            />
+          )}
+          {/* Thang leo thang "cho bao lau" (CHOT 2026-08-06 - thiet ke lai) - dung chung 1 quy uoc
+              "active" cua StatCard (xem components/ui/StatCard.tsx) thay vi tung div rieng bam boc
+              rieng nhu truoc (khong dong bo voi tab "Quan ly tien trinh" ben duoi). */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <StatCard
+              label="Tổng ca chờ xử lý"
+              value={choXuLy?.unfilteredTotal ?? choXuLy?.total ?? 0}
+              tone="ocean"
+              active={minDaysFilter === null}
+              onClick={() => {
+                setMinDaysFilter(null);
+                setPage(1);
+              }}
+            />
+            <StatCard
+              label="Chờ ≥3 ngày"
+              value={choXuLy?.choTuNgay3 ?? 0}
+              tone="amber"
+              active={minDaysFilter === 3}
+              onClick={() => {
+                setMinDaysFilter(3);
+                setPage(1);
+              }}
+            />
+            <StatCard
+              label="Chờ ≥7 ngày"
+              value={choXuLy?.choTuNgay7 ?? 0}
+              tone="coral"
+              active={minDaysFilter === 7}
+              onClick={() => {
+                setMinDaysFilter(7);
+                setPage(1);
+              }}
+            />
+            <StatCard
+              label="Chờ ≥10 ngày"
+              value={choXuLy?.choTuNgay10 ?? 0}
+              tone="coral"
+              active={minDaysFilter === 10}
+              onClick={() => {
+                setMinDaysFilter(10);
+                setPage(1);
+              }}
+            />
+            <StatCard
+              label="Chờ ≥14 ngày"
+              value={choXuLy?.choTuNgay14 ?? 0}
+              tone="coral"
+              active={minDaysFilter === 14}
+              onClick={() => {
+                setMinDaysFilter(14);
+                setPage(1);
+              }}
+            />
+          </div>
+
+          {/* CHOT 2026-08-06 (thiet ke lai): truoc dung --paper/--ink-50..800/--ocean-50/--coral-600 -
+              KHONG co dinh nghia nao trong tokens.css (chi co --ink-900/600/400, --ocean-950..100,
+              --coral-500/100...) nen ca khoi nay am tham to mau mac dinh trinh duyet, khac han phan
+              con lai cua app. Doi sang Card + token that, khop dung kieu bang pivot "Bao cao ton theo
+              khu vuc" o BacklogModule.tsx de dong bo giao dien giua 2 module. */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <Card className="p-4">
+              <div className="mb-3">
+                <div className="font-display font-bold text-sm">Báo cáo tranh chấp, khiếu nại theo khu vực</div>
+                {thangFilter && <div className="text-xs text-[var(--ink-400)] mt-0.5">Tháng {thangFilter}</div>}
+              </div>
+              {reportLoading ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải báo cáo...</div>
+              ) : !reportData?.rows?.length ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có dữ liệu báo cáo.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="dense w-full text-sm">
+                    <thead>
+                      <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                        <th className="py-2 px-2 text-left">Khu vực</th>
+                        <th className="py-2 px-2 text-center">Nghi ngờ tranh chấp</th>
+                        <th className="py-2 px-2 text-center">KN phát sinh ngoài</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Chưa xử lý</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Đã xử lý</th>
+                        <th className="py-2 px-2 text-center">GS đã XL</th>
+                        <th className="py-2 px-2 text-center">GS đang XL</th>
+                        <th className="py-2 px-2 text-center">GS kết thúc</th>
+                        <th className="py-2 px-2 text-center">Chuyển QGKN</th>
+                        <th className="py-2 px-2 text-center">QGKN đang XL</th>
+                        <th className="py-2 px-2 text-center">QGKN đã đóng</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
+                        <td className="py-2 px-2 text-left">Tổng cộng</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.nghi_ngo}</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.phat_sinh_ngoai}</td>
+                        <td className="py-2 px-2 text-center font-mono text-[var(--coral-500)]">{totals.chua_xu_ly}</td>
+                        <td className="py-2 px-2 text-center font-mono text-[var(--ocean-600)]">{totals.da_xu_ly}</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.gs_da_xu_ly}</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.gs_dang_xu_ly}</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.gs_ket_thuc}</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.chuyen_qgkn}</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.qgkn_dang_xu_ly}</td>
+                        <td className="py-2 px-2 text-center font-mono">{totals.qgkn_da_dong}</td>
+                      </tr>
+                      {reportData.rows.map((r, idx) => {
+                        // background-color tren <tr> khong dam bao ve dung o moi trinh duyet (da kiem
+                        // chung thuc te: rule CSS dung, nhung <tr> khong ap dung, ke ca voi style inline)
+                        // - to nen tung <td> thay vi ca hang de chac chan hien thi dung moi noi.
+                        const cellStyle = khuVucFilter === r.khu_vuc ? { backgroundColor: "var(--ocean-100)" } : undefined;
+                        return (
+                          <tr
+                            key={r.khu_vuc ?? idx}
+                            onClick={() => {
+                              if (r.khu_vuc) {
+                                setKhuVucFilter(r.khu_vuc);
+                                setPage(1);
+                              }
+                            }}
+                            className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                          >
+                          <td className="py-2 px-2 font-semibold text-left" style={cellStyle}>{r.khu_vuc ? shortKhuVuc(r.khu_vuc) : "Chưa rõ"}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_nghi_ngo}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_phat_sinh_ngoai}</td>
+                          <td className="py-2 px-2 text-center font-mono font-semibold text-[var(--coral-500)]" style={cellStyle}>{r.count_chua_xu_ly}</td>
+                          <td className="py-2 px-2 text-center font-mono font-semibold text-[var(--ocean-600)]" style={cellStyle}>{r.count_da_xu_ly}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_gs_da_xu_ly}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_gs_dang_xu_ly}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_gs_ket_thuc}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_chuyen_qgkn}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_qgkn_dang_xu_ly}</td>
+                          <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_qgkn_da_dong}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <div className="mb-3">
+                <div className="font-display font-bold text-sm">Thống kê tồn đọng theo nhân sự</div>
+                {thangFilter ? (
+                  <div className="text-xs text-[var(--ink-400)] mt-0.5">Tháng {thangFilter}</div>
+                ) : (
+                  <div className="text-xs text-[var(--ink-400)] mt-0.5">Tất cả thời gian</div>
+                )}
+              </div>
+              {taiKhoanTonLoading ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải thống kê...</div>
+              ) : !taiKhoanTonRows.length ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có ca tồn theo nhân sự.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="dense w-full text-sm">
+                    <thead>
+                      <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                        <th className="py-2 px-2 text-left">Nhân sự</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Xử lý chưa xong</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Được nhắc tên xử lý</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {taiKhoanTonRows.map((r, idx) => (
+                        <tr key={r.email ?? idx} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 transition-colors">
+                          <td className="py-2 px-2 text-left">
+                            <span className="font-semibold block">{r.ten}</span>
+                            <span className="text-[10px] text-[var(--ink-400)] block">{r.vai_tro} — {r.email}</span>
+                          </td>
+                          <td className="py-2 px-2 text-center font-mono">
+                            {r.chua_xong_count > 0 ? (
+                              <button
+                                onClick={() => handleAccountCountClick(r.email, "chua-xong")}
+                                className="font-semibold text-[var(--coral-500)] hover:underline px-2 py-1 rounded bg-[var(--coral-100)] text-xs"
+                              >
+                                {r.chua_xong_count}
+                              </button>
+                            ) : (
+                              <span className="text-[var(--ink-400)] text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-center font-mono">
+                            {r.duoc_nhac_ten_count > 0 ? (
+                              <button
+                                onClick={() => handleAccountCountClick(r.email, "duoc-nhac-ten")}
+                                className="font-semibold text-[var(--ocean-600)] hover:underline px-2 py-1 rounded bg-[var(--ocean-100)] text-xs"
+                              >
+                                {r.duoc_nhac_ten_count}
+                              </button>
+                            ) : (
+                              <span className="text-[var(--ink-400)] text-xs">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+
           <PaginatedTable
             columns={choXuLyColumns}
             rows={choXuLy?.rows ?? []}
@@ -240,6 +674,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             onRowClick={(c) => openCase(c.id, "tranh-chap")}
             rowKey={(c) => c.id}
             emptyText="Không có ca nào đang chờ xử lý tranh chấp."
+            storageKey="tranh-chap-cho-xu-ly"
           />
         </div>
       ) : (
@@ -261,12 +696,44 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
               onChange={(v) => { setTtTrangThai(v); setTtPage(1); }}
               options={[
                 { value: "", label: "Đang mở (mặc định)" },
-                { value: KSNB_WATCH_STATUSES.join(","), label: "🔎 Cần KSNB theo dõi (Chuyển CSKH / CSKH đang xử lý)" },
+                { value: KSNB_WATCH_STATUSES.join(","), label: "🔎 Cần GQKN theo dõi (Chuyển CSKH / CSKH đang xử lý)" },
                 ...TRANG_THAI_LOG_OPTIONS,
                 { value: Object.keys(TRANG_THAI_LABELS).join(","), label: "Tất cả (gồm đã đóng)" },
               ]}
             />
             <Select value={ttHan} onChange={(v) => { setTtHan(v); setTtPage(1); }} options={HAN_OPTIONS} />
+            <Select
+              value={ttNguoiDangXuLy}
+              onChange={(v) => {
+                setTtNguoiDangXuLy(v);
+                setTtPage(1);
+                if (!v) setTtLoaiDangXuLy("");
+              }}
+              options={(() => {
+                const opts = [
+                  { value: "", label: "Tất cả người đang xử lý" },
+                  ...filterUsers.map((u) => ({ value: u.email, label: `${u.ten} (${u.vai_tro})` })),
+                ];
+                if (ttNguoiDangXuLy && !filterUsers.some((u) => u.email === ttNguoiDangXuLy)) {
+                  const matched = handlingUsers.find((u) => u.email === ttNguoiDangXuLy);
+                  if (matched) {
+                    opts.push({ value: matched.email, label: `${matched.ten} (${matched.vai_tro})` });
+                  }
+                }
+                return opts;
+              })()}
+            />
+            {ttNguoiDangXuLy && (
+              <Select
+                value={ttLoaiDangXuLy}
+                onChange={(v) => { setTtLoaiDangXuLy(v); setTtPage(1); }}
+                options={[
+                  { value: "", label: "Tất cả (Chưa xong + Được nhắc)" },
+                  { value: "chua-xong", label: "Xử lý chưa xong" },
+                  { value: "duoc-nhac-ten", label: "Được nhắc tên xử lý" },
+                ]}
+              />
+            )}
             <Btn
               variant={ttCuaToi ? "primary" : "ghost"}
               size="sm"
@@ -277,19 +744,41 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             >
               Của tôi
             </Btn>
+            <IdSerialSearchInput
+              value={ttIdSearch}
+              onChange={(v) => {
+                setTtIdSearch(v);
+                setTtPage(1);
+              }}
+            />
           </div>
 
+          {/* CHOT 2026-08-06: them "active" (dong bo voi tab "Cho xu ly" o tren) - truoc bam vao 1 the
+              o day khong co phan hoi thi giac nao cho biet dang loc theo tieu chi nao. */}
           <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Đang mở" value={ttStats?.dangMo ?? 0} tone="ocean" onClick={() => resetTtFilterTo({})} />
-            <StatCard label="Giám sát chưa xử lý" value={ttStats?.giamSatChuaXuLy ?? 0} tone="gray" onClick={() => resetTtFilterTo({ trangThai: "Giam sat chua xu ly" })} />
+            <StatCard label="Đang mở" value={ttStats?.dangMo ?? 0} tone="ocean" active={ttTrangThai === "" && ttHan === ""} onClick={() => resetTtFilterTo({})} />
             <StatCard
-              label="🔎 Cần KSNB theo dõi"
+              label="Giám sát chưa xử lý"
+              value={ttStats?.giamSatChuaXuLy ?? 0}
+              tone="gray"
+              active={ttTrangThai === "Giam sat chua xu ly"}
+              onClick={() => resetTtFilterTo({ trangThai: "Giam sat chua xu ly" })}
+            />
+            <StatCard
+              label="🔎 Cần GQKN theo dõi"
               value={(ttStats?.giamSatChuyenCskh ?? 0) + (ttStats?.cskhDangXuLy ?? 0)}
               tone="teal"
+              active={ttTrangThai === KSNB_WATCH_STATUSES.join(",")}
               onClick={() => resetTtFilterTo({ trangThai: KSNB_WATCH_STATUSES.join(",") })}
             />
-            <StatCard label="Sắp đến hạn (≤1 ngày)" value={ttStats?.sapDenHan ?? 0} tone="amber" onClick={() => resetTtFilterTo({ han: "sap-den-han" })} />
-            <StatCard label="Quá hạn chưa đóng" value={ttStats?.quaHan ?? 0} tone="coral" onClick={() => resetTtFilterTo({ han: "qua-han" })} />
+            <StatCard
+              label="Sắp đến hạn (≤1 ngày)"
+              value={ttStats?.sapDenHan ?? 0}
+              tone="amber"
+              active={ttHan === "sap-den-han"}
+              onClick={() => resetTtFilterTo({ han: "sap-den-han" })}
+            />
+            <StatCard label="Quá hạn chưa đóng" value={ttStats?.quaHan ?? 0} tone="coral" active={ttHan === "qua-han"} onClick={() => resetTtFilterTo({ han: "qua-han" })} />
           </div>
 
           <PaginatedTable
@@ -305,6 +794,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             onRowClick={(r) => openCase(r.case_id, "tranh-chap")}
             rowKey={(r) => r.id}
             emptyText="Không có tiến trình nào khớp bộ lọc."
+            storageKey="tranh-chap-tien-trinh"
           />
         </div>
       )}

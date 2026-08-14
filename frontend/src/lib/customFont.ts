@@ -2,10 +2,11 @@ import { getCachedEntry, setCachedEntry } from "./closedDataCache";
 
 /**
  * Font tuy chinh nguoi dung tu tai tu may (.ttf/.otf/.woff/.woff2) - CHI luu cache noi bo tren
- * trinh duyet (IndexedDB, dung chung store voi closedDataCache.ts), KHONG gui file len server
- * (theme_config.font o DB chi luu marker "custom", xem ThemeProvider.tsx). Vi vay font tuy chinh
- * KHONG dong bo qua thiet bi/trinh duyet khac - mo lai o may khac se tu dong fallback ve font
- * mac dinh (dung y logic voi truong hop file cache bi hong/mat).
+ * trinh duyet (IndexedDB, dung chung store voi closedDataCache.ts), KHONG gui file len server (ca
+ * theme_config noi chung tu 2026-08-13 da chuyen sang chi luu localStorage, xem
+ * theme/localThemeConfig.ts - file nay chi rieng phan blob font vi qua lon cho localStorage). Vi
+ * vay font tuy chinh KHONG dong bo qua thiet bi/trinh duyet khac - mo lai o may khac se tu dong
+ * fallback ve font mac dinh (dung y logic voi truong hop file cache bi hong/mat).
  */
 
 const CUSTOM_FONT_CACHE_KEY = "custom-font";

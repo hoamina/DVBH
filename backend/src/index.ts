@@ -20,9 +20,15 @@ import revenueRoutes from "./routes/revenue";
 import notificationsRoutes from "./routes/notifications";
 import greetingRoutes from "./routes/greeting";
 import caLapRoutes from "./routes/caLap";
+import partnerApiRoutes from "./routes/partnerApi";
+import lkSettingsRoutes from "./routes/lkSettings";
+import datMuaLinhKienRoutes from "./routes/datMuaLinhKien";
+import phieuXuatKhoRoutes from "./routes/phieuXuatKho";
+import traHangRoutes from "./routes/traHang";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
+import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
 import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
 import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
@@ -52,6 +58,13 @@ app.route("/api/revenue", revenueRoutes);
 app.route("/api/notifications", notificationsRoutes);
 app.route("/api/greeting", greetingRoutes);
 app.route("/api/ca-lap", caLapRoutes);
+// Doi tac ben ngoai quet du lieu CRM dinh ky (xem PARTNER_API_GUIDE.md) - khong dung session/OAuth,
+// xac thuc rieng qua X-API-Key trong routes/partnerApi.ts.
+app.route("/api/partner", partnerApiRoutes);
+app.route("/api/lk-settings", lkSettingsRoutes);
+app.route("/api/dat-mua-lk", datMuaLinhKienRoutes);
+app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
+app.route("/api/tra-hang", traHangRoutes);
 
 app.onError((err, c) => {
   console.error(err);
@@ -61,12 +74,11 @@ app.onError((err, c) => {
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
 const ARCHIVE_AFTER = "-3 months";
-// Lich chay hang ngay (archive) - giu nguyen. Cron nay CHI con la luoi an toan du phong cho "ca
-// lap" (vd 1 duong ghi du lieu nao khac quen goi refreshCaLapPrecompute() truc tiep) - co che
-// CHINH gio la goi ngay sau khi import/dong bo ghi du lieu that (xem importRoute.ts), nen giam
-// tan suat xuong 1 gio/lan (truoc la 20 phut/lan) - phai khai bao ca 2 trong wrangler*.jsonc
-// "triggers.crons".
-const CA_LAP_REFRESH_CRON = "0 * * * *";
+// Chot voi chu he thong 2026-08-02: archive khong can chay hang ngay nua, gom vao 1 lan/thang vao
+// ngay 1 (20:00 UTC ngay 1 = 03:00 gio VN ngay 2) - luong ghi archived_at khong nhay cam thoi gian
+// thuc, gom 1 thang/lan van du don ca da hoan thanh >3 thang. Phai khai bao trong ca 2
+// wrangler*.jsonc "triggers.crons".
+const ARCHIVE_CRON = "0 20 1 * *";
 
 // 3 lan/ngay - 9h/13h/16h gio VN = 2h/6h/9h UTC (chot voi chu he thong 2026-07-29) - tu dong dong
 // bo 4 Google Sheet "cu" (giai_trinh/giai_trinh_lap/khao_sat/nap_gas_danh_gia) do AppSheet dien du
@@ -76,6 +88,22 @@ const CA_LAP_REFRESH_CRON = "0 * * * *";
 // FK REFERENCES users(email), khong the ghi 1 email tuy y.
 const SHEET_SYNC_CRON = "0 2,6,9 * * *";
 const SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
+
+// 08:00 sang gio VN = 01:00 UTC. Chot voi chu he thong 2026-08-02: gom luoi an toan "ca lap"/
+// dashboard (truoc la CA_LAP_REFRESH_CRON rieng, chay moi gio) vao chung 1 dot voi "Bao cao ngay
+// 08:00" (banner Tong quat, xem lib/dailySnapshot.ts) - co che CHINH cua ca 2 van la goi truc tiep
+// ngay sau khi import/ghi du lieu that (importRoute.ts/externalImport.ts), nen day chi con la luoi
+// an toan du phong, khong can tan suat cao hon 1 lan/ngay. Phai khai bao trong ca 2
+// wrangler*.jsonc "triggers.crons".
+const DAILY_SNAPSHOT_CRON = "0 1 * * *";
+
+// 17:30 chieu gio VN = 10:30 UTC - "chot" ty le giai trinh trong ngay theo khu vuc vao bang
+// giai_trinh_daily_log (migration 0040, xem lib/dailySnapshot.ts chotGiaiTrinhDailyLog) - LICH SU
+// vinh vien, khong co duong ghi tay, khac DAILY_SNAPSHOT_CRON (bi ghi de moi ngay). CO Y giu rieng
+// voi DAILY_SNAPSHOT_CRON (khong gom ve 08:00) - neu chot cung luc voi baseline 08:00 thi ty le
+// "da giai trinh trong ngay" se luon bang 0%, mat tac dung theo doi cuoi ngay. Phai khai bao trong
+// ca 2 wrangler*.jsonc "triggers.crons".
+const DAILY_LOG_1730_CRON = "30 10 * * *";
 
 // Chay 1 sync, ghi log neu that bai (nuot loi - KHONG throw) de 1 sync loi khong chan cac sync con
 // lai trong cung dot cron. Log qua console.error (xem qua `wrangler tail`) vi day la tac vu nen,
@@ -95,10 +123,30 @@ export default {
   fetch: app.fetch,
 
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    if (event.cron === CA_LAP_REFRESH_CRON) {
-      // Guard: chi thuc su recompute (full - luoi an toan) khi du lieu nguon THAT SU doi ke tu lan
-      // refresh truoc (xem shouldSkipCronRefresh o caLapRefresh.ts) - tranh quet toan bang moi gio
-      // du khong co import/dong bo/sua ca nao xay ra trong khung gio do.
+    if (event.cron === SHEET_SYNC_CRON) {
+      // Tuan tu (khong Promise.all) - 4 sync doc lap nhau, khong can chay song song; don gian va
+      // de doc log theo dung thu tu hon la chay dong thoi khong can thiet.
+      await runSheetSync("giai_trinh_cu", () => syncGiaiTrinhFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      await runSheetSync("giai_trinh_lap_cu", () => syncGiaiTrinhLapFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      await runSheetSync("khao_sat_cu", () => syncKhaoSatFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      await runSheetSync("nap_gas_danh_gia_cu", () => syncNapGasFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      return;
+    }
+
+    if (event.cron === DAILY_SNAPSHOT_CRON) {
+      try {
+        await generateDailySnapshot(env.DB, "auto");
+      } catch (err) {
+        console.error("[cron-daily-snapshot] generateDailySnapshot loi:", err instanceof Error ? err.message : String(err));
+      }
+      try {
+        await generateKhuVucBacklogSnapshots(env.DB, "auto");
+      } catch (err) {
+        console.error("[cron-daily-snapshot] generateKhuVucBacklogSnapshots loi:", err instanceof Error ? err.message : String(err));
+      }
+      // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
+      // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem
+      // shouldSkipCronRefresh o caLapRefresh.ts).
       if (!(await shouldSkipCronRefresh(env.DB))) {
         await refreshCaLapPrecompute(env.DB);
       }
@@ -113,37 +161,38 @@ export default {
       // Luoi an toan cho bao cao dashboard - co che CHINH la pipeline QuickSight tu goi
       // POST /api/external-import/refresh-reports dung 1 lan sau moi dot day file (xem
       // externalImport.ts). Neu tin hieu do bi mat (loi mang, pipeline quen goi...), cache van tu
-      // lam moi toi da sau 1 gio nho nhanh nay - warmDefaultReports() tu bo qua (chi 1 luot doc re)
-      // nhung bao cao nao chua doi tu lan tinh truoc, khong ton kem khi khong co gi moi.
+      // lam moi toi da sau 1 lan/ngay nho nhanh nay - warmDefaultReports() tu bo qua (chi 1 luot doc
+      // re) nhung bao cao nao chua doi tu lan tinh truoc, khong ton kem khi khong co gi moi.
       try {
         await warmDefaultReports(env.DB);
       } catch (err) {
-        console.error("[cron-hourly] warmDefaultReports loi:", err instanceof Error ? err.message : String(err));
+        console.error("[cron-daily-snapshot] warmDefaultReports loi:", err instanceof Error ? err.message : String(err));
       }
       return;
     }
 
-    if (event.cron === SHEET_SYNC_CRON) {
-      // Tuan tu (khong Promise.all) - 4 sync doc lap nhau, khong can chay song song; don gian va
-      // de doc log theo dung thu tu hon la chay dong thoi khong can thiet.
-      await runSheetSync("giai_trinh_cu", () => syncGiaiTrinhFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
-      await runSheetSync("giai_trinh_lap_cu", () => syncGiaiTrinhLapFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
-      await runSheetSync("khao_sat_cu", () => syncKhaoSatFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
-      await runSheetSync("nap_gas_danh_gia_cu", () => syncNapGasFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+    if (event.cron === DAILY_LOG_1730_CRON) {
+      try {
+        await chotGiaiTrinhDailyLog(env.DB);
+      } catch (err) {
+        console.error("[cron-daily-log-1730] chotGiaiTrinhDailyLog loi:", err instanceof Error ? err.message : String(err));
+      }
       return;
     }
 
-    // idx_case_archive_pending (migration 0019) phuc vu dung cau nay: chi giu lai cac dong
-    // archived_at IS NULL nen SQLite khong phai quet lai ca phan da archive tu lau.
-    // Khong bump domain "cases" o day - archive tu dong KHONG lam bao cao tinh san cu di, chi
-    // import (commit/sync-sheet) moi bump domain nay (xem R8 trong YEU_CAU_BAO_CAO_TINH_SAN.md
-    // va comment o lib/dataVersions.ts).
-    await env.DB.prepare(
-      `UPDATE case_dvbh SET archived_at = datetime('now', '+7 hours')
-       WHERE thoi_gian_hoan_thanh IS NOT NULL AND archived_at IS NULL
-         AND thoi_gian_hoan_thanh < datetime('now', '+7 hours', ?)`,
-    )
-      .bind(ARCHIVE_AFTER)
-      .run();
+    if (event.cron === ARCHIVE_CRON) {
+      // idx_case_archive_pending (migration 0019) phuc vu dung cau nay: chi giu lai cac dong
+      // archived_at IS NULL nen SQLite khong phai quet lai ca phan da archive tu lau.
+      // Khong bump domain "cases" o day - archive tu dong KHONG lam bao cao tinh san cu di, chi
+      // import (commit/sync-sheet) moi bump domain nay (xem R8 trong YEU_CAU_BAO_CAO_TINH_SAN.md
+      // va comment o lib/dataVersions.ts).
+      await env.DB.prepare(
+        `UPDATE case_dvbh SET archived_at = datetime('now', '+7 hours')
+         WHERE thoi_gian_hoan_thanh IS NOT NULL AND archived_at IS NULL
+           AND thoi_gian_hoan_thanh < datetime('now', '+7 hours', ?)`,
+      )
+        .bind(ARCHIVE_AFTER)
+        .run();
+    }
   },
 };

@@ -12,7 +12,11 @@ export type ThemePresetKey =
   | "forest"
   | "steel"
   | "plum"
-  | "custom";
+  | "custom"
+  // Che do "ngau nhien": moi lan mo lai app se tu chon 1 preset khac (xem resolveEffectiveThemeConfig).
+  // Day chi la GIA TRI CHE DO luu trong config tho (localThemeConfig.ts) - khong phai 1 bang mau
+  // that, khong xuat hien trong THEME_PRESETS/resolveThemeColors.
+  | "random";
 
 export interface ThemeCustomColors {
   accent: string;
@@ -47,10 +51,12 @@ export type FontKey =
   | "impact"
   | "comic-sans"
   | "consolas"
-  | "custom";
+  | "custom"
+  // Che do "ngau nhien" cho phong chu - tuong tu ThemePresetKey "random" o tren.
+  | "random";
 
 interface FontOptionDef {
-  key: FontKey;
+  key: Exclude<FontKey, "random">;
   label: string;
   stack: string;
 }
@@ -79,7 +85,7 @@ export const FONT_OPTIONS: FontOptionDef[] = [
   { key: "impact", label: "Impact (đậm)", stack: 'Impact, Haettenschweiler, sans-serif' },
   { key: "comic-sans", label: "Comic Sans MS (vui nhộn)", stack: '"Comic Sans MS", "Comic Sans", cursive' },
 ];
-export const DEFAULT_FONT: FontKey = "inter";
+export const DEFAULT_FONT: Exclude<FontKey, "random"> = "inter";
 
 export function applyFont(key: FontKey | null | undefined) {
   const opt = FONT_OPTIONS.find((f) => f.key === key) ?? FONT_OPTIONS[0];
@@ -93,7 +99,7 @@ export interface ThemeConfig {
 }
 
 interface ThemePresetDef {
-  key: Exclude<ThemePresetKey, "custom">;
+  key: Exclude<ThemePresetKey, "custom" | "random">;
   label: string;
   colors: ThemeCustomColors;
 }
@@ -222,7 +228,36 @@ export function resolveThemeColors(config: ThemeConfig | null | undefined): Them
     if (!c.sidebarFrom || !c.sidebarTo) return { ...c, ...deriveSidebarShades(c.accent) };
     return c;
   }
+  // config.preset === "random" khong khop preset nao trong THEME_PRESETS -> roi ve nhanh fallback
+  // ben duoi. Trong luong binh thuong khong bao gio xay ra vi resolveEffectiveThemeConfig() da
+  // "tung" ra 1 preset cu the truoc khi ham nay duoc goi - giu fallback chi de an toan.
   return THEME_PRESETS.find((p) => p.key === config.preset)?.colors ?? THEME_PRESETS[0].colors;
+}
+
+function pickRandom<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+export function pickRandomPreset(): Exclude<ThemePresetKey, "random" | "custom"> {
+  return pickRandom(THEME_PRESETS.map((p) => p.key));
+}
+
+export function pickRandomFont(): Exclude<FontKey, "random" | "custom"> {
+  return pickRandom(FONT_OPTIONS.filter((f) => f.key !== "custom").map((f) => f.key)) as Exclude<FontKey, "random" | "custom">;
+}
+
+/**
+ * Chuyen config THO (co the co preset/font = "random" - CHE DO luu trong localThemeConfig.ts)
+ * sang config CU THE de ap dung thuc te len trang. Random duoc "tung" (Math.random()) o day - goi
+ * ham nay DUY NHAT 1 LAN moi lan app khoi dong (xem ThemeProvider.tsx dung trong useState
+ * initializer), KHONG goi lai o moi render de tranh giao dien nhay mau/font lien tuc. Mau/phong
+ * chu duoc lam moi lai o LAN MO APP KE TIEP (khong phai realtime trong 1 phien).
+ */
+export function resolveEffectiveThemeConfig(raw: ThemeConfig): ThemeConfig {
+  const preset = raw.preset === "random" ? pickRandomPreset() : raw.preset;
+  const font = raw.font === "random" ? pickRandomFont() : (raw.font ?? DEFAULT_FONT);
+  if (preset === "custom") return { preset: "custom", custom: raw.custom, font };
+  return { preset, font };
 }
 
 function clamp(n: number): number {

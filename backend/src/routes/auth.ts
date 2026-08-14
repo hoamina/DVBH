@@ -2,13 +2,11 @@ import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
 import { signSession } from "../lib/jwt";
-import { verifySessionMiddleware, SESSION_COOKIE } from "../middleware/session";
+import { verifySessionMiddleware, SESSION_COOKIE, SESSION_TTL_SECONDS } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
-import { sanitizeThemeConfig } from "../lib/theme";
 import { nowVN } from "../lib/vnTime";
 
 const STATE_COOKIE = "dvbh_oauth_state";
-const SESSION_TTL_SECONDS = 8 * 60 * 60; // 8h, phu hop ca lam viec noi bo
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -130,22 +128,18 @@ auth.get("/me", verifySessionMiddleware, loadUser, async (c) => {
   return c.json({ user, showDailyReport });
 });
 
-// PATCH /api/auth/me - tu phuc vu: nguoi dang dang nhap doi thong tin CUA CHINH MINH (giao dien,
-// ten goi rieng dung cho loi chao, gioi tinh). Khac han users.ts (khoa Admin-only, thao tac tren
-// user KHAC) - route nay khong dung tay toi vai_tro/khu_vuc_phu_trach/trang_thai_duyet.
+// PATCH /api/auth/me - tu phuc vu: nguoi dang dang nhap doi thong tin CUA CHINH MINH (ten goi
+// rieng dung cho loi chao, gioi tinh). Khac han users.ts (khoa Admin-only, thao tac tren user
+// KHAC) - route nay khong dung tay toi vai_tro/khu_vuc_phu_trach/trang_thai_duyet.
+// Chot 2026-08-13: Giao dien (gam mau/phong chu) KHONG con luu server o day nua - chuyen han sang
+// localStorage may nguoi dung (xem frontend/src/theme/localThemeConfig.ts) de giam ghi/doc D1
+// khong can thiet, chi con "Thong tin ca nhan" (ten_goi, gioi_tinh) dung route nay.
 auth.patch("/me", verifySessionMiddleware, loadUser, async (c) => {
   const user = c.get("user");
-  const body = await c.req.json<{ theme_config?: unknown; ten_goi?: string | null; gioi_tinh?: string | null }>();
+  const body = await c.req.json<{ ten_goi?: string | null; gioi_tinh?: string | null }>();
 
   const sets: string[] = [];
   const binds: unknown[] = [];
-
-  if (body.theme_config !== undefined) {
-    const sanitized = sanitizeThemeConfig(body.theme_config);
-    if (!sanitized) return c.json({ error: "INVALID_THEME_CONFIG" }, 400);
-    sets.push("theme_config = ?");
-    binds.push(sanitized);
-  }
 
   if (body.ten_goi !== undefined) {
     const trimmed = typeof body.ten_goi === "string" ? body.ten_goi.trim() : "";

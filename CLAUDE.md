@@ -79,11 +79,18 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
 ### Backend (`backend/src/`)
 
 - `index.ts` — Hono app, mounts one router per domain under `/api/*`, `app.get("*")` falls through
-  to `ASSETS.fetch` for the SPA. `scheduled()` handles two cron triggers (see `wrangler*.jsonc`
-  `triggers.crons`): the hourly one refreshes the "ca lặp" (duplicate case) precompute — but only
-  when `shouldSkipCronRefresh()` says source data actually changed since last run, since the *real*
-  refresh trigger is now the import path calling `refreshCaLapPrecompute()` directly, not the cron;
-  the daily one archives completed cases older than 3 months.
+  to `ASSETS.fetch` for the SPA. `scheduled()` handles three cron triggers (see `wrangler*.jsonc`
+  `triggers.crons`): the hourly one (`CA_LAP_REFRESH_CRON`) is now a safety net for three
+  independent, try/catch-isolated jobs — it refreshes the "ca lặp" (duplicate case) precompute only
+  when `shouldSkipCronRefresh()` says source data actually changed (the *real* refresh trigger is the
+  import path calling `refreshCaLapPrecompute()` directly, not the cron), self-heals R2 "đã đóng"
+  day-chunk snapshots (`selfHealDaDongDayChunks`), and re-warms the dashboard report cache
+  (`warmDefaultReports`, itself a fallback for the QuickSight pipeline's own
+  `POST /api/external-import/refresh-reports` call); a 3x/day one (`SHEET_SYNC_CRON`, 2h/6h/9h UTC =
+  9h/13h/16h VN) auto-syncs the 4 legacy AppSheet-fed Google Sheets (`giai_trinh`/`giai_trinh_lap`/
+  `khao_sat`/`nap_gas_danh_gia`, NOT the main CRM) under a fixed system actor email (migration 0033),
+  sequentially so one failing sync doesn't block the rest; the daily one archives completed cases
+  older than 3 months.
 - `routes/*.ts` — one file per feature area, matches the sidebar modules in `frontend/src/modules/`.
 - `middleware/` — `session.ts` verifies the `dvbh_session` JWT cookie and sets `email`; a route then
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via
@@ -93,7 +100,10 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   `HANDOFF.md`) see everything, everyone else is restricted to their assigned `khu_vuc_phu_trach`.
   This same constant also gates `requireRole` on `routes/revenue.ts` — adding a role here grants it
   both unrestricted region scope *and* Revenue API access, two different things bundled in one flag;
-  keep that in mind before adding another role to the list.
+  keep that in mind before adding another role to the list. `revenue.ts` needed a role
+  (`Giam sat`) that should see Revenue but *not* get unrestricted region scope, so it's appended as a
+  separate `requireRole(...ROLES_XEM_TOAN_BO, "Giam sat")` arg instead of being added to the constant
+  — the pattern to follow if another role needs Revenue access without full region visibility.
 - `lib/` — shared business logic, not framework code. Notable ones:
   - `ratchet.ts` — column mapping (Vietnamese Excel headers → DB columns) and the one-way "ratchet"
     rule for the 4 violation-flag columns: once `true` in DB, an import can never flip it back to
@@ -204,7 +214,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0032`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0038`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
