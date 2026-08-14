@@ -380,6 +380,17 @@ export interface LinhKienRow {
   bat_tat: number;
 }
 
+export interface LkDanhMucRow {
+  ma_lk: string;
+  ten_lk: string;
+  gia_tham_chieu: number | null;
+  don_vi: string | null;
+  ghi_chu: string | null;
+  bat_tat: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
 export interface KtvLienHeRow {
   ma_ktv: string;
   ten_hien_thi: string | null;
