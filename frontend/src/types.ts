@@ -374,6 +374,9 @@ export interface LinhKienRow {
   ma_linh_kien: string;
   ten_linh_kien: string;
   gia_ban: number | null;
+  gia_tham_chieu: number | null;
+  don_vi: string | null;
+  ghi_chu: string | null;
   anh_demo: string | null;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string;

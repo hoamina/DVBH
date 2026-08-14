@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
 import { Badge, type BadgeTone } from "../components/ui/Badge";
@@ -8,6 +8,7 @@ import { Tabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Select";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, buildQuery } from "../api/client";
+import { getAllFromCache, getLastCacheTimestamp, mergeLinhKienToCache } from "../lib/linhKienCache";
 import { fmtDateTime, fmtVND } from "../types";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
@@ -18,8 +19,8 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 // la_ve_tinh/la_kho/la_ke_toan) + vai_tro chuan (Giam sat theo doi, TBP DVBH/Admin = TN tac nghiep).
 
 interface LkDanhMucRow {
-  ma_lk: string;
-  ten_lk: string;
+  ma_linh_kien: string;
+  ten_linh_kien: string;
   gia_tham_chieu: number | null;
   don_vi: string | null;
   bat_tat: number;
@@ -227,7 +228,7 @@ function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQuanLy: b
     <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
       {rows.length > 0 && (
         <span className="text-[var(--ink-500)]">
-          Có thể thay thế bằng: {rows.map((r) => `${r.ma_lk} - ${r.ten_lk}`).join(", ")}
+          Có thể thay thế bằng: {rows.map((r) => `${r.ma_linh_kien} - ${r.ten_linh_kien}`).join(", ")}
         </span>
       )}
       {canQuanLy && (nhomData?.rows.length ?? 0) > 0 && (
@@ -245,11 +246,36 @@ function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQuanLy: b
 }
 
 function TaoDonTab({ addToast, qc, canQuanLy }: { addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canQuanLy: boolean }) {
-  const { data: danhMucData } = useQuery({
-    queryKey: ["lk-danh-muc"],
-    queryFn: () => api.get<{ rows: LkDanhMucRow[] }>("/lk-settings/danh-muc"),
-  });
-  const danhMuc = (danhMucData?.rows ?? []).filter((r) => r.bat_tat);
+  const [danhMuc, setDanhMuc] = useState<LkDanhMucRow[]>([]);
+  const syncedRef = useRef(false);
+
+  useEffect(() => {
+    if (syncedRef.current) return;
+    syncedRef.current = true;
+
+    (async () => {
+      // 1. Hien thi ngay tu cache
+      const cached = await getAllFromCache();
+      if (cached.length > 0) {
+        setDanhMuc(cached.filter((r) => r.bat_tat) as unknown as LkDanhMucRow[]);
+      }
+
+      // 2. Incremental sync: chi fetch nhung LK co ngay_cap_nhat > timestamp moi nhat trong cache
+      const since = await getLastCacheTimestamp();
+      const url = since ? `/lk-settings/danh-muc?since=${encodeURIComponent(since)}` : "/lk-settings/danh-muc";
+      const { rows } = await api.get<{ rows: LkDanhMucRow[] }>(url);
+
+      if (rows.length > 0) {
+        await mergeLinhKienToCache(rows as unknown as import("../types").LinhKienRow[]);
+        // Merge vao state hien tai
+        setDanhMuc((prev) => {
+          const map = new Map(prev.map((r) => [r.ma_linh_kien, r]));
+          for (const r of rows) map.set(r.ma_linh_kien, r);
+          return Array.from(map.values()).filter((r) => r.bat_tat);
+        });
+      }
+    })();
+  }, []);
 
   const [ghiChu, setGhiChu] = useState("");
   const [drafts, setDrafts] = useState<DonHangDraft[]>([emptyDraft()]);
@@ -301,7 +327,7 @@ function TaoDonTab({ addToast, qc, canQuanLy }: { addToast: (msg: string) => voi
                 <Select
                   value={d.ma_lk}
                   onChange={(v) => updateDraft(idx, { ma_lk: v })}
-                  options={[{ value: "", label: "-- Chọn --" }, ...danhMuc.map((m) => ({ value: m.ma_lk, label: `${m.ma_lk} - ${m.ten_lk}` }))]}
+                  options={[{ value: "", label: "-- Chọn --" }, ...danhMuc.map((m) => ({ value: m.ma_linh_kien, label: `${m.ma_linh_kien} - ${m.ten_linh_kien}` }))]}
                 />
               </div>
               <div>

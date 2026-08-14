@@ -13,7 +13,6 @@ import { useToast } from "../components/ui/Toast";
 import {
   fmtVND,
   type LinhKienRow,
-  type LkDanhMucRow,
   type LyDoRow,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
@@ -59,7 +58,7 @@ export function SettingsModule() {
   const [addOpen, setAddOpen] = useState(false);
   const [newReason, setNewReason] = useState({ ten: "", thieu: false, tranhChap: false });
   const [addLinhKienOpen, setAddLinhKienOpen] = useState(false);
-  const [newLinhKien, setNewLinhKien] = useState({ ma: "", ten: "", gia: "" });
+  const [newLinhKien, setNewLinhKien] = useState({ ma: "", ten: "", gia: "", giaThamChieu: "", donVi: "", ghiChu: "" });
   const [addPhanLoaiOpen, setAddPhanLoaiOpen] = useState(false);
   const [newPhanLoai, setNewPhanLoai] = useState("");
   const [addKetQuaOpen, setAddKetQuaOpen] = useState(false);
@@ -78,14 +77,15 @@ export function SettingsModule() {
   const [addPartnerKeyOpen, setAddPartnerKeyOpen] = useState(false);
   const [newPartnerKey, setNewPartnerKey] = useState({ tenDoiTac: "", ghiChu: "" });
   const [createdPartnerKey, setCreatedPartnerKey] = useState<{ tenDoiTac: string; apiKey: string } | null>(null);
-  const [addLkDanhMucOpen, setAddLkDanhMucOpen] = useState(false);
-  const [editLkDanhMucOpen, setEditLkDanhMucOpen] = useState(false);
-  const [editingLkMa, setEditingLkMa] = useState<string | null>(null);
-  const [lkDanhMucForm, setLkDanhMucForm] = useState({ ma_lk: "", ten_lk: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
   const [partnerKeyPage, setPartnerKeyPage] = useState(1);
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [lyDoPage, setLyDoPage] = useState(1);
   const [linhKienPage, setLinhKienPage] = useState(1);
+  const [partPage, setPartPage] = useState(1);
+  const [addPartOpen, setAddPartOpen] = useState(false);
+  const [editPartOpen, setEditPartOpen] = useState(false);
+  const [editingPartMa, setEditingPartMa] = useState<string | null>(null);
+  const [partForm, setPartForm] = useState({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
   const [phanLoaiPage, setPhanLoaiPage] = useState(1);
   const [ketQuaPage, setKetQuaPage] = useState(1);
   const [greetingGifPage, setGreetingGifPage] = useState(1);
@@ -94,7 +94,6 @@ export function SettingsModule() {
   const [ktvModalOpen, setKtvModalOpen] = useState(false);
   const [editingKtvMa, setEditingKtvMa] = useState<string | null>(null);
   const [ktvForm, setKtvForm] = useState({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "" });
-  const [lkDanhMucPage, setLkDanhMucPage] = useState(1);
 
   const { data: reasons } = useQuery({
     queryKey: ["settings-ly-do"],
@@ -103,10 +102,6 @@ export function SettingsModule() {
   const { data: parts } = useQuery({
     queryKey: ["settings-linh-kien"],
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
-  });
-  const { data: lkDanhMuc } = useQuery({
-    queryKey: ["lk-danh-muc"],
-    queryFn: () => api.get<{ rows: LkDanhMucRow[] }>("/lk-settings/danh-muc"),
   });
   const { data: ktvLienHe } = useQuery({
     queryKey: KTV_PHONE_QUERY_KEY,
@@ -319,57 +314,54 @@ export function SettingsModule() {
         ma_linh_kien: newLinhKien.ma,
         ten_linh_kien: newLinhKien.ten,
         gia_ban: newLinhKien.gia ? Number(newLinhKien.gia) : undefined,
+        gia_tham_chieu: newLinhKien.giaThamChieu ? Number(newLinhKien.giaThamChieu) : undefined,
+        don_vi: newLinhKien.donVi.trim() || undefined,
+        ghi_chu: newLinhKien.ghiChu.trim() || undefined,
       }),
     onSuccess: () => {
       addToast("Đã thêm linh kiện mới");
-      setNewLinhKien({ ma: "", ten: "", gia: "" });
+      setNewLinhKien({ ma: "", ten: "", gia: "", giaThamChieu: "", donVi: "", ghiChu: "" });
       setAddLinhKienOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
     onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
   });
 
-  const addLkDanhMucMutation = useMutation({
+  const addPartMutation = useMutation({
     mutationFn: () =>
-      api.post("/lk-settings/danh-muc", {
-        ma_lk: lkDanhMucForm.ma_lk.trim(),
-        ten_lk: lkDanhMucForm.ten_lk.trim(),
-        gia_tham_chieu: lkDanhMucForm.gia_tham_chieu ? Number(lkDanhMucForm.gia_tham_chieu) : undefined,
-        don_vi: lkDanhMucForm.don_vi.trim() || undefined,
-        ghi_chu: lkDanhMucForm.ghi_chu.trim() || undefined,
+      api.post("/settings/linh-kien", {
+        ma_linh_kien: partForm.ma_linh_kien.trim(),
+        ten_linh_kien: partForm.ten_linh_kien.trim(),
+        gia_ban: partForm.gia_ban ? Number(partForm.gia_ban) : undefined,
+        gia_tham_chieu: partForm.gia_tham_chieu ? Number(partForm.gia_tham_chieu) : undefined,
+        don_vi: partForm.don_vi.trim() || undefined,
+        ghi_chu: partForm.ghi_chu.trim() || undefined,
       }),
     onSuccess: () => {
       addToast("Đã thêm linh kiện mới");
-      setLkDanhMucForm({ ma_lk: "", ten_lk: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
-      setAddLkDanhMucOpen(false);
-      qc.invalidateQueries({ queryKey: ["lk-danh-muc"] });
+      setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
+      setAddPartOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
     onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
   });
 
-  const editLkDanhMucMutation = useMutation({
+  const editPartMutation = useMutation({
     mutationFn: () =>
-      api.patch(`/lk-settings/danh-muc/${editingLkMa}`, {
-        ten_lk: lkDanhMucForm.ten_lk.trim(),
-        gia_tham_chieu: lkDanhMucForm.gia_tham_chieu ? Number(lkDanhMucForm.gia_tham_chieu) : null,
-        don_vi: lkDanhMucForm.don_vi.trim() || null,
-        ghi_chu: lkDanhMucForm.ghi_chu.trim() || null,
+      api.patch(`/settings/linh-kien/${editingPartMa}`, {
+        ten_linh_kien: partForm.ten_linh_kien.trim(),
+        gia_ban: partForm.gia_ban ? Number(partForm.gia_ban) : null,
+        gia_tham_chieu: partForm.gia_tham_chieu ? Number(partForm.gia_tham_chieu) : null,
+        don_vi: partForm.don_vi.trim() || null,
+        ghi_chu: partForm.ghi_chu.trim() || null,
       }),
     onSuccess: () => {
       addToast("Đã cập nhật linh kiện");
-      setEditLkDanhMucOpen(false);
-      setEditingLkMa(null);
-      qc.invalidateQueries({ queryKey: ["lk-danh-muc"] });
+      setEditPartOpen(false);
+      setEditingPartMa(null);
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
     onError: () => addToast("Không thể cập nhật linh kiện."),
-  });
-
-  const toggleLkDanhMucMutation = useMutation({
-    mutationFn: ({ ma, bat_tat }: { ma: string; bat_tat: boolean }) => api.patch(`/lk-settings/danh-muc/${ma}`, { bat_tat }),
-    onSuccess: () => {
-      addToast("Đã cập nhật trạng thái");
-      qc.invalidateQueries({ queryKey: ["lk-danh-muc"] });
-    },
   });
 
   const saveKtvMutation = useMutation({
@@ -505,37 +497,29 @@ export function SettingsModule() {
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-medium">{p.ten_linh_kien}</span> },
     { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono">{fmtVND(p.gia_ban)}</span> },
+    { key: "gia_tham_chieu", header: "Giá tham chiếu", render: (p) => <span className="font-mono">{fmtVND(p.gia_tham_chieu)}</span> },
+    { key: "don_vi", header: "Đơn vị", render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
+    { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
     { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (p) => p.nguoi_cap_nhat },
     { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (p) => <span className="text-xs">{p.ngay_cap_nhat}</span> },
     { key: "bat_tat", header: "Hiển thị", render: (p) => <ToggleSwitch checked={!!p.bat_tat} onChange={() => togglePart.mutate({ ma: p.ma_linh_kien, bat_tat: !p.bat_tat })} /> },
-  ];
-
-  const lkDanhMucColumns: Column<LkDanhMucRow>[] = [
-    { key: "ma_lk", header: "Mã", render: (r) => <span className="font-mono text-xs">{r.ma_lk}</span> },
-    { key: "ten_lk", header: "Tên linh kiện", render: (r) => <span className="font-medium">{r.ten_lk}</span> },
-    { key: "gia_tham_chieu", header: "Giá tham chiếu", render: (r) => <span className="font-mono">{fmtVND(r.gia_tham_chieu)}</span> },
-    { key: "don_vi", header: "Đơn vị", render: (r) => <span className="text-xs">{r.don_vi ?? "—"}</span> },
-    { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ?? "—"}</span> },
-    { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (r) => <span className="text-xs">{r.ngay_cap_nhat}</span> },
-    { key: "bat_tat", header: "Hiển thị", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLkDanhMucMutation.mutate({ ma: r.ma_lk, bat_tat: !r.bat_tat })} /> },
     {
       key: "action",
       header: "",
-      className: "text-right",
-      render: (r) => (
+      render: (p) => (
         <button
           className="text-xs text-[var(--ocean-600)] hover:underline"
           onClick={() => {
-            setEditingLkMa(r.ma_lk);
-            setLkDanhMucForm({
-              ma_lk: r.ma_lk,
-              ten_lk: r.ten_lk,
-              gia_tham_chieu: r.gia_tham_chieu?.toString() ?? "",
-              don_vi: r.don_vi ?? "",
-              ghi_chu: r.ghi_chu ?? "",
+            setEditingPartMa(p.ma_linh_kien);
+            setPartForm({
+              ma_linh_kien: p.ma_linh_kien,
+              ten_linh_kien: p.ten_linh_kien,
+              gia_ban: p.gia_ban?.toString() ?? "",
+              gia_tham_chieu: p.gia_tham_chieu?.toString() ?? "",
+              don_vi: p.don_vi ?? "",
+              ghi_chu: p.ghi_chu ?? "",
             });
-            setEditLkDanhMucOpen(true);
+            setEditPartOpen(true);
           }}
         >
           Sửa
@@ -543,6 +527,7 @@ export function SettingsModule() {
       ),
     },
   ];
+
 
   const ktvColumns: Column<KtvLienHeRow>[] = [
     { key: "ma_ktv", header: "Mã KTV", render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
@@ -690,9 +675,10 @@ export function SettingsModule() {
                 variant="ghost"
                 size="sm"
                 onClick={() =>
-                  exportRowsToExcel(lkDanhMuc?.rows ?? [], "danh_muc_dat_mua_lk.xlsx", "Data", {
-                    ma_lk: "Mã",
-                    ten_lk: "Tên linh kiện",
+                  exportRowsToExcel(parts?.rows ?? [], "danh_muc_dat_mua_lk.xlsx", "Data", {
+                    ma_linh_kien: "Mã",
+                    ten_linh_kien: "Tên linh kiện",
+                    gia_ban: "Giá bán",
                     gia_tham_chieu: "Giá tham chiếu",
                     don_vi: "Đơn vị",
                     ghi_chu: "Ghi chú",
@@ -707,8 +693,8 @@ export function SettingsModule() {
               <Btn
                 size="sm"
                 onClick={() => {
-                  setLkDanhMucForm({ ma_lk: "", ten_lk: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
-                  setAddLkDanhMucOpen(true);
+                  setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
+                  setAddPartOpen(true);
                 }}
               >
                 + Thêm linh kiện
@@ -716,15 +702,15 @@ export function SettingsModule() {
             </div>
           </div>
           <PaginatedTable
-            columns={lkDanhMucColumns}
-            rows={(lkDanhMuc?.rows ?? []).slice((lkDanhMucPage - 1) * PAGE_SIZE, lkDanhMucPage * PAGE_SIZE)}
+            columns={linhKienColumns}
+            rows={(parts?.rows ?? []).slice((partPage - 1) * PAGE_SIZE, partPage * PAGE_SIZE)}
             isLoading={false}
             isError={false}
-            page={lkDanhMucPage}
+            page={partPage}
             pageSize={PAGE_SIZE}
-            total={(lkDanhMuc?.rows ?? []).length}
-            onPageChange={setLkDanhMucPage}
-            rowKey={(r) => r.ma_lk}
+            total={(parts?.rows ?? []).length}
+            onPageChange={setPartPage}
+            rowKey={(r) => r.ma_linh_kien}
             emptyText="Chưa có linh kiện đặt mua nào. Thêm linh kiện để KTV có thể tạo phiếu đặt."
             storageKey="settings-lk-danh-muc"
           />
@@ -1195,71 +1181,6 @@ export function SettingsModule() {
         </div>
       </Modal>
 
-      <Modal open={addLkDanhMucOpen} onClose={() => setAddLkDanhMucOpen(false)} title="Thêm linh kiện đặt mua">
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã linh kiện</label>
-            <input value={lkDanhMucForm.ma_lk} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, ma_lk: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
-            <input value={lkDanhMucForm.ten_lk} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, ten_lk: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu (tùy chọn)</label>
-            <input type="number" value={lkDanhMucForm.gia_tham_chieu} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị (tùy chọn)</label>
-            <input value={lkDanhMucForm.don_vi} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, don_vi: e.target.value })} placeholder="Vd: cái, bộ, mét" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú (tùy chọn)</label>
-            <textarea value={lkDanhMucForm.ghi_chu} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => setAddLkDanhMucOpen(false)}>
-              Hủy
-            </Btn>
-            <Btn onClick={() => addLkDanhMucMutation.mutate()} disabled={!lkDanhMucForm.ma_lk.trim() || !lkDanhMucForm.ten_lk.trim() || addLkDanhMucMutation.isPending}>
-              Thêm
-            </Btn>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={editLkDanhMucOpen} onClose={() => { setEditLkDanhMucOpen(false); setEditingLkMa(null); }} title="Chỉnh sửa linh kiện đặt mua">
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã linh kiện</label>
-            <input value={lkDanhMucForm.ma_lk} disabled className="w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm bg-[var(--surface-dim)] text-[var(--ink-400)]" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
-            <input value={lkDanhMucForm.ten_lk} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, ten_lk: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu (tùy chọn)</label>
-            <input type="number" value={lkDanhMucForm.gia_tham_chieu} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị (tùy chọn)</label>
-            <input value={lkDanhMucForm.don_vi} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, don_vi: e.target.value })} placeholder="Vd: cái, bộ, mét" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú (tùy chọn)</label>
-            <textarea value={lkDanhMucForm.ghi_chu} onChange={(e) => setLkDanhMucForm({ ...lkDanhMucForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setEditLkDanhMucOpen(false); setEditingLkMa(null); }}>
-              Hủy
-            </Btn>
-            <Btn onClick={() => editLkDanhMucMutation.mutate()} disabled={!lkDanhMucForm.ten_lk.trim() || editLkDanhMucMutation.isPending}>
-              Lưu
-            </Btn>
-          </div>
-        </div>
-      </Modal>
 
       <Modal
         open={ktvModalOpen}

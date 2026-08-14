@@ -324,6 +324,10 @@ settings.post("/linh-kien", adminOnly, async (c) => {
     ma_linh_kien: string;
     ten_linh_kien: string;
     gia_ban?: number;
+    gia_tham_chieu?: number;
+    don_vi?: string;
+    ghi_chu?: string;
+    anh_demo?: string;
   }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) {
     return c.json({ error: "MISSING_FIELDS" }, 400);
@@ -331,10 +335,10 @@ settings.post("/linh-kien", adminOnly, async (c) => {
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
-    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, user.email, nowVN())
+    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null, body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, user.email, nowVN())
     .first();
 
   await logAudit(c.env.DB, "linh_kien", body.ma_linh_kien, user.email, "created", null, row);
@@ -347,7 +351,7 @@ settings.post("/linh-kien", adminOnly, async (c) => {
 settings.patch("/linh-kien/:ma", adminOnly, async (c) => {
   const ma = c.req.param("ma");
   if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
-  const body = await c.req.json<{ bat_tat?: boolean; gia_ban?: number }>();
+  const body = await c.req.json<{ bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string; anh_demo?: string }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -355,11 +359,15 @@ settings.patch("/linh-kien/:ma", adminOnly, async (c) => {
   const next = {
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
     gia_ban: body.gia_ban !== undefined ? body.gia_ban : existing.gia_ban,
+    gia_tham_chieu: body.gia_tham_chieu !== undefined ? body.gia_tham_chieu : existing.gia_tham_chieu,
+    don_vi: body.don_vi !== undefined ? body.don_vi?.trim() || null : existing.don_vi,
+    ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
+    anh_demo: body.anh_demo !== undefined ? body.anh_demo?.trim() || null : existing.anh_demo,
   };
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.bat_tat, next.gia_ban, user.email, nowVN(), ma)
+    .bind(next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, user.email, nowVN(), ma)
     .run();
 
   await logAudit(c.env.DB, "linh_kien", ma, user.email, "updated", existing, next);
