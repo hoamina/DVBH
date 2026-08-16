@@ -85,6 +85,8 @@ interface PaginatedTableProps<T> {
   onRowClick?: (row: T) => void;
   emptyText?: string;
   rowKey: (row: T) => string | number;
+  /** Class bo sung theo tung dong (vd to mau canh bao) - tuy chon, khong truyen thi giu nguyen hanh vi cu. */
+  rowClassName?: (row: T) => string;
   /** Sap xep (tuy chon) - chi cot co Column.sortKey moi hien header bam duoc, chi khi onSortChange duoc truyen vao. */
   sortBy?: string;
   sortDir?: "asc" | "desc";
@@ -111,6 +113,7 @@ export function PaginatedTable<T>({
   onRowClick,
   emptyText = "Không có dữ liệu.",
   rowKey,
+  rowClassName,
   sortBy,
   sortDir,
   onSortChange,
@@ -379,7 +382,7 @@ export function PaginatedTable<T>({
               rows.map((row) => (
                 <tr
                   key={rowKey(row)}
-                  className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""}`}
+                  className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`}
                   onClick={() => onRowClick?.(row)}
                 >
                   {effectiveColumns.map((col) => {

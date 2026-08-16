@@ -66,6 +66,7 @@ export interface CaseRow {
   need_b2b?: number;
   need_nskx?: number;
   need_loc_tong_bcn?: number;
+  need_vip_24h?: number;
   // So ngay ton tinh tu thoi_gian_cskh_tiep_nhan den moc 00:00 VN hom nay (ageExpr() trong
   // ageCalc.ts) - cung chi co tren GET /cases nhu cac cot need_* o tren.
   tuoi_ton?: number;
@@ -82,6 +83,14 @@ export interface GiaiTrinhRow {
   ma_xuat_hang_lien_quan: string | null;
   nguoi_giai_trinh: string;
   ngay_giai_trinh: string;
+}
+
+export interface BienBanHopRow {
+  id: number;
+  case_id: string;
+  noi_dung: string;
+  nguoi_ghi: string;
+  created_at: string;
 }
 
 export interface KetQuaGoiRow {
@@ -397,10 +406,16 @@ export interface LkDanhMucRow {
 export interface KtvLienHeRow {
   ma_ktv: string;
   ten_hien_thi: string | null;
-  sdt: string;
+  sdt: string | null;
   ghi_chu: string | null;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string;
+  // 4 cot rieng cho module "Dat mua linh kien" (migration 0067) - chi Admin sua duoc, qua
+  // PATCH /settings/ktv-lien-he/:ma/dat-mua-lk (khac endpoint POST goc dung chung voi CSKH).
+  gmail: string | null;
+  vai_tro_ktv: "KTV" | "CTV" | "Tram" | "Ve tinh" | null;
+  giam_sat_quan_ly: string | null;
+  email_dang_nhap: string | null;
 }
 
 export interface UserRow {

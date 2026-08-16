@@ -49,7 +49,7 @@ import { CURRENT_MONTH_VALUE, khuVucReportExclusionClause, QLDVBH_FILTER_VALUE }
 import { hasModule } from "./moduleAccess";
 import { type DashboardKpisPayload, type TrendRow, computeDashboardKpis, computeDashboardPivot, PIVOT_DIMS } from "./dashboardCompute";
 import { buildBaocaoTonRows, renderBaocaoTonImage } from "./reportImage";
-import { sendTelegramPhoto } from "./telegram";
+import { sendTelegramPhoto, TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID } from "./telegram";
 import { computeRevenue } from "./revenueCompute";
 
 export type RoleVariant = "giam_sat" | "qc" | "khac";
@@ -413,7 +413,7 @@ export async function computeSnapshotPayload(db: D1Database, roleVariant: RoleVa
 // Dung chung cho ca DailySnapshotPayload (scope theo vai_tro) LAN BacklogBuckets (scope theo 1
 // khu_vuc bat ky, xem generateKhuVucBacklogSnapshots) - bang daily_snapshot chi luu JSON text, khong
 // rang buoc shape theo scope_key namespace nao.
-async function upsertSnapshot(db: D1Database, ngay: string, scopeKey: string, generatedAt: string, generatedBy: string, payload: unknown): Promise<void> {
+export async function upsertSnapshot(db: D1Database, ngay: string, scopeKey: string, generatedAt: string, generatedBy: string, payload: unknown): Promise<void> {
   await db
     .prepare(
       `INSERT INTO daily_snapshot (ngay, scope_key, generated_at, generated_by, payload) VALUES (?, ?, ?, ?, ?)
@@ -1071,11 +1071,6 @@ export async function getBacklogDailyForKhuVucGroup(db: D1Database, khuVucList: 
   const payloads = await Promise.all(khuVucList.map((kv) => getBacklogDailyForKhuVuc(db, kv)));
   return mergeBacklogDailyPayloads(payloads);
 }
-
-// Bot noi bo, chi gui vao 1 nhom Telegram co dinh - giu nguyen gia tri da dung tu truoc (khong phai
-// secret nhay cam, bot chi co quyen gui tin/anh vao dung group nay).
-const TELEGRAM_BOT_ID = "8112253426:AAGT3PPMA5QvI2qUoJJj9HvlmgeCdhxDD-8";
-const TELEGRAM_CHAT_ID = "-1004389265476";
 
 /** Doc snapshot "khac|all" (08:00 VN) CUA NGAY HOM NAY + tinh so ca da giai trinh tu do den luc goi -
  * dung chung giua chotGiaiTrinhDailyLog (cron 17h30) va route xem truoc anh Telegram cho Admin (xem

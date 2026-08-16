@@ -29,6 +29,7 @@ import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefres
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
+import { generateCanhBaoTonSnapshot } from "./lib/canhBaoTon";
 import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
 import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
 import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
@@ -143,6 +144,13 @@ export default {
         await generateKhuVucBacklogSnapshots(env.DB, "auto");
       } catch (err) {
         console.error("[cron-daily-snapshot] generateKhuVucBacklogSnapshots loi:", err instanceof Error ? err.message : String(err));
+      }
+      // "Canh bao ton danh cho QL" - chot cung moc 08:00 (xem lib/canhBaoTon.ts
+      // generateCanhBaoTonSnapshot), doc lap voi 2 buoc tren.
+      try {
+        await generateCanhBaoTonSnapshot(env.DB, "auto");
+      } catch (err) {
+        console.error("[cron-daily-snapshot] generateCanhBaoTonSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
       // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
       // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem

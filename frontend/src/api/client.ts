@@ -48,9 +48,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   postForm: <T>(path: string, form: FormData) => request<T>(path, { method: "POST", body: form }),
+  // Upload binary tho (vd anh) voi Content-Type la mime that (khong phai multipart/form-data) - xem
+  // POST /phieu-xuat-kho/:id/anh-bien-ban (backend doc truc tiep qua c.req.arrayBuffer()).
+  postBinary: <T>(path: string, bytes: ArrayBuffer, contentType: string) =>
+    request<T>(path, { method: "POST", body: bytes, headers: { "Content-Type": contentType } }),
 };
 
 export function buildQuery(params: Record<string, string | number | boolean | undefined>): string {

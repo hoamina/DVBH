@@ -59,6 +59,10 @@ function MainApp({
   showDailyReport: boolean;
 }) {
   const role = user.vai_tro;
+  // Tai khoan "chi Dat mua linh kien" - vai_tro=NULL CO CHU DICH (KTV/CTV/Tram/Ve tinh/Kho/Ke toan
+  // thuan tuy, khong tham gia phan he DVBH con lai - chot 2026-08-14). Khac "chua duyet" (do la
+  // trang_thai_duyet, da loc o AuthContext truoc khi toi day).
+  const laTaiKhoanMuaHangThuanTuy = !role && !!(user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan);
   // CHOT 2026-08-01: danh sach module gio tuy chinh HOAN TOAN theo tung tai khoan (user.modules,
   // xem migration 0042) - NULL = chua tuy chinh, fallback ve mac dinh theo vai_tro nhu truoc.
   // Admin luon full (khop dung logic hasModule() o backend/src/lib/moduleAccess.ts).
@@ -96,7 +100,9 @@ function MainApp({
   }, [role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!showDailyReport || dailyReportShown.current) return;
+    // Tai khoan "chi Dat mua linh kien" khong xem duoc phan he DVBH chinh nen bao cao nay khong lien
+    // quan gi - chot 2026-08-14.
+    if (!showDailyReport || dailyReportShown.current || laTaiKhoanMuaHangThuanTuy) return;
     dailyReportShown.current = true;
     (async () => {
       try {
@@ -115,7 +121,7 @@ function MainApp({
     localStorage.setItem(ACTIVE_MODULE_KEY, active);
   }, [active]);
 
-  if (!role) {
+  if (!role && !laTaiKhoanMuaHangThuanTuy) {
     return <LoginScreen variant="pending" />;
   }
 
@@ -123,13 +129,15 @@ function MainApp({
   // trinh ca dang TON thuoc tranh chap, nhung Quan ly tranh chap gio CHI con tinh tren ca DA DONG
   // (xem TRANH_CHAP_ELIGIBLE trong backend/src/routes/tranhChap.ts) nen quyen giai trinh rieng cua
   // vai tro nay vinh vien khong dung duoc nua - da go bo dong bo voi backend (cases.ts requireRole).
-  const canGiaiTrinh = ["Giam sat", "TBP DVBH", "Admin"].includes(role);
-  const canGsLap = ["Giam sat", "Admin"].includes(role);
-  const canQcLap = ["QC", "Admin"].includes(role);
+  // role co the null (tai khoan "chi Dat mua linh kien") - ep ve "" de .includes() khong bao gio
+  // khop (dung: tai khoan nay khong co quyen nao trong so nay).
+  const canGiaiTrinh = ["Giam sat", "TBP DVBH", "Admin"].includes(role ?? "");
+  const canGsLap = ["Giam sat", "Admin"].includes(role ?? "");
+  const canQcLap = ["QC", "Admin"].includes(role ?? "");
   // Khac canGiaiTrinh, KHONG gom "KSNB Doi tac" - vai tro do chi duoc gioi han trong module Tranh
   // chap (xem ROLE_MODULES trong layout/navConfig.ts, khong co "nap-gas" trong danh sach module cua
   // KSNB Doi tac).
-  const canNapGas = ["Giam sat", "TBP DVBH", "Admin"].includes(role);
+  const canNapGas = ["Giam sat", "TBP DVBH", "Admin"].includes(role ?? "");
   // "Huy ca" - chi Admin, an ca khoi moi hang doi can xu ly + KPI, co the dao nguoc (xem
   // backend/src/routes/cases.ts POST /:id/huy, /bo-huy).
   const canHuyCa = role === "Admin";
@@ -196,7 +204,9 @@ function MainApp({
 
   return (
     <div className="flex min-h-screen">
-      <GreetingPopup />
+      {/* Tai khoan "chi Dat mua linh kien" khong nhan loi chao/nhac nho danh cho nhan vien noi bo -
+          chot 2026-08-14. */}
+      {!laTaiKhoanMuaHangThuanTuy && <GreetingPopup />}
       <Sidebar
         active={active}
         setActive={setActive}
@@ -208,7 +218,7 @@ function MainApp({
       />
       <div className="flex-1 min-w-0 flex flex-col">
         <TopBar
-          role={role}
+          role={role ?? "Đặt mua linh kiện"}
           user={user}
           onSearch={handleSearch}
           onOpenMobileMenu={() => setMobileOpen(true)}
@@ -231,8 +241,8 @@ function MainApp({
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}
           {active === "giao-dien" && <ThemeModule />}
-          {active === "dat-mua-lk" && <DatMuaLinhKienModule />}
-          {active === "tra-hang" && <DatMuaLinhKienModule forceView="tra-hang" />}
+          {active === "dat-mua-lk" && <DatMuaLinhKienModule openCase={openCase} />}
+          {active === "tra-hang" && <DatMuaLinhKienModule forceView="tra-hang" openCase={openCase} />}
         </main>
       </div>
       <CaseDetail

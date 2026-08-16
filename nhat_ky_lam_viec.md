@@ -842,3 +842,885 @@ User yêu cầu: trong thẻ "Cài đặt cá nhân", chỉ mục "Thông tin c�
 **Chưa kiểm chứng qua trình duyệt thật** (cần đăng nhập Google, môi trường này không tự động hoá được) — đã chạy `tsc --noEmit` sạch cả 2 phía và `npm run build` thành công.
 
 Tăng version `1.166` → `1.167`.
+
+## 2026-08-15 — KTV import (4 cột mới + sdt hết bắt buộc + bỏ FK), Loại đề xuất (cache/flag bug + nhóm mới + Admin bypass), tính năng "Lý do chậm" (SLA 24h cho đơn mua linh kiện), rà soát UX module Đặt mua linh kiện
+
+### 1. Settings > Danh sách KTV — import Excel/CSV thiếu 4 cột mới
+`processKtvImportRows()` (`backend/src/routes/settings.ts`) và `KTV_TEMPLATE_CSV` chưa xử lý 4 cột
+đã bổ sung trước đó (gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap) — import đè mất dữ liệu
+các cột này. Sửa: mở rộng `KtvImportRow`/template, validate `vai_tro_ktv` theo enum
+`["KTV","CTV","Tram","Ve tinh"]`, dùng `COALESCE(excluded.x, ktv_lien_he.x)` khi upsert để import lại
+1 phần không xoá mất dữ liệu cột khác. Đồng bộ export Excel + `SettingsModule.tsx` (thêm cột, sửa mô
+tả hướng dẫn import).
+
+### 2. Danh sách KTV — sdt không còn bắt buộc, chỉ bắt buộc mã KTV
+Theo yêu cầu thực tế: chỉ `ma_ktv` là bắt buộc khi thêm/sửa/import KTV. Migration
+`0071_ktv_lien_he_sdt_khong_bat_buoc.sql` (recreate-table) bỏ `NOT NULL` của `sdt`. Sửa route
+POST/PATCH `ktv-lien-he`, `KtvImportRow`, `SettingsModule.tsx` (nút Lưu chỉ disable khi thiếu mã
+KTV, nhãn đổi thành "Mã KTV *"), `types.ts` (`sdt: string | null`), `KtvNameWithPhone.tsx` (hiển thị
+"Chưa có SĐT" khi null).
+
+### 3. Import KTV báo "INTERNAL_ERROR" — gốc là FK cứng + D1 batch = 1 transaction
+User báo ảnh chụp lỗi import. Nguyên nhân: `giam_sat_quan_ly`/`email_dang_nhap` (thêm ở migration
+0067) có FK tới `users(email)`; Admin thường import KTV/người giám sát TRƯỚC KHI người đó đăng nhập
+lần đầu (chưa có dòng trong `users`) → FK chặn 1 dòng, mà cả import chạy trong 1 `db.batch()` (1
+transaction ngầm của D1) nên 1 dòng lỗi làm ROLLBACK TOÀN BỘ batch, lộ ra ngoài thành `INTERNAL_ERROR`
+chung chung. User hỏi thêm: "nếu chưa khớp vẫn cho lưu, sau này user đăng nhập tự liên kết có được
+không?" — quyết định chọn hướng đó thay vì pre-validate-và-reject. Migration
+`0072_ktv_lien_he_bo_fk_tham_chieu.sql` (recreate-table, đã grep xác nhận không bảng nào REFERENCES
+`ktv_lien_he` nên an toàn) bỏ hẳn FK của 2 cột này — đúng bản chất chúng vốn là "tham chiếu/danh bạ
+mềm" (ghi chú gốc ở migration 0067), không phải nguồn thật phân quyền; các endpoint JOIN
+`ktv_lien_he.email_dang_nhap` với `users` (vd `/dat-mua-lk/nguoi-nhan-hang-kha-dung`) tự động khớp
+ngay khi dòng `users` tương ứng xuất hiện, không cần code thêm.
+
+### 4. Settings > Loại đề xuất — bug cache cũ hiện lại option đã xoá + sai flag vai trò
+2 bug độc lập: (a) `DatMuaLinhKienModule.tsx` sync `loai_de_xuat` kiểu incremental (`?since=`) nên
+không bao giờ phát hiện được hard-delete từ Settings — sửa thành full-sync mỗi lần mount (fetch toàn
+bộ + `clearLdeCache()` + merge lại, giống pattern `closedDataCache.ts`); (b)
+`LDE_VAI_TRO_FLAGS` trong `SettingsModule.tsx` có 2 giá trị flag gõ nhầm có dấu
+(`"vai_tro:Giám sát"`, `"vai_tro:KSNB Đối tác"`) không khớp giá trị thật không dấu lưu trong
+`users.vai_tro` — khiến lọc theo vai trò cho Giám sát và KSNB Đối tác luôn sai từ lúc tính năng ra
+đời. Sửa lại 2 flag value (nhãn hiển thị vẫn giữ dấu).
+
+### 5. Loại đề xuất — thêm nhóm "Giám sát + Tác nghiệp" (15 lựa chọn) + Admin thấy toàn bộ
+Theo yêu cầu, thêm migration `0069_loai_de_xuat_giam_sat_tac_nghiep.sql` — nhóm mới gán cho vai trò
+Giám sát + TBP DVBH (Tác nghiệp), 15 lựa chọn cụ thể (HỖ TRỢ 0 ĐỒNG, HỖ TRỢ CÔNG NỢ, ... (ƯU TIÊN)
+CÔNG NỢ - ĐƠN ĐANG XỬ LÝ). D1 không chấp nhận `VALUES(...) AS t` trong FROM lẫn `UNION ALL` 15 nhánh
+("too many terms in compound SELECT") nên phải viết 15 câu `INSERT ... SELECT id, '<option>', stt
+FROM ... WHERE ten_nhom = '...'` riêng lẻ. Đồng thời `getOptionsForUser()`
+(`frontend/src/lib/loaiDeXuatCache.ts`) thêm nhánh Admin bypass — Admin luôn thấy toàn bộ Loại đề
+xuất đang bật, không lọc theo nhóm/flag (giống pattern Admin bypass đã có ở
+`backend/src/lib/moduleAccess.ts`).
+
+### 6. Tính năng mới: "Lý do chậm" — SLA 24h cho dòng đơn mua linh kiện (từ rà soát file Excel mẫu)
+User gửi file Excel `Luồng tạo đơn mua hàng/Data đặt hàng.xlsx` yêu cầu rà soát cách nhập liệu từng
+cột, dặn rõ "không hiểu thì hỏi, không tự suy đoán". Qua nhiều vòng hỏi-đáp xác định: 6 cột người tạo
+nhập thêm (`ghi_chu`, `yeu_cau_hoa_don`, `tt_mail_duyet`, `tt_khach_hang`, `chinh_sach`,
+`ma_yeu_cau_su_co`) — migration `0070_dat_don_hang_cot_bo_sung.sql`. Riêng cột "LÝ DO CHẬM" ban đầu
+tôi đọc nhầm là do người tạo nhập (dựa trên 1 input UI có sẵn "Lý do đặt (tuỳ chọn)" — user xác nhận
+đây là AI phiên trước tự ý thêm, không phải yêu cầu thật, đã bỏ input đó) — bản chất thật: Tác nghiệp
+(TN) phải giải trình khi 1 dòng đơn hàng treo quá 24h kể từ lúc vào trạng thái "Cho TN duyệt" mà chưa
+được đưa vào Phiếu Xuất Kho đạt trạng thái "Cho kế toán", có cộng bù ngày nếu hạn rơi vào thứ 7/CN, và
+CHẶN CỨNG không cho chuyển bước tiếp cho tới khi TN nhập lý do. Cài đặt:
+`backend/src/lib/hanLyDoCham.ts` (thuật toán tính hạn thuần JS, `parseVnTime` ghép "Z" vào chuỗi giờ
+VN vì Worker chạy UTC, cộng 24h rồi lặp cộng thêm ngày nếu hạn rơi T7/CN), route
+`datMuaLinhKien.ts` (trả `qua_han_ly_do_cham` mỗi dòng ở GET /phieu-dat/:id, cho TN sửa `ly_do_cham`
+qua PATCH /don-hang/:id) và `phieuXuatKho.ts` (chặn cứng ở POST /:id/log khi target = "Cho ke toan"
+nếu còn dòng quá hạn chưa có lý do, trả lỗi `THIEU_LY_DO_CHAM`). UI: `DatMuaLinhKienModule.tsx` —
+`PhieuDatDetailModal` thêm cột Ghi chú + badge "Quá hạn - cần lý do chậm"; `PxkDetailModal` thêm bảng
+"Dòng đơn hàng" (dữ liệu vốn đã fetch nhưng CHƯA TỪNG hiển thị) cho TN nhập lý do chậm trực tiếp, kèm
+badge quá hạn và thông báo lỗi tiếng Việt rõ ràng khi bị chặn.
+
+### 7. Rà soát UX module Đặt mua linh kiện theo 4 tiêu chí chốt
+User chốt 4 tiêu chí UX bắt buộc cho module (badge số tồn đọng tách theo loại + bấm nhảy thẳng tới
+đúng tab/filter + hành động 1 chạm + hỗ trợ xử lý hàng loạt kể cả import Excel). Đã rà soát code thật
+(không suy đoán) và ghi kết quả + bằng chứng file:dòng cụ thể vào `DANH_GIA_UX_DAT_MUA_LINH_KIEN.md`
+mục "0. TIÊU CHÍ UX CHỐT 2026-08-15" — kết luận 0/4 tiêu chí đạt hoàn toàn, có danh sách ưu tiên sửa.
+
+Deploy migrations 0069-0072 lên `smarttrade` cùng các đợt trên. Tăng version `1.167` → `1.186` qua
+nhiều đợt deploy nhỏ trong ngày.
+
+## 2026-08-15 (đợt 2 cùng ngày) — Triển khai đủ 4/4 tiêu chí UX module Đặt mua linh kiện đã chốt ở đợt 1
+
+Tiếp nối đợt rà soát (xem mục trên) — chủ hệ thống xác nhận làm cả 4 tiêu chí trong 1 đợt, lập kế
+hoạch qua chế độ Plan rồi triển khai tuần tự theo đúng thứ tự ưu tiên a→d.
+
+### 1. Badge tách theo loại việc (tiêu chí 1)
+`computeDatMuaLkCount` (`notifications.ts`) đổi tên thành `computeDatMuaLkBreakdown`, trả object
+`DatMuaLkBreakdown` (9 bucket riêng: `choTnDuyet`, `choTnTraHang`, `choKhoThieuLk`, `choKhoPxk`,
+`choKhoTraHang`, `choKeToanPxk`, `choKeToanTraHang`, `choQcTraHang`, `choTramDuyet` + `total`) thay vì
+1 số gộp — giữ nguyên moi query SQL, chỉ đổi shape trả về. `NotificationsCountPayload.datMuaLk` đổi
+type theo. `Sidebar.tsx` chỉ đọc `.total` (giữ nguyên hành vi hiện tại — badge sidebar vẫn 1 số gọn).
+Thêm endpoint `GET /dat-mua-lk/tom-tat` (`datMuaLinhKien.ts`) tái dùng đúng hàm/cache của badge
+sidebar (`getDatMuaLkBadge`) để 2 nơi luôn đồng bộ số liệu — module tự vẽ 1 "thanh tóm tắt"
+(`SummaryStrip`) hiện các pill theo loại việc, chỉ hiện bucket liên quan vai trò đang đăng nhập.
+
+### 2. Bấm số tồn đọng nhảy đúng tab/filter (tiêu chí 2)
+Mỗi pill trong `SummaryStrip` gọi `jumpTo({tab, filter})` ở `DatMuaLinhKienModule` — set `view`
+(chuyển tab) + set `jumpTarget` state, truyền xuống tab con qua prop mới `initialFilterOverride`; tab
+tự đọc prop này trong 1 `useEffect` để gọi `setFilterTrangThai`. `jumpTarget` tự xoá sau 1 lần dùng
+(`setTimeout(0)`) để không ghi đè filter thủ công của người dùng ở lần re-render sau. Áp dụng cho cả
+4 tab (`DonCuaToiTab`, `PhieuXuatKhoTab`, `ThieuLkTab`, `TraHangTab`).
+
+### 3. Bỏ modal xác nhận thừa cho hành động không cần nhập liệu (tiêu chí 3)
+`ThieuLkTab`: các bước không phải `isGiaiTrinh` ("Kho từ chối sai TT", "Đã huỷ bỏ", "Kho xác nhận
+hàng đã về", "Đã kết thúc") đổi từ mở modal sang gọi `logMutation.mutate({id, trangThai})` trực tiếp,
+theo đúng pattern nút của `PxkDetailModal`/`DonCuaToiTab`. Chỉ giữ modal cho "Kho đã tiếp nhận" (bắt
+buộc giải trình + ngày dự kiến). `TraHangTab`: "Duyệt"/"Từ chối" gọi trực tiếp không qua modal (mất
+khả năng ghi chú tuỳ chọn cho 2 hành động này — đánh đổi có chủ đích để đạt 1-chạm); chỉ giữ modal
+cho "Đẩy lùi" (ghi chú thật sự bắt buộc).
+
+### 4. Bulk-log cho thiếu LK/trả hàng + import Excel tạo hàng loạt đơn hàng (tiêu chí 4)
+Refactor logic xử lý 1 dòng của `POST /thieu-lk/:id/log` và `POST /tra-hang/:donHangId/log` thành 2
+hàm dùng chung (`applyThieuLkLog`, `applyTraHangLog`, theo đúng pattern `applyDonHangLog` đã có sẵn
+cho `don-hang/bulk-log`), rồi thêm `POST /thieu-lk/bulk-log` và `POST /tra-hang/bulk-log` — tái dùng
+hàm dùng chung, tiếp tục xử lý các id còn lại kể cả khi 1 id lỗi, trả kết quả từng id. Frontend thêm
+checkbox chọn dòng + "chọn tất cả" + thanh hành động hàng loạt ở cả 2 tab (`ThieuLkTab` chỉ cho bulk
+với các bước không cần nhập liệu — tính giao các trạng thái đích chung giữa các dòng đã chọn;
+`TraHangTab` bulk "Duyệt tất cả"/"Từ chối tất cả" áp dụng bất kể dòng đang ở bước nào, mỗi dòng tự
+tính bước kế tiếp riêng ở server).
+
+Import Excel: thêm `processDatDonHangImportRows` (`datMuaLinhKien.ts`) + 2 endpoint
+`POST /don-hang/import/preview|commit`, tái dùng nguyên component `ImportUploader` (đã có sẵn cho
+import KTV ở Settings). Quyết định chốt với chủ hệ thống: các dòng **cùng 1 KTV** (cột
+`nguoi_nhan_hang` = mã KTV, khớp `ktv_lien_he.ma_ktv`) gộp thành **1 phiếu đặt riêng** — vd import
+100 dòng với 10 KTV khác nhau → tạo 10 phiếu đặt độc lập, mỗi phiếu chứa đúng các dòng của KTV đó
+(không phải "1 file = 1 phiếu"). Validate + resolve giống hệt luồng tạo thủ công (`POST /phieu-dat`,
+đã tách chung `deriveLoaiDon` để 2 nơi không lệch logic). Chỉ TN/GS (`canQuanLyDonHo`) được dùng —
+đúng bản chất "tạo hộ hàng loạt". Thêm nút Import Excel vào `TaoDonTab`.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía sau mỗi phase, `npm run build` thành công. Khởi động dev server (worker
++ frontend) qua Browser pane, xác nhận trang đăng nhập tải sạch không lỗi console (chỉ 401 kỳ vọng
+trước khi đăng nhập) — **chưa kiểm chứng được luồng đầy đủ qua trình duyệt thật vì cần đăng nhập
+Google, môi trường này không tự động hoá được** (giống hạn chế đã ghi nhận ở các phiên trước).
+
+Deploy production `smarttrade` — không có migration mới (chỉ đổi logic/route, không đổi schema).
+Tăng version `1.186` → `1.187`.
+
+## 2026-08-15 (đợt 3 cùng ngày) — Thu gọn khối Import Excel trong TaoDonTab + xác nhận phạm vi quyền
+
+Phản hồi ngay sau đợt 2: chủ hệ thống yêu cầu (1) xác nhận import Excel không mở cho CTV/KTV/Trạm —
+đã ĐÚNG SẴN từ đợt 2 (`canQuanLy = canTacNghiep || isGiamSat`, không gồm `la_ktv_dvbh`/`la_ve_tinh`),
+không cần sửa gì; (2) thu gọn khối Import Excel trong `TaoDonTab` vì nhập liệu thủ công là luồng ưu
+tiên chính, import chỉ là lựa chọn phụ, tránh chiếm diện tích màn hình xử lý chính. Thêm state
+`showImport` (mặc định `false`) — hiện 1 dòng bấm-để-mở-rộng "⇩ Import Excel hàng loạt (tuỳ chọn)"
+khi thu gọn, bấm vào mới hiện `ImportUploader` đầy đủ kèm nút "▲ Thu gọn" để đóng lại.
+
+Tăng version `1.187` → `1.188`, deploy `smarttrade`.
+
+## 2026-08-15 (đợt 4 cùng ngày) — Redesign "Tạo phiếu đặt" theo 12 phản hồi thực tế dùng thử
+
+Chủ hệ thống dùng thử màn hình tạo đơn sau đợt deploy v1.188 và đưa ra 12 phản hồi cụ thể để tối ưu
+tốc độ nhập liệu thủ công (ưu tiên chính) và giảm nhiễu thông tin. Hỏi lại 1 điểm mơ hồ (xử lý field
+"Số tiền công nợ") — chốt: bỏ hẳn ô nhập tay, chỉ hiện số tự tính từ giá tham chiếu. Yêu cầu #10
+(danh sách KTV theo quản lý) đã đúng sẵn trong code — không cần sửa.
+
+### Thay đổi chính (`DatMuaLinhKienModule.tsx` + `datMuaLinhKien.ts`)
+1. "Yêu cầu hóa đơn" mặc định "Không" (`emptyDraft()`).
+2. **Chính sách + Mã yêu cầu sự cố bắt buộc khi Loại đề xuất là CÔNG NỢ thật** (chứa "CÔNG NỢ", không
+   chứa "TRẢ HÀNG") — thêm `canNoRequired()` ở CẢ 2 PHÍA (frontend `canSubmit` + label "*", backend
+   `POST /phieu-dat` và `processDatDonHangImportRows` trả lỗi `THIEU_CHINH_SACH_HOAC_MA_YCSC` 400) vì
+   đây là quy tắc nghiệp vụ thật, không chỉ chặn UI.
+3. Dropdown dài (linh kiện...) không xuống dòng nữa — `SearchableSelect` option thêm `truncate` +
+   `title` tooltip (sửa 1 chỗ dùng chung `Select.tsx`, áp dụng mọi nơi).
+4. 3 nút bấm nhanh MUA HÀNG/CÔNG NỢ/TRỪ CÔNG NỢ cho Loại đề xuất — `pickLdeQuick()` khớp cả biến thể
+   có tiền tố ngoặc (vd "(TBP ĐỒNG Ý) MUA HÀNG" cho TN/Admin).
+5. Cảnh báo mềm khi nhập "Mã yêu cầu sự cố liên quan" — endpoint MỚI
+   `GET /dat-mua-lk/kiem-tra-ma-yeu-cau?id=&nguoi_nhan_hang=` (KHÔNG dùng `GET /api/cases/:id` vì bị
+   `scopeByKhuVuc` chặn sai — GS nhập đúng mã nhưng case ngoài khu vực sẽ nhận 403 và hiện sai thành
+   "không tìm thấy"). Trả 2 boolean (`found`, `khopKtv`), dùng `extractMaKtv()` có sẵn để so với
+   `ktv_lien_he.ma_ktv`. Frontend `MaYeuCauSuCoCheck` debounce 500ms, 3 trạng thái banner, chỉ nhắc
+   nhở không chặn submit.
+6. Thay "Nhân bản từ phiếu cũ" (không hiệu quả) bằng "Top 20 linh kiện thường đặt" TOÀN HỆ THỐNG —
+   endpoint `GET /dat-mua-lk/top-linh-kien` (GROUP BY `ma_lk, loai_de_xuat` toàn bảng `dat_don_hang`,
+   cache bằng `getOrCompute`/`recompute` ở `precomputedCache.ts`, `recompute()` sau mỗi lần tạo đơn
+   thành công để danh sách top luôn theo kịp mà không quét lại mỗi request).
+7. Bỏ "Ghi chú (tuỳ chọn)" cấp phiếu tổng (field cấp dòng giữ nguyên).
+8. **Bỏ hẳn ô nhập tay "Số tiền công nợ"** — thay bằng "Giá đề xuất ước tính" = giá tham chiếu × số
+   lượng, hiện cho MỌI loại đề xuất (không riêng CÔNG NỢ), kèm ghi chú "*Giá tham khảo, không phải
+   giá cuối" + dòng tổng cộng cuối form.
+9. Ẩn Chính sách/TT+Mail duyệt/TT khách hàng khi Loại đề xuất là MUA HÀNG (nút "Hiển thị thêm ▾" để
+   mở rộng thủ công nếu cần) — Mã yêu cầu sự cố KHÔNG nằm trong danh sách ẩn.
+11. Dòng mới ("+ Thêm dòng") tự kế thừa Loại đề xuất từ dòng trước đó.
+12. Bỏ tab "Tạo phiếu đặt" riêng — gộp thành nút "+ Tạo đơn" trong "Đơn của tôi/Danh sách", bấm vào mở
+    `TaoDonTab` dạng `<Modal>` ngay tại đó (toàn bộ xử lý trên 1 cửa sổ).
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công (không lỗi biên dịch/bundle). Rà lại code
+JSX/logic của `TaoDonTab`/`MaYeuCauSuCoCheck`/2 endpoint backend mới đối chiếu plan — khớp đúng cả
+12 điểm. Sửa 1 lệch tên field nhỏ phát hiện lúc rà: frontend khai báo `cnt` nhưng backend trả
+`so_lan` cho `/top-linh-kien` (field này chưa được hiển thị nên không phải bug runtime, chỉ sửa cho
+đúng type). Không migration mới (chỉ thêm route + 1 dòng cache mới trong `precomputed_cache` đã có
+sẵn từ trước). Chưa kiểm chứng được luồng đầy đủ qua trình duyệt thật vì cần đăng nhập Google — hạn
+chế đã ghi nhận từ các phiên trước.
+
+Tăng version `1.188` → `1.189`, deploy `smarttrade` thành công.
+
+## 2026-08-15 (đợt 5 cùng ngày) — Redesign layout/màu sắc dòng nhập liệu "Tạo phiếu đặt"
+
+Sau v1.189, chủ hệ thống phản hồi tiếp (đóng vai người thiết kế UI đánh giá): (1) ô "Mã linh kiện"
+quá hẹp, tên linh kiện dài bị cắt; (2) giao diện "xấu và nhạt nhẽo" cần thêm màu sắc; (3) cần bố cục
+gọn, ưu tiên điện thoại, các trường hay điền cùng lúc đặt gần nhau để tab nhanh, "Ghi chú" xuống cuối.
+
+Chẩn đoán: card 1 dòng dùng lưới `grid-cols-2 sm:grid-cols-6`, ô "Mã linh kiện" là `col-span-2
+sm:col-span-2` — full width trên mobile nhưng chỉ 2/6 (33%) trên tablet/desktop → đúng nguyên nhân bị
+cắt tên dài. "Giá đề xuất ước tính" chèn có điều kiện ngay sau Mã linh kiện làm bố cục nhảy. "Ghi
+chú" nằm giữa form (trước Yêu cầu hóa đơn/Mã yêu cầu sự cố), không phải cuối.
+
+### Thay đổi
+- `Modal.tsx`: thêm prop tuỳ chọn `footer?: ReactNode`, render 1 khối cố định (border-top) NGAY SAU
+  vùng `overflow-y-auto` — mặc định `undefined` nên không đổi hành vi các nơi gọi `Modal` khác.
+- `TaoDonTab`: viết lại toàn bộ card mỗi dòng thành bố cục 1 cột chính (mobile-first):
+  - Header card: "Dòng {n}" + `Badge` màu theo `deriveLoaiDon` (mua=ocean/công nợ=amber/trả
+    hàng=coral, thêm map `LOAI_DON_TONE`) + nút "✕ Xóa dòng" chuyển lên đầu card (trước đây nằm giữa
+    form, chen vào luồng tab).
+  - Viền trái card (`border-l-4`) đổi màu theo cùng tone — phân biệt nhanh loại đơn giữa nhiều dòng.
+  - Thứ tự mới: **Mã linh kiện (full-width MỌI breakpoint)** → Loại đề xuất (2 trường "nhận diện" hay
+    đổi cùng lúc, đặt sát nhau) → [Số lượng | Giá đề xuất ước tính dạng thẻ số liệu nổi bật nền
+    ocean-100] → Gợi ý thay thế → *"Thông tin bổ sung"* → [Yêu cầu hóa đơn | Mã yêu cầu sự cố +
+    banner cảnh báo] → [Chính sách | TT+Mail duyệt] + TT khách hàng (nếu `showThem`) → nút mở rộng →
+    **Ghi chú (cuối cùng)**.
+  - Tổng giá đề xuất ước tính + nút "+ Thêm dòng"/"Tạo phiếu đặt" chuyển vào `footer` của `Modal` —
+    luôn hiển thị cố định đáy dù cuộn bao nhiêu dòng (giống thanh tổng tiền/nút thanh toán cố định
+    của Shopee/Tiki), phục vụ thao tác nhanh trên điện thoại.
+  - Chip "Chọn nhanh linh kiện thường đặt" đổi nền mặc định từ xám sang tint ocean-100/40% + chữ
+    ocean-700; nhãn 2 mục lớn ("Người nhận hàng...", "Chọn nhanh linh kiện...") đổi màu ocean-700 để
+    tăng phân vùng thị giác — không thêm token màu mới, dùng lại đúng bảng màu sẵn có (`tokens.css`).
+
+### Kiểm thử
+`tsc --noEmit` sạch, `npm run build` thành công (không lỗi cấu trúc JSX/bundle). Không kiểm chứng
+được qua trình duyệt thật (cần đăng nhập Google — hạn chế đã ghi nhận từ trước). Không có thay đổi
+backend/migration.
+
+Tăng version `1.189` → `1.190`, deploy `smarttrade` thành công.
+
+## 2026-08-15 (đợt 6 cùng ngày) — 2 chế độ xem danh sách, cột "Mã yêu cầu sự cố" liên kết ca, redesign modal chi tiết phiếu
+
+Chủ hệ thống góp ý tiếp màn "Đơn của tôi / Danh sách" (`DonCuaToiTab`) và modal chi tiết phiếu
+(`PhieuDatDetailModal`): (1) cần 2 kiểu xem — chỉ dòng mẹ (giữ hành vi cũ) hoặc gộp dòng mẹ (đậm) +
+dòng con (nhạt, kèm thao tác nhanh); (2) thêm cột "Mã yêu cầu sự cố liên quan" bấm mở ca chi tiết,
+nhưng UI ca chi tiết không dành cho KTV/CTV/Trạm; (3) modal chi tiết phiếu quá chật, cần thiết kế lại.
+
+### Backend
+Thêm `GET /api/dat-mua-lk/don-hang/by-phieu?ids=ID1,ID2,...` (`datMuaLinhKien.ts`) — lấy dòng con
+(`dat_don_hang`) cho NHIỀU phiếu cùng lúc (tối đa 100 id), join `phieu_dat` áp `scopeDatMuaNguoiTao`,
+không kèm logs/cases (nhẹ, dành cho hiển thị danh sách — modal chi tiết vẫn là nơi xem đầy đủ lịch sử).
+
+### Frontend — 2 chế độ xem
+Thêm segmented control "Chỉ phiếu" / "Phiếu + dòng" (`useLocalStorageState`) cạnh bộ lọc trạng thái.
+"Chỉ phiếu" giữ nguyên `PaginatedTable` cũ. "Phiếu + dòng" dùng component mới `PhieuDongBang`: mỗi
+phiếu là 1 khối đậm (nền `--surface-100`, giữ nguyên badge tổng hợp + nút "Chi tiết"), theo sau các
+dòng con thụt lề nhạt hơn (viền trái theo `LOAI_DON_TONE`, tái dùng từ đợt redesign `TaoDonTab`) kèm
+nút Duyệt/Từ chối/Hủy ngay tại chỗ — không cần mở modal để xử lý 1-2 dòng. Tái dùng nguyên cơ chế
+`POST /don-hang/bulk-log` (đã hỗ trợ sẵn cả id dòng lẻ, không cần endpoint hành động mới), refactor
+`bulkMutation` để nhận `ids` tường minh thay vì đọc qua closure `selected` (tránh xung đột giữa 2
+luồng: chọn hàng loạt cấp phiếu của Tram và thao tác nhanh 1 dòng). Nâng `actionsFor()` (hàm quyết
+định nút nào hiện theo vai trò/trạng thái) từ nội bộ `PhieuDatDetailModal` lên module-level để dùng
+chung cả 2 nơi.
+
+### Cột "Mã yêu cầu sự cố" + mở ca chi tiết (role-gated)
+`App.tsx` truyền `openCase` vào `DatMuaLinhKienModule` (trước đây module này chưa nhận prop này).
+Tính `canXemChiTietCa = !(user.la_ktv_dvbh || user.la_ve_tinh)` ở cấp module — "Trạm" chỉ là 1 tài
+khoản `la_ktv_dvbh` có Vệ tinh trực thuộc nên cùng bị chặn theo đúng cờ này, không cần check riêng.
+Component mới `MaYcscCell`: nếu `canXemChiTietCa` → span bấm mở `openCase(id, "giai-trinh")` (đúng
+pattern có sẵn ở `SurveyModule.tsx`); ngược lại vẫn hiện giá trị dạng text thường (không ẩn dữ liệu,
+chỉ không bấm mở được). Áp dụng ở cả dòng con trong `PhieuDongBang` và bảng dòng trong modal chi tiết.
+
+### Redesign PhieuDatDetailModal
+Tăng `width="max-w-6xl"` (từ mặc định 512px). Khối thông tin đầu đổi từ 1 dòng chữ phẳng sang lưới
+thẻ label rõ ràng. Bảng dòng đơn hàng tăng padding, cột "Loại" đổi sang `Badge` màu, thêm cột "Mã yêu
+cầu sự cố". Chuyển toàn bộ panel "từ chối"/thanh hành động hàng loạt xuống `footer` prop của `Modal`
+(đã có sẵn từ đợt trước) — luôn cố định đáy, không mất khi cuộn nhiều dòng.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công. Rà lại logic: `bulkMutation` refactor
+không phá vỡ luồng bulk cũ (Tram chọn nhiều phiếu), phát hiện + sửa 1 thiếu sót lúc rà: modal chi
+tiết dùng `logMutation`/`bulkMutation` RIÊNG (không phải bulkMutation vừa refactor) nên cần tự thêm
+invalidate `["dat-mua-lk-don-hang-by-phieu"]` vào hàm `invalidate()` nội bộ của modal để đồng bộ cache
+2 nơi. Không có migration mới. Không kiểm chứng được qua trình duyệt thật (cần đăng nhập Google — hạn
+chế đã ghi nhận từ trước).
+
+Tăng version `1.190` → `1.191`, deploy `smarttrade` thành công.
+
+## 2026-08-15 (phiên tiếp) — 6 hạng mục UX + tính năng "khu vực phụ trách"
+
+Chủ hệ thống góp ý tiếp 6 điểm trên module "Đặt mua linh kiện" sau v1.191. Hỏi lại 3 điểm mấu chốt
+trước khi code: (1) lý do hủy đơn nhập TỰ DO (không dùng lại danh mục "Lý do chậm" của TN — sai ngữ
+nghĩa); (2) "SL đơn" (đếm dòng) và "SL đề xuất/đã đặt" (cộng `so_luong_de_xuat`) là 2 số khác nhau,
+nhưng rà lại thấy "SL đã đặt" = "SL đề xuất" trong danh sách gốc — gộp thành 1 chỉ số, đã báo lại chủ
+hệ thống; (3) phạm vi thẻ báo cáo theo vai trò — câu trả lời mở ra 1 tính năng con mới "khu vực phụ
+trách" (xem dưới).
+
+### A. Bắt buộc lý do khi hủy đơn
+`applyDonHangLog()` (`datMuaLinhKien.ts`) nhánh `hanhDong === "huy"`: thêm điều kiện bắt buộc
+`ghiChu?.trim()` khác rỗng, thiếu thì trả lỗi `THIEU_LY_DO_HUY` (400) — áp dụng tự động cho cả
+`POST /don-hang/:id/log` và `bulk-log` (dùng chung hàm). Frontend: nút "Hủy" không gọi `mutate()`
+thẳng nữa — tổng quát hoá state `rejectTarget` (chỉ dùng cho "từ chối") thành `ActionTarget {id,
+action: "tu_choi" | "huy"}` dùng chung cho cả `PhieuDatDetailModal` và `PhieuDongBang`/`DonCuaToiTab`,
+mở panel nhập lý do (bắt buộc với "huy", không có ô chọn Lý do chậm như "từ chối").
+
+### B. Tô màu/gạch ngang dòng theo trạng thái
+Map mới `DON_HANG_ROW_STYLE` (module-level): "Đã hủy"/"TN từ chối" → gạch ngang + chữ đỏ, "Chờ Trạm/
+TN duyệt" → chữ cam, "Chờ hàng" → cam đậm hơn, "TN đã duyệt" → chữ xanh lá (dùng token màu có sẵn,
+không thêm màu mới). Áp dụng lên PHẦN TÊN linh kiện (không toàn hàng) ở cả `PhieuDongBang` và bảng
+dòng trong `PhieuDatDetailModal`, giữ `StatusBadge` cạnh bên làm điểm neo chính.
+
+### C. Modal chi tiết phiếu gần full màn hình
+Thêm prop tuỳ chọn `height?: string` cho `Modal.tsx` (mặc định giữ `max-h-[88vh]` như cũ, không đổi
+hành vi nơi khác). `PhieuDatDetailModal` đổi sang `width="max-w-[96vw]" height="max-h-[94vh]"`.
+
+### D. Dòng con hiện dạng bảng cột trong chế độ "Phiếu + dòng"
+Viết lại `PhieuDongBang` — dòng con từ 1 hàng flex/pill sang bảng `<table>` thật với đủ cột (Linh
+kiện/Loại/SL/Giá đề xuất/Mã yêu cầu sự cố/Trạng thái/Hành động), khớp bộ cột đã dùng ở modal chi tiết
+để 2 nơi nhất quán — Duyệt/Từ chối/Hủy trực tiếp không cần mở "Chi tiết".
+
+### E. Nhãn cho 2 ô chọn ngày
+Thêm nhãn "Từ ngày"/"Đến ngày" trước mỗi input, bọc cả cụm 3 control (người tạo + 2 ngày) trong 1
+khối có `title` giải thích mục đích lọc (dành cho Trạm xem đơn Vệ tinh mình quản lý).
+
+### F. Tính năng mới: "Khu vực phụ trách" (Giám sát) cho TN/Kho/Kế toán
+Câu trả lời làm rõ phạm vi thẻ báo cáo mở ra yêu cầu: Admin có thể gán 1/nhiều Giám sát cho 1 người
+TN/Kho/Kế toán → "hàng đợi cần xử lý" (badge + thẻ báo cáo) của người đó chỉ tính đơn của các Giám
+sát được gán; nếu họ vẫn xử lý 1 đơn ngoài khu vực (tìm/lọc thủ công) → hệ thống TỰ ĐỘNG gán thêm
+Giám sát đó (auto-claim). Chốt làm luôn trong đợt này, không tách ra sau. Thiết kế là scope MỀM —
+danh sách/tìm kiếm phiếu GIỮ NGUYÊN không giới hạn (`scopeDatMuaNguoiTao()` không đổi), chỉ ảnh hưởng
+2 chỗ: badge sidebar/`SummaryStrip` và thẻ báo cáo tổng thể mới. Auto-claim chỉ kích hoạt cho người
+ĐÃ có ≥1 dòng gán sẵn (Admin đã bắt đầu cấu hình) — người chưa được gán gì vẫn ở chế độ không giới
+hạn như cũ.
+
+Migration mới `0073_dat_mua_lk_phu_trach_gs.sql` (bảng `dat_mua_lk_phu_trach_gs`, PK
+`(nguoi_phu_trach, giam_sat_email)`, cờ `tu_dong_gan` phân biệt Admin gán tay hay hệ thống tự gán).
+`scopeDatMua.ts` thêm `phuTrachGsSet(db, email)` (trả `null` nếu 0 dòng = không giới hạn) và
+`autoClaimGs(db, nguoiPhuTrach, emailGs)`. Hook auto-claim ở 2 điểm hành động chính (không phủ hết
+mọi route để tránh phình phạm vi — đã báo giới hạn này với chủ hệ thống): `applyDonHangLog()` (TN
+duyệt/từ chối) và `POST /phieu-xuat-kho/:id/log` (Kho/Kế toán — 1 PXK có thể gộp dòng từ nhiều
+`phieu_dat` khác nhau nên auto-claim từng `email_gs` liên quan). Route quản lý mới (Admin only):
+`GET/PUT /dat-mua-lk/phu-trach-gs`. Áp scope vào 6 bucket TN/Kho/Kế toán của
+`computeDatMuaLkBreakdown` (`notifications.ts`). UI quản lý: khối "Khu vực phụ trách (Giám sát)" mới
+trong `EditUserModal` (`UsersModule.tsx`), hiện khi `laKho || laKeToan || role === "TBP DVBH" ||
+role === "Admin"`, lưu độc lập với nút "Lưu" chính của modal (route riêng, bảng riêng). Thêm method
+`api.put()` vào `api/client.ts` (trước đó chỉ có get/post/patch/delete).
+
+### G. Thẻ báo cáo tổng thể theo vai trò
+`GET /dat-mua-lk/bao-cao-tong-the` — 12 chỉ số (đã gộp "SL đã đặt"="SL đề xuất"), loại trừ MỌI dòng
+"Đã hủy" (không phân biệt tự hủy hay bị từ chối — chốt với chủ hệ thống là cách đơn giản nhất), phạm
+vi `loai_don != 'tra_hang'`. Scope theo vai trò: KTV/Vệ tinh → đơn cá nhân (nguoi_tao=mình HOẶC
+nguoi_nhan_hang=mình — CỐ Ý không gồm Vệ tinh của Trạm mình, khác `scopeDatMuaNguoiTao` dùng cho danh
+sách); Giám sát → mọi đơn của KTV mình phụ trách (`email_gs=mình`); TN/Kho/Kế toán → tái dùng
+`phuTrachGsSet` (mục F). Không cache (chỉ chạy khi mở module). Frontend: lưới `StatCard` 3 nhóm (Đơn
+hàng/Tiền/Xuất kho) ngay dưới `SummaryStrip`, hiện ở MỌI tab — ẩn nhóm "Xuất kho" cho KTV/Vệ tinh
+thuần.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía (đã sửa vài lượt do refactor `ActionTarget`), `npm run build` thành
+công. Migration 0073 áp thành công cả local lẫn remote `smarttrade`. Không kiểm chứng được qua trình
+duyệt thật (cần đăng nhập Google — hạn chế đã ghi nhận từ trước).
+
+Tăng version `1.194` → `1.195`, deploy `smarttrade` thành công.
+
+**3 khoảng trống chưa có chỉ số trong thẻ báo cáo** (sẽ hỏi chủ hệ thống có cần bổ sung không): số
+đơn đang "Chờ hàng" (thiếu LK), 2 trạng thái PXK cuối "Hàng trừ kho"/"Kho đã kết thúc" (khác "KTV đã
+nhận"), và toàn bộ luồng trả hàng (đang loại trừ theo đúng quy ước `loai_don != 'tra_hang'` sẵn có
+của module).
+
+## 2026-08-15 (phiên 2) — tab "Báo cáo" riêng theo KTV + chốt nghiệp vụ "1 PXK = 1 KTV"
+
+Chủ hệ thống dùng thử v1.195, yêu cầu nâng thẻ báo cáo (đang là lưới `StatCard` số tổng hiện dưới
+mọi tab) thành 1 **tab "Báo cáo" riêng**, dạng bảng, tách theo từng KTV cho vai trò Giám sát/TN/Kho/
+Kế toán, bấm số nhảy sang danh sách chi tiết kèm filter. Trong lúc thiết kế, chủ hệ thống tự sửa 1
+điểm nghiệp vụ quan trọng: **"1 phiếu xuất kho (PXK) chỉ được gắn cho DUY NHẤT 1 KTV — vì khi tạo
+phiếu xuất phải chọn xuất cho KTV nào"**, thay đổi so với thiết kế cũ (migration 0066: "1 PXK có thể
+gộp dòng từ nhiều phiếu đặt" — trước đây TN có thể gộp dòng của NHIỀU KTV khác nhau vào cùng 1
+phiếu).
+
+### A. Chốt "1 PXK = 1 KTV"
+Migration `0074_pxk_nguoi_nhan_hang.sql`: thêm cột `phieu_xuat_kho.nguoi_nhan_hang` (REFERENCES
+`users(email)`), backfill CHỈ điền cho PXK có ĐÚNG 1 giá trị KTV duy nhất trong các dòng của nó
+(`HAVING COUNT(DISTINCT pd.nguoi_nhan_hang) = 1`), còn lại giữ NULL (an toàn cho dữ liệu cũ hiếm gặp
+đã gộp nhiều KTV trước khi chốt quy tắc — sẽ không xuất hiện trong báo cáo theo KTV, không chặn
+nghiệp vụ hiện có). `POST /phieu-xuat-kho` (`phieuXuatKho.ts`): bắt buộc body `nguoi_nhan_hang`,
+validate mọi `dat_don_hang_ids` chọn đều thuộc đúng 1 KTV đó — khác thì trả lỗi mới
+`NHIEU_KTV_TRONG_1_PXK` (400). `GET /phieu-xuat-kho` thêm query param `nguoi_nhan_hang` để lọc.
+Frontend (`PhieuXuatKhoTab`): modal tạo phiếu thêm bước "Chọn KTV nhận hàng" TRƯỚC khi hiện danh
+sách dòng để chọn (danh sách tự lọc theo KTV đã chọn, ô tìm kiếm không còn tìm theo tên người nhận
+vì đã là bộ lọc cứng); bảng danh sách thêm cột "Người nhận hàng" + bộ lọc theo KTV.
+
+### B. Báo cáo tổng thể — đổi sang bảng theo từng KTV
+Nhờ mục A, "Tổng chờ chuyển" (tiền) giờ gán được ĐÚNG theo từng KTV (trước đây không thể vì PXK có
+thể gộp nhiều KTV) — đưa thẳng vào làm 1 cột bình thường thay vì phải tách riêng như dự tính ban đầu.
+`GET /dat-mua-lk/bao-cao-tong-the` viết lại hoàn toàn: giữ nguyên `scope` cũ (Giám sát/TN-Kho-Kế
+toán qua `phuTrachGsSet`/KTV-Vệ tinh/khác), đổi từ 1 object tổng hợp sang `GROUP BY nguoi_nhan_hang`
+— 2 query (đơn hàng/tiền từ `dat_don_hang JOIN phieu_dat`, xuất kho từ `phieu_xuat_kho` trực tiếp
+nhờ cột mới, không cần join qua `phieu_xuat_kho_dong` nữa) merge theo email thành mảng `BaoCaoRow[]`.
+
+### C. Frontend — tab "Báo cáo" mới
+Bỏ lưới `StatCard` cũ hiện dưới `SummaryStrip` ở MỌI tab, chuyển vào tab `bao-cao` riêng
+(`BaoCaoTab`): nếu API trả `rows.length <= 1` (KTV/Vệ tinh tự xem mình) → vẫn hiện lưới `StatCard` 3
+nhóm như cũ; nếu `rows.length > 1` (GS/TN/Kho/Kế toán, đã tự scope theo `phuTrachGsSet`/khu vực phụ
+trách — KHÔNG mở rộng ra toàn hệ thống theo yêu cầu chủ hệ thống) → bảng 2 tầng header (nhóm cột Đơn
+hàng/Tiền/Xuất kho), ô tìm kiếm lọc theo tên/email trong phạm vi đã scope, sắp xếp mặc định theo
+"tồn đọng" giảm dần (`(slDon - slDuyet - slTuChoi) + slChoKeToan + slChoKhoGui + slDaGui`, đẩy người
+còn nhiều việc lên đầu — theo đúng yêu cầu chủ hệ thống), hàng "Tổng cộng" cố định cuối bảng. Mỗi ô
+số là nút bấm gọi `onJump({tab, filter, nguoiNhanHang})` — mở rộng `JumpTarget` thêm
+`nguoiNhanHang?: string`, `DonCuaToiTab`/`PhieuXuatKhoTab` đọc qua prop
+`initialNguoiNhanHangOverride` (cùng pattern `initialFilterOverride` đã có).
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công. Migration 0074 áp thành công cả local lẫn
+remote `smarttrade`. Không kiểm chứng được qua trình duyệt thật (cần đăng nhập Google — hạn chế đã
+ghi nhận từ trước).
+
+## 2026-08-15 (phiên 3) — rà soát toàn bộ luồng chính "Đặt mua linh kiện", Đợt 1 (A+B)
+
+Chủ hệ thống yêu cầu rà lại TOÀN BỘ luồng nghiệp vụ chính module "Đặt mua linh kiện" (tạo đơn → TN xử
+lý → Kế toán → Kho → KTV nhận hàng, + 2 luồng phụ "thiếu linh kiện"/"trả hàng"), mô tả chi tiết 8
+điểm. Đối chiếu với code hiện tại phát hiện 8 điểm sai khác, đã trao đổi lại và chốt thiết kế cho
+từng điểm (đúng nguyên tắc "có vấn đề thì trao đổi, không tự đoán"). Khối lượng rất lớn nên chia 4
+đợt triển khai độc lập — kế hoạch đầy đủ lưu tại `C:\Users\HP\.claude\plans\concurrent-mapping-wolf.md`.
+Phiên này làm **Đợt 1 (A+B)** — nền tảng, rủi ro cao nhất nên làm riêng trước.
+
+### A. Vệ tinh chỉ là người tạo đơn — Trạm mới là người nhận hàng thật sự
+Chốt: đơn do Vệ tinh tạo (hoặc TN/GS chỉ định Vệ tinh làm người nhận hàng) phải tự động quy về
+`tram_cha` của Vệ tinh đó — Vệ tinh chỉ đóng vai trò đề xuất, Trạm mới chịu trách nhiệm nhận/xử lý.
+Thêm hàm dùng chung `resolveNguoiNhanHang()` (`datMuaLinhKien.ts`): nếu người nhận là Vệ tinh
+(`la_ve_tinh`), trả về `tram_cha` (lỗi `VE_TINH_CHUA_GAN_TRAM` nếu Vệ tinh đó chưa được gán Trạm);
+ngược lại giữ nguyên. Áp dụng cả ở tạo tay (`POST /phieu-dat`) lẫn import Excel
+(`processDatDonHangImportRows`).
+
+### B. Bỏ hẳn khái niệm "phiếu đặt" khỏi trải nghiệm người dùng
+**Ràng buộc kỹ thuật**: `phieu_dat` có ≥5 bảng con giữ FK sống (`dat_don_case`, `thieu_lk`,
+`tra_hang_log`, `phieu_xuat_kho_dong`, `dat_don_hang_log`) nên D1 KHÔNG cho phép xoá bảng/cột FK bằng
+recreate-table — bảng `phieu_dat` phải giữ lại ở tầng DB (vẫn tạo ngầm mỗi lần đặt đơn để thoả FK)
+nhưng từ nay không route/UI nào đọc lại nó nữa.
+
+Migration `0075_dat_don_hang_denormalize_gs_nhan_hang.sql`: thêm 2 cột `dat_don_hang.email_gs` và
+`dat_don_hang.nguoi_nhan_hang` (denormalize từ `phieu_dat`, backfill qua correlated subquery), 2 index
+mới. Viết lại toàn bộ nơi đọc `pd.*`/JOIN `phieu_dat` sang đọc thẳng `ddh.*`: `scopeDatMua.ts`
+(`scopeDatMuaNguoiTao`, alias bắt buộc là `ddh`), `notifications.ts`
+(`computeDatMuaLkBreakdown`), `phieuXuatKho.ts` (auto-claim GS, `GET /don-hang-kha-dung`, validate "1
+PXK = 1 KTV"), `GET /bao-cao-tong-the` (scope đổi từ chuỗi cố định sang closure nhận alias, dùng lại
+được cho cả `ddh` và `ddh2` trong 2 query khác nhau).
+
+`GET /phieu-dat` (trả theo phiếu) → thay bằng `GET /don-hang` (trả DANH SÁCH DÒNG phẳng, phân trang
+server-side thật — sửa luôn 1 bug tồn tại từ trước: `page`/`pageSize` trước đây không được gửi lên
+backend, luôn chỉ lấy trang 1 rồi `.slice()` phía client). `GET /phieu-dat/:id` +
+`GET /don-hang/by-phieu` → gộp thành `GET /don-hang/:id` (chi tiết 1 dòng, kèm `logs`/`cases`).
+`POST /don-hang/bulk-log` bỏ nhánh mở rộng "id phiếu_dat → các dòng con" (không còn phiếu id để
+truyền vào).
+
+Frontend (`DatMuaLinhKienModule.tsx`): bỏ toggle "Chỉ phiếu"/"Phiếu + dòng" trong `DonCuaToiTab` —
+chỉ còn 1 kiểu hiển thị dạng dòng phẳng, phân trang server-side đúng. `PhieuDongBang` (nhóm theo
+`phieu_dat_id`) → `DonHangGroupedList` (nhóm CLIENT-SIDE theo `nguoi_nhan_hang`, dùng lại đúng mảng
+dòng đã fetch sẵn ở component cha thay vì gọi thêm 1 API riêng) — mỗi khối là 1 KTV, badge tổng hợp
+tính trên các dòng đang hiện ở trang đó (đánh đổi chấp nhận được: 1 KTV có thể bị chia 2 trang nếu
+dòng nằm sát ranh giới, danh sách đã sắp theo `nguoi_nhan_hang` ở backend nên hiếm gặp). `chọn hàng
+loạt` của Trạm chuyển từ cấp phiếu sang cấp dòng (`trang_thai === "Cho Tram duyet"`).
+`PhieuDatDetailModal` → `DonHangDetailModal` (xem/xử lý ĐÚNG 1 dòng, gọi `GET /don-hang/:id` mới,
+không còn checkbox/bulk-select trong modal).
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía (backend đã sửa xong 8 endpoint, frontend viết lại 3 component chính).
+`npm run build` thành công. Migration 0075 áp thành công cả local lẫn remote `smarttrade` (lần đầu áp
+remote gặp lỗi API tạm thời `[code: 7403]`, thử lại lần 2 thành công — không phải lỗi cấu hình).
+Không kiểm chứng được qua trình duyệt thật (cần đăng nhập Google — hạn chế đã ghi nhận từ trước).
+
+Tăng version `1.196` → `1.197`, deploy `smarttrade` thành công.
+
+**Còn lại của kế hoạch 8 điểm** (chưa làm, xem chi tiết trong file plan): Đợt 2 (C+D+E+F — PXK "mã
+đơn hàng" nhập sau khi KTV chuyển tiền, Kế toán điền "Mã MISA" trên PXK, tách "Mã vận đơn" khỏi ghi
+chú, KTV xác nhận nhận hàng bắt buộc đúng người + ảnh biên bản lên Google Drive qua Service Account),
+Đợt 3 (G — ticket thiếu linh kiện hiện đủ thông tin nguồn gốc, redesign dạng thẻ), Đợt 4 (H — luồng
+trả hàng dùng chung `phieu_xuat_kho` sau bước TN duyệt tổng, theo đúng bảng "TRẠNG THÁI GỬI HÀNG"
+Excel gốc).
+
+## 2026-08-15 (phiên 4) — Đợt 2 (C+D+E+F): PXK mã đơn hàng nhập sau, Mã MISA, Mã vận đơn, KTV xác nhận + ảnh biên bản Google Drive
+
+Tiếp tục kế hoạch 8 điểm (phiên 3), làm Đợt 2 — 4 mục C/D/E/F đều là các cột mới độc lập trên
+`phieu_xuat_kho`, gộp chung 1 migration.
+
+Migration `0077_pxk_ma_xac_nhan_misa_van_don_bien_ban.sql`: thêm 4 cột `ma_xuat_kho_xac_nhan`
+(INTEGER, backfill = 1 cho mọi PXK cũ vì đã có mã thật nhập tay theo luồng cũ), `ma_misa`,
+`ma_van_don`, `anh_bien_ban_url`.
+
+### C. "Mã đơn hàng" nhập SAU khi KTV chuyển tiền xong
+`POST /phieu-xuat-kho`: `ma_xuat_kho` trong body giờ TUỲ CHỌN — nếu không truyền, tự điền placeholder
+= chính `id` PXK (luôn duy nhất, thoả UNIQUE) và `ma_xuat_kho_xac_nhan = 0`. `PATCH
+/:id/ma-xuat-kho` (mới, chỉ TN, chỉ khi PXK còn "Dang tao phieu"): TN nhập mã thật, set
+`ma_xuat_kho_xac_nhan = 1`, đồng bộ lại `dat_don_hang.ma_xuat_kho` của mọi dòng trong phiếu. `POST
+/:id/log` chặn chuyển "Cho ke toan" nếu `!ma_xuat_kho_xac_nhan` (lỗi mới
+`MA_XUAT_KHO_CHUA_XAC_NHAN`). Frontend: bỏ hẳn ô "Mã xuất kho \*" khỏi modal TẠO phiếu; thêm khối
+"Mã đơn hàng" trong `PxkDetailModal` (hiện khi còn "Dang tao phieu"), nút "Gửi kế toán" disable thêm
+khi chưa xác nhận.
+
+### D. Kế toán điền "Mã MISA" trên chính PXK
+`PATCH /:id/ma-misa` (mới, chỉ Kế toán, chỉ khi "Cho ke toan"). `POST /:id/log` chặn chuyển "Da chot
+xong don xuat" nếu thiếu `ma_misa` (lỗi `MISSING_MA_MISA`). Frontend: khối "Mã MISA" trong
+`PxkDetailModal` (hiện khi "Cho ke toan" + là Kế toán), nút "Đã chốt xong đơn xuất" disable thêm khi
+thiếu.
+
+### E. Tách "Mã vận đơn" khỏi ghi chú chung
+`POST /:id/log` nhận thêm `ma_van_don?` trong body — khi chuyển "Dang gui KTV" và có truyền, lưu vào
+cột riêng thay vì gộp vào `ghi_chu`. Frontend: `PxkDetailModal` thêm ô "Mã vận đơn (tuỳ chọn)" tách
+riêng, chỉ hiện cho Kho ở bước "Da chot xong don xuat"; hiện `ma_van_don`/`ma_misa` ở header chi
+tiết + thêm cột "Mã vận đơn" trong bảng danh sách PXK.
+
+### F. KTV xác nhận nhận hàng bắt buộc đúng người + ảnh biên bản lên Google Drive
+`POST /:id/log` nhánh "KTV da nhan": bắt buộc `user.email === pxk.nguoi_nhan_hang` (hoặc Admin) —
+trước đây bất kỳ ai cũng xác nhận được. Thêm `backend/src/lib/googleDrive.ts`: tự ký JWT RS256 bằng
+Web Crypto (`crypto.subtle.importKey("pkcs8", ...)` + `sign`, không thêm npm package nào) từ Service
+Account, đổi lấy access token qua luồng "JWT Bearer" chuẩn của Google (mirror đúng pattern
+fetch+URLSearchParams đã dùng ở `auth.ts`), upload `multipart/related` thủ công (Drive không chấp
+nhận `multipart/form-data` của `FormData`) lên `POST /:id/anh-bien-ban` (endpoint mới, đọc binary thô
+qua `c.req.arrayBuffer()` — điểm khởi đầu đầu tiên trong repo nhận file nhị phân, không multipart
+parsing phía nhận). 3 secret mới trong `Env`: `GOOGLE_DRIVE_SA_EMAIL`, `GOOGLE_DRIVE_SA_PRIVATE_KEY`,
+`GOOGLE_DRIVE_FOLDER_ID`. Frontend: `PxkDetailModal` thêm input `<input type="file" accept="image/*"
+capture>` (chỉ hiện cho đúng người nhận hàng, ở bước "Dang gui KTV") gọi `api.postBinary` (client
+mới, gửi `ArrayBuffer` với `Content-Type` là mime ảnh thật — khác `postForm` dùng `FormData`); nút
+"KTV đã nhận" chỉ hiện cho đúng người nhận hàng (Admin có nút riêng "xác nhận thay" cho trường hợp
+đặc biệt, backend vẫn cho phép nhưng UI tách rõ để tránh nhầm lẫn).
+
+**Lưu ý quan trọng — tính năng ảnh biên bản CHƯA hoạt động được ngay**: 3 secret Google Drive chưa
+được set trên Worker (`wrangler secret list` xác nhận thiếu). Cần: (1) tạo Service Account trên
+Google Cloud, (2) share 1 thư mục Drive thật (khuyến nghị dùng Gmail của Admin, free 15GB) cho email
+Service Account với quyền Editor, (3) `wrangler secret put GOOGLE_DRIVE_SA_EMAIL` /
+`GOOGLE_DRIVE_SA_PRIVATE_KEY` (PEM từ JSON key) / `GOOGLE_DRIVE_FOLDER_ID` trên `wrangler.smarttrade.jsonc`.
+Trước khi hoàn tất bước này, nút tải ảnh sẽ báo lỗi (nhưng không chặn "KTV đã nhận" — ảnh vẫn đúng
+nghĩa "không bắt buộc").
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công. Migration 0077 áp thành công cả local lẫn
+remote `smarttrade` (cùng đợt còn áp lại được migration 0076 tồn đọng trước đó - tính năng "Cảnh báo
+tồn" độc lập, không liên quan đợt này). Không kiểm chứng được qua trình duyệt thật (cần đăng nhập
+Google — hạn chế đã ghi nhận từ trước); riêng tính năng ảnh biên bản (mục F) còn cần chủ hệ thống
+test thật trên điện thoại sau khi set xong 3 secret.
+
+Tăng version `1.197` → `1.198`, deploy `smarttrade` thành công.
+
+**Còn lại**: Đợt 3 (G — thiếu-lk redesign dạng thẻ), Đợt 4 (H — luồng trả hàng dùng chung PXK).
+
+## 2026-08-15 (phiên 5) — fix: dropdown "Người nhận hàng (tạo hộ)" chỉ hiện 4/460 KTV
+
+Chủ hệ thống test v1.198 với vai trò Admin, phát hiện dropdown "Người nhận hàng (tạo hộ)" ở màn "Tạo
+đơn" chỉ hiện 4 KTV dù Settings > Danh sách KTV đã ghép "Email đăng nhập" cho 460 người. Điều tra qua
+D1 (chỉ dùng `SELECT` — `d1 execute --remote` với INSERT/UPDATE tuỳ ý bị chặn bởi bộ lọc an toàn của
+Claude Code, không có cách lách):
+
+- `ktv_lien_he` (Danh sách KTV): 460 dòng đã ghép `email_dang_nhap`.
+- Nhưng chỉ 4/460 email đó thực sự có 1 dòng trong bảng `users` — vì `users` chỉ được tạo khi người
+  đó **đăng nhập Google lần đầu tiên** (xem `auth.ts`/`loadUser.ts`).
+- `GET /dat-mua-lk/nguoi-nhan-hang-kha-dung` (nguồn của dropdown) JOIN `ktv_lien_he` với `users` — ai
+  chưa từng đăng nhập thì biến mất khỏi danh sách.
+- Sâu hơn: `dat_don_hang.nguoi_nhan_hang`/`phieu_xuat_kho.nguoi_nhan_hang` là **FK thật** tới
+  `users(email)` (migration 0068/0074/0075) — nên đây không chỉ là lỗi hiển thị, mà **không thể tạo
+  đơn hộ** cho ai chưa đăng nhập, dù đã ghép email trong Settings.
+
+Đã trao đổi lại 3 phương án, chủ hệ thống chốt: dùng chính "mã KTV" (khoá của Danh sách KTV) + tự cấp
+sẵn tài khoản khi email đã ghép — tức **tự động cấp 1 tài khoản `users` "placeholder"** ngay khi Admin
+ghép `email_dang_nhap` trong Settings, thay vì chờ họ tự đăng nhập.
+
+### Giải pháp
+`backend/src/routes/settings.ts` — hàm `provisionPlaceholderUser(db, {email, ten, vaiTroKtv,
+giamSatQuanLy})`: `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh,
+giam_sat_quan_ly) VALUES (?, ?, NULL, 'Cho duyet', ...) ON CONFLICT(email) DO NOTHING`. Điểm mấu chốt
+đảm bảo AN TOÀN: `trang_thai_duyet` giữ nguyên `"Cho duyet"` + `vai_tro` NULL — giống hệt 1 tài khoản
+mới đăng nhập lần đầu thật, `loadUser.ts` vẫn chặn cứng mọi request tới khi Admin duyệt thật sự (đặt
+`la_ktv_dvbh`/`la_ve_tinh` trước không tự mở quyền truy cập gì). `ON CONFLICT DO NOTHING` không bao
+giờ ghi đè 1 tài khoản thật đã tồn tại; khi người đó đăng nhập Google thật, `auth.ts`'s `ON CONFLICT
+DO UPDATE SET ten=excluded.ten` tự cập nhật tên thật, giữ nguyên các cột khác đã cấp sẵn.
+
+Gọi hàm này ở 3 nơi: `PATCH /ktv-lien-he/:ma/dat-mua-lk` (ghép 1 KTV) và `POST
+/ktv-lien-he/import/commit` (ghép hàng loạt qua Excel) — tự động cấp ngay cho các lần ghép MỚI từ nay
+về sau; và endpoint mới `POST /ktv-lien-he/backfill-users` (Admin, idempotent) để bù cho 456 dòng đã
+ghép TỪ TRƯỚC khi tính năng này tồn tại.
+
+Frontend: nút mới "🔑 Cấp tài khoản trước cho KTV chưa đăng nhập" trong Settings > Danh sách KTV
+(cạnh "⬇ Xuất Excel"), gọi endpoint backfill, hiện toast số lượng đã kiểm tra.
+
+**Chủ hệ thống cần bấm nút này 1 lần** (Settings > Danh sách KTV) để áp dụng ngay cho 456 KTV đã
+ghép từ trước — không cần chờ họ tự đăng nhập.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công. Không có migration mới (chỉ thêm route +
+INSERT có điều kiện, không đổi schema). Không kiểm chứng được qua trình duyệt thật.
+
+Tăng version `1.198` → `1.199`, deploy `smarttrade` thành công.
+
+## 2026-08-16 (phiên 6) — 10 yêu cầu góp ý đợt 3 module "Đặt mua linh kiện", Đợt 1: ưu tiên, tên KTV, giá bán, mặc định UI
+
+Sau khi hoàn tất v1.200 và viết `SPEC_MODULE_DAT_MUA_LINH_KIEN.md` (tài liệu bàn giao chức năng cho
+AI khác xây lại giao diện), chủ hệ thống gửi 1 batch 10 yêu cầu/góp ý mới. Dùng `AskUserQuestion` 2
+vòng để làm rõ toàn bộ điểm mơ hồ trước khi lên kế hoạch (đúng yêu cầu "không hiểu thì hỏi, không tự
+ý thêm" — đã lưu thành memory nguyên tắc chung, KHÔNG lưu chi tiết 10 yêu cầu vào memory theo đúng ý
+chủ hệ thống muốn sau khi làm rõ). Lên kế hoạch 5 đợt độc lập trong `concurrent-mapping-wolf.md`,
+triển khai Đợt 1 trong phiên này:
+
+- **Migration 0078**: thêm `dat_don_hang.uu_tien` (0/1) — người tạo tích ưu tiên riêng từng dòng,
+  hiển thị badge ⭐ + tô nền amber nhạt ở `DonHangGroupedList`, `DonHangDetailModal`,
+  `PxkDetailModal` (không đổi thứ tự sắp xếp, đúng yêu cầu).
+- **Đổi nguồn "Giá đề xuất"**: từ `linh_kien.gia_tham_chieu` sang `linh_kien.gia_ban` (cột đã có sẵn
+  từ đầu, đang được quản lý chủ động qua `lkSettings.ts`/`linhKienSync.ts`) — sửa `POST /phieu-dat`,
+  `processDatDonHangImportRows` (import Excel), và 2 chỗ tính `giaUocTinh`/`tongGiaUocTinh` ở
+  `TaoDonTab`. Giá đề xuất **vẫn là hiển thị, không cho sửa tay** (đúng ý chủ hệ thống làm rõ lại).
+- **Hiện tên KTV thay vì email khắp module**: mở quyền `GET /dat-mua-lk/nguoi-nhan-hang-kha-dung`
+  cho MỌI người đã đăng nhập (trước đây chỉ TN/GS gọi được — Kho/Kế toán bị 403), thêm hook dùng
+  chung `useKtvDisplayMap()` + `formatNguoiDisplay()` ở frontend, áp dụng cho header nhóm trong
+  `DonHangGroupedList`, cột người tạo/nhận trong `PhieuXuatKhoTab`/`PxkDetailModal`, cột trong
+  `TraHangTab`/`ThieuLkTab`.
+- **Mặc định "Loại đề xuất" = MUA HÀNG** khi mở form tạo đơn lần đầu (dòng duy nhất, chưa ai đụng).
+  Đổi "Yêu cầu hoá đơn" từ dropdown 3 lựa chọn sang 3 nút tích chọn gọn (nhãn rút gọn "HĐ - Không thu
+  phí"/"HĐ - Có thu phí", giá trị lưu DB không đổi). Ô "Mã yêu cầu sự cố" giới hạn `maxLength=20` +
+  thu hẹp bề rộng.
+- **Mục "Sao báo cáo không có thông tin gì cả?" — đã chẩn đoán, KHÔNG phải lỗi**: kiểm tra D1 remote
+  read-only thấy production chỉ có 4 dòng đơn hàng test, 3 dòng đã "Đã huỷ" (bị tab Báo cáo loại trừ
+  đúng thiết kế) + 1 dòng thiếu `nguoi_nhan_hang` (không nhóm được) → không còn dòng hợp lệ nào để
+  hiện, đúng hành vi "Chưa có dữ liệu." Không sửa code.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công. Migration 0078 áp `local` rồi `smarttrade`
+thành công. Không kiểm chứng được qua trình duyệt thật.
+
+Tăng version `1.202` → `1.203`, deploy `smarttrade` thành công.
+
+## 2026-08-16 (phiên 6, tiếp) — Đợt 2: tự động kích hoạt tài khoản KTV/Trạm đã khai báo sẵn khi đăng nhập lần đầu
+
+Trước đây mọi tài khoản Google đăng nhập lần đầu (kể cả đã được Admin ghép sẵn `email_dang_nhap`
+trong Settings > Danh sách KTV qua `provisionPlaceholderUser`) đều dừng ở `trang_thai_duyet='Cho
+duyet'`, chờ Admin duyệt tay — `auth.ts` callback trước đây chỉ `ON CONFLICT DO UPDATE SET
+ten=excluded.ten`, không đụng `trang_thai_duyet`/vai trò/cờ dù đã có sẵn. Theo yêu cầu #3 (đã chốt
+"tự động kích hoạt hoàn toàn" qua `AskUserQuestion`), sửa `auth.ts`: trước khi upsert, tra
+`ktv_lien_he WHERE email_dang_nhap = ?`; nếu khớp, dùng 1 câu UPSERT khác — INSERT set thẳng
+`trang_thai_duyet='Da duyet'` + `la_ktv_dvbh`/`la_ve_tinh` (suy từ `vai_tro_ktv`) cho dòng MỚI, còn
+ON CONFLICT dùng `CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ... ELSE <giữ nguyên> END` cho từng
+cột — đảm bảo KHÔNG BAO GIỜ ghi đè 1 tài khoản đã duyệt/cấu hình thủ công trước đó (kể cả khi Admin
+sau này đổi sang vai trò khác). `giam_sat_quan_ly` chỉ set khi email đó đã tồn tại thật trong `users`
+(kiểm tra trước, tránh đúng lỗi FK đã gặp ở phiên 5 - bug backfill-users). Email KHÔNG khớp
+`ktv_lien_he`: giữ nguyên hành vi cũ (chỉ cập nhật tên, vẫn `Cho duyet`).
+
+KTV mới hoàn toàn (chưa từng khai báo trong Danh sách KTV) không bị ảnh hưởng — vẫn đi đúng luồng cũ:
+gửi yêu cầu, chờ Admin duyệt tay.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công. Không có migration mới (chỉ đổi logic
+`auth.ts`). **Cần chủ hệ thống tự test bằng 1 tài khoản Google mới khớp `ktv_lien_he.email_dang_nhap`
+sau khi deploy** — môi trường agent không có tài khoản Google thật để xác minh end-to-end.
+
+Tăng version `1.203` → `1.204`, deploy `smarttrade` thành công.
+
+**Còn 4 đợt tiếp theo** (xem `concurrent-mapping-wolf.md`): Đợt 2 (tự động kích hoạt KTV/Trạm khi
+đăng nhập lần đầu nếu khớp Danh sách KTV), Đợt 3 (người tạo sửa được đơn trước khi TN xử lý + TN sửa
+4 trường phụ), Đợt 4 (Phiếu xuất kho phân theo loại mua/công nợ/trả hàng), Đợt 5 (viết lại màn "Tạo
+đơn" dạng accordion 2 cột + gợi ý nhanh gọn hơn + tô màu trường bắt buộc).
+
+Tăng version `1.195` → `1.196`, deploy `smarttrade` thành công.
+
+## 2026-08-16 (phiên 6, tiếp) — Đợt 3: người tạo sửa đơn khi còn mở + TN sửa 4 trường phụ (góp ý #6)
+
+Đảo ngược có chủ ý quy tắc "6 trường phụ bất biến sau khi tạo" của migration 0070, theo đúng quyết
+định đã chốt qua `AskUserQuestion`: "Người tạo sửa mọi trường trước khi TN xử lý; TN sửa đúng 4
+trường đã nêu lúc xử lý."
+
+**Backend** (`datMuaLinhKien.ts`, viết lại toàn bộ `PATCH /don-hang/:id`) — 2 nhánh quyền tách biệt:
+- Người tạo (`user.email === nguoi_tao`), CHỈ khi dòng còn ở `Cho Tram duyet`/`Cho TN duyet` (đúng
+  hằng `DON_HANG_DANG_MO` sẵn có ở frontend cho hành động duyệt/từ chối): sửa được toàn bộ
+  `ma_lk, loai_de_xuat, so_luong_de_xuat, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang,
+  chinh_sach, ma_yeu_cau_su_co, uu_tien`. Đổi `ma_lk` thì re-lookup `linh_kien` (dùng lại đúng logic
+  + lỗi `MA_LK_NOT_FOUND` như `POST /phieu-dat`, nguồn giá vẫn là `gia_ban` theo Đợt 1) để cập nhật
+  `ten_lk_snapshot`/`gia_de_xuat`/`loai_don`. Áp lại `canNoRequired` trên bộ giá trị SAU khi sửa, trả
+  `THIEU_CHINH_SACH_HOAC_MA_YCSC` nếu thiếu.
+- TN (`canTacNghiep`): giữ nguyên 5 trường cũ (`so_luong_thuc_xuat/gia_chot/ma_xuat_kho/ma_misa/
+  ly_do_cham`), THÊM 4 trường phụ mới (`ma_yeu_cau_su_co/yeu_cau_hoa_don/tt_khach_hang/
+  tt_mail_duyet`) — không giới hạn trạng thái, TN hỗ trợ sửa bất kỳ lúc nào đang xử lý.
+- Không khớp nhánh nào → `FORBIDDEN_ROLE` (403).
+
+**Frontend** (`DatMuaLinhKienModule.tsx`):
+- Tách logic đồng bộ cache linh kiện/loại đề xuất của `TaoDonTab` thành hook dùng chung
+  `useLkAndLdeCache(enabled)` — tránh lặp code khi `DonHangDetailModal` cũng cần tải danh mục lúc vào
+  chế độ sửa (`enabled = isEditMode`, chỉ tải khi thực sự cần).
+- `DonHangDetailModal`: thêm nút "✎ Sửa đơn" (chỉ hiện khi đúng người tạo + dòng còn mở) mở 1 form
+  sửa tại chỗ (tái dùng đúng bộ field/pattern của `TaoDonTab`: chọn linh kiện, 3 nút nhanh Loại đề
+  xuất, số lượng, Yêu cầu hoá đơn dạng chip, Mã yêu cầu sự cố + Chính sách bắt buộc có điều kiện,
+  TT+Mail duyệt, TT khách hàng, ô tích Ưu tiên, Ghi chú) — nút Lưu/Huỷ đưa xuống `footer` của Modal
+  (đè lên khối hành động Duyệt/Từ chối/Huỷ khi đang ở chế độ sửa). Thêm khối gấp gọn riêng "TN hỗ trợ
+  sửa thông tin phụ" (4 trường mới) hiện cho mọi TN xem chi tiết dòng, độc lập với quyền sửa của người
+  tạo — cả 2 khối dùng chung 1 endpoint PATCH mới.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công (chỉ còn cảnh báo chunk-size cũ, không liên
+quan). Không có migration mới. Không kiểm chứng được qua trình duyệt thật (cần đăng nhập Google).
+
+Tăng version `1.204` → `1.205`, deploy `smarttrade` thành công.
+
+**Còn 2 đợt tiếp theo**: Đợt 4 (Phiếu xuất kho phân theo loại mua/công nợ/trả hàng), Đợt 5 (viết lại
+màn "Tạo đơn" dạng accordion 2 cột + gợi ý nhanh gọn hơn + tô màu trường bắt buộc).
+
+## 2026-08-16 (phiên 6, tiếp) — Đợt 4: Phiếu xuất kho phân theo loại mua/công nợ/trả hàng (góp ý #8)
+
+Chốt qua `AskUserQuestion`: "chỉ cần trong loại đề xuất có chứa các chữ 'Mua hàng', 'Công nợ', 'Trả
+hàng' sẽ tính riêng ra 3 loại" — khớp chính xác hàm `deriveLoaiDon()` đã có sẵn, không phát sinh loại
+thứ 4 vì "mua" đã luôn là fallback. Luồng trả hàng (`TraHangTab`) vẫn tách riêng như hiện trạng
+(chưa gộp vào PXK) — 3 mảng thực chất là: PXK "Mua hàng"/"Công nợ" (2 sub-tab mới) + tab "Đơn trả
+hàng" sẵn có.
+
+**Migration** `0079_pxk_loai_don.sql`: thêm `phieu_xuat_kho.loai_don TEXT CHECK (IN mua/cong_no/
+tra_hang)`, backfill bằng scalar-subquery (chỉ điền khi TẤT CẢ dòng trong 1 PXK cùng 1 `loai_don`,
+giống hệt pattern migration 0074 cho `nguoi_nhan_hang` — PXK cũ trộn loại thì để `NULL`).
+
+**Backend** (`phieuXuatKho.ts`):
+- `GET /don-hang-kha-dung`: thêm filter `?loai_don=` (giữ nguyên loại trừ `tra_hang` mặc định).
+- `POST /`: body bắt buộc thêm `loai_don: 'mua'|'cong_no'`; validate MỌI `dat_don_hang_ids` chọn đều
+  cùng 1 `loai_don` đó (copy nguyên pattern `ktvSet`/`NHIEU_KTV_TRONG_1_PXK` đã có cho KTV, lỗi mới
+  `NHIEU_LOAI_TRONG_1_PXK`); ghi vào cột mới.
+- `GET /`: thêm `loai_don` vào SELECT + filter `?loai_don=`.
+- `GET /dat-mua-lk/don-hang` (`datMuaLinhKien.ts`): thêm filter `?loai_don=` (dùng cho sub-tab phía
+  "Đơn của tôi").
+
+**Frontend** (`DatMuaLinhKienModule.tsx`):
+- `PhieuXuatKhoTab`: thêm sub-tab "Mua hàng | Công nợ" đầu danh sách (mặc định Mua hàng, dùng
+  `LOAI_DON_TONE` cho nhãn + cột "Loại" mới trong bảng); modal tạo phiếu thêm bước chọn "Loại phiếu"
+  NGAY TRƯỚC bước chọn KTV — đổi loại thì reset KTV/dòng đã chọn, danh sách dòng khả dụng tự lọc theo
+  cả `loai_don` lẫn KTV.
+- `DonCuaToiTab`: thêm cùng 1 sub-tab "Mua hàng | Công nợ" (nhất quán với PXK) lọc qua
+  `GET /don-hang?loai_don=`.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía (thêm `loai_don` vào `PhieuXuatKhoRow` để khớp field mới), `npm run
+build` thành công. Migration 0079 áp local rồi remote đều thành công. Không kiểm chứng được qua
+trình duyệt thật (cần đăng nhập Google).
+
+Tăng version `1.205` → `1.206`, deploy `smarttrade` thành công.
+
+## 2026-08-16 (phiên 6, tiếp) — Đợt 5 (cuối): viết lại "Tạo đơn" dạng accordion 2 cột + tô màu bắt buộc
+
+Hoàn tất đợt cuối của batch 10 yêu cầu (`concurrent-mapping-wolf.md`), gói #2 (bố cục 2 cột) + #9
+(gợi ý nhanh gọn hơn) + #1 UI (tick ưu tiên) + yêu cầu thiết kế tổng thể "tô màu trường bắt buộc".
+
+**`TaoDonTab` (`DatMuaLinhKienModule.tsx`) viết lại toàn bộ phần render nhiều dòng:**
+- Bố cục accordion 2 cột khi có >1 dòng: cột trái là các dòng ĐÃ THU GỌN (bấm để mở lại), cột phải là
+  dòng ĐANG MỞ (`activeIdx`) với form đầy đủ y hệt trước — chỉ 1 dòng "mở" tại 1 thời điểm. Dòng thu
+  gọn hiện đúng mẫu `"LK-003 · Tên LK" / "Giá đề xuất: 92.000 đ / cái × 1 = 92.000 đ"`, có ⭐ nếu ưu
+  tiên, cảnh báo "Chưa hoàn tất" nếu dòng chưa đủ điều kiện.
+- Thêm `isLineComplete(d)` (tách từ điều kiện `canSubmit` cũ, dùng chung) để gate nút "+ Thêm dòng" —
+  disable cho tới khi dòng đang mở hoàn tất, đúng yêu cầu "phải xong A mới thêm được B". Bấm "+ Thêm
+  dòng" hoặc chọn 1 chip "Gợi ý nhanh" khi dòng đang mở đã đầy → dòng đó tự thu gọn, mở dòng mới.
+- Nút submit đổi nhãn động: "Tạo đơn" (1 dòng) / `"Tạo N đơn"` (N>1).
+- Thêm ô tích "⭐ Đơn ưu tiên" ngay trong form dòng đang mở (trước đây field `uu_tien` đã có ở Đợt 1
+  nhưng chưa có UI nhập tại đây, chỉ sửa được qua modal chi tiết).
+- "Gợi ý nhanh" (top-20 linh kiện): đổi từ dải chip luôn-mở sang khối thu gọn mặc định (cùng pattern
+  nút viền chấm như khối Import Excel), khi mở dùng 1 hàng chip CUỘN NGANG (`overflow-x-auto`) thay
+  vì wrap tự do — đỡ chiếm chiều cao khi có 10-20 mục.
+- Tô màu nhất quán cho nhãn trường bắt buộc: thêm helper `reqLabelClass(missing)` (màu coral khi còn
+  trống, thay 1 kiểu duy nhất) áp cho Mã linh kiện/Loại đề xuất/Số lượng (trước đây không có dấu hiệu
+  bắt buộc) và đồng bộ hoá với Chính sách/Mã yêu cầu sự cố (trước đây chỉ 2 trường này có "*"). Không
+  thêm token màu mới ngoài `--coral-*` sẵn có.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công (chỉ còn cảnh báo chunk-size cũ). Không có
+migration mới. Không kiểm chứng được qua trình duyệt thật (cần đăng nhập Google).
+
+Tăng version `1.206` → `1.207`, deploy `smarttrade` thành công.
+
+**=> Đã hoàn tất TOÀN BỘ batch 10 yêu cầu đợt 3** (`concurrent-mapping-wolf.md`, mục #1-#10). Điểm
+cần chủ hệ thống tự xác nhận thêm: Đợt 2 (tự động kích hoạt KTV/Trạm) cần test thật bằng 1 tài khoản
+Google khớp `ktv_lien_he.email_dang_nhap` — môi trường agent không có tài khoản Google thật để verify
+end-to-end OAuth.
+
+## 2026-08-16 (phiên 6, tiếp) — Xem trước thông tin ca khi nhập Mã yêu cầu sự cố + phát hiện bug token màu toàn hệ thống + redesign "Tạo đơn đặt linh kiện"
+
+Chủ hệ thống góp ý 2 điểm: (1) khi nhập "Mã yêu cầu sự cố liên quan" và tra được ca, phải hiện thêm
+thông tin cơ bản để tự đối chiếu đúng ca (trước đây chỉ báo ✓/⚠ boolean); (2) giao diện "Tạo đơn đặt
+linh kiện" xấu — yêu cầu đóng vai khách khó tính phê bình rồi sửa.
+
+### Phát hiện quan trọng: nhiều token màu CSS được dùng khắp app nhưng CHƯA TỪNG được định nghĩa
+
+Trước khi sửa giao diện, kiểm tra `tokens.css` (`:root`) qua `getComputedStyle` trên trang đăng nhập
+(không cần đăng nhập) phát hiện **9 biến CSS đang được dùng rộng rãi trong code (kể cả các module
+khác ngoài Đặt mua linh kiện: `CaseDetail.tsx`, `BacklogModule.tsx`, `PaginatedTable.tsx`,
+`SettingsModule.tsx`, `LoginScreen.tsx`, `Tabs.tsx`...) nhưng KHÔNG hề tồn tại trong `:root`**:
+`--ink-500`, `--ink-700`, `--surface-100`, `--surface-2`, `--surface-200`, `--teal-600`,
+`--amber-600`, `--amber-700`, `--coral-400`, `--coral-600`. Với `var()` trỏ tới 1 custom property
+chưa khai báo, trình duyệt coi là "invalid at computed-value time" — với `color`/`background-color`
+nghĩa là rớt về giá trị kế thừa (inherit), khiến MỌI chỗ dùng các token này (chữ phụ, nền panel nhạt,
+màu trạng thái "đã huỷ"/"đã duyệt"/"quá hạn"...) im lặng không hiện màu như code định — rất có thể là
+nguyên nhân thật sự đằng sau phản hồi "giao diện nhạt nhẽo/xấu" đã nhận được nhiều lần (kể cả các đợt
+trước đã cố tình thêm các token này để tô màu trạng thái mà không biết chúng chưa được định nghĩa).
+**Sửa `tokens.css`**: bổ sung cả 9 biến + `--surface-200` (phát hiện thêm khi rà lại
+`DatMuaLinhKienModule.tsx`, dùng trong `SummaryStrip` hover), giá trị chọn theo đúng mạch màu hiện có
+(vd `--teal-600`/`--amber-600`/`--amber-700`/`--coral-600` là bản đậm hơn của `-500` cùng tông, dùng
+cho chữ trên nền trắng; `--ink-500` nằm giữa `-400`/`-600`; `--surface-100`/`-2`/`-200` là các sắc độ
+nền nhạt phân tầng giữa trắng và `--bg`). Đây là sửa hạ tầng, ảnh hưởng TOÀN BỘ app (không chỉ module
+Đặt mua linh kiện) — đã verify qua `getComputedStyle` trên production sau deploy, cả 9+1 biến đều trả
+đúng giá trị hex thay vì rỗng.
+
+### 1. Xem trước thông tin ca khi nhập "Mã yêu cầu sự cố"
+
+**Backend** `GET /dat-mua-lk/kiem-tra-ma-yeu-cau`: mở rộng SELECT thêm
+`khach_hang, seri_san_pham, khu_vuc, tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh`
+(cùng `ky_thuat_vien` đã có), trả về object `preview` khi tìm thấy ca — CÓ Ý chọn tập nhỏ, KHÔNG trả
+nguyên dòng case (bỏ qua mô tả lỗi, số tiền, ngày giờ chi tiết...) để đối chiếu đủ dùng mà không lộ dữ
+liệu nhạy cảm/tài chính của ca.
+
+**Frontend** `MaYeuCauSuCoCheck`: đổi từ 1 dòng cảnh báo text đơn sang 1 thẻ nhỏ tô màu theo trạng
+thái khớp KTV (xanh teal = đúng KTV, đỏ coral = sai KTV, xám trung tính = tìm thấy nhưng không so
+sánh được), bên trong hiện lưới 2 cột: Khách hàng, Serial, Hãng + Sản phẩm bảo hành, Khu vực (dùng lại
+`shortKhuVuc()` sẵn có), Tiến độ, KTV xử lý.
+
+### 2. "Khách khó tính" phê bình + redesign "Tạo đơn đặt linh kiện" (`TaoDonTab`)
+
+Rà lại toàn bộ JSX + tra cứu tokens, liệt kê phàn nàn cụ thể (màu sắc/vị trí/thiết kế/phong cách):
+tiêu đề modal vẫn ghi "Tạo phiếu đặt mới" dù cả hệ thống đã bỏ khái niệm "phiếu" từ đợt trước (lỗi
+nhất quán ngôn từ thật); 2 nút "mở rộng" (Import Excel, Gợi ý nhanh) dùng chung 1 kiểu viền chấm xám
+giống hệt nhau nên nhìn như 1 tính năng lặp lại dù bản chất khác hẳn (nghiệp vụ nặng cho TN/GS vs lối
+tắt phổ thông cho mọi người); khối "Người nhận hàng" trôi nổi không có khung/nền, không giống bước 1
+thật sự của form; header mỗi thẻ dòng dùng `--bg` (trùng màu nền trang) nên lẫn vào khung modal thay
+vì phân tầng rõ; nút "Xóa dòng" chỉ là link chữ suông không có trọng lượng thị giác cho 1 hành động
+huỷ; ô tích "Đơn ưu tiên" nhét giữa 2 khối bằng margin âm, không có khung riêng; thẻ dòng thu gọn (cột
+trái) và thẻ dòng đang mở (cột phải) dùng 2 "ngôn ngữ" bo góc khác nhau (`rounded-lg` không header vs
+`rounded-xl` có header) nên không giống cùng 1 loại component; thanh footer (hành động chính của cả
+màn hình) dùng cùng 1 kiểu viền xám trung tính như mọi footer khác trong app, không có trọng lượng
+tương xứng vai trò nút submit chính.
+
+**Đã sửa**: đổi tiêu đề modal + text toast từ "phiếu đặt" → "đơn đặt hàng"/"đơn"; bọc "Người nhận
+hàng" trong 1 khối thẻ `surface-100` có nhãn in hoa; tách màu 2 nút mở rộng — "Gợi ý nhanh" tô tint
+ocean (đồng nhất với khi mở rộng), "Import Excel" giữ tông xám trung tính; đổi nền header thẻ dòng từ
+`--bg` sang `--surface-100`; đổi "Xóa dòng" từ link chữ sang `Btn variant="danger"` thật; bọc ô tích
+"Đơn ưu tiên" thành 1 khối toggle có viền/nền đổi màu khi tích; đồng bộ thẻ thu gọn cột trái dùng
+`rounded-xl` + 1 dải header mini giống thẻ đang mở; footer thêm nền tint ocean nhạt + tăng cỡ nút submit
+chính (`size="md"`) để nổi bật là hành động chính của màn hình.
+
+### Kiểm thử
+`tsc --noEmit` sạch cả 2 phía, `npm run build` thành công. Verify token màu qua `getComputedStyle`
+trên production sau deploy — tất cả biến trả đúng giá trị. Không kiểm chứng được UI có đăng nhập thật
+(cần Google OAuth — hạn chế đã ghi nhận từ trước) nhưng đã xác nhận trang không lỗi JS console (chỉ
+401 do chưa đăng nhập, không liên quan thay đổi).
+
+**Lưu ý phạm vi**: chỉ sửa 10 token màu bị thiếu MÀ `DatMuaLinhKienModule.tsx` đang dùng — rà nhanh
+toàn bộ `frontend/src` cho thấy còn nhiều token khác (`--ocean-50/200/300/900/950`, `--ink-50/800`...)
+cũng đang được dùng ở các module khác mà chưa kiểm tra hết có thiếu hay không; đây là 1 việc dọn dẹp
+riêng, chưa làm trong đợt này vì ngoài phạm vi yêu cầu.
+
+Tăng version `1.207` → `1.210` (một phiên khác đang chạy song song trong cùng thư mục đã tự bump lên
+`1.208`/`1.209` trước khi đợt này deploy — đã đọc lại giá trị hiện tại trước khi tăng tiếp, không ghi
+đè). Deploy `smarttrade` thành công.
+
+## 2026-08-16 (phiên 6, tiếp nữa) — Sự cố: production bị ghi đè về bản v1.176 cũ + khắc phục
+
+**Triệu chứng**: chủ hệ thống báo "1 phiên AI nào đó đã built nhầm phiên bản 1.176 cũ làm mất hết
+giao diện và tính năng mới ở các phiên bản sau".
+
+**Nguyên nhân xác định qua điều tra** (`git log`, `git branch -a`, `git worktree list`, `wrangler
+deployments list --config wrangler.smarttrade.jsonc`, so `assets/index-*.js` hash giữa curl production
+và build cục bộ):
+- Toàn bộ code của phiên làm việc này (Đợt 1→5, case-preview, redesign TaoDonTab, fix token màu...)
+  chỉ tồn tại dưới dạng **thay đổi CHƯA COMMIT** trong working directory chính — `main` vẫn dừng ở
+  commit `9b5ed0b` (v1.175).
+- Task nền do chính phiên này spawn (`task_a8a680b9`, audit token màu toàn app) chạy trong 1 **git
+  worktree cô lập** (`mcp__ccd_session__spawn_task` luôn checkout từ HEAD đã COMMIT, không thấy được
+  thay đổi chưa commit) — worktree đó checkout đúng v1.175, tự làm lại y hệt phần fix token màu (bản
+  thu hẹp, 10/12 token) thành 1 commit riêng `13ef1b6` trên nhánh `claude/nostalgic-wiles-2f9c7c`, bump
+  version thành "1.176".
+- Task đó (hoặc hành động nào đó xuất phát từ worktree này) đã chạy `wrangler deploy` với code v1.176
+  đó, ghi đè lên production SAU LẦN DEPLOY GẦN NHẤT của phiên chính (deploy lúc 04:47:07Z, sau deploy
+  của phiên chính lúc 04:06:48Z) — xác nhận qua `wrangler deployments list` (version id khác) và hash
+  bundle JS trên production (`index-DwAvP3Ab.js`) không khớp bản build cục bộ mới nhất
+  (`index-DFtJPsj9.js`).
+- **Bài học cốt lõi**: deploy hoàn toàn tách rời khỏi git — `wrangler deploy` build/deploy bất kỳ
+  trạng thái nào đang có trên đĩa, bất kể đã commit hay chưa, bất kể đang ở worktree nào. 1 tác vụ nền
+  chạy trong worktree riêng (kể cả do chính mình tạo ra) có thể vô tình deploy đè lên production nếu
+  nó tự ý chạy bước deploy — trong khi nó chỉ thấy lịch sử ĐÃ COMMIT, không thấy code mới nhất đang
+  nằm dưới dạng uncommitted ở working directory chính.
+
+**Khắc phục**: xác nhận migration D1 remote không có gì tồn đọng (`wrangler d1 migrations list
+--remote` → "No migrations to apply", nghĩa là DB schema không bị ảnh hưởng, chỉ code Worker/frontend
+bị ghi đè). `tsc --noEmit` sạch cả 2 phía (backend + frontend) trên đúng working directory chính (nơi
+giữ đầy đủ code mới nhất). Bump version `1.210` → `1.211`, `npm run build`, `npm run deploy:smarttrade`
+lại từ working directory chính — khôi phục production về đúng trạng thái đầy đủ tính năng. Xác nhận
+qua `curl` hash bundle JS khớp bản vừa build (`index-CHyQ-jTC.js`) và grep thấy đúng chuỗi `"1.211"`
+trong bundle đã deploy; mở trang đăng nhập qua Browser pane không có lỗi console (chỉ 401 do chưa đăng
+nhập, không liên quan).
+
+**Khuyến nghị chưa thực hiện** (cần chủ hệ thống xác nhận): toàn bộ khối lượng công việc rất lớn của
+phiên này vẫn đang ở dạng uncommitted trong working directory chính — rủi ro y hệt sự cố vừa xảy ra có
+thể lặp lại (`git status` cho thấy hàng chục file `M`) nếu có thêm 1 tác vụ nền/worktree khác chạy
+song song rồi tự deploy. Nên commit sớm vào `main` để khoá lại trạng thái đã khôi phục — chưa tự ý
+commit vì đây là hành động chủ hệ thống cần được hỏi trước.

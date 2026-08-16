@@ -11,6 +11,10 @@ import { nowVN } from "../lib/vnTime";
 const lkSettings = new Hono<{ Bindings: Env }>();
 lkSettings.use("*", verifySessionMiddleware, loadUser);
 const adminOnly = requireRole("Admin");
+// Giai doan 5 (chot 2026-08-14): mo quyen ghi danh muc linh kien + nhom thay the cho Giam sat +
+// Tac nghiep, khong con adminOnly - ho la nguoi truc tiep tiep xuc KTV/don hang nen can tu bo sung
+// nhanh, khong phai cho Admin. BOM import van giu adminOnly (ngoai pham vi chot).
+const quanLyDanhMuc = requireRole("Admin", "TBP DVBH", "Giam sat");
 
 // D1 batch/bind-param safety margin - xem lib/importProcessor.ts.
 const CHUNK_SIZE_BATCH = 500;
@@ -34,7 +38,7 @@ lkSettings.get("/danh-muc", async (c) => {
   return c.json({ rows: results });
 });
 
-lkSettings.post("/danh-muc", adminOnly, async (c) => {
+lkSettings.post("/danh-muc", quanLyDanhMuc, async (c) => {
   const body = await c.req.json<{ ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
 
@@ -54,7 +58,7 @@ lkSettings.post("/danh-muc", adminOnly, async (c) => {
   return c.json(row, 201);
 });
 
-lkSettings.patch("/danh-muc/:ma", adminOnly, async (c) => {
+lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
   const ma = c.req.param("ma");
   const body = await c.req.json<{ ten_linh_kien?: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; bat_tat?: boolean }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
@@ -99,7 +103,7 @@ lkSettings.get("/nhom-thay-the", async (c) => {
 
 // POST /api/lk-settings/nhom-thay-the - { ten_nhom, ghi_chu?, ma_lk_list } tao moi (thay toan bo
 // thanh vien trong 1 lan, khong PATCH tung dong - danh sach thanh vien thuong nho, don gian hon).
-lkSettings.post("/nhom-thay-the", adminOnly, async (c) => {
+lkSettings.post("/nhom-thay-the", quanLyDanhMuc, async (c) => {
   const body = await c.req.json<{ ten_nhom: string; ghi_chu?: string | null; ma_lk_list: string[] }>();
   if (!body.ten_nhom?.trim() || !Array.isArray(body.ma_lk_list) || body.ma_lk_list.length === 0) {
     return c.json({ error: "MISSING_FIELDS" }, 400);
@@ -120,7 +124,7 @@ lkSettings.post("/nhom-thay-the", adminOnly, async (c) => {
   return c.json(nhom, 201);
 });
 
-lkSettings.patch("/nhom-thay-the/:id", adminOnly, async (c) => {
+lkSettings.patch("/nhom-thay-the/:id", quanLyDanhMuc, async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json<{ ten_nhom?: string; ghi_chu?: string | null; ma_lk_list?: string[] }>();
   const existing = await c.env.DB.prepare("SELECT * FROM lk_nhom_thay_the WHERE id = ?").bind(id).first();

@@ -13,7 +13,14 @@
 // (survey.ts assign/assign-bulk) - cac ghi do KHONG lam bao cao tinh san tren domain "cases" cu di.
 // "tranh_chap" them 2026-07-29: bump moi lan ghi tranh_chap_tien_trinh/tranh_chap_log (xem
 // routes/tranhChap.ts) - dung cho cachedReport() cua GET /tranh-chap/tien-trinh + /notifications/count.
-const ALL_DOMAINS = ["blacklist", "cases", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "settings", "tranh_chap", "users", "vi_pham"] as const;
+// "dat_mua_lk" them 2026-08-14: bump o moi duong ghi dat_don_hang_log/phieu_xuat_kho_log/
+// thieu_lk_log/tra_hang_log/phieu_dat (routes/datMuaLinhKien.ts, phieuXuatKho.ts, traHang.ts) -
+// dung rieng cho badge sidebar module "Dat mua linh kien" trong /notifications/count. TRUOC DAY cac
+// duong ghi nay bump nham domain "cases" (khong co bao cao tinh san nao doc case_dvbh tu cac bang
+// nay - xem R8 YEU_CAU_BAO_CAO_TINH_SAN.md ve nguyen tac "chi bump domain thuc su co bao cao phu
+// thuoc") - da doi lai domain dung khi them field badge nay, tranh lam moi luot duyet/tu choi don
+// mua linh kien vo tinh ep toan bo dashboard/report tinh lai khong can thiet.
+const ALL_DOMAINS = ["blacklist", "cases", "dat_mua_lk", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "settings", "tranh_chap", "users", "vi_pham"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay

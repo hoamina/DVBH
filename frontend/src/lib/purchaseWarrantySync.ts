@@ -7,13 +7,29 @@
 import { parseTsv } from "./tsvParser";
 import { getCachedEntry, setCachedEntry } from "./closedDataCache";
 
-export type PurchaseWarrantyDataset = "mua-hang" | "bao-hanh" | "thieu-hang";
+export type PurchaseWarrantyDataset = "mua-hang" | "bao-hanh" | "thieu-hang" | "qc-thuc-te";
 
 // "_region": "MB"/"MN" hoac "" (danh sach khong tach mien, vd "thieu-hang") - dung "" thay vi null
 // de khop voi index signature Record<string, string> cua SheetRow (moi field deu la string).
+// "_rawJson": nguyen ca dong sheet GOC (het moi cot, key la tieu de that tren sheet), serialize thanh
+// JSON string de van khop kieu Record<string, string> - FIELD_ALIASES o duoi chi chieu 1 tap con
+// field can cho list/doi chieu, "_rawJson" giu lai TOAN BO de tab "Xem day du" hien dung moi thu da
+// tai ve, ke ca cot chua duoc alias hoa (xem parseRawRow() ben duoi).
 export type SheetRow = Record<string, string>;
 
-const CACHE_PREFIX = "google-sheet:";
+export function parseRawRow(row: SheetRow): Record<string, string> {
+  try {
+    return row._rawJson ? JSON.parse(row._rawJson) : {};
+  } catch {
+    return {};
+  }
+}
+
+// "v2": tang khi doi CAU TRUC SheetRow (vd them "_rawJson") de cache cu trong IndexedDB cua nguoi
+// dung tu dong bi "mo côi" (khong con key nao tro toi) thay vi phai cho het TTL 2 gio hoac bat nguoi
+// dung tu bam "Dong bo lai" - xem parseRawRow() them "_rawJson" o tren, bug thuc te gap 2026-08-15
+// (modal "Xem day du" rong vi cache cu tu truoc khi co "_rawJson").
+const CACHE_PREFIX = "google-sheet-v2:";
 export const SYNC_TTL_MS = 2 * 60 * 60 * 1000;
 
 interface SourceSheet {
@@ -32,6 +48,9 @@ const SOURCES: Record<PurchaseWarrantyDataset, SourceSheet[]> = {
   ],
   "thieu-hang": [
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ02aMyUHGYZC59csU07jfbzDX0M3vRPipKCN1ZAwhGU6p6JWElulY1GFn5aAAJuAJ3VegHivyEKsfN/pub?gid=658175112&single=true&output=tsv", region: "" },
+  ],
+  "qc-thuc-te": [
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSSguxu-zqNnF_L1hvJCNSZzQPA8iMwjiY8qo_7mppz39xgdloucRTlBOGfT0B5PoXbg0Di_S41XQMc/pub?output=tsv", region: "" },
   ],
 };
 
@@ -87,6 +106,21 @@ const FIELD_ALIASES: Record<PurchaseWarrantyDataset, Record<string, string[]>> =
     ngayKhoXacNhan: ["Ngày kho xác nhận hàng về"],
     thayDoiNgayDuKien: ["Thay đổi ngày dự kiến hàng về"],
   },
+  "qc-thuc-te": {
+    ngayKtvDongCa: ["NGÀY KTV ĐÓNG CA"],
+    idCrm: ["ID CRM"],
+    tenKtv: ["TÊN KTV"],
+    danhGiaLoi: ["ĐÁNH GIÁ LỖI BÁO CÁO CRM"],
+    chiTietDanhGia: ["CHI TIẾT ĐÁNH GIÁ LỖI BÁO CÁO CRM"],
+    soLuongLoi: ["SỐ LƯỢNG LỖI"],
+    diemTieuChuan: ["ĐIỂM TIÊU CHUẨN"],
+    diemTru: ["ĐIỂM TRỪ"],
+    diemThuc: ["ĐIỂM THỰC"],
+    ketQua: ["KẾT QUẢ"],
+    ghiChu: ["GHI CHÚ"],
+    ngayDanhGia: ["NGÀY ĐÁNH GIÁ"],
+    nguoiDanhGia: ["NGƯỜI ĐÁNH GIÁ"],
+  },
 };
 
 function pickByAlias(row: Record<string, string>, aliases: string[]): string {
@@ -99,7 +133,7 @@ function pickByAlias(row: Record<string, string>, aliases: string[]): string {
 
 function projectRow(dataset: PurchaseWarrantyDataset, raw: Record<string, string>, region: "MB" | "MN" | ""): SheetRow {
   const aliases = FIELD_ALIASES[dataset];
-  const out: SheetRow = { _region: region };
+  const out: SheetRow = { _region: region, _rawJson: JSON.stringify(raw) };
   for (const [field, names] of Object.entries(aliases)) {
     out[field] = pickByAlias(raw, names);
   }

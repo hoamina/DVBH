@@ -25,6 +25,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds } from "../lib/dailySnapshot";
+import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
 
 const cases = new Hono<{ Bindings: Env }>();
@@ -145,6 +146,7 @@ export interface CasesCountsPayload {
   b2b: number;
   nskx: number;
   loc_tong_bcn: number;
+  vip_24h: number;
   da_giai_trinh: number;
   dmx_3_ngay: number;
   dmx_chua_gt_3_ngay: number;
@@ -176,6 +178,7 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as nskx,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.loc_tong_bcn} THEN 1 ELSE 0 END) as loc_tong_bcn,
+         SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.vip_24h} THEN 1 ELSE 0 END) as vip_24h,
          SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_3_ngay} THEN 1 ELSE 0 END) as dmx_3_ngay,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_chua_gt_3_ngay} THEN 1 ELSE 0 END) as dmx_chua_gt_3_ngay,
@@ -198,6 +201,7 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
     b2b: row?.b2b ?? 0,
     nskx: row?.nskx ?? 0,
     loc_tong_bcn: row?.loc_tong_bcn ?? 0,
+    vip_24h: row?.vip_24h ?? 0,
     da_giai_trinh: row?.da_giai_trinh ?? 0,
     dmx_3_ngay: row?.dmx_3_ngay ?? 0,
     dmx_chua_gt_3_ngay: row?.dmx_chua_gt_3_ngay ?? 0,
@@ -390,7 +394,7 @@ cases.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "ton-hien-tai";
   // Drill-down tu the "Bao cao ngay 08:00" phai giu ca da dong sau 08:00: day van la
   // case thuoc baseline va Giám sát can giai trinh. Cac danh sach thong thuong van chi lay ca mo.
-  const snapshot0800 = c.req.query("snapshot_0800") === "true" && (tab === "can-giai-trinh" || tab === "da-giai-trinh-trong-ngay");
+  const snapshot0800 = c.req.query("snapshot_0800") === "true" && (tab === "can-giai-trinh" || tab === "da-giai-trinh-trong-ngay" || tab === "canh-bao-ton");
   const khuVucFilter = c.req.query("khu_vuc");
   const isExport = c.req.query("export") === "true";
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
@@ -419,6 +423,10 @@ cases.get("/", async (c) => {
   } else if (tab === "can-giai-trinh") {
     const category = c.req.query("category") ?? "tong";
     tabFilter = NEED_GIAI_TRINH_CATEGORIES[category] ?? null;
+  } else if (tab === "canh-bao-ton") {
+    // Loc thuc su qua snapshotIdClause (id IN json_each(?)) ben duoi - "1=1" chi la placeholder de
+    // qua kiem tra INVALID_TAB, khong tu tinh dieu kien NEED_* song (bucket da dong bang tu 08:00).
+    tabFilter = "1=1";
   } else {
     tabFilter = TAB_FILTERS[tab] ?? null;
   }
@@ -430,7 +438,21 @@ cases.get("/", async (c) => {
   // (theo khu_vuc, xem getBacklogBucketsForKhuVuc trong dailySnapshot.ts), lam lech moc "since" so voi
   // moc da dung de tinh "remaining" tren StatCard - gay bug so lieu Danh sach chi tiet khong khop
   // StatCard "Tong can giai trinh" khi loc theo khu_vuc.
-  const snapshotResult = snapshot0800 ? await getBacklogSnapshotIds(c.env.DB, c.get("user"), khuVucFilter || undefined, tab === "da-giai-trinh-trong-ngay" ? "tong" : (c.req.query("category") ?? "tong")) : null;
+  // "canh-bao-ton": bucket toan he thong, khong theo vai_tro/khu_vuc (xem lib/canhBaoTon.ts) - "since"
+  // de null (khong dung block loc theo ngay_giai_trinh ben duoi, block do chi chay cho can-giai-trinh/
+  // da-giai-trinh-trong-ngay).
+  const snapshotResult =
+    tab === "canh-bao-ton" && snapshot0800
+      ? await (async () => {
+          const metricKey = c.req.query("category") as CanhBaoTonMetricKey | undefined;
+          const snap = await getCanhBaoTonSnapshot(c.env.DB);
+          const bucket = metricKey ? snap.buckets[metricKey] : undefined;
+          if (!bucket) return null;
+          return { ids: bucket.ids, since: null as unknown as string, sinceByKhuVuc: {} as Record<string, string> };
+        })()
+      : snapshot0800
+        ? await getBacklogSnapshotIds(c.env.DB, c.get("user"), khuVucFilter || undefined, tab === "da-giai-trinh-trong-ngay" ? "tong" : (c.req.query("category") ?? "tong"))
+        : null;
   if (snapshot0800 && snapshotResult === null) return c.json({ error: "SNAPSHOT_NOT_FOUND" }, 409);
   const snapshotIds = snapshotResult ? snapshotResult.ids : null;
   if (snapshotIds && snapshotIds.length === 0) return c.json({ rows: [], page, pageSize, total: 0 });
@@ -453,21 +475,38 @@ cases.get("/", async (c) => {
   // trong cau SQL cuoi cung (1 trong join, 1 trong whereSql) => bind gia tri nay 2 LAN, dung THU TU
   // xuat hien trong text ("${join} ${whereSql}" - join dung truoc). Xem chu thich day du o bien
   // "join" ben duoi ve ly do can gioi han nay (bug "Chua giai trinh" sai du GS da giai trinh).
-  const binds: unknown[] = [
-    ...(snapshotIds ? [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds)] : []),
-    ...scopeClause.binds,
-    ...khuVucClause.binds,
-    ...ageClause.binds,
-    ...dimClause.binds,
-    ...sharedClause.binds,
-    ...idClause.binds,
-    ...ktvClause.binds,
-    ...exclusionClause.binds,
-  ];
 
   const isDaGiaiTrinhTrongNgay = tab === "da-giai-trinh-trong-ngay";
   const caseStateFilter = snapshotIdClause ?? (snapshot0800 ? caseFilterTonAt0800("c") : (isDaGiaiTrinhTrongNgay ? "(c.thoi_gian_hoan_thanh IS NULL OR c.thoi_gian_hoan_thanh >= date(datetime('now', '+7 hours')))" : "c.thoi_gian_hoan_thanh IS NULL"));
-  let whereSql = `WHERE ${caseStateFilter} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${snapshotIdClause ? "" : ` AND ${tabFilter}`}${scopeClause.sql}${extraFilter}`;
+
+  // "canh-bao-ton" (Bao cao ton danh cho QL) chi dung tab nay - "Bao cao" (can-giai-trinh/
+  // da-giai-trinh-trong-ngay) van giu nguyen logic scope/khu_vuc/tuoi... o nhanh else ben duoi.
+  // Yeu cau nguoi dung: so da chot luc 08:00 phai LUON khop tuyet doi voi danh sach click-through,
+  // bat ke trang thai ca thay doi the nao sau do (giai trinh, archived, huy bo, doi khu_vuc...) hay
+  // vien dang xem co scope khu_vuc_phu_trach bi han che hay khong (card tong tinh toan he thong -
+  // xem canhBaoTon.ts). Vi vay CHI giu id/serial search + loc KTV (2 loc THU CONG nguoi dung tu
+  // go/chon trong luc xem), bo hoan toan scopeClause/khuVucClause/ageClause/dim/shared/exclusion.
+  const isCanhBaoTonFrozen = tab === "canh-bao-ton" && !!snapshotIdClause;
+
+  let whereSql: string;
+  let binds: unknown[];
+  if (isCanhBaoTonFrozen) {
+    whereSql = `WHERE ${snapshotIdClause}${idClause.sql}${ktvClause.sql}`;
+    binds = [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds), ...idClause.binds, ...ktvClause.binds];
+  } else {
+    whereSql = `WHERE ${caseStateFilter} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${snapshotIdClause ? "" : ` AND ${tabFilter}`}${scopeClause.sql}${extraFilter}`;
+    binds = [
+      ...(snapshotIds ? [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds)] : []),
+      ...scopeClause.binds,
+      ...khuVucClause.binds,
+      ...ageClause.binds,
+      ...dimClause.binds,
+      ...sharedClause.binds,
+      ...idClause.binds,
+      ...ktvClause.binds,
+      ...exclusionClause.binds,
+    ];
+  }
   if (snapshot0800 && since) {
     // Nhom "Tat ca DVBH" co the gom nhieu khu_vuc voi "since" KHAC NHAU (1 khu_vuc moi tu-heal
     // rieng le se co generatedAt lech xa cac khu_vuc con lai, xem chu thich sinceByKhuVuc trong
@@ -550,11 +589,12 @@ cases.get("/", async (c) => {
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as need_b2b,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as need_nskx,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.loc_tong_bcn} THEN 1 ELSE 0 END) as need_loc_tong_bcn,
+           (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.vip_24h} THEN 1 ELSE 0 END) as need_vip_24h,
            ${AGE_EXPR} as tuoi_ton
     FROM case_dvbh c
     ${join}
     ${whereSql}
-    ORDER BY c.${sortBy} ${sortDir}
+    ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.${sortBy} ${sortDir}
   `;
 
   if (isExport) {
@@ -772,6 +812,56 @@ cases.get("/giai-trinh-daily-trend", async (c) => {
   return c.json({ rows, excludedNgay: exclusionResults });
 });
 
+// GET /api/cases/canh-bao-ton - 8 so dem "Canh bao ton danh cho QL" cua snapshot dong bang 08:00 hom
+// nay (xem lib/canhBaoTon.ts) - toan he thong, khong loc theo khu_vuc_phu_trach cua nguoi xem (da
+// chot voi nguoi dung: day la bao cao escalation cap quan ly). Dung cho 8 o so tren the tong quan,
+// bam vao 1 o dieu huong sang GET /cases?tab=canh-bao-ton&category=<key>&snapshot_0800=true.
+cases.get("/canh-bao-ton", async (c) => {
+  const [snap, trend] = await Promise.all([getCanhBaoTonSnapshot(c.env.DB), getCanhBaoTonTrendDeltas(c.env.DB)]);
+  const counts = Object.fromEntries(Object.entries(snap.buckets).map(([key, bucket]) => [key, bucket.count]));
+  return c.json({ generatedAt: snap.generatedAt, counts, trend });
+});
+
+// GET /api/cases/canh-bao-ton-daily-trend?days=14 - bang lich su theo ngay cua "Canh bao ton danh
+// cho QL" (canh_bao_ton_daily_log, migration 0076), mirror y het /giai-trinh-daily-trend o tren -
+// chot 1 lan/ngay luc 08:00 (cung DAILY_SNAPSHOT_CRON), du lieu LICH SU (khong tinh song), chi loc
+// theo pham vi khu_vuc cua nguoi xem.
+cases.get("/canh-bao-ton-daily-trend", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const days = Math.min(60, Math.max(1, Number(c.req.query("days") ?? 14)));
+  const scopeClause = khuVucWhereClause(scope, "khu_vuc");
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT ngay, khu_vuc, ton_14_ngay, vip_svip_5_ngay, loc_tong_3_ngay, tranh_chap_3_ngay,
+            ton_20_ngay, vip_svip_7_ngay, loc_tong_5_ngay, tranh_chap_5_ngay
+     FROM canh_bao_ton_daily_log
+     WHERE ngay >= date('now', '+7 hours', ?)${scopeClause.sql}
+     ORDER BY khu_vuc ASC, ngay DESC`,
+  )
+    .bind(`-${days} days`, ...scopeClause.binds)
+    .all<{
+      ngay: string;
+      khu_vuc: string;
+      ton_14_ngay: number;
+      vip_svip_5_ngay: number;
+      loc_tong_3_ngay: number;
+      tranh_chap_3_ngay: number;
+      ton_20_ngay: number;
+      vip_svip_7_ngay: number;
+      loc_tong_5_ngay: number;
+      tranh_chap_5_ngay: number;
+    }>();
+
+  const byKhuVuc = new Map<string, (typeof results)[number][]>();
+  for (const r of results) {
+    const arr = byKhuVuc.get(r.khu_vuc) ?? [];
+    arr.push(r);
+    byKhuVuc.set(r.khu_vuc, arr);
+  }
+  const rows = Array.from(byKhuVuc.entries()).map(([khu_vuc, days]) => ({ khu_vuc, days }));
+  return c.json({ rows });
+});
+
 // GET /api/cases/tong-hop?khu_vuc=&hang=&trang_thai=&page=&pageSize=&export=
 // "Danh sach tong" - toan bo ca da dong trong 3 thang gan nhat (thang hien tai + 2 thang truoc,
 // tinh theo lich thang) CONG voi TAT CA ca dang ton (khong gioi han tuoi) - dung de doi chieu du
@@ -855,7 +945,7 @@ cases.get("/:id", async (c) => {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
 
-  const [giaiTrinhLog, ketQuaGoi, viPham, caLap, napGasDanhGia] = await Promise.all([
+  const [giaiTrinhLog, ketQuaGoi, viPham, caLap, napGasDanhGia, bienBanHop] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC").bind(id).all(),
@@ -863,6 +953,8 @@ cases.get("/:id", async (c) => {
     // Danh gia nap gas (xem migration 0025 + backend/src/routes/napGas.ts) - moi ca chi co 1 dong
     // (case_id la PRIMARY KEY), null neu chua tung duoc chot.
     c.env.DB.prepare("SELECT * FROM nap_gas_danh_gia WHERE case_id = ?").bind(id).first(),
+    // "Bien ban hop" (migration 0080) - nhat ky ghi chu cuoc hop, moi nhat truoc.
+    c.env.DB.prepare("SELECT * FROM bien_ban_hop WHERE case_id = ? ORDER BY id DESC").bind(id).all(),
   ]);
 
   return c.json({
@@ -872,7 +964,36 @@ cases.get("/:id", async (c) => {
     viPham: viPham.results,
     caLap,
     napGasDanhGia: napGasDanhGia ?? null,
+    bienBanHop: bienBanHop.results,
   });
+});
+
+// POST /api/cases/:id/bien-ban-hop - append-only nhat ky ghi chu cuoc hop (migration 0080). Bat ky
+// nguoi dung da dang nhap + co quyen xem ca nay deu ghi duoc (khong gioi han requireRole nhu
+// giai-trinh - day la ghi chu noi bo, khong phai quy trinh nghiep vu can duyet). "nguoi_ghi" lay tu
+// session (c.get("user").email), KHONG cho client tu goi de tranh gia mao.
+cases.post("/:id/bien-ban-hop", async (c) => {
+  const id = c.req.param("id");
+  if (!id) return c.json({ error: "INVALID_ID" }, 400);
+
+  const caseRow = await c.env.DB.prepare("SELECT id, khu_vuc FROM case_dvbh WHERE id = ?").bind(id).first<{ id: string; khu_vuc: string | null }>();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+
+  const body = await c.req.json<{ noi_dung?: string }>().catch(() => ({}) as { noi_dung?: string });
+  const noiDung = (body.noi_dung ?? "").trim();
+  if (!noiDung) return c.json({ error: "MISSING_NOI_DUNG" }, 400);
+
+  const user = c.get("user");
+  const row = await c.env.DB.prepare("INSERT INTO bien_ban_hop (case_id, noi_dung, nguoi_ghi) VALUES (?, ?, ?) RETURNING *")
+    .bind(id, noiDung, user.email)
+    .first();
+
+  return c.json({ row });
 });
 
 // POST /api/cases/:id/giai-trinh - append-only, khong bao gio UPDATE/DELETE. "KSNB Doi tac" DA BO

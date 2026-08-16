@@ -12,6 +12,7 @@ export interface ChoXuLyCase {
   id: string;
   khach_hang: string | null;
   khu_vuc: string | null;
+  nhom_kh?: string | null;
 }
 
 export interface TienTrinhRow {
@@ -22,6 +23,7 @@ export interface TienTrinhRow {
   ngay_tao: string;
   khach_hang: string | null;
   khu_vuc: string | null;
+  nhom_kh?: string | null;
   trang_thai_xu_ly: string | null;
   nguoi_xu_ly: string | null;
   ngay_xu_ly: string | null;

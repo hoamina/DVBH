@@ -5,7 +5,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 ## Nguyên lý
 
 1. Bảng `data_versions(domain TEXT PK, version INTEGER, updated_at)` — mỗi domain 1 dòng.
-2. Domain: `cases`, `giai_trinh`, `vi_pham`, `ket_qua_goi`, `giai_trinh_lap`, `blacklist`, `settings`, `users`, `nap_gas_danh_gia` (thêm 2026-07-24, xem migration 0025), `tranh_chap` (thêm 2026-07-29, xem migration 0035 — bảng `tranh_chap_tien_trinh`/`tranh_chap_log`).
+2. Domain: `cases`, `giai_trinh`, `vi_pham`, `ket_qua_goi`, `giai_trinh_lap`, `blacklist`, `settings`, `users`, `nap_gas_danh_gia` (thêm 2026-07-24, xem migration 0025), `tranh_chap` (thêm 2026-07-29, xem migration 0035 — bảng `tranh_chap_tien_trinh`/`tranh_chap_log`), `dat_mua_lk` (thêm 2026-08-14 — bảng `dat_don_hang_log`/`phieu_xuat_kho_log`/`thieu_lk_log`/`tra_hang_log`/`phieu_dat`, xem routes/datMuaLinhKien.ts + phieuXuatKho.ts + traHang.ts).
 3. Mọi đường GHI bump version domain tương ứng (UPSERT +1, chạy trong cùng batch/waitUntil với ghi chính).
 4. Endpoint báo cáo bọc qua `cachedReport(db, key, domains, compute)`:
    - key = tên endpoint + toàn bộ query param chuẩn hóa (sort key) + scope khu_vuc của user (sorted). Ví dụ: `rpt:cases/counts|khu_vuc=Hà Nội|scope=MB1,MB2`.
@@ -28,6 +28,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
   - `users`: users.ts PATCH /:email.
   - `nap_gas_danh_gia` (thêm 2026-07-24): napGas.ts PUT /:id/danh-gia.
   - `tranh_chap` (thêm 2026-07-29): tranhChap.ts POST /:caseId/tiep-nhan, POST /tien-trinh/:id/log, PATCH /log/:id.
+  - `dat_mua_lk` (thêm 2026-08-14): datMuaLinhKien.ts (POST /phieu-dat, POST /don-hang/:id/log, POST /don-hang/bulk-log, PATCH /don-hang/:id, POST /thieu-lk/:id/log), phieuXuatKho.ts (POST /, POST /:id/log), traHang.ts (POST /:donHangId/log, POST /:donHangId/log-lui).
 - Dọn rác rpt:% 7 ngày trong importRoute.ts (mục 5).
 
 ## R5 — Bọc nhóm endpoint TỒN/GIẢI TRÌNH (sau R4). CHỈ đụng các file này
@@ -38,7 +39,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 | GET /cases/backlog-stats | cases.ts | cases, giai_trinh, settings |
 | GET /cases/backlog-by-khu-vuc | cases.ts | cases, giai_trinh, settings |
 | GET /missing-parts/by-khu-vuc | missingParts.ts | cases, giai_trinh, settings |
-| GET /notifications/count | notifications.ts | cases, giai_trinh, vi_pham, giai_trinh_lap, blacklist, nap_gas_danh_gia, tranh_chap |
+| GET /notifications/count | notifications.ts | cases, giai_trinh, vi_pham, giai_trinh_lap, blacklist, nap_gas_danh_gia, tranh_chap, dat_mua_lk (thêm 2026-08-14, xem R10) |
 | GET /dashboard/daily-report | dailyReport.ts (computeDailyReport) | cases, giai_trinh, vi_pham, settings |
 | GET /nap-gas/by-khu-vuc (thêm 2026-07-24) | napGas.ts | cases, nap_gas_danh_gia |
 | GET /tranh-chap/tien-trinh/stats (thêm 2026-07-29) | tranhChap.ts | cases, tranh_chap |
@@ -145,6 +146,21 @@ Gọi `cachedReport` 2 lần (1 cho Block A với key `ca-lap/tong-quan-a`, 1 ch
 - KHÔNG đổi response shape trả về frontend.
 - `cd backend && npx tsc --noEmit` phải pass.
 - R9.1+R9.2 (cases.ts) và R9.3 (caLap.ts) là 2 file khác nhau, có thể làm song song.
+
+## R10 — Domain riêng cho module "Đặt mua linh kiện" (chốt 2026-08-14)
+
+Rà soát UI/UX toàn diện module "Đặt mua linh kiện" phát hiện: mọi đường ghi của module này
+(`datMuaLinhKien.ts`, `phieuXuatKho.ts`, `traHang.ts` — 9 vị trí) đang `bumpVersions(db, ["cases"])`
+sau mỗi lần duyệt/từ chối/tạo phiếu/xử lý thiếu LK/trả hàng. Rà lại theo đúng nguyên tắc R8: không
+báo cáo tính sẵn nào (bảng R5/R6) đọc `dat_don_hang`/`phieu_dat`/`phieu_xuat_kho`/`thieu_lk`/
+`tra_hang_log` — bump "cases" ở đây là **sai domain**, hậu quả là mỗi thao tác xử lý đơn mua linh
+kiện (tần suất cao khi TN xử lý hàng loạt) vô tình ép TOÀN BỘ báo cáo/dashboard khai domain `cases`
+tính lại không cần thiết.
+
+**Sửa**: đổi cả 9 vị trí sang `bumpVersions(db, ["dat_mua_lk"])` (domain mới, dùng riêng cho field
+`datMuaLk` của `GET /notifications/count` — badge sidebar module này). `GET /notifications/count`
+domain list cập nhật thành `cases, giai_trinh, vi_pham, giai_trinh_lap, blacklist,
+nap_gas_danh_gia, tranh_chap, dat_mua_lk`.
 
 ## Ràng buộc chung cho MỌI hạng mục
 

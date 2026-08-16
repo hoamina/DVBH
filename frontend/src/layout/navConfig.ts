@@ -5,7 +5,7 @@ export interface NavItem {
   label: string;
   icon: string;
   /** Neu co, Sidebar se hien "(N)" canh nhan sau khi doi chieu voi GET /notifications/count. */
-  countKey?: "backlog" | "missingParts" | "survey" | "caLap" | "napGas" | "tranhChap";
+  countKey?: "backlog" | "missingParts" | "survey" | "caLap" | "napGas" | "tranhChap" | "datMuaLk";
 }
 export interface NavGroup {
   label: string;
@@ -30,7 +30,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "survey", label: "Quản lý khảo sát", icon: "◐", countKey: "survey" },
       { key: "ca-lap", label: "Ca lặp", icon: "🔁", countKey: "caLap" },
       { key: "danh-sach-tong", label: "Danh sách tổng", icon: "📋" },
-      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "◈" },
+      // "tra-hang" la 1 tab CON cua module dat-mua-lk (App.tsx render lai DatMuaLinhKienModule voi
+      // forceView) - datMuaLk badge da GOM CA bucket tra hang, chi gan countKey o "dat-mua-lk" de
+      // tranh hien trung 1 con so o 2 dong sidebar gay hieu nham cong don.
+      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "◈", countKey: "datMuaLk" },
       { key: "tra-hang", label: "Đơn trả hàng", icon: "↩" },
     ],
   },

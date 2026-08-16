@@ -23,7 +23,8 @@ import { fetchWithHashCache } from "../lib/staticListCache";
 import { trangThaiLapOf } from "../lib/caLapStatus";
 import { computeCaseTickers } from "../lib/caseTickers";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
-import { matchMuaHang, matchBaoHanh, matchThieuHang } from "../lib/purchaseWarrantyMatch";
+import { matchMuaHang, matchBaoHanh, matchThieuHang, matchQcThucTe } from "../lib/purchaseWarrantyMatch";
+import { parseRawRow } from "../lib/purchaseWarrantySync";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import {
   TRANG_THAI_LABELS,
@@ -47,6 +48,7 @@ import {
   NAP_GAS_PHI_DICH_VU_KEYS,
   type CaseRow,
   type GiaiTrinhRow,
+  type BienBanHopRow,
   type LyDoRow,
   type LinhKienRow,
   type ViPhamRow,
@@ -59,50 +61,6 @@ import {
 
 type ViewMode = "compact" | "expanded";
 
-// CHOT 2026-08-12: nhan hien thi cho Modal "Xem day du" cua tab Mua hang/Bao hanh - liet ke DUNG
-// het cac field da project san trong SheetRow (xem FIELD_ALIASES trong lib/purchaseWarrantySync.ts),
-// gom ca vai field hien KHONG hien trong the rut gon (vd idXuat/maSuCoLienQuan, nguonTao/
-// tinhTrangBaoHanh/maYeuCau/maYeuCauNhapTay) - dat rieng o day (khong dua vao FIELD_ALIASES) vi do la
-// key noi bo (tieng Anh, khong dung lam nhan hien thi truc tiep).
-const MUA_HANG_DETAIL_LABELS: Record<string, string> = {
-  id: "ID",
-  idXuat: "ID xuất",
-  linhKien: "Linh kiện",
-  maLinhKien: "Mã linh kiện",
-  loaiDeXuat: "Loại đề xuất",
-  soLuongDeXuat: "Số lượng đề xuất",
-  ngayTao: "Ngày tạo",
-  trangThaiDuyet: "Trạng thái duyệt",
-  soLuongThucXuat: "Số lượng thực xuất",
-  lyDoTuChoi: "Lý do từ chối",
-  trangThaiGuiHang: "Trạng thái gửi hàng",
-  ngayKtvNhanHang: "Ngày KTV nhận hàng",
-  giaDeXuat: "Giá đề xuất",
-  maSuCoLienQuan: "Mã yêu cầu của sự cố liên quan",
-};
-
-const BAO_HANH_DETAIL_LABELS: Record<string, string> = {
-  id: "ID",
-  nguonTao: "Nguồn tạo",
-  tinhTrangBaoHanh: "Tình trạng bảo hành",
-  trangThai: "Trạng thái",
-  maYeuCau: "Mã yêu cầu",
-  maYeuCauNhapTay: "Mã yêu cầu nhập tay",
-  modelSanPham: "Model sản phẩm",
-  hang: "Hãng",
-  serial: "Serial",
-  linhKienSua: "Linh kiện sửa",
-  tinhTrangHuHong: "Tình trạng hư hỏng",
-  phuongAnXuLy: "Phương án xử lý",
-  cachThucXuLy: "Cách thức xử lý",
-  nguyenNhanCham: "Nguyên nhân chậm",
-  ngayGui: "Ngày gửi",
-  ngayGioTraXong: "Ngày giờ trả xong",
-  danhGiaKetQua: "Đánh giá kết quả sau sửa chữa",
-  nguoiSua: "Người sửa",
-  ghiChu: "Ghi chú",
-};
-
 interface CaseDetailResponse {
   case: CaseRow;
   giaiTrinh: GiaiTrinhRow[];
@@ -110,6 +68,7 @@ interface CaseDetailResponse {
   viPham: ViPhamRow[];
   caLap: CaLapDetection;
   napGasDanhGia: NapGasDanhGiaRow | null;
+  bienBanHop: BienBanHopRow[];
 }
 
 async function fetchCaseDetail(caseId: string): Promise<CaseDetailResponse> {
@@ -358,7 +317,9 @@ export function CaseDetail({
   // CHOT 2026-08-12: modal "Xem day du" cho 1 dong Mua hang/Bao hanh (the rut gon o tab tuong ung
   // khong hien HET moi cot cua Google Sheet - vd idXuat/maSuCoLienQuan/nguonTao/tinhTrangBaoHanh/
   // maYeuCau/maYeuCauNhapTay) - luu ca nhan "labels" de Modal dung chung 1 renderer cho ca 2 dataset.
-  const [detailModalRow, setDetailModalRow] = useState<{ title: string; row: Record<string, string>; labels: Record<string, string> } | null>(null);
+  // "raw" = TOAN BO cot goc tren sheet (xem SheetRow._raw trong lib/purchaseWarrantySync.ts), khong
+  // chi tap con field da alias hoa cho the rut gon - modal "Xem day du" hien dung MOI thu da tai ve.
+  const [detailModalRow, setDetailModalRow] = useState<{ title: string; raw: Record<string, string> } | null>(null);
   const [huyCaConfirmOpen, setHuyCaConfirmOpen] = useState(false);
   const [huyCaLyDo, setHuyCaLyDo] = useState("");
 
@@ -369,6 +330,8 @@ export function CaseDetail({
   const [napGasForm, setNapGasForm] = useState({ danh_gia_nap_gas: "", phi_dich_vu: "" });
   const lyDoChon = activeLyDo.find((l) => l.ten_ly_do === form.ly_do_cham) ?? activeLyDo[0];
   const giaiTrinhList = data?.giaiTrinh ?? [];
+  const bienBanHopList = data?.bienBanHop ?? [];
+  const [bienBanHopNoiDung, setBienBanHopNoiDung] = useState("");
 
   // Reset cac form nhap dang do (KHONG con reset tab/viewMode o day nua - 2 thu do gio do App.tsx
   // dieu khien theo tung tang cua case stack, xem comment o App.tsx) moi khi caseId doi - tranh du
@@ -439,17 +402,33 @@ export function CaseDetail({
     onError: () => addToast("Không thể ghi nhận giải trình, thử lại sau."),
   });
 
+  // "Bien ban hop" (migration 0080) - append-only, dung LAI dung pattern "fetch that + ghi de
+  // closedDataCache truoc khi setQueryData" nhu submit() o tren (giai trinh cung co the ap dung cho
+  // ca DA DONG lau, doc chu thich chi tiet o do), de dong moi hien ngay khong can bam "Dong bo lai".
+  const bienBanHopSubmit = useMutation({
+    mutationFn: () => api.post(`/cases/${caseId}/bien-ban-hop`, { noi_dung: bienBanHopNoiDung.trim() }),
+    onSuccess: async () => {
+      addToast("Đã lưu biên bản họp");
+      setBienBanHopNoiDung("");
+      const fresh = await fetchCaseDetail(caseId!);
+      const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+      qc.setQueryData(["case", caseId], newEntry);
+    },
+    onError: () => addToast("Không thể lưu biên bản họp, thử lại sau."),
+  });
+
   const c = data?.case;
   const caLap = data?.caLap;
 
   // Doi chieu "Don mua hang/bao hanh/xu ly thieu hang lien quan" - du lieu 3 Google Sheet da dong
   // bo NGAM ve cache trinh duyet (xem hooks/usePurchaseWarrantyData.ts, kich hoat tu App.tsx),
   // KHONG qua server. Chi tinh lai khi caseId/giaiTrinhList hoac du lieu sheet doi.
-  const { muaHang, baoHanh, thieuHang, isSyncing: purchaseSyncing, isRefreshing: purchaseRefreshing, lastSyncedAt: purchaseSyncedAt, refreshAll: refreshPurchaseData } =
+  const { muaHang, baoHanh, thieuHang, qcThucTe, isSyncing: purchaseSyncing, isRefreshing: purchaseRefreshing, lastSyncedAt: purchaseSyncedAt, refreshAll: refreshPurchaseData } =
     usePurchaseWarrantyData();
   const muaHangMatched = useMemo(() => (c ? matchMuaHang(c.id, giaiTrinhList, muaHang) : []), [c, giaiTrinhList, muaHang]);
   const baoHanhMatched = useMemo(() => (c ? matchBaoHanh(c.id, baoHanh) : []), [c, baoHanh]);
   const thieuHangMatched = useMemo(() => matchThieuHang(muaHangMatched, baoHanhMatched, thieuHang), [muaHangMatched, baoHanhMatched, thieuHang]);
+  const qcThucTeMatched = useMemo(() => (c ? matchQcThucTe(c.id, qcThucTe) : []), [c, qcThucTe]);
 
   const viPhamList = data?.viPham ?? [];
   const ketQuaGoiList = data?.ketQuaGoi ?? [];
@@ -721,6 +700,39 @@ export function CaseDetail({
         </div>
       </div>
     </>
+  );
+
+  const bienBanHopContent = (
+    <div>
+      <div className="mb-4">
+        <textarea
+          value={bienBanHopNoiDung}
+          onChange={(e) => setBienBanHopNoiDung(e.target.value)}
+          placeholder="Ghi nội dung cuộc họp về ca này…"
+          rows={3}
+          className="focus-ring w-full border border-[var(--line)] rounded-lg px-3 py-2 text-sm resize-y"
+        />
+        <div className="flex justify-end mt-2">
+          <Btn size="sm" disabled={!bienBanHopNoiDung.trim() || bienBanHopSubmit.isPending} onClick={() => bienBanHopSubmit.mutate()}>
+            {bienBanHopSubmit.isPending ? "Đang lưu…" : "+ Lưu biên bản họp"}
+          </Btn>
+        </div>
+      </div>
+
+      <div className="font-display font-bold text-sm mb-3">Nhật ký biên bản họp</div>
+      {bienBanHopList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có biên bản họp nào cho ca này.</div>}
+      <div className="space-y-3">
+        {bienBanHopList.map((b) => (
+          <div key={b.id} className="relative pl-4 border-l-2 border-[var(--ocean-100)]">
+            <div className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-[var(--ocean-500)]"></div>
+            <div className="text-xs text-[var(--ink-400)] mb-0.5">
+              {fmtDateTime(b.created_at)} · {b.nguoi_ghi}
+            </div>
+            <div className="text-sm text-[var(--ink-600)] whitespace-pre-wrap">{b.noi_dung}</div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 
   const viPhamContent = (
@@ -1018,12 +1030,17 @@ export function CaseDetail({
     if (t.includes("đang")) return "amber";
     return "gray";
   }
+  function qcKetQuaTone(ketQua: string): BadgeTone {
+    if (ketQua.toLowerCase().includes("không đạt")) return "coral";
+    if (ketQua.toLowerCase().includes("đạt")) return "teal";
+    return "gray";
+  }
 
   const purchaseSyncBanner = purchaseSyncedAt ? (
     <CacheBanner cachedAt={purchaseSyncedAt} onSync={refreshPurchaseData} isSyncing={purchaseRefreshing} />
   ) : (
     <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-100 text-xs text-[var(--ink-600)]">
-      <LoadingInline /> Đang đồng bộ dữ liệu mua hàng/bảo hành từ Google Sheet lần đầu…
+      <LoadingInline /> Đang đồng bộ dữ liệu mua hàng/bảo hành/QC từ Google Sheet lần đầu…
     </div>
   );
 
@@ -1055,7 +1072,7 @@ export function CaseDetail({
               {r.lyDoTuChoi && <Field label="Lý do từ chối" value={r.lyDoTuChoi} />}
             </div>
             <div className="flex justify-end mt-2">
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn mua hàng ${r.id}`, row: r, labels: MUA_HANG_DETAIL_LABELS })}>
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn mua hàng ${r.id}`, raw: parseRawRow(r) })}>
                 🔍 Xem đầy đủ
               </Btn>
             </div>
@@ -1097,7 +1114,7 @@ export function CaseDetail({
               {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
             </div>
             <div className="flex justify-end mt-2">
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn bảo hành ${r.id}`, row: r, labels: BAO_HANH_DETAIL_LABELS })}>
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn bảo hành ${r.id}`, raw: parseRawRow(r) })}>
                 🔍 Xem đầy đủ
               </Btn>
             </div>
@@ -1135,6 +1152,41 @@ export function CaseDetail({
     </div>
   );
 
+  const qcThucTeContent = (
+    <div>
+      {purchaseSyncBanner}
+      {!purchaseSyncing && qcThucTeMatched.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy kết quả QC thực tế liên quan đến ca này.</div>
+      )}
+      <div className="space-y-3">
+        {qcThucTeMatched.map((r, i) => (
+          <Card key={`${r.idCrm}-${i}`} className="p-3">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+              <span className="font-semibold text-sm">{r.tenKtv || "(chưa rõ KTV)"}</span>
+              {r.ketQua && <Badge tone={qcKetQuaTone(r.ketQua)}>{r.ketQua}</Badge>}
+            </div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.idCrm}</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+              <Field label="Ngày KTV đóng ca" value={r.ngayKtvDongCa || "—"} />
+              <Field label="Số lượng lỗi" value={r.soLuongLoi || "—"} />
+              <Field label="Điểm chuẩn / trừ / thực" value={`${r.diemTieuChuan || "—"} / ${r.diemTru || "—"} / ${r.diemThuc || "—"}`} />
+              <Field label="Ngày đánh giá" value={r.ngayDanhGia || "—"} />
+              <Field label="Người đánh giá" value={r.nguoiDanhGia || "—"} />
+              {r.danhGiaLoi && <Field label="Đánh giá lỗi báo cáo CRM" value={r.danhGiaLoi} />}
+              {r.chiTietDanhGia && <Field label="Chi tiết đánh giá lỗi báo cáo CRM" value={r.chiTietDanhGia} />}
+              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+            </div>
+            <div className="flex justify-end mt-2">
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `QC thực tế ${r.idCrm}`, raw: parseRawRow(r) })}>
+                🔍 Xem đầy đủ
+              </Btn>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
   const canWriteTranhChapForCase = !!(currentUser && canWriteTranhChap(currentUser, c?.khu_vuc ?? null));
 
   const tranhChapContent = (
@@ -1164,6 +1216,7 @@ export function CaseDetail({
       ? [
           { key: "info", label: "Thông tin" },
           { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
+          { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
           { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
           { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
@@ -1171,10 +1224,12 @@ export function CaseDetail({
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
           { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
         ]
       : [
           { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
+          { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
           { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
           { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
@@ -1182,6 +1237,7 @@ export function CaseDetail({
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
           { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
         ];
 
@@ -1302,6 +1358,7 @@ export function CaseDetail({
             <div className="overflow-y-auto p-5">
               <Tabs active={tab} onChange={onTabChange} tabs={tabsList} />
               {tab === "giai-trinh" && giaiTrinhContent}
+              {tab === "bien-ban-hop" && bienBanHopContent}
               {tab === "vi-pham" && viPhamContent}
               {tab === "khao-sat" && khaoSatContent}
               {tab === "ca-lap" && caLapContent}
@@ -1309,6 +1366,7 @@ export function CaseDetail({
               {tab === "mua-hang" && muaHangContent}
               {tab === "bao-hanh" && baoHanhContent}
               {tab === "thieu-hang" && thieuHangContent}
+              {tab === "qc-thuc-te" && qcThucTeContent}
               {tab === "tranh-chap" && tranhChapContent}
             </div>
           </div>
@@ -1319,6 +1377,7 @@ export function CaseDetail({
             <Tabs active={tab} onChange={onTabChange} tabs={tabsList} />
             {tab === "info" && infoContent}
             {tab === "giai-trinh" && giaiTrinhContent}
+            {tab === "bien-ban-hop" && bienBanHopContent}
             {tab === "vi-pham" && viPhamContent}
             {tab === "khao-sat" && khaoSatContent}
             {tab === "ca-lap" && caLapContent}
@@ -1326,6 +1385,7 @@ export function CaseDetail({
             {tab === "mua-hang" && muaHangContent}
             {tab === "bao-hanh" && baoHanhContent}
             {tab === "thieu-hang" && thieuHangContent}
+            {tab === "qc-thuc-te" && qcThucTeContent}
             {tab === "tranh-chap" && tranhChapContent}
           </div>
         )}
@@ -1466,8 +1526,8 @@ export function CaseDetail({
       {detailModalRow && (
         <Modal open onClose={() => setDetailModalRow(null)} title={detailModalRow.title} width="max-w-lg">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-            {Object.entries(detailModalRow.labels).map(([key, label]) => (
-              <Field key={key} label={label} value={detailModalRow.row[key] || "—"} />
+            {Object.entries(detailModalRow.raw).map(([header, value]) => (
+              <Field key={header} label={header} value={value || "—"} />
             ))}
           </div>
         </Modal>

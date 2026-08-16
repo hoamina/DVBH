@@ -109,7 +109,10 @@ missingParts.get("/", async (c) => {
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM (${query})`)
     .bind(...binds)
     .first<{ total: number }>();
-  const { results } = await c.env.DB.prepare(`${query} ORDER BY c.id DESC LIMIT ? OFFSET ?`)
+  // CHOT 2026-08-16: sap ca VIP/S.VIP len dau tien (theo yeu cau "toan bo danh sach ca ton chi tiet o
+  // moi cho" - dua VIP len dau), roi trong tung nhom sap ca ton lau nhat len truoc (thay vi ORDER BY
+  // id DESC/moi nhat truoc nhu cu) - theo yeu cau uu tien xu ly ca cang tre cang truoc.
+  const { results } = await c.env.DB.prepare(`${query} ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), tuoi_ton DESC, c.id DESC LIMIT ? OFFSET ?`)
     .bind(...binds, pageSize, offset)
     .all();
 

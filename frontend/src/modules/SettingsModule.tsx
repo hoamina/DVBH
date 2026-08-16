@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
+import { Select } from "../components/ui/Select";
 import { Card } from "../components/ui/Card";
 import { Btn } from "../components/ui/Btn";
 import { Modal } from "../components/ui/Modal";
@@ -42,6 +43,39 @@ interface SheetUrlRow {
   updated_by: string | null;
 }
 
+interface LdeNhomRow {
+  id: number;
+  ten_nhom: string;
+  vai_tro_json: string;
+  bat_tat: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
+interface LdeOptionRow {
+  id: number;
+  nhom_id: number;
+  ten_option: string;
+  bat_tat: number;
+  stt: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
+const LDE_VAI_TRO_FLAGS = [
+  { flag: "la_ktv_dvbh", label: "KTV DVBH" },
+  { flag: "la_ve_tinh", label: "Vệ tinh" },
+  { flag: "vai_tro:Admin", label: "Admin" },
+  { flag: "vai_tro:Viewer", label: "Viewer" },
+  { flag: "vai_tro:QC", label: "QC" },
+  { flag: "vai_tro:Giam sat", label: "Giám sát" },
+  { flag: "vai_tro:TBP DVBH", label: "TBP DVBH" },
+  { flag: "vai_tro:CSKH", label: "CSKH" },
+  { flag: "vai_tro:TN CSKH", label: "TN CSKH" },
+  { flag: "vai_tro:TBP CSKH", label: "TBP CSKH" },
+  { flag: "vai_tro:KSNB Doi tac", label: "KSNB Đối tác" },
+];
+
 const LOAI_DONG_BO_LABELS: Record<string, string> = {
   case: "Ca mới (import CRM hàng ngày)",
   linh_kien: "Bảng giá linh kiện",
@@ -78,6 +112,13 @@ export function SettingsModule() {
   const [newPartnerKey, setNewPartnerKey] = useState({ tenDoiTac: "", ghiChu: "" });
   const [createdPartnerKey, setCreatedPartnerKey] = useState<{ tenDoiTac: string; apiKey: string } | null>(null);
   const [partnerKeyPage, setPartnerKeyPage] = useState(1);
+  const [ldeNhomOpen, setLdeNhomOpen] = useState(false);
+  const [editingNhomId, setEditingNhomId] = useState<number | null>(null);
+  const [nhomForm, setNhomForm] = useState({ ten_nhom: "", vai_tro_flags: [] as string[], bat_tat: true });
+  const [ldeOptionOpen, setLdeOptionOpen] = useState(false);
+  const [editingOptionId, setEditingOptionId] = useState<number | null>(null);
+  const [optionNhomId, setOptionNhomId] = useState<number | null>(null);
+  const [optionForm, setOptionForm] = useState({ ten_option: "", stt: "0", bat_tat: true });
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [lyDoPage, setLyDoPage] = useState(1);
   const [linhKienPage, setLinhKienPage] = useState(1);
@@ -85,7 +126,7 @@ export function SettingsModule() {
   const [addPartOpen, setAddPartOpen] = useState(false);
   const [editPartOpen, setEditPartOpen] = useState(false);
   const [editingPartMa, setEditingPartMa] = useState<string | null>(null);
-  const [partForm, setPartForm] = useState({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
+  const [partForm, setPartForm] = useState({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", anh_demo: "" });
   const [phanLoaiPage, setPhanLoaiPage] = useState(1);
   const [ketQuaPage, setKetQuaPage] = useState(1);
   const [greetingGifPage, setGreetingGifPage] = useState(1);
@@ -93,7 +134,10 @@ export function SettingsModule() {
   const [ktvPage, setKtvPage] = useState(1);
   const [ktvModalOpen, setKtvModalOpen] = useState(false);
   const [editingKtvMa, setEditingKtvMa] = useState<string | null>(null);
-  const [ktvForm, setKtvForm] = useState({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "" });
+  const [ktvForm, setKtvForm] = useState({
+    ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "",
+    gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "",
+  });
 
   const { data: reasons } = useQuery({
     queryKey: ["settings-ly-do"],
@@ -138,6 +182,14 @@ export function SettingsModule() {
   const { data: partnerKeys } = useQuery({
     queryKey: ["settings-partner-keys"],
     queryFn: () => api.get<{ rows: PartnerApiKeyRow[] }>("/settings/partner-keys"),
+  });
+  const { data: ldeNhomData } = useQuery({
+    queryKey: ["settings-lde-nhom"],
+    queryFn: () => api.get<{ rows: LdeNhomRow[] }>("/settings/loai-de-xuat/nhom"),
+  });
+  const { data: ldeOptionsData } = useQuery({
+    queryKey: ["settings-lde-options"],
+    queryFn: () => api.get<{ rows: LdeOptionRow[] }>("/settings/loai-de-xuat"),
   });
 
   const toggleReason = useMutation({
@@ -308,6 +360,50 @@ export function SettingsModule() {
     },
   });
 
+  const saveNhomMutation = useMutation({
+    mutationFn: () => {
+      const body = { ten_nhom: nhomForm.ten_nhom.trim(), vai_tro_json: JSON.stringify(nhomForm.vai_tro_flags), bat_tat: nhomForm.bat_tat };
+      return editingNhomId
+        ? api.patch(`/settings/loai-de-xuat/nhom/${editingNhomId}`, body)
+        : api.post("/settings/loai-de-xuat/nhom", body);
+    },
+    onSuccess: () => {
+      addToast(editingNhomId ? "Đã cập nhật nhóm" : "Đã thêm nhóm mới");
+      setLdeNhomOpen(false);
+      setEditingNhomId(null);
+      setNhomForm({ ten_nhom: "", vai_tro_flags: [], bat_tat: true });
+      qc.invalidateQueries({ queryKey: ["settings-lde-nhom"] });
+    },
+    onError: () => addToast("Không thể lưu nhóm."),
+  });
+
+  const saveOptionMutation = useMutation({
+    mutationFn: () => {
+      const body = { ten_option: optionForm.ten_option.trim(), stt: Number(optionForm.stt) || 0, bat_tat: optionForm.bat_tat };
+      return editingOptionId
+        ? api.patch(`/settings/loai-de-xuat/${editingOptionId}`, body)
+        : api.post("/settings/loai-de-xuat", { nhom_id: optionNhomId, ...body });
+    },
+    onSuccess: () => {
+      addToast(editingOptionId ? "Đã cập nhật option" : "Đã thêm option mới");
+      setLdeOptionOpen(false);
+      setEditingOptionId(null);
+      setOptionNhomId(null);
+      setOptionForm({ ten_option: "", stt: "0", bat_tat: true });
+      qc.invalidateQueries({ queryKey: ["settings-lde-options"] });
+    },
+    onError: () => addToast("Không thể lưu option."),
+  });
+
+  const deleteOptionMutation = useMutation({
+    mutationFn: (id: number) => api.delete(`/settings/loai-de-xuat/${id}`),
+    onSuccess: () => {
+      addToast("Đã xóa option");
+      qc.invalidateQueries({ queryKey: ["settings-lde-options"] });
+    },
+    onError: () => addToast("Không thể xóa option."),
+  });
+
   const addLinhKienMutation = useMutation({
     mutationFn: () =>
       api.post("/settings/linh-kien", {
@@ -336,10 +432,11 @@ export function SettingsModule() {
         gia_tham_chieu: partForm.gia_tham_chieu ? Number(partForm.gia_tham_chieu) : undefined,
         don_vi: partForm.don_vi.trim() || undefined,
         ghi_chu: partForm.ghi_chu.trim() || undefined,
+        anh_demo: partForm.anh_demo.trim() || undefined,
       }),
     onSuccess: () => {
       addToast("Đã thêm linh kiện mới");
-      setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
+      setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", anh_demo: "" });
       setAddPartOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
@@ -354,6 +451,7 @@ export function SettingsModule() {
         gia_tham_chieu: partForm.gia_tham_chieu ? Number(partForm.gia_tham_chieu) : null,
         don_vi: partForm.don_vi.trim() || null,
         ghi_chu: partForm.ghi_chu.trim() || null,
+        anh_demo: partForm.anh_demo.trim() || null,
       }),
     onSuccess: () => {
       addToast("Đã cập nhật linh kiện");
@@ -365,21 +463,43 @@ export function SettingsModule() {
   });
 
   const saveKtvMutation = useMutation({
-    mutationFn: () =>
-      api.post("/settings/ktv-lien-he", {
+    // 2 loi goi: POST goc (ten_hien_thi/sdt/ghi_chu, dung chung voi CSKH) upsert truoc de dam bao
+    // dong ton tai, roi PATCH rieng .../dat-mua-lk (Admin-only, 4 cot moi migration 0067) - man
+    // hinh Settings chi Admin vao duoc (xem ROLE_MODULES) nen gop 1 form/1 nut Luu duy nhat cho don
+    // gian, khong can tach UI theo quyen.
+    mutationFn: async () => {
+      await api.post("/settings/ktv-lien-he", {
         ma_ktv: ktvForm.ma_ktv,
         ten_hien_thi: ktvForm.ten_hien_thi || undefined,
         sdt: ktvForm.sdt,
         ghi_chu: ktvForm.ghi_chu || undefined,
-      }),
+      });
+      await api.patch(`/settings/ktv-lien-he/${encodeURIComponent(ktvForm.ma_ktv.trim())}/dat-mua-lk`, {
+        gmail: ktvForm.gmail || null,
+        vai_tro_ktv: ktvForm.vai_tro_ktv || null,
+        giam_sat_quan_ly: ktvForm.giam_sat_quan_ly || null,
+        email_dang_nhap: ktvForm.email_dang_nhap || null,
+      });
+    },
     onSuccess: () => {
-      addToast(editingKtvMa ? "Đã cập nhật số điện thoại KTV" : "Đã thêm số điện thoại KTV");
+      addToast(editingKtvMa ? "Đã cập nhật KTV" : "Đã thêm KTV");
       setKtvModalOpen(false);
       setEditingKtvMa(null);
-      setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "" });
+      setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "", gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "" });
       qc.invalidateQueries({ queryKey: KTV_PHONE_QUERY_KEY });
     },
     onError: () => addToast("Không thể lưu, thử lại sau."),
+  });
+
+  // Cap tai khoan placeholder cho KTV da ghep "Email đăng nhập" TU TRUOC nhung chua tung dang nhap
+  // Google that (2026-08-15: phat hien "Người nhận hàng" chỉ hiện 4/460 KTV vì dat_don_hang/
+  // phieu_xuat_kho.nguoi_nhan_hang la FK that toi users(email) - xem provisionPlaceholderUser
+  // backend). Cac lan ghep MOI sau nay tu dong duoc cap (hook o PATCH .../dat-mua-lk va
+  // import/commit) - nut nay chi bu du lieu cu, bam lai nhieu lan cung an toan (idempotent).
+  const backfillUsersMutation = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; checked: number }>("/settings/ktv-lien-he/backfill-users", {}),
+    onSuccess: (res) => addToast(`Đã kiểm tra ${res.checked} KTV đã ghép email - tự động cấp tài khoản trước cho người chưa đăng nhập lần nào`),
+    onError: () => addToast("Không thể cấp tài khoản, thử lại sau."),
   });
 
   const deleteKtvMutation = useMutation({
@@ -499,6 +619,11 @@ export function SettingsModule() {
     { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono">{fmtVND(p.gia_ban)}</span> },
     { key: "gia_tham_chieu", header: "Giá tham chiếu", render: (p) => <span className="font-mono">{fmtVND(p.gia_tham_chieu)}</span> },
     { key: "don_vi", header: "Đơn vị", render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
+    {
+      key: "anh_demo",
+      header: "Ảnh minh hoạ",
+      render: (p) => (p.anh_demo ? <a href={p.anh_demo} target="_blank" rel="noreferrer" className="text-xs text-[var(--ocean-600)] hover:underline">Xem ảnh</a> : <span className="text-xs text-[var(--ink-400)]">—</span>),
+    },
     { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
     { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (p) => p.nguoi_cap_nhat },
     { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (p) => <span className="text-xs">{p.ngay_cap_nhat}</span> },
@@ -518,6 +643,7 @@ export function SettingsModule() {
               gia_tham_chieu: p.gia_tham_chieu?.toString() ?? "",
               don_vi: p.don_vi ?? "",
               ghi_chu: p.ghi_chu ?? "",
+              anh_demo: p.anh_demo ?? "",
             });
             setEditPartOpen(true);
           }}
@@ -532,7 +658,15 @@ export function SettingsModule() {
   const ktvColumns: Column<KtvLienHeRow>[] = [
     { key: "ma_ktv", header: "Mã KTV", render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
     { key: "ten_hien_thi", header: "Tên hiển thị", render: (r) => <span className="font-medium">{r.ten_hien_thi ?? "—"}</span> },
-    { key: "sdt", header: "Số điện thoại", render: (r) => <span className="font-mono">{r.sdt}</span> },
+    { key: "sdt", header: "Số điện thoại", render: (r) => <span className="font-mono">{r.sdt ?? "—"}</span> },
+    { key: "vai_tro_ktv", header: "Vai trò", render: (r) => <span className="text-xs">{r.vai_tro_ktv ?? "—"}</span> },
+    { key: "gmail", header: "Gmail", render: (r) => <span className="text-xs">{r.gmail ?? "—"}</span> },
+    { key: "giam_sat_quan_ly", header: "Giám sát", render: (r) => <span className="text-xs">{r.giam_sat_quan_ly ?? "—"}</span> },
+    {
+      key: "email_dang_nhap",
+      header: "Tài khoản đăng nhập",
+      render: (r) => (r.email_dang_nhap ? <span className="text-xs">{r.email_dang_nhap}</span> : <span className="text-xs text-[var(--ink-400)] italic">Chưa ghép</span>),
+    },
     { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
     { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ?? "—"}</span> },
     { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (r) => <span className="text-xs">{r.ngay_cap_nhat}</span> },
@@ -546,7 +680,10 @@ export function SettingsModule() {
             className="text-xs text-[var(--ocean-600)] hover:underline"
             onClick={() => {
               setEditingKtvMa(r.ma_ktv);
-              setKtvForm({ ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi ?? "", sdt: r.sdt, ghi_chu: r.ghi_chu ?? "" });
+              setKtvForm({
+                ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi ?? "", sdt: r.sdt ?? "", ghi_chu: r.ghi_chu ?? "",
+                gmail: r.gmail ?? "", vai_tro_ktv: r.vai_tro_ktv ?? "", giam_sat_quan_ly: r.giam_sat_quan_ly ?? "", email_dang_nhap: r.email_dang_nhap ?? "",
+              });
               setKtvModalOpen(true);
             }}
           >
@@ -568,13 +705,14 @@ export function SettingsModule() {
         tabs={[
           { key: "ly-do", label: "Lý do chậm" },
           { key: "linh-kien", label: "Danh mục linh kiện" },
-          { key: "ktv-lien-he", label: "SĐT kỹ thuật viên" },
+          { key: "ktv-lien-he", label: "Danh sách KTV" },
           { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
           { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
           { key: "loi-chao", label: "Lời chào" },
           { key: "giai-trinh-exclude-ngay", label: "Ngày loại trừ giải trình" },
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
           { key: "partner-keys", label: "API đối tác" },
+          { key: "loai-de-xuat", label: "Loại đề xuất" },
         ]}
       />
       {tab === "ly-do" && (
@@ -693,7 +831,7 @@ export function SettingsModule() {
               <Btn
                 size="sm"
                 onClick={() => {
-                  setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "" });
+                  setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", anh_demo: "" });
                   setAddPartOpen(true);
                 }}
               >
@@ -722,7 +860,7 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Số điện thoại kỹ thuật viên — hiển thị cạnh tên KTV ở các màn hình CSKH gọi khảo sát. CSKH cũng có thể tự thêm/sửa/xóa bằng cách bấm vào tên KTV khi xem 1 ca.
+              Danh sách KTV — số điện thoại hiển thị cạnh tên KTV ở các màn hình CSKH gọi khảo sát (CSKH cũng tự thêm/sửa/xóa được bằng cách bấm vào tên KTV khi xem 1 ca). Vai trò/Gmail/Giám sát/Tài khoản đăng nhập chỉ dùng cho module "Đặt mua linh kiện", chỉ Admin sửa được ở đây.
             </div>
             <div className="flex gap-2 shrink-0">
               <Btn
@@ -734,6 +872,10 @@ export function SettingsModule() {
                     ten_hien_thi: "Tên hiển thị",
                     sdt: "Số điện thoại",
                     ghi_chu: "Ghi chú",
+                    gmail: "Gmail",
+                    vai_tro_ktv: "Vai trò KTV",
+                    giam_sat_quan_ly: "Giám sát quản lý",
+                    email_dang_nhap: "Email đăng nhập",
                     nguoi_cap_nhat: "Người cập nhật",
                     ngay_cap_nhat: "Ngày cập nhật",
                   })
@@ -742,10 +884,19 @@ export function SettingsModule() {
                 ⬇ Xuất Excel
               </Btn>
               <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() => backfillUsersMutation.mutate()}
+                disabled={backfillUsersMutation.isPending}
+                title='Cấp tài khoản trước cho KTV đã ghép "Email đăng nhập" nhưng chưa từng đăng nhập Google lần nào - giúp họ hiện ra trong danh sách "Người nhận hàng" ngay cả khi chưa đăng nhập'
+              >
+                {backfillUsersMutation.isPending ? "Đang cấp..." : "🔑 Cấp tài khoản trước cho KTV chưa đăng nhập"}
+              </Btn>
+              <Btn
                 size="sm"
                 onClick={() => {
                   setEditingKtvMa(null);
-                  setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "" });
+                  setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "", gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "" });
                   setKtvModalOpen(true);
                 }}
               >
@@ -756,7 +907,7 @@ export function SettingsModule() {
           <ImportUploader<KtvImportSummary>
             description={
               <>
-                Nhập hàng loạt SĐT KTV từ file Excel/CSV (cột <b className="font-mono">ma_ktv</b>, <b className="font-mono">sdt</b> bắt buộc). Mã KTV đã có sẽ được cập nhật lại.
+                Nhập hàng loạt KTV từ file Excel/CSV. Bắt buộc: <b className="font-mono">ma_ktv</b>. Tùy chọn: <b className="font-mono">sdt</b>, <b className="font-mono">ten_hien_thi</b>, <b className="font-mono">ghi_chu</b>, <b className="font-mono">gmail</b>, <b className="font-mono">vai_tro_ktv</b> (KTV/CTV/Tram/Ve tinh), <b className="font-mono">giam_sat_quan_ly</b>, <b className="font-mono">email_dang_nhap</b>. Mã KTV đã có sẽ được cập nhật — 4 cột cuối chỉ ghi đè nếu ô có giá trị.
               </>
             }
             templateUrl="/api/settings/ktv-lien-he/template"
@@ -981,6 +1132,104 @@ export function SettingsModule() {
         </div>
       )}
 
+      {tab === "loai-de-xuat" && (
+        <div className="mt-4 space-y-6">
+          <div className="flex items-center justify-between mb-1 gap-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Danh sách loại đề xuất dùng khi tạo phiếu đặt mua linh kiện. Mỗi nhóm có thể gán cho nhiều vai trò/flag khác nhau.
+            </div>
+            <Btn size="sm" onClick={() => { setEditingNhomId(null); setNhomForm({ ten_nhom: "", vai_tro_flags: [], bat_tat: true }); setLdeNhomOpen(true); }}>
+              + Thêm nhóm
+            </Btn>
+          </div>
+          {(ldeNhomData?.rows ?? []).map((nhom) => {
+            const nhomOptions = (ldeOptionsData?.rows ?? []).filter((o) => o.nhom_id === nhom.id).sort((a, b) => a.stt - b.stt || a.id - b.id);
+            let flags: string[] = [];
+            try { flags = JSON.parse(nhom.vai_tro_json || "[]"); } catch { flags = []; }
+            const flagLabels = flags.map((f) => LDE_VAI_TRO_FLAGS.find((x) => x.flag === f)?.label ?? f);
+            return (
+              <Card key={nhom.id} className="p-4">
+                <div className="flex items-center justify-between mb-3 gap-3">
+                  <div>
+                    <span className="font-semibold text-sm">{nhom.ten_nhom}</span>
+                    {!nhom.bat_tat && <span className="ml-2 text-xs text-[var(--coral-500)] font-semibold">[Đã tắt]</span>}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {flagLabels.map((l) => (
+                        <span key={l} className="inline-block text-xs bg-[var(--ocean-50)] text-[var(--ocean-600)] border border-[var(--ocean-200)] rounded px-1.5 py-0.5">{l}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Btn variant="ghost" size="sm" onClick={() => {
+                      setEditingNhomId(nhom.id);
+                      setNhomForm({ ten_nhom: nhom.ten_nhom, vai_tro_flags: flags, bat_tat: !!nhom.bat_tat });
+                      setLdeNhomOpen(true);
+                    }}>Sửa nhóm</Btn>
+                    <Btn size="sm" onClick={() => {
+                      setEditingOptionId(null);
+                      setOptionNhomId(nhom.id);
+                      setOptionForm({ ten_option: "", stt: String(nhomOptions.length), bat_tat: true });
+                      setLdeOptionOpen(true);
+                    }}>+ Option</Btn>
+                  </div>
+                </div>
+                {nhomOptions.length === 0 ? (
+                  <div className="text-xs text-[var(--ink-400)] italic">Chưa có option nào trong nhóm này.</div>
+                ) : (
+                  <div className="border border-[var(--line)] rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-[var(--surface-2)] text-xs text-[var(--ink-500)]">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-semibold">Tên option</th>
+                          <th className="text-center px-3 py-2 font-semibold w-16">STT</th>
+                          <th className="text-center px-3 py-2 font-semibold w-20">Bật/Tắt</th>
+                          <th className="px-3 py-2 w-20"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {nhomOptions.map((opt) => (
+                          <tr key={opt.id} className="border-t border-[var(--line)]">
+                            <td className="px-3 py-2">
+                              <span className={opt.bat_tat ? "font-medium" : "text-[var(--ink-400)] line-through"}>{opt.ten_option}</span>
+                            </td>
+                            <td className="px-3 py-2 text-center text-xs text-[var(--ink-500)]">{opt.stt}</td>
+                            <td className="px-3 py-2 text-center">
+                              <ToggleSwitch
+                                checked={!!opt.bat_tat}
+                                onChange={() =>
+                                  api.patch(`/settings/loai-de-xuat/${opt.id}`, { bat_tat: !opt.bat_tat }).then(() => {
+                                    addToast(opt.bat_tat ? "Đã tắt option" : "Đã bật option");
+                                    qc.invalidateQueries({ queryKey: ["settings-lde-options"] });
+                                  })
+                                }
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={() => {
+                                  setEditingOptionId(opt.id);
+                                  setOptionNhomId(opt.nhom_id);
+                                  setOptionForm({ ten_option: opt.ten_option, stt: String(opt.stt), bat_tat: !!opt.bat_tat });
+                                  setLdeOptionOpen(true);
+                                }}>Sửa</button>
+                                <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteOptionMutation.mutate(opt.id)}>Xóa</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+          {(ldeNhomData?.rows ?? []).length === 0 && (
+            <div className="text-sm text-[var(--ink-400)] italic">Chưa có nhóm loại đề xuất nào. Nhấn "+ Thêm nhóm" để bắt đầu.</div>
+          )}
+        </div>
+      )}
+
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm lý do chậm mới">
         <div className="space-y-3">
           <div>
@@ -1181,6 +1430,90 @@ export function SettingsModule() {
         </div>
       </Modal>
 
+      {/* "Danh muc linh kien dat mua" - nut Them/Sua (addPartOpen/editPartOpen) truoc day KHONG co
+          modal nao doc du lieu (bug: bam khong hien gi ca) - them 2 modal nay khi lam Giai doan 5. */}
+      <Modal open={addPartOpen} onClose={() => setAddPartOpen(false)} title="Thêm linh kiện đặt mua mới">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã linh kiện</label>
+            <input value={partForm.ma_linh_kien} onChange={(e) => setPartForm({ ...partForm, ma_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
+            <input value={partForm.ten_linh_kien} onChange={(e) => setPartForm({ ...partForm, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
+              <input type="number" value={partForm.gia_ban} onChange={(e) => setPartForm({ ...partForm, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu</label>
+              <input type="number" value={partForm.gia_tham_chieu} onChange={(e) => setPartForm({ ...partForm, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị</label>
+            <input value={partForm.don_vi} onChange={(e) => setPartForm({ ...partForm, don_vi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Link ảnh minh hoạ (Google Drive)</label>
+            <input value={partForm.anh_demo} onChange={(e) => setPartForm({ ...partForm, anh_demo: e.target.value })} placeholder="https://drive.google.com/..." className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+            <textarea value={partForm.ghi_chu} onChange={(e) => setPartForm({ ...partForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddPartOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => addPartMutation.mutate()} disabled={!partForm.ma_linh_kien.trim() || !partForm.ten_linh_kien.trim() || addPartMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={editPartOpen} onClose={() => { setEditPartOpen(false); setEditingPartMa(null); }} title={`Sửa linh kiện ${editingPartMa ?? ""}`}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
+            <input value={partForm.ten_linh_kien} onChange={(e) => setPartForm({ ...partForm, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
+              <input type="number" value={partForm.gia_ban} onChange={(e) => setPartForm({ ...partForm, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu</label>
+              <input type="number" value={partForm.gia_tham_chieu} onChange={(e) => setPartForm({ ...partForm, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị</label>
+            <input value={partForm.don_vi} onChange={(e) => setPartForm({ ...partForm, don_vi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Link ảnh minh hoạ (Google Drive)</label>
+            <input value={partForm.anh_demo} onChange={(e) => setPartForm({ ...partForm, anh_demo: e.target.value })} placeholder="https://drive.google.com/..." className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+            <textarea value={partForm.ghi_chu} onChange={(e) => setPartForm({ ...partForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => { setEditPartOpen(false); setEditingPartMa(null); }}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => editPartMutation.mutate()} disabled={!partForm.ten_linh_kien.trim() || editPartMutation.isPending}>
+              Lưu
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
 
       <Modal
         open={ktvModalOpen}
@@ -1188,11 +1521,11 @@ export function SettingsModule() {
           setKtvModalOpen(false);
           setEditingKtvMa(null);
         }}
-        title={editingKtvMa ? "Sửa số điện thoại KTV" : "Thêm số điện thoại KTV"}
+        title={editingKtvMa ? "Sửa KTV" : "Thêm KTV"}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã KTV</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã KTV *</label>
             <input
               value={ktvForm.ma_ktv}
               onChange={(e) => setKtvForm({ ...ktvForm, ma_ktv: e.target.value })}
@@ -1209,6 +1542,38 @@ export function SettingsModule() {
             <label className="text-xs font-semibold text-[var(--ink-400)]">Số điện thoại</label>
             <input value={ktvForm.sdt} onChange={(e) => setKtvForm({ ...ktvForm, sdt: e.target.value })} placeholder="09xxxxxxxx" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
+          <div className="border-t border-[var(--line)] pt-3">
+            <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">Dùng cho module "Đặt mua linh kiện" (chỉ Admin sửa)</div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">Vai trò</label>
+                <Select
+                  value={ktvForm.vai_tro_ktv}
+                  onChange={(v) => setKtvForm({ ...ktvForm, vai_tro_ktv: v })}
+                  options={[
+                    { value: "", label: "-- Chưa phân loại --" },
+                    { value: "KTV", label: "KTV" },
+                    { value: "CTV", label: "CTV" },
+                    { value: "Tram", label: "Trạm" },
+                    { value: "Ve tinh", label: "Vệ tinh" },
+                  ]}
+                  className="w-full mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">Gmail</label>
+                <input value={ktvForm.gmail} onChange={(e) => setKtvForm({ ...ktvForm, gmail: e.target.value })} placeholder="vd: nguyenvana@gmail.com" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">Email Giám sát phụ trách</label>
+                <input value={ktvForm.giam_sat_quan_ly} onChange={(e) => setKtvForm({ ...ktvForm, giam_sat_quan_ly: e.target.value })} placeholder="Email tài khoản Giám sát" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">Tài khoản đăng nhập đã ghép (nếu có)</label>
+                <input value={ktvForm.email_dang_nhap} onChange={(e) => setKtvForm({ ...ktvForm, email_dang_nhap: e.target.value })} placeholder="Email tài khoản đã đăng nhập hệ thống" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+              </div>
+            </div>
+          </div>
           <div>
             <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
             <textarea value={ktvForm.ghi_chu} onChange={(e) => setKtvForm({ ...ktvForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
@@ -1223,7 +1588,7 @@ export function SettingsModule() {
             >
               Hủy
             </Btn>
-            <Btn onClick={() => saveKtvMutation.mutate()} disabled={!ktvForm.ma_ktv.trim() || !ktvForm.sdt.trim() || saveKtvMutation.isPending}>
+            <Btn onClick={() => saveKtvMutation.mutate()} disabled={!ktvForm.ma_ktv.trim() || saveKtvMutation.isPending}>
               {editingKtvMa ? "Lưu" : "Thêm"}
             </Btn>
           </div>
@@ -1287,6 +1652,84 @@ export function SettingsModule() {
           </div>
         )}
       </Modal>
+
+      <Modal open={ldeNhomOpen} onClose={() => { setLdeNhomOpen(false); setEditingNhomId(null); }} title={editingNhomId ? "Sửa nhóm loại đề xuất" : "Thêm nhóm loại đề xuất"}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên nhóm</label>
+            <input
+              value={nhomForm.ten_nhom}
+              onChange={(e) => setNhomForm({ ...nhomForm, ten_nhom: e.target.value })}
+              placeholder="Vd: KTV & Vệ tinh"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">Vai trò / flag được dùng nhóm này</label>
+            <div className="border border-[var(--line)] rounded-lg p-2 space-y-1 max-h-52 overflow-y-auto">
+              {LDE_VAI_TRO_FLAGS.map(({ flag, label }) => (
+                <label key={flag} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={nhomForm.vai_tro_flags.includes(flag)}
+                    onChange={(e) =>
+                      setNhomForm((s) => ({
+                        ...s,
+                        vai_tro_flags: e.target.checked ? [...s.vai_tro_flags, flag] : s.vai_tro_flags.filter((f) => f !== flag),
+                      }))
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={nhomForm.bat_tat} onChange={(e) => setNhomForm({ ...nhomForm, bat_tat: e.target.checked })} />
+            Nhóm đang bật
+          </label>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => { setLdeNhomOpen(false); setEditingNhomId(null); }}>Hủy</Btn>
+            <Btn onClick={() => saveNhomMutation.mutate()} disabled={!nhomForm.ten_nhom.trim() || saveNhomMutation.isPending}>
+              {editingNhomId ? "Lưu" : "Thêm"}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={ldeOptionOpen} onClose={() => { setLdeOptionOpen(false); setEditingOptionId(null); }} title={editingOptionId ? "Sửa option" : "Thêm option"}>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên option</label>
+            <input
+              value={optionForm.ten_option}
+              onChange={(e) => setOptionForm({ ...optionForm, ten_option: e.target.value })}
+              placeholder="Vd: MUA HÀNG"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Thứ tự (STT)</label>
+            <input
+              type="number"
+              value={optionForm.stt}
+              onChange={(e) => setOptionForm({ ...optionForm, stt: e.target.value })}
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={optionForm.bat_tat} onChange={(e) => setOptionForm({ ...optionForm, bat_tat: e.target.checked })} />
+            Đang bật
+          </label>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => { setLdeOptionOpen(false); setEditingOptionId(null); }}>Hủy</Btn>
+            <Btn onClick={() => saveOptionMutation.mutate()} disabled={!optionForm.ten_option.trim() || saveOptionMutation.isPending}>
+              {editingOptionId ? "Lưu" : "Thêm"}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }

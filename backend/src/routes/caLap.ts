@@ -122,7 +122,7 @@ caLap.get("/danh-sach", async (c) => {
     SELECT lap.*, ${GT_LAP_COLUMNS}
     FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
     ${whereSql}
-    ORDER BY lap.thoi_gian_hoan_thanh DESC`;
+    ORDER BY (CASE WHEN lap.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), lap.thoi_gian_hoan_thanh DESC`;
 
   if (isExport) {
     const { results } = await c.env.DB.prepare(`${rowsQueryBase} LIMIT 5000`).bind(...binds).all();

@@ -206,10 +206,10 @@ tranhChap.get("/cho-xu-ly", async (c) => {
     .bind(...binds)
     .first<{ cho_tu_3_ngay: number; cho_tu_7_ngay: number; cho_tu_10_ngay: number; cho_tu_14_ngay: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT c.id, c.khach_hang, c.khu_vuc, c.thoi_gian_hoan_thanh, c.ly_do_qua_han as last_ly_do_cham,
+    `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.ly_do_qua_han as last_ly_do_cham,
        ${ageColExpr} as so_ngay_cho
      FROM case_dvbh c WHERE ${listWhereSql}
-     ORDER BY c.thoi_gian_hoan_thanh ASC
+     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.thoi_gian_hoan_thanh ASC
      LIMIT ? OFFSET ?`,
   )
     .bind(...listBinds, pageSize, offset)
@@ -453,11 +453,12 @@ tranhChap.get("/tien-trinh", async (c) => {
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT tt.id, tt.case_id, tt.phan_loai_tranh_chap, tt.muc_do, tt.ngay_tao,
-       c.khach_hang, c.khu_vuc,
+       c.khach_hang, c.khu_vuc, c.nhom_kh,
        ll.trang_thai_xu_ly, ll.nguoi_xu_ly, ll.ngay_xu_ly, ll.thoi_gian_du_kien_xong, ll.ghi_chu as log_ghi_chu, ll.dang_cho_nguoi_xu_ly,
        ${TUOI_TIEN_TRINH_EXPR} as so_ngay_ton
      ${baseFrom}
      ORDER BY
+       CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END,
        CASE WHEN ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong < ${AGE_ANCHOR} THEN 0 ELSE 1 END,
        CASE WHEN ll.thoi_gian_du_kien_xong IS NULL THEN 1 ELSE 0 END,
        ll.thoi_gian_du_kien_xong ASC

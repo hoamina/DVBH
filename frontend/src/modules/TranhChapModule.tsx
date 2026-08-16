@@ -19,6 +19,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { ImportUploader } from "../components/ImportUploader";
+import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import {
   TRANG_THAI_LABELS,
   TRANG_THAI_TONE,
@@ -291,7 +292,16 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
 
   const choXuLyColumns: Column<ChoXuLyRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (c) => (
+        <>
+          {isVipKh(c.nhom_kh) && <VipBadge />}
+          {c.khach_hang ?? "—"}
+        </>
+      ),
+    },
     { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
     {
       key: "ly_do",
@@ -363,7 +373,16 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
   const tienTrinhColumns: Column<TienTrinhRow>[] = [
     { key: "id", header: "Tiến trình", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
     { key: "case_id", header: "Ca sự vụ", render: (r) => <span className="font-mono text-xs text-[var(--ocean-600)]">{r.case_id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (r) => (
+        <>
+          {isVipKh(r.nhom_kh) && <VipBadge />}
+          {r.khach_hang ?? "—"}
+        </>
+      ),
+    },
     { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
     { key: "phan_loai", header: "Phân loại", render: (r) => <Badge tone="gray">{r.phan_loai_tranh_chap}</Badge> },
     { key: "muc_do", header: "Mức độ", render: (r) => <Badge tone={MUC_DO_TONE[r.muc_do] ?? "gray"}>{MUC_DO_LABELS[r.muc_do] ?? r.muc_do}</Badge> },
@@ -673,6 +692,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             onPageChange={setPage}
             onRowClick={(c) => openCase(c.id, "tranh-chap")}
             rowKey={(c) => c.id}
+            rowClassName={(c) => vipRowClassName(c.nhom_kh)}
             emptyText="Không có ca nào đang chờ xử lý tranh chấp."
             storageKey="tranh-chap-cho-xu-ly"
           />
@@ -793,6 +813,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             onPageChange={setTtPage}
             onRowClick={(r) => openCase(r.case_id, "tranh-chap")}
             rowKey={(r) => r.id}
+            rowClassName={(r) => vipRowClassName(r.nhom_kh)}
             emptyText="Không có tiến trình nào khớp bộ lọc."
             storageKey="tranh-chap-tien-trinh"
           />

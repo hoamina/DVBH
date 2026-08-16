@@ -52,6 +52,11 @@ export interface Env {
   SESSION_SECRET: string;
   GEMINI_API_KEY: string;
   EXTERNAL_IMPORT_API_KEY: string;
+  // Upload "anh bien ban tiep nhan" cho luong Phieu xuat kho (Dot 2, muc F) - Service Account rieng,
+  // KHONG dung chung voi GOOGLE_CLIENT_ID/SECRET (do la OAuth cho dang nhap nguoi dung).
+  GOOGLE_DRIVE_SA_EMAIL: string;
+  GOOGLE_DRIVE_SA_PRIVATE_KEY: string;
+  GOOGLE_DRIVE_FOLDER_ID: string;
 }
 
 // QC them vao 2026-07-29: HANDOFF.md ghi "QC (nhu Viewer + chot/bo vi pham cap 2)" - truoc do QC

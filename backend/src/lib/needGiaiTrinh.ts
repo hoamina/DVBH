@@ -95,6 +95,15 @@ export const NEED_NSKX_2_NGAY = `(lg.case_id IS NULL AND c.doi_tac = 'NSKX' AND 
 // HOAC "Loc nuoc BCN", ton >=1 ngay.
 export const NEED_LOC_TONG_BCN_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = 'Lọc tổng' AND ${AGE_C} >= 1)`;
 
+// CHOT 2026-08-16: "chi tieu phu" moi - ca VIP/S.VIP (c.nhom_kh LIKE '%VIP%', dung QUY UOC da chot
+// voi chu he thong o canhBaoTon.ts: khong phan biet hoa/thuong, tu dong gom ca "SVIP") CHUA giai
+// trinh qua 24 GIO THUC (khong phai "1 ngay lich" kieu AGE_C/NEED_DIEU_HOA_1_NGAY o tren - AGE_C lam
+// tron theo moc 0h VN nen 1 ca tiep nhan luc 23h50 se bi tinh "1 ngay" chi sau 10 phut, khong dung
+// tinh than "24h" chu he thong yeu cau rieng cho VIP - o day dung julianday() so KHOANG CACH THUC te
+// tinh bang gio/ngay phan so). Canh bao rieng, SONG SONG voi chua_gt_3_ngay/chua_gt_5_ngay - KHONG
+// cong vao NEED_TONG (giu nguyen 2 nhom 3/5 ngay hien co, khong thay doi cong thuc TONG).
+export const NEED_VIP_CHUA_GT_24H = `(lg.case_id IS NULL AND c.nhom_kh LIKE '%VIP%' AND (julianday(datetime('now','+7 hours')) - julianday(c.thoi_gian_cskh_tiep_nhan)) >= 1)`;
+
 // "KH DMX" (chot 2026-07-31, thay the the "Chua giai trinh >3 ngay (canh bao som)" cu) - khach hang
 // thuoc nhom DMX: c.khach_hang chua "DMX"/"DMX" (khong dau, dung LIKE ca 2 dang vi du lieu CRM
 // khong luon nhat quan dau) HOAC c.nhom_kh chua dung "KH DMX" (khop CHINH XAC gia tri danh muc
@@ -158,6 +167,7 @@ export const NEED_GIAI_TRINH_CATEGORIES: Record<string, string> = {
   b2b: NEED_B2B_1_NGAY,
   nskx: NEED_NSKX_2_NGAY,
   loc_tong_bcn: NEED_LOC_TONG_BCN_1_NGAY,
+  vip_24h: NEED_VIP_CHUA_GT_24H,
   dmx_3_ngay: NEED_DMX_3_NGAY,
   dmx_chua_gt_3_ngay: NEED_DMX_CHUA_GT_3_NGAY,
   dmx_tai_giai_trinh: NEED_DMX_TAI_GIAI_TRINH,

@@ -11,7 +11,9 @@ import { nowVN } from "../lib/vnTime";
 import { generatePartnerApiKey, maskPartnerApiKey, hashApiKey } from "../lib/partnerApiAuth";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { computeTonDailyEntries } from "../lib/dailySnapshot";
-import { buildBaocaoTonRows, renderBaocaoTonImage } from "../lib/reportImage";
+import { buildBaocaoTonRows, renderBaocaoTonImage, renderCanhBaoTonImage } from "../lib/reportImage";
+import { computeCanhBaoTonBuckets } from "../lib/canhBaoTon";
+import { getVnDateStr } from "../lib/reportCache";
 
 const VALID_LOAI_DONG_BO = new Set(["case", "linh_kien", "giai_trinh_cu", "giai_trinh_lap_cu", "khao_sat_cu", "nap_gas_danh_gia_cu"]);
 
@@ -30,6 +32,11 @@ const adminOnly = requireRole("Admin");
 // duoi. Import/export hang loat + xoa van Admin-only (adminOnly), chi POST 1 dong (them/sua nhanh khi
 // dang xem 1 ca) moi mo cho CSKH.
 const ktvWriteRoles = requireRole("Admin", "CSKH", "TN CSKH", "TBP CSKH");
+// CHOT 2026-08-14 (Giai doan 5): "Danh muc linh kien" mo them cho Giam sat + Tac nghiep (TBP DVBH) -
+// ho truc tiep tiep xuc KTV/don hang dat mua, khong phai cho Admin de them ma/sua gia. Ap dung cho ca
+// POST/PATCH /linh-kien - bang nay dung chung cho ca man "giai trinh thieu linh kien" lan "dat mua
+// linh kien" (hop nhat tu migration 0060_unify_linh_kien.sql), khong tach rieng 2 quyen.
+const linhKienWriteRoles = requireRole("Admin", "TBP DVBH", "Giam sat");
 
 async function logAudit(
   db: D1Database,
@@ -187,6 +194,98 @@ settings.patch("/ket-qua-xu-ly-tranh-chap/:id", adminOnly, async (c) => {
   return c.json({ ok: true });
 });
 
+// ---------- Loai de xuat: nhom + options (xem migration 0061) ----------
+
+settings.get("/loai-de-xuat/nhom", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_loai_de_xuat_nhom ORDER BY id").all();
+  return c.json({ rows: results });
+});
+
+settings.post("/loai-de-xuat/nhom", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten_nhom: string; vai_tro_json: string; bat_tat?: boolean }>();
+  if (!body.ten_nhom?.trim()) return c.json({ error: "MISSING_TEN_NHOM" }, 400);
+  const user = c.get("user");
+  const vaiTroJson = typeof body.vai_tro_json === "string" ? body.vai_tro_json : JSON.stringify(body.vai_tro_json ?? []);
+  const row = await c.env.DB.prepare(
+    "INSERT INTO settings_loai_de_xuat_nhom (ten_nhom, vai_tro_json, bat_tat, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?, ?, ?) RETURNING *",
+  )
+    .bind(body.ten_nhom.trim(), vaiTroJson, body.bat_tat !== false ? 1 : 0, user.email, nowVN())
+    .first();
+  return c.json(row, 201);
+});
+
+settings.patch("/loai-de-xuat/nhom/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ ten_nhom?: string; vai_tro_json?: string; bat_tat?: boolean }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_de_xuat_nhom WHERE id = ?").bind(id).first<{ ten_nhom: string; vai_tro_json: string; bat_tat: number }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  const user = c.get("user");
+  const next = {
+    ten_nhom: body.ten_nhom !== undefined ? body.ten_nhom.trim() : existing.ten_nhom,
+    vai_tro_json: body.vai_tro_json !== undefined
+      ? (typeof body.vai_tro_json === "string" ? body.vai_tro_json : JSON.stringify(body.vai_tro_json))
+      : existing.vai_tro_json,
+    bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
+  };
+  await c.env.DB.prepare(
+    "UPDATE settings_loai_de_xuat_nhom SET ten_nhom = ?, vai_tro_json = ?, bat_tat = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?",
+  )
+    .bind(next.ten_nhom, next.vai_tro_json, next.bat_tat, user.email, nowVN(), id)
+    .run();
+  return c.json({ ok: true });
+});
+
+// GET /api/settings/loai-de-xuat?since=<ISO> - tra ve options + nhom info cho IndexedDB cache.
+settings.get("/loai-de-xuat", async (c) => {
+  const since = c.req.query("since")?.trim();
+  let query =
+    "SELECT o.id, o.nhom_id, o.ten_option, o.bat_tat, o.stt, o.ngay_cap_nhat, n.ten_nhom, n.vai_tro_json " +
+    "FROM settings_loai_de_xuat o JOIN settings_loai_de_xuat_nhom n ON n.id = o.nhom_id " +
+    "WHERE n.bat_tat = 1";
+  const binds: string[] = [];
+  if (since) { query += " AND o.ngay_cap_nhat > ?"; binds.push(since); }
+  query += " ORDER BY o.nhom_id, o.stt, o.id";
+  const { results } = await c.env.DB.prepare(query).bind(...binds).all();
+  return c.json({ rows: results });
+});
+
+settings.post("/loai-de-xuat", adminOnly, async (c) => {
+  const body = await c.req.json<{ nhom_id: number; ten_option: string; stt?: number }>();
+  if (!body.nhom_id || !body.ten_option?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    "INSERT INTO settings_loai_de_xuat (nhom_id, ten_option, stt, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?, ?, ?) RETURNING *",
+  )
+    .bind(body.nhom_id, body.ten_option.trim(), body.stt ?? 0, user.email, nowVN())
+    .first();
+  return c.json(row, 201);
+});
+
+settings.patch("/loai-de-xuat/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ ten_option?: string; bat_tat?: boolean; stt?: number }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_de_xuat WHERE id = ?").bind(id).first<{ ten_option: string; bat_tat: number; stt: number }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  const user = c.get("user");
+  const next = {
+    ten_option: body.ten_option !== undefined ? body.ten_option.trim() : existing.ten_option,
+    bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
+    stt: body.stt !== undefined ? body.stt : existing.stt,
+  };
+  await c.env.DB.prepare(
+    "UPDATE settings_loai_de_xuat SET ten_option = ?, bat_tat = ?, stt = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?",
+  )
+    .bind(next.ten_option, next.bat_tat, next.stt, user.email, nowVN(), id)
+    .run();
+  return c.json({ ok: true });
+});
+
+settings.delete("/loai-de-xuat/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  await c.env.DB.prepare("DELETE FROM settings_loai_de_xuat WHERE id = ?").bind(id).run();
+  return c.json({ ok: true });
+});
+
 // ---------- Popup chao mung: GIF + loi chao (xem migration 0044_greeting_popup.sql) ----------
 // KHONG ghi settings_audit_log - danh muc trang tri, khong can audit trail nhu cac danh muc nghiep
 // vu khac o file nay (xem chu thich dau migration 0044).
@@ -319,7 +418,7 @@ settings.get("/linh-kien/version", async (c) => {
   return c.json({ hash });
 });
 
-settings.post("/linh-kien", adminOnly, async (c) => {
+settings.post("/linh-kien", linhKienWriteRoles, async (c) => {
   const body = await c.req.json<{
     ma_linh_kien: string;
     ten_linh_kien: string;
@@ -348,7 +447,7 @@ settings.post("/linh-kien", adminOnly, async (c) => {
   return c.json(row, 201);
 });
 
-settings.patch("/linh-kien/:ma", adminOnly, async (c) => {
+settings.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   const ma = c.req.param("ma");
   if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
   const body = await c.req.json<{ bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string; anh_demo?: string }>();
@@ -502,8 +601,10 @@ settings.get("/ktv-lien-he/version", async (c) => {
 // POST /api/settings/ktv-lien-he - upsert 1 dong (Admin dung o Settings, CSKH dung khi bam vao ten
 // KTV o CaseDetail/SurveyModule/SurveyCallWorkspace/DanhSachTongModule - xem KtvNameWithPhone.tsx).
 settings.post("/ktv-lien-he", ktvWriteRoles, async (c) => {
-  const body = await c.req.json<{ ma_ktv: string; ten_hien_thi?: string; sdt: string; ghi_chu?: string }>();
-  if (!body.ma_ktv?.trim() || !body.sdt?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
+  const body = await c.req.json<{ ma_ktv: string; ten_hien_thi?: string; sdt?: string; ghi_chu?: string }>();
+  // CHOT 2026-08-15: chi ma_ktv bat buoc (xem migration 0071) - sdt tuy chon, KtvNameWithPhone.tsx
+  // (CSKH them SDT) van tu bat buoc o phia client rieng vi do la muc dich duy nhat cua popup do.
+  if (!body.ma_ktv?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
@@ -517,11 +618,120 @@ settings.post("/ktv-lien-he", ktvWriteRoles, async (c) => {
        ngay_cap_nhat = excluded.ngay_cap_nhat
      RETURNING *`,
   )
-    .bind(body.ma_ktv.trim(), body.ten_hien_thi?.trim() || null, body.sdt.trim(), body.ghi_chu?.trim() || null, user.email, nowVN())
+    .bind(body.ma_ktv.trim(), body.ten_hien_thi?.trim() || null, body.sdt?.trim() || null, body.ghi_chu?.trim() || null, user.email, nowVN())
     .first();
 
   await refreshHash(c.env.DB, "ktv_lien_he", "ktv_lien_he", "ma_ktv");
   return c.json(row, 201);
+});
+
+// Cap tai khoan "users" PLACEHOLDER cho 1 KTV da duoc Admin ghep email_dang_nhap trong "Danh sach
+// KTV" nhung CHUA TUNG dang nhap Google that (chua co dong users that) - CAN THIET vi
+// dat_don_hang.nguoi_nhan_hang / phieu_xuat_kho.nguoi_nhan_hang la FK THAT toi users(email) (khac
+// ktv_lien_he.email_dang_nhap, migration 0072 da bo FK o day - xem comment processKtvImportRows).
+// Khong co placeholder nay, "Nguoi nhan hang (tao ho)" o TaoDonTab se rong voi moi KTV chua tung mo
+// app 1 lan (phat hien 2026-08-15: 456/460 KTV da ghep email nhung 0 dong users tuong ung).
+//
+// trang_thai_duyet giu "Cho duyet" + vai_tro NULL (dung y nghia "tai khoan moi, chua duyet" giong
+// het 1 lan dang nhap Google that dau tien - KHONG cap quyen truy cap gi cho toi khi Admin duyet
+// that su, loadUser.ts van chan cung o dieu kien trang_thai_duyet truoc khi tra AppUser). la_ktv_dvbh/
+// la_ve_tinh dat truoc de dropdown "nguoi nhan hang" nhan dien duoc ngay - AN TOAN vi 2 co nay khong
+// tu no mo quyen truy cap gi. ON CONFLICT DO NOTHING - khong bao gio ghi de 1 tai khoan THAT da ton
+// tai (du dang "Cho duyet" hay da "Da duyet"). auth.ts callback dung ON CONFLICT DO UPDATE SET
+// ten=excluded.ten khi nguoi nay THAT SU dang nhap lan dau - se tu cap nhat ten that, giu nguyen moi
+// truong khac ta da set san o day.
+// users.giam_sat_quan_ly la FK THAT toi users(email) (migration 0053 - khac han
+// ktv_lien_he.giam_sat_quan_ly, co FK nay bi go bo o migration 0072 CHINH VI ly do nay: GS ghi trong
+// Danh sach KTV rat co the CUNG chua tung dang nhap). Neu cu copy thang sang se lam INSERT loi FK
+// (va lam ROLLBACK CA BATCH vi db.batch() la 1 transaction) - phai loc truoc, chi giu email GS DA
+// CO trong users, con lai de NULL (Admin dien lai luc duyet that neu can).
+async function filterValidGsEmails(db: D1Database, emails: (string | null)[]): Promise<Set<string>> {
+  const distinct = [...new Set(emails.filter((e): e is string => !!e))];
+  if (distinct.length === 0) return new Set();
+  const { results } = await db
+    .prepare(`SELECT email FROM users WHERE email IN (${distinct.map(() => "?").join(",")})`)
+    .bind(...distinct)
+    .all<{ email: string }>();
+  return new Set((results as { email: string }[]).map((r) => r.email));
+}
+
+async function provisionPlaceholderUser(
+  db: D1Database,
+  args: { email: string; ten: string | null; vaiTroKtv: string | null; giamSatQuanLy: string | null },
+): Promise<D1PreparedStatement> {
+  const laVeTinh = args.vaiTroKtv === "Ve tinh";
+  return db
+    .prepare(
+      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh, giam_sat_quan_ly)
+       VALUES (?, ?, NULL, 'Cho duyet', ?, ?, ?)
+       ON CONFLICT(email) DO NOTHING`,
+    )
+    .bind(args.email, args.ten, laVeTinh ? 0 : 1, laVeTinh ? 1 : 0, args.giamSatQuanLy);
+}
+
+// PATCH /api/settings/ktv-lien-he/:ma/dat-mua-lk - { gmail?, vai_tro_ktv?, giam_sat_quan_ly?,
+// email_dang_nhap? } - Admin-only (khac ktvWriteRoles dung cho ten_hien_thi/sdt/ghi_chu o tren) -
+// du lieu nghiep vu rieng cho module "Dat mua linh kien" (nguoi nhan hang, xem migration
+// 0067_ktv_lien_he_dat_mua_lk.sql), khong phai danh ba lien he CSKH dung chung.
+settings.patch("/ktv-lien-he/:ma/dat-mua-lk", adminOnly, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ gmail?: string | null; vai_tro_ktv?: string | null; giam_sat_quan_ly?: string | null; email_dang_nhap?: string | null }>();
+  const existing = await c.env.DB.prepare("SELECT ten_hien_thi, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap FROM ktv_lien_he WHERE ma_ktv = ?")
+    .bind(ma)
+    .first<{ ten_hien_thi: string | null; gmail: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string | null }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  if (body.vai_tro_ktv !== undefined && body.vai_tro_ktv !== null && !["KTV", "CTV", "Tram", "Ve tinh"].includes(body.vai_tro_ktv)) {
+    return c.json({ error: "INVALID_VAI_TRO_KTV" }, 400);
+  }
+
+  const next = {
+    gmail: body.gmail !== undefined ? body.gmail?.trim() || null : existing.gmail,
+    vai_tro_ktv: body.vai_tro_ktv !== undefined ? body.vai_tro_ktv : existing.vai_tro_ktv,
+    giam_sat_quan_ly: body.giam_sat_quan_ly !== undefined ? body.giam_sat_quan_ly?.trim() || null : existing.giam_sat_quan_ly,
+    email_dang_nhap: body.email_dang_nhap !== undefined ? body.email_dang_nhap?.trim() || null : existing.email_dang_nhap,
+  };
+
+  await c.env.DB.prepare("UPDATE ktv_lien_he SET gmail = ?, vai_tro_ktv = ?, giam_sat_quan_ly = ?, email_dang_nhap = ? WHERE ma_ktv = ?")
+    .bind(next.gmail, next.vai_tro_ktv, next.giam_sat_quan_ly, next.email_dang_nhap, ma)
+    .run();
+
+  if (next.email_dang_nhap) {
+    const validGs = await filterValidGsEmails(c.env.DB, [next.giam_sat_quan_ly]);
+    await provisionPlaceholderUser(c.env.DB, {
+      email: next.email_dang_nhap,
+      ten: existing.ten_hien_thi,
+      vaiTroKtv: next.vai_tro_ktv,
+      giamSatQuanLy: next.giam_sat_quan_ly && validGs.has(next.giam_sat_quan_ly) ? next.giam_sat_quan_ly : null,
+    }).then((stmt) => stmt.run());
+  }
+
+  return c.json({ ok: true });
+});
+
+// POST /api/settings/ktv-lien-he/backfill-users - Admin bam 1 lan (idempotent, an toan lap lai) de
+// cap tai khoan placeholder cho TOAN BO KTV da ghep email_dang_nhap tu TRUOC khi tinh nang nay ton
+// tai (hook o PATCH .../dat-mua-lk va import/commit ben duoi chi lo cho cac lan ghep MOI sau nay).
+settings.post("/ktv-lien-he/backfill-users", adminOnly, async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT ten_hien_thi, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL",
+  ).all<{ ten_hien_thi: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string }>();
+  const rows = results as { ten_hien_thi: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string }[];
+  if (rows.length === 0) return c.json({ ok: true, checked: 0 });
+
+  const validGs = await filterValidGsEmails(c.env.DB, rows.map((r) => r.giam_sat_quan_ly));
+  const statements = await Promise.all(
+    rows.map((r) =>
+      provisionPlaceholderUser(c.env.DB, {
+        email: r.email_dang_nhap,
+        ten: r.ten_hien_thi,
+        vaiTroKtv: r.vai_tro_ktv,
+        giamSatQuanLy: r.giam_sat_quan_ly && validGs.has(r.giam_sat_quan_ly) ? r.giam_sat_quan_ly : null,
+      }),
+    ),
+  );
+  await c.env.DB.batch(statements);
+  return c.json({ ok: true, checked: rows.length });
 });
 
 settings.delete("/ktv-lien-he/:ma", ktvWriteRoles, async (c) => {
@@ -534,35 +744,54 @@ settings.delete("/ktv-lien-he/:ma", ktvWriteRoles, async (c) => {
   return c.json({ ok: true });
 });
 
-const KTV_TEMPLATE_CSV = "ma_ktv,ten_hien_thi,sdt,ghi_chu\nhuannt.mb,(huannt.mb) Trạm Bắc Ninh - TNHH TM và DV 3T Bắc Ninh,0912345678,\n";
+const KTV_TEMPLATE_CSV = "ma_ktv,ten_hien_thi,sdt,ghi_chu,gmail,vai_tro_ktv,giam_sat_quan_ly,email_dang_nhap\nhuannt.mb,(huannt.mb) Trạm Bắc Ninh - TNHH TM và DV 3T Bắc Ninh,0912345678,,huannt.mb@gmail.com,Tram,,huannt.mb@company.com\n";
 
 // GET /api/settings/ktv-lien-he/template
 settings.get("/ktv-lien-he/template", adminOnly, (c) => csvTemplateResponse(c, KTV_TEMPLATE_CSV, "mau_import_sdt_ky_thuat_vien.csv"));
+
+const VAI_TRO_KTV_VALUES = ["KTV", "CTV", "Tram", "Ve tinh"] as const;
 
 interface KtvImportRow {
   ma_ktv?: string;
   ten_hien_thi?: string;
   sdt?: string;
   ghi_chu?: string;
+  gmail?: string;
+  vai_tro_ktv?: string;
+  giam_sat_quan_ly?: string;
+  email_dang_nhap?: string;
 }
 
 async function processKtvImportRows(db: D1Database, rows: KtvImportRow[], nguoiCapNhat: string, commit: boolean) {
   const summary = { thanhCong: 0, loi: 0, errors: [] as string[] };
-  const valid: { ma_ktv: string; ten_hien_thi: string | null; sdt: string; ghi_chu: string | null }[] = [];
+  const valid: { ma_ktv: string; ten_hien_thi: string | null; sdt: string | null; ghi_chu: string | null; gmail: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string | null }[] = [];
 
   rows.forEach((row, i) => {
     const ma = String(row.ma_ktv ?? "").trim();
-    const sdt = String(row.sdt ?? "").trim();
-    if (!ma || !sdt) {
+    // CHOT 2026-08-15: chi ma_ktv bat buoc (xem migration 0071) - sdt tuy chon.
+    if (!ma) {
       summary.loi++;
-      summary.errors.push(`Dòng ${i + 1}: thiếu ma_ktv hoặc sdt`);
+      summary.errors.push(`Dòng ${i + 1}: thiếu ma_ktv`);
       return;
     }
+    const vaiTro = row.vai_tro_ktv ? String(row.vai_tro_ktv).trim() : null;
+    if (vaiTro && !(VAI_TRO_KTV_VALUES as readonly string[]).includes(vaiTro)) {
+      summary.loi++;
+      summary.errors.push(`Dòng ${i + 1}: vai_tro_ktv không hợp lệ ("${vaiTro}"), phải là: ${VAI_TRO_KTV_VALUES.join(", ")}`);
+      return;
+    }
+    // giam_sat_quan_ly/email_dang_nhap KHONG con FK toi users (migration 0072) - luu duoc ngay ca
+    // khi nguoi do chua tung dang nhap, cac cho JOIN voi users (vd GET
+    // /dat-mua-lk/nguoi-nhan-hang-kha-dung) se tu khop khi tai khoan do xuat hien sau nay.
     valid.push({
       ma_ktv: ma,
       ten_hien_thi: row.ten_hien_thi ? String(row.ten_hien_thi).trim() : null,
-      sdt,
+      sdt: row.sdt ? String(row.sdt).trim() || null : null,
       ghi_chu: row.ghi_chu ? String(row.ghi_chu).trim() : null,
+      gmail: row.gmail ? String(row.gmail).trim() : null,
+      vai_tro_ktv: vaiTro,
+      giam_sat_quan_ly: row.giam_sat_quan_ly ? String(row.giam_sat_quan_ly).trim() : null,
+      email_dang_nhap: row.email_dang_nhap ? String(row.email_dang_nhap).trim() : null,
     });
   });
   summary.thanhCong = valid.length;
@@ -573,15 +802,38 @@ async function processKtvImportRows(db: D1Database, rows: KtvImportRow[], nguoiC
       valid.map((v) =>
         db
           .prepare(
-            `INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, sdt, ghi_chu, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?, ?, ?, ?)
+            `INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, sdt, ghi_chu, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, nguoi_cap_nhat, ngay_cap_nhat)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(ma_ktv) DO UPDATE SET
                ten_hien_thi = excluded.ten_hien_thi, sdt = excluded.sdt, ghi_chu = excluded.ghi_chu,
+               gmail = COALESCE(excluded.gmail, ktv_lien_he.gmail),
+               vai_tro_ktv = COALESCE(excluded.vai_tro_ktv, ktv_lien_he.vai_tro_ktv),
+               giam_sat_quan_ly = COALESCE(excluded.giam_sat_quan_ly, ktv_lien_he.giam_sat_quan_ly),
+               email_dang_nhap = COALESCE(excluded.email_dang_nhap, ktv_lien_he.email_dang_nhap),
                nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat`,
           )
-          .bind(v.ma_ktv, v.ten_hien_thi, v.sdt, v.ghi_chu, nguoiCapNhat, now),
+          .bind(v.ma_ktv, v.ten_hien_thi, v.sdt, v.ghi_chu, v.gmail, v.vai_tro_ktv, v.giam_sat_quan_ly, v.email_dang_nhap, nguoiCapNhat, now),
       ),
     );
     await refreshHash(db, "ktv_lien_he", "ktv_lien_he", "ma_ktv");
+
+    // Cap tai khoan placeholder ngay cho cac dong co email_dang_nhap (xem provisionPlaceholderUser o
+    // tren) - khong doi Admin phai bam rieng "backfill" sau moi lan import.
+    const withEmail = valid.filter((v) => v.email_dang_nhap);
+    if (withEmail.length > 0) {
+      const validGs = await filterValidGsEmails(db, withEmail.map((v) => v.giam_sat_quan_ly));
+      const statements = await Promise.all(
+        withEmail.map((v) =>
+          provisionPlaceholderUser(db, {
+            email: v.email_dang_nhap!,
+            ten: v.ten_hien_thi,
+            vaiTroKtv: v.vai_tro_ktv,
+            giamSatQuanLy: v.giam_sat_quan_ly && validGs.has(v.giam_sat_quan_ly) ? v.giam_sat_quan_ly : null,
+          }),
+        ),
+      );
+      await db.batch(statements);
+    }
   }
 
   return summary;
@@ -614,6 +866,32 @@ settings.get("/telegram-report-preview", adminOnly, async (c) => {
   const ngayFormatted = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
 
   const png = await renderBaocaoTonImage(mb, mn, kddv, ngayFormatted);
+  return new Response(png as unknown as ArrayBuffer, { headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
+});
+
+// GET /api/settings/canh-bao-ton-report-preview - Admin xem truoc anh "Canh bao ton danh cho QL" se
+// gui vao Telegram luc 08h00 (xem lib/canhBaoTon.ts generateCanhBaoTonSnapshot), khong ghi DB / khong
+// gui Telegram that - chi tinh lai buckets song va tra ve PNG truc tiep.
+settings.get("/canh-bao-ton-report-preview", adminOnly, async (c) => {
+  const buckets = await computeCanhBaoTonBuckets(c.env.DB);
+  const ngay = getVnDateStr();
+  const dateParts = ngay.split("-");
+  const ngayFormatted = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+
+  const cap1 = [
+    { label: "Tồn ≥14 ngày", count: buckets.ton14.count },
+    { label: "VIP/S.VIP tồn ≥5 ngày", count: buckets.vipSvip5.count },
+    { label: "Lọc tổng tồn ≥3 ngày", count: buckets.locTong3.count },
+    { label: "Tranh chấp/KN ≥3 ngày", count: buckets.tranhChap3.count },
+  ];
+  const cap2 = [
+    { label: "Tồn >20 ngày", count: buckets.ton20.count },
+    { label: "VIP/S.VIP tồn ≥7 ngày", count: buckets.vipSvip7.count },
+    { label: "Lọc tổng tồn ≥5 ngày", count: buckets.locTong5.count },
+    { label: "Tranh chấp/KN ≥5 ngày", count: buckets.tranhChap5.count },
+  ];
+
+  const png = await renderCanhBaoTonImage(cap1, cap2, ngayFormatted);
   return new Response(png as unknown as ArrayBuffer, { headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
 });
 

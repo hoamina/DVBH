@@ -18,6 +18,7 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 
 // Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
 // theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
@@ -121,6 +122,7 @@ function MissingPartsDaDongList({
 interface MissingPartCase {
   id: string;
   khach_hang: string | null;
+  nhom_kh: string | null;
   khu_vuc: string | null;
   ky_thuat_vien: string | null;
   last_ly_do_cham: string | null;
@@ -332,7 +334,16 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string, tab?: 
 
   const columns: Column<MissingPartCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (c) => (
+        <>
+          {isVipKh(c.nhom_kh) && <VipBadge />}
+          {c.khach_hang ?? "—"}
+        </>
+      ),
+    },
     { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     {
       key: "linh_kien",
@@ -342,7 +353,16 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string, tab?: 
     { key: "ngay_yeu_cau", header: "Ngày yêu cầu có hàng", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_yeu_cau_co_hang)}</span> },
     { key: "ngay_du_kien", header: "Ngày dự kiến HT", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_du_kien_hoan_thanh)}</span> },
     { key: "last_ly_do_cham", header: "Lý do tồn gần nhất", render: (c) => <span className="text-xs">{c.last_ly_do_cham ?? "—"}</span> },
-    { key: "tuoi_ton", header: "Tuổi tồn", render: (c) => <span className="font-mono text-xs">{c.tuoi_ton ?? "—"}</span> },
+    {
+      key: "tuoi_ton",
+      header: "Tuổi tồn",
+      render: (c) =>
+        (c.tuoi_ton ?? 0) > 7 ? (
+          <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-[var(--coral-500)] text-white">{c.tuoi_ton}</span>
+        ) : (
+          <span className="font-mono text-xs">{c.tuoi_ton ?? "—"}</span>
+        ),
+    },
     { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
@@ -547,6 +567,16 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string, tab?: 
           {trangThai === "dang-ton" && (
             <div className="flex flex-wrap gap-3 mb-4">
               <StatCard label="Ca đang chờ linh kiện" value={data?.total ?? 0} tone="amber" />
+              <StatCard
+                label="Ca tồn >7 ngày"
+                value={khuVucTotal.tren_7}
+                tone="coral"
+                muted={!khuVucTotal.tren_7}
+                onClick={() => {
+                  setAgeBucketKey("gt-7");
+                  setPage(1);
+                }}
+              />
               <StatCard label="Mã linh kiện đang thiếu (trang này)" value={soMaLinhKien} tone="coral" />
               <StatCard label="Giá trị linh kiện dự kiến (trang này)" value={fmtVND(totalDtLinhKien)} tone="ocean" />
               {/* CHOT 2026-08-12: nut filter nhanh Model = "Loc tong" HOAC "Loc nuoc BCN" - modelFilter
@@ -591,6 +621,7 @@ export function MissingPartsModule({ openCase }: { openCase: (id: string, tab?: 
               onPageChange={setPage}
               onRowClick={(c) => openCase(c.id, "giai-trinh")}
               rowKey={(c) => c.id}
+              rowClassName={(c) => (isVipKh(c.nhom_kh) ? vipRowClassName(c.nhom_kh) : (c.tuoi_ton ?? 0) > 7 ? "bg-[var(--coral-100)]" : "")}
               emptyText="Không có ca thiếu linh kiện."
               storageKey="missing-parts-list"
             />

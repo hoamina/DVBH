@@ -92,6 +92,25 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   sequentially so one failing sync doesn't block the rest; the daily one archives completed cases
   older than 3 months.
 - `routes/*.ts` — one file per feature area, matches the sidebar modules in `frontend/src/modules/`.
+  Notable routes not covered elsewhere:
+  - `notifications.ts` — `GET /api/notifications/count` returns `NotificationsCountPayload` (badge
+    counts for every sidebar module). Cached via `cachedReport`. The `datMuaLk` badge is personalized
+    per user role/flags (Tram scope is per-person; TN/Kho/Ke toan/QC see system-wide queues).
+  - `datMuaLinhKien.ts` — purchase order workflow for spare parts. Header (`phieu_dat`) + per-row
+    (`dat_don_hang`) design with per-row state machine (see `dat_don_hang_log`). Scoped by
+    `scopeDatMua.ts`, NOT by `scopeByKhuVuc`. Access flags `la_ktv_dvbh`/`la_ve_tinh`/`la_kho`/
+    `la_ke_toan` determine which queue each user sees. GS watches but doesn't approve.
+  - `traHang.ts` — return-goods flow, shares `dat_don_hang` with a `loai_don='tra_hang'` flag and
+    uses `tra_hang_log` for its 6-step state machine (migration 0064).
+  - `phieuXuatKho.ts` — warehouse exit slips (`phieu_xuat_kho`, migration 0058), managed by `la_kho`
+    users.
+  - `lkSettings.ts` — CRUD for `lk_danh_muc` (parts catalog) and `loai_de_xuat` groups/options;
+    fronted by `SettingsModule.tsx` (Admin/TBP DVBH).
+  - `partnerApi.ts` — external partner-facing API with HMAC-SHA256 auth (`partnerApiAuth.ts`,
+    migration 0047). Separate from the main UI auth flow.
+  - `missingParts.ts` — tracks `thieu_lk` (missing parts) per order line; closed by `la_kho` users
+    when parts arrive, which resumes the parent `dat_don_hang` row.
+  - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
 - `middleware/` — `session.ts` verifies the `dvbh_session` JWT cookie and sets `email`; a route then
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via
   `loadUser.ts` and sets `user`; `requireRole.ts` gates by role; `scopeByKhuVuc.ts` builds the
@@ -127,14 +146,30 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   - `caLapRefresh.ts` — incremental recompute of the "ca lặp" (duplicate case) precompute table,
     keyed by affected `seri_san_pham` when possible, full recompute as a fallback safety net.
   - `daDongDayChunks.ts` — the R2 JSON-snapshot mechanism (see "R2 usage rules" below).
+  - `moduleAccess.ts` — per-user module visibility logic (migration 0042). `effectiveModules(user)`
+    is the single source of truth: Admin always gets everything; otherwise uses `user.modules` (JSON
+    array from DB) if non-null, else falls back to `DEFAULT_MODULES_BY_ROLE[vai_tro]`. The flags
+    `la_ktv_dvbh`/`la_ve_tinh`/`la_kho`/`la_ke_toan` auto-add `dat-mua-lk` and `tra-hang` to any
+    base list. The 3 system modules (import/settings/users) are NOT in this system — they stay
+    hardcoded to `requireRole("Admin")` in their routes.
+  - `scopeDatMua.ts` — scope middleware for the "Đặt mua linh kiện" module. Uses user
+    relationships (creator / Tram parent / GS assignment), not `khu_vuc_phu_trach`.
+  - `dailySnapshot.ts` — runs at the daily cron: snapshots giai_trinh counts, pushes a PNG report
+    image via Telegram (`telegram.ts` + `reportImage.ts`).
+  - `telegram.ts` — sends PNG images via Telegram Bot API (`sendTelegramPhoto`); used only by
+    `dailySnapshot.ts` for the 17:30 VN daily report push.
 
 #### Report caching: version-tag system (`dataVersions.ts` + `reportCache.ts`)
 
 Read-heavy report/stat endpoints don't query source tables live on every request. Instead:
-1. `data_versions` table holds one integer version per data **domain** (`cases`, `giai_trinh`,
-   `vi_pham`, `ket_qua_goi`, `giai_trinh_lap`, `blacklist`, `settings`, `users`,
-   `nap_gas_danh_gia`). Every write path calls `bumpVersions(db, [...domains])` right after (or in
-   the same batch as) its actual write.
+1. `data_versions` table holds one integer version per data **domain** (`blacklist`, `cases`,
+   `dat_mua_lk`, `giai_trinh`, `giai_trinh_lap`, `ket_qua_goi`, `nap_gas_danh_gia`, `settings`,
+   `tranh_chap`, `users`, `vi_pham`). Every write path calls `bumpVersions(db, [...domains])` right
+   after (or in the same batch as) its actual write. `tranh_chap` was added 2026-07-29 (bumped by
+   every write to `tranh_chap_tien_trinh`/`tranh_chap_log`); `dat_mua_lk` was added 2026-08-14
+   for the "Đặt mua linh kiện" badge in `notifications/count` — bumped by every write in
+   `datMuaLinhKien.ts`, `phieuXuatKho.ts`, `traHang.ts` (previously those writes bumped `cases`
+   by mistake, causing unnecessary dashboard invalidation).
 2. Report endpoints wrap their compute function in `cachedReport(db, key, domains, compute)`: it
    builds a version-tag from the declared domains (plus the current Vietnam-time date, since
    age-bucketed reports can change at midnight with zero writes), compares it to the tag stored in
@@ -214,7 +249,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0038`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0068`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
@@ -231,15 +266,22 @@ TABLE`, fails with "already exists") — confirmed by hitting exactly this in pr
   supports drilling into a related case (e.g. duplicate-case history) and returning via "back"
   without losing the original view mode/tab.
 - `modules/` — one file per sidebar module, mirrors `backend/src/routes/`.
-- `layout/navConfig.ts` — `ROLE_MODULES` is the single source of truth for which sidebar modules
-  each `VaiTro` (role) can see; keep this in sync with backend `requireRole` checks in the
-  corresponding route files (there is no shared/generated permission table).
+- `layout/navConfig.ts` — `ROLE_MODULES` defines the **default** module list per role; since
+  migration 0042, per-user overrides are stored in `users.modules` and applied by the backend
+  `moduleAccess.ts`. Both must stay in sync: `ROLE_MODULES` in `navConfig.ts` must match
+  `DEFAULT_MODULES_BY_ROLE` in `backend/src/lib/moduleAccess.ts` — there is no shared/generated
+  source, sync manually when changing either. The frontend uses the effective list returned by
+  `GET /api/users/me` (field `modules_effectif`) to render the sidebar.
 - `api/client.ts` — thin fetch wrapper (`api.get/post/patch/delete/postForm`); a 401 response
   redirects the whole page to `/api/auth/login` (session cookie expired), everything else surfaces
   as `ApiError` with the backend's `{error, message}` body.
 - `theme/` — user-customizable theme (colors/fonts), separate from role-based module access.
 - `lib/closedDataCache.ts` — client-side IndexedDB cache paired with the R2 day-chunk system above;
   compares content hash from the manifest before re-fetching a day's chunk from R2.
+- `lib/loaiDeXuatCache.ts` — IndexedDB cache for `loai_de_xuat` options (spare-part proposal types),
+  incremental sync pattern identical to the linh kien cache. `getOptionsForUser()` filters by the
+  user's role flags (`la_ktv_dvbh`, `la_ve_tinh`, `vai_tro:…`) stored in `vai_tro_json` per entry,
+  so the client can filter without an extra API call.
 
 ### Auth & roles
 

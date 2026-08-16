@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -138,7 +138,7 @@ export function UsersModule() {
       giam_sat_quan_ly,
     }: {
       email: string;
-      vai_tro: string;
+      vai_tro: string | null;
       khu_vuc: string[];
       la_ksnb_doi_tac: boolean;
       modules: string[] | null;
@@ -399,9 +399,14 @@ function EditUserModal({
 }: {
   user: UserRow;
   onClose: () => void;
-  onSave: (vaiTro: string, khuVuc: string[], laKsnbDoiTac: boolean, modules: string[] | null, coTheImportTranhChap: boolean, laKtvDvbh: boolean, laVeTinh: boolean, laKho: boolean, laKeToan: boolean, tramCha: string | null, giamSatQuanLy: string | null) => void;
+  onSave: (vaiTro: string | null, khuVuc: string[], laKsnbDoiTac: boolean, modules: string[] | null, coTheImportTranhChap: boolean, laKtvDvbh: boolean, laVeTinh: boolean, laKho: boolean, laKeToan: boolean, tramCha: string | null, giamSatQuanLy: string | null) => void;
 }) {
-  const [role, setRole] = useState(user.vai_tro ?? ROLES[0]);
+  const addToast = useToast();
+  // CHOT: KHONG duoc mac dinh ve ROLES[0] ("Admin") khi user.vai_tro dang rong - do la tai khoan
+  // "chi Dat mua linh kien" (KTV/CTV/Tram/Ve tinh...) co chu dich khong co vai_tro, khong phai
+  // "chua chon". Truoc day mac dinh ve "Admin" khien Admin bam Luu ma khong dung toi dropdown se
+  // VO TINH thang cap tai khoan do len Admin - da sua 2026-08-14.
+  const [role, setRole] = useState(user.vai_tro ?? "");
   const [kv, setKv] = useState<Set<string>>(new Set(user.khu_vuc_phu_trach));
   const [laKsnb, setLaKsnb] = useState(!!user.la_ksnb_doi_tac);
   const [coTheImportTranhChap, setCoTheImportTranhChap] = useState(!!user.co_the_import_tranh_chap);
@@ -411,6 +416,36 @@ function EditUserModal({
   const [laKeToan, setLaKeToan] = useState(!!user.la_ke_toan);
   const [tramCha, setTramCha] = useState(user.tram_cha ?? "");
   const [giamSatQuanLy, setGiamSatQuanLy] = useState(user.giam_sat_quan_ly ?? "");
+  // "Khu vuc phu trach" (Giam sat) - phan hoi UX muc 6, 2026-08-15: Admin gan 1/nhieu Giam sat cho
+  // TN/Kho/Ke toan de scope MEM badge + the bao cao tong the (xem migration 0073, scopeDatMua.ts).
+  // Doc/ghi qua 2 route RIENG (khac bang users), luu doc lap voi nut "Luu" chinh cua modal.
+  const showPhuTrachGs = laKho || laKeToan || role === "TBP DVBH" || role === "Admin";
+  const { data: giamSatListData } = useQuery({
+    queryKey: ["users", "giam-sat-list"],
+    queryFn: () => api.get<{ rows: UserRow[] }>(`/users?tab=da-duyet&vai_tro=${encodeURIComponent("Giam sat")}`),
+    enabled: showPhuTrachGs,
+  });
+  const { data: phuTrachGsData } = useQuery({
+    queryKey: ["dat-mua-lk-phu-trach-gs", user.email],
+    queryFn: () => api.get<{ emails: string[] }>(`/dat-mua-lk/phu-trach-gs?nguoi_phu_trach=${encodeURIComponent(user.email)}`),
+    enabled: showPhuTrachGs,
+  });
+  const [phuTrachGs, setPhuTrachGs] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (phuTrachGsData) setPhuTrachGs(new Set(phuTrachGsData.emails));
+  }, [phuTrachGsData]);
+  function togglePhuTrachGs(email: string) {
+    setPhuTrachGs((s) => {
+      const next = new Set(s);
+      next.has(email) ? next.delete(email) : next.add(email);
+      return next;
+    });
+  }
+  const savePhuTrachGs = useMutation({
+    mutationFn: () => api.put("/dat-mua-lk/phu-trach-gs", { nguoi_phu_trach: user.email, giam_sat_emails: [...phuTrachGs] }),
+    onSuccess: () => addToast("Đã lưu khu vực phụ trách"),
+    onError: (err) => addToast("Lỗi: " + (err instanceof Error ? err.message : String(err))),
+  });
   // Khoi tao 1 LAN tu du lieu hien co (user.modules neu da tuy chinh, khong thi mac dinh theo
   // vai_tro hien tai cua user) - KHONG tu dong reset lai khi doi Vai tro trong modal (tranh mat du
   // lieu da tick neu Admin lo doi qua lai vai tro truoc khi Luu).
@@ -444,7 +479,12 @@ function EditUserModal({
       <div className="space-y-4">
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Vai trò</label>
-          <Select value={role} onChange={setRole} options={ROLES} className="w-full mt-1" />
+          <Select
+            value={role}
+            onChange={setRole}
+            options={[{ value: "", label: "(Chưa gán — chỉ Đặt mua linh kiện)" }, ...ROLES]}
+            className="w-full mt-1"
+          />
         </div>
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">Khu vực được xem / quản lý</label>
@@ -518,6 +558,35 @@ function EditUserModal({
               />
             </div>
           </div>
+          {/* Khu vuc phu trach (Giam sat) - phan hoi UX muc 6, 2026-08-15: chi anh huong badge/the
+              bao cao (scope MEM), KHONG gioi han danh sach/tim kiem cua nguoi nay. Luu doc lap
+              (khac bang users) - bam "Lưu khu vực" ngay, khong doi nut "Lưu" chinh cua modal. */}
+          {showPhuTrachGs && (
+            <div className="mt-3 border-t border-[var(--line)] pt-3">
+              <label className="block text-xs font-semibold text-[var(--ink-400)] mb-1">
+                Khu vực phụ trách (Giám sát) — chỉ tính đơn của các Giám sát này vào "cần xử lý"
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {(giamSatListData?.rows ?? []).map((g) => (
+                  <button
+                    key={g.email}
+                    onClick={() => togglePhuTrachGs(g.email)}
+                    className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${phuTrachGs.has(g.email) ? "bg-[var(--ocean-500)] text-white border-[var(--ocean-500)]" : "border-[var(--line)] text-[var(--ink-600)]"}`}
+                    title={g.email}
+                  >
+                    {g.ten || g.email}
+                  </button>
+                ))}
+                {(giamSatListData?.rows ?? []).length === 0 && <span className="text-xs text-[var(--ink-400)] italic">Chưa có tài khoản vai trò Giám sát.</span>}
+              </div>
+              <div className="text-xs text-[var(--ink-400)] mb-2">
+                Bỏ trống = không giới hạn (xem toàn bộ hàng đợi, hành vi mặc định). Chọn Giám sát để chỉ tính đơn thuộc các Giám sát đó vào badge/thẻ báo cáo "cần xử lý".
+              </div>
+              <Btn size="sm" variant="ghost" onClick={() => savePhuTrachGs.mutate()} disabled={savePhuTrachGs.isPending}>
+                Lưu khu vực phụ trách
+              </Btn>
+            </div>
+          )}
         </div>
         {role === "Admin" ? (
           <div className="text-xs text-[var(--ink-400)] italic">Vai trò Admin luôn xem được toàn bộ module - không cần tùy chỉnh riêng.</div>
@@ -544,7 +613,7 @@ function EditUserModal({
           <Btn variant="ghost" onClick={onClose}>
             Hủy
           </Btn>
-          <Btn onClick={() => onSave(role, Array.from(kv), laKsnb, role === "Admin" ? null : Array.from(moduleSet), coTheImportTranhChap, laKtvDvbh, laVeTinh, laKho, laKeToan, tramCha || null, giamSatQuanLy || null)}>Lưu</Btn>
+          <Btn onClick={() => onSave(role || null, Array.from(kv), laKsnb, role === "Admin" ? null : Array.from(moduleSet), coTheImportTranhChap, laKtvDvbh, laVeTinh, laKho, laKeToan, tramCha || null, giamSatQuanLy || null)}>Lưu</Btn>
         </div>
       </div>
     </Modal>

@@ -32,6 +32,7 @@ import { useAuth, type VaiTro } from "../auth/AuthContext";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { ImportUploader } from "../components/ImportUploader";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 
 interface BlacklistImportSummary {
   thanhCong: number;
@@ -139,7 +140,9 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [idSearch, setIdSearch] = useState("");
   const [blacklistSearch, setBlacklistSearch] = useState("");
+  const [blacklistPage, setBlacklistPage] = useState(1);
   const pageSize = 20;
+  const blacklistPageSize = 10;
 
   const { data: khuVucOptions } = useQuery({
     queryKey: ["dashboard-filters"],
@@ -243,13 +246,18 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const sortedRows = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filteredRows].sort((a, b) => {
-      const av = (a as unknown as Record<string, unknown>)[sortBy];
-      const bv = (b as unknown as Record<string, unknown>)[sortBy];
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
+      // CHOT 2026-08-16: VIP/S.VIP luon len dau, bat ke sortBy/sortDir nguoi dung dang chon - cot
+      // sortBy chi quyet dinh thu tu TRONG TUNG nhom VIP/khong VIP.
+      const av = isVipKh(a.nhom_kh) ? 0 : 1;
+      const bv = isVipKh(b.nhom_kh) ? 0 : 1;
+      if (av !== bv) return av - bv;
+      const sv = (a as unknown as Record<string, unknown>)[sortBy];
+      const tv = (b as unknown as Record<string, unknown>)[sortBy];
+      if (sv == null && tv == null) return 0;
+      if (sv == null) return 1;
+      if (tv == null) return -1;
+      if (sv < tv) return -1 * dir;
+      if (sv > tv) return 1 * dir;
       return 0;
     });
   }, [filteredRows, sortBy, sortDir]);
@@ -284,6 +292,11 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     queryFn: () => api.get<{ rows: BlacklistSerialRow[] }>("/ca-lap/blacklist"),
     enabled: view === "blacklist",
   });
+  const filteredBlacklistRows = useMemo(() => {
+    const q = blacklistSearch.trim().toLowerCase();
+    const rows = blacklistData?.rows ?? [];
+    return q ? rows.filter((r) => r.seri_san_pham.toLowerCase().includes(q)) : rows;
+  }, [blacklistData, blacklistSearch]);
 
   const addBlacklistMutation = useMutation({
     mutationFn: () => api.post("/ca-lap/blacklist", { seri_san_pham: newSerial }),
@@ -365,7 +378,16 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const columns: Column<CaLapListRow>[] = [
     { key: "id", header: "ID", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
     { key: "seri_san_pham", header: "Serial", render: (r) => <span className="font-mono text-xs">{r.seri_san_pham}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (r) => (
+        <>
+          {isVipKh(r.nhom_kh) && <VipBadge />}
+          {r.khach_hang ?? "—"}
+        </>
+      ),
+    },
     { key: "ky_thuat_vien", header: "KTV", render: (r) => r.ky_thuat_vien ?? "—" },
     { key: "hoan_thanh", header: "Hoàn thành", sortKey: "thoi_gian_hoan_thanh", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
     { key: "prior_id", header: "Ca trước", render: (r) => <span className="font-mono text-xs">{r.prior_id}</span> },
@@ -721,6 +743,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             onPageChange={setPage}
             onRowClick={(r) => openCase(r.id, "ca-lap")}
             rowKey={(r) => r.id}
+            rowClassName={(r) => vipRowClassName(r.nhom_kh)}
             emptyText="Không có ca lặp nào trong phạm vi đã lọc."
             sortBy={sortBy}
             sortDir={sortDir}
@@ -763,17 +786,24 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             invalidateKeys={[["ca-lap-blacklist"], ["ca-lap-list"], ["ca-lap-status"], ["ca-lap-tong-quan"]]}
           />
           <div className="flex justify-end mb-2">
-            <IdSerialSearchInput value={blacklistSearch} onChange={setBlacklistSearch} placeholder="Tìm theo Serial…" />
+            <IdSerialSearchInput
+              value={blacklistSearch}
+              onChange={(v) => {
+                setBlacklistSearch(v);
+                setBlacklistPage(1);
+              }}
+              placeholder="Tìm theo Serial…"
+            />
           </div>
           <PaginatedTable
             columns={blacklistColumns}
-            rows={(blacklistData?.rows ?? []).filter((r) => r.seri_san_pham.toLowerCase().includes(blacklistSearch.trim().toLowerCase()))}
+            rows={filteredBlacklistRows.slice((blacklistPage - 1) * blacklistPageSize, blacklistPage * blacklistPageSize)}
             isLoading={false}
             isError={false}
-            page={1}
-            pageSize={200}
-            total={(blacklistData?.rows ?? []).filter((r) => r.seri_san_pham.toLowerCase().includes(blacklistSearch.trim().toLowerCase())).length}
-            onPageChange={() => {}}
+            page={blacklistPage}
+            pageSize={blacklistPageSize}
+            total={filteredBlacklistRows.length}
+            onPageChange={setBlacklistPage}
             rowKey={(r) => r.id}
             emptyText="Chưa có serial nào trong blacklist."
             storageKey="ca-lap-blacklist"

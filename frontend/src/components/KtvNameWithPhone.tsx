@@ -121,7 +121,7 @@ function KtvPhoneModal({ maKtv, kyThuatVien, canEdit, onClose }: { maKtv: string
           <>
             <div>
               <div className="text-xs font-semibold text-[var(--ink-400)] mb-1">Số điện thoại</div>
-              <div className="text-[var(--ocean-600)] font-semibold">📞 {entry.sdt}</div>
+              <div className="text-[var(--ocean-600)] font-semibold">📞 {entry.sdt ?? "Chưa có SĐT"}</div>
             </div>
             {entry.ghi_chu && (
               <div>

@@ -4,6 +4,12 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
 import { api } from "../api/client";
 
+// datMuaLk la object breakdown-theo-loai-viec (xem DatMuaLkBreakdown o backend/src/routes/notifications.ts)
+// tu 2026-08-15 - sidebar chi can ".total" de hien 1 con so gon, breakdown chi tiet hien trong
+// chinh module DatMuaLinhKienModule.tsx (thanh tom tat + nhay dung tab/filter).
+interface DatMuaLkBreakdown {
+  total: number;
+}
 interface NotificationCounts {
   canGiaiTrinh: number;
   choQc: number;
@@ -12,8 +18,9 @@ interface NotificationCounts {
   caLap: number;
   danhGiaNapGas: number;
   tranhChap: number;
+  datMuaLk: DatMuaLkBreakdown;
 }
-const COUNT_FIELD: Record<NonNullable<NavItem["countKey"]>, keyof NotificationCounts> = {
+const COUNT_FIELD: Record<Exclude<NonNullable<NavItem["countKey"]>, "datMuaLk">, keyof Omit<NotificationCounts, "datMuaLk">> = {
   backlog: "canGiaiTrinh",
   missingParts: "caThieuLinhKien",
   survey: "khaoSat",
@@ -58,7 +65,7 @@ export function Sidebar({
         <img src="/logo-37.png" alt="Ông Thợ 3T" width={30} height={30} className="shrink-0 rounded-md" />
         {(!collapsed || isMobile) && (
           <div className="leading-tight">
-            <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">ÔNG THỢ 3T - DVBH</div>
+            <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">DỊCH VỤ 3T - DVBH</div>
             <div className="text-[10px] text-[var(--sidebar-ink-dim)] font-medium">Giải trình tồn &amp; SLA</div>
           </div>
         )}
@@ -71,7 +78,7 @@ export function Sidebar({
             <div key={g.label} className="mb-4">
               {(!collapsed || isMobile) && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-ink-dim)] px-2.5 mb-1.5">{g.label}</div>}
               {items.map((it) => {
-                const count = it.countKey && counts ? counts[COUNT_FIELD[it.countKey]] : 0;
+                const count = !it.countKey || !counts ? 0 : it.countKey === "datMuaLk" ? counts.datMuaLk.total : counts[COUNT_FIELD[it.countKey]];
                 return (
                   <button
                     key={it.key}

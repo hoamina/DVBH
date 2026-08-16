@@ -72,22 +72,76 @@ auth.get("/callback", async (c) => {
     return c.text("Email Google chua duoc xac minh.", 403);
   }
 
-  // Upsert ten hien thi (khong dong lai vai_tro/trang_thai_duyet o day - loadUser xu ly)
-  await c.env.DB.prepare("PRAGMA foreign_keys = ON").run();
   const isBootstrapAdmin = userInfo.email === c.env.BOOTSTRAP_ADMIN_EMAIL;
-  await c.env.DB.prepare(
-    `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(email) DO UPDATE SET ten = excluded.ten, updated_at = ?`,
-  )
-    .bind(
-      userInfo.email,
-      userInfo.name ?? null,
-      isBootstrapAdmin ? "Admin" : null,
-      isBootstrapAdmin ? "Da duyet" : "Cho duyet",
-      nowVN(),
+
+  // CHOT 2026-08-16 (dot 3 gop y #3): neu email khop 1 dong ktv_lien_he.email_dang_nhap, tu dong
+  // KICH HOAT HOAN TOAN tai khoan ngay luc dang nhap (bo qua buoc Admin duyet) + gan san vai
+  // tro/co - khop dung co che provisionPlaceholderUser da xay (settings.ts, vai_tro=NULL cho
+  // KTV/Ve tinh, effectiveModules() da xu ly an toan gia tri nay). CHI ap dung khi tai khoan van
+  // dang "Cho duyet" (tai khoan MOI hoac placeholder tao truoc do) - KHONG BAO GIO ghi de 1 tai
+  // khoan da duyet/cau hinh thu cong truoc do (xem CASE WHEN trong cau UPSERT ben duoi).
+  let ktvMatch: { laKtvDvbh: number; laVeTinh: number; giamSatQuanLy: string | null } | null = null;
+  if (!isBootstrapAdmin) {
+    const ktvRow = await c.env.DB.prepare("SELECT vai_tro_ktv, giam_sat_quan_ly FROM ktv_lien_he WHERE email_dang_nhap = ?")
+      .bind(userInfo.email)
+      .first<{ vai_tro_ktv: string | null; giam_sat_quan_ly: string | null }>();
+    if (ktvRow) {
+      let giamSatQuanLy = ktvRow.giam_sat_quan_ly;
+      if (giamSatQuanLy) {
+        // Tranh vi pham FK users.giam_sat_quan_ly REFERENCES users(email) neu GS do chua tung dang
+        // nhap - dung bai hoc tu vu sua backfill-users truoc day (xem nhat_ky_lam_viec.md phien 5).
+        const gsExists = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(giamSatQuanLy).first();
+        if (!gsExists) giamSatQuanLy = null;
+      }
+      ktvMatch = {
+        laKtvDvbh: ktvRow.vai_tro_ktv === "Ve tinh" ? 0 : 1,
+        laVeTinh: ktvRow.vai_tro_ktv === "Ve tinh" ? 1 : 0,
+        giamSatQuanLy,
+      };
+    }
+  }
+
+  await c.env.DB.prepare("PRAGMA foreign_keys = ON").run();
+  if (ktvMatch) {
+    await c.env.DB.prepare(
+      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh, giam_sat_quan_ly)
+       VALUES (?, ?, NULL, 'Da duyet', ?, ?, ?)
+       ON CONFLICT(email) DO UPDATE SET
+         ten = excluded.ten,
+         updated_at = ?,
+         trang_thai_duyet = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN 'Da duyet' ELSE trang_thai_duyet END,
+         la_ktv_dvbh = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ? ELSE la_ktv_dvbh END,
+         la_ve_tinh = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ? ELSE la_ve_tinh END,
+         giam_sat_quan_ly = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ? ELSE giam_sat_quan_ly END`,
     )
-    .run();
+      .bind(
+        userInfo.email,
+        userInfo.name ?? null,
+        ktvMatch.laKtvDvbh,
+        ktvMatch.laVeTinh,
+        ktvMatch.giamSatQuanLy,
+        nowVN(),
+        ktvMatch.laKtvDvbh,
+        ktvMatch.laVeTinh,
+        ktvMatch.giamSatQuanLy,
+      )
+      .run();
+  } else {
+    // Upsert ten hien thi (khong dong lai vai_tro/trang_thai_duyet o day - loadUser xu ly).
+    await c.env.DB.prepare(
+      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(email) DO UPDATE SET ten = excluded.ten, updated_at = ?`,
+    )
+      .bind(
+        userInfo.email,
+        userInfo.name ?? null,
+        isBootstrapAdmin ? "Admin" : null,
+        isBootstrapAdmin ? "Da duyet" : "Cho duyet",
+        nowVN(),
+      )
+      .run();
+  }
 
   // Ghi nhat ky dang nhap (bao mat noi bo - Admin tra cuu ai dang nhap luc nao tu dau).
   // CF-Connecting-IP la header Cloudflare tu dong gan, dang tin cay hon so voi client tu khai bao.

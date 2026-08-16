@@ -20,6 +20,7 @@ import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchMuaHang, matchBaoHanh } from "../lib/purchaseWarrantyMatch";
+import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 
@@ -162,6 +163,7 @@ interface CanGiaiTrinhCounts {
   b2b: number;
   nskx: number;
   loc_tong_bcn: number;
+  vip_24h: number;
   da_giai_trinh: number;
   dmx_3_ngay: number;
   dmx_chua_gt_3_ngay: number;
@@ -259,6 +261,76 @@ interface GiaiTrinhTrendRow {
 // Ngay/khu_vuc bi loai tru khoi luy ke/ty le thang (settings_giai_trinh_exclude_ngay, migration
 // 0046) - khu_vuc = "__ALL__" nghia la loai tru CA HE THONG ngay do. Chu nhat KHONG nam trong danh
 // sach nay (quy tac cung, tu tinh o isNgayExcluded ben duoi), server chi tra ve phan THEM tay.
+// "Canh bao ton danh cho QL" (xem backend/src/lib/canhBaoTon.ts) - 8 chi tieu co dinh, Cap 1 (TP
+// DVBH) + Cap 2 (CEO). CANH_BAO_TON_METRICS la nguon duy nhat cho ca card tong quan lan 8 bang lich
+// su theo ngay (tranh khai bao lap 2 noi).
+type CanhBaoTonMetricKey = "ton14" | "vipSvip5" | "locTong3" | "tranhChap3" | "ton20" | "vipSvip7" | "locTong5" | "tranhChap5";
+const CANH_BAO_TON_METRICS: { cap: 1 | 2; key: CanhBaoTonMetricKey; label: string; trendCol: string }[] = [
+  { cap: 1, key: "ton14", label: "Tồn ≥14 ngày", trendCol: "ton_14_ngay" },
+  { cap: 1, key: "vipSvip5", label: "VIP/S.VIP tồn ≥5 ngày", trendCol: "vip_svip_5_ngay" },
+  { cap: 1, key: "locTong3", label: "Lọc tổng tồn ≥3 ngày", trendCol: "loc_tong_3_ngay" },
+  { cap: 1, key: "tranhChap3", label: "Tranh chấp/KN ≥3 ngày", trendCol: "tranh_chap_3_ngay" },
+  { cap: 2, key: "ton20", label: "Tồn >20 ngày", trendCol: "ton_20_ngay" },
+  { cap: 2, key: "vipSvip7", label: "VIP/S.VIP tồn ≥7 ngày", trendCol: "vip_svip_7_ngay" },
+  { cap: 2, key: "locTong5", label: "Lọc tổng tồn ≥5 ngày", trendCol: "loc_tong_5_ngay" },
+  { cap: 2, key: "tranhChap5", label: "Tranh chấp/KN ≥5 ngày", trendCol: "tranh_chap_5_ngay" },
+];
+interface CanhBaoTonTrendPoint {
+  yesterday: number | null;
+  weekAgo: number | null;
+  monthAgo: number | null;
+}
+interface CanhBaoTonCountsPayload {
+  generatedAt: string;
+  counts: Record<CanhBaoTonMetricKey, number>;
+  trend: Record<CanhBaoTonMetricKey, CanhBaoTonTrendPoint>;
+}
+const CANH_BAO_TON_METRIC_KEY = "backlog.canhBaoTon.selectedMetric";
+
+// Dong chu "so sanh nhanh" duoi 1 StatCard - CHI so voi hom qua (Q2 da chot voi nguoi dung), mau
+// coral khi TANG (xau di, can chu y) / teal khi GIAM (tot len) / ink khi khong doi hoac chua co du lieu.
+function canhBaoTonYesterdaySub(current: number, yesterday: number | null): { text: string; className: string } {
+  if (yesterday === null) return { text: "chưa có dữ liệu hôm qua", className: "text-[var(--ink-400)]" };
+  const diff = current - yesterday;
+  if (diff === 0) return { text: "không đổi so hôm qua", className: "text-[var(--ink-400)]" };
+  return diff > 0
+    ? { text: `▲ +${diff} so hôm qua`, className: "text-[var(--coral-500)] font-semibold" }
+    : { text: `▼ ${diff} so hôm qua`, className: "text-[var(--teal-500)] font-semibold" };
+}
+
+// Dong tom tat 3 moc so sanh (hom qua/7 ngay/30 ngay truoc) cho khu vuc chon trong bo loc gop - CHOT
+// 2026-08-16 thay the hoan toan 8 bang khu_vuc x 14 ngay liet ke day du (phan hoi "90% thua thai").
+function canhBaoTonTrendParts(current: number, trend: CanhBaoTonTrendPoint): { text: string; className: string }[] {
+  const parts: [string, number | null][] = [
+    ["hôm qua", trend.yesterday],
+    ["tuần trước", trend.weekAgo],
+    ["tháng trước", trend.monthAgo],
+  ];
+  return parts.map(([label, prior]) => {
+    if (prior === null) return { text: `${label}: chưa có dữ liệu`, className: "text-[var(--ink-400)]" };
+    const diff = current - prior;
+    if (diff === 0) return { text: `${label}: không đổi`, className: "text-[var(--ink-400)]" };
+    return diff > 0
+      ? { text: `${label}: tăng ${diff}`, className: "text-[var(--coral-500)] font-semibold" }
+      : { text: `${label}: giảm ${Math.abs(diff)}`, className: "text-[var(--teal-500)] font-semibold" };
+  });
+}
+interface CanhBaoTonTrendDay {
+  ngay: string;
+  ton_14_ngay: number;
+  vip_svip_5_ngay: number;
+  loc_tong_3_ngay: number;
+  tranh_chap_3_ngay: number;
+  ton_20_ngay: number;
+  vip_svip_7_ngay: number;
+  loc_tong_5_ngay: number;
+  tranh_chap_5_ngay: number;
+}
+interface CanhBaoTonTrendRow {
+  khu_vuc: string;
+  days: CanhBaoTonTrendDay[];
+}
+
 interface ExcludedNgayRow {
   ngay: string;
   khu_vuc: string;
@@ -286,6 +358,7 @@ const NHOM_TON_BADGES: { key: keyof CaseRow; label: string }[] = [
   { key: "need_b2b", label: "B2B" },
   { key: "need_nskx", label: "NSKX" },
   { key: "need_loc_tong_bcn", label: "Lọc tổng" },
+  { key: "need_vip_24h", label: "VIP/SVIP >24h" },
 ];
 
 const REPORT_DIM_OPTIONS = [
@@ -298,8 +371,12 @@ const REPORT_DIM_OPTIONS = [
   { value: "nganh", label: "Ngành" },
 ];
 
+// CHOT 2026-08-16: tach "Bao cao ton cho QL" thanh 2 tab rieng (Cap 1 / Cap 2) thay vi 1 tab gop 2
+// dong - theo phan hoi khong muon 2 cap "lan" vao chung 1 man hinh.
 const VIEWS = [
   { key: "bao-cao", label: "Báo cáo" },
+  { key: "canh-bao-ton-cap1", label: "Cảnh báo tồn · Cấp 1 (TP DVBH)" },
+  { key: "canh-bao-ton-cap2", label: "Cảnh báo tồn · Cấp 2 (CEO)" },
   { key: "danh-sach", label: "Danh sách chi tiết" },
 ];
 
@@ -319,6 +396,7 @@ const NHOM_OPTIONS = [
   { value: "can-giai-trinh:b2b", label: "— B2B >1 ngày" },
   { value: "can-giai-trinh:nskx", label: "— NSKX >=2 ngày" },
   { value: "can-giai-trinh:loc_tong_bcn", label: "— Lọc tổng >1 ngày" },
+  { value: "can-giai-trinh:vip_24h", label: "— VIP/S.VIP chưa GT >24h" },
   { value: "can-giai-trinh:lo_ke_hoach_dmx_5", label: "—— Lỡ kế hoạch, ĐMX >5 ngày" },
   { value: "can-giai-trinh:lo_ke_hoach_14", label: "—— Lỡ kế hoạch >14 ngày" },
   { value: "can-giai-trinh:tai_giai_trinh_dmx_5", label: "—— Tái giải trình, ĐMX >5 ngày" },
@@ -326,6 +404,14 @@ const NHOM_OPTIONS = [
   { value: "da-giai-trinh", label: "Đã giải trình" },
   { value: "da-giai-trinh-trong-ngay", label: "Đã giải trình trong ngày" },
   { value: "da-dong", label: "Ca đã đóng" },
+  { value: "canh-bao-ton:ton14", label: "Cảnh báo tồn — Cấp 1: Tồn ≥14 ngày" },
+  { value: "canh-bao-ton:vipSvip5", label: "Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥5 ngày" },
+  { value: "canh-bao-ton:locTong3", label: "Cảnh báo tồn — Cấp 1: Lọc tổng tồn ≥3 ngày" },
+  { value: "canh-bao-ton:tranhChap3", label: "Cảnh báo tồn — Cấp 1: Tranh chấp/KN ≥3 ngày" },
+  { value: "canh-bao-ton:ton20", label: "Cảnh báo tồn — Cấp 2: Tồn >20 ngày" },
+  { value: "canh-bao-ton:vipSvip7", label: "Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥7 ngày" },
+  { value: "canh-bao-ton:locTong5", label: "Cảnh báo tồn — Cấp 2: Lọc tổng tồn ≥5 ngày" },
+  { value: "canh-bao-ton:tranhChap5", label: "Cảnh báo tồn — Cấp 2: Tranh chấp/KN ≥5 ngày" },
 ];
 
 const TON_TUOI_OPTIONS = [
@@ -500,6 +586,182 @@ function fmtDayShort(ngay: string): string {
   return `${d}/${m}`;
 }
 
+// Bang lich su 1 chi tieu cua "Canh bao ton danh cho QL" (khu_vuc x 14 ngay, chi hien so dem thuan -
+// KHONG ty le/phan so nhu "Ty le giai trinh theo ngay", vi day khong phai cap "da xu ly/tong" ma la
+// so ca dat nguong tuoi). Dung chung cho ca 8 chi tieu, tranh lap JSX 8 lan.
+function DailyCountTrendTable({ title, metricCol, rows, trendDays }: { title: string; metricCol: string; rows: CanhBaoTonTrendRow[]; trendDays: string[] }) {
+  const sorted = useMemo(() => [...rows].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi")), [rows]);
+  const valueOf = (day: CanhBaoTonTrendDay | undefined): number | undefined => (day ? (day as unknown as Record<string, number>)[metricCol] : undefined);
+  const totalByDay: Record<string, number> = {};
+  for (const day of trendDays) {
+    totalByDay[day] = sorted.reduce((sum, row) => sum + (valueOf(row.days.find((d) => d.ngay === day)) ?? 0), 0);
+  }
+  return (
+    <div className="mb-4">
+      <div className="font-display font-bold text-xs mb-2">{title}</div>
+      <div className="overflow-x-auto">
+        <table className="dense w-full text-sm">
+          <thead>
+            <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+              <th className="py-2 pr-3 sticky left-0 bg-[var(--surface)] z-10">Khu vực</th>
+              {trendDays.map((day) => (
+                <th key={day} className="py-2 px-2 text-center">
+                  {fmtDayShort(day)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length > 0 && (
+              <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
+                <td className="py-2 pr-3 sticky left-0 bg-slate-50 z-10">Tổng cộng</td>
+                {trendDays.map((day) => (
+                  <td key={day} className="py-2 px-2 text-center font-mono">
+                    {totalByDay[day] || <span className="text-[var(--ink-400)] font-normal">—</span>}
+                  </td>
+                ))}
+              </tr>
+            )}
+            {sorted.map((row) => (
+              <tr key={row.khu_vuc} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 group">
+                <td className="py-2 pr-3 font-semibold sticky left-0 bg-[var(--surface)] group-hover:bg-slate-50 z-10">{shortKhuVuc(row.khu_vuc)}</td>
+                {trendDays.map((day) => {
+                  const val = valueOf(row.days.find((d) => d.ngay === day));
+                  return (
+                    <td key={day} className="py-2 px-2 text-center font-mono">
+                      {val !== undefined ? val : <span className="text-[var(--ink-400)]">—</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            {sorted.length === 0 && (
+              <tr>
+                <td colSpan={1 + trendDays.length} className="py-6 text-center text-[var(--ink-400)] text-sm">
+                  Chưa có dữ liệu lịch sử (bắt đầu ghi nhận từ khi tính năng này triển khai).
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// The rieng cho 4 o so "Canh bao ton cho QL" - CHOT 2026-08-16 theo yeu cau "to mau khac biet LONG
+// LANH, SAC SO nham thu hut mat nguoi": khac voi StatCard thuong (nen nhat + cham mau nho), o nay
+// dung han NGUYEN mau --amber-500/--coral-500 lam nen full-bleed (gradient + glow shadow, van 100%
+// tai dung token mau san co, KHONG them mau moi - dung quy uoc "dung lai token" da ghi trong
+// DatMuaLinhKienModule/TranhChapModule) khi gia tri >0 - de dap ngay vao mat quan ly luc luot 2 giay.
+// Khi =0 (khong co viec can lam) van giu trang thai lang/mo nhu StatCard thuong, tranh "keu la" moi
+// ngay gay chai mat canh bao that.
+function CanhBaoTonStatCard({
+  label,
+  value,
+  sub,
+  tone,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  sub?: { text: string; className: string };
+  tone: "amber" | "coral";
+  onClick: () => void;
+}) {
+  const active = value > 0;
+  const colorVar = tone === "amber" ? "--amber-500" : "--coral-500";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 min-w-[150px] rounded-xl p-3 sm:p-4 text-left cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${
+        active ? "" : "bg-[var(--surface)] border border-[var(--line)]"
+      }`}
+      style={
+        active
+          ? {
+              background: `linear-gradient(135deg, var(${colorVar}), color-mix(in srgb, var(${colorVar}) 60%, black))`,
+              boxShadow: `0 6px 20px -4px color-mix(in srgb, var(${colorVar}) 55%, transparent), 0 0 0 1px color-mix(in srgb, var(${colorVar}) 45%, transparent)`,
+            }
+          : undefined
+      }
+    >
+      <div className={`text-xs font-semibold uppercase tracking-wide mb-1.5 sm:mb-2 ${active ? "text-white/85" : "text-[var(--ink-400)]"}`}>{label}</div>
+      <div className={`font-display text-2xl sm:text-3xl font-extrabold ${active ? "text-white drop-shadow-sm" : "text-[var(--ink-400)]"}`}>{value}</div>
+      {sub && <div className={`text-xs mt-1 font-semibold ${active ? "text-white/90" : sub.className}`}>{sub.text}</div>}
+    </button>
+  );
+}
+
+// 1 tab "Canh bao ton" (Cap 1 hoac Cap 2) - 4 StatCard (bam vao xem dung danh sach dong bang 08:00)
+// + 1 khoi "theo ngay" gon (bo loc 1 trong 4 chi tieu, dong so sanh nhanh hom qua/tuan/thang, 1 bang
+// khu_vuc x 14 ngay CHI cua chi tieu dang chon) - CHOT 2026-08-16: tach rieng Cap 1/Cap 2 thanh 2 tab
+// doc lap, moi tab dung chung component nay de khong lap code.
+function CanhBaoTonCapView({
+  cap,
+  canhBaoTon,
+  canhBaoTonTrend,
+  trendDays,
+  metric,
+  setMetric,
+  goToDanhSach,
+}: {
+  cap: 1 | 2;
+  canhBaoTon: CanhBaoTonCountsPayload | undefined;
+  canhBaoTonTrend: { rows: CanhBaoTonTrendRow[] } | undefined;
+  trendDays: string[];
+  metric: CanhBaoTonMetricKey;
+  setMetric: (v: CanhBaoTonMetricKey) => void;
+  goToDanhSach: (nhom: string) => void;
+}) {
+  const metrics = CANH_BAO_TON_METRICS.filter((m) => m.cap === cap);
+  const selected = metrics.find((m) => m.key === metric) ?? metrics[0];
+  const value = canhBaoTon?.counts[selected.key] ?? 0;
+  const trendParts = canhBaoTon ? canhBaoTonTrendParts(value, canhBaoTon.trend[selected.key]) : [];
+  return (
+    <>
+      <div className="mb-1 mt-4 flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">
+          Cảnh báo tồn · Cấp {cap} ({cap === 1 ? "TP DVBH" : "CEO"})
+        </span>
+        {canhBaoTon && <span className="text-xs text-[var(--ink-400)]">— chốt lúc {fmtGeneratedAt(canhBaoTon.generatedAt)}</span>}
+      </div>
+      <div className="text-xs text-[var(--ink-400)] mb-3">
+        Số liệu đông băng theo mốc 8h sáng — bấm vào 1 ô số để xem đúng danh sách ca tồn đã lưu tại mốc đó (không phải danh sách "cần giải trình" tính sống).
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        {metrics.map((m) => {
+          const v = canhBaoTon?.counts[m.key] ?? 0;
+          const sub = canhBaoTon ? canhBaoTonYesterdaySub(v, canhBaoTon.trend[m.key].yesterday) : undefined;
+          return (
+            <CanhBaoTonStatCard key={m.key} label={m.label} value={v} sub={sub} tone={cap === 1 ? "amber" : "coral"} onClick={() => goToDanhSach(`canh-bao-ton:${m.key}`)} />
+          );
+        })}
+      </div>
+
+      <Card className="p-4 mt-4">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div className="font-display font-bold text-sm">Cảnh báo tồn theo ngày</div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-[var(--ink-400)]">Chỉ tiêu:</span>
+            <Select value={selected.key} onChange={(v) => setMetric(v as CanhBaoTonMetricKey)} options={metrics.map((m) => ({ value: m.key, label: m.label }))} />
+          </div>
+        </div>
+        <div className="text-xs text-[var(--ink-400)] mb-3">Chốt lúc 8h00 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
+        <div className="flex items-center gap-3 flex-wrap mb-3 text-xs">
+          {trendParts.map((p, i) => (
+            <span key={i} className={p.className}>
+              {p.text}
+            </span>
+          ))}
+        </div>
+        <DailyCountTrendTable title={selected.label} metricCol={selected.trendCol} rows={canhBaoTonTrend?.rows ?? []} trendDays={trendDays} />
+      </Card>
+    </>
+  );
+}
+
 export function BacklogModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
@@ -509,6 +771,10 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
   const [listFromSnapshot0800, setListFromSnapshot0800] = useState(false);
   const [reportDim, setReportDim] = useLocalStorageState("filters:backlog-report-dim", "khu_vuc");
   const [nhomKey, setNhomKey] = useLocalStorageState("filters:backlog-nhom-key", "can-giai-trinh:tong");
+  // Chi tieu dang xem trong khoi "Canh bao ton theo ngay" - luu cache phien xem truoc theo yeu cau
+  // nguoi dung (CHOT 2026-08-16), rieng cho tung tab Cap 1/Cap 2 (2 tab doc lap sau khi tach).
+  const [canhBaoTonMetricCap1, setCanhBaoTonMetricCap1] = useLocalStorageState<CanhBaoTonMetricKey>(`${CANH_BAO_TON_METRIC_KEY}.cap1`, "ton14");
+  const [canhBaoTonMetricCap2, setCanhBaoTonMetricCap2] = useLocalStorageState<CanhBaoTonMetricKey>(`${CANH_BAO_TON_METRIC_KEY}.cap2`, "ton20");
   const [dsTuoiTu, setDsTuoiTu] = useState("");
   const [idSearch, setIdSearch] = useState("");
   const [sortBy, setSortBy] = useState("id");
@@ -595,6 +861,21 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     queryKey: ["giai-trinh-daily-trend"],
     queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] }>("/cases/giai-trinh-daily-trend?days=14"),
     enabled: view === "bao-cao",
+  });
+  // "Canh bao ton danh cho QL" - card tong quan (dong bang 08:00, toan he thong) + bang lich su theo
+  // ngay (khu_vuc x 14 ngay, xem lib/canhBaoTon.ts). Ca 2 khong phu thuoc bo loc phu, luon fetch khi
+  // dang xem tab Bao cao.
+  const isCanhBaoTonView = view === "canh-bao-ton-cap1" || view === "canh-bao-ton-cap2";
+  const { data: canhBaoTon } = useQuery({
+    queryKey: ["canh-bao-ton"],
+    queryFn: () => api.get<CanhBaoTonCountsPayload>("/cases/canh-bao-ton"),
+    enabled: isCanhBaoTonView,
+    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
+  });
+  const { data: canhBaoTonTrend } = useQuery({
+    queryKey: ["canh-bao-ton-daily-trend"],
+    queryFn: () => api.get<{ rows: CanhBaoTonTrendRow[] }>("/cases/canh-bao-ton-daily-trend?days=14"),
+    enabled: isCanhBaoTonView,
   });
   // "Ngay loai tru" khoi luy ke/ty le thang - Chu nhat (quy tac cung) HOAC co trong danh sach Admin
   // them tay (khu_vuc "__ALL__" ap dung ca he thong) - dung de to mau khac trong bang "Ty le giai
@@ -768,14 +1049,14 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
 
   const listParams = {
     tab: dsTab,
-    category: dsTab === "can-giai-trinh" ? dsCategory : undefined,
+    category: dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton" ? dsCategory : undefined,
     tuoi_tu: dsTab === "ton-hien-tai" ? dsTuoiTu || undefined : undefined,
     id: idSearch || undefined,
     page,
     pageSize,
     sortBy,
     sortDir,
-    snapshot_0800: listFromSnapshot0800 && dsTab === "can-giai-trinh" ? true : undefined,
+    snapshot_0800: listFromSnapshot0800 && (dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton") ? true : undefined,
     ...sharedFilterParams,
     ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
   };
@@ -789,7 +1070,11 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     setNhomKey(nhom);
     // Tap ID snapshot theo vai tro (khong co bo loc) la nguon duy nhat co the drill-down khop 100%
     // voi so 08:00. Bo loc khu vuc rieng tam thoi dung nhanh bao gom ca dong sau 08:00 o backend.
-    setListFromSnapshot0800(!!backlogDaily && isFrozenEligible && (nhom.startsWith("can-giai-trinh:") || nhom === "da-giai-trinh-trong-ngay"));
+    // "canh-bao-ton:" luon dong bang toan he thong (khong phu thuoc backlogDaily/isFrozenEligible -
+    // khai niem do chi ap dung cho snapshot giai_trinh, khac bucket rieng cua Canh bao ton).
+    setListFromSnapshot0800(
+      nhom.startsWith("canh-bao-ton:") || (!!backlogDaily && isFrozenEligible && (nhom.startsWith("can-giai-trinh:") || nhom === "da-giai-trinh-trong-ngay")),
+    );
     setDsTuoiTu(tuoiTu ?? "");
     setIdSearch("");
     setPage(1);
@@ -821,6 +1106,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     need_b2b: "B2B",
     need_nskx: "NSKX",
     need_loc_tong_bcn: "Lọc tổng",
+    need_vip_24h: "VIP/SVIP >24h",
     tuoi_ton: "Tuổi tồn",
     // CHOT 2026-08-06: cac cot tinh rieng o frontend (khong co san tren CaseRow tu API) - xem enrichForExport().
     last_ten_linh_kien_thieu: "Tên linh kiện thiếu gần nhất",
@@ -874,7 +1160,16 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
 
   const columns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (c) => (
+        <>
+          {isVipKh(c.nhom_kh) && <VipBadge />}
+          {c.khach_hang ?? "—"}
+        </>
+      ),
+    },
     { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     { key: "tiep_nhan", header: "Tiếp nhận", sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
     { key: "du_kien", header: "Dự kiến HT", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
@@ -1228,6 +1523,13 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 muted={!counts?.loc_tong_bcn}
                 onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
               />
+              <StatCard
+                label="VIP/S.VIP chưa GT >24h"
+                value={counts?.vip_24h ?? 0}
+                tone="coral"
+                muted={!counts?.vip_24h}
+                onClick={() => goToDanhSach("can-giai-trinh:vip_24h")}
+              />
             </div>
           )}
 
@@ -1486,6 +1788,26 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
             </div>
           </Card>
         </>
+      ) : view === "canh-bao-ton-cap1" ? (
+        <CanhBaoTonCapView
+          cap={1}
+          canhBaoTon={canhBaoTon}
+          canhBaoTonTrend={canhBaoTonTrend}
+          trendDays={trendDays}
+          metric={canhBaoTonMetricCap1}
+          setMetric={setCanhBaoTonMetricCap1}
+          goToDanhSach={goToDanhSach}
+        />
+      ) : view === "canh-bao-ton-cap2" ? (
+        <CanhBaoTonCapView
+          cap={2}
+          canhBaoTon={canhBaoTon}
+          canhBaoTonTrend={canhBaoTonTrend}
+          trendDays={trendDays}
+          metric={canhBaoTonMetricCap2}
+          setMetric={setCanhBaoTonMetricCap2}
+          goToDanhSach={goToDanhSach}
+        />
       ) : (
         <div className="mt-4">
           <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -1494,7 +1816,9 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
               value={nhomKey}
               onChange={(v) => {
                 setNhomKey(v);
-                setListFromSnapshot0800(false);
+                // "canh-bao-ton:" chi co du lieu dong bang (khong co nhanh tinh song) - bat buoc
+                // snapshot_0800 du chon thu cong tu dropdown hay bam StatCard (xem goToDanhSach).
+                setListFromSnapshot0800(v.startsWith("canh-bao-ton:"));
                 setDsTuoiTu("");
                 setPage(1);
               }}
@@ -1555,6 +1879,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
               onPageChange={setPage}
               onRowClick={(c) => openCase(c.id, "giai-trinh")}
               rowKey={(c) => c.id}
+              rowClassName={(c) => vipRowClassName(c.nhom_kh)}
               emptyText="Không có ca nào trong nhóm này."
               sortBy={sortBy}
               sortDir={sortDir}

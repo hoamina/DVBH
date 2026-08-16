@@ -153,3 +153,80 @@ export async function renderBaocaoTonImage(mb: BaocaoTonNhom[], mn: BaocaoTonNho
   const resvg = await Resvg.async(svg, { fitTo: { mode: "original" } });
   return resvg.render().asPng();
 }
+
+export interface CanhBaoTonRow {
+  label: string;
+  count: number;
+}
+
+function canhBaoTonRow(row: CanhBaoTonRow) {
+  const isZero = row.count === 0;
+  return {
+    type: "div",
+    props: {
+      style: {
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "5px 8px",
+        marginBottom: 4,
+        borderRadius: 6,
+        backgroundColor: isZero ? GREEN_BG : AMBER_BG,
+      },
+      children: [
+        { type: "div", props: { style: { fontSize: 12, color: DARK }, children: row.label } },
+        { type: "div", props: { style: { fontSize: 14, fontWeight: 600, color: isZero ? GREEN_TEXT : AMBER_TEXT }, children: String(row.count) } },
+      ],
+    },
+  };
+}
+
+function canhBaoTonGroup(title: string, rows: CanhBaoTonRow[]) {
+  return {
+    type: "div",
+    props: {
+      style: { display: "flex", flexDirection: "column", marginBottom: 10 },
+      children: [rowLabel(title), { type: "div", props: { style: { display: "flex", flexDirection: "column" }, children: rows.map(canhBaoTonRow) } }],
+    },
+  };
+}
+
+/** Anh PNG "Canh bao ton danh cho QL" - gui Telegram luc 08h00 (xem lib/canhBaoTon.ts
+ * generateCanhBaoTonSnapshot). cap1 = 4 chi tieu TP DVBH, cap2 = 4 chi tieu CEO, luon dung 4 phan
+ * tu moi mang, dung thu tu hien thi. */
+export async function renderCanhBaoTonImage(cap1: CanhBaoTonRow[], cap2: CanhBaoTonRow[], ngayFormatted: string): Promise<Uint8Array> {
+  await ensureSatoriInit();
+
+  const tree = {
+    type: "div",
+    props: {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        width: 320,
+        backgroundColor: "#FFFFFF",
+        padding: 16,
+        fontFamily: "Inter",
+      },
+      children: [
+        { type: "div", props: { style: { fontSize: 13, fontWeight: 600, color: DARK, marginBottom: 1 }, children: "Cảnh báo tồn dành cho QL" } },
+        { type: "div", props: { style: { fontSize: 11, color: MUTED, marginBottom: 10 }, children: `Ngày ${ngayFormatted} · chốt 8h00` } },
+        canhBaoTonGroup("CẤP 1 · TP DVBH", cap1),
+        canhBaoTonGroup("CẤP 2 · CEO", cap2),
+      ],
+    },
+  };
+
+  const svg = await satori(tree as never, {
+    width: 320,
+    height: 340,
+    fonts: [
+      { name: "Inter", data: interRegular as ArrayBuffer, weight: 400, style: "normal" },
+      { name: "Inter", data: interSemiBold as ArrayBuffer, weight: 600, style: "normal" },
+    ],
+  });
+
+  const resvg = await Resvg.async(svg, { fitTo: { mode: "original" } });
+  return resvg.render().asPng();
+}

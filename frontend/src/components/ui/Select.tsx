@@ -111,13 +111,14 @@ function SearchableSelect({
                 <button
                   key={v}
                   type="button"
+                  title={optLabel(o)}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     onChange(v);
                     setOpen(false);
                     setQuery("");
                   }}
-                  className={`w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 ${v === value ? "bg-[var(--ocean-100)]/40 font-semibold" : ""}`}
+                  className={`w-full text-left px-3 py-1.5 text-sm truncate hover:bg-slate-50 ${v === value ? "bg-[var(--ocean-100)]/40 font-semibold" : ""}`}
                 >
                   {optLabel(o)}
                 </button>

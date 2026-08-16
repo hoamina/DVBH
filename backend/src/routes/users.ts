@@ -85,7 +85,10 @@ users.patch("/:email", async (c) => {
   const email = decodeURIComponent(c.req.param("email"));
   const body = await c.req.json<{
     trang_thai_duyet?: "Da duyet" | "Tu choi";
-    vai_tro?: VaiTro;
+    // null = tai khoan "chi Dat mua linh kien" (KTV/CTV/Tram/Ve tinh/Kho/Ke toan thuan tuy, xem
+    // frontend/src/App.tsx) - CO CHU DICH khong gan vai_tro, khac han "chua duyet toi" (do la
+    // trang_thai_duyet, khong phai vai_tro).
+    vai_tro?: VaiTro | null;
     khu_vuc_phu_trach?: string[];
     la_ksnb_doi_tac?: boolean;
     // undefined = khong doi, null = reset ve mac dinh theo vai_tro, mang = danh sach tuy chinh.
@@ -103,7 +106,7 @@ users.patch("/:email", async (c) => {
     giam_sat_quan_ly?: string | null;
   }>();
 
-  if (body.vai_tro !== undefined && !(VAI_TRO_VALUES as readonly string[]).includes(body.vai_tro)) {
+  if (body.vai_tro !== undefined && body.vai_tro !== null && !(VAI_TRO_VALUES as readonly string[]).includes(body.vai_tro)) {
     return c.json({ error: "INVALID_VAI_TRO" }, 400);
   }
 

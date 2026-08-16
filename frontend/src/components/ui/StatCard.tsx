@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Card } from "./Card";
 import type { BadgeTone } from "./Badge";
 
@@ -12,7 +13,7 @@ export function StatCard({
 }: {
   label: string;
   value: string | number;
-  sub?: string;
+  sub?: ReactNode;
   tone?: BadgeTone;
   /** Lam mo di khi so lieu = 0 (khong co viec can lam) - giu "cham mau" + so lon noi bat CHI cho gia
    * tri >0, tranh the "0" canh bao mau do/cam gay nhieu loan mat khi quet nhanh nhieu the lien tiep. */

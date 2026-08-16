@@ -28,6 +28,10 @@ export function matchBaoHanh(caseId: string, baoHanhRows: SheetRow[]): SheetRow[
   });
 }
 
+export function matchQcThucTe(caseId: string, qcThucTeRows: SheetRow[]): SheetRow[] {
+  return qcThucTeRows.filter((r) => r.idCrm === caseId);
+}
+
 export function matchThieuHang(muaHangMatched: SheetRow[], baoHanhMatched: SheetRow[], thieuHangRows: SheetRow[]): SheetRow[] {
   const muaHangIds = new Set(muaHangMatched.map((r) => r.id));
   const baoHanhIds = new Set(baoHanhMatched.map((r) => r.id));
