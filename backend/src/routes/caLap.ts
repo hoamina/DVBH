@@ -602,8 +602,17 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
   if (!seri) return { detection: null, giaiTrinhLap: null, lichSu: [], serialBlacklisted: false };
 
   const [detectionRow, giaiTrinhLapRow, lichSu, blacklistRow] = await Promise.all([
+    // CHOT 2026-08-20 (rao soat lag): lookup TRUC TIEP theo PK "id" (bieu thuc gap_days/prior_id/
+    // prior_ht giu NGUYEN nhu CA_LAP_CTE) thay vi build ca CTE "lap" (toan bo case co ca_lap_prior_ht
+    // IS NOT NULL, ~9k dong va tang dan theo thoi gian) roi moi loc 1 dong - D1 Insights do duoc CTE
+    // nay doc ~9.130 rows/lan x ~1.000 lan/ngay = ~9,2 trieu rows/ngay chi de lay 1 dong. Ket qua tra
+    // ve giong het (cung dieu kien, cung 4 cot), chi khac duong doc.
     db
-      .prepare(`${CA_LAP_CTE} SELECT lap.id, lap.gap_days, lap.prior_id, lap.prior_ht FROM lap WHERE lap.id = ?`)
+      .prepare(
+        `SELECT id, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
+                (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
+         FROM case_dvbh WHERE id = ? AND ca_lap_prior_ht IS NOT NULL AND huy_bo_at IS NULL`,
+      )
       .bind(caseId)
       .first<{ id: string; gap_days: number; prior_id: string; prior_ht: string }>(),
     db.prepare("SELECT * FROM giai_trinh_lap WHERE case_id = ?").bind(caseId).first(),

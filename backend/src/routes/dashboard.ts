@@ -5,7 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { getDailyReportWithDelta, getSnapshotForUser, isDefaultReportParams } from "../lib/dailySnapshot";
 import { type DashboardFilterParams, computeDashboardKpis, PIVOT_DIMS, computeDashboardPivot } from "../lib/dashboardCompute";
-import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, scopedFiltersCacheKey } from "../lib/precomputedCache";
+import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY, scopedFiltersCacheKey } from "../lib/precomputedCache";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../lib/filterParams";
 
@@ -90,13 +90,34 @@ dashboard.get("/filters", async (c) => {
   return c.json({ ...payload, khuVuc: payload.khuVuc.filter((kv) => kv === null || !(KHU_VUC_AN_KHOI_BAO_CAO as string[]).includes(kv)) });
 });
 
-// GET /api/dashboard/sync-status - thoi gian tiep nhan cua ca gan nhat da import, dung lam moc
-// "he thong da dong bo den thoi diem nao" - khong loc theo khu_vuc, phan anh trang thai tong the.
-dashboard.get("/sync-status", async (c) => {
-  const row = await c.env.DB.prepare(
+export interface SyncStatusPayload {
+  lastSynced: string | null;
+}
+
+// Quet MAX(thoi_gian_tai_du_lieu_crm) tren toan bo case_dvbh (khong index tren cot nay) - ton kem.
+// CHOT 2026-08-20 (rao soat lag, buoc 2): sau import that su, importRoute.ts KHONG con goi ham nay
+// nua - ghi thang thoi diem import (nowVN()) vao cache thay vi quet lai MAX (xem recomputeDashboardCaches).
+// Ham nay gio CHI con la duong fallback compute-on-miss cua getOrCompute() ben duoi (GET /sync-status),
+// tuc CHI chay 1 lan duy nhat trong doi cache - ngay dau tien co ai doc route nay TRUOC KHI tung co
+// import nao chay qua code moi (vd ngay sau khi deploy tinh nang nay, cache con trong) - khong dang ke.
+export async function computeSyncStatus(db: D1Database): Promise<SyncStatusPayload> {
+  const row = await db.prepare(
     "SELECT MAX(thoi_gian_tai_du_lieu_crm) as last_synced FROM case_dvbh",
   ).first<{ last_synced: string | null }>();
-  return c.json({ lastSynced: row?.last_synced ?? null });
+  return { lastSynced: row?.last_synced ?? null };
+}
+
+// GET /api/dashboard/sync-status - thoi gian tiep nhan cua ca gan nhat da import, dung lam moc
+// "he thong da dong bo den thoi diem nao" - khong loc theo khu_vuc, phan anh trang thai tong the.
+// CHOT 2026-08-20 (rao soat lag): TopBar poll route nay 5 phut/lan cho MOI phien dang nhap - D1
+// Insights do duoc ~93.564 rows/lan x ~319 lan/ngay = ~29,8 trieu rows/ngay chi de lay 1 moc thoi
+// gian. Doc qua precomputed_cache (compute-on-miss + recompute sau import, giong /dashboard/filters)
+// thay vi quet song moi lan - gia tri tra ve giong het (van la MAX that, chi tre toi da den lan import
+// ke tiep thay vi tuc thi, chap nhan duoc vi ban chat gia tri nay von da la "trang thai dong bo gan
+// nhat", khong phai du lieu can chinh xac tuyet doi realtime).
+dashboard.get("/sync-status", async (c) => {
+  const payload = await getOrCompute(c.env.DB, DASHBOARD_SYNC_STATUS_CACHE_KEY, () => computeSyncStatus(c.env.DB));
+  return c.json(payload);
 });
 
 export interface DashboardMonthsPayload {

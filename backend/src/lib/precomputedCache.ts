@@ -16,6 +16,9 @@
 // va routes/importRoute.ts (recompute sau import, xem ham recomputeDashboardCaches ben duoi).
 export const DASHBOARD_FILTERS_CACHE_KEY = "dashboard-filters";
 export const DASHBOARD_MONTHS_CACHE_KEY = "dashboard-months";
+// Key cho GET /api/dashboard/sync-status (TopBar poll 5 phut/lan, moi phien dang nhap) - xem
+// routes/dashboard.ts computeSyncStatus() + routes/importRoute.ts recomputeDashboardCaches().
+export const DASHBOARD_SYNC_STATUS_CACHE_KEY = "dashboard-sync-status";
 
 // Prefix rieng cho cac bien the /dashboard/filters bi gioi han theo khu_vuc_phu_trach (vd vai tro
 // Giam sat) - moi Giam sat co the phu trach to hop khu_vuc khac nhau nen KHONG dung chung 1 dong

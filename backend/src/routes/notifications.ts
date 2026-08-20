@@ -228,10 +228,12 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
     // Phai JOIN case_dvbh + loc theo khu_vuc giong het tab "cho-qc" cua survey.ts, neu khong so
     // dem o chuong thong bao se lon hon danh sach that nguoi dung bi gioi han khu vuc xem duoc.
     // Khong co bucket dong bang tuong ung (chua nam trong Bao cao 08:00) nen giu tinh song.
+    // CHOT 2026-08-20 (rao soat lag): "CROSS JOIN" - xem giai thich o survey.ts computeSurveyCounts
+    // (ep quet vi_pham truoc thay vi de planner tu chon quet gan het case_dvbh), ket qua giong het.
     db
       .prepare(
         `SELECT COUNT(*) as n FROM vi_pham v
-         INNER JOIN case_dvbh c ON c.id = v.case_id
+         CROSS JOIN case_dvbh c ON c.id = v.case_id
          WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClauseC.sql}`,
       )
       .bind(...scopeClauseC.binds)
@@ -245,9 +247,13 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
     // (khong phu thuoc thang dang xem trong module, xem yeu cau goc "danh sach co dinh...cho den
     // khi co import moi"). scopeClauseC (theo c.khu_vuc) da tu dam bao badge chi tinh theo khu vuc
     // nguoi dung dang xem duoc.
+    // CHOT 2026-08-20 (rao soat lag): "INDEXED BY idx_case_nghi_ngo_nap_gas" - ep dung index partial
+    // co san (migration 0024, WHERE nghi_ngo_nap_gas = 1) thay vi de planner tu chon (D1 Insights do
+    // duoc dang quet gan het case_dvbh, ~179k-180k rows/lan, kha nang do khu_vuc IN(...) duoc chon
+    // lam duong quet chinh thay vi cot da co index nay).
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_dvbh c INDEXED BY idx_case_nghi_ngo_nap_gas
          WHERE c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC'
            AND NOT EXISTS (SELECT 1 FROM nap_gas_danh_gia ndg WHERE ndg.case_id = c.id)${scopeClauseC.sql}`,
       )

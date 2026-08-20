@@ -227,12 +227,17 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
     SELECT COUNT(*) as n FROM case_dvbh c
     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${OVERDUE_SURVEY_CONDITION} AND ${NEED_SURVEY_CONDITION}${scopeClause.sql}${extraFilter}${monthClauseSql}
   `;
+  // CHOT 2026-08-20 (rao soat lag): "CROSS JOIN" thay "INNER JOIN" - ket qua giong het (SQLite coi 2
+  // cu phap nay tuong duong ve logic), CHI khac o cho query planner KHONG duoc phep doi thu tu bang
+  // (xem SQLite Query Optimizer Overview) - ep quet vi_pham (bang nho, chi chua dong VI PHAM) truoc
+  // roi moi tra case_dvbh theo PK, thay vi de planner tu chon (D1 Insights do duoc dang tu chon quet
+  // gan het case_dvbh ~64k-201k rows/lan du dieu kien loc chinh nam o vi_pham).
   const choQcQuery = `
-    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
+    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}
   `;
   const daXuLyQuery = `
-    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
+    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}
   `;
 

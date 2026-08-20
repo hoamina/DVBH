@@ -10,8 +10,9 @@ import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
-import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY } from "../lib/precomputedCache";
+import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY } from "../lib/precomputedCache";
 import { computeDashboardFilters, computeDashboardMonths } from "./dashboard";
+import type { SyncStatusPayload } from "./dashboard";
 import { bumpVersions } from "../lib/dataVersions";
 import { warmDefaultReports } from "../lib/reportWarmup";
 import { generateDailySnapshot, generateKhuVucBacklogSnapshots } from "../lib/dailySnapshot";
@@ -26,6 +27,13 @@ async function recomputeDashboardCaches(db: D1Database): Promise<void> {
   await Promise.all([
     recompute(db, DASHBOARD_FILTERS_CACHE_KEY, () => computeDashboardFilters(db, null)),
     recompute(db, DASHBOARD_MONTHS_CACHE_KEY, () => computeDashboardMonths(db)),
+    // "/dashboard/sync-status" (TopBar poll 5 phut/lan) - ghi TRUC TIEP thoi diem import nay (nowVN()),
+    // KHONG con quet MAX(thoi_gian_tai_du_lieu_crm) qua case_dvbh nua (rao soat lag 2026-08-20, buoc
+    // 2 - chu he thong chot: "dong bo" o day dung nghia la thoi diem he thong VUA import xong, ta da
+    // biet chac gia tri nay ngay tai day, khong can suy ngoai tu du lieu). computeSyncStatus() (con lai
+    // trong dashboard.ts) chi con dung lam fallback compute-on-miss cho lan doc DAU TIEN truoc khi tung
+    // co import nao chay qua code nay (vd ngay sau deploy tinh nang, cache con trong).
+    recompute(db, DASHBOARD_SYNC_STATUS_CACHE_KEY, async () => ({ lastSynced: nowVN() }) satisfies SyncStatusPayload),
     invalidateScopedDashboardFilters(db),
   ]);
 }
