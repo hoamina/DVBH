@@ -29,6 +29,7 @@ export interface DatMuaLkBreakdown {
   choKeToanTraHang: number;
   choQcTraHang: number;
   choTramDuyet: number;
+  choTpXacNhan: number;
 }
 
 const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
@@ -42,6 +43,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choKeToanTraHang: 0,
   choQcTraHang: 0,
   choTramDuyet: 0,
+  choTpXacNhan: 0,
 };
 
 export interface NotificationsCountPayload {
@@ -73,10 +75,11 @@ function gsInClause(gsSet: Set<string> | null, ddhAlias: string): { sql: string;
 }
 
 export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): Promise<DatMuaLkBreakdown> {
-  const isTacNghiep = user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
+  const isTacNghiep = !!user.la_tac_nghiep || user.vai_tro === "Admin";
   const isKho = !!user.la_kho || user.vai_tro === "Admin";
   const isKeToan = !!user.la_ke_toan || user.vai_tro === "Admin";
   const isQC = user.vai_tro === "QC" || user.vai_tro === "Admin";
+  const isTPDvbh = !!user.la_tp_dvbh || user.vai_tro === "Admin";
 
   const out: DatMuaLkBreakdown = { ...EMPTY_DAT_MUA_LK_BREAKDOWN };
   const gsSet = await phuTrachGsSet(db, user.email);
@@ -150,6 +153,19 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     out.choQcTraHang = row?.n ?? 0;
   }
 
+  if (isTPDvbh) {
+    const clause = gsInClause(gsSet, "ddh");
+    const row = await db
+      .prepare(
+        `SELECT COUNT(*) as n FROM dat_don_hang ddh
+           WHERE ddh.loai_don != 'tra_hang'
+           AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TBP xac nhan'${clause?.sql ?? ""}`,
+      )
+      .bind(...(clause?.binds ?? []))
+      .first<{ n: number }>();
+    out.choTpXacNhan = row?.n ?? 0;
+  }
+
   if (user.la_ktv_dvbh) {
     const isTram = await db.prepare("SELECT 1 as x FROM users WHERE tram_cha = ? LIMIT 1").bind(user.email).first();
     if (isTram) {
@@ -167,7 +183,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
 
   out.total =
     out.choTnDuyet + out.choTnTraHang + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
-    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet;
+    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan;
 
   return out;
 }
@@ -182,7 +198,8 @@ export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<D
     user.la_ktv_dvbh ||
     user.la_kho ||
     user.la_ke_toan ||
-    user.vai_tro === "TBP DVBH" ||
+    user.la_tac_nghiep ||
+    user.la_tp_dvbh ||
     user.vai_tro === "Admin" ||
     user.vai_tro === "QC"
   );
@@ -196,6 +213,8 @@ export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<D
       la_ktv_dvbh: user.la_ktv_dvbh ? "1" : "",
       la_kho: user.la_kho ? "1" : "",
       la_ke_toan: user.la_ke_toan ? "1" : "",
+      la_tac_nghiep: user.la_tac_nghiep ? "1" : "",
+      la_tp_dvbh: user.la_tp_dvbh ? "1" : "",
     },
     null,
   );
@@ -223,6 +242,18 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
   const scopeClauseLap = { sql: scopeClauseLapBase.sql + exclusionLap.sql, binds: [...scopeClauseLapBase.binds, ...exclusionLap.binds] };
   const tranhChapScope = user.la_ksnb_doi_tac ? null : scope;
 
+  // Dung chung cho "khaoSat" va "danhGiaNapGas" - ca hai deu chi dem trong THANG HIEN TAI (VN time),
+  // khac "canGiaiTrinh"/"caThieuLinhKien"/"caLap" (doc tu dailyReport, la ton dong toan bo khong
+  // phu thuoc thang).
+  const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const thangStr = now.toISOString().slice(0, 7); // e.g. "2026-08"
+  const y = parseInt(thangStr.slice(0, 4), 10);
+  const m = parseInt(thangStr.slice(5, 7), 10);
+  const startMonth = `${thangStr}-01`;
+  const nextM = m === 12 ? 1 : m + 1;
+  const nextY = m === 12 ? y + 1 : y;
+  const endMonth = `${nextY}-${String(nextM).padStart(2, "0")}-01`;
+
   const [dailyReport, choQc, danhGiaNapGas, tranhChap] = await Promise.all([
     getDailyReportWithDelta(db, user),
     // Phai JOIN case_dvbh + loc theo khu_vuc giong het tab "cho-qc" cua survey.ts, neu khong so
@@ -243,10 +274,10 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
     // Nguon "nghi ngo nap gas" van doc thang tu case_dvbh.nghi_ngo_nap_gas (xem NAP_GAS_ELIGIBLE o
     // routes/napGas.ts - CHI ca "Hoan thanh XLSC", khop dung dieu kien module dung). Chi dem so ca
     // CHUA co dong nap_gas_danh_gia nao - khop dinh nghia "chua danh gia" cua the "Danh gia nap gas
-    // (xxx)". KHONG loc theo thang: badge la tong CHUA danh gia tren TOAN BO danh sach co dinh
-    // (khong phu thuoc thang dang xem trong module, xem yeu cau goc "danh sach co dinh...cho den
-    // khi co import moi"). scopeClauseC (theo c.khu_vuc) da tu dam bao badge chi tinh theo khu vuc
-    // nguoi dung dang xem duoc.
+    // (xxx)". CHOT 2026-08-20 (doi huong theo xac nhan chu he thong): LOC THEO THANG HIEN TAI (giong
+    // "khaoSat" ben duoi) - dung c.thoi_gian_hoan_thanh, khop dung cot module NapGasModule.tsx dung de
+    // loc "thang" (xem monthBounds() trong routes/napGas.ts). scopeClauseC (theo c.khu_vuc) da tu dam
+    // bao badge chi tinh theo khu vuc nguoi dung dang xem duoc.
     // CHOT 2026-08-20 (rao soat lag): "INDEXED BY idx_case_nghi_ngo_nap_gas" - ep dung index partial
     // co san (migration 0024, WHERE nghi_ngo_nap_gas = 1) thay vi de planner tu chon (D1 Insights do
     // duoc dang quet gan het case_dvbh, ~179k-180k rows/lan, kha nang do khu_vuc IN(...) duoc chon
@@ -255,24 +286,16 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh c INDEXED BY idx_case_nghi_ngo_nap_gas
          WHERE c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC'
+           AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?
            AND NOT EXISTS (SELECT 1 FROM nap_gas_danh_gia ndg WHERE ndg.case_id = c.id)${scopeClauseC.sql}`,
       )
-      .bind(...scopeClauseC.binds)
+      .bind(startMonth, endMonth, ...scopeClauseC.binds)
       .first<{ n: number }>(),
     computeTranhChapCount(db, tranhChapScope, user.la_ksnb_doi_tac),
   ]);
 
   // CHOT 2026-08-07: "khaoSat" badge chi can dem tong ca vi pham con can khao sat trong thang hien tai
   // (theo phan quyen moi vai tro, co nghia la ap dung scopeClauseC nhu cu).
-  const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  const thangStr = now.toISOString().slice(0, 7); // e.g. "2026-08"
-  const y = parseInt(thangStr.slice(0, 4), 10);
-  const m = parseInt(thangStr.slice(5, 7), 10);
-  const startMonth = `${thangStr}-01`;
-  const nextM = m === 12 ? 1 : m + 1;
-  const nextY = m === 12 ? y + 1 : y;
-  const endMonth = `${nextY}-${String(nextM).padStart(2, "0")}-01`;
-
   const surveyCountRow = await db
     .prepare(
       `SELECT COUNT(*) as n FROM case_dvbh c
@@ -336,7 +359,12 @@ notifications.get("/count", async (c) => {
     cachedReport(
       c.env.DB,
       key,
-      ["cases", "giai_trinh", "vi_pham", "giai_trinh_lap", "blacklist", "nap_gas_danh_gia", "tranh_chap"],
+      // "ket_qua_goi" them 2026-08-20: "khaoSat" (NEED_SURVEY_CONDITION) loai tru ca co
+      // can_goi_lai=0 tren CUOC GOI GAN NHAT - CSKH ghi nhan 1 cuoc goi "khong can goi lai" MA
+      // KHONG tao dong vi_pham (vd ket qua "Khong loi"/"Khong can khao sat") chi bump domain
+      // "ket_qua_goi" (xem routes/survey.ts POST /calls), khong bump "vi_pham" - thieu domain nay
+      // lam badge sidebar khong tinh lai, tiep tuc dem nham nhung ca da het nhu cau khao sat.
+      ["cases", "giai_trinh", "vi_pham", "ket_qua_goi", "giai_trinh_lap", "blacklist", "nap_gas_danh_gia", "tranh_chap"],
       () => computeNotificationsCount(c.env.DB, user, scope),
     ),
     getDatMuaLkBadge(c.env.DB, user),

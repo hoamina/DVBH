@@ -122,28 +122,46 @@ export interface ViPhamLeaderboardParams {
 }
 
 // Tach rieng phan tinh toan cua /leaderboard - dung chung cho compute-on-miss va warm-up (R7).
+// Moi dong tra them "tong_ca" (tong so ca cua KTV do / tong so ca trong cac khu vuc gia sat do phu
+// trach, khong gioi han thang) va "ty_le_vi_pham" (%, = so_vi_pham/tong_ca) - CHOT: bieu do Top 10
+// chuyen tu so vi pham tuyet doi sang ty le, nhung TIEU CHI chon+sap xep Top 10 van la so_vi_pham
+// tuyet doi cao nhat (khong doi), chi doi gia tri hien thi tren truc.
 export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLeaderboardParams, scope: string[] | null): Promise<{ rows: unknown[] }> {
   const by = params.by === "giam-sat" ? "giam-sat" : "ktv";
   const scopeClauseCBase = khuVucWhereClause(scope, "c.khu_vuc");
   const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClauseC = { sql: scopeClauseCBase.sql + exclusionC.sql, binds: [...scopeClauseCBase.binds, ...exclusionC.binds] };
 
+  function withTyLe<T extends { so_vi_pham: number; tong_ca: number }>(rows: T[]): (T & { ty_le_vi_pham: number })[] {
+    return rows.map((r) => ({ ...r, ty_le_vi_pham: r.tong_ca ? Math.round((r.so_vi_pham / r.tong_ca) * 1000) / 10 : 0 }));
+  }
+
   if (by === "ktv") {
+    const scopeClauseC2Base = khuVucWhereClause(scope, "c2.khu_vuc");
+    const exclusionC2 = khuVucReportExclusionClause("c2.khu_vuc");
+    const scopeClauseC2 = { sql: scopeClauseC2Base.sql + exclusionC2.sql, binds: [...scopeClauseC2Base.binds, ...exclusionC2.binds] };
     const { results } = await db.prepare(
-      `SELECT c.ky_thuat_vien as nhom, COUNT(*) as so_vi_pham
+      `SELECT c.ky_thuat_vien as nhom, COUNT(*) as so_vi_pham,
+         (SELECT COUNT(*) FROM case_dvbh c2 WHERE c2.ky_thuat_vien = c.ky_thuat_vien
+            AND c2.archived_at IS NULL AND c2.huy_bo_at IS NULL${scopeClauseC2.sql}) as tong_ca
        FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
        WHERE ${XAC_NHAN_EXPR} AND c.ky_thuat_vien IS NOT NULL${scopeClauseC.sql}
        GROUP BY c.ky_thuat_vien
        ORDER BY so_vi_pham DESC
        LIMIT 10`,
     )
-      .bind(...scopeClauseC.binds)
-      .all();
-    return { rows: results };
+      .bind(...scopeClauseC2.binds, ...scopeClauseC.binds)
+      .all<{ nhom: string; so_vi_pham: number; tong_ca: number }>();
+    return { rows: withTyLe(results) };
   }
 
+  const scopeClauseC2Base = khuVucWhereClause(scope, "c2.khu_vuc");
+  const exclusionC2 = khuVucReportExclusionClause("c2.khu_vuc");
+  const scopeClauseC2 = { sql: scopeClauseC2Base.sql + exclusionC2.sql, binds: [...scopeClauseC2Base.binds, ...exclusionC2.binds] };
   const { results } = await db.prepare(
-    `SELECT u.email as giam_sat_email, u.ten as giam_sat, COUNT(*) as so_vi_pham
+    `SELECT u.email as giam_sat_email, u.ten as giam_sat, COUNT(*) as so_vi_pham,
+       (SELECT COUNT(*) FROM case_dvbh c2, json_each(u.khu_vuc_phu_trach) jv2
+          WHERE c2.khu_vuc = jv2.value AND c2.archived_at IS NULL AND c2.huy_bo_at IS NULL${scopeClauseC2.sql}) as tong_ca
      FROM users u, json_each(u.khu_vuc_phu_trach) jv
      INNER JOIN case_dvbh c ON c.khu_vuc = jv.value
      INNER JOIN vi_pham v ON v.case_id = c.id
@@ -152,17 +170,21 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
      ORDER BY so_vi_pham DESC
      LIMIT 10`,
   )
-    .bind(...scopeClauseC.binds)
-    .all();
-  return { rows: results };
+    .bind(...scopeClauseC2.binds, ...scopeClauseC.binds)
+    .all<{ giam_sat_email: string; giam_sat: string | null; so_vi_pham: number; tong_ca: number }>();
+  return { rows: withTyLe(results) };
 }
 
 // GET /api/vi-pham/leaderboard?by=ktv|giam-sat - top 10 nhieu vi pham da xac nhan nhat. Doc qua
-// reportCache, "by" nam trong cache key.
+// reportCache, "by" nam trong cache key. "leaderboard-v2" (khong phai "leaderboard") - CHOT
+// 2026-08-20: doi shape payload (them tong_ca/ty_le_vi_pham) nhung reportCache chi invalidate theo
+// version-tag domain (khong theo deploy code), nen key cu se tiep tuc tra ve envelope THIEU 2 truong
+// moi cho toi khi domain "vi_pham"/"cases" tinh co bump - doi ten key ep tinh lai ngay, tranh phai
+// cho 1 write tinh co xay ra. Neu doi shape payload lan nua trong tuong lai, lai doi hau to version.
 viPham.get("/leaderboard", async (c) => {
   const scope = scopeByKhuVuc(c);
   const params: ViPhamLeaderboardParams = { by: c.req.query("by") };
-  const key = buildReportKey("vi-pham/leaderboard", params, scope);
+  const key = buildReportKey("vi-pham/leaderboard-v2", params, scope);
   const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamLeaderboard(c.env.DB, params, scope));
   return c.json(payload);
 });

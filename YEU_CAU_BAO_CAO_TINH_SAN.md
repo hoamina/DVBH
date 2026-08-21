@@ -39,7 +39,8 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 | GET /cases/backlog-stats | cases.ts | cases, giai_trinh, settings |
 | GET /cases/backlog-by-khu-vuc | cases.ts | cases, giai_trinh, settings |
 | GET /missing-parts/by-khu-vuc | missingParts.ts | cases, giai_trinh, settings |
-| GET /notifications/count | notifications.ts | cases, giai_trinh, vi_pham, giai_trinh_lap, blacklist, nap_gas_danh_gia, tranh_chap, dat_mua_lk (thêm 2026-08-14, xem R10) |
+| GET /missing-parts/linh-kien-thieu (thêm 2026-08-16) | missingParts.ts | cases, giai_trinh, settings |
+| GET /notifications/count | notifications.ts | cases, giai_trinh, vi_pham, ket_qua_goi (thêm 2026-08-20 — badge "khaoSat" loại trừ ca có can_goi_lai=0 trên ket_qua_goi, ghi này không luôn kèm bump vi_pham, xem sửa lỗi bên dưới), giai_trinh_lap, blacklist, nap_gas_danh_gia, tranh_chap, dat_mua_lk (thêm 2026-08-14, xem R10) |
 | GET /dashboard/daily-report | dailyReport.ts (computeDailyReport) | cases, giai_trinh, vi_pham, settings |
 | GET /nap-gas/by-khu-vuc (thêm 2026-07-24) | napGas.ts | cases, nap_gas_danh_gia |
 | GET /tranh-chap/tien-trinh/stats (thêm 2026-07-29) | tranhChap.ts | cases, tranh_chap |

@@ -101,6 +101,27 @@ export function khuVucAdHocClause(column: string, khuVucFilter: string | undefin
 }
 
 /**
+ * Ad-hoc filter da-tri cho 1 cot BAT KY (khac khuVucAdHocClause - KHONG ho tro gia tri ao __QLDVBH__,
+ * dung khi can 1 dim khac ngoai khu_vuc cho phep chon NHIEU gia tri cung luc, vd "tinh" trong module
+ * Tranh chap/KN - CHOT 2026-08-20, "nhom_kh" trong Quan ly ton). Cac gia tri phan cach boi "|" (KHONG
+ * phai dau phay) - mot so gia tri GOC tren CRM (vd nhom_kh "01. KH le, 03. KH DMX") da chua san dau
+ * phay TRONG CHINH GIA TRI, dung dau phay lam delimiter se cat nham 1 gia tri thanh nhieu (bug thuc
+ * te 2026-08-20, xem MultiSelectFilter.tsx phia frontend - PHAI dung CHUNG delimiter voi component
+ * do). "|" khong xuat hien trong du lieu nghiep vu tieng Viet hien co nen an toan hon.
+ */
+export function multiValueAdHocClause(column: string, rawValue: string | undefined): { sql: string; binds: unknown[] } {
+  if (!rawValue) return { sql: "", binds: [] };
+  const values = rawValue
+    .split("|")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (values.length === 0) return { sql: "", binds: [] };
+  if (values.length === 1) return { sql: ` AND ${column} = ?`, binds: values };
+  const placeholders = values.map(() => "?").join(", ");
+  return { sql: ` AND ${column} IN (${placeholders})`, binds: values };
+}
+
+/**
  * Cac cot duoc phep dung lam "nhom theo" trong cac bao cao dang GROUP BY 1 chieu tuy chon
  * (missingParts.ts /by-khu-vuc, cases.ts /backlog-by-khu-vuc) - whitelist chong SQL injection ten
  * cot (khong the bind ten cot nhu gia tri thuong). Gia tri la ten cot THUAN (khong alias) - noi
@@ -130,18 +151,19 @@ export function dimAdHocClause(column: string, dimKey: string | undefined, value
  * Bo loc chung cho ca the "Bao cao ton can giai trinh" (BacklogModule) - ap dung DONG THOI nhieu
  * dim cung luc (khac dimAdHocClause chi loc 1 dim tai 1 thoi diem, dung cho drill-down tu 1 dong
  * bao cao). Doc tat ca REPORT_DIMS TRU khu_vuc (khu_vuc da co rieng khuVucAdHocClause voi ho tro gia
- * tri ao __QLDVBH__, khong lap lai o day) tu query string, AND lai nhung dim nao co gia tri.
+ * tri ao __QLDVBH__, khong lap lai o day) tu query string, AND lai nhung dim nao co gia tri. Moi dim
+ * ho tro chon NHIEU gia tri cung luc (chuoi cach nhau dau phay, dung multiValueAdHocClause) - CHOT
+ * (yeu cau tich chon nhieu Nhom KH trong "Danh sach chi tiet"): 1 gia tri don van hoat dong dung nhu
+ * cu (IN voi 1 phan tu tuong duong =).
  */
 export function sharedReportFilters(c: Context<{ Bindings: Env }>, prefix = ""): { sql: string; binds: unknown[] } {
   let sql = "";
   const binds: unknown[] = [];
   for (const [dimKey, col] of Object.entries(REPORT_DIMS)) {
     if (dimKey === "khu_vuc") continue;
-    const value = c.req.query(dimKey);
-    if (value) {
-      sql += ` AND ${prefix}${col} = ?`;
-      binds.push(value);
-    }
+    const clause = multiValueAdHocClause(`${prefix}${col}`, c.req.query(dimKey));
+    sql += clause.sql;
+    binds.push(...clause.binds);
   }
   return { sql, binds };
 }

@@ -114,18 +114,23 @@ napGas.patch(
     if (!id) return c.json({ error: "INVALID_ID" }, 400);
 
     // CHOT 2026-07-30: bo dieu kien nghi_ngo_nap_gas=1 (NAP_GAS_ELIGIBLE, danh cho danh sach/bao cao
-    // "nghi ngo nap gas" chinh thuc) - Giam sat khu vuc duoc chu dong danh gia BAT KY ca da "Hoan
-    // thanh XLSC" nao. Van gioi han: ca phai da Hoan thanh XLSC, chua bi huy, VA chua qua
-    // NAP_GAS_DANH_GIA_LOCK_DAYS ngay ke tu thoi_gian_hoan_thanh (khoa chot ca qua cu).
+    // "nghi ngo nap gas" chinh thuc) - Giam sat khu vuc duoc chu dong danh gia BAT KY ca nao. CHOT
+    // 2026-08-20: bo LUON dieu kien "da Hoan thanh XLSC" - mo quyen danh gia ca cho ca CHUA DONG (chi
+    // o the "Ca chi tiet", KHONG doi NAP_GAS_ELIGIBLE dung boi danh sach/bao cao thang GET / va
+    // /by-khu-vuc ben tren - 2 noi do CHOT giu nguyen chi tinh ca da dong, theo dung xac nhan nguoi
+    // dung). Van gioi han: chua bi huy (huy_bo_at IS NULL), VA neu ca DA dong thi khong duoc qua
+    // NAP_GAS_DANH_GIA_LOCK_DAYS ngay ke tu thoi_gian_hoan_thanh (khoa chot ca qua cu) - ca CHUA dong
+    // thi thoi_gian_hoan_thanh la NULL nen tuoi_hoan_thanh cung NULL, so sanh "NULL > 45" luon false,
+    // khong bi khoa.
     const caseRow = await c.env.DB.prepare(
       `SELECT id, khu_vuc, ${ageExpr("c.thoi_gian_hoan_thanh")} as tuoi_hoan_thanh
        FROM case_dvbh c
-       WHERE c.id = ? AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC' AND c.huy_bo_at IS NULL`,
+       WHERE c.id = ? AND c.huy_bo_at IS NULL`,
     )
       .bind(id)
-      .first<{ id: string; khu_vuc: string | null; tuoi_hoan_thanh: number }>();
+      .first<{ id: string; khu_vuc: string | null; tuoi_hoan_thanh: number | null }>();
     if (!caseRow) return c.json({ error: "NOT_FOUND_OR_NOT_ELIGIBLE" }, 404);
-    if (caseRow.tuoi_hoan_thanh > NAP_GAS_DANH_GIA_LOCK_DAYS) return c.json({ error: "NAP_GAS_DANH_GIA_LOCKED" }, 400);
+    if (caseRow.tuoi_hoan_thanh !== null && caseRow.tuoi_hoan_thanh > NAP_GAS_DANH_GIA_LOCK_DAYS) return c.json({ error: "NAP_GAS_DANH_GIA_LOCKED" }, 400);
 
     const scope = scopeByKhuVuc(c);
     if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {

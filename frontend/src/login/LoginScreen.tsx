@@ -30,6 +30,18 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
         {variant === "login" && (
           <div className="text-xs text-[var(--ink-400)] mt-5">Chỉ tài khoản đã được Admin phê duyệt mới truy cập được hệ thống.</div>
         )}
+        {/* import.meta.env.DEV chi true khi chay "vite dev" (local) - luon false trong build production
+            (npm run build), nen nut nay khong bao gio xuat hien tren he thong that du co quen xoa. Lop
+            an toan thu 2 nam o backend: GET /api/auth/dev-login tra 404 tru khi LOCAL_DEV_BYPASS_AUTH=
+            true trong .dev.vars (khong bao gio dat tren wrangler.jsonc/wrangler.smarttrade.jsonc). */}
+        {variant === "login" && import.meta.env.DEV && (
+          <a
+            href="/api/auth/dev-login"
+            className="focus-ring w-full flex items-center justify-center gap-2 mt-2.5 border border-dashed border-[var(--amber-500)] text-[var(--amber-700)] rounded-xl py-2 font-semibold text-xs hover:bg-[var(--amber-100)] transition-colors"
+          >
+            🔧 Đăng nhập DEV (bỏ qua Google, chỉ local)
+          </a>
+        )}
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ interface UserRow {
   gioi_tinh: "nam" | "nu" | null;
   vai_tro: VaiTro | null;
   khu_vuc_phu_trach: string | null;
+  khu_vuc_duoc_xem: string | null;
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
   la_ksnb_doi_tac: number;
   modules: string | null;
@@ -19,13 +20,17 @@ interface UserRow {
   la_ve_tinh: number;
   la_kho: number;
   la_ke_toan: number;
+  la_tac_nghiep: number;
+  la_tp_dvbh: number;
+  quan_ly_danh_muc_lk: number;
+  xem_danh_muc_lk: number;
   tram_cha: string | null;
   giam_sat_quan_ly: string | null;
 }
 
 // Chot 2026-08-13: bo "theme_config" khoi danh sach cot doc - giao dien da chuyen han sang
 // localStorage phia client (xem frontend/src/theme/localThemeConfig.ts), khong con dung server.
-const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, trang_thai_duyet, la_ksnb_doi_tac, modules, bi_khoa, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, tram_cha, giam_sat_quan_ly";
+const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, khu_vuc_duoc_xem, trang_thai_duyet, la_ksnb_doi_tac, modules, bi_khoa, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -63,6 +68,7 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     gioi_tinh: row.gioi_tinh,
     vai_tro: row.vai_tro,
     khu_vuc_phu_trach: fromJsonArray(row.khu_vuc_phu_trach),
+    khu_vuc_duoc_xem: fromJsonArray(row.khu_vuc_duoc_xem),
     trang_thai_duyet: row.trang_thai_duyet,
     la_ksnb_doi_tac: !!row.la_ksnb_doi_tac,
     modules: parseModulesColumn(row.modules),
@@ -72,6 +78,10 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     la_ve_tinh: !!row.la_ve_tinh,
     la_kho: !!row.la_kho,
     la_ke_toan: !!row.la_ke_toan,
+    la_tac_nghiep: !!row.la_tac_nghiep,
+    la_tp_dvbh: !!row.la_tp_dvbh,
+    quan_ly_danh_muc_lk: !!row.quan_ly_danh_muc_lk,
+    xem_danh_muc_lk: !!row.xem_danh_muc_lk,
     tram_cha: row.tram_cha ?? null,
     giam_sat_quan_ly: row.giam_sat_quan_ly ?? null,
   };

@@ -38,6 +38,7 @@ import {
   NEED_LO_KE_HOACH_14_NGAY,
   NEED_TAI_GIAI_TRINH_DMX_5_NGAY,
   NEED_TAI_GIAI_TRINH_14_NGAY,
+  NEED_VIP_CHUA_GT_24H,
 } from "./needGiaiTrinh";
 import { ageExpr } from "./ageCalc";
 import { kpiEligibleClause } from "./kpiEligible";
@@ -114,6 +115,10 @@ export interface BacklogBuckets {
   // CHOT 2026-08-12: "chi tieu phu" moi - the canh bao "Loc tong, BCN >1 ngay" trong "Can giai
   // trinh" cua Quan ly ton, cung kieu B2B/NSKX (dong bang/co delta, KHONG cong vao NEED_TONG).
   backlogLocTongBcn: SnapshotBucket;
+  // CHOT 2026-08-16 (lan 2): the "VIP/S.VIP chua GT >=24h" - KHAC B2B/NSKX/locTongBcn, nhanh nay
+  // CO cong vao NEED_TONG (xem needGiaiTrinh.ts) nen tap id o day la TAP CON cua tonCanGiaiTrinh.
+  // Field MOI NHAT cua BacklogBuckets - xem 3 diem tu-heal dung field nay lam co hieu o duoi.
+  backlogVip24h: SnapshotBucket;
   // Nguon "chot cung" cho CAC COT TINH (khong delta) cua bang "Bao cao ton theo khu vuc" khi nhom
   // theo Khu vuc - xem KhuVucReportRow. Chi tinh cho khu_vuc (khong tinh cho tinh/doi_tac/hang/...,
   // giu dung tien le da chot voi chu he thong: "chi can ty le theo Khu vuc").
@@ -200,6 +205,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
     backlogB2bRows,
     backlogNskxRows,
     backlogLocTongBcnRows,
+    backlogVip24hRows,
     khuVucReportResult,
   ] = await Promise.all([
     db
@@ -241,6 +247,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
     needIdQuery(NEED_B2B_1_NGAY),
     needIdQuery(NEED_NSKX_2_NGAY),
     needIdQuery(NEED_LOC_TONG_BCN_1_NGAY),
+    needIdQuery(NEED_VIP_CHUA_GT_24H),
     // Nguon tinh (khong ID-list) cho bang "Bao cao ton theo khu vuc" khi nhom theo Khu vuc - 1 truy
     // van GROUP BY duy nhat, tuong tu computeBacklogByKhuVuc() (cases.ts) nhung dung tonAnchorC/
     // joinScope thay vi "song", va luon co dim=khu_vuc (khong nhan dim khac - dung tien le da chot).
@@ -322,6 +329,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
     backlogB2b: toBucket(backlogB2bRows.results),
     backlogNskx: toBucket(backlogNskxRows.results),
     backlogLocTongBcn: toBucket(backlogLocTongBcnRows.results),
+    backlogVip24h: toBucket(backlogVip24hRows.results),
     khuVucReportRows,
   };
 }
@@ -492,18 +500,18 @@ export async function getSnapshotForUser(db: D1Database, user: AppUser): Promise
     .bind(ngay, scopeKey)
     .first<{ generated_at: string; generated_by: string; payload: string }>();
 
-  // "backlogLocTongBcn" la field moi nhat duoc them (the canh bao "Loc tong, BCN >1 ngay",
-  // 2026-08-12) - dung lam co hieu "payload du field hien tai chua". Chi can kiem tra field MOI NHAT
-  // vi payload luon duoc GHI DE nguyen khoi (khong merge tung phan) moi lan generate, nen field cu
-  // hon chac chan co mat neu field moi nhat co mat. QUAN TRONG: MOI lan them field moi vao
-  // BacklogBuckets/DailySnapshotPayload, PHAI cap nhat lai ten field o CA 3 cho kiem tra nay (xem
+  // "backlogVip24h" la field moi nhat duoc them (the "VIP/S.VIP chua GT >=24h", 2026-08-16) - dung
+  // lam co hieu "payload du field hien tai chua". Chi can kiem tra field MOI NHAT vi payload luon
+  // duoc GHI DE nguyen khoi (khong merge tung phan) moi lan generate, nen field cu hon chac chan co
+  // mat neu field moi nhat co mat. QUAN TRONG: MOI lan them field moi vao BacklogBuckets/
+  // DailySnapshotPayload, PHAI cap nhat lai ten field o CA 3 cho kiem tra nay (xem
   // getBacklogBucketsForKhuVuc/getBacklogDailyForKhuVuc ben duoi) - neu quen, snapshot cu (sinh TRUOC
   // luc them field) se bi coi la "du field" oan, lam cac ham doc field moi (vd resolvedOf() trong
   // computeBacklogDeltaPayload) nem loi "Cannot read properties of undefined" khi doc phai field
   // khong ton tai trong payload cu - da xay ra thuc te 2026-08-12 (backlogLocTongBcn) lam "Bao cao ton
   // theo khu vuc" hien trong khong 1 dong nao (khuVucStats bi disable khi showDailyCols nhung
   // backlogDaily lai loi ngam, khong co du lieu nao thay the).
-  if (row && !(JSON.parse(row.payload) as Partial<DailySnapshotPayload>).backlogLocTongBcn) {
+  if (row && !(JSON.parse(row.payload) as Partial<DailySnapshotPayload>).backlogVip24h) {
     row = null;
   }
 
@@ -649,6 +657,10 @@ export interface BacklogDailyPayload {
     nskx: DailyReportBucketResult;
     // CHOT 2026-08-12: chi tieu phu moi "Loc tong, BCN >1 ngay" - cung kieu b2b/nskx.
     locTongBcn: DailyReportBucketResult;
+    // CHOT 2026-08-16 (lan 2): "VIP/S.VIP chua GT >=24h" - KHAC b2b/nskx/locTongBcn, nhanh nay CO
+    // cong vao "tong" o tren (xem NEED_TONG), van dong bang/co delta rieng nhu cac nhanh khac de
+    // hien duoc StatCard rieng + click-drill-down dung tap id da chot.
+    vip24h: DailyReportBucketResult;
   };
   byKhuVuc: Record<string, DailyReportBucketResult>;
   // Cot tinh (khong delta) cho bang "Bao cao ton theo khu vuc" khi nhom theo Khu vuc - xem
@@ -716,6 +728,7 @@ async function computeBacklogDeltaPayload(
     b2bResolved,
     nskxResolved,
     locTongBcnResolved,
+    vip24hResolved,
     khuVucResolvedList,
   ] = await Promise.all([
     resolvedOf(s.backlogTongTon),
@@ -732,6 +745,7 @@ async function computeBacklogDeltaPayload(
     resolvedOf(s.backlogB2b),
     resolvedOf(s.backlogNskx),
     resolvedOf(s.backlogLocTongBcn),
+    resolvedOf(s.backlogVip24h),
     Promise.all(khuVucEntries.map(([, bucket]) => resolvedOf(bucket))),
   ]);
 
@@ -808,6 +822,7 @@ async function computeBacklogDeltaPayload(
       b2b: toResult(s.backlogB2b, b2bResolved),
       nskx: toResult(s.backlogNskx, nskxResolved),
       locTongBcn: toResult(s.backlogLocTongBcn, locTongBcnResolved),
+      vip24h: toResult(s.backlogVip24h, vip24hResolved),
     },
     byKhuVuc,
     khuVucRows: s.khuVucReportRows,
@@ -842,8 +857,8 @@ export async function getBacklogBucketsForKhuVuc(db: D1Database, khuVuc: string)
     .bind(ngay, scopeKey)
     .first<{ generated_at: string; generated_by: string; payload: string }>();
 
-  // "backlogLocTongBcn" - field MOI NHAT cua BacklogBuckets, xem chu thich day du o getSnapshotForUser().
-  if (row && !(JSON.parse(row.payload) as Partial<BacklogBuckets>).backlogLocTongBcn) {
+  // "backlogVip24h" - field MOI NHAT cua BacklogBuckets, xem chu thich day du o getSnapshotForUser().
+  if (row && !(JSON.parse(row.payload) as Partial<BacklogBuckets>).backlogVip24h) {
     row = null;
   }
 
@@ -932,6 +947,7 @@ export async function getBacklogSnapshotIds(
       b2b: b.backlogB2b,
       nskx: b.backlogNskx,
       loc_tong_bcn: b.backlogLocTongBcn,
+      vip_24h: b.backlogVip24h,
     };
     const bucket = buckets[category];
     if (bucket && bucket.ids) {
@@ -985,8 +1001,8 @@ export async function getBacklogDailyForKhuVuc(db: D1Database, khuVuc: string): 
     .bind(ngay, scopeKey)
     .first<{ generated_at: string; generated_by: string; payload: string }>();
 
-  // "backlogLocTongBcn" - field MOI NHAT cua BacklogBuckets, xem chu thich day du o getSnapshotForUser().
-  if (row && !(JSON.parse(row.payload) as Partial<BacklogBuckets>).backlogLocTongBcn) {
+  // "backlogVip24h" - field MOI NHAT cua BacklogBuckets, xem chu thich day du o getSnapshotForUser().
+  if (row && !(JSON.parse(row.payload) as Partial<BacklogBuckets>).backlogVip24h) {
     row = null;
   }
 
@@ -1054,6 +1070,7 @@ function mergeBacklogDailyPayloads(payloads: BacklogDailyPayload[]): BacklogDail
       b2b: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.b2b)),
       nskx: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.nskx)),
       locTongBcn: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.locTongBcn)),
+      vip24h: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.vip24h)),
     },
     byKhuVuc,
     khuVucRows,

@@ -9,9 +9,14 @@ export function isVipKh(nhomKh: string | null | undefined): boolean {
 
 // Class to nen hang trong PaginatedTable (rowClassName) khi ca thuoc nhom VIP/SVIP - dung mau amber
 // (rieng biet voi coral dang danh cho "qua han/khan cap" o cac noi khac) de khong lam nguoi dung
-// nham VIP voi canh bao qua han.
+// nham VIP voi canh bao qua han. CHOT 2026-08-20: doi tu "bg-[var(--amber-100)]" (cam nhat) sang
+// amber-500 pha opacity (dam hon). SUA BUG cung ngay: ban dau viet Tailwind "!bg-[var(--amber-500)]/25"
+// (modifier opacity ghep voi arbitrary value dang var()) nhung Tailwind KHONG sinh duoc CSS cho to
+// hop nay (khong tach duoc kenh RGB tu 1 custom property luc build) - hang VIP vi vay MAT MAU HOAN
+// TOAN. Doi sang class rieng ".vip-row-bg" (dinh nghia bang color-mix() trong tokens.css) - van 1
+// nguon mau duy nhat (--amber-500) nhung tinh dung do mo, xem tokens.css.
 export function vipRowClassName(nhomKh: string | null | undefined): string {
-  return isVipKh(nhomKh) ? "bg-[var(--amber-100)]" : "";
+  return isVipKh(nhomKh) ? "vip-row-bg" : "";
 }
 
 // Nhan nho "★ VIP" gan ten khach hang/ID - dap vao mat theo dung yeu cau, dung lai token mau san co

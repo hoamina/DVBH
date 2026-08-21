@@ -33,6 +33,12 @@
   --coral-500: #d84c4c;
   --coral-400: #e78888;
   --coral-100: #fbe1e1;
+  /* Cam "that" (khac amber - amber da dung cho loai don "Cong no" + VIP) - danh rieng cho danh dau
+     "Uu tien" (phan hoi 2026-08-19: doi tu teal sang cam, dam len khi hover). */
+  --orange-700: #9a3412;
+  --orange-600: #c2410c;
+  --orange-500: #ea580c;
+  --orange-100: #ffedd5;
   --bg: #f2f6f9;
   --surface: #ffffff;
   --surface-100: #f5f8fa;
@@ -52,6 +58,16 @@
   --ink-500: #62798c;
   --ink-400: #8ca0af;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Accent "chu ky" cho giao dien "modern clean v2" (Quan ly ton / Ca thieu linh kien) - thuan them
+     moi, khong doi bat ky token cu nao, dung co chon loc (nhan nhom cot chinh trong bang pivot). */
+  --indigo-700: #3730a3;
+  --indigo-600: #4f46e5;
+  --indigo-500: #6366f1;
+  --indigo-100: #eef2ff;
+  /* Vien o nhap lieu "noi bat" toan he thong (ban dau rieng module Dat mua linh kien, yeu cau UX
+     2026-08-19 diem 3; mo rong toan cuc 2026-08-20). */
+  --violet-600: #7c3aed;
+  --violet-500: #8b5cf6;
 }
 
 * {
@@ -224,4 +240,91 @@ input[type="checkbox"] {
   display: inline-block;
   padding-left: 100%;
   animation: greeting-marquee 20s linear infinite;
+}
+
+/* Vien nhap nhay cho o "luong quy trinh" dang can nguoi dung xu ly (DatMuaLinhKienModule.tsx
+   PipelineFlow) - dung box-shadow (KHONG bi clip-path cua o cat mat, khac voi border thuong se bi
+   cat vo tai cac canh cheo cua hinh chevron) phinh to dan roi mo di, kieu "ping" bao hieu chu y ma
+   khong lam mo/nhap nhay CA NEN mau ben trong (da bi chu he thong che "kho nhin" o ban truoc). Chi
+   bat khi he dieu hanh khong bat "giam chuyen dong" (tuong duong Tailwind motion-safe:). */
+@keyframes pipeline-urgent-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(216, 76, 76, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(216, 76, 76, 0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pipeline-urgent-ring {
+    animation: pipeline-urgent-ring 1.6s ease-in-out infinite;
+  }
+}
+
+/* Drawer truot vao tu phai (xem PartDetailDrawer, DanhMucLinhKienModule.tsx) - dung rieng voi
+   .anim-in (fadeSlide truc doc, danh cho Modal giua man hinh) vi drawer bam canh phai nen truot
+   theo truc ngang moi dung huong nhin. */
+@keyframes drawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawer-in {
+  animation: drawerSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes imgSkeletonPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.img-skeleton {
+  animation: imgSkeletonPulse 1.4s ease-in-out infinite;
+}
+
+/* O nhap lieu "noi bat" toan he thong (yeu cau UX 2026-08-20: "cac o co the nhap thong tin => to
+   vien noi bat voi thong tin khong the nhap", NGAY CA khi chua bam vao - khong chi luc focus). Ban
+   dau chi ap dung rieng module Dat mua linh kien (yeu cau UX 2026-08-19 diem 3), nay mo rong ap dung
+   toan cuc. Tru checkbox/radio/file/hidden/disabled/readonly (khong phai o "co the nhap").
+   SUA BUG cung ngay: ban dau dung "border-color" + :where() de giu specificity thap (dinh de cac
+   class bao loi/validate nhu border-[var(--coral-400)] van thang) - nhung TUYET DAI DA SO input trong
+   he thong da co san class border-[var(--line)] (mau vien mac dinh, KHONG phai loi) cung 1 tang
+   specificity utility-class nhu border-[var(--coral-400)], nen border-[var(--line)] cung thang qua
+   luon, chi con :focus (specificity cao hon 1 bac nho co them "input") la thang duoc - ket qua thuc
+   te: vien tim CHI hien khi bam vao (dung nhu chu he thong bao), khong on dinh nhu y muon "noi bat
+   ngay ca khi chua focus". Doi sang "box-shadow" (vong sang quanh vien, ve THEM chu khong THAY the
+   border-color) - khong canh tranh voi bat ky utility class border-* nao (khac property hoan toan),
+   nen KHONG can "thang" specificity gi ca, luon hien on dinh bat ke input co class border gi, va vien
+   bao loi (coral) van nguyen ven ben trong vi khong bi dung cham. */
+input:where(:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly])),
+textarea:where(:not(:disabled):not([readonly])),
+select:where(:not(:disabled)) {
+  box-shadow: 0 0 0 1px var(--violet-500);
+}
+input:where(:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly])):focus,
+textarea:where(:not(:disabled):not([readonly])):focus,
+select:where(:not(:disabled)):focus {
+  box-shadow: 0 0 0 1.5px var(--violet-600);
+}
+
+/* To nen hang VIP/SVIP trong PaginatedTable (xem lib/vipHighlight.tsx) - CHOT 2026-08-20: sua bug
+   "VIP khong con to cam" - ban truoc dung Tailwind "bg-[var(--amber-500)]/25" (modifier do opacity
+   ghep voi gia tri tuy y dang var()), nhung Tailwind KHONG the tach kenh RGB tu 1 CSS custom property
+   tai thoi diem build nen KHONG sinh ra rule CSS nao ca (kiem chung: class nay khong xuat hien trong
+   CSS da build) - hang VIP vi vay mat mau hoan toan, khong phai "nhat mau" ma la "khong co mau".
+   Dung color-mix() thuan CSS de vua GIU token --amber-500 lam nguon mau duy nhat, vua tinh duoc do mo
+   ma Tailwind khong lam duoc. !important giu nguyen ly do cu: PaginatedTable luon gan san
+   "hover:bg-slate-50" tren <tr>, can thang no ca khi hover. */
+.vip-row-bg {
+  background-color: color-mix(in srgb, var(--amber-500) 25%, white) !important;
+}
+.vip-row-bg:hover {
+  background-color: color-mix(in srgb, var(--amber-500) 40%, white) !important;
 }

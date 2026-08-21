@@ -330,6 +330,22 @@ export interface LyDoRow {
   thuoc_tranh_chap: number;
 }
 
+// Danh sach "Ly do cham" rieng cho module Dat mua linh kien (bang settings_ly_do_cham, migration
+// 0065) - KHAC LyDoRow o tren (bang settings_ly_do, dung cho giai trinh ca ton). he_thong_su_dung
+// la chuoi phan cach dau phay gom cac gia tri trong 2 lua chon co dinh "Mua hàng"/"Bảo hành" (xem
+// migration 0089) - giu dang string (khong tach bang rieng) de khop logic loc `LIKE` da co san o
+// backend/src/routes/datMuaLinhKien.ts.
+export interface LyDoChamMuaLkRow {
+  id: number;
+  ten_ly_do: string;
+  he_thong_su_dung: string;
+  quan_ly_don_thieu_linh_kien: number;
+  bat_tat: number;
+  stt: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
 export interface PhanLoaiTranhChapRow {
   id: number;
   ten_phan_loai: string;
@@ -390,6 +406,10 @@ export interface LinhKienRow {
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string;
   bat_tat: number;
+  dac_thu: number;
+  // "Only sua chua" - true thi khong chon duoc trong picker tao don module "Dat mua linh kien",
+  // xem migration 0083 + useLkAndLdeCache() trong DatMuaLinhKienModule.tsx.
+  chi_sua_chua: number;
 }
 
 export interface LkDanhMucRow {
@@ -423,6 +443,7 @@ export interface UserRow {
   ten: string | null;
   vai_tro: string | null;
   khu_vuc_phu_trach: string[];
+  khu_vuc_duoc_xem: string[];
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";
   la_ksnb_doi_tac: number;
   modules: string[] | null;
@@ -432,6 +453,10 @@ export interface UserRow {
   la_ve_tinh: number;
   la_kho: number;
   la_ke_toan: number;
+  la_tac_nghiep: number;
+  la_tp_dvbh: number;
+  quan_ly_danh_muc_lk: number;
+  xem_danh_muc_lk: number;
   tram_cha: string | null;
   giam_sat_quan_ly: string | null;
 }

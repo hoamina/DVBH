@@ -13,6 +13,12 @@ import { ROLES_XEM_TOAN_BO } from "../types";
  * ROLES_XEM_TOAN_BO (hang so do con dung o requireRole cua revenue.ts de cap quyen VAO duoc module
  * Bao cao doanh thu - khong lien quan gioi han khu vuc) nen phai kiem tra Viewer RIENG, TRUOC khi
  * xet ROLES_XEM_TOAN_BO chung.
+ *
+ * "khu_vuc_duoc_xem" (chot 2026-08-20, migration 0095): pham vi XEM cua nhanh cuoi (Giam sat/CSKH/
+ * TN CSKH/...) la HOP NHAT cua khu_vuc_phu_trach + khu_vuc_duoc_xem, de Admin mo rong quyen xem cho
+ * Giam sat ma KHONG lam phinh so lieu "thẻ khảo sát"/leaderboard vi pham theo giam sat phu trach -
+ * cac truy van do doc thang cot khu_vuc_phu_trach tu bang users (khong qua ham nay), xem
+ * routes/viPham.ts computeViPhamLeaderboard va lib/dailyReport.ts.
  */
 export function scopeByKhuVuc(c: Context<{ Bindings: Env }>): string[] | null {
   const user = c.get("user");
@@ -20,7 +26,7 @@ export function scopeByKhuVuc(c: Context<{ Bindings: Env }>): string[] | null {
     return user.khu_vuc_phu_trach && user.khu_vuc_phu_trach.length > 0 ? user.khu_vuc_phu_trach : null;
   }
   if (user.vai_tro && ROLES_XEM_TOAN_BO.includes(user.vai_tro)) return null;
-  return user.khu_vuc_phu_trach || [];
+  return [...new Set([...(user.khu_vuc_phu_trach || []), ...(user.khu_vuc_duoc_xem || [])])];
 }
 
 /** Xay dung "AND khu_vuc IN (...)" + bind values, hoac chuoi rong neu khong gioi han. */

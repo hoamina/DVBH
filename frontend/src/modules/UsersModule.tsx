@@ -17,15 +17,18 @@ import { useAuth, type VaiTro } from "../auth/AuthContext";
 
 const PAGE_SIZE = 20;
 
-const MH_FLAGS = ["la_ktv_dvbh", "la_ve_tinh", "la_kho", "la_ke_toan"] as const;
+const MH_FLAGS = ["la_ktv_dvbh", "la_ve_tinh", "la_kho", "la_ke_toan", "la_tac_nghiep", "la_tp_dvbh"] as const;
 const BC_MODULE_KEYS = ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "import", "settings", "users", "giao-dien"];
 const MH_MODULE_KEYS = ["dat-mua-lk", "tra-hang"];
 
 function computeEffectiveMods(u: UserRow): string[] {
   if (u.vai_tro === "Admin") return ROLE_MODULES["Admin"];
-  const base: string[] = u.modules ?? (u.vai_tro ? (ROLE_MODULES[u.vai_tro as VaiTro] ?? []) : []);
+  let base: string[] = u.modules ?? (u.vai_tro ? (ROLE_MODULES[u.vai_tro as VaiTro] ?? []) : []);
   if (MH_FLAGS.some((f) => !!(u as unknown as Record<string, unknown>)[f])) {
-    return [...new Set([...base, ...MH_MODULE_KEYS])];
+    base = [...new Set([...base, ...MH_MODULE_KEYS])];
+  }
+  if (u.xem_danh_muc_lk || u.quan_ly_danh_muc_lk) {
+    base = [...new Set([...base, "danh-muc-lk"])];
   }
   return base;
 }
@@ -52,6 +55,7 @@ const USER_EXPORT_LABELS: Record<string, string> = {
   ten: "Tên",
   vai_tro: "Vai trò",
   khu_vuc_phu_trach: "Khu vực phụ trách",
+  khu_vuc_duoc_xem: "Khu vực được nhìn thấy (chỉ xem)",
   trang_thai_duyet: "Trạng thái",
   la_ksnb_doi_tac: "KSNB Đối tác",
   modules: "Module tùy chỉnh",
@@ -127,6 +131,7 @@ export function UsersModule() {
       email,
       vai_tro,
       khu_vuc,
+      khu_vuc_duoc_xem,
       la_ksnb_doi_tac,
       modules,
       co_the_import_tranh_chap,
@@ -134,12 +139,17 @@ export function UsersModule() {
       la_ve_tinh,
       la_kho,
       la_ke_toan,
+      la_tac_nghiep,
+      la_tp_dvbh,
+      quan_ly_danh_muc_lk,
+      xem_danh_muc_lk,
       tram_cha,
       giam_sat_quan_ly,
     }: {
       email: string;
       vai_tro: string | null;
       khu_vuc: string[];
+      khu_vuc_duoc_xem: string[];
       la_ksnb_doi_tac: boolean;
       modules: string[] | null;
       co_the_import_tranh_chap: boolean;
@@ -147,12 +157,17 @@ export function UsersModule() {
       la_ve_tinh: boolean;
       la_kho: boolean;
       la_ke_toan: boolean;
+      la_tac_nghiep: boolean;
+      la_tp_dvbh: boolean;
+      quan_ly_danh_muc_lk: boolean;
+      xem_danh_muc_lk: boolean;
       tram_cha: string | null;
       giam_sat_quan_ly: string | null;
     }) =>
       api.patch(`/users/${encodeURIComponent(email)}`, {
         vai_tro,
         khu_vuc_phu_trach: khu_vuc,
+        khu_vuc_duoc_xem,
         la_ksnb_doi_tac,
         modules,
         co_the_import_tranh_chap,
@@ -160,6 +175,10 @@ export function UsersModule() {
         la_ve_tinh,
         la_kho,
         la_ke_toan,
+        la_tac_nghiep,
+        la_tp_dvbh,
+        quan_ly_danh_muc_lk,
+        xem_danh_muc_lk,
         tram_cha: tram_cha || null,
         giam_sat_quan_ly: giam_sat_quan_ly || null,
       }),
@@ -202,11 +221,16 @@ export function UsersModule() {
       key: "khu_vuc_phu_trach",
       header: "Khu vực phụ trách",
       render: (u) =>
-        u.khu_vuc_phu_trach.length ? (
+        u.khu_vuc_phu_trach.length || u.khu_vuc_duoc_xem.length ? (
           <div className="flex flex-wrap gap-1 max-w-xs">
             {u.khu_vuc_phu_trach.map((kv) => (
               <span key={kv} title={kv}>
                 <Badge tone="gray">{shortKhuVuc(kv)}</Badge>
+              </span>
+            ))}
+            {u.khu_vuc_duoc_xem.map((kv) => (
+              <span key={kv} title={`${kv} (chỉ xem, không tính vào báo cáo)`}>
+                <Badge tone="amber">{shortKhuVuc(kv)} (xem)</Badge>
               </span>
             ))}
           </div>
@@ -225,6 +249,9 @@ export function UsersModule() {
                 {!!u.la_ve_tinh && <Badge tone="teal">Vệ tinh</Badge>}
                 {!!u.la_kho && <Badge tone="amber">Kho</Badge>}
                 {!!u.la_ke_toan && <Badge tone="coral">Kế toán</Badge>}
+                {!!u.la_tac_nghiep && <Badge tone="ocean">Tác nghiệp</Badge>}
+                {!!u.la_tp_dvbh && <Badge tone="amber">TP DVBH</Badge>}
+                {!!u.quan_ly_danh_muc_lk && <Badge tone="gray">Danh mục LK (sửa)</Badge>}
                 {u.tram_cha && <span className="text-xs text-[var(--ink-400)]">Trạm: {u.tram_cha}</span>}
               </div>
             ),
@@ -383,8 +410,8 @@ export function UsersModule() {
         <EditUserModal
           user={editUser}
           onClose={() => setEditUser(null)}
-          onSave={(vai_tro, khu_vuc, la_ksnb_doi_tac, modules, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, tram_cha, giam_sat_quan_ly) =>
-            saveEdit.mutate({ email: editUser.email, vai_tro, khu_vuc, la_ksnb_doi_tac, modules, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, tram_cha, giam_sat_quan_ly })
+          onSave={(vai_tro, khu_vuc, khu_vuc_duoc_xem, la_ksnb_doi_tac, modules, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly) =>
+            saveEdit.mutate({ email: editUser.email, vai_tro, khu_vuc, khu_vuc_duoc_xem, la_ksnb_doi_tac, modules, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly })
           }
         />
       )}
@@ -399,7 +426,24 @@ function EditUserModal({
 }: {
   user: UserRow;
   onClose: () => void;
-  onSave: (vaiTro: string | null, khuVuc: string[], laKsnbDoiTac: boolean, modules: string[] | null, coTheImportTranhChap: boolean, laKtvDvbh: boolean, laVeTinh: boolean, laKho: boolean, laKeToan: boolean, tramCha: string | null, giamSatQuanLy: string | null) => void;
+  onSave: (
+    vaiTro: string | null,
+    khuVuc: string[],
+    khuVucDuocXem: string[],
+    laKsnbDoiTac: boolean,
+    modules: string[] | null,
+    coTheImportTranhChap: boolean,
+    laKtvDvbh: boolean,
+    laVeTinh: boolean,
+    laKho: boolean,
+    laKeToan: boolean,
+    laTacNghiep: boolean,
+    laTpDvbh: boolean,
+    quanLyDanhMucLk: boolean,
+    xemDanhMucLk: boolean,
+    tramCha: string | null,
+    giamSatQuanLy: string | null,
+  ) => void;
 }) {
   const addToast = useToast();
   // CHOT: KHONG duoc mac dinh ve ROLES[0] ("Admin") khi user.vai_tro dang rong - do la tai khoan
@@ -408,18 +452,29 @@ function EditUserModal({
   // VO TINH thang cap tai khoan do len Admin - da sua 2026-08-14.
   const [role, setRole] = useState(user.vai_tro ?? "");
   const [kv, setKv] = useState<Set<string>>(new Set(user.khu_vuc_phu_trach));
+  // "Khu vuc duoc xem" (chi xem, KHONG tinh vao bao cao) - CHOT 2026-08-20, xem migration
+  // 0095_khu_vuc_duoc_xem.sql. Hien chi hien UI cho vai_tro="Giam sat" (xem showKvDuocXem ben
+  // duoi), nhung luu chung nut "Luu" chinh cua modal (khac voi phuTrachGs - bang/route rieng).
+  const [kvXem, setKvXem] = useState<Set<string>>(new Set(user.khu_vuc_duoc_xem));
   const [laKsnb, setLaKsnb] = useState(!!user.la_ksnb_doi_tac);
   const [coTheImportTranhChap, setCoTheImportTranhChap] = useState(!!user.co_the_import_tranh_chap);
   const [laKtvDvbh, setLaKtvDvbh] = useState(!!user.la_ktv_dvbh);
   const [laVeTinh, setLaVeTinh] = useState(!!user.la_ve_tinh);
   const [laKho, setLaKho] = useState(!!user.la_kho);
   const [laKeToan, setLaKeToan] = useState(!!user.la_ke_toan);
+  const [laTacNghiep, setLaTacNghiep] = useState(!!user.la_tac_nghiep);
+  const [laTpDvbh, setLaTpDvbh] = useState(!!user.la_tp_dvbh);
+  const [quanLyDanhMucLk, setQuanLyDanhMucLk] = useState(!!user.quan_ly_danh_muc_lk);
+  const [xemDanhMucLk, setXemDanhMucLk] = useState(!!user.xem_danh_muc_lk);
   const [tramCha, setTramCha] = useState(user.tram_cha ?? "");
   const [giamSatQuanLy, setGiamSatQuanLy] = useState(user.giam_sat_quan_ly ?? "");
   // "Khu vuc phu trach" (Giam sat) - phan hoi UX muc 6, 2026-08-15: Admin gan 1/nhieu Giam sat cho
   // TN/Kho/Ke toan de scope MEM badge + the bao cao tong the (xem migration 0073, scopeDatMua.ts).
   // Doc/ghi qua 2 route RIENG (khac bang users), luu doc lap voi nut "Luu" chinh cua modal.
-  const showPhuTrachGs = laKho || laKeToan || role === "TBP DVBH" || role === "Admin";
+  // CHOT 2026-08-16: "TN" gio la laTacNghiep (doc lap khoi vai_tro, xem migration 0081) thay vi
+  // role === "TBP DVBH" nhu truoc. CHOT 2026-08-17: them laTpDvbh (bucket "Cho TBP xac nhan" cung
+  // scope theo GS phu trach, xem migration 0082).
+  const showPhuTrachGs = laKho || laKeToan || laTacNghiep || laTpDvbh || role === "Admin";
   const { data: giamSatListData } = useQuery({
     queryKey: ["users", "giam-sat-list"],
     queryFn: () => api.get<{ rows: UserRow[] }>(`/users?tab=da-duyet&vai_tro=${encodeURIComponent("Giam sat")}`),
@@ -468,6 +523,12 @@ function EditUserModal({
     setKv(new Set(s));
   }
 
+  function toggleXem(k: string) {
+    const s = new Set(kvXem);
+    s.has(k) ? s.delete(k) : s.add(k);
+    setKvXem(new Set(s));
+  }
+
   function toggleModule(m: string) {
     const s = new Set(moduleSet);
     s.has(m) ? s.delete(m) : s.add(m);
@@ -487,7 +548,9 @@ function EditUserModal({
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">Khu vực được xem / quản lý</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">
+            {role === "Giam sat" ? "Khu vực phụ trách báo cáo (Giám sát)" : "Khu vực được xem / quản lý"}
+          </label>
           <div className="flex flex-wrap gap-1.5">
             {khuVucOptions.map((k) => (
               <button
@@ -501,7 +564,33 @@ function EditUserModal({
             ))}
             {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">Chưa có dữ liệu khu vực (chưa import case nào).</span>}
           </div>
+          {role === "Giam sat" && (
+            <div className="text-xs text-[var(--ink-400)] mt-1">
+              Quyết định phạm vi xem VÀ được tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này.
+            </div>
+          )}
         </div>
+        {role === "Giam sat" && (
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">Khu vực được nhìn thấy (chỉ xem)</label>
+            <div className="flex flex-wrap gap-1.5">
+              {khuVucOptions.map((k) => (
+                <button
+                  key={k}
+                  onClick={() => toggleXem(k)}
+                  className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${kvXem.has(k) ? "bg-[var(--amber-500)] text-white border-[var(--amber-500)]" : "border-[var(--line)] text-[var(--ink-600)]"}`}
+                  title={k}
+                >
+                  {shortKhuVuc(k)}
+                </button>
+              ))}
+              {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">Chưa có dữ liệu khu vực (chưa import case nào).</span>}
+            </div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">
+              Mở rộng quyền xem danh sách/ca ở các khu vực này, nhưng KHÔNG tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này (chỉ khu vực phụ trách báo cáo ở trên mới được tính).
+            </div>
+          </div>
+        )}
         <div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={laKsnb} onChange={(e) => setLaKsnb(e.target.checked)} className="w-4 h-4" />
@@ -517,6 +606,20 @@ function EditUserModal({
             <span className="font-semibold">Được import tranh chấp theo ID</span>
           </label>
           <div className="text-xs text-[var(--ink-400)] mt-1">Cho phép tải file Excel/CSV để tạo hàng loạt tiến trình tranh chấp (module "Tranh chấp, KN"), thay vì tạo tay từng ca.</div>
+        </div>
+        <div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={xemDanhMucLk} onChange={(e) => setXemDanhMucLk(e.target.checked)} className="w-4 h-4" />
+            <span className="font-semibold">Được xem module Danh mục linh kiện</span>
+          </label>
+          <div className="text-xs text-[var(--ink-400)] mt-1">Mặc định bật cho mọi tài khoản, trừ CSKH/TN CSKH/TBP CSKH. Độc lập với vai trò ở trên.</div>
+        </div>
+        <div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={quanLyDanhMucLk} onChange={(e) => setQuanLyDanhMucLk(e.target.checked)} className="w-4 h-4" />
+            <span className="font-semibold">Được quản lý (thêm/sửa) Danh mục linh kiện</span>
+          </label>
+          <div className="text-xs text-[var(--ink-400)] mt-1">Thêm/sửa linh kiện, đồng bộ Google Sheet (dùng chung cho giải trình thiếu linh kiện và đặt mua linh kiện). Tự động kèm quyền xem dù không tick ô trên.</div>
         </div>
         <div className="border-t border-[var(--line)] pt-3">
           <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">Module đặt mua linh kiện</div>
@@ -536,6 +639,14 @@ function EditUserModal({
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={laKeToan} onChange={(e) => setLaKeToan(e.target.checked)} className="w-4 h-4" />
               <span>Là Kế toán (xử lý phiếu số tiền)</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={laTacNghiep} onChange={(e) => setLaTacNghiep(e.target.checked)} className="w-4 h-4" />
+              <span>Là Tác nghiệp (duyệt phiếu đặt, PXK, trả hàng — "TN")</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={laTpDvbh} onChange={(e) => setLaTpDvbh(e.target.checked)} className="w-4 h-4" />
+              <span>Là TP DVBH (xác nhận linh kiện đặc thù, trước Tác nghiệp)</span>
             </label>
           </div>
           <div className="mt-3 space-y-2">
@@ -613,7 +724,30 @@ function EditUserModal({
           <Btn variant="ghost" onClick={onClose}>
             Hủy
           </Btn>
-          <Btn onClick={() => onSave(role || null, Array.from(kv), laKsnb, role === "Admin" ? null : Array.from(moduleSet), coTheImportTranhChap, laKtvDvbh, laVeTinh, laKho, laKeToan, tramCha || null, giamSatQuanLy || null)}>Lưu</Btn>
+          <Btn
+            onClick={() =>
+              onSave(
+                role || null,
+                Array.from(kv),
+                Array.from(kvXem),
+                laKsnb,
+                role === "Admin" ? null : Array.from(moduleSet),
+                coTheImportTranhChap,
+                laKtvDvbh,
+                laVeTinh,
+                laKho,
+                laKeToan,
+                laTacNghiep,
+                laTpDvbh,
+                quanLyDanhMucLk,
+                xemDanhMucLk,
+                tramCha || null,
+                giamSatQuanLy || null,
+              )
+            }
+          >
+            Lưu
+          </Btn>
         </div>
       </div>
     </Modal>

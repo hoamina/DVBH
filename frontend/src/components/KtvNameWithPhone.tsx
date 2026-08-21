@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { useToast } from "./ui/Toast";
 import { extractMaKtv, useKtvPhoneMap, KTV_PHONE_QUERY_KEY } from "../lib/ktvPhone";
 import type { VaiTro } from "../auth/AuthContext";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 
 /** Vai tro duoc them/sua/xoa SDT KTV qua bam ten (CHOT 2026-08-06) - khop dung nhom ktvWriteRoles o
  * backend/src/routes/settings.ts, giu 2 noi nay dong bo neu doi quyen. */
@@ -49,6 +50,7 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
 function KtvPhoneModal({ maKtv, kyThuatVien, canEdit, onClose }: { maKtv: string; kyThuatVien: string; canEdit: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const addToast = useToast();
+  const personDir = usePersonDirectory();
   const map = useKtvPhoneMap();
   const entry = map.get(maKtv);
 
@@ -113,7 +115,7 @@ function KtvPhoneModal({ maKtv, kyThuatVien, canEdit, onClose }: { maKtv: string
             </div>
             {entry?.nguoi_cap_nhat && (
               <div className="text-xs text-[var(--ink-400)]">
-                Cập nhật gần nhất: {entry.nguoi_cap_nhat} · {entry.ngay_cap_nhat}
+                Cập nhật gần nhất: {formatPersonDisplay(entry.nguoi_cap_nhat, personDir)} · {entry.ngay_cap_nhat}
               </div>
             )}
           </>

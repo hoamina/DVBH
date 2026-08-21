@@ -33,6 +33,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { ImportUploader } from "../components/ImportUploader";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 
 interface BlacklistImportSummary {
   thanhCong: number;
@@ -126,6 +127,7 @@ function conDongColor(rate: number) {
 export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: string) => void; role: VaiTro | null }) {
   const addToast = useToast();
   const qc = useQueryClient();
+  const personDir = usePersonDirectory();
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useLocalStorageState("filters:ca-lap-view", "tong-quan");
@@ -401,13 +403,13 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
       },
     },
     { key: "chot_hinh_thuc_xu_ly", header: "Chốt hình thức xử lý", render: (r) => <span className="text-xs">{r.chot_hinh_thuc_xu_ly ?? "—"}</span> },
-    { key: "nguoi_giai_trinh", header: "Người giải trình", render: (r) => <span className="text-xs">{r.nguoi_giai_trinh ?? "—"}</span> },
+    { key: "nguoi_giai_trinh", header: "Người giải trình", render: (r) => <span className="text-xs">{r.nguoi_giai_trinh ? formatPersonDisplay(r.nguoi_giai_trinh, personDir) : "—"}</span> },
     { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
   ];
 
   const blacklistColumns: Column<BlacklistSerialRow>[] = [
     { key: "seri_san_pham", header: "Serial", render: (r) => <span className="font-mono text-sm">{r.seri_san_pham}</span> },
-    { key: "nguoi_them", header: "Người thêm", render: (r) => r.nguoi_them },
+    { key: "nguoi_them", header: "Người thêm", render: (r) => formatPersonDisplay(r.nguoi_them, personDir) },
     { key: "ngay_them", header: "Ngày thêm", render: (r) => <span className="text-xs">{fmtDateTime(r.ngay_them)}</span> },
     {
       key: "bat_tat",

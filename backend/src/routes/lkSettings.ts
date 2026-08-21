@@ -3,6 +3,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
+import { requireQuanLyDanhMucLk } from "../middleware/requireQuanLyDanhMucLk";
 import { nowVN } from "../lib/vnTime";
 
 // Catalog "Dat mua linh kien": danh muc LK, nhom thay the, BOM tra cuu - xem migration
@@ -11,10 +12,11 @@ import { nowVN } from "../lib/vnTime";
 const lkSettings = new Hono<{ Bindings: Env }>();
 lkSettings.use("*", verifySessionMiddleware, loadUser);
 const adminOnly = requireRole("Admin");
-// Giai doan 5 (chot 2026-08-14): mo quyen ghi danh muc linh kien + nhom thay the cho Giam sat +
-// Tac nghiep, khong con adminOnly - ho la nguoi truc tiep tiep xuc KTV/don hang nen can tu bo sung
-// nhanh, khong phai cho Admin. BOM import van giu adminOnly (ngoai pham vi chot).
-const quanLyDanhMuc = requireRole("Admin", "TBP DVBH", "Giam sat");
+// CHOT 2026-08-17: quyen ghi danh muc linh kien + nhom thay the gio la flag doc lap
+// quan_ly_danh_muc_lk (xem middleware/requireQuanLyDanhMucLk.ts + migration 0082) - THAY THE
+// requireRole("Admin","TBP DVBH","Giam sat") cu (Giai doan 5, 2026-08-14) vi da lech sau khi tach
+// la_tac_nghiep khoi vai_tro o migration 0081. BOM import van giu adminOnly (ngoai pham vi chot).
+const quanLyDanhMuc = requireQuanLyDanhMucLk;
 
 // D1 batch/bind-param safety margin - xem lib/importProcessor.ts.
 const CHUNK_SIZE_BATCH = 500;
@@ -39,20 +41,20 @@ lkSettings.get("/danh-muc", async (c) => {
 });
 
 lkSettings.post("/danh-muc", quanLyDanhMuc, async (c) => {
-  const body = await c.req.json<{ ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null }>();
+  const body = await c.req.json<{ ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; dac_thu?: boolean; chi_sua_chua?: boolean }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(ma_linh_kien) DO UPDATE SET
        ten_linh_kien = excluded.ten_linh_kien, gia_ban = excluded.gia_ban, gia_tham_chieu = excluded.gia_tham_chieu,
-       don_vi = excluded.don_vi, ghi_chu = excluded.ghi_chu, anh_demo = excluded.anh_demo,
-       nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat
+       don_vi = excluded.don_vi, ghi_chu = excluded.ghi_chu, anh_demo = excluded.anh_demo, dac_thu = excluded.dac_thu,
+       chi_sua_chua = excluded.chi_sua_chua, nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat
      RETURNING *`,
   )
-    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null, body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, user.email, nowVN())
+    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null, body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, user.email, nowVN())
     .first();
 
   return c.json(row, 201);
@@ -60,7 +62,7 @@ lkSettings.post("/danh-muc", quanLyDanhMuc, async (c) => {
 
 lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
   const ma = c.req.param("ma");
-  const body = await c.req.json<{ ten_linh_kien?: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; bat_tat?: boolean }>();
+  const body = await c.req.json<{ ten_linh_kien?: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; bat_tat?: boolean; dac_thu?: boolean; chi_sua_chua?: boolean }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -73,12 +75,14 @@ lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
     ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
     anh_demo: body.anh_demo !== undefined ? body.anh_demo?.trim() || null : existing.anh_demo,
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
+    dac_thu: body.dac_thu !== undefined ? (body.dac_thu ? 1 : 0) : existing.dac_thu,
+    chi_sua_chua: body.chi_sua_chua !== undefined ? (body.chi_sua_chua ? 1 : 0) : existing.chi_sua_chua,
   };
 
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET ten_linh_kien = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, bat_tat = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET ten_linh_kien = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, bat_tat = ?, dac_thu = ?, chi_sua_chua = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.ten_linh_kien, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.bat_tat, user.email, nowVN(), ma)
+    .bind(next.ten_linh_kien, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.bat_tat, next.dac_thu, next.chi_sua_chua, user.email, nowVN(), ma)
     .run();
 
   return c.json({ ok: true });

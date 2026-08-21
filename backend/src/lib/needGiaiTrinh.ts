@@ -80,8 +80,12 @@ const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
  *   liet ke rieng).
  * - TONG (chot lai 2026-08-01, chu he thong phat hien nham logic): B2B_1_NGAY va NSKX_2_NGAY TUNG bi
  *   cong nham vao TONG - 2 nhom nay la hang muc rieng (van con card/cot B2B, NSKX o UI), KHONG duoc
- *   tinh vao "Tong can giai trinh". Cong thuc dung: lo ke hoach + tai giai trinh + DMX chua GT >3
- *   ngay + chua GT >5 ngay + dieu hoa >1 ngay - CHINH XAC 5 nhanh, khong hon.
+ *   tinh vao "Tong can giai trinh".
+ * - TONG (chot lai lan 2, 2026-08-16, chu he thong yeu cau): them VIP_CHUA_GT_24H vao TONG - dung
+ *   OR (khong phai +) nen 1 ca VUA la VIP/S.VIP CHUA giai trinh >=24h VUA khop 1 trong 5 nhanh con
+ *   lai (vd cung dang "chua GT >=5 ngay") van CHI duoc dem 1 LAN, khong bi dem trung. Cong thuc dung:
+ *   lo ke hoach + tai giai trinh + DMX chua GT >3 ngay + chua GT >5 ngay + dieu hoa >1 ngay + VIP
+ *   chua GT >=24h - CHINH XAC 6 nhanh.
  */
 export const NEED_LO_KE_HOACH = `(lg.ngay_du_kien_hoan_thanh IS NOT NULL AND date(lg.ngay_du_kien_hoan_thanh) < date(${AGE_ANCHOR}))`;
 export const NEED_TAI_GIAI_TRINH = `(lg.case_id IS NOT NULL AND ${ageExpr("lg.ngay_giai_trinh")} >= 3)`;
@@ -100,8 +104,9 @@ export const NEED_LOC_TONG_BCN_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham
 // trinh qua 24 GIO THUC (khong phai "1 ngay lich" kieu AGE_C/NEED_DIEU_HOA_1_NGAY o tren - AGE_C lam
 // tron theo moc 0h VN nen 1 ca tiep nhan luc 23h50 se bi tinh "1 ngay" chi sau 10 phut, khong dung
 // tinh than "24h" chu he thong yeu cau rieng cho VIP - o day dung julianday() so KHOANG CACH THUC te
-// tinh bang gio/ngay phan so). Canh bao rieng, SONG SONG voi chua_gt_3_ngay/chua_gt_5_ngay - KHONG
-// cong vao NEED_TONG (giu nguyen 2 nhom 3/5 ngay hien co, khong thay doi cong thuc TONG).
+// tinh bang gio/ngay phan so).
+// CHOT 2026-08-16 (lan 2, chu he thong yeu cau): VIP_24H GIO CO cong vao NEED_TONG (xem chu thich
+// NEED_TONG ben duoi) - khac cac "chi tieu phu" khac (B2B/NSKX/loc_tong_bcn) van KHONG cong vao TONG.
 export const NEED_VIP_CHUA_GT_24H = `(lg.case_id IS NULL AND c.nhom_kh LIKE '%VIP%' AND (julianday(datetime('now','+7 hours')) - julianday(c.thoi_gian_cskh_tiep_nhan)) >= 1)`;
 
 // "KH DMX" (chot 2026-07-31, thay the the "Chua giai trinh >3 ngay (canh bao som)" cu) - khach hang
@@ -125,9 +130,10 @@ export const NEED_LO_KE_HOACH_14_NGAY = `(${NEED_LO_KE_HOACH} AND ${AGE_C} >= 14
 export const NEED_TAI_GIAI_TRINH_DMX_5_NGAY = `(${NEED_TAI_GIAI_TRINH} AND ${NEED_DMX_CUSTOMER} AND ${AGE_C} >= 5)`;
 export const NEED_TAI_GIAI_TRINH_14_NGAY = `(${NEED_TAI_GIAI_TRINH} AND ${AGE_C} >= 14)`;
 
-// CHOT 2026-08-01: bo B2B_1_NGAY/NSKX_2_NGAY khoi TONG (xem chu thich "chot lai" o tren) - dung
-// CHINH XAC 5 nhanh, khong con 7 nhu truoc.
-export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_CHUA_GT_5_NGAY} OR ${NEED_DIEU_HOA_1_NGAY})`;
+// CHOT 2026-08-01: bo B2B_1_NGAY/NSKX_2_NGAY khoi TONG (xem chu thich "chot lai" o tren).
+// CHOT 2026-08-16 (lan 2): them NEED_VIP_CHUA_GT_24H vao TONG - dung CHINH XAC 6 nhanh, khong con 5
+// nhu truoc.
+export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_CHUA_GT_5_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_VIP_CHUA_GT_24H})`;
 
 // Moc 08:00 sang VN cua NGAY HOM NAY (dung ky thuat +7h giong AGE_ANCHOR, nhung KHONG lam tron ve 0h
 // - day la moc "chot bao cao", khac moc "0h tinh tuoi ton" cua AGE_ANCHOR).

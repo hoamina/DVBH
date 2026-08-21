@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -6,7 +7,10 @@ import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
+import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { StatCard } from "../components/ui/StatCard";
+import { HeroStat } from "../components/ui/HeroStat";
+import { Pill } from "../components/ui/Pill";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { useDaDongChunked } from "../hooks/useDaDongChunked";
 import { api, buildQuery } from "../api/client";
@@ -145,6 +149,7 @@ interface TongTonStats {
   tren7: number;
   tren14: number;
   daGiaiTrinh: number;
+  vipTon: number;
 }
 
 interface BacklogStats {
@@ -240,6 +245,7 @@ interface BacklogDailyPayload {
     b2b: DeltaBucket;
     nskx: DeltaBucket;
     locTongBcn: DeltaBucket;
+    vip24h: DeltaBucket;
   };
   byKhuVuc: Record<string, DeltaBucket>;
   khuVucRows: Record<string, KhuVucReportRow>;
@@ -280,10 +286,16 @@ interface CanhBaoTonTrendPoint {
   weekAgo: number | null;
   monthAgo: number | null;
 }
+interface CanhBaoTonProgressToday {
+  daGtHomNay: number;
+  daKetThuc: number;
+  hienTaiCon: number;
+}
 interface CanhBaoTonCountsPayload {
   generatedAt: string;
   counts: Record<CanhBaoTonMetricKey, number>;
   trend: Record<CanhBaoTonMetricKey, CanhBaoTonTrendPoint>;
+  progress: Record<CanhBaoTonMetricKey, CanhBaoTonProgressToday>;
 }
 const CANH_BAO_TON_METRIC_KEY = "backlog.canhBaoTon.selectedMetric";
 
@@ -358,7 +370,7 @@ const NHOM_TON_BADGES: { key: keyof CaseRow; label: string }[] = [
   { key: "need_b2b", label: "B2B" },
   { key: "need_nskx", label: "NSKX" },
   { key: "need_loc_tong_bcn", label: "Lọc tổng" },
-  { key: "need_vip_24h", label: "VIP/SVIP >24h" },
+  { key: "need_vip_24h", label: "VIP/SVIP >=24h" },
 ];
 
 const REPORT_DIM_OPTIONS = [
@@ -396,7 +408,7 @@ const NHOM_OPTIONS = [
   { value: "can-giai-trinh:b2b", label: "— B2B >1 ngày" },
   { value: "can-giai-trinh:nskx", label: "— NSKX >=2 ngày" },
   { value: "can-giai-trinh:loc_tong_bcn", label: "— Lọc tổng >1 ngày" },
-  { value: "can-giai-trinh:vip_24h", label: "— VIP/S.VIP chưa GT >24h" },
+  { value: "can-giai-trinh:vip_24h", label: "— VIP/S.VIP chưa GT >=24h" },
   { value: "can-giai-trinh:lo_ke_hoach_dmx_5", label: "—— Lỡ kế hoạch, ĐMX >5 ngày" },
   { value: "can-giai-trinh:lo_ke_hoach_14", label: "—— Lỡ kế hoạch >14 ngày" },
   { value: "can-giai-trinh:tai_giai_trinh_dmx_5", label: "—— Tái giải trình, ĐMX >5 ngày" },
@@ -453,19 +465,21 @@ function DmxBreakdownCard({
     { label: "— Lỡ kế hoạch", value: loKeHoach, onClick: onClickLoKeHoach },
   ];
   return (
-    <Card className="p-3 sm:p-4 flex-1 min-w-[150px]">
-      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-        <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Chưa giải trình &gt;3 (ĐMX)</span>
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: total > 0 ? "var(--amber-500)" : "var(--ink-400)" }}></span>
+    <Card className="group relative p-1.5 flex-1 min-w-[110px]">
+      <div className="flex items-start justify-between gap-1">
+        <span className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide leading-tight">Chưa giải trình &gt;3 (ĐMX)</span>
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: total > 0 ? "var(--amber-500)" : "var(--ink-400)" }}></span>
       </div>
       <button
         type="button"
-        className={`font-display text-xl sm:text-2xl font-extrabold hover:underline text-left block ${total > 0 ? "text-[var(--ink-900)]" : "text-[var(--ink-400)]"}`}
+        className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 hover:underline text-left block ${total > 0 ? "text-[var(--ink-900)]" : "text-[var(--ink-400)]"}`}
         onClick={onClickTotal}
       >
         {total}
       </button>
-      <div className="mt-2 space-y-1 border-t border-[var(--line)] pt-2">
+      {/* CHOT 2026-08-16 "Phuong an A": chi tiet 3 dong con chuyen sang hien khi hover (thu gon mac
+       * dinh de tiet kiem dien tich) - van "di chuyen vao doc them duoc" dung yeu cau, khong xoa han. */}
+      <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity absolute z-30 top-full left-0 mt-1 w-56 bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg p-2 space-y-1">
         {rows.map((r) => (
           <button key={r.label} type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={r.onClick}>
             <span className={r.value > 0 ? "" : "text-[var(--ink-400)]"}>{r.label}</span>
@@ -511,22 +525,25 @@ function DeltaBreakdownCard({
     tone
   ];
   const primaryMuted = mutable && primaryValue === 0;
+  const hasExtra = rows.length > 0 || !!primarySub;
   return (
-    <Card className="p-3 sm:p-4 flex-1 min-w-[170px]">
-      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-        <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">{label}</span>
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: primaryMuted ? "var(--ink-400)" : dotColor }}></span>
+    <Card className="group relative p-1.5 flex-1 min-w-[110px]">
+      <div className="flex items-start justify-between gap-1">
+        <span className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide leading-tight">{label}</span>
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: primaryMuted ? "var(--ink-400)" : dotColor }}></span>
       </div>
       <button
         type="button"
-        className={`font-display text-xl sm:text-2xl font-extrabold hover:underline text-left block ${primaryMuted ? "text-[var(--ink-400)]" : textColor}`}
+        className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 hover:underline text-left block ${primaryMuted ? "text-[var(--ink-400)]" : textColor}`}
         onClick={onClickPrimary}
       >
         {primaryValue}
       </button>
-      {primarySub && <div className="text-[11px] text-[var(--ink-400)] mt-0.5">{primarySub}</div>}
-      {rows.length > 0 && (
-        <div className="mt-2 space-y-1 border-t border-[var(--line)] pt-2">
+      {/* CHOT 2026-08-16 "Phuong an A": primarySub + cac dong con chuyen sang popover hien khi hover,
+       * thu gon mac dinh de tiet kiem dien tich nhung van "di chuyen vao doc them duoc". */}
+      {hasExtra && (
+        <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity absolute z-30 top-full left-0 mt-1 w-60 bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg p-2 space-y-1">
+          {primarySub && <div className="text-[11px] text-[var(--ink-400)]">{primarySub}</div>}
           {rows.map((r) => {
             const rowMuted = mutable && r.bucket.remaining === 0;
             return (
@@ -548,23 +565,11 @@ function DeltaBreakdownCard({
 // O so trong bang "Bao cao ton theo..." cho nhom cot "Can giai trinh" - CHOT 2026-08-03: gia tri >0
 // (con viec can xu ly) duoc to chip mau coral noi bat, gia tri 0 hien mo/xam - giup nguoi dung quet
 // nhanh bang nhieu cot/nhieu dong ma khong bi "loang" giua so 0 va so co y nghia.
-function NumCell({ value, onClick, bold = false }: { value: number; onClick?: () => void; bold?: boolean }) {
-  if (value > 0) {
-    const cls = `font-mono px-1.5 py-0.5 rounded bg-[var(--coral-100)] text-[var(--coral-500)] ${bold ? "font-bold" : "font-semibold"}`;
-    return onClick ? (
-      <button className={`${cls} hover:underline`} onClick={onClick}>
-        {value}
-      </button>
-    ) : (
-      <span className={cls}>{value}</span>
-    );
-  }
-  return onClick ? (
-    <button className="font-mono text-[var(--ink-400)] hover:underline" onClick={onClick}>
+function NumCell({ value, onClick }: { value: number; onClick?: () => void; bold?: boolean }) {
+  return (
+    <Pill tone={value > 0 ? "coral" : "gray"} onClick={onClick}>
       {value}
-    </button>
-  ) : (
-    <span className="font-mono text-[var(--ink-400)]">{value}</span>
+    </Pill>
   );
 }
 
@@ -661,12 +666,16 @@ function CanhBaoTonStatCard({
   value,
   sub,
   tone,
+  progress,
   onClick,
 }: {
   label: string;
   value: number;
   sub?: { text: string; className: string };
   tone: "amber" | "coral";
+  // CHOT 2026-08-20 (item 4): 3 con so phu "hom nay" - dien gon o goc phai tren, xem
+  // computeCanhBaoTonProgressToday() phia backend cho dinh nghia chinh xac tung con so.
+  progress?: CanhBaoTonProgressToday;
   onClick: () => void;
 }) {
   const active = value > 0;
@@ -675,7 +684,7 @@ function CanhBaoTonStatCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 min-w-[150px] rounded-xl p-3 sm:p-4 text-left cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${
+      className={`relative flex-1 min-w-[150px] rounded-xl p-3 sm:p-4 text-left cursor-pointer transition-transform hover:-translate-y-0.5 hover:shadow-lg ${
         active ? "" : "bg-[var(--surface)] border border-[var(--line)]"
       }`}
       style={
@@ -687,7 +696,17 @@ function CanhBaoTonStatCard({
           : undefined
       }
     >
-      <div className={`text-xs font-semibold uppercase tracking-wide mb-1.5 sm:mb-2 ${active ? "text-white/85" : "text-[var(--ink-400)]"}`}>{label}</div>
+      {progress && (
+        <div
+          className={`absolute top-2 right-2.5 text-right text-[10px] leading-tight font-semibold ${active ? "text-white/80" : "text-[var(--ink-400)]"}`}
+          title={`Đã GT hôm nay: ${progress.daGtHomNay} · Đã kết thúc: ${progress.daKetThuc} · Hiện tại còn: ${progress.hienTaiCon}`}
+        >
+          <div>GT: {progress.daGtHomNay}</div>
+          <div>KT: {progress.daKetThuc}</div>
+          <div>Còn: {progress.hienTaiCon}</div>
+        </div>
+      )}
+      <div className={`text-xs font-semibold uppercase tracking-wide mb-1.5 sm:mb-2 pr-11 ${active ? "text-white/85" : "text-[var(--ink-400)]"}`}>{label}</div>
       <div className={`font-display text-2xl sm:text-3xl font-extrabold ${active ? "text-white drop-shadow-sm" : "text-[var(--ink-400)]"}`}>{value}</div>
       {sub && <div className={`text-xs mt-1 font-semibold ${active ? "text-white/90" : sub.className}`}>{sub.text}</div>}
     </button>
@@ -721,26 +740,36 @@ function CanhBaoTonCapView({
   const trendParts = canhBaoTon ? canhBaoTonTrendParts(value, canhBaoTon.trend[selected.key]) : [];
   return (
     <>
-      <div className="mb-1 mt-4 flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">
-          Cảnh báo tồn · Cấp {cap} ({cap === 1 ? "TP DVBH" : "CEO"})
+      <div
+        className="mb-2 mt-2 flex items-center gap-2 flex-wrap"
+        title="Số liệu đông băng theo mốc 8h sáng — bấm vào 1 ô số để xem đúng danh sách ca tồn đã lưu tại mốc đó (không phải danh sách 'cần giải trình' tính sống)"
+      >
+        <span
+          className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded ${cap === 1 ? "bg-[var(--amber-100)] text-[var(--amber-700)]" : "bg-[var(--coral-100)] text-[var(--coral-600)]"}`}
+        >
+          {cap === 1 ? "🔶" : "🔴"} Cấp {cap} · {cap === 1 ? "TP DVBH" : "CEO"}
         </span>
-        {canhBaoTon && <span className="text-xs text-[var(--ink-400)]">— chốt lúc {fmtGeneratedAt(canhBaoTon.generatedAt)}</span>}
+        {canhBaoTon && <span className="text-[11px] text-[var(--ink-400)]">chốt {fmtGeneratedAt(canhBaoTon.generatedAt)}</span>}
       </div>
-      <div className="text-xs text-[var(--ink-400)] mb-3">
-        Số liệu đông băng theo mốc 8h sáng — bấm vào 1 ô số để xem đúng danh sách ca tồn đã lưu tại mốc đó (không phải danh sách "cần giải trình" tính sống).
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
         {metrics.map((m) => {
           const v = canhBaoTon?.counts[m.key] ?? 0;
           const sub = canhBaoTon ? canhBaoTonYesterdaySub(v, canhBaoTon.trend[m.key].yesterday) : undefined;
           return (
-            <CanhBaoTonStatCard key={m.key} label={m.label} value={v} sub={sub} tone={cap === 1 ? "amber" : "coral"} onClick={() => goToDanhSach(`canh-bao-ton:${m.key}`)} />
+            <CanhBaoTonStatCard
+              key={m.key}
+              label={m.label}
+              value={v}
+              sub={sub}
+              tone={cap === 1 ? "amber" : "coral"}
+              progress={canhBaoTon?.progress[m.key]}
+              onClick={() => goToDanhSach(`canh-bao-ton:${m.key}`)}
+            />
           );
         })}
       </div>
 
-      <Card className="p-4 mt-4">
+      <Card className="p-3 mt-2">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
           <div className="font-display font-bold text-sm">Cảnh báo tồn theo ngày</div>
           <div className="flex items-center gap-2">
@@ -748,8 +777,8 @@ function CanhBaoTonCapView({
             <Select value={selected.key} onChange={(v) => setMetric(v as CanhBaoTonMetricKey)} options={metrics.map((m) => ({ value: m.key, label: m.label }))} />
           </div>
         </div>
-        <div className="text-xs text-[var(--ink-400)] mb-3">Chốt lúc 8h00 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
-        <div className="flex items-center gap-3 flex-wrap mb-3 text-xs">
+        <div className="text-xs text-[var(--ink-400)] mb-2">Chốt lúc 8h00 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
+        <div className="flex items-center gap-3 flex-wrap mb-2 text-xs">
           {trendParts.map((p, i) => (
             <span key={i} className={p.className}>
               {p.text}
@@ -762,7 +791,15 @@ function CanhBaoTonCapView({
   );
 }
 
-export function BacklogModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
+export function BacklogModule({
+  openCase,
+  headerExtra,
+}: {
+  openCase: (id: string, tab?: string) => void;
+  /** Node DOM cua slot canh tieu de trang (App.tsx) - co thi "portal" bo loc khu vuc len do thay vi
+   * render 1 hang rieng ben duoi (CHOT 2026-08-16, theo yeu cau gop chung len dong tieu de). */
+  headerExtra?: HTMLElement | null;
+}) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useLocalStorageState("filters:backlog-view", "bao-cao");
@@ -786,6 +823,10 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
   // CHOT 2026-08-01: rieng KTV duoc them LAI nhung CHI cho tab "Danh sach chi tiet" (khong dua vao
   // sharedFilterParams - khong anh huong isDefaultBacklogFilter/isFrozenEligible cua khoi Bao cao).
   const [ktvFilter, setKtvFilter] = useState("");
+  // Nhom KH - them cung nguyen tac voi KTV o tren (rieng cho "Danh sach chi tiet", khong vao
+  // sharedFilterParams). Backend /api/cases da doc san query "nhom_kh" qua sharedReportFilters()
+  // (REPORT_DIMS co san nhom_kh) nen chi can gui them tham so, khong can sua backend.
+  const [nhomKhFilter, setNhomKhFilter] = useState("");
   const pageSize = 10;
 
   const sharedFilterParams = { khu_vuc: khuVucFilter };
@@ -862,19 +903,20 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] }>("/cases/giai-trinh-daily-trend?days=14"),
     enabled: view === "bao-cao",
   });
-  // "Canh bao ton danh cho QL" - card tong quan (dong bang 08:00, toan he thong) + bang lich su theo
-  // ngay (khu_vuc x 14 ngay, xem lib/canhBaoTon.ts). Ca 2 khong phu thuoc bo loc phu, luon fetch khi
-  // dang xem tab Bao cao.
+  // "Canh bao ton danh cho QL" - card tong quan (dong bang 08:00) + bang lich su theo ngay (khu_vuc x
+  // 14 ngay, xem lib/canhBaoTon.ts). CHOT 2026-08-20: ca 2 GIO loc theo khuVucFilter (bo loc khu_vuc
+  // chung cua module, o dau trang) - truoc day co dinh toan he thong bat ke bo loc, gay lech voi ky
+  // vong "bam filter khu vuc thi danh sach chi tiet cung phai loc theo" cua nguoi dung.
   const isCanhBaoTonView = view === "canh-bao-ton-cap1" || view === "canh-bao-ton-cap2";
   const { data: canhBaoTon } = useQuery({
-    queryKey: ["canh-bao-ton"],
-    queryFn: () => api.get<CanhBaoTonCountsPayload>("/cases/canh-bao-ton"),
+    queryKey: ["canh-bao-ton", khuVucFilter],
+    queryFn: () => api.get<CanhBaoTonCountsPayload>(`/cases/canh-bao-ton${buildQuery({ khu_vuc: khuVucFilter })}`),
     enabled: isCanhBaoTonView,
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
   const { data: canhBaoTonTrend } = useQuery({
-    queryKey: ["canh-bao-ton-daily-trend"],
-    queryFn: () => api.get<{ rows: CanhBaoTonTrendRow[] }>("/cases/canh-bao-ton-daily-trend?days=14"),
+    queryKey: ["canh-bao-ton-daily-trend", khuVucFilter],
+    queryFn: () => api.get<{ rows: CanhBaoTonTrendRow[] }>(`/cases/canh-bao-ton-daily-trend${buildQuery({ days: 14, khu_vuc: khuVucFilter })}`),
     enabled: isCanhBaoTonView,
   });
   // "Ngay loai tru" khoi luy ke/ty le thang - Chu nhat (quy tac cung) HOAC co trong danh sach Admin
@@ -931,6 +973,33 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     }
     return result;
   }, [sortedTrendRows, trendDays, isNgayExcluded]);
+  // Xuat Excel bang "Ty le giai trinh theo ngay" - moi ngay tach rieng 2 cot SO (khong gop chuoi
+  // "da/can") de dung thang lam bao cao/cong thuc tiep, giu dong "Tong cong" o dau giong hien thi
+  // tren man hinh.
+  const trendExportRows = useMemo(() => {
+    const rowToExport = (khuVuc: string, dayLookup: (day: string) => { can: number; da: number } | undefined) => {
+      const out: Record<string, string | number> = { "Khu vuc": khuVuc };
+      for (const day of trendDays) {
+        const found = dayLookup(day);
+        out[`${fmtDayShort(day)} - Da GT`] = found?.da ?? 0;
+        out[`${fmtDayShort(day)} - Can GT`] = found?.can ?? 0;
+      }
+      return out;
+    };
+    const rows: Record<string, string | number>[] = [];
+    if (sortedTrendRows.length > 0) {
+      rows.push(rowToExport("Tong cong", (day) => trendTotalByDay[day]));
+    }
+    for (const row of sortedTrendRows) {
+      rows.push(
+        rowToExport(shortKhuVuc(row.khu_vuc), (day) => {
+          const found = row.days.find((d) => d.ngay === day);
+          return found ? { can: found.can_giai_trinh, da: found.da_giai_trinh } : undefined;
+        }),
+      );
+    }
+    return rows;
+  }, [sortedTrendRows, trendDays, trendTotalByDay]);
   // 3 cot moi cua bang "Bao cao ton theo khu vuc" (Can giai trinh trong ngay/Da giai trinh/Ty le) -
   // CHI khi dang nhom theo Khu vuc (yeu cau goc "chi can ty le theo Khu vuc") VA co dong bang (mac
   // dinh hoac loc dung 1 khu_vuc).
@@ -1059,6 +1128,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     snapshot_0800: listFromSnapshot0800 && (dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton") ? true : undefined,
     ...sharedFilterParams,
     ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
+    nhom_kh: dsTab !== "da-dong" ? nhomKhFilter || undefined : undefined,
   };
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["backlog-list", listParams],
@@ -1106,7 +1176,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     need_b2b: "B2B",
     need_nskx: "NSKX",
     need_loc_tong_bcn: "Lọc tổng",
-    need_vip_24h: "VIP/SVIP >24h",
+    need_vip_24h: "VIP/SVIP >=24h",
     tuoi_ton: "Tuổi tồn",
     // CHOT 2026-08-06: cac cot tinh rieng o frontend (khong co san tren CaseRow tu API) - xem enrichForExport().
     last_ten_linh_kien_thieu: "Tên linh kiện thiếu gần nhất",
@@ -1199,7 +1269,12 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
     {
       key: "tuoi_ton",
       header: "Tuổi tồn",
-      render: (c) => (c.tuoi_ton != null ? <span className="text-xs font-mono">{c.tuoi_ton} ngày</span> : <span className="text-[var(--ink-400)] text-xs">—</span>),
+      render: (c) =>
+        c.tuoi_ton != null ? (
+          <Pill tone={c.tuoi_ton > 14 ? "coral" : c.tuoi_ton > 3 ? "amber" : "gray"}>{c.tuoi_ton} ngày</Pill>
+        ) : (
+          <span className="text-[var(--ink-400)] text-xs">—</span>
+        ),
     },
     { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem / giải trình →</span> },
@@ -1333,34 +1408,40 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
 
   return (
     <div className="anim-in">
-      <div className="flex items-center gap-2 flex-wrap mb-4">
-        <KhuVucFilterControl
-          value={khuVucFilter}
-          onChange={setKhuVucFilter}
-          options={[
-            { value: "", label: "Tất cả khu vực" },
-            { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
-            ...(filtersData?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
-          ]}
-          myAreas={myAreas}
-        />
-      </div>
+      {(() => {
+        const filterControl = (
+          <KhuVucFilterControl
+            value={khuVucFilter}
+            onChange={setKhuVucFilter}
+            options={[
+              { value: "", label: "Tất cả khu vực" },
+              { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+              ...(filtersData?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
+            ]}
+            myAreas={myAreas}
+          />
+        );
+        return headerExtra ? (
+          createPortal(filterControl, headerExtra)
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap mb-2">{filterControl}</div>
+        );
+      })()}
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
 
       {view === "bao-cao" ? (
         <>
-          <div className="mb-1 mt-4 flex items-center gap-2 flex-wrap">
+          <div className="mb-1 mt-2 flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Tồn hiện tại</span>
+            {isFrozenEligible && backlogDaily && (
+              <span className="text-[11px] text-[var(--ink-400)]">
+                · chốt {fmtGeneratedAt(backlogDaily.generatedAt)} ({backlogDaily.generatedBy === "auto" ? "tự động" : backlogDaily.generatedBy})
+              </span>
+            )}
           </div>
-          {isFrozenEligible && backlogDaily && (
-            <div className="text-xs text-[var(--ink-400)] mb-2">
-              Báo cáo được cập nhật lúc: {fmtGeneratedAt(backlogDaily.generatedAt)} bởi{" "}
-              {backlogDaily.generatedBy === "auto" ? "tự động" : backlogDaily.generatedBy}
-            </div>
-          )}
           {isFrozenEligible && backlogDaily ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-2">
               <DeltaBreakdownCard
                 label="Tổng tồn hiện tại"
                 tone="ocean"
@@ -1368,41 +1449,50 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 onClickPrimary={() => goToDanhSach("ton-hien-tai")}
                 rows={[{ label: "Đã giải trình hôm nay", bucket: backlogDaily.tongTon, onClick: () => goToDanhSach("da-giai-trinh-trong-ngay") }]}
               />
-              <StatCard label="Tồn trên 3 ngày" value={backlogDaily.tren3} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
-              <StatCard label="Tồn trên 5 ngày" value={backlogDaily.tren5} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
-              <StatCard label="Tồn trên 7 ngày" value={backlogDaily.tren7} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
-              <StatCard label="Tồn trên 14 ngày" value={backlogDaily.tren14} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
+              <StatCard size="sm" label="Tồn trên 3 ngày" value={backlogDaily.tren3} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
+              <StatCard size="sm" label="Tồn trên 5 ngày" value={backlogDaily.tren5} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
+              <StatCard size="sm" label="Tồn trên 7 ngày" value={backlogDaily.tren7} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
+              <HeroStat label="Tồn trên 14 ngày" value={backlogDaily.tren14} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
+              <StatCard size="sm" label="KH VIP tồn" value={tongTon?.vipTon ?? 0} tone="amber" muted={!tongTon?.vipTon} onClick={() => goToDanhSach("ton-hien-tai")} />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
-              <StatCard label="Tổng tồn hiện tại" value={tongTon?.tong ?? 0} tone="ocean" onClick={() => goToDanhSach("ton-hien-tai")} />
-              <StatCard label="Tồn trên 1 ngày" value={tongTon?.tren1 ?? 0} tone="teal" onClick={() => goToDanhSach("ton-hien-tai", "1")} />
-              <StatCard label="Tồn trên 3 ngày" value={tongTon?.tren3 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
-              <StatCard label="Tồn >=5 ngày" value={tongTon?.tren5 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
-              <StatCard label="Tồn trên 7 ngày" value={tongTon?.tren7 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
-              <StatCard label="Tồn trên 14 ngày" value={tongTon?.tren14 ?? 0} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
-              <StatCard label="Đã giải trình" value={tongTon?.daGiaiTrinh ?? 0} tone="teal" onClick={() => goToDanhSach("da-giai-trinh")} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-2 mb-2">
+              <StatCard size="sm" label="Tổng tồn hiện tại" value={tongTon?.tong ?? 0} tone="ocean" onClick={() => goToDanhSach("ton-hien-tai")} />
+              <StatCard size="sm" label="Tồn trên 1 ngày" value={tongTon?.tren1 ?? 0} tone="teal" onClick={() => goToDanhSach("ton-hien-tai", "1")} />
+              <StatCard size="sm" label="Tồn trên 3 ngày" value={tongTon?.tren3 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
+              <StatCard size="sm" label="Tồn >=5 ngày" value={tongTon?.tren5 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
+              <StatCard size="sm" label="Tồn trên 7 ngày" value={tongTon?.tren7 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
+              <HeroStat label="Tồn trên 14 ngày" value={tongTon?.tren14 ?? 0} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
+              <StatCard size="sm" label="Đã giải trình" value={tongTon?.daGiaiTrinh ?? 0} tone="teal" onClick={() => goToDanhSach("da-giai-trinh")} />
+              <StatCard size="sm" label="KH VIP tồn" value={tongTon?.vipTon ?? 0} tone="amber" muted={!tongTon?.vipTon} onClick={() => goToDanhSach("ton-hien-tai")} />
             </div>
           )}
 
           <div className="mb-1 text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide flex items-center gap-2 flex-wrap">
             <span>Cần giải trình</span>
             {!isFrozenEligible && (
-              <span className="normal-case font-normal text-[var(--amber-600)]">
-                — đang có nhiều bộ lọc cùng lúc (tỉnh/đối tác/hãng/model/nhóm KH/ngành/KTV, hoặc chọn nhiều khu vực) nên hiện số liệu trực tiếp, không đóng băng theo báo cáo 08:00. Chỉ lọc
-                đúng 1 khu vực (hoặc bỏ hết bộ lọc) để xem "Đầu ngày / Đã xử lý".
+              <span className="normal-case font-normal text-[var(--amber-600)]" title="Nhiều bộ lọc phụ (tỉnh/đối tác/hãng/model/nhóm KH/ngành/KTV) hoặc nhiều khu vực đang bật">
+                — số liệu trực tiếp (nhiều bộ lọc đang bật, không đóng băng 08:00)
               </span>
             )}
           </div>
           {isFrozenEligible && backlogDaily ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
-              <StatCard
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
+              <HeroStat
                 label="Tổng cần giải trình"
                 value={backlogDaily.canGiaiTrinh.tong.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.tong)}
                 tone="coral"
-                muted={backlogDaily.canGiaiTrinh.tong.remaining === 0}
                 onClick={() => goToDanhSach("can-giai-trinh:tong")}
+              />
+              <StatCard
+                size="sm"
+                label="VIP/S.VIP chưa GT >=24h"
+                value={backlogDaily.canGiaiTrinh.vip24h.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.vip24h)}
+                tone="coral"
+                muted={backlogDaily.canGiaiTrinh.vip24h.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:vip_24h")}
               />
               <DeltaBreakdownCard
                 label="Lỡ kế hoạch"
@@ -1439,7 +1529,8 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
               />
               <StatCard
-                label="Chưa giải trình >5 ngày (ưu tiên xử lý)"
+                size="sm"
+                label="Chưa giải trình >5 ngày"
                 value={backlogDaily.canGiaiTrinh.chuaGt5Ngay.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.chuaGt5Ngay)}
                 tone="coral"
@@ -1447,6 +1538,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")}
               />
               <StatCard
+                size="sm"
                 label="Điều hòa >1 ngày"
                 value={backlogDaily.canGiaiTrinh.dieuHoa.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.dieuHoa)}
@@ -1455,6 +1547,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")}
               />
               <StatCard
+                size="sm"
                 label="B2B >1 ngày"
                 value={backlogDaily.canGiaiTrinh.b2b.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.b2b)}
@@ -1463,6 +1556,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 onClick={() => goToDanhSach("can-giai-trinh:b2b")}
               />
               <StatCard
+                size="sm"
                 label="NSKX >=2 ngày"
                 value={backlogDaily.canGiaiTrinh.nskx.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.nskx)}
@@ -1471,6 +1565,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 onClick={() => goToDanhSach("can-giai-trinh:nskx")}
               />
               <StatCard
+                size="sm"
                 label="Lọc tổng >1 ngày"
                 value={backlogDaily.canGiaiTrinh.locTongBcn.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.locTongBcn)}
@@ -1480,16 +1575,24 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
               />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
-              <StatCard
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
+              <HeroStat
                 label="Tổng cần giải trình"
                 value={counts?.can_giai_trinh_tong ?? 0}
                 tone="coral"
-                muted={!counts?.can_giai_trinh_tong}
                 onClick={() => goToDanhSach("can-giai-trinh:tong")}
               />
-              <StatCard label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" muted={!counts?.lo_ke_hoach} onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
               <StatCard
+                size="sm"
+                label="VIP/S.VIP chưa GT >=24h"
+                value={counts?.vip_24h ?? 0}
+                tone="coral"
+                muted={!counts?.vip_24h}
+                onClick={() => goToDanhSach("can-giai-trinh:vip_24h")}
+              />
+              <StatCard size="sm" label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" muted={!counts?.lo_ke_hoach} onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
+              <StatCard
+                size="sm"
                 label="Cần tái giải trình"
                 value={counts?.tai_giai_trinh ?? 0}
                 tone="amber"
@@ -1507,34 +1610,29 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
               />
               <StatCard
-                label="Chưa giải trình >5 ngày (ưu tiên xử lý)"
+                size="sm"
+                label="Chưa giải trình >5 ngày"
                 value={counts?.chua_gt_5_ngay ?? 0}
                 tone="coral"
                 muted={!counts?.chua_gt_5_ngay}
                 onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")}
               />
-              <StatCard label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" muted={!counts?.dieu_hoa} onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
-              <StatCard label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" muted={!counts?.b2b} onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
-              <StatCard label="NSKX >=2 ngày" value={counts?.nskx ?? 0} tone="coral" muted={!counts?.nskx} onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
+              <StatCard size="sm" label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" muted={!counts?.dieu_hoa} onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
+              <StatCard size="sm" label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" muted={!counts?.b2b} onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
+              <StatCard size="sm" label="NSKX >=2 ngày" value={counts?.nskx ?? 0} tone="coral" muted={!counts?.nskx} onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
               <StatCard
+                size="sm"
                 label="Lọc tổng, BCN >1 ngày"
                 value={counts?.loc_tong_bcn ?? 0}
                 tone="amber"
                 muted={!counts?.loc_tong_bcn}
                 onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
               />
-              <StatCard
-                label="VIP/S.VIP chưa GT >24h"
-                value={counts?.vip_24h ?? 0}
-                tone="coral"
-                muted={!counts?.vip_24h}
-                onClick={() => goToDanhSach("can-giai-trinh:vip_24h")}
-              />
             </div>
           )}
 
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <Card className="p-3">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <div>
                 <div className="font-display font-bold text-sm">Báo cáo tồn theo {REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label.toLowerCase()}</div>
                 <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.</div>
@@ -1551,7 +1649,7 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                 <thead>
                   <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th className="py-2 px-2 sticky left-0 bg-[var(--surface)] z-10 text-left">{REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label}</th>
-                    <th className="py-2 px-2 text-center">Tổng tồn</th>
+                    <th className="py-2 px-2 text-center text-[var(--indigo-600)] font-semibold">Tổng tồn</th>
                     <th className="py-2 px-2 text-center">Trên 3n</th>
                     <th className="py-2 px-2 text-center">Trên 5n</th>
                     <th className="py-2 px-2 text-center">Trên 7n</th>
@@ -1624,30 +1722,30 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                   {displayKhuVucRows.map((r) => (
                     <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 group">
                       <td className="py-2 px-2 font-semibold sticky left-0 bg-[var(--surface)] group-hover:bg-slate-50 z-10 text-left">{reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
-                      <td className="py-2 px-2 text-center font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "1")}>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={r.tong_ton > 0 ? "indigo" : "gray"} onClick={() => drillDown(r.nhom, "ton-hien-tai", "1")}>
                           {r.tong_ton}
-                        </button>
+                        </Pill>
                       </td>
-                      <td className="py-2 px-2 text-center font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "3")}>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={r.tren_3 > 0 ? "amber" : "gray"} onClick={() => drillDown(r.nhom, "ton-hien-tai", "3")}>
                           {r.tren_3}
-                        </button>
+                        </Pill>
                       </td>
-                      <td className="py-2 px-2 text-center font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "5")}>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={r.tren_5 > 0 ? "amber" : "gray"} onClick={() => drillDown(r.nhom, "ton-hien-tai", "5")}>
                           {r.tren_5}
-                        </button>
+                        </Pill>
                       </td>
-                      <td className="py-2 px-2 text-center font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "7")}>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={r.tren_7 > 0 ? "amber" : "gray"} onClick={() => drillDown(r.nhom, "ton-hien-tai", "7")}>
                           {r.tren_7}
-                        </button>
+                        </Pill>
                       </td>
-                      <td className="py-2 px-2 text-center font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "ton-hien-tai", "14")}>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={r.tren_14 > 0 ? "coral" : "gray"} onClick={() => drillDown(r.nhom, "ton-hien-tai", "14")}>
                           {r.tren_14}
-                        </button>
+                        </Pill>
                       </td>
                       <td className="py-2 px-2 border-l border-[var(--line)] text-center font-mono">{r.da_giai_trinh}</td>
                       <td className="py-2 px-2 border-l border-[var(--line)] text-center">
@@ -1713,9 +1811,14 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
             </div>
           </Card>
 
-          <Card className="p-4 mt-4">
-            <div className="font-display font-bold text-sm mb-1">Tỷ lệ giải trình theo ngày</div>
-            <div className="text-xs text-[var(--ink-400)] mb-3">Chốt lúc 17h30 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
+          <Card className="p-3 mt-3">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+              <div className="font-display font-bold text-sm">Tỷ lệ giải trình theo ngày</div>
+              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(trendExportRows, "ty_le_giai_trinh_theo_ngay.xlsx")}>
+                ⬇ Xuất Excel
+              </Btn>
+            </div>
+            <div className="text-xs text-[var(--ink-400)] mb-2">Chốt lúc 17h30 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
             <div className="overflow-x-auto">
               <table className="dense w-full text-sm">
                 <thead>
@@ -1809,8 +1912,8 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
           goToDanhSach={goToDanhSach}
         />
       ) : (
-        <div className="mt-4">
-          <div className="flex items-center gap-2 flex-wrap mb-3">
+        <div className="mt-2">
+          <div className="flex items-center gap-2 flex-wrap bg-[var(--surface)] border border-[var(--line)] rounded-xl px-3 py-2 mb-2">
             <span className="text-xs font-semibold text-[var(--ink-400)]">Nhóm:</span>
             <Select
               value={nhomKey}
@@ -1842,6 +1945,17 @@ export function BacklogModule({ openCase }: { openCase: (id: string, tab?: strin
                   setPage(1);
                 }}
                 options={[{ value: "", label: "Tất cả KTV" }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
+              />
+            )}
+            {dsTab !== "da-dong" && (
+              <MultiSelectFilter
+                label="Nhóm KH"
+                value={nhomKhFilter}
+                onChange={(v) => {
+                  setNhomKhFilter(v);
+                  setPage(1);
+                }}
+                options={filtersData?.nhomKh ?? []}
               />
             )}
             {dsTab !== "da-dong" && (

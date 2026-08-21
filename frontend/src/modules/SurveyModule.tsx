@@ -18,6 +18,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 
 // Khop dung field tra ve tu backend GET /survey?tab=... (xem SELECT trong backend/src/routes/survey.ts) -
 // gop ca 2 hinh dang hang co the co (CanKhaoSatRow cho can-khao-sat/qua-han-khao-sat, ViPhamRow cho
@@ -68,6 +69,8 @@ interface LeaderboardRow {
   giam_sat_email?: string;
   giam_sat?: string | null;
   so_vi_pham: number;
+  tong_ca: number;
+  ty_le_vi_pham: number;
 }
 interface TrendRow {
   ngay: string;
@@ -255,6 +258,7 @@ const VIEWS = [
 const PAGE_SIZE = 20;
 
 export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
+  const personDir = usePersonDirectory();
   const [view, setView] = useLocalStorageState("filters:survey-view", "bao-cao");
   const [tab, setTab] = useLocalStorageState("filters:survey-tab", "can-khao-sat");
   const [page, setPage] = useState(1);
@@ -340,7 +344,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     canKhaoSat: canKhaoSatRows,
     quaHanKhaoSat: quaHanKhaoSatRows,
     refetch: refetchCandidates,
-  } = useSurveyCandidates({ thang: thangDanhSach, khuVuc: khuVucFilter, tinh: tinhFilter, quanHuyen: quanHuyenFilter, ktv: ktvFilter });
+  } = useSurveyCandidates({
+    thang: thangDanhSach,
+    khuVuc: khuVucFilter,
+    tinh: tinhFilter,
+    quanHuyen: quanHuyenFilter,
+    ktv: ktvFilter,
+    enabled: view === "danh-sach" && (tab === "can-khao-sat" || tab === "qua-han-khao-sat"),
+  });
 
   const { data: choQc } = useQuery({
     queryKey: ["survey", "cho-qc", filterParams],
@@ -706,65 +717,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
       {effectiveView === "bao-cao" ? (
         <div className="mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-            <Card className="p-4 lg:col-span-2">
-              <div className="font-display font-bold text-sm mb-3">
-                Phễu xử lý vi phạm <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, theo thời gian mở ca)</span>
-              </div>
-              <ChartCanvas
-                type="bar"
-                data={{
-                  labels: ["Nghi ngờ vi phạm", "Cần khảo sát", "Chờ QC chốt cấp 2", "Đã xử lý xong"],
-                  datasets: [
-                    {
-                      label: "Số ca",
-                      data: [funnel?.nghiNgo ?? 0, funnel?.canKhaoSat ?? 0, funnel?.choQc ?? 0, funnel?.daXuLy ?? 0],
-                      backgroundColor: ["#D98A1F", "#1591C9", "#D84C4C", "#159C93"],
-                      borderRadius: 6,
-                    },
-                  ],
-                }}
-                options={{ indexAxis: "y" as const }}
-              />
-            </Card>
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Xu hướng cuộc gọi khảo sát (30 ngày)</div>
-              <ChartCanvas
-                type="line"
-                data={{
-                  labels: trendRows.map((r) => new Date(r.ngay).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })),
-                  datasets: [{ label: "Số cuộc gọi", data: trendRows.map((r) => r.so_cuoc_goi), borderColor: "#159C93", backgroundColor: "rgba(21,156,147,0.1)", tension: 0.35, fill: true, pointRadius: 2 }],
-                }}
-              />
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Top 10 KTV nhiều vi phạm đã xác nhận nhất</div>
-              <ChartCanvas
-                type="bar"
-                data={{
-                  labels: (ktvBoard?.rows ?? []).map((r) => r.nhom ?? "—"),
-                  datasets: [{ label: "Số vi phạm", data: (ktvBoard?.rows ?? []).map((r) => r.so_vi_pham), backgroundColor: "#D84C4C", borderRadius: 6 }],
-                }}
-                options={{ indexAxis: "y" as const }}
-              />
-            </Card>
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Top 10 Giám sát nhiều vi phạm đã xác nhận nhất</div>
-              <ChartCanvas
-                type="bar"
-                data={{
-                  labels: (giamSatBoard?.rows ?? []).map((r) => r.giam_sat ?? r.giam_sat_email ?? "—"),
-                  datasets: [{ label: "Số vi phạm", data: (giamSatBoard?.rows ?? []).map((r) => r.so_vi_pham), backgroundColor: "#D98A1F", borderRadius: 6 }],
-                }}
-                options={{ indexAxis: "y" as const }}
-              />
-            </Card>
-          </div>
-
-          <Card className="p-4">
+          <Card className="p-4 mb-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
                 <div className="font-display font-bold text-sm">Báo cáo khảo sát theo khu vực</div>
@@ -887,6 +840,10 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     <th className="py-2 pr-3">Tỷ lệ % đã gọi hẹn 120'</th>
                     <th className="py-2 pr-3">Cần khảo sát</th>
                     <th className="py-2 pr-3">Tổng nghi ngờ</th>
+                    <th className="py-2 pr-3">120 phút</th>
+                    <th className="py-2 pr-3">Quá 24h</th>
+                    <th className="py-2 pr-3">Lỡ kế hoạch</th>
+                    <th className="py-2 pr-3">Hẹn lại</th>
                     <th className="py-2 pr-3">Tổng vi phạm</th>
                     <th className="py-2 pr-3">KSNB chốt lỗi</th>
                     <th className="py-2 pr-3">KSNB bỏ lỗi</th>
@@ -896,10 +853,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     <th className="py-2 pr-3">Đang chờ khảo sát lại</th>
                     <th className="py-2 pr-3">Bỏ qua không khảo sát</th>
                     <th className="py-2 pr-3">Chờ khảo sát</th>
-                    <th className="py-2 pr-3">120 phút</th>
-                    <th className="py-2 pr-3">Quá 24h</th>
-                    <th className="py-2 pr-3">Lỡ kế hoạch</th>
-                    <th className="py-2 pr-3">Hẹn lại</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -912,17 +865,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.can_khao_sat}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_nghi_ngo}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_vi_pham}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_chot}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_bo}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.da_khao_sat}</td>
-                      <td className="py-2 pr-3 font-mono">
-                        {baoCaoTotal.goi_thanh_cong}/{baoCaoTotal.tong_cuoc_goi} ({baoCaoTotal.ty_le_goi_thanh_cong}%)
-                      </td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.khao_sat_that_bai}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat_lai}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.bo_qua_khong_khao_sat}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat}</td>
                       <td className="py-2 pr-3 font-normal">
                         {renderLoaiCell({
                           nghiNgo: baoCaoTotal.nghi_ngo_120p,
@@ -967,6 +909,17 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                           tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_hl,
                         })}
                       </td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_vi_pham}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_chot}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_bo}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.da_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">
+                        {baoCaoTotal.goi_thanh_cong}/{baoCaoTotal.tong_cuoc_goi} ({baoCaoTotal.ty_le_goi_thanh_cong}%)
+                      </td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.khao_sat_that_bai}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat_lai}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.bo_qua_khong_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat}</td>
                     </tr>
                   )}
                   {sortedBaoCaoRows.map((r) => (
@@ -986,17 +939,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                         )}
                       </td>
                       <td className="py-2 pr-3 font-mono">{r.tong_nghi_ngo}</td>
-                      <td className="py-2 pr-3 font-mono">{r.tong_vi_pham}</td>
-                      <td className="py-2 pr-3 font-mono">{r.ksnb_chot}</td>
-                      <td className="py-2 pr-3 font-mono">{r.ksnb_bo}</td>
-                      <td className="py-2 pr-3 font-mono">{r.da_khao_sat}</td>
-                      <td className="py-2 pr-3 font-mono">
-                        {r.goi_thanh_cong}/{r.tong_cuoc_goi} ({r.ty_le_goi_thanh_cong}%)
-                      </td>
-                      <td className="py-2 pr-3 font-mono">{r.khao_sat_that_bai}</td>
-                      <td className="py-2 pr-3 font-mono">{r.cho_khao_sat_lai}</td>
-                      <td className="py-2 pr-3 font-mono">{r.bo_qua_khong_khao_sat}</td>
-                      <td className="py-2 pr-3 font-mono">{r.cho_khao_sat}</td>
                       <td className="py-2 pr-3">
                         {renderLoaiCell({
                           nghiNgo: r.nghi_ngo_120p,
@@ -1045,6 +987,17 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                           onNghiNgoClick: canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined,
                         })}
                       </td>
+                      <td className="py-2 pr-3 font-mono">{r.tong_vi_pham}</td>
+                      <td className="py-2 pr-3 font-mono">{r.ksnb_chot}</td>
+                      <td className="py-2 pr-3 font-mono">{r.ksnb_bo}</td>
+                      <td className="py-2 pr-3 font-mono">{r.da_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">
+                        {r.goi_thanh_cong}/{r.tong_cuoc_goi} ({r.ty_le_goi_thanh_cong}%)
+                      </td>
+                      <td className="py-2 pr-3 font-mono">{r.khao_sat_that_bai}</td>
+                      <td className="py-2 pr-3 font-mono">{r.cho_khao_sat_lai}</td>
+                      <td className="py-2 pr-3 font-mono">{r.bo_qua_khong_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">{r.cho_khao_sat}</td>
                     </tr>
                   ))}
                   {sortedBaoCaoRows.length === 0 && (
@@ -1058,31 +1011,112 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               </table>
             </div>
           </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            <Card className="p-4 lg:col-span-2">
+              <div className="font-display font-bold text-sm mb-3">
+                Phễu xử lý vi phạm <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, theo thời gian mở ca)</span>
+              </div>
+              <ChartCanvas
+                type="bar"
+                data={{
+                  labels: ["Nghi ngờ vi phạm", "Cần khảo sát", "Chờ QC chốt cấp 2", "Đã xử lý xong"],
+                  datasets: [
+                    {
+                      label: "Số ca",
+                      data: [funnel?.nghiNgo ?? 0, funnel?.canKhaoSat ?? 0, funnel?.choQc ?? 0, funnel?.daXuLy ?? 0],
+                      backgroundColor: ["#D98A1F", "#1591C9", "#D84C4C", "#159C93"],
+                      borderRadius: 6,
+                    },
+                  ],
+                }}
+                options={{ indexAxis: "y" as const }}
+              />
+            </Card>
+            <Card className="p-4">
+              <div className="font-display font-bold text-sm mb-3">Xu hướng cuộc gọi khảo sát (30 ngày)</div>
+              <ChartCanvas
+                type="line"
+                data={{
+                  labels: trendRows.map((r) => new Date(r.ngay).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })),
+                  datasets: [{ label: "Số cuộc gọi", data: trendRows.map((r) => r.so_cuoc_goi), borderColor: "#159C93", backgroundColor: "rgba(21,156,147,0.1)", tension: 0.35, fill: true, pointRadius: 2 }],
+                }}
+              />
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <Card className="p-4">
+              <div className="font-display font-bold text-sm mb-3">
+                Top 10 KTV nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tỷ lệ trên tổng số ca của KTV)</span>
+              </div>
+              <ChartCanvas
+                type="bar"
+                data={{
+                  labels: (ktvBoard?.rows ?? []).map((r) => r.nhom ?? "—"),
+                  datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (ktvBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D84C4C", borderRadius: 6 }],
+                }}
+                options={{
+                  indexAxis: "y" as const,
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: (ctx) => {
+                          const r = (ktvBoard?.rows ?? [])[ctx.dataIndex];
+                          return `${ctx.formattedValue}% (${r?.so_vi_pham ?? 0}/${r?.tong_ca ?? 0} ca)`;
+                        },
+                      },
+                    },
+                  },
+                }}
+              />
+            </Card>
+            <Card className="p-4">
+              <div className="font-display font-bold text-sm mb-3">
+                Top 10 Giám sát nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tỷ lệ trên tổng số ca khu vực phụ trách)</span>
+              </div>
+              <ChartCanvas
+                type="bar"
+                data={{
+                  labels: (giamSatBoard?.rows ?? []).map((r) => r.giam_sat ?? r.giam_sat_email ?? "—"),
+                  datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (giamSatBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D98A1F", borderRadius: 6 }],
+                }}
+                options={{
+                  indexAxis: "y" as const,
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: (ctx) => {
+                          const r = (giamSatBoard?.rows ?? [])[ctx.dataIndex];
+                          return `${ctx.formattedValue}% (${r?.so_vi_pham ?? 0}/${r?.tong_ca ?? 0} ca)`;
+                        },
+                      },
+                    },
+                  },
+                }}
+              />
+            </Card>
+          </div>
         </div>
       ) : (
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-            {(tinhFilter || quanHuyenFilter || ktvFilter) && (
-              <div className="text-xs text-[var(--ink-400)]">
-                Đang lọc thêm:{" "}
-                {[tinhFilter && `Tỉnh "${tinhFilter}"`, quanHuyenFilter && `Huyện "${quanHuyenFilter}"`, ktvFilter && `KTV "${ktvFilter}"`].filter(Boolean).join(", ")}{" "}
-                <button
-                  className="text-[var(--ocean-600)] underline"
-                  onClick={() => {
-                    setTinhFilter("");
-                    setQuanHuyenFilter("");
-                    setKtvFilter("");
-                    setPage(1);
-                  }}
-                >
-                  Xóa bộ lọc
-                </button>
-              </div>
-            )}
-            <Btn variant="ghost" size="sm" onClick={handleExport} className="ml-auto">
-              ⬇ Xuất Excel
-            </Btn>
-          </div>
+          {(tinhFilter || quanHuyenFilter || ktvFilter) && (
+            <div className="text-xs text-[var(--ink-400)] mb-2">
+              Đang lọc thêm:{" "}
+              {[tinhFilter && `Tỉnh "${tinhFilter}"`, quanHuyenFilter && `Huyện "${quanHuyenFilter}"`, ktvFilter && `KTV "${ktvFilter}"`].filter(Boolean).join(", ")}{" "}
+              <button
+                className="text-[var(--ocean-600)] underline"
+                onClick={() => {
+                  setTinhFilter("");
+                  setQuanHuyenFilter("");
+                  setKtvFilter("");
+                  setPage(1);
+                }}
+              >
+                Xóa bộ lọc
+              </button>
+            </div>
+          )}
           <Tabs
             active={tab}
             onChange={(k) => {
@@ -1098,13 +1132,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             ]}
           />
 
-          {tab === "can-khao-sat" && isLead && (
-            <div className="flex justify-end mb-2">
-              <Btn variant="ghost" size="sm" onClick={() => setBulkAssignOpen(true)}>
-                ⇄ Gán CSKH hàng loạt
-              </Btn>
-            </div>
-          )}
           {bulkAssignOpen && <BulkAssignModal onClose={() => setBulkAssignOpen(false)} canKhaoSatRows={canKhaoSatRows} onDataChanged={refetchCandidates} />}
 
           <div className="flex items-center gap-4 mb-3 flex-wrap bg-slate-50 p-2.5 rounded-lg border border-[var(--line)]">
@@ -1235,6 +1262,17 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 Xóa lọc nhanh
               </button>
             )}
+
+            <div className="flex items-center gap-2 ml-auto">
+              {tab === "can-khao-sat" && isLead && (
+                <Btn variant="ghost" size="sm" onClick={() => setBulkAssignOpen(true)}>
+                  ⇄ Gán CSKH hàng loạt
+                </Btn>
+              )}
+              <Btn variant="ghost" size="sm" onClick={handleExport}>
+                ⬇ Xuất Excel
+              </Btn>
+            </div>
           </div>
           {tab === "qua-han-khao-sat" && (
             <div className="text-xs text-[var(--ink-400)] mb-2">Ca đã hoàn thành quá 3 ngày mà chưa khảo sát — có thể gọi hoặc bỏ qua nếu đã quá muộn.</div>
@@ -1444,7 +1482,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   header: "Cần gọi lại",
                   render: (r) => (r.can_goi_lai === null ? "—" : <Badge tone={r.can_goi_lai ? "amber" : "gray"}>{r.can_goi_lai ? "Có" : "Không"}</Badge>),
                 },
-                { key: "nguoi_thuc_hien", header: "Người thực hiện", render: (r) => <span className="text-xs">{r.nguoi_thuc_hien}</span> },
+                { key: "nguoi_thuc_hien", header: "Người thực hiện", render: (r) => <span className="text-xs">{formatPersonDisplay(r.nguoi_thuc_hien, personDir)}</span> },
               ];
               return (
                 <PaginatedTable

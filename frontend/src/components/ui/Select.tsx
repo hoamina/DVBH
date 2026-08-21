@@ -21,21 +21,24 @@ export function Select({
   onChange,
   options,
   className = "",
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
   className?: string;
+  disabled?: boolean;
 }) {
   if (options.length > SEARCHABLE_THRESHOLD) {
-    return <SearchableSelect value={value} onChange={onChange} options={options} className={className} />;
+    return <SearchableSelect value={value} onChange={onChange} options={options} className={className} disabled={disabled} />;
   }
 
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`focus-ring bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] ${className}`}
+      disabled={disabled}
+      className={`focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
     >
       {options.map((o) =>
         typeof o === "string" ? (
@@ -57,11 +60,13 @@ function SearchableSelect({
   onChange,
   options,
   className,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
   className: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -93,11 +98,13 @@ function SearchableSelect({
           if (!open) setOpen(true);
         }}
         onFocus={() => {
+          if (disabled) return;
           setOpen(true);
           setQuery("");
         }}
+        disabled={disabled}
         placeholder="Gõ để tìm…"
-        className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)]"
+        className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
       />
       {open && (
         <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg py-1">

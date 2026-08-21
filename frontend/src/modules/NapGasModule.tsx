@@ -17,6 +17,7 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 
 interface NapGasCase {
   id: string;
@@ -77,6 +78,7 @@ const VIEWS = [
 ];
 
 export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
+  const personDir = usePersonDirectory();
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useLocalStorageState("filters:nap-gas-view", "tong-quan");
@@ -193,7 +195,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
       render: (c) => (c.danh_gia_nap_gas ? <Badge tone="ocean">{NAP_GAS_DANH_GIA_META[c.danh_gia_nap_gas].label}</Badge> : <Badge tone="coral">Chưa đánh giá</Badge>),
     },
     { key: "phi_dich_vu", header: "Phí dịch vụ", render: (c) => (c.phi_dich_vu ? NAP_GAS_PHI_DICH_VU_META[c.phi_dich_vu].label : "—") },
-    { key: "nguoi_chot", header: "Người chốt", render: (c) => c.nguoi_chot ?? "—" },
+    { key: "nguoi_chot", header: "Người chốt", render: (c) => (c.nguoi_chot ? formatPersonDisplay(c.nguoi_chot, personDir) : "—") },
     { key: "ngay_chot", header: "Ngày chốt", render: (c) => <span className="text-xs">{fmtDateTime(c.ngay_chot)}</span> },
     { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },

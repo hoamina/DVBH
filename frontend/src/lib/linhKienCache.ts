@@ -17,6 +17,7 @@ interface CacheEntry {
   ghi_chu: string | null;
   anh_demo: string | null;
   bat_tat: number;
+  chi_sua_chua: number;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string | null; // ISO timestamp
 }
@@ -79,6 +80,7 @@ export async function mergeLinhKienToCache(rows: LinhKienRow[]): Promise<void> {
         ghi_chu: row.ghi_chu,
         anh_demo: row.anh_demo,
         bat_tat: row.bat_tat,
+        chi_sua_chua: row.chi_sua_chua,
         nguoi_cap_nhat: row.nguoi_cap_nhat,
         ngay_cap_nhat: row.ngay_cap_nhat,
       });

@@ -35,6 +35,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // tranh hien trung 1 con so o 2 dong sidebar gay hieu nham cong don.
       { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "◈", countKey: "datMuaLk" },
       { key: "tra-hang", label: "Đơn trả hàng", icon: "↩" },
+      // CHOT 2026-08-17 (migration 0082): tach khoi tab Settings (Admin-only) thanh module rieng -
+      // hien theo flag quan_ly_danh_muc_lk (xem App.tsx), khong theo vai_tro mac dinh nao.
+      { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "🔧" },
     ],
   },
   {
@@ -60,7 +63,10 @@ export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
-  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
+  // "dat-mua-lk"/"tra-hang" KHONG con hardcode o day tu 2026-08-16 (migration 0081) - Tac nghiep
+  // tach doc lap khoi vai_tro (xem App.tsx dong cap them tu dong theo la_tac_nghiep, khop dung
+  // DEFAULT_MODULES_BY_ROLE["TBP DVBH"] o backend/src/lib/moduleAccess.ts).
+  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "TBP CSKH": ["dashboard", "revenue", "survey", "danh-sach-tong", "giao-dien"],
@@ -86,4 +92,5 @@ export const MODULE_TITLES: Record<string, string> = {
   "giao-dien": "Cài đặt cá nhân",
   "dat-mua-lk": "Đặt mua linh kiện",
   "tra-hang": "Đơn trả hàng",
+  "danh-muc-lk": "Danh mục linh kiện",
 };

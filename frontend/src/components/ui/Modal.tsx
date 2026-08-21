@@ -8,6 +8,7 @@ export function Modal({
   width = "max-w-lg",
   height = "max-h-[88vh]",
   footer,
+  headerExtra,
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,16 +21,23 @@ export function Modal({
   // cac trang gio hang (Shopee/Tiki). Mac dinh undefined = khong render gi them, khong doi hanh vi
   // cac noi goi Modal khac.
   footer?: ReactNode;
+  // Hanh dong cap-modal (vd nut "Sua") dat CANH nut dong ✕ - tach khoi vung noi dung, danh cho
+  // hanh dong dieu khien chinh modal thay vi lan vao hang thong tin/badge ben trong (ra soat module
+  // "Dat Mua Linh Kien 2.0" #18). Mac dinh undefined = khong doi giao dien cac noi goi Modal khac.
+  headerExtra?: ReactNode;
 }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-4">
       <div className={`bg-[var(--surface)] rounded-2xl w-full ${width} ${height} overflow-hidden flex flex-col anim-in shadow-2xl`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--line)]">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--line)]">
           <h3 className="font-display font-bold text-[var(--ink-900)]">{title}</h3>
-          <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">
-            ✕
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {headerExtra}
+            <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">
+              ✕
+            </button>
+          </div>
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
         {footer && <div className="border-t border-[var(--line)] bg-[var(--surface)] px-5 py-3">{footer}</div>}

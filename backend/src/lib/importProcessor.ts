@@ -3,6 +3,8 @@ import {
   VIOLATION_FIELDS,
   normalizeViolationFlag,
   ratchetFlag,
+  normalizeNghiNgoTranhChapRaw,
+  ratchetNghiNgoTranhChap,
   computeCrmHash,
   businessFieldValue,
 } from "./ratchet";
@@ -100,8 +102,10 @@ function dedupeById(rows: ImportRow[]): { rows: ImportRow[]; duplicateCount: num
 // affectedDates (gia tri CU truoc khi ghi de) - khong con SELECT * (xem BAO_CAO_RAO_SOAT_IMPORT_CRM_
 // CACHE_2026-07-28.md P1). "crm_hash" la nguon so sanh chinh (xem ratchet.ts computeCrmHash); 4 cot
 // loi_* + nghi_ngo_nap_gas can rieng de tinh flagsChanged (ratchet co the doi ke ca khi crm_hash
-// khong doi, vi hash CHI tinh tren BUSINESS_FIELDS, khong gom VIOLATION_FIELDS).
-const EXISTING_ROW_COLUMNS = ["id", "crm_hash", "thoi_gian_hoan_thanh", "seri_san_pham", ...VIOLATION_FIELDS];
+// khong doi, vi hash CHI tinh tren BUSINESS_FIELDS, khong gom VIOLATION_FIELDS). "nghi_ngo_tranh_chap"
+// liet ke rieng (khong con nam trong VIOLATION_FIELDS - xem ratchet.ts) vi can gia tri hien co (0-3)
+// de tinh ratchetNghiNgoTranhChap().
+const EXISTING_ROW_COLUMNS = ["id", "crm_hash", "thoi_gian_hoan_thanh", "seri_san_pham", ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap"];
 
 async function fetchExistingRows(
   db: D1Database,
@@ -127,12 +131,15 @@ function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, 
   const normalizedFlags = Object.fromEntries(
     VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f]) ? 1 : 0]),
   );
+  // Dong MOI (chua co gia tri cu) - khong can ratchet, ghi thang gia tri raw da normalize (0/1/2).
+  const nghiNgoTranhChap = normalizeNghiNgoTranhChapRaw(incoming.nghi_ngo_tranh_chap);
   const businessValues = Object.fromEntries(BUSINESS_FIELDS.map((f) => [f, businessFieldValue(f, incoming)]));
-  const fields = ["id", ...BUSINESS_FIELDS, ...VIOLATION_FIELDS, "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
+  const fields = ["id", ...BUSINESS_FIELDS, ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
   const values = {
     id: incoming.id,
     ...businessValues,
     ...normalizedFlags,
+    nghi_ngo_tranh_chap: nghiNgoTranhChap,
     crm_hash: crmHash,
     ngay_import: now,
     ngay_cap_nhat_gan_nhat: now,
@@ -147,6 +154,7 @@ function buildFullOverwrite(
   db: D1Database,
   incoming: ImportRow,
   finalFlags: Record<string, number>,
+  finalNghiNgoTranhChap: number,
   now: string,
   crmHash: string,
 ): D1PreparedStatement {
@@ -160,6 +168,8 @@ function buildFullOverwrite(
     setClauses.push(`${field} = ?`);
     values.push(finalFlags[field]);
   }
+  setClauses.push("nghi_ngo_tranh_chap = ?");
+  values.push(finalNghiNgoTranhChap);
   setClauses.push("crm_hash = ?");
   values.push(crmHash);
   setClauses.push("ngay_cap_nhat_gan_nhat = ?");
@@ -206,6 +216,7 @@ export async function processImport(
     const normalizedFlags = Object.fromEntries(
       VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f])]),
     ) as Record<string, boolean>;
+    const incomingNghiNgoTranhChap = normalizeNghiNgoTranhChapRaw(incoming.nghi_ngo_tranh_chap);
     const incomingHash = await computeCrmHash(incoming);
 
     if (!existing) {
@@ -220,10 +231,20 @@ export async function processImport(
     // backfill-crm-hash) luon bi coi la "khac" o lan cham dau tien, tu dong tinh lai hash that su
     // roi ghi lai - tu hoi phuc dan, khong can chan tinh dung ve lau dai.
     const dataChanged = existing.crm_hash !== incomingHash;
+    const existingNghiNgoTranhChap = Number(existing.nghi_ngo_tranh_chap) || 0;
+    const finalNghiNgoTranhChap = ratchetNghiNgoTranhChap(existingNghiNgoTranhChap, incomingNghiNgoTranhChap);
+    const nghiNgoTranhChapChanged = finalNghiNgoTranhChap !== existingNghiNgoTranhChap;
 
-    if (existing.thoi_gian_hoan_thanh && !dataChanged) {
+    // Fix 2026-08-20 (phat hien qua test tinh nang "AI phat hien tranh chap"): early-BO_QUA nay TRUOC
+    // day khong dieu kien gi ngoai "da hoan thanh + hash khong doi" - vo tinh nuot LUON ca tin hieu AI
+    // moi (incoming nghi_ngo_tranh_chap=2 tren 1 ca DA DONG tu truoc, khong co truong nghiep vu nao
+    // khac thay doi - CHINH LA tinh huong pho bien nhat AI se gap: quet lai ca cu, khong sua du lieu
+    // gi khac). Them dieu kien "&& !nghiNgoTranhChapChanged" de KHONG bo qua khi rieng co nay THAT SU
+    // doi (0/2 -> 1/2/3) - 5 cot VIOLATION_FIELDS con lai VAN giu nguyen hanh vi cu (quyet dinh nghiep
+    // vu 2026-07-28 rieng, khong dong cham toi o day).
+    if (existing.thoi_gian_hoan_thanh && !dataChanged && !nghiNgoTranhChapChanged) {
       summary.BO_QUA++;
-      continue; // da hoan thanh, khong doi -> bo qua hoan toan, khong dung ratchet
+      continue; // da hoan thanh, khong doi (ke ca nghi_ngo_tranh_chap) -> bo qua hoan toan
     }
 
     const finalFlags = Object.fromEntries(
@@ -239,7 +260,7 @@ export async function processImport(
     // hom nay" don thuan nhu truoc nua (quyet dinh nghiep vu 2026-07-28, xem BAO_CAO_RAO_SOAT_
     // IMPORT_CRM_CACHE_2026-07-28.md muc "Chong cheo can xu ly" #3).
     if (!dataChanged) {
-      const flagsChanged = VIOLATION_FIELDS.some((f) => finalFlags[f] !== (existing[f] ? 1 : 0));
+      const flagsChanged = VIOLATION_FIELDS.some((f) => finalFlags[f] !== (existing[f] ? 1 : 0)) || nghiNgoTranhChapChanged;
       if (!flagsChanged) {
         summary.BO_QUA++;
         continue;
@@ -254,7 +275,7 @@ export async function processImport(
     // Tuong tu: gom ca ngay hoan thanh CU (truoc khi ghi de) lan ngay MOI - xem field affectedDates.
     addAffectedDate(affectedDates, existing.thoi_gian_hoan_thanh);
     addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
-    if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, now, incomingHash));
+    if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, finalNghiNgoTranhChap, now, incomingHash));
   }
 
   summary.affectedSerials = [...affectedSerials];

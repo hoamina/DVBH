@@ -7,7 +7,7 @@
 import { parseTsv } from "./tsvParser";
 import { getCachedEntry, setCachedEntry } from "./closedDataCache";
 
-export type PurchaseWarrantyDataset = "mua-hang" | "bao-hanh" | "thieu-hang" | "qc-thuc-te";
+export type PurchaseWarrantyDataset = "mua-hang" | "bao-hanh" | "thieu-hang" | "qc-thuc-te" | "po-dat-hang";
 
 // "_region": "MB"/"MN" hoac "" (danh sach khong tach mien, vd "thieu-hang") - dung "" thay vi null
 // de khop voi index signature Record<string, string> cua SheetRow (moi field deu la string).
@@ -51,6 +51,9 @@ const SOURCES: Record<PurchaseWarrantyDataset, SourceSheet[]> = {
   ],
   "qc-thuc-te": [
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSSguxu-zqNnF_L1hvJCNSZzQPA8iMwjiY8qo_7mppz39xgdloucRTlBOGfT0B5PoXbg0Di_S41XQMc/pub?output=tsv", region: "" },
+  ],
+  "po-dat-hang": [
+    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRvxxjz1QNWcRGsPSF9cxws8OU9-TUY3jYIBkIe89rFn6yA5chVz0ZGW1ArYcy7XO7ab4u1VfOSv0S0/pub?gid=819742813&single=true&output=tsv", region: "" },
   ],
 };
 
@@ -120,6 +123,25 @@ const FIELD_ALIASES: Record<PurchaseWarrantyDataset, Record<string, string[]>> =
     ghiChu: ["GHI CHÚ"],
     ngayDanhGia: ["NGÀY ĐÁNH GIÁ"],
     nguoiDanhGia: ["NGƯỜI ĐÁNH GIÁ"],
+  },
+  "po-dat-hang": {
+    id: ["ID ĐẶT LK"],
+    idCrm: ["ID CRM"],
+    maLinhKienDeXuat: ["Mã linh kiện đề xuất"],
+    tenLinhKien: ["Tên linh kiện"],
+    doiTac: ["Đối tác"],
+    khoCanDat: ["Kho cần đặt hàng"],
+    soLuongDat: ["Số lượng đặt"],
+    slNhapTheoAmis: ["SL nhập theo Amis"],
+    soLuongConThieu: ["Số lượng còn thiếu"],
+    trangThai: ["Trạng thái"],
+    tocDoHangVe: ["Tốc độ hàng về"],
+    canhBao: ["Cảnh báo"],
+    ngayDuKienGanNhat: ["Ngày dự kiến gần nhất"],
+    ngayVeGanNhatToanQuoc: ["Ngày về gần nhất toàn quốc"],
+    ngayTao: ["Ngày tạo"],
+    ngayCapNhat: ["Ngày cập nhật"],
+    ghiChu: ["Ghi chú"],
   },
 };
 

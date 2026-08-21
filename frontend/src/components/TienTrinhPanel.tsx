@@ -9,6 +9,7 @@ import { fmtDateTime } from "../types";
 import { useToast } from "./ui/Toast";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { useAuth, type AppUser } from "../auth/AuthContext";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
   TRANG_THAI_LABELS,
   TRANG_THAI_TONE,
@@ -23,12 +24,16 @@ import {
   HAI_LONG_OPTIONS,
   canWriteTranhChap,
   canEditTienTrinhMeta,
+  canWriteCskhPhase,
+  phanLoaiTone,
   describeTranhChapError,
+  deriveGiamSatSuggestion,
   type ChoXuLyCase,
   type TranhChapLogRow,
   type TienTrinhDetail,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
+  type GiamSatInfo,
 } from "../lib/tranhChapShared";
 
 /**
@@ -173,18 +178,31 @@ function dueUrgency(dueDate: string | null, isDaDong: boolean): { label: string;
 /**
  * Noi dung 1 tien trinh tranh chap: header "me" (trang thai/phan loai/muc do/canh bao qua han) +
  * timeline log "con" (thu gon, chi hien chi tiet khi can) + nut "+ Them log" mo popup rieng thay vi
- * hien san form inline - dung chung boi TranhChapModule.tsx (boc trong Modal) va CaseDetail.tsx
- * (nhung inline ngay trong tab, khong can Modal rieng vi da o trong the chi tiet ca roi). "onOpenCase"
- * bo qua (undefined) khi da o trong dung ngu canh ca do san (CaseDetail) - an nut "Xem ca su vu".
+ * hien san form inline. CHI dung boi CaseDetail.tsx (tab "Tranh chap, khieu nai" trong the chi tiet
+ * ca) - nhan "detail" (tienTrinh + logs) tu 1 lan fetch gom cua CA (xem GET
+ * /tranh-chap/tien-trinh?case_id=...), KHONG tu fetch rieng theo id nua (CHOT 2026-08-20, rao soat
+ * lag: truoc day moi panel tu goi GET /tien-trinh/:id, N+1 khi ca co nhieu tien trinh). "onOpenCase"
+ * luon bo qua (undefined) vi da o trong dung ngu canh ca do san - an nut "Xem ca su vu".
  */
 export function TienTrinhPanel({
   id,
+  detail,
+  giaiTrinhNguoiGiaiTrinh,
   currentUser,
   phanLoaiOptions,
   ketQuaOptions,
   onOpenCase,
 }: {
   id: string;
+  // Du lieu day du (tienTrinh + logs) da duoc CaseDetail.tsx tai san 1 LAN cho TOAN BO tien trinh
+  // cua ca (xem GET /tranh-chap/tien-trinh?case_id=...) - CHOT 2026-08-20 (rao soat lag): bo hoan
+  // toan viec tung TienTrinhPanel tu goi rieng GET /tien-trinh/:id (N+1 request khi ca co nhieu
+  // tien trinh). Component nay LA CONSUMER DUY NHAT cua du lieu tien trinh nen khong can fallback
+  // tu fetch rieng nua - luon nhan qua prop.
+  detail: TienTrinhDetail;
+  // Email nguoi_giai_trinh cua ca (giai_trinh, da tai san o CaseDetail.tsx) - nguon phu de suy ra
+  // "Giam sat de xuat" cung voi log tranh chap, xem deriveGiamSatSuggestion().
+  giaiTrinhNguoiGiaiTrinh: string[];
   currentUser: AppUser | null;
   phanLoaiOptions: PhanLoaiTranhChapRow[];
   ketQuaOptions: KetQuaXuLyTranhChapRow[];
@@ -192,17 +210,20 @@ export function TienTrinhPanel({
 }) {
   const addToast = useToast();
   const qc = useQueryClient();
+  const personDir = usePersonDirectory();
   const [addLogOpen, setAddLogOpen] = useState(false);
   const [editingLog, setEditingLog] = useState<TranhChapLogRow | null>(null);
   const [editMetaOpen, setEditMetaOpen] = useState(false);
+  // "Log con" (CHOT 2026-08-20) - ghi chu tien do phu vao dung log CHINH dang mo, khong doi trang
+  // thai. "logConOpenFor" = id cua log CHINH dang mo form them nhanh (chi 1 tai 1 thoi diem).
+  const [logConOpenFor, setLogConOpenFor] = useState<number | null>(null);
+  const [logConText, setLogConText] = useState("");
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["tranh-chap-tien-trinh-detail", id],
-    queryFn: () => api.get<TienTrinhDetail>(`/tranh-chap/tien-trinh/${encodeURIComponent(id)}`),
-  });
+  const data = detail;
 
   function invalidateAfterWrite() {
-    qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-detail", id] });
+    // Khong con query rieng theo id de invalidate (xem "detail" prop o tren) - invalidate query
+    // gom cua ca ("tranh-chap-tien-trinh-case", xem CaseDetail.tsx) la du de keo lai du lieu moi.
     qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh"] });
     qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-stats"] });
     qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-case"] });
@@ -223,6 +244,17 @@ export function TienTrinhPanel({
       invalidateAfterWrite();
     },
     onError: (err) => addToast(describeTranhChapError(err, "Không thể thêm log, thử lại sau.")),
+  });
+
+  const addLogCon = useMutation({
+    mutationFn: ({ logId, noiDung }: { logId: number; noiDung: string }) => api.post(`/tranh-chap/log/${logId}/log-con`, { noi_dung: noiDung }),
+    onSuccess: () => {
+      addToast("Đã thêm log con");
+      setLogConOpenFor(null);
+      setLogConText("");
+      invalidateAfterWrite();
+    },
+    onError: (err) => addToast(describeTranhChapError(err, "Không thể thêm log con, thử lại sau.")),
   });
 
   const editLog = useMutation({
@@ -251,17 +283,27 @@ export function TienTrinhPanel({
     onError: (err) => addToast(describeTranhChapError(err, "Không thể cập nhật, thử lại sau.")),
   });
 
-  const tt = data?.tienTrinh;
-  const logs = data?.logs ?? [];
+  const tt = data.tienTrinh;
+  const logs = data.logs;
   const latestLog = logs[0];
   const isDaDong = latestLog ? TRANG_THAI_DONG.includes(latestLog.trang_thai_xu_ly) : false;
-  const canWrite = currentUser ? canWriteTranhChap(currentUser, tt?.khu_vuc ?? null) : false;
+  const currentPhase = phaseOfStatus(latestLog?.trang_thai_xu_ly ?? null);
+  // Them 2026-08-20: giai doan CSKH la trach nhiem cua KSNB Doi tac/TBP DVBH/Admin - an nut "+ Them
+  // log" voi Giam sat khu vuc (van xem duoc, canWriteTranhChap van cho, chi khong ghi them duoc nua)
+  // khi tien trinh dang o giai doan nay, khop voi canWriteCskhPhase() phia backend.
+  const canWrite = currentUser
+    ? canWriteTranhChap(currentUser, tt.khu_vuc ?? null) && (currentPhase !== "cskh" || canWriteCskhPhase(currentUser))
+    : false;
+  // CHOT 2026-08-21: "log con" (ghi chu giai trinh, KHONG doi trang thai) noi long hon log CHINH -
+  // chi can canWriteTranhChap (khong doi hoi them canWriteCskhPhase khi dang o giai doan CSKH) - tat
+  // ca vai tro duoc phep xu ly tien trinh nay deu them duoc log con mien tien trinh CHUA DONG. Khop
+  // dung thay doi phia backend POST /log/:logId/log-con.
+  const canWriteLogCon = currentUser ? canWriteTranhChap(currentUser, tt.khu_vuc ?? null) : false;
   const canEditMeta = currentUser ? canEditTienTrinhMeta(currentUser) && !isDaDong : false;
   const urgency = latestLog ? dueUrgency(latestLog.thoi_gian_du_kien_xong, isDaDong) : null;
-
-  if (isLoading || !tt) {
-    return <div className="text-sm text-[var(--ink-400)] py-6 text-center">Đang tải…</div>;
-  }
+  // "Giam sat de xuat" - suy tu lich su cua CHINH ca nay (log tranh chap + giai_trinh, ca hai deu da
+  // co san o client), khong con truy van bang users (xem deriveGiamSatSuggestion()).
+  const giamSatDeXuat = deriveGiamSatSuggestion(logs, giaiTrinhNguoiGiaiTrinh, personDir);
 
   return (
     <div className="space-y-3">
@@ -279,6 +321,7 @@ export function TienTrinhPanel({
             <div className="font-display font-bold text-base text-[var(--ink-900)] truncate">{tt.khach_hang ?? "—"}</div>
             <div className="text-xs text-[var(--ink-400)] mt-0.5">
               {shortKhuVuc(tt.khu_vuc)} · Tạo {fmtDateTime(tt.ngay_tao)}
+              {giamSatDeXuat.length > 0 && <> · GS từng xử lý: {giamSatDeXuat.map((g) => g.ten ?? g.email).join(", ")}</>}
             </div>
           </div>
           {onOpenCase && (
@@ -289,7 +332,7 @@ export function TienTrinhPanel({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap mt-3">
-          <Badge tone="gray">{tt.phan_loai_tranh_chap}</Badge>
+          <Badge tone={phanLoaiTone(tt.phan_loai_tranh_chap)}>{tt.phan_loai_tranh_chap}</Badge>
           <Badge tone={MUC_DO_TONE[tt.muc_do] ?? "gray"}>{MUC_DO_LABELS[tt.muc_do] ?? tt.muc_do}</Badge>
           {canEditMeta && (
             <button className="text-xs text-[var(--ocean-600)] underline ml-0.5" onClick={() => setEditMetaOpen(true)}>
@@ -345,9 +388,16 @@ export function TienTrinhPanel({
                     )}
                   </div>
                   <div className="text-xs text-[var(--ink-400)] mt-1">
-                    {log.nguoi_xu_ly} · {fmtDateTime(log.ngay_xu_ly)}
+                    {formatPersonDisplay(log.nguoi_xu_ly, personDir)} · {fmtDateTime(log.ngay_xu_ly)}
                     {log.thoi_gian_du_kien_xong ? ` · Dự kiến xong: ${log.thoi_gian_du_kien_xong}` : ""}
                   </div>
+                  {/* CHOT 2026-08-20: log.dang_cho_nguoi_xu_ly da duoc luu tu truoc nhung chua tung
+                      hien trong dong lich su - chi thay o cot rieng cua bang "Quan ly tien trinh"
+                      (TranhChapModule.tsx), MAT DAU VET ngay tren chinh log da "day" viec cho ai. Hien
+                      lai o day de minh bach: ai xem lai lich su cung biet log nay da chuyen giao cho ai. */}
+                  {log.dang_cho_nguoi_xu_ly && (
+                    <div className="text-xs text-[var(--ocean-600)] font-semibold mt-1">→ Đang chờ: {formatPersonDisplay(log.dang_cho_nguoi_xu_ly, personDir)}</div>
+                  )}
                   {(log.ket_qua_xu_ly || log.hai_long_sau_tranh_chap) && (
                     <div className="text-xs mt-1.5 flex gap-1.5 flex-wrap">
                       {log.ket_qua_xu_ly && <Badge tone="ocean">{log.ket_qua_xu_ly}</Badge>}
@@ -357,6 +407,55 @@ export function TienTrinhPanel({
                     </div>
                   )}
                   {log.ghi_chu && <div className="text-xs mt-1.5 whitespace-pre-wrap text-[var(--ink-600)]">{log.ghi_chu}</div>}
+
+                  {/* "Log con" (CHOT 2026-08-20, quyen noi long 2026-08-21) - ghi chu tien do phu trong
+                      luc log CHINH nay dang mo, khong doi trang thai. Chi log MOI NHAT (isLatest) cua
+                      tien trinh CHUA DONG moi cho them moi (khop dieu kien backend POST
+                      /log/:logId/log-con) - quyen la canWriteLogCon (RONG HON canWrite cua log chinh,
+                      khong doi hoi canWriteCskhPhase), nhung log con DA CO thi hien voi MOI log (lich
+                      su khong bien mat khi co log moi hon). */}
+                  {log.logCon.length > 0 && (
+                    <div className="mt-2 pl-2.5 border-l-2 border-[var(--line)] space-y-1">
+                      {log.logCon.map((lc) => (
+                        <div key={lc.id} className="text-xs">
+                          <span className="text-[var(--ink-400)]">
+                            {formatPersonDisplay(lc.nguoi_ghi, personDir)} · {fmtDateTime(lc.created_at)}
+                          </span>
+                          <div className="text-[var(--ink-600)] whitespace-pre-wrap">{lc.noi_dung}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {isLatest && canWriteLogCon && !isDaDong && (
+                    logConOpenFor === log.id ? (
+                      <div className="mt-2 space-y-1.5">
+                        <textarea
+                          value={logConText}
+                          onChange={(e) => setLogConText(e.target.value)}
+                          rows={2}
+                          autoFocus
+                          placeholder="Ghi chú tiến độ xử lý…"
+                          className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Btn
+                            size="sm"
+                            disabled={!logConText.trim() || addLogCon.isPending}
+                            onClick={() => addLogCon.mutate({ logId: log.id, noiDung: logConText.trim() })}
+                          >
+                            {addLogCon.isPending ? "Đang lưu…" : "Lưu"}
+                          </Btn>
+                          <Btn size="sm" variant="ghost" onClick={() => { setLogConOpenFor(null); setLogConText(""); }}>
+                            Hủy
+                          </Btn>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="text-xs text-[var(--ocean-600)] underline mt-1.5" onClick={() => { setLogConOpenFor(log.id); setLogConText(""); }}>
+                        + Thêm log con
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             );
@@ -373,6 +472,7 @@ export function TienTrinhPanel({
           initial={{ trang_thai_xu_ly: "", thoi_gian_du_kien_xong: latestLog?.thoi_gian_du_kien_xong ?? "", ghi_chu: "", ket_qua_xu_ly: "", hai_long_sau_tranh_chap: "", dang_cho_nguoi_xu_ly: "" }}
           ketQuaOptions={ketQuaOptions}
           latestTrangThai={latestLog?.trang_thai_xu_ly ?? null}
+          giamSatPhuTrach={giamSatDeXuat}
           onClose={() => setAddLogOpen(false)}
           onSubmit={(body) => addLog.mutate(body)}
           isPending={addLog.isPending}
@@ -421,6 +521,7 @@ function LogFormModal({
   initial,
   ketQuaOptions,
   latestTrangThai,
+  giamSatPhuTrach = [],
   onClose,
   onSubmit,
   isPending,
@@ -432,6 +533,12 @@ function LogFormModal({
   // Trang thai cua log NGAY TRUOC log dang them/sua - quyet dinh giai doan (Giam sat/CSKH) duoc phep
   // chon o day (chot 2026-07-31 diem 1: khong cho quay lai giai doan Giam sat sau khi da chuyen CSKH).
   latestTrangThai: string | null;
+  // Giam sat suy tu lich su cua CHINH ca nay (log tranh chap + giai_trinh, xem
+  // deriveGiamSatSuggestion() trong tranhChapShared.ts) - dung tu dong dien "Dang cho nguoi xu ly"
+  // khi CSKH "Chuyen lai giam sat xu ly". CHOT 2026-08-20 (rao soat lag): doi tu "Giam sat phu trach
+  // KHU VUC" (tra cuu qua users.khu_vuc_phu_trach, quet ca bang users moi lan mo tien trinh) sang
+  // "Giam sat DA TUNG XU LY CA NAY" (suy tu du lieu co san o client, khong quet DB nua).
+  giamSatPhuTrach?: GiamSatInfo[];
   onClose: () => void;
   onSubmit: (body: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string; dang_cho_nguoi_xu_ly?: string | null }) => void;
   isPending: boolean;
@@ -465,18 +572,30 @@ function LogFormModal({
   });
   const handlingUsers = handlingUsersData?.rows ?? [];
 
-  const showDangCho = trangThai === "Giam sat dang xu ly" || trangThai === "CSKH dang xu ly";
+  // "Chuyen lai giam sat xu ly" (trangThai === "Giam sat chua xu ly" trong LUC dang o giai doan CSKH,
+  // khac voi gia tri nay xuat hien binh thuong o giai doan Giam sat) cung can chon "Dang cho nguoi xu
+  // ly" - CHOT 2026-08-20: tu dong dien Giam sat DA TUNG XU LY ca nay (neu xac dinh duoc DUY NHAT
+  // 1 nguoi tu deriveGiamSatSuggestion()), nguoi tao log van chon lai duoc neu sai.
+  const isChuyenLaiGiamSat = trangThai === "Giam sat chua xu ly" && currentPhase === "cskh";
+  const showDangCho = trangThai === "Giam sat dang xu ly" || trangThai === "CSKH dang xu ly" || isChuyenLaiGiamSat;
+
+  function handleTrangThaiChange(value: string) {
+    setTrangThai(value);
+    if (value === "Giam sat chua xu ly" && currentPhase === "cskh" && !dangCho && giamSatPhuTrach.length === 1) {
+      setDangCho(giamSatPhuTrach[0].email);
+    }
+  }
 
   return (
     <Modal open onClose={onClose} title={title} width="max-w-lg">
       <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Trạng thái xử lý</label>
-          <Select value={trangThai} onChange={setTrangThai} options={[{ value: "", label: "Chọn trạng thái…" }, ...phaseOptions]} className="w-full mt-1" />
+          <Select value={trangThai} onChange={handleTrangThaiChange} options={[{ value: "", label: "Chọn trạng thái…" }, ...phaseOptions]} className="w-full mt-1" />
         </div>
         {showDangCho && (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đang chờ người xử lý</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Đang chờ người xử lý{isChuyenLaiGiamSat ? " *" : ""}</label>
             <Select
               value={dangCho}
               onChange={setDangCho}
@@ -486,6 +605,15 @@ function LogFormModal({
               ]}
               className="w-full mt-1"
             />
+            {isChuyenLaiGiamSat && (
+              <div className="text-[11px] text-[var(--ink-400)] mt-1">
+                {giamSatPhuTrach.length === 1
+                  ? `Đã tự động chọn Giám sát từng xử lý ca này — chọn lại nếu không đúng.`
+                  : giamSatPhuTrach.length > 1
+                    ? `Ca này từng có nhiều Giám sát xử lý (${giamSatPhuTrach.map((g) => g.ten ?? g.email).join(", ")}) — vui lòng chọn.`
+                    : `Không xác định được Giám sát từng xử lý ca này — vui lòng chọn thủ công.`}
+              </div>
+            )}
           </div>
         )}
         <div>
@@ -546,7 +674,7 @@ function LogFormModal({
                 dang_cho_nguoi_xu_ly: showDangCho ? dangCho || null : null,
               })
             }
-            disabled={!trangThai || (canKetQua && (!ketQua || !haiLong)) || isPending}
+            disabled={!trangThai || (canKetQua && (!ketQua || !haiLong)) || (isChuyenLaiGiamSat && !dangCho) || isPending}
           >
             {isPending ? "Đang lưu…" : submitLabel}
           </Btn>

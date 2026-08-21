@@ -10,6 +10,7 @@ export function StatCard({
   muted = false,
   active = false,
   onClick,
+  size = "md",
 }: {
   label: string;
   value: string | number;
@@ -23,9 +24,28 @@ export function StatCard({
    * quan giua cac module) - dung 1 quy uoc chung cho MOI StatCard co the bam duoc trong app. */
   active?: boolean;
   onClick?: () => void;
+  /** "sm" = the thu gon (CHOT 2026-08-16, "Phuong an A") - dung o cac luoi nhieu the day dac
+   * (Quan ly ton), mac dinh "md" giu nguyen kich thuoc cu cho moi noi khac dang dung component nay. */
+  size?: "md" | "sm";
 }) {
-  const ring = { ocean: "var(--ocean-500)", teal: "var(--teal-500)", amber: "var(--amber-500)", coral: "var(--coral-500)", gray: "var(--ink-400)" }[tone];
-  const tint = { ocean: "var(--ocean-100)", teal: "var(--teal-100)", amber: "var(--amber-100)", coral: "var(--coral-100)", gray: "var(--bg)" }[tone];
+  const ring = { ocean: "var(--ocean-500)", teal: "var(--teal-500)", amber: "var(--amber-500)", coral: "var(--coral-500)", orange: "var(--orange-500)", gray: "var(--ink-400)" }[tone];
+  const tint = { ocean: "var(--ocean-100)", teal: "var(--teal-100)", amber: "var(--amber-100)", coral: "var(--coral-100)", orange: "var(--orange-100)", gray: "var(--bg)" }[tone];
+  if (size === "sm") {
+    return (
+      <Card
+        className={`p-1.5 flex-1 min-w-[110px] ${onClick ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-transform" : ""}`}
+        style={active ? { boxShadow: `0 0 0 2px ${ring}`, backgroundColor: tint } : undefined}
+        onClick={onClick}
+      >
+        <div className="flex items-start justify-between gap-1">
+          <span className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide leading-tight">{label}</span>
+          <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: muted ? "var(--ink-400)" : ring }}></span>
+        </div>
+        <div className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 ${muted ? "text-[var(--ink-400)]" : "text-[var(--ink-900)]"}`}>{value}</div>
+        {sub && <div className="text-[10px] text-[var(--ink-400)] leading-tight mt-0.5">{sub}</div>}
+      </Card>
+    );
+  }
   return (
     <Card
       className={`p-3 sm:p-4 flex-1 min-w-[150px] ${onClick ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-transform" : ""}`}

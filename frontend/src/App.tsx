@@ -21,11 +21,13 @@ import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
 import { ThemeModule } from "./modules/ThemeModule";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
+import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
 import { useToast } from "./components/ui/Toast";
 import { LoadingInline } from "./components/ui/LoadingInline";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { usePurchaseWarrantyData } from "./hooks/usePurchaseWarrantyData";
 import { GreetingPopup } from "./components/GreetingPopup";
+import { TranhChapMentionPopup } from "./components/TranhChapMentionPopup";
 
 const ACTIVE_MODULE_KEY = "dvbh_active_module";
 
@@ -62,16 +64,21 @@ function MainApp({
   // Tai khoan "chi Dat mua linh kien" - vai_tro=NULL CO CHU DICH (KTV/CTV/Tram/Ve tinh/Kho/Ke toan
   // thuan tuy, khong tham gia phan he DVBH con lai - chot 2026-08-14). Khac "chua duyet" (do la
   // trang_thai_duyet, da loc o AuthContext truoc khi toi day).
-  const laTaiKhoanMuaHangThuanTuy = !role && !!(user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan);
+  const laTaiKhoanMuaHangThuanTuy = !role && !!(user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh);
   // CHOT 2026-08-01: danh sach module gio tuy chinh HOAN TOAN theo tung tai khoan (user.modules,
   // xem migration 0042) - NULL = chua tuy chinh, fallback ve mac dinh theo vai_tro nhu truoc.
   // Admin luon full (khop dung logic hasModule() o backend/src/lib/moduleAccess.ts).
   let allowedModules = role === "Admin" ? ROLE_MODULES.Admin : (user.modules ?? (role ? ROLE_MODULES[role] ?? [] : []));
-  // Cap them "dat-mua-lk"/"tra-hang" tu dong khi bat 1 trong 4 co "Dat mua linh kien" - phai khop
-  // dung effectiveModules() o backend/src/lib/moduleAccess.ts, khong co co che dung chung giua 2
-  // codebase nen phai tu dong bo tay.
-  if (role !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan)) {
+  // Cap them "dat-mua-lk"/"tra-hang" tu dong khi bat 1 trong 6 co "Dat mua linh kien", va
+  // "danh-muc-lk" khi bat xem_danh_muc_lk (quyen xem, mac dinh true tru CSKH/TN CSKH/TBP CSKH) hoac
+  // quan_ly_danh_muc_lk (quyen sua ke thua duoc xem) - phai khop dung effectiveModules() o
+  // backend/src/lib/moduleAccess.ts, khong co co che dung chung giua 2 codebase nen phai tu dong bo
+  // tay.
+  if (role !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh)) {
     allowedModules = [...new Set([...allowedModules, "dat-mua-lk", "tra-hang"])];
+  }
+  if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
+    allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
   }
   const [active, setActive] = useState(() => {
     const saved = localStorage.getItem(ACTIVE_MODULE_KEY);
@@ -79,6 +86,10 @@ function MainApp({
   });
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Slot dung chung de vai module (Quan ly ton/Ca thieu linh kien) "portal" bo loc rieng cua ho len
+  // chung dong voi tieu de trang thay vi 1 hang rieng ben duoi - dung state (khong phai ref thuong)
+  // vi createPortal can node DOM THAT SU da gan vao cay (khong the truyen ref rong luc render dau).
+  const [headerExtraEl, setHeaderExtraEl] = useState<HTMLDivElement | null>(null);
   // Stack (khong phai 1 gia tri don) de ho tro nut "Quay lai" khi nguoi dung nhay giua cac ca
   // lien quan (vd: chuoi lich su Ca lap) - openCase() bat dau 1 phien MOI (reset stack), con
   // pushCase() chi dung khi dieu huong TU BEN TRONG popup chi tiet ca (khong reset lich su).
@@ -89,6 +100,9 @@ function MainApp({
   const [caseStack, setCaseStack] = useState<{ id: string; viewMode: "compact" | "expanded"; tab: string }[]>([]);
   const addToast = useToast();
   const dailyReportShown = useRef(false);
+  // Theo doi GreetingPopup dang hien hay khong - TranhChapMentionPopup can biet de xep BEN DUOI thay
+  // vi tu tao lop nen rieng (chot 2026-08-20, xem TranhChapMentionPopup.tsx).
+  const [greetingVisible, setGreetingVisible] = useState(false);
 
   // Kich hoat dong bo NGAM du lieu mua hang/bao hanh/xu ly thieu hang (Google Sheet -> cache
   // trinh duyet, xem hooks/usePurchaseWarrantyData.ts) ngay sau khi dang nhap - khong cho ket qua o
@@ -206,7 +220,12 @@ function MainApp({
     <div className="flex min-h-screen">
       {/* Tai khoan "chi Dat mua linh kien" khong nhan loi chao/nhac nho danh cho nhan vien noi bo -
           chot 2026-08-14. */}
-      {!laTaiKhoanMuaHangThuanTuy && <GreetingPopup />}
+      {!laTaiKhoanMuaHangThuanTuy && <GreetingPopup onVisibleChange={setGreetingVisible} />}
+      {/* CHOT 2026-08-20: chi hien voi tai khoan co module "tranh-chap" - xep BEN DUOI GreetingPopup
+          neu ca 2 cung trigger (xem TranhChapMentionPopup.tsx). */}
+      {!laTaiKhoanMuaHangThuanTuy && allowedModules.includes("tranh-chap") && (
+        <TranhChapMentionPopup userEmail={user.email} stackedBelowGreeting={greetingVisible} onNavigateToTranhChap={() => setActive("tranh-chap")} />
+      )}
       <Sidebar
         active={active}
         setActive={setActive}
@@ -225,13 +244,26 @@ function MainApp({
           onNavigate={setActive}
         />
         <main className="p-3 sm:p-5 flex-1">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)]">{MODULE_TITLES[active]}</h1>
+          {/* SUA BUG (phan hoi 2026-08-19 #2, "xem full luồng quy trình bị tràn màn hình"): them
+              min-w-0 tren ca 2 cap flex-item boc slot headerExtra - thieu no khien noi dung portal
+              vao day (vd PipelineFlow o trang thai mo rong) khong the shrink/tu cuon ben trong, day
+              tran ra ngoai ca trang thay vi cuon ngang gon trong khung. */}
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-3 flex-wrap min-w-0">
+              {/* SUA (phan hoi 2026-08-19: "Bỏ tiêu đề module... thay vào đó là button 'Việc của tôi:
+                  N'") - CHI an h1 khi active==="dat-mua-lk"; module do tu portal nut thay the vao
+                  DUNG vi tri nay qua headerExtraEl (xem DatMuaLinhKienModule.tsx titleButtonEl). Moi
+                  module khac (ke ca forceView="tra-hang", 1 active key rieng) khong doi. */}
+              {active !== "dat-mua-lk" && (
+                <h1 className="font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)]">{MODULE_TITLES[active]}</h1>
+              )}
+              <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
+            </div>
           </div>
           {active === "dashboard" && <DashboardModule onNavigate={setActive} />}
           {active === "revenue" && <RevenueModule />}
-          {active === "backlog" && <BacklogModule openCase={openCase} />}
-          {active === "missing-parts" && <MissingPartsModule openCase={openCase} />}
+          {active === "backlog" && <BacklogModule openCase={openCase} headerExtra={headerExtraEl} />}
+          {active === "missing-parts" && <MissingPartsModule openCase={openCase} headerExtra={headerExtraEl} />}
           {active === "tranh-chap" && <TranhChapModule openCase={openCase} />}
           {active === "nap-gas" && <NapGasModule openCase={openCase} />}
           {active === "survey" && <SurveyModule openCase={openCase} />}
@@ -241,8 +273,9 @@ function MainApp({
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}
           {active === "giao-dien" && <ThemeModule />}
-          {active === "dat-mua-lk" && <DatMuaLinhKienModule openCase={openCase} />}
-          {active === "tra-hang" && <DatMuaLinhKienModule forceView="tra-hang" openCase={openCase} />}
+          {active === "dat-mua-lk" && <DatMuaLinhKienModule openCase={openCase} headerExtra={headerExtraEl} />}
+          {active === "tra-hang" && <DatMuaLinhKienModule forceView="tra-hang" openCase={openCase} headerExtra={headerExtraEl} />}
+          {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
         </main>
       </div>
       <CaseDetail

@@ -12,6 +12,10 @@ import { parseModulesColumn } from "../lib/moduleAccess";
 const users = new Hono<{ Bindings: Env }>();
 users.use("*", verifySessionMiddleware, loadUser, requireRole("Admin"));
 
+// Vai tro KHONG lien quan nghiep vu linh kien - xem_danh_muc_lk mac dinh false cho nhom nay (con
+// lai mac dinh true), xem migration 0084 + logic auto-derive trong PATCH /:email ben duoi.
+const VAI_TRO_KHONG_XEM_DANH_MUC_LK: VaiTro[] = ["CSKH", "TN CSKH", "TBP CSKH"];
+
 // GET /api/users?tab=cho-duyet|da-duyet|da-duyet-chua-vai-tro|mua-hang&search=&vai_tro=
 users.get("/", async (c) => {
   const tab    = c.req.query("tab") ?? "cho-duyet";
@@ -27,7 +31,7 @@ users.get("/", async (c) => {
     conditions.push("trang_thai_duyet = 'Da duyet'");
     conditions.push("(vai_tro IS NULL OR vai_tro = '')");
   } else if (tab === "mua-hang") {
-    conditions.push("(la_ktv_dvbh = 1 OR la_ve_tinh = 1 OR la_kho = 1 OR la_ke_toan = 1)");
+    conditions.push("(la_ktv_dvbh = 1 OR la_ve_tinh = 1 OR la_kho = 1 OR la_ke_toan = 1 OR la_tac_nghiep = 1 OR la_tp_dvbh = 1)");
   } else {
     conditions.push("trang_thai_duyet != 'Cho duyet'");
   }
@@ -48,6 +52,7 @@ users.get("/", async (c) => {
   const rows = (results as Record<string, unknown>[]).map((r) => ({
     ...r,
     khu_vuc_phu_trach: fromJsonArray(r.khu_vuc_phu_trach as string | null),
+    khu_vuc_duoc_xem: fromJsonArray(r.khu_vuc_duoc_xem as string | null),
     modules: parseModulesColumn(r.modules as string | null),
   }));
 
@@ -90,6 +95,9 @@ users.patch("/:email", async (c) => {
     // trang_thai_duyet, khong phai vai_tro).
     vai_tro?: VaiTro | null;
     khu_vuc_phu_trach?: string[];
+    // Khu vuc CHI XEM, khong tinh vao bao cao/attribution - xem migration 0095_khu_vuc_duoc_xem.sql
+    // + middleware/scopeByKhuVuc.ts.
+    khu_vuc_duoc_xem?: string[];
     la_ksnb_doi_tac?: boolean;
     // undefined = khong doi, null = reset ve mac dinh theo vai_tro, mang = danh sach tuy chinh.
     modules?: string[] | null;
@@ -102,6 +110,10 @@ users.patch("/:email", async (c) => {
     la_ve_tinh?: boolean;
     la_kho?: boolean;
     la_ke_toan?: boolean;
+    la_tac_nghiep?: boolean;
+    la_tp_dvbh?: boolean;
+    quan_ly_danh_muc_lk?: boolean;
+    xem_danh_muc_lk?: boolean;
     tram_cha?: string | null;
     giam_sat_quan_ly?: string | null;
   }>();
@@ -113,11 +125,23 @@ users.patch("/:email", async (c) => {
   const existing = await c.env.DB.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
+  const nextVaiTro = body.vai_tro !== undefined ? body.vai_tro : (existing.vai_tro as VaiTro | null);
+  // Auto-derive xem_danh_muc_lk khi vai_tro doi VA admin khong tu tay set trong cung request nay -
+  // xem migration 0084 (mac dinh true, tru CSKH/TN CSKH/TBP CSKH).
+  const derivedXemDanhMucLk =
+    body.xem_danh_muc_lk !== undefined
+      ? (body.xem_danh_muc_lk ? 1 : 0)
+      : body.vai_tro !== undefined
+        ? (nextVaiTro && VAI_TRO_KHONG_XEM_DANH_MUC_LK.includes(nextVaiTro) ? 0 : 1)
+        : existing.xem_danh_muc_lk;
+
   const next = {
     trang_thai_duyet: body.trang_thai_duyet ?? existing.trang_thai_duyet,
-    vai_tro: body.vai_tro !== undefined ? body.vai_tro : existing.vai_tro,
+    vai_tro: nextVaiTro,
     khu_vuc_phu_trach:
       body.khu_vuc_phu_trach !== undefined ? toJsonArray(body.khu_vuc_phu_trach) : existing.khu_vuc_phu_trach,
+    khu_vuc_duoc_xem:
+      body.khu_vuc_duoc_xem !== undefined ? toJsonArray(body.khu_vuc_duoc_xem) : existing.khu_vuc_duoc_xem,
     la_ksnb_doi_tac: body.la_ksnb_doi_tac !== undefined ? (body.la_ksnb_doi_tac ? 1 : 0) : existing.la_ksnb_doi_tac,
     modules: body.modules !== undefined ? (body.modules === null ? null : JSON.stringify(body.modules)) : existing.modules,
     bi_khoa: body.bi_khoa !== undefined ? (body.bi_khoa ? 1 : 0) : existing.bi_khoa,
@@ -127,17 +151,22 @@ users.patch("/:email", async (c) => {
     la_ve_tinh: body.la_ve_tinh !== undefined ? (body.la_ve_tinh ? 1 : 0) : existing.la_ve_tinh,
     la_kho: body.la_kho !== undefined ? (body.la_kho ? 1 : 0) : existing.la_kho,
     la_ke_toan: body.la_ke_toan !== undefined ? (body.la_ke_toan ? 1 : 0) : existing.la_ke_toan,
+    la_tac_nghiep: body.la_tac_nghiep !== undefined ? (body.la_tac_nghiep ? 1 : 0) : existing.la_tac_nghiep,
+    la_tp_dvbh: body.la_tp_dvbh !== undefined ? (body.la_tp_dvbh ? 1 : 0) : existing.la_tp_dvbh,
+    quan_ly_danh_muc_lk: body.quan_ly_danh_muc_lk !== undefined ? (body.quan_ly_danh_muc_lk ? 1 : 0) : existing.quan_ly_danh_muc_lk,
+    xem_danh_muc_lk: derivedXemDanhMucLk,
     tram_cha: body.tram_cha !== undefined ? (body.tram_cha ?? null) : existing.tram_cha,
     giam_sat_quan_ly: body.giam_sat_quan_ly !== undefined ? (body.giam_sat_quan_ly ?? null) : existing.giam_sat_quan_ly,
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, la_ksnb_doi_tac = ?, modules = ?, bi_khoa = ?, co_the_import_tranh_chap = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, tram_cha = ?, giam_sat_quan_ly = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, khu_vuc_duoc_xem = ?, la_ksnb_doi_tac = ?, modules = ?, bi_khoa = ?, co_the_import_tranh_chap = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, tram_cha = ?, giam_sat_quan_ly = ?, updated_at = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
       next.vai_tro,
       next.khu_vuc_phu_trach,
+      next.khu_vuc_duoc_xem,
       next.la_ksnb_doi_tac,
       next.modules,
       next.bi_khoa,
@@ -146,6 +175,10 @@ users.patch("/:email", async (c) => {
       next.la_ve_tinh,
       next.la_kho,
       next.la_ke_toan,
+      next.la_tac_nghiep,
+      next.la_tp_dvbh,
+      next.quan_ly_danh_muc_lk,
+      next.xem_danh_muc_lk,
       next.tram_cha,
       next.giam_sat_quan_ly,
       nowVN(),

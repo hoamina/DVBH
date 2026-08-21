@@ -13,14 +13,17 @@ const EXIT_ANIM_MS = 200;
 // Popup chao mung ngau nhien (GIF + loi chao, quan ly qua Settings > "Loi chao") khi dang nhap/mo
 // lai web - CHOT 2026-08-02. Chi tinh nang trang tri: bat ky loi gi (mang, danh sach rong) deu chi
 // lam popup khong hien, khong bao gio chan trai nghiem con lai (dung nguyen tac voi Greeting.tsx).
-function GreetingPopupInner() {
-  const { data: gifData } = useQuery({
+// "onVisibleChange" (them 2026-08-20, mac dinh khong dung) - bao cho component cha biet popup nay
+// CO dang hien tren man hinh hay khong, dung de TranhChapMentionPopup quyet dinh xep BEN DUOI popup
+// nay (neu dang hien) hay tu hien rieng (neu khong) - xem App.tsx.
+function GreetingPopupInner({ onVisibleChange }: { onVisibleChange?: (visible: boolean) => void }) {
+  const { data: gifData, isError: gifError } = useQuery({
     queryKey: ["settings-greeting-gif"],
     queryFn: () => api.get<{ rows: GreetingGifRow[] }>("/settings/greeting-gif"),
     staleTime: 30 * 60_000,
     retry: false,
   });
-  const { data: messageData } = useQuery({
+  const { data: messageData, isError: messageError } = useQuery({
     queryKey: ["settings-greeting-message"],
     queryFn: () => api.get<{ rows: GreetingMessageRow[] }>("/settings/greeting-message"),
     staleTime: 30 * 60_000,
@@ -33,17 +36,24 @@ function GreetingPopupInner() {
 
   useEffect(() => {
     if (triggered.current) return;
+    if (gifError || messageError) {
+      triggered.current = true;
+      onVisibleChange?.(false);
+      return;
+    }
     if (!gifData || !messageData) return;
     // sessionStorage: xoa khi dong tab/trinh duyet - khop dung "dang nhap hoac mo lai web" (1 lan
     // moi phien tab), khong hien lai o moi lan refresh/dieu huong noi bo trong cung phien.
     if (sessionStorage.getItem(SESSION_KEY)) {
       triggered.current = true;
+      onVisibleChange?.(false);
       return;
     }
     const gifs = gifData.rows.filter((r) => r.bat_tat);
     const messages = messageData.rows.filter((r) => r.bat_tat);
     if (gifs.length === 0 || messages.length === 0) {
       triggered.current = true;
+      onVisibleChange?.(false);
       return;
     }
     triggered.current = true;
@@ -52,7 +62,8 @@ function GreetingPopupInner() {
     const message = messages[Math.floor(Math.random() * messages.length)].noi_dung;
     setPicked({ gif, message });
     setVisible(true);
-  }, [gifData, messageData]);
+    onVisibleChange?.(true);
+  }, [gifData, messageData, gifError, messageError]);
 
   const shownAt = useRef(0);
   // Dung chung cho ca listener "phim bat ky" (duoi) lan click tren overlay (PopupShell ben duoi) -
@@ -62,7 +73,10 @@ function GreetingPopupInner() {
   }
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      onVisibleChange?.(false);
+      return;
+    }
     shownAt.current = Date.now();
     const autoTimer = setTimeout(() => setVisible(false), AUTO_DISMISS_MS);
     // Sau EARLY_DISMISS_GRACE_MS: bat ky phim nao (khong chi Escape) deu dong ngay - "an bat ky
@@ -112,13 +126,13 @@ function PopupShell({ visible, gif, message, onDismiss }: { visible: boolean; gi
   );
 }
 
-class GreetingPopupErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+class GreetingPopupErrorBoundary extends Component<{ children: ReactNode; onFailed?: () => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
   componentDidCatch() {
-    /* nuot loi - tinh nang phu, khong bao cao len */
+    this.props.onFailed?.();
   }
   render() {
     if (this.state.failed) return null;
@@ -126,10 +140,10 @@ class GreetingPopupErrorBoundary extends Component<{ children: ReactNode }, { fa
   }
 }
 
-export function GreetingPopup() {
+export function GreetingPopup({ onVisibleChange }: { onVisibleChange?: (visible: boolean) => void } = {}) {
   return (
-    <GreetingPopupErrorBoundary>
-      <GreetingPopupInner />
+    <GreetingPopupErrorBoundary onFailed={() => onVisibleChange?.(false)}>
+      <GreetingPopupInner onVisibleChange={onVisibleChange} />
     </GreetingPopupErrorBoundary>
   );
 }

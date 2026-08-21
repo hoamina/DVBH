@@ -20,8 +20,14 @@ export const BUSINESS_FIELDS = [
   "link_hinh_anh",
 ] as const;
 
+// CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
+// boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
+// ratchetNghiNgoTranhChap() ben duoi) de phan biet "AI phat hien, cho xac nhan" (2) voi "da xac nhan
+// that" (1) va "da tu choi" (3) - xu ly rieng trong importProcessor.ts, KHONG di qua vong lap chung
+// cua VIOLATION_FIELDS nua (nhung van giu "Nghi ngờ tranh chấp" trong COLUMN_MAP ben duoi, chi doi
+// cach normalize/ratchet gia tri).
 export const VIOLATION_FIELDS = [
-  "loi_120p", "loi_qua_han_24h", "loi_lo_ke_hoach", "loi_kh_hen_lai", "nghi_ngo_nap_gas", "nghi_ngo_tranh_chap",
+  "loi_120p", "loi_qua_han_24h", "loi_lo_ke_hoach", "loi_kh_hen_lai", "nghi_ngo_nap_gas",
 ] as const;
 
 // Ten cot Excel (tieng Viet co dau) -> ten cot chuan hoa trong DB
@@ -88,6 +94,34 @@ export function normalizeViolationFlag(rawValue: unknown): boolean {
 export function ratchetFlag(currentDbValue: boolean, importValue: boolean): boolean {
   if (currentDbValue === true) return true; // da true thi giu nguyen
   return importValue === true;
+}
+
+/** "nghi_ngo_tranh_chap" co 4 trang thai (khac 5 cot VIOLATION_FIELDS con lai chi co boolean 0/1):
+ *   0 = khong co gi
+ *   1 = XAC NHAN la tranh chap that (tu CRM/import bao that, giong nghia cu 100%, HOAC sau khi con
+ *       nguoi xac nhan "Dung la tranh chap" tu trang thai 2)
+ *   2 = AI phat hien, DANG CHO xac nhan thu cong (CHOT 2026-08-20 - xem tab "Cho xac nhan AI")
+ *   3 = DA TU CHOI ("Khong phai tranh chap") - khoa vinh vien, khong bao gio tu dong quay lai 2 hay 1
+ *       du import/AI phat hien lai nhieu lan (quyet dinh nguoi dung: tranh nhac lai vo han 1 ca da
+ *       duoc xac nhan sai)
+ * Import raw gui "1"/1/true/"TRUE" (dung format cu) -> xac nhan that; gui 2/"2" -> AI phat hien.
+ */
+export function normalizeNghiNgoTranhChapRaw(rawValue: unknown): 0 | 1 | 2 {
+  if (normalizeViolationFlag(rawValue)) return 1;
+  if (rawValue === 2 || rawValue === "2") return 2;
+  return 0;
+}
+
+/** currentDbValue: gia tri hien co trong DB (0/1/2/3, doc tho tu cot). 1 va 3 la 2 trang thai "chot"
+ * (da xac nhan that / da tu choi) - ca 2 deu khoa vinh vien, import sau khong the tu dong doi lai. Tu
+ * 0 hoac 2 (chua chot), import bao 1 -> len thang 1 (khong can qua buoc xac nhan thu cong neu chinh
+ * CRM/import da khang dinh la that); import bao 2 -> (hoac giu) 2; import bao 0 -> giu nguyen hien
+ * trang (khong tu dong "quen" 1 ca AI da tung phat hien nhung chua ai xac nhan). */
+export function ratchetNghiNgoTranhChap(currentDbValue: number, incomingRaw: 0 | 1 | 2): number {
+  if (currentDbValue === 1 || currentDbValue === 3) return currentDbValue;
+  if (incomingRaw === 1) return 1;
+  if (incomingRaw === 2) return 2;
+  return currentDbValue;
 }
 
 // "Tinh vao KPIs" - cot moi thay logic cu "KHONG TINH" (xem migration 0011). Mac dinh CO tinh

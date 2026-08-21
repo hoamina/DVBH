@@ -10,6 +10,7 @@ import { useAuth } from "../auth/AuthContext";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { ImportUploader, describeError } from "../components/ImportUploader";
 import { Select } from "../components/ui/Select";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 
 interface CrmSummary {
   GHI_MOI: number;
@@ -70,6 +71,7 @@ const TABS = [
 // invalidateQueries({queryKey: ["import-history"]}) (khong "exact") van tu dong invalidate DUNG bien
 // the loai dang xem, khong can sua invalidateKeys o cac noi goi ImportUploader/mutation dong bo.
 function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileName: string }) {
+  const personDir = usePersonDirectory();
   const { data: history } = useQuery({
     queryKey: ["import-history", loai],
     queryFn: () => api.get<{ rows: ImportHistoryRow[] }>(`/import/history${buildQuery({ loai })}`),
@@ -118,7 +120,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
             {(history?.rows ?? []).map((h) => (
               <tr key={h.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
                 <td className="py-2 pr-3 font-mono text-xs">{h.ten_file}</td>
-                <td className="py-2 pr-3">{h.nguoi_import}</td>
+                <td className="py-2 pr-3">{formatPersonDisplay(h.nguoi_import, personDir)}</td>
                 <td className="py-2 pr-3 text-xs">{h.thoi_gian}</td>
                 <td className="py-2 pr-3 font-mono text-[var(--teal-500)]">{h.ghi_moi}</td>
                 <td className="py-2 pr-3 font-mono text-[var(--ocean-600)]">{h.ghi_de}</td>

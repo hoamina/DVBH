@@ -16,12 +16,13 @@ import type { Env } from "../types";
  *   moi Ve tinh thuoc tram + don tao ho minh.
  * - Ve tinh (la_ve_tinh): don minh tao + don tao ho minh.
  * - GS (vai_tro='Giam sat'): don co dat_don_hang.email_gs = email minh (chi de theo doi, khong duyet).
- * - TN (TBP DVBH/Admin), Kho (la_kho), Ke toan (la_ke_toan): xem toan bo (loc rieng theo buoc xu ly
- *   o tung endpoint, khong loc o day).
+ * - TN (la_tac_nghiep, doc lap khoi vai_tro - xem migration 0081), TBP (la_tp_dvbh, xac nhan linh
+ *   kien dac thu - xem migration 0082), Kho (la_kho), Ke toan (la_ke_toan): xem toan bo (loc rieng
+ *   theo buoc xu ly o tung endpoint, khong loc o day).
  */
 export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
   const user = c.get("user");
-  if (user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan) {
+  if (user.la_tac_nghiep || user.la_tp_dvbh || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan) {
     return null; // khong gioi han - QC them vao buoc 1 ke hoach "Luong tao don mua hang" (nen tang cho luong tra hang QC xac nhan)
   }
   if (user.vai_tro === "Giam sat") {
@@ -31,6 +32,33 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
     return {
       whereSql: " AND (ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ddh.nguoi_tao IN (SELECT email FROM users WHERE tram_cha = ?))",
       binds: [user.email, user.email, user.email],
+    };
+  }
+  return { whereSql: " AND 1=0", binds: [] };
+}
+
+/**
+ * RA SOAT BAO MAT 2026-08-18 (phan hoi Codex): scope rieng cho phieu_xuat_kho (alias BAT BUOC la
+ * "pxk") - truoc day GET /phieu-xuat-kho va GET /phieu-xuat-kho/:id hoan toan khong loc, moi nguoi
+ * trong module (ke ca 1 KTV) xem duoc gia/cong no/ma MISA/bang chung chuyen tien cua TOAN BO PXK he
+ * thong. Dung cung nguyen tac quan he nhu scopeDatMuaNguoiTao() nhung doc truc tiep tren cot
+ * pxk.nguoi_nhan_hang (phieu_xuat_kho khong co nguoi_tao/email_gs rieng nhu dat_don_hang).
+ * la_tp_dvbh KHONG nam trong tap unrestricted (buoc "TBP xac nhan dac thu" xay ra TRUOC khi co PXK,
+ * khong co quan he truc tiep voi phieu_xuat_kho) - se roi vao nhanh "tra ve 1=0" o cuoi neu ho khong
+ * dong thoi co 1 co khac (vd la_ktv_dvbh).
+ */
+export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
+  const user = c.get("user");
+  if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.vai_tro === "Admin" || user.vai_tro === "QC") {
+    return null; // khong gioi han
+  }
+  if (user.vai_tro === "Giam sat") {
+    return { whereSql: " AND pxk.nguoi_nhan_hang IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?)", binds: [user.email] };
+  }
+  if (user.la_ktv_dvbh || user.la_ve_tinh) {
+    return {
+      whereSql: " AND (pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN (SELECT email FROM users WHERE tram_cha = ?))",
+      binds: [user.email, user.email],
     };
   }
   return { whereSql: " AND 1=0", binds: [] };

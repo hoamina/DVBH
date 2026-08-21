@@ -11,6 +11,12 @@ export interface AppUser {
   gioi_tinh: GioiTinh | null;
   vai_tro: VaiTro | null;
   khu_vuc_phu_trach: string[];
+  // Khu vuc CHI XEM (khong tinh vao bao cao/attribution) - CHOT 2026-08-20, xem migration
+  // 0095_khu_vuc_duoc_xem.sql. Hien chi co y nghia voi vai_tro="Giam sat": scopeByKhuVuc.ts hop
+  // nhat truong nay voi khu_vuc_phu_trach de mo rong pham vi XEM, nhung cac truy van tinh "thẻ
+  // khảo sát"/leaderboard vi pham theo giam sat phu trach (routes/viPham.ts, lib/dailyReport.ts,
+  // lib/dailySnapshot.ts) tiep tuc chi doc khu_vuc_phu_trach - KHONG duoc doc truong nay o do.
+  khu_vuc_duoc_xem: string[];
   trang_thai_duyet: TrangThaiDuyet;
   // Danh dau "KSNB Doi tac" cho tinh nang tranh chap - TACH KHOI vai_tro vi users.vai_tro CHECK
   // chua ho tro gia tri nay (xem migration 0035_tranh_chap_tien_trinh.sql). Nguoi dung van giu 1
@@ -36,6 +42,25 @@ export interface AppUser {
   la_ve_tinh: boolean;         // Ve tinh (nhan vien noi bo Tram)
   la_kho: boolean;             // Nhan vien Kho
   la_ke_toan: boolean;         // Ke toan
+  // Nguoi duyet don mua/PXK/tra hang ("TN") - CHOT 2026-08-16, xem migration
+  // 0081_dat_mua_lk_tac_nghiep.sql. Tach doc lap khoi vai_tro="TBP DVBH" (giong pattern la_kho/
+  // la_ke_toan o tren), KHONG con tu dong suy tu vai_tro nua - Admin luon bypass qua vai_tro,
+  // con lai phai duoc tick rieng qua UsersModule.tsx.
+  la_tac_nghiep: boolean;
+  // Xac nhan "linh kien dac thu" truoc buoc Tac nghiep (TN) trong luong dat mua linh kien - CHOT
+  // 2026-08-17, xem migration 0082_linh_kien_dac_thu_tp_dvbh.sql. DOC LAP khoi vai_tro="TBP DVBH"
+  // (dung pattern la_tac_nghiep o tren) - day la 1 vai tro tac nghiep RIENG cho dung buoc nay,
+  // khong phai vai tro phong ban chinh.
+  la_tp_dvbh: boolean;
+  // Quyen SUA module "Danh muc linh kien" (them/sua linh kien, dong bo Sheet...) - CHOT 2026-08-17,
+  // xem migration 0082. Thay the requireRole("Admin","TBP DVBH","Giam sat") cu (da lech sau khi
+  // tach la_tac_nghiep khoi vai_tro o migration 0081). Admin luon bypass qua vai_tro. TACH KHOI
+  // xem_danh_muc_lk (quyen XEM) tu migration 0084 - truoc do 1 co gom ca xem lan sua.
+  quan_ly_danh_muc_lk: boolean;
+  // Quyen XEM module "Danh muc linh kien" - doc lap voi quan_ly_danh_muc_lk (quyen sua). Mac dinh
+  // true cho moi user TRU CSKH/TN CSKH/TBP CSKH (xem migration 0084 + auto-derive khi doi vai_tro
+  // trong routes/users.ts). quan_ly_danh_muc_lk=true cung ke thua duoc xem (xem effectiveModules()).
+  xem_danh_muc_lk: boolean;
   tram_cha: string | null;     // email Tram cha (chi khi la_ve_tinh=true)
   giam_sat_quan_ly: string | null; // email GS phu trach 1-1
 }
@@ -57,6 +82,11 @@ export interface Env {
   GOOGLE_DRIVE_SA_EMAIL: string;
   GOOGLE_DRIVE_SA_PRIVATE_KEY: string;
   GOOGLE_DRIVE_FOLDER_ID: string;
+  // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login) - bo qua Google
+  // OAuth that vi .dev.vars dung GOOGLE_CLIENT_ID gia (xem secrets.md muc 1). KHONG duoc dat bien nay
+  // trong wrangler.jsonc/wrangler.smarttrade.jsonc (production) - optional nen mac dinh undefined ==
+  // route tra 404, an toan tuyet doi voi production du co vo tinh deploy nham code nay.
+  LOCAL_DEV_BYPASS_AUTH?: string;
 }
 
 // QC them vao 2026-07-29: HANDOFF.md ghi "QC (nhu Viewer + chot/bo vi pham cap 2)" - truoc do QC

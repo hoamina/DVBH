@@ -3,11 +3,12 @@ import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
+import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
-import { autoClaimGs } from "../lib/scopeDatMua";
+import { autoClaimGs, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
 import { uploadToDrive } from "../lib/googleDrive";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
@@ -23,7 +24,7 @@ import { uploadToDrive } from "../lib/googleDrive";
 // (cot so_tien_can_chuyen/trang_thai_chuyen_tien/...), khong phai 1 buoc trong chuoi trang_thai
 // chinh - chan luc chuyen "Dang tao phieu" -> "Cho ke toan" (xem POST /:id/log).
 const phieuXuatKho = new Hono<{ Bindings: Env }>();
-phieuXuatKho.use("*", verifySessionMiddleware, loadUser);
+phieuXuatKho.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
 
 const TRANG_THAI_DONG = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc"] as const;
 
@@ -41,7 +42,7 @@ function latestDonHangLogStatusExpr(donHangIdCol: string): string {
 
 function canTacNghiep(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
-  return user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
+  return !!user.la_tac_nghiep || user.vai_tro === "Admin";
 }
 
 function canKeToan(c: Context<{ Bindings: Env }>): boolean {
@@ -54,17 +55,27 @@ function canKho(c: Context<{ Bindings: Env }>): boolean {
   return !!user.la_kho || user.vai_tro === "Admin";
 }
 
-// GET /api/phieu-xuat-kho?trang_thai= - danh sach. Khong gioi han theo nguoi dung o day (TN/Kho/Ke
-// toan deu can nhin toan bo de theo doi giao hang, KTV xem qua tab "Don cua toi" o dat-mua-lk thay
-// vi truy cap truc tiep endpoint nay).
+// GET /api/phieu-xuat-kho?trang_thai= - danh sach. TN/Kho/Ke toan/QC/Admin xem toan bo (can theo doi
+// giao hang toan he thong); KTV/Ve tinh/Giam sat bi gioi han qua scopePxkNguoiNhanHang (RA SOAT BAO
+// MAT 2026-08-18, phan hoi Codex: truoc day KHONG gioi han cho AI ca, lo gia/cong no/ma MISA/bang
+// chung chuyen tien toan he thong cho moi tai khoan trong module).
 phieuXuatKho.get("/", async (c) => {
+  const scope = scopePxkNguoiNhanHang(c);
   const trangThai = c.req.query("trang_thai");
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
   const loaiDon = c.req.query("loai_don");
-  let whereSql = "1=1";
-  const binds: unknown[] = [];
+  // GD4 (phan hoi Codex #17): endpoint nay truoc day tra VE TOAN BO dong khop bo loc, frontend tu
+  // slice 20 dong/trang o client - moi lan doi trang van tai lai het du lieu tu D1. Them phan trang
+  // server-side, cung pattern voi GET /dat-mua-lk/don-hang.
+  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+  let whereSql = "1=1" + (scope?.whereSql ?? "");
+  const binds: unknown[] = [...(scope?.binds ?? [])];
   if (trangThai) {
-    whereSql += ` AND ${latestStatusExpr("pxk.id")} = ?`;
+    // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11/#13, migration 0087+0088): doc thang cot
+    // trang_thai_hien_tai (co index idx_pxk_trang_thai_nhan_hang) thay vi correlated subquery.
+    whereSql += " AND pxk.trang_thai_hien_tai = ?";
     binds.push(trangThai);
   }
   if (nguoiNhanHang) {
@@ -76,17 +87,25 @@ phieuXuatKho.get("/", async (c) => {
     binds.push(loaiDon);
   }
 
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM phieu_xuat_kho pxk WHERE ${whereSql}`)
+    .bind(...binds)
+    .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.ma_xuat_kho, pxk.ma_xuat_kho_xac_nhan, pxk.ma_misa, pxk.ma_van_don, pxk.anh_bien_ban_url,
        pxk.nguoi_tao, pxk.ngay_tao, pxk.ghi_chu, pxk.nguoi_nhan_hang, pxk.loai_don,
        pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien,
-       ${latestStatusExpr("pxk.id")} as trang_thai,
-       (SELECT COUNT(*) FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = pxk.id) as so_dong
-     FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao DESC`,
+       pxk.trang_thai_hien_tai as trang_thai,
+       (SELECT COUNT(*) FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = pxk.id) as so_dong,
+       EXISTS(
+         SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
+         WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh.uu_tien = 1
+       ) as co_don_uu_tien
+     FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao DESC
+     LIMIT ? OFFSET ?`,
   )
-    .bind(...binds)
+    .bind(...binds, pageSize, offset)
     .all();
-  return c.json({ rows: results });
+  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
 // GET /api/phieu-xuat-kho/don-hang-kha-dung - danh sach dong dat_don_hang DA "TN da duyet" VA CHUA
@@ -180,8 +199,8 @@ phieuXuatKho.post("/", async (c) => {
 
   const statements = [
     c.env.DB.prepare(
-      "INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).bind(id, maXuatKho, maXacNhan, user.email, now, body.ghi_chu?.trim() || null, coChuyenTien ? body.so_tien_can_chuyen : null, coChuyenTien ? "Cho KTV chuyen" : null, nguoiNhanHang, body.loai_don),
+      "INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).bind(id, maXuatKho, maXacNhan, user.email, now, body.ghi_chu?.trim() || null, coChuyenTien ? body.so_tien_can_chuyen : null, coChuyenTien ? "Cho KTV chuyen" : null, nguoiNhanHang, body.loai_don, "Dang tao phieu"),
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(
       id,
       "Dang tao phieu",
@@ -199,11 +218,16 @@ phieuXuatKho.post("/", async (c) => {
   return c.json({ id }, 201);
 });
 
-// GET /api/phieu-xuat-kho/:id - chi tiet + dong don hang + log.
+// GET /api/phieu-xuat-kho/:id - chi tiet + dong don hang + log. Ap dung scopePxkNguoiNhanHang giong
+// GET / (RA SOAT BAO MAT 2026-08-18) - tra 404 (khong phai 403) khi ngoai pham vi, tranh lo cho
+// nguoi ngoai pham vi biet 1 ID PXK co that su ton tai hay khong.
 phieuXuatKho.get("/:id", async (c) => {
   const id = c.req.param("id");
-  const pxk = await c.env.DB.prepare(`SELECT pxk.*, ${latestStatusExpr("pxk.id")} as trang_thai FROM phieu_xuat_kho pxk WHERE pxk.id = ?`)
-    .bind(id)
+  const scope = scopePxkNguoiNhanHang(c);
+  const whereSql = "pxk.id = ?" + (scope?.whereSql ?? "");
+  const binds = [id, ...(scope?.binds ?? [])];
+  const pxk = await c.env.DB.prepare(`SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho pxk WHERE ${whereSql}`)
+    .bind(...binds)
     .first();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -238,7 +262,14 @@ phieuXuatKho.patch("/:id/ma-xuat-kho", async (c) => {
   const maXuatKho = body.ma_xuat_kho?.trim();
   if (!maXuatKho) return c.json({ error: "MISSING_MA_XUAT_KHO" }, 400);
 
-  const pxk = await c.env.DB.prepare(`SELECT ${latestStatusExpr("id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`).bind(id).first<{ trang_thai: string | null }>();
+  // BUG THAT (phat hien 2026-08-18 tu bao cao "khong luu duoc Ma MISA"): latestStatusExpr("id") -
+  // "id" khong qualify se bi SHADOW boi CHINH cot "id" cua phieu_xuat_kho_log (PK cua bang do) trong
+  // subquery tuong quan, thay vi tro toi id cua bang ngoai phieu_xuat_kho - pha vo tuong quan, luon
+  // tra NULL (WHERE phieu_xuat_kho_id = phieu_xuat_kho_log.id gan nhu khong bao gio dung). Cho nay
+  // "may man" khong lo vi co fallback `?? "Dang tao phieu"` khop dung trang thai that cua 1 PXK MOI
+  // TAO - phai qualify ro "phieu_xuat_kho.id" moi dung cho MOI truong hop (xem cung loi o ma-misa/
+  // anh-bien-ban/log ben duoi, cac cho KHONG co fallback nen loi lo ro hon).
+  const pxk = await c.env.DB.prepare(`SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`).bind(id).first<{ trang_thai: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   if ((pxk.trang_thai ?? "Dang tao phieu") !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
 
@@ -265,7 +296,7 @@ phieuXuatKho.patch("/:id/ma-misa", async (c) => {
   const maMisa = body.ma_misa?.trim();
   if (!maMisa) return c.json({ error: "MISSING_MA_MISA" }, 400);
 
-  const pxk = await c.env.DB.prepare(`SELECT ${latestStatusExpr("id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`).bind(id).first<{ trang_thai: string | null }>();
+  const pxk = await c.env.DB.prepare(`SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`).bind(id).first<{ trang_thai: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   if (pxk.trang_thai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
 
@@ -280,7 +311,7 @@ phieuXuatKho.post("/:id/anh-bien-ban", async (c) => {
   const id = c.req.param("id");
   const user = c.get("user");
   const pxk = await c.env.DB.prepare(
-    `SELECT nguoi_nhan_hang, ${latestStatusExpr("id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+    `SELECT nguoi_nhan_hang, ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
   )
     .bind(id)
     .first<{ nguoi_nhan_hang: string | null; trang_thai: string | null }>();
@@ -301,6 +332,32 @@ phieuXuatKho.post("/:id/anh-bien-ban", async (c) => {
   return c.json({ ok: true, url: uploaded.webViewLink });
 });
 
+// POST /api/phieu-xuat-kho/:id/bang-chung-chuyen-tien - upload BINARY THO anh bang chung chuyen
+// tien len Google Drive (phan hoi 2026-08-19: "cho phép upload ảnh") - CUNG dieu kien quyen/trang
+// thai voi nhanh "KTV da chuyen" o PATCH /:id/chuyen-tien phia tren (chi nguoi_nhan_hang hoac Admin,
+// chi khi dang "Cho KTV chuyen"), CHI upload anh va tra URL - client tu goi PATCH /:id/chuyen-tien
+// sau do de thuc su chuyen trang thai (giong 2 buoc cua "Ma xuat kho"), tranh 1 endpoint lam 2 viec.
+phieuXuatKho.post("/:id/bang-chung-chuyen-tien", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const pxk = await c.env.DB.prepare("SELECT trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?")
+    .bind(id)
+    .first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const contentType = c.req.header("Content-Type") || "image/jpeg";
+  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
+  const bytes = await c.req.arrayBuffer();
+  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
+
+  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+  const filename = `bang-chung-chuyen-tien-${id}-${Date.now()}.${ext}`;
+  const uploaded = await uploadToDrive(c.env, bytes, contentType, filename);
+  return c.json({ ok: true, url: uploaded.webViewLink });
+});
+
 // POST /api/phieu-xuat-kho/:id/chuyen-tien - { so_tien } TN (tao moi hoac dat lai) 1 khoan can KTV
 // chuyen - dua PXK ve "Cho KTV chuyen", xoa bang chung/ngay cu (neu dang dat lai sau khi bi tu choi).
 phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
@@ -313,7 +370,7 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
 
   await c.env.DB.prepare(
-    "UPDATE phieu_xuat_kho SET so_tien_can_chuyen = ?, trang_thai_chuyen_tien = 'Cho KTV chuyen', bang_chung_chuyen_tien_url = NULL, ngay_ktv_chuyen = NULL WHERE id = ?",
+    "UPDATE phieu_xuat_kho SET so_tien_can_chuyen = ?, trang_thai_chuyen_tien = 'Cho KTV chuyen', bang_chung_chuyen_tien_url = NULL, bang_chung_chuyen_tien_ghi_chu = NULL, ngay_ktv_chuyen = NULL WHERE id = ?",
   )
     .bind(body.so_tien, id)
     .run();
@@ -321,19 +378,30 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
 });
 
 // PATCH /api/phieu-xuat-kho/:id/chuyen-tien - { trang_thai: "KTV da chuyen" | "TN da duyet",
-// bang_chung_chuyen_tien_url? } - KTV dinh bang chung (mo, khong gioi han vai tro - giong pattern
-// cu cua phieu_so_tien), hoac TN duyet lai bang chung da dinh.
+// bang_chung_chuyen_tien_url? } - KTV dinh bang chung (CHI DUNG nguoi_nhan_hang cua chinh PXK do,
+// hoac Admin xac nhan thay - RA SOAT BAO MAT 2026-08-18 phan hoi Codex: truoc day KHONG check gi ca,
+// bat ky tai khoan da duyet nao cung PATCH duoc trang thai "da chuyen tien" kem link bang chung tuy
+// y cho PXK cua nguoi khac), hoac TN duyet lai bang chung da dinh.
 phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string }>();
-  const pxk = await c.env.DB.prepare("SELECT trang_thai_chuyen_tien FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ trang_thai_chuyen_tien: string | null }>();
+  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }>();
+  const pxk = await c.env.DB.prepare("SELECT trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
 
   if (body.trang_thai === "KTV da chuyen") {
+    const user = c.get("user");
+    if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
-    if (!body.bang_chung_chuyen_tien_url?.trim()) return c.json({ error: "MISSING_BANG_CHUNG" }, 400);
-    await c.env.DB.prepare("UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, ngay_ktv_chuyen = ? WHERE id = ?")
-      .bind(body.bang_chung_chuyen_tien_url.trim(), nowVN(), id)
+    // migration 0091 (phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển
+    // tiền") - bat buoc CO IT NHAT 1 trong 2 (anh that qua Drive HOAC ghi chu van ban), khong con
+    // bat buoc rieng URL nhu truoc.
+    if (!body.bang_chung_chuyen_tien_url?.trim() && !body.bang_chung_chuyen_tien_ghi_chu?.trim()) {
+      return c.json({ error: "MISSING_BANG_CHUNG" }, 400);
+    }
+    await c.env.DB.prepare(
+      "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, bang_chung_chuyen_tien_ghi_chu = ?, ngay_ktv_chuyen = ? WHERE id = ?",
+    )
+      .bind(body.bang_chung_chuyen_tien_url?.trim() || null, body.bang_chung_chuyen_tien_ghi_chu?.trim() || null, nowVN(), id)
       .run();
   } else if (body.trang_thai === "TN da duyet") {
     if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
@@ -359,7 +427,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ trang_thai: string; ghi_chu?: string; ma_van_don?: string }>();
   const pxk = await c.env.DB.prepare(
-    `SELECT so_tien_can_chuyen, trang_thai_chuyen_tien, ma_xuat_kho_xac_nhan, ma_misa, nguoi_nhan_hang, ${latestStatusExpr("id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+    `SELECT so_tien_can_chuyen, trang_thai_chuyen_tien, ma_xuat_kho_xac_nhan, ma_misa, nguoi_nhan_hang, version, ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
   )
     .bind(id)
     .first<{
@@ -368,6 +436,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
       ma_xuat_kho_xac_nhan: number;
       ma_misa: string | null;
       nguoi_nhan_hang: string | null;
+      version: number;
       trang_thai: string | null;
     }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
@@ -421,6 +490,15 @@ phieuXuatKho.post("/:id/log", async (c) => {
   } else {
     return c.json({ error: "INVALID_TRANG_THAI" }, 400);
   }
+
+  // RA SOAT BAO MAT 2026-08-18 (phan hoi Codex #8, migration 0087) - CAS giong applyDonHangLog, xem
+  // comment o do.
+  const casResult = await c.env.DB.prepare(
+    "UPDATE phieu_xuat_kho SET trang_thai_hien_tai = ?, version = version + 1 WHERE id = ? AND version = ?",
+  )
+    .bind(target, id, pxk.version)
+    .run();
+  if (!casResult.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
 
   await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
     .bind(id, target, user.email, nowVN(), body.ghi_chu?.trim() || null)

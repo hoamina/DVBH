@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { decryptSecret } from "./secretBox";
 
 /**
  * Upload "anh bien ban tiep nhan" (PXK, Dot 2 muc F) len Google Drive qua Service Account rieng -
@@ -67,16 +68,7 @@ async function getAccessToken(env: Env): Promise<string> {
   return json.access_token;
 }
 
-export async function uploadToDrive(
-  env: Env,
-  bytes: ArrayBuffer,
-  mimeType: string,
-  filename: string,
-): Promise<{ id: string; webViewLink: string }> {
-  const accessToken = await getAccessToken(env);
-  const metadata = { name: filename, parents: [env.GOOGLE_DRIVE_FOLDER_ID] };
-  const boundary = `dvbh-${crypto.randomUUID()}`;
-
+function buildMultipartBody(metadata: Record<string, unknown>, bytes: ArrayBuffer, mimeType: string, boundary: string): Uint8Array {
   // multipart/related thu cong (Drive KHONG chap nhan multipart/form-data cua FormData) - 2 phan:
   // JSON metadata roi den binary anh, ngan cach boundary theo dung chuan RFC 2387.
   const encoder = new TextEncoder();
@@ -88,6 +80,19 @@ export async function uploadToDrive(
   body.set(preamble, 0);
   body.set(new Uint8Array(bytes), preamble.byteLength);
   body.set(closing, preamble.byteLength + bytes.byteLength);
+  return body;
+}
+
+export async function uploadToDrive(
+  env: Env,
+  bytes: ArrayBuffer,
+  mimeType: string,
+  filename: string,
+): Promise<{ id: string; webViewLink: string }> {
+  const accessToken = await getAccessToken(env);
+  const metadata = { name: filename, parents: [env.GOOGLE_DRIVE_FOLDER_ID] };
+  const boundary = `dvbh-${crypto.randomUUID()}`;
+  const body = buildMultipartBody(metadata, bytes, mimeType, boundary);
 
   const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", {
     method: "POST",
@@ -99,4 +104,75 @@ export async function uploadToDrive(
   });
   if (!res.ok) throw new Error(`Google Drive upload failed: ${res.status} ${await res.text()}`);
   return (await res.json()) as { id: string; webViewLink: string };
+}
+
+/**
+ * Upload "anh minh hoa" cua Danh muc linh kien qua OAuth uy quyen 1 tai khoan Google THAT (xem
+ * routes/settings.ts phan "Google Drive OAuth") - KHONG dung Service Account nhu uploadToDrive() o
+ * tren. Ly do: Service Account khong co storage quota rieng, Google tra ve 403
+ * "Service Accounts do not have storage quota" cho moi file no tao ra tru khi dich la 1 Shared
+ * Drive (yeu cau Google Workspace tra phi) - da xac nhan truc tiep qua API 2026-08-17. Khi uy
+ * quyen 1 tai khoan that, file thuoc quota cua chinh nguoi do nen khong bi chan.
+ *
+ * Sau khi upload, chia se cong khai "anyone with link" (Drive API permissions.create) roi tra ve
+ * link thumbnail nhung truc tiep (drive.google.com/thumbnail?id=...) de nhung <img> thang tren
+ * list/modal, khong can nguoi xem dang nhap Google (CHOT 2026-08-17: anh linh kien khong nhay
+ * cam, uu tien don gian/nhanh hon la proxy qua Worker).
+ */
+async function getUserAccessToken(env: Env, db: D1Database): Promise<{ accessToken: string; folderId: string }> {
+  const row = await db
+    .prepare("SELECT refresh_token_enc, folder_id FROM google_drive_oauth WHERE id = 1")
+    .first<{ refresh_token_enc: string; folder_id: string }>();
+  if (!row) throw new Error("GOOGLE_DRIVE_NOT_CONNECTED: chua ket noi tai khoan Google Drive - vao Cai dat de ket noi.");
+
+  const refreshToken = await decryptSecret(env, row.refresh_token_enc);
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+  if (!res.ok) throw new Error(`Google Drive token refresh failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { access_token: string };
+  return { accessToken: json.access_token, folderId: row.folder_id };
+}
+
+export async function uploadPublicImage(
+  env: Env,
+  db: D1Database,
+  bytes: ArrayBuffer,
+  mimeType: string,
+  filename: string,
+): Promise<{ id: string; thumbnailUrl: string }> {
+  const { accessToken, folderId } = await getUserAccessToken(env, db);
+  const metadata = { name: filename, parents: [folderId] };
+  const boundary = `dvbh-${crypto.randomUUID()}`;
+  const body = buildMultipartBody(metadata, bytes, mimeType, boundary);
+
+  const uploadRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`,
+    },
+    body,
+  });
+  if (!uploadRes.ok) throw new Error(`Google Drive upload failed: ${uploadRes.status} ${await uploadRes.text()}`);
+  const { id } = (await uploadRes.json()) as { id: string };
+
+  const permRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}/permissions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ role: "reader", type: "anyone" }),
+  });
+  if (!permRes.ok) throw new Error(`Google Drive set-public failed: ${permRes.status} ${await permRes.text()}`);
+
+  return { id, thumbnailUrl: `https://drive.google.com/thumbnail?id=${id}&sz=w1000` };
 }

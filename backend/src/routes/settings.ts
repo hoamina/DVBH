@@ -1,8 +1,12 @@
 import { Hono } from "hono";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
+import { requireQuanLyDanhMucLk } from "../middleware/requireQuanLyDanhMucLk";
+import { uploadPublicImage } from "../lib/googleDrive";
+import { encryptSecret } from "../lib/secretBox";
 import { syncLinhKienFromSheet } from "../lib/linhKienSync";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { getSheetUrl } from "../lib/backfillSheetSync";
@@ -32,15 +36,16 @@ const adminOnly = requireRole("Admin");
 // duoi. Import/export hang loat + xoa van Admin-only (adminOnly), chi POST 1 dong (them/sua nhanh khi
 // dang xem 1 ca) moi mo cho CSKH.
 const ktvWriteRoles = requireRole("Admin", "CSKH", "TN CSKH", "TBP CSKH");
-// CHOT 2026-08-14 (Giai doan 5): "Danh muc linh kien" mo them cho Giam sat + Tac nghiep (TBP DVBH) -
-// ho truc tiep tiep xuc KTV/don hang dat mua, khong phai cho Admin de them ma/sua gia. Ap dung cho ca
-// POST/PATCH /linh-kien - bang nay dung chung cho ca man "giai trinh thieu linh kien" lan "dat mua
-// linh kien" (hop nhat tu migration 0060_unify_linh_kien.sql), khong tach rieng 2 quyen.
-const linhKienWriteRoles = requireRole("Admin", "TBP DVBH", "Giam sat");
+// CHOT 2026-08-17: quyen ghi "Danh muc linh kien" gio la flag doc lap quan_ly_danh_muc_lk (xem
+// middleware/requireQuanLyDanhMucLk.ts + migration 0082) - THAY THE requireRole("Admin","TBP
+// DVBH","Giam sat") cu (Giai doan 5, 2026-08-14) vi da lech sau khi tach la_tac_nghiep khoi vai_tro
+// o migration 0081. Ap dung cho ca POST/PATCH /linh-kien - bang nay dung chung cho ca man "giai
+// trinh thieu linh kien" lan "dat mua linh kien" (hop nhat tu migration 0060_unify_linh_kien.sql).
+const linhKienWriteRoles = requireQuanLyDanhMucLk;
 
 async function logAudit(
   db: D1Database,
-  bang: "settings_ly_do" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap",
+  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap",
   banGhiId: string,
   nguoiThayDoi: string,
   truongThayDoi: string,
@@ -111,6 +116,70 @@ settings.patch("/ly-do/:id", adminOnly, async (c) => {
   await refreshHash(c.env.DB, "settings_ly_do", "settings_ly_do", "id");
   // Bump domain "settings" (xem lib/dataVersions.ts).
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true });
+});
+
+// ---------- Ly do cham (Dat mua linh kien) ----------
+// Bang settings_ly_do_cham (migration 0065) - KHAC bang settings_ly_do o tren (ly do cham GIAI
+// TRINH ca ton). Bang nay dung cho nut "Cho hang"/"Tu choi" cua TN trong module "Dat mua linh
+// kien" (xem routes/datMuaLinhKien.ts applyDonHangLog) - truoc day CHUA co UI quan ly, chi seed 1
+// lan qua migration 0065, Admin muon sua/them phai vao thang D1. CHOT 2026-08-19: cot
+// he_thong_su_dung la 2 lua chon CO DINH "Mua hàng"/"Bảo hành" (truoc la text tu do, co ca "Sửa
+// chữa" - da doi ten qua migration 0089), luu dang chuoi phan cach dau phay giong cu de KHONG doi
+// logic loc `LIKE '%Mua hàng%'` o datMuaLinhKien.ts.
+settings.get("/ly-do-cham", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_ly_do_cham ORDER BY stt, id").all();
+  return c.json({ rows: results });
+});
+
+settings.post("/ly-do-cham", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten_ly_do: string; he_thong_su_dung: string; quan_ly_don_thieu_linh_kien?: boolean; bat_tat?: boolean; stt?: number }>();
+  if (!body.ten_ly_do?.trim()) return c.json({ error: "MISSING_TEN_LY_DO" }, 400);
+  if (!body.he_thong_su_dung?.trim()) return c.json({ error: "MISSING_HE_THONG_SU_DUNG" }, 400);
+
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    `INSERT INTO settings_ly_do_cham (ten_ly_do, he_thong_su_dung, quan_ly_don_thieu_linh_kien, bat_tat, stt, nguoi_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+  )
+    .bind(
+      body.ten_ly_do.trim(),
+      body.he_thong_su_dung.trim(),
+      body.quan_ly_don_thieu_linh_kien ? 1 : 0,
+      body.bat_tat === false ? 0 : 1,
+      body.stt ?? 0,
+      user.email,
+    )
+    .first();
+
+  await logAudit(c.env.DB, "settings_ly_do_cham", String((row as { id: number }).id), user.email, "created", null, row);
+  return c.json(row, 201);
+});
+
+settings.patch("/ly-do-cham/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{
+    ten_ly_do?: string; he_thong_su_dung?: string; quan_ly_don_thieu_linh_kien?: boolean; bat_tat?: boolean; stt?: number;
+  }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_ly_do_cham WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const next = {
+    ten_ly_do: body.ten_ly_do !== undefined ? body.ten_ly_do.trim() : existing.ten_ly_do,
+    he_thong_su_dung: body.he_thong_su_dung !== undefined ? body.he_thong_su_dung.trim() : existing.he_thong_su_dung,
+    quan_ly_don_thieu_linh_kien:
+      body.quan_ly_don_thieu_linh_kien !== undefined ? (body.quan_ly_don_thieu_linh_kien ? 1 : 0) : existing.quan_ly_don_thieu_linh_kien,
+    bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
+    stt: body.stt !== undefined ? body.stt : existing.stt,
+  };
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    "UPDATE settings_ly_do_cham SET ten_ly_do = ?, he_thong_su_dung = ?, quan_ly_don_thieu_linh_kien = ?, bat_tat = ?, stt = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?",
+  )
+    .bind(next.ten_ly_do, next.he_thong_su_dung, next.quan_ly_don_thieu_linh_kien, next.bat_tat, next.stt, user.email, nowVN(), id)
+    .run();
+
+  await logAudit(c.env.DB, "settings_ly_do_cham", String(id), user.email, "updated", existing, next);
   return c.json({ ok: true });
 });
 
@@ -427,6 +496,8 @@ settings.post("/linh-kien", linhKienWriteRoles, async (c) => {
     don_vi?: string;
     ghi_chu?: string;
     anh_demo?: string;
+    dac_thu?: boolean;
+    chi_sua_chua?: boolean;
   }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) {
     return c.json({ error: "MISSING_FIELDS" }, 400);
@@ -434,10 +505,10 @@ settings.post("/linh-kien", linhKienWriteRoles, async (c) => {
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
-    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null, body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, user.email, nowVN())
+    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null, body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, user.email, nowVN())
     .first();
 
   await logAudit(c.env.DB, "linh_kien", body.ma_linh_kien, user.email, "created", null, row);
@@ -450,7 +521,7 @@ settings.post("/linh-kien", linhKienWriteRoles, async (c) => {
 settings.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   const ma = c.req.param("ma");
   if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
-  const body = await c.req.json<{ bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string; anh_demo?: string }>();
+  const body = await c.req.json<{ bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string; anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -462,11 +533,13 @@ settings.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
     don_vi: body.don_vi !== undefined ? body.don_vi?.trim() || null : existing.don_vi,
     ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
     anh_demo: body.anh_demo !== undefined ? body.anh_demo?.trim() || null : existing.anh_demo,
+    dac_thu: body.dac_thu !== undefined ? (body.dac_thu ? 1 : 0) : existing.dac_thu,
+    chi_sua_chua: body.chi_sua_chua !== undefined ? (body.chi_sua_chua ? 1 : 0) : existing.chi_sua_chua,
   };
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, user.email, nowVN(), ma)
+    .bind(next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, user.email, nowVN(), ma)
     .run();
 
   await logAudit(c.env.DB, "linh_kien", ma, user.email, "updated", existing, next);
@@ -474,6 +547,221 @@ settings.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   // Bump domain "settings" (xem lib/dataVersions.ts).
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
+});
+
+// POST /api/settings/linh-kien/:ma/anh - upload BINARY THO (Content-Type = mime anh) len Google
+// Drive, set cong khai "anyone with link" roi luu link thumbnail truc tiep vao anh_demo - thay the
+// hoan toan kieu nhap link tay cu (CHOT 2026-08-17, xem lib/googleDrive.ts uploadPublicImage()).
+settings.post("/linh-kien/:ma/anh", linhKienWriteRoles, async (c) => {
+  const ma = c.req.param("ma");
+  const existing = await c.env.DB.prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const contentType = c.req.header("Content-Type") || "image/jpeg";
+  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
+  const bytes = await c.req.arrayBuffer();
+  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
+
+  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+  const filename = `linh-kien-${ma}-${Date.now()}.${ext}`;
+  let uploaded: { id: string; thumbnailUrl: string };
+  try {
+    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
+      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
+    }
+    return c.json({ error: "UPLOAD_FAILED", message }, 502);
+  }
+
+  const user = c.get("user");
+  await c.env.DB.prepare("UPDATE linh_kien SET anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
+    .bind(uploaded.thumbnailUrl, user.email, nowVN(), ma)
+    .run();
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true, url: uploaded.thumbnailUrl });
+});
+
+// ---------- Google Drive OAuth (uy quyen 1 tai khoan Google THAT de upload anh linh kien) ----------
+// CHOT 2026-08-17: Service Account (GOOGLE_DRIVE_SA_*) khong the tao file trong 1 folder Drive ca
+// nhan - Google tra 403 "Service Accounts do not have storage quota" bat ke folder co duoc chia se
+// Editor hay khong (chi hoat dong voi Shared Drive, yeu cau Google Workspace tra phi). Giai phap:
+// uy quyen 1 tai khoan that qua OAuth (dung lai GOOGLE_CLIENT_ID/SECRET co san cho dang nhap, xin
+// them scope drive.file), luu refresh_token ma hoa trong bang google_drive_oauth (xem migration
+// 0086 + lib/secretBox.ts). Lan dau ket noi se TAO MOI 1 folder Drive (thuoc quota nguoi duoc uy
+// quyen) thay vi dung lai folder cu da chia se cho Service Account - vi scope drive.file chi thay
+// duoc file do CHINH APP nay tao ra, khong thay duoc folder co san du da duoc share Editor.
+const GOOGLE_DRIVE_STATE_COOKIE = "dvbh_drive_oauth_state";
+// Can them "openid email profile" ben canh drive.file - thieu 2 scope nay thi endpoint
+// oauth2/v3/userinfo (goi ngay sau o callback de biet da ket noi tai khoan Google nao) tra ve loi
+// (thieu quyen), du drive.file van hoat dong binh thuong cho upload - CHOT 2026-08-17 sau khi gap
+// loi "Khong the lay thong tin nguoi dung tu Google" khi test that.
+const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file openid email profile";
+
+settings.get("/google-drive/status", adminOnly, async (c) => {
+  const row = await c.env.DB.prepare("SELECT google_email, folder_id, authorized_by, authorized_at FROM google_drive_oauth WHERE id = 1").first<{
+    google_email: string;
+    folder_id: string;
+    authorized_by: string;
+    authorized_at: string;
+  }>();
+  if (!row) return c.json({ connected: false });
+  return c.json({ connected: true, ...row });
+});
+
+settings.get("/google-drive/authorize", adminOnly, async (c) => {
+  const state = crypto.randomUUID();
+  setCookie(c, GOOGLE_DRIVE_STATE_COOKIE, state, { httpOnly: true, secure: true, sameSite: "Lax", maxAge: 600, path: "/" });
+
+  const redirectUri = `${new URL(c.req.url).origin}/api/settings/google-drive/callback`;
+  const params = new URLSearchParams({
+    client_id: c.env.GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: GOOGLE_DRIVE_SCOPE,
+    state,
+    access_type: "offline",
+    prompt: "consent select_account",
+  });
+  return c.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+settings.get("/google-drive/callback", adminOnly, async (c) => {
+  const url = new URL(c.req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const savedState = getCookie(c, GOOGLE_DRIVE_STATE_COOKIE);
+  deleteCookie(c, GOOGLE_DRIVE_STATE_COOKIE, { path: "/" });
+
+  if (!code || !state || !savedState || state !== savedState) {
+    return c.text("Xac thuc that bai: state khong hop le.", 400);
+  }
+
+  const redirectUri = `${url.origin}/api/settings/google-drive/callback`;
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: c.env.GOOGLE_CLIENT_ID,
+      client_secret: c.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+  if (!tokenRes.ok) return c.text("Khong the doi ma xac thuc voi Google: " + (await tokenRes.text()), 502);
+  const tokenJson = (await tokenRes.json()) as { access_token: string; refresh_token?: string };
+  if (!tokenJson.refresh_token) {
+    return c.text(
+      "Google khong tra ve refresh_token (co the tai khoan da tung uy quyen truoc do) - vao myaccount.google.com/permissions, go quyen truy cap cua app nay roi thu lai.",
+      400,
+    );
+  }
+
+  const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+  });
+  if (!userInfoRes.ok) return c.text("Khong the lay thong tin nguoi dung tu Google.", 502);
+  const userInfo = (await userInfoRes.json()) as { email: string };
+
+  const folderRes = await fetch("https://www.googleapis.com/drive/v3/files?fields=id", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${tokenJson.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "DVBH - Anh linh kien", mimeType: "application/vnd.google-apps.folder" }),
+  });
+  if (!folderRes.ok) return c.text("Khong the tao folder Drive: " + (await folderRes.text()), 502);
+  const { id: folderId } = (await folderRes.json()) as { id: string };
+
+  const refreshTokenEnc = await encryptSecret(c.env, tokenJson.refresh_token);
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    `INSERT INTO google_drive_oauth (id, google_email, refresh_token_enc, folder_id, authorized_by, authorized_at)
+     VALUES (1, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       google_email = excluded.google_email, refresh_token_enc = excluded.refresh_token_enc,
+       folder_id = excluded.folder_id, authorized_by = excluded.authorized_by, authorized_at = excluded.authorized_at`,
+  )
+    .bind(userInfo.email, refreshTokenEnc, folderId, user.email, nowVN())
+    .run();
+
+  return c.redirect(c.env.FRONTEND_URL || "/");
+});
+
+// POST /api/settings/linh-kien/bulk-import-anh - { rows: [{ma_linh_kien, source_url}], offset } xu ly
+// 1 CHUNK NHO (10 dong/lan, client tu lap goi den done:true) - moi dong ton 1 fetch anh nguon + 3 goi
+// Google Drive (token/upload/set-quyen) qua uploadPublicImage(), CHUNK 10 => toi da ~44 subrequest/
+// lan goi, an toan duoi moi gioi han Workers. Dung 1 lan de nhap hang loat "anh demo" tu file Excel co
+// san (cot "Mã linh kiện"/"ẢNH DEMO" tu AppSheet cu) - CHOT 2026-08-17. Loi tung dong (khong tim thay
+// ma, fetch anh nguon that bai...) khong lam hong ca chunk, tra ve trong "details" de UI hien ro.
+settings.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) => {
+  const body = await c.req.json<{ rows: { ma_linh_kien: string; source_url: string }[]; offset: number }>();
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+
+  const CHUNK_SIZE = 10;
+  const offset = Math.max(0, body.offset ?? 0);
+  const chunk = body.rows.slice(offset, offset + CHUNK_SIZE);
+  const user = c.get("user");
+  const now = nowVN();
+
+  let success = 0;
+  let notFound = 0;
+  let fetchFailed = 0;
+  let errorCount = 0;
+  const details: { ma_linh_kien: string; status: string }[] = [];
+
+  for (const row of chunk) {
+    const ma = String(row.ma_linh_kien ?? "").trim();
+    if (!ma || !row.source_url) {
+      errorCount++;
+      details.push({ ma_linh_kien: ma, status: "INVALID_ROW" });
+      continue;
+    }
+    try {
+      const existing = await c.env.DB.prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
+      if (!existing) {
+        notFound++;
+        details.push({ ma_linh_kien: ma, status: "NOT_FOUND" });
+        continue;
+      }
+
+      const imgRes = await fetch(row.source_url);
+      if (!imgRes.ok) {
+        fetchFailed++;
+        details.push({ ma_linh_kien: ma, status: `FETCH_FAILED (${imgRes.status})` });
+        continue;
+      }
+      const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+      if (!contentType.startsWith("image/")) {
+        fetchFailed++;
+        details.push({ ma_linh_kien: ma, status: "NOT_AN_IMAGE" });
+        continue;
+      }
+      const bytes = await imgRes.arrayBuffer();
+      const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+      const filename = `linh-kien-${ma}-${Date.now()}.${ext}`;
+      const uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
+
+      await c.env.DB.prepare("UPDATE linh_kien SET anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
+        .bind(uploaded.thumbnailUrl, user.email, now, ma)
+        .run();
+      success++;
+      details.push({ ma_linh_kien: ma, status: "OK" });
+    } catch (err) {
+      errorCount++;
+      details.push({ ma_linh_kien: ma, status: "ERROR: " + (err instanceof Error ? err.message : String(err)) });
+    }
+  }
+
+  if (success > 0) {
+    await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  }
+
+  const nextOffset = offset + CHUNK_SIZE;
+  const done = nextOffset >= body.rows.length;
+  return c.json({ done, nextOffset: done ? body.rows.length : nextOffset, success, notFound, fetchFailed, error: errorCount, details });
 });
 
 // POST /api/settings/linh-kien/sync-sheet - dong bo tu Google Sheet cong khai (link cau hinh o /sheet-urls)

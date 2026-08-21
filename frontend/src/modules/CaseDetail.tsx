@@ -23,15 +23,15 @@ import { fetchWithHashCache } from "../lib/staticListCache";
 import { trangThaiLapOf } from "../lib/caLapStatus";
 import { computeCaseTickers } from "../lib/caseTickers";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
-import { matchMuaHang, matchBaoHanh, matchThieuHang, matchQcThucTe } from "../lib/purchaseWarrantyMatch";
+import { matchMuaHang, matchBaoHanh, matchThieuHang, matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purchaseWarrantyMatch";
 import { parseRawRow } from "../lib/purchaseWarrantySync";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
-  TRANG_THAI_LABELS,
   TRANG_THAI_DONG,
   canWriteTranhChap,
   describeTranhChapError,
-  type TienTrinhRow,
+  type TienTrinhDetail,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
 } from "../lib/tranhChapShared";
@@ -55,7 +55,6 @@ import {
   type CaLapDetection,
   type NapGasDanhGiaRow,
   type KetQuaGoiRow,
-  type Paged,
   parseLoaiKhaoSat,
 } from "../types";
 
@@ -86,6 +85,14 @@ async function fetchCaseDetailCached(id: string): Promise<CacheEntry<CaseDetailR
   const fresh = await fetchCaseDetail(id);
   if (fresh.case.thoi_gian_hoan_thanh) return setCachedEntry(cacheKey, fresh);
   return { data: fresh, cachedAt: new Date().toISOString() };
+}
+
+// parseDbDateTime() gia dinh CO gio (them "T00:00:00" truoc khi cong offset se sai dang neu goi
+// truc tiep tren chuoi ngay thuan) - mot so ca backfill thang 7/2026 chi co ngay thuan, nen can them
+// " 00:00:00" truoc khi parse. Dung chung cho "gap_days" hien thi trong tab Ca lap (badge tren cung +
+// tung dong "Chuoi lich su theo serial" - CHOT 2026-08-20: 2 cho nay PHAI dung 1 cong thuc duy nhat).
+function parseFlexibleDbDate(v: string) {
+  return parseDbDateTime(v.includes(":") ? v : `${v} 00:00:00`);
 }
 
 // Phan "chi doc" cua thong tin khach hang (fields grid + 3 Card) - dung chung cho ca goc (cot trai,
@@ -218,6 +225,7 @@ export function CaseDetail({
 }) {
   const addToast = useToast();
   const qc = useQueryClient();
+  const personDir = usePersonDirectory();
 
   const { data: entry, isLoading } = useQuery({
     queryKey: ["case", caseId],
@@ -274,14 +282,13 @@ export function CaseDetail({
     queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
     enabled: caseId !== null,
   });
-  // "trang_thai" truyen du ca 4 gia tri (ke ca 2 trang thai dong) - khac danh sach chinh cua
-  // TranhChapModule (mac dinh an dong), o day can XEM DUOC TOAN BO lich su tien trinh cua ca nay.
+  // "case_id" - nhanh rieng cua GET /tranh-chap/tien-trinh (xem tranhChap.ts) tra ve TOAN BO lich su
+  // tien trinh (ke ca da dong) CUA CA NAY trong 1 LAN goi duy nhat, gom san logs+logCon cho tung
+  // tien trinh - CHOT 2026-08-20 (rao soat lag): thay the hoan toan cach cu (moi TienTrinhPanel tu
+  // goi rieng GET /tien-trinh/:id, N+1 khi ca co nhieu tien trinh).
   const { data: tienTrinhCaseData } = useQuery({
     queryKey: ["tranh-chap-tien-trinh-case", caseId],
-    queryFn: () =>
-      api.get<Paged<TienTrinhRow>>(
-        `/tranh-chap/tien-trinh${buildQuery({ case_id: caseId!, trang_thai: Object.keys(TRANG_THAI_LABELS).join(","), pageSize: 50 })}`,
-      ),
+    queryFn: () => api.get<{ rows: TienTrinhDetail[] }>(`/tranh-chap/tien-trinh${buildQuery({ case_id: caseId! })}`),
     enabled: caseId !== null,
   });
   const [tiepNhanTranhChapOpen, setTiepNhanTranhChapOpen] = useState(false);
@@ -330,8 +337,18 @@ export function CaseDetail({
   const [napGasForm, setNapGasForm] = useState({ danh_gia_nap_gas: "", phi_dich_vu: "" });
   const lyDoChon = activeLyDo.find((l) => l.ten_ly_do === form.ly_do_cham) ?? activeLyDo[0];
   const giaiTrinhList = data?.giaiTrinh ?? [];
+  // Email nguoi_giai_trinh duy nhat cua ca (da tai san cung data ca, khong fetch them) - nguon phu
+  // cho deriveGiamSatSuggestion() trong tab "Tranh chap, khieu nai" (xem TienTrinhPanel).
+  const giaiTrinhNguoiGiaiTrinhEmails = useMemo(
+    () => Array.from(new Set(giaiTrinhList.map((l) => l.nguoi_giai_trinh).filter((email): email is string => !!email))),
+    [giaiTrinhList],
+  );
   const bienBanHopList = data?.bienBanHop ?? [];
   const [bienBanHopNoiDung, setBienBanHopNoiDung] = useState("");
+  // CHOT 2026-08-16: an cac tab "rong" (count === 0) de giam roi mat thanh tab - chu he thong phan
+  // hoi so tab qua nhieu kho quet nhanh. Khong luu qua localStorage (moi ca 1 trang thai rieng la hop
+  // ly - tab rong o ca nay co the co du lieu o ca khac).
+  const [showAllTabs, setShowAllTabs] = useState(false);
 
   // Reset cac form nhap dang do (KHONG con reset tab/viewMode o day nua - 2 thu do gio do App.tsx
   // dieu khien theo tung tang cua case stack, xem comment o App.tsx) moi khi caseId doi - tranh du
@@ -423,12 +440,18 @@ export function CaseDetail({
   // Doi chieu "Don mua hang/bao hanh/xu ly thieu hang lien quan" - du lieu 3 Google Sheet da dong
   // bo NGAM ve cache trinh duyet (xem hooks/usePurchaseWarrantyData.ts, kich hoat tu App.tsx),
   // KHONG qua server. Chi tinh lai khi caseId/giaiTrinhList hoac du lieu sheet doi.
-  const { muaHang, baoHanh, thieuHang, qcThucTe, isSyncing: purchaseSyncing, isRefreshing: purchaseRefreshing, lastSyncedAt: purchaseSyncedAt, refreshAll: refreshPurchaseData } =
+  const { muaHang, baoHanh, thieuHang, qcThucTe, poDatHang, isSyncing: purchaseSyncing, isRefreshing: purchaseRefreshing, lastSyncedAt: purchaseSyncedAt, refreshAll: refreshPurchaseData } =
     usePurchaseWarrantyData();
   const muaHangMatched = useMemo(() => (c ? matchMuaHang(c.id, giaiTrinhList, muaHang) : []), [c, giaiTrinhList, muaHang]);
   const baoHanhMatched = useMemo(() => (c ? matchBaoHanh(c.id, baoHanh) : []), [c, baoHanh]);
   const thieuHangMatched = useMemo(() => matchThieuHang(muaHangMatched, baoHanhMatched, thieuHang), [muaHangMatched, baoHanhMatched, thieuHang]);
   const qcThucTeMatched = useMemo(() => (c ? matchQcThucTe(c.id, qcThucTe) : []), [c, qcThucTe]);
+  // Sap moi tao len tren - xem parseSheetDateTime() ve ly do khong dung localeCompare truc tiep tren
+  // chuoi DD/MM/YYYY cua cot "Ngay tao".
+  const poDatHangMatched = useMemo(
+    () => (c ? [...matchPoDatHang(c.id, giaiTrinhList, poDatHang)].sort((a, b) => parseSheetDateTime(b.ngayTao) - parseSheetDateTime(a.ngayTao)) : []),
+    [c, giaiTrinhList, poDatHang],
+  );
 
   const viPhamList = data?.viPham ?? [];
   const ketQuaGoiList = data?.ketQuaGoi ?? [];
@@ -439,13 +462,14 @@ export function CaseDetail({
   // (ca dang ton hoac hoan thanh voi tien do khac se KHONG the chot danh gia o backend, nen an tab
   // di cho gon thay vi hien 1 form luon bao loi khi bam Luu).
   // CHOT 2026-07-30: "nghi_ngo_nap_gas=1" KHONG con la dieu kien bat buoc de danh gia - Giam sat khu
-  // vuc duoc chu dong danh gia BAT KY ca "Hoan thanh XLSC" nao, chi con dung de hien thi thong tin
-  // (khong con chan form). Van gioi han: ca phai da "Hoan thanh XLSC" (napGasDaDong), VA khoa chot
-  // sau NAP_GAS_LOCK_DAYS ngay ke tu ngay hoan thanh (napGasLocked) - khop dung backend PATCH
-  // /nap-gas/:id/danh-gia (xem NAP_GAS_DANH_GIA_LOCK_DAYS o backend/src/routes/napGas.ts).
+  // vuc duoc chu dong danh gia BAT KY ca nao, chi con dung de hien thi thong tin (khong con chan
+  // form). CHOT 2026-08-20: bo LUON dieu kien "da Hoan thanh XLSC" - mo quyen danh gia cho ca CHUA
+  // DONG (chi o the "Ca chi tiet" nay, KHONG doi danh sach/bao cao thang "Nap gas" - noi do van chi
+  // tinh ca da dong, theo dung xac nhan nguoi dung, xem NAP_GAS_ELIGIBLE trong backend napGas.ts).
+  // Van khoa chot sau NAP_GAS_LOCK_DAYS ngay ke tu ngay hoan thanh (napGasLocked, chi ap dung khi ca
+  // DA co thoi_gian_hoan_thanh) - khop dung backend PATCH /nap-gas/:id/danh-gia.
   const NAP_GAS_LOCK_DAYS = 45;
   const napGasEligible = !!(c && c.nghi_ngo_nap_gas === 1 && c.tien_do_hoan_thanh === "Hoàn thành XLSC");
-  const napGasDaDong = !!(c && c.tien_do_hoan_thanh === "Hoàn thành XLSC");
   const napGasLocked = !!(c?.thoi_gian_hoan_thanh && (Date.now() - new Date(c.thoi_gian_hoan_thanh).getTime()) / 86400000 > NAP_GAS_LOCK_DAYS);
   const effectiveNapGasDanhGia = napGasForm.danh_gia_nap_gas || napGasDanhGia?.danh_gia_nap_gas || "";
   const effectiveNapGasPhiDichVu = napGasForm.phi_dich_vu || napGasDanhGia?.phi_dich_vu || "";
@@ -462,7 +486,11 @@ export function CaseDetail({
   // bo tien trinh hien co deu da o trang thai dong - khop dung dieu kien backend POST
   // /:caseId/tiep-nhan (chi 409 TIEN_TRINH_DANG_MO khi tien trinh gan nhat con mo).
   const canTiepNhanTranhChapMoi =
-    tienTrinhListForCase.length === 0 || tienTrinhListForCase.every((tt) => tt.trang_thai_xu_ly && TRANG_THAI_DONG.includes(tt.trang_thai_xu_ly));
+    tienTrinhListForCase.length === 0 ||
+    tienTrinhListForCase.every((tt) => {
+      const trangThai = tt.logs[0]?.trang_thai_xu_ly;
+      return !!trangThai && TRANG_THAI_DONG.includes(trangThai);
+    });
 
   const lapStatus = caLap?.detection
     ? trangThaiLapOf({
@@ -688,7 +716,7 @@ export function CaseDetail({
             <div key={l.id} className="relative pl-4 border-l-2 border-[var(--ocean-100)]">
               <div className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-[var(--ocean-500)]"></div>
               <div className="text-xs text-[var(--ink-400)] mb-0.5">
-                {fmtDateTime(l.ngay_giai_trinh)} · {l.nguoi_giai_trinh}
+                {fmtDateTime(l.ngay_giai_trinh)} · {formatPersonDisplay(l.nguoi_giai_trinh, personDir)}
               </div>
               <div className="text-sm font-semibold">{l.ly_do_cham}</div>
               <div className="text-sm text-[var(--ink-600)]">{l.noi_dung}</div>
@@ -726,7 +754,7 @@ export function CaseDetail({
           <div key={b.id} className="relative pl-4 border-l-2 border-[var(--ocean-100)]">
             <div className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-[var(--ocean-500)]"></div>
             <div className="text-xs text-[var(--ink-400)] mb-0.5">
-              {fmtDateTime(b.created_at)} · {b.nguoi_ghi}
+              {fmtDateTime(b.created_at)} · {formatPersonDisplay(b.nguoi_ghi, personDir)}
             </div>
             <div className="text-sm text-[var(--ink-600)] whitespace-pre-wrap">{b.noi_dung}</div>
           </div>
@@ -749,11 +777,11 @@ export function CaseDetail({
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
                 <Field label="Kết quả cấp 1" value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
-                <Field label="Người ghi nhận" value={v.nguoi_ghi_nhan} />
+                <Field label="Người ghi nhận" value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
                 <Field label="Ngày ghi nhận" value={fmtDateTime(v.ngay_ghi_nhan)} />
                 {v.chot_bo_cap_2 !== null && (
                   <>
-                    <Field label="Người chốt cấp 2" value={v.nguoi_chot ?? "—"} />
+                    <Field label="Người chốt cấp 2" value={v.nguoi_chot ? formatPersonDisplay(v.nguoi_chot, personDir) : "—"} />
                     <Field label="Ngày chốt cấp 2" value={fmtDateTime(v.ngay_chot)} />
                   </>
                 )}
@@ -791,7 +819,7 @@ export function CaseDetail({
               )}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
                 <Field label="Đối tượng liên hệ" value={k.doi_tuong_lien_he ?? "—"} />
-                <Field label="Người thực hiện" value={k.nguoi_thuc_hien} />
+                <Field label="Người thực hiện" value={formatPersonDisplay(k.nguoi_thuc_hien, personDir)} />
                 {k.ly_do_that_bai && <Field label="Lý do thất bại" value={k.ly_do_that_bai} />}
                 {k.ghi_chu && <Field label="Ghi chú" value={k.ghi_chu} />}
               </div>
@@ -801,6 +829,21 @@ export function CaseDetail({
       </div>
     </div>
   );
+
+  // CHOT 2026-08-20: badge "X ngay" tren cung tab Ca lap truoc day hien caLap.detection.gapDays -
+  // gia tri tinh san o backend theo cong thuc CU "hoan thanh ca nay - hoan thanh ca truoc" (xem
+  // gap_days trong caLap.ts, van la nguon duy nhat cho nguong 45 ngay/dieu kien du lieu-lap-hay-khong
+  // TOAN HE THONG - KHONG doi o day, pham vi rat rong). Chi doi SO HIEN THI cho khop cong thuc "dung"
+  // (tiep nhan ca sau - hoan thanh ca truoc, xem parseFlexibleDbDate/gapDays trong .map ben duoi) -
+  // tim lai chinh dong cua ca dang xem trong caLap.lichSu de tinh CUNG 1 cong thuc, fallback ve
+  // gapDays cu neu khong tim thay du lieu (vd lichSu rong).
+  const currentLichSuIdx = caLap?.lichSu.findIndex((h) => h.id === caseId) ?? -1;
+  const currentLichSuRow = currentLichSuIdx >= 0 ? caLap!.lichSu[currentLichSuIdx] : undefined;
+  const priorLichSuRow = currentLichSuIdx >= 0 ? caLap!.lichSu[currentLichSuIdx + 1] : undefined;
+  const displayGapDays =
+    priorLichSuRow?.thoi_gian_hoan_thanh && currentLichSuRow?.thoi_gian_cskh_tiep_nhan
+      ? (parseFlexibleDbDate(currentLichSuRow.thoi_gian_cskh_tiep_nhan).getTime() - parseFlexibleDbDate(priorLichSuRow.thoi_gian_hoan_thanh).getTime()) / 86400000
+      : caLap?.detection?.gapDays;
 
   const caLapContent = (
     <div>
@@ -812,7 +855,7 @@ export function CaseDetail({
               Ca liền trước: <span className="font-mono font-semibold">{caLap.detection.priorId}</span>
               <span className="text-[var(--ink-400)]"> · hoàn thành {fmtDateTime(caLap.detection.priorHt)}</span>
             </span>
-            <Badge tone={caLap.detection.gapDays <= 45 ? "coral" : "gray"}>{caLap.detection.gapDays.toFixed(1)} ngày</Badge>
+            <Badge tone={caLap.detection.gapDays <= 45 ? "coral" : "gray"}>{(displayGapDays ?? caLap.detection.gapDays).toFixed(1)} ngày</Badge>
           </div>
 
           {caLap.detection.gapDays <= 45 && lapStatus && (
@@ -840,14 +883,10 @@ export function CaseDetail({
                 // sap xep DESC theo thoi_gian_cskh_tiep_nhan) den luc MO ca sau (h) - dung y nghia
                 // nghiep vu "may lai hong sau bao lau", KHONG phai khoang cach giua 2 lan DONG ca
                 // (cong thuc cu). Vd: ca truoc hoan thanh 15/07, ca sau tiep nhan 20/07 -> 5 ngay.
-                // parseDbDateTime() gia dinh CO gio (them "T00:00:00" truoc khi cong offset se sai
-                // dang neu goi truc tiep tren chuoi ngay thuan) - mot so ca backfill thang 7/2026
-                // thoi_gian_cskh_tiep_nhan chi la ngay thuan (xem chu thich fmtDateTime), nen can
-                // them "T00:00:00" truoc khi parse cho dung dinh dang ma parseDbDateTime cho phep.
-                const parseFlexibleDate = (v: string) => parseDbDateTime(v.includes(":") ? v : `${v} 00:00:00`);
+                // Dung parseFlexibleDbDate() dung chung (xem dinh nghia dau file).
                 const gapDays =
                   next?.thoi_gian_hoan_thanh && h.thoi_gian_cskh_tiep_nhan
-                    ? (parseFlexibleDate(h.thoi_gian_cskh_tiep_nhan).getTime() - parseFlexibleDate(next.thoi_gian_hoan_thanh).getTime()) / 86400000
+                    ? (parseFlexibleDbDate(h.thoi_gian_cskh_tiep_nhan).getTime() - parseFlexibleDbDate(next.thoi_gian_hoan_thanh).getTime()) / 86400000
                     : null;
                 // CHOT 2026-08-07: Show button danh gia lap cho tat ca cac ca trong danh sach (ke ca ca hien tai)
                 // ngoai tru ca bi huy bo (huy_bo_at), khong co KTV, hoac ca "Khong hoan thanh XLSC".
@@ -953,64 +992,59 @@ export function CaseDetail({
 
   const napGasContent = (
     <div>
-      {!napGasDaDong && <div className="text-sm text-[var(--ink-400)] italic">Ca chưa hoàn thành XLSC — chưa thể đánh giá nạp gas.</div>}
-      {napGasDaDong && (
-        <>
-          {!napGasEligible && (
-            <div className="text-xs text-[var(--ink-400)] italic mb-2">Ca này chưa được CRM đánh dấu "Nghi ngờ nạp gas" — vẫn có thể đánh giá thủ công bên dưới nếu cần.</div>
-          )}
-          {canNapGas && napGasLocked && (
-            <div className="text-xs text-[var(--coral-500)] italic mb-2">
-              🔒 Đã quá {NAP_GAS_LOCK_DAYS} ngày kể từ khi hoàn thành — khóa chốt đánh giá nạp gas.
-            </div>
-          )}
-          {canNapGas && !napGasLocked ? (
-            <Card className="p-3 space-y-2">
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá nạp gas</label>
-              <Select
-                value={effectiveNapGasDanhGia}
-                onChange={(v) => setNapGasForm({ ...napGasForm, danh_gia_nap_gas: v })}
-                className="w-full"
-                options={[{ value: "", label: "— Chọn đánh giá —" }, ...NAP_GAS_DANH_GIA_KEYS.map((k) => ({ value: k, label: NAP_GAS_DANH_GIA_META[k].label }))]}
-              />
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Phí dịch vụ</label>
-              <Select
-                value={effectiveNapGasPhiDichVu}
-                onChange={(v) => setNapGasForm({ ...napGasForm, phi_dich_vu: v })}
-                className="w-full"
-                options={[{ value: "", label: "— Chọn phí dịch vụ —" }, ...NAP_GAS_PHI_DICH_VU_KEYS.map((k) => ({ value: k, label: NAP_GAS_PHI_DICH_VU_META[k].label }))]}
-              />
-              <div className="flex items-center gap-2 flex-wrap pt-1">
-                <Btn
-                  size="sm"
-                  onClick={() => saveNapGas.mutate()}
-                  disabled={!effectiveNapGasDanhGia || !effectiveNapGasPhiDichVu || saveNapGas.isPending}
-                >
-                  {saveNapGas.isPending ? "Đang lưu…" : napGasDanhGia ? "🔒 Chốt lại đánh giá" : "🔒 Chốt đánh giá"}
-                </Btn>
-                {napGasDanhGia && (
-                  <span className="text-xs text-[var(--ink-400)]">
-                    {napGasDanhGia.nguoi_chot} · {fmtDateTime(napGasDanhGia.ngay_chot)}
-                  </span>
-                )}
-              </div>
-            </Card>
+      {!napGasEligible && (
+        <div className="text-xs text-[var(--ink-400)] italic mb-2">Ca này chưa được CRM đánh dấu "Nghi ngờ nạp gas" — vẫn có thể đánh giá thủ công bên dưới nếu cần.</div>
+      )}
+      {canNapGas && napGasLocked && (
+        <div className="text-xs text-[var(--coral-500)] italic mb-2">
+          🔒 Đã quá {NAP_GAS_LOCK_DAYS} ngày kể từ khi hoàn thành — khóa chốt đánh giá nạp gas.
+        </div>
+      )}
+      {canNapGas && !napGasLocked ? (
+        <Card className="p-3 space-y-2">
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá nạp gas</label>
+          <Select
+            value={effectiveNapGasDanhGia}
+            onChange={(v) => setNapGasForm({ ...napGasForm, danh_gia_nap_gas: v })}
+            className="w-full"
+            options={[{ value: "", label: "— Chọn đánh giá —" }, ...NAP_GAS_DANH_GIA_KEYS.map((k) => ({ value: k, label: NAP_GAS_DANH_GIA_META[k].label }))]}
+          />
+          <label className="text-xs font-semibold text-[var(--ink-400)]">Phí dịch vụ</label>
+          <Select
+            value={effectiveNapGasPhiDichVu}
+            onChange={(v) => setNapGasForm({ ...napGasForm, phi_dich_vu: v })}
+            className="w-full"
+            options={[{ value: "", label: "— Chọn phí dịch vụ —" }, ...NAP_GAS_PHI_DICH_VU_KEYS.map((k) => ({ value: k, label: NAP_GAS_PHI_DICH_VU_META[k].label }))]}
+          />
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <Btn
+              size="sm"
+              onClick={() => saveNapGas.mutate()}
+              disabled={!effectiveNapGasDanhGia || !effectiveNapGasPhiDichVu || saveNapGas.isPending}
+            >
+              {saveNapGas.isPending ? "Đang lưu…" : napGasDanhGia ? "🔒 Chốt lại đánh giá" : "🔒 Chốt đánh giá"}
+            </Btn>
+            {napGasDanhGia && (
+              <span className="text-xs text-[var(--ink-400)]">
+                {formatPersonDisplay(napGasDanhGia.nguoi_chot, personDir)} · {fmtDateTime(napGasDanhGia.ngay_chot)}
+              </span>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className="text-xs flex flex-wrap items-center gap-1.5">
+          {napGasDanhGia ? (
+            <>
+              <Badge tone="ocean">{NAP_GAS_DANH_GIA_META[napGasDanhGia.danh_gia_nap_gas].label}</Badge>
+              <span className="text-[var(--ink-400)]">Phí dịch vụ: {NAP_GAS_PHI_DICH_VU_META[napGasDanhGia.phi_dich_vu].label}</span>
+              <span className="text-[var(--ink-400)]">
+                · {formatPersonDisplay(napGasDanhGia.nguoi_chot, personDir)} · {fmtDateTime(napGasDanhGia.ngay_chot)}
+              </span>
+            </>
           ) : (
-            <div className="text-xs flex flex-wrap items-center gap-1.5">
-              {napGasDanhGia ? (
-                <>
-                  <Badge tone="ocean">{NAP_GAS_DANH_GIA_META[napGasDanhGia.danh_gia_nap_gas].label}</Badge>
-                  <span className="text-[var(--ink-400)]">Phí dịch vụ: {NAP_GAS_PHI_DICH_VU_META[napGasDanhGia.phi_dich_vu].label}</span>
-                  <span className="text-[var(--ink-400)]">
-                    · {napGasDanhGia.nguoi_chot} · {fmtDateTime(napGasDanhGia.ngay_chot)}
-                  </span>
-                </>
-              ) : (
-                <span className="text-[var(--ink-400)] italic">Chưa có đánh giá nạp gas.</span>
-              )}
-            </div>
+            <span className="text-[var(--ink-400)] italic">Chưa có đánh giá nạp gas.</span>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -1152,6 +1186,43 @@ export function CaseDetail({
     </div>
   );
 
+  const poDatHangContent = (
+    <div>
+      {purchaseSyncBanner}
+      {!purchaseSyncing && poDatHangMatched.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy PO đặt hàng liên quan đến ca này.</div>
+      )}
+      <div className="space-y-3">
+        {poDatHangMatched.map((r, i) => (
+          <Card key={`${r.id}-${i}`} className="p-3">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+              <span className="font-semibold text-sm">{r.tenLinhKien || "(chưa rõ linh kiện)"}</span>
+              {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
+            </div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+              <Field label="Mã linh kiện đề xuất" value={r.maLinhKienDeXuat || "—"} />
+              <Field label="Đối tác" value={r.doiTac || "—"} />
+              <Field label="Kho cần đặt hàng" value={r.khoCanDat || "—"} />
+              <Field label="SL đặt / nhập Amis / còn thiếu" value={`${r.soLuongDat || "—"} / ${r.slNhapTheoAmis || "—"} / ${r.soLuongConThieu || "—"}`} />
+              <Field label="Tốc độ hàng về" value={r.tocDoHangVe || "—"} />
+              <Field label="Ngày dự kiến gần nhất" value={r.ngayDuKienGanNhat || "—"} />
+              <Field label="Ngày về gần nhất toàn quốc" value={r.ngayVeGanNhatToanQuoc || "—"} />
+              <Field label="Ngày tạo" value={r.ngayTao || "—"} />
+              {r.canhBao && <Field label="Cảnh báo" value={r.canhBao} />}
+              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+            </div>
+            <div className="flex justify-end mt-2">
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `PO đặt hàng ${r.id}`, raw: parseRawRow(r) })}>
+                🔍 Xem đầy đủ
+              </Btn>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
   const qcThucTeContent = (
     <div>
       {purchaseSyncBanner}
@@ -1206,12 +1277,20 @@ export function CaseDetail({
         </div>
       )}
       {tienTrinhListForCase.map((tt) => (
-        <TienTrinhPanel key={tt.id} id={tt.id} currentUser={currentUser} phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []} ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []} />
+        <TienTrinhPanel
+          key={tt.tienTrinh.id}
+          id={tt.tienTrinh.id}
+          detail={tt}
+          giaiTrinhNguoiGiaiTrinh={giaiTrinhNguoiGiaiTrinhEmails}
+          currentUser={currentUser}
+          phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
+          ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []}
+        />
       ))}
     </div>
   );
 
-  const tabsList: TabItem[] =
+  const fullTabsList: TabItem[] =
     viewMode === "compact"
       ? [
           { key: "info", label: "Thông tin" },
@@ -1224,6 +1303,7 @@ export function CaseDetail({
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
           { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
         ]
@@ -1237,9 +1317,33 @@ export function CaseDetail({
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
           { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
         ];
+
+  // "info"/"giai-trinh" la 2 tab loi luon hien; tab dang active cung luon hien (khong tu bien mat
+  // khoi thanh khi dang xem no du no dang rong) - phan con lai chi an neu count === 0.
+  const CORE_TAB_KEYS = new Set(["info", "giai-trinh"]);
+  const emptyTabKeys = new Set(fullTabsList.filter((t) => !CORE_TAB_KEYS.has(t.key) && t.key !== tab && !t.count).map((t) => t.key));
+  const tabsList = showAllTabs ? fullTabsList : fullTabsList.filter((t) => !emptyTabKeys.has(t.key));
+
+  const tabsBar = (
+    <div>
+      {emptyTabKeys.size > 0 && (
+        <div className="flex justify-end -mt-1 mb-1.5">
+          <button
+            type="button"
+            onClick={() => setShowAllTabs((v) => !v)}
+            className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline"
+          >
+            {showAllTabs ? "Thu gọn ▲" : `Xem thêm ${emptyTabKeys.size} tab trống ▾`}
+          </button>
+        </div>
+      )}
+      <Tabs active={tab} onChange={onTabChange} tabs={tabsList} />
+    </div>
+  );
 
   const viewModeToggle = (
     <div className="flex items-center rounded-lg border border-[var(--line)] overflow-hidden text-xs font-semibold shrink-0">
@@ -1356,7 +1460,7 @@ export function CaseDetail({
 
             {/* Cot phai: cac the phu co the doi qua lai (Giai trinh ton / Vi pham / Ca lap) */}
             <div className="overflow-y-auto p-5">
-              <Tabs active={tab} onChange={onTabChange} tabs={tabsList} />
+              {tabsBar}
               {tab === "giai-trinh" && giaiTrinhContent}
               {tab === "bien-ban-hop" && bienBanHopContent}
               {tab === "vi-pham" && viPhamContent}
@@ -1366,6 +1470,7 @@ export function CaseDetail({
               {tab === "mua-hang" && muaHangContent}
               {tab === "bao-hanh" && baoHanhContent}
               {tab === "thieu-hang" && thieuHangContent}
+              {tab === "po-dat-hang" && poDatHangContent}
               {tab === "qc-thuc-te" && qcThucTeContent}
               {tab === "tranh-chap" && tranhChapContent}
             </div>
@@ -1374,7 +1479,7 @@ export function CaseDetail({
 
         {c && viewMode === "compact" && (
           <div className="overflow-y-auto flex-1 p-5">
-            <Tabs active={tab} onChange={onTabChange} tabs={tabsList} />
+            {tabsBar}
             {tab === "info" && infoContent}
             {tab === "giai-trinh" && giaiTrinhContent}
             {tab === "bien-ban-hop" && bienBanHopContent}

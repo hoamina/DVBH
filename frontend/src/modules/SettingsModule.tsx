@@ -12,9 +12,8 @@ import { ImportUploader } from "../components/ImportUploader";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import {
-  fmtVND,
-  type LinhKienRow,
   type LyDoRow,
+  type LyDoChamMuaLkRow,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
   type GreetingGifRow,
@@ -27,6 +26,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { KTV_PHONE_QUERY_KEY } from "../lib/ktvPhone";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 
 interface KtvImportSummary {
   thanhCong: number;
@@ -89,10 +89,9 @@ export function SettingsModule() {
   const [tab, setTab] = useState("ly-do");
   const addToast = useToast();
   const qc = useQueryClient();
+  const personDir = usePersonDirectory();
   const [addOpen, setAddOpen] = useState(false);
   const [newReason, setNewReason] = useState({ ten: "", thieu: false, tranhChap: false });
-  const [addLinhKienOpen, setAddLinhKienOpen] = useState(false);
-  const [newLinhKien, setNewLinhKien] = useState({ ma: "", ten: "", gia: "", giaThamChieu: "", donVi: "", ghiChu: "" });
   const [addPhanLoaiOpen, setAddPhanLoaiOpen] = useState(false);
   const [newPhanLoai, setNewPhanLoai] = useState("");
   const [addKetQuaOpen, setAddKetQuaOpen] = useState(false);
@@ -112,6 +111,16 @@ export function SettingsModule() {
   const [newPartnerKey, setNewPartnerKey] = useState({ tenDoiTac: "", ghiChu: "" });
   const [createdPartnerKey, setCreatedPartnerKey] = useState<{ tenDoiTac: string; apiKey: string } | null>(null);
   const [partnerKeyPage, setPartnerKeyPage] = useState(1);
+  // "Mua hàng" (phản hồi 2026-08-19: gộp settings liên quan module Đặt mua linh kiện vào 1 thẻ
+  // chung) - sub-tab con giữa "Lý do chậm (Đặt mua LK)" (mới, bảng settings_ly_do_cham - KHÁC
+  // "Lý do chậm" ở trên dùng cho giải trình ca tồn) và "Loại đề xuất" (dời nguyên từ tab riêng cũ).
+  const [muaHangSub, setMuaHangSub] = useState<"ly-do-cham" | "loai-de-xuat">("ly-do-cham");
+  const [lyDoChamOpen, setLyDoChamOpen] = useState(false);
+  const [editingLyDoChamId, setEditingLyDoChamId] = useState<number | null>(null);
+  const [lyDoChamForm, setLyDoChamForm] = useState({
+    ten_ly_do: "", muaHang: true, baoHanh: false, quan_ly_don_thieu_linh_kien: false, bat_tat: true, stt: "0",
+  });
+  const [lyDoChamPage, setLyDoChamPage] = useState(1);
   const [ldeNhomOpen, setLdeNhomOpen] = useState(false);
   const [editingNhomId, setEditingNhomId] = useState<number | null>(null);
   const [nhomForm, setNhomForm] = useState({ ten_nhom: "", vai_tro_flags: [] as string[], bat_tat: true });
@@ -121,12 +130,6 @@ export function SettingsModule() {
   const [optionForm, setOptionForm] = useState({ ten_option: "", stt: "0", bat_tat: true });
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [lyDoPage, setLyDoPage] = useState(1);
-  const [linhKienPage, setLinhKienPage] = useState(1);
-  const [partPage, setPartPage] = useState(1);
-  const [addPartOpen, setAddPartOpen] = useState(false);
-  const [editPartOpen, setEditPartOpen] = useState(false);
-  const [editingPartMa, setEditingPartMa] = useState<string | null>(null);
-  const [partForm, setPartForm] = useState({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", anh_demo: "" });
   const [phanLoaiPage, setPhanLoaiPage] = useState(1);
   const [ketQuaPage, setKetQuaPage] = useState(1);
   const [greetingGifPage, setGreetingGifPage] = useState(1);
@@ -139,13 +142,18 @@ export function SettingsModule() {
     gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "",
   });
 
+  const { data: driveStatus } = useQuery({
+    queryKey: ["settings-google-drive-status"],
+    queryFn: () => api.get<{ connected: boolean; google_email?: string; authorized_by?: string; authorized_at?: string }>("/settings/google-drive/status"),
+  });
+
   const { data: reasons } = useQuery({
     queryKey: ["settings-ly-do"],
     queryFn: () => fetchWithHashCache<{ rows: LyDoRow[] }>("settings-ly-do", "/settings/ly-do/version", "/settings/ly-do"),
   });
-  const { data: parts } = useQuery({
-    queryKey: ["settings-linh-kien"],
-    queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
+  const { data: lyDoChamRows } = useQuery({
+    queryKey: ["settings-ly-do-cham"],
+    queryFn: () => api.get<{ rows: LyDoChamMuaLkRow[] }>("/settings/ly-do-cham"),
   });
   const { data: ktvLienHe } = useQuery({
     queryKey: KTV_PHONE_QUERY_KEY,
@@ -211,21 +219,57 @@ export function SettingsModule() {
     },
   });
 
-  const togglePart = useMutation({
-    mutationFn: ({ ma, bat_tat }: { ma: string; bat_tat: boolean }) => api.patch(`/settings/linh-kien/${ma}`, { bat_tat }),
+  // Toggle nhanh 1 cot boolean (bat_tat / quan_ly_don_thieu_linh_kien) ngay trong bang, khong can
+  // mo modal "Sửa" - giong pattern toggleReason o tren.
+  const toggleLyDoChamMutation = useMutation({
+    mutationFn: ({ id, field, value }: { id: number; field: "bat_tat" | "quan_ly_don_thieu_linh_kien"; value: boolean }) =>
+      api.patch(`/settings/ly-do-cham/${id}`, { [field]: value }),
     onSuccess: () => {
-      addToast("Đã cập nhật danh mục linh kiện");
-      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+      addToast("Đã cập nhật lý do chậm");
+      qc.invalidateQueries({ queryKey: ["settings-ly-do-cham"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-ly-do-cham"] });
     },
+    onError: () => addToast("Không thể cập nhật, thử lại sau."),
   });
 
-  const syncSheetMutation = useMutation({
-    mutationFn: () => api.post<{ moi: number; capNhat: number; boQua: number; loi: number }>("/settings/linh-kien/sync-sheet"),
-    onSuccess: (res) => {
-      addToast(`Đồng bộ xong: ${res.moi} mã mới, ${res.capNhat} mã cập nhật, ${res.boQua} không đổi${res.loi ? `, ${res.loi} lỗi` : ""}`);
-      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+  function openAddLyDoCham() {
+    setEditingLyDoChamId(null);
+    setLyDoChamForm({ ten_ly_do: "", muaHang: true, baoHanh: false, quan_ly_don_thieu_linh_kien: false, bat_tat: true, stt: String((lyDoChamRows?.rows ?? []).length) });
+    setLyDoChamOpen(true);
+  }
+  function openEditLyDoCham(r: LyDoChamMuaLkRow) {
+    setEditingLyDoChamId(r.id);
+    setLyDoChamForm({
+      ten_ly_do: r.ten_ly_do,
+      muaHang: r.he_thong_su_dung.includes("Mua hàng"),
+      baoHanh: r.he_thong_su_dung.includes("Bảo hành"),
+      quan_ly_don_thieu_linh_kien: !!r.quan_ly_don_thieu_linh_kien,
+      bat_tat: !!r.bat_tat,
+      stt: String(r.stt),
+    });
+    setLyDoChamOpen(true);
+  }
+
+  const saveLyDoChamMutation = useMutation({
+    mutationFn: () => {
+      const heThong = [lyDoChamForm.muaHang && "Mua hàng", lyDoChamForm.baoHanh && "Bảo hành"].filter(Boolean).join(", ");
+      const body = {
+        ten_ly_do: lyDoChamForm.ten_ly_do.trim(),
+        he_thong_su_dung: heThong,
+        quan_ly_don_thieu_linh_kien: lyDoChamForm.quan_ly_don_thieu_linh_kien,
+        bat_tat: lyDoChamForm.bat_tat,
+        stt: Number(lyDoChamForm.stt) || 0,
+      };
+      return editingLyDoChamId ? api.patch(`/settings/ly-do-cham/${editingLyDoChamId}`, body) : api.post("/settings/ly-do-cham", body);
     },
-    onError: () => addToast("Đồng bộ Google Sheet thất bại, thử lại sau."),
+    onSuccess: () => {
+      addToast(editingLyDoChamId ? "Đã cập nhật lý do chậm" : "Đã thêm lý do chậm mới");
+      setLyDoChamOpen(false);
+      setEditingLyDoChamId(null);
+      qc.invalidateQueries({ queryKey: ["settings-ly-do-cham"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-ly-do-cham"] });
+    },
+    onError: () => addToast("Không thể lưu, thử lại sau."),
   });
 
   const saveUrlMutation = useMutation({
@@ -404,64 +448,6 @@ export function SettingsModule() {
     onError: () => addToast("Không thể xóa option."),
   });
 
-  const addLinhKienMutation = useMutation({
-    mutationFn: () =>
-      api.post("/settings/linh-kien", {
-        ma_linh_kien: newLinhKien.ma,
-        ten_linh_kien: newLinhKien.ten,
-        gia_ban: newLinhKien.gia ? Number(newLinhKien.gia) : undefined,
-        gia_tham_chieu: newLinhKien.giaThamChieu ? Number(newLinhKien.giaThamChieu) : undefined,
-        don_vi: newLinhKien.donVi.trim() || undefined,
-        ghi_chu: newLinhKien.ghiChu.trim() || undefined,
-      }),
-    onSuccess: () => {
-      addToast("Đã thêm linh kiện mới");
-      setNewLinhKien({ ma: "", ten: "", gia: "", giaThamChieu: "", donVi: "", ghiChu: "" });
-      setAddLinhKienOpen(false);
-      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
-    },
-    onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
-  });
-
-  const addPartMutation = useMutation({
-    mutationFn: () =>
-      api.post("/settings/linh-kien", {
-        ma_linh_kien: partForm.ma_linh_kien.trim(),
-        ten_linh_kien: partForm.ten_linh_kien.trim(),
-        gia_ban: partForm.gia_ban ? Number(partForm.gia_ban) : undefined,
-        gia_tham_chieu: partForm.gia_tham_chieu ? Number(partForm.gia_tham_chieu) : undefined,
-        don_vi: partForm.don_vi.trim() || undefined,
-        ghi_chu: partForm.ghi_chu.trim() || undefined,
-        anh_demo: partForm.anh_demo.trim() || undefined,
-      }),
-    onSuccess: () => {
-      addToast("Đã thêm linh kiện mới");
-      setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", anh_demo: "" });
-      setAddPartOpen(false);
-      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
-    },
-    onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
-  });
-
-  const editPartMutation = useMutation({
-    mutationFn: () =>
-      api.patch(`/settings/linh-kien/${editingPartMa}`, {
-        ten_linh_kien: partForm.ten_linh_kien.trim(),
-        gia_ban: partForm.gia_ban ? Number(partForm.gia_ban) : null,
-        gia_tham_chieu: partForm.gia_tham_chieu ? Number(partForm.gia_tham_chieu) : null,
-        don_vi: partForm.don_vi.trim() || null,
-        ghi_chu: partForm.ghi_chu.trim() || null,
-        anh_demo: partForm.anh_demo.trim() || null,
-      }),
-    onSuccess: () => {
-      addToast("Đã cập nhật linh kiện");
-      setEditPartOpen(false);
-      setEditingPartMa(null);
-      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
-    },
-    onError: () => addToast("Không thể cập nhật linh kiện."),
-  });
-
   const saveKtvMutation = useMutation({
     // 2 loi goi: POST goc (ten_hien_thi/sdt/ghi_chu, dung chung voi CSKH) upsert truoc de dam bao
     // dong ton tai, roi PATCH rieng .../dat-mua-lk (Admin-only, 4 cot moi migration 0067) - man
@@ -526,6 +512,45 @@ export function SettingsModule() {
     },
   ];
 
+  const lyDoChamColumns: Column<LyDoChamMuaLkRow>[] = [
+    { key: "stt", header: "STT", render: (r) => <span className="text-xs text-[var(--ink-500)]">{r.stt}</span> },
+    { key: "ten_ly_do", header: "Tên lý do", render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    {
+      key: "he_thong_su_dung",
+      header: "Hệ thống sử dụng",
+      render: (r) => (
+        <div className="flex gap-1 flex-wrap">
+          {r.he_thong_su_dung.includes("Mua hàng") && <span className="text-xs bg-[var(--ocean-100)] text-[var(--ocean-700)] rounded px-1.5 py-0.5">Mua hàng</span>}
+          {r.he_thong_su_dung.includes("Bảo hành") && <span className="text-xs bg-[var(--teal-100)] text-[var(--teal-600)] rounded px-1.5 py-0.5">Bảo hành</span>}
+        </div>
+      ),
+    },
+    {
+      key: "quan_ly_don_thieu_linh_kien",
+      header: "Tự tạo ticket Thiếu LK",
+      render: (r) => (
+        <ToggleSwitch
+          checked={!!r.quan_ly_don_thieu_linh_kien}
+          onChange={() => toggleLyDoChamMutation.mutate({ id: r.id, field: "quan_ly_don_thieu_linh_kien", value: !r.quan_ly_don_thieu_linh_kien })}
+        />
+      ),
+    },
+    {
+      key: "bat_tat",
+      header: "Bật / Tắt",
+      render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLyDoChamMutation.mutate({ id: r.id, field: "bat_tat", value: !r.bat_tat })} />,
+    },
+    {
+      key: "action",
+      header: "",
+      render: (r) => (
+        <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={() => openEditLyDoCham(r)}>
+          Sửa
+        </button>
+      ),
+    },
+  ];
+
   const phanLoaiColumns: Column<PhanLoaiTranhChapRow>[] = [
     { key: "ten_phan_loai", header: "Tên phân loại", render: (r) => <span className="font-medium">{r.ten_phan_loai}</span> },
     { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => togglePhanLoai.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
@@ -563,7 +588,7 @@ export function SettingsModule() {
       render: (r) => (r.khu_vuc === "__ALL__" ? <span className="font-semibold text-[var(--coral-500)]">Tất cả khu vực</span> : shortKhuVuc(r.khu_vuc)),
     },
     { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
-    { key: "nguoi_tao", header: "Người tạo", render: (r) => <span className="text-xs">{r.nguoi_tao ?? "—"}</span> },
+    { key: "nguoi_tao", header: "Người tạo", render: (r) => <span className="text-xs">{r.nguoi_tao ? formatPersonDisplay(r.nguoi_tao, personDir) : "—"}</span> },
     {
       key: "action",
       header: "",
@@ -595,7 +620,7 @@ export function SettingsModule() {
       render: (r) => (
         <span className="text-xs text-[var(--ink-400)]">
           {r.created_at}
-          {r.created_by ? ` · ${r.created_by}` : ""}
+          {r.created_by ? ` · ${formatPersonDisplay(r.created_by, personDir)}` : ""}
         </span>
       ),
     },
@@ -608,47 +633,6 @@ export function SettingsModule() {
           onClick={() => togglePartnerKeyMutation.mutate({ id: r.id, active: !r.active })}
         >
           {r.active ? "Thu hồi" : "Cấp lại"}
-        </button>
-      ),
-    },
-  ];
-
-  const linhKienColumns: Column<LinhKienRow>[] = [
-    { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
-    { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-medium">{p.ten_linh_kien}</span> },
-    { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono">{fmtVND(p.gia_ban)}</span> },
-    { key: "gia_tham_chieu", header: "Giá tham chiếu", render: (p) => <span className="font-mono">{fmtVND(p.gia_tham_chieu)}</span> },
-    { key: "don_vi", header: "Đơn vị", render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
-    {
-      key: "anh_demo",
-      header: "Ảnh minh hoạ",
-      render: (p) => (p.anh_demo ? <a href={p.anh_demo} target="_blank" rel="noreferrer" className="text-xs text-[var(--ocean-600)] hover:underline">Xem ảnh</a> : <span className="text-xs text-[var(--ink-400)]">—</span>),
-    },
-    { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (p) => p.nguoi_cap_nhat },
-    { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (p) => <span className="text-xs">{p.ngay_cap_nhat}</span> },
-    { key: "bat_tat", header: "Hiển thị", render: (p) => <ToggleSwitch checked={!!p.bat_tat} onChange={() => togglePart.mutate({ ma: p.ma_linh_kien, bat_tat: !p.bat_tat })} /> },
-    {
-      key: "action",
-      header: "",
-      render: (p) => (
-        <button
-          className="text-xs text-[var(--ocean-600)] hover:underline"
-          onClick={() => {
-            setEditingPartMa(p.ma_linh_kien);
-            setPartForm({
-              ma_linh_kien: p.ma_linh_kien,
-              ten_linh_kien: p.ten_linh_kien,
-              gia_ban: p.gia_ban?.toString() ?? "",
-              gia_tham_chieu: p.gia_tham_chieu?.toString() ?? "",
-              don_vi: p.don_vi ?? "",
-              ghi_chu: p.ghi_chu ?? "",
-              anh_demo: p.anh_demo ?? "",
-            });
-            setEditPartOpen(true);
-          }}
-        >
-          Sửa
         </button>
       ),
     },
@@ -668,7 +652,7 @@ export function SettingsModule() {
       render: (r) => (r.email_dang_nhap ? <span className="text-xs">{r.email_dang_nhap}</span> : <span className="text-xs text-[var(--ink-400)] italic">Chưa ghép</span>),
     },
     { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ?? "—"}</span> },
+    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
     { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (r) => <span className="text-xs">{r.ngay_cap_nhat}</span> },
     {
       key: "action",
@@ -704,7 +688,6 @@ export function SettingsModule() {
         onChange={setTab}
         tabs={[
           { key: "ly-do", label: "Lý do chậm" },
-          { key: "linh-kien", label: "Danh mục linh kiện" },
           { key: "ktv-lien-he", label: "Danh sách KTV" },
           { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
           { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
@@ -712,9 +695,40 @@ export function SettingsModule() {
           { key: "giai-trinh-exclude-ngay", label: "Ngày loại trừ giải trình" },
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
           { key: "partner-keys", label: "API đối tác" },
-          { key: "loai-de-xuat", label: "Loại đề xuất" },
+          { key: "mua-hang", label: "Mua hàng" },
+          { key: "google-drive", label: "Google Drive" },
         ]}
       />
+      {tab === "google-drive" && (
+        <div className="mt-4 max-w-xl">
+          <Card>
+            <div className="text-sm text-[var(--ink-600)] mb-3">
+              Tài khoản Google được dùng để lưu ảnh linh kiện lên Drive. Ảnh sẽ thuộc dung lượng lưu trữ của chính tài khoản này (không phải Service Account —
+              Service Account không có dung lượng lưu trữ riêng nên không thể tạo file).
+            </div>
+            {driveStatus?.connected ? (
+              <div className="space-y-2">
+                <div className="text-sm">
+                  ✅ Đã kết nối: <b>{driveStatus.google_email}</b>
+                </div>
+                <div className="text-xs text-[var(--ink-500)]">
+                  Kết nối bởi {driveStatus.authorized_by} lúc {driveStatus.authorized_at}
+                </div>
+                <Btn variant="ghost" size="sm" onClick={() => { window.location.href = "/api/settings/google-drive/authorize"; }}>
+                  🔄 Kết nối lại (đổi tài khoản khác)
+                </Btn>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-sm text-[var(--coral-600)]">⚠ Chưa kết nối — tải ảnh linh kiện sẽ báo lỗi cho đến khi kết nối.</div>
+                <Btn size="sm" onClick={() => { window.location.href = "/api/settings/google-drive/authorize"; }}>
+                  Kết nối tài khoản Google Drive
+                </Btn>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
       {tab === "ly-do" && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
@@ -757,105 +771,6 @@ export function SettingsModule() {
           />
         </div>
       )}
-      {tab === "linh-kien" && (
-        <>
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm text-[var(--ink-600)]">Danh mục linh kiện dùng khi giải trình ca "thiếu linh kiện".</div>
-              <div className="flex gap-2 shrink-0">
-                <Btn
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    exportRowsToExcel(parts?.rows ?? [], "danh_muc_linh_kien.xlsx", "Data", {
-                      ma_linh_kien: "Mã",
-                      ten_linh_kien: "Tên linh kiện",
-                      gia_ban: "Giá bán",
-                      nguoi_cap_nhat: "Người cập nhật",
-                      ngay_cap_nhat: "Ngày cập nhật",
-                      bat_tat: "Hiển thị",
-                    })
-                  }
-                >
-                  ⬇ Xuất Excel
-                </Btn>
-                <Btn variant="ghost" size="sm" onClick={() => syncSheetMutation.mutate()} disabled={syncSheetMutation.isPending}>
-                  {syncSheetMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ từ Google Sheet"}
-                </Btn>
-                <Btn size="sm" onClick={() => setAddLinhKienOpen(true)}>
-                  + Thêm linh kiện
-                </Btn>
-              </div>
-            </div>
-            <PaginatedTable
-              columns={linhKienColumns}
-              rows={(parts?.rows ?? []).slice((linhKienPage - 1) * PAGE_SIZE, linhKienPage * PAGE_SIZE)}
-              isLoading={false}
-              isError={false}
-              page={linhKienPage}
-              pageSize={PAGE_SIZE}
-              total={(parts?.rows ?? []).length}
-              onPageChange={setLinhKienPage}
-              rowKey={(p) => p.ma_linh_kien}
-              emptyText="Chưa có linh kiện nào."
-              storageKey="settings-linh-kien"
-            />
-          </div>
-
-          <div className="mt-8 border-t border-[var(--line)] pt-6">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="font-display font-bold text-sm mb-0.5">Danh mục linh kiện đặt mua</div>
-              <div className="text-xs text-[var(--ink-600)]">Danh sách linh kiện dùng trong module Đặt mua linh kiện. Tắt hiển thị để ẩn khỏi dropdown tạo phiếu.</div>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <Btn
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  exportRowsToExcel(parts?.rows ?? [], "danh_muc_dat_mua_lk.xlsx", "Data", {
-                    ma_linh_kien: "Mã",
-                    ten_linh_kien: "Tên linh kiện",
-                    gia_ban: "Giá bán",
-                    gia_tham_chieu: "Giá tham chiếu",
-                    don_vi: "Đơn vị",
-                    ghi_chu: "Ghi chú",
-                    bat_tat: "Hiển thị",
-                    nguoi_cap_nhat: "Người cập nhật",
-                    ngay_cap_nhat: "Ngày cập nhật",
-                  })
-                }
-              >
-                ⬇ Xuất Excel
-              </Btn>
-              <Btn
-                size="sm"
-                onClick={() => {
-                  setPartForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", anh_demo: "" });
-                  setAddPartOpen(true);
-                }}
-              >
-                + Thêm linh kiện
-              </Btn>
-            </div>
-          </div>
-          <PaginatedTable
-            columns={linhKienColumns}
-            rows={(parts?.rows ?? []).slice((partPage - 1) * PAGE_SIZE, partPage * PAGE_SIZE)}
-            isLoading={false}
-            isError={false}
-            page={partPage}
-            pageSize={PAGE_SIZE}
-            total={(parts?.rows ?? []).length}
-            onPageChange={setPartPage}
-            rowKey={(r) => r.ma_linh_kien}
-            emptyText="Chưa có linh kiện đặt mua nào. Thêm linh kiện để KTV có thể tạo phiếu đặt."
-            storageKey="settings-lk-danh-muc"
-          />
-        </div>
-        </>
-      )}
-
       {tab === "ktv-lien-he" && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
@@ -1132,8 +1047,55 @@ export function SettingsModule() {
         </div>
       )}
 
-      {tab === "loai-de-xuat" && (
-        <div className="mt-4 space-y-6">
+      {tab === "mua-hang" && (
+        <div className="mt-4">
+          <div className="flex gap-1 border-b border-[var(--line)] mb-4">
+            {(
+              [
+                { key: "ly-do-cham", label: "Lý do chậm (Đặt mua LK)" },
+                { key: "loai-de-xuat", label: "Loại đề xuất" },
+              ] as const
+            ).map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setMuaHangSub(s.key)}
+                className={`px-3 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                  muaHangSub === s.key ? "border-[var(--ocean-500)] text-[var(--ocean-600)]" : "border-transparent text-[var(--ink-500)] hover:text-[var(--ink-700)]"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          {muaHangSub === "ly-do-cham" && (
+            <div>
+              <div className="flex items-center justify-between mb-3 gap-3">
+                <div className="text-sm text-[var(--ink-600)]">
+                  Danh sách lý do chậm dùng khi tác nghiệp (TN) bấm "Chờ hàng"/"Từ chối" trên 1 dòng đơn đặt mua linh kiện. "Hệ thống sử dụng" quyết định lý do có hiện ra
+                  hay không tuỳ luồng (hiện chỉ luồng Mua hàng đang dùng). Bật "Tự tạo ticket Thiếu LK" để chọn lý do đó tự động chuyển dòng sang trạng thái{" "}
+                  <b>Chờ hàng</b> + tạo phiếu bên module <b>Ca thiếu linh kiện</b>; tắt thì chọn lý do đó là từ chối thường (<b>TN từ chối</b>).
+                </div>
+                <Btn size="sm" onClick={openAddLyDoCham}>
+                  + Thêm lý do
+                </Btn>
+              </div>
+              <PaginatedTable
+                columns={lyDoChamColumns}
+                rows={(lyDoChamRows?.rows ?? []).slice((lyDoChamPage - 1) * PAGE_SIZE, lyDoChamPage * PAGE_SIZE)}
+                isLoading={false}
+                isError={false}
+                page={lyDoChamPage}
+                pageSize={PAGE_SIZE}
+                total={(lyDoChamRows?.rows ?? []).length}
+                onPageChange={setLyDoChamPage}
+                rowKey={(r) => r.id}
+                emptyText="Chưa có lý do chậm nào."
+                storageKey="settings-ly-do-cham"
+              />
+            </div>
+          )}
+          {muaHangSub === "loai-de-xuat" && (
+            <div className="space-y-6">
           <div className="flex items-center justify-between mb-1 gap-3">
             <div className="text-sm text-[var(--ink-600)]">
               Danh sách loại đề xuất dùng khi tạo phiếu đặt mua linh kiện. Mỗi nhóm có thể gán cho nhiều vai trò/flag khác nhau.
@@ -1226,6 +1188,8 @@ export function SettingsModule() {
           })}
           {(ldeNhomData?.rows ?? []).length === 0 && (
             <div className="text-sm text-[var(--ink-400)] italic">Chưa có nhóm loại đề xuất nào. Nhấn "+ Thêm nhóm" để bắt đầu.</div>
+          )}
+            </div>
           )}
         </div>
       )}
@@ -1400,115 +1364,6 @@ export function SettingsModule() {
               disabled={!newExcludeNgay.ngay || (!newExcludeNgay.toanBo && newExcludeNgay.khuVucList.length === 0) || addExcludeNgayMutation.isPending}
             >
               Thêm
-            </Btn>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={addLinhKienOpen} onClose={() => setAddLinhKienOpen(false)} title="Thêm linh kiện mới">
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã linh kiện</label>
-            <input value={newLinhKien.ma} onChange={(e) => setNewLinhKien({ ...newLinhKien, ma: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
-            <input value={newLinhKien.ten} onChange={(e) => setNewLinhKien({ ...newLinhKien, ten: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
-            <input type="number" value={newLinhKien.gia} onChange={(e) => setNewLinhKien({ ...newLinhKien, gia: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => setAddLinhKienOpen(false)}>
-              Hủy
-            </Btn>
-            <Btn onClick={() => addLinhKienMutation.mutate()} disabled={!newLinhKien.ma.trim() || !newLinhKien.ten.trim() || addLinhKienMutation.isPending}>
-              Thêm
-            </Btn>
-          </div>
-        </div>
-      </Modal>
-
-      {/* "Danh muc linh kien dat mua" - nut Them/Sua (addPartOpen/editPartOpen) truoc day KHONG co
-          modal nao doc du lieu (bug: bam khong hien gi ca) - them 2 modal nay khi lam Giai doan 5. */}
-      <Modal open={addPartOpen} onClose={() => setAddPartOpen(false)} title="Thêm linh kiện đặt mua mới">
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã linh kiện</label>
-            <input value={partForm.ma_linh_kien} onChange={(e) => setPartForm({ ...partForm, ma_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
-            <input value={partForm.ten_linh_kien} onChange={(e) => setPartForm({ ...partForm, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
-              <input type="number" value={partForm.gia_ban} onChange={(e) => setPartForm({ ...partForm, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu</label>
-              <input type="number" value={partForm.gia_tham_chieu} onChange={(e) => setPartForm({ ...partForm, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị</label>
-            <input value={partForm.don_vi} onChange={(e) => setPartForm({ ...partForm, don_vi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Link ảnh minh hoạ (Google Drive)</label>
-            <input value={partForm.anh_demo} onChange={(e) => setPartForm({ ...partForm, anh_demo: e.target.value })} placeholder="https://drive.google.com/..." className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
-            <textarea value={partForm.ghi_chu} onChange={(e) => setPartForm({ ...partForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => setAddPartOpen(false)}>
-              Hủy
-            </Btn>
-            <Btn onClick={() => addPartMutation.mutate()} disabled={!partForm.ma_linh_kien.trim() || !partForm.ten_linh_kien.trim() || addPartMutation.isPending}>
-              Thêm
-            </Btn>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={editPartOpen} onClose={() => { setEditPartOpen(false); setEditingPartMa(null); }} title={`Sửa linh kiện ${editingPartMa ?? ""}`}>
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
-            <input value={partForm.ten_linh_kien} onChange={(e) => setPartForm({ ...partForm, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
-              <input type="number" value={partForm.gia_ban} onChange={(e) => setPartForm({ ...partForm, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu</label>
-              <input type="number" value={partForm.gia_tham_chieu} onChange={(e) => setPartForm({ ...partForm, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị</label>
-            <input value={partForm.don_vi} onChange={(e) => setPartForm({ ...partForm, don_vi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Link ảnh minh hoạ (Google Drive)</label>
-            <input value={partForm.anh_demo} onChange={(e) => setPartForm({ ...partForm, anh_demo: e.target.value })} placeholder="https://drive.google.com/..." className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
-            <textarea value={partForm.ghi_chu} onChange={(e) => setPartForm({ ...partForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setEditPartOpen(false); setEditingPartMa(null); }}>
-              Hủy
-            </Btn>
-            <Btn onClick={() => editPartMutation.mutate()} disabled={!partForm.ten_linh_kien.trim() || editPartMutation.isPending}>
-              Lưu
             </Btn>
           </div>
         </div>
@@ -1725,6 +1580,67 @@ export function SettingsModule() {
             <Btn variant="ghost" onClick={() => { setLdeOptionOpen(false); setEditingOptionId(null); }}>Hủy</Btn>
             <Btn onClick={() => saveOptionMutation.mutate()} disabled={!optionForm.ten_option.trim() || saveOptionMutation.isPending}>
               {editingOptionId ? "Lưu" : "Thêm"}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={lyDoChamOpen}
+        onClose={() => { setLyDoChamOpen(false); setEditingLyDoChamId(null); }}
+        title={editingLyDoChamId ? "Sửa lý do chậm" : "Thêm lý do chậm mới"}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên lý do</label>
+            <input
+              value={lyDoChamForm.ten_ly_do}
+              onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, ten_ly_do: e.target.value })}
+              placeholder="Vd: Do nhà máy hết hàng"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1">Hệ thống sử dụng</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={lyDoChamForm.muaHang} onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, muaHang: e.target.checked })} />
+                Mua hàng
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={lyDoChamForm.baoHanh} onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, baoHanh: e.target.checked })} />
+                Bảo hành
+              </label>
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={lyDoChamForm.quan_ly_don_thieu_linh_kien}
+              onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, quan_ly_don_thieu_linh_kien: e.target.checked })}
+            />
+            Tự tạo ticket "Thiếu linh kiện" (chuyển dòng sang Chờ hàng)
+          </label>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Thứ tự (STT)</label>
+            <input
+              type="number"
+              value={lyDoChamForm.stt}
+              onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, stt: e.target.value })}
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={lyDoChamForm.bat_tat} onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, bat_tat: e.target.checked })} />
+            Đang bật
+          </label>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => { setLyDoChamOpen(false); setEditingLyDoChamId(null); }}>Hủy</Btn>
+            <Btn
+              onClick={() => saveLyDoChamMutation.mutate()}
+              disabled={!lyDoChamForm.ten_ly_do.trim() || (!lyDoChamForm.muaHang && !lyDoChamForm.baoHanh) || saveLyDoChamMutation.isPending}
+            >
+              {editingLyDoChamId ? "Lưu" : "Thêm"}
             </Btn>
           </div>
         </div>

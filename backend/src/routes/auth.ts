@@ -161,6 +161,34 @@ auth.get("/callback", async (c) => {
   return c.redirect(c.env.FRONTEND_URL || "/");
 });
 
+// GET /api/auth/dev-login - cua sau CHI hoat dong khi LOCAL_DEV_BYPASS_AUTH=true (chi dat trong
+// .dev.vars, khong bao gio co tren production - xem Env.LOCAL_DEV_BYPASS_AUTH o types.ts). Bo qua
+// toan bo vong Google OAuth that (.dev.vars dung GOOGLE_CLIENT_ID gia, xem secrets.md), dang nhap
+// thang vao tai khoan BOOTSTRAP_ADMIN_EMAIL voi vai_tro Admin de test giao dien local day du.
+auth.get("/dev-login", async (c) => {
+  if (c.env.LOCAL_DEV_BYPASS_AUTH !== "true") return c.text("Not found", 404);
+
+  const email = c.env.BOOTSTRAP_ADMIN_EMAIL;
+  await c.env.DB.prepare(
+    `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet)
+     VALUES (?, ?, 'Admin', 'Da duyet')
+     ON CONFLICT(email) DO UPDATE SET updated_at = ?`,
+  )
+    .bind(email, "Dev Admin (local bypass)", nowVN())
+    .run();
+
+  const token = await signSession({ email }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
+  setCookie(c, SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+    maxAge: SESSION_TTL_SECONDS,
+    path: "/",
+  });
+
+  return c.redirect(c.env.FRONTEND_URL || "/");
+});
+
 auth.post("/logout", async (c) => {
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
   return c.json({ ok: true });
@@ -179,7 +207,33 @@ auth.get("/me", verifySessionMiddleware, loadUser, async (c) => {
     .bind(user.email)
     .run();
   const showDailyReport = (result.meta.changes ?? 0) > 0;
-  return c.json({ user, showDailyReport });
+
+  // GD4 (phan hoi Codex #16/#17, module Dat mua linh kien): "la_tram" TINH THAT (co it nhat 1 Ve
+  // tinh voi tram_cha = email minh), cung dung 1 query voi notifications.ts (routes/notifications.ts
+  // dong 170). Truoc day frontend tu suy "la Tram" qua heuristic `la_ktv_dvbh && !tram_cha` (tuc
+  // "la KTV va KHONG phai Ve tinh cua ai") - dung SAI cho KTV thuong khong quan ly Ve tinh nao (ho
+  // cung khong co tram_cha, nen bi nham la Tram, mac dinh sai vao bucket "Cho Tram duyet" luon rong
+  // voi ho). Tra them field nay de FE dung truc tiep, khong tu suy dien nua.
+  const laTramRow = await c.env.DB.prepare("SELECT 1 as x FROM users WHERE tram_cha = ? LIMIT 1").bind(user.email).first();
+  const la_tram = !!laTramRow;
+
+  return c.json({ user: { ...user, la_tram }, showDailyReport });
+});
+
+// GET /api/auth/nguoi-directory - danh ba email -> ten HIEN THI, dung CHUNG toan he thong (moi
+// route/module) de hien "Tên (mail)"/"Tên KTV (mail)" thay vi email tho khap noi (phan hoi
+// 2026-08-19: "Toàn bộ hệ thống nếu tạo thông tin người dùng có tên => sẽ ưu tiên hiện tên dưới
+// dạng Tên (mail)... KTV/Trạm/CTV sẽ hiện tên KTV (mail)"). CHI can dang nhap (khong gioi han theo
+// vai_tro/module nhu GET /api/users hay GET /dat-mua-lk/nguoi-nhan-hang-kha-dung - 2 endpoint do bi
+// khoa rieng Admin/khu vuc "Dat mua linh kien" nen KHONG dung chung duoc cho cac module khac). Tra
+// rieng 2 danh sach (users/ktv) thay vi merge san o backend - frontend tu uu tien ten_hien_thi cua
+// KTV (do CSKH/Admin bien tap rieng, thuong sat thuc te hon ten Google) truoc ten cua users.ten.
+auth.get("/nguoi-directory", verifySessionMiddleware, loadUser, async (c) => {
+  const [{ results: users }, { results: ktv }] = await Promise.all([
+    c.env.DB.prepare("SELECT email, ten FROM users WHERE trang_thai_duyet = 'Da duyet' AND ten IS NOT NULL").all<{ email: string; ten: string }>(),
+    c.env.DB.prepare("SELECT email_dang_nhap as email, ten_hien_thi FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND ten_hien_thi IS NOT NULL").all<{ email: string; ten_hien_thi: string }>(),
+  ]);
+  return c.json({ users, ktv });
 });
 
 // PATCH /api/auth/me - tu phuc vu: nguoi dang dang nhap doi thong tin CUA CHINH MINH (ten goi

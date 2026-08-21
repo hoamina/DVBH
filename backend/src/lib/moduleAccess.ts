@@ -15,7 +15,7 @@ import type { AppUser, VaiTro } from "../types";
  *   rui ro qua cao de giao qua 1 o tick nham.
  */
 export const DEFAULT_MODULES_BY_ROLE: Record<VaiTro, string[]> = {
-  Admin: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "import", "settings", "users", "giao-dien"],
+  Admin: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
   Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
   QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
   "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
@@ -41,16 +41,51 @@ export function parseModulesColumn(raw: string | null): string[] | null {
 
 /** Danh sach module THAT SU nguoi dung nay duoc xem - Admin luon full, con lai dung
  * user.modules (da tuy chinh) hoac mac dinh theo vai_tro. Co module dat-mua-lk duoc
- * cap them tu dong khi bat co la_ktv_dvbh / la_ve_tinh / la_kho / la_ke_toan. */
+ * cap them tu dong khi bat co la_ktv_dvbh / la_ve_tinh / la_kho / la_ke_toan / la_tac_nghiep /
+ * la_tp_dvbh. Module "danh-muc-lk" (CHOT 2026-08-17, migration 0082) cap them tu dong khi bat
+ * xem_danh_muc_lk (quyen XEM, mac dinh true tru CSKH/TN CSKH/TBP CSKH - migration 0084) HOAC
+ * quan_ly_danh_muc_lk (quyen SUA ke thua duoc xem, phong truong hop Admin cap sua ma quen cap xem). */
 export function effectiveModules(user: AppUser): string[] {
   if (user.vai_tro === "Admin") return DEFAULT_MODULES_BY_ROLE.Admin;
-  const base = user.modules !== null ? user.modules : (user.vai_tro ? (DEFAULT_MODULES_BY_ROLE[user.vai_tro] ?? []) : []);
-  if (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan) {
-    return [...new Set([...base, "dat-mua-lk", "tra-hang"])];
+  let mods = user.modules !== null ? user.modules : (user.vai_tro ? (DEFAULT_MODULES_BY_ROLE[user.vai_tro] ?? []) : []);
+  if (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh) {
+    mods = [...new Set([...mods, "dat-mua-lk", "tra-hang"])];
   }
-  return base;
+  if (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk) {
+    mods = [...new Set([...mods, "danh-muc-lk"])];
+  }
+  return mods;
 }
 
 export function hasModule(user: AppUser, moduleKey: string): boolean {
   return effectiveModules(user).includes(moduleKey);
+}
+
+/**
+ * RA SOAT BAO MAT 2026-08-18 (phan hoi Codex): 3 router "Dat mua linh kien"/"Phieu xuat kho"/"Don tra
+ * hang" truoc day chi yeu cau verifySessionMiddleware+loadUser (dang nhap + da duyet) - KHONG kiem tra
+ * hasModule() o dau ca, nghia la 1 tai khoan CSKH/Viewer/TN CSKH... hop le van goi duoc moi API cua 3
+ * module nay qua URL/DevTools du sidebar khong hien. Ham nay dung LAM CONG UNION cua: (a) hasModule()
+ * that su ("dat-mua-lk"/"tra-hang", ke ca khi Admin da tuy chinh rieng user.modules), CONG (b) toan bo
+ * co role-flag/vai_tro ma cac router nay dang tu kiem tra rai rac o tung endpoint (la_ktv_dvbh/
+ * la_ve_tinh/la_kho/la_ke_toan/la_tac_nghiep/la_tp_dvbh/QC/Giam sat/Admin) - PHAI hop ca 2 vi
+ * DEFAULT_MODULES_BY_ROLE co chu y KHONG liet ke "dat-mua-lk"/"tra-hang" cho vai_tro=QC/"Giam sat"
+ * (2 vai tro nay chi duoc cap qua role-flag rieng hoac Admin tuy chinh tay user.modules) - neu chi
+ * dung hasModule() se chan nham ca nhung tai khoan QC/GS dang hoat dong dung qua cac ham canQC()/
+ * scopeDatMuaNguoiTao() da co san trong tung route file.
+ */
+export function canAccessDatMuaLkArea(user: AppUser): boolean {
+  return (
+    user.vai_tro === "Admin" ||
+    user.vai_tro === "QC" ||
+    user.vai_tro === "Giam sat" ||
+    user.la_ktv_dvbh ||
+    user.la_ve_tinh ||
+    user.la_kho ||
+    user.la_ke_toan ||
+    user.la_tac_nghiep ||
+    user.la_tp_dvbh ||
+    hasModule(user, "dat-mua-lk") ||
+    hasModule(user, "tra-hang")
+  );
 }

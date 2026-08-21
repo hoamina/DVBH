@@ -212,4 +212,61 @@ partnerApi.get("/cases", async (c) => {
   });
 });
 
+// GET /api/partner/case-lookup?id=... - tra cuu 1 case theo ID, CHI phuc vu he thong doc lap moi
+// "Dat mua linh kien" (tach ra thanh 1 he Cloudflare rieng 2026-08-19 - xem
+// "Luồng tạo đơn mua hàng/CLAUDE.md" muc "Nguồn gốc tách hệ thống"). Day la diem noi DUY NHAT giua 2
+// he: he moi CHI goi endpoint nay (tra cuu theo ID, khong ghi gi ca). Tra ve dung tap field da chon
+// loc nhu GET /api/dat-mua-lk/kiem-tra-ma-yeu-cau hien co (khong co du lieu tai chinh/nhay cam) -
+// dung khoa xac thuc rieng (X-API-Key thay vi session) vi ben goi la 1 he thong khac, khong co nguoi
+// dang nhap. KHONG ap dung rate-limit 30/ngay+60s cua "/cases" o tren (thiet ke cho export hang loat
+// dinh ky) - endpoint nay phuc vu tra cuu TUNG BAN GHI theo thoi gian thuc (nguoi dung go ID, debounce
+// 500ms; hoac xem chi tiet 1 don hang co nhieu case lien ket), chi dua vao lop chan chung o middleware
+// "*" phia tren (60 req/phut/IP qua Cache API) - du cho muc dich nay.
+partnerApi.get("/case-lookup", async (c) => {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
+    c.executionCtx.waitUntil(
+      caches.default.put(
+        keyCacheKey,
+        new Response(JSON.stringify({ valid: false }), {
+          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
+        })
+      )
+    );
+    return c.json({ error: "INVALID_API_KEY" }, 401);
+  }
+
+  const id = c.req.query("id")?.trim();
+  if (!id) return c.json({ found: false, preview: null });
+
+  const caseRow = await c.env.DB.prepare(
+    `SELECT ky_thuat_vien, khach_hang, seri_san_pham, khu_vuc, tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh
+     FROM case_dvbh WHERE id = ?`,
+  )
+    .bind(id)
+    .first<{
+      ky_thuat_vien: string | null; khach_hang: string | null; seri_san_pham: string | null; khu_vuc: string | null;
+      tinh: string | null; quan_huyen: string | null; hang: string | null; san_pham_bao_hanh: string | null;
+      tien_do_hoan_thanh: string | null;
+    }>();
+  if (!caseRow) return c.json({ found: false, preview: null });
+
+  return c.json({
+    found: true,
+    preview: {
+      khach_hang: caseRow.khach_hang,
+      seri_san_pham: caseRow.seri_san_pham,
+      khu_vuc: caseRow.khu_vuc,
+      tinh: caseRow.tinh,
+      quan_huyen: caseRow.quan_huyen,
+      hang: caseRow.hang,
+      san_pham_bao_hanh: caseRow.san_pham_bao_hanh,
+      tien_do_hoan_thanh: caseRow.tien_do_hoan_thanh,
+      ky_thuat_vien: caseRow.ky_thuat_vien,
+    },
+  });
+});
+
 export default partnerApi;

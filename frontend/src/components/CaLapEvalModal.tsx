@@ -9,11 +9,23 @@ import { LoadingInline } from "./ui/LoadingInline";
 import { api } from "../api/client";
 import { useToast } from "./ui/Toast";
 import { setCachedEntry } from "../lib/closedDataCache";
-import { fmtDateTime, CA_LAP_META, CA_LAP_KEYS, HINH_THUC_XU_LY_META, HINH_THUC_XU_LY_KEYS, type CaLapDetection } from "../types";
+import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { fmtDateTime, CA_LAP_META, CA_LAP_KEYS, HINH_THUC_XU_LY_META, HINH_THUC_XU_LY_KEYS, type CaLapDetection, type CaLapLoai, type HinhThucXuLy } from "../types";
 
 interface DetectionResponse {
   detection: CaLapDetection["detection"];
   giaiTrinhLap: CaLapDetection["giaiTrinhLap"];
+}
+
+/** CHOT 2026-08-20: goi y "Hinh thuc xu ly" mac dinh theo "Ly do lap" (chot_danh_gia_lap/qc_chot) vua
+ * chon - "Lap do nghiep vu KTV"/"Lap do tay nghe KTV" => "TINH LAP, KHONG TINH LUONG"; "Lap do trung
+ * su vu" => "KHONG TINH LUONG, LOI BAO CAO". Cac ly do con lai (chat luong linh kien/sai bao cao) giu
+ * nguyen mac dinh cu (tu 2026-08-05, ben QC) la "Tinh lap khong tinh luong" - CHI "Bo qua" khong goi y
+ * gi (nguoi dung tu chon). Nguoi dung van chon lai duoc binh thuong sau do qua ChoiceSelect. */
+function suggestedHinhThuc(lyDoLap: CaLapLoai): HinhThucXuLy | undefined {
+  if (lyDoLap === "Bo qua") return undefined;
+  if (lyDoLap === "Lap do trung su vu") return "Khong tinh luong loi bao cao";
+  return "Tinh lap khong tinh luong";
 }
 
 /**
@@ -36,6 +48,7 @@ export function CaLapEvalModal({
 }) {
   const qc = useQueryClient();
   const addToast = useToast();
+  const personDir = usePersonDirectory();
   const [gsLapForm, setGsLapForm] = useState({ chot_danh_gia_lap: "", dien_giai_lap: "" });
   const [hinhThucForm, setHinhThucForm] = useState("");
   const [qcLapForm, setQcLapForm] = useState({ qc_chot: "", qc_ghi_chu: "" });
@@ -130,7 +143,17 @@ export function CaLapEvalModal({
               <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá lặp</label>
               <ChoiceSelect
                 value={effectiveChotDanhGiaLap}
-                onChange={(v) => setGsLapForm({ ...gsLapForm, chot_danh_gia_lap: v })}
+                onChange={(v) => {
+                  setGsLapForm({ ...gsLapForm, chot_danh_gia_lap: v });
+                  // CHOT 2026-08-20: chon "Ly do lap" thi tu dong goi y "Hinh thuc xu ly" tuong ung
+                  // (xem suggestedHinhThuc dau file) - CHI khi Giam sat CHUA tung tu tay sua truong nay
+                  // trong phien lam viec nay (hinhThucForm con rong) VA chua co gia tri da luu tren
+                  // server (khong ghi de mat lua chon co san) - van doi lai duoc binh thuong sau do.
+                  const suggestion = suggestedHinhThuc(v as CaLapLoai);
+                  if (suggestion && hinhThucForm === "" && !giaiTrinhLap?.chot_hinh_thuc_xu_ly) {
+                    setHinhThucForm(suggestion);
+                  }
+                }}
                 className="w-full"
                 options={[{ value: "", label: "— Chọn đánh giá —" }, ...CA_LAP_KEYS.map((k) => ({ value: k, label: CA_LAP_META[k].label }))]}
               />
@@ -147,7 +170,7 @@ export function CaLapEvalModal({
                 </Btn>
                 {giaiTrinhLap?.nguoi_giai_trinh && (
                   <span className="text-xs text-[var(--ink-400)]">
-                    {giaiTrinhLap.nguoi_giai_trinh} · {fmtDateTime(giaiTrinhLap.ngay_giai_trinh)}
+                    {formatPersonDisplay(giaiTrinhLap.nguoi_giai_trinh, personDir)} · {fmtDateTime(giaiTrinhLap.ngay_giai_trinh)}
                   </span>
                 )}
               </div>
@@ -160,7 +183,7 @@ export function CaLapEvalModal({
                   <span className="text-[var(--ink-400)]">Hình thức: {giaiTrinhLap.chot_hinh_thuc_xu_ly ? HINH_THUC_XU_LY_META[giaiTrinhLap.chot_hinh_thuc_xu_ly].label : "—"}</span>
                   {giaiTrinhLap.nguoi_giai_trinh && (
                     <span className="text-[var(--ink-400)]">
-                      · {giaiTrinhLap.nguoi_giai_trinh} · {fmtDateTime(giaiTrinhLap.ngay_giai_trinh)}
+                      · {formatPersonDisplay(giaiTrinhLap.nguoi_giai_trinh, personDir)} · {fmtDateTime(giaiTrinhLap.ngay_giai_trinh)}
                     </span>
                   )}
                 </>
@@ -179,13 +202,14 @@ export function CaLapEvalModal({
                 value={effectiveQcChot}
                 onChange={(v) => {
                   setQcLapForm((prev) => ({ ...prev, qc_chot: v }));
-                  // CHOT 2026-08-05 diem 3: chon "QC chot" khac "Bo qua" thi tu dong goi y "Hinh thuc
-                  // xu ly" = "Tinh lap khong tinh luong" - CHI khi QC CHUA tung tu tay sua truong nay
-                  // trong phien lam viec nay (qcHinhThucForm con rong) VA Giam sat cung chua tung dat
-                  // gia tri nao (khong ghi de mat lua chon co san) - QC van doi lai duoc binh thuong
-                  // sau do qua ChoiceSelect "Hinh thuc xu ly" ben duoi.
-                  if (qcHinhThucForm === "" && v !== "Bo qua" && !giaiTrinhLap?.chot_hinh_thuc_xu_ly) {
-                    setQcHinhThucForm("Tinh lap khong tinh luong");
+                  // CHOT 2026-08-05 diem 3 (sua 2026-08-20 - xem suggestedHinhThuc dau file): chon "Ly
+                  // do lap" thi tu dong goi y "Hinh thuc xu ly" tuong ung - CHI khi QC CHUA tung tu tay
+                  // sua truong nay trong phien lam viec nay (qcHinhThucForm con rong) VA Giam sat cung
+                  // chua tung dat gia tri nao (khong ghi de mat lua chon co san) - QC van doi lai duoc
+                  // binh thuong sau do qua ChoiceSelect "Hinh thuc xu ly" ben duoi.
+                  const suggestion = suggestedHinhThuc(v as CaLapLoai);
+                  if (suggestion && qcHinhThucForm === "" && !giaiTrinhLap?.chot_hinh_thuc_xu_ly) {
+                    setQcHinhThucForm(suggestion);
                   }
                 }}
                 className="w-full"
@@ -211,7 +235,7 @@ export function CaLapEvalModal({
                 </Btn>
                 {giaiTrinhLap?.nguoi_qc && (
                   <span className="text-xs text-[var(--ink-400)]">
-                    {giaiTrinhLap.nguoi_qc} · {fmtDateTime(giaiTrinhLap.ngay_qc)}
+                    {formatPersonDisplay(giaiTrinhLap.nguoi_qc, personDir)} · {fmtDateTime(giaiTrinhLap.ngay_qc)}
                   </span>
                 )}
               </div>
@@ -223,7 +247,7 @@ export function CaLapEvalModal({
                   <Badge tone="teal">{CA_LAP_META[giaiTrinhLap.qc_chot].label}</Badge>
                   {giaiTrinhLap.nguoi_qc && (
                     <span className="text-[var(--ink-400)]">
-                      · {giaiTrinhLap.nguoi_qc} · {fmtDateTime(giaiTrinhLap.ngay_qc)}
+                      · {formatPersonDisplay(giaiTrinhLap.nguoi_qc, personDir)} · {fmtDateTime(giaiTrinhLap.ngay_qc)}
                     </span>
                   )}
                 </>

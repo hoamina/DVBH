@@ -6,6 +6,10 @@ dist/
 .env.*
 .dev.vars
 secrets.md
+*.json.key
+qlbh-3t-*.json
+*-service-account*.json
+*serviceAccount*.json
 .DS_Store
 Thumbs.db
 .claude/settings.local.json

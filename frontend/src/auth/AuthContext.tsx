@@ -26,8 +26,22 @@ export interface AppUser {
   la_ve_tinh: boolean;
   la_kho: boolean;
   la_ke_toan: boolean;
+  // Nguoi duyet don mua/PXK/tra hang ("TN") - tach doc lap khoi vai_tro="TBP DVBH", xem
+  // backend/src/types.ts + migration 0081.
+  la_tac_nghiep: boolean;
+  // Xac nhan "linh kien dac thu" truoc buoc Tac nghiep - xem backend/src/types.ts + migration 0082.
+  la_tp_dvbh: boolean;
+  // Quyen SUA module "Danh muc linh kien" - xem backend/src/types.ts + migration 0082.
+  quan_ly_danh_muc_lk: boolean;
+  // Quyen XEM module "Danh muc linh kien" - doc lap voi quan_ly_danh_muc_lk, mac dinh true tru
+  // CSKH/TN CSKH/TBP CSKH - xem backend/src/types.ts + migration 0084.
+  xem_danh_muc_lk: boolean;
   tram_cha: string | null;
   giam_sat_quan_ly: string | null;
+  // Tinh o backend (GET /api/auth/me, khong phai cot DB) - true khi co it nhat 1 Ve tinh voi
+  // tram_cha = email minh. Thay the heuristic cu `la_ktv_dvbh && !tram_cha` (GD4, phan hoi Codex
+  // #16/#17, module Dat mua linh kien) - heuristic do sai voi KTV thuong khong quan ly Ve tinh nao.
+  la_tram: boolean;
 }
 
 type AuthState =

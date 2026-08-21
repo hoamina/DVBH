@@ -19,16 +19,21 @@ export interface SurveyCandidatesFilters {
   tinh?: string;
   quanHuyen?: string;
   ktv?: string;
+  // Mac dinh true (dung cho SurveyCallWorkspace.tsx - luon can du lieu de chon ca goi). SurveyModule.tsx
+  // truyen rieng theo view/tab dang mo, tranh fetch ca 2 tab "Can khao sat"/"Qua han khao sat" khi
+  // dang xem "Bao cao" hoac cac tab khac cua "Danh sach chi tiet" - xem goi useSurveyCandidates() o do.
+  enabled?: boolean;
 }
 
 function useCandidatesTab(tab: "can-khao-sat" | "qua-han-khao-sat", filters: SurveyCandidatesFilters) {
-  const { thang, khuVuc, tinh, quanHuyen, ktv } = filters;
+  const { thang, khuVuc, tinh, quanHuyen, ktv, enabled = true } = filters;
   return useQuery({
     queryKey: ["survey-candidates", tab, thang, khuVuc, tinh, quanHuyen, ktv],
     queryFn: () =>
       api.get<{ rows: CanKhaoSatRow[] }>(
         `/survey/candidates${buildQuery({ tab, thang, khu_vuc: khuVuc, tinh, quan_huyen: quanHuyen, ky_thuat_vien: ktv })}`,
       ),
+    enabled,
   });
 }
 

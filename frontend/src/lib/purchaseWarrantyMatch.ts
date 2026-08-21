@@ -14,6 +14,18 @@ function wordBoundaryIncludes(haystack: string, needle: string): boolean {
   return new RegExp(`\\b${escaped}\\b`).test(haystack);
 }
 
+/** Cot "Ngay tao"/"Ngay cap nhat" tren cac sheet nay la chuoi DD/MM/YYYY H:MM:SS (vd
+ * "04/01/2026 8:50:31", gio khong luon co so 0 dau) - localeCompare truc tiep tren chuoi SAI vi
+ * ngay dung truoc thang (vd "31/01/2026" so sanh chuoi > "05/05/2026" du 31/01 xay ra truoc). Tra ve
+ * 0 (xep cuoi khi sort desc) neu khong parse duoc. */
+export function parseSheetDateTime(s: string | undefined): number {
+  if (!s) return 0;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return 0;
+  const [, d, mo, y, h, mi, se] = m;
+  return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se ?? "0")).getTime();
+}
+
 /** Cac ma xuat hang lien quan da duoc ghi trong log giai trinh CUA CHINH ca dang xem (da co san tu
  * GET /cases/:id, khong can fetch them). */
 export function matchMuaHang(caseId: string, giaiTrinhList: { ma_xuat_hang_lien_quan?: string | null }[], muaHangRows: SheetRow[]): SheetRow[] {
@@ -30,6 +42,31 @@ export function matchBaoHanh(caseId: string, baoHanhRows: SheetRow[]): SheetRow[
 
 export function matchQcThucTe(caseId: string, qcThucTeRows: SheetRow[]): SheetRow[] {
   return qcThucTeRows.filter((r) => r.idCrm === caseId);
+}
+
+/** Khop theo 2 tieu chi (OR, giong matchMuaHang): "ID CRM" = ID ca (thuong de trong tren sheet nen
+ * khong the dung rieng), HOAC "Ma linh kien de xuat" trung ma linh_kien_thieu tu cac giai trinh CUA
+ * CHINH ca dang xem (da co san tu GET /cases/:id, khong can fetch them). */
+export function matchPoDatHang(caseId: string, giaiTrinhList: { linh_kien_thieu?: string | null }[], poDatHangRows: SheetRow[]): SheetRow[] {
+  const linhKienThieuCodes = new Set(giaiTrinhList.map((g) => g.linh_kien_thieu).filter((v): v is string => !!v));
+  return poDatHangRows.filter((r) => r.idCrm === caseId || (r.maLinhKienDeXuat && linhKienThieuCodes.has(r.maLinhKienDeXuat)));
+}
+
+/** Doi chieu THEO MA LINH KIEN (khong can case id) - dung cho tab "Linh kien thieu" (gom nhieu ca lai
+ * theo 1 ma), khac 3 ham matchXxx() o tren la doi chieu THEO 1 CA dang xem. */
+export function matchPoDatHangByLinhKien(maLk: string, poDatHangRows: SheetRow[]): SheetRow[] {
+  return poDatHangRows.filter((r) => r.maLinhKienDeXuat === maLk);
+}
+
+export function matchMuaHangByLinhKien(maLk: string, muaHangRows: SheetRow[]): SheetRow[] {
+  return muaHangRows.filter((r) => r.maLinhKien === maLk);
+}
+
+/** "linhKienSua" la truong mo ta (khong phai ma chuan hoa) nen dung khop theo tu/cum tu (word-boundary,
+ * giong wordBoundaryIncludes o tren) thay vi so bang tuyet doi - se bo sot mot so bien the viet khac
+ * nhung tranh khop nham (vd "LK001" khop nham "LK0011"). */
+export function matchBaoHanhByLinhKien(maLk: string, baoHanhRows: SheetRow[]): SheetRow[] {
+  return baoHanhRows.filter((r) => wordBoundaryIncludes(r.linhKienSua, maLk));
 }
 
 export function matchThieuHang(muaHangMatched: SheetRow[], baoHanhMatched: SheetRow[], thieuHangRows: SheetRow[]): SheetRow[] {

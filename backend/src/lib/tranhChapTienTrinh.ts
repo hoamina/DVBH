@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { ageExpr } from "./ageCalc";
+import { fromJsonArray } from "./jsonArray";
 
 /** Redesign 2026-07-31: tach 2 giai doan xu ly tranh chap - Giam sat xu ly TRUOC (5 trang thai), neu
  * khong tu xu ly duoc thi chon "Giam sat chuyen CSKH" de ban giao sang CSKH (4 trang thai rieng).
@@ -62,6 +63,25 @@ export function latestLogStatusOfTienTrinh(tienTrinhIdExpr: string): string {
  * NULL - tien loi khi dua vao dieu kien NOT IN (...) o cac truy van dem/loc. */
 export const CASE_TRANH_CHAP_STATUS_EXPR = `COALESCE(${latestLogStatusOfTienTrinh(LATEST_TIEN_TRINH_ID_OF_CASE)}, 'Chua xu ly')`;
 
+/** Trang thai cua log NGAY TRUOC log moi nhat, trong CUNG tien trinh moi nhat cua 1 ca (c.id) - NULL
+ * neu tien trinh moi nhat chi co 1 log (vua tao, chua co lich su). Dung de phat hien "GQKN day lai
+ * GS" ben duoi (khac phaseOfStatus() - ham do tinh giai doan cua trang thai HIEN TAI, con day can biet
+ * trang thai TRUOC do de phan biet 2 nguon cung dan den "Giam sat chua xu ly"). */
+export const PREV_LOG_STATUS_OF_LATEST_TIEN_TRINH_EXPR = `(SELECT trang_thai_xu_ly FROM tranh_chap_log WHERE tien_trinh_id = ${LATEST_TIEN_TRINH_ID_OF_CASE} ORDER BY id DESC LIMIT 1 OFFSET 1)`;
+
+/** true (1)/false (0) - 1 ca (c.id) dang o trang thai "Giam sat chua xu ly" DO CSKH vua "Chuyen lai
+ * giam sat xu ly" (khac truong hop tien trinh MOI TAO co trang thai dau tien cung la "Giam sat chua xu
+ * ly" - phan biet bang: log NGAY TRUOC do phai thuoc giai doan CSKH, tien trinh moi tao thi khong co
+ * log truoc do NEN PREV_LOG_STATUS... la NULL, khong khop dieu kien IN (...) - CHOT 2026-08-20, dung
+ * cho cot "GQKN day lai GS" trong bao-cao-khu-vuc). Fix 2026-08-20 (phat hien qua ca thuc te TC-000107/
+ * case 1287372): "giai doan CSKH" KHONG chi la CSKH_STATUSES (4 gia tri) - "Giam sat chuyen CSKH" (diem
+ * ban giao) CUNG duoc phaseOfStatus() tinh la giai doan "cskh", va KSNB/Admin co the "Chuyen lai giam
+ * sat" NGAY sau buoc ban giao nay ma CHUA TUNG co 1 log CSKH_STATUSES thuc su nao - phai gom CA "Giam
+ * sat chuyen CSKH" vao danh sach so khop, khong chi rieng CSKH_STATUSES. CSKH_STATUSES/"Giam sat chuyen
+ * CSKH" la hang so co dinh (khong phai input nguoi dung) nen an toan noi thang gia tri vao chuoi SQL
+ * (khong can bind), giong CASE_TRANH_CHAP_STATUS_EXPR o tren da noi san 'Chua xu ly'. */
+export const IS_GQKN_DAY_LAI_GS_EXPR = `COALESCE((${CASE_TRANH_CHAP_STATUS_EXPR} = 'Giam sat chua xu ly' AND ${PREV_LOG_STATUS_OF_LATEST_TIEN_TRINH_EXPR} IN ('Giam sat chuyen CSKH', ${CSKH_STATUSES.map((s) => `'${s}'`).join(", ")})), 0)`;
+
 export const TUOI_TIEN_TRINH_EXPR = ageExpr("tt.ngay_tao");
 
 /** Nguoi dung co duoc GHI (tiep nhan tien trinh moi / them log) cho 1 ca thuoc khu_vuc cho truoc
@@ -76,6 +96,18 @@ export function canWriteTranhChap(c: Context<{ Bindings: Env }>, khuVucCa: strin
   return false;
 }
 
+/** Nguoi dung co duoc XAC NHAN "Dung la tranh chap"/"Khong phai tranh chap" cho 1 ca do AI phat hien
+ * (nghi_ngo_tranh_chap = 2) hay khong - CHOT 2026-08-20: RONG HON canWriteTranhChap() o tren (them ca
+ * vai tro CSKH/TN CSKH dung khu vuc + TBP CSKH xem toan bo, vi buoc xac nhan nay gan voi nghiep vu
+ * CSKH hon la xu ly tien trinh tranh chap thuan tuy). */
+export function canConfirmAiTranhChap(c: Context<{ Bindings: Env }>, khuVucCa: string | null): boolean {
+  if (canWriteTranhChap(c, khuVucCa)) return true;
+  const user = c.get("user");
+  if (user.vai_tro === "TBP CSKH") return true;
+  if (user.vai_tro === "CSKH" || user.vai_tro === "TN CSKH") return !!khuVucCa && user.khu_vuc_phu_trach.includes(khuVucCa);
+  return false;
+}
+
 /** Nguoi dung co duoc SUA phan_loai_tranh_chap/muc_do cua 1 tien trinh dang MO hay khong - HEP HON
  * canWriteTranhChap() o tren: CHI KSNB Doi tac + TBP DVBH/Admin, KHONG gom Giam sat (chot 2026-07-29:
  * nguoi dung noi ro "KSNB co the thay doi", phan loai/muc do la quyet dinh cua KSNB luc tiep nhan,
@@ -83,4 +115,67 @@ export function canWriteTranhChap(c: Context<{ Bindings: Env }>, khuVucCa: strin
 export function canEditTienTrinhMeta(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
   return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
+}
+
+/** Nguoi dung co duoc GHI log khi tien trinh dang o GIAI DOAN CSKH hay khong - HEP HON
+ * canWriteTranhChap() (khong gom Giam sat khu vuc): giai doan CSKH la trach nhiem cua KSNB Doi tac/
+ * TBP DVBH/Admin sau khi Giam sat da ban giao ("Giam sat chuyen CSKH") - Giam sat van XEM duoc (van
+ * trong scope khu_vuc) nhung khong duoc ghi them log trong giai doan nay nua. Them 2026-08-20 sau khi
+ * phat hien Giam sat van co the ghi ca trang thai rieng cua CSKH (canWriteTranhChap chi kiem tra
+ * khu_vuc, khong kiem tra giai doan). */
+export function canWriteCskhPhase(c: Context<{ Bindings: Env }>): boolean {
+  const user = c.get("user");
+  return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
+}
+
+export interface GiamSatInfo {
+  email: string;
+  ten: string | null;
+}
+
+/** Doc TOAN BO Giam sat da duyet (+ khu_vuc_phu_trach cua ho) 1 LAN, dung xay map tra cuu
+ * "khu_vuc -> danh sach Giam sat phu trach" - tranh N+1 query khi gan cho tung dong danh sach tien
+ * trinh. Dung boi tinh nang tu dong dien "Giam sat phu trach" khi CSKH "Chuyen lai giam sat xu ly"
+ * (chot 2026-08-20: xac dinh theo khu_vuc_phu_trach cua tai khoan Giam sat, khong doan). */
+export async function loadGiamSatByKhuVucMap(db: D1Database): Promise<Map<string, GiamSatInfo[]>> {
+  const { results } = await db
+    .prepare("SELECT email, ten, khu_vuc_phu_trach FROM users WHERE vai_tro = 'Giam sat' AND trang_thai_duyet = 'Da duyet' AND bi_khoa = 0")
+    .all<{ email: string; ten: string | null; khu_vuc_phu_trach: string | null }>();
+  const map = new Map<string, GiamSatInfo[]>();
+  for (const r of results) {
+    for (const kv of fromJsonArray(r.khu_vuc_phu_trach)) {
+      const list = map.get(kv) ?? [];
+      list.push({ email: r.email, ten: r.ten });
+      map.set(kv, list);
+    }
+  }
+  return map;
+}
+
+/** CHOT 2026-08-20: doc lich su xu ly giai doan Giam sat cua CAC tien trinh tranh chap TRUOC DAY tren
+ * CUNG mot ca (case_id) - dung cho tinh nang "tu rao soat log khieu nai" khi 1 tien trinh MOI dang o
+ * trang thai dau tien "Giam sat chua xu ly" (chua ai thuc su hanh dong tren CHINH no) nhung ca da
+ * TUNG co tranh chap/khieu nai truoc do - goi y "Giam sat nao tung xu ly" dua tren lich su THAT, khong
+ * phai khu_vuc_phu_trach (khac loadGiamSatByKhuVucMap() o tren). 1 truy van gom cho CA TRANG (khong
+ * N+1) - JOIN vao 2 bang nho (tranh_chap_tien_trinh/tranh_chap_log, co idx_tctt_case_id), khong dung
+ * toi case_dvbh nen chi phi doc thap du IN nhieu case_id. Tra ve list PHANG kem tienTrinhId de noi goi
+ * tu loai tru chinh tien trinh dang xet (tranh de xuat chinh nguoi vua tao no). */
+export async function loadGiamSatHistoryByCaseIds(
+  db: D1Database,
+  caseIds: string[],
+): Promise<{ caseId: string; tienTrinhId: string; email: string; ten: string | null }[]> {
+  if (caseIds.length === 0) return [];
+  const placeholders = caseIds.map(() => "?").join(", ");
+  const statusPlaceholders = GIAM_SAT_STATUSES.map(() => "?").join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT tt.case_id, tt.id as tien_trinh_id, ll.nguoi_xu_ly as email, u.ten
+       FROM tranh_chap_tien_trinh tt
+       JOIN tranh_chap_log ll ON ll.tien_trinh_id = tt.id
+       LEFT JOIN users u ON u.email = ll.nguoi_xu_ly
+       WHERE tt.case_id IN (${placeholders}) AND ll.trang_thai_xu_ly IN (${statusPlaceholders})`,
+    )
+    .bind(...caseIds, ...GIAM_SAT_STATUSES)
+    .all<{ case_id: string; tien_trinh_id: string; email: string; ten: string | null }>();
+  return results.map((r) => ({ caseId: r.case_id, tienTrinhId: r.tien_trinh_id, email: r.email, ten: r.ten }));
 }

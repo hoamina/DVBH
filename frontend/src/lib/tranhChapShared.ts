@@ -1,6 +1,7 @@
 import type { BadgeTone } from "../components/ui/Badge";
 import { ApiError } from "../api/client";
 import type { AppUser } from "../auth/AuthContext";
+import type { PersonDirectory } from "./personDisplay";
 
 /**
  * Type/hang so/ham dung CHUNG giua TranhChapModule.tsx (module "Tranh chap, khieu nai") va
@@ -13,6 +14,15 @@ export interface ChoXuLyCase {
   khach_hang: string | null;
   khu_vuc: string | null;
   nhom_kh?: string | null;
+  // CHOT 2026-08-20: 1 = ca dang o "Giam sat chua xu ly" DO CSKH "Chuyen lai giam sat xu ly" (da CO
+  // tien trinh, khac phan con lai cua danh sach nay la ca CHUA TUNG co tien trinh) - can hien khac di
+  // (khong dung nut "Tiep nhan xu ly" - se bao loi TIEN_TRINH_DANG_MO vi tien trinh da ton tai).
+  is_gqkn_day_lai_gs?: number;
+}
+
+export interface GiamSatInfo {
+  email: string;
+  ten: string | null;
 }
 
 export interface TienTrinhRow {
@@ -31,6 +41,19 @@ export interface TienTrinhRow {
   log_ghi_chu: string | null;
   dang_cho_nguoi_xu_ly: string | null;
   so_ngay_ton: number;
+  giam_sat_phu_trach: GiamSatInfo[];
+  // CHOT 2026-08-20: chi co gia tri khi trang_thai_xu_ly === "Giam sat chua xu ly" - Giam sat tung xu
+  // ly cac tien trinh tranh chap TRUOC DAY cua CUNG ca nay (rao soat lich su, khac giam_sat_phu_trach
+  // la suy tu khu_vuc_phu_trach). Xem loadGiamSatHistoryByCaseIds() phia backend.
+  gs_tung_xu_ly: GiamSatInfo[];
+}
+
+export interface TranhChapLogConRow {
+  id: number;
+  tranh_chap_log_id: number;
+  nguoi_ghi: string;
+  noi_dung: string;
+  created_at: string;
 }
 
 export interface TranhChapLogRow {
@@ -46,6 +69,7 @@ export interface TranhChapLogRow {
   dang_cho_nguoi_xu_ly: string | null;
   created_at: string;
   updated_at: string;
+  logCon: TranhChapLogConRow[];
 }
 
 export interface TienTrinhDetail {
@@ -120,6 +144,27 @@ export const KSNB_WATCH_STATUSES = ["Giam sat chuyen CSKH", "CSKH dang xu ly"];
 // khop TRANG_THAI_CAN_KET_QUA trong backend/src/lib/tranhChapTienTrinh.ts.
 export const TRANG_THAI_CAN_KET_QUA = ["Giam sat dong hoan thanh", "CSKH xu ly xong"];
 
+/** Suy ra danh sach Giam sat "de xuat" cho 1 ca TU CHINH lich su cua ca do, khong con quet bang
+ * users (CHOT 2026-08-20, rao soat lag/lang phi doc: loadGiamSatByKhuVucMap() quet toan bo users
+ * moi lan mo tien trinh, N+1 theo so tien trinh cua ca). Gom email tu 2 nguon DA CO SAN o client,
+ * KHONG goi API moi: (1) tranh_chap_log cua CHINH tien trinh dang xem, trang_thai_xu_ly thuoc giai
+ * doan Giam sat - nguoi dat trang thai do da tung truc tiep xu ly ca nay; (2) giai_trinh cua ca
+ * (tuy chon - CaseDetail.tsx truyen vao vi da tai san o do, TienTrinhPanel dung o ngu canh khac
+ * khong co thi bo qua). Khong xac thuc lai vai_tro qua DB - chap nhan de xuat dua tren "ai tung
+ * dong tay xu ly", dung theo yeu cau nguoi dung (khong doan). */
+export function deriveGiamSatSuggestion(
+  logs: { trang_thai_xu_ly: string; nguoi_xu_ly: string }[],
+  giaiTrinhNguoiGiaiTrinh: string[],
+  personDir: PersonDirectory,
+): GiamSatInfo[] {
+  const emails = new Set<string>();
+  for (const l of logs) {
+    if ((GIAM_SAT_STATUS_VALUES as readonly string[]).includes(l.trang_thai_xu_ly)) emails.add(l.nguoi_xu_ly);
+  }
+  for (const email of giaiTrinhNguoiGiaiTrinh) emails.add(email);
+  return Array.from(emails).map((email) => ({ email, ten: personDir.users.get(email) ?? personDir.ktv.get(email) ?? null }));
+}
+
 /** Giai doan hien tai cua 1 tien trinh, tinh tu trang thai log MOI NHAT - dung de gioi han dropdown
  * chon trang thai o log TIEP THEO chi trong dung giai doan (khong quay lai duoc Giam sat sau khi da
  * chuyen CSKH). Mirror dung logic backend phaseOfStatus(). */
@@ -166,6 +211,35 @@ export function canEditTienTrinhMeta(user: AppUser): boolean {
   return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
 }
 
+/** Khop voi canWriteCskhPhase() trong backend - dung AN/HIEN nut "+ Them log" khi tien trinh dang o
+ * giai doan CSKH (Giam sat khu vuc van XEM duoc nhung khong duoc ghi them nua). */
+export function canWriteCskhPhase(user: AppUser): boolean {
+  return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
+}
+
+/** Khop voi canConfirmAiTranhChap() trong backend - dung AN/HIEN 2 nut "Dung la tranh chap"/"Khong
+ * phai tranh chap" trong tab "Cho xac nhan AI". */
+export function canConfirmAiTranhChap(user: AppUser, khuVucCa: string | null): boolean {
+  if (canWriteTranhChap(user, khuVucCa)) return true;
+  if (user.vai_tro === "TBP CSKH") return true;
+  if (user.vai_tro === "CSKH" || user.vai_tro === "TN CSKH") return !!khuVucCa && user.khu_vuc_phu_trach.includes(khuVucCa);
+  return false;
+}
+
+const PHAN_LOAI_TONES: BadgeTone[] = ["ocean", "teal", "amber", "coral", "orange"];
+
+/** Mau badge on dinh theo tung gia tri "phan_loai_tranh_chap" - cac gia tri nay do Admin/TBP DVBH
+ * cau hinh dong trong Settings (khong phai enum co dinh) nen khong the dung bang mau tinh nhu
+ * MUC_DO_TONE, phai bam (hash) chuoi ra 1 trong 5 tong mau san co (bo qua "gray" - da dung lam mau
+ * mac dinh/fallback o noi khac) de moi phan loai co mau rieng on dinh, khong doi giua cac lan render. */
+export function phanLoaiTone(phanLoai: string): BadgeTone {
+  let hash = 0;
+  for (let i = 0; i < phanLoai.length; i++) {
+    hash = (hash * 31 + phanLoai.charCodeAt(i)) >>> 0;
+  }
+  return PHAN_LOAI_TONES[hash % PHAN_LOAI_TONES.length];
+}
+
 export function describeTranhChapError(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
     if (err.code === "FORBIDDEN_ROLE") return "Bạn không có quyền thao tác trên ca/khu vực này.";
@@ -176,6 +250,10 @@ export function describeTranhChapError(err: unknown, fallback: string): string {
     if (err.code === "FORBIDDEN_NOT_AUTHOR") return "Chỉ người tạo log mới được sửa.";
     if (err.code === "MISSING_KET_QUA_XU_LY") return "Cần chọn Kết quả xử lý khi đóng tranh chấp.";
     if (err.code === "MISSING_HAI_LONG") return "Cần chọn Hài lòng sau tranh chấp khi đóng tranh chấp.";
+    if (err.code === "MISSING_DANG_CHO_NGUOI_XU_LY") return "Cần chọn Đang chờ người xử lý khi Chuyển lại giám sát xử lý.";
+    if (err.code === "KHONG_PHAI_CHO_XAC_NHAN") return "Ca này không còn ở trạng thái chờ xác nhận AI (có thể đã được xác nhận hoặc đã tạo tiến trình).";
+    if (err.code === "ALREADY_CONFIRMED") return "Ca này vừa được người khác xác nhận — vui lòng tải lại danh sách.";
+    if (err.code === "INVALID_KET_QUA") return "Kết quả xác nhận không hợp lệ.";
   }
   return fallback;
 }

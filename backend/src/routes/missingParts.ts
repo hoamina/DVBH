@@ -87,7 +87,10 @@ missingParts.get("/", async (c) => {
   // dong thoi ca 2 param nay (bam nut nhanh se tu xoa modelFilter dang chon, xem MissingPartsModule.tsx).
   const modelGroupClause: { sql: string; binds: unknown[] } =
     c.req.query("nhom_san_pham_group") === "loc_tong_bcn" ? { sql: " AND c.nhom_san_pham = 'Lọc tổng'", binds: [] } : { sql: "", binds: [] };
-  const extraFilter = ageClause.sql + khuVucClause.sql + dimClause.sql + idClause.sql + modelClause.sql + doiTacClause.sql + modelGroupClause.sql;
+  // "SL KH VIP" quick-filter (MissingPartsModule) - cung quy uoc "c.nhom_kh LIKE '%VIP%'" nhu
+  // vipHighlight.tsx/canhBaoTon.ts, gom ca "VIP" lan "S.VIP" trong 1 dieu kien.
+  const vipClause: { sql: string; binds: unknown[] } = c.req.query("nhom_kh_group") === "vip" ? { sql: " AND c.nhom_kh LIKE '%VIP%'", binds: [] } : { sql: "", binds: [] };
+  const extraFilter = ageClause.sql + khuVucClause.sql + dimClause.sql + idClause.sql + modelClause.sql + doiTacClause.sql + modelGroupClause.sql + vipClause.sql;
   const extraBinds = [
     ...ageClause.binds,
     ...khuVucClause.binds,
@@ -96,6 +99,7 @@ missingParts.get("/", async (c) => {
     ...modelClause.binds,
     ...doiTacClause.binds,
     ...modelGroupClause.binds,
+    ...vipClause.binds,
   ];
 
   const query = `
@@ -183,6 +187,63 @@ export async function computeMissingPartsByKhuVuc(db: D1Database, params: Missin
 
   return { rows: results };
 }
+
+export interface LinhKienThieuParams {
+  khu_vuc?: string;
+  nhom_san_pham?: string;
+  nhom_san_pham_group?: string;
+  doi_tac?: string;
+  [key: string]: string | undefined;
+}
+
+/** Gom nhom ca "dang ton" theo ma linh kien thieu (lg.linh_kien_thieu - chon tu danh muc linh_kien
+ * bat buoc luc giai trinh, KHONG phai chu tu do go tay - xem thao luan 2026-08-16). Dung chung
+ * baseJoin()/scope voi GET "/" - chi khac GROUP BY thay vi tra tung dong ca. LEFT JOIN linh_kien de
+ * lay ten_linh_kien (co the NULL neu ma trong giai_trinh khong con trong danh muc/da bi vo hieu). */
+export async function computeLinhKienThieu(db: D1Database, params: LinhKienThieuParams, scope: string[] | null) {
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
+  const modelClause = dimAdHocClause("c.nhom_san_pham", "nhom_san_pham", params.nhom_san_pham);
+  const doiTacClause = dimAdHocClause("c.doi_tac", "doi_tac", params.doi_tac);
+  const modelGroupClause: { sql: string; binds: unknown[] } =
+    params.nhom_san_pham_group === "loc_tong_bcn" ? { sql: " AND c.nhom_san_pham = 'Lọc tổng'", binds: [] } : { sql: "", binds: [] };
+  const extraFilter = khuVucClause.sql + modelClause.sql + doiTacClause.sql + modelGroupClause.sql;
+  const extraBinds = [...khuVucClause.binds, ...modelClause.binds, ...doiTacClause.binds, ...modelGroupClause.binds];
+
+  const { results } = await db
+    .prepare(
+      `SELECT lg.linh_kien_thieu as ma_lk, lk.ten_linh_kien as ten_lk, COUNT(DISTINCT c.id) as so_ca
+       FROM case_dvbh c
+       ${baseJoin(CASE_FILTER_TON)}
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = lg.linh_kien_thieu
+       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL
+         AND lg.linh_kien_thieu IS NOT NULL AND lg.linh_kien_thieu != ''${scopeClause.sql}${extraFilter}
+       GROUP BY lg.linh_kien_thieu
+       ORDER BY so_ca DESC`,
+    )
+    .bind(...scopeClause.binds, ...extraBinds)
+    .all();
+
+  return { rows: results };
+}
+
+// GET /api/missing-parts/linh-kien-thieu - danh sach linh kien thieu (gom nhom tu ca "dang ton"),
+// dung de doi chieu voi du lieu PO/mua hang/bao hanh (Google Sheet, doc o frontend qua
+// usePurchaseWarrantyData - khong co o backend nen KHONG join o day, chi tra ma + ten + so ca).
+missingParts.get("/linh-kien-thieu", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params: LinhKienThieuParams = {
+    khu_vuc: c.req.query("khu_vuc"),
+    nhom_san_pham: c.req.query("nhom_san_pham"),
+    nhom_san_pham_group: c.req.query("nhom_san_pham_group"),
+    doi_tac: c.req.query("doi_tac"),
+  };
+  const key = buildReportKey("missing-parts/linh-kien-thieu", params, scope);
+  const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "settings"], () => computeLinhKienThieu(c.env.DB, params, scope));
+  return c.json(data);
+});
 
 // GET /api/missing-parts/by-khu-vuc?dim=... - bao cao ca thieu linh kien nhom theo 1 cot bat ky
 // trong REPORT_DIMS (mac dinh khu_vuc): tong ton + cac moc "tren N ngay", tong gia tri linh kien

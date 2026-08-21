@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 
-export type BadgeTone = "ocean" | "teal" | "amber" | "coral" | "gray";
+export type BadgeTone = "ocean" | "teal" | "amber" | "coral" | "orange" | "gray";
 
 const TONE_MAP: Record<BadgeTone, [string, string]> = {
   ocean: ["bg-[var(--ocean-100)] text-[var(--ocean-800)]", "bg-[var(--ocean-500)] text-white"],
   teal: ["bg-[var(--teal-100)] text-[var(--teal-500)]", "bg-[var(--teal-500)] text-white"],
   amber: ["bg-[var(--amber-100)] text-[var(--amber-500)]", "bg-[var(--amber-500)] text-white"],
   coral: ["bg-[var(--coral-100)] text-[var(--coral-500)]", "bg-[var(--coral-500)] text-white"],
+  orange: ["bg-[var(--orange-100)] text-[var(--orange-600)]", "bg-[var(--orange-500)] text-white"],
   gray: ["bg-slate-100 text-slate-600", "bg-slate-500 text-white"],
 };
 
