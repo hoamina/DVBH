@@ -24,7 +24,7 @@ import { getCaLapDetection, NGUONG_NGAY_LAP } from "./caLap";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
-import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds } from "../lib/dailySnapshot";
+import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey } from "../lib/dailySnapshot";
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
 
@@ -817,6 +817,51 @@ cases.get("/giai-trinh-daily-trend", async (c) => {
   }
   const rows = Array.from(byKhuVuc.entries()).map(([khu_vuc, days]) => ({ khu_vuc, days }));
   return c.json({ rows, excludedNgay: exclusionResults });
+});
+
+// GET /api/cases/ton-trend?tu_ngay=&den_ngay= - "So ca ton theo moc thoi gian" (Quan ly ton, cuoi
+// tab Bao cao). Doc THANG tu daily_snapshot (khong tinh song NEED_* qua case_dvbh) - moi ngay 1 dong
+// chot san luc 08:00 (xem lib/dailySnapshot.ts generateDailySnapshot), da co san backlogTongTon/
+// backlogTren3/5/7/14 trong payload JSON. Dung json_extract() de chi lay dung field can, khong keo ca
+// payload (nho hang chuc field ID-list khac) ve Worker. Phan quyen: DUNG scope_key theo vai_tro nguoi
+// xem (giong getSnapshotForUser) - Giam sat CHI thay dong da chot rieng cho khu_vuc_phu_trach cua ho,
+// khong phai tinh lai; vai tro con lai (Admin/Viewer/TBP DVBH/QC/TBP CSKH) deu doc "khac|all"/"qc|all"
+// (toan he thong), dung quy uoc scope cua snapshot dong bang, KHONG phai scopeByKhuVuc() song.
+cases.get("/ton-trend", async (c) => {
+  const user = c.get("user");
+  const roleVariant = roleVariantOf(user.vai_tro);
+  const khuVucList = roleVariant === "giam_sat" ? user.khu_vuc_phu_trach : [];
+  if (roleVariant === "giam_sat" && khuVucList.length === 0) return c.json({ rows: [] });
+  const scopeKey = buildSnapshotScopeKey(roleVariant, khuVucList);
+
+  const tuNgay = c.req.query("tu_ngay");
+  const denNgay = c.req.query("den_ngay");
+  let whereSql = "scope_key = ?";
+  const binds: unknown[] = [scopeKey];
+  if (tuNgay) {
+    whereSql += " AND ngay >= ?";
+    binds.push(tuNgay);
+  }
+  if (denNgay) {
+    whereSql += " AND ngay <= ?";
+    binds.push(denNgay);
+  }
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT ngay,
+       json_extract(payload, '$.backlogTongTon.count') as tong,
+       json_extract(payload, '$.backlogTren3') as tren_3,
+       json_extract(payload, '$.backlogTren5') as tren_5,
+       json_extract(payload, '$.backlogTren7') as tren_7,
+       json_extract(payload, '$.backlogTren14') as tren_14
+     FROM daily_snapshot
+     WHERE ${whereSql}
+     ORDER BY ngay ASC`,
+  )
+    .bind(...binds)
+    .all<{ ngay: string; tong: number; tren_3: number; tren_5: number; tren_7: number; tren_14: number }>();
+
+  return c.json({ rows: results });
 });
 
 // GET /api/cases/canh-bao-ton?khu_vuc= - 8 so dem "Canh bao ton danh cho QL" cua snapshot dong bang

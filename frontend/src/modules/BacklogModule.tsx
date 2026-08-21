@@ -348,6 +348,17 @@ interface ExcludedNgayRow {
   khu_vuc: string;
 }
 
+// "So ca ton theo moc thoi gian" (cuoi tab Bao cao) - 1 dong/ngay, doc thang tu snapshot dong bang
+// 08:00 (GET /cases/ton-trend, xem backend/src/routes/cases.ts) - KHONG tinh song.
+interface TonTrendRow {
+  ngay: string;
+  tong: number;
+  tren_3: number;
+  tren_5: number;
+  tren_7: number;
+  tren_14: number;
+}
+
 interface FiltersData {
   khuVuc: string[];
   hang: string[];
@@ -598,6 +609,11 @@ function last14Days(): string[] {
 function fmtDayShort(ngay: string): string {
   const [, m, d] = ngay.split("-");
   return `${d}/${m}`;
+}
+
+// "YYYY-MM-DD" theo gio VN, lui N ngay - dung cho mac dinh bo loc "So ca ton theo moc thoi gian".
+function vnDateOffsetStr(daysAgo: number): string {
+  return new Date(Date.now() + 7 * 60 * 60 * 1000 - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 // Bang lich su 1 chi tieu cua "Canh bao ton danh cho QL" (khu_vuc x 14 ngay, chi hien so dem thuan -
@@ -910,6 +926,15 @@ export function BacklogModule({
   const { data: giaiTrinhTrend } = useQuery({
     queryKey: ["giai-trinh-daily-trend"],
     queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] }>("/cases/giai-trinh-daily-trend?days=14"),
+    enabled: view === "bao-cao",
+  });
+  // "So ca ton theo moc thoi gian" (cuoi tab Bao cao) - bo loc tu ngay/den ngay, mac dinh 30 ngay gan
+  // nhat. Doc thang tu daily_snapshot (GET /cases/ton-trend) - khong tinh song, xem chu thich route.
+  const [tonTrendFrom, setTonTrendFrom] = useState(() => vnDateOffsetStr(30));
+  const [tonTrendTo, setTonTrendTo] = useState(() => vnDateOffsetStr(0));
+  const { data: tonTrend } = useQuery({
+    queryKey: ["ton-trend", tonTrendFrom, tonTrendTo],
+    queryFn: () => api.get<{ rows: TonTrendRow[] }>(`/cases/ton-trend${buildQuery({ tu_ngay: tonTrendFrom, den_ngay: tonTrendTo })}`),
     enabled: view === "bao-cao",
   });
   // "Canh bao ton danh cho QL" - card tong quan (dong bang 08:00) + bang lich su theo ngay (khu_vuc x
@@ -1899,6 +1924,122 @@ export function BacklogModule({
                     <tr>
                       <td colSpan={1 + trendDays.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Chưa có dữ liệu lịch sử (bắt đầu ghi nhận từ khi tính năng này triển khai).
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card className="p-3 mt-3">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+              <div className="font-display font-bold text-sm">Số ca tồn theo mốc thời gian</div>
+              <Btn
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  exportRowsToExcel(
+                    (tonTrend?.rows ?? []).map((r) => ({
+                      ngay: r.ngay,
+                      tong_ton: r.tong,
+                      tren_3_ngay: r.tren_3,
+                      tu_5_ngay: r.tren_5,
+                      tren_7_ngay: r.tren_7,
+                      tren_14_ngay: r.tren_14,
+                    })),
+                    "so_ca_ton_theo_moc_thoi_gian.xlsx",
+                    "Data",
+                    { ngay: "Ngày (chốt 08:00)", tong_ton: "Tổng tồn", tren_3_ngay: "Tồn >3 ngày", tu_5_ngay: "Tồn ≥5 ngày", tren_7_ngay: "Tồn >7 ngày", tren_14_ngay: "Tồn >14 ngày" },
+                  )
+                }
+              >
+                ⬇ Xuất Excel
+              </Btn>
+            </div>
+            <div className="text-xs text-[var(--ink-400)] mb-2">Chốt lúc 08:00 mỗi ngày — chọn khoảng ngày để lọc.</div>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <label className="text-xs text-[var(--ink-400)] flex items-center gap-1.5">
+                Từ ngày
+                <input
+                  type="date"
+                  value={tonTrendFrom}
+                  max={tonTrendTo}
+                  onChange={(e) => setTonTrendFrom(e.target.value)}
+                  className="focus-ring border border-[var(--line)] rounded-lg px-2 py-1 text-sm"
+                />
+              </label>
+              <label className="text-xs text-[var(--ink-400)] flex items-center gap-1.5">
+                Đến ngày
+                <input
+                  type="date"
+                  value={tonTrendTo}
+                  min={tonTrendFrom}
+                  max={vnDateOffsetStr(0)}
+                  onChange={(e) => setTonTrendTo(e.target.value)}
+                  className="focus-ring border border-[var(--line)] rounded-lg px-2 py-1 text-sm"
+                />
+              </label>
+              <div className="flex gap-1.5 ml-auto">
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTonTrendFrom(vnDateOffsetStr(7));
+                    setTonTrendTo(vnDateOffsetStr(0));
+                  }}
+                >
+                  7 ngày
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTonTrendFrom(vnDateOffsetStr(14));
+                    setTonTrendTo(vnDateOffsetStr(0));
+                  }}
+                >
+                  14 ngày
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTonTrendFrom(vnDateOffsetStr(90));
+                    setTonTrendTo(vnDateOffsetStr(0));
+                  }}
+                >
+                  90 ngày
+                </Btn>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="dense w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                    <th className="py-2 pr-3">Ngày (chốt 08:00)</th>
+                    <th className="py-2 px-2 text-right">Tổng tồn</th>
+                    <th className="py-2 px-2 text-right">Tồn &gt;3 ngày</th>
+                    <th className="py-2 px-3 text-right text-[var(--coral-600)] bg-[var(--coral-100)] rounded-lg">Tồn ≥5 ngày</th>
+                    <th className="py-2 px-2 text-right">Tồn &gt;7 ngày</th>
+                    <th className="py-2 px-2 text-right">Tồn &gt;14 ngày</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(tonTrend?.rows ?? []).map((r) => (
+                    <tr key={r.ngay} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                      <td className="py-2 pr-3 font-semibold">{fmtDayShort(r.ngay)}</td>
+                      <td className="py-2 px-2 text-right font-mono">{r.tong}</td>
+                      <td className="py-2 px-2 text-right font-mono">{r.tren_3}</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-[var(--coral-600)] bg-[var(--coral-100)]">{r.tren_5}</td>
+                      <td className="py-2 px-2 text-right font-mono">{r.tren_7}</td>
+                      <td className="py-2 px-2 text-right font-mono">{r.tren_14}</td>
+                    </tr>
+                  ))}
+                  {(tonTrend?.rows ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                        Chưa có dữ liệu lịch sử trong khoảng ngày đã chọn.
                       </td>
                     </tr>
                   )}
