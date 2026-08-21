@@ -482,17 +482,17 @@ function DmxBreakdownCard({
     <Card
       className="group relative p-1.5 flex-1 min-w-[110px]"
       style={{
-        background: "linear-gradient(135deg, var(--amber-100), var(--coral-100) 55%, var(--amber-100))",
-        boxShadow: "0 0 0 1.5px var(--coral-500), 0 6px 16px -4px color-mix(in srgb, var(--coral-500) 60%, transparent)",
+        background: "linear-gradient(135deg, var(--indigo-100), color-mix(in srgb, var(--violet-500) 25%, white) 55%, var(--indigo-100))",
+        boxShadow: "0 0 0 1.5px var(--violet-600), 0 6px 16px -4px color-mix(in srgb, var(--violet-600) 60%, transparent)",
       }}
     >
       <div className="flex items-start justify-between gap-1">
-        <span className="text-[10px] font-semibold text-[var(--coral-600)] uppercase tracking-wide leading-tight">✦ Chưa giải trình &gt;3 (ĐMX)</span>
-        <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: total > 0 ? "var(--amber-500)" : "var(--ink-400)" }}></span>
+        <span className="text-[10px] font-semibold text-[var(--indigo-700)] uppercase tracking-wide leading-tight">✦ Chưa giải trình &gt;3 (ĐMX)</span>
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: total > 0 ? "var(--violet-600)" : "var(--ink-400)" }}></span>
       </div>
       <button
         type="button"
-        className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 hover:underline text-left block ${total > 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}
+        className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 hover:underline text-left block ${total > 0 ? "text-[var(--indigo-700)]" : "text-[var(--ink-400)]"}`}
         onClick={onClickTotal}
       >
         {total}
@@ -2020,7 +2020,7 @@ export function BacklogModule({
                     <th className="py-2 pr-3">Ngày (chốt 08:00)</th>
                     <th className="py-2 px-2 text-right">Tổng tồn</th>
                     <th className="py-2 px-2 text-right">Tồn &gt;3 ngày</th>
-                    <th className="py-2 px-3 text-right text-[var(--coral-600)] bg-[var(--coral-100)] rounded-lg">Tồn ≥5 ngày</th>
+                    <th className="py-2 px-3 text-right text-[var(--indigo-700)] bg-[var(--indigo-100)] rounded-lg">Tồn ≥5 ngày</th>
                     <th className="py-2 px-2 text-right">Tồn &gt;7 ngày</th>
                     <th className="py-2 px-2 text-right">Tồn &gt;14 ngày</th>
                   </tr>
@@ -2031,7 +2031,7 @@ export function BacklogModule({
                       <td className="py-2 pr-3 font-semibold">{fmtDayShort(r.ngay)}</td>
                       <td className="py-2 px-2 text-right font-mono">{r.tong}</td>
                       <td className="py-2 px-2 text-right font-mono">{r.tren_3}</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-[var(--coral-600)] bg-[var(--coral-100)]">{r.tren_5}</td>
+                      <td className="py-2 px-3 text-right font-mono font-bold text-[var(--indigo-700)] bg-[var(--indigo-100)]">{r.tren_5}</td>
                       <td className="py-2 px-2 text-right font-mono">{r.tren_7}</td>
                       <td className="py-2 px-2 text-right font-mono">{r.tren_14}</td>
                     </tr>

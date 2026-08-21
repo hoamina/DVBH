@@ -36,8 +36,8 @@ export function StatCard({
   const ring = { ocean: "var(--ocean-500)", teal: "var(--teal-500)", amber: "var(--amber-500)", coral: "var(--coral-500)", orange: "var(--orange-500)", gray: "var(--ink-400)" }[tone];
   const tint = { ocean: "var(--ocean-100)", teal: "var(--teal-100)", amber: "var(--amber-100)", coral: "var(--coral-100)", orange: "var(--orange-100)", gray: "var(--bg)" }[tone];
   const spotlightStyle: CSSProperties = {
-    background: "linear-gradient(135deg, var(--amber-100), var(--coral-100) 55%, var(--amber-100))",
-    boxShadow: "0 0 0 1.5px var(--coral-500), 0 6px 16px -4px color-mix(in srgb, var(--coral-500) 60%, transparent)",
+    background: "linear-gradient(135deg, var(--indigo-100), color-mix(in srgb, var(--violet-500) 25%, white) 55%, var(--indigo-100))",
+    boxShadow: "0 0 0 1.5px var(--violet-600), 0 6px 16px -4px color-mix(in srgb, var(--violet-600) 60%, transparent)",
   };
   if (size === "sm") {
     return (
@@ -47,13 +47,13 @@ export function StatCard({
         onClick={onClick}
       >
         <div className="flex items-start justify-between gap-1">
-          <span className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${spotlight ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>
+          <span className={`text-[10px] font-semibold uppercase tracking-wide leading-tight ${spotlight ? "text-[var(--indigo-700)]" : "text-[var(--ink-400)]"}`}>
             {spotlight && "✦ "}
             {label}
           </span>
           <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: muted ? "var(--ink-400)" : ring }}></span>
         </div>
-        <div className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 ${muted ? "text-[var(--ink-400)]" : spotlight ? "text-[var(--coral-600)]" : "text-[var(--ink-900)]"}`}>{value}</div>
+        <div className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 ${muted ? "text-[var(--ink-400)]" : spotlight ? "text-[var(--indigo-700)]" : "text-[var(--ink-900)]"}`}>{value}</div>
         {sub && <div className="text-[10px] text-[var(--ink-400)] leading-tight mt-0.5">{sub}</div>}
       </Card>
     );
