@@ -141,60 +141,6 @@ async function getUserAccessToken(env: Env, db: D1Database): Promise<{ accessTok
   return { accessToken: json.access_token, folderId: row.folder_id };
 }
 
-const BACKUP_FOLDER_NAME = "DVBH-Secrets-Backup";
-
-async function findOrCreateBackupFolder(accessToken: string): Promise<string> {
-  const q = encodeURIComponent(
-    `name = '${BACKUP_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents`,
-  );
-  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!searchRes.ok) throw new Error(`Google Drive folder search failed: ${searchRes.status} ${await searchRes.text()}`);
-  const { files } = (await searchRes.json()) as { files: { id: string }[] };
-  if (files.length > 0) return files[0].id;
-
-  const createRes = await fetch("https://www.googleapis.com/drive/v3/files?fields=id", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ name: BACKUP_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder", parents: ["root"] }),
-  });
-  if (!createRes.ok) throw new Error(`Google Drive folder create failed: ${createRes.status} ${await createRes.text()}`);
-  const { id } = (await createRes.json()) as { id: string };
-  return id;
-}
-
-/**
- * Upload file bao mat noi bo (vd secrets.md) len 1 folder Drive RIENG ("DVBH-Secrets-Backup", tu
- * tao neu chua co), dung lai ket noi OAuth da co (KHONG xin them scope) - KHONG set quyen "anyone
- * with link" nhu uploadPublicImage(), file giu nguyen private, chi tai khoan da uy quyen xem duoc.
- * Goi tu route Admin-only, tung lan bam nut thu cong (khong tu dong chay ngam) vi noi dung nhay cam.
- */
-export async function uploadPrivateBackup(
-  env: Env,
-  db: D1Database,
-  bytes: ArrayBuffer,
-  mimeType: string,
-  filename: string,
-): Promise<{ id: string; webViewLink: string }> {
-  const { accessToken } = await getUserAccessToken(env, db);
-  const folderId = await findOrCreateBackupFolder(accessToken);
-  const metadata = { name: filename, parents: [folderId] };
-  const boundary = `dvbh-${crypto.randomUUID()}`;
-  const body = buildMultipartBody(metadata, bytes, mimeType, boundary);
-
-  const uploadRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": `multipart/related; boundary=${boundary}`,
-    },
-    body,
-  });
-  if (!uploadRes.ok) throw new Error(`Google Drive upload failed: ${uploadRes.status} ${await uploadRes.text()}`);
-  return (await uploadRes.json()) as { id: string; webViewLink: string };
-}
-
 export async function uploadPublicImage(
   env: Env,
   db: D1Database,

@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { requireQuanLyDanhMucLk } from "../middleware/requireQuanLyDanhMucLk";
-import { uploadPublicImage, uploadPrivateBackup } from "../lib/googleDrive";
+import { uploadPublicImage } from "../lib/googleDrive";
 import { encryptSecret } from "../lib/secretBox";
 import { syncLinhKienFromSheet } from "../lib/linhKienSync";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
@@ -582,29 +582,6 @@ settings.post("/linh-kien/:ma/anh", linhKienWriteRoles, async (c) => {
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true, url: uploaded.thumbnailUrl });
-});
-
-// POST /api/settings/backup-file?filename=... - upload BINARY THO 1 file bao mat noi bo (vd
-// secrets.md) len folder Drive rieng "DVBH-Secrets-Backup" (KHONG public, chi tai khoan da uy quyen
-// OAuth xem duoc) - Admin tu chon file va bam upload tu Cai dat, KHONG co cron/trigger tu dong nao
-// goi route nay (CHOT 2026-08-21: noi dung nhay cam nen giu thao tac thu cong, tung lan xac nhan).
-settings.post("/backup-file", adminOnly, async (c) => {
-  const contentType = c.req.header("Content-Type") || "application/octet-stream";
-  const bytes = await c.req.arrayBuffer();
-  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
-
-  const rawFilename = c.req.query("filename");
-  const filename = rawFilename ? decodeURIComponent(rawFilename) : `backup-${Date.now()}`;
-  try {
-    const uploaded = await uploadPrivateBackup(c.env, c.env.DB, bytes, contentType, filename);
-    return c.json({ ok: true, webViewLink: uploaded.webViewLink });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
-      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
-    }
-    return c.json({ error: "UPLOAD_FAILED", message }, 502);
-  }
 });
 
 // ---------- Google Drive OAuth (uy quyen 1 tai khoan Google THAT de upload anh linh kien) ----------
