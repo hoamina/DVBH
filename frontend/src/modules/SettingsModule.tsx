@@ -146,6 +146,26 @@ export function SettingsModule() {
     queryKey: ["settings-google-drive-status"],
     queryFn: () => api.get<{ connected: boolean; google_email?: string; authorized_by?: string; authorized_at?: string }>("/settings/google-drive/status"),
   });
+  const [backingUp, setBackingUp] = useState(false);
+  const [lastBackupLink, setLastBackupLink] = useState<string | null>(null);
+
+  async function handleBackupFile(file: File) {
+    setBackingUp(true);
+    try {
+      const bytes = await file.arrayBuffer();
+      const res = await api.postBinary<{ ok: true; webViewLink: string }>(
+        `/settings/backup-file?filename=${encodeURIComponent(file.name)}`,
+        bytes,
+        file.type || "application/octet-stream",
+      );
+      setLastBackupLink(res.webViewLink);
+      addToast(`Đã backup "${file.name}" lên Google Drive (folder DVBH-Secrets-Backup)`);
+    } catch (err) {
+      addToast("Lỗi backup: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setBackingUp(false);
+    }
+  }
 
   const { data: reasons } = useQuery({
     queryKey: ["settings-ly-do"],
@@ -727,6 +747,30 @@ export function SettingsModule() {
               </div>
             )}
           </Card>
+          {driveStatus?.connected && (
+            <Card className="mt-4">
+              <div className="text-sm font-semibold mb-1">Backup file bảo mật (thủ công)</div>
+              <div className="text-xs text-[var(--ink-500)] mb-3">
+                Tải 1 file (vd secrets.md) lên folder Drive riêng "DVBH-Secrets-Backup" của tài khoản đã kết nối ở trên. File giữ private, không chia sẻ
+                công khai. Không có gì chạy tự động — mỗi lần backup cần tự chọn file và bấm.
+              </div>
+              <input
+                type="file"
+                disabled={backingUp}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBackupFile(f); e.target.value = ""; }}
+                className="text-xs"
+              />
+              {backingUp && <div className="text-xs text-[var(--ink-500)] mt-2">Đang tải lên...</div>}
+              {lastBackupLink && (
+                <div className="text-xs mt-2">
+                  ✅ Đã backup:{" "}
+                  <a href={lastBackupLink} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] hover:underline">
+                    Xem trên Drive
+                  </a>
+                </div>
+              )}
+            </Card>
+          )}
         </div>
       )}
       {tab === "ly-do" && (
