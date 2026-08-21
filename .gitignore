@@ -6,6 +6,7 @@ dist/
 .env.*
 .dev.vars
 secrets.md
+secrets-checklist.md
 *.json.key
 qlbh-3t-*.json
 *-service-account*.json
