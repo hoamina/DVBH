@@ -464,15 +464,24 @@ function DmxBreakdownCard({
     { label: "— Tái giải trình", value: taiGiaiTrinh, onClick: onClickTaiGiaiTrinh },
     { label: "— Lỡ kế hoạch", value: loKeHoach, onClick: onClickLoKeHoach },
   ];
+  // "Long lanh, sac so" (2026-08-20, dua len dau danh sach cung VIP/Loc tong) - cung 1 gradient +
+  // vien phat sang nhu StatCard spotlight (xem StatCard.tsx) de dong bo mau sac giua 2 the "dap vao
+  // mat" dung o dau luoi "Can giai trinh".
   return (
-    <Card className="group relative p-1.5 flex-1 min-w-[110px]">
+    <Card
+      className="group relative p-1.5 flex-1 min-w-[110px]"
+      style={{
+        background: "linear-gradient(135deg, var(--amber-100), var(--coral-100) 55%, var(--amber-100))",
+        boxShadow: "0 0 0 1.5px var(--coral-500), 0 6px 16px -4px color-mix(in srgb, var(--coral-500) 60%, transparent)",
+      }}
+    >
       <div className="flex items-start justify-between gap-1">
-        <span className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide leading-tight">Chưa giải trình &gt;3 (ĐMX)</span>
+        <span className="text-[10px] font-semibold text-[var(--coral-600)] uppercase tracking-wide leading-tight">✦ Chưa giải trình &gt;3 (ĐMX)</span>
         <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: total > 0 ? "var(--amber-500)" : "var(--ink-400)" }}></span>
       </div>
       <button
         type="button"
-        className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 hover:underline text-left block ${total > 0 ? "text-[var(--ink-900)]" : "text-[var(--ink-400)]"}`}
+        className={`font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5 hover:underline text-left block ${total > 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}
         onClick={onClickTotal}
       >
         {total}
@@ -1485,14 +1494,37 @@ export function BacklogModule({
                 tone="coral"
                 onClick={() => goToDanhSach("can-giai-trinh:tong")}
               />
+              {/* CHOT 2026-08-20: VIP/DMX/Loc tong dua len dau (ngay sau "Tong"), style "spotlight" -
+               * dap vao mat truoc theo yeu cau, xem StatCard.tsx prop spotlight + DmxBreakdownCard. */}
               <StatCard
                 size="sm"
+                spotlight
                 label="VIP/S.VIP chưa GT >=24h"
                 value={backlogDaily.canGiaiTrinh.vip24h.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.vip24h)}
                 tone="coral"
                 muted={backlogDaily.canGiaiTrinh.vip24h.remaining === 0}
                 onClick={() => goToDanhSach("can-giai-trinh:vip_24h")}
+              />
+              <DmxBreakdownCard
+                total={counts?.dmx_3_ngay ?? 0}
+                chuaGt3={counts?.dmx_chua_gt_3_ngay ?? 0}
+                taiGiaiTrinh={counts?.dmx_tai_giai_trinh ?? 0}
+                loKeHoach={counts?.dmx_lo_ke_hoach ?? 0}
+                onClickTotal={() => goToDanhSach("can-giai-trinh:dmx_3_ngay")}
+                onClickChuaGt3={() => goToDanhSach("can-giai-trinh:dmx_chua_gt_3_ngay")}
+                onClickTaiGiaiTrinh={() => goToDanhSach("can-giai-trinh:dmx_tai_giai_trinh")}
+                onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
+              />
+              <StatCard
+                size="sm"
+                spotlight
+                label="Lọc tổng >1 ngày"
+                value={backlogDaily.canGiaiTrinh.locTongBcn.remaining}
+                sub={deltaSub(backlogDaily.canGiaiTrinh.locTongBcn)}
+                tone="amber"
+                muted={backlogDaily.canGiaiTrinh.locTongBcn.remaining === 0}
+                onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
               />
               <DeltaBreakdownCard
                 label="Lỡ kế hoạch"
@@ -1517,16 +1549,6 @@ export function BacklogModule({
                   { label: "ĐMX >5 ngày", bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinhDmx5, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_dmx_5") },
                   { label: ">14 ngày", bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinh14, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_14") },
                 ]}
-              />
-              <DmxBreakdownCard
-                total={counts?.dmx_3_ngay ?? 0}
-                chuaGt3={counts?.dmx_chua_gt_3_ngay ?? 0}
-                taiGiaiTrinh={counts?.dmx_tai_giai_trinh ?? 0}
-                loKeHoach={counts?.dmx_lo_ke_hoach ?? 0}
-                onClickTotal={() => goToDanhSach("can-giai-trinh:dmx_3_ngay")}
-                onClickChuaGt3={() => goToDanhSach("can-giai-trinh:dmx_chua_gt_3_ngay")}
-                onClickTaiGiaiTrinh={() => goToDanhSach("can-giai-trinh:dmx_tai_giai_trinh")}
-                onClickLoKeHoach={() => goToDanhSach("can-giai-trinh:dmx_lo_ke_hoach")}
               />
               <StatCard
                 size="sm"
@@ -1564,15 +1586,6 @@ export function BacklogModule({
                 muted={backlogDaily.canGiaiTrinh.nskx.remaining === 0}
                 onClick={() => goToDanhSach("can-giai-trinh:nskx")}
               />
-              <StatCard
-                size="sm"
-                label="Lọc tổng >1 ngày"
-                value={backlogDaily.canGiaiTrinh.locTongBcn.remaining}
-                sub={deltaSub(backlogDaily.canGiaiTrinh.locTongBcn)}
-                tone="amber"
-                muted={backlogDaily.canGiaiTrinh.locTongBcn.remaining === 0}
-                onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
-              />
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
@@ -1582,22 +1595,15 @@ export function BacklogModule({
                 tone="coral"
                 onClick={() => goToDanhSach("can-giai-trinh:tong")}
               />
+              {/* CHOT 2026-08-20: VIP/DMX/Loc tong dua len dau (ngay sau "Tong"), style "spotlight". */}
               <StatCard
                 size="sm"
+                spotlight
                 label="VIP/S.VIP chưa GT >=24h"
                 value={counts?.vip_24h ?? 0}
                 tone="coral"
                 muted={!counts?.vip_24h}
                 onClick={() => goToDanhSach("can-giai-trinh:vip_24h")}
-              />
-              <StatCard size="sm" label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" muted={!counts?.lo_ke_hoach} onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
-              <StatCard
-                size="sm"
-                label="Cần tái giải trình"
-                value={counts?.tai_giai_trinh ?? 0}
-                tone="amber"
-                muted={!counts?.tai_giai_trinh}
-                onClick={() => goToDanhSach("can-giai-trinh:tai_giai_trinh")}
               />
               <DmxBreakdownCard
                 total={counts?.dmx_3_ngay ?? 0}
@@ -1611,6 +1617,24 @@ export function BacklogModule({
               />
               <StatCard
                 size="sm"
+                spotlight
+                label="Lọc tổng, BCN >1 ngày"
+                value={counts?.loc_tong_bcn ?? 0}
+                tone="amber"
+                muted={!counts?.loc_tong_bcn}
+                onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
+              />
+              <StatCard size="sm" label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" muted={!counts?.lo_ke_hoach} onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
+              <StatCard
+                size="sm"
+                label="Cần tái giải trình"
+                value={counts?.tai_giai_trinh ?? 0}
+                tone="amber"
+                muted={!counts?.tai_giai_trinh}
+                onClick={() => goToDanhSach("can-giai-trinh:tai_giai_trinh")}
+              />
+              <StatCard
+                size="sm"
                 label="Chưa giải trình >5 ngày"
                 value={counts?.chua_gt_5_ngay ?? 0}
                 tone="coral"
@@ -1620,14 +1644,6 @@ export function BacklogModule({
               <StatCard size="sm" label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" muted={!counts?.dieu_hoa} onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
               <StatCard size="sm" label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" muted={!counts?.b2b} onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
               <StatCard size="sm" label="NSKX >=2 ngày" value={counts?.nskx ?? 0} tone="coral" muted={!counts?.nskx} onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
-              <StatCard
-                size="sm"
-                label="Lọc tổng, BCN >1 ngày"
-                value={counts?.loc_tong_bcn ?? 0}
-                tone="amber"
-                muted={!counts?.loc_tong_bcn}
-                onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
-              />
             </div>
           )}
 
