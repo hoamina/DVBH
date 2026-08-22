@@ -819,14 +819,18 @@ cases.get("/giai-trinh-daily-trend", async (c) => {
   return c.json({ rows, excludedNgay: exclusionResults });
 });
 
-// GET /api/cases/ton-trend?tu_ngay=&den_ngay= - "So ca ton theo moc thoi gian" (Quan ly ton, cuoi
-// tab Bao cao). Doc THANG tu daily_snapshot (khong tinh song NEED_* qua case_dvbh) - moi ngay 1 dong
-// chot san luc 08:00 (xem lib/dailySnapshot.ts generateDailySnapshot), da co san backlogTongTon/
-// backlogTren3/5/7/14 trong payload JSON. Dung json_extract() de chi lay dung field can, khong keo ca
-// payload (nho hang chuc field ID-list khac) ve Worker. Phan quyen: DUNG scope_key theo vai_tro nguoi
-// xem (giong getSnapshotForUser) - Giam sat CHI thay dong da chot rieng cho khu_vuc_phu_trach cua ho,
-// khong phai tinh lai; vai tro con lai (Admin/Viewer/TBP DVBH/QC/TBP CSKH) deu doc "khac|all"/"qc|all"
-// (toan he thong), dung quy uoc scope cua snapshot dong bang, KHONG phai scopeByKhuVuc() song.
+// GET /api/cases/ton-trend?tu_ngay=&den_ngay=&khu_vuc= - "So ca ton theo moc thoi gian" (Quan ly ton,
+// cuoi tab Bao cao). Doc THANG tu daily_snapshot (khong tinh song NEED_* qua case_dvbh) - moi ngay 1
+// dong chot san luc 08:00 (xem lib/dailySnapshot.ts generateDailySnapshot), da co san backlogTongTon/
+// backlogTren3/5/7/14 (tong ca scope) VA khuVucReportRows (breakdown tung khu_vuc) trong payload JSON.
+// Dung json_extract() de chi lay dung field can, khong keo ca payload (nho hang chuc field ID-list
+// khac) ve Worker. Phan quyen: DUNG scope_key theo vai_tro nguoi xem (giong getSnapshotForUser) - Giam
+// sat CHI thay dong da chot rieng cho khu_vuc_phu_trach cua ho, khong phai tinh lai; vai tro con lai
+// (Admin/Viewer/TBP DVBH/QC/TBP CSKH) deu doc "khac|all"/"qc|all" (toan he thong), dung quy uoc scope
+// cua snapshot dong bang, KHONG phai scopeByKhuVuc() song. "khu_vuc" (them 2026-08-22, dong bo voi bo
+// loc khu_vuc chung cua ca module - xem khuVucFilter o BacklogModule.tsx) khong doi scope_key/quyen
+// xem, chi cong don lai tu khuVucReportRows da co san (Giam sat truyen khu_vuc ngoai pham vi cua ho
+// don gian se khop 0 dong, vi kv_rows cua ho von da chi chua khu_vuc_phu_trach).
 cases.get("/ton-trend", async (c) => {
   const user = c.get("user");
   const roleVariant = roleVariantOf(user.vai_tro);
@@ -836,6 +840,7 @@ cases.get("/ton-trend", async (c) => {
 
   const tuNgay = c.req.query("tu_ngay");
   const denNgay = c.req.query("den_ngay");
+  const khuVucFilter = c.req.query("khu_vuc");
   let whereSql = "scope_key = ?";
   const binds: unknown[] = [scopeKey];
   if (tuNgay) {
@@ -853,15 +858,50 @@ cases.get("/ton-trend", async (c) => {
        json_extract(payload, '$.backlogTren3') as tren_3,
        json_extract(payload, '$.backlogTren5') as tren_5,
        json_extract(payload, '$.backlogTren7') as tren_7,
-       json_extract(payload, '$.backlogTren14') as tren_14
+       json_extract(payload, '$.backlogTren14') as tren_14,
+       json_extract(payload, '$.khuVucReportRows') as kv_rows
      FROM daily_snapshot
      WHERE ${whereSql}
      ORDER BY ngay ASC`,
   )
     .bind(...binds)
-    .all<{ ngay: string; tong: number; tren_3: number; tren_5: number; tren_7: number; tren_14: number }>();
+    .all<{ ngay: string; tong: number; tren_3: number; tren_5: number; tren_7: number; tren_14: number; kv_rows: string | null }>();
 
-  return c.json({ rows: results });
+  // "khu_vuc" (them 2026-08-22, ad-hoc giong khuVucAdHocClause nhung tinh tren khuVucReportRows da co
+  // san trong JSON thay vi WHERE tren cot, vi day la du lieu dong bang - xem chu thich BacklogBuckets.
+  // khuVucReportRows o dailySnapshot.ts) - khong loc thi giu nguyen 5 cot tong da dong bang (backlogTongTon/
+  // Tren3/5/7/14 - luon khop voi tong TAT CA khu_vuc trong kv_rows vi cung tinh tren 1 tap case).
+  const matchesKhuVuc: (name: string) => boolean = !khuVucFilter
+    ? () => true
+    : khuVucFilter === QLDVBH_FILTER_VALUE
+      ? (name) => name.includes("qldvbh")
+      : ((values) => (name: string) => values.includes(name))(
+          khuVucFilter
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean),
+        );
+
+  const rows = results.map((r) => {
+    if (!khuVucFilter) {
+      return { ngay: r.ngay, tong: r.tong ?? 0, tren_3: r.tren_3 ?? 0, tren_5: r.tren_5 ?? 0, tren_7: r.tren_7 ?? 0, tren_14: r.tren_14 ?? 0 };
+    }
+    const kvRows: Record<string, { tong_ton?: number; tren_3?: number; tren_5?: number; tren_7?: number; tren_14?: number }> = r.kv_rows
+      ? JSON.parse(r.kv_rows)
+      : {};
+    const acc = { tong: 0, tren_3: 0, tren_5: 0, tren_7: 0, tren_14: 0 };
+    for (const [name, v] of Object.entries(kvRows)) {
+      if (!matchesKhuVuc(name)) continue;
+      acc.tong += v.tong_ton ?? 0;
+      acc.tren_3 += v.tren_3 ?? 0;
+      acc.tren_5 += v.tren_5 ?? 0;
+      acc.tren_7 += v.tren_7 ?? 0;
+      acc.tren_14 += v.tren_14 ?? 0;
+    }
+    return { ngay: r.ngay, ...acc };
+  });
+
+  return c.json({ rows });
 });
 
 // GET /api/cases/canh-bao-ton?khu_vuc= - 8 so dem "Canh bao ton danh cho QL" cua snapshot dong bang

@@ -932,9 +932,22 @@ export function BacklogModule({
   // nhat. Doc thang tu daily_snapshot (GET /cases/ton-trend) - khong tinh song, xem chu thich route.
   const [tonTrendFrom, setTonTrendFrom] = useState(() => vnDateOffsetStr(30));
   const [tonTrendTo, setTonTrendTo] = useState(() => vnDateOffsetStr(0));
+  // Nhan hien thi dung 1 bo loc khu_vuc chung cua ca module (khuVucFilter) - mirror dung nhan cua
+  // KhuVucFilterControl (xem options o render duoi) de nguoi dung khong nham "bang nay dang xem
+  // pham vi nao" khi bam qua lai giua nhieu khu_vuc.
+  const tonTrendFilterLabel = !khuVucFilter
+    ? "Tất cả khu vực"
+    : khuVucFilter === QLDVBH_FILTER_VALUE
+      ? "Tất cả DVBH (MB/MN...)"
+      : khuVucFilter
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .join(", ");
   const { data: tonTrend } = useQuery({
-    queryKey: ["ton-trend", tonTrendFrom, tonTrendTo],
-    queryFn: () => api.get<{ rows: TonTrendRow[] }>(`/cases/ton-trend${buildQuery({ tu_ngay: tonTrendFrom, den_ngay: tonTrendTo })}`),
+    queryKey: ["ton-trend", tonTrendFrom, tonTrendTo, khuVucFilter],
+    queryFn: () =>
+      api.get<{ rows: TonTrendRow[] }>(`/cases/ton-trend${buildQuery({ tu_ngay: tonTrendFrom, den_ngay: tonTrendTo, khu_vuc: khuVucFilter })}`),
     enabled: view === "bao-cao",
   });
   // "Canh bao ton danh cho QL" - card tong quan (dong bang 08:00) + bang lich su theo ngay (khu_vuc x
@@ -1957,7 +1970,10 @@ export function BacklogModule({
                 ⬇ Xuất Excel
               </Btn>
             </div>
-            <div className="text-xs text-[var(--ink-400)] mb-2">Chốt lúc 08:00 mỗi ngày — chọn khoảng ngày để lọc.</div>
+            <div className="text-xs text-[var(--ink-400)] mb-2">
+              Chốt lúc 08:00 mỗi ngày — chọn khoảng ngày để lọc. Đang hiển thị:{" "}
+              <span className="font-semibold text-[var(--indigo-700)]">{tonTrendFilterLabel}</span>.
+            </div>
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <label className="text-xs text-[var(--ink-400)] flex items-center gap-1.5">
                 Từ ngày
