@@ -29,7 +29,10 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
   TRANG_THAI_DONG,
+  TRANG_THAI_LABELS,
+  TRANG_THAI_TONE,
   canWriteTranhChap,
+  canConfirmAiTranhChap,
   describeTranhChapError,
   type TienTrinhDetail,
   type PhanLoaiTranhChapRow,
@@ -188,6 +191,39 @@ function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlackli
   );
 }
 
+// "Lich su chung" (them 2026-08-22) - gop TAT CA log da co san cua 1 ca (giai trinh/bien ban hop/vi
+// pham/khao sat/tranh chap/nap gas/ca lap) thanh 1 chuoi thoi gian duy nhat, to mau theo loai de luot
+// nhanh van phan biet duoc. Dung LAI 100% du lieu da fetch san boi cac tab khac (khong goi them API
+// nao) - xem buildLichSuChungEvents() trong component. 2 map nay CHI dung Tailwind class TINH (khong
+// noi chuoi ${tone} vao className) vi Tailwind JIT chi nhan dien duoc class xuat hien nguyen van dang
+// text trong source - class dung ghep dong se KHONG duoc bien dich vao CSS cuoi cung.
+const TIMELINE_TONE_BORDER: Record<BadgeTone, string> = {
+  ocean: "border-[var(--ocean-100)]",
+  teal: "border-[var(--teal-100)]",
+  amber: "border-[var(--amber-100)]",
+  coral: "border-[var(--coral-100)]",
+  orange: "border-[var(--orange-100)]",
+  gray: "border-slate-200",
+};
+const TIMELINE_TONE_DOT: Record<BadgeTone, string> = {
+  ocean: "bg-[var(--ocean-500)]",
+  teal: "bg-[var(--teal-500)]",
+  amber: "bg-[var(--amber-500)]",
+  coral: "bg-[var(--coral-500)]",
+  orange: "bg-[var(--orange-500)]",
+  gray: "bg-slate-400",
+};
+
+interface LichSuChungEvent {
+  key: string;
+  timestamp: string;
+  tone: BadgeTone;
+  typeLabel: string;
+  actor: string | null;
+  summary: string;
+  jumpTab: string;
+}
+
 export function CaseDetail({
   caseId,
   viewMode,
@@ -311,8 +347,28 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-stats"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
+      // Tao tien trinh truc tiep tu ca "cho xac nhan AI" duoc tinh la da xac nhan luon (xem CHOT
+      // 2026-08-22 o backend POST /:caseId/tiep-nhan) - lam mat 1 ca khoi hang doi, can lam moi badge.
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
     },
     onError: (err) => addToast(describeTranhChapError(err, "Không thể tiếp nhận, thử lại sau.")),
+  });
+
+  // "Xac nhan AI" nhanh ngay trong the "Tranh chap" cua ca chi tiet (CHOT 2026-08-22) - cung 1 API
+  // POST /:caseId/xac-nhan-ai voi tab "Cho xac nhan AI" cua TranhChapModule, chi khac cho hien nut.
+  const xacNhanAiCaseDetail = useMutation({
+    mutationFn: (ketQua: "dung" | "khong_phai") => api.post(`/tranh-chap/${caseId}/xac-nhan-ai`, { ket_qua: ketQua }),
+    onSuccess: async (_data, ketQua) => {
+      addToast(ketQua === "dung" ? "Đã xác nhận: Đúng là tranh chấp." : "Đã xác nhận: Không phải tranh chấp.");
+      const fresh = await fetchCaseDetail(caseId!);
+      const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+      qc.setQueryData(["case", caseId], newEntry);
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
+    },
+    onError: (err) => addToast(describeTranhChapError(err, "Không thể xác nhận, thử lại sau.")),
   });
 
   const [giaiTrinhModalOpen, setGiaiTrinhModalOpen] = useState(false);
@@ -491,6 +547,167 @@ export function CaseDetail({
       const trangThai = tt.logs[0]?.trang_thai_xu_ly;
       return !!trangThai && TRANG_THAI_DONG.includes(trangThai);
     });
+
+  // "Lich su chung" - gop dung cac mang DA CO SAN o tren (khong fetch them gi), sap giam dan theo
+  // "timestamp" (cac cot ngay_*/created_at deu la chuoi "YYYY-MM-DD HH:MM:SS" cung mui gio VN nen so
+  // sanh chuoi truc tiep la du, khong can parse Date - xem quy uoc AGE_ANCHOR o backend/lib/ageCalc.ts).
+  // Bo qua caLap.lichSu (chuoi lich su THEO SERIAL, la cac CA KHAC chia se serial - khong phai log cua
+  // CHINH ca dang xem, gop vao day se gay nham "lich su cua ca nay" voi "lich su cua ca khac").
+  const lichSuChungEvents = useMemo<LichSuChungEvent[]>(() => {
+    const events: LichSuChungEvent[] = [];
+
+    for (const l of giaiTrinhList) {
+      events.push({
+        key: `gt-${l.id}`,
+        timestamp: l.ngay_giai_trinh,
+        tone: "ocean",
+        typeLabel: "Giải trình",
+        actor: l.nguoi_giai_trinh,
+        summary: l.noi_dung ? `${l.ly_do_cham}: ${l.noi_dung}` : l.ly_do_cham,
+        jumpTab: "giai-trinh",
+      });
+    }
+
+    for (const b of bienBanHopList) {
+      events.push({
+        key: `bbh-${b.id}`,
+        timestamp: b.created_at,
+        tone: "gray",
+        typeLabel: "Biên bản họp",
+        actor: b.nguoi_ghi,
+        summary: b.noi_dung,
+        jumpTab: "bien-ban-hop",
+      });
+    }
+
+    for (const v of viPhamList) {
+      events.push({
+        key: `vp-${v.id}-ghi-nhan`,
+        timestamp: v.ngay_ghi_nhan,
+        tone: "amber",
+        typeLabel: `Vi phạm ghi nhận (${LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi})`,
+        actor: v.nguoi_ghi_nhan,
+        summary: v.ket_qua_cap_1 ?? "Chưa khảo sát",
+        jumpTab: "vi-pham",
+      });
+      if (v.chot_bo_cap_2 !== null && v.ngay_chot) {
+        events.push({
+          key: `vp-${v.id}-chot`,
+          timestamp: v.ngay_chot,
+          tone: v.chot_bo_cap_2 ? "teal" : "coral",
+          typeLabel: "Vi phạm chốt cấp 2",
+          actor: v.nguoi_chot,
+          summary: v.chot_bo_cap_2 ? "Đã xác nhận vi phạm" : "Không vi phạm",
+          jumpTab: "vi-pham",
+        });
+      }
+    }
+
+    for (const k of ketQuaGoiList) {
+      const loaiList = parseLoaiKhaoSat(k.loai_khao_sat);
+      events.push({
+        key: `kqg-${k.id}`,
+        timestamp: k.ngay_gio_thuc_hien,
+        tone: "teal",
+        typeLabel: `Khảo sát${loaiList.length ? " (" + loaiList.map((loai) => LOAI_LOI_META[loai]?.short ?? loai).join(", ") + ")" : ""}`,
+        actor: k.nguoi_thuc_hien,
+        summary: k.ket_qua_cuoc_goi ?? k.ghi_chu ?? "—",
+        jumpTab: "khao-sat",
+      });
+    }
+
+    for (const tt of tienTrinhListForCase) {
+      for (const log of tt.logs) {
+        events.push({
+          key: `tc-log-${log.id}`,
+          timestamp: log.ngay_xu_ly,
+          tone: TRANG_THAI_TONE[log.trang_thai_xu_ly] ?? "gray",
+          typeLabel: `Tranh chấp: ${TRANG_THAI_LABELS[log.trang_thai_xu_ly] ?? log.trang_thai_xu_ly}`,
+          actor: log.nguoi_xu_ly,
+          summary: log.ghi_chu ?? "—",
+          jumpTab: "tranh-chap",
+        });
+        for (const sub of log.logCon ?? []) {
+          events.push({
+            key: `tc-logcon-${sub.id}`,
+            timestamp: sub.created_at,
+            tone: "gray",
+            typeLabel: "Tranh chấp: phản hồi",
+            actor: sub.nguoi_ghi,
+            summary: sub.noi_dung,
+            jumpTab: "tranh-chap",
+          });
+        }
+      }
+    }
+
+    if (napGasDanhGia) {
+      events.push({
+        key: "nap-gas",
+        timestamp: napGasDanhGia.ngay_chot,
+        tone: "orange",
+        typeLabel: "Đánh giá nạp gas",
+        actor: napGasDanhGia.nguoi_chot,
+        summary: `${NAP_GAS_DANH_GIA_META[napGasDanhGia.danh_gia_nap_gas]?.label ?? napGasDanhGia.danh_gia_nap_gas} · ${NAP_GAS_PHI_DICH_VU_META[napGasDanhGia.phi_dich_vu]?.label ?? napGasDanhGia.phi_dich_vu}`,
+        jumpTab: "nap-gas",
+      });
+    }
+
+    const glap = caLap?.giaiTrinhLap;
+    if (glap?.ngay_giai_trinh) {
+      events.push({
+        key: "ca-lap-gs",
+        timestamp: glap.ngay_giai_trinh,
+        tone: "amber",
+        typeLabel: "Đánh giá ca lặp (GS)",
+        actor: glap.nguoi_giai_trinh,
+        summary: `${glap.chot_danh_gia_lap ? (CA_LAP_META[glap.chot_danh_gia_lap]?.label ?? glap.chot_danh_gia_lap) : "—"}${glap.dien_giai_lap ? ": " + glap.dien_giai_lap : ""}`,
+        jumpTab: "ca-lap",
+      });
+    }
+    if (glap?.ngay_qc) {
+      events.push({
+        key: "ca-lap-qc",
+        timestamp: glap.ngay_qc,
+        tone: "teal",
+        typeLabel: "Đánh giá ca lặp (QC)",
+        actor: glap.nguoi_qc,
+        summary: `${glap.qc_chot ? (CA_LAP_META[glap.qc_chot]?.label ?? glap.qc_chot) : "—"}${glap.qc_ghi_chu ? ": " + glap.qc_ghi_chu : ""}`,
+        jumpTab: "ca-lap",
+      });
+    }
+
+    return events.filter((e) => !!e.timestamp).sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
+  }, [giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap]);
+
+  const lichSuChungContent = (
+    <div>
+      <div className="text-xs text-[var(--ink-400)] italic mb-3">
+        Gộp toàn bộ log của ca này (giải trình, biên bản họp, vi phạm, khảo sát, tranh chấp, nạp gas, ca lặp) theo đúng thời gian tạo — bấm vào 1 dòng để mở tab chi tiết tương ứng.
+      </div>
+      {lichSuChungEvents.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có log nào cho ca này.</div>}
+      <div className="space-y-3">
+        {lichSuChungEvents.map((e) => (
+          <button
+            key={e.key}
+            type="button"
+            onClick={() => onTabChange(e.jumpTab)}
+            className={`relative pl-4 border-l-2 w-full text-left hover:bg-[var(--bg)] rounded-r-lg transition-colors ${TIMELINE_TONE_BORDER[e.tone]}`}
+          >
+            <div className={`absolute -left-[5px] top-1 w-2 h-2 rounded-full ${TIMELINE_TONE_DOT[e.tone]}`}></div>
+            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+              <Badge tone={e.tone}>{e.typeLabel}</Badge>
+              <span className="text-xs text-[var(--ink-400)]">
+                {fmtDateTime(e.timestamp)}
+                {e.actor ? ` · ${formatPersonDisplay(e.actor, personDir)}` : ""}
+              </span>
+            </div>
+            <div className="text-sm text-[var(--ink-600)] whitespace-pre-wrap">{e.summary}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   const lapStatus = caLap?.detection
     ? trangThaiLapOf({
@@ -1259,21 +1476,40 @@ export function CaseDetail({
   );
 
   const canWriteTranhChapForCase = !!(currentUser && canWriteTranhChap(currentUser, c?.khu_vuc ?? null));
+  // "Cho xac nhan AI" (nghi_ngo_tranh_chap = 2) ngay trong the chi tiet ca (CHOT 2026-08-22) - khop
+  // dung dieu kien TRANH_CHAP_AI_CHO_XAC_NHAN + "NOT EXISTS tien_trinh" ben backend (list rong nghia
+  // la chua tung tao tien trinh nao).
+  const aiChoXacNhan = !!(c && c.nghi_ngo_tranh_chap === 2 && tienTrinhListForCase.length === 0);
+  const canConfirmAiForCase = !!(currentUser && canConfirmAiTranhChap(currentUser, c?.khu_vuc ?? null));
 
   const tranhChapContent = (
     <div className="space-y-4">
       {tienTrinhListForCase.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">
-          {tranhChapEligible
-            ? "Ca này chưa có tiến trình xử lý tranh chấp nào."
-            : "Ca này chưa được CRM đánh dấu nghi ngờ tranh chấp — vẫn có thể tạo yêu cầu xử lý thủ công bên dưới nếu cần."}
+          {aiChoXacNhan
+            ? "AI phát hiện ca này có khả năng là tranh chấp, đang chờ xác nhận."
+            : tranhChapEligible
+              ? "Ca này chưa có tiến trình xử lý tranh chấp nào."
+              : "Ca này chưa được CRM đánh dấu nghi ngờ tranh chấp — vẫn có thể tạo yêu cầu xử lý thủ công bên dưới nếu cần."}
         </div>
       )}
-      {canTiepNhanTranhChapMoi && canWriteTranhChapForCase && (
-        <div className="flex justify-end">
-          <Btn size="sm" onClick={() => setTiepNhanTranhChapOpen(true)}>
-            + Tạo yêu cầu giải quyết tranh chấp, khiếu nại
-          </Btn>
+      {(aiChoXacNhan || (canTiepNhanTranhChapMoi && canWriteTranhChapForCase)) && (
+        <div className="flex justify-end gap-2">
+          {aiChoXacNhan && canConfirmAiForCase && (
+            <>
+              <Btn size="sm" variant="success" disabled={xacNhanAiCaseDetail.isPending} onClick={() => xacNhanAiCaseDetail.mutate("dung")}>
+                Đúng là tranh chấp
+              </Btn>
+              <Btn size="sm" variant="ghost" disabled={xacNhanAiCaseDetail.isPending} onClick={() => xacNhanAiCaseDetail.mutate("khong_phai")}>
+                Không phải tranh chấp
+              </Btn>
+            </>
+          )}
+          {canTiepNhanTranhChapMoi && canWriteTranhChapForCase && (
+            <Btn size="sm" onClick={() => setTiepNhanTranhChapOpen(true)}>
+              + Tạo yêu cầu giải quyết tranh chấp, khiếu nại
+            </Btn>
+          )}
         </div>
       )}
       {tienTrinhListForCase.map((tt) => (
@@ -1294,6 +1530,7 @@ export function CaseDetail({
     viewMode === "compact"
       ? [
           { key: "info", label: "Thông tin" },
+          { key: "lich-su-chung", label: "Lịch sử chung", count: lichSuChungEvents.length },
           { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
           { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
@@ -1308,6 +1545,7 @@ export function CaseDetail({
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
         ]
       : [
+          { key: "lich-su-chung", label: "Lịch sử chung", count: lichSuChungEvents.length },
           { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
           { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
@@ -1324,7 +1562,7 @@ export function CaseDetail({
 
   // "info"/"giai-trinh" la 2 tab loi luon hien; tab dang active cung luon hien (khong tu bien mat
   // khoi thanh khi dang xem no du no dang rong) - phan con lai chi an neu count === 0.
-  const CORE_TAB_KEYS = new Set(["info", "giai-trinh"]);
+  const CORE_TAB_KEYS = new Set(["info", "lich-su-chung", "giai-trinh"]);
   const emptyTabKeys = new Set(fullTabsList.filter((t) => !CORE_TAB_KEYS.has(t.key) && t.key !== tab && !t.count).map((t) => t.key));
   const tabsList = showAllTabs ? fullTabsList : fullTabsList.filter((t) => !emptyTabKeys.has(t.key));
 
@@ -1461,6 +1699,7 @@ export function CaseDetail({
             {/* Cot phai: cac the phu co the doi qua lai (Giai trinh ton / Vi pham / Ca lap) */}
             <div className="overflow-y-auto p-5">
               {tabsBar}
+              {tab === "lich-su-chung" && lichSuChungContent}
               {tab === "giai-trinh" && giaiTrinhContent}
               {tab === "bien-ban-hop" && bienBanHopContent}
               {tab === "vi-pham" && viPhamContent}
@@ -1481,6 +1720,7 @@ export function CaseDetail({
           <div className="overflow-y-auto flex-1 p-5">
             {tabsBar}
             {tab === "info" && infoContent}
+            {tab === "lich-su-chung" && lichSuChungContent}
             {tab === "giai-trinh" && giaiTrinhContent}
             {tab === "bien-ban-hop" && bienBanHopContent}
             {tab === "vi-pham" && viPhamContent}
