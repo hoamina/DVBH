@@ -56,6 +56,11 @@ export interface CaseRow {
   last_ma_linh_kien_thieu?: string | null;
   last_ma_xuat_hang_lien_quan?: string | null;
   last_noi_dung_giai_trinh?: string | null;
+  // "Danh sach chi tiet" (BacklogModule.tsx), them 2026-08-22 - tai dung dung logic trang thai/tuoi
+  // cua module Tranh chap (xem CASE_TRANH_CHAP_STATUS_EXPR o backend). "Chua xu ly" = ca chua tung co
+  // tien trinh tranh chap nao. so_ngay_ton la null khi tien trinh da dong hoac chua tung mo.
+  last_tranh_chap_trang_thai?: string | null;
+  tranh_chap_so_ngay_ton?: number | null;
   // "Nhom ton" (BacklogModule.tsx Danh sach chi tiet) - chi co tren GET /cases (khong co tren
   // R2 snapshot "Ca da dong"), tinh san server-side tu NEED_GIAI_TRINH_CATEGORIES.
   need_lo_ke_hoach?: number;

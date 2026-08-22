@@ -27,6 +27,7 @@ import { matchMuaHang, matchBaoHanh } from "../lib/purchaseWarrantyMatch";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
 
 function pct(a: number, b: number) {
   return b ? Math.round((a / b) * 1000) / 10 : 0;
@@ -1275,6 +1276,15 @@ export function BacklogModule({
     await exportRowsToExcel(enriched, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
   }
 
+  // Uu tien mo the "Tranh chap" khi bam vao 1 don dang co tranh chap TON DONG (khac "Chua xu ly" - ca
+  // chua tung co tien trinh nao - va khac 4 trang thai dong TRANH_CHAP_TRANG_THAI_DONG/TRANG_THAI_DONG)
+  // - dung lai dung field da co san tu GET /cases (last_tranh_chap_trang_thai), khong goi them API.
+  function preferredCaseTab(c: CaseRow): string {
+    const st = c.last_tranh_chap_trang_thai;
+    if (st && st !== "Chua xu ly" && !TRANG_THAI_DONG.includes(st)) return "tranh-chap";
+    return "giai-trinh";
+  }
+
   const columns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
@@ -1294,6 +1304,26 @@ export function BacklogModule({
       key: "ly_do",
       header: "Lý do tồn gần nhất",
       render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>),
+    },
+    {
+      key: "last_tranh_chap_trang_thai",
+      header: "Trạng thái tranh chấp gần nhất",
+      render: (c) =>
+        c.last_tranh_chap_trang_thai && c.last_tranh_chap_trang_thai !== "Chua xu ly" ? (
+          <Badge tone={TRANG_THAI_TONE[c.last_tranh_chap_trang_thai] ?? "gray"}>{TRANG_THAI_LABELS[c.last_tranh_chap_trang_thai] ?? c.last_tranh_chap_trang_thai}</Badge>
+        ) : (
+          <span className="text-[var(--ink-400)] text-xs italic">Không tranh chấp</span>
+        ),
+    },
+    {
+      key: "tranh_chap_so_ngay_ton",
+      header: "Số ngày tồn tranh chấp",
+      render: (c) =>
+        c.tranh_chap_so_ngay_ton != null ? (
+          <Pill tone={c.tranh_chap_so_ngay_ton > 5 ? "coral" : c.tranh_chap_so_ngay_ton > 3 ? "amber" : "gray"}>{c.tranh_chap_so_ngay_ton} ngày</Pill>
+        ) : (
+          <span className="text-[var(--ink-400)] text-xs">—</span>
+        ),
     },
     {
       key: "nhom_ton",
@@ -2164,7 +2194,7 @@ export function BacklogModule({
               pageSize={pageSize}
               total={data?.total ?? 0}
               onPageChange={setPage}
-              onRowClick={(c) => openCase(c.id, "giai-trinh")}
+              onRowClick={(c) => openCase(c.id, preferredCaseTab(c))}
               rowKey={(c) => c.id}
               rowClassName={(c) => vipRowClassName(c.nhom_kh)}
               emptyText="Không có ca nào trong nhóm này."

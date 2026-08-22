@@ -55,4 +55,6 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   last_ngay_du_kien_hoan_thanh: "Ngày dự kiến hoàn thành gần nhất",
   last_ma_linh_kien_thieu: "Mã linh kiện thiếu gần nhất",
   last_noi_dung_giai_trinh: "Nội dung giải trình gần nhất",
+  last_tranh_chap_trang_thai: "Trạng thái tranh chấp gần nhất",
+  tranh_chap_so_ngay_ton: "Số ngày tồn tranh chấp",
 };

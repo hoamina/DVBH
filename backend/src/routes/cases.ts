@@ -27,6 +27,7 @@ import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey } from "../lib/dailySnapshot";
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
+import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG } from "../lib/tranhChapTienTrinh";
 
 const cases = new Hono<{ Bindings: Env }>();
 
@@ -584,10 +585,19 @@ cases.get("/", async (c) => {
   // JOIN them bang nao) - dung cho cot tuy chon "Ma/Ten linh kien thieu gan nhat" + tinh nhanh "SL
   // don mua" (khop logic matchMuaHang() dang dung o CaseDetail.tsx) ben frontend, khong luu them gi
   // vao DB ca - chi 100% frontend nhu chu he thong yeu cau.
+  // "last_tranh_chap_trang_thai"/"tranh_chap_so_ngay_ton" (them 2026-08-22, cot moi cho "Danh sach chi
+  // tiet" - Quan ly ton): tai dung dung CASE_TRANH_CHAP_STATUS_EXPR/LATEST_TIEN_TRINH_ID_OF_CASE cua
+  // module Tranh chap (khong tinh lai logic rieng, tranh sai lech voi TranhChapModule.tsx). So ngay ton
+  // CHI tinh khi tien trinh dang MO (khong phai 'Chua xu ly' - ca chua tung co tien trinh nao - va
+  // khong thuoc 4 trang thai dong TRANH_CHAP_TRANG_THAI_DONG), nguoc lai la NULL ("khong ap dung").
+  const tranhChapDongList = TRANH_CHAP_TRANG_THAI_DONG.map((s) => `'${s}'`).join(", ");
+  const latestTienTrinhNgayTaoExpr = `(SELECT tt.ngay_tao FROM tranh_chap_tien_trinh tt WHERE tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE})`;
   const baseQuery = `
     SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
            lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh, lg.noi_dung as last_noi_dung_giai_trinh,
            lg.linh_kien_thieu as last_ma_linh_kien_thieu, lg.ma_xuat_hang_lien_quan as last_ma_xuat_hang_lien_quan,
+           ${CASE_TRANH_CHAP_STATUS_EXPR} as last_tranh_chap_trang_thai,
+           (CASE WHEN ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN ('Chua xu ly', ${tranhChapDongList}) THEN ${ageExpr(latestTienTrinhNgayTaoExpr)} ELSE NULL END) as tranh_chap_so_ngay_ton,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.lo_ke_hoach} THEN 1 ELSE 0 END) as need_lo_ke_hoach,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.tai_giai_trinh} THEN 1 ELSE 0 END) as need_tai_giai_trinh,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.chua_gt_3_ngay} THEN 1 ELSE 0 END) as need_chua_gt_3_ngay,
