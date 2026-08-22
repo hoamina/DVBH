@@ -3513,3 +3513,45 @@ trên. File sửa: xem chi tiết từng mục ở trên (~20 file, backend + fr
 
 **CHƯA deploy** — có migration mới (0091), chờ chủ hệ thống xác nhận "deploy" rồi mới chạy
 `db:migrate:smarttrade` trước `deploy:smarttrade` theo đúng thứ tự chuẩn.
+
+## 2026-08-22 — Tab "Lịch sử chung" → đổi tên "Tiến trình chung" + gộp thêm 5 nguồn Google Sheet
+
+Nối tiếp tab "Lịch sử chung" đã build ở phiên trước (gộp giai_trinh/bien_ban_hop/vi_pham/khao_sat/
+tranh_chap+logCon/nap_gas/ca_lap thành 1 timeline, deploy v1.278). Yêu cầu lần này: đổi tên, thêm mốc
+mở/đóng ca, gộp thêm 18 mốc từ 5 nguồn Google Sheet (Mua hàng/Bảo hành/Thiếu hàng/QC thực tế/PO đặt
+hàng), hiện khoảng cách ngày giữa các mốc liền nhau, thêm tiêu đề tóm tắt 5 chỉ số thời lượng.
+
+- Đổi tên toàn bộ `lichSuChung*`/`lich-su-chung`/"Lịch sử chung" → `tienTrinhChung*`/`tien-trinh-chung`/
+  "Tiến trình chung" (`CaseDetail.tsx`, `App.tsx` — `VALID_TABS`).
+- Đổi kiểu `LichSuChungEvent`: bỏ `timestamp: string` (so sánh chuỗi trực tiếp), thay bằng
+  `sortMs: number` + `displayTime: string` — bắt buộc vì nguồn D1 (`YYYY-MM-DD HH:MM:SS`) và nguồn
+  Google Sheet (`DD/MM/YYYY H:MM:SS`) là 2 định dạng KHÁC NHAU, không thể so sánh chuỗi chung; dùng
+  `parseFlexibleDbDate()`/`parseSheetDateTime()` quy về epoch ms trước khi gộp/sắp xếp. `jumpTab` đổi
+  thành `string | null` (mốc mở/đóng ca không có tab đích để nhảy tới).
+- Thêm 2 mốc "Ca được mở" (`c.thoi_gian_cskh_tiep_nhan`)/"Ca được đóng" (`c.thoi_gian_hoan_thanh`).
+- Thêm 18 mốc từ 5 nguồn Sheet (`muaHangMatched`/`baoHanhMatched`/`thieuHangMatched`/
+  `qcThucTeMatched`/`poDatHangMatched` — đã có sẵn trong scope, tái dùng nguyên logic đối chiếu cũ,
+  không fetch/tính thêm gì). Trước khi viết, đã trực tiếp `curl` header thật của cả 5 sheet (cả 2
+  miền MB/MN với mua-hang/bao-hanh) để xác nhận từng tên cột người dùng cung cấp — theo đúng yêu cầu
+  "không hiểu thì hỏi, không tự quyết": phát hiện 1 điểm sai lệch thực tế (mốc Bảo hành #5 "NGÀY GIỜ
+  SỬA XONG" là cột THẬT SỰ RIÊNG BIỆT với "NGÀY GIỜ TRẢ XONG" đã dùng ở tab Bảo hành cũ — ban đầu chủ
+  hệ thống trả lời "dùng chung 1 cột" khi chưa thấy dữ liệu thật, sau khi đối chiếu lại đã xác nhận
+  dùng đúng cột SỬA XONG theo yêu cầu gốc). Bảng đối chiếu đầy đủ nguồn/mốc/cột/loại trạng thái (cột
+  hay cố định) đã note tại `SRS_tong_hop.md` mục 6 — phục vụ khi các luồng Sheet này sau này được
+  thay bằng API thật.
+- Thêm `FIELD_ALIASES` còn thiếu vào `lib/purchaseWarrantySync.ts`: 4 cột mới cho `mua-hang`, 7 cột
+  mới cho `bao-hanh` (bao gồm `ngayKtvNhanHang` — ban đầu quên thêm vì cột này vốn đã có sẵn ở dataset
+  `mua-hang` nên dễ nhầm là đã có ở `bao-hanh`, phát hiện khi rà lại từng field trước khi build, đã
+  `curl` xác nhận cột `NGÀY KTV NHẬN HÀNG` tồn tại thật trên cả sheet MB/MN của Bảo hành), 3 cột mới
+  cho `thieu-hang`, 1 cột mới cho `po-dat-hang` (`tatCa: ["Tất cả"]`).
+- Thêm khoảng cách ngày giữa 2 mốc liền kề (tô đậm số ngày) và khối tiêu đề tóm tắt 5 chỉ số: "Thời
+  gian xử lý case" (mở→đóng/hiện tại), "Thời gian xử lý tranh chấp, KN" (theo đúng quy tắc đã chốt
+  trước đó: mốc mở sớm nhất → mốc đóng gần nhất/hiện tại), "Thời gian đặt hàng"/"sửa chữa bảo hành"/
+  "xử lý thiếu hàng" — 3 mục sau tính theo kiểu "bao trùm" (mốc sớm nhất → muộn nhất trong các mốc đã
+  ghi nhận của chính nhóm đó) vì 3 nguồn Sheet này không có tín hiệu mở/đóng rõ ràng như tranh chấp —
+  đây là lựa chọn diễn giải của lập trình (đã note rõ trong code + SRS, không phải yêu cầu tường minh).
+- Toàn bộ tab vẫn 100% tính trên dữ liệu đã load sẵn ở client (không thêm API call nào), đúng yêu cầu.
+- Đã chạy `npm run typecheck --workspace backend` và `--workspace frontend` sạch.
+
+File sửa: `frontend/src/modules/CaseDetail.tsx`, `frontend/src/App.tsx`,
+`frontend/src/lib/purchaseWarrantySync.ts`, `SRS_tong_hop.md` (mục 6 mới).

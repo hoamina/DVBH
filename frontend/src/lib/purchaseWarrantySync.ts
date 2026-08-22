@@ -75,6 +75,13 @@ const FIELD_ALIASES: Record<PurchaseWarrantyDataset, Record<string, string[]>> =
     ngayKtvNhanHang: ["NGÀY KTV NHẬN HÀNG"],
     giaDeXuat: ["GIÁ ĐỀ XUẤT"],
     maSuCoLienQuan: ["MÃ YÊU CẦU CỦA SỰ CỐ LIÊN QUAN"],
+    // Them 2026-08-22 cho timeline "Tien trinh chung" (CaseDetail.tsx) - da doi chieu TRUC TIEP voi
+    // header that cua ca 2 sheet MB/MN qua curl truoc khi them, khong doan ten cot (xem bang doi
+    // chieu day du nguon/moc/cot/loai trang thai o SRS_tong_hop.md muc 6).
+    ngayXacNhan: ["NGÀY XÁC NHẬN"],
+    ngayAdminTaoDonXuat: ["NGÀY ADMIN TẠO ĐƠN XUẤT"],
+    ngayKeToanDuyet: ["NGÀY KẾ TOÁN DUYỆT"],
+    ngayKhoXacNhan: ["NGÀY KHO XÁC NHẬN"],
   },
   "bao-hanh": {
     id: ["ID"],
@@ -96,6 +103,16 @@ const FIELD_ALIASES: Record<PurchaseWarrantyDataset, Record<string, string[]>> =
     danhGiaKetQua: ["ĐÁNH GIÁ KẾT QUẢ SAU SỬA CHỮA"],
     nguoiSua: ["NGƯỜI SỬA"],
     ghiChu: ["GHI CHÚ"],
+    // Them 2026-08-22 cho timeline "Tien trinh chung" - da doi chieu truc tiep voi header that cua ca
+    // 2 sheet MB/MN. LUU Y: "NGÀY GIỜ SỬA XONG" KHAC "NGÀY GIỜ TRẢ XONG" (ngayGioTraXong o tren) - 2
+    // cot THAT SU RIENG BIET cung ton tai tren sheet, da xac nhan voi chu he thong, khong duoc gop.
+    thoiGianTao: ["THỜI GIAN TẠO"],
+    ngayKhoNhanHang: ["NGÀY KHO NHẬN HÀNG"],
+    ngayGioAdminNhanTuKho: ["NGÀY GIỜ ADMIN NHẬN TỪ KHO"],
+    ngayGioSuaXong: ["NGÀY GIỜ SỬA XONG"],
+    ngayKhoNhanHangTuAdmin: ["NGÀY KHO NHẬN HÀNG TỪ ADMIN"],
+    ngayKhoGuiHangChoKtv: ["NGÀY KHO GỬI HÀNG CHO KTV"],
+    ngayKtvNhanHang: ["NGÀY KTV NHẬN HÀNG"],
   },
   "thieu-hang": {
     id: ["ID"],
@@ -108,6 +125,10 @@ const FIELD_ALIASES: Record<PurchaseWarrantyDataset, Record<string, string[]>> =
     trangThaiXuLy: ["Trạng thái xử lý"],
     ngayKhoXacNhan: ["Ngày kho xác nhận hàng về"],
     thayDoiNgayDuKien: ["Thay đổi ngày dự kiến hàng về"],
+    // Them 2026-08-22 cho timeline "Tien trinh chung" - da doi chieu truc tiep voi header that.
+    ngayTao: ["Ngày tạo"],
+    ngayTiepNhan: ["Ngày tiếp nhận"],
+    ngayAdminXuLy: ["Ngày Admin xử lý"],
   },
   "qc-thuc-te": {
     ngayKtvDongCa: ["NGÀY KTV ĐÓNG CA"],
@@ -142,6 +163,9 @@ const FIELD_ALIASES: Record<PurchaseWarrantyDataset, Record<string, string[]>> =
     ngayTao: ["Ngày tạo"],
     ngayCapNhat: ["Ngày cập nhật"],
     ghiChu: ["Ghi chú"],
+    // Them 2026-08-22 cho timeline "Tien trinh chung" - cot "Tất cả" la ten that tren sheet (da xac
+    // nhan qua curl), dung lam "trang thai" cho moc PO vi sheet nay khong co 1 cot trang thai gon.
+    tatCa: ["Tất cả"],
   },
 };
 

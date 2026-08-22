@@ -92,3 +92,58 @@ mọi giờ hiển thị chậm hơn thực tế 7 tiếng.
   không cần tính năng này)
 - Còn cần làm ngoài repo trước khi dùng thật: tạo OAuth Client ID/Secret thật trên Google Cloud
   Console, xem `secrets.md`
+
+## 6. Tab "Tiến trình chung" (CaseDetail) — nguồn dữ liệu ngoài (Google Sheet), chốt 2026-08-22
+
+Bảng dưới liệt kê TOÀN BỘ mốc thời gian mà tab "Tiến trình chung" (`CaseDetail.tsx`, hàm
+`tienTrinhChungEvents`) lấy từ 5 tập dữ liệu Google Sheet đồng bộ qua `lib/purchaseWarrantySync.ts`
+(KHÔNG lưu D1, chỉ cache IndexedDB trình duyệt — xem đầu file đó). Mục đích: khi các luồng này sau
+này được thay bằng API thật kết nối trực tiếp từ hệ thống Mua hàng/Bảo hành/Thiếu hàng/QC/PO, chỉ
+cần đối chiếu lại đúng cột tương ứng theo bảng này khi viết lại phần tạo 18 mốc bên dưới — không đổi
+phần còn lại (merge/sort theo `sortMs`, hiển thị, khoảng cách ngày, tiêu đề tóm tắt).
+
+Cột "Trạng thái" ghi rõ nguồn: **[cột]** = lấy nguyên giá trị 1 cột trên sheet (đổi theo dữ liệu thật
+từng dòng), **[cố định]** = chuỗi nhãn cố định do yêu cầu nghiệp vụ đặt tên cho mốc đó (không đọc từ
+cột nào, luôn hiện y nguyên).
+
+| Nguồn | Mốc # | Cột "Thời gian" (tên thật trên sheet) | Trạng thái hiển thị | Loại |
+|---|---|---|---|---|
+| Mua hàng | 1 | `NGÀY TẠO` | giá trị cột `LOẠI ĐỀ XUẤT` | [cột] |
+| Mua hàng | 2 | `NGÀY XÁC NHẬN` | "Tác nghiệp tiếp nhận" + nếu `TRẠNG THÁI DUYỆT` ≠ "ĐỒNG Ý" thì thêm "Trạng thái duyệt: <giá trị>" | [cố định] + [cột] phụ có điều kiện |
+| Mua hàng | 3 | `NGÀY ADMIN TẠO ĐƠN XUẤT` | "Tác nghiệp tạo phiếu" | [cố định] |
+| Mua hàng | 4 | `NGÀY KẾ TOÁN DUYỆT` | "Kế toán duyệt phiếu" | [cố định] |
+| Mua hàng | 5 | `NGÀY KHO XÁC NHẬN` | "Kho duyệt xuất hàng" | [cố định] |
+| Bảo hành | 1 | `THỜI GIAN TẠO` | "Tạo đơn bảo hành" | [cố định] |
+| Bảo hành | 2 | `NGÀY GỬI` | "KTV gửi đơn bảo hành" | [cố định] |
+| Bảo hành | 3 | `NGÀY KHO NHẬN HÀNG` | "Kho nhận hàng" | [cố định] |
+| Bảo hành | 4 | `NGÀY GIỜ ADMIN NHẬN TỪ KHO` | "Admin nhận được linh kiện" | [cố định] |
+| Bảo hành | 5 | `NGÀY GIỜ SỬA XONG` (KHÁC `NGÀY GIỜ TRẢ XONG` — 2 cột thật riêng biệt, đã xác nhận với chủ hệ thống 2026-08-22, không được gộp) | "Đã sửa xong" | [cố định] |
+| Bảo hành | 6 | `NGÀY KHO NHẬN HÀNG TỪ ADMIN` | "Kế toán duyệt phiếu" | [cố định] |
+| Bảo hành | 7 | `NGÀY KHO GỬI HÀNG CHO KTV` | "Kho gửi linh kiện cho KTV" | [cố định] |
+| Bảo hành | 8 | `NGÀY KTV NHẬN HÀNG` | "KTV đã nhận được linh kiện" | [cố định] |
+| Thiếu hàng | 1 | `Ngày tạo` | giá trị cột `Lý do lựa chọn` | [cột] |
+| Thiếu hàng | 2 | `Ngày tiếp nhận` | "Kho đã tiếp nhận" | [cố định] |
+| Thiếu hàng | 3 | `Ngày kho xác nhận hàng về` | "Kho xác nhận hàng về" | [cố định] |
+| Thiếu hàng | 4 | `Ngày Admin xử lý` | "Admin kết thúc" | [cố định] |
+| QC thực tế | 1 | `NGÀY ĐÁNH GIÁ` | giá trị cột `KẾT QUẢ` | [cột] |
+| PO đặt hàng | 1 (chỉ lấy dòng có `ID CRM` = ID ca đang xem) | `Ngày tạo` | giá trị cột `Tất cả` | [cột] |
+
+Ghi chú kỹ thuật:
+- Đối chiếu ca hiện tại với từng nguồn dùng lại nguyên các hàm `matchMuaHang`/`matchBaoHanh`/
+  `matchThieuHang`/`matchQcThucTe`/`matchPoDatHang` đã có sẵn (`lib/purchaseWarrantyMatch.ts`) — tab
+  "Tiến trình chung" KHÔNG có logic đối chiếu riêng, dùng đúng danh sách đã lọc sẵn ở các tab
+  Mua hàng/Bảo hành/Thiếu hàng/QC thực tế/PO đặt hàng hiện có trong `CaseDetail.tsx`. Riêng PO đặt
+  hàng: tab riêng dùng `poDatHangMatched` (khớp rộng hơn, gồm cả khớp qua mã linh kiện thiếu), còn
+  "Tiến trình chung" LỌC HẸP hơn — chỉ lấy dòng `idCrm === id ca đang xem`, đúng theo yêu cầu gốc.
+- Định dạng ngày trên cả 5 sheet là `DD/MM/YYYY H:MM:SS` (không phải `YYYY-MM-DD...` như D1) — parse
+  bằng `parseSheetDateTime()` (`lib/purchaseWarrantyMatch.ts`), trả về 0 nếu rỗng/không parse được;
+  mốc có `sortMs === 0` bị loại khỏi timeline (không hiện dòng trống ngày).
+- Tên cột (tiếng Việt, có dấu, viết hoa/thường đúng như trên sheet) khai báo tại
+  `FIELD_ALIASES` trong `lib/purchaseWarrantySync.ts` — đã đối chiếu trực tiếp với header thật của
+  từng sheet (cả 2 miền MB/MN với mua-hang/bao-hanh) qua `curl` ngày 2026-08-22 trước khi thêm, không
+  suy đoán tên cột.
+- 3 mốc "Thời gian xử lý đặt hàng/sửa chữa bảo hành/thiếu hàng" trong tiêu đề tóm tắt tính theo kiểu
+  "bao trùm" (mốc sớm nhất → mốc muộn nhất TRONG SỐ các mốc đã ghi nhận được của chính nhóm đó) vì 3
+  nhóm sheet này không có tín hiệu "còn mở/đã đóng" đáng tin cậy để suy ra mốc kết thúc như tranh
+  chấp — đây là lựa chọn diễn giải của lập trình, KHÔNG phải yêu cầu tường minh, cần nêu rõ nếu chủ hệ
+  thống muốn đổi quy tắc này sau.
