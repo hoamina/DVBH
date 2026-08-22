@@ -1279,9 +1279,13 @@ export function BacklogModule({
   // Uu tien mo the "Tranh chap" khi bam vao 1 don dang co tranh chap TON DONG (khac "Chua xu ly" - ca
   // chua tung co tien trinh nao - va khac 4 trang thai dong TRANH_CHAP_TRANG_THAI_DONG/TRANG_THAI_DONG)
   // - dung lai dung field da co san tu GET /cases (last_tranh_chap_trang_thai), khong goi them API.
+  // Them 2026-08-22: ca DA DONG (thoi_gian_hoan_thanh khac null) mac dinh mo "Tien trinh chung" thay
+  // vi "GT tồn" (giai trinh) - ca dong khong con can giai trinh nua nen xem toan bo tien trinh huu ich
+  // hon. Uu tien tranh chap TON DONG van dung truoc (vd ca da dong nhung tranh chap/khieu nai con mo).
   function preferredCaseTab(c: CaseRow): string {
     const st = c.last_tranh_chap_trang_thai;
     if (st && st !== "Chua xu ly" && !TRANG_THAI_DONG.includes(st)) return "tranh-chap";
+    if (c.thoi_gian_hoan_thanh) return "tien-trinh-chung";
     return "giai-trinh";
   }
 
@@ -2182,7 +2186,7 @@ export function BacklogModule({
             )}
           </div>
           {dsTab === "da-dong" ? (
-            <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} onRowClick={(c) => openCase(c.id, "giai-trinh")} />
+            <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} onRowClick={(c) => openCase(c.id, preferredCaseTab(c))} />
           ) : (
             <PaginatedTable
               columns={columns}

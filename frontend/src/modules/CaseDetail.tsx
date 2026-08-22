@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, statusTone, type BadgeTone } from "../components/ui/Badge";
+import { Badge, statusTone, type BadgeTone, type AnyBadgeTone } from "../components/ui/Badge";
 import { Field } from "../components/ui/Field";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
@@ -30,7 +30,6 @@ import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
   TRANG_THAI_DONG,
   TRANG_THAI_LABELS,
-  TRANG_THAI_TONE,
   canWriteTranhChap,
   canConfirmAiTranhChap,
   describeTranhChapError,
@@ -197,21 +196,35 @@ function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlackli
 // nao) - xem buildLichSuChungEvents() trong component. 2 map nay CHI dung Tailwind class TINH (khong
 // noi chuoi ${tone} vao className) vi Tailwind JIT chi nhan dien duoc class xuat hien nguyen van dang
 // text trong source - class dung ghep dong se KHONG duoc bien dich vao CSS cuoi cung.
-const TIMELINE_TONE_BORDER: Record<BadgeTone, string> = {
+const TIMELINE_TONE_BORDER: Record<AnyBadgeTone, string> = {
   ocean: "border-[var(--ocean-100)]",
   teal: "border-[var(--teal-100)]",
   amber: "border-[var(--amber-100)]",
   coral: "border-[var(--coral-100)]",
   orange: "border-[var(--orange-100)]",
   gray: "border-slate-200",
+  indigo: "border-[var(--indigo-100)]",
+  violet: "border-violet-200",
+  sky: "border-sky-200",
+  rose: "border-rose-200",
+  lime: "border-lime-200",
+  cyan: "border-cyan-200",
+  fuchsia: "border-fuchsia-200",
 };
-const TIMELINE_TONE_DOT: Record<BadgeTone, string> = {
+const TIMELINE_TONE_DOT: Record<AnyBadgeTone, string> = {
   ocean: "bg-[var(--ocean-500)]",
   teal: "bg-[var(--teal-500)]",
   amber: "bg-[var(--amber-500)]",
   coral: "bg-[var(--coral-500)]",
   orange: "bg-[var(--orange-500)]",
   gray: "bg-slate-400",
+  indigo: "bg-[var(--indigo-500)]",
+  violet: "bg-[var(--violet-500)]",
+  sky: "bg-sky-500",
+  rose: "bg-rose-500",
+  lime: "bg-lime-500",
+  cyan: "bg-cyan-500",
+  fuchsia: "bg-fuchsia-500",
 };
 
 interface LichSuChungEvent {
@@ -226,7 +239,7 @@ interface LichSuChungEvent {
   // Google Sheet - dung quy uoc hien co cua cac tab mua-hang/bao-hanh/... o duoi, khong tu doi dinh
   // dang de tranh lech voi cach hien thi o tab nguon).
   displayTime: string;
-  tone: BadgeTone;
+  tone: AnyBadgeTone;
   typeLabel: string;
   actor: string | null;
   summary: string;
@@ -572,7 +585,7 @@ export function CaseDetail({
   const tienTrinhChungEvents = useMemo<LichSuChungEvent[]>(() => {
     const events: LichSuChungEvent[] = [];
 
-    const pushDb = (opts: { key: string; rawTs: string | null | undefined; tone: BadgeTone; typeLabel: string; actor: string | null; summary: string; jumpTab: string | null }) => {
+    const pushDb = (opts: { key: string; rawTs: string | null | undefined; tone: AnyBadgeTone; typeLabel: string; actor: string | null; summary: string; jumpTab: string | null }) => {
       if (!opts.rawTs) return;
       events.push({
         key: opts.key,
@@ -587,17 +600,17 @@ export function CaseDetail({
     };
     // Nguon Google Sheet KHONG co truong "nguoi thuc hien" nhat quan giua cac moc (chu he thong chi
     // yeu cau dung 2 tieu chi "Thoi gian"/"Trang thai" cho nhom nay) nen actor luon null.
-    const pushSheet = (opts: { key: string; rawTs: string | undefined; tone: BadgeTone; typeLabel: string; summary: string; jumpTab: string }) => {
+    const pushSheet = (opts: { key: string; rawTs: string | undefined; tone: AnyBadgeTone; typeLabel: string; summary: string; jumpTab: string }) => {
       const ms = parseSheetDateTime(opts.rawTs);
       if (!ms) return;
       events.push({ key: opts.key, sortMs: ms, displayTime: opts.rawTs ?? "", tone: opts.tone, typeLabel: opts.typeLabel, actor: null, summary: opts.summary, jumpTab: opts.jumpTab });
     };
 
     if (c?.thoi_gian_cskh_tiep_nhan) {
-      pushDb({ key: "case-open", rawTs: c.thoi_gian_cskh_tiep_nhan, tone: "ocean", typeLabel: "Ca được mở", actor: null, summary: "Tiếp nhận CSKH", jumpTab: null });
+      pushDb({ key: "case-open", rawTs: c.thoi_gian_cskh_tiep_nhan, tone: "gray", typeLabel: "Ca được mở", actor: null, summary: "Tiếp nhận CSKH", jumpTab: null });
     }
     if (c?.thoi_gian_hoan_thanh) {
-      pushDb({ key: "case-close", rawTs: c.thoi_gian_hoan_thanh, tone: "teal", typeLabel: "Ca được đóng", actor: null, summary: c.tien_do_hoan_thanh ?? "Hoàn thành", jumpTab: null });
+      pushDb({ key: "case-close", rawTs: c.thoi_gian_hoan_thanh, tone: "gray", typeLabel: "Ca được đóng", actor: null, summary: c.tien_do_hoan_thanh ?? "Hoàn thành", jumpTab: null });
     }
 
     for (const l of giaiTrinhList) {
@@ -605,7 +618,7 @@ export function CaseDetail({
         key: `gt-${l.id}`,
         rawTs: l.ngay_giai_trinh,
         tone: "ocean",
-        typeLabel: "Giải trình",
+        typeLabel: "GT tồn",
         actor: l.nguoi_giai_trinh,
         summary: l.noi_dung ? `${l.ly_do_cham}: ${l.noi_dung}` : l.ly_do_cham,
         jumpTab: "giai-trinh",
@@ -613,14 +626,14 @@ export function CaseDetail({
     }
 
     for (const b of bienBanHopList) {
-      pushDb({ key: `bbh-${b.id}`, rawTs: b.created_at, tone: "gray", typeLabel: "Biên bản họp", actor: b.nguoi_ghi, summary: b.noi_dung, jumpTab: "bien-ban-hop" });
+      pushDb({ key: `bbh-${b.id}`, rawTs: b.created_at, tone: "sky", typeLabel: "Biên bản họp", actor: b.nguoi_ghi, summary: b.noi_dung, jumpTab: "bien-ban-hop" });
     }
 
     for (const v of viPhamList) {
       pushDb({
         key: `vp-${v.id}-ghi-nhan`,
         rawTs: v.ngay_ghi_nhan,
-        tone: "amber",
+        tone: "coral",
         typeLabel: `Vi phạm ghi nhận (${LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi})`,
         actor: v.nguoi_ghi_nhan,
         summary: v.ket_qua_cap_1 ?? "Chưa khảo sát",
@@ -630,7 +643,7 @@ export function CaseDetail({
         pushDb({
           key: `vp-${v.id}-chot`,
           rawTs: v.ngay_chot,
-          tone: v.chot_bo_cap_2 ? "teal" : "coral",
+          tone: "coral",
           typeLabel: "Vi phạm chốt cấp 2",
           actor: v.nguoi_chot,
           summary: v.chot_bo_cap_2 ? "Đã xác nhận vi phạm" : "Không vi phạm",
@@ -654,19 +667,22 @@ export function CaseDetail({
 
     // Log con (tranh_chap_log_con, xem migration 0092) CUNG tinh la 1 moc tien trinh rieng (chot
     // 2026-08-22) - phan hoi/trao doi them tren 1 log chinh, khong chi la "chi tiet" an trong log cha.
+    // Tone co dinh "violet" cho CA nhom tranh chap (khong dung TRANG_THAI_TONE dong theo trang thai
+    // nhu o tab "Tranh chap" rieng) - trong tab "Tien trinh chung" muc tieu la phan biet NGUON log,
+    // trang thai cu the da the hien qua chinh chu typeLabel roi.
     for (const tt of tienTrinhListForCase) {
       for (const log of tt.logs) {
         pushDb({
           key: `tc-log-${log.id}`,
           rawTs: log.ngay_xu_ly,
-          tone: TRANG_THAI_TONE[log.trang_thai_xu_ly] ?? "gray",
+          tone: "violet",
           typeLabel: `Tranh chấp: ${TRANG_THAI_LABELS[log.trang_thai_xu_ly] ?? log.trang_thai_xu_ly}`,
           actor: log.nguoi_xu_ly,
           summary: log.ghi_chu ?? "—",
           jumpTab: "tranh-chap",
         });
         for (const sub of log.logCon ?? []) {
-          pushDb({ key: `tc-logcon-${sub.id}`, rawTs: sub.created_at, tone: "gray", typeLabel: "Tranh chấp: phản hồi", actor: sub.nguoi_ghi, summary: sub.noi_dung, jumpTab: "tranh-chap" });
+          pushDb({ key: `tc-logcon-${sub.id}`, rawTs: sub.created_at, tone: "violet", typeLabel: "Tranh chấp: phản hồi", actor: sub.nguoi_ghi, summary: sub.noi_dung, jumpTab: "tranh-chap" });
         }
       }
     }
@@ -688,7 +704,7 @@ export function CaseDetail({
       pushDb({
         key: "ca-lap-gs",
         rawTs: glap.ngay_giai_trinh,
-        tone: "amber",
+        tone: "indigo",
         typeLabel: "Đánh giá ca lặp (GS)",
         actor: glap.nguoi_giai_trinh,
         summary: `${glap.chot_danh_gia_lap ? (CA_LAP_META[glap.chot_danh_gia_lap]?.label ?? glap.chot_danh_gia_lap) : "—"}${glap.dien_giai_lap ? ": " + glap.dien_giai_lap : ""}`,
@@ -699,7 +715,7 @@ export function CaseDetail({
       pushDb({
         key: "ca-lap-qc",
         rawTs: glap.ngay_qc,
-        tone: "teal",
+        tone: "indigo",
         typeLabel: "Đánh giá ca lặp (QC)",
         actor: glap.nguoi_qc,
         summary: `${glap.qc_chot ? (CA_LAP_META[glap.qc_chot]?.label ?? glap.qc_chot) : "—"}${glap.qc_ghi_chu ? ": " + glap.qc_ghi_chu : ""}`,
@@ -708,9 +724,11 @@ export function CaseDetail({
     }
 
     // 5 nguon Google Sheet ben duoi - xem bang doi chieu day du "moc nao dung cot nao" trong
-    // SRS_tong_hop.md (chot 2026-08-22, da doi chieu header that qua curl truoc khi viet).
+    // SRS_tong_hop.md (chot 2026-08-22, da doi chieu header that qua curl truoc khi viet). Tone co
+    // dinh 1 mau/nguon (khong con doi theo trang thai duyet/ket qua nhu truoc) de phan biet NGUON
+    // log ngay tu mau sac trong tab "Tien trinh chung" - trang thai cu the van doc duoc qua typeLabel.
     for (const r of muaHangMatched) {
-      pushSheet({ key: `mh-${r.id}-1`, rawTs: r.ngayTao, tone: "ocean", typeLabel: "Mua hàng: Tạo đề xuất", summary: r.loaiDeXuat || "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-1`, rawTs: r.ngayTao, tone: "amber", typeLabel: "Mua hàng: Tạo đề xuất", summary: r.loaiDeXuat || "—", jumpTab: "mua-hang" });
       pushSheet({
         key: `mh-${r.id}-2`,
         rawTs: r.ngayXacNhan,
@@ -720,30 +738,30 @@ export function CaseDetail({
         jumpTab: "mua-hang",
       });
       pushSheet({ key: `mh-${r.id}-3`, rawTs: r.ngayAdminTaoDonXuat, tone: "amber", typeLabel: "Mua hàng: Tác nghiệp tạo phiếu", summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-4`, rawTs: r.ngayKeToanDuyet, tone: "teal", typeLabel: "Mua hàng: Kế toán duyệt phiếu", summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-5`, rawTs: r.ngayKhoXacNhan, tone: "teal", typeLabel: "Mua hàng: Kho duyệt xuất hàng", summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-4`, rawTs: r.ngayKeToanDuyet, tone: "amber", typeLabel: "Mua hàng: Kế toán duyệt phiếu", summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-5`, rawTs: r.ngayKhoXacNhan, tone: "amber", typeLabel: "Mua hàng: Kho duyệt xuất hàng", summary: "—", jumpTab: "mua-hang" });
     }
 
     for (const r of baoHanhMatched) {
-      pushSheet({ key: `bh-${r.id}-1`, rawTs: r.thoiGianTao, tone: "ocean", typeLabel: "Bảo hành: Tạo đơn bảo hành", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-2`, rawTs: r.ngayGui, tone: "amber", typeLabel: "Bảo hành: KTV gửi đơn bảo hành", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-3`, rawTs: r.ngayKhoNhanHang, tone: "amber", typeLabel: "Bảo hành: Kho nhận hàng", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-4`, rawTs: r.ngayGioAdminNhanTuKho, tone: "amber", typeLabel: "Bảo hành: Admin nhận được linh kiện", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-5`, rawTs: r.ngayGioSuaXong, tone: "teal", typeLabel: "Bảo hành: Đã sửa xong", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-6`, rawTs: r.ngayKhoNhanHangTuAdmin, tone: "amber", typeLabel: "Bảo hành: Kế toán duyệt phiếu", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-7`, rawTs: r.ngayKhoGuiHangChoKtv, tone: "amber", typeLabel: "Bảo hành: Kho gửi linh kiện cho KTV", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-8`, rawTs: r.ngayKtvNhanHang, tone: "teal", typeLabel: "Bảo hành: KTV đã nhận được linh kiện", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-1`, rawTs: r.thoiGianTao, tone: "rose", typeLabel: "Bảo hành: Tạo đơn bảo hành", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-2`, rawTs: r.ngayGui, tone: "rose", typeLabel: "Bảo hành: KTV gửi đơn bảo hành", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-3`, rawTs: r.ngayKhoNhanHang, tone: "rose", typeLabel: "Bảo hành: Kho nhận hàng", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-4`, rawTs: r.ngayGioAdminNhanTuKho, tone: "rose", typeLabel: "Bảo hành: Admin nhận được linh kiện", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-5`, rawTs: r.ngayGioSuaXong, tone: "rose", typeLabel: "Bảo hành: Đã sửa xong", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-6`, rawTs: r.ngayKhoNhanHangTuAdmin, tone: "rose", typeLabel: "Bảo hành: Kế toán duyệt phiếu", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-7`, rawTs: r.ngayKhoGuiHangChoKtv, tone: "rose", typeLabel: "Bảo hành: Kho gửi linh kiện cho KTV", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-8`, rawTs: r.ngayKtvNhanHang, tone: "rose", typeLabel: "Bảo hành: KTV đã nhận được linh kiện", summary: "—", jumpTab: "bao-hanh" });
     }
 
     for (const r of thieuHangMatched) {
-      pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "ocean", typeLabel: "Thiếu hàng: Tạo yêu cầu", summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "amber", typeLabel: "Thiếu hàng: Kho đã tiếp nhận", summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-3`, rawTs: r.ngayKhoXacNhan, tone: "amber", typeLabel: "Thiếu hàng: Kho xác nhận hàng về", summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-4`, rawTs: r.ngayAdminXuLy, tone: "teal", typeLabel: "Thiếu hàng: Admin kết thúc", summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: "Thiếu hàng: Tạo yêu cầu", summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: "Thiếu hàng: Kho đã tiếp nhận", summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-3`, rawTs: r.ngayKhoXacNhan, tone: "lime", typeLabel: "Thiếu hàng: Kho xác nhận hàng về", summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-4`, rawTs: r.ngayAdminXuLy, tone: "lime", typeLabel: "Thiếu hàng: Admin kết thúc", summary: "—", jumpTab: "thieu-hang" });
     }
 
     qcThucTeMatched.forEach((r, i) => {
-      pushSheet({ key: `qc-${r.idCrm}-${i}`, rawTs: r.ngayDanhGia, tone: qcKetQuaTone(r.ketQua ?? ""), typeLabel: "QC thực tế", summary: r.ketQua || "—", jumpTab: "qc-thuc-te" });
+      pushSheet({ key: `qc-${r.idCrm}-${i}`, rawTs: r.ngayDanhGia, tone: "cyan", typeLabel: "QC thực tế", summary: r.ketQua || "—", jumpTab: "qc-thuc-te" });
     });
 
     // PO dat hang: CHI tinh vao "Tien trinh chung" khi "ID CRM" = ID ca dang xem (chot 2026-08-22,
@@ -752,7 +770,7 @@ export function CaseDetail({
     poDatHangMatched
       .filter((r) => r.idCrm === c?.id)
       .forEach((r, i) => {
-        pushSheet({ key: `po-${r.id}-${i}`, rawTs: r.ngayTao, tone: statusWordTone(r.trangThai ?? ""), typeLabel: "PO đặt hàng", summary: r.tatCa || "—", jumpTab: "po-dat-hang" });
+        pushSheet({ key: `po-${r.id}-${i}`, rawTs: r.ngayTao, tone: "fuchsia", typeLabel: "PO đặt hàng", summary: r.tatCa || "—", jumpTab: "po-dat-hang" });
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
@@ -1691,7 +1709,7 @@ export function CaseDetail({
       ? [
           { key: "info", label: "Thông tin" },
           { key: "tien-trinh-chung", label: "Tiến trình chung", count: tienTrinhChungEvents.length },
-          { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
+          { key: "giai-trinh", label: "GT tồn", count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
           { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
           { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
@@ -1706,7 +1724,7 @@ export function CaseDetail({
         ]
       : [
           { key: "tien-trinh-chung", label: "Tiến trình chung", count: tienTrinhChungEvents.length },
-          { key: "giai-trinh", label: "Giải trình", count: giaiTrinhList.length },
+          { key: "giai-trinh", label: "GT tồn", count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
           { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
           { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
