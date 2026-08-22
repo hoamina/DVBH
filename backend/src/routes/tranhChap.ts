@@ -90,6 +90,14 @@ tranhChap.get("/tai-khoan-ton", async (c) => {
     dateClause = " AND strftime('%Y-%m', tt.ngay_tao) = ?";
     binds.push(thang);
   }
+  // "phan_loai" - them cho tab "Dòi doi may" (CHOT 2026-08-21), loc them theo phan_loai_tranh_chap
+  // khi truyen (khong anh huong hanh vi cu khi bo trong).
+  const phanLoaiParam = c.req.query("phan_loai");
+  let phanLoaiClause = "";
+  if (phanLoaiParam) {
+    phanLoaiClause = " AND tt.phan_loai_tranh_chap = ?";
+    binds.push(phanLoaiParam);
+  }
 
   const { results } = await c.env.DB.prepare(
     `WITH active_latest_logs AS (
@@ -104,6 +112,7 @@ tranhChap.get("/tai-khoan-ton", async (c) => {
         AND c.archived_at IS NULL AND c.huy_bo_at IS NULL
         ${scopeClauseC.sql}
         ${dateClause}
+        ${phanLoaiClause}
     )
     SELECT
       u.email,
@@ -142,6 +151,13 @@ const TRANH_CHAP_ELIGIBLE = `c.nghi_ngo_tranh_chap = 1 AND c.tien_do_hoan_thanh 
 // DA XAC NHAN, hoac tu CRM that hoac sau khi qua buoc xac nhan nay) - xem ratchetNghiNgoTranhChap()
 // trong lib/ratchet.ts va migration 0096. Dieu kien "da dong" giong het TRANH_CHAP_ELIGIBLE.
 const TRANH_CHAP_AI_CHO_XAC_NHAN = `c.nghi_ngo_tranh_chap = 2 AND c.tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC')`;
+
+// CHOT 2026-08-21: tab rieng "Đòi đổi máy" trong module Tranh chap - loc theo dung 1 gia tri
+// settings_phan_loai_tranh_chap.ten_phan_loai (id=5, da co san tu 2026-07-31). Gia tri la text tu do
+// Admin sua duoc trong Cai dat (khong phai enum CHECK) - neu Admin doi ten trong tuong lai, hang so
+// nay PHAI duoc cap nhat theo, giong het cach cac gia tri trang_thai_xu_ly/ket_qua_xu_ly khac dang
+// duoc so sanh truc tiep bang chuoi trong file nay.
+const DOI_MAY_PHAN_LOAI = "KH đòi đổi máy";
 
 // ============================================================
 // "Quan ly tranh chap" - tien trinh xu ly + log (them 2026-07-29, xem migration
@@ -386,6 +402,40 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
   const { results } = await c.env.DB.prepare(query).bind(...binds).all();
 
   return c.json({ rows: results });
+});
+
+/** Tach tu tranhChap.get("/doi-may/theo-khu-vuc") - bao cao mini "dang mo/qua han" theo khu vuc,
+ * CHI cho phan loai DOI_MAY_PHAN_LOAI (xem tab "Đòi đổi máy" trong TranhChapModule.tsx). */
+async function computeDoiMayTheoKhuVuc(db: D1Database, scope: string[] | null) {
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
+  const dongList = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
+  const dongPlaceholders = dongList.map(() => "?").join(", ");
+
+  const { results } = await db
+    .prepare(
+      `SELECT
+         c.khu_vuc,
+         SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) THEN 1 ELSE 0 END) as dang_mo,
+         SUM(CASE WHEN ll.trang_thai_xu_ly NOT IN (${dongPlaceholders}) AND ll.thoi_gian_du_kien_xong IS NOT NULL AND ll.thoi_gian_du_kien_xong < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as qua_han
+       FROM tranh_chap_tien_trinh tt
+       CROSS JOIN case_dvbh c ON c.id = tt.case_id
+       LEFT JOIN tranh_chap_log ll ON ll.id = (SELECT id FROM tranh_chap_log WHERE tien_trinh_id = tt.id ORDER BY id DESC LIMIT 1)
+       WHERE tt.phan_loai_tranh_chap = ?${scopeClause.sql}
+       GROUP BY c.khu_vuc
+       ORDER BY c.khu_vuc ASC`,
+    )
+    .bind(...dongList, ...dongList, DOI_MAY_PHAN_LOAI, ...scopeClause.binds)
+    .all();
+  return { rows: results };
+}
+
+tranhChap.get("/doi-may/theo-khu-vuc", async (c) => {
+  const scope = scopeTranhChap(c);
+  const key = buildReportKey("tranh-chap/doi-may/theo-khu-vuc", {}, scope);
+  const data = await cachedReport(c.env.DB, key, ["cases", "tranh_chap"], () => computeDoiMayTheoKhuVuc(c.env.DB, scope));
+  return c.json(data);
 });
 
 // POST /api/tranh-chap/:caseId/tiep-nhan - KSNB Doi tac (co la_ksnb_doi_tac) hoac Giam sat dung khu
@@ -676,13 +726,16 @@ tranhChap.get("/tien-trinh", async (c) => {
   return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
 });
 
-/** Tach tu tranhChap.get("/tien-trinh/stats") - so lieu StatCard cua tab quan ly tien trinh. */
-export async function computeTienTrinhStats(db: D1Database, scope: string[] | null) {
+/** Tach tu tranhChap.get("/tien-trinh/stats") - so lieu StatCard cua tab quan ly tien trinh.
+ * "phanLoai" (them cho tab "Dòi doi may", CHOT 2026-08-21) - loc them theo tt.phan_loai_tranh_chap
+ * khi truyen, giu nguyen hanh vi cu (khong loc) khi bo trong. */
+export async function computeTienTrinhStats(db: D1Database, scope: string[] | null, phanLoai?: string) {
   const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const dongList = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
   const dongPlaceholders = dongList.map(() => "?").join(", ");
+  const phanLoaiClause = phanLoai ? " AND tt.phan_loai_tranh_chap = ?" : "";
   const row = await db
     .prepare(
       `SELECT
@@ -695,9 +748,9 @@ export async function computeTienTrinhStats(db: D1Database, scope: string[] | nu
        FROM tranh_chap_tien_trinh tt
        CROSS JOIN case_dvbh c ON c.id = tt.case_id
        LEFT JOIN tranh_chap_log ll ON ll.id = (SELECT id FROM tranh_chap_log WHERE tien_trinh_id = tt.id ORDER BY id DESC LIMIT 1)
-       WHERE 1=1${scopeClause.sql}`,
+       WHERE 1=1${scopeClause.sql}${phanLoaiClause}`,
     )
-    .bind(...dongList, ...dongList, ...dongList, ...scopeClause.binds)
+    .bind(...dongList, ...dongList, ...dongList, ...scopeClause.binds, ...(phanLoai ? [phanLoai] : []))
     .first<{ dang_mo: number; giam_sat_chua_xu_ly: number; giam_sat_chuyen_cskh: number; cskh_dang_xu_ly: number; qua_han: number; sap_den_han: number }>();
   return {
     dangMo: row?.dang_mo ?? 0,
@@ -711,8 +764,9 @@ export async function computeTienTrinhStats(db: D1Database, scope: string[] | nu
 
 tranhChap.get("/tien-trinh/stats", async (c) => {
   const scope = scopeTranhChap(c);
-  const key = buildReportKey("tranh-chap/tien-trinh/stats", {}, scope);
-  const data = await cachedReport(c.env.DB, key, ["cases", "tranh_chap"], () => computeTienTrinhStats(c.env.DB, scope));
+  const phanLoai = c.req.query("phan_loai") || undefined;
+  const key = buildReportKey("tranh-chap/tien-trinh/stats", { phan_loai: phanLoai }, scope);
+  const data = await cachedReport(c.env.DB, key, ["cases", "tranh_chap"], () => computeTienTrinhStats(c.env.DB, scope, phanLoai));
   return c.json(data);
 });
 

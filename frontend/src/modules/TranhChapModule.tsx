@@ -60,9 +60,15 @@ interface TranhChapImportSummary {
 
 const VIEWS = [
   { key: "cho-xu-ly", label: "Chờ xử lý" },
+  { key: "doi-may", label: "Đòi đổi máy" },
   { key: "cho-xac-nhan-ai", label: "Chờ xác nhận AI" },
   { key: "tien-trinh", label: "Quản lý tiến trình" },
 ];
+
+// CHOT 2026-08-21: gia tri settings_phan_loai_tranh_chap.ten_phan_loai dung de loc tab "Đòi đổi máy"
+// - PHAI khop dung hang so DOI_MAY_PHAN_LOAI ben backend/src/routes/tranhChap.ts (Admin doi ten trong
+// Cai dat thi phai sua ca 2 noi).
+const DOI_MAY_PHAN_LOAI = "KH đòi đổi máy";
 
 export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
@@ -562,6 +568,81 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     { key: "so_ngay_ton", header: "Số ngày tồn", render: (r) => <span className="font-mono">{r.so_ngay_ton}</span> },
   ];
 
+  // ---------- Tab "Đòi đổi máy" (CHOT 2026-08-21) - view loc CO DINH theo DOI_MAY_PHAN_LOAI cua tab
+  // "Quan ly tien trinh" (moi ca thuoc tab nay LUON da co tien trinh, vi phan_loai_tranh_chap la cot
+  // cua tranh_chap_tien_trinh - khac tab "Cho xu ly" la ca CHUA co tien trinh nao). Tai su dung dung
+  // API /tien-trinh (da ho tro filter "phan_loai" san co) + tienTrinhColumns/TienTrinhRow ben tren -
+  // khong tao khai niem/cot moi de giu dung "3-5s" (thiet ke da chot voi nguoi dung 2026-08-21).
+  const [dmPage, setDmPage] = useState(1);
+  const [dmKhuVuc, setDmKhuVuc] = useLocalStorageState("filters:tranh-chap-dm-khu-vuc", "");
+  const [dmTinh, setDmTinh] = useLocalStorageState("filters:tranh-chap-dm-tinh", "");
+  const [dmNhomKh, setDmNhomKh] = useLocalStorageState("filters:tranh-chap-dm-nhom-kh", "");
+  const [dmTrangThai, setDmTrangThai] = useState("");
+  const [dmHan, setDmHan] = useState("");
+  const [dmIdSearch, setDmIdSearch] = useState("");
+  const [dmNguoiDangXuLy, setDmNguoiDangXuLy] = useState("");
+  const [dmLoaiDangXuLy, setDmLoaiDangXuLy] = useState("");
+
+  function resetDmFilterTo(partial: Partial<{ trangThai: string; han: string }>) {
+    setDmTrangThai(partial.trangThai ?? "");
+    setDmHan(partial.han ?? "");
+    setDmNguoiDangXuLy("");
+    setDmLoaiDangXuLy("");
+    setDmPage(1);
+  }
+
+  const handleDmAccountCountClick = (email: string, type: "chua-xong" | "duoc-nhac-ten") => {
+    setDmNguoiDangXuLy(email);
+    setDmLoaiDangXuLy(type);
+    setDmKhuVuc("");
+    setDmTrangThai("");
+    setDmHan("");
+    setDmPage(1);
+  };
+
+  const { data: dmStats } = useQuery({
+    queryKey: ["tranh-chap-doi-may-stats"],
+    queryFn: () => api.get<TienTrinhStats>(`/tranh-chap/tien-trinh/stats${buildQuery({ phan_loai: DOI_MAY_PHAN_LOAI })}`),
+    enabled: view === "doi-may",
+  });
+
+  const { data: dmData, isLoading: dmLoading, isError: dmError, refetch: refetchDm } = useQuery({
+    queryKey: ["tranh-chap-doi-may-tien-trinh", dmPage, dmKhuVuc, dmTinh, dmNhomKh, dmTrangThai, dmHan, dmIdSearch, dmNguoiDangXuLy, dmLoaiDangXuLy],
+    queryFn: () =>
+      api.get<Paged<TienTrinhRow>>(
+        `/tranh-chap/tien-trinh${buildQuery({
+          page: dmPage,
+          pageSize: 10,
+          khu_vuc: dmKhuVuc,
+          tinh: dmTinh,
+          nhom_kh: dmNhomKh,
+          phan_loai: DOI_MAY_PHAN_LOAI,
+          trang_thai: dmTrangThai,
+          han: dmHan,
+          id: dmIdSearch || undefined,
+          nguoi_dang_xu_ly: dmNguoiDangXuLy,
+          loai_dang_xu_ly: dmLoaiDangXuLy,
+        })}`,
+      ),
+    enabled: view === "doi-may",
+  });
+
+  const { data: dmKhuVucReport, isLoading: dmKhuVucReportLoading } = useQuery({
+    queryKey: ["tranh-chap-doi-may-theo-khu-vuc"],
+    queryFn: () => api.get<{ rows: { khu_vuc: string | null; dang_mo: number; qua_han: number }[] }>("/tranh-chap/doi-may/theo-khu-vuc"),
+    enabled: view === "doi-may",
+  });
+
+  const { data: dmTaiKhoanTon, isLoading: dmTaiKhoanTonLoading } = useQuery({
+    queryKey: ["tranh-chap-doi-may-tai-khoan-ton", dmKhuVuc],
+    queryFn: () =>
+      api.get<{ rows: { email: string; ten: string; vai_tro: string; chua_xong_count: number; duoc_nhac_ten_count: number }[] }>(
+        `/tranh-chap/tai-khoan-ton${buildQuery({ khu_vuc: dmKhuVuc, phan_loai: DOI_MAY_PHAN_LOAI })}`,
+      ),
+    enabled: view === "doi-may",
+  });
+  const dmTaiKhoanTonRows = dmTaiKhoanTon?.rows ?? [];
+
   return (
     <div className="anim-in">
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
@@ -848,6 +929,157 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             rowClassName={(c) => vipRowClassName(c.nhom_kh)}
             emptyText="Không có ca nào đang chờ xử lý tranh chấp."
             storageKey="tranh-chap-cho-xu-ly"
+          />
+        </div>
+      ) : view === "doi-may" ? (
+        <div className="mt-4">
+          <div className="text-sm text-[var(--ink-600)] mb-4">
+            Tất cả tiến trình tranh chấp có phân loại <b>"{DOI_MAY_PHAN_LOAI}"</b> — nhóm rủi ro cao cần theo dõi sát (chi phí đổi máy, ảnh hưởng tồn kho).
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <KhuVucFilterControl value={dmKhuVuc} onChange={(v) => { setDmKhuVuc(v); setDmPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
+            <MultiSelectFilter label="Tỉnh" value={dmTinh} onChange={(v) => { setDmTinh(v); setDmPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label="Nhóm KH" value={dmNhomKh} onChange={(v) => { setDmNhomKh(v); setDmPage(1); }} options={nhomKhSelectOptions} />
+            <IdSerialSearchInput value={dmIdSearch} onChange={(v) => { setDmIdSearch(v); setDmPage(1); }} />
+          </div>
+
+          <div className="flex flex-wrap gap-3 mb-4">
+            <StatCard label="Đang mở" value={dmStats?.dangMo ?? 0} tone="ocean" active={dmTrangThai === "" && dmHan === ""} onClick={() => resetDmFilterTo({})} />
+            <StatCard
+              label="Giám sát chưa xử lý"
+              value={dmStats?.giamSatChuaXuLy ?? 0}
+              tone="gray"
+              active={dmTrangThai === "Giam sat chua xu ly"}
+              onClick={() => resetDmFilterTo({ trangThai: "Giam sat chua xu ly" })}
+            />
+            <StatCard
+              label="Sắp đến hạn (≤1 ngày)"
+              value={dmStats?.sapDenHan ?? 0}
+              tone="amber"
+              active={dmHan === "sap-den-han"}
+              onClick={() => resetDmFilterTo({ han: "sap-den-han" })}
+            />
+            <StatCard label="Quá hạn chưa đóng" value={dmStats?.quaHan ?? 0} tone="coral" active={dmHan === "qua-han"} onClick={() => resetDmFilterTo({ han: "qua-han" })} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <Card className="p-4">
+              <div className="mb-3">
+                <div className="font-display font-bold text-sm">Đòi đổi máy theo khu vực</div>
+              </div>
+              {dmKhuVucReportLoading ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải báo cáo...</div>
+              ) : !dmKhuVucReport?.rows?.length ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có dữ liệu báo cáo.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="dense w-full text-sm">
+                    <thead>
+                      <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                        <th className="py-2 px-2 text-left">Khu vực</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Đang mở</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Quá hạn</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dmKhuVucReport.rows.map((r, idx) => {
+                        const cellStyle = dmKhuVuc === r.khu_vuc ? { backgroundColor: "var(--ocean-100)" } : undefined;
+                        return (
+                          <tr
+                            key={r.khu_vuc ?? idx}
+                            onClick={() => {
+                              if (r.khu_vuc) {
+                                setDmKhuVuc(r.khu_vuc);
+                                setDmPage(1);
+                              }
+                            }}
+                            className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                          >
+                            <td className="py-2 px-2 font-semibold text-left" style={cellStyle}>{r.khu_vuc ? shortKhuVuc(r.khu_vuc) : "Chưa rõ"}</td>
+                            <td className="py-2 px-2 text-center font-mono font-semibold text-[var(--ocean-600)]" style={cellStyle}>{r.dang_mo}</td>
+                            <td className="py-2 px-2 text-center font-mono font-semibold text-[var(--coral-500)]" style={cellStyle}>{r.qua_han}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <div className="mb-3">
+                <div className="font-display font-bold text-sm">Tồn đọng theo nhân sự</div>
+              </div>
+              {dmTaiKhoanTonLoading ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải thống kê...</div>
+              ) : !dmTaiKhoanTonRows.length ? (
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có ca tồn theo nhân sự.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="dense w-full text-sm">
+                    <thead>
+                      <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                        <th className="py-2 px-2 text-left">Nhân sự</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Xử lý chưa xong</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Được nhắc tên xử lý</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dmTaiKhoanTonRows.map((r, idx) => (
+                        <tr key={r.email ?? idx} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 transition-colors">
+                          <td className="py-2 px-2 text-left">
+                            <span className="font-semibold block">{r.ten}</span>
+                            <span className="text-[10px] text-[var(--ink-400)] block">{r.vai_tro} — {r.email}</span>
+                          </td>
+                          <td className="py-2 px-2 text-center font-mono">
+                            {r.chua_xong_count > 0 ? (
+                              <button
+                                onClick={() => handleDmAccountCountClick(r.email, "chua-xong")}
+                                className="font-semibold text-[var(--coral-500)] hover:underline px-2 py-1 rounded bg-[var(--coral-100)] text-xs"
+                              >
+                                {r.chua_xong_count}
+                              </button>
+                            ) : (
+                              <span className="text-[var(--ink-400)] text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="py-2 px-2 text-center font-mono">
+                            {r.duoc_nhac_ten_count > 0 ? (
+                              <button
+                                onClick={() => handleDmAccountCountClick(r.email, "duoc-nhac-ten")}
+                                className="font-semibold text-[var(--ocean-600)] hover:underline px-2 py-1 rounded bg-[var(--ocean-100)] text-xs"
+                              >
+                                {r.duoc_nhac_ten_count}
+                              </button>
+                            ) : (
+                              <span className="text-[var(--ink-400)] text-xs">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <PaginatedTable
+            columns={tienTrinhColumns}
+            rows={dmData?.rows ?? []}
+            isLoading={dmLoading}
+            isError={dmError}
+            onRetry={refetchDm}
+            page={dmPage}
+            pageSize={10}
+            total={dmData?.total ?? 0}
+            onPageChange={setDmPage}
+            onRowClick={(r) => openCase(r.case_id, "tranh-chap")}
+            rowKey={(r) => r.id}
+            rowClassName={(r) => vipRowClassName(r.nhom_kh)}
+            emptyText="Không có tiến trình 'đòi đổi máy' nào khớp bộ lọc."
+            storageKey="tranh-chap-doi-may"
           />
         </div>
       ) : view === "cho-xac-nhan-ai" ? (

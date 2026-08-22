@@ -9,6 +9,7 @@ import {
   businessFieldValue,
 } from "./ratchet";
 import { nowVN } from "./vnTime";
+import { recomputeCanKhaoSatBatch } from "./canKhaoSat";
 
 /**
  * Luong import hang ngay - port tu import.js (thiet ke Node.js/pg ban goc).
@@ -210,6 +211,11 @@ export async function processImport(
   const statements: D1PreparedStatement[] = [];
   const affectedSerials = new Set<string>();
   const affectedDates = new Set<string>();
+  // Id cac case can tinh lai can_khao_sat (migration 0097, xem lib/canKhaoSat.ts) - CHI cac dong
+  // GHI_MOI (case moi, chua tung tinh) va GHI_DE co it nhat 1 trong 4 co "loi_*" lien quan
+  // NEED_SURVEY_CONDITION THAT SU doi (ratchet 1 chieu nen chi co the 0 -> 1, khong bao gio nguoc
+  // lai) - dong BO_QUA/GHI_DE-khong-doi-co khong can tinh lai vi khong co gi lien quan thay doi.
+  const canKhaoSatIds = new Set<string>();
 
   for (const incoming of valid) {
     const existing = existingById.get(incoming.id);
@@ -223,6 +229,7 @@ export async function processImport(
       summary.GHI_MOI++;
       addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
       addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
+      canKhaoSatIds.add(incoming.id);
       if (commit) statements.push(buildInsertStatement(db, incoming, now, incomingHash));
       continue;
     }
@@ -275,6 +282,11 @@ export async function processImport(
     // Tuong tu: gom ca ngay hoan thanh CU (truoc khi ghi de) lan ngay MOI - xem field affectedDates.
     addAffectedDate(affectedDates, existing.thoi_gian_hoan_thanh);
     addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
+    // Chi 4 co nay anh huong NEED_SURVEY_CONDITION (nghi_ngo_nap_gas khong lien quan can_khao_sat).
+    const surveyFlagsChanged = (["loi_120p", "loi_qua_han_24h", "loi_lo_ke_hoach", "loi_kh_hen_lai"] as const).some(
+      (f) => finalFlags[f] !== (existing[f] ? 1 : 0),
+    );
+    if (surveyFlagsChanged) canKhaoSatIds.add(incoming.id);
     if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, finalNghiNgoTranhChap, now, incomingHash));
   }
 
@@ -286,6 +298,9 @@ export async function processImport(
       const chunk = statements.slice(i, i + CHUNK_SIZE_BATCH);
       if (chunk.length > 0) await db.batch(chunk);
     }
+    // Tinh lai can_khao_sat SAU KHI cac dong INSERT/UPDATE o tren da ghi xong (can gia tri loi_* moi
+    // nhat trong DB de NEED_SURVEY_CONDITION danh gia dung) - xem lib/canKhaoSat.ts.
+    await recomputeCanKhaoSatBatch(db, [...canKhaoSatIds]);
   }
 
   return summary;

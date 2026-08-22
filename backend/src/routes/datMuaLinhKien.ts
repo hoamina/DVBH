@@ -4,6 +4,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
+import { featureDisabled } from "../middleware/featureDisabled";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs } from "../lib/scopeDatMua";
@@ -33,6 +34,9 @@ import { extractMaKtv } from "../lib/ktvCode";
 // "ca 3 nhanh re deu tiep tuc luong don hang".
 const datMuaLinhKien = new Hono<{ Bindings: Env }>();
 datMuaLinhKien.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
+// CHOT 2026-08-21 (yeu cau chu he thong): tam tat module "Dat mua linh kien" cho TOAN BO user, ke
+// ca Admin - code/route/DB giu nguyen 100%, chi chan o day. Bat lai: XOA dong nay.
+datMuaLinhKien.use("*", featureDisabled('Module "Đặt mua linh kiện" đang tạm ngừng hoạt động.'));
 
 // Trang thai "dong" tren 1 DONG don hang - khong the goi applyDonHangLog nua (Cho hang chi mo/dong
 // qua thieu_lk, khong qua applyDonHangLog truc tiep).

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -202,38 +202,38 @@ const SURVEY_BAO_CAO_EXPORT_LABELS: Record<string, string> = {
   ty_le_goi_thanh_cong: "% Khảo sát thành công",
 };
 
-// 1 o trong bang "Bao cao khao sat theo khu vuc" cho 1 loai nghi ngo (120p/24h/lo-ke-hoach/hen-lai) -
-// 3 dong: Nghi ngo (bam duoc, drill xuong "can-khao-sat"), Da goi, Vi pham (kem % tren so da goi).
-function renderLoaiCell(p: {
-  nghiNgo: number;
-  tyLeNghiNgo: number;
-  daGoi: number;
-  tyLeDaGoi: number;
-  viPham: number;
-  tyLeViPham: number;
-  tyLeViPhamTrenDaGoi: number;
-  onNghiNgoClick?: () => void;
-}) {
+// 3 cot con (Nghi ngo / Da goi / Vi pham) cho 1 nhom loai loi (120p/24h/lo-ke-hoach/hen-lai) trong
+// bang "Bao cao khao sat theo khu vuc" - tach rieng tung cot (thay vi gop 1 o nhu truoc) de xep duoi
+// 1 tieu de nhom 2 tang (colSpan=3) - xem <thead> cua bang. Mau nen theo loai: Nghi ngo (ocean) / Da
+// goi (trung tinh) / Vi pham (coral) - dung nhat quan ca 4 nhom cho de doi chieu ngang qua bang.
+function renderNghiNgoTd(count: number, tyLe: number, onClick?: () => void, key?: string) {
   return (
-    <div className="text-xs leading-snug whitespace-nowrap">
-      <div>
-        Nghi ngờ:{" "}
-        {p.onNghiNgoClick ? (
-          <button className="font-mono text-[var(--ocean-600)] hover:underline" onClick={p.onNghiNgoClick}>
-            {p.nghiNgo}
-          </button>
-        ) : (
-          <span className="font-mono">{p.nghiNgo}</span>
-        )}{" "}
-        ({p.tyLeNghiNgo}%)
-      </div>
-      <div className="text-[var(--ink-400)]">
-        Đã gọi: <span className="font-mono">{p.daGoi}</span> ({p.tyLeDaGoi}%)
-      </div>
-      <div className="text-[var(--coral-500)]">
-        Vi phạm: <span className="font-mono">{p.viPham}</span> ({p.tyLeViPham}% · {p.tyLeViPhamTrenDaGoi}% / đã gọi)
-      </div>
-    </div>
+    <td key={key} className="py-2 px-2 text-center bg-[var(--ocean-100)] border-l border-[var(--line)]">
+      {onClick ? (
+        <button className="font-mono font-semibold text-[var(--ocean-600)] hover:underline" onClick={onClick}>
+          {count}
+        </button>
+      ) : (
+        <span className="font-mono font-semibold text-[var(--ocean-600)]">{count}</span>
+      )}
+      <div className="text-[10px] text-[var(--ocean-600)]">{tyLe}%</div>
+    </td>
+  );
+}
+function renderDaGoiTd(count: number, tyLe: number, key?: string) {
+  return (
+    <td key={key} className="py-2 px-2 text-center bg-slate-50">
+      <span className="font-mono font-semibold text-[var(--ink-600)]">{count}</span>
+      <div className="text-[10px] text-[var(--ink-400)]">{tyLe}%</div>
+    </td>
+  );
+}
+function renderViPhamTd(count: number, tyLe: number, key?: string) {
+  return (
+    <td key={key} className="py-2 px-2 text-center bg-[var(--coral-100)]">
+      <span className="font-mono font-semibold text-[var(--coral-600)]">{count}</span>
+      <div className="text-[10px] text-[var(--coral-600)]">{tyLe}%</div>
+    </td>
   );
 }
 
@@ -374,7 +374,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     queryKey: ["survey-counts", khuVucFilter, thangDanhSach],
     queryFn: () => api.get<Record<string, number>>(`/survey/counts${buildQuery({ khu_vuc: khuVucFilter, thang: thangDanhSach })}`),
   });
-  const { data: baoCaoKhuVuc } = useQuery({
+  // CHOT 2026-08-20: 5 query cua tab "Bao cao" (baoCaoKhuVuc/funnel/ktvBoard/giamSatBoard/trend) deu
+  // "enabled: false" - KHONG tu dong refetch khi doi bo loc/mount, chi chay qua refreshReport() (nut
+  // "Cap nhat bao cao", xem ben duoi) - giam so lan goi cac endpoint bao cao dang bi cache mien theo
+  // domain "ket_qua_goi" (bump gan nhu lien tuc gio hanh chinh, xem SURVEY_REPORT_DOMAINS o
+  // backend/src/routes/survey.ts) thay vi tu dong goi lai moi khi nguoi dung doi Thang/Khu vuc/KTV...
+  const { data: baoCaoKhuVuc, refetch: refetchBaoCaoKhuVuc } = useQuery({
     queryKey: ["survey-bao-cao-khu-vuc", reportDim, khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter, nguoiKhaoSatFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
     queryFn: () =>
       api.get<{ rows: SurveyBaoCaoRow[]; thang: string }>(
@@ -391,6 +396,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           nguon_crm: nguonCrmFilter || undefined,
         })}`,
       ),
+    enabled: false,
   });
 
   // Dong "Tong cong" dau bang "Bao cao khao sat theo khu vuc" - cong don cac cot dem tren cac dong
@@ -489,23 +495,52 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     queryFn: () => api.get<{ rows: { email: string; ten: string | null }[] }>("/survey/cskh-list"),
     enabled: isLead,
   });
-  const { data: funnel } = useQuery({
+  const { data: funnel, refetch: refetchFunnel } = useQuery({
     queryKey: ["vi-pham-funnel", thangReport],
     queryFn: () => api.get<FunnelData>(`/vi-pham/funnel${buildQuery({ thang: thangReport })}`),
+    enabled: false,
   });
-  const { data: ktvBoard } = useQuery({
-    queryKey: ["vi-pham-leaderboard", "ktv"],
-    queryFn: () => api.get<{ rows: LeaderboardRow[] }>("/vi-pham/leaderboard?by=ktv"),
+  const { data: ktvBoard, refetch: refetchKtvBoard } = useQuery({
+    queryKey: ["vi-pham-leaderboard", "ktv", thangReport],
+    queryFn: () => api.get<{ rows: LeaderboardRow[] }>(`/vi-pham/leaderboard${buildQuery({ by: "ktv", thang: thangReport })}`),
+    enabled: false,
   });
-  const { data: giamSatBoard } = useQuery({
-    queryKey: ["vi-pham-leaderboard", "giam-sat"],
-    queryFn: () => api.get<{ rows: LeaderboardRow[] }>("/vi-pham/leaderboard?by=giam-sat"),
+  const { data: giamSatBoard, refetch: refetchGiamSatBoard } = useQuery({
+    queryKey: ["vi-pham-leaderboard", "giam-sat", thangReport],
+    queryFn: () => api.get<{ rows: LeaderboardRow[] }>(`/vi-pham/leaderboard${buildQuery({ by: "giam-sat", thang: thangReport })}`),
+    enabled: false,
   });
-  const { data: trend } = useQuery({
+  const { data: trend, refetch: refetchTrend } = useQuery({
     queryKey: ["survey-trend"],
     queryFn: () => api.get<{ rows: TrendRow[] }>("/survey/trend?days=30"),
+    enabled: false,
   });
   const trendRows = trend?.rows ?? [];
+
+  const [reportLastUpdated, setReportLastUpdated] = useState<Date | null>(null);
+  const [isRefreshingReport, setIsRefreshingReport] = useState(false);
+  const reportAutoLoadedRef = useRef(false);
+
+  // Nut "Cap nhat bao cao" - chi diem duy nhat kich hoat 5 query tren (xem enabled: false o tung
+  // query). Tu dong chay 1 LAN duy nhat khi mo tab "Bao cao" lan dau (useEffect ben duoi) - sau do
+  // doi bo loc (Thang/Khu vuc/KTV...) se KHONG tu goi lai, phai bam nut nay.
+  async function refreshReport() {
+    setIsRefreshingReport(true);
+    try {
+      await Promise.all([refetchFunnel(), refetchKtvBoard(), refetchGiamSatBoard(), refetchTrend(), refetchBaoCaoKhuVuc()]);
+      setReportLastUpdated(new Date());
+    } finally {
+      setIsRefreshingReport(false);
+    }
+  }
+
+  useEffect(() => {
+    if (effectiveView === "bao-cao" && !reportAutoLoadedRef.current) {
+      reportAutoLoadedRef.current = true;
+      refreshReport();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveView]);
 
   const groupedViPham = useMemo(() => {
     const list = tab === "cho-qc" ? choQc?.rows ?? [] : daXuLy?.rows ?? [];
@@ -717,6 +752,65 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
       {effectiveView === "bao-cao" ? (
         <div className="mt-4">
+          <div className="flex items-center gap-3 mb-4">
+            <Btn size="sm" onClick={refreshReport} disabled={isRefreshingReport}>
+              {isRefreshingReport ? "⏳ Đang cập nhật..." : "🔄 Cập nhật báo cáo"}
+            </Btn>
+            <span className="text-xs text-[var(--ink-400)]">
+              {reportLastUpdated
+                ? `Cập nhật lần cuối: ${reportLastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ${reportLastUpdated.toLocaleDateString("vi-VN")}`
+                : "Chưa tải báo cáo"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <Card className="p-4">
+              <div className="font-display font-bold text-sm mb-3">
+                Phễu xử lý vi phạm <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, theo thời gian mở ca)</span>
+              </div>
+              <ChartCanvas
+                type="bar"
+                data={{
+                  labels: ["Nghi ngờ vi phạm", "Cần khảo sát", "Chờ QC chốt cấp 2", "Đã xử lý xong"],
+                  datasets: [
+                    {
+                      label: "Số ca",
+                      data: [funnel?.nghiNgo ?? 0, funnel?.canKhaoSat ?? 0, funnel?.choQc ?? 0, funnel?.daXuLy ?? 0],
+                      backgroundColor: ["#D98A1F", "#1591C9", "#D84C4C", "#159C93"],
+                      borderRadius: 6,
+                    },
+                  ],
+                }}
+                options={{ indexAxis: "y" as const }}
+              />
+            </Card>
+            <Card className="p-4">
+              <div className="font-display font-bold text-sm mb-3">
+                Top 10 KTV nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, tỷ lệ trên tổng số ca của KTV trong tháng)</span>
+              </div>
+              <ChartCanvas
+                type="bar"
+                data={{
+                  labels: (ktvBoard?.rows ?? []).map((r) => r.nhom ?? "—"),
+                  datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (ktvBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D84C4C", borderRadius: 6 }],
+                }}
+                options={{
+                  indexAxis: "y" as const,
+                  plugins: {
+                    tooltip: {
+                      callbacks: {
+                        label: (ctx) => {
+                          const r = (ktvBoard?.rows ?? [])[ctx.dataIndex];
+                          return `${ctx.formattedValue}% (${r?.so_vi_pham ?? 0}/${r?.tong_ca ?? 0} ca)`;
+                        },
+                      },
+                    },
+                  },
+                }}
+              />
+            </Card>
+          </div>
+
           <Card className="p-4 mb-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
@@ -833,26 +927,35 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <table className="dense w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th className="py-2 pr-3">{SURVEY_REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? (reportDim === "quan_huyen" ? "Quận/Huyện" : "Nhóm")}</th>
-                    <th className="py-2 pr-3">Ca CRM mở mới</th>
-                    <th className="py-2 pr-3">Ca CRM đã đóng</th>
-                    <th className="py-2 pr-3">% KTV chủ động 120'</th>
-                    <th className="py-2 pr-3">Tỷ lệ % đã gọi hẹn 120'</th>
-                    <th className="py-2 pr-3">Cần khảo sát</th>
-                    <th className="py-2 pr-3">Tổng nghi ngờ</th>
-                    <th className="py-2 pr-3">120 phút</th>
-                    <th className="py-2 pr-3">Quá 24h</th>
-                    <th className="py-2 pr-3">Lỡ kế hoạch</th>
-                    <th className="py-2 pr-3">Hẹn lại</th>
-                    <th className="py-2 pr-3">Tổng vi phạm</th>
-                    <th className="py-2 pr-3">KSNB chốt lỗi</th>
-                    <th className="py-2 pr-3">KSNB bỏ lỗi</th>
-                    <th className="py-2 pr-3">Đã khảo sát</th>
-                    <th className="py-2 pr-3">Khảo sát thành công</th>
-                    <th className="py-2 pr-3">Khảo sát thất bại</th>
-                    <th className="py-2 pr-3">Đang chờ khảo sát lại</th>
-                    <th className="py-2 pr-3">Bỏ qua không khảo sát</th>
-                    <th className="py-2 pr-3">Chờ khảo sát</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">{SURVEY_REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? (reportDim === "quan_huyen" ? "Quận/Huyện" : "Nhóm")}</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Ca CRM mở mới</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Ca CRM đã đóng</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">% KTV chủ động 120'</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Tỷ lệ % đã gọi hẹn 120'</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Cần khảo sát</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom bg-[var(--amber-100)] text-[var(--amber-700)]">Chờ khảo sát</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Tổng nghi ngờ</th>
+                    <th colSpan={3} className="py-1 px-2 text-center border-l border-[var(--line)]">120 phút</th>
+                    <th colSpan={3} className="py-1 px-2 text-center border-l border-[var(--line)]">Quá 24h</th>
+                    <th colSpan={3} className="py-1 px-2 text-center border-l border-[var(--line)]">Lỡ kế hoạch</th>
+                    <th colSpan={3} className="py-1 px-2 text-center border-l border-[var(--line)]">Hẹn lại</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Tổng vi phạm</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">KSNB chốt lỗi</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">KSNB bỏ lỗi</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Đã khảo sát</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Khảo sát thành công</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Khảo sát thất bại</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Đang chờ khảo sát lại</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Bỏ qua không khảo sát</th>
+                  </tr>
+                  <tr className="text-left text-[var(--ink-400)] text-[10px] uppercase border-b border-[var(--line)]">
+                    {[0, 1, 2, 3].map((i) => (
+                      <Fragment key={i}>
+                        <th className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-100)] text-[var(--ocean-600)]">Nghi ngờ</th>
+                        <th className="py-1 px-2 text-center bg-slate-50">Đã gọi</th>
+                        <th className="py-1 px-2 text-center bg-[var(--coral-100)] text-[var(--coral-600)]">Vi phạm</th>
+                      </Fragment>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -864,51 +967,20 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_ktv_chu_dong_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.can_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono bg-[var(--amber-100)] text-[var(--amber-700)]">{baoCaoTotal.cho_khao_sat}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_nghi_ngo}</td>
-                      <td className="py-2 pr-3 font-normal">
-                        {renderLoaiCell({
-                          nghiNgo: baoCaoTotal.nghi_ngo_120p,
-                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_120p,
-                          daGoi: baoCaoTotal.da_goi_120p,
-                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_120p,
-                          viPham: baoCaoTotal.vi_pham_120p,
-                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_120p,
-                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_120p,
-                        })}
-                      </td>
-                      <td className="py-2 pr-3 font-normal">
-                        {renderLoaiCell({
-                          nghiNgo: baoCaoTotal.nghi_ngo_24h,
-                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_24h,
-                          daGoi: baoCaoTotal.da_goi_24h,
-                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_24h,
-                          viPham: baoCaoTotal.vi_pham_24h,
-                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_24h,
-                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_24h,
-                        })}
-                      </td>
-                      <td className="py-2 pr-3 font-normal">
-                        {renderLoaiCell({
-                          nghiNgo: baoCaoTotal.nghi_ngo_lkh,
-                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_lkh,
-                          daGoi: baoCaoTotal.da_goi_lkh,
-                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_lkh,
-                          viPham: baoCaoTotal.vi_pham_lkh,
-                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_lkh,
-                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_lkh,
-                        })}
-                      </td>
-                      <td className="py-2 pr-3 font-normal">
-                        {renderLoaiCell({
-                          nghiNgo: baoCaoTotal.nghi_ngo_hl,
-                          tyLeNghiNgo: baoCaoTotal.ty_le_nghi_ngo_hl,
-                          daGoi: baoCaoTotal.da_goi_hl,
-                          tyLeDaGoi: baoCaoTotal.ty_le_da_goi_hl,
-                          viPham: baoCaoTotal.vi_pham_hl,
-                          tyLeViPham: baoCaoTotal.ty_le_vi_pham_hl,
-                          tyLeViPhamTrenDaGoi: baoCaoTotal.ty_le_vi_pham_tren_da_goi_hl,
-                        })}
-                      </td>
+                      {renderNghiNgoTd(baoCaoTotal.nghi_ngo_120p, baoCaoTotal.ty_le_nghi_ngo_120p)}
+                      {renderDaGoiTd(baoCaoTotal.da_goi_120p, baoCaoTotal.ty_le_da_goi_120p)}
+                      {renderViPhamTd(baoCaoTotal.vi_pham_120p, baoCaoTotal.ty_le_vi_pham_tren_da_goi_120p)}
+                      {renderNghiNgoTd(baoCaoTotal.nghi_ngo_24h, baoCaoTotal.ty_le_nghi_ngo_24h)}
+                      {renderDaGoiTd(baoCaoTotal.da_goi_24h, baoCaoTotal.ty_le_da_goi_24h)}
+                      {renderViPhamTd(baoCaoTotal.vi_pham_24h, baoCaoTotal.ty_le_vi_pham_tren_da_goi_24h)}
+                      {renderNghiNgoTd(baoCaoTotal.nghi_ngo_lkh, baoCaoTotal.ty_le_nghi_ngo_lkh)}
+                      {renderDaGoiTd(baoCaoTotal.da_goi_lkh, baoCaoTotal.ty_le_da_goi_lkh)}
+                      {renderViPhamTd(baoCaoTotal.vi_pham_lkh, baoCaoTotal.ty_le_vi_pham_tren_da_goi_lkh)}
+                      {renderNghiNgoTd(baoCaoTotal.nghi_ngo_hl, baoCaoTotal.ty_le_nghi_ngo_hl)}
+                      {renderDaGoiTd(baoCaoTotal.da_goi_hl, baoCaoTotal.ty_le_da_goi_hl)}
+                      {renderViPhamTd(baoCaoTotal.vi_pham_hl, baoCaoTotal.ty_le_vi_pham_tren_da_goi_hl)}
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_vi_pham}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_chot}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ksnb_bo}</td>
@@ -919,7 +991,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.khao_sat_that_bai}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat_lai}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.bo_qua_khong_khao_sat}</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_khao_sat}</td>
                     </tr>
                   )}
                   {sortedBaoCaoRows.map((r) => (
@@ -938,55 +1009,20 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                           r.can_khao_sat
                         )}
                       </td>
+                      <td className="py-2 pr-3 font-mono font-semibold bg-[var(--amber-100)] text-[var(--amber-700)]">{r.cho_khao_sat}</td>
                       <td className="py-2 pr-3 font-mono">{r.tong_nghi_ngo}</td>
-                      <td className="py-2 pr-3">
-                        {renderLoaiCell({
-                          nghiNgo: r.nghi_ngo_120p,
-                          tyLeNghiNgo: r.ty_le_nghi_ngo_120p,
-                          daGoi: r.da_goi_120p,
-                          tyLeDaGoi: r.ty_le_da_goi_120p,
-                          viPham: r.vi_pham_120p,
-                          tyLeViPham: r.ty_le_vi_pham_120p,
-                          tyLeViPhamTrenDaGoi: r.ty_le_vi_pham_tren_da_goi_120p,
-                          onNghiNgoClick: canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined,
-                        })}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {renderLoaiCell({
-                          nghiNgo: r.nghi_ngo_24h,
-                          tyLeNghiNgo: r.ty_le_nghi_ngo_24h,
-                          daGoi: r.da_goi_24h,
-                          tyLeDaGoi: r.ty_le_da_goi_24h,
-                          viPham: r.vi_pham_24h,
-                          tyLeViPham: r.ty_le_vi_pham_24h,
-                          tyLeViPhamTrenDaGoi: r.ty_le_vi_pham_tren_da_goi_24h,
-                          onNghiNgoClick: canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined,
-                        })}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {renderLoaiCell({
-                          nghiNgo: r.nghi_ngo_lkh,
-                          tyLeNghiNgo: r.ty_le_nghi_ngo_lkh,
-                          daGoi: r.da_goi_lkh,
-                          tyLeDaGoi: r.ty_le_da_goi_lkh,
-                          viPham: r.vi_pham_lkh,
-                          tyLeViPham: r.ty_le_vi_pham_lkh,
-                          tyLeViPhamTrenDaGoi: r.ty_le_vi_pham_tren_da_goi_lkh,
-                          onNghiNgoClick: canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined,
-                        })}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {renderLoaiCell({
-                          nghiNgo: r.nghi_ngo_hl,
-                          tyLeNghiNgo: r.ty_le_nghi_ngo_hl,
-                          daGoi: r.da_goi_hl,
-                          tyLeDaGoi: r.ty_le_da_goi_hl,
-                          viPham: r.vi_pham_hl,
-                          tyLeViPham: r.ty_le_vi_pham_hl,
-                          tyLeViPhamTrenDaGoi: r.ty_le_vi_pham_tren_da_goi_hl,
-                          onNghiNgoClick: canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined,
-                        })}
-                      </td>
+                      {renderNghiNgoTd(r.nghi_ngo_120p, r.ty_le_nghi_ngo_120p, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderDaGoiTd(r.da_goi_120p, r.ty_le_da_goi_120p)}
+                      {renderViPhamTd(r.vi_pham_120p, r.ty_le_vi_pham_tren_da_goi_120p)}
+                      {renderNghiNgoTd(r.nghi_ngo_24h, r.ty_le_nghi_ngo_24h, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderDaGoiTd(r.da_goi_24h, r.ty_le_da_goi_24h)}
+                      {renderViPhamTd(r.vi_pham_24h, r.ty_le_vi_pham_tren_da_goi_24h)}
+                      {renderNghiNgoTd(r.nghi_ngo_lkh, r.ty_le_nghi_ngo_lkh, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderDaGoiTd(r.da_goi_lkh, r.ty_le_da_goi_lkh)}
+                      {renderViPhamTd(r.vi_pham_lkh, r.ty_le_vi_pham_tren_da_goi_lkh)}
+                      {renderNghiNgoTd(r.nghi_ngo_hl, r.ty_le_nghi_ngo_hl, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderDaGoiTd(r.da_goi_hl, r.ty_le_da_goi_hl)}
+                      {renderViPhamTd(r.vi_pham_hl, r.ty_le_vi_pham_tren_da_goi_hl)}
                       <td className="py-2 pr-3 font-mono">{r.tong_vi_pham}</td>
                       <td className="py-2 pr-3 font-mono">{r.ksnb_chot}</td>
                       <td className="py-2 pr-3 font-mono">{r.ksnb_bo}</td>
@@ -997,12 +1033,11 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{r.khao_sat_that_bai}</td>
                       <td className="py-2 pr-3 font-mono">{r.cho_khao_sat_lai}</td>
                       <td className="py-2 pr-3 font-mono">{r.bo_qua_khong_khao_sat}</td>
-                      <td className="py-2 pr-3 font-mono">{r.cho_khao_sat}</td>
                     </tr>
                   ))}
                   {sortedBaoCaoRows.length === 0 && (
                     <tr>
-                      <td colSpan={20} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                      <td colSpan={28} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
                       </td>
                     </tr>
@@ -1012,27 +1047,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-            <Card className="p-4 lg:col-span-2">
-              <div className="font-display font-bold text-sm mb-3">
-                Phễu xử lý vi phạm <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, theo thời gian mở ca)</span>
-              </div>
-              <ChartCanvas
-                type="bar"
-                data={{
-                  labels: ["Nghi ngờ vi phạm", "Cần khảo sát", "Chờ QC chốt cấp 2", "Đã xử lý xong"],
-                  datasets: [
-                    {
-                      label: "Số ca",
-                      data: [funnel?.nghiNgo ?? 0, funnel?.canKhaoSat ?? 0, funnel?.choQc ?? 0, funnel?.daXuLy ?? 0],
-                      backgroundColor: ["#D98A1F", "#1591C9", "#D84C4C", "#159C93"],
-                      borderRadius: 6,
-                    },
-                  ],
-                }}
-                options={{ indexAxis: "y" as const }}
-              />
-            </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <Card className="p-4">
               <div className="font-display font-bold text-sm mb-3">Xu hướng cuộc gọi khảo sát (30 ngày)</div>
               <ChartCanvas
@@ -1043,37 +1058,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 }}
               />
             </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <Card className="p-4">
               <div className="font-display font-bold text-sm mb-3">
-                Top 10 KTV nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tỷ lệ trên tổng số ca của KTV)</span>
-              </div>
-              <ChartCanvas
-                type="bar"
-                data={{
-                  labels: (ktvBoard?.rows ?? []).map((r) => r.nhom ?? "—"),
-                  datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (ktvBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D84C4C", borderRadius: 6 }],
-                }}
-                options={{
-                  indexAxis: "y" as const,
-                  plugins: {
-                    tooltip: {
-                      callbacks: {
-                        label: (ctx) => {
-                          const r = (ktvBoard?.rows ?? [])[ctx.dataIndex];
-                          return `${ctx.formattedValue}% (${r?.so_vi_pham ?? 0}/${r?.tong_ca ?? 0} ca)`;
-                        },
-                      },
-                    },
-                  },
-                }}
-              />
-            </Card>
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">
-                Top 10 Giám sát nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tỷ lệ trên tổng số ca khu vực phụ trách)</span>
+                Top 10 Giám sát nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, tỷ lệ trên tổng số ca khu vực phụ trách trong tháng)</span>
               </div>
               <ChartCanvas
                 type="bar"

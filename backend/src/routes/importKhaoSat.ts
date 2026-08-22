@@ -10,6 +10,7 @@ import { toJsonArray } from "../lib/jsonArray";
 import { LOAI_LOI_KEYS } from "../types";
 import { parseBackfillTsv, fetchSheetText, getSheetUrl } from "../lib/backfillSheetSync";
 import { bumpVersions } from "../lib/dataVersions";
+import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 
 const SHEET_DATE_TIME_FIELDS = new Set(["ngay_gio_thuc_hien", "ngay_chot"]);
 
@@ -270,6 +271,9 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
     await runBatched(db, statements);
     // Bump domain "vi_pham" + "ket_qua_goi" chi o nhanh COMMIT that (khong bump o preview) - xem lib/dataVersions.ts.
     await bumpVersions(db, ["vi_pham", "ket_qua_goi"]);
+    // Tinh lai can_khao_sat cho TAP HOP case bi anh huong (migration 0097, xem lib/canKhaoSat.ts) -
+    // NOT EXISTS trong NEED_SURVEY_CONDITION phu thuoc dung cac dong vi_pham vua ghi o tren.
+    await recomputeCanKhaoSatBatch(db, validRows.map(({ caseId }) => caseId));
   }
 
   return summary;

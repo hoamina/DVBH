@@ -1,6 +1,6 @@
 import type { AppUser } from "../types";
 import { ROLES_XEM_TOAN_BO } from "../types";
-import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION } from "../routes/survey";
+import { RECENT_OR_OPEN_CONDITION } from "../routes/survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "../routes/caLap";
 import { latestGiaiTrinhJoin, CASE_FILTER_TON, NEED_TONG } from "./needGiaiTrinh";
 import { kpiEligibleClause } from "./kpiEligible";
@@ -117,7 +117,7 @@ export async function computeDailyReportData(db: D1Database, user: AppUser): Pro
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh c
-         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND ${NEED_SURVEY_CONDITION}${khuVucClause}`,
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1${khuVucClause}`,
       )
       .bind(...khuVucBinds)
       .first<{ n: number }>(),

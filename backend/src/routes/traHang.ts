@@ -4,6 +4,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
+import { featureDisabled } from "../middleware/featureDisabled";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao } from "../lib/scopeDatMua";
@@ -16,6 +17,9 @@ import { scopeDatMuaNguoiTao } from "../lib/scopeDatMua";
 // sung lai theo dung ban chot 2026-08-14.
 const traHang = new Hono<{ Bindings: Env }>();
 traHang.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
+// CHOT 2026-08-21 (yeu cau chu he thong): tam tat module "Don tra hang" cho TOAN BO user, ke ca
+// Admin - code/route/DB giu nguyen 100%, chi chan o day. Bat lai: XOA dong nay.
+traHang.use("*", featureDisabled('Module "Đơn trả hàng" đang tạm ngừng hoạt động.'));
 
 const TRANG_THAI_DONG = ["Da hoan thanh", "Tu choi", "Da huy"] as const;
 // RA SOAT BAO MAT/CHI PHI D1 2026-08-18 (phan hoi Codex #9) - xem giai thich o datMuaLinhKien.ts.

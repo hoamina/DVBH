@@ -14,6 +14,13 @@ import type { AppUser, VaiTro } from "../types";
  *   cung vai_tro=Admin nhu truoc (xem requireRole("Admin") o importRoute.ts/settings.ts/users.ts),
  *   rui ro qua cao de giao qua 1 o tick nham.
  */
+// CHOT 2026-08-21 (yeu cau chu he thong): tam an 2 module nay khoi sidebar cho TOAN BO user, ke ca
+// Admin va ke ca cac role-flag truoc day tu dong cap (la_ktv_dvbh/la_ve_tinh/la_kho/la_ke_toan/
+// la_tac_nghiep/la_tp_dvbh, xem effectiveModules() ben duoi) - KHONG dong data/route/code, chi loc
+// khoi danh sach hien thi. Bat lai: XOA mang nay (va doi chieu 2 dong featureDisabled() tuong ung
+// trong routes/datMuaLinhKien.ts + routes/traHang.ts).
+const TAM_TAT_MODULES = ["dat-mua-lk", "tra-hang"];
+
 export const DEFAULT_MODULES_BY_ROLE: Record<VaiTro, string[]> = {
   Admin: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
   Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
@@ -46,7 +53,7 @@ export function parseModulesColumn(raw: string | null): string[] | null {
  * xem_danh_muc_lk (quyen XEM, mac dinh true tru CSKH/TN CSKH/TBP CSKH - migration 0084) HOAC
  * quan_ly_danh_muc_lk (quyen SUA ke thua duoc xem, phong truong hop Admin cap sua ma quen cap xem). */
 export function effectiveModules(user: AppUser): string[] {
-  if (user.vai_tro === "Admin") return DEFAULT_MODULES_BY_ROLE.Admin;
+  if (user.vai_tro === "Admin") return DEFAULT_MODULES_BY_ROLE.Admin.filter((m) => !TAM_TAT_MODULES.includes(m));
   let mods = user.modules !== null ? user.modules : (user.vai_tro ? (DEFAULT_MODULES_BY_ROLE[user.vai_tro] ?? []) : []);
   if (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh) {
     mods = [...new Set([...mods, "dat-mua-lk", "tra-hang"])];
@@ -54,7 +61,7 @@ export function effectiveModules(user: AppUser): string[] {
   if (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk) {
     mods = [...new Set([...mods, "danh-muc-lk"])];
   }
-  return mods;
+  return mods.filter((m) => !TAM_TAT_MODULES.includes(m));
 }
 
 export function hasModule(user: AppUser, moduleKey: string): boolean {

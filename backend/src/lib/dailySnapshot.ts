@@ -19,7 +19,7 @@
  *   filter co the co, se bung no chi phi).
  */
 import type { AppUser } from "../types";
-import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION } from "../routes/survey";
+import { RECENT_OR_OPEN_CONDITION } from "../routes/survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "../routes/caLap";
 import {
   latestGiaiTrinhJoin,
@@ -380,7 +380,7 @@ export async function computeSnapshotPayload(db: D1Database, roleVariant: RoleVa
     db
       .prepare(
         `SELECT c.id as id FROM case_dvbh c
-         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND ${NEED_SURVEY_CONDITION}${khuVucClause}`,
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1${khuVucClause}`,
       )
       .bind(...khuVucBinds)
       .all<{ id: string }>(),

@@ -12,6 +12,8 @@ import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, khuVucReportExclusionCl
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
+import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
+import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 
 // Domain phu thuoc chung cho ca 3 bao cao /counts, /by-khu-vuc, /trend (xem bang R6 trong
 // YEU_CAU_BAO_CAO_TINH_SAN.md - ap dung dong nhat, don gian hon tach rieng tung endpoint).
@@ -20,28 +22,13 @@ const SURVEY_REPORT_DOMAINS = ["cases", "vi_pham", "ket_qua_goi"] as const;
 const survey = new Hono<{ Bindings: Env }>();
 survey.use("*", verifySessionMiddleware, loadUser);
 
-// Ca can khao sat: co it nhat 1 co nghi ngo chua duoc khao sat (chua co dong vi_pham tuong ung) VA
-// cuoc goi GAN NHAT (neu co) khong bi CSKH tich "khong can goi lai" - CHOT 2026-08-06: truoc day
-// can_goi_lai chi luu vao lich su, khong noi nao doc lai, nen CSKH tich "khong can goi lai" xong ca
-// van nam nguyen trong danh sach (bi phan nan "da luu ket qua cuoc goi nhung khong bien mat"). Dung
-// "IS NOT 0" (SQLite NULL-safe) thay vi "<> 0" vi ket qua thanh cong/chua tung goi co can_goi_lai =
-// NULL - "<> 0" se lam NULL <> 0 tra ve unknown (an nham ca chua tung goi). can_goi_lai la truong o
-// muc 1 CUOC GOI (khong gan voi tung loai_loi), nen tich "khong can goi lai" se an CA CASE khoi danh
-// sach (khong chi 1 loai_loi) - dung y hieu cua yeu cau nghiep vu ("no phai bien mat khoi danh sach").
-// Export de notifications.ts dung lai dung 1 dinh nghia cho badge sidebar "Quan ly khao sat".
-export const NEED_SURVEY_CONDITION = `(
-  (
-    (c.loi_120p = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi 120 phut'))
-    OR (c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h'))
-    OR (c.loi_lo_ke_hoach = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi lo ke hoach'))
-    OR (c.loi_kh_hen_lai = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'KH hen lai'))
-  )
-  AND (SELECT k.can_goi_lai FROM ket_qua_goi k WHERE k.case_id = c.id ORDER BY k.ngay_gio_thuc_hien DESC LIMIT 1) IS NOT 0
-)`;
-// Con moi/uu tien: dang ton (chua hoan thanh) HOAC da hoan thanh khong qua 3 ngay so voi 0h hom nay
-export const RECENT_OR_OPEN_CONDITION = `(c.thoi_gian_hoan_thanh IS NULL OR c.thoi_gian_hoan_thanh >= datetime('now', 'start of day', '-3 days'))`;
-// Qua han khao sat: da hoan thanh va qua 3 ngay so voi 0h hom nay ma van chua khao sat - co the goi hoac bo qua
-const OVERDUE_SURVEY_CONDITION = `(c.thoi_gian_hoan_thanh IS NOT NULL AND c.thoi_gian_hoan_thanh < datetime('now', 'start of day', '-3 days'))`;
+// Dinh nghia goc cua NEED_SURVEY_CONDITION/RECENT_OR_OPEN_CONDITION/OVERDUE_SURVEY_CONDITION da
+// chuyen sang lib/surveyConditions.ts (2026-08-21) de lib/canKhaoSat.ts + lib/importProcessor.ts
+// dung lai duoc ma khong tao vong import nguoc (lib/ -> routes/) - xem chu thich day du o do. Giu
+// re-export tai day de dailyReport.ts/dailySnapshot.ts/notifications.ts khong phai doi duong dan
+// import. Cac truy van DOC bao cao/danh sach trong file nay tu 2026-08-21 dung "c.can_khao_sat = 1"
+// (cot da tinh san, xem migration 0097) thay vi lap lai NEED_SURVEY_CONDITION truc tiep.
+export { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION };
 
 // GET /api/survey/cskh-list - danh sach CSKH da duyet, dung de phan cong (khong phai Quan ly User)
 survey.get("/cskh-list", requireRole("TN CSKH", "TBP CSKH", "Admin"), async (c) => {
@@ -90,7 +77,7 @@ survey.get("/candidates", async (c) => {
      FROM case_dvbh c
      WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
        AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?
-       AND ${timeCondition} AND ${NEED_SURVEY_CONDITION}${scopeClause.sql}${extraFilter}
+       AND ${timeCondition} AND c.can_khao_sat = 1${scopeClause.sql}${extraFilter}
      ORDER BY c.thoi_gian_cskh_tiep_nhan DESC`,
   )
     .bind(start, end, ...scopeClause.binds, ...extraBinds)
@@ -164,10 +151,13 @@ survey.get("/", async (c) => {
   if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") return c.json({ error: "DEPRECATED_USE_CANDIDATES_ENDPOINT" }, 410);
 
   if (tab === "cho-qc") {
+    // CROSS JOIN ... ON thay INNER JOIN (giong fix computeSurveyCounts() 2026-08-20): dieu kien loc
+    // chinh nam het o v.* (bang vi_pham nho) nhung INNER JOIN cho planner tu chon thu tu, va no da
+    // chon quet gan het case_dvbh thay vi vi_pham truoc (xac nhan qua EXPLAIN QUERY PLAN production -
+    // ~110-120K rows_read cho 200 dong tra ve). CROSS JOIN ep quet v truoc, tra c theo PK sau.
     const query = `
       SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham
-      FROM vi_pham v
-      INNER JOIN case_dvbh c ON c.id = v.case_id
+      FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
       WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}
       ORDER BY v.ngay_ghi_nhan DESC
       LIMIT ?
@@ -177,10 +167,10 @@ survey.get("/", async (c) => {
   }
 
   if (tab === "da-xu-ly") {
+    // CROSS JOIN ... ON - xem chu thich o nhanh "cho-qc" ben tren, cung 1 ly do/fix.
     const query = `
       SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham
-      FROM vi_pham v
-      INNER JOIN case_dvbh c ON c.id = v.case_id
+      FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
       WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}
       ORDER BY v.ngay_ghi_nhan DESC
       LIMIT ?
@@ -221,11 +211,11 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
 
   const canKhaoSatQuery = `
     SELECT COUNT(*) as n FROM case_dvbh c
-    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND ${NEED_SURVEY_CONDITION}${scopeClause.sql}${extraFilter}${monthClauseSql}
+    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1${scopeClause.sql}${extraFilter}${monthClauseSql}
   `;
   const quaHanKhaoSatQuery = `
     SELECT COUNT(*) as n FROM case_dvbh c
-    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${OVERDUE_SURVEY_CONDITION} AND ${NEED_SURVEY_CONDITION}${scopeClause.sql}${extraFilter}${monthClauseSql}
+    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${OVERDUE_SURVEY_CONDITION} AND c.can_khao_sat = 1${scopeClause.sql}${extraFilter}${monthClauseSql}
   `;
   // CHOT 2026-08-20 (rao soat lag): "CROSS JOIN" thay "INNER JOIN" - ket qua giong het (SQLite coi 2
   // cu phap nay tuong duong ve logic), CHI khac o cho query planner KHONG duoc phep doi thu tu bang
@@ -290,21 +280,22 @@ export async function computeSurveyByKhuVuc(db: D1Database, params: SurveyByKhuV
 
   const canKhaoSatQuery = `
     SELECT c.khu_vuc as khu_vuc, COUNT(*) as n FROM case_dvbh c
-    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND ${NEED_SURVEY_CONDITION} AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
+    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1 AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
   const quaHanKhaoSatQuery = `
     SELECT c.khu_vuc as khu_vuc, COUNT(*) as n FROM case_dvbh c
-    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${OVERDUE_SURVEY_CONDITION} AND ${NEED_SURVEY_CONDITION} AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
+    WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${OVERDUE_SURVEY_CONDITION} AND c.can_khao_sat = 1 AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
+  // CROSS JOIN ... ON - cung fix 2026-08-20 nhu computeSurveyCounts()/GET "/" (xem chu thich o do).
   const choQcQuery = `
-    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
+    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
   const daXuLyQuery = `
-    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
+    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL) AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
@@ -676,7 +667,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
     .prepare(
       `SELECT ${dimCol} as nhom, COUNT(*) as can_khao_sat
        FROM case_dvbh c
-       WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql} AND ${NEED_SURVEY_CONDITION}
+       WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql} AND c.can_khao_sat = 1
        GROUP BY ${dimCol}`,
     )
     .bind(start, end, ...commonFilterBinds)
@@ -915,6 +906,12 @@ survey.post(
     // Bump ca "vi_pham" va "ket_qua_goi" - ket_qua_goi luon co dong moi (INSERT tren), vi_pham co
     // the co hoac khong tuy ON CONFLICT DO NOTHING nhung bump ca 2 cho don gian (xem lib/dataVersions.ts).
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham", "ket_qua_goi"]));
+
+    // Tinh lai case_dvbh.can_khao_sat cho DUNG case nay - PHAI await (khong waitUntil) vi day la du
+    // lieu NGUON cho GET /survey/candidates (WHERE can_khao_sat = 1), khac ban chat voi bumpVersions
+    // (chi la cache tag) o tren - neu chay nen, nguoi dung tai lai danh sach ngay sau khi luu co the
+    // van thay ca cu (xem lib/canKhaoSat.ts).
+    await recomputeCanKhaoSatBatch(c.env.DB, [body.case_id]);
 
     return c.json({ id: ketQuaGoiId, daGhiNhan, boQua }, 201);
   },

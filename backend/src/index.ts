@@ -30,6 +30,7 @@ import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { generateCanhBaoTonSnapshot } from "./lib/canhBaoTon";
+import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
 import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
 import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
@@ -175,6 +176,15 @@ export default {
         await warmDefaultReports(env.DB);
       } catch (err) {
         console.error("[cron-daily-snapshot] warmDefaultReports loi:", err instanceof Error ? err.message : String(err));
+      }
+      // Luoi an toan tu-heal cho case_dvbh.can_khao_sat (migration 0097, xem lib/canKhaoSat.ts) -
+      // co che CHINH van la 3 diem ghi goi recomputeCanKhaoSatBatch() truc tiep (importProcessor.ts,
+      // routes/survey.ts POST /calls, routes/importKhaoSat.ts); day chi bat lai truong hop 1 diem
+      // ghi nao do bi lech/bo sot. Doc lap voi cac buoc tren, boc rieng try/catch.
+      try {
+        await selfHealCanKhaoSat(env.DB);
+      } catch (err) {
+        console.error("[self-heal] can-khao-sat loi:", err instanceof Error ? err.message : String(err));
       }
       return;
     }

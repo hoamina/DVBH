@@ -18,6 +18,7 @@ import { warmDefaultReports } from "../lib/reportWarmup";
 import { generateDailySnapshot, generateKhuVucBacklogSnapshots } from "../lib/dailySnapshot";
 import { nowVN } from "../lib/vnTime";
 import { recomputeDaDongDayChunks } from "../lib/daDongDayChunks";
+import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 
 // Tinh lai cache /dashboard/filters (pham vi khong gioi han) + /dashboard/months (xem
 // lib/precomputedCache.ts, routes/dashboard.ts) va don cac bien the /dashboard/filters theo
@@ -271,6 +272,29 @@ importRoute.post("/backfill-crm-hash", requireRole("Admin"), async (c) => {
   await c.env.DB.batch(statements);
 
   const remainingRow = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM case_dvbh WHERE crm_hash IS NULL").first<{ n: number }>();
+  return c.json({ updated: results.length, remaining: remainingRow?.n ?? 0 });
+});
+
+// POST /api/import/backfill-can-khao-sat - chi Admin, chay THU CONG 1 lan sau khi deploy tinh
+// nang can_khao_sat (migration 0097) - dien cot cho cac dong da co san (can_khao_sat con NULL).
+// Idempotent - goi lai an toan, chi dong can_khao_sat IS NULL moi bi dong tiep. Xu ly theo lo
+// (LIMIT, mac dinh 500 - nho hon backfill-crm-hash vi moi dong o day chay ca NEED_SURVEY_CONDITION,
+// nang hon 1 phep UPDATE don thuan) - goi lai nhieu lan toi khi remaining = 0.
+importRoute.post("/backfill-can-khao-sat", requireRole("Admin"), async (c) => {
+  const limitParam = Number(c.req.query("limit"));
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 1000) : 500;
+
+  const { results } = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE can_khao_sat IS NULL ORDER BY id LIMIT ?")
+    .bind(limit)
+    .all<{ id: string }>();
+
+  if (results.length === 0) {
+    return c.json({ updated: 0, remaining: 0 });
+  }
+
+  await recomputeCanKhaoSatBatch(c.env.DB, results.map((r) => r.id));
+
+  const remainingRow = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM case_dvbh WHERE can_khao_sat IS NULL").first<{ n: number }>();
   return c.json({ updated: results.length, remaining: remainingRow?.n ?? 0 });
 });
 

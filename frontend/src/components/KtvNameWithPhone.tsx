@@ -16,25 +16,65 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
   const maKtv = extractMaKtv(kyThuatVien);
   const map = useKtvPhoneMap();
   const [open, setOpen] = useState(false);
+  const addToast = useToast();
 
   if (!kyThuatVien) return <span>—</span>;
   if (!maKtv) return <span>{kyThuatVien}</span>;
 
   const entry = map.get(maKtv);
 
+  async function copyPhone(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!entry?.sdt) return;
+    try {
+      await navigator.clipboard.writeText(entry.sdt);
+      addToast("Đã sao chép số điện thoại");
+    } catch {
+      addToast("Không thể sao chép, thử lại sau.");
+    }
+  }
+
   return (
     <>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-        className="focus-ring text-left hover:underline decoration-dotted underline-offset-2"
-      >
-        {kyThuatVien}
-        {entry?.sdt && <span className="text-[var(--ocean-600)]"> · 📞 {entry.sdt}</span>}
-      </button>
+      {/* Tach 2 huong bam (phan hoi 2026-08-22): bam SDT chi sao chep nhanh (khong mo popup nua,
+          tranh nham lan voi popup chi tiet); bam ten/icon "i" moi mo popup xem/sua day du. Dung
+          inline-flex + min-w-0 + truncate cho ten de khong bi tran ra ngoai o bang khi ten dai
+          (bug cu: button gop chung ten+sdt dai khong wrap duoc trong <td> "white-space: nowrap"). */}
+      <span className="inline-flex items-center gap-1 max-w-full">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(true);
+          }}
+          title={kyThuatVien}
+          className="focus-ring min-w-0 truncate text-left hover:underline decoration-dotted underline-offset-2"
+        >
+          {kyThuatVien}
+        </button>
+        {entry?.sdt && (
+          <button
+            type="button"
+            onClick={copyPhone}
+            title="Bấm để sao chép số điện thoại"
+            className="focus-ring shrink-0 inline-flex items-center gap-0.5 text-[var(--ocean-600)] hover:text-[var(--ocean-700)]"
+          >
+            📞 {entry.sdt}
+            <span aria-hidden className="text-xs">⧉</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(true);
+          }}
+          title="Xem / sửa thông tin kỹ thuật viên"
+          className="focus-ring shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] leading-none text-[var(--ink-400)] hover:text-[var(--ocean-600)] hover:bg-slate-100"
+        >
+          ⓘ
+        </button>
+      </span>
       {open && (
         // Modal.tsx khong dung React portal - vi tri "fixed" chi anh huong hien thi, DOM van la con
         // cua <tr>, nen click ben trong (Luu, dong...) se bubble len toi onRowClick cua bang chua no
@@ -92,16 +132,16 @@ function KtvPhoneModal({ maKtv, kyThuatVien, canEdit, onClose }: { maKtv: string
         {canEdit ? (
           <>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Tên hiển thị</label>
-              <input value={tenHienThi} onChange={(e) => setTenHienThi(e.target.value)} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <label className="block text-xs font-semibold text-[var(--ink-400)]">Tên hiển thị</label>
+              <input value={tenHienThi} onChange={(e) => setTenHienThi(e.target.value)} className="focus-ring block w-full min-w-0 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Số điện thoại</label>
-              <input value={sdt} onChange={(e) => setSdt(e.target.value)} placeholder="09xxxxxxxx" className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <label className="block text-xs font-semibold text-[var(--ink-400)]">Số điện thoại</label>
+              <input value={sdt} onChange={(e) => setSdt(e.target.value)} placeholder="09xxxxxxxx" className="focus-ring block w-full min-w-0 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
-              <textarea value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} rows={2} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <label className="block text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+              <textarea value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} rows={2} className="focus-ring block w-full min-w-0 resize-none border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div className="flex items-center gap-2 pt-1">
               <Btn size="sm" onClick={() => save.mutate()} disabled={!sdt.trim() || save.isPending}>

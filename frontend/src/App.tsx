@@ -80,6 +80,10 @@ function MainApp({
   if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
   }
+  // CHOT 2026-08-21 (yeu cau chu he thong): tam an "dat-mua-lk"/"tra-hang" cho TOAN BO user - phai
+  // khop dung TAM_TAT_MODULES o backend/src/lib/moduleAccess.ts. Loc SAU CUNG (sau moi buoc cong
+  // them o tren) de khong bi "song lai" qua nhanh role-flag. Bat lai: xoa dong filter nay.
+  allowedModules = allowedModules.filter((m) => m !== "dat-mua-lk" && m !== "tra-hang");
   const [active, setActive] = useState(() => {
     const saved = localStorage.getItem(ACTIVE_MODULE_KEY);
     return saved && allowedModules.includes(saved) ? saved : allowedModules[0] ?? "dashboard";

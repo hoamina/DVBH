@@ -8,7 +8,6 @@ import { khuVucReportExclusionClause } from "../lib/filterParams";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { computeTranhChapCount } from "./tranhChap";
 import { getDailyReportWithDelta } from "../lib/dailySnapshot";
-import { NEED_SURVEY_CONDITION } from "./survey";
 import { phuTrachGsSet } from "../lib/scopeDatMua";
 
 const notifications = new Hono<{ Bindings: Env }>();
@@ -300,7 +299,7 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
     .prepare(
       `SELECT COUNT(*) as n FROM case_dvbh c
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
-         AND ${NEED_SURVEY_CONDITION}
+         AND c.can_khao_sat = 1
          AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?
          ${scopeClauseC.sql}`,
     )

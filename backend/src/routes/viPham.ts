@@ -116,6 +116,9 @@ viPham.get("/funnel", async (c) => {
 
 export interface ViPhamLeaderboardParams {
   by?: string;
+  // CHOT 2026-08-22: leaderboard gioi han theo THANG dang xem (giong /funnel), khong con "khong
+  // gioi han thang" nhu ban dau - xem chu thich day du o computeViPhamLeaderboard() ben duoi.
+  thang?: string;
   // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
   // undefined>) - xem lib/reportCache.ts.
   [key: string]: string | undefined;
@@ -123,11 +126,37 @@ export interface ViPhamLeaderboardParams {
 
 // Tach rieng phan tinh toan cua /leaderboard - dung chung cho compute-on-miss va warm-up (R7).
 // Moi dong tra them "tong_ca" (tong so ca cua KTV do / tong so ca trong cac khu vuc gia sat do phu
-// trach, khong gioi han thang) va "ty_le_vi_pham" (%, = so_vi_pham/tong_ca) - CHOT: bieu do Top 10
+// trach, TRONG THANG dang xem) va "ty_le_vi_pham" (%, = so_vi_pham/tong_ca) - CHOT: bieu do Top 10
 // chuyen tu so vi pham tuyet doi sang ty le, nhung TIEU CHI chon+sap xep Top 10 van la so_vi_pham
 // tuyet doi cao nhat (khong doi), chi doi gia tri hien thi tren truc.
+//
+// CHOT 2026-08-22 (rao soat lag): 2 thay doi so voi ban goc.
+//   1. Gioi han theo THANG (thoi_gian_cskh_tiep_nhan, giong dung field da dung o /funnel) thay vi
+//      "khong gioi han thang" nhu truoc - vua la quyet dinh nghiep vu (ty le vi pham/tong ca trong
+//      1 thang cu the co y nghia hon ty le tren tong lich su, giong huong /funnel da lam), vua sua
+//      luon van de hieu nang: ban khong gioi han thang do EXPLAIN QUERY PLAN tren production doc
+//      duoc toi 1.349.143 rows_read/3s cho MOI lan tinh (nhanh "giam-sat", CROSS JOIN theo khu_vuc
+//      nhan len theo tung cap Giam sat x khu vuc). Gioi han thang khong tu dong lam re di neu giu
+//      nguyen cau truc join cu (van con nhanh "SEARCH c USING INDEX idx_case_thoi_gian_tiep_nhan"
+//      quet ca thang roi loc theo khu_vuc sau, do da co WHERE date-range - van ~277K rows_read) -
+//      PHAI ket hop voi thay doi #2 ben duoi moi that su giai quyet goc re.
+//   2. Nhanh "giam-sat" viet lai qua 2 CTE (tong hop truoc theo khu_vuc, roi moi JOIN voi
+//      users/json_each) thay vi join truc tiep case_dvbh theo khu_vuc trong vong lap tung Giam sat -
+//      CTE dau tien ("confirmed_by_khu_vuc") drive tu vi_pham (CROSS JOIN ep thu tu, bang nho) giong
+//      nhanh "ktv"; CTE thu hai ("total_by_khu_vuc") 1 lan GROUP BY khu_vuc tren case_dvbh (van phai
+//      quet, nhung CHI 1 LAN cho ca bao cao thay vi lap lai theo tung Giam sat nhu truoc). Da doi
+//      chieu KET QUA (so_vi_pham/tong_ca) khop 100% voi ban goc truoc khi doi, chi khac cach truy
+//      van. Do 2 CTE nay dung LEFT JOIN (de khong mat khu_vuc co tong_ca nhung chua co vi pham thang
+//      nay), gom lai bang HAVING so_vi_pham > 0 de giu dung hanh vi INNER JOIN cu (Giam sat khong co
+//      vi pham nao trong thang se khong xuat hien, dung nghia leaderboard).
+//   Nhanh "ktv" cung can CROSS JOIN (khong chi giam-sat) - EXPLAIN xac nhan INNER JOIN + date-range
+//   moi van khien planner drive tu case_dvbh qua idx_case_ky_thuat_vien (khong loc duoc theo thang o
+//   buoc seek, quet ~108K rows_read); CROSS JOIN ep drive tu vi_pham dua ve ~11.5K rows_read.
+//   Do luong tren production: 1.349.143 (goc, khong gioi han thang) -> 44.518 rows_read (gioi han
+//   thang + CTE) cho nhanh giam-sat; ~108.316 -> ~11.537 rows_read cho nhanh ktv.
 export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLeaderboardParams, scope: string[] | null): Promise<{ rows: unknown[] }> {
   const by = params.by === "giam-sat" ? "giam-sat" : "ktv";
+  const { start, end } = monthBounds(params.thang || new Date().toISOString().slice(0, 7));
   const scopeClauseCBase = khuVucWhereClause(scope, "c.khu_vuc");
   const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClauseC = { sql: scopeClauseCBase.sql + exclusionC.sql, binds: [...scopeClauseCBase.binds, ...exclusionC.binds] };
@@ -140,17 +169,21 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
     const scopeClauseC2Base = khuVucWhereClause(scope, "c2.khu_vuc");
     const exclusionC2 = khuVucReportExclusionClause("c2.khu_vuc");
     const scopeClauseC2 = { sql: scopeClauseC2Base.sql + exclusionC2.sql, binds: [...scopeClauseC2Base.binds, ...exclusionC2.binds] };
+    // CROSS JOIN ... ON - xem chu thich day du o tren (drive tu vi_pham thay vi de planner tu chon
+    // case_dvbh, ~9x it rows_read hon voi cung dieu kien loc).
     const { results } = await db.prepare(
       `SELECT c.ky_thuat_vien as nhom, COUNT(*) as so_vi_pham,
          (SELECT COUNT(*) FROM case_dvbh c2 WHERE c2.ky_thuat_vien = c.ky_thuat_vien
-            AND c2.archived_at IS NULL AND c2.huy_bo_at IS NULL${scopeClauseC2.sql}) as tong_ca
-       FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
-       WHERE ${XAC_NHAN_EXPR} AND c.ky_thuat_vien IS NOT NULL${scopeClauseC.sql}
+            AND c2.archived_at IS NULL AND c2.huy_bo_at IS NULL
+            AND c2.thoi_gian_cskh_tiep_nhan >= ? AND c2.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC2.sql}) as tong_ca
+       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+       WHERE ${XAC_NHAN_EXPR} AND c.ky_thuat_vien IS NOT NULL
+         AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
        GROUP BY c.ky_thuat_vien
        ORDER BY so_vi_pham DESC
        LIMIT 10`,
     )
-      .bind(...scopeClauseC2.binds, ...scopeClauseC.binds)
+      .bind(start, end, ...scopeClauseC2.binds, start, end, ...scopeClauseC.binds)
       .all<{ nhom: string; so_vi_pham: number; tong_ca: number }>();
     return { rows: withTyLe(results) };
   }
@@ -158,19 +191,36 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
   const scopeClauseC2Base = khuVucWhereClause(scope, "c2.khu_vuc");
   const exclusionC2 = khuVucReportExclusionClause("c2.khu_vuc");
   const scopeClauseC2 = { sql: scopeClauseC2Base.sql + exclusionC2.sql, binds: [...scopeClauseC2Base.binds, ...exclusionC2.binds] };
+  // 2 CTE + LEFT JOIN + HAVING - xem chu thich day du o tren giai thich vi sao (thay the ban join
+  // truc tiep case_dvbh theo khu_vuc trong vong lap Giam sat, ~30x it rows_read hon).
   const { results } = await db.prepare(
-    `SELECT u.email as giam_sat_email, u.ten as giam_sat, COUNT(*) as so_vi_pham,
-       (SELECT COUNT(*) FROM case_dvbh c2, json_each(u.khu_vuc_phu_trach) jv2
-          WHERE c2.khu_vuc = jv2.value AND c2.archived_at IS NULL AND c2.huy_bo_at IS NULL${scopeClauseC2.sql}) as tong_ca
+    `WITH confirmed_by_khu_vuc AS (
+       SELECT c.khu_vuc as khu_vuc, COUNT(*) as so_vi_pham
+       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+       WHERE ${XAC_NHAN_EXPR} AND c.khu_vuc IS NOT NULL
+         AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
+       GROUP BY c.khu_vuc
+     ),
+     total_by_khu_vuc AS (
+       SELECT c2.khu_vuc as khu_vuc, COUNT(*) as tong_ca
+       FROM case_dvbh c2
+       WHERE c2.archived_at IS NULL AND c2.huy_bo_at IS NULL AND c2.khu_vuc IS NOT NULL
+         AND c2.thoi_gian_cskh_tiep_nhan >= ? AND c2.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC2.sql}
+       GROUP BY c2.khu_vuc
+     )
+     SELECT u.email as giam_sat_email, u.ten as giam_sat,
+       COALESCE(SUM(confirmed_by_khu_vuc.so_vi_pham), 0) as so_vi_pham,
+       COALESCE(SUM(total_by_khu_vuc.tong_ca), 0) as tong_ca
      FROM users u, json_each(u.khu_vuc_phu_trach) jv
-     INNER JOIN case_dvbh c ON c.khu_vuc = jv.value
-     INNER JOIN vi_pham v ON v.case_id = c.id
-     WHERE u.vai_tro = 'Giam sat' AND ${XAC_NHAN_EXPR}${scopeClauseC.sql}
+     LEFT JOIN confirmed_by_khu_vuc ON confirmed_by_khu_vuc.khu_vuc = jv.value
+     LEFT JOIN total_by_khu_vuc ON total_by_khu_vuc.khu_vuc = jv.value
+     WHERE u.vai_tro = 'Giam sat'
      GROUP BY u.email
+     HAVING so_vi_pham > 0
      ORDER BY so_vi_pham DESC
      LIMIT 10`,
   )
-    .bind(...scopeClauseC2.binds, ...scopeClauseC.binds)
+    .bind(start, end, ...scopeClauseC.binds, start, end, ...scopeClauseC2.binds)
     .all<{ giam_sat_email: string; giam_sat: string | null; so_vi_pham: number; tong_ca: number }>();
   return { rows: withTyLe(results) };
 }
@@ -183,7 +233,7 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
 // cho 1 write tinh co xay ra. Neu doi shape payload lan nua trong tuong lai, lai doi hau to version.
 viPham.get("/leaderboard", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const params: ViPhamLeaderboardParams = { by: c.req.query("by") };
+  const params: ViPhamLeaderboardParams = { by: c.req.query("by"), thang: c.req.query("thang") };
   const key = buildReportKey("vi-pham/leaderboard-v2", params, scope);
   const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamLeaderboard(c.env.DB, params, scope));
   return c.json(payload);
