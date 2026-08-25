@@ -8,7 +8,15 @@ import { toJsonArray } from "../lib/jsonArray";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { nextSequentialId } from "../lib/idCounter";
 import { ageFilterClause } from "../lib/ageCalc";
-import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, khuVucReportExclusionClause } from "../lib/filterParams";
+import {
+  khuVucAdHocClause,
+  REPORT_DIMS,
+  dimAdHocClause,
+  khuVucReportExclusionClause,
+  dayRangeBounds,
+  nguonCrmClause,
+  extraDimFiltersFromParams,
+} from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
@@ -73,7 +81,17 @@ survey.get("/candidates", async (c) => {
             CASE WHEN c.loi_120p = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi 120 phut') THEN 1 ELSE 0 END as need_loi_120p,
             CASE WHEN c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h') THEN 1 ELSE 0 END as need_loi_qua_han_24h,
             CASE WHEN c.loi_lo_ke_hoach = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi lo ke hoach') THEN 1 ELSE 0 END as need_loi_lo_ke_hoach,
-            CASE WHEN c.loi_kh_hen_lai = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'KH hen lai') THEN 1 ELSE 0 END as need_loi_kh_hen_lai
+            CASE WHEN c.loi_kh_hen_lai = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'KH hen lai') THEN 1 ELSE 0 END as need_loi_kh_hen_lai,
+            -- Phan loai 3 nhom loai tru nhau (CHOT 2026-08-22 lan 3, dung cong thuc voi khoi 5 cua
+            -- computeSurveyKhuVucReport - xem chu thich day du o do): "chua_goi" (chua co ban ghi
+            -- ket_qua_goi nao), "cho_goi_lai" (cuoc goi GAN NHAT tich can_goi_lai=1), "con_loi_chua_
+            -- goi" (da co cuoc goi nhung cuoc goi gan nhat khong phai can_goi_lai=1, con loai loi
+            -- khac chua tung goi - vi du that: ca 1291772 da goi thanh cong 2/3 loi, loi thu 3 chua goi).
+            CASE
+              WHEN NOT EXISTS (SELECT 1 FROM ket_qua_goi k WHERE k.case_id = c.id) THEN 'chua_goi'
+              WHEN (SELECT k.can_goi_lai FROM ket_qua_goi k WHERE k.case_id = c.id ORDER BY k.ngay_gio_thuc_hien DESC LIMIT 1) = 1 THEN 'cho_goi_lai'
+              ELSE 'con_loi_chua_goi'
+            END as trang_thai_goi
      FROM case_dvbh c
      WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
        AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?
@@ -123,6 +141,40 @@ survey.get("/call-history", async (c) => {
     .all();
 
   return c.json({ rows: results });
+});
+
+// GET /api/survey/call-history-by-case?case_id= - toan bo lich su cuoc goi (ket_qua_goi) VA cac loi
+// DA CHOT (vi_pham) cua DUNG 1 ca, khong gioi han thang - dung cho SurveyCallWorkspace.tsx hien
+// "Lich su goi truoc do" khi CSKH vao che do goi (CHOT 2026-08-22 lan 2, chu he thong yeu cau "them
+// log lich su goi khi vao che do cuoc goi" de tranh goi lai cau hoi/thong tin da hoi truoc). CHOT
+// 2026-08-22 lan 4: them "viPham" - chu he thong phan hoi "vao man hinh goi lai (ca con_loi_chua_
+// goi) khong thay duoc loi nao DA chot, khong hieu tai sao ca do van phai goi lai" - can hien ro
+// KET LUAN (Khong loi/Loi gi) cho tung loai_loi da xu ly, khong chi ket_qua_cuoc_goi tho. Re bang
+// idx_ket_qua_goi_case (migration 0001) + case_id la 1 phan cua UNIQUE(case_id, loai_loi) tren
+// vi_pham (migration 0005), khong can gioi han thang vi 1 ca hiem khi co qua nhieu cuoc goi/loi.
+survey.get("/call-history-by-case", async (c) => {
+  const caseId = c.req.query("case_id");
+  if (!caseId) return c.json({ error: "INVALID_BODY" }, 400);
+  const [calls, viPham] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, dien_giai, ghi_chu, ly_do_that_bai,
+              can_goi_lai, nguoi_thuc_hien, ngay_gio_thuc_hien
+       FROM ket_qua_goi
+       WHERE case_id = ?
+       ORDER BY ngay_gio_thuc_hien DESC`,
+    )
+      .bind(caseId)
+      .all(),
+    c.env.DB.prepare(
+      `SELECT id, case_id, ket_qua_goi_id, loai_loi, ket_qua_cap_1, chot_bo_cap_2, nguoi_ghi_nhan, ngay_ghi_nhan, nguoi_chot, ngay_chot
+       FROM vi_pham
+       WHERE case_id = ?
+       ORDER BY ngay_ghi_nhan DESC`,
+    )
+      .bind(caseId)
+      .all(),
+  ]);
+  return c.json({ rows: calls.results, viPham: viPham.results });
 });
 
 // GET /api/survey?tab=can-khao-sat|cho-qc|da-xu-ly&khu_vuc=&tuoi_tu=&tuoi_den=&tinh=&quan_huyen=&ky_thuat_vien=
@@ -341,42 +393,9 @@ survey.get("/by-khu-vuc", async (c) => {
   return c.json(payload);
 });
 
-export interface SurveyTrendParams {
-  days?: string;
-  // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
-  // undefined>) - xem lib/reportCache.ts.
-  [key: string]: string | undefined;
-}
-
-// Tach rieng phan tinh toan cua /trend - dung chung cho compute-on-miss va warm-up (R7).
-export async function computeSurveyTrend(db: D1Database, params: SurveyTrendParams, scope: string[] | null) {
-  const days = Math.min(90, Math.max(1, Number(params.days ?? 30)));
-  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
-  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
-  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
-
-  const { results } = await db.prepare(
-    `SELECT date(k.ngay_gio_thuc_hien) as ngay, COUNT(*) as so_cuoc_goi
-     FROM ket_qua_goi k INNER JOIN case_dvbh c ON c.id = k.case_id
-     WHERE k.ngay_gio_thuc_hien IS NOT NULL AND date(k.ngay_gio_thuc_hien) >= date('now', ?)${scopeClause.sql}
-     GROUP BY ngay
-     ORDER BY ngay ASC`,
-  )
-    .bind(`-${days} days`, ...scopeClause.binds)
-    .all();
-
-  return { rows: results };
-}
-
-// GET /api/survey/trend?days=30 - xu huong so cuoc goi khao sat theo ngay. Doc qua reportCache,
-// "days" nam trong cache key.
-survey.get("/trend", async (c) => {
-  const scope = scopeByKhuVuc(c);
-  const params: SurveyTrendParams = { days: c.req.query("days") };
-  const key = buildReportKey("survey/trend", params, scope);
-  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyTrend(c.env.DB, params, scope));
-  return c.json(payload);
-});
+// GET /api/survey/trend (xu huong so cuoc goi khao sat theo ngay) da bo (2026-08-22, chu he thong
+// yeu cau bo chart "Xu huong cuoc goi khao sat" khoi tab Bao cao) - xem lib/canKhaoSat.ts va
+// computeSurveyFunnelCounts() ben duoi cho huong thay the (8 chi so dem theo can_khao_sat).
 
 // ---------- Bao cao khao sat theo khu vuc (Phan C, xem SRS/plan) ----------
 
@@ -406,59 +425,7 @@ function monthBounds(thang: string): { start: string; end: string } {
   return { start, end };
 }
 
-function dayBounds(ngay: string): { start: string; end: string } {
-  const m = ngay.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return { start: ngay, end: ngay };
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  const start = ngay;
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  date.setUTCDate(date.getUTCDate() + 1);
-  const nextY = date.getUTCFullYear();
-  const nextMo = date.getUTCMonth() + 1;
-  const nextD = date.getUTCDate();
-  const end = `${String(nextY).padStart(4, "0")}-${String(nextMo).padStart(2, "0")}-${String(nextD).padStart(2, "0")}`;
-  return { start, end };
-}
-
-// Khoang ngay [tu, den] (theo dayBounds - "den" la ngay cuoi CO tinh, khong phai exclusive) - dung
-// cho cac bo loc ngay_goi_tu/ngay_goi_den. Thieu 1 trong 2 thi lay ben con lai lam ca 2 dau (tuong
-// duong loc 1 ngay don nhu truoc).
-function dayRangeBounds(tu?: string, den?: string): { start: string; end: string } | null {
-  if (!tu && !den) return null;
-  const start = tu || den!;
-  const end = dayBounds(den || tu!).end;
-  return { start, end };
-}
-
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
-
-// Loc "Nguon CRM" (CHOT 2026-08-06, chu he thong yeu cau) - suy tu ky tu dau cua ID ca: CRM 3T = ID
-// bat dau bang "T" (vd T12345), CRM KRF = con lai. Dung SUBSTR + so sanh chu hoa/thuong CHINH XAC
-// (khong dung LIKE - SQLite LIKE mac dinh khong phan biet hoa/thuong tren ky tu ASCII, se lam ID bat
-// dau bang "t" thuong bi tinh nham vao CRM 3T neu co).
-function nguonCrmClause(nguonCrm?: string): { sql: string; binds: unknown[] } {
-  if (nguonCrm === "crm_3t") return { sql: " AND SUBSTR(c.id, 1, 1) = 'T'", binds: [] };
-  if (nguonCrm === "crm_krf") return { sql: " AND SUBSTR(c.id, 1, 1) != 'T'", binds: [] };
-  return { sql: "", binds: [] };
-}
-
-// Doc tat ca dim con lai TRU khu_vuc/tinh (2 dim da co rieng khuVucAdHocClause/dimAdHocClause ben
-// duoi) tu REPORT_DIMS dung chung - dong nhat voi sharedReportFiltersFromParams trong cases.ts.
-function extraDimFiltersFromParams(params: Record<string, string | undefined>): { sql: string; binds: unknown[] } {
-  let sql = "";
-  const binds: unknown[] = [];
-  for (const [dimKey, col] of Object.entries(REPORT_DIMS)) {
-    if (dimKey === "khu_vuc" || dimKey === "tinh") continue;
-    const value = params[dimKey];
-    if (value) {
-      sql += ` AND c.${col} = ?`;
-      binds.push(value);
-    }
-  }
-  return { sql, binds };
-}
 
 export interface SurveyKhuVucParams {
   dim?: string;
@@ -497,14 +464,28 @@ interface SurveyKhuVucRow {
   vi_pham_hl: number;
   tong_cuoc_goi: number;
   goi_thanh_cong: number;
-  // CHOT 2026-08-06 (redesign "Bao cao khao sat theo khu vuc" theo yeu cau chu he thong):
-  can_khao_sat: number;
   tong_nghi_ngo: number;
   tong_vi_pham: number;
   ksnb_chot: number;
   ksnb_bo: number;
   da_khao_sat: number;
+  // "cho_khao_sat" = "Cần gọi" tren UI (CHOT 2026-08-22 lan 2: bo han "can_khao_sat" gop ca qua han
+  // khoi bao cao nay theo yeu cau chu he thong - "khong quan tam ca bi qua han nua" o day, ca qua
+  // han van con nguyen trong case_dvbh.can_khao_sat=1 va tab "Qua han khao sat" rieng, KHONG doi
+  // logic loi). "cho_khao_sat" = can_khao_sat=1 AND RECENT_OR_OPEN_CONDITION (chua qua han). CHOT
+  // 2026-08-22 lan 3: "cho_khao_sat" = "chua goi lan nao" + "cho_goi_lai" + "con_loi_chua_goi" (3
+  // nhom loai tru nhau, xem giai thich day du o khoi 5 cua computeSurveyKhuVucReport - phat hien qua
+  // vi du that ca 1291772: da goi thanh cong 2/3 loi nhung loi thu 3 CHUA TUNG duoc goi, truoc do bi
+  // gop nham vao "cho_goi_lai" chi vi EXISTS 1 cuoc goi bat ky, khong phan biet cuoc goi do co lien
+  // quan gi den loi con ton dong hay khong).
   cho_khao_sat: number;
+  // "Cho goi lai" DUNG NGHIA: cuoc goi GAN NHAT cua ca nay bi tich can_goi_lai=1 (khong bat may/sai
+  // so, dang cho goi tiep) - KHONG con dinh nghia rong la "co it nhat 1 cuoc goi bat ky" nhu ban dau.
+  cho_goi_lai: number;
+  // Ca DA co it nhat 1 cuoc goi, cuoc goi GAN NHAT khong phai can_goi_lai=1 (thuong la da thanh
+  // cong), nhung case van con can_khao_sat=1 vi CON 1 loai loi KHAC chua tung duoc goi lan nao -
+  // vi du 1291772 (120p+24h da goi xong, "Lo ke hoach" chua goi).
+  con_loi_chua_goi: number;
   khao_sat_that_bai: number;
   cho_khao_sat_lai: number;
   bo_qua_khong_khao_sat: number;
@@ -661,17 +642,37 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
       khao_sat_that_bai: number;
     }>();
 
-  // Khoi 5: tong ca CAN khao sat (dung dung NEED_SURVEY_CONDITION cua /candidates - khong phan biet
-  // da qua han hay chua, gop ca 2) trong cung ky tiep nhan nhu khoi 1.
+  // Khoi 5: "cho_khao_sat" ("Cần gọi" tren UI) - CHOT 2026-08-22 lan 2: theo yeu cau chu he thong,
+  // BO han cot "can_khao_sat" gop ca qua han (gay nham lan "sao Cần khảo sát toi 1515 ca, dang dem
+  // ca ca qua han a?" - dung, no gop). "Cần gọi" tu gio CHI tinh ca CHUA qua han (can_khao_sat=1 AND
+  // RECENT_OR_OPEN_CONDITION) - ca qua han van con nguyen trong case_dvbh.can_khao_sat=1 va rieng
+  // tab "Qua han khao sat" (khong doi logic loi, chi bo khoi bao cao nay).
+  //
+  // CHOT 2026-08-22 lan 3 (phat hien qua vi du that ca 1291772): "cho_goi_lai" ban dau dinh nghia
+  // rong la "co it nhat 1 cuoc goi bat ky" - SAI, vi ca co nhieu loai loi (vd 120p+24h+lo-ke-hoach)
+  // co the DA goi thanh cong 2/3 loai nhung loai thu 3 CHUA TUNG duoc goi, van bi gop nham vao "cho
+  // goi lai" du lich su toan la "thanh cong". Sua lai chinh xac theo dung nghia goc "goi khong bat
+  // may, tich can goi lai": dua vao cuoc goi GAN NHAT cua ca (subquery latestCanGoiLai). "Cần gọi"
+  // gio tach 3 nhom loai tru nhau, cong lai dung bang cho_khao_sat:
+  //   - "chua goi lan nao": khong co ban ghi ket_qua_goi nao (= cho_khao_sat - cho_goi_lai -
+  //     con_loi_chua_goi, khong can 1 cot rieng vi tinh duoc tu 3 so con lai)
+  //   - "cho_goi_lai": cuoc goi GAN NHAT bi tich can_goi_lai=1
+  //   - "con_loi_chua_goi": DA co cuoc goi (bat ky), cuoc goi GAN NHAT khong phai can_goi_lai=1
+  //     (thuong la thanh cong), nhung case VAN can_khao_sat=1 vi con 1 loai loi KHAC chua tung goi.
+  const latestCanGoiLai = `(SELECT k.can_goi_lai FROM ket_qua_goi k WHERE k.case_id = c.id ORDER BY k.ngay_gio_thuc_hien DESC LIMIT 1)`;
+  const hasAnyCall = `EXISTS (SELECT 1 FROM ket_qua_goi k WHERE k.case_id = c.id)`;
   const khoi5 = db
     .prepare(
-      `SELECT ${dimCol} as nhom, COUNT(*) as can_khao_sat
+      `SELECT ${dimCol} as nhom,
+         SUM(CASE WHEN ${RECENT_OR_OPEN_CONDITION} THEN 1 ELSE 0 END) as cho_khao_sat,
+         SUM(CASE WHEN ${RECENT_OR_OPEN_CONDITION} AND ${latestCanGoiLai} = 1 THEN 1 ELSE 0 END) as cho_goi_lai,
+         SUM(CASE WHEN ${RECENT_OR_OPEN_CONDITION} AND ${hasAnyCall} AND ${latestCanGoiLai} IS NOT 1 THEN 1 ELSE 0 END) as con_loi_chua_goi
        FROM case_dvbh c
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql} AND c.can_khao_sat = 1
        GROUP BY ${dimCol}`,
     )
     .bind(start, end, ...commonFilterBinds)
-    .all<{ nhom: string; can_khao_sat: number }>();
+    .all<{ nhom: string; cho_khao_sat: number; cho_goi_lai: number; con_loi_chua_goi: number }>();
 
   // Khoi 6: KSNB (QC) da chot lỗi/bo lỗi that su (v.chot_bo_cap_2 khong NULL) - KHAC "vi_pham_X" o
   // khoi 3 (do gop ca truong hop CSKH ket luan nhung QC CHUA xet) - cung ky tiep nhan nhu khoi 3.
@@ -712,13 +713,14 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
         vi_pham_hl: 0,
         tong_cuoc_goi: 0,
         goi_thanh_cong: 0,
-        can_khao_sat: 0,
         tong_nghi_ngo: 0,
         tong_vi_pham: 0,
         ksnb_chot: 0,
         ksnb_bo: 0,
         da_khao_sat: 0,
         cho_khao_sat: 0,
+        cho_goi_lai: 0,
+        con_loi_chua_goi: 0,
         khao_sat_that_bai: 0,
         cho_khao_sat_lai: 0,
         bo_qua_khong_khao_sat: 0,
@@ -757,7 +759,6 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
   for (const row of map.values()) {
     row.tong_nghi_ngo = row.nghi_ngo_120p + row.nghi_ngo_24h + row.nghi_ngo_lkh + row.nghi_ngo_hl;
     row.tong_vi_pham = row.vi_pham_120p + row.vi_pham_24h + row.vi_pham_lkh + row.vi_pham_hl;
-    row.cho_khao_sat = Math.max(0, row.can_khao_sat - row.da_khao_sat);
     row.ty_le_nghi_ngo_120p = pct(row.nghi_ngo_120p, row.tong_tiep_nhan);
     row.ty_le_nghi_ngo_24h = pct(row.nghi_ngo_24h, row.tong_tiep_nhan);
     row.ty_le_nghi_ngo_lkh = pct(row.nghi_ngo_lkh, row.tong_tiep_nhan);
@@ -806,7 +807,10 @@ survey.get("/bao-cao-khu-vuc", async (c) => {
     if (dk === "khu_vuc" || dk === "tinh") continue;
     params[dk] = c.req.query(dk);
   }
-  const key = buildReportKey("survey/bao-cao-khu-vuc", params, scope);
+  // "bao-cao-khu-vuc-v5" - cho_goi_lai sua lai theo dung nghia goc (cuoc goi GAN NHAT tich can_goi_
+  // lai=1, khong phai "co bat ky cuoc goi nao"), them truong "con_loi_chua_goi" (2026-08-22 lan 3,
+  // xem chu thich o khoi 5 trong computeSurveyKhuVucReport) nen doi hau to key de ep tinh lai ngay.
+  const key = buildReportKey("survey/bao-cao-khu-vuc-v5", params, scope);
   const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
   return c.json(payload);
 });

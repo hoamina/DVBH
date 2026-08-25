@@ -167,3 +167,58 @@ export function sharedReportFilters(c: Context<{ Bindings: Env }>, prefix = ""):
   }
   return { sql, binds };
 }
+
+// Chuyen tu routes/survey.ts (2026-08-22) de routes/viPham.ts dung lai duoc (funnel/leaderboard can
+// thong nhat cach loc voi /survey/bao-cao-khu-vuc - xem CHOT 2026-08-22 trong viPham.ts). Noi dung
+// khong doi.
+export function dayBounds(ngay: string): { start: string; end: string } {
+  const m = ngay.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return { start: ngay, end: ngay };
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const start = ngay;
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  date.setUTCDate(date.getUTCDate() + 1);
+  const nextY = date.getUTCFullYear();
+  const nextMo = date.getUTCMonth() + 1;
+  const nextD = date.getUTCDate();
+  const end = `${String(nextY).padStart(4, "0")}-${String(nextMo).padStart(2, "0")}-${String(nextD).padStart(2, "0")}`;
+  return { start, end };
+}
+
+// Khoang ngay [tu, den] (theo dayBounds - "den" la ngay cuoi CO tinh, khong phai exclusive) - dung
+// cho cac bo loc ngay_goi_tu/ngay_goi_den. Thieu 1 trong 2 thi lay ben con lai lam ca 2 dau (tuong
+// duong loc 1 ngay don nhu truoc).
+export function dayRangeBounds(tu?: string, den?: string): { start: string; end: string } | null {
+  if (!tu && !den) return null;
+  const start = tu || den!;
+  const end = dayBounds(den || tu!).end;
+  return { start, end };
+}
+
+// Loc "Nguon CRM" (CHOT 2026-08-06, chu he thong yeu cau) - suy tu ky tu dau cua ID ca: CRM 3T = ID
+// bat dau bang "T" (vd T12345), CRM KRF = con lai. Dung SUBSTR + so sanh chu hoa/thuong CHINH XAC
+// (khong dung LIKE - SQLite LIKE mac dinh khong phan biet hoa/thuong tren ky tu ASCII, se lam ID bat
+// dau bang "t" thuong bi tinh nham vao CRM 3T neu co).
+export function nguonCrmClause(nguonCrm?: string): { sql: string; binds: unknown[] } {
+  if (nguonCrm === "crm_3t") return { sql: " AND SUBSTR(c.id, 1, 1) = 'T'", binds: [] };
+  if (nguonCrm === "crm_krf") return { sql: " AND SUBSTR(c.id, 1, 1) != 'T'", binds: [] };
+  return { sql: "", binds: [] };
+}
+
+// Doc tat ca dim con lai TRU khu_vuc/tinh (2 dim da co rieng khuVucAdHocClause/dimAdHocClause ben
+// duoi) tu REPORT_DIMS dung chung - dong nhat voi sharedReportFiltersFromParams trong cases.ts.
+export function extraDimFiltersFromParams(params: Record<string, string | undefined>): { sql: string; binds: unknown[] } {
+  let sql = "";
+  const binds: unknown[] = [];
+  for (const [dimKey, col] of Object.entries(REPORT_DIMS)) {
+    if (dimKey === "khu_vuc" || dimKey === "tinh") continue;
+    const value = params[dimKey];
+    if (value) {
+      sql += ` AND c.${col} = ?`;
+      binds.push(value);
+    }
+  }
+  return { sql, binds };
+}

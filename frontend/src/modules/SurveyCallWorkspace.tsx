@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
-import { Badge } from "../components/ui/Badge";
+import { Badge, statusTone } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { LoadingCard } from "../components/ui/LoadingCard";
 import { Select } from "../components/ui/Select";
@@ -10,7 +10,7 @@ import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWit
 import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
-import { LOAI_LOI_META, fmtDateTime, type LoaiLoi, type CaseRow, type ViPhamRow } from "../types";
+import { LOAI_LOI_META, fmtDateTime, type LoaiLoi, type CaseRow, type ViPhamRow, type KetQuaGoiRow } from "../types";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { CanKhaoSatRow, neededLoaiLoi } from "./SurveyModule";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
@@ -82,6 +82,11 @@ export function SurveyCallWorkspace({
   // chua gan" (xem man hinh het hang doi ben duoi) - khong tu dong bat, khong luu qua phien lam
   // viec khac (reset ve false moi lan mo lai workspace).
   const [includeUnassigned, setIncludeUnassigned] = useState(false);
+  // "Goi ca ca qua han" - CHOT 2026-08-22 lan 7: mac dinh TAT (khong gop nhanh "qua-han" vao hang
+  // doi goi) - truoc day workspace luon gop CA 2 nhanh (qua-han uu tien truoc + can-khao-sat), chu
+  // he thong phan anh ca qua han (vd 1276749, da qua han tu lau) van xuat hien lam nham la thuoc
+  // "Can goi" (1515 ca). Gio phai chu dong tich moi thay ca qua han trong hang doi.
+  const [includeOverdue, setIncludeOverdue] = useState(false);
   const [index, setIndex] = useState(0);
   const [sessionDone, setSessionDone] = useState(0);
   const [sessionRetry, setSessionRetry] = useState(0);
@@ -144,7 +149,9 @@ export function SurveyCallWorkspace({
   // khảo sát; loc theo onlyMine + bo qua ca da xu ly xong trong phien nay; bump len cuoi neu goi
   // khong lien he duoc (con_goi_lai) de quay lai thu sau, khong bi ket cung 1 cho.
   const pool = useMemo<QueueItem[]>(() => {
-    const quaHanRows = quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "qua-han" as const }));
+    // "includeOverdue" mac dinh FALSE (CHOT 2026-08-22 lan 7) - nhanh "qua-han" chi gop vao hang doi
+    // khi CSKH chu dong tich "Gọi cả ca quá hạn", tranh nham la thuoc "Cần gọi".
+    const quaHanRows = includeOverdue ? quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "qua-han" as const })) : [];
     const canKhaoSatRows = canKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)).map((r) => ({ ...r, __source: "can-khao-sat" as const }));
     let merged = [...quaHanRows, ...canKhaoSatRows]
       .filter((r) => !calledIds.has(r.id))
@@ -197,22 +204,35 @@ export function SurveyCallWorkspace({
       return a.id.localeCompare(b.id);
     });
     return merged;
-  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned, me, bumpOrder, workspaceKtv, workspaceSort]);
+  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned, includeOverdue, me, bumpOrder, workspaceKtv, workspaceSort]);
 
   // Con ca chua gan ai trong pham vi loc hien tai (chua tinh includeUnassigned) - dung de quyet
   // dinh co hien nut "Goi them ca chua gan" hay khong (chi hien khi tier 0 that su da can).
   const hasUnassignedAvailable = useMemo(() => {
     if (!onlyMine || includeUnassigned) return false;
-    const quaHanRows = quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc));
+    const quaHanRows = includeOverdue ? quaHanKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc)) : [];
     const canKhaoSatRows = canKhaoSatAll.filter((r) => matchKhuVuc(r.khu_vuc));
     return [...quaHanRows, ...canKhaoSatRows].some((r) => !calledIds.has(r.id) && !r.assigned_to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned]);
+  }, [quaHanKhaoSatAll, canKhaoSatAll, khuVucFilter, calledIds, onlyMine, includeUnassigned, includeOverdue]);
 
   const currentIndex = pool.length === 0 ? -1 : Math.min(index, pool.length - 1);
   const queueRow = currentIndex >= 0 ? pool[currentIndex] : null;
   const adHocRow = adHocId && adHocDetail ? buildAdHocRow(adHocDetail) : null;
   const activeRow = adHocId ? adHocRow : queueRow;
+
+  // Lich su cuoc goi truoc do + cac loi DA CHOT cua ca dang xem - CHOT 2026-08-22 lan 2, chu he
+  // thong yeu cau "them log lich su goi khi vao che do cuoc goi" de CSKH biet cac lan lien he truoc,
+  // tranh hoi lai/lam lai viec da lam. Lan 4: them "viPham" - "khong hieu tai sao ca do van phai
+  // goi lai" khi case da co loi duoc chot tu truoc (vd ca con_loi_chua_goi: da chot 2/3 loi, con
+  // 1 loi chua goi) - can hien ro KET LUAN da chot cho tung loai_loi, khong chi log cuoc goi tho.
+  const { data: callHistoryData } = useQuery({
+    queryKey: ["survey-call-history-by-case", activeRow?.id],
+    queryFn: () => api.get<{ rows: KetQuaGoiRow[]; viPham: ViPhamRow[] }>(`/survey/call-history-by-case${buildQuery({ case_id: activeRow?.id })}`),
+    enabled: !!activeRow?.id,
+  });
+  const callHistoryRows = callHistoryData?.rows ?? [];
+  const priorViPham = callHistoryData?.viPham ?? [];
 
   function goNext() {
     if (pool.length === 0) return;
@@ -401,13 +421,13 @@ export function SurveyCallWorkspace({
 
   return (
     <div className="fixed inset-0 z-40 bg-slate-50 flex flex-col anim-in">
-      <div className="flex items-center gap-3 px-5 py-3 border-b border-[var(--line)] bg-[var(--surface)] flex-wrap">
-        <div className="font-display font-bold text-base flex items-center gap-2 whitespace-nowrap">🎧 Chế độ gọi khảo sát</div>
-        <Badge tone="ocean">{adHocId ? `Đang xem thủ công (hàng đợi: ${pool.length} ca)` : pool.length > 0 ? `Ca ${currentIndex + 1}/${pool.length}` : "0 ca trong hàng đợi"}</Badge>
-        {sessionDone > 0 && <Badge tone="teal">Đã xử lý {sessionDone}</Badge>}
-        {sessionRetry > 0 && <Badge tone="amber">Gọi lại sau {sessionRetry}</Badge>}
-        <div className="flex-1" />
-        <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--ink-600)] whitespace-nowrap">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--line)] bg-[var(--surface)] flex-nowrap overflow-x-auto">
+        <div className="font-display font-bold text-sm flex items-center gap-1 whitespace-nowrap shrink-0">🎧 Gọi khảo sát</div>
+        <Badge tone="ocean">{adHocId ? `Thủ công (${pool.length})` : pool.length > 0 ? `Ca ${currentIndex + 1}/${pool.length}` : "0 ca"}</Badge>
+        {sessionDone > 0 && <Badge tone="teal">Xử lý: {sessionDone}</Badge>}
+        {sessionRetry > 0 && <Badge tone="amber">Gọi lại: {sessionRetry}</Badge>}
+        <div className="flex-1 min-w-2" />
+        <label className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-600)] whitespace-nowrap shrink-0">
           <input
             type="checkbox"
             checked={onlyMine}
@@ -417,7 +437,18 @@ export function SurveyCallWorkspace({
               setIndex(0);
             }}
           />
-          Chỉ ca của tôi
+          Của tôi
+        </label>
+        <label className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-600)] whitespace-nowrap shrink-0">
+          <input
+            type="checkbox"
+            checked={includeOverdue}
+            onChange={(e) => {
+              setIncludeOverdue(e.target.checked);
+              setIndex(0);
+            }}
+          />
+          +Quá hạn
         </label>
         <Select
           value={thang}
@@ -426,6 +457,7 @@ export function SurveyCallWorkspace({
             setIndex(0);
           }}
           options={thangSelectOptions}
+          className="!py-1 shrink-0"
         />
         <KhuVucFilterControl
           value={khuVucFilter}
@@ -443,10 +475,11 @@ export function SurveyCallWorkspace({
             setIndex(0);
           }}
           options={[
-            { value: "default", label: "⏱ Hàng đợi mặc định" },
-            { value: "ngay-tao", label: "📅 Ngày tạo tăng dần" },
-            { value: "ktv", label: "👤 Sắp xếp theo KTV" },
+            { value: "default", label: "⏱ Mặc định" },
+            { value: "ngay-tao", label: "📅 Ngày tạo" },
+            { value: "ktv", label: "👤 Theo KTV" },
           ]}
+          className="!py-1 shrink-0"
         />
         <Select
           value={workspaceKtv}
@@ -458,9 +491,10 @@ export function SurveyCallWorkspace({
             { value: "", label: "Tất cả KTV" },
             ...availableWorkspaceKtvs.map((k) => ({ value: k, label: `KTV: ${k}` })),
           ]}
+          className="!py-1 shrink-0"
         />
         <form
-          className="flex items-center gap-1"
+          className="flex items-center gap-1 shrink-0"
           onSubmit={(e) => {
             e.preventDefault();
             handleSearch();
@@ -469,15 +503,15 @@ export function SurveyCallWorkspace({
           <input
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
-            placeholder="Tìm theo ID / Serial…"
-            className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-44"
+            placeholder="Tìm ID/Serial…"
+            className="focus-ring border border-[var(--line)] rounded-lg px-2 py-1 text-xs w-28"
           />
           <Btn size="sm" variant="ghost" disabled={searching} type="submit">
             🔍
           </Btn>
         </form>
         <Btn size="sm" variant="ghost" onClick={onExit} type="button">
-          ✕ Thoát
+          ✕
         </Btn>
       </div>
 
@@ -604,6 +638,46 @@ export function SurveyCallWorkspace({
                   <div className="text-sm">
                     <span className="font-semibold">Nội dung xử lý: </span>
                     {activeRow.noi_dung_xu_ly}
+                  </div>
+                )}
+
+                {callHistoryRows.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[var(--line)]">
+                    <div className="text-xs font-semibold text-[var(--ink-400)] mb-1.5">Lịch sử gọi trước đó ({callHistoryRows.length})</div>
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                      {callHistoryRows.map((h) => {
+                        // Gan dung vi_pham (loi da chot) vao dung cuoc goi da tao ra no - CHOT
+                        // 2026-08-22 lan 6, chu he thong yeu cau "cho loi da chot di dung voi log
+                        // lich su cua cuoc goi do cho de nhin" (truoc do 2 khoi tach roi nhau, kho
+                        // doi chieu cuoc goi nao chot loi nao).
+                        const viPhamCuaCuocGoiNay = priorViPham.filter((v) => v.ket_qua_goi_id === h.id);
+                        return (
+                          <div key={h.id} className="text-xs border border-[var(--line)] rounded-lg p-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="font-semibold">{fmtDateTime(h.ngay_gio_thuc_hien)}</span>
+                              <span className="text-[var(--ink-400)]">{h.nguoi_thuc_hien}</span>
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              <Badge tone={h.ket_qua_cuoc_goi === "Liên hệ thành công" ? "teal" : h.ket_qua_cuoc_goi === "Không cần khảo sát" ? "gray" : "amber"}>
+                                {h.ket_qua_cuoc_goi ?? "Chưa liên hệ được"}
+                              </Badge>
+                              {h.can_goi_lai === 1 && <Badge tone="amber">Cần gọi lại</Badge>}
+                            </div>
+                            {h.ly_do_that_bai && <div className="mt-0.5 text-[var(--ink-400)]">Lý do: {h.ly_do_that_bai}</div>}
+                            {h.ghi_chu && <div className="mt-0.5 text-[var(--ink-600)]">{h.ghi_chu}</div>}
+                            {viPhamCuaCuocGoiNay.length > 0 && (
+                              <div className="mt-1 pt-1 border-t border-[var(--line)] flex flex-wrap gap-1">
+                                {viPhamCuaCuocGoiNay.map((v) => (
+                                  <Badge key={v.id} tone={statusTone(v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : "chờ QC")}>
+                                    {LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi} · {v.ket_qua_cap_1 === "Khong loi" ? "Không lỗi" : v.ket_qua_cap_1}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </Card>

@@ -6,7 +6,15 @@ import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
-import { khuVucReportExclusionClause } from "../lib/filterParams";
+import {
+  khuVucReportExclusionClause,
+  khuVucAdHocClause,
+  dimAdHocClause,
+  dayRangeBounds,
+  nguonCrmClause,
+  extraDimFiltersFromParams,
+} from "../lib/filterParams";
+import { RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
 
 const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
@@ -34,83 +42,230 @@ const FLAG_BRANCHES: { flagCol: string; loaiLoi: string }[] = [
   { flagCol: "loi_kh_hen_lai", loaiLoi: "KH hen lai" },
 ];
 
+export interface ViPhamFunnelParams {
+  thang?: string;
+  khu_vuc?: string;
+  tinh?: string;
+  quan_huyen?: string;
+  ky_thuat_vien?: string;
+  ngay_goi_tu?: string;
+  ngay_goi_den?: string;
+  nguon_crm?: string;
+  // Index signature bat buoc de truyen truc tiep vao buildReportKey() - xem lib/reportCache.ts.
+  [key: string]: string | undefined;
+}
+
 export interface ViPhamFunnelPayload {
+  tongCaMo: number;
   nghiNgo: number;
-  canKhaoSat: number;
-  choQc: number;
-  daXuLy: number;
+  khongCanGoi: number;
+  daGoi: number;
+  quaHanChuaXuLy: number;
+  chuaXuLy: number;
+  // "cho_goi_lai" DUNG NGHIA: cuoc goi GAN NHAT cua ca bi tich can_goi_lai=1 - CHOT 2026-08-22 lan 3
+  // (sua lai tu dinh nghia rong ban dau "co bat ky cuoc goi nao", phat hien SAI qua vi du that ca
+  // 1291772 - xem chu thich day du o computeViPhamFunnel va o khoi 5 cua computeSurveyKhuVucReport).
+  choGoiLai: number;
+  // Da co cuoc goi, cuoc goi GAN NHAT khong phai can_goi_lai=1 (thuong da thanh cong), nhung case
+  // van con_khao_sat=1 vi con 1 loai loi KHAC chua tung duoc goi lan nao.
+  conLoiChuaGoi: number;
+  viPhamCap1: number;
+  qcDaChot: number;
 }
 
 // Tach rieng phan tinh toan cua /funnel - dung chung cho compute-on-miss va warm-up (R7).
-// CHOT 2026-08-03: gioi han theo THANG (thoi_gian_cskh_tiep_nhan, giong logic da chot o
-// survey.ts/cases.ts) VA viet lai OR-4-cot thanh UNION 4 nhanh rieng, moi nhanh dung dung 1 index
-// tung phan (migration 0045_vi_pham_funnel_indexes.sql) thay vi quet toan bo case_dvbh nhu truoc -
-// xem giai thich D1 read-budget trong CLAUDE.md.
-export async function computeViPhamFunnel(db: D1Database, scope: string[] | null, thang?: string): Promise<ViPhamFunnelPayload> {
+// CHOT 2026-08-22: viet lai tu 4 chi so (nghiNgo/canKhaoSat/choQc/daXuLy) thanh 8 chi so theo yeu
+// cau chu he thong - moi chi so la 1 lan dem RIENG, co gang re nhat co the:
+//   - tongCaMo/nghiNgo/quaHanChuaXuLy/chuaXuLy: chi doc case_dvbh, gioi han theo THANG
+//     (thoi_gian_cskh_tiep_nhan) qua index co san (idx_case_thoi_gian_tiep_nhan cho tongCaMo; 4
+//     index rieng tung cot loi_* migration 0045 cho nghiNgo, UNION thay OR - xem FLAG_BRANCHES;
+//     idx_case_can_khao_sat_thang migration 0097 cho quaHanChuaXuLy/chuaXuLy - "chua xu ly" o day
+//     la phan CON LAI sau khi tach rieng "qua han chua xu ly", KHONG gom chung, theo dung yeu cau
+//     chu he thong "da co bo dem rieng cac ca qua han roi").
+//   - khongCanGoi/daGoi: doc ket_qua_goi, CROSS JOIN ep drive tu ket_qua_goi (bang nho) truoc roi
+//     moi tra case_dvbh theo PK - cung ky thuat da dung cho GET /survey (cho-qc/da-xu-ly, xem
+//     survey.ts). "khongCanGoi" = cuoc goi co ket_qua_cuoc_goi = 'Khong can khao sat' (CSKH danh
+//     gia khong can goi); "daGoi" = co IT NHAT 1 ban ghi ket_qua_goi (bat ky ket qua) - theo dung
+//     dinh nghia chu he thong yeu cau, co the trung lap voi khongCanGoi (khongCanGoi la 1 tap con
+//     cua daGoi ve mat du lieu, ca 2 deu la con so co y nghia rieng, khong yeu cau loai tru nhau).
+//   - viPhamCap1/qcDaChot: doc vi_pham, CROSS JOIN ep drive tu vi_pham (bang nho) - cung ky thuat.
+//
+// CHOT 2026-08-22 (rao soat lech so lieu voi /survey/bao-cao-khu-vuc): ban dau ham nay CHI nhan
+// "thang", trong khi computeSurveyKhuVucReport (bang "Bao cao khao sat theo khu vuc") con ap dung
+// THEM khu_vuc/tinh/quan_huyen/ky_thuat_vien/ngay_goi_tu-den/nguon_crm/cac REPORT_DIMS khac - 2 bao
+// cao dung CHUNG 1 thanh bo loc tren UI (tab "Bao cao") nhung chi Phau nhan dung "thang" khi goi API,
+// nen bat ky bo loc nao trong so con lai dang duoc chon (vd "Ngay goi tu/den" con luu tu lan truoc
+// trong localStorage) se lam 2 bao cao lech nhau ma khong ai nhan ra - day la nguyen nhan THAT SU cua
+// "553 vs 0", KHONG phai lech thang nhu phan tich truoc do (phan tich truoc dung cho 1 van de KHAC -
+// cong thuc cho_khao_sat = can_khao_sat - da_khao_sat cua bang khu vuc, xem sua o computeSurveyKhuVucReport).
+// Fix: nhan THEM DUNG bo loc nhu computeSurveyKhuVucReport, dung lai cac ham dung chung tu
+// lib/filterParams.ts (da chuyen tu routes/survey.ts sang de dung lai duoc o day).
+export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelParams, scope: string[] | null): Promise<ViPhamFunnelPayload> {
   const scopeClauseCBase = khuVucWhereClause(scope, "c.khu_vuc");
   const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
-  const scopeClauseC = { sql: scopeClauseCBase.sql + exclusionC.sql, binds: [...scopeClauseCBase.binds, ...exclusionC.binds] };
-  const { start, end } = monthBounds(thang || new Date().toISOString().slice(0, 7));
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
+  const tinhClause = dimAdHocClause("c.tinh", "tinh", params.tinh);
+  const quanHuyenSql = params.tinh && params.quan_huyen ? " AND c.quan_huyen = ?" : "";
+  const quanHuyenBinds = params.tinh && params.quan_huyen ? [params.quan_huyen] : [];
+  const ktvSql = params.ky_thuat_vien ? " AND c.ky_thuat_vien = ?" : "";
+  const ktvBinds = params.ky_thuat_vien ? [params.ky_thuat_vien] : [];
+  const extraClause = extraDimFiltersFromParams(params);
+  const nguonCrm = nguonCrmClause(params.nguon_crm);
+  const scopeClauseC = {
+    sql: scopeClauseCBase.sql + exclusionC.sql + khuVucClause.sql + tinhClause.sql + quanHuyenSql + ktvSql + extraClause.sql + nguonCrm.sql,
+    binds: [...scopeClauseCBase.binds, ...exclusionC.binds, ...khuVucClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds, ...extraClause.binds, ...nguonCrm.binds],
+  };
+  const ngayGoiRange = dayRangeBounds(params.ngay_goi_tu, params.ngay_goi_den);
+  const { start, end } = ngayGoiRange ?? monthBounds(params.thang || new Date().toISOString().slice(0, 7));
 
-  const nghiNgo = await db.prepare(
-    `SELECT COUNT(*) as n FROM (
-       ${FLAG_BRANCHES.map(
-         (b) =>
-           `SELECT c.id FROM case_dvbh c
-            WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.${b.flagCol} = 1
-              AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
-       ).join(" UNION ")}
-     )`,
-  )
-    .bind(...FLAG_BRANCHES.flatMap(() => [start, end, ...scopeClauseC.binds]))
-    .first<{ n: number }>();
+  const latestCanGoiLaiC = `(SELECT k.can_goi_lai FROM ket_qua_goi k WHERE k.case_id = c.id ORDER BY k.ngay_gio_thuc_hien DESC LIMIT 1)`;
+  const hasAnyCallC = `EXISTS (SELECT 1 FROM ket_qua_goi k WHERE k.case_id = c.id)`;
 
-  const canKhaoSat = await db.prepare(
-    `SELECT COUNT(*) as n FROM (
-       ${FLAG_BRANCHES.map(
-         (b) =>
-           `SELECT c.id FROM case_dvbh c
-            WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.${b.flagCol} = 1
-              AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
-              AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = '${b.loaiLoi}')`,
-       ).join(" UNION ")}
-     )`,
-  )
-    .bind(...FLAG_BRANCHES.flatMap(() => [start, end, ...scopeClauseC.binds]))
-    .first<{ n: number }>();
+  const [tongCaMo, nghiNgo, khongCanGoi, daGoi, quaHanChuaXuLy, chuaXuLy, choGoiLai, conLoiChuaGoi, viPhamCap1, qcDaChot] = await Promise.all([
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM case_dvbh c
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
 
-  const choQc = await db.prepare(
-    `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
-     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL
-       AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
-  )
-    .bind(start, end, ...scopeClauseC.binds)
-    .first<{ n: number }>();
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM (
+           ${FLAG_BRANCHES.map(
+             (b) =>
+               `SELECT c.id FROM case_dvbh c
+                WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.${b.flagCol} = 1
+                  AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+           ).join(" UNION ")}
+         )`,
+      )
+      .bind(...FLAG_BRANCHES.flatMap(() => [start, end, ...scopeClauseC.binds]))
+      .first<{ n: number }>(),
 
-  const daXuLy = await db.prepare(
-    `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v INNER JOIN case_dvbh c ON c.id = v.case_id
-     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)
-       AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
-  )
-    .bind(start, end, ...scopeClauseC.binds)
-    .first<{ n: number }>();
+    db
+      .prepare(
+        `SELECT COUNT(DISTINCT k.case_id) as n
+         FROM ket_qua_goi k CROSS JOIN case_dvbh c ON c.id = k.case_id
+         WHERE k.ket_qua_cuoc_goi = 'Không cần khảo sát'
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+
+    db
+      .prepare(
+        `SELECT COUNT(DISTINCT k.case_id) as n
+         FROM ket_qua_goi k CROSS JOIN case_dvbh c ON c.id = k.case_id
+         WHERE c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM case_dvbh c
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
+           AND ${OVERDUE_SURVEY_CONDITION}
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM case_dvbh c
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
+           AND ${RECENT_OR_OPEN_CONDITION}
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+
+    db
+      .prepare(
+        // choGoiLai DUNG NGHIA (CHOT 2026-08-22 lan 3, sua tu dinh nghia rong ban dau): cuoc goi
+        // GAN NHAT cua ca bi tich can_goi_lai=1 - KHONG con la "co bat ky cuoc goi nao". Tap con cua
+        // chuaXuLy, cung RECENT_OR_OPEN_CONDITION.
+        `SELECT COUNT(*) as n FROM case_dvbh c
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
+           AND ${RECENT_OR_OPEN_CONDITION}
+           AND ${latestCanGoiLaiC} = 1
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+
+    db
+      .prepare(
+        // conLoiChuaGoi (them 2026-08-22 lan 3): da co cuoc goi, cuoc goi GAN NHAT khong phai
+        // can_goi_lai=1 (thuong da thanh cong), nhung case van con_khao_sat=1 vi con loai loi KHAC
+        // chua tung duoc goi - vi du that ca 1291772 (120p+24h da goi xong, "Lo ke hoach" chua goi).
+        `SELECT COUNT(*) as n FROM case_dvbh c
+         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
+           AND ${RECENT_OR_OPEN_CONDITION}
+           AND ${hasAnyCallC} AND ${latestCanGoiLaiC} IS NOT 1
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+
+    db
+      .prepare(
+        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+
+    db
+      .prepare(
+        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.chot_bo_cap_2 IS NOT NULL
+           AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
+      )
+      .bind(start, end, ...scopeClauseC.binds)
+      .first<{ n: number }>(),
+  ]);
 
   return {
+    tongCaMo: tongCaMo?.n ?? 0,
     nghiNgo: nghiNgo?.n ?? 0,
-    canKhaoSat: canKhaoSat?.n ?? 0,
-    choQc: choQc?.n ?? 0,
-    daXuLy: daXuLy?.n ?? 0,
+    khongCanGoi: khongCanGoi?.n ?? 0,
+    daGoi: daGoi?.n ?? 0,
+    quaHanChuaXuLy: quaHanChuaXuLy?.n ?? 0,
+    chuaXuLy: chuaXuLy?.n ?? 0,
+    choGoiLai: choGoiLai?.n ?? 0,
+    conLoiChuaGoi: conLoiChuaGoi?.n ?? 0,
+    viPhamCap1: viPhamCap1?.n ?? 0,
+    qcDaChot: qcDaChot?.n ?? 0,
   };
 }
 
-// GET /api/vi-pham/funnel?thang=YYYY-MM - phau xu ly nghi ngo vi pham -> can khao sat -> cho QC ->
-// da xu ly, gioi han theo dung 1 thang (mac dinh thang hien tai neu khong truyen). Doc qua
-// reportCache (xem lib/reportCache.ts), "thang" nam trong cache key.
+// GET /api/vi-pham/funnel?thang=YYYY-MM - 10 chi so xu ly vi pham trong thang (xem chu thich day du
+// o computeViPhamFunnel). Doc qua reportCache (xem lib/reportCache.ts), "thang" nam trong cache
+// key. "funnel-v5" - choGoiLai sua lai dung nghia goc (cuoc goi GAN NHAT tich can_goi_lai=1, khong
+// phai "co bat ky cuoc goi nao"), them "conLoiChuaGoi" (CHOT 2026-08-22 lan 3, phat hien qua vi du
+// that ca 1291772) nen doi hau to key de ep tinh lai ngay, tranh serve nham envelope cu gia tri cu.
+// Them domain "ket_qua_goi" (khongCanGoi/daGoi/choGoiLai/conLoiChuaGoi doc bang nay) - da cap nhat
+// YEU_CAU_BAO_CAO_TINH_SAN.md tuong ung.
 viPham.get("/funnel", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const params = { thang: c.req.query("thang") };
-  const key = buildReportKey("vi-pham/funnel", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamFunnel(c.env.DB, scope, params.thang));
+  const params: ViPhamFunnelParams = {
+    thang: c.req.query("thang"),
+    khu_vuc: c.req.query("khu_vuc"),
+    tinh: c.req.query("tinh"),
+    quan_huyen: c.req.query("quan_huyen"),
+    ky_thuat_vien: c.req.query("ky_thuat_vien"),
+    ngay_goi_tu: c.req.query("ngay_goi_tu"),
+    ngay_goi_den: c.req.query("ngay_goi_den"),
+    nguon_crm: c.req.query("nguon_crm"),
+  };
+  const key = buildReportKey("vi-pham/funnel-v5", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "ket_qua_goi"], () => computeViPhamFunnel(c.env.DB, params, scope));
   return c.json(payload);
 });
 

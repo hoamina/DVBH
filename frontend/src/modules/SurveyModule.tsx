@@ -59,10 +59,16 @@ import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 import { TinhHuyenFilterControl } from "../components/TinhHuyenFilterControl";
 
 interface FunnelData {
+  tongCaMo: number;
   nghiNgo: number;
-  canKhaoSat: number;
-  choQc: number;
-  daXuLy: number;
+  khongCanGoi: number;
+  daGoi: number;
+  quaHanChuaXuLy: number;
+  chuaXuLy: number;
+  choGoiLai: number;
+  conLoiChuaGoi: number;
+  viPhamCap1: number;
+  qcDaChot: number;
 }
 interface LeaderboardRow {
   nhom?: string;
@@ -72,11 +78,6 @@ interface LeaderboardRow {
   tong_ca: number;
   ty_le_vi_pham: number;
 }
-interface TrendRow {
-  ngay: string;
-  so_cuoc_goi: number;
-}
-
 export interface CanKhaoSatRow {
   id: string;
   khach_hang: string | null;
@@ -87,6 +88,7 @@ export interface CanKhaoSatRow {
   need_loi_qua_han_24h: number;
   need_loi_lo_ke_hoach: number;
   need_loi_kh_hen_lai: number;
+  trang_thai_goi?: "chua_goi" | "cho_goi_lai" | "con_loi_chua_goi";
   mo_ta_loi?: string | null;
   ky_thuat_vien?: string | null;
   tinh?: string | null;
@@ -116,13 +118,14 @@ interface SurveyBaoCaoRow {
   vi_pham_hl: number;
   tong_cuoc_goi: number;
   goi_thanh_cong: number;
-  can_khao_sat: number;
   tong_nghi_ngo: number;
   tong_vi_pham: number;
   ksnb_chot: number;
   ksnb_bo: number;
   da_khao_sat: number;
   cho_khao_sat: number;
+  cho_goi_lai: number;
+  con_loi_chua_goi: number;
   khao_sat_that_bai: number;
   cho_khao_sat_lai: number;
   bo_qua_khong_khao_sat: number;
@@ -157,13 +160,14 @@ const SURVEY_BAO_CAO_EXPORT_LABELS: Record<string, string> = {
   nhom: "Nhóm",
   tong_tiep_nhan: "Ca CRM mở mới",
   tong_hoan_thanh: "Ca CRM đã đóng",
-  can_khao_sat: "Cần khảo sát",
   tong_nghi_ngo: "Tổng nghi ngờ",
   tong_vi_pham: "Tổng vi phạm",
   ksnb_chot: "KSNB chốt lỗi",
   ksnb_bo: "KSNB bỏ lỗi",
   da_khao_sat: "Đã khảo sát",
-  cho_khao_sat: "Chờ khảo sát",
+  cho_khao_sat: "Cần gọi",
+  cho_goi_lai: "Chờ gọi lại",
+  con_loi_chua_goi: "Còn lỗi chưa gọi",
   khao_sat_that_bai: "Khảo sát thất bại",
   cho_khao_sat_lai: "Đang chờ khảo sát lại",
   bo_qua_khong_khao_sat: "Bỏ qua không khảo sát",
@@ -264,6 +268,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const [page, setPage] = useState(1);
   const [localKtvFilter, setLocalKtvFilter] = useState("");
   const [localLoaiLoiFilter, setLocalLoaiLoiFilter] = useState("");
+  // Phan loai "Chua goi lan nao" / "Cho goi lai" / "Con loi chua goi" trong tab "Can goi"/"Qua han
+  // khao sat" - CHOT 2026-08-22 lan 3, dua tren field trang_thai_goi tra ve tu GET /survey/candidates.
+  const [localPhanLoaiFilter, setLocalPhanLoaiFilter] = useState("");
   // CHOT 2026-08-06: doi tu 1 ngay don sang khoang ngay (tu/den) - loc bang so sanh chuoi ISO
   // (YYYY-MM-DD) tren 10 ky tu dau cua truong ngay, dung ca voi truong chi co ngay lan truong co
   // gio (thoi_gian_cskh_tiep_nhan/ngay_ghi_nhan/ngay_gio_thuc_hien).
@@ -423,12 +430,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     const vi_pham_hl = sum("vi_pham_hl");
     const tong_cuoc_goi = sum("tong_cuoc_goi");
     const goi_thanh_cong = sum("goi_thanh_cong");
-    const can_khao_sat = sum("can_khao_sat");
     const tong_nghi_ngo = sum("tong_nghi_ngo");
     const tong_vi_pham = sum("tong_vi_pham");
     const ksnb_chot = sum("ksnb_chot");
     const ksnb_bo = sum("ksnb_bo");
     const da_khao_sat = sum("da_khao_sat");
+    const cho_khao_sat = sum("cho_khao_sat");
+    const cho_goi_lai = sum("cho_goi_lai");
+    const con_loi_chua_goi = sum("con_loi_chua_goi");
     const khao_sat_that_bai = sum("khao_sat_that_bai");
     const cho_khao_sat_lai = sum("cho_khao_sat_lai");
     const bo_qua_khong_khao_sat = sum("bo_qua_khong_khao_sat");
@@ -450,13 +459,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       vi_pham_hl,
       tong_cuoc_goi,
       goi_thanh_cong,
-      can_khao_sat,
       tong_nghi_ngo,
       tong_vi_pham,
       ksnb_chot,
       ksnb_bo,
       da_khao_sat,
-      cho_khao_sat: Math.max(0, can_khao_sat - da_khao_sat),
+      cho_khao_sat,
+      cho_goi_lai,
+      con_loi_chua_goi,
       khao_sat_that_bai,
       cho_khao_sat_lai,
       bo_qua_khong_khao_sat,
@@ -496,8 +506,24 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     enabled: isLead,
   });
   const { data: funnel, refetch: refetchFunnel } = useQuery({
-    queryKey: ["vi-pham-funnel", thangReport],
-    queryFn: () => api.get<FunnelData>(`/vi-pham/funnel${buildQuery({ thang: thangReport })}`),
+    // CHOT 2026-08-22: nhan THEM dung bo loc voi baoCaoKhuVuc (khu_vuc/tinh/quan_huyen/ky_thuat_vien/
+    // ngay_goi_tu-den/nguon_crm) - truoc day chi nhan "thang" nen bat ky bo loc nao khac dang duoc
+    // chon (vd "Ngay goi tu/den" con luu tu truoc trong localStorage) se lam Phau va bang khu vuc
+    // lech nhau ma khong nhan ra (xem chu thich day du o computeViPhamFunnel, backend/src/routes/viPham.ts).
+    queryKey: ["vi-pham-funnel", khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
+    queryFn: () =>
+      api.get<FunnelData>(
+        `/vi-pham/funnel${buildQuery({
+          khu_vuc: khuVucFilter,
+          tinh: tinhFilter,
+          quan_huyen: quanHuyenFilter,
+          ky_thuat_vien: ktvFilter,
+          thang: thangReport,
+          ngay_goi_tu: ngayGoiTuReport || undefined,
+          ngay_goi_den: ngayGoiDenReport || undefined,
+          nguon_crm: nguonCrmFilter || undefined,
+        })}`,
+      ),
     enabled: false,
   });
   const { data: ktvBoard, refetch: refetchKtvBoard } = useQuery({
@@ -510,34 +536,48 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     queryFn: () => api.get<{ rows: LeaderboardRow[] }>(`/vi-pham/leaderboard${buildQuery({ by: "giam-sat", thang: thangReport })}`),
     enabled: false,
   });
-  const { data: trend, refetch: refetchTrend } = useQuery({
-    queryKey: ["survey-trend"],
-    queryFn: () => api.get<{ rows: TrendRow[] }>("/survey/trend?days=30"),
-    enabled: false,
-  });
-  const trendRows = trend?.rows ?? [];
-
-  const [reportLastUpdated, setReportLastUpdated] = useState<Date | null>(null);
+  // Luu vao localStorage (khac useState truoc day) de "lan cap nhat gan nhat" SONG QUA moi lan mo
+  // lai module (truoc day dung useState nen cu vao lai the "Quan ly khao sat" - remount component -
+  // la mat trang thai, useEffect ben duoi lai coi nhu "chua tung tai" va tu dong goi lai ca 4 bao
+  // cao, dung ly do nguoi dung phan anh "moi lan vao lai la tu dong dong bo").
+  const [reportLastUpdatedIso, setReportLastUpdatedIso] = useLocalStorageState<string | null>("filters:survey-report-last-updated", null);
+  const reportLastUpdated = reportLastUpdatedIso ? new Date(reportLastUpdatedIso) : null;
   const [isRefreshingReport, setIsRefreshingReport] = useState(false);
   const reportAutoLoadedRef = useRef(false);
+  const REPORT_AUTO_REFRESH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-  // Nut "Cap nhat bao cao" - chi diem duy nhat kich hoat 5 query tren (xem enabled: false o tung
-  // query). Tu dong chay 1 LAN duy nhat khi mo tab "Bao cao" lan dau (useEffect ben duoi) - sau do
-  // doi bo loc (Thang/Khu vuc/KTV...) se KHONG tu goi lai, phai bam nut nay.
+  // Nut "Cap nhat bao cao" - diem CHINH kich hoat 4 query tren (xem enabled: false o tung query -
+  // "Xu huong cuoc goi khao sat" da bo 2026-08-22).
   async function refreshReport() {
     setIsRefreshingReport(true);
     try {
-      await Promise.all([refetchFunnel(), refetchKtvBoard(), refetchGiamSatBoard(), refetchTrend(), refetchBaoCaoKhuVuc()]);
-      setReportLastUpdated(new Date());
+      await Promise.all([refetchFunnel(), refetchKtvBoard(), refetchGiamSatBoard(), refetchBaoCaoKhuVuc()]);
+      setReportLastUpdatedIso(new Date().toISOString());
     } finally {
       setIsRefreshingReport(false);
     }
   }
 
+  // CHOT 2026-08-22 (chu he thong yeu cau): mac dinh KHONG tu dong dong bo khi mo tab "Bao cao" -
+  // nguoi dung phai tu bam nut "Cap nhat bao cao". CHI tu dong goi lai khi bao cao da qua CU (>= 1
+  // ngay ke tu lan cap nhat gan nhat, hoac chua tung cap nhat lan nao) - "reportAutoLoadedRef" van
+  // giu de khong lap lai nhieu lan trong cung 1 lan mount (vd nguoi dung chuyen qua lai giua tab
+  // "Danh sach chi tiet" va "Bao cao" nhieu lan).
+  //
+  // CHOT 2026-08-22 lan 5 (fix bug "thinh thoang bao cao khong hien, phai bam Cap nhat"): "reportLastUpdatedIso"
+  // luu trong localStorage nen SONG SOT qua lan reload trang/mo tab moi, nhung du lieu 4 query
+  // (baoCaoKhuVuc/funnel/ktvBoard/giamSatBoard) chi nam trong bo nho TanStack Query - MAT HET moi lan
+  // reload trang. Truoc day chi xet "isStale" (theo dong ho localStorage) ma khong xet du lieu THUC
+  // TE co dang co trong bo nho hay khong - neu lan cap nhat gan nhat < 24h (isStale=false) nhung
+  // trang vua duoc mo lai/reload, ca 4 query van "chua tung fetch" (enabled:false) => bao cao trang
+  // trong cho toi khi bam nut. Them dieu kien "khong co du lieu that" de bat buoc fetch it nhat 1 lan
+  // moi phien trang, khong phu thuoc dong ho stale.
   useEffect(() => {
     if (effectiveView === "bao-cao" && !reportAutoLoadedRef.current) {
       reportAutoLoadedRef.current = true;
-      refreshReport();
+      const isStale = !reportLastUpdatedIso || Date.now() - new Date(reportLastUpdatedIso).getTime() >= REPORT_AUTO_REFRESH_MAX_AGE_MS;
+      const hasData = !!baoCaoKhuVuc && !!funnel && !!ktvBoard && !!giamSatBoard;
+      if (isStale || !hasData) refreshReport();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveView]);
@@ -592,6 +632,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     if (localLoaiLoiFilter) {
       rows = rows.filter((r) => neededLoaiLoi(r).includes(localLoaiLoiFilter as LoaiLoi));
     }
+    if (localPhanLoaiFilter) {
+      rows = rows.filter((r) => r.trang_thai_goi === localPhanLoaiFilter);
+    }
     if (localNgayTuFilter) {
       rows = rows.filter((r) => r.thoi_gian_cskh_tiep_nhan && r.thoi_gian_cskh_tiep_nhan.slice(0, 10) >= localNgayTuFilter);
     }
@@ -608,7 +651,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       if (da !== db) return da - db;
       return a.id.localeCompare(b.id);
     });
-  }, [tab, canKhaoSatRows, quaHanKhaoSatRows, localKtvFilter, localLoaiLoiFilter, localNgayTuFilter, localNgayDenFilter, localIdFilter]);
+  }, [tab, canKhaoSatRows, quaHanKhaoSatRows, localKtvFilter, localLoaiLoiFilter, localPhanLoaiFilter, localNgayTuFilter, localNgayDenFilter, localIdFilter]);
 
   const filteredGroupedViPham = useMemo(() => {
     let list = groupedViPham;
@@ -768,15 +811,38 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <div className="font-display font-bold text-sm mb-3">
                 Phễu xử lý vi phạm <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, theo thời gian mở ca)</span>
               </div>
+              <div className="text-xs text-[var(--ink-400)] mb-2">"Cần gọi" = "Chưa gọi lần nào" + "Chờ gọi lại" (cuộc gọi gần nhất tích "cần gọi lại") + "Còn lỗi chưa gọi" (đã gọi thành công 1 lỗi nhưng ca còn lỗi khác chưa từng gọi) — 3 nhóm loại trừ nhau, không cộng dồn thêm vào tổng phễu. Ca đã quá hạn 3 ngày không còn tính vào "Cần gọi" nữa.</div>
               <ChartCanvas
                 type="bar"
                 data={{
-                  labels: ["Nghi ngờ vi phạm", "Cần khảo sát", "Chờ QC chốt cấp 2", "Đã xử lý xong"],
+                  labels: [
+                    "Tổng ca mở trong tháng",
+                    "Số ca nghi ngờ",
+                    "Ca đã gọi",
+                    "Số ca quá hạn chưa xử lý",
+                    "Ca không cần gọi",
+                    "Cần gọi",
+                    "Chờ gọi lại",
+                    "Còn lỗi chưa gọi",
+                    "Số ca vi phạm (cấp 1)",
+                    "Số ca QC đã chốt",
+                  ],
                   datasets: [
                     {
                       label: "Số ca",
-                      data: [funnel?.nghiNgo ?? 0, funnel?.canKhaoSat ?? 0, funnel?.choQc ?? 0, funnel?.daXuLy ?? 0],
-                      backgroundColor: ["#D98A1F", "#1591C9", "#D84C4C", "#159C93"],
+                      data: [
+                        funnel?.tongCaMo ?? 0,
+                        funnel?.nghiNgo ?? 0,
+                        funnel?.daGoi ?? 0,
+                        funnel?.quaHanChuaXuLy ?? 0,
+                        funnel?.khongCanGoi ?? 0,
+                        funnel?.chuaXuLy ?? 0,
+                        funnel?.choGoiLai ?? 0,
+                        funnel?.conLoiChuaGoi ?? 0,
+                        funnel?.viPhamCap1 ?? 0,
+                        funnel?.qcDaChot ?? 0,
+                      ],
+                      backgroundColor: ["#6B7280", "#D98A1F", "#1591C9", "#D84C4C", "#159C93", "#B45FBB", "#7C6FCB", "#4E9A8F", "#C2761E", "#2E9E5B"],
                       borderRadius: 6,
                     },
                   ],
@@ -816,6 +882,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <div>
                 <div className="font-display font-bold text-sm">Báo cáo khảo sát theo khu vực</div>
                 {canViewDanhSach && <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào số "Nghi ngờ" để lọc thẳng xuống danh sách chi tiết.</div>}
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">
+                  Lưu ý: "Cần gọi" chỉ tính ca <b>còn tồn đọng và chưa quá hạn 3 ngày</b> (chưa có kết luận vi phạm, chưa đánh dấu "không cần gọi lại") nên luôn ≤ "Tổng nghi ngờ" (đếm mọi ca từng bị gắn cờ nghi ngờ, kể cả đã xử lý xong hoặc đã quá hạn) — khác định nghĩa, không phải lỗi tính toán. Ca đã quá hạn 3 ngày <b>không</b> còn tính trong "Cần gọi" ở đây — vẫn nằm trong tab "Quá hạn khảo sát" riêng ở Danh sách chi tiết.
+                </div>
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">
+                  "Cần gọi" = ca <b>chưa gọi lần nào</b> + <b>"Chờ gọi lại"</b> (cuộc gọi gần nhất bị tích "cần gọi lại" — không bắt máy/sai số) + <b>"Còn lỗi chưa gọi"</b> (đã gọi thành công cho (các) lỗi khác nhưng ca vẫn còn 1 lỗi khác chưa từng gọi — ví dụ ca có 3 lỗi, đã gọi xong 2, lỗi thứ 3 chưa đụng tới).
+                </div>
               </div>
               <Btn
                 variant="ghost"
@@ -927,13 +999,22 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <table className="dense w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">{SURVEY_REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? (reportDim === "quan_huyen" ? "Quận/Huyện" : "Nhóm")}</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Ca CRM mở mới</th>
+                    <th rowSpan={3} className="py-2 pr-3 align-bottom">{SURVEY_REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? (reportDim === "quan_huyen" ? "Quận/Huyện" : "Nhóm")}</th>
+                    <th colSpan={23} className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-50)] text-[var(--ocean-600)]" title="Loc va nhom theo thoi_gian_cskh_tiep_nhan (ngay ca duoc mo)">
+                      Tính toán theo thời gian mở ca
+                    </th>
+                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)] bg-slate-100" title="Loc va nhom theo ngay_gio_thuc_hien (ngay CSKH thuc hien cuoc goi)">
+                      Tính theo thời gian gọi
+                    </th>
+                  </tr>
+                  <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">Ca CRM mở mới</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">Ca CRM đã đóng</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">% KTV chủ động 120'</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">Tỷ lệ % đã gọi hẹn 120'</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Cần khảo sát</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom bg-[var(--amber-100)] text-[var(--amber-700)]">Chờ khảo sát</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom bg-[var(--amber-100)] text-[var(--amber-700)]">Cần gọi</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Chờ gọi lại</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Còn lỗi chưa gọi</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">Tổng nghi ngờ</th>
                     <th colSpan={3} className="py-1 px-2 text-center border-l border-[var(--line)]">120 phút</th>
                     <th colSpan={3} className="py-1 px-2 text-center border-l border-[var(--line)]">Quá 24h</th>
@@ -942,7 +1023,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">Tổng vi phạm</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">KSNB chốt lỗi</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">KSNB bỏ lỗi</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Đã khảo sát</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">Đã khảo sát</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">Khảo sát thành công</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">Khảo sát thất bại</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">Đang chờ khảo sát lại</th>
@@ -966,8 +1047,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_hoan_thanh}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_ktv_chu_dong_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
-                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.can_khao_sat}</td>
                       <td className="py-2 pr-3 font-mono bg-[var(--amber-100)] text-[var(--amber-700)]">{baoCaoTotal.cho_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.cho_goi_lai}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.con_loi_chua_goi}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_nghi_ngo}</td>
                       {renderNghiNgoTd(baoCaoTotal.nghi_ngo_120p, baoCaoTotal.ty_le_nghi_ngo_120p)}
                       {renderDaGoiTd(baoCaoTotal.da_goi_120p, baoCaoTotal.ty_le_da_goi_120p)}
@@ -1000,16 +1082,17 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{r.tong_hoan_thanh}</td>
                       <td className="py-2 pr-3 font-mono">{r.ty_le_ktv_chu_dong_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono">{r.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
-                      <td className="py-2 pr-3 font-mono">
+                      <td className="py-2 pr-3 font-mono font-semibold bg-[var(--amber-100)] text-[var(--amber-700)]">
                         {canViewDanhSach ? (
-                          <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "can-khao-sat")}>
-                            {r.can_khao_sat}
+                          <button className="hover:underline" onClick={() => drillDown(r.nhom, "can-khao-sat")}>
+                            {r.cho_khao_sat}
                           </button>
                         ) : (
-                          r.can_khao_sat
+                          r.cho_khao_sat
                         )}
                       </td>
-                      <td className="py-2 pr-3 font-mono font-semibold bg-[var(--amber-100)] text-[var(--amber-700)]">{r.cho_khao_sat}</td>
+                      <td className="py-2 pr-3 font-mono">{r.cho_goi_lai}</td>
+                      <td className="py-2 pr-3 font-mono">{r.con_loi_chua_goi}</td>
                       <td className="py-2 pr-3 font-mono">{r.tong_nghi_ngo}</td>
                       {renderNghiNgoTd(r.nghi_ngo_120p, r.ty_le_nghi_ngo_120p, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
                       {renderDaGoiTd(r.da_goi_120p, r.ty_le_da_goi_120p)}
@@ -1037,7 +1120,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   ))}
                   {sortedBaoCaoRows.length === 0 && (
                     <tr>
-                      <td colSpan={28} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                      <td colSpan={29} className="py-8 text-center text-[var(--ink-400)] text-sm">
                         Không có dữ liệu.
                       </td>
                     </tr>
@@ -1047,43 +1130,31 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Xu hướng cuộc gọi khảo sát (30 ngày)</div>
-              <ChartCanvas
-                type="line"
-                data={{
-                  labels: trendRows.map((r) => new Date(r.ngay).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })),
-                  datasets: [{ label: "Số cuộc gọi", data: trendRows.map((r) => r.so_cuoc_goi), borderColor: "#159C93", backgroundColor: "rgba(21,156,147,0.1)", tension: 0.35, fill: true, pointRadius: 2 }],
-                }}
-              />
-            </Card>
-            <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">
-                Top 10 Giám sát nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, tỷ lệ trên tổng số ca khu vực phụ trách trong tháng)</span>
-              </div>
-              <ChartCanvas
-                type="bar"
-                data={{
-                  labels: (giamSatBoard?.rows ?? []).map((r) => r.giam_sat ?? r.giam_sat_email ?? "—"),
-                  datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (giamSatBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D98A1F", borderRadius: 6 }],
-                }}
-                options={{
-                  indexAxis: "y" as const,
-                  plugins: {
-                    tooltip: {
-                      callbacks: {
-                        label: (ctx) => {
-                          const r = (giamSatBoard?.rows ?? [])[ctx.dataIndex];
-                          return `${ctx.formattedValue}% (${r?.so_vi_pham ?? 0}/${r?.tong_ca ?? 0} ca)`;
-                        },
+          <Card className="p-4 mb-4">
+            <div className="font-display font-bold text-sm mb-3">
+              Top 10 Giám sát nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, tỷ lệ trên tổng số ca khu vực phụ trách trong tháng)</span>
+            </div>
+            <ChartCanvas
+              type="bar"
+              data={{
+                labels: (giamSatBoard?.rows ?? []).map((r) => r.giam_sat ?? r.giam_sat_email ?? "—"),
+                datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (giamSatBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D98A1F", borderRadius: 6 }],
+              }}
+              options={{
+                indexAxis: "y" as const,
+                plugins: {
+                  tooltip: {
+                    callbacks: {
+                      label: (ctx) => {
+                        const r = (giamSatBoard?.rows ?? [])[ctx.dataIndex];
+                        return `${ctx.formattedValue}% (${r?.so_vi_pham ?? 0}/${r?.tong_ca ?? 0} ca)`;
                       },
                     },
                   },
-                }}
-              />
-            </Card>
-          </div>
+                },
+              }}
+            />
+          </Card>
         </div>
       ) : (
         <div className="mt-4">
@@ -1111,7 +1182,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               setPage(1);
             }}
             tabs={[
-              { key: "can-khao-sat", label: "Cần khảo sát", count: counts?.["can-khao-sat"] },
+              { key: "can-khao-sat", label: "Cần gọi", count: counts?.["can-khao-sat"] },
               { key: "qua-han-khao-sat", label: "Quá hạn khảo sát", count: counts?.["qua-han-khao-sat"] },
               { key: "cho-qc", label: "Chờ QC chốt cấp 2", count: counts?.["cho-qc"] },
               { key: "da-xu-ly", label: "Đã xử lý xong", count: counts?.["da-xu-ly"] },
@@ -1161,6 +1232,22 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   options={[
                     { value: "", label: "Tất cả lỗi" },
                     ...LOAI_LOI_KEYS.map((k) => ({ value: k, label: LOAI_LOI_META[k].label }))
+                  ]}
+                />
+              </div>
+            )}
+
+            {(tab === "can-khao-sat" || tab === "qua-han-khao-sat") && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-[var(--ink-600)]">Phân loại:</span>
+                <Select
+                  value={localPhanLoaiFilter}
+                  onChange={(v) => { setLocalPhanLoaiFilter(v); setPage(1); }}
+                  options={[
+                    { value: "", label: "Tất cả" },
+                    { value: "chua_goi", label: "Chưa gọi lần nào" },
+                    { value: "cho_goi_lai", label: "Chờ gọi lại" },
+                    { value: "con_loi_chua_goi", label: "Còn lỗi chưa gọi" },
                   ]}
                 />
               </div>
@@ -1231,12 +1318,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               />
             </div>
 
-            {(localKtvFilter || localLoaiLoiFilter || localNgayTuFilter || localNgayDenFilter || localIdFilter || localKetQuaFilter || localNguoiGoiFilter || localLoaiKhaoSatFilter) && (
+            {(localKtvFilter || localLoaiLoiFilter || localPhanLoaiFilter || localNgayTuFilter || localNgayDenFilter || localIdFilter || localKetQuaFilter || localNguoiGoiFilter || localLoaiKhaoSatFilter) && (
               <button
                 className="text-xs text-[var(--ocean-600)] hover:underline ml-auto font-medium"
                 onClick={() => {
                   setLocalKtvFilter("");
                   setLocalLoaiLoiFilter("");
+                  setLocalPhanLoaiFilter("");
                   setLocalNgayTuFilter("");
                   setLocalNgayDenFilter("");
                   setLocalIdFilter("");
@@ -1284,6 +1372,11 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       </Badge>
                     ))}
                   </div>
+                ) },
+                { key: "trang_thai_goi", header: "Trạng thái", render: (row) => (
+                  row.trang_thai_goi === "cho_goi_lai" ? <Badge tone="amber">Chờ gọi lại</Badge> :
+                  row.trang_thai_goi === "con_loi_chua_goi" ? <Badge tone="ocean">Còn lỗi chưa gọi</Badge> :
+                  <Badge tone="gray">Chưa gọi lần nào</Badge>
                 ) },
                 { key: "assigned_to", header: "Phân công", render: (row) => <span className="text-xs">{row.assigned_to || <span className="italic text-[var(--ink-400)]">Chưa phân công</span>}</span> },
                 { key: "khu_vuc", header: "Khu vực", render: (row) => shortKhuVuc(row.khu_vuc) },
