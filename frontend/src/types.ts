@@ -60,6 +60,7 @@ export interface CaseRow {
   // cua module Tranh chap (xem CASE_TRANH_CHAP_STATUS_EXPR o backend). "Chua xu ly" = ca chua tung co
   // tien trinh tranh chap nao. so_ngay_ton la null khi tien trinh da dong hoac chua tung mo.
   last_tranh_chap_trang_thai?: string | null;
+  last_phan_loai_tranh_chap?: string | null;
   tranh_chap_so_ngay_ton?: number | null;
   // "Nhom ton" (BacklogModule.tsx Danh sach chi tiet) - chi co tren GET /cases (khong co tren
   // R2 snapshot "Ca da dong"), tinh san server-side tu NEED_GIAI_TRINH_CATEGORIES.

@@ -46,6 +46,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 | GET /tranh-chap/tien-trinh/stats (thêm 2026-07-29, nhận thêm `phan_loai` optional 2026-08-21 — key có `phan_loai` khi truyền) | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/count (thêm 2026-07-29) | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/doi-may/theo-khu-vuc (thêm 2026-08-21 — tab "Đòi đổi máy", cố định lọc `phan_loai_tranh_chap = 'KH đòi đổi máy'`) | tranhChap.ts | cases, tranh_chap |
+| GET /tranh-chap/cho-xac-nhan-ai/count (thêm 2026-08-22 — badge đỏ trên tab "Chờ xác nhận AI") | tranhChap.ts | cases, tranh_chap |
 
 Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /missing-parts list) — chỉ bọc thống kê/đếm. daily-report: key thêm email/scope user (scope + vai trò ảnh hưởng kết quả).
 
@@ -56,9 +57,10 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 | GET /dashboard/kpis | dashboard.ts | cases, vi_pham, giai_trinh (+ xem CHỐT 2026-08-01 dưới) |
 | GET /dashboard/pivot | dashboard.ts | cases (+ xem CHỐT 2026-08-01 dưới) |
 | GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases (+users cho giam-sat) (+ xem CHỐT 2026-08-01 dưới) |
-| GET /survey/counts, /by-khu-vuc, /trend | survey.ts | cases, vi_pham, ket_qua_goi |
+| GET /survey/counts, /by-khu-vuc | survey.ts | cases, vi_pham, ket_qua_goi |
 | GET /survey/bao-cao-khu-vuc (thêm 2026-07-30) | survey.ts | cases, vi_pham, ket_qua_goi |
-| GET /vi-pham/funnel, /leaderboard | viPham.ts | cases, vi_pham |
+| GET /vi-pham/funnel (thêm ket_qua_goi 2026-08-22 — 8 chỉ số mới đọc luôn ket_qua_cuoc_goi) | viPham.ts | cases, vi_pham, ket_qua_goi |
+| GET /vi-pham/leaderboard | viPham.ts | cases, vi_pham |
 | GET /ca-lap/tong-quan | caLap.ts | cases, giai_trinh_lap, blacklist |
 
 Lưu ý sla-trend/trend có param days/months — đưa vào key. KHÔNG bọc /survey danh sách, /ca-lap/danh-sach* (đã rẻ nhờ index 816 dòng).

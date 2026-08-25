@@ -1311,17 +1311,20 @@ export function BacklogModule({
     },
     {
       key: "last_tranh_chap_trang_thai",
-      header: "Trạng thái tranh chấp gần nhất",
+      header: "Tiến độ TC",
       render: (c) =>
         c.last_tranh_chap_trang_thai && c.last_tranh_chap_trang_thai !== "Chua xu ly" ? (
-          <Badge tone={TRANG_THAI_TONE[c.last_tranh_chap_trang_thai] ?? "gray"}>{TRANG_THAI_LABELS[c.last_tranh_chap_trang_thai] ?? c.last_tranh_chap_trang_thai}</Badge>
+          <div className="space-y-0.5">
+            {c.last_phan_loai_tranh_chap && <div className="text-[11px] text-[var(--ink-400)] truncate">{c.last_phan_loai_tranh_chap}</div>}
+            <Badge tone={TRANG_THAI_TONE[c.last_tranh_chap_trang_thai] ?? "gray"}>{TRANG_THAI_LABELS[c.last_tranh_chap_trang_thai] ?? c.last_tranh_chap_trang_thai}</Badge>
+          </div>
         ) : (
           <span className="text-[var(--ink-400)] text-xs italic">Không tranh chấp</span>
         ),
     },
     {
       key: "tranh_chap_so_ngay_ton",
-      header: "Số ngày tồn tranh chấp",
+      header: "Tuổi TC",
       render: (c) =>
         c.tranh_chap_so_ngay_ton != null ? (
           <Pill tone={c.tranh_chap_so_ngay_ton > 5 ? "coral" : c.tranh_chap_so_ngay_ton > 3 ? "amber" : "gray"}>{c.tranh_chap_so_ngay_ton} ngày</Pill>

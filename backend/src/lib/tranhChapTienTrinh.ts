@@ -24,6 +24,21 @@ export type TrangThaiLog = (typeof ALL_TRANG_THAI_LOG)[number];
 /** 4 trang thai "dong" - tien trinh/ca coi nhu xong, khong con hien trong badge/danh sach mac dinh. */
 export const TRANH_CHAP_TRANG_THAI_DONG = ["Giam sat dong hoan thanh", "Giam sat dong that bai", "CSKH khong can xu ly", "CSKH xu ly xong"] as const;
 
+/** true neu 1 trang thai la "dang mo" (khong thuoc TRANH_CHAP_TRANG_THAI_DONG) - dung de tinh cot
+ * cache tranh_chap_tien_trinh.dang_mo (migration 0098) tai 3 diem ghi log (POST /:caseId/tiep-nhan,
+ * POST /tien-trinh/:id/log, PATCH /log/:id) + import hang loat. */
+export function isTrangThaiDangMo(trangThai: string): boolean {
+  return !(TRANH_CHAP_TRANG_THAI_DONG as readonly string[]).includes(trangThai);
+}
+
+/** Gia tri UTC "YYYY-MM-DD HH:MM:SS" KHOP DUNG dinh dang SQLite datetime('now') (RAW UTC, khac
+ * nowVN() - xem chu thich cot log_created_at_hien_tai trong migration 0098) - dung khi INSERT
+ * tranh_chap_log tuong minh (thay vi de DEFAULT tu quyet dinh) de co the ghi CUNG gia tri do vao
+ * tranh_chap_tien_trinh.log_created_at_hien_tai trong CUNG 1 batch. */
+export function nowUtcSqlite(): string {
+  return new Date().toISOString().slice(0, 19).replace("T", " ");
+}
+
 /** 2 trang thai KSNB (la_ksnb_doi_tac) can theo doi - diem ban giao Giam sat -> CSKH (chot
  * 2026-07-31: KSNB chi quan tam ca dang o dung 2 trang thai nay, dung ca cho badge sidebar lan
  * filter rieng trong TranhChapModule.tsx). */
@@ -86,12 +101,13 @@ export const TUOI_TIEN_TRINH_EXPR = ageExpr("tt.ngay_tao");
 
 /** Nguoi dung co duoc GHI (tiep nhan tien trinh moi / them log) cho 1 ca thuoc khu_vuc cho truoc
  * hay khong - chot 2026-07-29: KSNB Doi tac (co la_ksnb_doi_tac) + Giam sat DUNG khu vuc do + TBP
- * DVBH/Admin (xem toan bo). Khac scopeTranhChap() (chi gioi han PHAM VI XEM) - day la kiem tra GHI
- * cho 1 ca CU THE. */
+ * DVBH/Admin (xem toan bo). Them QC 2026-08-25 (xem toan bo, giong TBP DVBH/Admin - QC da thuoc
+ * ROLES_XEM_TOAN_BO nen khong gioi han khu_vuc). Khac scopeTranhChap() (chi gioi han PHAM VI XEM) -
+ * day la kiem tra GHI cho 1 ca CU THE. */
 export function canWriteTranhChap(c: Context<{ Bindings: Env }>, khuVucCa: string | null): boolean {
   const user = c.get("user");
   if (user.la_ksnb_doi_tac) return true;
-  if (user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin") return true;
+  if (user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin" || user.vai_tro === "QC") return true;
   if (user.vai_tro === "Giam sat") return !!khuVucCa && user.khu_vuc_phu_trach.includes(khuVucCa);
   return false;
 }
@@ -122,10 +138,11 @@ export function canEditTienTrinhMeta(c: Context<{ Bindings: Env }>): boolean {
  * TBP DVBH/Admin sau khi Giam sat da ban giao ("Giam sat chuyen CSKH") - Giam sat van XEM duoc (van
  * trong scope khu_vuc) nhung khong duoc ghi them log trong giai doan nay nua. Them 2026-08-20 sau khi
  * phat hien Giam sat van co the ghi ca trang thai rieng cua CSKH (canWriteTranhChap chi kiem tra
- * khu_vuc, khong kiem tra giai doan). */
+ * khu_vuc, khong kiem tra giai doan). Them QC 2026-08-25 - khop voi canWriteTranhChap() (QC duoc ghi
+ * log toan bo, gom ca giai doan CSKH). */
 export function canWriteCskhPhase(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
-  return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
+  return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin" || user.vai_tro === "QC";
 }
 
 export interface GiamSatInfo {

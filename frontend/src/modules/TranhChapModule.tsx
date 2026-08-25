@@ -50,6 +50,7 @@ interface TienTrinhStats {
   cskhDangXuLy: number;
   quaHan: number;
   sapDenHan: number;
+  quaHanCapNhat: number;
 }
 
 interface TranhChapImportSummary {
@@ -60,7 +61,7 @@ interface TranhChapImportSummary {
 
 const VIEWS = [
   { key: "cho-xu-ly", label: "Chờ xử lý" },
-  { key: "doi-may", label: "Đòi đổi máy" },
+  { key: "doi-may", label: "KN đổi máy" },
   { key: "cho-xac-nhan-ai", label: "Chờ xác nhận AI" },
   { key: "tien-trinh", label: "Quản lý tiến trình" },
 ];
@@ -114,6 +115,39 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
   const [aiIdSearch, setAiIdSearch] = useState("");
   const [confirmingAiCase, setConfirmingAiCase] = useState<{ id: string; ketQua: "dung" | "khong_phai" } | null>(null);
 
+  // CHOT 2026-08-22: badge do "(x)" tren tab "Cho xac nhan AI" - KHONG gate theo "view" (phai hien so
+  // ngay ca khi dang o tab khac) nhung van re dung endpoint dem rieng, tan dung idx_case_nghi_ngo_
+  // tranh_chap_2 (migration 0096) + cachedReport, khong quet toan bo case_dvbh (xem computeChoXacNhanAiCount
+  // o backend/src/routes/tranhChap.ts).
+  const { data: choXacNhanAiCountData } = useQuery({
+    queryKey: ["tranh-chap-cho-xac-nhan-ai-count"],
+    queryFn: () => api.get<{ count: number }>("/tranh-chap/cho-xac-nhan-ai/count"),
+  });
+
+  // CHOT 2026-08-22: badge "(x)" cho 2 tab "KN đổi máy" va "Cho xu ly" - THEO YEU CAU NGUOI DUNG,
+  // KHONG them endpoint/logic backend moi (khac tab "Cho xac nhan AI" o tren) - chi goi lai 2 API SAN
+  // CO tu truoc (da co index + cachedReport rieng), tach khoi "enabled: view === ..." de luon fetch du
+  // dang o tab nao. "dmStats" doc lai chinh xac cung 1 query voi tab "KN doi may" ben duoi (React Query
+  // dung chung cache theo queryKey, khong ton them request khi nguoi dung mo tab do). "choXuLyBadge" goi
+  // /cho-xu-ly voi pageSize=1, KHONG truyen khu_vuc/tinh/nhom_kh/thang (bo qua bo loc dang ap dung tren
+  // UI) de lay tong so TOAN BO (trong pham vi quyen xem) on dinh, khong nhay theo bo loc nguoi dung dang
+  // chinh o tab khac.
+  const { data: dmStats } = useQuery({
+    queryKey: ["tranh-chap-doi-may-stats"],
+    queryFn: () => api.get<TienTrinhStats>(`/tranh-chap/tien-trinh/stats${buildQuery({ phan_loai: DOI_MAY_PHAN_LOAI })}`),
+  });
+  const { data: choXuLyBadge } = useQuery({
+    queryKey: ["tranh-chap-cho-xu-ly-badge"],
+    queryFn: () => api.get<{ unfilteredTotal: number }>(`/tranh-chap/cho-xu-ly${buildQuery({ page: 1, pageSize: 1 })}`),
+  });
+
+  const viewsWithCount = VIEWS.map((v) => {
+    if (v.key === "cho-xac-nhan-ai") return { ...v, count: choXacNhanAiCountData?.count };
+    if (v.key === "doi-may") return { ...v, count: dmStats?.dangMo };
+    if (v.key === "cho-xu-ly") return { ...v, count: choXuLyBadge?.unfilteredTotal };
+    return v;
+  });
+
   const { data: aiData, isLoading: aiLoading, isError: aiError, refetch: refetchAi } = useQuery({
     queryKey: ["tranh-chap-cho-xac-nhan-ai", aiPage, aiKhuVuc, aiTinh, aiNhomKh, thangFilter, aiIdSearch],
     queryFn: () =>
@@ -129,6 +163,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
       addToast(variables.ketQua === "dung" ? "Đã xác nhận: Đúng là tranh chấp — ca sẽ chuyển sang \"Chờ xử lý\"." : "Đã xác nhận: Không phải tranh chấp.");
       setConfirmingAiCase(null);
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
     },
     onError: (err) => {
@@ -386,6 +421,8 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
       qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-stats"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
       setView("tien-trinh");
     },
     onError: (err) => addToast(describeTranhChapError(err, "Không thể tiếp nhận, thử lại sau.")),
@@ -566,6 +603,27 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
       },
     },
     { key: "so_ngay_ton", header: "Số ngày tồn", render: (r) => <span className="font-mono">{r.so_ngay_ton}</span> },
+    {
+      key: "canh_bao_cap_nhat",
+      header: "Cảnh báo",
+      render: (r) => {
+        const isDong = r.trang_thai_xu_ly ? TRANG_THAI_DONG.includes(r.trang_thai_xu_ly) : false;
+        if (isDong || !r.log_created_at) return <span className="text-[var(--ink-400)] text-xs italic">—</span>;
+        // "log_created_at" la cot audit RAW UTC (khac cac cot VN-local con lai) - parse THANG nhu UTC
+        // ("Z"), KHONG dung parseDbDateTime() (ham do gia dinh +07:00) de tranh lech ~7h (xem chu thich
+        // trong tranhChapShared.ts).
+        const logCreatedAtUtc = new Date(r.log_created_at.replace(" ", "T") + "Z");
+        const soNgayQuaHanCapNhat = Math.floor((Date.now() - logCreatedAtUtc.getTime()) / 86400000);
+        if (soNgayQuaHanCapNhat < 3) return <span className="text-[var(--ink-400)] text-xs italic">—</span>;
+        const nguoiPhuTrach = r.dang_cho_nguoi_xu_ly || r.nguoi_xu_ly;
+        return (
+          <div>
+            <Badge tone="coral">⚠ Chờ cập nhật {soNgayQuaHanCapNhat}d</Badge>
+            {nguoiPhuTrach && <div className="text-[10px] text-[var(--ink-400)] mt-0.5">{formatPersonDisplay(nguoiPhuTrach, personDir)}</div>}
+          </div>
+        );
+      },
+    },
   ];
 
   // ---------- Tab "Đòi đổi máy" (CHOT 2026-08-21) - view loc CO DINH theo DOI_MAY_PHAN_LOAI cua tab
@@ -599,12 +657,6 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     setDmHan("");
     setDmPage(1);
   };
-
-  const { data: dmStats } = useQuery({
-    queryKey: ["tranh-chap-doi-may-stats"],
-    queryFn: () => api.get<TienTrinhStats>(`/tranh-chap/tien-trinh/stats${buildQuery({ phan_loai: DOI_MAY_PHAN_LOAI })}`),
-    enabled: view === "doi-may",
-  });
 
   const { data: dmData, isLoading: dmLoading, isError: dmError, refetch: refetchDm } = useQuery({
     queryKey: ["tranh-chap-doi-may-tien-trinh", dmPage, dmKhuVuc, dmTinh, dmNhomKh, dmTrangThai, dmHan, dmIdSearch, dmNguoiDangXuLy, dmLoaiDangXuLy],
@@ -645,7 +697,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
 
   return (
     <div className="anim-in">
-      <Tabs active={view} onChange={setView} tabs={VIEWS} />
+      <Tabs active={view} onChange={setView} tabs={viewsWithCount} />
 
       {view === "cho-xu-ly" ? (
         <div className="mt-4">
@@ -1249,6 +1301,17 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
               onClick={() => resetTtFilterTo({ han: "sap-den-han" })}
             />
             <StatCard label="Quá hạn chưa đóng" value={ttStats?.quaHan ?? 0} tone="coral" active={ttHan === "qua-han"} onClick={() => resetTtFilterTo({ han: "qua-han" })} />
+            {/* CHOT 2026-08-22: "Qua han cap nhat" - ca dang MO nhung >=3 ngay chua co log moi (khac
+                "Qua han chua dong" la han thoi_gian_du_kien_xong tu chon). Khong co onClick/active vi
+                KHONG co bo loc server-side tuong ung (chi so lieu tong tu /tien-trinh/stats - xem cot
+                canh bao rieng tung dong trong bang ben duoi de xem chi tiet ca nao). */}
+            <StatCard
+              label="⚠ Quá hạn cập nhật (≥3 ngày)"
+              value={ttStats?.quaHanCapNhat ?? 0}
+              tone="coral"
+              active={ttHan === "qua-han-cap-nhat"}
+              onClick={() => resetTtFilterTo({ han: "qua-han-cap-nhat" })}
+            />
           </div>
 
           <PaginatedTable

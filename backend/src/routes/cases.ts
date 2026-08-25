@@ -592,11 +592,13 @@ cases.get("/", async (c) => {
   // khong thuoc 4 trang thai dong TRANH_CHAP_TRANG_THAI_DONG), nguoc lai la NULL ("khong ap dung").
   const tranhChapDongList = TRANH_CHAP_TRANG_THAI_DONG.map((s) => `'${s}'`).join(", ");
   const latestTienTrinhNgayTaoExpr = `(SELECT tt.ngay_tao FROM tranh_chap_tien_trinh tt WHERE tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE})`;
+  const latestTienTrinhPhanLoaiExpr = `(SELECT tt.phan_loai_tranh_chap FROM tranh_chap_tien_trinh tt WHERE tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE})`;
   const baseQuery = `
     SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
            lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh, lg.noi_dung as last_noi_dung_giai_trinh,
            lg.linh_kien_thieu as last_ma_linh_kien_thieu, lg.ma_xuat_hang_lien_quan as last_ma_xuat_hang_lien_quan,
            ${CASE_TRANH_CHAP_STATUS_EXPR} as last_tranh_chap_trang_thai,
+           ${latestTienTrinhPhanLoaiExpr} as last_phan_loai_tranh_chap,
            (CASE WHEN ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN ('Chua xu ly', ${tranhChapDongList}) THEN ${ageExpr(latestTienTrinhNgayTaoExpr)} ELSE NULL END) as tranh_chap_so_ngay_ton,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.lo_ke_hoach} THEN 1 ELSE 0 END) as need_lo_ke_hoach,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.tai_giai_trinh} THEN 1 ELSE 0 END) as need_tai_giai_trinh,

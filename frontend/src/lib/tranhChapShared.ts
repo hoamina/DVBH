@@ -40,6 +40,11 @@ export interface TienTrinhRow {
   thoi_gian_du_kien_xong: string | null;
   log_ghi_chu: string | null;
   dang_cho_nguoi_xu_ly: string | null;
+  /** Cot audit RAW UTC (SQLite DEFAULT datetime('now')) cua log MOI NHAT - KHAC cac cot nghiep vu
+   * VN-local con lai trong interface nay (ngay_xu_ly/ngay_tao dat qua nowVN()). Dung de tinh "qua han
+   * cap nhat tien trinh" o frontend (CHOT 2026-08-22) - PHAI parse nhu UTC (+"Z"), KHONG dung
+   * parseDbDateTime() (ham do gia dinh +07:00 cho cot khong co timezone). */
+  log_created_at: string;
   so_ngay_ton: number;
   giam_sat_phu_trach: GiamSatInfo[];
   // CHOT 2026-08-20: chi co gia tri khi trang_thai_xu_ly === "Giam sat chua xu ly" - Giam sat tung xu
@@ -194,13 +199,14 @@ export const HAN_OPTIONS = [
   { value: "", label: "Tất cả hạn xử lý" },
   { value: "qua-han", label: "Quá hạn" },
   { value: "sap-den-han", label: "Sắp đến hạn (≤1 ngày)" },
+  { value: "qua-han-cap-nhat", label: "Quá hạn cập nhật (≥3 ngày)" },
 ];
 
 /** Khop voi canWriteTranhChap() trong backend/src/lib/tranhChapTienTrinh.ts - chi dung de AN/HIEN
  * nut thao tac cho gon giao dien, backend van la noi kiem tra thuc su. */
 export function canWriteTranhChap(user: AppUser, khuVucCa: string | null): boolean {
   if (user.la_ksnb_doi_tac) return true;
-  if (user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin") return true;
+  if (user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin" || user.vai_tro === "QC") return true;
   if (user.vai_tro === "Giam sat") return !!khuVucCa && user.khu_vuc_phu_trach.includes(khuVucCa);
   return false;
 }
@@ -214,7 +220,7 @@ export function canEditTienTrinhMeta(user: AppUser): boolean {
 /** Khop voi canWriteCskhPhase() trong backend - dung AN/HIEN nut "+ Them log" khi tien trinh dang o
  * giai doan CSKH (Giam sat khu vuc van XEM duoc nhung khong duoc ghi them nua). */
 export function canWriteCskhPhase(user: AppUser): boolean {
-  return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin";
+  return !!user.la_ksnb_doi_tac || user.vai_tro === "TBP DVBH" || user.vai_tro === "Admin" || user.vai_tro === "QC";
 }
 
 /** Khop voi canConfirmAiTranhChap() trong backend - dung AN/HIEN 2 nut "Dung la tranh chap"/"Khong
