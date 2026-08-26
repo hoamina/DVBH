@@ -1290,10 +1290,11 @@ export function BacklogModule({
   }
 
   const columns: Column<CaseRow>[] = [
-    { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
+    { key: "id", header: "ID", sortKey: "id", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
       key: "khach_hang",
       header: "Khách hàng",
+      sortKey: "khach_hang",
       render: (c) => (
         <>
           {isVipKh(c.nhom_kh) && <VipBadge />}
@@ -1301,17 +1302,19 @@ export function BacklogModule({
         </>
       ),
     },
-    { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
+    { key: "ky_thuat_vien", header: "Kỹ thuật viên", sortKey: "ky_thuat_vien", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     { key: "tiep_nhan", header: "Tiếp nhận", sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
-    { key: "du_kien", header: "Dự kiến HT", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
+    { key: "du_kien", header: "Dự kiến HT", sortKey: "last_ngay_du_kien_hoan_thanh", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
     {
       key: "ly_do",
       header: "Lý do tồn gần nhất",
+      sortKey: "last_ly_do_cham",
       render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>),
     },
     {
       key: "last_tranh_chap_trang_thai",
       header: "Tiến độ TC",
+      sortKey: "last_tranh_chap_trang_thai",
       render: (c) =>
         c.last_tranh_chap_trang_thai && c.last_tranh_chap_trang_thai !== "Chua xu ly" ? (
           <div className="space-y-0.5">
@@ -1325,6 +1328,7 @@ export function BacklogModule({
     {
       key: "tranh_chap_so_ngay_ton",
       header: "Tuổi TC",
+      sortKey: "tranh_chap_so_ngay_ton",
       render: (c) =>
         c.tranh_chap_so_ngay_ton != null ? (
           <Pill tone={c.tranh_chap_so_ngay_ton > 5 ? "coral" : c.tranh_chap_so_ngay_ton > 3 ? "amber" : "gray"}>{c.tranh_chap_so_ngay_ton} ngày</Pill>
@@ -1353,6 +1357,7 @@ export function BacklogModule({
     {
       key: "tuoi_ton",
       header: "Tuổi tồn",
+      sortKey: "tuoi_ton",
       render: (c) =>
         c.tuoi_ton != null ? (
           <Pill tone={c.tuoi_ton > 14 ? "coral" : c.tuoi_ton > 3 ? "amber" : "gray"}>{c.tuoi_ton} ngày</Pill>
@@ -1360,7 +1365,7 @@ export function BacklogModule({
           <span className="text-[var(--ink-400)] text-xs">—</span>
         ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "khu_vuc", header: "Khu vực", sortKey: "khu_vuc", render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem / giải trình →</span> },
   ];
 

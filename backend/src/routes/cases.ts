@@ -64,8 +64,6 @@ cases.use("*", verifySessionMiddleware, loadUser, async (c, next) => {
   await next();
 });
 
-const SORTABLE_COLUMNS = new Set(["id", "khach_hang", "khu_vuc", "thoi_gian_cskh_tiep_nhan", "ngay_import"]);
-
 const TAB_FILTERS: Record<string, string> = {
   "da-giai-trinh": "lg.case_id IS NOT NULL",
   "da-giai-trinh-trong-ngay": "lg.case_id IS NOT NULL AND lg.ngay_giai_trinh >= date(datetime('now', '+7 hours'))",
@@ -417,7 +415,6 @@ cases.get("/", async (c) => {
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const sortByRaw = c.req.query("sortBy") ?? "id";
-  const sortBy = SORTABLE_COLUMNS.has(sortByRaw) ? sortByRaw : "id";
   const sortDir = c.req.query("sortDir") === "asc" ? "ASC" : "DESC";
 
   let tabFilter: string | null = null;
@@ -593,6 +590,26 @@ cases.get("/", async (c) => {
   const tranhChapDongList = TRANH_CHAP_TRANG_THAI_DONG.map((s) => `'${s}'`).join(", ");
   const latestTienTrinhNgayTaoExpr = `(SELECT tt.ngay_tao FROM tranh_chap_tien_trinh tt WHERE tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE})`;
   const latestTienTrinhPhanLoaiExpr = `(SELECT tt.phan_loai_tranh_chap FROM tranh_chap_tien_trinh tt WHERE tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE})`;
+
+  // Sort "Danh sach chi tiet" (BacklogModule.tsx, them 2026-08-22) - moi key la 1 bieu thuc SQL, tai
+  // dung DUNG cac bieu thuc da tinh o tren (AGE_EXPR/CASE_TRANH_CHAP_STATUS_EXPR/...) de gia tri sort
+  // luon khop voi gia tri dang hien thi tren cot, khong tinh lai rieng. sortByRaw noi truc tiep vao
+  // chuoi SQL (khong bind duoc ten cot qua parameter) nen BAT BUOC di qua whitelist nay, khong duoc
+  // dung truc tiep gia tri tu query string.
+  const SORT_EXPR: Record<string, string> = {
+    id: "c.id",
+    khach_hang: "c.khach_hang",
+    ky_thuat_vien: "c.ky_thuat_vien",
+    khu_vuc: "c.khu_vuc",
+    thoi_gian_cskh_tiep_nhan: "c.thoi_gian_cskh_tiep_nhan",
+    ngay_import: "c.ngay_import",
+    last_ngay_du_kien_hoan_thanh: "lg.ngay_du_kien_hoan_thanh",
+    last_ly_do_cham: "lg.ly_do_cham",
+    last_tranh_chap_trang_thai: CASE_TRANH_CHAP_STATUS_EXPR,
+    tranh_chap_so_ngay_ton: `(CASE WHEN ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN ('Chua xu ly', ${tranhChapDongList}) THEN ${ageExpr(latestTienTrinhNgayTaoExpr)} ELSE NULL END)`,
+    tuoi_ton: AGE_EXPR,
+  };
+  const sortExpr = SORT_EXPR[sortByRaw] ?? SORT_EXPR.id;
   const baseQuery = `
     SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
            lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh, lg.noi_dung as last_noi_dung_giai_trinh,
@@ -613,7 +630,7 @@ cases.get("/", async (c) => {
     FROM case_dvbh c
     ${join}
     ${whereSql}
-    ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.${sortBy} ${sortDir}
+    ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), ${sortExpr} ${sortDir}
   `;
 
   if (isExport) {
