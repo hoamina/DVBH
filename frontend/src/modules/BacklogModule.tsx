@@ -1026,11 +1026,11 @@ export function BacklogModule({
   // tren man hinh.
   const trendExportRows = useMemo(() => {
     const rowToExport = (khuVuc: string, dayLookup: (day: string) => { can: number; da: number } | undefined) => {
-      const out: Record<string, string | number> = { "Khu vuc": khuVuc };
+      const out: Record<string, string | number> = { "Khu vực": khuVuc };
       for (const day of trendDays) {
         const found = dayLookup(day);
-        out[`${fmtDayShort(day)} - Da GT`] = found?.da ?? 0;
-        out[`${fmtDayShort(day)} - Can GT`] = found?.can ?? 0;
+        out[`${fmtDayShort(day)} - Đã GT`] = found?.da ?? 0;
+        out[`${fmtDayShort(day)} - Cần GT`] = found?.can ?? 0;
       }
       return out;
     };

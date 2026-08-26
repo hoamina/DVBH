@@ -38,6 +38,7 @@ const SURVEY_EXPORT_LABELS: Record<string, string> = {
   need_loi_qua_han_24h: "Nghi ngờ hẹn quá 24h",
   need_loi_lo_ke_hoach: "Nghi ngờ lỡ kế hoạch",
   need_loi_kh_hen_lai: "Nghi ngờ KH hẹn lại",
+  trang_thai_goi: "Trạng thái gọi",
   loai_khao_sat: "Loại khảo sát",
   doi_tuong_lien_he: "Đối tượng liên hệ",
   ket_qua_cuoc_goi: "Kết quả cuộc gọi",
@@ -1674,7 +1675,7 @@ function BulkAssignModal({
   const qc = useQueryClient();
 
   async function handleDownload() {
-    await exportRowsToExcel(canKhaoSatRows, "can_khao_sat_gan_cskh.xlsx");
+    await exportRowsToExcel(canKhaoSatRows, "can_khao_sat_gan_cskh.xlsx", "Data", SURVEY_EXPORT_LABELS);
   }
 
   const previewMutation = useMutation({
