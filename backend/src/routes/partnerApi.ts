@@ -212,16 +212,33 @@ partnerApi.get("/cases", async (c) => {
   });
 });
 
+// Tap field tra ve cho /case-lookup - chot cung doi tac "Dat mua linh kien" 2026-08-26, xem
+// DANH_SACH_FIELD_UNG_VIEN_API_DOI_TAC.md (doi tac da tu chon giu ca dt_san_pham/dt_linh_kien/
+// dt_dich_vu va ly_do_qua_han sau khi duoc canh bao day la du lieu tai chinh/noi bo - quyet dinh
+// nghiep vu, khong phai bo sot).
+const CASE_LOOKUP_COLUMNS = [
+  "ky_thuat_vien", "khach_hang", "seri_san_pham", "khu_vuc", "tinh", "quan_huyen", "hang",
+  "san_pham_bao_hanh", "tien_do_hoan_thanh", "mo_ta_loi", "nhom_san_pham", "nhom_yeu_cau",
+  "loai_yeu_cau", "hinh_thuc_bao_hanh", "ngay_mua", "thoi_gian_cskh_tiep_nhan",
+  "thoi_gian_hen_xu_ly", "thoi_gian_hoan_thanh", "doi_tac", "link_crm", "noi_dung_xu_ly",
+  "luu_y_loi_linh_kien", "cach_thuc_xu_ly", "nganh", "loai_nganh", "nhom_kh",
+  "dt_san_pham", "dt_linh_kien", "dt_dich_vu", "ly_do_qua_han",
+] as const;
+type CaseLookupRow = Record<(typeof CASE_LOOKUP_COLUMNS)[number], string | number | null>;
+
 // GET /api/partner/case-lookup?id=... - tra cuu 1 case theo ID, CHI phuc vu he thong doc lap moi
 // "Dat mua linh kien" (tach ra thanh 1 he Cloudflare rieng 2026-08-19 - xem
 // "Luồng tạo đơn mua hàng/CLAUDE.md" muc "Nguồn gốc tách hệ thống"). Day la diem noi DUY NHAT giua 2
-// he: he moi CHI goi endpoint nay (tra cuu theo ID, khong ghi gi ca). Tra ve dung tap field da chon
-// loc nhu GET /api/dat-mua-lk/kiem-tra-ma-yeu-cau hien co (khong co du lieu tai chinh/nhay cam) -
-// dung khoa xac thuc rieng (X-API-Key thay vi session) vi ben goi la 1 he thong khac, khong co nguoi
-// dang nhap. KHONG ap dung rate-limit 30/ngay+60s cua "/cases" o tren (thiet ke cho export hang loat
-// dinh ky) - endpoint nay phuc vu tra cuu TUNG BAN GHI theo thoi gian thuc (nguoi dung go ID, debounce
-// 500ms; hoac xem chi tiet 1 don hang co nhieu case lien ket), chi dua vao lop chan chung o middleware
-// "*" phia tren (60 req/phut/IP qua Cache API) - du cho muc dich nay.
+// he: he moi CHI goi endpoint nay (tra cuu theo ID, khong ghi gi ca). Tra ve tap field CASE_LOOKUP_
+// COLUMNS o tren - dung khoa xac thuc rieng (X-API-Key thay vi session) vi ben goi la 1 he thong
+// khac, khong co nguoi dang nhap. KHONG ap dung rate-limit 30/ngay+60s cua "/cases" o tren (thiet
+// ke cho export hang loat dinh ky) - endpoint nay phuc vu tra cuu TUNG BAN GHI theo thoi gian thuc
+// (nguoi dung go ID, debounce 500ms). Ngoai lop chan IP chung o middleware "*" (60 req/phut/IP qua
+// Cache API), them 1 lop rate-limit rieng theo tung API key (200 req/phut) qua Cache API (khong ghi
+// D1 - tranh ton quota rows_written cho luu luong tra cuu tan suat cao) de gioi han thiet hai neu
+// 1 key bi lo/bi do quet ma khong anh huong cac doi tac/KTV khac dang dung chung IP egress.
+const CASE_LOOKUP_KEY_LIMIT_PER_MIN = 200;
+
 partnerApi.get("/case-lookup", async (c) => {
   const apiKey = c.req.header("X-API-Key")!;
   const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
@@ -238,35 +255,49 @@ partnerApi.get("/case-lookup", async (c) => {
     return c.json({ error: "INVALID_API_KEY" }, 401);
   }
 
+  const cache = caches.default;
+  const keyLimitCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-lookup-key-limit/${keyRow.id}`);
+  const cachedKeyLimit = await cache.match(keyLimitCacheKey);
+  if (cachedKeyLimit) {
+    const data = (await cachedKeyLimit.json()) as { count: number; exp: number };
+    if (data.count > CASE_LOOKUP_KEY_LIMIT_PER_MIN) {
+      return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+    }
+    data.count++;
+    c.executionCtx.waitUntil(
+      cache.put(
+        keyLimitCacheKey,
+        new Response(JSON.stringify(data), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": `max-age=${Math.max(1, Math.round((data.exp - Date.now()) / 1000))}`,
+          },
+        })
+      )
+    );
+  } else {
+    const exp = Date.now() + 60_000;
+    c.executionCtx.waitUntil(
+      cache.put(
+        keyLimitCacheKey,
+        new Response(JSON.stringify({ count: 1, exp }), {
+          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=60" },
+        })
+      )
+    );
+  }
+
   const id = c.req.query("id")?.trim();
   if (!id) return c.json({ found: false, preview: null });
 
   const caseRow = await c.env.DB.prepare(
-    `SELECT ky_thuat_vien, khach_hang, seri_san_pham, khu_vuc, tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh
-     FROM case_dvbh WHERE id = ?`,
+    `SELECT ${CASE_LOOKUP_COLUMNS.join(", ")} FROM case_dvbh WHERE id = ?`,
   )
     .bind(id)
-    .first<{
-      ky_thuat_vien: string | null; khach_hang: string | null; seri_san_pham: string | null; khu_vuc: string | null;
-      tinh: string | null; quan_huyen: string | null; hang: string | null; san_pham_bao_hanh: string | null;
-      tien_do_hoan_thanh: string | null;
-    }>();
+    .first<CaseLookupRow>();
   if (!caseRow) return c.json({ found: false, preview: null });
 
-  return c.json({
-    found: true,
-    preview: {
-      khach_hang: caseRow.khach_hang,
-      seri_san_pham: caseRow.seri_san_pham,
-      khu_vuc: caseRow.khu_vuc,
-      tinh: caseRow.tinh,
-      quan_huyen: caseRow.quan_huyen,
-      hang: caseRow.hang,
-      san_pham_bao_hanh: caseRow.san_pham_bao_hanh,
-      tien_do_hoan_thanh: caseRow.tien_do_hoan_thanh,
-      ky_thuat_vien: caseRow.ky_thuat_vien,
-    },
-  });
+  return c.json({ found: true, preview: caseRow });
 });
 
 export default partnerApi;
