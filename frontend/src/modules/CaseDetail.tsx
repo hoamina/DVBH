@@ -100,7 +100,13 @@ function parseFlexibleDbDate(v: string) {
 // Phan "chi doc" cua thong tin khach hang (fields grid + 3 Card) - dung chung cho ca goc (cot trai,
 // co them nut hanh dong bao quanh o noi goi) va ca doi chieu (cot giua, thuan tham khao, khong nut
 // hanh dong). "serialExtra" la phan tu dat canh Serial (nut them Blacklist hoac badge da blacklist).
-function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlacklisted?: boolean, canEditKtvPhone?: boolean) {
+function renderCaseFieldsGrid(
+  c: CaseRow,
+  serialExtra?: ReactNode,
+  serialBlacklisted?: boolean,
+  canEditKtvPhone?: boolean,
+  onSerialClick?: () => void,
+) {
   return (
     <>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">
@@ -109,7 +115,20 @@ function renderCaseFieldsGrid(c: CaseRow, serialExtra?: ReactNode, serialBlackli
           label="Serial"
           value={
             <span className="flex items-center gap-2">
-              <span className={`font-mono ${serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""}`}>{c.seri_san_pham ?? "—"}</span>
+              {c.seri_san_pham && onSerialClick ? (
+                <button
+                  type="button"
+                  onClick={onSerialClick}
+                  title="Xem các ca trùng serial này"
+                  className={`font-mono underline decoration-dotted underline-offset-2 hover:text-[var(--ocean-600)] focus-ring rounded ${
+                    serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""
+                  }`}
+                >
+                  {c.seri_san_pham}
+                </button>
+              ) : (
+                <span className={`font-mono ${serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""}`}>{c.seri_san_pham ?? "—"}</span>
+              )}
               {serialExtra}
             </span>
           }
@@ -409,6 +428,11 @@ export function CaseDetail({
   const [detailModalRow, setDetailModalRow] = useState<{ title: string; raw: Record<string, string> } | null>(null);
   const [huyCaConfirmOpen, setHuyCaConfirmOpen] = useState(false);
   const [huyCaLyDo, setHuyCaLyDo] = useState("");
+  // Popup "Cac ca trung serial" (bam vao gia tri Serial o luoi thong tin khach hang) - tai su dung
+  // NGUYEN caLap.lichSu da fetch san cung ca chi tiet (khong goi them API), nguyen ly giong "Chuoi
+  // lich su theo serial" o tab Ca lap nhung mo duoc tu BAT KY dau co hien Serial (ke ca cot doi
+  // chieu) va KHONG gioi han theo nguong 45 ngay - lichSu von da la TOAN BO ca cung seri_san_pham.
+  const [serialHistorySource, setSerialHistorySource] = useState<null | "root" | "compare">(null);
 
   const activeLyDo = (lyDoData?.rows ?? []).filter((l) => l.bat_tat);
   const activeLinhKien = (linhKienData?.rows ?? []).filter((l) => l.bat_tat);
@@ -439,6 +463,7 @@ export function CaseDetail({
     setEvalRowCaseId(null);
     setBlacklistConfirmOpen(false);
     setCompareId(null);
+    setSerialHistorySource(null);
   }, [caseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mo modal giai trinh, tu dong dien lai theo lan giai trinh gan nhat de giam go lai noi dung
@@ -516,6 +541,12 @@ export function CaseDetail({
 
   const c = data?.case;
   const caLap = data?.caLap;
+
+  // Danh sach + tieu de cho popup "Cac ca trung serial" (xem state serialHistorySource o tren) -
+  // nguon la caLap.lichSu cua BEN dang mo popup (goc hay doi chieu), khong fetch them API nao.
+  const serialHistoryRows = serialHistorySource === "root" ? caLap?.lichSu ?? [] : serialHistorySource === "compare" ? compareData?.caLap.lichSu ?? [] : [];
+  const serialHistorySeri = serialHistorySource === "root" ? c?.seri_san_pham : serialHistorySource === "compare" ? compareC?.seri_san_pham : null;
+  const serialHistoryActiveId = serialHistorySource === "root" ? caseId : serialHistorySource === "compare" ? compareId : null;
 
   // Doi chieu "Don mua hang/bao hanh/xu ly thieu hang lien quan" - du lieu 3 Google Sheet da dong
   // bo NGAM ve cache trinh duyet (xem hooks/usePurchaseWarrantyData.ts, kich hoat tu App.tsx),
@@ -1060,6 +1091,7 @@ export function CaseDetail({
         ),
         caLap?.serialBlacklisted,
         !!currentUser?.vai_tro && KTV_PHONE_EDIT_ROLES.includes(currentUser.vai_tro),
+        caLap?.lichSu.length ? () => setSerialHistorySource("root") : undefined,
       )}
     </>
   );
@@ -1087,6 +1119,8 @@ export function CaseDetail({
             compareC,
             compareData?.caLap.serialBlacklisted ? <Badge tone="gray">🚫 Đã blacklist</Badge> : undefined,
             compareData?.caLap.serialBlacklisted,
+            undefined,
+            compareData?.caLap.lichSu.length ? () => setSerialHistorySource("compare") : undefined,
           )}
         </>
       )}
@@ -2042,6 +2076,47 @@ export function CaseDetail({
             <Btn onClick={() => addBlacklist.mutate()} disabled={addBlacklist.isPending}>
               {addBlacklist.isPending ? "Đang thêm…" : "Xác nhận thêm"}
             </Btn>
+          </div>
+        </Modal>
+      )}
+
+      {serialHistorySource && (
+        <Modal open onClose={() => setSerialHistorySource(null)} title={`Các ca trùng serial ${serialHistorySeri ?? ""}`} width="max-w-lg">
+          <div className="text-xs text-[var(--ink-400)] italic mb-3">{serialHistoryRows.length} ca cùng serial này, mới nhất trên đầu — bấm vào 1 ca để mở chi tiết ca đó.</div>
+          <div className="space-y-1.5">
+            {serialHistoryRows.map((h) => {
+              const isActive = h.id === serialHistoryActiveId;
+              return (
+                <div
+                  key={h.id}
+                  onClick={() => {
+                    if (isActive) return;
+                    onOpenCase(h.id);
+                    setSerialHistorySource(null);
+                  }}
+                  className={`flex items-start gap-2 py-1.5 px-2 rounded-lg border ${
+                    isActive ? "border-[var(--coral-500)] bg-[var(--coral-100)] cursor-default" : "border-[var(--line)] cursor-pointer hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isActive ? "bg-[var(--coral-500)]" : "bg-[var(--teal-500)]"}`}></span>
+                  <div className="flex-1 min-w-0 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold font-mono">
+                        {isActive && <Badge tone="coral">📍 Ca đang xem</Badge>}{" "}
+                        {h.id}
+                      </span>
+                      {h.huy_bo_at && <Badge tone="gray">🚫 Đã hủy</Badge>}
+                    </div>
+                    <div className="text-xs text-[var(--ink-400)]">
+                      Tiếp nhận {fmtDateTime(h.thoi_gian_cskh_tiep_nhan)} · Hoàn thành {fmtDateTime(h.thoi_gian_hoan_thanh)}
+                    </div>
+                    <div className="text-xs text-[var(--ink-600)]">
+                      KTV {h.ky_thuat_vien ?? "—"} · {h.tien_do_hoan_thanh ?? "—"}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Modal>
       )}
