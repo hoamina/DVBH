@@ -75,13 +75,42 @@ NGAY LÚC IMPORT — client không bao giờ nhận giá trị thô, chỉ nhậ
 `case_dvbh.link_hinh_anh` dạng JSON array string, theo đúng quy ước `TEXT[]→JSON text` của D1).
 Hiển thị dạng gallery ảnh (grid + lightbox) trong Chi tiết ca, mục "Thông tin xử lý".
 
-### 4.8. Múi giờ hiển thị (sửa bug 2026-07-22)
-Mọi timestamp hệ thống tự sinh (`ngay_import`, `ngay_giai_trinh`, `ngay_chot`...) lưu theo UTC
-(`datetime('now')` của SQLite, `new Date().toISOString()` của JS đều là UTC) — đây là quy ước có
-chủ đích (xem `backend/src/lib/ageCalc.ts`), KHÔNG phải bug lưu sai giờ. Frontend phải luôn cộng
-+7 khi hiển thị/so sánh (`parseDbDateTime()` trong `frontend/src/types.ts`, ép chuỗi là UTC rồi
-format theo `timeZone: "Asia/Ho_Chi_Minh"`) — trước 2026-07-22 bước cộng +7 này bị thiếu, khiến
-mọi giờ hiển thị chậm hơn thực tế 7 tiếng.
+### 4.8. Múi giờ hiển thị (CẬP NHẬT 2026-08-27 — quy ước đã đổi từ mô tả gốc 2026-07-22 bên dưới)
+
+**Quy ước HIỆN TẠI (chốt, áp dụng cho MỌI cột thời gian trong toàn hệ thống — không phân biệt
+nguồn gốc):** lưu giờ **VN địa phương (UTC+7)** dạng chuỗi `"YYYY-MM-DD HH:MM:SS"`, hiển thị/so
+sánh trực tiếp KHÔNG quy đổi timezone. Áp dụng cho cả 2 nhóm:
+- Cột hệ thống tự sinh khi ghi từ code JS (`created_at`, `ngay_giai_trinh`, `ngay_chot`,
+  `ngay_import`...): dùng `nowVN()` (`backend/src/lib/vnTime.ts`) thay vì `new Date().toISOString()`
+  (hàm đó trả UTC thật — KHÔNG được dùng cho các cột này).
+- Cột dữ liệu nhập từ Excel/Sheet/CRM (`thoi_gian_cskh_tiep_nhan`...): giữ nguyên giờ VN như import,
+  không quy đổi (xem `ratchet.ts businessFieldValue`, `ageCalc.ts AGE_ANCHOR`).
+
+Frontend đọc bằng `parseDbDateTime()`/`fmtDateTime()` (`frontend/src/types.ts`) — hàm này giả định
+chuỗi đầu vào ĐÃ LÀ giờ VN (thêm hậu tố `+07:00` nếu chuỗi chưa có timezone), KHÔNG cộng thêm +7.
+
+**Ngoại lệ có chủ đích, PHẢI biết trước khi thêm cột mới:** `tranh_chap_log.created_at` (migration
+0098, cột audit nội bộ, ghi qua `nowUtcSqlite()`) là UTC THẬT — dùng riêng để so sánh trực tiếp với
+`datetime('now')` trong SQL (tính "quá hạn cập nhật"), KHÔNG dùng `parseDbDateTime()` khi hiển thị
+(xem cách xử lý thủ công ở `TranhChapModule.tsx` — parse thẳng bằng hậu tố `"Z"`, không qua hàm
+chung). Đây là NGOẠI LỆ DUY NHẤT đã biết — mọi cột khác đều theo quy ước VN-local ở trên.
+
+**Bug thực tế đã gặp (sửa 2026-08-27):** `tranh_chap_log_con.created_at` (migration 0092, "log con"
+trong luồng tranh chấp) có `DEFAULT (datetime('now'))` trong schema nhưng câu INSERT ban đầu KHÔNG
+truyền cột này tường minh, nên rơi vào DEFAULT = UTC thật — lệch với quy ước VN-local dùng cho mọi
+cột khác, khiến "log con" hiển thị sớm hơn thực tế 7 tiếng và sắp xếp sai trong tab "Tiến trình
+chung" (`CaseDetail.tsx`). Đã sửa: INSERT giờ truyền tường minh `nowVN()`
+(`backend/src/routes/tranhChap.ts`), và backfill dữ liệu cũ qua
+`migrations/0099_fix_tranh_chap_log_con_utc.sql` (`+7 hours` cho các dòng đã ghi trước khi sửa).
+**Bài học: khi thêm cột `TEXT DEFAULT (datetime('now'))` mới, PHẢI luôn set tường minh qua `nowVN()`
+trong câu INSERT — không được dựa vào DEFAULT của schema, vì DEFAULT đó là UTC thật, sai quy ước.**
+
+---
+
+Mô tả gốc (2026-07-22, ĐÃ LỖI THỜI — giữ lại để biết lịch sử, không áp dụng): trước đây quy ước là
+lưu UTC + cộng +7 ở frontend. Quy ước đó đã đổi sang lưu thẳng giờ VN-local như mô tả ở trên; nếu
+gặp code/tài liệu cũ còn nhắc "lưu UTC, cộng +7 khi hiển thị" cho cột hệ thống tự sinh thì đó là
+mô tả CŨ, không còn đúng — trừ ngoại lệ `tranh_chap_log.created_at` đã nêu.
 
 ## 5. Việc còn cần xác nhận / mở
 - Vai trò quản lý bảng `linh_kien`: tạm mặc định Admin only, cần xác nhận có mở thêm vai trò khác không

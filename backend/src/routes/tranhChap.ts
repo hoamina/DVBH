@@ -1019,7 +1019,13 @@ tranhChap.post("/log/:logId/log-con", async (c) => {
   if ((TRANH_CHAP_TRANG_THAI_DONG as readonly string[]).includes(log.trang_thai_xu_ly)) return c.json({ error: "TIEN_TRINH_DA_DONG" }, 409);
 
   const user = c.get("user");
-  await c.env.DB.prepare("INSERT INTO tranh_chap_log_con (tranh_chap_log_id, nguoi_ghi, noi_dung) VALUES (?, ?, ?)").bind(logId, user.email, noiDung).run();
+  // Fix 2026-08-27: truoc day INSERT khong dat created_at nen roi vao DEFAULT cua migration 0092
+  // (datetime('now') = UTC that) - LECH voi quy uoc VN-local dung cho MOI cot thoi gian khac trong
+  // he thong (nowVN(), xem lib/vnTime.ts), khien log con hien thi som hon thuc te 7 tieng va sap xep
+  // sai trong "Tien trinh chung" (CaseDetail.tsx). Dat tuong minh qua nowVN() cho dung quy uoc.
+  await c.env.DB.prepare("INSERT INTO tranh_chap_log_con (tranh_chap_log_id, nguoi_ghi, noi_dung, created_at) VALUES (?, ?, ?, ?)")
+    .bind(logId, user.email, noiDung, nowVN())
+    .run();
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
   return c.json({ ok: true }, 201);

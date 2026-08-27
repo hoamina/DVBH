@@ -3555,3 +3555,37 @@ hàng), hiện khoảng cách ngày giữa các mốc liền nhau, thêm tiêu �
 
 File sửa: `frontend/src/modules/CaseDetail.tsx`, `frontend/src/App.tsx`,
 `frontend/src/lib/purchaseWarrantySync.ts`, `SRS_tong_hop.md` (mục 6 mới).
+
+## 2026-08-27 — Bug múi giờ: "log con" tranh chấp lưu UTC thay vì VN-local
+
+Chủ hệ thống yêu cầu rà soát lại toàn bộ quy ước múi giờ sau khi nghi ngờ "log con" trong luồng
+tranh chấp đang sai múi giờ. Điều tra xác nhận đúng:
+
+- `tranh_chap_log_con.created_at` (migration 0092) có `DEFAULT (datetime('now'))` trong schema
+  nhưng câu INSERT gốc (`backend/src/routes/tranhChap.ts`, route `POST /log/:logId/log-con`) KHÔNG
+  truyền cột này tường minh — rơi vào DEFAULT = UTC thật, LỆCH với quy ước VN-local dùng cho mọi cột
+  thời gian khác trong hệ thống (`nowVN()`, xem `lib/vnTime.ts`). Hậu quả: "log con" hiển thị sớm hơn
+  thực tế 7 tiếng ở cả `TienTrinhPanel.tsx` (tab Tranh chấp) lẫn `CaseDetail.tsx` (tab "Tiến trình
+  chung", mốc `tc-logcon-*`) — cả giờ hiển thị lẫn thứ tự sắp xếp trong timeline đều sai.
+- Bonus bug phát hiện cùng lúc: `TienTrinhPanel.tsx` tính cửa sổ "còn được sửa trong 24h" từ
+  `log.created_at` (cột audit UTC thật, KHÁC `log_con`, ghi qua `nowUtcSqlite()`) — đã parse đúng
+  bằng hậu tố `"Z"` nhưng sau đó lại trừ thêm 7 tiếng thừa, khiến cửa sổ sửa thực tế dài ~31h thay vì
+  24h như thiết kế.
+- Đã sửa: INSERT `log_con` giờ truyền tường minh `nowVN()`; bỏ phép trừ 7 thừa ở `TienTrinhPanel.tsx`.
+- Migration mới `migrations/0099_fix_tranh_chap_log_con_utc.sql` — backfill `UPDATE ... SET
+  created_at = datetime(created_at, '+7 hours')` cho các dòng CŨ đã ghi sai trước khi sửa (chỉ 8 dòng
+  trên production tính đến 2026-08-27, đã áp cả local lẫn `db:migrate:smarttrade`, xác nhận qua
+  `wrangler d1 execute --remote` từng dòng khớp +7h chính xác).
+- Kiểm thử trực tiếp trên dev server: tạo 1 log con thật, đối chiếu giờ VN thực tế lúc tạo (qua
+  `Date.now()+7h`) với giá trị lưu trong D1 và giá trị `fmtDateTime()` render ra — khớp chính xác đến
+  từng giây. Đã dọn dữ liệu test khỏi DB local sau khi xác nhận.
+- Cập nhật `SRS_tong_hop.md` mục 4.8 (mô tả cũ 2026-07-22 đã lỗi thời — từng ghi "hệ thống lưu UTC,
+  frontend cộng +7", thực tế quy ước đã đổi hẳn sang lưu VN-local trực tiếp cho MỌI cột, trừ đúng 1
+  ngoại lệ có chủ đích là `tranh_chap_log.created_at`) — note rõ bài học "thêm cột `DEFAULT
+  (datetime('now'))` mới PHẢI luôn set tường minh qua `nowVN()` trong INSERT, không dựa vào DEFAULT
+  của schema" để tránh lặp lại đúng lớp bug này ở bảng khác sau này.
+- Đã chạy `npm run typecheck --workspace backend` và `--workspace frontend` sạch. Deploy production
+  v1.298 (migration 0099 áp trước deploy code, đúng thứ tự chuẩn).
+
+File sửa: `backend/src/routes/tranhChap.ts`, `frontend/src/components/TienTrinhPanel.tsx`,
+`migrations/0099_fix_tranh_chap_log_con_utc.sql` (mới), `SRS_tong_hop.md` (mục 4.8).

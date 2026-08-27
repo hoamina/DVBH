@@ -369,7 +369,10 @@ export function TienTrinhPanel({
           {logs.map((log, idx) => {
             const isLatest = idx === 0;
             const isAuthor = currentUser?.email === log.nguoi_xu_ly;
-            const hoursSince = (Date.now() - new Date(log.created_at.replace(" ", "T") + "Z").getTime()) / 3600000 - 7;
+            // Fix 2026-08-27: log.created_at la cot audit RAW UTC (nowUtcSqlite(), khac ngay_xu_ly
+            // VN-local) - da quy doi dung qua "+ Z" o tren, KHONG tru them 7 nua (tru truoc day lam
+            // cua so sua "con 24h" thanh ~31h thuc te).
+            const hoursSince = (Date.now() - new Date(log.created_at.replace(" ", "T") + "Z").getTime()) / 3600000;
             const canEdit = isLatest && isAuthor && hoursSince < 24;
             return (
               <div key={log.id} className="relative pl-4">
