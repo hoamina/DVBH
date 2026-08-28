@@ -10,8 +10,12 @@
  */
 const AGE_ANCHOR = "(date(datetime('now','+7 hours')) || ' 00:00:00')";
 
+export function ageExprAtAnchor(anchor: string, column: string): string {
+  return `CAST((julianday(${anchor}) - julianday(${column})) AS INTEGER)`;
+}
+
 export function ageExpr(column: string): string {
-  return `CAST((julianday(${AGE_ANCHOR}) - julianday(${column})) AS INTEGER)`;
+  return ageExprAtAnchor(AGE_ANCHOR, column);
 }
 
 export function ageFilterClause(column: string, tuoiTu?: string, tuoiDen?: string): { sql: string; binds: unknown[] } {

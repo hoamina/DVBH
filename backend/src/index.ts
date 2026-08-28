@@ -25,6 +25,8 @@ import lkSettingsRoutes from "./routes/lkSettings";
 import datMuaLinhKienRoutes from "./routes/datMuaLinhKien";
 import phieuXuatKhoRoutes from "./routes/phieuXuatKho";
 import traHangRoutes from "./routes/traHang";
+import backlogAgeReportRoutes from "./routes/backlogAgeReport";
+import { generateBacklogAgeSnapshot } from "./lib/backlogAgeSnapshot";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
@@ -67,6 +69,7 @@ app.route("/api/lk-settings", lkSettingsRoutes);
 app.route("/api/dat-mua-lk", datMuaLinhKienRoutes);
 app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
 app.route("/api/tra-hang", traHangRoutes);
+app.route("/api/backlog-age-report", backlogAgeReportRoutes);
 
 app.onError((err, c) => {
   console.error(err);
@@ -152,6 +155,13 @@ export default {
         await generateCanhBaoTonSnapshot(env.DB, "auto");
       } catch (err) {
         console.error("[cron-daily-snapshot] generateCanhBaoTonSnapshot loi:", err instanceof Error ? err.message : String(err));
+      }
+      // Bao cao "Tuoi ton trung binh" - chot cung moc 08:00 (xem lib/backlogAgeSnapshot.ts), doc lap
+      // voi cac buoc tren.
+      try {
+        await generateBacklogAgeSnapshot(env.DB);
+      } catch (err) {
+        console.error("[cron-daily-snapshot] generateBacklogAgeSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
       // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
       // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem

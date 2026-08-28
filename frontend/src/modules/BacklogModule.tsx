@@ -13,6 +13,7 @@ import { HeroStat } from "../components/ui/HeroStat";
 import { Pill } from "../components/ui/Pill";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { useDaDongChunked } from "../hooks/useDaDongChunked";
+import { useBacklogAgeReport } from "../hooks/useBacklogAgeReport";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, fmtVND, type CaseRow, type Paged, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -137,6 +138,174 @@ function DaDongMonthList({
         rowKey={(c) => c.id}
         emptyText="Không có ca nào trong tháng này."
         storageKey="backlog-closed"
+      />
+    </div>
+  );
+}
+
+// Tab "Tuoi ton TB" - bao cao trung binh (tong tuoi ton / tong ca ton) chot moc 08:00 moi ngay (xem
+// backend/src/lib/backlogAgeSnapshot.ts). Tai NGUYEN 1 thang qua useBacklogAgeReport (cache
+// IndexedDB, chi tai lai khi hash server doi) roi gop/sap xep HOAN TOAN o client - khong goi lai
+// server khi doi "Xem theo"/trang/sap xep. "Lay cac ngay trong thang chia trung binh" (yeu cau chu he
+// thong) = tong tong_tuoi cua TAT CA ngay trong thang / tong so_ca cung ky - trung binh CONG DON
+// (weighted), khong phai trung binh cua cac trung binh ngay.
+const AGE_REPORT_DIM_OPTIONS = [
+  { value: "khu_vuc", label: "Khu vực" },
+  { value: "nhom_kh", label: "Nhóm KH" },
+  { value: "ky_thuat_vien", label: "KTV" },
+  { value: "hang", label: "Hãng" },
+  { value: "tinh", label: "Tỉnh" },
+  { value: "doi_tac", label: "Đối tác" },
+];
+
+interface AgeReportAggRow {
+  gia_tri: string;
+  so_ca: number;
+  tong_tuoi: number;
+}
+
+function avgTuoiTon(r: { so_ca: number; tong_tuoi: number }): number {
+  return r.so_ca > 0 ? r.tong_tuoi / r.so_ca : 0;
+}
+
+function BacklogAgeReportTab() {
+  const currentMonth = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7);
+  const [thang, setThang] = useState(currentMonth);
+  const [dim, setDim] = useState("khu_vuc");
+  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState("avg");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const pageSize = 15;
+
+  const { rows, months, isLoading, isError, refetch } = useBacklogAgeReport(thang);
+
+  useEffect(() => {
+    setPage(1);
+  }, [dim, thang]);
+
+  const tongCard = useMemo(() => {
+    let so_ca = 0;
+    let tong_tuoi = 0;
+    for (const r of rows) {
+      if (r.dim !== "tong" || r.gia_tri !== "tat_ca") continue;
+      so_ca += r.so_ca;
+      tong_tuoi += r.tong_tuoi;
+    }
+    return { so_ca, tong_tuoi };
+  }, [rows]);
+
+  const qldvbhCard = useMemo(() => {
+    let so_ca = 0;
+    let tong_tuoi = 0;
+    for (const r of rows) {
+      if (r.dim !== "khu_vuc" || r.gia_tri !== "__nhom_qldvbh__") continue;
+      so_ca += r.so_ca;
+      tong_tuoi += r.tong_tuoi;
+    }
+    return { so_ca, tong_tuoi };
+  }, [rows]);
+
+  const aggRows = useMemo(() => {
+    const map = new Map<string, AgeReportAggRow>();
+    for (const r of rows) {
+      if (r.dim !== dim || r.gia_tri === "__nhom_qldvbh__") continue;
+      const cur = map.get(r.gia_tri) ?? { gia_tri: r.gia_tri, so_ca: 0, tong_tuoi: 0 };
+      cur.so_ca += r.so_ca;
+      cur.tong_tuoi += r.tong_tuoi;
+      map.set(r.gia_tri, cur);
+    }
+    const list = [...map.values()];
+    list.sort((a, b) => {
+      if (sortBy === "gia_tri") {
+        const c = a.gia_tri.localeCompare(b.gia_tri);
+        return sortDir === "asc" ? c : -c;
+      }
+      const av = sortBy === "so_ca" ? a.so_ca : sortBy === "tong_tuoi" ? a.tong_tuoi : avgTuoiTon(a);
+      const bv = sortBy === "so_ca" ? b.so_ca : sortBy === "tong_tuoi" ? b.tong_tuoi : avgTuoiTon(b);
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+    return list;
+  }, [rows, dim, sortBy, sortDir]);
+
+  const pagedRows = aggRows.slice((page - 1) * pageSize, page * pageSize);
+  const dimLabel = AGE_REPORT_DIM_OPTIONS.find((o) => o.value === dim)?.label ?? "Giá trị";
+
+  const columns: Column<AgeReportAggRow>[] = [
+    {
+      key: "gia_tri",
+      header: dimLabel,
+      sortKey: "gia_tri",
+      render: (r) => (dim === "khu_vuc" ? shortKhuVuc(r.gia_tri) : r.gia_tri),
+    },
+    {
+      key: "so_ca",
+      header: "Số ca (lượt/ngày)",
+      sortKey: "so_ca",
+      className: "text-right",
+      render: (r) => r.so_ca.toLocaleString("vi-VN"),
+    },
+    {
+      key: "tong_tuoi",
+      header: "Tổng tuổi tồn (ngày)",
+      sortKey: "tong_tuoi",
+      className: "text-right",
+      render: (r) => r.tong_tuoi.toLocaleString("vi-VN"),
+    },
+    {
+      key: "avg",
+      header: "TB tuổi tồn (ngày)",
+      sortKey: "avg",
+      className: "text-right font-semibold",
+      render: (r) => avgTuoiTon(r).toFixed(1),
+    },
+  ];
+
+  const monthOptions = months.map((m) => ({ value: m, label: m }));
+  if (!monthOptions.some((o) => o.value === currentMonth)) {
+    monthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-xs font-semibold text-[var(--ink-400)]">Tháng:</span>
+        <Select value={thang} onChange={setThang} options={monthOptions} />
+        <span className="text-xs font-semibold text-[var(--ink-400)] ml-2">Xem theo:</span>
+        <Select value={dim} onChange={setDim} options={AGE_REPORT_DIM_OPTIONS} />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <StatCard
+          label="Tất cả (TB lũy kế tháng)"
+          value={`${avgTuoiTon(tongCard).toFixed(1)} ngày`}
+          sub={`${tongCard.so_ca.toLocaleString("vi-VN")} lượt ca-ngày`}
+          tone="ocean"
+        />
+        <StatCard
+          label="Nhóm DVBH (QLDVBH)"
+          value={`${avgTuoiTon(qldvbhCard).toFixed(1)} ngày`}
+          sub={`${qldvbhCard.so_ca.toLocaleString("vi-VN")} lượt ca-ngày`}
+          tone="teal"
+        />
+      </div>
+      <PaginatedTable
+        columns={columns}
+        rows={pagedRows}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
+        page={page}
+        pageSize={pageSize}
+        total={aggRows.length}
+        onPageChange={setPage}
+        rowKey={(r) => r.gia_tri}
+        emptyText="Chưa có dữ liệu cho tháng này."
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSortChange={(k, d) => {
+          setSortBy(k);
+          setSortDir(d);
+        }}
+        storageKey="backlog-age-report"
       />
     </div>
   );
@@ -399,6 +568,7 @@ const REPORT_DIM_OPTIONS = [
 // dong - theo phan hoi khong muon 2 cap "lan" vao chung 1 man hinh.
 const VIEWS = [
   { key: "bao-cao", label: "Báo cáo" },
+  { key: "tuoi-ton-tb", label: "Tuổi tồn TB" },
   { key: "canh-bao-ton-cap1", label: "Cảnh báo tồn · Cấp 1 (TP DVBH)" },
   { key: "canh-bao-ton-cap2", label: "Cảnh báo tồn · Cấp 2 (CEO)" },
   { key: "danh-sach", label: "Danh sách chi tiết" },
@@ -1519,7 +1689,9 @@ export function BacklogModule({
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
 
-      {view === "bao-cao" ? (
+      {view === "tuoi-ton-tb" ? (
+        <BacklogAgeReportTab />
+      ) : view === "bao-cao" ? (
         <>
           <div className="mb-1 mt-2 flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Tồn hiện tại</span>

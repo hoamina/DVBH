@@ -16,6 +16,7 @@ import type { SyncStatusPayload } from "./dashboard";
 import { bumpVersions } from "../lib/dataVersions";
 import { warmDefaultReports } from "../lib/reportWarmup";
 import { generateDailySnapshot, generateKhuVucBacklogSnapshots } from "../lib/dailySnapshot";
+import { generateBacklogAgeSnapshot } from "../lib/backlogAgeSnapshot";
 import { nowVN } from "../lib/vnTime";
 import { recomputeDaDongDayChunks } from "../lib/daDongDayChunks";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
@@ -169,6 +170,11 @@ importRoute.post("/refresh-reports", async (c) => {
     await generateKhuVucBacklogSnapshots(c.env.DB, c.get("user").email);
   } catch (err) {
     console.error("refresh-reports: loi khi generateKhuVucBacklogSnapshots", err);
+  }
+  try {
+    await generateBacklogAgeSnapshot(c.env.DB);
+  } catch (err) {
+    console.error("refresh-reports: loi khi generateBacklogAgeSnapshot", err);
   }
   return c.json({ ok: true });
 });
