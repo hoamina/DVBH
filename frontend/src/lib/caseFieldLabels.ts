@@ -57,7 +57,7 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   // (frontend/src/types.ts) - van phai co nhan o day de khong lo ra ten cot tho khi xuat Excel du
   // form nao trong app cung dang xuat NGUYEN dong tra ve tu API (nhieu hon field CaseRow khai bao).
   thoi_gian_goc_dong_ca: "Thời gian gốc đóng ca",
-  so_phut_xu_ly: "Số phút xử lý",
+  so_gio_xu_ly: "Số giờ xử lý",
   thoi_gian_tai_du_lieu_crm: "Thời gian tải dữ liệu CRM",
   created_at: "Ngày tạo (hệ thống)",
   updated_at: "Ngày cập nhật (hệ thống)",

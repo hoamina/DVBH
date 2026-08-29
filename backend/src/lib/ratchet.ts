@@ -14,7 +14,7 @@ export const BUSINESS_FIELDS = [
   "hinh_thuc_bao_hanh", "ky_thuat_vien", "tien_do_hoan_thanh",
   "thoi_gian_hoan_thanh", "luu_y_loi_linh_kien", "ly_do_huy",
   "noi_dung_xu_ly", "ly_do_qua_han", "dt_san_pham", "dt_linh_kien",
-  "dt_dich_vu", "khu_vuc", "thoi_gian_goc_dong_ca", "so_phut_xu_ly",
+  "dt_dich_vu", "khu_vuc", "thoi_gian_goc_dong_ca", "so_gio_xu_ly",
   "dung_han", "xu_ly_24h_bucket", "doi_tac", "ngay_mua", "nhom_kh",
   "nganh", "loai_nganh", "nhom_san_pham", "tinh_vao_kpi", "thoi_gian_tai_du_lieu_crm",
   "link_hinh_anh",
@@ -60,7 +60,7 @@ export const COLUMN_MAP: Record<string, string> = {
   "TBP": "khu_vuc",
   "Link hình ảnh": "link_hinh_anh",
   "Thời gian gốc theo ca đóng hoàn thành lỗi": "thoi_gian_goc_dong_ca",
-  "THỜI GIAN XỬ LÝ": "so_phut_xu_ly",
+  "THỜI GIAN XỬ LÝ": "so_gio_xu_ly",
   "ĐÚNG HẠN": "dung_han",
   "XỬ LÝ 24h": "xu_ly_24h_bucket",
   "Đối tác": "doi_tac",
@@ -231,7 +231,7 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
 
 // Cac cot so thuc - chuan hoa qua Number() truoc khi hash de "100000" (DB) vs "100000.0" (Excel)
 // khong bi coi la khac nhau du cung gia tri, tranh GHI_DE thua khong can thiet moi lan import.
-const NUMERIC_BUSINESS_FIELDS = new Set(["dt_san_pham", "dt_linh_kien", "dt_dich_vu", "so_phut_xu_ly"]);
+const NUMERIC_BUSINESS_FIELDS = new Set(["dt_san_pham", "dt_linh_kien", "dt_dich_vu", "so_gio_xu_ly"]);
 
 function canonicalizeForHash(field: string, rawValue: unknown): string {
   if (rawValue === null || rawValue === undefined || rawValue === "") return "";

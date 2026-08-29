@@ -8,12 +8,17 @@ function formatLabelValue(value: number): string {
 
 // Ve gia tri ngay tren cot/diem/lat cua bieu do thay vi chi thay duoc qua tooltip khi hover chuot
 // vao - bat mac dinh cho MOI bieu do (dung chung 1 ChartCanvas). Tat rieng cho 1 bieu do cu the
-// bang options={{ plugins: { valueLabels: { display: false } } }}.
+// bang options={{ plugins: { valueLabels: { display: false } } }}, hoac tat rieng TUNG dataset (vd
+// tickbox "hien/an so" theo tung duong trong 1 chart nhieu series - them 2026-08-28 cho chart "Xu
+// huong theo thang" cua Bao cao luy ke) bang options={{ plugins: { valueLabels: { hiddenLabels:
+// ["Ten dataset can an"] } } }} - so sanh theo dataset.label, khong phai index (on dinh hon khi thu
+// tu dataset thay doi).
 const valueLabelsPlugin: Plugin = {
   id: "valueLabels",
   afterDatasetsDraw(chart) {
-    const pluginOpts = (chart.options.plugins as Record<string, { display?: boolean } | undefined> | undefined)?.valueLabels;
+    const pluginOpts = (chart.options.plugins as Record<string, { display?: boolean; hiddenLabels?: string[] } | undefined> | undefined)?.valueLabels;
     if (pluginOpts?.display === false) return;
+    const hiddenLabels = new Set(pluginOpts?.hiddenLabels ?? []);
 
     const { ctx } = chart;
     const isHorizontalBar = chart.options.indexAxis === "y";
@@ -23,6 +28,7 @@ const valueLabelsPlugin: Plugin = {
     chart.data.datasets.forEach((dataset, datasetIndex) => {
       const meta = chart.getDatasetMeta(datasetIndex);
       if (meta.hidden) return;
+      if (dataset.label && hiddenLabels.has(dataset.label)) return;
       const values = dataset.data as (number | null)[];
 
       meta.data.forEach((element, index) => {

@@ -21,15 +21,17 @@ import type { AppUser, VaiTro } from "../types";
 // trong routes/datMuaLinhKien.ts + routes/traHang.ts).
 const TAM_TAT_MODULES = ["dat-mua-lk", "tra-hang"];
 
+// "luy-ke" (Bao cao luy ke, them 2026-08-28) - cap cho DUNG nhung vai tro dang co "revenue" (bao
+// cao cap quan ly, xem HANDOFF.md) - giu 2 danh sach nay khop nhau moi khi doi 1 trong 2.
 export const DEFAULT_MODULES_BY_ROLE: Record<VaiTro, string[]> = {
-  Admin: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
-  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
+  Admin: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
   QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
-  "TBP CSKH": ["dashboard", "revenue", "survey", "danh-sach-tong", "giao-dien"],
+  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "danh-sach-tong", "giao-dien"],
   "KSNB Doi tac": ["tranh-chap", "giao-dien"],
 };
 

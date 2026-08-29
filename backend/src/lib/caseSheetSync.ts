@@ -17,7 +17,7 @@ const DATE_TIME_FIELDS = new Set([
   "thoi_gian_tai_du_lieu_crm",
 ]);
 const DATE_ONLY_FIELDS = new Set(["ngay_mua"]);
-const NUMERIC_FIELDS = new Set(["dt_san_pham", "dt_linh_kien", "dt_dich_vu", "so_phut_xu_ly"]);
+const NUMERIC_FIELDS = new Set(["dt_san_pham", "dt_linh_kien", "dt_dich_vu", "so_gio_xu_ly"]);
 const BOOLEAN_FIELDS = new Set<string>(VIOLATION_FIELDS);
 
 function toBoolFlag(raw: string): boolean {

@@ -18,6 +18,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "dashboard", label: "Tổng quát", icon: "◧" },
       { key: "revenue", label: "Báo cáo doanh thu", icon: "◨" },
+      { key: "luy-ke", label: "Báo cáo lũy kế", icon: "📈" },
     ],
   },
   {
@@ -60,16 +61,16 @@ export const NAV_GROUPS: NavGroup[] = [
 // localStorage active-module dang luu cua nguoi dung hien tai.
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  Viewer: ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
   // "dat-mua-lk"/"tra-hang" KHONG con hardcode o day tu 2026-08-16 (migration 0081) - Tac nghiep
   // tach doc lap khoi vai_tro (xem App.tsx dong cap them tu dong theo la_tac_nghiep, khop dung
   // DEFAULT_MODULES_BY_ROLE["TBP DVBH"] o backend/src/lib/moduleAccess.ts).
-  "TBP DVBH": ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  "TBP CSKH": ["dashboard", "revenue", "survey", "danh-sach-tong", "giao-dien"],
+  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "danh-sach-tong", "giao-dien"],
   // KSNB Doi tac: CHI xem (khong con giai trinh duoc, chot 2026-07-24 - xem canGiaiTrinh trong
   // App.tsx) bao cao tranh chap, khong duoc vao module nao khac (quyet dinh nghiep vu rieng - xem
   // scopeTranhChap() trong tranhChap.ts).
@@ -79,6 +80,7 @@ export const ROLE_MODULES: Record<VaiTro, string[]> = {
 export const MODULE_TITLES: Record<string, string> = {
   dashboard: "Tổng quát",
   revenue: "Báo cáo doanh thu",
+  "luy-ke": "Báo cáo lũy kế",
   backlog: "Quản lý tồn",
   "missing-parts": "Ca thiếu linh kiện",
   "tranh-chap": "Tranh chấp, KN",

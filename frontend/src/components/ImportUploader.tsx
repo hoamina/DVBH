@@ -21,7 +21,16 @@ export function describeError(err: unknown): string {
 // buoc kiem tra khi requireAllColumns=true (dung cho /update-column, noi CHI co 2 cot nen KHONG co ly
 // do hop le nao de 1 cot bi thieu) - KHONG bat cho CRM import thuong (columnMap ~40 cot, file that co
 // the hop le thieu vai cot khong bat buoc).
-async function parseSpreadsheet(file: File, columnMap?: Record<string, string>, requireAllColumns?: boolean): Promise<Record<string, unknown>[]> {
+// "preferredSheetNames" (them 2026-08-28 cho luong "Bao cao luy ke") - file nguon co nhieu sheet
+// (vd "BIỂU ĐỒ" dung cho pivot chart cua nguoi dung, dat TRUOC sheet du lieu "Sheet1" trong thu tu
+// workbook) nen KHONG the dua vao "DATA" hoac sheet DAU TIEN nhu truoc gio - phai chi dinh ro ten
+// sheet du lieu can doc, thu lan luot tung ten trong danh sach truoc khi fallback ve hanh vi cu.
+export async function parseSpreadsheet(
+  file: File,
+  columnMap?: Record<string, string>,
+  requireAllColumns?: boolean,
+  preferredSheetNames?: string[],
+): Promise<Record<string, unknown>[]> {
   const XLSX = await import("xlsx");
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -29,7 +38,8 @@ async function parseSpreadsheet(file: File, columnMap?: Record<string, string>, 
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: "binary", cellDates: true });
-        const sheet = workbook.Sheets["DATA"] ?? workbook.Sheets[workbook.SheetNames[0]];
+        const preferredSheet = preferredSheetNames?.map((name) => workbook.Sheets[name]).find((s) => s);
+        const sheet = preferredSheet ?? workbook.Sheets["DATA"] ?? workbook.Sheets[workbook.SheetNames[0]];
         const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null });
         if (!columnMap) {
           resolve(rawRows);

@@ -26,7 +26,9 @@ import datMuaLinhKienRoutes from "./routes/datMuaLinhKien";
 import phieuXuatKhoRoutes from "./routes/phieuXuatKho";
 import traHangRoutes from "./routes/traHang";
 import backlogAgeReportRoutes from "./routes/backlogAgeReport";
+import luyKeRoutes from "./routes/luyKe";
 import { generateBacklogAgeSnapshot } from "./lib/backlogAgeSnapshot";
+import { computeAndPushLuyKeCurrentMonth } from "./lib/luyKeCompute";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
@@ -70,6 +72,7 @@ app.route("/api/dat-mua-lk", datMuaLinhKienRoutes);
 app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
 app.route("/api/tra-hang", traHangRoutes);
 app.route("/api/backlog-age-report", backlogAgeReportRoutes);
+app.route("/api/luy-ke", luyKeRoutes);
 
 app.onError((err, c) => {
   console.error(err);
@@ -195,6 +198,15 @@ export default {
         await selfHealCanKhaoSat(env.DB);
       } catch (err) {
         console.error("[self-heal] can-khao-sat loi:", err instanceof Error ? err.message : String(err));
+      }
+      // "Bao cao luy ke" tu dong - chot 2026-08-28 (xem lib/luyKeCompute.ts). Tinh lai THANG HIEN TAI
+      // tu case_dvbh that va ghi R2 (2 diem ghi da CHOT, xem chu thich dau lib/luyKeChunks.ts) - song
+      // song voi import Excel thu cong hien co (nguoi dung "chot cuoi" 1 thang bang import se GHI DE
+      // ket qua cron). Doc lap voi cac buoc tren, boc rieng try/catch.
+      try {
+        await computeAndPushLuyKeCurrentMonth(env);
+      } catch (err) {
+        console.error("[cron-daily-snapshot] computeAndPushLuyKeCurrentMonth loi:", err instanceof Error ? err.message : String(err));
       }
       return;
     }

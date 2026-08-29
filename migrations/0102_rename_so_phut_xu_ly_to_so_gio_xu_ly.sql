@@ -1,0 +1,11 @@
+-- Migration 0102: Doi ten cot so_phut_xu_ly -> so_gio_xu_ly - CHOT 2026-08-28.
+--
+-- Cot nay tu truoc toi nay van luu GIO (khong phai PHUT nhu ten cu gay hieu lam) - da xac nhan voi
+-- chu he thong 2026-07-29 (xem YEU_CAU_API_IMPORT_TU_DONG_QUICKSIGHT.md: "du ten cot la 'phut',
+-- thuc te dang luu gio, import thu cong hien tai cung dang gui gio, khong co chuyen doi nao trong
+-- code") va xac nhan lai lan nua khi xay dung tinh nang "Bao cao luy ke" tu dong (cac dong gan day
+-- co gia tri thap phan nho vd 8.2, 14.9 - khop voi gio, vd "6.051111111" = ~6 gio).
+--
+-- Plain ALTER TABLE RENAME COLUMN - khong phai recreate-table nen khong vuong gioi han FK cua
+-- case_dvbh (xem CLAUDE.md "D1 migration constraint"). Chi doi ten, khong doi gia tri/kieu du lieu.
+ALTER TABLE case_dvbh RENAME COLUMN so_phut_xu_ly TO so_gio_xu_ly;

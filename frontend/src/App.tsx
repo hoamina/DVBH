@@ -9,6 +9,7 @@ import { ROLE_MODULES, MODULE_TITLES } from "./layout/navConfig";
 import { CaseDetail } from "./modules/CaseDetail";
 import { DashboardModule } from "./modules/DashboardModule";
 import { RevenueModule } from "./modules/RevenueModule";
+import { LuyKeModule } from "./modules/LuyKeModule";
 import { BacklogModule } from "./modules/BacklogModule";
 import { MissingPartsModule } from "./modules/MissingPartsModule";
 import { TranhChapModule } from "./modules/TranhChapModule";
@@ -268,6 +269,7 @@ function MainApp({
           </div>
           {active === "dashboard" && <DashboardModule onNavigate={setActive} />}
           {active === "revenue" && <RevenueModule />}
+          {active === "luy-ke" && <LuyKeModule />}
           {active === "backlog" && <BacklogModule openCase={openCase} headerExtra={headerExtraEl} />}
           {active === "missing-parts" && <MissingPartsModule openCase={openCase} headerExtra={headerExtraEl} />}
           {active === "tranh-chap" && <TranhChapModule openCase={openCase} />}
