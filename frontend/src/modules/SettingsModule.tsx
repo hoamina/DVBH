@@ -16,6 +16,7 @@ import {
   type LyDoChamMuaLkRow,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
+  type LoaiYeuCauBoQuaLapRow,
   type GreetingGifRow,
   type GreetingMessageRow,
   type GiaiTrinhExcludeNgayRow,
@@ -96,6 +97,8 @@ export function SettingsModule() {
   const [newPhanLoai, setNewPhanLoai] = useState("");
   const [addKetQuaOpen, setAddKetQuaOpen] = useState(false);
   const [newKetQua, setNewKetQua] = useState("");
+  const [addLoaiYeuCauBoQuaLapOpen, setAddLoaiYeuCauBoQuaLapOpen] = useState(false);
+  const [newLoaiYeuCauBoQuaLap, setNewLoaiYeuCauBoQuaLap] = useState("");
   const [addGreetingGifOpen, setAddGreetingGifOpen] = useState(false);
   const [newGreetingGif, setNewGreetingGif] = useState("");
   const [addGreetingMessageOpen, setAddGreetingMessageOpen] = useState(false);
@@ -132,6 +135,7 @@ export function SettingsModule() {
   const [lyDoPage, setLyDoPage] = useState(1);
   const [phanLoaiPage, setPhanLoaiPage] = useState(1);
   const [ketQuaPage, setKetQuaPage] = useState(1);
+  const [loaiYeuCauBoQuaLapPage, setLoaiYeuCauBoQuaLapPage] = useState(1);
   const [greetingGifPage, setGreetingGifPage] = useState(1);
   const [greetingMessagePage, setGreetingMessagePage] = useState(1);
   const [ktvPage, setKtvPage] = useState(1);
@@ -170,6 +174,17 @@ export function SettingsModule() {
   const { data: ketQuaXuLyTranhChap } = useQuery({
     queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
     queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
+  });
+  const { data: loaiYeuCauBoQuaLap } = useQuery({
+    queryKey: ["settings-loai-yeu-cau-bo-qua-lap"],
+    queryFn: () => api.get<{ rows: LoaiYeuCauBoQuaLapRow[] }>("/settings/loai-yeu-cau-bo-qua-lap"),
+  });
+  // Goi y DISTINCT loai_yeu_cau tu case_dvbh - chi tai khi mo modal "Them" (tranh quet ca bang moi lan
+  // vao Settings, xem routes/settings.ts GET /loai-yeu-cau-bo-qua-lap/goi-y).
+  const { data: loaiYeuCauGoiY } = useQuery({
+    queryKey: ["settings-loai-yeu-cau-goi-y"],
+    queryFn: () => api.get<{ rows: string[] }>("/settings/loai-yeu-cau-bo-qua-lap/goi-y"),
+    enabled: addLoaiYeuCauBoQuaLapOpen,
   });
   const { data: greetingGifs } = useQuery({
     queryKey: ["settings-greeting-gif"],
@@ -317,6 +332,25 @@ export function SettingsModule() {
       qc.invalidateQueries({ queryKey: ["settings-ket-qua-xu-ly-tranh-chap"] });
     },
     onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
+  });
+
+  const toggleLoaiYeuCauBoQuaLap = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/loai-yeu-cau-bo-qua-lap/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật danh sách bỏ qua đánh giá lặp");
+      qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-bo-qua-lap"] });
+    },
+  });
+
+  const addLoaiYeuCauBoQuaLapMutation = useMutation({
+    mutationFn: () => api.post("/settings/loai-yeu-cau-bo-qua-lap", { loai_yeu_cau: newLoaiYeuCauBoQuaLap }),
+    onSuccess: () => {
+      addToast("Đã thêm loại yêu cầu bỏ qua đánh giá lặp");
+      setNewLoaiYeuCauBoQuaLap("");
+      setAddLoaiYeuCauBoQuaLapOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-bo-qua-lap"] });
+    },
+    onError: () => addToast("Không thể thêm (loại yêu cầu này có thể đã có trong danh sách)."),
   });
 
   const toggleGreetingGif = useMutation({
@@ -561,6 +595,18 @@ export function SettingsModule() {
     { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleKetQua.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
+  const loaiYeuCauBoQuaLapColumns: Column<LoaiYeuCauBoQuaLapRow>[] = [
+    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
+    {
+      key: "bat_tat",
+      header: "Đang bỏ qua",
+      render: (r) => (
+        <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLoaiYeuCauBoQuaLap.mutate({ id: r.id, bat_tat: !r.bat_tat })} />
+      ),
+    },
+    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
+  ];
+
   const greetingGifColumns: Column<GreetingGifRow>[] = [
     {
       key: "gif_url",
@@ -691,6 +737,7 @@ export function SettingsModule() {
           { key: "ktv-lien-he", label: "Danh sách KTV" },
           { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
           { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
+          { key: "loai-yeu-cau-bo-qua-lap", label: "Bỏ qua đánh giá lặp" },
           { key: "loi-chao", label: "Lời chào" },
           { key: "giai-trinh-exclude-ngay", label: "Ngày loại trừ giải trình" },
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
@@ -903,6 +950,32 @@ export function SettingsModule() {
             rowKey={(r) => r.id}
             emptyText="Chưa có kết quả xử lý nào."
             storageKey="settings-ket-qua-xu-ly-tranh-chap"
+          />
+        </div>
+      )}
+
+      {tab === "loai-yeu-cau-bo-qua-lap" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Case có "Loại yêu cầu" trong danh sách này (vd: Dán tem, poster siêu thị…) sẽ được loại hoàn toàn khỏi phạm vi xét <b>Ca lặp</b> — không tính vào "cần rà soát" và không tham gia ghép cặp lặp, giống điều kiện "Hình thức bảo hành ≠ Gọi điện tư vấn" có sẵn.
+            </div>
+            <Btn size="sm" onClick={() => setAddLoaiYeuCauBoQuaLapOpen(true)}>
+              + Thêm loại yêu cầu
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={loaiYeuCauBoQuaLapColumns}
+            rows={(loaiYeuCauBoQuaLap?.rows ?? []).slice((loaiYeuCauBoQuaLapPage - 1) * PAGE_SIZE, loaiYeuCauBoQuaLapPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={loaiYeuCauBoQuaLapPage}
+            pageSize={PAGE_SIZE}
+            total={(loaiYeuCauBoQuaLap?.rows ?? []).length}
+            onPageChange={setLoaiYeuCauBoQuaLapPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có loại yêu cầu nào bị bỏ qua."
+            storageKey="settings-loai-yeu-cau-bo-qua-lap"
           />
         </div>
       )}
@@ -1255,6 +1328,49 @@ export function SettingsModule() {
               Hủy
             </Btn>
             <Btn onClick={() => addKetQuaMutation.mutate()} disabled={!newKetQua.trim() || addKetQuaMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={addLoaiYeuCauBoQuaLapOpen}
+        onClose={() => {
+          setAddLoaiYeuCauBoQuaLapOpen(false);
+          setNewLoaiYeuCauBoQuaLap("");
+        }}
+        title="Thêm loại yêu cầu bỏ qua đánh giá lặp"
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Loại yêu cầu</label>
+            <div className="mt-1">
+              <Select
+                value={newLoaiYeuCauBoQuaLap}
+                onChange={setNewLoaiYeuCauBoQuaLap}
+                className="w-full"
+                options={[
+                  { value: "", label: "-- Chọn loại yêu cầu --" },
+                  ...(loaiYeuCauGoiY?.rows ?? [])
+                    .filter((lyc) => !(loaiYeuCauBoQuaLap?.rows ?? []).some((r) => r.loai_yeu_cau === lyc))
+                    .map((lyc) => ({ value: lyc, label: lyc })),
+                ]}
+              />
+            </div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">Danh sách lấy từ các giá trị "Loại yêu cầu" đã từng xuất hiện trong dữ liệu import.</div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn
+              variant="ghost"
+              onClick={() => {
+                setAddLoaiYeuCauBoQuaLapOpen(false);
+                setNewLoaiYeuCauBoQuaLap("");
+              }}
+            >
+              Hủy
+            </Btn>
+            <Btn onClick={() => addLoaiYeuCauBoQuaLapMutation.mutate()} disabled={!newLoaiYeuCauBoQuaLap.trim() || addLoaiYeuCauBoQuaLapMutation.isPending}>
               Thêm
             </Btn>
           </div>

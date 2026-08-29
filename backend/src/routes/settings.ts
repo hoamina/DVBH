@@ -18,6 +18,7 @@ import { computeTonDailyEntries } from "../lib/dailySnapshot";
 import { buildBaocaoTonRows, renderBaocaoTonImage, renderCanhBaoTonImage } from "../lib/reportImage";
 import { computeCanhBaoTonBuckets } from "../lib/canhBaoTon";
 import { getVnDateStr } from "../lib/reportCache";
+import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
 
 const VALID_LOAI_DONG_BO = new Set(["case", "linh_kien", "giai_trinh_cu", "giai_trinh_lap_cu", "khao_sat_cu", "nap_gas_danh_gia_cu"]);
 
@@ -45,7 +46,7 @@ const linhKienWriteRoles = requireQuanLyDanhMucLk;
 
 async function logAudit(
   db: D1Database,
-  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap",
+  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap" | "settings_loai_yeu_cau_bo_qua_lap",
   banGhiId: string,
   nguoiThayDoi: string,
   truongThayDoi: string,
@@ -259,6 +260,68 @@ settings.patch("/ket-qua-xu-ly-tranh-chap/:id", adminOnly, async (c) => {
   const user = c.get("user");
   await logAudit(c.env.DB, "settings_ket_qua_xu_ly_tranh_chap", String(id), user.email, "updated", existing, next);
   // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true });
+});
+
+// ---------- Loai yeu cau bo qua danh gia lap (Ca lap) ----------
+// Bang settings_loai_yeu_cau_bo_qua_lap (migration 0103) - danh sach "Loai yeu cau" (case_dvbh.
+// loai_yeu_cau) duoc LOAI KHOI toan bo pham vi xet "Ca lap" (ca dem "can ra soat" lan cap LAG() tinh
+// "ca truoc" - xem lib/caLapEligible.ts eligibleClause(), dung chung co che NOT EXISTS voi dieu kien
+// hinh_thuc_bao_hanh co san). bat_tat=1 nghia la dang AP DUNG bo qua (dung y het ngu nghia bat_tat cua
+// blacklist_serial). Doc mo cho moi user da duyet (hien trong Settings), ghi gioi han Admin.
+settings.get("/loai-yeu-cau-bo-qua-lap", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_loai_yeu_cau_bo_qua_lap ORDER BY id").all();
+  return c.json({ rows: results });
+});
+
+// GET /api/settings/loai-yeu-cau-bo-qua-lap/goi-y - danh sach DISTINCT case_dvbh.loai_yeu_cau da tung
+// xuat hien trong du lieu, dung cho dropdown goi y khi Admin them dong moi (tranh go tu do sai chinh
+// ta lam dieu kien so khop that bai am tham - xem eligibleClause() so sanh bang dau "=").
+settings.get("/loai-yeu-cau-bo-qua-lap/goi-y", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT DISTINCT loai_yeu_cau FROM case_dvbh WHERE loai_yeu_cau IS NOT NULL AND loai_yeu_cau != '' ORDER BY loai_yeu_cau",
+  ).all<{ loai_yeu_cau: string }>();
+  return c.json({ rows: results.map((r) => r.loai_yeu_cau) });
+});
+
+settings.post("/loai-yeu-cau-bo-qua-lap", adminOnly, async (c) => {
+  const body = await c.req.json<{ loai_yeu_cau: string }>();
+  if (!body.loai_yeu_cau?.trim()) return c.json({ error: "MISSING_LOAI_YEU_CAU" }, 400);
+
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    `INSERT INTO settings_loai_yeu_cau_bo_qua_lap (loai_yeu_cau, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?)
+     ON CONFLICT(loai_yeu_cau) DO UPDATE SET bat_tat = 1, nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat
+     RETURNING *`,
+  )
+    .bind(body.loai_yeu_cau.trim(), user.email, nowVN())
+    .first();
+
+  await logAudit(c.env.DB, "settings_loai_yeu_cau_bo_qua_lap", String((row as { id: number }).id), user.email, "created", null, row);
+  // Dieu kien loc nam NGAY TRONG WHERE cua precompute (giong blacklist_serial, xem POST /ca-lap/
+  // blacklist) - phai tinh lai NGAY, khong the cho den cron an toan hang gio.
+  c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+  // Bump domain "settings" (xem lib/dataVersions.ts) - Block A cua /ca-lap/tong-quan doc bang nay
+  // qua eligibleClause() nen phai nam trong domain cache cua no, xem routes/caLap.ts computeCaLapBlockA.
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json(row, 201);
+});
+
+settings.patch("/loai-yeu-cau-bo-qua-lap/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ bat_tat?: boolean }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_yeu_cau_bo_qua_lap WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const user = c.get("user");
+  const next = { bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat };
+  await c.env.DB.prepare("UPDATE settings_loai_yeu_cau_bo_qua_lap SET bat_tat = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?")
+    .bind(next.bat_tat, user.email, nowVN(), id)
+    .run();
+
+  await logAudit(c.env.DB, "settings_loai_yeu_cau_bo_qua_lap", String(id), user.email, "updated", existing, next);
+  c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
 });

@@ -352,6 +352,16 @@ export interface LyDoChamMuaLkRow {
   ngay_cap_nhat: string;
 }
 
+/** 1 dong trong settings_loai_yeu_cau_bo_qua_lap (migration 0103) - "Loai yeu cau" duoc loai khoi
+ * toan bo pham vi xet Ca lap khi bat_tat=1, xem backend/src/lib/caLapEligible.ts. */
+export interface LoaiYeuCauBoQuaLapRow {
+  id: number;
+  loai_yeu_cau: string;
+  bat_tat: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
 export interface PhanLoaiTranhChapRow {
   id: number;
   ten_phan_loai: string;

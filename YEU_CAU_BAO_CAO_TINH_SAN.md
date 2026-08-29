@@ -61,7 +61,7 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 | GET /survey/bao-cao-khu-vuc (thêm 2026-07-30) | survey.ts | cases, vi_pham, ket_qua_goi |
 | GET /vi-pham/funnel (thêm ket_qua_goi 2026-08-22 — 8 chỉ số mới đọc luôn ket_qua_cuoc_goi) | viPham.ts | cases, vi_pham, ket_qua_goi |
 | GET /vi-pham/leaderboard | viPham.ts | cases, vi_pham |
-| GET /ca-lap/tong-quan | caLap.ts | cases, giai_trinh_lap, blacklist |
+| GET /ca-lap/tong-quan | caLap.ts | cases, giai_trinh_lap, blacklist, settings (Block A doc settings_loai_yeu_cau_bo_qua_lap qua eligibleClause(), them 2026-08-29) |
 
 Lưu ý sla-trend/trend có param days/months — đưa vào key. KHÔNG bọc /survey danh sách, /ca-lap/danh-sach* (đã rẻ nhờ index 816 dòng).
 

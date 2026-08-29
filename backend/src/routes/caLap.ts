@@ -494,7 +494,11 @@ export async function computeCaLapTongQuan(db: D1Database, params: CaLapTongQuan
   const keyB = buildReportKey("ca-lap/tong-quan-b", params, scope);
 
   const [blockA, blockB] = await Promise.all([
-    cachedReport(db, keyA, ["cases", "blacklist"], () => computeCaLapBlockA(db, ctx)),
+    // "settings" them 2026-08-29: Block A doc eligibleClause() (raSoatQuery/validQuery/khuVucQueryA/
+    // ktvQueryA) - eligibleClause gio co dieu kien NOT EXISTS tren settings_loai_yeu_cau_bo_qua_lap
+    // (migration 0103), doi khi Admin them/bat/tat 1 dong trong danh muc do (bump domain "settings",
+    // xem routes/settings.ts POST/PATCH /loai-yeu-cau-bo-qua-lap).
+    cachedReport(db, keyA, ["cases", "blacklist", "settings"], () => computeCaLapBlockA(db, ctx)),
     cachedReport(db, keyB, ["cases", "giai_trinh_lap", "blacklist"], () => computeCaLapBlockB(db, ctx)),
   ]);
 
