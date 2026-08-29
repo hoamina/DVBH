@@ -909,20 +909,27 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
   }
 
   const tt = await c.env.DB.prepare(
-    `SELECT tt.case_id, c.khu_vuc, ${latestLogStatusOfTienTrinh("tt.id")} as trang_thai FROM tranh_chap_tien_trinh tt JOIN case_dvbh c ON c.id = tt.case_id WHERE tt.id = ?`,
+    `SELECT tt.case_id, tt.dang_cho_nguoi_xu_ly_hien_tai, c.khu_vuc, ${latestLogStatusOfTienTrinh("tt.id")} as trang_thai FROM tranh_chap_tien_trinh tt JOIN case_dvbh c ON c.id = tt.case_id WHERE tt.id = ?`,
   )
     .bind(id)
-    .first<{ case_id: string; khu_vuc: string | null; trang_thai: string | null }>();
+    .first<{ case_id: string; dang_cho_nguoi_xu_ly_hien_tai: string | null; khu_vuc: string | null; trang_thai: string | null }>();
   if (!tt) return c.json({ error: "NOT_FOUND" }, 404);
-  if (!canWriteTranhChap(c, tt.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const user = c.get("user");
+  // CHOT 2026-08-22: nguoi dang duoc "Dang cho nguoi xu ly" cua log MOI NHAT duoc mo quyen ghi log
+  // CHINH cho DUNG tien trinh nay, BAT KE vai tro/khu_vuc/giai doan - ho la nguoi dang "giu bong",
+  // can duoc giai trinh ngay ca khi khong thuoc nhom vai tro binh thuong duoc phep xu ly tranh chap.
+  // Chi ap dung cho tien trinh HO dang duoc gan (dang_cho_nguoi_xu_ly_hien_tai, cache tu migration
+  // 0098) - khong mo rong quyen sang tien trinh khac. Van phai tuan theo allowedForPhase ben duoi
+  // (rang buoc CHUYEN TRANG THAI hop le, khac voi quyen AI duoc ghi).
+  const isAssignedToMe = !!tt.dang_cho_nguoi_xu_ly_hien_tai && tt.dang_cho_nguoi_xu_ly_hien_tai === user.email;
+  if (!canWriteTranhChap(c, tt.khu_vuc) && !isAssignedToMe) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   // Trang thai moi phai thuoc DUNG giai doan hien tai cua tien trinh (chot 2026-07-31 diem 1: khong
   // duoc quay lai giai doan Giam sat sau khi da chuyen CSKH).
   const currentPhase = phaseOfStatus(tt.trang_thai);
   // Them 2026-08-20: giai doan CSKH la trach nhiem cua KSNB Doi tac/TBP DVBH/Admin - Giam sat khu vuc
   // (canWriteTranhChap da cho qua o tren, chi kiem tra khu_vuc) KHONG duoc ghi them log khi tien trinh
   // dang o giai doan nay nua (fix: truoc day Giam sat van co the ghi ca trang thai rieng cua CSKH).
-  if (currentPhase === "cskh" && !canWriteCskhPhase(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (currentPhase === "cskh" && !canWriteCskhPhase(c) && !isAssignedToMe) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const allowedForPhase = currentPhase === "cskh" ? CSKH_STATUSES : GIAM_SAT_STATUSES;
   // CHOT 2026-08-20: "Chuyen lai giam sat xu ly" (CSKH day nguoc tien trinh ve giai doan Giam sat) BAT
   // BUOC phai chi dinh "dang_cho_nguoi_xu_ly" - truoc day chi la goi y tu dong dien (co the bi bo
@@ -1001,16 +1008,21 @@ tranhChap.post("/log/:logId/log-con", async (c) => {
   if (!noiDung) return c.json({ error: "MISSING_NOI_DUNG" }, 400);
 
   const log = await c.env.DB.prepare(
-    `SELECT ll.id, ll.tien_trinh_id, ll.trang_thai_xu_ly, c.khu_vuc
+    `SELECT ll.id, ll.tien_trinh_id, ll.trang_thai_xu_ly, ll.dang_cho_nguoi_xu_ly, c.khu_vuc
      FROM tranh_chap_log ll
      JOIN tranh_chap_tien_trinh tt ON tt.id = ll.tien_trinh_id
      JOIN case_dvbh c ON c.id = tt.case_id
      WHERE ll.id = ?`,
   )
     .bind(logId)
-    .first<{ id: number; tien_trinh_id: string; trang_thai_xu_ly: string; khu_vuc: string | null }>();
+    .first<{ id: number; tien_trinh_id: string; trang_thai_xu_ly: string; dang_cho_nguoi_xu_ly: string | null; khu_vuc: string | null }>();
   if (!log) return c.json({ error: "NOT_FOUND" }, 404);
-  if (!canWriteTranhChap(c, log.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
+  // CHOT 2026-08-22: nguoi dang duoc gan "Dang cho nguoi xu ly" TREN CHINH log nay (da xac nhan la
+  // log MOI NHAT ben duoi) cung duoc them log con, bat ke vai tro - khop dung tinh than voi log CHINH
+  // o route POST /tien-trinh/:id/log ben tren.
+  const isAssignedToMe = !!log.dang_cho_nguoi_xu_ly && log.dang_cho_nguoi_xu_ly === user.email;
+  if (!canWriteTranhChap(c, log.khu_vuc) && !isAssignedToMe) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
 
   const latestRow = await c.env.DB.prepare("SELECT id FROM tranh_chap_log WHERE tien_trinh_id = ? ORDER BY id DESC LIMIT 1")
     .bind(log.tien_trinh_id)
@@ -1018,7 +1030,6 @@ tranhChap.post("/log/:logId/log-con", async (c) => {
   if (latestRow?.id !== log.id) return c.json({ error: "NOT_LATEST_LOG" }, 409);
   if ((TRANH_CHAP_TRANG_THAI_DONG as readonly string[]).includes(log.trang_thai_xu_ly)) return c.json({ error: "TIEN_TRINH_DA_DONG" }, 409);
 
-  const user = c.get("user");
   // Fix 2026-08-27: truoc day INSERT khong dat created_at nen roi vao DEFAULT cua migration 0092
   // (datetime('now') = UTC that) - LECH voi quy uoc VN-local dung cho MOI cot thoi gian khac trong
   // he thong (nowVN(), xem lib/vnTime.ts), khien log con hien thi som hon thuc te 7 tieng va sap xep

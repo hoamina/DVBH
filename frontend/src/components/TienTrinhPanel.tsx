@@ -291,14 +291,19 @@ export function TienTrinhPanel({
   // Them 2026-08-20: giai doan CSKH la trach nhiem cua KSNB Doi tac/TBP DVBH/Admin - an nut "+ Them
   // log" voi Giam sat khu vuc (van xem duoc, canWriteTranhChap van cho, chi khong ghi them duoc nua)
   // khi tien trinh dang o giai doan nay, khop voi canWriteCskhPhase() phia backend.
+  // CHOT 2026-08-22: nguoi dang duoc "Dang cho nguoi xu ly" cua log MOI NHAT duoc mo quyen ghi log
+  // CHINH + log con cho DUNG tien trinh nay, bat ke vai tro/khu_vuc/giai doan - ho dang "giu bong",
+  // can giai trinh duoc ngay ca khi khong thuoc nhom vai tro binh thuong. Khop dung backend (POST
+  // /tien-trinh/:id/log, POST /log/:logId/log-con).
+  const isAssignedToMe = !!currentUser && !!latestLog?.dang_cho_nguoi_xu_ly && latestLog.dang_cho_nguoi_xu_ly === currentUser.email;
   const canWrite = currentUser
-    ? canWriteTranhChap(currentUser, tt.khu_vuc ?? null) && (currentPhase !== "cskh" || canWriteCskhPhase(currentUser))
+    ? (canWriteTranhChap(currentUser, tt.khu_vuc ?? null) && (currentPhase !== "cskh" || canWriteCskhPhase(currentUser))) || isAssignedToMe
     : false;
   // CHOT 2026-08-21: "log con" (ghi chu giai trinh, KHONG doi trang thai) noi long hon log CHINH -
   // chi can canWriteTranhChap (khong doi hoi them canWriteCskhPhase khi dang o giai doan CSKH) - tat
   // ca vai tro duoc phep xu ly tien trinh nay deu them duoc log con mien tien trinh CHUA DONG. Khop
   // dung thay doi phia backend POST /log/:logId/log-con.
-  const canWriteLogCon = currentUser ? canWriteTranhChap(currentUser, tt.khu_vuc ?? null) : false;
+  const canWriteLogCon = currentUser ? canWriteTranhChap(currentUser, tt.khu_vuc ?? null) || isAssignedToMe : false;
   const canEditMeta = currentUser ? canEditTienTrinhMeta(currentUser) && !isDaDong : false;
   const urgency = latestLog ? dueUrgency(latestLog.thoi_gian_du_kien_xong, isDaDong) : null;
   // "Giam sat de xuat" - suy tu lich su cua CHINH ca nay (log tranh chap + giai_trinh, ca hai deu da
@@ -374,6 +379,16 @@ export function TienTrinhPanel({
             // cua so sua "con 24h" thanh ~31h thuc te).
             const hoursSince = (Date.now() - new Date(log.created_at.replace(" ", "T") + "Z").getTime()) / 3600000;
             const canEdit = isLatest && isAuthor && hoursSince < 24;
+            // CHOT 2026-08-28: "nhac nho nho" khoang cach ngay giua log nay va log LIEN TIEP TRUOC DO
+            // (logs xep moi nhat truoc, nen "truoc do" = logs[idx+1]) - khong phan biet co doi nguoi
+            // xu ly hay khong, chi la khoang cach thoi gian giua 2 lan cap nhat lien tiep. Ca 2 deu la
+            // cot created_at RAW UTC nen tru truc tiep khong can quy doi mui gio. Cung thiet ke (nhan
+            // "↳ cach moc truoc X.X ngay", so thap phan) voi tab "Tien trinh chung" (CaseDetail.tsx) -
+            // theo yeu cau nguoi dung dong bo giao dien, nhung to dam mau hon de de nhin hon.
+            const prevLog = logs[idx + 1];
+            const daysSincePrev = prevLog
+              ? (new Date(log.created_at.replace(" ", "T") + "Z").getTime() - new Date(prevLog.created_at.replace(" ", "T") + "Z").getTime()) / 86400000
+              : null;
             return (
               <div key={log.id} className="relative pl-4">
                 <span
@@ -460,6 +475,11 @@ export function TienTrinhPanel({
                     )
                   )}
                 </div>
+                {daysSincePrev !== null && (
+                  <div className="text-[11px] font-semibold text-[var(--coral-600)] pt-1.5">
+                    ↳ cách log trước <strong>{daysSincePrev.toFixed(1)} ngày</strong>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -472,7 +492,19 @@ export function TienTrinhPanel({
         <LogFormModal
           title="Thêm log xử lý mới"
           submitLabel="Thêm log"
-          initial={{ trang_thai_xu_ly: "", thoi_gian_du_kien_xong: latestLog?.thoi_gian_du_kien_xong ?? "", ghi_chu: "", ket_qua_xu_ly: "", hai_long_sau_tranh_chap: "", dang_cho_nguoi_xu_ly: "" }}
+          // CHOT 2026-08-28: "dang_cho_nguoi_xu_ly" ke thua tu log GAN NHAT thay vi luon rong - truoc
+          // day form nay luon bat dau trong, khien nguoi dang duoc gan (VD Giam sat X dang "giu bong")
+          // vo tinh XOA MAT phan gan cua chinh minh moi khi ho tu them 1 log cap nhat ma khong chu dong
+          // chon lai ten minh trong dropdown - dan toi mat quyen ghi log tiep theo (isAssignedToMe dua
+          // vao dung gia tri nay). Nguoi dung van sua/xoa duoc binh thuong, chi khac o gia tri MAC DINH.
+          initial={{
+            trang_thai_xu_ly: "",
+            thoi_gian_du_kien_xong: latestLog?.thoi_gian_du_kien_xong ?? "",
+            ghi_chu: "",
+            ket_qua_xu_ly: "",
+            hai_long_sau_tranh_chap: "",
+            dang_cho_nguoi_xu_ly: latestLog?.dang_cho_nguoi_xu_ly ?? "",
+          }}
           ketQuaOptions={ketQuaOptions}
           latestTrangThai={latestLog?.trang_thai_xu_ly ?? null}
           giamSatPhuTrach={giamSatDeXuat}
