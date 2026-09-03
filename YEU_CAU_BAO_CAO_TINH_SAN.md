@@ -47,6 +47,8 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 | GET /tranh-chap/count (thêm 2026-07-29) | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/doi-may/theo-khu-vuc (thêm 2026-08-21 — tab "Đòi đổi máy", cố định lọc `phan_loai_tranh_chap = 'KH đòi đổi máy'`) | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/cho-xac-nhan-ai/count (thêm 2026-08-22 — badge đỏ trên tab "Chờ xác nhận AI") | tranhChap.ts | cases, tranh_chap |
+| GET /tranh-chap/theo-doi-doi-tra/cho-danh-gia/count (thêm 2026-09-03 — badge đỏ trên tab "Theo dõi đổi trả") | tranhChap.ts | cases, tranh_chap |
+| GET /tranh-chap/theo-doi-doi-tra/da-xac-nhan/thang-list (thêm 2026-09-03 — danh sách tháng để chia nhỏ bảng "Đã xác nhận") | tranhChap.ts | cases, tranh_chap |
 
 Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /missing-parts list) — chỉ bọc thống kê/đếm. daily-report: key thêm email/scope user (scope + vai trò ảnh hưởng kết quả).
 

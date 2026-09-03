@@ -41,6 +41,8 @@ import {
   type TienTrinhRow,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
+  type TheoDoiDoiTraRow,
+  type TheoDoiDoiTraDaXacNhanRow,
 } from "../lib/tranhChapShared";
 
 interface TienTrinhStats {
@@ -63,6 +65,7 @@ const VIEWS = [
   { key: "cho-xu-ly", label: "Chờ xử lý" },
   { key: "doi-may", label: "KN đổi máy" },
   { key: "cho-xac-nhan-ai", label: "Chờ xác nhận AI" },
+  { key: "theo-doi-doi-tra", label: "Theo dõi đổi trả" },
   { key: "tien-trinh", label: "Quản lý tiến trình" },
 ];
 
@@ -70,6 +73,81 @@ const VIEWS = [
 // - PHAI khop dung hang so DOI_MAY_PHAN_LOAI ben backend/src/routes/tranhChap.ts (Admin doi ten trong
 // Cai dat thi phai sua ca 2 noi).
 const DOI_MAY_PHAN_LOAI = "KH đòi đổi máy";
+
+// CHOT 2026-09-03: 1 bang PaginatedTable rieng cho MOI thang trong bang "Da xac nhan" cua tab "Theo
+// doi doi tra" (yeu cau nguoi dung: "hiện theo tháng và chia nhỏ bảng") - tach thanh component rieng
+// de moi thang co state trang (page) doc lap, khong dung chung 1 bien voi cac thang khac.
+function DaXacNhanDoiTraMonthTable({
+  thang,
+  khuVuc,
+  tinh,
+  nhomKh,
+  idSearch,
+  openCase,
+}: {
+  thang: string;
+  khuVuc: string;
+  tinh: string;
+  nhomKh: string;
+  idSearch: string;
+  openCase: (id: string, tab?: string) => void;
+}) {
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["tranh-chap-theo-doi-doi-tra-da-xac-nhan", thang, page, khuVuc, tinh, nhomKh, idSearch],
+    queryFn: () =>
+      api.get<Paged<TheoDoiDoiTraDaXacNhanRow>>(
+        `/tranh-chap/theo-doi-doi-tra/da-xac-nhan${buildQuery({ thang, page, pageSize: 10, khu_vuc: khuVuc, tinh, nhom_kh: nhomKh, id: idSearch || undefined })}`,
+      ),
+  });
+
+  const columns: Column<TheoDoiDoiTraDaXacNhanRow>[] = [
+    { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (c) => (
+        <>
+          {isVipKh(c.nhom_kh) && <VipBadge />}
+          {c.khach_hang ?? "—"}
+        </>
+      ),
+    },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
+    { key: "xac_nhan_luc", header: "Xác nhận lúc", render: (c) => <span className="text-xs">{fmtDateTime(c.theo_doi_doi_tra_xac_nhan_luc)}</span> },
+    { key: "xac_nhan_boi", header: "Người xác nhận", render: (c) => <span className="text-xs">{c.theo_doi_doi_tra_xac_nhan_boi ?? "—"}</span> },
+    {
+      key: "tien_trinh",
+      header: "Tiến trình",
+      render: (c) => (c.co_tien_trinh ? <Badge tone="teal">Đã tiếp nhận</Badge> : <Badge tone="amber">Chưa tiếp nhận</Badge>),
+    },
+  ];
+
+  return (
+    <div className="mb-6">
+      <div className="text-sm font-semibold text-[var(--ink-700)] mb-2">
+        Tháng {thang} <span className="text-[var(--ink-400)] font-normal">({data?.total ?? 0} ca)</span>
+      </div>
+      <PaginatedTable
+        columns={columns}
+        rows={data?.rows ?? []}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
+        page={page}
+        pageSize={10}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        onRowClick={(r) => openCase(r.id, "tranh-chap")}
+        rowKey={(r) => r.id}
+        rowClassName={(r) => vipRowClassName(r.nhom_kh)}
+        emptyText="Không có ca nào."
+        storageKey={`tranh-chap-theo-doi-doi-tra-da-xac-nhan-${thang}`}
+      />
+    </div>
+  );
+}
 
 export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
@@ -123,6 +201,10 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     queryKey: ["tranh-chap-cho-xac-nhan-ai-count"],
     queryFn: () => api.get<{ count: number }>("/tranh-chap/cho-xac-nhan-ai/count"),
   });
+  const { data: theoDoiDoiTraCountData } = useQuery({
+    queryKey: ["tranh-chap-theo-doi-doi-tra-count"],
+    queryFn: () => api.get<{ count: number }>("/tranh-chap/theo-doi-doi-tra/cho-danh-gia/count"),
+  });
 
   // CHOT 2026-08-22: badge "(x)" cho 2 tab "KN đổi máy" va "Cho xu ly" - THEO YEU CAU NGUOI DUNG,
   // KHONG them endpoint/logic backend moi (khac tab "Cho xac nhan AI" o tren) - chi goi lai 2 API SAN
@@ -143,6 +225,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
 
   const viewsWithCount = VIEWS.map((v) => {
     if (v.key === "cho-xac-nhan-ai") return { ...v, count: choXacNhanAiCountData?.count };
+    if (v.key === "theo-doi-doi-tra") return { ...v, count: theoDoiDoiTraCountData?.count };
     if (v.key === "doi-may") return { ...v, count: dmStats?.dangMo };
     if (v.key === "cho-xu-ly") return { ...v, count: choXuLyBadge?.unfilteredTotal };
     return v;
@@ -217,6 +300,96 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
               }}
             >
               Không phải tranh chấp
+            </Btn>
+          </div>
+        ) : (
+          <span className="text-xs text-[var(--ink-400)] italic">Không có quyền</span>
+        ),
+    },
+  ];
+
+  // ---------- Tab "Theo dõi đổi trả" (theo_doi_doi_tra, CHOT 2026-09-03) ----------
+  const [ddPage, setDdPage] = useState(1);
+  const [ddKhuVuc, setDdKhuVuc] = useLocalStorageState("filters:tranh-chap-dd-khu-vuc", "");
+  const [ddTinh, setDdTinh] = useLocalStorageState("filters:tranh-chap-dd-tinh", "");
+  const [ddNhomKh, setDdNhomKh] = useLocalStorageState("filters:tranh-chap-dd-nhom-kh", "");
+  const [ddIdSearch, setDdIdSearch] = useState("");
+  const [ddSubView, setDdSubView] = useState<"cho-danh-gia" | "da-xac-nhan">("cho-danh-gia");
+  const [confirmingDoiTraCase, setConfirmingDoiTraCase] = useState<{ id: string; ketQua: "dung" | "khong_phai" } | null>(null);
+
+  const { data: ddData, isLoading: ddLoading, isError: ddError, refetch: refetchDd } = useQuery({
+    queryKey: ["tranh-chap-theo-doi-doi-tra-cho-danh-gia", ddPage, ddKhuVuc, ddTinh, ddNhomKh, ddIdSearch],
+    queryFn: () =>
+      api.get<Paged<TheoDoiDoiTraRow>>(
+        `/tranh-chap/theo-doi-doi-tra/cho-danh-gia${buildQuery({ page: ddPage, pageSize: 10, khu_vuc: ddKhuVuc, tinh: ddTinh, nhom_kh: ddNhomKh, id: ddIdSearch || undefined })}`,
+      ),
+    enabled: view === "theo-doi-doi-tra" && ddSubView === "cho-danh-gia",
+  });
+
+  const { data: ddThangList } = useQuery({
+    queryKey: ["tranh-chap-theo-doi-doi-tra-thang-list"],
+    queryFn: () => api.get<{ rows: string[] }>("/tranh-chap/theo-doi-doi-tra/da-xac-nhan/thang-list"),
+    enabled: view === "theo-doi-doi-tra" && ddSubView === "da-xac-nhan",
+  });
+
+  const xacNhanDoiTra = useMutation({
+    mutationFn: ({ id, ketQua }: { id: string; ketQua: "dung" | "khong_phai" }) => api.post(`/tranh-chap/${encodeURIComponent(id)}/xac-nhan-doi-tra`, { ket_qua: ketQua }),
+    onSuccess: (_data, variables) => {
+      addToast(variables.ketQua === "dung" ? "Đã xác nhận theo dõi đổi trả — vào chi tiết ca để \"Tiếp nhận\" xử lý như khiếu nại bình thường." : "Đã bỏ qua ca này.");
+      setConfirmingDoiTraCase(null);
+      qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-cho-danh-gia"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-count"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-thang-list"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-da-xac-nhan"] });
+    },
+    onError: (err) => {
+      addToast(describeTranhChapError(err, "Không thể xác nhận, thử lại sau."));
+      setConfirmingDoiTraCase(null);
+    },
+  });
+
+  const theoDoiDoiTraColumns: Column<TheoDoiDoiTraRow>[] = [
+    { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (c) => (
+        <>
+          {isVipKh(c.nhom_kh) && <VipBadge />}
+          {c.khach_hang ?? "—"}
+        </>
+      ),
+    },
+    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
+    { key: "luu_y_loi_linh_kien", header: "Lưu ý lỗi linh kiện", render: (c) => <span className="text-xs">{c.luu_y_loi_linh_kien ?? "—"}</span> },
+    { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    {
+      key: "action",
+      header: "",
+      className: "text-right",
+      render: (c) =>
+        !user || canConfirmAiTranhChap(user, c.khu_vuc) ? (
+          <div className="flex justify-end gap-1.5">
+            <Btn
+              size="sm"
+              variant="success"
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmingDoiTraCase({ id: c.id, ketQua: "dung" });
+              }}
+            >
+              Xác nhận đổi trả
+            </Btn>
+            <Btn
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmingDoiTraCase({ id: c.id, ketQua: "khong_phai" });
+              }}
+            >
+              Bỏ qua
             </Btn>
           </div>
         ) : (
@@ -1196,6 +1369,86 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
               </div>
             )}
           </Modal>
+        </div>
+      ) : view === "theo-doi-doi-tra" ? (
+        <div className="mt-4">
+          <div className="text-sm text-[var(--ink-600)] mb-4">
+            Ca có <b>"Loại yêu cầu"</b> và <b>"Lưu ý lỗi linh kiện"</b> khớp danh mục đổi trả/đổi máy trong Cài đặt (tự động tính khi import). Bấm <b>"Xác nhận đổi trả"</b> rồi vào chi tiết ca bấm <b>"Tiếp nhận"</b> để xử lý như 1 khiếu nại bình thường, hoặc <b>"Bỏ qua"</b> để loại bỏ vĩnh viễn.
+          </div>
+          <div className="flex items-center gap-2 mb-4">
+            <Btn size="sm" variant={ddSubView === "cho-danh-gia" ? "primary" : "ghost"} onClick={() => setDdSubView("cho-danh-gia")}>
+              Chưa đánh giá {theoDoiDoiTraCountData?.count !== undefined ? `(${theoDoiDoiTraCountData.count})` : ""}
+            </Btn>
+            <Btn size="sm" variant={ddSubView === "da-xac-nhan" ? "primary" : "ghost"} onClick={() => setDdSubView("da-xac-nhan")}>
+              Đã xác nhận
+            </Btn>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <KhuVucFilterControl value={ddKhuVuc} onChange={(v) => { setDdKhuVuc(v); setDdPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
+            <MultiSelectFilter label="Tỉnh" value={ddTinh} onChange={(v) => { setDdTinh(v); setDdPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label="Nhóm KH" value={ddNhomKh} onChange={(v) => { setDdNhomKh(v); setDdPage(1); }} options={nhomKhSelectOptions} />
+            <IdSerialSearchInput
+              value={ddIdSearch}
+              onChange={(v) => {
+                setDdIdSearch(v);
+                setDdPage(1);
+              }}
+            />
+          </div>
+          {ddSubView === "cho-danh-gia" ? (
+            <>
+              <PaginatedTable
+                columns={theoDoiDoiTraColumns}
+                rows={ddData?.rows ?? []}
+                isLoading={ddLoading}
+                isError={ddError}
+                onRetry={refetchDd}
+                page={ddPage}
+                pageSize={10}
+                total={ddData?.total ?? 0}
+                onPageChange={setDdPage}
+                onRowClick={(c) => openCase(c.id, "tranh-chap")}
+                rowKey={(c) => c.id}
+                rowClassName={(c) => vipRowClassName(c.nhom_kh)}
+                emptyText="Không có ca nào đang chờ đánh giá theo dõi đổi trả."
+                storageKey="tranh-chap-theo-doi-doi-tra-cho-danh-gia"
+              />
+              <Modal
+                open={!!confirmingDoiTraCase}
+                onClose={() => setConfirmingDoiTraCase(null)}
+                title={confirmingDoiTraCase?.ketQua === "dung" ? "Xác nhận: Đúng là đổi trả?" : "Bỏ qua ca này?"}
+                width="max-w-md"
+              >
+                {confirmingDoiTraCase && (
+                  <div className="space-y-4">
+                    <div className="text-sm text-[var(--ink-700)]">
+                      {confirmingDoiTraCase.ketQua === "dung"
+                        ? `Ca ${confirmingDoiTraCase.id} sẽ được xác nhận thuộc diện theo dõi đổi trả và chuyển sang bảng "Đã xác nhận" — vào chi tiết ca để bấm "Tiếp nhận" xử lý như 1 khiếu nại bình thường.`
+                        : `Ca ${confirmingDoiTraCase.id} sẽ bị loại vĩnh viễn khỏi danh sách chờ đánh giá — không thể hoàn tác.`}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Btn variant="ghost" onClick={() => setConfirmingDoiTraCase(null)}>
+                        Hủy
+                      </Btn>
+                      <Btn
+                        variant={confirmingDoiTraCase.ketQua === "dung" ? "success" : "danger"}
+                        disabled={xacNhanDoiTra.isPending}
+                        onClick={() => xacNhanDoiTra.mutate(confirmingDoiTraCase)}
+                      >
+                        {xacNhanDoiTra.isPending ? "Đang lưu…" : confirmingDoiTraCase.ketQua === "dung" ? "Xác nhận đổi trả" : "Bỏ qua"}
+                      </Btn>
+                    </div>
+                  </div>
+                )}
+              </Modal>
+            </>
+          ) : (ddThangList?.rows ?? []).length === 0 ? (
+            <div className="text-sm text-[var(--ink-400)] italic py-6 text-center">Chưa có ca nào được xác nhận.</div>
+          ) : (
+            (ddThangList?.rows ?? []).map((thang) => (
+              <DaXacNhanDoiTraMonthTable key={thang} thang={thang} khuVuc={ddKhuVuc} tinh={ddTinh} nhomKh={ddNhomKh} idSearch={ddIdSearch} openCase={openCase} />
+            ))
+          )}
         </div>
       ) : (
         <div className="mt-4">

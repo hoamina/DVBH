@@ -92,6 +92,25 @@ export interface TienTrinhDetail {
   logs: TranhChapLogRow[];
 }
 
+// CHOT 2026-09-03: tab "Theo dõi đổi trả" - case_dvbh.theo_doi_doi_tra tính tự động tại import (xem
+// backend/src/lib/theoDoiDoiTra.ts + migration 0104), 2 bảng: "cho-danh-gia" (= 2) và "da-xac-nhan"
+// (= 1, chia nhỏ theo tháng).
+export interface TheoDoiDoiTraRow {
+  id: string;
+  khach_hang: string | null;
+  khu_vuc: string | null;
+  nhom_kh?: string | null;
+  thoi_gian_hoan_thanh: string | null;
+  loai_yeu_cau: string | null;
+  luu_y_loi_linh_kien: string | null;
+}
+
+export interface TheoDoiDoiTraDaXacNhanRow extends TheoDoiDoiTraRow {
+  theo_doi_doi_tra_xac_nhan_boi: string | null;
+  theo_doi_doi_tra_xac_nhan_luc: string | null;
+  co_tien_trinh: number;
+}
+
 export interface PhanLoaiTranhChapRow {
   id: number;
   ten_phan_loai: string;
@@ -258,6 +277,7 @@ export function describeTranhChapError(err: unknown, fallback: string): string {
     if (err.code === "MISSING_HAI_LONG") return "Cần chọn Hài lòng sau tranh chấp khi đóng tranh chấp.";
     if (err.code === "MISSING_DANG_CHO_NGUOI_XU_LY") return "Cần chọn Đang chờ người xử lý khi Chuyển lại giám sát xử lý.";
     if (err.code === "KHONG_PHAI_CHO_XAC_NHAN") return "Ca này không còn ở trạng thái chờ xác nhận AI (có thể đã được xác nhận hoặc đã tạo tiến trình).";
+    if (err.code === "KHONG_PHAI_CHO_DANH_GIA") return "Ca này không còn ở trạng thái chờ đánh giá theo dõi đổi trả (có thể đã được xác nhận/bỏ qua).";
     if (err.code === "ALREADY_CONFIRMED") return "Ca này vừa được người khác xác nhận — vui lòng tải lại danh sách.";
     if (err.code === "INVALID_KET_QUA") return "Kết quả xác nhận không hợp lệ.";
   }

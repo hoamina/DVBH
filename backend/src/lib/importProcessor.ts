@@ -10,6 +10,7 @@ import {
 } from "./ratchet";
 import { nowVN } from "./vnTime";
 import { recomputeCanKhaoSatBatch } from "./canKhaoSat";
+import { computeTheoDoiDoiTra } from "./theoDoiDoiTra";
 
 /**
  * Luong import hang ngay - port tu import.js (thiet ke Node.js/pg ban goc).
@@ -106,7 +107,26 @@ function dedupeById(rows: ImportRow[]): { rows: ImportRow[]; duplicateCount: num
 // khong doi, vi hash CHI tinh tren BUSINESS_FIELDS, khong gom VIOLATION_FIELDS). "nghi_ngo_tranh_chap"
 // liet ke rieng (khong con nam trong VIOLATION_FIELDS - xem ratchet.ts) vi can gia tri hien co (0-3)
 // de tinh ratchetNghiNgoTranhChap().
-const EXISTING_ROW_COLUMNS = ["id", "crm_hash", "thoi_gian_hoan_thanh", "seri_san_pham", ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap"];
+const EXISTING_ROW_COLUMNS = ["id", "crm_hash", "thoi_gian_hoan_thanh", "seri_san_pham", ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "theo_doi_doi_tra"];
+
+interface DoiTraSets {
+  loaiYeuCauSet: ReadonlySet<string>;
+  luuYLoiLinhKienSet: ReadonlySet<string>;
+}
+
+// Nap danh sach gia tri DANG BAT (bat_tat = 1) cua 2 danh muc Settings (migration 0104) 1 LAN cho
+// toan bo file import - tranh truy van lai tung dong. Chi goi khi commit=true (xem processImport),
+// preview khong can bo sung cot nay.
+async function loadDoiTraSets(db: D1Database): Promise<DoiTraSets> {
+  const [loaiRows, luuYRows] = await Promise.all([
+    db.prepare("SELECT loai_yeu_cau FROM settings_loai_yeu_cau_doi_tra WHERE bat_tat = 1").all<{ loai_yeu_cau: string }>(),
+    db.prepare("SELECT luu_y_loi_linh_kien FROM settings_luu_y_loi_linh_kien_doi_tra WHERE bat_tat = 1").all<{ luu_y_loi_linh_kien: string }>(),
+  ]);
+  return {
+    loaiYeuCauSet: new Set(loaiRows.results.map((r) => r.loai_yeu_cau)),
+    luuYLoiLinhKienSet: new Set(luuYRows.results.map((r) => r.luu_y_loi_linh_kien)),
+  };
+}
 
 async function fetchExistingRows(
   db: D1Database,
@@ -128,19 +148,22 @@ async function fetchExistingRows(
   return map;
 }
 
-function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, crmHash: string): D1PreparedStatement {
+function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, crmHash: string, doiTraSets: DoiTraSets): D1PreparedStatement {
   const normalizedFlags = Object.fromEntries(
     VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f]) ? 1 : 0]),
   );
   // Dong MOI (chua co gia tri cu) - khong can ratchet, ghi thang gia tri raw da normalize (0/1/2).
   const nghiNgoTranhChap = normalizeNghiNgoTranhChapRaw(incoming.nghi_ngo_tranh_chap);
   const businessValues = Object.fromEntries(BUSINESS_FIELDS.map((f) => [f, businessFieldValue(f, incoming)]));
-  const fields = ["id", ...BUSINESS_FIELDS, ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
+  // Dong MOI luon bat dau tu currentDbValue=0 (khong the da bi khoa 1/3) - xem lib/theoDoiDoiTra.ts.
+  const theoDoiDoiTra = computeTheoDoiDoiTra(0, businessValues.loai_yeu_cau, businessValues.luu_y_loi_linh_kien, doiTraSets.loaiYeuCauSet, doiTraSets.luuYLoiLinhKienSet);
+  const fields = ["id", ...BUSINESS_FIELDS, ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "theo_doi_doi_tra", "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
   const values = {
     id: incoming.id,
     ...businessValues,
     ...normalizedFlags,
     nghi_ngo_tranh_chap: nghiNgoTranhChap,
+    theo_doi_doi_tra: theoDoiDoiTra,
     crm_hash: crmHash,
     ngay_import: now,
     ngay_cap_nhat_gan_nhat: now,
@@ -156,6 +179,7 @@ function buildFullOverwrite(
   incoming: ImportRow,
   finalFlags: Record<string, number>,
   finalNghiNgoTranhChap: number,
+  finalTheoDoiDoiTra: number,
   now: string,
   crmHash: string,
 ): D1PreparedStatement {
@@ -171,6 +195,8 @@ function buildFullOverwrite(
   }
   setClauses.push("nghi_ngo_tranh_chap = ?");
   values.push(finalNghiNgoTranhChap);
+  setClauses.push("theo_doi_doi_tra = ?");
+  values.push(finalTheoDoiDoiTra);
   setClauses.push("crm_hash = ?");
   values.push(crmHash);
   setClauses.push("ngay_cap_nhat_gan_nhat = ?");
@@ -206,6 +232,8 @@ export async function processImport(
     db,
     valid.map((r) => r.id),
   );
+  // Chi can khi commit=true (INSERT/UPDATE that su moi dung toi) - preview khong doc them 2 bang nay.
+  const doiTraSets: DoiTraSets = commit ? await loadDoiTraSets(db) : { loaiYeuCauSet: new Set(), luuYLoiLinhKienSet: new Set() };
 
   const now = nowVN();
   const statements: D1PreparedStatement[] = [];
@@ -230,7 +258,7 @@ export async function processImport(
       addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
       addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
       canKhaoSatIds.add(incoming.id);
-      if (commit) statements.push(buildInsertStatement(db, incoming, now, incomingHash));
+      if (commit) statements.push(buildInsertStatement(db, incoming, now, incomingHash, doiTraSets));
       continue;
     }
 
@@ -287,7 +315,15 @@ export async function processImport(
       (f) => finalFlags[f] !== (existing[f] ? 1 : 0),
     );
     if (surveyFlagsChanged) canKhaoSatIds.add(incoming.id);
-    if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, finalNghiNgoTranhChap, now, incomingHash));
+    const existingTheoDoiDoiTra = Number(existing.theo_doi_doi_tra) || 0;
+    const finalTheoDoiDoiTra = computeTheoDoiDoiTra(
+      existingTheoDoiDoiTra,
+      businessFieldValue("loai_yeu_cau", incoming),
+      businessFieldValue("luu_y_loi_linh_kien", incoming),
+      doiTraSets.loaiYeuCauSet,
+      doiTraSets.luuYLoiLinhKienSet,
+    );
+    if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, finalNghiNgoTranhChap, finalTheoDoiDoiTra, now, incomingHash));
   }
 
   summary.affectedSerials = [...affectedSerials];

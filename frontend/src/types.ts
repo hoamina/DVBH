@@ -362,6 +362,27 @@ export interface LoaiYeuCauBoQuaLapRow {
   ngay_cap_nhat: string;
 }
 
+/** 1 dong trong settings_loai_yeu_cau_doi_tra (migration 0104) - "Loai yeu cau" tinh vao dieu kien
+ * (AND voi LuuYLoiLinhKienDoiTraRow) phat hien tab "Theo doi doi tra" khi bat_tat=1, xem
+ * backend/src/lib/theoDoiDoiTra.ts. */
+export interface LoaiYeuCauDoiTraRow {
+  id: number;
+  loai_yeu_cau: string;
+  bat_tat: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
+/** 1 dong trong settings_luu_y_loi_linh_kien_doi_tra (migration 0104) - ve doi cua
+ * LoaiYeuCauDoiTraRow (dieu kien AND), xem backend/src/lib/theoDoiDoiTra.ts. */
+export interface LuuYLoiLinhKienDoiTraRow {
+  id: number;
+  luu_y_loi_linh_kien: string;
+  bat_tat: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
 export interface PhanLoaiTranhChapRow {
   id: number;
   ten_phan_loai: string;

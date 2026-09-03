@@ -46,7 +46,7 @@ const linhKienWriteRoles = requireQuanLyDanhMucLk;
 
 async function logAudit(
   db: D1Database,
-  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap" | "settings_loai_yeu_cau_bo_qua_lap",
+  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap" | "settings_loai_yeu_cau_bo_qua_lap" | "settings_loai_yeu_cau_doi_tra" | "settings_luu_y_loi_linh_kien_doi_tra",
   banGhiId: string,
   nguoiThayDoi: string,
   truongThayDoi: string,
@@ -322,6 +322,105 @@ settings.patch("/loai-yeu-cau-bo-qua-lap/:id", adminOnly, async (c) => {
 
   await logAudit(c.env.DB, "settings_loai_yeu_cau_bo_qua_lap", String(id), user.email, "updated", existing, next);
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true });
+});
+
+// ---------- Theo doi doi tra: 2 danh muc "Loai yeu cau" + "Luu y loi linh kien" (migration 0104) ----------
+// Dieu kien AND ca 2 danh muc (bat_tat=1 o CA 2 hang khop) moi tinh la 1 case thuoc dien "Theo doi doi
+// tra" - tinh tai importProcessor.ts (xem lib/theoDoiDoiTra.ts), KHONG live-join nhu eligibleClause()
+// cua Ca lap (day la 1 cot trang thai co workflow xac nhan/bo qua thu cong, khac dieu kien loc thuan
+// tuy). Doc mo cho moi user da duyet, ghi gioi han Admin - mirror hoan toan pattern loai-yeu-cau-bo-qua-lap.
+settings.get("/loai-yeu-cau-doi-tra", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_loai_yeu_cau_doi_tra ORDER BY id").all();
+  return c.json({ rows: results });
+});
+
+settings.get("/loai-yeu-cau-doi-tra/goi-y", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT DISTINCT loai_yeu_cau FROM case_dvbh WHERE loai_yeu_cau IS NOT NULL AND loai_yeu_cau != '' ORDER BY loai_yeu_cau",
+  ).all<{ loai_yeu_cau: string }>();
+  return c.json({ rows: results.map((r) => r.loai_yeu_cau) });
+});
+
+settings.post("/loai-yeu-cau-doi-tra", adminOnly, async (c) => {
+  const body = await c.req.json<{ loai_yeu_cau: string }>();
+  if (!body.loai_yeu_cau?.trim()) return c.json({ error: "MISSING_LOAI_YEU_CAU" }, 400);
+
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    `INSERT INTO settings_loai_yeu_cau_doi_tra (loai_yeu_cau, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?)
+     ON CONFLICT(loai_yeu_cau) DO UPDATE SET bat_tat = 1, nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat
+     RETURNING *`,
+  )
+    .bind(body.loai_yeu_cau.trim(), user.email, nowVN())
+    .first();
+
+  await logAudit(c.env.DB, "settings_loai_yeu_cau_doi_tra", String((row as { id: number }).id), user.email, "created", null, row);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json(row, 201);
+});
+
+settings.patch("/loai-yeu-cau-doi-tra/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ bat_tat?: boolean }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_yeu_cau_doi_tra WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const user = c.get("user");
+  const next = { bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat };
+  await c.env.DB.prepare("UPDATE settings_loai_yeu_cau_doi_tra SET bat_tat = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?")
+    .bind(next.bat_tat, user.email, nowVN(), id)
+    .run();
+
+  await logAudit(c.env.DB, "settings_loai_yeu_cau_doi_tra", String(id), user.email, "updated", existing, next);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true });
+});
+
+settings.get("/luu-y-loi-linh-kien-doi-tra", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_luu_y_loi_linh_kien_doi_tra ORDER BY id").all();
+  return c.json({ rows: results });
+});
+
+settings.get("/luu-y-loi-linh-kien-doi-tra/goi-y", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT DISTINCT luu_y_loi_linh_kien FROM case_dvbh WHERE luu_y_loi_linh_kien IS NOT NULL AND luu_y_loi_linh_kien != '' ORDER BY luu_y_loi_linh_kien",
+  ).all<{ luu_y_loi_linh_kien: string }>();
+  return c.json({ rows: results.map((r) => r.luu_y_loi_linh_kien) });
+});
+
+settings.post("/luu-y-loi-linh-kien-doi-tra", adminOnly, async (c) => {
+  const body = await c.req.json<{ luu_y_loi_linh_kien: string }>();
+  if (!body.luu_y_loi_linh_kien?.trim()) return c.json({ error: "MISSING_LUU_Y_LOI_LINH_KIEN" }, 400);
+
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    `INSERT INTO settings_luu_y_loi_linh_kien_doi_tra (luu_y_loi_linh_kien, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?)
+     ON CONFLICT(luu_y_loi_linh_kien) DO UPDATE SET bat_tat = 1, nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat
+     RETURNING *`,
+  )
+    .bind(body.luu_y_loi_linh_kien.trim(), user.email, nowVN())
+    .first();
+
+  await logAudit(c.env.DB, "settings_luu_y_loi_linh_kien_doi_tra", String((row as { id: number }).id), user.email, "created", null, row);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json(row, 201);
+});
+
+settings.patch("/luu-y-loi-linh-kien-doi-tra/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ bat_tat?: boolean }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_luu_y_loi_linh_kien_doi_tra WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const user = c.get("user");
+  const next = { bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat };
+  await c.env.DB.prepare("UPDATE settings_luu_y_loi_linh_kien_doi_tra SET bat_tat = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?")
+    .bind(next.bat_tat, user.email, nowVN(), id)
+    .run();
+
+  await logAudit(c.env.DB, "settings_luu_y_loi_linh_kien_doi_tra", String(id), user.email, "updated", existing, next);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
 });

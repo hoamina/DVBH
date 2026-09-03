@@ -386,6 +386,189 @@ tranhChap.post("/:caseId/xac-nhan-ai", async (c) => {
   return c.json({ ok: true, ket_qua: body.ket_qua });
 });
 
+// ============================================================
+// "Theo doi doi tra" (tab moi, CHOT 2026-09-03) - case_dvbh.theo_doi_doi_tra tinh TU DONG tai import
+// (xem lib/theoDoiDoiTra.ts + migration 0104), KHONG can dieu kien "da dong" nao khac (khac
+// TRANH_CHAP_ELIGIBLE/TRANH_CHAP_AI_CHO_XAC_NHAN o tren - chi dung dung 2 dieu kien nguoi dung yeu
+// cau). Sau khi xac nhan "dung" (-> 1), case hien trong bang "Da xac nhan" cua tab nay va van dung
+// NGUYEN quy trinh "Tiep nhan" hien co (POST /:caseId/tiep-nhan, khong rang buoc nghi_ngo_tranh_chap)
+// de tao tien trinh xu ly - KHONG tao duong rieng, dung y nghia "xu ly nhu 1 khieu nai binh thuong".
+// ============================================================
+const THEO_DOI_DOI_TRA_CHO_DANH_GIA = `c.theo_doi_doi_tra = 2`;
+const THEO_DOI_DOI_TRA_DA_XAC_NHAN = `c.theo_doi_doi_tra = 1`;
+
+// GET /api/tranh-chap/theo-doi-doi-tra/cho-danh-gia?khu_vuc=&tinh=&nhom_kh=&thang=&id=&page=&pageSize=
+// - danh sach case KHOP dieu kien tu dong (theo_doi_doi_tra = 2), dang cho con nguoi xac nhan "Dung"/
+// "Bo qua". Mirror shape voi GET /cho-xac-nhan-ai.
+tranhChap.get("/theo-doi-doi-tra/cho-danh-gia", async (c) => {
+  const scope = scopeTranhChap(c);
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
+  const monthParam = c.req.query("thang");
+  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+
+  let monthClauseSql = "";
+  const monthBinds: unknown[] = [];
+  if (monthParam) {
+    const { start, end } = monthBounds(monthParam);
+    monthClauseSql = " AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?";
+    monthBinds.push(start, end);
+  }
+
+  const idFilter = (c.req.query("id") ?? "").trim();
+  const idClauseSql = idFilter ? " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)" : "";
+  const idBinds = idFilter ? [`%${idFilter}%`, `%${idFilter}%`] : [];
+
+  const baseWhereSql = `${THEO_DOI_DOI_TRA_CHO_DANH_GIA}${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
+  const listWhereSql = `${baseWhereSql}${idClauseSql}`;
+  const binds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...nhomKhClause.binds, ...monthBinds];
+  const listBinds = [...binds, ...idBinds];
+
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${listWhereSql}`)
+    .bind(...listBinds)
+    .first<{ total: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.loai_yeu_cau, c.luu_y_loi_linh_kien
+     FROM case_dvbh c WHERE ${listWhereSql}
+     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.thoi_gian_hoan_thanh DESC
+     LIMIT ? OFFSET ?`,
+  )
+    .bind(...listBinds, pageSize, offset)
+    .all();
+
+  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+});
+
+/** Dung cho badge "(x)" tren tab "Theo doi doi tra" - mirror computeChoXacNhanAiCount(). */
+async function computeTheoDoiDoiTraChoDanhGiaCount(db: D1Database, scope: string[] | null): Promise<number> {
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
+  const row = await db
+    .prepare(`SELECT COUNT(*) as n FROM case_dvbh c WHERE ${THEO_DOI_DOI_TRA_CHO_DANH_GIA}${scopeClause.sql}`)
+    .bind(...scopeClause.binds)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+tranhChap.get("/theo-doi-doi-tra/cho-danh-gia/count", async (c) => {
+  const scope = scopeTranhChap(c);
+  const key = buildReportKey("tranh-chap/theo-doi-doi-tra/cho-danh-gia/count", {}, scope);
+  const count = await cachedReport(c.env.DB, key, ["cases", "tranh_chap"], () => computeTheoDoiDoiTraChoDanhGiaCount(c.env.DB, scope));
+  return c.json({ count });
+});
+
+// POST /api/tranh-chap/:caseId/xac-nhan-doi-tra - xac nhan/bo qua 1 ca khop dieu kien tu dong
+// (theo_doi_doi_tra = 2). "dung" -> 1 (khoa, hien trong bang "Da xac nhan" - van dung nguyen quy
+// trinh "Tiep nhan" hien co de tao tien trinh, KHONG tu dong tao tien trinh o day). "khong_phai" -> 3
+// (khoa vinh vien, khong bao gio tu dong danh gia lai). Dieu kien WHERE ...=2 trong UPDATE la
+// optimistic-concurrency, mirror POST /:caseId/xac-nhan-ai.
+tranhChap.post("/:caseId/xac-nhan-doi-tra", async (c) => {
+  const caseId = c.req.param("caseId");
+  const body = await c.req.json<{ ket_qua?: string }>();
+  if (body.ket_qua !== "dung" && body.ket_qua !== "khong_phai") return c.json({ error: "INVALID_KET_QUA" }, 400);
+
+  const caseRow = await c.env.DB.prepare("SELECT khu_vuc, theo_doi_doi_tra FROM case_dvbh WHERE id = ?")
+    .bind(caseId)
+    .first<{ khu_vuc: string | null; theo_doi_doi_tra: number }>();
+  if (!caseRow) return c.json({ error: "CASE_NOT_FOUND" }, 404);
+  if (caseRow.theo_doi_doi_tra !== 2) return c.json({ error: "KHONG_PHAI_CHO_DANH_GIA" }, 409);
+  if (!canConfirmAiTranhChap(c, caseRow.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+
+  const user = c.get("user");
+  const nextValue = body.ket_qua === "dung" ? 1 : 3;
+  const result = await c.env.DB.prepare(
+    "UPDATE case_dvbh SET theo_doi_doi_tra = ?, theo_doi_doi_tra_xac_nhan_boi = ?, theo_doi_doi_tra_xac_nhan_luc = ? WHERE id = ? AND theo_doi_doi_tra = 2",
+  )
+    .bind(nextValue, user.email, nowVN(), caseId)
+    .run();
+  if ((result.meta.changes ?? 0) === 0) return c.json({ error: "ALREADY_CONFIRMED" }, 409);
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  return c.json({ ok: true, ket_qua: body.ket_qua });
+});
+
+/** Danh sach DISTINCT thang (YYYY-MM, theo thoi_gian_hoan_thanh) cua cac ca DA xac nhan
+ * (theo_doi_doi_tra = 1) - dung de chia nho bang theo thang o frontend (moi thang 1 bang rieng, theo
+ * yeu cau nguoi dung). */
+async function computeThangListDaXacNhanDoiTra(db: D1Database, scope: string[] | null): Promise<string[]> {
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT strftime('%Y-%m', c.thoi_gian_hoan_thanh) as thang FROM case_dvbh c
+       WHERE ${THEO_DOI_DOI_TRA_DA_XAC_NHAN} AND c.thoi_gian_hoan_thanh IS NOT NULL${scopeClause.sql}
+       ORDER BY thang DESC`,
+    )
+    .bind(...scopeClause.binds)
+    .all<{ thang: string }>();
+  return results.map((r) => r.thang);
+}
+
+tranhChap.get("/theo-doi-doi-tra/da-xac-nhan/thang-list", async (c) => {
+  const scope = scopeTranhChap(c);
+  const key = buildReportKey("tranh-chap/theo-doi-doi-tra/da-xac-nhan/thang-list", {}, scope);
+  const rows = await cachedReport(c.env.DB, key, ["cases", "tranh_chap"], () => computeThangListDaXacNhanDoiTra(c.env.DB, scope));
+  return c.json({ rows });
+});
+
+// GET /api/tranh-chap/theo-doi-doi-tra/da-xac-nhan?thang=YYYY-MM&khu_vuc=&tinh=&nhom_kh=&id=&page=&pageSize=
+// - danh sach case DA xac nhan (theo_doi_doi_tra = 1) trong 1 THANG cu the (bat buoc truyen "thang" -
+// frontend goi lai nhieu lan, moi thang 1 bang, xem thang-list o tren).
+tranhChap.get("/theo-doi-doi-tra/da-xac-nhan", async (c) => {
+  const scope = scopeTranhChap(c);
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
+  const monthParam = c.req.query("thang");
+  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+
+  let monthClauseSql = "";
+  const monthBinds: unknown[] = [];
+  if (monthParam) {
+    const { start, end } = monthBounds(monthParam);
+    monthClauseSql = " AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?";
+    monthBinds.push(start, end);
+  }
+
+  const idFilter = (c.req.query("id") ?? "").trim();
+  const idClauseSql = idFilter ? " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)" : "";
+  const idBinds = idFilter ? [`%${idFilter}%`, `%${idFilter}%`] : [];
+
+  const baseWhereSql = `${THEO_DOI_DOI_TRA_DA_XAC_NHAN}${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
+  const listWhereSql = `${baseWhereSql}${idClauseSql}`;
+  const binds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...nhomKhClause.binds, ...monthBinds];
+  const listBinds = [...binds, ...idBinds];
+
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${listWhereSql}`)
+    .bind(...listBinds)
+    .first<{ total: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.loai_yeu_cau, c.luu_y_loi_linh_kien,
+       c.theo_doi_doi_tra_xac_nhan_boi, c.theo_doi_doi_tra_xac_nhan_luc,
+       EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) as co_tien_trinh
+     FROM case_dvbh c WHERE ${listWhereSql}
+     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.thoi_gian_hoan_thanh DESC
+     LIMIT ? OFFSET ?`,
+  )
+    .bind(...listBinds, pageSize, offset)
+    .all();
+
+  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+});
+
 // GET /api/tranh-chap/bao-cao-khu-vuc?thang=
 tranhChap.get("/bao-cao-khu-vuc", async (c) => {
   const scope = scopeTranhChap(c);

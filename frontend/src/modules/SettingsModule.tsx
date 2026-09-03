@@ -17,6 +17,8 @@ import {
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
   type LoaiYeuCauBoQuaLapRow,
+  type LoaiYeuCauDoiTraRow,
+  type LuuYLoiLinhKienDoiTraRow,
   type GreetingGifRow,
   type GreetingMessageRow,
   type GiaiTrinhExcludeNgayRow,
@@ -99,6 +101,11 @@ export function SettingsModule() {
   const [newKetQua, setNewKetQua] = useState("");
   const [addLoaiYeuCauBoQuaLapOpen, setAddLoaiYeuCauBoQuaLapOpen] = useState(false);
   const [newLoaiYeuCauBoQuaLap, setNewLoaiYeuCauBoQuaLap] = useState("");
+  const [ddSettingsSub, setDdSettingsSub] = useState<"loai-yeu-cau" | "luu-y-loi-linh-kien">("loai-yeu-cau");
+  const [addLoaiYeuCauDoiTraOpen, setAddLoaiYeuCauDoiTraOpen] = useState(false);
+  const [newLoaiYeuCauDoiTra, setNewLoaiYeuCauDoiTra] = useState("");
+  const [addLuuYLoiLinhKienDoiTraOpen, setAddLuuYLoiLinhKienDoiTraOpen] = useState(false);
+  const [newLuuYLoiLinhKienDoiTra, setNewLuuYLoiLinhKienDoiTra] = useState("");
   const [addGreetingGifOpen, setAddGreetingGifOpen] = useState(false);
   const [newGreetingGif, setNewGreetingGif] = useState("");
   const [addGreetingMessageOpen, setAddGreetingMessageOpen] = useState(false);
@@ -136,6 +143,8 @@ export function SettingsModule() {
   const [phanLoaiPage, setPhanLoaiPage] = useState(1);
   const [ketQuaPage, setKetQuaPage] = useState(1);
   const [loaiYeuCauBoQuaLapPage, setLoaiYeuCauBoQuaLapPage] = useState(1);
+  const [loaiYeuCauDoiTraPage, setLoaiYeuCauDoiTraPage] = useState(1);
+  const [luuYLoiLinhKienDoiTraPage, setLuuYLoiLinhKienDoiTraPage] = useState(1);
   const [greetingGifPage, setGreetingGifPage] = useState(1);
   const [greetingMessagePage, setGreetingMessagePage] = useState(1);
   const [ktvPage, setKtvPage] = useState(1);
@@ -185,6 +194,24 @@ export function SettingsModule() {
     queryKey: ["settings-loai-yeu-cau-goi-y"],
     queryFn: () => api.get<{ rows: string[] }>("/settings/loai-yeu-cau-bo-qua-lap/goi-y"),
     enabled: addLoaiYeuCauBoQuaLapOpen,
+  });
+  const { data: loaiYeuCauDoiTra } = useQuery({
+    queryKey: ["settings-loai-yeu-cau-doi-tra"],
+    queryFn: () => api.get<{ rows: LoaiYeuCauDoiTraRow[] }>("/settings/loai-yeu-cau-doi-tra"),
+  });
+  const { data: loaiYeuCauDoiTraGoiY } = useQuery({
+    queryKey: ["settings-loai-yeu-cau-doi-tra-goi-y"],
+    queryFn: () => api.get<{ rows: string[] }>("/settings/loai-yeu-cau-doi-tra/goi-y"),
+    enabled: addLoaiYeuCauDoiTraOpen,
+  });
+  const { data: luuYLoiLinhKienDoiTra } = useQuery({
+    queryKey: ["settings-luu-y-loi-linh-kien-doi-tra"],
+    queryFn: () => api.get<{ rows: LuuYLoiLinhKienDoiTraRow[] }>("/settings/luu-y-loi-linh-kien-doi-tra"),
+  });
+  const { data: luuYLoiLinhKienDoiTraGoiY } = useQuery({
+    queryKey: ["settings-luu-y-loi-linh-kien-doi-tra-goi-y"],
+    queryFn: () => api.get<{ rows: string[] }>("/settings/luu-y-loi-linh-kien-doi-tra/goi-y"),
+    enabled: addLuuYLoiLinhKienDoiTraOpen,
   });
   const { data: greetingGifs } = useQuery({
     queryKey: ["settings-greeting-gif"],
@@ -351,6 +378,44 @@ export function SettingsModule() {
       qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-bo-qua-lap"] });
     },
     onError: () => addToast("Không thể thêm (loại yêu cầu này có thể đã có trong danh sách)."),
+  });
+
+  const toggleLoaiYeuCauDoiTra = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/loai-yeu-cau-doi-tra/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật danh sách Loại yêu cầu (Theo dõi đổi trả)");
+      qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-doi-tra"] });
+    },
+  });
+
+  const addLoaiYeuCauDoiTraMutation = useMutation({
+    mutationFn: () => api.post("/settings/loai-yeu-cau-doi-tra", { loai_yeu_cau: newLoaiYeuCauDoiTra }),
+    onSuccess: () => {
+      addToast("Đã thêm loại yêu cầu");
+      setNewLoaiYeuCauDoiTra("");
+      setAddLoaiYeuCauDoiTraOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-doi-tra"] });
+    },
+    onError: () => addToast("Không thể thêm (loại yêu cầu này có thể đã có trong danh sách)."),
+  });
+
+  const toggleLuuYLoiLinhKienDoiTra = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/luu-y-loi-linh-kien-doi-tra/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật danh sách Lưu ý lỗi linh kiện (Theo dõi đổi trả)");
+      qc.invalidateQueries({ queryKey: ["settings-luu-y-loi-linh-kien-doi-tra"] });
+    },
+  });
+
+  const addLuuYLoiLinhKienDoiTraMutation = useMutation({
+    mutationFn: () => api.post("/settings/luu-y-loi-linh-kien-doi-tra", { luu_y_loi_linh_kien: newLuuYLoiLinhKienDoiTra }),
+    onSuccess: () => {
+      addToast("Đã thêm giá trị");
+      setNewLuuYLoiLinhKienDoiTra("");
+      setAddLuuYLoiLinhKienDoiTraOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-luu-y-loi-linh-kien-doi-tra"] });
+    },
+    onError: () => addToast("Không thể thêm (giá trị này có thể đã có trong danh sách)."),
   });
 
   const toggleGreetingGif = useMutation({
@@ -607,6 +672,26 @@ export function SettingsModule() {
     { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
   ];
 
+  const loaiYeuCauDoiTraColumns: Column<LoaiYeuCauDoiTraRow>[] = [
+    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
+    {
+      key: "bat_tat",
+      header: "Đang áp dụng",
+      render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLoaiYeuCauDoiTra.mutate({ id: r.id, bat_tat: !r.bat_tat })} />,
+    },
+    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
+  ];
+
+  const luuYLoiLinhKienDoiTraColumns: Column<LuuYLoiLinhKienDoiTraRow>[] = [
+    { key: "luu_y_loi_linh_kien", header: "Lưu ý lỗi linh kiện", render: (r) => <span className="font-medium">{r.luu_y_loi_linh_kien}</span> },
+    {
+      key: "bat_tat",
+      header: "Đang áp dụng",
+      render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLuuYLoiLinhKienDoiTra.mutate({ id: r.id, bat_tat: !r.bat_tat })} />,
+    },
+    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
+  ];
+
   const greetingGifColumns: Column<GreetingGifRow>[] = [
     {
       key: "gif_url",
@@ -738,6 +823,7 @@ export function SettingsModule() {
           { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
           { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
           { key: "loai-yeu-cau-bo-qua-lap", label: "Bỏ qua đánh giá lặp" },
+          { key: "theo-doi-doi-tra", label: "Theo dõi đổi trả" },
           { key: "loi-chao", label: "Lời chào" },
           { key: "giai-trinh-exclude-ngay", label: "Ngày loại trừ giải trình" },
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
@@ -977,6 +1063,65 @@ export function SettingsModule() {
             emptyText="Chưa có loại yêu cầu nào bị bỏ qua."
             storageKey="settings-loai-yeu-cau-bo-qua-lap"
           />
+        </div>
+      )}
+
+      {tab === "theo-doi-doi-tra" && (
+        <div className="mt-4">
+          <div className="text-sm text-[var(--ink-600)] mb-4">
+            Tab "Theo dõi đổi trả" (module Tranh chấp, KN) tự động phát hiện case đủ ĐỒNG THỜI 2 điều kiện dưới đây (AND) khi import — "Loại yêu cầu" thuộc danh sách 1 <b>và</b> "Lưu ý lỗi linh kiện" thuộc danh sách 2. Chỉ giá trị đang <b>bật</b> mới tính vào điều kiện.
+          </div>
+          <div className="flex items-center gap-2 mb-4">
+            <Btn size="sm" variant={ddSettingsSub === "loai-yeu-cau" ? "primary" : "ghost"} onClick={() => setDdSettingsSub("loai-yeu-cau")}>
+              Loại yêu cầu
+            </Btn>
+            <Btn size="sm" variant={ddSettingsSub === "luu-y-loi-linh-kien" ? "primary" : "ghost"} onClick={() => setDdSettingsSub("luu-y-loi-linh-kien")}>
+              Lưu ý lỗi linh kiện
+            </Btn>
+          </div>
+          {ddSettingsSub === "loai-yeu-cau" ? (
+            <>
+              <div className="flex items-center justify-end mb-3">
+                <Btn size="sm" onClick={() => setAddLoaiYeuCauDoiTraOpen(true)}>
+                  + Thêm loại yêu cầu
+                </Btn>
+              </div>
+              <PaginatedTable
+                columns={loaiYeuCauDoiTraColumns}
+                rows={(loaiYeuCauDoiTra?.rows ?? []).slice((loaiYeuCauDoiTraPage - 1) * PAGE_SIZE, loaiYeuCauDoiTraPage * PAGE_SIZE)}
+                isLoading={false}
+                isError={false}
+                page={loaiYeuCauDoiTraPage}
+                pageSize={PAGE_SIZE}
+                total={(loaiYeuCauDoiTra?.rows ?? []).length}
+                onPageChange={setLoaiYeuCauDoiTraPage}
+                rowKey={(r) => r.id}
+                emptyText="Chưa có loại yêu cầu nào."
+                storageKey="settings-loai-yeu-cau-doi-tra"
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-end mb-3">
+                <Btn size="sm" onClick={() => setAddLuuYLoiLinhKienDoiTraOpen(true)}>
+                  + Thêm giá trị
+                </Btn>
+              </div>
+              <PaginatedTable
+                columns={luuYLoiLinhKienDoiTraColumns}
+                rows={(luuYLoiLinhKienDoiTra?.rows ?? []).slice((luuYLoiLinhKienDoiTraPage - 1) * PAGE_SIZE, luuYLoiLinhKienDoiTraPage * PAGE_SIZE)}
+                isLoading={false}
+                isError={false}
+                page={luuYLoiLinhKienDoiTraPage}
+                pageSize={PAGE_SIZE}
+                total={(luuYLoiLinhKienDoiTra?.rows ?? []).length}
+                onPageChange={setLuuYLoiLinhKienDoiTraPage}
+                rowKey={(r) => r.id}
+                emptyText="Chưa có giá trị nào."
+                storageKey="settings-luu-y-loi-linh-kien-doi-tra"
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -1371,6 +1516,92 @@ export function SettingsModule() {
               Hủy
             </Btn>
             <Btn onClick={() => addLoaiYeuCauBoQuaLapMutation.mutate()} disabled={!newLoaiYeuCauBoQuaLap.trim() || addLoaiYeuCauBoQuaLapMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={addLoaiYeuCauDoiTraOpen}
+        onClose={() => {
+          setAddLoaiYeuCauDoiTraOpen(false);
+          setNewLoaiYeuCauDoiTra("");
+        }}
+        title="Thêm loại yêu cầu (Theo dõi đổi trả)"
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Loại yêu cầu</label>
+            <div className="mt-1">
+              <Select
+                value={newLoaiYeuCauDoiTra}
+                onChange={setNewLoaiYeuCauDoiTra}
+                className="w-full"
+                options={[
+                  { value: "", label: "-- Chọn loại yêu cầu --" },
+                  ...(loaiYeuCauDoiTraGoiY?.rows ?? [])
+                    .filter((lyc) => !(loaiYeuCauDoiTra?.rows ?? []).some((r) => r.loai_yeu_cau === lyc))
+                    .map((lyc) => ({ value: lyc, label: lyc })),
+                ]}
+              />
+            </div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">Danh sách lấy từ các giá trị "Loại yêu cầu" đã từng xuất hiện trong dữ liệu import.</div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn
+              variant="ghost"
+              onClick={() => {
+                setAddLoaiYeuCauDoiTraOpen(false);
+                setNewLoaiYeuCauDoiTra("");
+              }}
+            >
+              Hủy
+            </Btn>
+            <Btn onClick={() => addLoaiYeuCauDoiTraMutation.mutate()} disabled={!newLoaiYeuCauDoiTra.trim() || addLoaiYeuCauDoiTraMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={addLuuYLoiLinhKienDoiTraOpen}
+        onClose={() => {
+          setAddLuuYLoiLinhKienDoiTraOpen(false);
+          setNewLuuYLoiLinhKienDoiTra("");
+        }}
+        title="Thêm giá trị (Lưu ý lỗi linh kiện — Theo dõi đổi trả)"
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Lưu ý lỗi linh kiện</label>
+            <div className="mt-1">
+              <Select
+                value={newLuuYLoiLinhKienDoiTra}
+                onChange={setNewLuuYLoiLinhKienDoiTra}
+                className="w-full"
+                options={[
+                  { value: "", label: "-- Chọn giá trị --" },
+                  ...(luuYLoiLinhKienDoiTraGoiY?.rows ?? [])
+                    .filter((lyc) => !(luuYLoiLinhKienDoiTra?.rows ?? []).some((r) => r.luu_y_loi_linh_kien === lyc))
+                    .map((lyc) => ({ value: lyc, label: lyc })),
+                ]}
+              />
+            </div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">Danh sách lấy từ các giá trị "Lưu ý lỗi linh kiện" đã từng xuất hiện trong dữ liệu import.</div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn
+              variant="ghost"
+              onClick={() => {
+                setAddLuuYLoiLinhKienDoiTraOpen(false);
+                setNewLuuYLoiLinhKienDoiTra("");
+              }}
+            >
+              Hủy
+            </Btn>
+            <Btn onClick={() => addLuuYLoiLinhKienDoiTraMutation.mutate()} disabled={!newLuuYLoiLinhKienDoiTra.trim() || addLuuYLoiLinhKienDoiTraMutation.isPending}>
               Thêm
             </Btn>
           </div>
