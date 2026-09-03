@@ -20,6 +20,13 @@ const BOOL_FILTER_OPTIONS = [
   { value: "false", label: "Không" },
 ];
 
+// KHOA CHINH SUA (2026-09-04): danh muc linh_kien chuyen sang dong bo tu he "linh-kien-app" doc lap
+// qua POST /api/partner/sync/linh-kien (cron 1h/lan, ghi de khong merge - xem routes/partnerApi.ts).
+// Sua tay o day se bi ghi de trong vong toi da 1h nen khoa het duong ghi qua UI (giu nguyen route
+// backend - chi khoa frontend, xem feedback nguoi dung). Doi lai false neu he linh-kien-app ngung
+// dong bo va can quay lai sua tay o day.
+const DANH_MUC_LOCKED = true;
+
 // Nhap hang loat "anh demo" tu file Excel co san (cot "Mã linh kiện" / "ẢNH DEMO", vd export tu
 // AppSheet cu) - CHOT 2026-08-17. Backend tu chia chunk 10 dong/lan (xem settings.ts
 // bulk-import-anh) vi moi dong ton 1 fetch anh nguon + 3 goi Google Drive - frontend chi lap goi
@@ -256,7 +263,7 @@ function PartDetailDrawer({ part, onClose, onEdit }: { part: LinhKienRow | null;
           <Btn variant="ghost" onClick={onClose}>
             Đóng
           </Btn>
-          <Btn onClick={onEdit}>Sửa thông tin</Btn>
+          {!DANH_MUC_LOCKED && <Btn onClick={onEdit}>Sửa thông tin</Btn>}
         </div>
       </div>
       {lightboxOpen && part.anh_demo && <ImageLightbox url={part.anh_demo} onClose={() => setLightboxOpen(false)} />}
@@ -464,19 +471,23 @@ export function DanhMucLinhKienModule() {
       // muon bam nham vao cong tac lai mo them drawer xem.
       render: (p) => (
         <span onClick={(e) => e.stopPropagation()} className="inline-block">
-          <ToggleSwitch checked={!!p.bat_tat} onChange={() => togglePart.mutate({ ma: p.ma_linh_kien, bat_tat: !p.bat_tat })} />
+          <ToggleSwitch checked={!!p.bat_tat} disabled={DANH_MUC_LOCKED} onChange={() => togglePart.mutate({ ma: p.ma_linh_kien, bat_tat: !p.bat_tat })} />
         </span>
       ),
     },
-    {
-      key: "action",
-      header: "",
-      render: (p) => (
-        <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
-          Sửa
-        </button>
-      ),
-    },
+    ...(DANH_MUC_LOCKED
+      ? []
+      : [
+          {
+            key: "action",
+            header: "",
+            render: (p: LinhKienRow) => (
+              <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
+                Sửa
+              </button>
+            ),
+          } satisfies Column<LinhKienRow>,
+        ]),
   ];
 
   return (
@@ -484,6 +495,11 @@ export function DanhMucLinhKienModule() {
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm text-[var(--ink-600)]">
           Danh mục linh kiện dùng chung cho giải trình ca "thiếu linh kiện" và module "Đặt mua linh kiện". Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.
+          {DANH_MUC_LOCKED && (
+            <div className="mt-1.5 text-[var(--amber-600)] font-medium">
+              🔒 Đã khoá chỉnh sửa — danh mục nay được đồng bộ tự động (hàng giờ) từ hệ thống "Đặt mua linh kiện" độc lập. Chỉ xem/xuất Excel tại đây.
+            </div>
+          )}
         </div>
         <div className="flex gap-2 shrink-0">
           <Btn
@@ -507,22 +523,27 @@ export function DanhMucLinhKienModule() {
           >
             ⬇ Xuất Excel
           </Btn>
-          <Btn variant="ghost" size="sm" onClick={() => syncSheetMutation.mutate()} disabled={syncSheetMutation.isPending}>
-            {syncSheetMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ từ Google Sheet"}
-          </Btn>
-          <Btn
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setBulkImportOpen(true);
-              setBulkImportSummary(null);
-              setBulkImportFailDetails([]);
-              setBulkImportTotal(0);
-              setBulkImportProcessed(0);
-            }}
-          >
-            📥 Nhập ảnh demo hàng loạt
-          </Btn>
+          {!DANH_MUC_LOCKED && (
+            <Btn variant="ghost" size="sm" onClick={() => syncSheetMutation.mutate()} disabled={syncSheetMutation.isPending}>
+              {syncSheetMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ từ Google Sheet"}
+            </Btn>
+          )}
+          {!DANH_MUC_LOCKED && (
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setBulkImportOpen(true);
+                setBulkImportSummary(null);
+                setBulkImportFailDetails([]);
+                setBulkImportTotal(0);
+                setBulkImportProcessed(0);
+              }}
+            >
+              📥 Nhập ảnh demo hàng loạt
+            </Btn>
+          )}
+          {!DANH_MUC_LOCKED && (
           <Btn
             size="sm"
             onClick={() => {
@@ -532,6 +553,7 @@ export function DanhMucLinhKienModule() {
           >
             + Thêm linh kiện
           </Btn>
+          )}
         </div>
       </div>
 

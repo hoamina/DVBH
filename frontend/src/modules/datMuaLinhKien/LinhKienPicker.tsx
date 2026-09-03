@@ -15,6 +15,11 @@ import { describeApiError, useLinhKienRankMap, formatLkLabel } from "./helpers";
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
 // phan hoi Codex 2026-08-19). Dung boi ca TaoDonTab va DonHangDetailModal (che do sua).
 
+// KHOA CHINH SUA (2026-09-04): giong DanhMucLinhKienModule.tsx - danh muc linh_kien nay dong bo tu
+// he "linh-kien-app" doc lap, sua tay bi ghi de trong toi da 1h. Ep canEditDanhMuc=false bat ke quyen
+// quan_ly_danh_muc_lk (chi khoa frontend, giu nguyen route backend - xem feedback nguoi dung).
+export const DANH_MUC_LOCKED = true;
+
 // Goi y ma LK cung nhom thay the - buoc 2 ke hoach "Luong tao don mua hang", ap dung cho MOI nguoi
 // dung (khong rieng Kho/TN). GS/TN co them nut "Them vao nhom thay the" de bo sung nhanh tai day.
 export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQuanLy: boolean; addToast: (msg: string) => void }) {
@@ -154,7 +159,7 @@ export function LinhKienPicker({
   const addToast = useToast();
   const qc = useQueryClient();
   const auth = useAuth();
-  const canEditDanhMuc = auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
+  const canEditDanhMuc = !DANH_MUC_LOCKED && auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
 
   const selected = options.find((o) => o.ma_linh_kien === value);
 

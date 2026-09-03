@@ -39,6 +39,13 @@ interface KtvImportSummary {
 
 const PAGE_SIZE = 20;
 
+// KHOA CHINH SUA (2026-09-04): ktv_lien_he (tru popup KtvNameWithPhone.tsx o cac man CSKH - muc dich
+// khac, giu nguyen theo yeu cau) chuyen sang dong bo tu he "linh-kien-app" doc lap qua POST
+// /api/partner/sync/ktv (cron 1h/lan, ghi de khong merge - xem routes/partnerApi.ts). Sua tay o tab
+// "Danh sách KTV" nay se bi ghi de trong toi da 1h nen khoa het duong ghi qua UI (giu nguyen route
+// backend - chi khoa frontend, xem feedback nguoi dung).
+const KTV_LIST_LOCKED = true;
+
 interface SheetUrlRow {
   loai_dong_bo: string;
   url: string | null;
@@ -785,31 +792,35 @@ export function SettingsModule() {
     { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
     { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
     { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (r) => <span className="text-xs">{r.ngay_cap_nhat}</span> },
-    {
-      key: "action",
-      header: "",
-      className: "text-right whitespace-nowrap",
-      render: (r) => (
-        <div className="flex gap-2 justify-end">
-          <button
-            className="text-xs text-[var(--ocean-600)] hover:underline"
-            onClick={() => {
-              setEditingKtvMa(r.ma_ktv);
-              setKtvForm({
-                ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi ?? "", sdt: r.sdt ?? "", ghi_chu: r.ghi_chu ?? "",
-                gmail: r.gmail ?? "", vai_tro_ktv: r.vai_tro_ktv ?? "", giam_sat_quan_ly: r.giam_sat_quan_ly ?? "", email_dang_nhap: r.email_dang_nhap ?? "",
-              });
-              setKtvModalOpen(true);
-            }}
-          >
-            Sửa
-          </button>
-          <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteKtvMutation.mutate(r.ma_ktv)}>
-            Xóa
-          </button>
-        </div>
-      ),
-    },
+    ...(KTV_LIST_LOCKED
+      ? []
+      : [
+          {
+            key: "action",
+            header: "",
+            className: "text-right whitespace-nowrap",
+            render: (r: KtvLienHeRow) => (
+              <div className="flex gap-2 justify-end">
+                <button
+                  className="text-xs text-[var(--ocean-600)] hover:underline"
+                  onClick={() => {
+                    setEditingKtvMa(r.ma_ktv);
+                    setKtvForm({
+                      ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi ?? "", sdt: r.sdt ?? "", ghi_chu: r.ghi_chu ?? "",
+                      gmail: r.gmail ?? "", vai_tro_ktv: r.vai_tro_ktv ?? "", giam_sat_quan_ly: r.giam_sat_quan_ly ?? "", email_dang_nhap: r.email_dang_nhap ?? "",
+                    });
+                    setKtvModalOpen(true);
+                  }}
+                >
+                  Sửa
+                </button>
+                <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteKtvMutation.mutate(r.ma_ktv)}>
+                  Xóa
+                </button>
+              </div>
+            ),
+          } satisfies Column<KtvLienHeRow>,
+        ]),
   ];
 
   return (
@@ -908,7 +919,12 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh sách KTV — số điện thoại hiển thị cạnh tên KTV ở các màn hình CSKH gọi khảo sát (CSKH cũng tự thêm/sửa/xóa được bằng cách bấm vào tên KTV khi xem 1 ca). Vai trò/Gmail/Giám sát/Tài khoản đăng nhập chỉ dùng cho module "Đặt mua linh kiện", chỉ Admin sửa được ở đây.
+              Danh sách KTV — số điện thoại hiển thị cạnh tên KTV ở các màn hình CSKH gọi khảo sát (CSKH vẫn tự thêm/sửa/xóa được bằng cách bấm vào tên KTV khi xem 1 ca). Vai trò/Gmail/Giám sát/Tài khoản đăng nhập chỉ dùng cho module "Đặt mua linh kiện".
+              {KTV_LIST_LOCKED && (
+                <div className="mt-1.5 text-[var(--amber-600)] font-medium">
+                  🔒 Đã khoá thêm/sửa/xóa/nhập file tại đây — danh sách này được đồng bộ tự động (hàng giờ) từ hệ thống "Đặt mua linh kiện" độc lập. Chỉ xem/xuất Excel.
+                </div>
+              )}
             </div>
             <div className="flex gap-2 shrink-0">
               <Btn
@@ -940,38 +956,42 @@ export function SettingsModule() {
               >
                 {backfillUsersMutation.isPending ? "Đang cấp..." : "🔑 Cấp tài khoản trước cho KTV chưa đăng nhập"}
               </Btn>
-              <Btn
-                size="sm"
-                onClick={() => {
-                  setEditingKtvMa(null);
-                  setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "", gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "" });
-                  setKtvModalOpen(true);
-                }}
-              >
-                + Thêm SĐT
-              </Btn>
+              {!KTV_LIST_LOCKED && (
+                <Btn
+                  size="sm"
+                  onClick={() => {
+                    setEditingKtvMa(null);
+                    setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "", gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "" });
+                    setKtvModalOpen(true);
+                  }}
+                >
+                  + Thêm SĐT
+                </Btn>
+              )}
             </div>
           </div>
-          <ImportUploader<KtvImportSummary>
-            description={
-              <>
-                Nhập hàng loạt KTV từ file Excel/CSV. Bắt buộc: <b className="font-mono">ma_ktv</b>. Tùy chọn: <b className="font-mono">sdt</b>, <b className="font-mono">ten_hien_thi</b>, <b className="font-mono">ghi_chu</b>, <b className="font-mono">gmail</b>, <b className="font-mono">vai_tro_ktv</b> (KTV/CTV/Tram/Ve tinh), <b className="font-mono">giam_sat_quan_ly</b>, <b className="font-mono">email_dang_nhap</b>. Mã KTV đã có sẽ được cập nhật — 4 cột cuối chỉ ghi đè nếu ô có giá trị.
-              </>
-            }
-            templateUrl="/api/settings/ktv-lien-he/template"
-            previewUrl="/settings/ktv-lien-he/import/preview"
-            commitUrl="/settings/ktv-lien-he/import/commit"
-            buildBody={(rows) => ({ rows })}
-            renderSummary={(s) => (
-              <div className="grid grid-cols-2 gap-3 mb-2">
-                <StatCard label="Sẵn sàng ghi" value={s.thanhCong} tone="teal" />
-                <StatCard label="Dòng lỗi" value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
-              </div>
-            )}
-            getErrors={(s) => s.errors}
-            successMessage={(s) => `Import thành công: ${s.thanhCong} SĐT kỹ thuật viên`}
-            invalidateKeys={[KTV_PHONE_QUERY_KEY]}
-          />
+          {!KTV_LIST_LOCKED && (
+            <ImportUploader<KtvImportSummary>
+              description={
+                <>
+                  Nhập hàng loạt KTV từ file Excel/CSV. Bắt buộc: <b className="font-mono">ma_ktv</b>. Tùy chọn: <b className="font-mono">sdt</b>, <b className="font-mono">ten_hien_thi</b>, <b className="font-mono">ghi_chu</b>, <b className="font-mono">gmail</b>, <b className="font-mono">vai_tro_ktv</b> (KTV/CTV/Tram/Ve tinh), <b className="font-mono">giam_sat_quan_ly</b>, <b className="font-mono">email_dang_nhap</b>. Mã KTV đã có sẽ được cập nhật — 4 cột cuối chỉ ghi đè nếu ô có giá trị.
+                </>
+              }
+              templateUrl="/api/settings/ktv-lien-he/template"
+              previewUrl="/settings/ktv-lien-he/import/preview"
+              commitUrl="/settings/ktv-lien-he/import/commit"
+              buildBody={(rows) => ({ rows })}
+              renderSummary={(s) => (
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <StatCard label="Sẵn sàng ghi" value={s.thanhCong} tone="teal" />
+                  <StatCard label="Dòng lỗi" value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
+                </div>
+              )}
+              getErrors={(s) => s.errors}
+              successMessage={(s) => `Import thành công: ${s.thanhCong} SĐT kỹ thuật viên`}
+              invalidateKeys={[KTV_PHONE_QUERY_KEY]}
+            />
+          )}
           <PaginatedTable
             columns={ktvColumns}
             rows={(ktvLienHe?.rows ?? []).slice((ktvPage - 1) * PAGE_SIZE, ktvPage * PAGE_SIZE)}

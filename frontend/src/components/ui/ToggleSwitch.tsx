@@ -1,8 +1,9 @@
-export function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+export function ToggleSwitch({ checked, onChange, disabled = false }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
     <button
-      onClick={onChange}
-      className={`focus-ring w-10 rounded-full transition-colors relative ${checked ? "bg-[var(--teal-500)]" : "bg-slate-300"}`}
+      onClick={disabled ? undefined : onChange}
+      disabled={disabled}
+      className={`focus-ring w-10 rounded-full transition-colors relative ${checked ? "bg-[var(--teal-500)]" : "bg-slate-300"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       style={{ height: 22 }}
     >
       <span

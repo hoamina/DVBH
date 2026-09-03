@@ -23,7 +23,7 @@ import {
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, MaYcscCell } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
-import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
+import { LinhKienPicker, LinhKienDetailModal, DANH_MUC_LOCKED } from "./LinhKienPicker";
 
 export function DonHangDetailModal({
   id,
@@ -1155,7 +1155,7 @@ export function DonHangGroupedList({
   const { danhMuc } = useLkAndLdeCache(true);
   const rankMap = useLinhKienRankMap();
   const auth = useAuth();
-  const canEditDanhMuc = auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
+  const canEditDanhMuc = !DANH_MUC_LOCKED && auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
   // Tach 2 nhom Ly do cham theo quan_ly_don_thieu_linh_kien (xem comment actionsFor.choHang o
   // helpers.ts) - dung cho ca nut "Chờ hàng" rieng tren tung dong.
   const choHangReasons = (bulkLyDoData?.rows ?? []).filter((l) => l.quan_ly_don_thieu_linh_kien);
