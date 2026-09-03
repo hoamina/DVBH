@@ -40,11 +40,13 @@ const TEMPLATE_CSV =
   "(qldvbh.mb2) Quản lý khu vực MB2,SỰ CỐ,Đúng hạn,1. Dưới 24h,202606,1. Dưới 96h,2026,KAROFI,KTV,Ngành 1 (lọc nước),CRM KRF,0,10\n";
 
 // "KH VIPs": cot RIENG khong bat buoc (thuong la 0/rong, chi vai dong co gia tri nhu "NSKX"/"MT" -
-// xem file mau nguoi dung gui 2026-08-28) - CHOT: gia tri 0 (so hoac chuoi "0") tinh la RONG, khong
-// phai 1 nhan phan loai that su, dong bo voi cach cac dim khac dung "" = khong co du lieu.
+// xem file mau nguoi dung gui 2026-08-28) - CHOT 2026-08-28 (sua lai theo yeu cau): gia tri 0 (so
+// hoac chuoi "0") hoac rong deu tinh la "KH thường" (mot nhan that su, KHONG de rong "") - de dim
+// nay luon co gia tri hien thi/loc duoc, khong lo dong "trong" trong dropdown.
+const KH_THUONG = "KH thường";
 function normalizeKhVip(raw: unknown): string {
   const s = String(raw ?? "").trim();
-  return s === "0" ? "" : s;
+  return s === "0" || s === "" ? KH_THUONG : s;
 }
 
 // GET /api/luy-ke/template

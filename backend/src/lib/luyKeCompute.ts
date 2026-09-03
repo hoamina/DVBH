@@ -119,7 +119,7 @@ export async function computeLuyKeMonthFromCases(db: D1Database, thang: string):
     const key = [khu_vuc, phan_loai, c.dung_han, toc_do, tren_96h, hang, doi_tuong, nganh, nguon_crm].join("");
     const existing = groups.get(key);
     if (existing) existing.sl += 1;
-    else groups.set(key, { khu_vuc, phan_loai, dung_han: c.dung_han, toc_do, thang, tren_96h, nam, hang, doi_tuong, nganh, nguon_crm, kh_vip: "", sl: 1 });
+    else groups.set(key, { khu_vuc, phan_loai, dung_han: c.dung_han, toc_do, thang, tren_96h, nam, hang, doi_tuong, nganh, nguon_crm, kh_vip: "KH thường", sl: 1 });
   }
 
   return [...groups.values()];

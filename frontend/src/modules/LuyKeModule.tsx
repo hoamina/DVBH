@@ -253,11 +253,11 @@ export function LuyKeModule() {
   // lieu doc thang tu R2 KHONG qua endpoint co loc san nen phai tu loc o client, giong BacklogModule.tsx
   // tab "Ca da dong". Loc TRUOC moi tinh toan khac (filter option, chart, bang, tong) de khu_vuc nay
   // khong con xuat hien o dau trong bao cao lũy ke, ke ca dropdown loc.
-  // kh_vip ?? "" : cac thang da import TRUOC khi co cot nay (them 2026-08-28) khong co field kh_vip
-  // trong JSON R2 cu - ep ve "" thay vi de undefined lam String(r.kh_vip) ra chuoi "undefined" trong
-  // dropdown loc/nhom.
+  // kh_vip || "KH thường": cac thang da import TRUOC khi co cot nay (them 2026-08-28) khong co field
+  // kh_vip trong JSON R2 cu (undefined), va cac thang import ngay luc chua sua lai quy tac (co the
+  // luu "" rong) - ca 2 truong hop deu quy ve nhan "KH thường" (CHOT: khong con de rong).
   const rows = useMemo(
-    () => rawRows.filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)).map((r) => ({ ...r, kh_vip: r.kh_vip ?? "" })),
+    () => rawRows.filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)).map((r) => ({ ...r, kh_vip: r.kh_vip || "KH thường" })),
     [rawRows],
   );
   // "v2" (CHOT 2026-08-28): doi tu Select don ("__ALL__" sentinel) sang MultiSelectFilter (chuoi gia
