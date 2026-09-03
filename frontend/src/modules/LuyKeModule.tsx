@@ -16,6 +16,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useLuyKeChunked, type LuyKeRow } from "../hooks/useLuyKeChunked";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { KHU_VUC_AN_KHOI_BAO_CAO } from "../constants";
 
 // Anh xa dung tieu de cot file Excel mau (xem sheet "Sheet1" cua "Phân tích báo cáo lũy kế.xlsx")
 // sang field noi bo - dung truc tiep cho parseSpreadsheet(), khong qua columnMapUrl vi schema co
@@ -242,7 +243,12 @@ export function LuyKeModule() {
   const auth = useAuth();
   const canImport = auth.status === "authenticated" && (auth.user.vai_tro === "Admin" || auth.user.vai_tro === "TBP DVBH");
   const [tab, setTab] = useLocalStorageState<"dashboard" | "import">("luy-ke:tab", "dashboard");
-  const { rows, months, isLoading, isError, refetch } = useLuyKeChunked();
+  const { rows: rawRows, months, isLoading, isError, refetch } = useLuyKeChunked();
+  // An khoi bao cao - khop KHU_VUC_AN_KHOI_BAO_CAO da CHOT o he thong khac (xem constants.ts): du
+  // lieu doc thang tu R2 KHONG qua endpoint co loc san nen phai tu loc o client, giong BacklogModule.tsx
+  // tab "Ca da dong". Loc TRUOC moi tinh toan khac (filter option, chart, bang, tong) de khu_vuc nay
+  // khong con xuat hien o dau trong bao cao lũy ke, ke ca dropdown loc.
+  const rows = useMemo(() => rawRows.filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)), [rawRows]);
   // "v2" (CHOT 2026-08-28): doi tu Select don ("__ALL__" sentinel) sang MultiSelectFilter (chuoi gia
   // tri cach nhau "|", rong = tat ca) - key cu se lam moi bo loc bi hieu la loc theo dung chuoi
   // "__ALL__" (khong khop dong nao) neu doc lai gia tri localStorage cu, nen doi ten key thay vi
