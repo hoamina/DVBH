@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { ChartOptions } from "chart.js";
 import { Card } from "../components/ui/Card";
+import { LoadingCard } from "../components/ui/LoadingCard";
 import { Btn } from "../components/ui/Btn";
 import { Select } from "../components/ui/Select";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
@@ -362,7 +363,7 @@ export function LuyKeModule() {
             </Card>
           )}
           {isLoading && rows.length === 0 ? (
-            <Card className="p-8 text-center text-sm text-[var(--ink-400)]">Đang tải dữ liệu…</Card>
+            <LoadingCard label="Đang tải dữ liệu báo cáo lũy kế…" />
           ) : rows.length === 0 ? (
             <Card className="p-8 text-center text-sm text-[var(--ink-400)]">
               Chưa có dữ liệu báo cáo lũy kế. {canImport && "Vào tab \"Nhập dữ liệu\" để import file Excel đầu tiên."}
