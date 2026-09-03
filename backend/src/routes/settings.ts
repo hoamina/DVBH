@@ -1201,7 +1201,7 @@ settings.get("/ktv-lien-he/template", adminOnly, (c) => csvTemplateResponse(c, K
 
 const VAI_TRO_KTV_VALUES = ["KTV", "CTV", "Tram", "Ve tinh"] as const;
 
-interface KtvImportRow {
+export interface KtvImportRow {
   ma_ktv?: string;
   ten_hien_thi?: string;
   sdt?: string;
@@ -1212,7 +1212,11 @@ interface KtvImportRow {
   email_dang_nhap?: string;
 }
 
-async function processKtvImportRows(db: D1Database, rows: KtvImportRow[], nguoiCapNhat: string, commit: boolean) {
+// Export (2026-08-28: dong bo "Đồng bộ KTV/linh kiện tự động sang DVBH" tu he "Dat mua linh kien"
+// - xem routes/partnerApi.ts /sync/ktv) de dung LAI dung 1 logic upsert + cap tai khoan placeholder
+// nay cho ca 2 duong vao: Admin tu import file Excel (route /import/commit ben duoi) VA sync tu
+// dong tu he ngoai qua API doi tac - tranh 2 nguon su that khac nhau cho cung 1 hanh vi ghi.
+export async function processKtvImportRows(db: D1Database, rows: KtvImportRow[], nguoiCapNhat: string, commit: boolean) {
   const summary = { thanhCong: 0, loi: 0, errors: [] as string[] };
   const valid: { ma_ktv: string; ten_hien_thi: string | null; sdt: string | null; ghi_chu: string | null; gmail: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string | null }[] = [];
 

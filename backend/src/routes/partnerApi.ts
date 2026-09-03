@@ -1,8 +1,12 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
 import { findActivePartnerKey, checkRateLimit, logPartnerApiCall } from "../lib/partnerApiAuth";
 import { buildPartnerExcel, type PartnerCaseRow, type GiaiTrinhHistoryRow } from "../lib/partnerExcel";
+import { processKtvImportRows, type KtvImportRow } from "./settings";
+import { computeAndStoreHash } from "../lib/contentHash";
+import { bumpVersions } from "../lib/dataVersions";
+import { nowVN } from "../lib/vnTime";
 
 /**
  * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
@@ -19,6 +23,12 @@ import { buildPartnerExcel, type PartnerCaseRow, type GiaiTrinhHistoryRow } from
  * filterParams.ts), khong phai "case khong ton tai". API nay la xuat du lieu CRM tho cho doi tac
  * ngoai, an di se lam mat that su ca sự co trong file ho nhan duoc - khac ban chat voi 1 bao cao
  * tong hop noi bo.
+ *
+ * SUA 2026-08-28: file nay KHONG CON 100% chi doc nua - them "/sync/ktv" + "/sync/linh-kien" (dong
+ * bo tu he doc lap "Dat mua linh kien", xem CLAUDE.md cua he do muc "Nguon goc tach he thong") de
+ * he do CHU DONG DAY danh ba KTV/danh muc linh kien moi nhat sang day dinh ky (cron 1h/lan) hoac
+ * khi Admin ben do bam "Đồng bộ ngay". Day la NGOAI LE DAU TIEN pha vo bat bien "chi doc" cua router
+ * nay - can biet khi doc lai comment o tren.
  */
 const partnerApi = new Hono<{ Bindings: Env }>();
 
@@ -298,6 +308,118 @@ partnerApi.get("/case-lookup", async (c) => {
   if (!caseRow) return c.json({ found: false, preview: null });
 
   return c.json({ found: true, preview: caseRow });
+});
+
+// Dung chung cho ca 2 route sync ben duoi - gioi han so dong 1 lan goi (khop dung
+// CHUNK_SIZE/batch cua sync client ben "Dat mua linh kien", tranh 1 request qua lon).
+const SYNC_MAX_ROWS = 200;
+
+async function requirePartnerKey(c: Context<{ Bindings: Env }>) {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
+    c.executionCtx.waitUntil(
+      caches.default.put(
+        keyCacheKey,
+        new Response(JSON.stringify({ valid: false }), {
+          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
+        })
+      )
+    );
+  }
+  return keyRow;
+}
+
+// POST /api/partner/sync/ktv - { rows: KtvImportRow[] } - dong bo danh ba KTV tu he "Dat mua linh
+// kien" (nguon su that cho danh ba nay tu sau khi tach he - xem CLAUDE.md he do). Dung LAI dung ham
+// processKtvImportRows() cua routes/settings.ts (Admin dung khi tu import Excel tay) - upsert theo
+// ma_ktv + tu cap tai khoan placeholder cho dong co email_dang_nhap, khong nhan doi logic.
+partnerApi.post("/sync/ktv", async (c) => {
+  const keyRow = await requirePartnerKey(c);
+  if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
+
+  const body = await c.req.json<{ rows: KtvImportRow[] }>();
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  if (body.rows.length > SYNC_MAX_ROWS) return c.json({ error: "TOO_MANY_ROWS" }, 400);
+
+  // "sync:<ten doi tac>" thay vi email that - de Admin xem cot nguoi_cap_nhat biet ngay dong nao
+  // do he ngoai tu dong ghi, khac voi 1 Admin that tung sua tay.
+  const summary = await processKtvImportRows(c.env.DB, body.rows, `sync:${keyRow.ten_doi_tac}`, true);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ upserted: summary.thanhCong, errors: summary.errors });
+});
+
+interface LinhKienSyncRow {
+  ma_linh_kien?: string;
+  ten_linh_kien?: string;
+  gia_ban?: number | null;
+  gia_tham_chieu?: number | null;
+  don_vi?: string | null;
+  ghi_chu?: string | null;
+  anh_demo?: string | null;
+  bat_tat?: boolean;
+  dac_thu?: boolean;
+  chi_sua_chua?: boolean;
+}
+
+// POST /api/partner/sync/linh-kien - { rows: LinhKienSyncRow[] } - dong bo danh muc linh kien tu he
+// "Dat mua linh kien", cung ly do/nguon goc voi "/sync/ktv" o tren. KHAC voi processKtvImportRows
+// (giu COALESCE cho vai truong de tuong thich Admin tu nhap thieu cot) - o day GHI DE THANG toan bo
+// truong duoc gui, vi he goi sang la nguon su that DUY NHAT cho danh muc nay (da xac nhan voi nguoi
+// dung), khong con ai sua tay truc tiep o Settings DVBH nua.
+partnerApi.post("/sync/linh-kien", async (c) => {
+  const keyRow = await requirePartnerKey(c);
+  if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
+
+  const body = await c.req.json<{ rows: LinhKienSyncRow[] }>();
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  if (body.rows.length > SYNC_MAX_ROWS) return c.json({ error: "TOO_MANY_ROWS" }, 400);
+
+  const nguoiCapNhat = `sync:${keyRow.ten_doi_tac}`;
+  const now = nowVN();
+  const errors: string[] = [];
+  const statements = [];
+  for (const [i, row] of body.rows.entries()) {
+    const ma = row.ma_linh_kien?.trim();
+    const ten = row.ten_linh_kien?.trim();
+    if (!ma || !ten) {
+      errors.push(`Dòng ${i + 1}: thiếu ma_linh_kien/ten_linh_kien`);
+      continue;
+    }
+    statements.push(
+      c.env.DB.prepare(
+        `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, bat_tat, dac_thu, chi_sua_chua, nguoi_cap_nhat, ngay_cap_nhat)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(ma_linh_kien) DO UPDATE SET
+           ten_linh_kien = excluded.ten_linh_kien, gia_ban = excluded.gia_ban,
+           gia_tham_chieu = excluded.gia_tham_chieu, don_vi = excluded.don_vi,
+           ghi_chu = excluded.ghi_chu, anh_demo = excluded.anh_demo, bat_tat = excluded.bat_tat,
+           dac_thu = excluded.dac_thu, chi_sua_chua = excluded.chi_sua_chua,
+           nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat`,
+      ).bind(
+        ma,
+        ten,
+        row.gia_ban ?? null,
+        row.gia_tham_chieu ?? null,
+        row.don_vi?.trim() || null,
+        row.ghi_chu?.trim() || null,
+        row.anh_demo?.trim() || null,
+        row.bat_tat ? 1 : 0,
+        row.dac_thu ? 1 : 0,
+        row.chi_sua_chua ? 1 : 0,
+        nguoiCapNhat,
+        now,
+      ),
+    );
+  }
+  if (statements.length > 0) {
+    await c.env.DB.batch(statements);
+    const { results } = await c.env.DB.prepare("SELECT * FROM linh_kien ORDER BY ma_linh_kien").all();
+    await computeAndStoreHash(c.env.DB, "linh_kien", results);
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  }
+  return c.json({ upserted: statements.length, errors });
 });
 
 export default partnerApi;

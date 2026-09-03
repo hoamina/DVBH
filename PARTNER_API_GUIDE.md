@@ -1,10 +1,14 @@
 # API tra cứu thông tin case bảo hành (dành cho đối tác "Đặt mua linh kiện")
 
-Tài liệu này mô tả **1 endpoint duy nhất**: `GET /api/partner/case-lookup`. Đây là điểm nối API
-giữa hệ CRM/DVBH nội bộ (bên cung cấp — gọi tắt "hệ DVBH") và hệ thống của đối tác. Mục đích: KTV
-bên đối tác nhập mã ID case bảo hành, hệ đối tác gọi API này để lấy thông tin gốc của case đó, rồi
-tự đối chiếu/phân quyền (ví dụ: kiểm tra case đó có đúng do KTV này phụ trách hay không) trước khi
-hiển thị cho người dùng cuối.
+Tài liệu này mô tả điểm nối API giữa hệ CRM/DVBH nội bộ (bên cung cấp — gọi tắt "hệ DVBH") và hệ
+thống độc lập "Đặt mua linh kiện" (`linh-kien-app`). Mục 1–7 mô tả `GET /api/partner/case-lookup`
+(tra cứu 1 case theo ID). Mục 8 mô tả 2 endpoint **ghi** mới thêm 2026-08-28: `POST /sync/ktv` và
+`POST /sync/linh-kien` — dùng cho `linh-kien-app` đồng bộ danh bạ KTV/danh mục linh kiện của nó
+(nguồn sự thật cho 2 danh mục này từ sau khi tách hệ) ngược về DVBH.
+
+Mục đích của `case-lookup`: KTV bên đối tác nhập mã ID case bảo hành, hệ đối tác gọi API này để lấy
+thông tin gốc của case đó, rồi tự đối chiếu/phân quyền (ví dụ: kiểm tra case đó có đúng do KTV này
+phụ trách hay không) trước khi hiển thị cho người dùng cuối.
 
 **Quan trọng — mô hình phân quyền**: endpoint này KHÔNG lọc dữ liệu theo đối tác hay theo KTV. Bất
 kỳ request nào có API key hợp lệ đều có thể tra cứu **bất kỳ ID case nào** trong hệ thống. Toàn bộ
@@ -192,3 +196,47 @@ Response mẫu (không tìm thấy):
   ý dùng tiếp trong lúc chờ xử lý.
 - Endpoint chỉ hỗ trợ tra cứu 1 case theo đúng 1 ID mỗi lần gọi — không hỗ trợ tìm kiếm mờ, wildcard,
   hay trả danh sách nhiều case.
+
+## 8. Đồng bộ danh bạ KTV / danh mục linh kiện (ghi — chỉ dành cho `linh-kien-app`)
+
+Khác với `case-lookup` (chỉ đọc, dùng chung cho nhiều đối tác), 2 endpoint dưới đây **ghi đè dữ
+liệu** và chỉ dành riêng cho hệ "Đặt mua linh kiện" — dùng key riêng, không dùng chung key với
+`case-lookup`. Cùng auth (`X-API-Key`) và cùng giới hạn IP 60 req/phút như mục 5.1, không có giới
+hạn riêng theo key (tần suất gọi thấp — cron 1h/lần + bấm tay).
+
+### 8.1. `POST /api/partner/sync/ktv`
+
+```
+POST /api/partner/sync/ktv
+X-API-Key: <api_key_rieng_cho_dong_bo>
+Content-Type: application/json
+
+{ "rows": [
+  { "ma_ktv": "KTV001", "ten_hien_thi": "Nguyễn Văn A", "sdt": "0912345678", "ghi_chu": null,
+    "gmail": "a@gmail.com", "vai_tro_ktv": "KTV", "giam_sat_quan_ly": "gs@gmail.com",
+    "email_dang_nhap": "a@gmail.com" }
+] }
+```
+
+Tối đa **200 dòng/lần gọi** (vượt quá → `400 { "error": "TOO_MANY_ROWS" }`). Chỉ `ma_ktv` bắt buộc.
+Upsert theo `ma_ktv`. `vai_tro_ktv` nếu có phải là 1 trong `KTV`, `CTV`, `Tram`, `Ve tinh`. Response
+thành công: `{ "upserted": <so dong ghi thanh cong>, "errors": [<mo ta dong loi, neu co>] }`.
+
+### 8.2. `POST /api/partner/sync/linh-kien`
+
+```
+POST /api/partner/sync/linh-kien
+X-API-Key: <api_key_rieng_cho_dong_bo>
+Content-Type: application/json
+
+{ "rows": [
+  { "ma_linh_kien": "LK001", "ten_linh_kien": "Block máy lạnh 1HP", "gia_ban": 1200000,
+    "gia_tham_chieu": 1150000, "don_vi": "Cái", "ghi_chu": null, "anh_demo": "https://...",
+    "bat_tat": true, "dac_thu": false, "chi_sua_chua": false }
+] }
+```
+
+Tối đa **200 dòng/lần gọi**. `ma_linh_kien`/`ten_linh_kien` bắt buộc (thiếu 1 trong 2 → dòng đó bị
+bỏ qua, ghi vào `errors`, không chặn các dòng còn lại). Upsert theo `ma_linh_kien`, **ghi đè toàn bộ
+field được gửi** (khác `/sync/ktv` — không giữ giá trị cũ cho field nào). Response:
+`{ "upserted": <so dong ghi thanh cong>, "errors": [...] }`.

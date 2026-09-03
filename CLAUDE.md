@@ -106,8 +106,15 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     users.
   - `lkSettings.ts` — CRUD for `lk_danh_muc` (parts catalog) and `loai_de_xuat` groups/options;
     fronted by `SettingsModule.tsx` (Admin/TBP DVBH).
-  - `partnerApi.ts` — external partner-facing API with HMAC-SHA256 auth (`partnerApiAuth.ts`,
-    migration 0047). Separate from the main UI auth flow.
+  - `partnerApi.ts` — external partner-facing API, authenticated via `X-API-Key` header checked
+    against `partner_api_keys` (SHA-256 hashed at rest, `partnerApiAuth.ts`, migration 0047) — a
+    plain key comparison, not HMAC-signed requests. Separate from the main UI auth flow. Was
+    100% read-only until 2026-08-28, when `POST /sync/ktv` + `POST /sync/linh-kien` were added so
+    the independent "Đặt mua linh kiện" system (`linh-kien-app` repo — see that repo's `CLAUDE.md`
+    "Nguồn gốc tách hệ thống") can push its `ktv_lien_he`/`linh_kien` updates back here on an hourly
+    cron + manual trigger — that system is now the source of truth for those 2 tables, so these 2
+    routes overwrite unconditionally (no merge/preserve logic) and Admin's own Settings screens for
+    them here are effectively legacy for hand-editing.
   - `missingParts.ts` — tracks `thieu_lk` (missing parts) per order line; closed by `la_kho` users
     when parts arrive, which resumes the parent `dat_don_hang` row.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
