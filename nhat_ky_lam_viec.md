@@ -3589,3 +3589,67 @@ tranh chấp đang sai múi giờ. Điều tra xác nhận đúng:
 
 File sửa: `backend/src/routes/tranhChap.ts`, `frontend/src/components/TienTrinhPanel.tsx`,
 `migrations/0099_fix_tranh_chap_log_con_utc.sql` (mới), `SRS_tong_hop.md` (mục 4.8).
+
+## 2026-09-03 — Tab mới "Theo dõi đổi trả" (module Tranh chấp, KN)
+
+Chủ hệ thống yêu cầu tự động phát hiện case thuộc diện đổi trả/đổi máy dựa trên 2 điều kiện AND:
+`loai_yeu_cau` thuộc 1 danh sách 4 giá trị, VÀ `luu_y_loi_linh_kien` thuộc 1 danh sách 13 giá trị.
+Được hỏi nên tự đánh giá khi import hay để hệ thống ngoài (CRM/QuickSight) đánh giá trước rồi gửi 1
+cột kết quả — đã đối chiếu 2 tiền lệ có sẵn trong repo trước khi đề xuất:
+
+- `nghi_ngo_tranh_chap` (migration 0034/0096, "Chờ xác nhận AI") — đúng mô hình 4 trạng thái muốn
+  mirror, nhưng giá trị "2" (AI phát hiện) do 1 AI NGOÀI hệ thống tính và gửi kèm cột import — hợp lý
+  vì bài toán gốc cần suy luận ngữ nghĩa.
+- `settings_loai_yeu_cau_bo_qua_lap` (migration 0103, "Ca lặp") — Admin khai báo danh sách giá trị
+  trong Settings, hệ thống tự so khớp `loai_yeu_cau`, không cần AI.
+
+Vì điều kiện đưa ra là so khớp chuỗi xác định (không cần suy luận), đã đề xuất và được chốt: **tự
+tính trong app lúc import** (không chờ hệ thống ngoài), mirror gần 1:1 state-machine của
+`nghi_ngo_tranh_chap` nhưng lấy danh sách khớp từ Settings (giống `settings_loai_yeu_cau_bo_qua_lap`)
+thay vì từ AI ngoài.
+
+3 điểm chốt qua AskUserQuestion trước khi code (đều chọn phương án khuyến nghị):
+1. Trạng thái "Bỏ qua" khóa vĩnh viễn (giống `nghi_ngo_tranh_chap = 3`, không tự đánh giá lại).
+2. Mốc "bắt đầu từ tháng 09/2026" = chỉ áp dụng cho case có ghi mới/ghi đè THẬT SỰ từ lúc deploy trở
+   đi — KHÔNG backfill case cũ đã đóng (tận dụng đúng hành vi có sẵn của `importProcessor.ts`: dòng
+   không đổi `crm_hash` vốn đã bị `BO_QUA` sớm, tự nhiên đạt yêu cầu này mà không cần code riêng).
+3. 2 danh mục Settings bật/tắt riêng từng giá trị (không phải 1 công tắc tổng) — mirror đúng
+   `settings_loai_yeu_cau_bo_qua_lap`.
+
+Triển khai (migration `0104_theo_doi_doi_tra.sql`):
+- Cột mới `case_dvbh.theo_doi_doi_tra` (0/1/2/3, cùng ngữ nghĩa 4 trạng thái với `nghi_ngo_tranh_chap`)
+  + 2 cột audit `theo_doi_doi_tra_xac_nhan_boi`/`_luc` + index partial cho `= 2`.
+- 2 bảng danh mục mới `settings_loai_yeu_cau_doi_tra` / `settings_luu_y_loi_linh_kien_doi_tra` (seed
+  sẵn 4 + 13 giá trị theo yêu cầu), mở rộng CHECK của `settings_audit_log` (tiền lệ migration 0103,
+  bảng log 1 chiều nên recreate-table an toàn).
+- `backend/src/lib/theoDoiDoiTra.ts` — hàm thuần `computeTheoDoiDoiTra()` (khóa 1/3, so khớp AND 2
+  Set). `importProcessor.ts` nạp 2 Set này 1 lần/file import (chỉ khi `commit=true`), tính cho cả
+  nhánh GHI_MOI (`buildInsertStatement`) và GHI_DE thật (`buildFullOverwrite`) — KHÔNG đụng tới các
+  nhánh `BO_QUA` sớm sẵn có (đúng ý "không backfill" ở điểm chốt #2).
+- `routes/tranhChap.ts`: 2 danh sách `GET /theo-doi-doi-tra/cho-danh-gia` (+ `/count`, cached) và
+  `GET /theo-doi-doi-tra/da-xac-nhan` (theo tháng, bắt buộc `thang`) + `GET .../thang-list` (cached,
+  liệt kê tháng để frontend tự chia bảng) + `POST /:caseId/xac-nhan-doi-tra` (xác nhận/bỏ qua, tái
+  dùng `canConfirmAiTranhChap()` có sẵn). **Không tạo route "tiếp nhận" riêng** — case xác nhận "dung"
+  chỉ set `theo_doi_doi_tra = 1`, người dùng vào chi tiết ca bấm nút "Tiếp nhận" HIỆN CÓ
+  (`POST /:caseId/tiep-nhan`, vốn không ràng buộc `nghi_ngo_tranh_chap`) để tạo tiến trình — đúng yêu
+  cầu "xử lý như 1 khiếu nại bình thường" mà không cần đường dẫn/logic mới.
+- Settings CRUD 2 danh mục (`routes/settings.ts`) mirror 100% pattern `loai-yeu-cau-bo-qua-lap`.
+- Frontend: tab mới "Theo dõi đổi trả" trong `TranhChapModule.tsx` (2 sub-view: "Chưa đánh giá" 1
+  bảng, "Đã xác nhận" NHIỀU bảng nhỏ chia theo tháng — mỗi tháng 1 component `DaXacNhanDoiTraMonthTable`
+  riêng để có state trang độc lập); `SettingsModule.tsx` thêm tab "Theo dõi đổi trả" với 2 sub-tab
+  (Loại yêu cầu / Lưu ý lỗi linh kiện), mirror UI "Bỏ qua đánh giá lặp".
+- Bug bắt được lúc test trên browser: khai báo `useQuery` cho badge đếm SAU chỗ dùng nó trong
+  `viewsWithCount` → lỗi runtime "Cannot access before initialization" (TDZ), phải dời khai báo lên
+  trước — nhắc lại thứ tự khai báo hook trong component lớn cần cẩn thận khi thêm state mới xen giữa.
+- Test end-to-end trên dev server local: import 1 case khớp cả 2 điều kiện → đúng `theo_doi_doi_tra=2`
+  → hiện đúng ở tab "Chưa đánh giá" → bấm "Xác nhận đổi trả" → chuyển đúng sang bảng "Đã xác nhận"
+  (chia theo tháng, đúng người/giờ xác nhận) → click vào ca mở đúng `CaseDetail` tab "Tranh chấp" với
+  nút "Tiếp nhận" sẵn có. Dọn sạch dữ liệu test khỏi D1 local sau khi xác nhận.
+- Đã chạy `npm run typecheck --workspace backend` và `--workspace frontend` sạch cả 2 lần (trước và
+  sau khi sửa bug TDZ). Migration áp `db:migrate:smarttrade` (remote, xác nhận chỉ đúng 1 migration
+  0104 đang chờ trước khi chạy) rồi `deploy:smarttrade` — production v1.317.
+
+File sửa: `migrations/0104_theo_doi_doi_tra.sql` (mới), `backend/src/lib/theoDoiDoiTra.ts` (mới),
+`backend/src/lib/importProcessor.ts`, `backend/src/routes/settings.ts`, `backend/src/routes/tranhChap.ts`,
+`frontend/src/lib/tranhChapShared.ts`, `frontend/src/modules/TranhChapModule.tsx`,
+`frontend/src/modules/SettingsModule.tsx`, `frontend/src/types.ts`, `YEU_CAU_BAO_CAO_TINH_SAN.md`.
