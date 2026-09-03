@@ -782,6 +782,55 @@ function fmtDayShort(ngay: string): string {
   return `${d}/${m}`;
 }
 
+// Tat ca ngay (01 den ngay cuoi) cua 1 thang "YYYY-MM", dang "YYYY-MM-DD" - dung cho nut "Tai ca
+// thang" cua bang "Ty le giai trinh theo ngay".
+function daysInMonthList(thang: string): string[] {
+  const [y, m] = thang.split("-").map(Number);
+  const soNgay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: soNgay }, (_, i) => `${thang}-${String(i + 1).padStart(2, "0")}`);
+}
+
+// Xuat Excel bang "Ty le giai trinh theo ngay" - moi ngay tach rieng 2 cot SO (khong gop chuoi
+// "da/can") de dung thang lam bao cao/cong thuc tiep, giu dong "Tong cong" o dau giong hien thi tren
+// man hinh. Dung chung cho ca bang 14-ngay-gan-nhat (tu cache giaiTrinhTrend) lan nut "Tai ca thang"
+// (tu 1 lan goi API rieng theo tu_ngay/den_ngay).
+function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[]): Record<string, string | number>[] {
+  const sorted = [...rows].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi"));
+  const totalByDay: Record<string, { can: number; da: number }> = {};
+  for (const day of days) {
+    let can = 0;
+    let da = 0;
+    for (const row of sorted) {
+      const found = row.days.find((d) => d.ngay === day);
+      if (found) {
+        can += found.can_giai_trinh;
+        da += found.da_giai_trinh;
+      }
+    }
+    totalByDay[day] = { can, da };
+  }
+  const rowToExport = (khuVuc: string, dayLookup: (day: string) => { can: number; da: number } | undefined) => {
+    const out: Record<string, string | number> = { "Khu vực": khuVuc };
+    for (const day of days) {
+      const found = dayLookup(day);
+      out[`${fmtDayShort(day)} - Đã GT`] = found?.da ?? 0;
+      out[`${fmtDayShort(day)} - Cần GT`] = found?.can ?? 0;
+    }
+    return out;
+  };
+  const exportRows: Record<string, string | number>[] = [];
+  if (sorted.length > 0) exportRows.push(rowToExport("Tong cong", (day) => totalByDay[day]));
+  for (const row of sorted) {
+    exportRows.push(
+      rowToExport(shortKhuVuc(row.khu_vuc), (day) => {
+        const found = row.days.find((d) => d.ngay === day);
+        return found ? { can: found.can_giai_trinh, da: found.da_giai_trinh } : undefined;
+      }),
+    );
+  }
+  return exportRows;
+}
+
 // "YYYY-MM-DD" theo gio VN, lui N ngay - dung cho mac dinh bo loc "So ca ton theo moc thoi gian".
 function vnDateOffsetStr(daysAgo: number): string {
   return new Date(Date.now() + 7 * 60 * 60 * 1000 - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -1191,33 +1240,26 @@ export function BacklogModule({
     }
     return result;
   }, [sortedTrendRows, trendDays, isNgayExcluded]);
-  // Xuat Excel bang "Ty le giai trinh theo ngay" - moi ngay tach rieng 2 cot SO (khong gop chuoi
-  // "da/can") de dung thang lam bao cao/cong thuc tiep, giu dong "Tong cong" o dau giong hien thi
-  // tren man hinh.
-  const trendExportRows = useMemo(() => {
-    const rowToExport = (khuVuc: string, dayLookup: (day: string) => { can: number; da: number } | undefined) => {
-      const out: Record<string, string | number> = { "Khu vực": khuVuc };
-      for (const day of trendDays) {
-        const found = dayLookup(day);
-        out[`${fmtDayShort(day)} - Đã GT`] = found?.da ?? 0;
-        out[`${fmtDayShort(day)} - Cần GT`] = found?.can ?? 0;
-      }
-      return out;
-    };
-    const rows: Record<string, string | number>[] = [];
-    if (sortedTrendRows.length > 0) {
-      rows.push(rowToExport("Tong cong", (day) => trendTotalByDay[day]));
-    }
-    for (const row of sortedTrendRows) {
-      rows.push(
-        rowToExport(shortKhuVuc(row.khu_vuc), (day) => {
-          const found = row.days.find((d) => d.ngay === day);
-          return found ? { can: found.can_giai_trinh, da: found.da_giai_trinh } : undefined;
-        }),
+  // Xuat Excel bang "Ty le giai trinh theo ngay" (14 ngay gan nhat, tu cache giaiTrinhTrend) - xem
+  // buildTrendExportRows() o dau file, dung chung voi nut "Tai ca thang".
+  const trendExportRows = useMemo(() => buildTrendExportRows(giaiTrinhTrend?.rows ?? [], trendDays), [giaiTrinhTrend, trendDays]);
+  // Nut "Tai ca thang" - chon 1 thang bat ky (khong gioi han 14 ngay gan nhat nhu bang hien thi tren
+  // man hinh), goi rieng 1 lan API voi tu_ngay/den_ngay = ngay 01/ngay cuoi thang do (backend them
+  // 2026-08-28, xem routes/cases.ts) roi xuat Excel ngay, khong luu vao state hien thi.
+  const [trendMonth, setTrendMonth] = useState(() => new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
+  const [trendMonthDownloading, setTrendMonthDownloading] = useState(false);
+  async function downloadTrendMonth() {
+    const monthDays = daysInMonthList(trendMonth);
+    setTrendMonthDownloading(true);
+    try {
+      const res = await api.get<{ rows: GiaiTrinhTrendRow[] }>(
+        `/cases/giai-trinh-daily-trend${buildQuery({ tu_ngay: monthDays[0], den_ngay: monthDays[monthDays.length - 1] })}`,
       );
+      exportRowsToExcel(buildTrendExportRows(res.rows, monthDays), `ty_le_giai_trinh_thang_${trendMonth}.xlsx`);
+    } finally {
+      setTrendMonthDownloading(false);
     }
-    return rows;
-  }, [sortedTrendRows, trendDays, trendTotalByDay]);
+  }
   // 3 cot moi cua bang "Bao cao ton theo khu vuc" (Can giai trinh trong ngay/Da giai trinh/Ty le) -
   // CHI khi dang nhom theo Khu vuc (yeu cau goc "chi can ty le theo Khu vuc") VA co dong bang (mac
   // dinh hoac loc dung 1 khu_vuc).
@@ -2082,9 +2124,20 @@ export function BacklogModule({
           <Card className="p-3 mt-3">
             <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
               <div className="font-display font-bold text-sm">Tỷ lệ giải trình theo ngày</div>
-              <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(trendExportRows, "ty_le_giai_trinh_theo_ngay.xlsx")}>
-                ⬇ Xuất Excel
-              </Btn>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(trendExportRows, "ty_le_giai_trinh_theo_ngay.xlsx")}>
+                  ⬇ Xuất Excel
+                </Btn>
+                <input
+                  type="month"
+                  value={trendMonth}
+                  onChange={(e) => setTrendMonth(e.target.value)}
+                  className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                />
+                <Btn variant="ghost" size="sm" onClick={downloadTrendMonth} loading={trendMonthDownloading}>
+                  ⬇ Tải cả tháng
+                </Btn>
+              </div>
             </div>
             <div className="text-xs text-[var(--ink-400)] mb-2">Chốt lúc 17h30 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
             <div className="overflow-x-auto">

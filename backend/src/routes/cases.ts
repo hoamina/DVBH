@@ -812,15 +812,21 @@ cases.get("/backlog-daily", async (c) => {
   return c.json(data);
 });
 
-// GET /api/cases/giai-trinh-daily-trend?days=14 - bang lich su "ty le giai trinh trong ngay" theo
-// khu vuc, chot 1 lan/ngay luc 17h30 (xem giai_trinh_daily_log migration 0040 + cron
-// DAILY_LOG_1730_CRON trong index.ts). Day la du lieu LICH SU (khong the tinh song theo bo loc tuy
-// y) - chi loc duoc theo pham vi khu_vuc cua nguoi xem (scopeByKhuVuc), khong nhan them tham so loc
-// nao khac.
+// GET /api/cases/giai-trinh-daily-trend?days=14 (hoac ?tu_ngay=&den_ngay=) - bang lich su "ty le giai
+// trinh trong ngay" theo khu vuc, chot 1 lan/ngay luc 17h30 (xem giai_trinh_daily_log migration 0040
+// + cron DAILY_LOG_1730_CRON trong index.ts). Day la du lieu LICH SU (khong the tinh song theo bo
+// loc tuy y) - chi loc duoc theo pham vi khu_vuc cua nguoi xem (scopeByKhuVuc), khong nhan them tham
+// so loc nao khac. "tu_ngay"/"den_ngay" (them 2026-08-28, phuc vu nut "Tai ca thang" cua
+// BacklogModule.tsx) - khi truyen CA HAI, uu tien dung khoang ngay tuong minh nay THAY THE "days"
+// (khong gioi han 60 ngay nhu "days", vi 1 thang bat ky <=31 ngay la du an toan).
 cases.get("/giai-trinh-daily-trend", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const days = Math.min(60, Math.max(1, Number(c.req.query("days") ?? 14)));
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
+  const tuNgay = c.req.query("tu_ngay");
+  const denNgay = c.req.query("den_ngay");
+  const useRange = !!tuNgay && !!denNgay;
+  const ngayWhereSql = useRange ? "ngay >= ? AND ngay <= ?" : "ngay >= date('now', '+7 hours', ?)";
+  const ngayBinds: unknown[] = useRange ? [tuNgay, denNgay] : [`-${Math.min(60, Math.max(1, Number(c.req.query("days") ?? 14)))} days`];
 
   // "excludedNgay" - danh sach ngay/khu_vuc bi loai tru khoi luy ke/ty le thang (settings_giai_trinh_
   // exclude_ngay, migration 0046) DO ADMIN THEM TAY - CHUA gom Chu nhat (quy tac cung, frontend tu
@@ -828,13 +834,13 @@ cases.get("/giai-trinh-daily-trend", async (c) => {
   const [{ results }, { results: exclusionResults }] = await Promise.all([
     c.env.DB.prepare(
       `SELECT ngay, khu_vuc, can_giai_trinh, da_giai_trinh FROM giai_trinh_daily_log
-       WHERE ngay >= date('now', '+7 hours', ?)${scopeClause.sql}
+       WHERE ${ngayWhereSql}${scopeClause.sql}
        ORDER BY khu_vuc ASC, ngay DESC`,
     )
-      .bind(`-${days} days`, ...scopeClause.binds)
+      .bind(...ngayBinds, ...scopeClause.binds)
       .all<{ ngay: string; khu_vuc: string; can_giai_trinh: number; da_giai_trinh: number }>(),
-    c.env.DB.prepare(`SELECT ngay, khu_vuc FROM settings_giai_trinh_exclude_ngay WHERE ngay >= date('now', '+7 hours', ?)`)
-      .bind(`-${days} days`)
+    c.env.DB.prepare(`SELECT ngay, khu_vuc FROM settings_giai_trinh_exclude_ngay WHERE ${ngayWhereSql}`)
+      .bind(...ngayBinds)
       .all<{ ngay: string; khu_vuc: string }>(),
   ]);
 
