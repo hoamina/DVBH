@@ -18,7 +18,7 @@ import { useAuth, type VaiTro } from "../auth/AuthContext";
 const PAGE_SIZE = 20;
 
 const MH_FLAGS = ["la_ktv_dvbh", "la_ve_tinh", "la_kho", "la_ke_toan", "la_tac_nghiep", "la_tp_dvbh"] as const;
-const BC_MODULE_KEYS = ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "import", "settings", "users", "giao-dien"];
+const BC_MODULE_KEYS = ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "import", "settings", "users", "giao-dien"];
 const MH_MODULE_KEYS = ["dat-mua-lk", "tra-hang"];
 
 function computeEffectiveMods(u: UserRow): string[] {
@@ -47,7 +47,7 @@ function getUserSystems(u: UserRow): ("BC" | "MH")[] {
 // migration 0042) - chi gom nhom "Tong quan"/"Van hanh" cua NAV_GROUPS (navConfig.ts). "He thong"
 // (import/settings/users) LUON gan cung vai_tro=Admin, khong dua vao day; "giao-dien" (Ca nhan)
 // luon co san cho moi tai khoan, cung khong can tick.
-const CUSTOMIZABLE_MODULE_KEYS = ["dashboard", "revenue", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong"];
+const CUSTOMIZABLE_MODULE_KEYS = ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong"];
 
 // Khop dung cot hien tren PaginatedTable "columns" ben duoi.
 const USER_EXPORT_LABELS: Record<string, string> = {

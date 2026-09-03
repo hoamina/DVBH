@@ -27,6 +27,7 @@ export interface LuyKeRow {
   doi_tuong: string;
   nganh: string;
   nguon_crm: string;
+  kh_vip: string;
   sl: number;
 }
 

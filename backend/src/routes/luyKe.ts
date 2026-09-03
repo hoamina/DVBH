@@ -31,12 +31,21 @@ interface RawRow {
   doi_tuong?: string;
   nganh?: string;
   nguon_crm?: string;
+  kh_vip?: string | number;
   sl?: string | number;
 }
 
 const TEMPLATE_CSV =
-  "khu_vuc,phan_loai,dung_han,toc_do,thang_hoan_thanh,tren_96h,nam_hoan_thanh,hang,doi_tuong,nganh,nguon_crm,sl\n" +
-  "(qldvbh.mb2) Quản lý khu vực MB2,SỰ CỐ,Đúng hạn,1. Dưới 24h,202606,1. Dưới 96h,2026,KAROFI,KTV,Ngành 1 (lọc nước),CRM KRF,10\n";
+  "khu_vuc,phan_loai,dung_han,toc_do,thang_hoan_thanh,tren_96h,nam_hoan_thanh,hang,doi_tuong,nganh,nguon_crm,kh_vip,sl\n" +
+  "(qldvbh.mb2) Quản lý khu vực MB2,SỰ CỐ,Đúng hạn,1. Dưới 24h,202606,1. Dưới 96h,2026,KAROFI,KTV,Ngành 1 (lọc nước),CRM KRF,0,10\n";
+
+// "KH VIPs": cot RIENG khong bat buoc (thuong la 0/rong, chi vai dong co gia tri nhu "NSKX"/"MT" -
+// xem file mau nguoi dung gui 2026-08-28) - CHOT: gia tri 0 (so hoac chuoi "0") tinh la RONG, khong
+// phai 1 nhan phan loai that su, dong bo voi cach cac dim khac dung "" = khong co du lieu.
+function normalizeKhVip(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  return s === "0" ? "" : s;
+}
 
 // GET /api/luy-ke/template
 luyKe.get("/template", (c) => csvTemplateResponse(c, TEMPLATE_CSV, "mau_import_bao_cao_luy_ke.csv"));
@@ -66,6 +75,7 @@ function processRows(rows: RawRow[]): { valid: LuyKeRow[]; loi: number; errors: 
     const doi_tuong = String(row.doi_tuong ?? "").trim();
     const nganh = String(row.nganh ?? "").trim();
     const nguon_crm = String(row.nguon_crm ?? "").trim();
+    const kh_vip = normalizeKhVip(row.kh_vip);
     // File Excel/CSV do nguoi dung tai len: SheetJS tra ve cell toan chu so dang kieu number - ep
     // String() truoc khi trim (giong ImportUploader.tsx cac luong khac).
     const slRaw = row.sl;
@@ -79,7 +89,7 @@ function processRows(rows: RawRow[]): { valid: LuyKeRow[]; loi: number; errors: 
       errors.push(`Dòng ${i + 1}: "sl" không hợp lệ`);
       return;
     }
-    valid.push({ khu_vuc, phan_loai, dung_han, toc_do, thang, tren_96h, nam, hang, doi_tuong, nganh, nguon_crm, sl });
+    valid.push({ khu_vuc, phan_loai, dung_han, toc_do, thang, tren_96h, nam, hang, doi_tuong, nganh, nguon_crm, kh_vip, sl });
   });
 
   return { valid, loi: errors.length, errors };

@@ -33,6 +33,7 @@ const COLUMN_MAP: Record<string, string> = {
   "Tất cả": "doi_tuong",
   Ngành: "nganh",
   "Nguồn CRM": "nguon_crm",
+  "KH VIPs": "kh_vip",
   SL: "sl",
 };
 
@@ -59,6 +60,7 @@ interface Filters {
   doi_tuong: string;
   nganh: string;
   nguon_crm: string;
+  kh_vip: string;
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -72,6 +74,7 @@ const DEFAULT_FILTERS: Filters = {
   doi_tuong: "",
   nganh: "",
   nguon_crm: "",
+  kh_vip: "",
 };
 
 const FILTER_DIMS: { key: keyof Filters; label: string; field: keyof LuyKeRow }[] = [
@@ -85,6 +88,7 @@ const FILTER_DIMS: { key: keyof Filters; label: string; field: keyof LuyKeRow }[
   { key: "doi_tuong", label: "Đối tượng", field: "doi_tuong" },
   { key: "nganh", label: "Ngành", field: "nganh" },
   { key: "nguon_crm", label: "Nguồn CRM", field: "nguon_crm" },
+  { key: "kh_vip", label: "KH VIP", field: "kh_vip" },
 ];
 
 const GROUP_OPTIONS: { value: keyof LuyKeRow; label: string }[] = [
@@ -97,6 +101,7 @@ const GROUP_OPTIONS: { value: keyof LuyKeRow; label: string }[] = [
   { value: "toc_do", label: "Tốc độ" },
   { value: "nguon_crm", label: "Nguồn CRM" },
   { value: "doi_tuong", label: "Đối tượng" },
+  { value: "kh_vip", label: "KH VIP" },
 ];
 
 function pct(n: number, d: number): string {
@@ -248,7 +253,13 @@ export function LuyKeModule() {
   // lieu doc thang tu R2 KHONG qua endpoint co loc san nen phai tu loc o client, giong BacklogModule.tsx
   // tab "Ca da dong". Loc TRUOC moi tinh toan khac (filter option, chart, bang, tong) de khu_vuc nay
   // khong con xuat hien o dau trong bao cao lũy ke, ke ca dropdown loc.
-  const rows = useMemo(() => rawRows.filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)), [rawRows]);
+  // kh_vip ?? "" : cac thang da import TRUOC khi co cot nay (them 2026-08-28) khong co field kh_vip
+  // trong JSON R2 cu - ep ve "" thay vi de undefined lam String(r.kh_vip) ra chuoi "undefined" trong
+  // dropdown loc/nhom.
+  const rows = useMemo(
+    () => rawRows.filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)).map((r) => ({ ...r, kh_vip: r.kh_vip ?? "" })),
+    [rawRows],
+  );
   // "v2" (CHOT 2026-08-28): doi tu Select don ("__ALL__" sentinel) sang MultiSelectFilter (chuoi gia
   // tri cach nhau "|", rong = tat ca) - key cu se lam moi bo loc bi hieu la loc theo dung chuoi
   // "__ALL__" (khong khop dong nao) neu doc lai gia tri localStorage cu, nen doi ten key thay vi

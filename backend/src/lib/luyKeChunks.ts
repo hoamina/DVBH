@@ -32,6 +32,10 @@ export interface LuyKeRow {
   doi_tuong: string;
   nganh: string;
   nguon_crm: string;
+  // "KH VIPs" (them 2026-08-28) - "" = khong phai KH VIP (gia tri 0 trong file goc da duoc chuan hoa
+  // ve rong luc import, xem normalizeKhVip() o routes/luyKe.ts). Cron tu dong (luyKeCompute.ts) LUON
+  // ghi "" vi case_dvbh khong co cot nguon tuong ung - chi co gia tri that qua import Excel thu cong.
+  kh_vip: string;
   sl: number;
 }
 
