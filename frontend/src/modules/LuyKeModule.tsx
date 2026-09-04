@@ -277,6 +277,14 @@ export function LuyKeModule() {
   function toggleChartLabel(label: string) {
     setHiddenChartLabels(hiddenChartLabels.includes(label) ? hiddenChartLabels.filter((l) => l !== label) : [...hiddenChartLabels, label]);
   }
+  // Chart "So sanh cung ky theo nam": duong % SLA/% Duoi 24h AN mac dinh (khac chart "Xu huong theo
+  // thang" - o do 2 duong nay LUON ve san, chi tickbox AN/HIEN SO tren duong). O day tickbox dieu
+  // khien CA duong (dataset.hidden), khong chi so - moi nam co 1 duong rieng nhung dung chung 1
+  // tickbox theo LOAI (sla/duoi24h) de khong no ra qua nhieu tickbox khi co nhieu nam.
+  const [visibleYearChartLines, setVisibleYearChartLines] = useLocalStorageState<string[]>("luy-ke:year-chart-visible-lines", []);
+  function toggleYearChartLine(key: string) {
+    setVisibleYearChartLines(visibleYearChartLines.includes(key) ? visibleYearChartLines.filter((k) => k !== key) : [...visibleYearChartLines, key]);
+  }
 
   const filtered = useMemo(
     () =>
@@ -348,24 +356,31 @@ export function LuyKeModule() {
     [rows, filters],
   );
 
-  // Gom SL theo (nam, thang so 1-12) - "TB" = trung binh cong CAC THANG DA CO DU LIEU (bo qua thang
-  // rong, giong cach tinh cot "TB" trong file bao cao goc nguoi dung gui lam mau).
+  // Gom SL/dungHan/duoi24h theo (nam, thang so 1-12) - "TB" = trung binh cong CAC THANG DA CO DU
+  // LIEU (bo qua thang rong, giong cach tinh cot "TB" trong file bao cao goc nguoi dung gui lam
+  // mau). slaPct/duoi24hPct dung chung cong thuc voi byMonth o tren, tach rieng theo TUNG NAM.
   const yearlyByMonth = useMemo(() => {
-    const map = new Map<string, number[]>();
+    const map = new Map<string, { sl: number[]; dungHan: number[]; duoi24h: number[] }>();
     for (const r of filteredForYearChart) {
       const year = r.nam || r.thang.slice(0, 4);
       const monthIdx = Number(r.thang.slice(5, 7)) - 1;
       if (monthIdx < 0 || monthIdx > 11) continue;
-      const arr = map.get(year) ?? new Array(12).fill(0);
-      arr[monthIdx] += r.sl;
-      map.set(year, arr);
+      const cur = map.get(year) ?? { sl: new Array(12).fill(0), dungHan: new Array(12).fill(0), duoi24h: new Array(12).fill(0) };
+      cur.sl[monthIdx] += r.sl;
+      if (r.dung_han === "Đúng hạn") cur.dungHan[monthIdx] += r.sl;
+      if (r.toc_do.startsWith("1.")) cur.duoi24h[monthIdx] += r.sl;
+      map.set(year, cur);
     }
     const years = [...map.keys()].sort();
     return years.map((year) => {
-      const monthly = map.get(year)!;
+      const { sl: monthly, dungHan, duoi24h } = map.get(year)!;
       const withData = monthly.filter((v) => v > 0);
       const avg = withData.length > 0 ? withData.reduce((a, b) => a + b, 0) / withData.length : 0;
-      return { year, monthly, avg };
+      const slaPct = monthly.map((tong, i) => (tong ? (dungHan[i] / tong) * 100 : 0));
+      const duoi24hPct = monthly.map((tong, i) => (tong ? (duoi24h[i] / tong) * 100 : 0));
+      const monthIdxWithData = monthly.map((v, i) => (v > 0 ? i : -1)).filter((i) => i >= 0);
+      const avgOf = (pctArr: number[]) => (monthIdxWithData.length > 0 ? monthIdxWithData.reduce((a, i) => a + pctArr[i], 0) / monthIdxWithData.length : 0);
+      return { year, monthly, avg, slaPct: [...slaPct, avgOf(slaPct)], duoi24hPct: [...duoi24hPct, avgOf(duoi24hPct)] };
     });
   }, [filteredForYearChart]);
 
@@ -494,20 +509,63 @@ export function LuyKeModule() {
               </Card>
 
               <Card className="p-4 mb-4">
-                <div className="font-display font-bold text-sm mb-3">So sánh sản lượng cùng kỳ theo năm</div>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="font-display font-bold text-sm">So sánh sản lượng cùng kỳ theo năm</div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {[
+                      { key: "sla", label: "% SLA (đúng hạn)" },
+                      { key: "duoi24h", label: "% Dưới 24h" },
+                    ].map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-1.5 text-xs text-[var(--ink-600)] cursor-pointer">
+                        <input type="checkbox" checked={visibleYearChartLines.includes(key)} onChange={() => toggleYearChartLine(key)} className="w-3.5 h-3.5" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <ChartCanvas
                   type="bar"
                   data={{
                     labels: [...MONTH_LABELS, "TB"],
-                    datasets: yearlyByMonth.map((y, i) => ({
-                      type: "bar",
-                      label: y.year,
-                      data: [...y.monthly.map((v) => v || null), y.avg || null],
-                      backgroundColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
-                      borderRadius: 6,
-                    })),
+                    datasets: [
+                      ...yearlyByMonth.map((y, i) => ({
+                        type: "bar" as const,
+                        label: y.year,
+                        data: [...y.monthly.map((v) => v || null), y.avg || null],
+                        backgroundColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
+                        borderRadius: 6,
+                      })),
+                      ...yearlyByMonth.map((y, i) => ({
+                        type: "line" as const,
+                        label: `% SLA ${y.year}`,
+                        data: y.slaPct,
+                        borderColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
+                        backgroundColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
+                        yAxisID: "y1",
+                        tension: 0.25,
+                        pointRadius: 3,
+                        hidden: !visibleYearChartLines.includes("sla"),
+                      })),
+                      ...yearlyByMonth.map((y, i) => ({
+                        type: "line" as const,
+                        label: `% Dưới 24h ${y.year}`,
+                        data: y.duoi24hPct,
+                        borderColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
+                        backgroundColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
+                        borderDash: [5, 3],
+                        yAxisID: "y1",
+                        tension: 0.25,
+                        pointRadius: 3,
+                        hidden: !visibleYearChartLines.includes("duoi24h"),
+                      })),
+                    ],
                   }}
-                  options={{ scales: { y: { beginAtZero: true } } }}
+                  options={{
+                    scales: {
+                      y: { beginAtZero: true, position: "left" },
+                      y1: { min: 0, max: 100, position: "right", grid: { display: false }, ticks: { callback: (v) => `${v}%` } },
+                    },
+                  }}
                 />
               </Card>
 
