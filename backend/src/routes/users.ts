@@ -27,6 +27,13 @@ users.get("/", async (c) => {
 
   if (tab === "cho-duyet") {
     conditions.push("trang_thai_duyet = ?"); binds.push("Cho duyet");
+    // CHOT 2026-09-04: KTV khong con duoc cap quyen truy cap he thong nay nua (chi can hien trong
+    // "Danh sach KTV" o Settings, dong bo tu linh-kien-app - xem partnerApi.ts). Cac dong "Cho duyet"
+    // co la_ktv_dvbh/la_ve_tinh=1 la placeholder do provisionPlaceholderUser() tao (settings.ts) cho
+    // KTV CHUA TUNG dang nhap that - KTV da tung dang nhap thi da tu dong "Da duyet" ngay tai
+    // auth.ts callback (xem comment "ktvMatch" o do), khong bao gio dong lai o "Cho duyet". An het
+    // khoi hang doi duyet de Admin khong phai xu ly nhung tai khoan khong can duyet nay.
+    conditions.push("la_ktv_dvbh = 0 AND la_ve_tinh = 0");
   } else if (tab === "da-duyet-chua-vai-tro") {
     conditions.push("trang_thai_duyet = 'Da duyet'");
     conditions.push("(vai_tro IS NULL OR vai_tro = '')");
