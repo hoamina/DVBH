@@ -445,9 +445,15 @@ export function MissingPartsModule({
   // CHOT 2026-08-12: dem rieng so ca "Loc tong, BCN" cho nut filter nhanh (doc lap voi modelFilter -
   // luon hien dung so ca thuc te thuoc nhom nay du dang chon Model nao khac tren Select), chi tra
   // theo khu_vuc/doi_tac dang loc (giong "Ca dang cho linh kien" dung chung 1 kieu voi bo loc chung).
+  // CHOT 2026-09-04: gate theo dung view/trangThai dang xem - truoc day 4 query nay (locTongBcnStats,
+  // nhomKhStats, linhKienThieuQuery, khuVucStats ben duoi) chay KHONG DIEU KIEN ngay khi module mount,
+  // du dang xem tab nao, cong don tai vao dung luc voi query danh sach chinh - gop phan lam "Danh sach
+  // chi tiet" cam giac lag (nhat_ky_lam_viec.md 2026-09-04). 2 the "Loc tong"/"SL KH VIP" chi hien o
+  // view=danh-sach + trangThai=dang-ton (xem JSX ben duoi) nen enabled khop dung dieu kien do.
   const { data: locTongBcnStats } = useQuery({
     queryKey: ["missing-parts-by-khu-vuc", khuVucFilter, doiTacFilter, "nhom_san_pham", "loc-tong-bcn-quick-count"],
     queryFn: () => api.get<{ rows: KhuVucRow[] }>(`/missing-parts/by-khu-vuc${buildQuery({ khu_vuc: khuVucFilter, doi_tac: doiTacFilter, dim: "nhom_san_pham" })}`),
+    enabled: view === "danh-sach" && trangThai === "dang-ton",
   });
   const locTongBcnCount = (locTongBcnStats?.rows ?? []).filter((r) => r.nhom === "Lọc tổng").reduce((s, r) => s + r.tong_ton, 0);
   // CHOT 2026-08-16: "SL KH VIP" thay cho the "Gia tri LK du kien" cu - dung chung 1 kieu voi
@@ -455,10 +461,12 @@ export function MissingPartsModule({
   const { data: nhomKhStats } = useQuery({
     queryKey: ["missing-parts-by-khu-vuc", khuVucFilter, doiTacFilter, "nhom_kh", "vip-quick-count"],
     queryFn: () => api.get<{ rows: KhuVucRow[] }>(`/missing-parts/by-khu-vuc${buildQuery({ khu_vuc: khuVucFilter, doi_tac: doiTacFilter, dim: "nhom_kh" })}`),
+    enabled: view === "danh-sach" && trangThai === "dang-ton",
   });
   const slKhVip = (nhomKhStats?.rows ?? []).filter((r) => (r.nhom ?? "").toUpperCase().includes("VIP")).reduce((s, r) => s + r.tong_ton, 0);
   // Danh sach linh kien thieu gom nhom tu TOAN BO backlog dang mo (khong gioi han theo trang hien
-  // tai nhu soMaLinhKien cu) - dung cho ca the "Ma LK thieu" (so luong) lan tab "Linh kien thieu" moi.
+  // tai nhu soMaLinhKien cu) - dung cho ca the "Ma LK thieu" (so luong, view=danh-sach) lan tab "Linh
+  // kien thieu" (view=linh-kien-thieu) - enabled ca 2, chi tat khi dang o tab "Bao cao".
   const linhKienThieuQuery = useQuery({
     queryKey: ["missing-parts-linh-kien-thieu", khuVucFilter, modelFilter, doiTacFilter, quickFilterLocTongBcn],
     queryFn: () =>
@@ -470,11 +478,15 @@ export function MissingPartsModule({
           doi_tac: doiTacFilter,
         })}`,
       ),
+    enabled: view === "danh-sach" || view === "linh-kien-thieu",
   });
+  // Dung cho bang pivot tab "Bao cao" LAN the "Ton >7 ngay" o tab "Danh sach chi tiet" (khuVucTotal.tren_7
+  // ben duoi) - chi tat khi dang o tab "Linh kien thieu" (khong dung toi ca 2 cho do).
   const { data: khuVucStats } = useQuery({
     queryKey: ["missing-parts-by-khu-vuc", khuVucFilter, modelFilter, doiTacFilter, reportDim],
     queryFn: () =>
       api.get<{ rows: KhuVucRow[] }>(`/missing-parts/by-khu-vuc${buildQuery({ khu_vuc: khuVucFilter, nhom_san_pham: modelFilter, doi_tac: doiTacFilter, dim: reportDim })}`),
+    enabled: view !== "linh-kien-thieu",
   });
 
   // Dong "Tong cong" dau bang - cong don cac cot so tren cac dong dang hien. "so_ma_linh_kien" KHONG

@@ -3653,3 +3653,60 @@ File sửa: `migrations/0104_theo_doi_doi_tra.sql` (mới), `backend/src/lib/the
 `backend/src/lib/importProcessor.ts`, `backend/src/routes/settings.ts`, `backend/src/routes/tranhChap.ts`,
 `frontend/src/lib/tranhChapShared.ts`, `frontend/src/modules/TranhChapModule.tsx`,
 `frontend/src/modules/SettingsModule.tsx`, `frontend/src/types.ts`, `YEU_CAU_BAO_CAO_TINH_SAN.md`.
+
+## 2026-09-04 — Module "Ca thiếu linh kiện": ô tìm kiếm tab "Linh kiện thiếu", thẻ "SL KH VIP" bấm được, điều tra + fix lag tab "Danh sách chi tiết"
+
+3 yêu cầu riêng lẻ trong 1 phiên, việc cuối (điều tra lag) tốn nhiều thời gian nhất vì đi qua 1 vòng
+chẩn đoán sai trước khi tìm đúng nguyên nhân.
+
+**1) Ô tìm kiếm tab "Linh kiện thiếu"**: thêm `IdSerialSearchInput` lọc theo mã/tên linh kiện
+(client-side, cùng kiểu với các tab khác) — `LinhKienThieuTab` trong `MissingPartsModule.tsx`.
+
+**2) Thẻ "SL KH VIP" (tab "Danh sách chi tiết") không bấm được**: thêm state `quickFilterVip` +
+param `nhom_kh_group=vip` (`c.nhom_kh LIKE '%VIP%'`) cho `GET /missing-parts`, mirror đúng pattern
+thẻ "Lọc tổng" (`quickFilterLocTongBcn`/`nhom_san_pham_group`) sẵn có ngay cạnh nó.
+
+**3) Điều tra "Danh sách chi tiết" lag, nghi ngờ ban đầu (SAI) → nguyên nhân thật:**
+- Nghi ngờ đầu tiên: `POST /api/partner/sync/ktv` + `/sync/linh-kien` (partnerApi.ts, thêm
+  2026-08-28) bump domain "settings" dùng chung ~10 report khác → tưởng cứ 1h/lần linh-kien-app đẩy
+  API là ép toàn bộ report tính lại. **Kiểm tra code bên `linh-kien-app` (repo độc lập, có sẵn tại
+  `F:\claude\QLBH 3T\linh-kien-app`) thì SAI** — `dvbhSyncClient.ts` đã lọc delta
+  (`WHERE ngay_cap_nhat > last_synced_at`) từ trước, cron 1h chỉ là chu kỳ *kiểm tra*, không phải chu
+  kỳ *ép đẩy*; nếu không đổi gì thì không gọi API sang DVBH luôn. Bài học: đừng chẩn đoán chỉ từ phía
+  nhận (`partnerApi.ts`) khi chưa xem code phía gửi, dù đang trong đúng thư mục làm việc quen thuộc.
+- Nguyên nhân thật (xác nhận bằng code + test có dữ liệu thật trên D1 local):
+  - `GET /missing-parts` (danh sách chính, `missingParts.ts`) chạy `SELECT COUNT(*) FROM (<query>)`
+    RỒI chạy lại y hệt `<query>` lần nữa cho trang dữ liệu — cả 2 lần đều gánh trọn JOIN +
+    `ROW_NUMBER() OVER (PARTITION BY case_id ORDER BY ngay_giai_trinh DESC, id DESC)` trên toàn bộ
+    lịch sử giải trình của case đang mở (`baseJoin()`), KHÔNG cache (khác 2 tab "Báo cáo"/"Linh kiện
+    thiếu" cùng file đều qua `cachedReport()`).
+  - `giai_trinh` chỉ có index đơn `case_id` (migration 0001) — SQLite phải tự sort trong RAM để đáp
+    ứng `ORDER BY ngay_giai_trinh DESC, id DESC` trong từng partition thay vì đọc thẳng theo thứ tự
+    index.
+  - (phụ) Module bắn 4 query khác (2 ô thống kê nhanh, pivot "Báo cáo", "Mã LK thiếu") không điều
+    kiện theo tab đang xem — cộng dồn tải dù có cache.
+
+**Fix đã triển khai + deploy production (v1.321):**
+- `backend/src/routes/missingParts.ts` GET "/": gộp COUNT+SELECT thành 1 lần quét bằng
+  `COUNT(*) OVER() as total_count`, tách field này ra khỏi mỗi row trước khi trả JSON (tránh lộ ra
+  Excel export). Nhược điểm chấp nhận được: nếu offset vượt quá tổng số dòng thì trả `total: 0` thay
+  vì tổng thật — không xảy ra qua UI thực tế vì FE luôn reset `page=1` khi đổi bộ lọc.
+- `migrations/0106_giai_trinh_case_ngay_index.sql` (mới): `CREATE INDEX idx_giai_trinh_case_ngay ON
+  giai_trinh (case_id, ngay_giai_trinh DESC, id DESC)` — lợi cho MỌI nơi dùng chung pattern
+  `latestGiaiTrinhJoin()`/`baseJoin()`, không chỉ riêng màn này.
+- `frontend/src/modules/MissingPartsModule.tsx`: thêm `enabled` cho 3 trong 4 query phụ
+  (`locTongBcnStats`, `nhomKhStats` chỉ khi `view==="danh-sach" && trangThai==="dang-ton"`;
+  `linhKienThieuQuery` khi `view==="danh-sach"||"linh-kien-thieu"`) — RIÊNG `khuVucStats` (pivot
+  "Báo cáo") giữ nguyên bật cho cả "danh-sach" vì thẻ "Tồn >7 ngày" ở "Danh sách chi tiết" cũng đọc
+  từ đó (`khuVucTotal.tren_7`) — suýt gây regression nếu tắt theo đúng-1-tab-1-query máy móc, phát
+  hiện kịp trước khi deploy nhờ grep lại nơi dùng `khuVucTotal` trước khi sửa `enabled`.
+- Test trên D1 local: chèn 2 case test qua `wrangler d1 execute --local` (1 VIP tuổi tồn 3, 1 thường
+  tuổi tồn 9, mỗi case nhiều dòng `giai_trinh` để test dedup latest-per-case), gọi thẳng API qua
+  `fetch()` trong console trình duyệt — xác nhận: tổng đúng, thứ tự VIP-trước đúng, phân trang
+  page 1/2/3 đúng (page 3 rỗng trả total=0, đúng như đã lường trước), không rò field `total_count`
+  ra ngoài. Dọn sạch dữ liệu test khỏi D1 local sau khi xong.
+- Áp `db:migrate:smarttrade` (remote, xác nhận chỉ đúng 1 migration 0106 đang chờ) rồi
+  `deploy:smarttrade` — production v1.321.
+
+File sửa: `backend/src/routes/missingParts.ts`, `frontend/src/modules/MissingPartsModule.tsx`,
+`migrations/0106_giai_trinh_case_ngay_index.sql` (mới), `frontend/src/version.ts`.

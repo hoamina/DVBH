@@ -102,25 +102,33 @@ missingParts.get("/", async (c) => {
     ...vipClause.binds,
   ];
 
-  const query = `
-    SELECT ${SELECT_COLS}
-    FROM case_dvbh c
-    ${baseJoin(CASE_FILTER_TON)}
-    WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}
-  `;
-  const binds = [...scopeClause.binds, ...extraBinds];
-
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM (${query})`)
-    .bind(...binds)
-    .first<{ total: number }>();
+  // CHOT 2026-09-04: gop COUNT + SELECT lam 1 lan quet (COUNT(*) OVER()) thay vi 2 truy van rieng
+  // (truoc day chay nguyen JOIN+window function ROW_NUMBER cua baseJoin() 2 LAN moi request) - dieu
+  // tra "Ca thieu linh kien > Danh sach chi tiet" bi lag (nhat_ky_lam_viec.md 2026-09-04). "total_count"
+  // duoc tach rieng khoi "rows" truoc khi tra ve, tranh lo ra ngoai (vd cot thua trong Xuat Excel).
+  // Neu offset vuot qua tong so dong (results rong) thi total tra ve 0 - khong xay ra qua UI thuc te vi
+  // FE luon reset page=1 khi doi bo loc, page hien tai luon <= so trang cua "total" lan truoc.
   // CHOT 2026-08-16: sap ca VIP/S.VIP len dau tien (theo yeu cau "toan bo danh sach ca ton chi tiet o
   // moi cho" - dua VIP len dau), roi trong tung nhom sap ca ton lau nhat len truoc (thay vi ORDER BY
   // id DESC/moi nhat truoc nhu cu) - theo yeu cau uu tien xu ly ca cang tre cang truoc.
-  const { results } = await c.env.DB.prepare(`${query} ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), tuoi_ton DESC, c.id DESC LIMIT ? OFFSET ?`)
-    .bind(...binds, pageSize, offset)
-    .all();
+  const query = `
+    SELECT ${SELECT_COLS}, COUNT(*) OVER() as total_count
+    FROM case_dvbh c
+    ${baseJoin(CASE_FILTER_TON)}
+    WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}
+    ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), tuoi_ton DESC, c.id DESC
+    LIMIT ? OFFSET ?
+  `;
+  const binds = [...scopeClause.binds, ...extraBinds, pageSize, offset];
 
-  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+  const { results } = await c.env.DB.prepare(query)
+    .bind(...binds)
+    .all<Record<string, unknown> & { total_count: number }>();
+
+  const total = results.length > 0 ? Number(results[0].total_count) : 0;
+  const rows = results.map(({ total_count, ...rest }) => rest);
+
+  return c.json({ rows, page, pageSize, total });
 });
 
 // GET /api/missing-parts/da-dong-manifest?thang=YYYY-MM - hash tung ngay (dung chung voi
