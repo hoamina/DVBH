@@ -114,6 +114,12 @@ function pct(n: number, d: number): string {
 // components/chart/ChartCanvas.tsx valueLabelsPlugin).
 const CHART_SERIES_LABELS = ["Đúng hạn", "Quá hạn", "% SLA (đúng hạn)", "% Dưới 24h"];
 
+// Nhan 12 thang + cot "TB" (trung binh cong cac thang da co du lieu) cho chart "So sanh cung ky theo
+// nam" - moi nam la 1 mau rieng, cung dong mau voi cac chart khac trong module (khong tao bang mau
+// rieng).
+const MONTH_LABELS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
+const YEAR_CHART_COLORS = ["#94A3B8", "#159C93", "#E8604C", "#0F3D5C", "#B8860B"];
+
 function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
   const [step, setStep] = useState<"idle" | "preview">("idle");
   const [preview, setPreview] = useState<ImportSummary | null>(null);
@@ -328,6 +334,41 @@ export function LuyKeModule() {
       });
   }, [filtered]);
 
+  // Rieng cho chart "So sanh cung ky theo nam": bo qua dim "thang" (chon thang cu the se trieu tieu
+  // muc dich so sanh du 12 thang), van giu cac dim con lai (khu vuc/hang/phan loai...) de loc theo
+  // y muon nguoi dung.
+  const filteredForYearChart = useMemo(
+    () =>
+      rows.filter((r) =>
+        FILTER_DIMS.filter((d) => d.key !== "thang").every(({ key, field }) => {
+          const val = filters[key];
+          return !val || val.split(DELIM).includes(String(r[field]));
+        }),
+      ),
+    [rows, filters],
+  );
+
+  // Gom SL theo (nam, thang so 1-12) - "TB" = trung binh cong CAC THANG DA CO DU LIEU (bo qua thang
+  // rong, giong cach tinh cot "TB" trong file bao cao goc nguoi dung gui lam mau).
+  const yearlyByMonth = useMemo(() => {
+    const map = new Map<string, number[]>();
+    for (const r of filteredForYearChart) {
+      const year = r.nam || r.thang.slice(0, 4);
+      const monthIdx = Number(r.thang.slice(5, 7)) - 1;
+      if (monthIdx < 0 || monthIdx > 11) continue;
+      const arr = map.get(year) ?? new Array(12).fill(0);
+      arr[monthIdx] += r.sl;
+      map.set(year, arr);
+    }
+    const years = [...map.keys()].sort();
+    return years.map((year) => {
+      const monthly = map.get(year)!;
+      const withData = monthly.filter((v) => v > 0);
+      const avg = withData.length > 0 ? withData.reduce((a, b) => a + b, 0) / withData.length : 0;
+      return { year, monthly, avg };
+    });
+  }, [filteredForYearChart]);
+
   const groupRows = useMemo(() => {
     const map = new Map<string, { tong: number; dungHan: number }>();
     for (const r of filtered) {
@@ -449,6 +490,24 @@ export function LuyKeModule() {
                     },
                     plugins: { valueLabels: { hiddenLabels: hiddenChartLabels } } as ChartOptions["plugins"],
                   }}
+                />
+              </Card>
+
+              <Card className="p-4 mb-4">
+                <div className="font-display font-bold text-sm mb-3">So sánh sản lượng cùng kỳ theo năm</div>
+                <ChartCanvas
+                  type="bar"
+                  data={{
+                    labels: [...MONTH_LABELS, "TB"],
+                    datasets: yearlyByMonth.map((y, i) => ({
+                      type: "bar",
+                      label: y.year,
+                      data: [...y.monthly.map((v) => v || null), y.avg || null],
+                      backgroundColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
+                      borderRadius: 6,
+                    })),
+                  }}
+                  options={{ scales: { y: { beginAtZero: true } } }}
                 />
               </Card>
 

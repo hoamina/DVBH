@@ -194,8 +194,16 @@ survey.get("/", async (c) => {
   const ktv = c.req.query("ky_thuat_vien");
   const ktvSql = ktv ? " AND c.ky_thuat_vien = ?" : "";
   const ktvBinds = ktv ? [ktv] : [];
-  const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql;
-  const extraBinds = [...khuVucClause.binds, ...ageClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds];
+  // "ngay_tu"/"ngay_den" (CHOT 2026-09-04): loc theo v.ngay_ghi_nhan NGAY TRONG SQL, khong con loc
+  // client-side sau khi da LIMIT 200/5000 - truoc day tab "cho-qc"/"da-xu-ly" chi LIMIT theo
+  // ngay_ghi_nhan DESC roi frontend moi loc ngay tren tap da bi cat, nen bang hien thi bao thieu rat
+  // nhieu dong so voi thuc te (vd loc thang 8 chi con 165/1389 dong that vi 200 dong gan nhat da bi
+  // choan het boi cac ca tu thang 9).
+  const ngayRange = dayRangeBounds(c.req.query("ngay_tu"), c.req.query("ngay_den"));
+  const ngaySql = ngayRange ? " AND v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?" : "";
+  const ngayBinds = ngayRange ? [ngayRange.start, ngayRange.end] : [];
+  const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql + ngaySql;
+  const extraBinds = [...khuVucClause.binds, ...ageClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds, ...ngayBinds];
   const limit = c.req.query("export") === "true" ? 5000 : 200;
 
   // "can-khao-sat"/"qua-han-khao-sat" da tach thanh GET /candidates?tab=&thang= (query D1 song, gioi
@@ -215,7 +223,19 @@ survey.get("/", async (c) => {
       LIMIT ?
     `;
     const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
-    return c.json({ rows: results });
+    // totalCases (CHOT 2026-09-04): chi tinh khi KHONG phai export (export da lay het/gan het du
+    // lieu trong LIMIT 5000 roi, khong can bao thieu) - de FE biet danh sach dang xem co bi cat bot
+    // khong so voi tong so ca thuc te khop dieu kien loc hien tai (LIMIT 200 chi la gioi han hien
+    // thi, khong phai gioi han du lieu that).
+    let totalCases: number | null = null;
+    if (c.req.query("export") !== "true") {
+      const countRow = await c.env.DB.prepare(
+        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}`,
+      ).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>();
+      totalCases = countRow?.n ?? null;
+    }
+    return c.json({ rows: results, totalCases });
   }
 
   if (tab === "da-xu-ly") {
@@ -228,7 +248,15 @@ survey.get("/", async (c) => {
       LIMIT ?
     `;
     const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
-    return c.json({ rows: results });
+    let totalCases: number | null = null;
+    if (c.req.query("export") !== "true") {
+      const countRow = await c.env.DB.prepare(
+        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}`,
+      ).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>();
+      totalCases = countRow?.n ?? null;
+    }
+    return c.json({ rows: results, totalCases });
   }
 
   return c.json({ error: "INVALID_TAB" }, 400);

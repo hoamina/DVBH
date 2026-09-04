@@ -361,14 +361,18 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     enabled: view === "danh-sach" && (tab === "can-khao-sat" || tab === "qua-han-khao-sat"),
   });
 
+  // ngay_tu/ngay_den (CHOT 2026-09-04): loc theo v.ngay_ghi_nhan NGAY O SERVER thay vi client-side
+  // sau khi ket qua da bi LIMIT 200/5000 - truoc day loc ngay client-side tren tap da cat gay bao
+  // thieu dong so voi thuc te khi tong so dong vuot LIMIT (xem backend/src/routes/survey.ts).
+  const viPhamListParams = { ...filterParams, ngay_tu: localNgayTuFilter, ngay_den: localNgayDenFilter };
   const { data: choQc } = useQuery({
-    queryKey: ["survey", "cho-qc", filterParams],
-    queryFn: () => api.get<{ rows: ViPhamRow[] }>(`/survey${buildQuery({ tab: "cho-qc", ...filterParams })}`),
+    queryKey: ["survey", "cho-qc", viPhamListParams],
+    queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "cho-qc", ...viPhamListParams })}`),
     enabled: view === "danh-sach" && tab === "cho-qc",
   });
   const { data: daXuLy } = useQuery({
-    queryKey: ["survey", "da-xu-ly", filterParams],
-    queryFn: () => api.get<{ rows: ViPhamRow[] }>(`/survey${buildQuery({ tab: "da-xu-ly", ...filterParams })}`),
+    queryKey: ["survey", "da-xu-ly", viPhamListParams],
+    queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "da-xu-ly", ...viPhamListParams })}`),
     enabled: view === "danh-sach" && tab === "da-xu-ly",
   });
   // "Lich su khao sat" (CHOT 2026-08-06) - toan bo cuoc goi (ket_qua_goi) trong thang, gioi han
@@ -593,6 +597,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     return Array.from(g.entries()).map(([caseId, vs]) => ({ caseId, vs }));
   }, [tab, choQc, daXuLy]);
 
+  // "Chờ QC chốt cấp 2"/"Đã xử lý" gioi han hien thi 200 dong gan nhat (xem LIMIT trong
+  // backend/src/routes/survey.ts) de tranh doc qua nhieu du lieu moi lan mo tab - "totalCases" la
+  // tong so ca THAT SU khop bo loc hien tai (khong bi LIMIT), dung de bao cho nguoi dung biet danh
+  // sach dang xem chi la 1 phan, tranh hieu lam "chi co bay nhieu do" (CHOT 2026-09-04).
+  const viPhamTotalCases = tab === "cho-qc" ? choQc?.totalCases : tab === "da-xu-ly" ? daXuLy?.totalCases : null;
+  const viPhamListTruncated = typeof viPhamTotalCases === "number" && viPhamTotalCases > groupedViPham.length;
+
   const availableKtvs = useMemo(() => {
     const ktvs = new Set<string>();
     if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") {
@@ -662,12 +673,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     if (localLoaiLoiFilter) {
       list = list.filter(({ vs }) => vs.some((v) => v.loai_loi === localLoaiLoiFilter));
     }
-    if (localNgayTuFilter) {
-      list = list.filter(({ vs }) => vs.some((v) => v.ngay_ghi_nhan && v.ngay_ghi_nhan.slice(0, 10) >= localNgayTuFilter));
-    }
-    if (localNgayDenFilter) {
-      list = list.filter(({ vs }) => vs.some((v) => v.ngay_ghi_nhan && v.ngay_ghi_nhan.slice(0, 10) <= localNgayDenFilter));
-    }
+    // ngay_tu/ngay_den da loc server-side (xem viPhamListParams) - khong loc lai client-side.
     if (localIdFilter) {
       const q = localIdFilter.trim().toLowerCase();
       list = list.filter(({ caseId, vs }) => caseId.toLowerCase().includes(q) || vs.some((v) => (v.seri_san_pham ?? "").toLowerCase().includes(q)));
@@ -678,7 +684,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       if (da !== db) return da - db;
       return a.caseId.localeCompare(b.caseId);
     });
-  }, [groupedViPham, localKtvFilter, localLoaiLoiFilter, localNgayTuFilter, localNgayDenFilter, localIdFilter]);
+  }, [groupedViPham, localKtvFilter, localLoaiLoiFilter, localIdFilter]);
 
   const filteredCallHistory = useMemo(() => {
     let rows = callHistory?.rows ?? [];
@@ -745,19 +751,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       await exportRowsToExcel(rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
       return;
     }
-    const res = await api.get<{ rows: Record<string, unknown>[] }>(`/survey${buildQuery({ tab, export: true, ...filterParams })}`);
+    // ngay_tu/ngay_den truyen thang xuong server (giong viPhamListParams) - khong loc lai client-side.
+    const res = await api.get<{ rows: Record<string, unknown>[] }>(`/survey${buildQuery({ tab, export: true, ...viPhamListParams })}`);
     let rows = res.rows;
     if (localKtvFilter) {
       rows = rows.filter((r) => r.ky_thuat_vien === localKtvFilter);
     }
     if (localLoaiLoiFilter) {
       rows = rows.filter((r) => r.loai_loi === localLoaiLoiFilter);
-    }
-    if (localNgayTuFilter) {
-      rows = rows.filter((r) => typeof r.ngay_ghi_nhan === "string" && r.ngay_ghi_nhan.slice(0, 10) >= localNgayTuFilter);
-    }
-    if (localNgayDenFilter) {
-      rows = rows.filter((r) => typeof r.ngay_ghi_nhan === "string" && r.ngay_ghi_nhan.slice(0, 10) <= localNgayDenFilter);
     }
     rows = rows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(typeof r.khu_vuc === "string" ? r.khu_vuc : null) }));
     await exportRowsToExcel(rows, `khao_sat_${tab}.xlsx`, "Data", SURVEY_EXPORT_LABELS);
@@ -1500,19 +1501,26 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 },
               ];
               return (
-                <PaginatedTable
-                  columns={columns}
-                  rows={filteredGroupedViPham.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
-                  isLoading={false}
-                  isError={false}
-                  page={page}
-                  pageSize={PAGE_SIZE}
-                  total={filteredGroupedViPham.length}
-                  onPageChange={setPage}
-                  rowKey={({ caseId }) => caseId}
-                  emptyText="Không có mục nào."
-                  storageKey="survey-cho-qc-da-xu-ly"
-                />
+                <>
+                  {viPhamListTruncated && (
+                    <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-50)] border border-[var(--amber-200)] rounded-lg px-3 py-1.5 mb-2">
+                      Đang hiển thị {groupedViPham.length}/{viPhamTotalCases} ca khớp bộ lọc — danh sách chỉ hiển thị tối đa 200 ca gần nhất để tối ưu tốc độ tải. Bấm <b>⬇ Xuất Excel</b> để xem đầy đủ {viPhamTotalCases} ca.
+                    </div>
+                  )}
+                  <PaginatedTable
+                    columns={columns}
+                    rows={filteredGroupedViPham.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+                    isLoading={false}
+                    isError={false}
+                    page={page}
+                    pageSize={PAGE_SIZE}
+                    total={filteredGroupedViPham.length}
+                    onPageChange={setPage}
+                    rowKey={({ caseId }) => caseId}
+                    emptyText="Không có mục nào."
+                    storageKey="survey-cho-qc-da-xu-ly"
+                  />
+                </>
               );
             })()}
 
