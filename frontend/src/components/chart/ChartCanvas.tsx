@@ -26,8 +26,12 @@ const valueLabelsPlugin: Plugin = {
     const isPieLike = chartType === "doughnut" || chartType === "pie";
 
     chart.data.datasets.forEach((dataset, datasetIndex) => {
+      // chart.isDatasetVisible() - KHONG dung meta.hidden truc tiep: field do chi phan anh trang
+      // thai nguoi dung tu bam an qua legend (mac dinh null = "chua ai dong"), KHONG tinh den
+      // dataset.hidden khai bao san trong config luc tao chart (bug thuc te: dataset dat hidden:true
+      // tu dau van bi meta.hidden === null nen plugin van ve so len chart du duong/cot khong hien).
       const meta = chart.getDatasetMeta(datasetIndex);
-      if (meta.hidden) return;
+      if (!chart.isDatasetVisible(datasetIndex)) return;
       if (dataset.label && hiddenLabels.has(dataset.label)) return;
       const values = dataset.data as (number | null)[];
 
