@@ -49,10 +49,20 @@ Thêm 1 route mới, ví dụ `POST /api/import/external-commit`, trong
 
 ## Điểm đã xác nhận, không cần hỏi lại
 
-- Đơn vị `so_phut_xu_ly`: dù tên cột là "phút", thực tế đang lưu **giờ** (xác
+- Đơn vị `so_gio_xu_ly` (ĐỔI TÊN 2026-08-29, xem migration
+  `0102_rename_so_phut_xu_ly_to_so_gio_xu_ly.sql` — tên cũ trước đó là
+  `so_phut_xu_ly`): dù tên cột cũ là "phút", thực tế đang lưu **giờ** (xác
   nhận với chủ hệ thống 2026-07-29, import thủ công hiện tại cũng đang gửi
-  giờ, không có chuyển đổi nào trong code) — pipeline Python sẽ gửi giá trị
-  giờ y như import thủ công, không cần backend chuyển đổi gì thêm.
+  giờ, không có chuyển đổi nào trong code) — pipeline Python cần gửi field
+  với key `so_gio_xu_ly` (KHÔNG PHẢI `so_phut_xu_ly` nữa), giá trị vẫn là số
+  giờ y như trước, không cần backend chuyển đổi gì thêm.
+  **CẢNH BÁO (phát hiện 2026-09-05):** `businessFieldValue()` trong
+  `ratchet.ts` tra key theo đúng tên cột DB, không có lớp remap tên cũ — nếu
+  pipeline Python chưa cập nhật sang key mới `so_gio_xu_ly` thì field này sẽ
+  bị ghi NULL cho MỌI case đẩy qua `/api/external-import/commit` (đã xác nhận
+  thực tế: 100% case cập nhật từ 2026-08-29 đến nay có `so_gio_xu_ly IS
+  NULL`). Việc cần làm: sửa pipeline Python đổi key `so_phut_xu_ly` →
+  `so_gio_xu_ly` trong payload gửi lên.
 - `link_hinh_anh`: pipeline Python đã sửa để nối các URL bằng dấu `,` (khớp
   đúng `parseLinkHinhAnh()` hiện có trong `ratchet.ts`), không cần sửa hàm đó.
 - `TBP` → `khu_vuc`: đã đúng theo `COLUMN_MAP` hiện tại, không đổi.
