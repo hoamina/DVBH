@@ -385,15 +385,18 @@ export function LuyKeModule() {
   }, [filteredForYearChart]);
 
   const groupRows = useMemo(() => {
-    const map = new Map<string, { tong: number; dungHan: number }>();
+    const map = new Map<string, { tong: number; dungHan: number; duoi24h: number }>();
     for (const r of filtered) {
       const key = String(r[groupBy]);
-      const cur = map.get(key) ?? { tong: 0, dungHan: 0 };
+      const cur = map.get(key) ?? { tong: 0, dungHan: 0, duoi24h: 0 };
       cur.tong += r.sl;
       if (r.dung_han === "Đúng hạn") cur.dungHan += r.sl;
+      if (r.toc_do.startsWith("1.")) cur.duoi24h += r.sl;
       map.set(key, cur);
     }
-    return [...map.entries()].map(([nhom, v]) => ({ nhom, tong: v.tong, dungHan: v.dungHan, quaHan: v.tong - v.dungHan })).sort((a, b) => b.tong - a.tong);
+    return [...map.entries()]
+      .map(([nhom, v]) => ({ nhom, tong: v.tong, dungHan: v.dungHan, quaHan: v.tong - v.dungHan, duoi24h: v.duoi24h }))
+      .sort((a, b) => b.tong - a.tong);
   }, [filtered, groupBy]);
 
   const labelFor = (field: keyof LuyKeRow, value: string) => (field === "khu_vuc" ? shortKhuVuc(value) : value);
@@ -580,10 +583,17 @@ export function LuyKeModule() {
                     size="sm"
                     onClick={() =>
                       exportRowsToExcel(
-                        groupRows.map((r) => ({ ...r, nhom: labelFor(groupBy, r.nhom), tyLeDungHan: totals.tong ? `${((r.dungHan / r.tong) * 100).toFixed(1)}%` : "—" })),
+                        groupRows.map((r) => ({ ...r, nhom: labelFor(groupBy, r.nhom), tyLeDungHan: pct(r.dungHan, r.tong), tyLe24h: pct(r.duoi24h, r.tong) })),
                         `bao_cao_luy_ke_${groupBy}.xlsx`,
                         "Data",
-                        { nhom: GROUP_OPTIONS.find((g) => g.value === groupBy)?.label ?? "Nhóm", tong: "Tổng SL", dungHan: "Đúng hạn", quaHan: "Quá hạn", tyLeDungHan: "% Đúng hạn" },
+                        {
+                          nhom: GROUP_OPTIONS.find((g) => g.value === groupBy)?.label ?? "Nhóm",
+                          tong: "Tổng SL",
+                          dungHan: "Đúng hạn",
+                          quaHan: "Quá hạn",
+                          tyLeDungHan: "% Đúng hạn",
+                          tyLe24h: "% Dưới 24h",
+                        },
                       )
                     }
                   >
@@ -598,6 +608,7 @@ export function LuyKeModule() {
                       <th className="py-2 pr-3">Đúng hạn</th>
                       <th className="py-2 pr-3">Quá hạn</th>
                       <th className="py-2 pr-3">% Đúng hạn</th>
+                      <th className="py-2 pr-3">% Dưới 24h</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -608,11 +619,12 @@ export function LuyKeModule() {
                         <td className="py-2 pr-3 font-mono">{r.dungHan.toLocaleString("vi-VN")}</td>
                         <td className="py-2 pr-3 font-mono">{r.quaHan.toLocaleString("vi-VN")}</td>
                         <td className="py-2 pr-3 font-mono">{pct(r.dungHan, r.tong)}</td>
+                        <td className="py-2 pr-3 font-mono">{pct(r.duoi24h, r.tong)}</td>
                       </tr>
                     ))}
                     {groupRows.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                        <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
                           Không có dữ liệu khớp bộ lọc.
                         </td>
                       </tr>
