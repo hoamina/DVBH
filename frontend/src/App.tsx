@@ -272,7 +272,7 @@ function MainApp({
           {active === "luy-ke" && <LuyKeModule />}
           {active === "backlog" && <BacklogModule openCase={openCase} headerExtra={headerExtraEl} />}
           {active === "missing-parts" && <MissingPartsModule openCase={openCase} headerExtra={headerExtraEl} />}
-          {active === "tranh-chap" && <TranhChapModule openCase={openCase} />}
+          {active === "tranh-chap" && <TranhChapModule openCase={openCase} headerExtra={headerExtraEl} />}
           {active === "nap-gas" && <NapGasModule openCase={openCase} />}
           {active === "survey" && <SurveyModule openCase={openCase} />}
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}

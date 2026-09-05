@@ -36,6 +36,7 @@ import {
   type TienTrinhDetail,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
+  type LyDoTonTranhChapRow,
 } from "../lib/tranhChapShared";
 import {
   fmtDateTime,
@@ -361,6 +362,11 @@ export function CaseDetail({
     queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
     enabled: caseId !== null,
   });
+  const { data: lyDoTonOptions } = useQuery({
+    queryKey: ["settings-ly-do-ton-tranh-chap"],
+    queryFn: () => api.get<{ rows: LyDoTonTranhChapRow[] }>("/settings/ly-do-ton-tranh-chap"),
+    enabled: caseId !== null,
+  });
   // "case_id" - nhanh rieng cua GET /tranh-chap/tien-trinh (xem tranhChap.ts) tra ve TOAN BO lich su
   // tien trinh (ke ca da dong) CUA CA NAY trong 1 LAN goi duy nhat, gom san logs+logCon cho tung
   // tien trinh - CHOT 2026-08-20 (rao soat lag): thay the hoan toan cach cu (moi TienTrinhPanel tu
@@ -381,6 +387,7 @@ export function CaseDetail({
       thoi_gian_du_kien_xong?: string;
       ket_qua_xu_ly?: string;
       hai_long_sau_tranh_chap?: string;
+      ly_do_ton_tranh_chap?: string;
     }) => api.post(`/tranh-chap/${caseId}/tiep-nhan`, body),
     onSuccess: () => {
       addToast("Đã tiếp nhận xử lý tranh chấp");
@@ -1733,6 +1740,7 @@ export function CaseDetail({
           currentUser={currentUser}
           phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
           ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []}
+          lyDoTonOptions={lyDoTonOptions?.rows.filter((r) => r.bat_tat) ?? []}
         />
       ))}
     </div>
@@ -2161,6 +2169,7 @@ export function CaseDetail({
           caseRow={{ id: c.id, khach_hang: c.khach_hang, khu_vuc: c.khu_vuc }}
           phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
           ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []}
+          lyDoTonOptions={lyDoTonOptions?.rows.filter((r) => r.bat_tat) ?? []}
           onClose={() => setTiepNhanTranhChapOpen(false)}
           onSubmit={(body) => tiepNhanTranhChap.mutate(body)}
           isPending={tiepNhanTranhChap.isPending}

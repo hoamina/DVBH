@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
@@ -41,6 +42,7 @@ import {
   type TienTrinhRow,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
+  type LyDoTonTranhChapRow,
   type TheoDoiDoiTraRow,
   type TheoDoiDoiTraDaXacNhanRow,
 } from "../lib/tranhChapShared";
@@ -149,7 +151,13 @@ function DaXacNhanDoiTraMonthTable({
   );
 }
 
-export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
+export function TranhChapModule({
+  openCase,
+  headerExtra,
+}: {
+  openCase: (id: string, tab?: string) => void;
+  headerExtra?: HTMLElement | null;
+}) {
   const auth = useAuth();
   const user = auth.status === "authenticated" ? auth.user : null;
   const myAreas = user?.khu_vuc_phu_trach ?? [];
@@ -450,6 +458,10 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
     queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
     queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
   });
+  const { data: lyDoTonOptions } = useQuery({
+    queryKey: ["settings-ly-do-ton-tranh-chap"],
+    queryFn: () => api.get<{ rows: LyDoTonTranhChapRow[] }>("/settings/ly-do-ton-tranh-chap"),
+  });
 
   const { data: monthData } = useQuery({
     queryKey: ["dashboard-months"],
@@ -500,6 +512,15 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
   const monthSelectOptions = [
     ...(monthData?.months.map((m) => ({ value: m, label: m })) ?? []),
   ];
+
+  // "thangFilter" dung chung nhieu tab (xem chu thich o "monthControl" ben duoi) - doi thang phai
+  // reset ve trang 1 cho MOI tab dang doc truc tiep theo thang (Cho xu ly + Cho xac nhan AI), khong
+  // chi tab dang mo, vi nguoi dung co the doi thang roi chuyen tab ma khong load lai trang 1.
+  const handleThangFilterChange = (v: string) => {
+    setThangFilter(v);
+    setPage(1);
+    setAiPage(1);
+  };
 
   // ---------- Tab "Cho xu ly" ----------
   const [minDaysFilter, setMinDaysFilter] = useState<number | null>(null);
@@ -586,6 +607,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
       thoi_gian_du_kien_xong?: string;
       ket_qua_xu_ly?: string;
       hai_long_sau_tranh_chap?: string;
+      ly_do_ton_tranh_chap?: string;
     }) => api.post(`/tranh-chap/${encodeURIComponent(tiepNhanCase?.id ?? "")}/tiep-nhan`, body),
     onSuccess: () => {
       addToast("Đã tiếp nhận xử lý tranh chấp");
@@ -868,8 +890,19 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
   });
   const dmTaiKhoanTonRows = dmTaiKhoanTon?.rows ?? [];
 
+  // SUA BUG (phan hoi nguoi dung 2026-09-05): "thangFilter" la state DUNG CHUNG cho nhieu tab (Cho
+  // xu ly/Cho xac nhan AI/2 the bao cao) nhung truoc day chi co 1 o chon o filter bar rieng cua tab
+  // "Cho xu ly" - sang tab "Cho xac nhan AI" van bi loc theo thang do (VD dang chon thang 8) ma
+  // KHONG co o chon nao o tab do de nguoi dung biet/doi, tuong nham la danh sach trong do loi. Chuyen
+  // o chon nay len header dung chung ca module (portal qua headerExtra, giong BacklogModule) de ro
+  // rang day la bo loc TONG cho ca "Tranh chap, KN", khong rieng 1 tab nao.
+  const monthControl = (
+    <Select value={thangFilter} onChange={handleThangFilterChange} options={monthSelectOptions} />
+  );
+
   return (
     <div className="anim-in">
+      {headerExtra ? createPortal(monthControl, headerExtra) : <div className="flex items-center gap-2 flex-wrap mb-2">{monthControl}</div>}
       <Tabs active={view} onChange={setView} tabs={viewsWithCount} />
 
       {view === "cho-xu-ly" ? (
@@ -881,11 +914,6 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
             <KhuVucFilterControl value={khuVucFilter} onChange={(v) => { setKhuVucFilter(v); setPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
             <MultiSelectFilter label="Tỉnh" value={tinhFilter} onChange={(v) => { setTinhFilter(v); setPage(1); }} options={tinhSelectOptions} />
             <MultiSelectFilter label="Nhóm KH" value={nhomKhFilter} onChange={(v) => { setNhomKhFilter(v); setPage(1); }} options={nhomKhSelectOptions} />
-            <Select
-              value={thangFilter}
-              onChange={(v) => { setThangFilter(v); setPage(1); }}
-              options={monthSelectOptions}
-            />
             <IdSerialSearchInput
               value={idSearch}
               onChange={(v) => {
@@ -1591,6 +1619,7 @@ export function TranhChapModule({ openCase }: { openCase: (id: string, tab?: str
           caseRow={tiepNhanCase}
           phanLoaiOptions={phanLoaiOptions?.rows.filter((r) => r.bat_tat) ?? []}
           ketQuaOptions={ketQuaOptions?.rows.filter((r) => r.bat_tat) ?? []}
+          lyDoTonOptions={lyDoTonOptions?.rows.filter((r) => r.bat_tat) ?? []}
           onClose={() => setTiepNhanCase(null)}
           onSubmit={(body) => tiepNhan.mutate(body)}
           isPending={tiepNhan.isPending}

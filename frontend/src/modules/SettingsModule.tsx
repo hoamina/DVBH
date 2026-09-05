@@ -16,6 +16,7 @@ import {
   type LyDoChamMuaLkRow,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
+  type LyDoTonTranhChapRow,
   type LoaiYeuCauBoQuaLapRow,
   type LoaiYeuCauDoiTraRow,
   type LuuYLoiLinhKienDoiTraRow,
@@ -104,6 +105,8 @@ export function SettingsModule() {
   const [newReason, setNewReason] = useState({ ten: "", thieu: false, tranhChap: false });
   const [addPhanLoaiOpen, setAddPhanLoaiOpen] = useState(false);
   const [newPhanLoai, setNewPhanLoai] = useState("");
+  const [addLyDoTonOpen, setAddLyDoTonOpen] = useState(false);
+  const [newLyDoTon, setNewLyDoTon] = useState("");
   const [addKetQuaOpen, setAddKetQuaOpen] = useState(false);
   const [newKetQua, setNewKetQua] = useState("");
   const [addLoaiYeuCauBoQuaLapOpen, setAddLoaiYeuCauBoQuaLapOpen] = useState(false);
@@ -148,6 +151,7 @@ export function SettingsModule() {
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [lyDoPage, setLyDoPage] = useState(1);
   const [phanLoaiPage, setPhanLoaiPage] = useState(1);
+  const [lyDoTonPage, setLyDoTonPage] = useState(1);
   const [ketQuaPage, setKetQuaPage] = useState(1);
   const [loaiYeuCauBoQuaLapPage, setLoaiYeuCauBoQuaLapPage] = useState(1);
   const [loaiYeuCauDoiTraPage, setLoaiYeuCauDoiTraPage] = useState(1);
@@ -190,6 +194,10 @@ export function SettingsModule() {
   const { data: ketQuaXuLyTranhChap } = useQuery({
     queryKey: ["settings-ket-qua-xu-ly-tranh-chap"],
     queryFn: () => api.get<{ rows: KetQuaXuLyTranhChapRow[] }>("/settings/ket-qua-xu-ly-tranh-chap"),
+  });
+  const { data: lyDoTonTranhChap } = useQuery({
+    queryKey: ["settings-ly-do-ton-tranh-chap"],
+    queryFn: () => api.get<{ rows: LyDoTonTranhChapRow[] }>("/settings/ly-do-ton-tranh-chap"),
   });
   const { data: loaiYeuCauBoQuaLap } = useQuery({
     queryKey: ["settings-loai-yeu-cau-bo-qua-lap"],
@@ -345,6 +353,25 @@ export function SettingsModule() {
       setNewPhanLoai("");
       setAddPhanLoaiOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-phan-loai-tranh-chap"] });
+    },
+    onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
+  });
+
+  const toggleLyDoTon = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/ly-do-ton-tranh-chap/${id}`, { bat_tat }),
+    onSuccess: () => {
+      addToast("Đã cập nhật lý do tồn tranh chấp");
+      qc.invalidateQueries({ queryKey: ["settings-ly-do-ton-tranh-chap"] });
+    },
+  });
+
+  const addLyDoTonMutation = useMutation({
+    mutationFn: () => api.post("/settings/ly-do-ton-tranh-chap", { ten_ly_do: newLyDoTon }),
+    onSuccess: () => {
+      addToast("Đã thêm lý do tồn tranh chấp mới");
+      setNewLyDoTon("");
+      setAddLyDoTonOpen(false);
+      qc.invalidateQueries({ queryKey: ["settings-ly-do-ton-tranh-chap"] });
     },
     onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
   });
@@ -662,6 +689,11 @@ export function SettingsModule() {
     { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => togglePhanLoai.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
+  const lyDoTonColumns: Column<LyDoTonTranhChapRow>[] = [
+    { key: "ten_ly_do", header: "Lý do tồn tranh chấp", render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLyDoTon.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+  ];
+
   const ketQuaColumns: Column<KetQuaXuLyTranhChapRow>[] = [
     { key: "ten_ket_qua", header: "Tên kết quả", render: (r) => <span className="font-medium">{r.ten_ket_qua}</span> },
     { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleKetQua.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
@@ -833,6 +865,7 @@ export function SettingsModule() {
           { key: "ktv-lien-he", label: "Danh sách KTV" },
           { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
           { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
+          { key: "ly-do-ton-tranh-chap", label: "Lý do tồn tranh chấp" },
           { key: "loai-yeu-cau-bo-qua-lap", label: "Bỏ qua đánh giá lặp" },
           { key: "theo-doi-doi-tra", label: "Theo dõi đổi trả" },
           { key: "loi-chao", label: "Lời chào" },
@@ -1030,6 +1063,32 @@ export function SettingsModule() {
             rowKey={(r) => r.id}
             emptyText="Chưa có phân loại tranh chấp nào."
             storageKey="settings-phan-loai-tranh-chap"
+          />
+        </div>
+      )}
+
+      {tab === "ly-do-ton-tranh-chap" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Danh mục bắt buộc chọn khi ghi log xử lý trong <b>Tranh chấp, KN</b> (trừ khi log đóng tiến trình) — trả lời câu hỏi "vì sao ca vẫn còn tồn ở lần cập nhật này".
+            </div>
+            <Btn size="sm" onClick={() => setAddLyDoTonOpen(true)}>
+              + Thêm lý do
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={lyDoTonColumns}
+            rows={(lyDoTonTranhChap?.rows ?? []).slice((lyDoTonPage - 1) * PAGE_SIZE, lyDoTonPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={lyDoTonPage}
+            pageSize={PAGE_SIZE}
+            total={(lyDoTonTranhChap?.rows ?? []).length}
+            onPageChange={setLyDoTonPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có lý do tồn tranh chấp nào."
+            storageKey="settings-ly-do-ton-tranh-chap"
           />
         </div>
       )}
@@ -1471,6 +1530,28 @@ export function SettingsModule() {
               Hủy
             </Btn>
             <Btn onClick={() => addPhanLoaiMutation.mutate()} disabled={!newPhanLoai.trim() || addPhanLoaiMutation.isPending}>
+              Thêm
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={addLyDoTonOpen} onClose={() => setAddLyDoTonOpen(false)} title="Thêm lý do tồn tranh chấp mới">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do tồn tranh chấp</label>
+            <input
+              value={newLyDoTon}
+              onChange={(e) => setNewLyDoTon(e.target.value)}
+              placeholder="Vd: Do KTV cần bổ sung thông tin…"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => setAddLyDoTonOpen(false)}>
+              Hủy
+            </Btn>
+            <Btn onClick={() => addLyDoTonMutation.mutate()} disabled={!newLyDoTon.trim() || addLyDoTonMutation.isPending}>
               Thêm
             </Btn>
           </div>

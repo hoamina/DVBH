@@ -33,6 +33,7 @@ import {
   type TienTrinhDetail,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
+  type LyDoTonTranhChapRow,
   type GiamSatInfo,
 } from "../lib/tranhChapShared";
 
@@ -44,6 +45,7 @@ export function TiepNhanModal({
   caseRow,
   phanLoaiOptions,
   ketQuaOptions,
+  lyDoTonOptions,
   onClose,
   onSubmit,
   isPending,
@@ -51,6 +53,7 @@ export function TiepNhanModal({
   caseRow: ChoXuLyCase;
   phanLoaiOptions: PhanLoaiTranhChapRow[];
   ketQuaOptions: KetQuaXuLyTranhChapRow[];
+  lyDoTonOptions: LyDoTonTranhChapRow[];
   onClose: () => void;
   onSubmit: (body: {
     phan_loai_tranh_chap: string;
@@ -60,6 +63,7 @@ export function TiepNhanModal({
     thoi_gian_du_kien_xong?: string;
     ket_qua_xu_ly?: string;
     hai_long_sau_tranh_chap?: string;
+    ly_do_ton_tranh_chap?: string;
   }) => void;
   isPending: boolean;
 }) {
@@ -72,7 +76,11 @@ export function TiepNhanModal({
   const [ghiChu, setGhiChu] = useState("");
   const [ketQua, setKetQua] = useState("");
   const [haiLong, setHaiLong] = useState("");
+  const [lyDoTon, setLyDoTon] = useState("");
   const canKetQua = TRANG_THAI_CAN_KET_QUA.includes(trangThai);
+  // CHOT 2026-09-03: "Ly do ton tranh chap" bat buoc tru khi trang thai chon la 1 trong 4 trang thai
+  // DONG (TRANG_THAI_DONG) - khop dung isTrangThaiDangMo() phia backend.
+  const canLyDoTon = !TRANG_THAI_DONG.includes(trangThai);
 
   return (
     <Modal open onClose={onClose} title={`Tiếp nhận xử lý tranh chấp — ${caseRow.id}`}>
@@ -121,6 +129,21 @@ export function TiepNhanModal({
             </div>
           </>
         )}
+        {canLyDoTon && (
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do tồn tranh chấp *</label>
+            {lyDoTonOptions.length ? (
+              <Select
+                value={lyDoTon}
+                onChange={setLyDoTon}
+                options={[{ value: "", label: "Chọn lý do tồn…" }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                className="w-full mt-1"
+              />
+            ) : (
+              <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Lý do tồn tranh chấp để thêm trước.</div>
+            )}
+          </div>
+        )}
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
           <textarea value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
@@ -139,9 +162,10 @@ export function TiepNhanModal({
                 thoi_gian_du_kien_xong: ngayDuKien || undefined,
                 ket_qua_xu_ly: canKetQua ? ketQua : undefined,
                 hai_long_sau_tranh_chap: canKetQua ? haiLong : undefined,
+                ly_do_ton_tranh_chap: canLyDoTon ? lyDoTon : undefined,
               })
             }
-            disabled={!phanLoai || !mucDo || !trangThai || (canKetQua && (!ketQua || !haiLong)) || isPending}
+            disabled={!phanLoai || !mucDo || !trangThai || (canKetQua && (!ketQua || !haiLong)) || (canLyDoTon && !lyDoTon) || isPending}
           >
             Tiếp nhận
           </Btn>
@@ -191,6 +215,7 @@ export function TienTrinhPanel({
   currentUser,
   phanLoaiOptions,
   ketQuaOptions,
+  lyDoTonOptions,
   onOpenCase,
 }: {
   id: string;
@@ -206,6 +231,7 @@ export function TienTrinhPanel({
   currentUser: AppUser | null;
   phanLoaiOptions: PhanLoaiTranhChapRow[];
   ketQuaOptions: KetQuaXuLyTranhChapRow[];
+  lyDoTonOptions: LyDoTonTranhChapRow[];
   onOpenCase?: (id: string) => void;
 }) {
   const addToast = useToast();
@@ -237,6 +263,7 @@ export function TienTrinhPanel({
       ghi_chu?: string;
       ket_qua_xu_ly?: string;
       hai_long_sau_tranh_chap?: string;
+      ly_do_ton_tranh_chap?: string;
     }) => api.post(`/tranh-chap/tien-trinh/${encodeURIComponent(id)}/log`, body),
     onSuccess: () => {
       addToast("Đã thêm log xử lý");
@@ -263,7 +290,7 @@ export function TienTrinhPanel({
       body,
     }: {
       logId: number;
-      body: { trang_thai_xu_ly?: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string };
+      body: { trang_thai_xu_ly?: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string; ly_do_ton_tranh_chap?: string };
     }) => api.patch(`/tranh-chap/log/${logId}`, body),
     onSuccess: () => {
       addToast("Đã cập nhật log");
@@ -504,8 +531,10 @@ export function TienTrinhPanel({
             ket_qua_xu_ly: "",
             hai_long_sau_tranh_chap: "",
             dang_cho_nguoi_xu_ly: latestLog?.dang_cho_nguoi_xu_ly ?? "",
+            ly_do_ton_tranh_chap: "",
           }}
           ketQuaOptions={ketQuaOptions}
+          lyDoTonOptions={lyDoTonOptions}
           latestTrangThai={latestLog?.trang_thai_xu_ly ?? null}
           giamSatPhuTrach={giamSatDeXuat}
           onClose={() => setAddLogOpen(false)}
@@ -525,8 +554,10 @@ export function TienTrinhPanel({
             ket_qua_xu_ly: editingLog.ket_qua_xu_ly ?? "",
             hai_long_sau_tranh_chap: editingLog.hai_long_sau_tranh_chap ?? "",
             dang_cho_nguoi_xu_ly: editingLog.dang_cho_nguoi_xu_ly ?? "",
+            ly_do_ton_tranh_chap: editingLog.ly_do_ton_tranh_chap ?? "",
           }}
           ketQuaOptions={ketQuaOptions}
+          lyDoTonOptions={lyDoTonOptions}
           // Giai doan tinh tu log NGAY TRUOC log dang sua (khong phai chinh no) - editingLog luon la
           // logs[0] (chi log moi nhat moi sua duoc, xem canEdit), nen log truoc no la logs[1].
           latestTrangThai={logs[1]?.trang_thai_xu_ly ?? null}
@@ -555,6 +586,7 @@ function LogFormModal({
   submitLabel,
   initial,
   ketQuaOptions,
+  lyDoTonOptions,
   latestTrangThai,
   giamSatPhuTrach = [],
   onClose,
@@ -563,8 +595,17 @@ function LogFormModal({
 }: {
   title: string;
   submitLabel: string;
-  initial: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong: string; ghi_chu: string; ket_qua_xu_ly: string; hai_long_sau_tranh_chap: string; dang_cho_nguoi_xu_ly?: string | null };
+  initial: {
+    trang_thai_xu_ly: string;
+    thoi_gian_du_kien_xong: string;
+    ghi_chu: string;
+    ket_qua_xu_ly: string;
+    hai_long_sau_tranh_chap: string;
+    dang_cho_nguoi_xu_ly?: string | null;
+    ly_do_ton_tranh_chap: string;
+  };
   ketQuaOptions: KetQuaXuLyTranhChapRow[];
+  lyDoTonOptions: LyDoTonTranhChapRow[];
   // Trang thai cua log NGAY TRUOC log dang them/sua - quyet dinh giai doan (Giam sat/CSKH) duoc phep
   // chon o day (chot 2026-07-31 diem 1: khong cho quay lai giai doan Giam sat sau khi da chuyen CSKH).
   latestTrangThai: string | null;
@@ -575,7 +616,15 @@ function LogFormModal({
   // "Giam sat DA TUNG XU LY CA NAY" (suy tu du lieu co san o client, khong quet DB nua).
   giamSatPhuTrach?: GiamSatInfo[];
   onClose: () => void;
-  onSubmit: (body: { trang_thai_xu_ly: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string; dang_cho_nguoi_xu_ly?: string | null }) => void;
+  onSubmit: (body: {
+    trang_thai_xu_ly: string;
+    thoi_gian_du_kien_xong?: string;
+    ghi_chu?: string;
+    ket_qua_xu_ly?: string;
+    hai_long_sau_tranh_chap?: string;
+    dang_cho_nguoi_xu_ly?: string | null;
+    ly_do_ton_tranh_chap?: string;
+  }) => void;
   isPending: boolean;
 }) {
   const [trangThai, setTrangThai] = useState(initial.trang_thai_xu_ly);
@@ -584,11 +633,15 @@ function LogFormModal({
   const [ketQua, setKetQua] = useState(initial.ket_qua_xu_ly);
   const [haiLong, setHaiLong] = useState(initial.hai_long_sau_tranh_chap);
   const [dangCho, setDangCho] = useState(initial.dang_cho_nguoi_xu_ly || "");
+  const [lyDoTon, setLyDoTon] = useState(initial.ly_do_ton_tranh_chap);
 
   const auth = useAuth();
   const user = auth.status === "authenticated" ? auth.user : null;
 
   const canKetQua = TRANG_THAI_CAN_KET_QUA.includes(trangThai);
+  // CHOT 2026-09-03: bat buoc tru khi trang thai chon la 1 trong 4 trang thai DONG - khop dung
+  // isTrangThaiDangMo() phia backend (xem giai thich o TiepNhanModal).
+  const canLyDoTon = trangThai !== "" && !TRANG_THAI_DONG.includes(trangThai);
   const currentPhase = phaseOfStatus(latestTrangThai);
   let phaseOptions: { value: string; label: string }[] = currentPhase === "cskh"
     ? CSKH_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
@@ -684,6 +737,21 @@ function LogFormModal({
             </div>
           </>
         )}
+        {canLyDoTon && (
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do tồn tranh chấp *</label>
+            {lyDoTonOptions.length ? (
+              <Select
+                value={lyDoTon}
+                onChange={setLyDoTon}
+                options={[{ value: "", label: "Chọn lý do tồn…" }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                className="w-full mt-1"
+              />
+            ) : (
+              <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Lý do tồn tranh chấp để thêm trước.</div>
+            )}
+          </div>
+        )}
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
           <textarea
@@ -707,9 +775,10 @@ function LogFormModal({
                 ket_qua_xu_ly: canKetQua ? ketQua : undefined,
                 hai_long_sau_tranh_chap: canKetQua ? haiLong : undefined,
                 dang_cho_nguoi_xu_ly: showDangCho ? dangCho || null : null,
+                ly_do_ton_tranh_chap: canLyDoTon ? lyDoTon : undefined,
               })
             }
-            disabled={!trangThai || (canKetQua && (!ketQua || !haiLong)) || (isChuyenLaiGiamSat && !dangCho) || isPending}
+            disabled={!trangThai || (canKetQua && (!ketQua || !haiLong)) || (isChuyenLaiGiamSat && !dangCho) || (canLyDoTon && !lyDoTon) || isPending}
           >
             {isPending ? "Đang lưu…" : submitLabel}
           </Btn>

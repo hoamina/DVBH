@@ -46,7 +46,7 @@ const linhKienWriteRoles = requireQuanLyDanhMucLk;
 
 async function logAudit(
   db: D1Database,
-  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap" | "settings_loai_yeu_cau_bo_qua_lap" | "settings_loai_yeu_cau_doi_tra" | "settings_luu_y_loi_linh_kien_doi_tra",
+  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap" | "settings_loai_yeu_cau_bo_qua_lap" | "settings_loai_yeu_cau_doi_tra" | "settings_luu_y_loi_linh_kien_doi_tra" | "settings_ly_do_ton_tranh_chap",
   banGhiId: string,
   nguoiThayDoi: string,
   truongThayDoi: string,
@@ -220,6 +220,46 @@ settings.patch("/phan-loai-tranh-chap/:id", adminOnly, async (c) => {
   const user = c.get("user");
   await logAudit(c.env.DB, "settings_phan_loai_tranh_chap", String(id), user.email, "updated", existing, next);
   // Bump domain "settings" (xem lib/dataVersions.ts).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json({ ok: true });
+});
+
+// ---------- Ly do ton tranh chap (migration 0107) ----------
+// Danh muc bat buoc chon khi ghi log CHINH trong Tranh chap, KN (tru khi dong tien trinh) - xem
+// routes/tranhChap.ts POST /:caseId/tiep-nhan, POST /tien-trinh/:id/log, PATCH /log/:id.
+
+settings.get("/ly-do-ton-tranh-chap", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_ly_do_ton_tranh_chap ORDER BY id").all();
+  return c.json({ rows: results });
+});
+
+settings.post("/ly-do-ton-tranh-chap", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten_ly_do: string }>();
+  if (!body.ten_ly_do?.trim()) return c.json({ error: "MISSING_TEN_LY_DO" }, 400);
+
+  const row = await c.env.DB.prepare(`INSERT INTO settings_ly_do_ton_tranh_chap (ten_ly_do) VALUES (?) RETURNING *`)
+    .bind(body.ten_ly_do.trim())
+    .first();
+
+  const user = c.get("user");
+  await logAudit(c.env.DB, "settings_ly_do_ton_tranh_chap", String((row as { id: number }).id), user.email, "created", null, row);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
+  return c.json(row, 201);
+});
+
+settings.patch("/ly-do-ton-tranh-chap/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ bat_tat?: boolean }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_ly_do_ton_tranh_chap WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const next = { bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat };
+  await c.env.DB.prepare("UPDATE settings_ly_do_ton_tranh_chap SET bat_tat = ?, updated_at = ? WHERE id = ?")
+    .bind(next.bat_tat, nowVN(), id)
+    .run();
+
+  const user = c.get("user");
+  await logAudit(c.env.DB, "settings_ly_do_ton_tranh_chap", String(id), user.email, "updated", existing, next);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
 });

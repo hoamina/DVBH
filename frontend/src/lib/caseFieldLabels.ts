@@ -68,6 +68,7 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   crm_hash: "Hash CRM (nội bộ)",
   nghi_ngo_tranh_chap_xac_nhan_boi: "Người xác nhận nghi ngờ tranh chấp",
   nghi_ngo_tranh_chap_xac_nhan_luc: "Thời gian xác nhận nghi ngờ tranh chấp",
+  ly_do_ton_tranh_chap_gan_nhat: "Lý do tồn tranh chấp gần nhất",
   can_khao_sat: "Cần khảo sát",
   last_ly_do_cham: "Lý do tồn gần nhất",
   last_ngay_giai_trinh: "Ngày giải trình gần nhất",

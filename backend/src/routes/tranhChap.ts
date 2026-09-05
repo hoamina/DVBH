@@ -669,6 +669,7 @@ tranhChap.post("/:caseId/tiep-nhan", async (c) => {
     thoi_gian_du_kien_xong?: string;
     ket_qua_xu_ly?: string;
     hai_long_sau_tranh_chap?: string;
+    ly_do_ton_tranh_chap?: string;
   }>();
   if (!body.phan_loai_tranh_chap?.trim()) return c.json({ error: "MISSING_PHAN_LOAI" }, 400);
   if (!(MUC_DO_VALUES as readonly string[]).includes(body.muc_do)) return c.json({ error: "INVALID_MUC_DO" }, 400);
@@ -681,6 +682,11 @@ tranhChap.post("/:caseId/tiep-nhan", async (c) => {
     if (!body.hai_long_sau_tranh_chap || !(HAI_LONG_VALUES as readonly string[]).includes(body.hai_long_sau_tranh_chap)) {
       return c.json({ error: "MISSING_HAI_LONG" }, 400);
     }
+  }
+  // CHOT 2026-09-03: "Ly do ton tranh chap" bat buoc tru khi trang thai chon la 1 trong 4 trang thai
+  // DONG (isTrangThaiDangMo() = false) - case da dong thi khong con "ton" nua nen khong bat buoc.
+  if (isTrangThaiDangMo(body.trang_thai_xu_ly) && !body.ly_do_ton_tranh_chap?.trim()) {
+    return c.json({ error: "MISSING_LY_DO_TON" }, 400);
   }
 
   const caseRow = await c.env.DB.prepare("SELECT khu_vuc, nghi_ngo_tranh_chap FROM case_dvbh WHERE id = ?")
@@ -733,8 +739,8 @@ tranhChap.post("/:caseId/tiep-nhan", async (c) => {
     ),
     c.env.DB.prepare(
       `INSERT INTO tranh_chap_log
-         (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu, ket_qua_xu_ly, hai_long_sau_tranh_chap, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu, ket_qua_xu_ly, hai_long_sau_tranh_chap, ly_do_ton_tranh_chap, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       id,
       user.email,
@@ -744,7 +750,14 @@ tranhChap.post("/:caseId/tiep-nhan", async (c) => {
       body.ghi_chu ?? null,
       body.ket_qua_xu_ly?.trim() || null,
       body.hai_long_sau_tranh_chap || null,
+      body.ly_do_ton_tranh_chap?.trim() || null,
       logCreatedAt,
+    ),
+    // Cache "ly do ton gan nhat" tren case_dvbh (migration 0107) - luon cap nhat, ke ca null (dong
+    // ngay khi tao) - dung cho bang "Quan ly ton" (BacklogModule.tsx).
+    c.env.DB.prepare("UPDATE case_dvbh SET ly_do_ton_tranh_chap_gan_nhat = ? WHERE id = ?").bind(
+      body.ly_do_ton_tranh_chap?.trim() || null,
+      caseId,
     ),
   ];
   // CHOT 2026-08-22: tao tien trinh truc tiep tu ca dang "cho xac nhan AI" (nghi_ngo_tranh_chap = 2)
@@ -1081,6 +1094,7 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
     ket_qua_xu_ly?: string;
     hai_long_sau_tranh_chap?: string;
     dang_cho_nguoi_xu_ly?: string | null;
+    ly_do_ton_tranh_chap?: string;
   }>();
   if (!(ALL_TRANG_THAI_LOG as readonly string[]).includes(body.trang_thai_xu_ly)) return c.json({ error: "INVALID_TRANG_THAI" }, 400);
   // Chi 2 trang thai "thanh cong" bat buoc 2 truong ket qua (chot 2026-07-31) - xem TRANG_THAI_CAN_KET_QUA.
@@ -1089,6 +1103,11 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
     if (!body.hai_long_sau_tranh_chap || !(HAI_LONG_VALUES as readonly string[]).includes(body.hai_long_sau_tranh_chap)) {
       return c.json({ error: "MISSING_HAI_LONG" }, 400);
     }
+  }
+  // CHOT 2026-09-03: "Ly do ton tranh chap" bat buoc tru khi trang thai chon la 1 trong 4 trang thai
+  // DONG - xem giai thich o POST /:caseId/tiep-nhan.
+  if (isTrangThaiDangMo(body.trang_thai_xu_ly) && !body.ly_do_ton_tranh_chap?.trim()) {
+    return c.json({ error: "MISSING_LY_DO_TON" }, 400);
   }
 
   const tt = await c.env.DB.prepare(
@@ -1138,11 +1157,12 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
   }
 
   const logCreatedAt = nowUtcSqlite();
+  const lyDoTonTranhChap = body.ly_do_ton_tranh_chap?.trim() || null;
   await c.env.DB.batch([
     c.env.DB.prepare(
       `INSERT INTO tranh_chap_log
-         (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu, ket_qua_xu_ly, hai_long_sau_tranh_chap, dang_cho_nguoi_xu_ly, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (tien_trinh_id, nguoi_xu_ly, ngay_xu_ly, trang_thai_xu_ly, thoi_gian_du_kien_xong, ghi_chu, ket_qua_xu_ly, hai_long_sau_tranh_chap, dang_cho_nguoi_xu_ly, ly_do_ton_tranh_chap, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       id,
       user.email,
@@ -1153,6 +1173,7 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
       body.ket_qua_xu_ly?.trim() || null,
       body.hai_long_sau_tranh_chap || null,
       body.dang_cho_nguoi_xu_ly || null,
+      lyDoTonTranhChap,
       logCreatedAt,
     ),
     c.env.DB.prepare(
@@ -1169,6 +1190,8 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
       body.dang_cho_nguoi_xu_ly || null,
       id,
     ),
+    // Cache "ly do ton gan nhat" tren case_dvbh (migration 0107) - xem giai thich o POST /:caseId/tiep-nhan.
+    c.env.DB.prepare("UPDATE case_dvbh SET ly_do_ton_tranh_chap_gan_nhat = ? WHERE id = ?").bind(lyDoTonTranhChap, tt.case_id),
   ]);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
@@ -1237,20 +1260,28 @@ tranhChap.patch("/log/:id", async (c) => {
     ket_qua_xu_ly?: string;
     hai_long_sau_tranh_chap?: string;
     dang_cho_nguoi_xu_ly?: string | null;
+    ly_do_ton_tranh_chap?: string;
   }>();
 
-  const log = await c.env.DB.prepare("SELECT * FROM tranh_chap_log WHERE id = ?").bind(id).first<{
-    id: number;
-    tien_trinh_id: string;
-    nguoi_xu_ly: string;
-    created_at: string;
-    trang_thai_xu_ly: string;
-    thoi_gian_du_kien_xong: string | null;
-    ghi_chu: string | null;
-    ket_qua_xu_ly: string | null;
-    hai_long_sau_tranh_chap: string | null;
-    dang_cho_nguoi_xu_ly: string | null;
-  }>();
+  // "case_id" (qua join) can cho cap nhat cache case_dvbh.ly_do_ton_tranh_chap_gan_nhat ben duoi.
+  const log = await c.env.DB.prepare(
+    "SELECT tl.*, tt.case_id as case_id FROM tranh_chap_log tl JOIN tranh_chap_tien_trinh tt ON tt.id = tl.tien_trinh_id WHERE tl.id = ?",
+  )
+    .bind(id)
+    .first<{
+      id: number;
+      tien_trinh_id: string;
+      nguoi_xu_ly: string;
+      created_at: string;
+      trang_thai_xu_ly: string;
+      thoi_gian_du_kien_xong: string | null;
+      ghi_chu: string | null;
+      ket_qua_xu_ly: string | null;
+      hai_long_sau_tranh_chap: string | null;
+      dang_cho_nguoi_xu_ly: string | null;
+      ly_do_ton_tranh_chap: string | null;
+      case_id: string;
+    }>();
   if (!log) return c.json({ error: "NOT_FOUND" }, 404);
 
   const user = c.get("user");
@@ -1292,6 +1323,7 @@ tranhChap.patch("/log/:id", async (c) => {
     ket_qua_xu_ly: body.ket_qua_xu_ly !== undefined ? body.ket_qua_xu_ly.trim() || null : log.ket_qua_xu_ly,
     hai_long_sau_tranh_chap: body.hai_long_sau_tranh_chap !== undefined ? body.hai_long_sau_tranh_chap : log.hai_long_sau_tranh_chap,
     dang_cho_nguoi_xu_ly: body.dang_cho_nguoi_xu_ly !== undefined ? body.dang_cho_nguoi_xu_ly : log.dang_cho_nguoi_xu_ly,
+    ly_do_ton_tranh_chap: body.ly_do_ton_tranh_chap !== undefined ? body.ly_do_ton_tranh_chap.trim() || null : log.ly_do_ton_tranh_chap,
   };
   // Neu (sau khi sua) trang thai la 1 trong 2 trang thai "thanh cong" thi 2 truong ket qua BAT BUOC
   // phai co gia tri hop le - kiem tra tren gia tri SAU CUNG (co the da co san tu luc tao, hoac vua
@@ -1302,6 +1334,11 @@ tranhChap.patch("/log/:id", async (c) => {
       return c.json({ error: "MISSING_HAI_LONG" }, 400);
     }
   }
+  // CHOT 2026-09-03: "Ly do ton tranh chap" bat buoc tru khi trang thai (sau cung) la 1 trong 4 trang
+  // thai DONG - xem giai thich o POST /:caseId/tiep-nhan.
+  if (isTrangThaiDangMo(next.trang_thai_xu_ly) && !next.ly_do_ton_tranh_chap) {
+    return c.json({ error: "MISSING_LY_DO_TON" }, 400);
+  }
 
   // Log dang sua da duoc xac nhan la log MOI NHAT cua tien trinh o tren (latestRow check) - nen cap
   // nhat cache tren tranh_chap_tien_trinh song song, KHONG dong log_created_at_hien_tai/nguoi_xu_ly_hien_tai
@@ -1309,14 +1346,27 @@ tranhChap.patch("/log/:id", async (c) => {
   await c.env.DB.batch([
     c.env.DB.prepare(
       `UPDATE tranh_chap_log
-       SET trang_thai_xu_ly = ?, thoi_gian_du_kien_xong = ?, ghi_chu = ?, ket_qua_xu_ly = ?, hai_long_sau_tranh_chap = ?, dang_cho_nguoi_xu_ly = ?, updated_at = ?
+       SET trang_thai_xu_ly = ?, thoi_gian_du_kien_xong = ?, ghi_chu = ?, ket_qua_xu_ly = ?, hai_long_sau_tranh_chap = ?, dang_cho_nguoi_xu_ly = ?, ly_do_ton_tranh_chap = ?, updated_at = ?
        WHERE id = ?`,
-    ).bind(next.trang_thai_xu_ly, next.thoi_gian_du_kien_xong, next.ghi_chu, next.ket_qua_xu_ly, next.hai_long_sau_tranh_chap, next.dang_cho_nguoi_xu_ly || null, nowVN(), id),
+    ).bind(
+      next.trang_thai_xu_ly,
+      next.thoi_gian_du_kien_xong,
+      next.ghi_chu,
+      next.ket_qua_xu_ly,
+      next.hai_long_sau_tranh_chap,
+      next.dang_cho_nguoi_xu_ly || null,
+      next.ly_do_ton_tranh_chap,
+      nowVN(),
+      id,
+    ),
     c.env.DB.prepare(
       `UPDATE tranh_chap_tien_trinh
        SET dang_mo = ?, trang_thai_hien_tai = ?, thoi_gian_du_kien_xong_hien_tai = ?, dang_cho_nguoi_xu_ly_hien_tai = ?
        WHERE id = ?`,
     ).bind(isTrangThaiDangMo(next.trang_thai_xu_ly) ? 1 : 0, next.trang_thai_xu_ly, next.thoi_gian_du_kien_xong, next.dang_cho_nguoi_xu_ly || null, log.tien_trinh_id),
+    // Cache "ly do ton gan nhat" tren case_dvbh (migration 0107) - log dang sua la log MOI NHAT cua
+    // tien trinh (da xac nhan o tren), coi la ly do "gan nhat" cua case.
+    c.env.DB.prepare("UPDATE case_dvbh SET ly_do_ton_tranh_chap_gan_nhat = ? WHERE id = ?").bind(next.ly_do_ton_tranh_chap, log.case_id),
   ]);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));

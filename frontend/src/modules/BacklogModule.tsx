@@ -1642,6 +1642,7 @@ export function BacklogModule({
     textCol("hinh_thuc_bao_hanh", CASE_FIELD_LABELS.hinh_thuc_bao_hanh),
     textCol("tien_do_hoan_thanh", CASE_FIELD_LABELS.tien_do_hoan_thanh),
     textCol("noi_dung_xu_ly", CASE_FIELD_LABELS.noi_dung_xu_ly),
+    textCol("ly_do_ton_tranh_chap_gan_nhat", CASE_FIELD_LABELS.ly_do_ton_tranh_chap_gan_nhat),
     moneyCol("dt_san_pham", CASE_FIELD_LABELS.dt_san_pham),
     moneyCol("dt_linh_kien", CASE_FIELD_LABELS.dt_linh_kien),
     moneyCol("dt_dich_vu", CASE_FIELD_LABELS.dt_dich_vu),
@@ -2444,7 +2445,7 @@ export function BacklogModule({
               }}
               storageKey="backlog-list"
               optionalColumns={optionalCaseColumns}
-              defaultVisibleOptionalKeys={["sl_don_mua", "sl_don_bao_hanh"]}
+              defaultVisibleOptionalKeys={["sl_don_mua", "sl_don_bao_hanh", "ly_do_ton_tranh_chap_gan_nhat"]}
             />
           )}
         </div>

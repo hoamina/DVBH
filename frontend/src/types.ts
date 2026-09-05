@@ -47,6 +47,9 @@ export interface CaseRow {
   loi_kh_hen_lai: number;
   nghi_ngo_nap_gas: number;
   nghi_ngo_tranh_chap: number;
+  // Migration 0107 - ly do (tu danh muc settings_ly_do_ton_tranh_chap) cua LOG GAN NHAT trong module
+  // Tranh chap, KN (toan bo tien trinh cua ca) - xem backend/src/routes/tranhChap.ts.
+  ly_do_ton_tranh_chap_gan_nhat: string | null;
   last_ly_do_cham?: string | null;
   last_ngay_giai_trinh?: string | null;
   last_ngay_du_kien_hoan_thanh?: string | null;
@@ -392,6 +395,14 @@ export interface PhanLoaiTranhChapRow {
 export interface KetQuaXuLyTranhChapRow {
   id: number;
   ten_ket_qua: string;
+  bat_tat: number;
+}
+
+/** Migration 0107 - danh muc "Ly do ton tranh chap", bat buoc chon khi ghi log CHINH trong Tranh
+ * chap, KN (tru khi dong tien trinh), xem backend/src/routes/tranhChap.ts. */
+export interface LyDoTonTranhChapRow {
+  id: number;
+  ten_ly_do: string;
   bat_tat: number;
 }
 

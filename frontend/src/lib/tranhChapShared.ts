@@ -72,6 +72,9 @@ export interface TranhChapLogRow {
   ket_qua_xu_ly: string | null;
   hai_long_sau_tranh_chap: string | null;
   dang_cho_nguoi_xu_ly: string | null;
+  // Them migration 0107 - bat buoc khi trang_thai_xu_ly la trang thai DANG MO (khong bat buoc o 4
+  // trang thai dong), xem TRANG_THAI_DONG.
+  ly_do_ton_tranh_chap: string | null;
   created_at: string;
   updated_at: string;
   logCon: TranhChapLogConRow[];
@@ -120,6 +123,13 @@ export interface PhanLoaiTranhChapRow {
 export interface KetQuaXuLyTranhChapRow {
   id: number;
   ten_ket_qua: string;
+  bat_tat: number;
+}
+
+// Migration 0107 - danh muc "Ly do ton tranh chap", bat buoc chon khi ghi log CHINH (tru khi dong).
+export interface LyDoTonTranhChapRow {
+  id: number;
+  ten_ly_do: string;
   bat_tat: number;
 }
 
@@ -276,6 +286,7 @@ export function describeTranhChapError(err: unknown, fallback: string): string {
     if (err.code === "MISSING_KET_QUA_XU_LY") return "Cần chọn Kết quả xử lý khi đóng tranh chấp.";
     if (err.code === "MISSING_HAI_LONG") return "Cần chọn Hài lòng sau tranh chấp khi đóng tranh chấp.";
     if (err.code === "MISSING_DANG_CHO_NGUOI_XU_LY") return "Cần chọn Đang chờ người xử lý khi Chuyển lại giám sát xử lý.";
+    if (err.code === "MISSING_LY_DO_TON") return "Cần chọn Lý do tồn tranh chấp (bắt buộc khi tiến trình chưa đóng).";
     if (err.code === "KHONG_PHAI_CHO_XAC_NHAN") return "Ca này không còn ở trạng thái chờ xác nhận AI (có thể đã được xác nhận hoặc đã tạo tiến trình).";
     if (err.code === "KHONG_PHAI_CHO_DANH_GIA") return "Ca này không còn ở trạng thái chờ đánh giá theo dõi đổi trả (có thể đã được xác nhận/bỏ qua).";
     if (err.code === "ALREADY_CONFIRMED") return "Ca này vừa được người khác xác nhận — vui lòng tải lại danh sách.";
