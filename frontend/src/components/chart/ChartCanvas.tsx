@@ -1,9 +1,13 @@
 import { useEffect, useRef } from "react";
 import { Chart, type ChartData, type ChartOptions, type ChartType, type Plugin, registerables } from "chart.js";
 
+// So nguyen (SL/dem) dung dau "." ngan cach nghin (vd 10000 -> "10.000", khop quy uoc toLocaleString
+// "vi-VN" dung o StatCard/bang chi tiet toan he thong) - so thap phan (thuong la %) GIU NGUYEN dang
+// toFixed(1) khong doi (vd "83.1"), tranh doi dau thap phan sang "," gay khac voi cach hien % o cac
+// noi khac trong app (pct() dung "." lam dau thap phan).
 function formatLabelValue(value: number): string {
   if (!Number.isFinite(value)) return "";
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return Number.isInteger(value) ? value.toLocaleString("vi-VN") : value.toFixed(1);
 }
 
 // Ve gia tri ngay tren cot/diem/lat cua bieu do thay vi chi thay duoc qua tooltip khi hover chuot
