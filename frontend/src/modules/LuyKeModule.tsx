@@ -592,6 +592,7 @@ export function LuyKeModule() {
                           dungHan: "Đúng hạn",
                           quaHan: "Quá hạn",
                           tyLeDungHan: "% Đúng hạn",
+                          duoi24h: "SL Dưới 24h",
                           tyLe24h: "% Dưới 24h",
                         },
                       )
@@ -608,6 +609,7 @@ export function LuyKeModule() {
                       <th className="py-2 pr-3">Đúng hạn</th>
                       <th className="py-2 pr-3">Quá hạn</th>
                       <th className="py-2 pr-3">% Đúng hạn</th>
+                      <th className="py-2 pr-3">SL Dưới 24h</th>
                       <th className="py-2 pr-3">% Dưới 24h</th>
                     </tr>
                   </thead>
@@ -619,12 +621,13 @@ export function LuyKeModule() {
                         <td className="py-2 pr-3 font-mono">{r.dungHan.toLocaleString("vi-VN")}</td>
                         <td className="py-2 pr-3 font-mono">{r.quaHan.toLocaleString("vi-VN")}</td>
                         <td className="py-2 pr-3 font-mono">{pct(r.dungHan, r.tong)}</td>
+                        <td className="py-2 pr-3 font-mono">{r.duoi24h.toLocaleString("vi-VN")}</td>
                         <td className="py-2 pr-3 font-mono">{pct(r.duoi24h, r.tong)}</td>
                       </tr>
                     ))}
                     {groupRows.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                        <td colSpan={7} className="py-8 text-center text-[var(--ink-400)] text-sm">
                           Không có dữ liệu khớp bộ lọc.
                         </td>
                       </tr>
