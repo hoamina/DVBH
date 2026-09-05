@@ -10,7 +10,10 @@
  * - phan_loai: uu tien KHO ĐMX (nhom_yeu_cau = "XLSC kho ĐMX" HOAC nhom_kh chua "ĐMX") > B2B
  *   (doi_tac chua "B2B") > con lai la SỰ CỐ.
  * - toc_do/tren_96h: bucket theo so_gio_xu_ly (CHOT 2026-08-28: cot nay luu GIO thuc su du ten cu
- *   la "so_phut_xu_ly" - xem migration 0102 va YEU_CAU_API_IMPORT_TU_DONG_QUICKSIGHT.md).
+ *   la "so_phut_xu_ly" - xem migration 0102 va YEU_CAU_API_IMPORT_TU_DONG_QUICKSIGHT.md). Khi
+ *   so_gio_xu_ly NULL (CRM chua tinh kip, hay gap o thang dang chay), fallback UOC LUONG gio tu
+ *   xu_ly_24h_bucket (cot khac, tinh doc lap va thuong co san som hon - xem
+ *   estimateHoursFromBucket24h(), CHOT 2026-09-05).
  * - doi_tuong: tra ma_ktv (trich tu case_dvbh.ky_thuat_vien qua extractMaKtv - xem ktvCode.ts) qua
  *   ktv_lien_he.vai_tro_ktv - 'KTV' giu nguyen "KTV", con lai (Tram/CTV/Ve tinh/khong khop) gop
  *   chung "CTV/Trạm" (khop dung 2 gia tri doi_tuong da co san trong du lieu import thu cong that,
@@ -31,6 +34,7 @@ interface CaseRowForLuyKe {
   doi_tac: string | null;
   dung_han: string;
   so_gio_xu_ly: number | null;
+  xu_ly_24h_bucket: string | null;
   hang: string | null;
   nganh: string | null;
   ky_thuat_vien: string | null;
@@ -40,6 +44,29 @@ function classifyPhanLoai(nhomYeuCau: string | null, nhomKh: string | null, doiT
   if (nhomYeuCau === "XLSC kho ĐMX" || (nhomKh ?? "").includes("ĐMX")) return "KHO ĐMX";
   if ((doiTac ?? "").includes("B2B")) return "B2B";
   return "SỰ CỐ";
+}
+
+// so_gio_xu_ly hay bi tre so voi xu_ly_24h_bucket (cot CRM tinh rieng, DOC LAP - kiem chung that
+// 2026-09-05: thang dang chay co luc 2127/2127 dong so_gio_xu_ly NULL toan bo trong khi
+// xu_ly_24h_bucket da co du) - CHOT 2026-09-05 (nguoi dung xac nhan sau khi hoi): khi so_gio_xu_ly
+// NULL, UOC LUONG gio tu xu_ly_24h_bucket (4 muc) de dua vao CUNG 1 ham bucket 5 muc ben duoi, thay
+// vi de rot vao "1. Duoi 24h"/"1. Duoi 96h" mac dinh SAI (bug thuc te: ra 100% "Duoi 24h" trong khi
+// thuc te ~81.1%). Chi la UOC LUONG cho 3 muc chi tiet cuoi (khong the biet chinh xac 3-5/5-7/tren 7
+// ngay tu 1 flag "Tren 3 ngay" duy nhat) - "0. Duoi 24h"/"1. Tu 1-2 ngay"/"2. Tu 2-3 ngay" thi CHINH
+// XAC (nam gon trong 1 muc duy nhat cua thang 5-muc).
+function estimateHoursFromBucket24h(bucket: string | null): number | null {
+  switch (bucket) {
+    case "0. Dưới 24h":
+      return 12;
+    case "1. Từ 1-2 ngày":
+      return 36;
+    case "2. Từ 2-3 ngày":
+      return 60;
+    case "3. Trên 3 ngày":
+      return 96; // uoc luong, khong biet chinh xac 3-5/5-7/tren 7 ngay
+    default:
+      return null;
+  }
 }
 
 function classifyTocDo(gio: number | null): string {
@@ -87,13 +114,22 @@ export async function computeLuyKeMonthFromCases(db: D1Database, thang: string):
   // KRF" + 2 don vi khac da bi an khoi MOI he thong bao cao/thong ke tu truoc - luy ke chua co luc do
   // (chua ton tai) nen bi sot, them lai o day cho dung quy uoc chung (CHOT 2026-08-28, nguoi dung yeu
   // cau rieng cho luy ke).
+  // (so_gio_xu_ly IS NOT NULL OR xu_ly_24h_bucket IS NOT NULL): CHOT 2026-09-05 (phat hien qua bao
+  // cao that, nguoi dung xac nhan huong xu ly sau khi hoi) - truoc day khong loc gi ca, NULL bi
+  // classifyTocDo()/classifyTren96h() coi nhu 0 gio (gio ?? 0) nen tu dong roi vao bucket "1. Duoi
+  // 24h"/"1. Duoi 96h", lam sai lech ty le khi 1 thang co nhieu ca CHUA duoc CRM tinh xong
+  // so_gio_xu_ly (vd thang dang chay do, kiem chung that: thang 2026-09 luc test co 2127/2127 dong
+  // so_gio_xu_ly NULL toan bo -> ra dung 100% "duoi 24h" du thuc te chi ~81.1%). Chi loai truong hop
+  // CA 2 cot deu NULL (that su khong co du lieu); con lai (co so_gio_xu_ly HOAC co xu_ly_24h_bucket)
+  // van tinh duoc qua estimateHoursFromBucket24h() ben duoi.
   const exclusion = khuVucReportExclusionClause();
   const { results: cases } = await db
     .prepare(
-      `SELECT id, khu_vuc, nhom_yeu_cau, nhom_kh, doi_tac, dung_han, so_gio_xu_ly, hang, nganh, ky_thuat_vien
+      `SELECT id, khu_vuc, nhom_yeu_cau, nhom_kh, doi_tac, dung_han, so_gio_xu_ly, xu_ly_24h_bucket, hang, nganh, ky_thuat_vien
        FROM case_dvbh
        WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ? AND dung_han IN ('Đúng hạn', 'Quá hạn')
-         AND huy_bo_at IS NULL AND tinh_vao_kpi = 1${exclusion.sql}`,
+         AND huy_bo_at IS NULL AND tinh_vao_kpi = 1
+         AND (so_gio_xu_ly IS NOT NULL OR xu_ly_24h_bucket IS NOT NULL)${exclusion.sql}`,
     )
     .bind(thang, nextMonthStr(thang), ...exclusion.binds)
     .all<CaseRowForLuyKe>();
@@ -105,12 +141,14 @@ export async function computeLuyKeMonthFromCases(db: D1Database, thang: string):
   const groups = new Map<string, LuyKeRow>();
 
   for (const c of cases) {
+    const gio = c.so_gio_xu_ly ?? estimateHoursFromBucket24h(c.xu_ly_24h_bucket);
+    if (gio === null) continue; // ca biet: xu_ly_24h_bucket co gia tri la nhung khong khop 4 muc da biet
     const khu_vuc = c.khu_vuc ?? "";
     const hang = c.hang ?? "";
     const nganh = c.nganh ?? "";
     const phan_loai = classifyPhanLoai(c.nhom_yeu_cau, c.nhom_kh, c.doi_tac);
-    const toc_do = classifyTocDo(c.so_gio_xu_ly);
-    const tren_96h = classifyTren96h(c.so_gio_xu_ly);
+    const toc_do = classifyTocDo(gio);
+    const tren_96h = classifyTren96h(gio);
     const nguon_crm = classifyNguonCrm(c.id);
     const maKtv = extractMaKtv(c.ky_thuat_vien);
     const vaiTro = maKtv ? vaiTroByMaKtv.get(maKtv) : undefined;
