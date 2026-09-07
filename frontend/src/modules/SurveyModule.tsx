@@ -483,10 +483,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       ty_le_vi_pham_24h: pctLocal(vi_pham_24h, tong_tiep_nhan),
       ty_le_vi_pham_lkh: pctLocal(vi_pham_lkh, tong_tiep_nhan),
       ty_le_vi_pham_hl: pctLocal(vi_pham_hl, tong_tiep_nhan),
-      ty_le_da_goi_120p: pctLocal(da_goi_120p, tong_tiep_nhan),
-      ty_le_da_goi_24h: pctLocal(da_goi_24h, tong_tiep_nhan),
-      ty_le_da_goi_lkh: pctLocal(da_goi_lkh, tong_tiep_nhan),
-      ty_le_da_goi_hl: pctLocal(da_goi_hl, tong_tiep_nhan),
+      // CHOT 2026-09-04: mau so doi tu tong_tiep_nhan sang nghi_ngo cung nhom (khop fix backend
+      // computeSurveyKhuVucReport) - "% Da goi" = trong so ca nghi ngo, bao nhieu % da duoc goi.
+      ty_le_da_goi_120p: pctLocal(da_goi_120p, nghi_ngo_120p),
+      ty_le_da_goi_24h: pctLocal(da_goi_24h, nghi_ngo_24h),
+      ty_le_da_goi_lkh: pctLocal(da_goi_lkh, nghi_ngo_lkh),
+      ty_le_da_goi_hl: pctLocal(da_goi_hl, nghi_ngo_hl),
       ty_le_vi_pham_tren_da_goi_120p: pctLocal(vi_pham_120p, da_goi_120p),
       ty_le_vi_pham_tren_da_goi_24h: pctLocal(vi_pham_24h, da_goi_24h),
       ty_le_vi_pham_tren_da_goi_lkh: pctLocal(vi_pham_lkh, da_goi_lkh),
@@ -881,15 +883,21 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
           <Card className="p-4 mb-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <div>
+              <div className="flex items-center gap-1.5">
                 <div className="font-display font-bold text-sm">Báo cáo khảo sát theo khu vực</div>
-                {canViewDanhSach && <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào số "Nghi ngờ" để lọc thẳng xuống danh sách chi tiết.</div>}
-                <div className="text-xs text-[var(--ink-400)] mt-0.5">
-                  Lưu ý: "Cần gọi" chỉ tính ca <b>còn tồn đọng và chưa quá hạn 3 ngày</b> (chưa có kết luận vi phạm, chưa đánh dấu "không cần gọi lại") nên luôn ≤ "Tổng nghi ngờ" (đếm mọi ca từng bị gắn cờ nghi ngờ, kể cả đã xử lý xong hoặc đã quá hạn) — khác định nghĩa, không phải lỗi tính toán. Ca đã quá hạn 3 ngày <b>không</b> còn tính trong "Cần gọi" ở đây — vẫn nằm trong tab "Quá hạn khảo sát" riêng ở Danh sách chi tiết.
-                </div>
-                <div className="text-xs text-[var(--ink-400)] mt-0.5">
-                  "Cần gọi" = ca <b>chưa gọi lần nào</b> + <b>"Chờ gọi lại"</b> (cuộc gọi gần nhất bị tích "cần gọi lại" — không bắt máy/sai số) + <b>"Còn lỗi chưa gọi"</b> (đã gọi thành công cho (các) lỗi khác nhưng ca vẫn còn 1 lỗi khác chưa từng gọi — ví dụ ca có 3 lỗi, đã gọi xong 2, lỗi thứ 3 chưa đụng tới).
-                </div>
+                <span
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--surface-200)] text-[var(--ink-400)] text-[10px] font-bold cursor-help shrink-0"
+                  title={[
+                    canViewDanhSach ? 'Bấm vào số "Nghi ngờ" để lọc thẳng xuống danh sách chi tiết.' : "",
+                    'Lưu ý: "Cần gọi" chỉ tính ca còn tồn đọng và chưa quá hạn 3 ngày (chưa có kết luận vi phạm, chưa đánh dấu "không cần gọi lại") nên luôn ≤ "Tổng nghi ngờ" (đếm mọi ca từng bị gắn cờ nghi ngờ, kể cả đã xử lý xong hoặc đã quá hạn) — khác định nghĩa, không phải lỗi tính toán. Ca đã quá hạn 3 ngày không còn tính trong "Cần gọi" ở đây — vẫn nằm trong tab "Quá hạn khảo sát" riêng ở Danh sách chi tiết.',
+                    '"Cần gọi" = ca chưa gọi lần nào + "Chờ gọi lại" (cuộc gọi gần nhất bị tích "cần gọi lại" — không bắt máy/sai số) + "Còn lỗi chưa gọi" (đã gọi thành công cho (các) lỗi khác nhưng ca vẫn còn 1 lỗi khác chưa từng gọi — ví dụ ca có 3 lỗi, đã gọi xong 2, lỗi thứ 3 chưa đụng tới).',
+                    "% Nghi ngờ = nghi ngờ / tổng ca mở · % Đã gọi = đã gọi / nghi ngờ · % Vi phạm = vi phạm / đã gọi (áp dụng cho cả 4 nhóm: 120 phút / Quá 24h / Lỡ kế hoạch / Hẹn lại).",
+                  ]
+                    .filter(Boolean)
+                    .join("\n\n")}
+                >
+                  ?
+                </span>
               </div>
               <Btn
                 variant="ghost"

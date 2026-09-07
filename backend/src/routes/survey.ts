@@ -795,10 +795,12 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
     row.ty_le_vi_pham_24h = pct(row.vi_pham_24h, row.tong_tiep_nhan);
     row.ty_le_vi_pham_lkh = pct(row.vi_pham_lkh, row.tong_tiep_nhan);
     row.ty_le_vi_pham_hl = pct(row.vi_pham_hl, row.tong_tiep_nhan);
-    row.ty_le_da_goi_120p = pct(row.da_goi_120p, row.tong_tiep_nhan);
-    row.ty_le_da_goi_24h = pct(row.da_goi_24h, row.tong_tiep_nhan);
-    row.ty_le_da_goi_lkh = pct(row.da_goi_lkh, row.tong_tiep_nhan);
-    row.ty_le_da_goi_hl = pct(row.da_goi_hl, row.tong_tiep_nhan);
+    // CHOT 2026-09-04: mau so doi tu tong_tiep_nhan sang nghi_ngo cung nhom - "% Da goi" phai tra
+    // loi "trong so ca nghi ngo, bao nhieu % da duoc goi", khong phai "tren tong ca mo".
+    row.ty_le_da_goi_120p = pct(row.da_goi_120p, row.nghi_ngo_120p);
+    row.ty_le_da_goi_24h = pct(row.da_goi_24h, row.nghi_ngo_24h);
+    row.ty_le_da_goi_lkh = pct(row.da_goi_lkh, row.nghi_ngo_lkh);
+    row.ty_le_da_goi_hl = pct(row.da_goi_hl, row.nghi_ngo_hl);
     row.ty_le_vi_pham_tren_da_goi_120p = pct(row.vi_pham_120p, row.da_goi_120p);
     row.ty_le_vi_pham_tren_da_goi_24h = pct(row.vi_pham_24h, row.da_goi_24h);
     row.ty_le_vi_pham_tren_da_goi_lkh = pct(row.vi_pham_lkh, row.da_goi_lkh);
