@@ -298,16 +298,29 @@ partnerApi.get("/case-lookup", async (c) => {
   }
 
   const id = c.req.query("id")?.trim();
-  if (!id) return c.json({ found: false, preview: null });
+  if (!id) return c.json({ found: false, preview: null, giaiTrinh: [] });
 
   const caseRow = await c.env.DB.prepare(
     `SELECT ${CASE_LOOKUP_COLUMNS.join(", ")} FROM case_dvbh WHERE id = ?`,
   )
     .bind(id)
     .first<CaseLookupRow>();
-  if (!caseRow) return c.json({ found: false, preview: null });
+  if (!caseRow) return c.json({ found: false, preview: null, giaiTrinh: [] });
 
-  return c.json({ found: true, preview: caseRow });
+  // Lich su giai_trinh cua case nay - them 2026-09-07 cho doi tac "App Khieu Nai" (can du lieu
+  // nay de dien cot "Thong tin giai trinh DVBH"). Chi query khi da biet case ton tai (query truoc
+  // o tren) - tranh ton D1 read cho cac luot go nham ID (xem CLAUDE.md muc "D1 read-budget
+  // discipline"). Dung lai GiaiTrinhHistoryRow/cung tap cot voi endpoint export hang loat /cases o
+  // tren de khong nhan doi type. idx_giai_trinh_case_ngay (migration 0106) phuc vu truc tiep query
+  // nay, khong can them index moi.
+  const { results: giaiTrinh } = await c.env.DB.prepare(
+    `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh FROM giai_trinh
+     WHERE case_id = ? ORDER BY ngay_giai_trinh DESC`,
+  )
+    .bind(id)
+    .all<GiaiTrinhHistoryRow>();
+
+  return c.json({ found: true, preview: caseRow, giaiTrinh });
 });
 
 // Dung chung cho ca 2 route sync ben duoi - gioi han so dong 1 lan goi (khop dung

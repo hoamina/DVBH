@@ -57,7 +57,7 @@ trường hợp không tìm thấy).
 ### 3.1. Không tìm thấy case
 
 ```json
-{ "found": false, "preview": null }
+{ "found": false, "preview": null, "giaiTrinh": [] }
 ```
 
 Xảy ra khi: `id` rỗng/thiếu, hoặc không có case nào khớp `id` trong hệ thống. Hai trường hợp này
@@ -69,6 +69,10 @@ không nên cố phân biệt 2 case này.
 ```json
 {
   "found": true,
+  "giaiTrinh": [
+    { "case_id": "1324863", "ly_do_cham": "Thieu linh kien", "noi_dung": "Cho hang ve",
+      "ngay_giai_trinh": "2026-08-21 09:00:00" }
+  ],
   "preview": {
     "ky_thuat_vien": "Nguyen Van A",
     "khach_hang": "Tran Thi B",
@@ -104,7 +108,20 @@ không nên cố phân biệt 2 case này.
 }
 ```
 
-### 3.3. Danh sách field trong `preview`
+### 3.3. Trường `giaiTrinh` (thêm 2026-09-07)
+
+Mảng lịch sử giải trình chậm trễ của case (bảng `giai_trinh` nội bộ), sắp xếp mới nhất trước
+(`ngay_giai_trinh DESC`). Mảng rỗng `[]` nếu case chưa từng có giải trình nào — khác `preview`
+(luôn `null` khi không tìm thấy case), field này luôn là mảng kể cả khi không tìm thấy case (`[]`).
+
+| Field | Kiểu | Ý nghĩa |
+|---|---|---|
+| `case_id` | string | ID case (trùng `id` truy vấn) |
+| `ly_do_cham` | string | Lý do chậm trễ đã chọn |
+| `noi_dung` | string, có thể null | Nội dung giải trình chi tiết |
+| `ngay_giai_trinh` | string | Thời điểm giải trình, giờ VN dạng `YYYY-MM-DD HH:MM:SS` (cùng quy ước với các field thời gian khác — xem lưu ý cuối mục 3.3.1) |
+
+### 3.3.1. Danh sách field trong `preview`
 
 | Field | Kiểu | Có thể null? | Ý nghĩa |
 |---|---|---|---|
