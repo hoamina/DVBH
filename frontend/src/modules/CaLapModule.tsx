@@ -344,6 +344,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     gap_days: "Khoảng cách (ngày)",
     prior_id: "Ca trước",
     prior_ht: "Hoàn thành ca trước",
+    chot_danh_gia_lap: "Giám sát đánh giá lặp",
     chot_hinh_thuc_xu_ly: "Chốt hình thức xử lý",
     dien_giai_lap: "Diễn giải lặp",
     nguoi_giai_trinh: "Người giải trình",
