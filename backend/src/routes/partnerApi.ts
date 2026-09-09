@@ -314,7 +314,7 @@ partnerApi.get("/case-lookup", async (c) => {
   // tren de khong nhan doi type. idx_giai_trinh_case_ngay (migration 0106) phuc vu truc tiep query
   // nay, khong can them index moi.
   const { results: giaiTrinh } = await c.env.DB.prepare(
-    `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh FROM giai_trinh
+    `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh, nguoi_giai_trinh FROM giai_trinh
      WHERE case_id = ? ORDER BY ngay_giai_trinh DESC`,
   )
     .bind(id)

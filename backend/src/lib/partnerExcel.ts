@@ -27,6 +27,9 @@ export interface GiaiTrinhHistoryRow {
   ly_do_cham: string;
   noi_dung: string | null;
   ngay_giai_trinh: string;
+  // Optional: chỉ /case-lookup (partnerApi.ts) select thêm field này để đối tác hiển thị "người
+  // giải trình" trên timeline riêng của họ - export hàng loạt /cases không cần nên để optional.
+  nguoi_giai_trinh?: string;
 }
 
 const HEADERS = [
