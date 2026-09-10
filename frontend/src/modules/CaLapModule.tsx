@@ -341,6 +341,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   // Khop dung cot hien tren PaginatedTable "Danh sach ca lap" ben duoi (mang "columns").
   const CA_LAP_EXPORT_LABELS: Record<string, string> = {
     ...CASE_FIELD_LABELS,
+    loai_dong: "Loại dòng",
     gap_days: "Khoảng cách (ngày)",
     prior_id: "Ca trước",
     prior_ht: "Hoàn thành ca trước",

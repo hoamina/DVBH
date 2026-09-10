@@ -126,7 +126,37 @@ caLap.get("/danh-sach", async (c) => {
 
   if (isExport) {
     const { results } = await c.env.DB.prepare(`${rowsQueryBase} LIMIT 5000`).bind(...binds).all();
-    return c.json({ rows: results, thang });
+    const lapRows = (results as Record<string, unknown>[]).map((r) => ({ ...r, loai_dong: "Ca lặp" }) as Record<string, unknown>);
+
+    // Kem theo "ca goc" (case bi lap lai, tham chieu qua prior_id) thanh DONG RIENG trong file xuat -
+    // CHOT 2026-09-10 theo yeu cau nguoi dung: chi bo sung ca goc khi ca goc CUNG HOAN THANH TRONG
+    // THANG dang xem (start/end da tinh o tren) - neu ca goc hoan thanh o thang khac thi KHONG tai
+    // kem (nguoi dung se thay no khi tai file cua dung thang do). WHERE id IN (...) tra thang qua
+    // PRIMARY KEY (case_dvbh.id) - index seek, KHONG quet bang, chi phi ti le voi so cap dang co
+    // trong trang xuat (xem CLAUDE.md "D1 read-budget discipline").
+    const priorIds = [...new Set(lapRows.filter((r) => r.prior_id).map((r) => String(r.prior_id)))];
+
+    let originRows: Record<string, unknown>[] = [];
+    if (priorIds.length > 0) {
+      const scopeClauseOrigin = khuVucWhereClause(scope, "khu_vuc");
+      const exclusionOrigin = khuVucReportExclusionClause("khu_vuc");
+      const placeholders = priorIds.map(() => "?").join(", ");
+      const { results: originResults } = await c.env.DB.prepare(
+        `SELECT * FROM case_dvbh WHERE id IN (${placeholders}) AND thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${scopeClauseOrigin.sql}${exclusionOrigin.sql}`,
+      )
+        .bind(...priorIds, start, end, ...scopeClauseOrigin.binds, ...exclusionOrigin.binds)
+        .all();
+      originRows = (originResults as Record<string, unknown>[]).map((r) => ({ ...r, loai_dong: "Ca gốc" }) as Record<string, unknown>);
+    }
+
+    const combined = [...lapRows, ...originRows].sort((a, b) => {
+      const aVip = String(a.nhom_kh ?? "").includes("VIP") ? 0 : 1;
+      const bVip = String(b.nhom_kh ?? "").includes("VIP") ? 0 : 1;
+      if (aVip !== bVip) return aVip - bVip;
+      return String(b.thoi_gian_hoan_thanh ?? "").localeCompare(String(a.thoi_gian_hoan_thanh ?? ""));
+    });
+
+    return c.json({ rows: combined, thang });
   }
 
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
