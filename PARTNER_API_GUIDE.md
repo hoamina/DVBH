@@ -109,7 +109,13 @@ không nên cố phân biệt 2 case này.
     "dt_san_pham": 12500000,
     "dt_linh_kien": 350000,
     "dt_dich_vu": 200000,
-    "ly_do_qua_han": null
+    "ly_do_qua_han": null,
+    "ngay_import": "2026-08-19 08:02:11",
+    "ngay_cap_nhat_gan_nhat": "2026-08-21 07:06:00",
+    "dung_han": "Dung han",
+    "xu_ly_24h_bucket": "Duoi 24h",
+    "ly_do_huy": null,
+    "link_hinh_anh": ["https://s3.example.com/anh1.jpg", "https://s3.example.com/anh2.jpg"]
   }
 }
 ```
@@ -161,9 +167,16 @@ Mảng lịch sử giải trình chậm trễ của case (bảng `giai_trinh` n�
 | `dt_linh_kien` | number | Có | Định giá/giá trị linh kiện (đơn vị VND) |
 | `dt_dich_vu` | number | Có | Định giá/giá trị dịch vụ (đơn vị VND) |
 | `ly_do_qua_han` | string | Có | Lý do case quá hạn (nếu có) |
+| `ngay_import` | string | Có | Thời điểm case này được import vào hệ DVBH (thêm 2026-09-11) |
+| `ngay_cap_nhat_gan_nhat` | string | Có | Thời điểm case được cập nhật gần nhất (thêm 2026-09-11) |
+| `dung_han` | string | Có | Trạng thái đúng/trễ hạn xử lý (chuỗi mô tả, không phải enum cố định — thêm 2026-09-11) |
+| `xu_ly_24h_bucket` | string | Có | Nhóm thời gian xử lý theo mốc 24h (chuỗi mô tả — thêm 2026-09-11) |
+| `ly_do_huy` | string | Có | Lý do hủy case (chỉ có giá trị nếu case đã bị hủy — thêm 2026-09-11) |
+| `link_hinh_anh` | array of string | Không (luôn là mảng, có thể rỗng `[]`) | Danh sách URL ảnh báo cáo công việc do KTV upload, đã lọc trùng và chuẩn hóa (thêm 2026-09-11) |
 
 **Lưu ý về các field thời gian** (`ngay_mua`, `thoi_gian_cskh_tiep_nhan`, `thoi_gian_hen_xu_ly`,
-`thoi_gian_hoan_thanh`): đây là chuỗi giờ **địa phương Việt Nam (UTC+7)** dạng text
+`thoi_gian_hoan_thanh`, `ngay_import`, `ngay_cap_nhat_gan_nhat`): đây là chuỗi giờ **địa phương Việt
+Nam (UTC+7)** dạng text
 (`YYYY-MM-DD` hoặc `YYYY-MM-DD HH:MM:SS`), **không phải** UTC/ISO-8601 có hậu tố `Z`. Không được tự
 ý cộng/trừ offset timezone khi parse — parse trực tiếp như giờ VN.
 
@@ -319,6 +332,14 @@ Content-Type: application/json
 | `seri_san_pham` | string, có thể null | Số seri sản phẩm |
 | `ngay_ghi_nhan` | string | Giờ VN địa phương (UTC+7) dạng `YYYY-MM-DD HH:MM:SS`, **không phải** UTC/ISO-8601 — cùng quy ước với mục 3.3.1 |
 | `nguoi_ghi_nhan` | string | Email CSKH đã ghi nhận |
+
+**Cần thêm thông tin case đầy đủ (khách hàng/sản phẩm/lịch sử xử lý/ảnh báo cáo/...) để hiển thị màn
+hình giải trình cho KTV?** Payload trên chỉ có 9 field tối thiểu. Đội vipham nên tự gọi
+`GET /api/partner/case-lookup?id=<case_id>` (dùng đúng `case_id` nhận được ở trên, xem mục 1–3 phía
+trên tài liệu này — cần 1 API key `case-lookup` riêng, xin cấp cùng lúc với key mục 9.3) ngay khi
+KTV mở màn hình giải trình, thay vì DVBH nhồi thêm field vào payload thông báo 1 chiều này — endpoint
+`case-lookup` vốn đã dùng chung cho nhiều hệ độc lập (`Đặt mua linh kiện` và giờ cả `vipham`) nên
+không cần tạo thêm 1 hợp đồng riêng.
 
 **Lưu ý quan trọng — đây là thông báo một chiều, không có cơ chế đảm bảo/thử lại:**
 - DVBH gọi bất đồng bộ (`waitUntil`, không chặn response chính của CSKH), **không đọc/kiểm tra

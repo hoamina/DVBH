@@ -1,5 +1,13 @@
 # Danh sách field ứng viên cho API tra cứu case (hệ "Đặt mua linh kiện" tách riêng gọi vào)
 
+> **Cập nhật 2026-09-11**: `case-lookup` giờ dùng chung cho nhiều hệ độc lập, không chỉ riêng "Đặt
+> mua linh kiện" (hệ "vipham" cũng gọi endpoint này để lấy thông tin case sau khi nhận thông báo nghi
+> ngờ vi phạm — xem `PARTNER_API_GUIDE.md` mục 9.1). Đã thêm 6 field lấy trực tiếp từ `case_dvbh`
+> (không cần query bảng phụ): `ngay_import`, `ngay_cap_nhat_gan_nhat`, `dung_han`,
+> `xu_ly_24h_bucket`, `ly_do_huy`, `link_hinh_anh`. Danh sách dưới đây là bản gốc lúc chốt lần đầu
+> 2026-08-26, không cập nhật lại — xem `PARTNER_API_GUIDE.md` mục 3.3.1 để có danh sách field hiện
+> hành đầy đủ và chính xác.
+
 Bối cảnh: hệ "Đặt mua linh kiện" (đã tách thành Cloudflare Worker riêng, 2026-08-19) gọi
 `GET /api/partner/case-lookup?id=...` (xem [partnerApi.ts:225](backend/src/routes/partnerApi.ts:225))
 để KTV nhập mã ID case bảo hành và xác nhận thông tin trước khi tạo đề xuất mua linh kiện.

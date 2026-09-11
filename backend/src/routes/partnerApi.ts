@@ -226,6 +226,13 @@ partnerApi.get("/cases", async (c) => {
 // DANH_SACH_FIELD_UNG_VIEN_API_DOI_TAC.md (doi tac da tu chon giu ca dt_san_pham/dt_linh_kien/
 // dt_dich_vu va ly_do_qua_han sau khi duoc canh bao day la du lieu tai chinh/noi bo - quyet dinh
 // nghiep vu, khong phai bo sot).
+// MO RONG 2026-09-11: endpoint nay gio dung CHUNG cho nhieu he doc lap (khong chi "Dat mua linh
+// kien" nua) - vd he "vipham" se goi case-lookup de lay đủ thong tin case sau khi nhan ban tin
+// "nghi ngo vi pham" 9-field don gian tu pushViPhamToVipham() (xem lib/viPhamBenNgoai.ts). Them 6
+// field CHI lay TRUC TIEP tren case_dvbh (khong query bang phu nhu giai_trinh/ca_lap_blacklist -
+// gioi han co y, xem thao luan field "last_ngay_du_kien_hoan_thanh" va "blacklist" bi loai vi can
+// query them bang khac): ngay_import, ngay_cap_nhat_gan_nhat, dung_han, xu_ly_24h_bucket,
+// ly_do_huy, link_hinh_anh (parse thanh mang URL truoc khi tra ve, xem parseHinhAnhUrls()).
 const CASE_LOOKUP_COLUMNS = [
   "ky_thuat_vien", "khach_hang", "seri_san_pham", "khu_vuc", "tinh", "quan_huyen", "hang",
   "san_pham_bao_hanh", "tien_do_hoan_thanh", "mo_ta_loi", "nhom_san_pham", "nhom_yeu_cau",
@@ -233,8 +240,35 @@ const CASE_LOOKUP_COLUMNS = [
   "thoi_gian_hen_xu_ly", "thoi_gian_hoan_thanh", "doi_tac", "link_crm", "noi_dung_xu_ly",
   "luu_y_loi_linh_kien", "cach_thuc_xu_ly", "nganh", "loai_nganh", "nhom_kh",
   "dt_san_pham", "dt_linh_kien", "dt_dich_vu", "ly_do_qua_han",
+  "ngay_import", "ngay_cap_nhat_gan_nhat", "dung_han", "xu_ly_24h_bucket", "ly_do_huy",
+  "link_hinh_anh",
 ] as const;
 type CaseLookupRow = Record<(typeof CASE_LOOKUP_COLUMNS)[number], string | number | null>;
+
+// Chuoi link_hinh_anh luu trong DB la 1 JSON array cac URL DA duoc chuan hoa domain luc import (xem
+// parseLinkHinhAnh() trong lib/ratchet.ts) - o day chi can JSON.parse + loc trung + giai ma "%2F" (vai
+// URL cu bi encode path khi luu), dung LAI dung logic parse cua frontend/src/components/
+// CaseImageGallery.tsx (khong import duoc qua workspace khac nen chep lai, giu 2 ben dong bo neu sua).
+function parseHinhAnhUrls(raw: string | number | null): string[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    const urls: string[] = [];
+    for (const v of parsed) {
+      if (typeof v !== "string" || !v) continue;
+      const normalized = v.replaceAll("%2F", "/");
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        urls.push(normalized);
+      }
+    }
+    return urls;
+  } catch {
+    return [];
+  }
+}
 
 // GET /api/partner/case-lookup?id=... - tra cuu 1 case theo ID, CHI phuc vu he thong doc lap moi
 // "Dat mua linh kien" (tach ra thanh 1 he Cloudflare rieng 2026-08-19 - xem
@@ -320,7 +354,8 @@ partnerApi.get("/case-lookup", async (c) => {
     .bind(id)
     .all<GiaiTrinhHistoryRow>();
 
-  return c.json({ found: true, preview: caseRow, giaiTrinh });
+  const preview = { ...caseRow, link_hinh_anh: parseHinhAnhUrls(caseRow.link_hinh_anh) };
+  return c.json({ found: true, preview, giaiTrinh });
 });
 
 // Dung chung cho ca 2 route sync ben duoi - gioi han so dong 1 lan goi (khop dung
