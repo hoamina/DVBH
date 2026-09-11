@@ -1985,7 +1985,7 @@ export function CaseDetail({
       <div
         className={
           viewMode === "expanded"
-            ? "bg-[var(--surface)] rounded-2xl shadow-2xl w-full max-w-[1500px] h-[92vh] flex flex-col overflow-hidden anim-in"
+            ? "bg-[var(--surface)] rounded-2xl shadow-2xl w-[95vw] max-w-[2400px] h-[92vh] flex flex-col overflow-hidden anim-in"
             : "absolute right-0 top-0 h-full w-full max-w-2xl bg-[var(--surface)] shadow-2xl flex flex-col anim-in"
         }
       >
