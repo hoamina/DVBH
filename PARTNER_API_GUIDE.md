@@ -10,6 +10,12 @@ Mục đích của `case-lookup`: KTV bên đối tác nhập mã ID case bảo 
 thông tin gốc của case đó, rồi tự đối chiếu/phân quyền (ví dụ: kiểm tra case đó có đúng do KTV này
 phụ trách hay không) trước khi hiển thị cho người dùng cuối.
 
+Mục 9 mô tả tích hợp **2 chiều** mới (thêm 2026-09-11) với hệ độc lập "Giải trình vi phạm"
+(`vipham.dichvu3t.workers.dev` — **chưa xây dựng tại thời điểm viết tài liệu này**, mục 9 là hợp
+đồng API để đội xây hệ đó triển khai đúng): DVBH chủ động báo sang khi có ca nghi ngờ vi phạm mới
+(chiều 1), và hệ đó gọi ngược `POST /sync/giai-trinh-vi-pham` để trả kết quả giải trình về (chiều 2,
+cùng dạng "ghi" như mục 8).
+
 **Quan trọng — mô hình phân quyền**: endpoint này KHÔNG lọc dữ liệu theo đối tác hay theo KTV. Bất
 kỳ request nào có API key hợp lệ đều có thể tra cứu **bất kỳ ID case nào** trong hệ thống. Toàn bộ
 việc kiểm tra "người gọi có được phép xem case này không" là trách nhiệm của **hệ thống đối tác**,
@@ -257,3 +263,148 @@ Tối đa **200 dòng/lần gọi**. `ma_linh_kien`/`ten_linh_kien` bắt buộc
 bỏ qua, ghi vào `errors`, không chặn các dòng còn lại). Upsert theo `ma_linh_kien`, **ghi đè toàn bộ
 field được gửi** (khác `/sync/ktv` — không giữ giá trị cũ cho field nào). Response:
 `{ "upserted": <so dong ghi thanh cong>, "errors": [...] }`.
+
+## 9. Giải trình vi phạm — 2 chiều (dành riêng cho `vipham.dichvu3t.workers.dev`)
+
+Bối cảnh: mỗi khi CSKH khảo sát điện thoại và ghi nhận **nghi ngờ vi phạm** cho 1 case (KTV làm sai
+SLA — trễ 120 phút / quá 24h / lỡ kế hoạch / khách hẹn lại), DVBH cần cho KTV cơ hội tự giải trình
+**trước khi** QC ra quyết định cuối (chốt/bỏ vi phạm cấp 2). Việc giải trình này diễn ra ở 1 hệ độc
+lập (`vipham.dichvu3t.workers.dev`, do đội khác xây dựng, tương tự mô hình tách hệ "Đặt mua linh
+kiện" đã làm trước đây). Có 2 chiều gọi API **độc lập nhau**, không phải request/response của cùng
+1 lần gọi:
+
+- **Chiều 1 (mục 9.1)**: DVBH chủ động gọi SANG hệ vipham, thông báo "có ca X vừa bị nghi ngờ vi
+  phạm Y, cần KTV giải trình". DVBH là bên gọi (client), hệ vipham là bên nhận (server) — **đội xây
+  hệ vipham cần tự implement endpoint nhận này**.
+- **Chiều 2 (mục 9.2)**: sau khi KTV giải trình xong bên hệ vipham, hệ đó gọi VÀO DVBH để lưu kết
+  quả — giống hệt mô hình `/sync/ktv`/`/sync/linh-kien` ở mục 8 (DVBH là server, hệ vipham là
+  client, xác thực bằng `X-API-Key` riêng).
+
+Cả 2 endpoint (nhận ở mục 9.1, gửi ở mục 9.2) hiện đều xử lý theo đơn vị **1 lỗi cụ thể của 1 case**
+(`vi_pham_id`), không phải theo case — nếu 1 case bị nghi ngờ cùng lúc nhiều loại lỗi (ví dụ vừa trễ
+120 phút vừa lỡ kế hoạch), mỗi lỗi sẽ có 1 lượt thông báo/giải trình riêng, `vi_pham_id` khác nhau.
+
+### 9.1. DVBH gọi SANG hệ vipham (thông báo có ca cần giải trình)
+
+**Đội xây hệ vipham cần tự dựng 1 endpoint nhận đúng hợp đồng dưới đây** — DVBH sẽ gọi tới:
+
+```
+POST <VIPHAM_APP_URL>/api/nhan-vi-pham
+X-API-Key: <VIPHAM_APP_API_KEY — do team vipham cấp cho DVBH, DVBH cấu hình làm secret>
+Content-Type: application/json
+
+{
+  "vi_pham_id": "L-000123",
+  "case_id": "1324863",
+  "loai_loi": "Loi 120 phut",
+  "ket_qua_cap_1": "Loi khong lien he",
+  "khach_hang": "Tran Thi B",
+  "khu_vuc": "Mien Bac",
+  "ky_thuat_vien": "Nguyen Van A",
+  "seri_san_pham": "SN123456789",
+  "ngay_ghi_nhan": "2026-09-11 09:15:23",
+  "nguoi_ghi_nhan": "cskh@dichvu3t.vn"
+}
+```
+
+| Field | Kiểu | Ý nghĩa |
+|---|---|---|
+| `vi_pham_id` | string | ID duy nhất của lỗi này (dùng để gửi giải trình về ở mục 9.2 — **bắt buộc lưu lại**, đây là khoá nối 2 chiều) |
+| `case_id` | string | ID case bảo hành |
+| `loai_loi` | string | 1 trong: `Loi 120 phut`, `Hen qua 24h`, `Loi lo ke hoach`, `KH hen lai` |
+| `ket_qua_cap_1` | string, có thể null | Kết luận cấp 1 của CSKH — 1 trong `Loi khong lien he`, `Loi sai bao cao`, `Loi khac` (không bao giờ là `Khong loi`/null trong lời gọi này — DVBH chỉ báo sang khi CSKH đã kết luận CÓ nghi ngờ) |
+| `khach_hang` | string, có thể null | Tên khách hàng |
+| `khu_vuc` | string, có thể null | Khu vực |
+| `ky_thuat_vien` | string, có thể null | Tên KTV phụ trách case (đối tượng cần giải trình) |
+| `seri_san_pham` | string, có thể null | Số seri sản phẩm |
+| `ngay_ghi_nhan` | string | Giờ VN địa phương (UTC+7) dạng `YYYY-MM-DD HH:MM:SS`, **không phải** UTC/ISO-8601 — cùng quy ước với mục 3.3.1 |
+| `nguoi_ghi_nhan` | string | Email CSKH đã ghi nhận |
+
+**Lưu ý quan trọng — đây là thông báo một chiều, không có cơ chế đảm bảo/thử lại:**
+- DVBH gọi bất đồng bộ (`waitUntil`, không chặn response chính của CSKH), **không đọc/kiểm tra
+  response trả về**, và **không retry** nếu request lỗi/timeout/hệ vipham đang down.
+- Nếu hệ vipham bỏ lỡ 1 lượt gọi (downtime, lỗi mạng...), DVBH **sẽ không gọi lại** — không có hàng
+  đợi, không có cơ chế "gửi lại các thông báo đã lỡ". Nếu cần đảm bảo không bỏ sót, đội vipham nên tự
+  chủ động đối soát định kỳ (ví dụ tự hỏi lại DVBH qua endpoint tra cứu case nếu cần, hoặc yêu cầu bổ
+  sung 1 API tra cứu riêng — trao đổi thêm với bên vận hành DVBH nếu cần).
+- Vì vậy `<VIPHAM_APP_URL>/api/nhan-vi-pham` nên trả về nhanh (không cần xử lý nặng ngay lúc nhận,
+  có thể nhận rồi xử lý nền phía vipham) — nhưng dù trả lỗi hay timeout, DVBH cũng không biết và
+  không xử lý gì thêm.
+- Trước khi `VIPHAM_APP_URL`/`VIPHAM_APP_API_KEY` được cấu hình phía DVBH (secret, xem mục 9.3),
+  DVBH **không gọi gì cả** (tự động bỏ qua, không lỗi) — tức là chiều 1 hiện tại đang **tắt** cho
+  tới khi đội vipham sẵn sàng nhận và báo lại thông tin URL/key.
+
+### 9.2. Hệ vipham gọi VÀO DVBH (trả kết quả giải trình)
+
+```
+POST https://dvbh.dichvu3t.workers.dev/api/partner/sync/giai-trinh-vi-pham
+X-API-Key: <api_key_rieng_cap_cho_vipham>
+Content-Type: application/json
+
+{ "rows": [
+  { "vi_pham_id": "L-000123", "nguoi_giai_trinh": "Nguyen Van A",
+    "ngay_giai_trinh": "2026-09-11", "noi_dung_giai_trinh": "Do khach yeu cau doi lich, da bao CSKH truoc",
+    "ghi_chu": null,
+    "anh_urls": ["https://vipham.dichvu3t.workers.dev/anh/abc.jpg", "https://vipham.dichvu3t.workers.dev/anh/def.jpg"] }
+] }
+```
+
+| Field | Bắt buộc | Kiểu | Ý nghĩa |
+|---|---|---|---|
+| `vi_pham_id` | Có | string | ID lỗi đang giải trình — **phải trùng đúng** giá trị đã nhận ở mục 9.1 (khoá nối 2 chiều). Nếu ID không tồn tại trong DVBH, dòng đó bị từ chối riêng (`VI_PHAM_NOT_FOUND`, xem bảng response), không chặn các dòng khác |
+| `nguoi_giai_trinh` | Không | string, có thể null | Tên/định danh KTV đã giải trình — DVBH lưu dạng chữ tự do, không đối chiếu với danh bạ KTV nội bộ |
+| `ngay_giai_trinh` | Có | string | Ngày giải trình, khuyến nghị dạng `YYYY-MM-DD` (chỉ ngày, không cần giờ) |
+| `noi_dung_giai_trinh` | Không | string, có thể null | Nội dung giải trình |
+| `ghi_chu` | Không | string, có thể null | Ghi chú thêm |
+| `anh_urls` | Không | mảng string | URL ảnh bằng chứng, **tối đa 5 phần tử** (thừa sẽ bị cắt bớt, không báo lỗi) |
+
+**Quan trọng — ảnh bằng chứng**: DVBH **chỉ lưu chuỗi URL** nhận được, **không tải/lưu trữ ảnh**.
+Hệ vipham phải tự lưu trữ ảnh ở nơi truy cập được **công khai và lâu dài** (URL này sẽ được hiển thị
+trực tiếp dưới dạng link trong màn hình chi tiết case của DVBH — nếu URL hết hạn/bị xoá phía
+vipham, DVBH sẽ chỉ hiển thị link chết, không có bản sao dự phòng nào).
+
+Tối đa **200 dòng/lần gọi** (vượt quá → `400 { "error": "TOO_MANY_ROWS" }`).
+
+**Response** (HTTP 200 nếu xác thực hợp lệ — lỗi được báo theo TỪNG dòng, không chặn cả batch):
+```json
+{ "results": [
+  { "vi_pham_id": "L-000123", "ok": true },
+  { "vi_pham_id": "L-999999", "ok": false, "error": "VI_PHAM_NOT_FOUND" }
+] }
+```
+
+| `error` (trong `results[]`) | Ý nghĩa |
+|---|---|
+| `VI_PHAM_NOT_FOUND` | `vi_pham_id` không tồn tại trong DVBH — kiểm tra lại đã dùng đúng ID nhận được ở mục 9.1 chưa |
+| `INVALID_ROW` | Thiếu `vi_pham_id` hoặc `ngay_giai_trinh` |
+
+Mã lỗi ở mức toàn request (không phải từng dòng), giống mục 4:
+
+| HTTP status | `error` | Ý nghĩa |
+|---|---|---|
+| 401 | `MISSING_API_KEY` | Thiếu header `X-API-Key` |
+| 401 | `INVALID_API_KEY` | Key sai hoặc đã bị thu hồi |
+| 400 | `INVALID_BODY` | `rows` không phải mảng |
+| 400 | `TOO_MANY_ROWS` | Gửi quá 200 dòng/lần |
+| 429 | `TOO_MANY_REQUESTS_IP` | Vượt 60 request/phút theo IP — xem mục 5 |
+
+Ví dụ gọi:
+```bash
+curl -s -X POST "https://dvbh.dichvu3t.workers.dev/api/partner/sync/giai-trinh-vi-pham" \
+  -H "X-API-Key: <api_key_rieng_cap_cho_vipham>" \
+  -H "Content-Type: application/json" \
+  -d '{"rows":[{"vi_pham_id":"L-000123","ngay_giai_trinh":"2026-09-11","noi_dung_giai_trinh":"Test"}]}'
+```
+
+### 9.3. Cấp API key — cần 2 key riêng biệt, 2 chiều khác nhau
+
+Đây là điểm dễ nhầm lẫn nhất khi tích hợp — có **2 key khác nhau, do 2 bên cấp cho nhau**, không
+dùng chung, không dùng lại key của mục 8 (`/sync/ktv`/`/sync/linh-kien`):
+
+1. **Key DVBH dùng khi gọi SANG hệ vipham** (mục 9.1): do **đội vipham tạo và cấp cho DVBH**. Bên
+   vận hành DVBH sẽ cấu hình giá trị này (cùng `VIPHAM_APP_URL`) làm secret nội bộ
+   (`VIPHAM_APP_API_KEY`/`VIPHAM_APP_URL`) — đội vipham chỉ cần gửi 2 giá trị này qua kênh liên lạc
+   an toàn (không qua chat/email thường), không cần thao tác gì trên DVBH.
+2. **Key DVBH cấp CHO hệ vipham để gọi vào `/sync/giai-trinh-vi-pham`** (mục 9.2): liên hệ bên vận
+   hành DVBH để được cấp (giống cách cấp key `case-lookup` ở mục 1) — đội vipham lưu bí mật phía
+   server của mình, không nhúng vào client/app di động.
