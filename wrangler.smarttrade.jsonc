@@ -34,12 +34,20 @@
     "crons": ["0 20 1 * *", "0 2,6,9 * * *", "0 1 * * *", "30 10 * * *"]
   },
 
+  // Them 2026-09-11: "VIPHAM_APP" - Service Binding toi Worker "vipham" (Giai trinh vi pham). Bat
+  // buoc dung binding (KHONG fetch() thang URL) - "dvbh" va "vipham" cung 1 tai khoan Cloudflare,
+  // fetch() thang bi chan loi 1042 (chong SSRF Worker-to-Worker), giong linh-kien-app da gap voi
+  // CASE_LOOKUP_SERVICE. "service" la ten SCRIPT that ("vipham" trong wrangler.jsonc cua repo do), suy
+  // tu domain "vipham.dichvu3t.workers.dev".
+  "services": [{ "binding": "VIPHAM_APP", "service": "vipham" }],
+
   "vars": {
     "BOOTSTRAP_ADMIN_EMAIL": "smarttrade.vp@gmail.com",
     "GOOGLE_REDIRECT_URI": "https://dvbh.dichvu3t.workers.dev/api/auth/callback",
     "FRONTEND_URL": "https://dvbh.dichvu3t.workers.dev",
-    // Them 2026-09-11: URL cua Worker "vipham" (Giai trinh vi pham) - chieu DVBH goi OUT toi day
-    // (xem lib/viPhamBenNgoai.ts). VIPHAM_APP_API_KEY dat qua "wrangler secret put" (da dat).
+    // URL cua Worker "vipham" - van giu de dung lam Request URL truyen vao VIPHAM_APP.fetch() (binding
+    // chi doi huong mang, phan pathname van do Hono ben nhan tu doc). VIPHAM_APP_API_KEY dat qua
+    // "wrangler secret put" (da dat).
     "VIPHAM_APP_URL": "https://vipham.dichvu3t.workers.dev"
   }
 }

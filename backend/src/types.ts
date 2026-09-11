@@ -87,11 +87,14 @@ export interface Env {
   // trong wrangler.jsonc/wrangler.smarttrade.jsonc (production) - optional nen mac dinh undefined ==
   // route tra 404, an toan tuyet doi voi production du co vo tinh deploy nham code nay.
   LOCAL_DEV_BYPASS_AUTH?: string;
-  // He ngoai "vipham.dichvu3t.workers.dev" (KTV tu giai trinh vi pham, xem lib/vipham1BenNgoai.ts) -
-  // CHUA xay dung, ca 2 bien deu optional/de trong cho toi khi he do san sang - luc thieu thi ham
-  // day tin ra ngoai tu im lang bo qua, khong pha luong chinh.
+  // He ngoai "vipham.dichvu3t.workers.dev" (KTV tu giai trinh vi pham, xem lib/viPhamBenNgoai.ts) - ca
+  // 2 bien deu optional/de trong cho toi khi he do san sang - luc thieu thi ham day tin ra ngoai tu im
+  // lang bo qua, khong pha luong chinh. VIPHAM_APP (Service Binding, them 2026-09-11 - fetch() thang
+  // bi chan loi 1042 vi cung tai khoan Cloudflare) cung optional vi local dev/preview co the chua co
+  // Worker "vipham" nao chay de bind toi.
   VIPHAM_APP_URL?: string;
   VIPHAM_APP_API_KEY?: string;
+  VIPHAM_APP?: Fetcher;
 }
 
 // QC them vao 2026-07-29: HANDOFF.md ghi "QC (nhu Viewer + chot/bo vi pham cap 2)" - truoc do QC

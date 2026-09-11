@@ -48,14 +48,27 @@ export interface ViPhamCapNhatGiaiTrinhPayload extends ViPhamNotifyBase {
 export type ViPhamNotifyPayload = ViPhamNghiNgoMoiPayload | ViPhamCapNhatQcChotPayload | ViPhamCapNhatGiaiTrinhPayload;
 
 export async function pushViPhamToVipham(env: Env, payload: ViPhamNotifyPayload): Promise<void> {
-  if (!env.VIPHAM_APP_URL || !env.VIPHAM_APP_API_KEY) return;
+  if (!env.VIPHAM_APP_URL || !env.VIPHAM_APP_API_KEY || !env.VIPHAM_APP) return;
   try {
-    await fetch(`${env.VIPHAM_APP_URL}/api/nhan-vi-pham`, {
+    // Dung Service Binding (KHONG fetch() thang URL that) - "dvbh" va "vipham" cung 1 tai khoan
+    // Cloudflare, fetch() thang bi chan loi 1042 (chong SSRF Worker-to-Worker) giong linh-kien-app da
+    // gap voi CASE_LOOKUP_SERVICE (xem CLAUDE.md linh-kien-app + wrangler.jsonc cua vi-pham-app da ghi
+    // chu san phuong an nay). URL van dung dung host that trong Request - VIPHAM_APP binding chi doi
+    // huong request toi dung Worker, khong lien quan gi toi viec route noi bo cua Hono ben nhan (no chi
+    // doc pathname).
+    const res = await env.VIPHAM_APP.fetch(`${env.VIPHAM_APP_URL}/api/nhan-vi-pham`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-Key": env.VIPHAM_APP_API_KEY },
       body: JSON.stringify(payload),
     });
-  } catch {
-    // Im lang bo qua - xem chu thich dau file.
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[pushViPhamToVipham] ${payload.loai_su_kien} vi_pham_id=${payload.vi_pham_id} tra loi ${res.status}: ${text.slice(0, 300)}`);
+    }
+  } catch (err) {
+    // Khong duoc phep lam vo luong chinh (xem chu thich dau file) - NHUNG phai log lai de con debug,
+    // truoc day catch rong nuot loi hoan toan khien 1042 (hoac bat ky loi nao khac) khong the phat
+    // hien duoc tu ben ngoai (bai hoc tu vu "vi pham khong bao sang vipham" 2026-09-11).
+    console.error(`[pushViPhamToVipham] ${payload.loai_su_kien} vi_pham_id=${payload.vi_pham_id} loi:`, err);
   }
 }
