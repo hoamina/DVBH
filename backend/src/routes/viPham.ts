@@ -17,6 +17,8 @@ import {
 import { RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
 import { uploadToDrive } from "../lib/googleDrive";
 import { toJsonArray } from "../lib/jsonArray";
+import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
+import { nowVN } from "../lib/vnTime";
 
 const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
@@ -398,26 +400,41 @@ viPham.get("/leaderboard", async (c) => {
 
 // PATCH /api/vi-pham/:id/cap2 - QC chot/bo vi pham cap 2 (final)
 viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
-  const id = c.req.param("id");
+  const id = c.req.param("id")!;
   const body = await c.req.json<{ chot: boolean }>();
   if (typeof body.chot !== "boolean") return c.json({ error: "INVALID_BODY" }, 400);
 
-  const row = await c.env.DB.prepare("SELECT id, ket_qua_cap_1 FROM vi_pham WHERE id = ?")
+  const row = await c.env.DB.prepare("SELECT id, case_id, ket_qua_cap_1 FROM vi_pham WHERE id = ?")
     .bind(id)
-    .first<{ id: string; ket_qua_cap_1: string | null }>();
+    .first<{ id: string; case_id: string; ket_qua_cap_1: string | null }>();
   if (!row) return c.json({ error: "NOT_FOUND" }, 404);
   // Mirror CHECK chk_cap2_sau_cap1: khong duoc chot cap 2 khi chua co cap 1
   if (row.ket_qua_cap_1 === null) return c.json({ error: "CAP1_CHUA_CO" }, 400);
 
   const user = c.get("user");
+  const ngayChot = nowVN();
   await c.env.DB.prepare(
-    "UPDATE vi_pham SET chot_bo_cap_2 = ?, nguoi_chot = ?, ngay_chot = datetime('now', '+7 hours') WHERE id = ?",
+    "UPDATE vi_pham SET chot_bo_cap_2 = ?, nguoi_chot = ?, ngay_chot = ? WHERE id = ?",
   )
-    .bind(body.chot ? 1 : 0, user.email, id)
+    .bind(body.chot ? 1 : 0, user.email, ngayChot, id)
     .run();
 
   // Bump domain "vi_pham" (xem lib/dataVersions.ts).
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+
+  // Bao cho he ngoai "vipham.dichvu3t.workers.dev" moi lan QC chot/bo cap 2 (CHOT 2026-09-11, xem
+  // lib/viPhamBenNgoai.ts) - waitUntil, khong doi phan hoi, khong retry (giong het co che "nghi_ngo_moi").
+  c.executionCtx.waitUntil(
+    pushViPhamToVipham(c.env, {
+      loai_su_kien: "cap_nhat",
+      nguon_cap_nhat: "qc_chot_cap_2",
+      vi_pham_id: id,
+      case_id: row.case_id,
+      chot_bo_cap_2: body.chot,
+      nguoi_chot: user.email,
+      ngay_chot: ngayChot,
+    }),
+  );
 
   return c.json({ ok: true });
 });
@@ -426,7 +443,7 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
 // he ngoai "vipham.dichvu3t.workers.dev" - xem migration 0108_vi_pham_giai_trinh.sql). Anh (neu co)
 // phai upload truoc qua POST /:id/giai-trinh/anh (ben duoi) de lay URL, roi gui kem trong anh_urls.
 viPham.post("/:id/giai-trinh", requireRole("Giam sat", "Admin"), async (c) => {
-  const id = c.req.param("id");
+  const id = c.req.param("id")!;
   const vp = await c.env.DB.prepare("SELECT id, case_id FROM vi_pham WHERE id = ?").bind(id).first<{ id: string; case_id: string }>();
   if (!vp) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -441,24 +458,37 @@ viPham.post("/:id/giai-trinh", requireRole("Giam sat", "Admin"), async (c) => {
 
   const user = c.get("user");
   const newId = crypto.randomUUID();
+  const nguoiGiaiTrinh = body.nguoi_giai_trinh?.trim() || null;
+  const noiDungGiaiTrinh = body.noi_dung_giai_trinh?.trim() || null;
+  const ghiChu = body.ghi_chu?.trim() || null;
+  const anhUrls = (body.anh_urls ?? []).slice(0, 5);
   await c.env.DB.prepare(
     `INSERT INTO vi_pham_giai_trinh (id, vi_pham_id, case_id, nguon, nguoi_giai_trinh, ngay_giai_trinh, noi_dung_giai_trinh, ghi_chu, anh_urls, nguoi_nhap)
      VALUES (?, ?, ?, 'giam_sat_nhap_tay', ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(
-      newId,
-      id,
-      vp.case_id,
-      body.nguoi_giai_trinh?.trim() || null,
-      body.ngay_giai_trinh,
-      body.noi_dung_giai_trinh?.trim() || null,
-      body.ghi_chu?.trim() || null,
-      toJsonArray((body.anh_urls ?? []).slice(0, 5)),
-      user.email,
-    )
+    .bind(newId, id, vp.case_id, nguoiGiaiTrinh, body.ngay_giai_trinh, noiDungGiaiTrinh, ghiChu, toJsonArray(anhUrls), user.email)
     .run();
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+
+  // Bao cho he ngoai "vipham.dichvu3t.workers.dev" moi lan GS nhap giai trinh thay TRUC TIEP trong
+  // DVBH (CHOT 2026-09-11, xem lib/viPhamBenNgoai.ts) - de vipham luon co ban giai trinh moi nhat cho
+  // vi_pham nay du KTV tu nhap qua app hay GS nhap thay o day. KHONG ap dung cho giai trinh den tu
+  // chinh vipham qua POST /api/partner/sync/giai-trinh-vi-pham (se vong lai chinh du lieu cua no).
+  c.executionCtx.waitUntil(
+    pushViPhamToVipham(c.env, {
+      loai_su_kien: "cap_nhat",
+      nguon_cap_nhat: "giam_sat_giai_trinh",
+      vi_pham_id: id,
+      case_id: vp.case_id,
+      nguoi_giai_trinh: nguoiGiaiTrinh,
+      ngay_giai_trinh: body.ngay_giai_trinh,
+      noi_dung_giai_trinh: noiDungGiaiTrinh,
+      ghi_chu: ghiChu,
+      anh_urls: anhUrls,
+    }),
+  );
+
   return c.json({ id: newId }, 201);
 });
 

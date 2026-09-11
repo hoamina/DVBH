@@ -1000,6 +1000,7 @@ survey.post(
       if (m.ketQuaCap1 === "Khong loi" || !daGhiNhan.includes(m.loaiLoi)) continue;
       c.executionCtx.waitUntil(
         pushViPhamToVipham(c.env, {
+          loai_su_kien: "nghi_ngo_moi",
           vi_pham_id: m.viPhamId,
           case_id: body.case_id,
           loai_loi: m.loaiLoi,

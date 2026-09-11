@@ -286,9 +286,11 @@ lập (`vipham.dichvu3t.workers.dev`, do đội khác xây dựng, tương tự 
 kiện" đã làm trước đây). Có 2 chiều gọi API **độc lập nhau**, không phải request/response của cùng
 1 lần gọi:
 
-- **Chiều 1 (mục 9.1)**: DVBH chủ động gọi SANG hệ vipham, thông báo "có ca X vừa bị nghi ngờ vi
-  phạm Y, cần KTV giải trình". DVBH là bên gọi (client), hệ vipham là bên nhận (server) — **đội xây
-  hệ vipham cần tự implement endpoint nhận này**.
+- **Chiều 1 (mục 9.1)**: DVBH chủ động gọi SANG hệ vipham — không chỉ lúc CSKH ghi nhận nghi ngờ mới
+  (`loai_su_kien: "nghi_ngo_moi"`), mà **cả khi Giám sát/QC cập nhật thông tin của lỗi đó về sau**
+  (`loai_su_kien: "cap_nhat"`, thêm 2026-09-11 — xem mục 9.1.1) — vẫn cùng 1 endpoint nhận, cùng 1
+  hợp đồng, chỉ khác giá trị `loai_su_kien`. DVBH là bên gọi (client), hệ vipham là bên nhận (server)
+  — **đội xây hệ vipham cần tự implement endpoint nhận này, xử lý rẽ nhánh theo `loai_su_kien`**.
 - **Chiều 2 (mục 9.2)**: sau khi KTV giải trình xong bên hệ vipham, hệ đó gọi VÀO DVBH để lưu kết
   quả — giống hệt mô hình `/sync/ktv`/`/sync/linh-kien` ở mục 8 (DVBH là server, hệ vipham là
   client, xác thực bằng `X-API-Key` riêng).
@@ -297,16 +299,22 @@ Cả 2 endpoint (nhận ở mục 9.1, gửi ở mục 9.2) hiện đều xử l
 (`vi_pham_id`), không phải theo case — nếu 1 case bị nghi ngờ cùng lúc nhiều loại lỗi (ví dụ vừa trễ
 120 phút vừa lỡ kế hoạch), mỗi lỗi sẽ có 1 lượt thông báo/giải trình riêng, `vi_pham_id` khác nhau.
 
-### 9.1. DVBH gọi SANG hệ vipham (thông báo có ca cần giải trình)
+### 9.1. DVBH gọi SANG hệ vipham (thông báo có ca cần giải trình / cập nhật)
 
-**Đội xây hệ vipham cần tự dựng 1 endpoint nhận đúng hợp đồng dưới đây** — DVBH sẽ gọi tới:
+**Đội xây hệ vipham cần tự dựng 1 endpoint nhận đúng hợp đồng dưới đây** — DVBH sẽ gọi tới cùng 1
+endpoint cho cả 2 loại sự kiện, phân biệt qua field `loai_su_kien`:
 
 ```
 POST <VIPHAM_APP_URL>/api/nhan-vi-pham
 X-API-Key: <VIPHAM_APP_API_KEY — do team vipham cấp cho DVBH, DVBH cấu hình làm secret>
 Content-Type: application/json
+```
 
+#### 9.1.1. `loai_su_kien = "nghi_ngo_moi"` — CSKH vừa ghi nhận nghi ngờ vi phạm mới
+
+```json
 {
+  "loai_su_kien": "nghi_ngo_moi",
   "vi_pham_id": "L-000123",
   "case_id": "1324863",
   "loai_loi": "Loi 120 phut",
@@ -322,6 +330,7 @@ Content-Type: application/json
 
 | Field | Kiểu | Ý nghĩa |
 |---|---|---|
+| `loai_su_kien` | string | Luôn là `"nghi_ngo_moi"` cho loại sự kiện này |
 | `vi_pham_id` | string | ID duy nhất của lỗi này (dùng để gửi giải trình về ở mục 9.2 — **bắt buộc lưu lại**, đây là khoá nối 2 chiều) |
 | `case_id` | string | ID case bảo hành |
 | `loai_loi` | string | 1 trong: `Loi 120 phut`, `Hen qua 24h`, `Loi lo ke hoach`, `KH hen lai` |
@@ -332,6 +341,62 @@ Content-Type: application/json
 | `seri_san_pham` | string, có thể null | Số seri sản phẩm |
 | `ngay_ghi_nhan` | string | Giờ VN địa phương (UTC+7) dạng `YYYY-MM-DD HH:MM:SS`, **không phải** UTC/ISO-8601 — cùng quy ước với mục 3.3.1 |
 | `nguoi_ghi_nhan` | string | Email CSKH đã ghi nhận |
+
+#### 9.1.2. `loai_su_kien = "cap_nhat"` — Giám sát/QC vừa cập nhật thông tin của lỗi đó (thêm 2026-09-11)
+
+Bối cảnh: sau khi báo "nghi ngờ mới" ở trên, lỗi đó có thể được cập nhật thêm 2 kiểu, độc lập với
+việc KTV có giải trình qua hệ vipham hay không — mỗi lần cập nhật DVBH báo sang 1 lần riêng (không
+gộp, không chờ debounce), phân biệt qua field `nguon_cap_nhat`:
+
+**a) QC chốt/bỏ vi phạm cấp 2 — `nguon_cap_nhat = "qc_chot_cap_2"`**
+
+```json
+{
+  "loai_su_kien": "cap_nhat",
+  "nguon_cap_nhat": "qc_chot_cap_2",
+  "vi_pham_id": "L-000123",
+  "case_id": "1324863",
+  "chot_bo_cap_2": true,
+  "nguoi_chot": "qc@dichvu3t.vn",
+  "ngay_chot": "2026-09-11 10:30:00"
+}
+```
+
+| Field | Kiểu | Ý nghĩa |
+|---|---|---|
+| `chot_bo_cap_2` | boolean | `true` = QC xác nhận đúng là vi phạm, `false` = QC kết luận không vi phạm (bỏ) |
+| `nguoi_chot` | string | Email QC vừa chốt/bỏ |
+| `ngay_chot` | string | Giờ VN địa phương, cùng định dạng/quy ước với `ngay_ghi_nhan` ở mục 9.1.1 |
+
+**b) Giám sát nhập giải trình thay trực tiếp trong DVBH — `nguon_cap_nhat = "giam_sat_giai_trinh"`**
+
+```json
+{
+  "loai_su_kien": "cap_nhat",
+  "nguon_cap_nhat": "giam_sat_giai_trinh",
+  "vi_pham_id": "L-000123",
+  "case_id": "1324863",
+  "nguoi_giai_trinh": "Nguyen Van A",
+  "ngay_giai_trinh": "2026-09-11",
+  "noi_dung_giai_trinh": "Do khach yeu cau doi lich, da bao CSKH truoc",
+  "ghi_chu": null,
+  "anh_urls": ["https://drive.google.com/anh1.jpg"]
+}
+```
+
+| Field | Kiểu | Ý nghĩa |
+|---|---|---|
+| `nguoi_giai_trinh` | string, có thể null | Tên người giải trình (do Giám sát tự gõ, không phải tài khoản đăng nhập) |
+| `ngay_giai_trinh` | string | Ngày giải trình, dạng `YYYY-MM-DD` |
+| `noi_dung_giai_trinh` | string, có thể null | Nội dung giải trình |
+| `ghi_chu` | string, có thể null | Ghi chú thêm |
+| `anh_urls` | array of string | Tối đa 5 URL ảnh bằng chứng (Google Drive), có thể rỗng `[]` |
+
+**Chỉ áp dụng khi Giám sát nhập TRỰC TIẾP trong DVBH** (khi KTV không tự dùng app vipham) — DVBH
+**không** báo lại sự kiện này khi giải trình đến từ chính hệ vipham qua mục 9.2 (sẽ vòng lại đúng dữ
+liệu hệ vipham vừa gửi, không có ý nghĩa).
+
+`vi_pham_id`/`case_id` xuất hiện ở cả 2 loại `nguon_cap_nhat` trên, cùng ý nghĩa như mục 9.1.1.
 
 **Cần thêm thông tin case đầy đủ (khách hàng/sản phẩm/lịch sử xử lý/ảnh báo cáo/...) để hiển thị màn
 hình giải trình cho KTV?** Payload trên chỉ có 9 field tối thiểu. Đội vipham nên tự gọi
