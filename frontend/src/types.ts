@@ -129,6 +129,22 @@ export interface ViPhamRow {
   seri_san_pham?: string | null;
 }
 
+// Giai trinh cho 1 vi_pham.id - qua he ngoai "vipham.dichvu3t.workers.dev" (ktv_qua_api) hoac Giam
+// sat nhap tay thay (giam_sat_nhap_tay). Xem migration 0108_vi_pham_giai_trinh.sql.
+export interface ViPhamGiaiTrinhRow {
+  id: string;
+  vi_pham_id: string;
+  case_id: string;
+  nguon: "ktv_qua_api" | "giam_sat_nhap_tay";
+  nguoi_giai_trinh: string | null;
+  ngay_giai_trinh: string;
+  noi_dung_giai_trinh: string | null;
+  ghi_chu: string | null;
+  anh_urls: string | null;
+  nguoi_nhap: string | null;
+  created_at: string;
+}
+
 export interface KetQuaGoiRow {
   id: string;
   case_id: string;

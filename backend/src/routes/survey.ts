@@ -22,6 +22,7 @@ import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
+import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 
 // Domain phu thuoc chung cho ca 3 bao cao /counts, /by-khu-vuc, /trend (xem bang R6 trong
 // YEU_CAU_BAO_CAO_TINH_SAN.md - ap dung dong nhat, don gian hon tach rieng tung endpoint).
@@ -867,10 +868,20 @@ survey.post(
     }
 
     const caseRow = await c.env.DB.prepare(
-      "SELECT id, khu_vuc, loi_120p, loi_qua_han_24h, loi_lo_ke_hoach, loi_kh_hen_lai FROM case_dvbh WHERE id = ?",
+      "SELECT id, khu_vuc, khach_hang, ky_thuat_vien, seri_san_pham, loi_120p, loi_qua_han_24h, loi_lo_ke_hoach, loi_kh_hen_lai FROM case_dvbh WHERE id = ?",
     )
       .bind(body.case_id)
-      .first<{ id: string; khu_vuc: string | null; loi_120p: number; loi_qua_han_24h: number; loi_lo_ke_hoach: number; loi_kh_hen_lai: number }>();
+      .first<{
+        id: string;
+        khu_vuc: string | null;
+        khach_hang: string | null;
+        ky_thuat_vien: string | null;
+        seri_san_pham: string | null;
+        loi_120p: number;
+        loi_qua_han_24h: number;
+        loi_lo_ke_hoach: number;
+        loi_kh_hen_lai: number;
+      }>();
     if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
 
     // Mirror pattern cua POST /assign ben duoi - CSKH/TN CSKH bi gioi han khu_vuc khong duoc ghi
@@ -916,9 +927,12 @@ survey.post(
       .run();
 
     const statements: D1PreparedStatement[] = [];
+    const ngayGhiNhan = nowVN();
+    const viPhamMeta: { viPhamId: string; loaiLoi: LoaiLoi; ketQuaCap1: string }[] = [];
     for (const r of body.results) {
       const viPhamId = await nextSequentialId(c.env.DB, "vi_pham", "L", 6);
       const ketQuaCap1 = r.ket_luan === "loi" ? r.ket_qua_cap_1 ?? "Loi khac" : "Khong loi";
+      viPhamMeta.push({ viPhamId, loaiLoi: r.loai_loi, ketQuaCap1 });
       statements.push(
         c.env.DB.prepare(
           // ON CONFLICT: neu da co nguoi khac ghi nhan cung (case_id, loai_loi) truoc (rang buoc UNIQUE
@@ -926,7 +940,7 @@ survey.post(
           `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan, ngay_ghi_nhan)
            VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(case_id, loai_loi) DO NOTHING`,
-        ).bind(viPhamId, ketQuaGoiId, body.case_id, r.loai_loi, ketQuaCap1, user.email, nowVN()),
+        ).bind(viPhamId, ketQuaGoiId, body.case_id, r.loai_loi, ketQuaCap1, user.email, ngayGhiNhan),
       );
     }
     const batchResults = statements.length > 0 ? await c.env.DB.batch(statements) : [];
@@ -936,6 +950,29 @@ survey.post(
     body.results.forEach((r, i) => {
       (batchResults[i]?.meta.changes ? daGhiNhan : boQua).push(r.loai_loi);
     });
+
+    // Bao cho he ngoai "vipham.dichvu3t.workers.dev" (KTV tu giai trinh, xem lib/viPhamBenNgoai.ts)
+    // NGAY KHI CSKH ghi nhan nghi ngo cap 1 - khong doi QC chot cap 2, de KTV bat dau giai trinh song
+    // song. Chi bao cac dong THUC SU ghi moi (co trong daGhiNhan) va THUC SU nghi ngo (khac "Khong
+    // loi") - khong bao dong bi ON CONFLICT bo qua hoac ket luan "khong loi". waitUntil (khong await)
+    // vi day la thong bao 1 chieu, khong duoc phep lam cham/hong response chinh.
+    for (const m of viPhamMeta) {
+      if (m.ketQuaCap1 === "Khong loi" || !daGhiNhan.includes(m.loaiLoi)) continue;
+      c.executionCtx.waitUntil(
+        pushViPhamToVipham(c.env, {
+          vi_pham_id: m.viPhamId,
+          case_id: body.case_id,
+          loai_loi: m.loaiLoi,
+          ket_qua_cap_1: m.ketQuaCap1,
+          khach_hang: caseRow.khach_hang,
+          khu_vuc: caseRow.khu_vuc,
+          ky_thuat_vien: caseRow.ky_thuat_vien,
+          seri_san_pham: caseRow.seri_san_pham,
+          ngay_ghi_nhan: ngayGhiNhan,
+          nguoi_ghi_nhan: user.email,
+        }),
+      );
+    }
 
     // Bump ca "vi_pham" va "ket_qua_goi" - ket_qua_goi luon co dong moi (INSERT tren), vi_pham co
     // the co hoac khong tuy ON CONFLICT DO NOTHING nhung bump ca 2 cho don gian (xem lib/dataVersions.ts).

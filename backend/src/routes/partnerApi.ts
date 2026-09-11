@@ -435,4 +435,59 @@ partnerApi.post("/sync/linh-kien", async (c) => {
   return c.json({ upserted: statements.length, errors });
 });
 
+interface GiaiTrinhViPhamSyncRow {
+  vi_pham_id: string;
+  nguoi_giai_trinh?: string | null;
+  ngay_giai_trinh: string;
+  noi_dung_giai_trinh?: string | null;
+  ghi_chu?: string | null;
+  anh_urls?: string[];
+}
+
+// POST /api/partner/sync/giai-trinh-vi-pham - nhan giai trinh vi pham tu he "vipham.dichvu3t.workers.dev"
+// (KTV tu giai trinh ben do, xem migration 0108_vi_pham_giai_trinh.sql + lib/viPhamBenNgoai.ts).
+// Anh la URL (he ngoai tu luu tru anh cua ho) - DVBH chi luu chuoi URL, khong tai/luu anh thuc.
+partnerApi.post("/sync/giai-trinh-vi-pham", async (c) => {
+  const keyRow = await requirePartnerKey(c);
+  if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
+
+  const body = await c.req.json<{ rows: GiaiTrinhViPhamSyncRow[] }>();
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  if (body.rows.length > SYNC_MAX_ROWS) return c.json({ error: "TOO_MANY_ROWS" }, 400);
+
+  const results: { vi_pham_id: string; ok: boolean; error?: string }[] = [];
+  for (const row of body.rows) {
+    if (!row.vi_pham_id || !row.ngay_giai_trinh) {
+      results.push({ vi_pham_id: row.vi_pham_id ?? "", ok: false, error: "INVALID_ROW" });
+      continue;
+    }
+    const vp = await c.env.DB.prepare("SELECT id, case_id FROM vi_pham WHERE id = ?")
+      .bind(row.vi_pham_id)
+      .first<{ id: string; case_id: string }>();
+    if (!vp) {
+      results.push({ vi_pham_id: row.vi_pham_id, ok: false, error: "VI_PHAM_NOT_FOUND" });
+      continue;
+    }
+    const anhUrls = (row.anh_urls ?? []).slice(0, 5);
+    await c.env.DB.prepare(
+      `INSERT INTO vi_pham_giai_trinh (id, vi_pham_id, case_id, nguon, nguoi_giai_trinh, ngay_giai_trinh, noi_dung_giai_trinh, ghi_chu, anh_urls, nguoi_nhap)
+       VALUES (?, ?, ?, 'ktv_qua_api', ?, ?, ?, ?, ?, NULL)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        row.vi_pham_id,
+        vp.case_id,
+        row.nguoi_giai_trinh ?? null,
+        row.ngay_giai_trinh,
+        row.noi_dung_giai_trinh ?? null,
+        row.ghi_chu ?? null,
+        JSON.stringify(anhUrls),
+      )
+      .run();
+    results.push({ vi_pham_id: row.vi_pham_id, ok: true });
+  }
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+  return c.json({ results });
+});
+
 export default partnerApi;

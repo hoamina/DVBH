@@ -15,6 +15,8 @@ import {
   extraDimFiltersFromParams,
 } from "../lib/filterParams";
 import { RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
+import { uploadToDrive } from "../lib/googleDrive";
+import { toJsonArray } from "../lib/jsonArray";
 
 const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
@@ -418,6 +420,61 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
 
   return c.json({ ok: true });
+});
+
+// POST /api/vi-pham/:id/giai-trinh - Giam sat nhap tay THAY cho KTV (khi KTV khong tu giai trinh qua
+// he ngoai "vipham.dichvu3t.workers.dev" - xem migration 0108_vi_pham_giai_trinh.sql). Anh (neu co)
+// phai upload truoc qua POST /:id/giai-trinh/anh (ben duoi) de lay URL, roi gui kem trong anh_urls.
+viPham.post("/:id/giai-trinh", requireRole("Giam sat", "Admin"), async (c) => {
+  const id = c.req.param("id");
+  const vp = await c.env.DB.prepare("SELECT id, case_id FROM vi_pham WHERE id = ?").bind(id).first<{ id: string; case_id: string }>();
+  if (!vp) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const body = await c.req.json<{
+    nguoi_giai_trinh?: string;
+    ngay_giai_trinh: string;
+    noi_dung_giai_trinh?: string;
+    ghi_chu?: string;
+    anh_urls?: string[];
+  }>();
+  if (!body.ngay_giai_trinh) return c.json({ error: "INVALID_BODY" }, 400);
+
+  const user = c.get("user");
+  const newId = crypto.randomUUID();
+  await c.env.DB.prepare(
+    `INSERT INTO vi_pham_giai_trinh (id, vi_pham_id, case_id, nguon, nguoi_giai_trinh, ngay_giai_trinh, noi_dung_giai_trinh, ghi_chu, anh_urls, nguoi_nhap)
+     VALUES (?, ?, ?, 'giam_sat_nhap_tay', ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      newId,
+      id,
+      vp.case_id,
+      body.nguoi_giai_trinh?.trim() || null,
+      body.ngay_giai_trinh,
+      body.noi_dung_giai_trinh?.trim() || null,
+      body.ghi_chu?.trim() || null,
+      toJsonArray((body.anh_urls ?? []).slice(0, 5)),
+      user.email,
+    )
+    .run();
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+  return c.json({ id: newId }, 201);
+});
+
+// POST /api/vi-pham/:id/giai-trinh/anh - upload 1 anh bang chung giai trinh len Google Drive (BINARY
+// THO, giong pattern routes/phieuXuatKho.ts POST /:id/anh-bien-ban) - goi toi da 5 lan roi gop URL
+// tra ve vao anh_urls khi submit POST /:id/giai-trinh o tren.
+viPham.post("/:id/giai-trinh/anh", requireRole("Giam sat", "Admin"), async (c) => {
+  const id = c.req.param("id");
+  const contentType = c.req.header("Content-Type") || "image/jpeg";
+  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
+  const bytes = await c.req.arrayBuffer();
+  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
+
+  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+  const uploaded = await uploadToDrive(c.env, bytes, contentType, `giai-trinh-vi-pham-${id}-${Date.now()}.${ext}`);
+  return c.json({ ok: true, url: uploaded.webViewLink });
 });
 
 export default viPham;

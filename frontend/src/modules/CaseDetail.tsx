@@ -55,6 +55,7 @@ import {
   type LyDoRow,
   type LinhKienRow,
   type ViPhamRow,
+  type ViPhamGiaiTrinhRow,
   type CaLapDetection,
   type NapGasDanhGiaRow,
   type KetQuaGoiRow,
@@ -68,6 +69,7 @@ interface CaseDetailResponse {
   giaiTrinh: GiaiTrinhRow[];
   ketQuaGoi: KetQuaGoiRow[];
   viPham: ViPhamRow[];
+  viPhamGiaiTrinh: ViPhamGiaiTrinhRow[];
   caLap: CaLapDetection;
   napGasDanhGia: NapGasDanhGiaRow | null;
   bienBanHop: BienBanHopRow[];
@@ -352,6 +354,9 @@ export function CaseDetail({
   // cache neu ca 2 dang mo cung luc.
   const auth = useAuth();
   const currentUser = auth.status === "authenticated" ? auth.user : null;
+  // Giai trinh vi pham (migration 0108) - chi Giam sat/Admin duoc nhap tay THAY cho KTV, khop
+  // requireRole("Giam sat", "Admin") o backend/src/routes/viPham.ts POST /:id/giai-trinh.
+  const canGiaiTrinhViPham = currentUser?.vai_tro === "Giam sat" || currentUser?.vai_tro === "Admin";
   const { data: phanLoaiOptions } = useQuery({
     queryKey: ["settings-phan-loai-tranh-chap"],
     queryFn: () => api.get<{ rows: PhanLoaiTranhChapRow[] }>("/settings/phan-loai-tranh-chap"),
@@ -422,6 +427,12 @@ export function CaseDetail({
   });
 
   const [giaiTrinhModalOpen, setGiaiTrinhModalOpen] = useState(false);
+  // Giai trinh vi pham (migration 0108) - Giam sat nhap tay THAY cho KTV. Luu vi_pham.id dang giai
+  // trinh (null = dong modal) - khac giaiTrinhModalOpen (giai trinh ton/SLA cua ca, khong lien quan).
+  const [viPhamGiaiTrinhTarget, setViPhamGiaiTrinhTarget] = useState<string | null>(null);
+  const [viPhamGiaiTrinhForm, setViPhamGiaiTrinhForm] = useState({ nguoi_giai_trinh: "", ngay_giai_trinh: "", noi_dung_giai_trinh: "", ghi_chu: "" });
+  const [viPhamGiaiTrinhPhotos, setViPhamGiaiTrinhPhotos] = useState<string[]>([]);
+  const [viPhamGiaiTrinhUploading, setViPhamGiaiTrinhUploading] = useState(false);
   const [caLapModalOpen, setCaLapModalOpen] = useState(false);
   // "Danh gia lap" tu 1 dong BAT KY trong Chuoi lich su theo serial (CHOT 2026-08-05, khac
   // caLapModalOpen chi mo duoc cho DUNG ca dang hien) - luu case_id cua dong duoc bam, null = dong.
@@ -531,6 +542,49 @@ export function CaseDetail({
     onError: () => addToast("Không thể ghi nhận giải trình, thử lại sau."),
   });
 
+  // Giai trinh vi pham (migration 0108) - Giam sat nhap tay THAY cho KTV khi KTV khong tu giai trinh
+  // qua he ngoai "vipham.dichvu3t.workers.dev". Dung LAI dung pattern "fetch that + ghi de
+  // closedDataCache" nhu submit() o tren de hien ngay khong can "Dong bo lai".
+  const submitViPhamGiaiTrinh = useMutation({
+    mutationFn: (viPhamId: string) =>
+      api.post(`/vi-pham/${viPhamId}/giai-trinh`, {
+        nguoi_giai_trinh: viPhamGiaiTrinhForm.nguoi_giai_trinh || undefined,
+        ngay_giai_trinh: viPhamGiaiTrinhForm.ngay_giai_trinh,
+        noi_dung_giai_trinh: viPhamGiaiTrinhForm.noi_dung_giai_trinh || undefined,
+        ghi_chu: viPhamGiaiTrinhForm.ghi_chu || undefined,
+        anh_urls: viPhamGiaiTrinhPhotos,
+      }),
+    onSuccess: async () => {
+      addToast("Đã lưu giải trình vi phạm");
+      setViPhamGiaiTrinhTarget(null);
+      setViPhamGiaiTrinhForm({ nguoi_giai_trinh: "", ngay_giai_trinh: "", noi_dung_giai_trinh: "", ghi_chu: "" });
+      setViPhamGiaiTrinhPhotos([]);
+      const fresh = await fetchCaseDetail(caseId!);
+      const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+      qc.setQueryData(["case", caseId], newEntry);
+    },
+    onError: () => addToast("Không thể lưu giải trình, thử lại sau."),
+  });
+
+  async function handleViPhamGiaiTrinhPhoto(viPhamId: string, file: File) {
+    setViPhamGiaiTrinhUploading(true);
+    try {
+      const bytes = await file.arrayBuffer();
+      const res = await api.postBinary<{ ok: true; url: string }>(`/vi-pham/${viPhamId}/giai-trinh/anh`, bytes, file.type || "image/jpeg");
+      setViPhamGiaiTrinhPhotos((prev) => (prev.length < 5 ? [...prev, res.url] : prev));
+    } catch {
+      addToast("Không thể tải ảnh lên, thử lại sau.");
+    } finally {
+      setViPhamGiaiTrinhUploading(false);
+    }
+  }
+
+  function openViPhamGiaiTrinhModal(viPhamId: string) {
+    setViPhamGiaiTrinhForm({ nguoi_giai_trinh: "", ngay_giai_trinh: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10), noi_dung_giai_trinh: "", ghi_chu: "" });
+    setViPhamGiaiTrinhPhotos([]);
+    setViPhamGiaiTrinhTarget(viPhamId);
+  }
+
   // "Bien ban hop" (migration 0080) - append-only, dung LAI dung pattern "fetch that + ghi de
   // closedDataCache truoc khi setQueryData" nhu submit() o tren (giai trinh cung co the ap dung cho
   // ca DA DONG lau, doc chu thich chi tiet o do), de dong moi hien ngay khong can bam "Dong bo lai".
@@ -572,6 +626,7 @@ export function CaseDetail({
   );
 
   const viPhamList = data?.viPham ?? [];
+  const viPhamGiaiTrinhList = data?.viPhamGiaiTrinh ?? [];
   const ketQuaGoiList = data?.ketQuaGoi ?? [];
 
   const napGasDanhGia = data?.napGasDanhGia ?? null;
@@ -1222,6 +1277,47 @@ export function CaseDetail({
                   </>
                 )}
               </div>
+              {(() => {
+                const giaiTrinhCuaLoiNay = viPhamGiaiTrinhList.filter((g) => g.vi_pham_id === v.id);
+                return (
+                  <div className="mt-2 pt-2 border-t border-[var(--line)]">
+                    {giaiTrinhCuaLoiNay.length === 0 ? (
+                      <div className="text-xs text-[var(--ink-400)] italic mb-1.5">Chưa có giải trình.</div>
+                    ) : (
+                      <div className="space-y-1.5 mb-1.5">
+                        {giaiTrinhCuaLoiNay.map((g) => {
+                          const anh = g.anh_urls ? (JSON.parse(g.anh_urls) as string[]) : [];
+                          return (
+                            <div key={g.id} className="text-xs bg-slate-50 rounded-lg p-2">
+                              <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
+                                <span className="font-semibold">{g.nguoi_giai_trinh || "—"}</span>
+                                <Badge tone={g.nguon === "ktv_qua_api" ? "ocean" : "gray"}>{g.nguon === "ktv_qua_api" ? "Qua API" : "Giám sát nhập tay"}</Badge>
+                                <span className="text-[var(--ink-400)]">{fmtDate(g.ngay_giai_trinh)}</span>
+                              </div>
+                              {g.noi_dung_giai_trinh && <div className="text-[var(--ink-600)]">{g.noi_dung_giai_trinh}</div>}
+                              {g.ghi_chu && <div className="text-[var(--ink-400)] italic">{g.ghi_chu}</div>}
+                              {anh.length > 0 && (
+                                <div className="flex gap-1.5 mt-1 flex-wrap">
+                                  {anh.map((url, i) => (
+                                    <a key={i} href={url} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline">
+                                      Ảnh {i + 1}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {canGiaiTrinhViPham && (
+                      <Btn size="sm" variant="ghost" onClick={() => openViPhamGiaiTrinhModal(v.id)}>
+                        Giải trình thay
+                      </Btn>
+                    )}
+                  </div>
+                );
+              })()}
             </Card>
           );
         })}
@@ -2065,6 +2161,90 @@ export function CaseDetail({
         </Modal>
         );
       })()}
+
+      {viPhamGiaiTrinhTarget && (
+        <Modal open onClose={() => setViPhamGiaiTrinhTarget(null)} title="Giải trình thay cho KTV" width="max-w-lg">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!viPhamGiaiTrinhForm.ngay_giai_trinh) return;
+              submitViPhamGiaiTrinh.mutate(viPhamGiaiTrinhTarget);
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Người giải trình (tên KTV)</label>
+              <input
+                value={viPhamGiaiTrinhForm.nguoi_giai_trinh}
+                onChange={(e) => setViPhamGiaiTrinhForm({ ...viPhamGiaiTrinhForm, nguoi_giai_trinh: e.target.value })}
+                placeholder="Tên KTV được giải trình thay"
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">
+                Ngày giải trình <span className="text-[var(--coral-500)]">*</span>
+              </label>
+              <input
+                type="date"
+                value={viPhamGiaiTrinhForm.ngay_giai_trinh}
+                onChange={(e) => setViPhamGiaiTrinhForm({ ...viPhamGiaiTrinhForm, ngay_giai_trinh: e.target.value })}
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Nội dung giải trình</label>
+              <textarea
+                value={viPhamGiaiTrinhForm.noi_dung_giai_trinh}
+                onChange={(e) => setViPhamGiaiTrinhForm({ ...viPhamGiaiTrinhForm, noi_dung_giai_trinh: e.target.value })}
+                rows={3}
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+              <textarea
+                value={viPhamGiaiTrinhForm.ghi_chu}
+                onChange={(e) => setViPhamGiaiTrinhForm({ ...viPhamGiaiTrinhForm, ghi_chu: e.target.value })}
+                rows={2}
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Ảnh bằng chứng (tối đa 5 ảnh)</label>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {viPhamGiaiTrinhPhotos.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-[var(--ocean-600)] underline bg-slate-50 rounded-lg px-2 py-1">
+                    Ảnh {i + 1}
+                  </a>
+                ))}
+                {viPhamGiaiTrinhPhotos.length < 5 && (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={viPhamGiaiTrinhUploading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleViPhamGiaiTrinhPhoto(viPhamGiaiTrinhTarget, f);
+                      e.target.value = "";
+                    }}
+                    className="text-xs"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end items-center gap-2 pt-1">
+              <Btn variant="ghost" type="button" onClick={() => setViPhamGiaiTrinhTarget(null)}>
+                Hủy
+              </Btn>
+              <Btn disabled={submitViPhamGiaiTrinh.isPending || !viPhamGiaiTrinhForm.ngay_giai_trinh}>
+                {submitViPhamGiaiTrinh.isPending ? "Đang lưu…" : "Lưu giải trình"}
+              </Btn>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* CHOT 2026-08-05: "Xu ly ca lap" tach thanh component dung chung CaLapEvalModal (nhan caseId
           lam prop) - dung 2 lan doc lap: nut o dau tab (danh gia CHINH ca dang mo) va tu 1 dong bat
