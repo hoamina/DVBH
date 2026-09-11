@@ -127,6 +127,11 @@ export interface ViPhamRow {
   khu_vuc?: string;
   ky_thuat_vien?: string | null;
   seri_san_pham?: string | null;
+  // Ban giai trinh MOI NHAT - chi co gia tri o tab "cho-qc"/"vi-pham-da-chot" (xem GET /api/survey).
+  giai_trinh_ktv_noi_dung?: string | null;
+  giai_trinh_ktv_ngay?: string | null;
+  giai_trinh_gs_noi_dung?: string | null;
+  giai_trinh_gs_ngay?: string | null;
 }
 
 // Giai trinh cho 1 vi_pham.id - qua he ngoai "vipham.dichvu3t.workers.dev" (ktv_qua_api) hoac Giam

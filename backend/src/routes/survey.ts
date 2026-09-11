@@ -206,6 +206,15 @@ survey.get("/", async (c) => {
   const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql + ngaySql;
   const extraBinds = [...khuVucClause.binds, ...ageClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds, ...ngayBinds];
   const limit = c.req.query("export") === "true" ? 5000 : 200;
+  // Ban giai trinh MOI NHAT tu KTV (qua API) va tu Giam sat (nhap tay) cho moi dong vi_pham - dung
+  // correlated subquery (idiom da co san trong codebase, xem "latestCanGoiLai") thay vi query rieng +
+  // gom nhom o JS, tan dung index idx_vi_pham_giai_trinh_vi_pham. Chi dung o tab "cho-qc" va
+  // "vi-pham-da-chot" (theo yeu cau) - "da-xu-ly" khong can.
+  const giaiTrinhCols = `,
+        (SELECT g.noi_dung_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'ktv_qua_api' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_ktv_noi_dung,
+        (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'ktv_qua_api' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_ktv_ngay,
+        (SELECT g.noi_dung_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_noi_dung,
+        (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_ngay`;
 
   // "can-khao-sat"/"qua-han-khao-sat" da tach thanh GET /candidates?tab=&thang= (query D1 song, gioi
   // han theo thang mo ca - xem route ben tren) - khong con query o day.
@@ -217,7 +226,7 @@ survey.get("/", async (c) => {
     // chon quet gan het case_dvbh thay vi vi_pham truoc (xac nhan qua EXPLAIN QUERY PLAN production -
     // ~110-120K rows_read cho 200 dong tra ve). CROSS JOIN ep quet v truoc, tra c theo PK sau.
     const query = `
-      SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham
+      SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham${giaiTrinhCols}
       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
       WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}
       ORDER BY v.ngay_ghi_nhan DESC
@@ -254,6 +263,29 @@ survey.get("/", async (c) => {
       const countRow = await c.env.DB.prepare(
         `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
          WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}`,
+      ).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>();
+      totalCases = countRow?.n ?? null;
+    }
+    return c.json({ rows: results, totalCases });
+  }
+
+  if (tab === "vi-pham-da-chot") {
+    // Tab MOI (CHOT 2026-09-11): CHI vi pham QC da chot=1 (khac "da-xu-ly" o tren, tab do gom ca
+    // ket luan "Khong loi" lan da chot - tab nay tach rieng de xem lai giai trinh KTV/Giam sat song
+    // song voi ket qua QC da chot, khong lan voi ca "khong loi").
+    const query = `
+      SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham${giaiTrinhCols}
+      FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+      WHERE v.chot_bo_cap_2 = 1${scopeClause.sql}${extraFilter}
+      ORDER BY v.ngay_chot DESC
+      LIMIT ?
+    `;
+    const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
+    let totalCases: number | null = null;
+    if (c.req.query("export") !== "true") {
+      const countRow = await c.env.DB.prepare(
+        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.chot_bo_cap_2 = 1${scopeClause.sql}${extraFilter}`,
       ).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>();
       totalCases = countRow?.n ?? null;
     }
@@ -311,12 +343,17 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
     SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}
   `;
+  const viPhamDaChotQuery = `
+    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+    WHERE v.chot_bo_cap_2 = 1${scopeClause.sql}${extraFilter}
+  `;
 
-  const [canKhaoSat, quaHanKhaoSat, choQc, daXuLy] = await Promise.all([
+  const [canKhaoSat, quaHanKhaoSat, choQc, daXuLy, viPhamDaChot] = await Promise.all([
     db.prepare(canKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds, ...monthBinds).first<{ n: number }>(),
     db.prepare(quaHanKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds, ...monthBinds).first<{ n: number }>(),
     db.prepare(choQcQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
     db.prepare(daXuLyQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
+    db.prepare(viPhamDaChotQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
   ]);
 
   return {
@@ -324,6 +361,7 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
     "qua-han-khao-sat": quaHanKhaoSat?.n ?? 0,
     "cho-qc": choQc?.n ?? 0,
     "da-xu-ly": daXuLy?.n ?? 0,
+    "vi-pham-da-chot": viPhamDaChot?.n ?? 0,
   };
 }
 
@@ -337,7 +375,9 @@ survey.get("/counts", async (c) => {
     tuoi_den: c.req.query("tuoi_den"),
     thang: c.req.query("thang"),
   };
-  const key = buildReportKey("survey/counts", params, scope);
+  // v2 (2026-09-11): them tab "vi-pham-da-chot" - doi shape tra ve, bump version de tranh cache cu
+  // (khong co key nay) tra ve object thieu field moi cho FE.
+  const key = buildReportKey("survey/counts-v2", params, scope);
   const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyCounts(c.env.DB, params, scope));
   return c.json(payload);
 });

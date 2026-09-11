@@ -34,6 +34,10 @@ const SURVEY_EXPORT_LABELS: Record<string, string> = {
   ngay_ghi_nhan: "Ngày ghi nhận",
   nguoi_chot: "Người chốt",
   ngay_chot: "Ngày chốt",
+  giai_trinh_ktv_noi_dung: "Giải trình của KTV",
+  giai_trinh_ktv_ngay: "Ngày giải trình KTV",
+  giai_trinh_gs_noi_dung: "Giải trình của Giám sát",
+  giai_trinh_gs_ngay: "Ngày giải trình Giám sát",
   need_loi_120p: "Nghi ngờ lỗi 120 phút",
   need_loi_qua_han_24h: "Nghi ngờ hẹn quá 24h",
   need_loi_lo_ke_hoach: "Nghi ngờ lỡ kế hoạch",
@@ -375,6 +379,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "da-xu-ly", ...viPhamListParams })}`),
     enabled: view === "danh-sach" && tab === "da-xu-ly",
   });
+  // "Vi pham da chot" (CHOT 2026-09-11): tab MOI, CHI vi pham QC da chot=1 (chot_bo_cap_2 = 1) - tach
+  // rieng voi "da-xu-ly" (tab do con gom ca ket luan "Khong loi") de xem lai giai trinh KTV/Giam sat
+  // song song voi ket qua QC da chot.
+  const { data: viPhamDaChot } = useQuery({
+    queryKey: ["survey", "vi-pham-da-chot", viPhamListParams],
+    queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "vi-pham-da-chot", ...viPhamListParams })}`),
+    enabled: view === "danh-sach" && tab === "vi-pham-da-chot",
+  });
   // "Lich su khao sat" (CHOT 2026-08-06) - toan bo cuoc goi (ket_qua_goi) trong thang, gioi han
   // giong "Can khao sat"/"Qua han khao sat" (dung chung thangDanhSach) - xem GET /survey/call-history.
   const { data: callHistory } = useQuery({
@@ -590,20 +602,22 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   }, [effectiveView]);
 
   const groupedViPham = useMemo(() => {
-    const list = tab === "cho-qc" ? choQc?.rows ?? [] : daXuLy?.rows ?? [];
+    const list =
+      tab === "cho-qc" ? choQc?.rows ?? [] : tab === "vi-pham-da-chot" ? viPhamDaChot?.rows ?? [] : daXuLy?.rows ?? [];
     const g = new Map<string, ViPhamRow[]>();
     for (const v of list) {
       if (!g.has(v.case_id)) g.set(v.case_id, []);
       g.get(v.case_id)!.push(v);
     }
     return Array.from(g.entries()).map(([caseId, vs]) => ({ caseId, vs }));
-  }, [tab, choQc, daXuLy]);
+  }, [tab, choQc, daXuLy, viPhamDaChot]);
 
   // "Chờ QC chốt cấp 2"/"Đã xử lý" gioi han hien thi 200 dong gan nhat (xem LIMIT trong
   // backend/src/routes/survey.ts) de tranh doc qua nhieu du lieu moi lan mo tab - "totalCases" la
   // tong so ca THAT SU khop bo loc hien tai (khong bi LIMIT), dung de bao cho nguoi dung biet danh
   // sach dang xem chi la 1 phan, tranh hieu lam "chi co bay nhieu do" (CHOT 2026-09-04).
-  const viPhamTotalCases = tab === "cho-qc" ? choQc?.totalCases : tab === "da-xu-ly" ? daXuLy?.totalCases : null;
+  const viPhamTotalCases =
+    tab === "cho-qc" ? choQc?.totalCases : tab === "vi-pham-da-chot" ? viPhamDaChot?.totalCases : tab === "da-xu-ly" ? daXuLy?.totalCases : null;
   const viPhamListTruncated = typeof viPhamTotalCases === "number" && viPhamTotalCases > groupedViPham.length;
 
   const availableKtvs = useMemo(() => {
@@ -1195,6 +1209,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               { key: "can-khao-sat", label: "Cần gọi", count: counts?.["can-khao-sat"] },
               { key: "qua-han-khao-sat", label: "Quá hạn khảo sát", count: counts?.["qua-han-khao-sat"] },
               { key: "cho-qc", label: "Chờ QC chốt cấp 2", count: counts?.["cho-qc"] },
+              { key: "vi-pham-da-chot", label: "Vi phạm đã chốt", count: counts?.["vi-pham-da-chot"] },
               { key: "da-xu-ly", label: "Đã xử lý xong", count: counts?.["da-xu-ly"] },
               { key: "lich-su-khao-sat", label: "Lịch sử khảo sát" },
             ]}
@@ -1438,8 +1453,45 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               );
             })()}
 
-          {(tab === "cho-qc" || tab === "da-xu-ly") &&
+          {(tab === "cho-qc" || tab === "da-xu-ly" || tab === "vi-pham-da-chot") &&
             (() => {
+              // "Giai trinh cua KTV"/"Giai trinh cua Giam sat"/"Ket qua QC chot" (CHOT 2026-09-11): chi
+              // hien o "cho-qc"/"vi-pham-da-chot" (backend chi tra 4 cot giai_trinh_* o 2 tab nay, xem
+              // giaiTrinhCols trong backend/src/routes/survey.ts) - "da-xu-ly" khong co du lieu nay.
+              const showGiaiTrinhCols = tab === "cho-qc" || tab === "vi-pham-da-chot";
+              const giaiTrinhCol = (field: "ktv" | "gs"): Column<(typeof groupedViPham)[number]> => ({
+                key: `giai_trinh_${field}`,
+                header: field === "ktv" ? "Giải trình của KTV" : "Giải trình của Giám sát",
+                render: ({ vs }) => (
+                  <div className="flex flex-col gap-0.5 max-w-[220px]">
+                    {vs.map((v) => {
+                      const noiDung = field === "ktv" ? v.giai_trinh_ktv_noi_dung : v.giai_trinh_gs_noi_dung;
+                      const ngay = field === "ktv" ? v.giai_trinh_ktv_ngay : v.giai_trinh_gs_ngay;
+                      if (!noiDung) return <span key={v.id} className="text-xs text-[var(--ink-300)] italic">Chưa có</span>;
+                      const rutGon = noiDung.length > 40 ? `${noiDung.slice(0, 40)}…` : noiDung;
+                      return (
+                        <div key={v.id} className="text-xs truncate" title={noiDung}>
+                          {rutGon}
+                          {ngay && <span className="text-[var(--ink-400)]"> ({ngay.slice(0, 10)})</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ),
+              });
+              const ketQuaQcChotCol: Column<(typeof groupedViPham)[number]> = {
+                key: "ket_qua_qc_chot",
+                header: "Kết quả QC chốt",
+                render: ({ vs }) => (
+                  <div className="flex flex-wrap gap-1">
+                    {vs.map((v) => (
+                      <Badge key={v.id} tone={statusTone(v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : "chờ QC")}>
+                        {v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "Đã xác nhận" : "Không vi phạm") : "Chờ QC"}
+                      </Badge>
+                    ))}
+                  </div>
+                ),
+              };
               const columns: Column<(typeof groupedViPham)[number]>[] = [
                 {
                   key: "caseId",
@@ -1478,6 +1530,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   header: "Khu vực",
                   render: ({ vs }) => shortKhuVuc(vs[0].khu_vuc),
                 },
+                ...(showGiaiTrinhCols ? [giaiTrinhCol("ktv"), giaiTrinhCol("gs"), ketQuaQcChotCol] : []),
                 {
                   key: "action",
                   header: "",
@@ -1499,7 +1552,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                         </div>
                       )}
                       {tab === "cho-qc" && !isQC && <span className="text-xs text-[var(--ink-400)] italic">Chờ QC xử lý</span>}
-                      {tab === "da-xu-ly" && (
+                      {(tab === "da-xu-ly" || tab === "vi-pham-da-chot") && (
                         <Btn size="sm" variant="ghost" onClick={() => openCase(caseId, "vi-pham")}>
                           Xem chi tiết
                         </Btn>
