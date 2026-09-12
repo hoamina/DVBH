@@ -984,7 +984,7 @@ tranhChap.get("/tien-trinh", async (c) => {
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT tt.id, tt.case_id, tt.phan_loai_tranh_chap, tt.muc_do, tt.ngay_tao,
-       c.khach_hang, c.khu_vuc, c.nhom_kh,
+       c.khach_hang, c.khu_vuc, c.nhom_kh, c.ly_do_ton_tranh_chap_gan_nhat,
        ll.trang_thai_xu_ly, ll.nguoi_xu_ly, ll.ngay_xu_ly, ll.thoi_gian_du_kien_xong, ll.ghi_chu as log_ghi_chu, ll.dang_cho_nguoi_xu_ly,
        ll.created_at as log_created_at,
        ${TUOI_TIEN_TRINH_EXPR} as so_ngay_ton

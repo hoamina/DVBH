@@ -443,6 +443,12 @@ export function TienTrinhPanel({
                   {log.dang_cho_nguoi_xu_ly && (
                     <div className="text-xs text-[var(--ocean-600)] font-semibold mt-1">→ Đang chờ: {formatPersonDisplay(log.dang_cho_nguoi_xu_ly, personDir)}</div>
                   )}
+                  {log.ly_do_ton_tranh_chap && (
+                    <div className="text-xs mt-1.5">
+                      <span className="text-[var(--ink-400)]">Lý do tồn: </span>
+                      <span className="text-[var(--ink-700)] font-medium">{log.ly_do_ton_tranh_chap}</span>
+                    </div>
+                  )}
                   {(log.ket_qua_xu_ly || log.hai_long_sau_tranh_chap) && (
                     <div className="text-xs mt-1.5 flex gap-1.5 flex-wrap">
                       {log.ket_qua_xu_ly && <Badge tone="ocean">{log.ket_qua_xu_ly}</Badge>}

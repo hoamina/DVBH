@@ -34,6 +34,9 @@ export interface TienTrinhRow {
   khach_hang: string | null;
   khu_vuc: string | null;
   nhom_kh?: string | null;
+  // Cache tren case_dvbh (migration 0107) - ly do o log GAN NHAT cua TOAN BO case (khong chi rieng
+  // tien trinh nay), xem chu thich cot goc trong types.ts CaseRow.
+  ly_do_ton_tranh_chap_gan_nhat: string | null;
   trang_thai_xu_ly: string | null;
   nguoi_xu_ly: string | null;
   ngay_xu_ly: string | null;

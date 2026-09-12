@@ -794,6 +794,11 @@ export function TranhChapModule({
     },
     { key: "nguoi_xu_ly", header: "Người xử lý gần nhất", render: (r) => (r.nguoi_xu_ly ? formatPersonDisplay(r.nguoi_xu_ly, personDir) : "—") },
     {
+      key: "ly_do_ton_tranh_chap_gan_nhat",
+      header: "Lý do tồn tranh chấp gần nhất",
+      render: (r) => (r.ly_do_ton_tranh_chap_gan_nhat ? <span className="text-xs">{r.ly_do_ton_tranh_chap_gan_nhat}</span> : <span className="text-[var(--ink-400)] text-xs italic">—</span>),
+    },
+    {
       key: "dang_cho_nguoi_xu_ly",
       header: "Đang chờ ai?",
       render: (r) => {
