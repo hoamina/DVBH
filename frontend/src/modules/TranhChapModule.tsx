@@ -47,6 +47,11 @@ import {
   type TheoDoiDoiTraDaXacNhanRow,
 } from "../lib/tranhChapShared";
 
+// Gia tri ao cho o chon "thang" dung chung ca module (header) - phai KHOP CHINH XAC voi
+// TRANH_CHAP_CON_TON_FILTER_VALUE ben backend/src/routes/tranhChap.ts (xem chu thich o do ve cach
+// tung endpoint dien giai gia tri nay).
+const TRANH_CHAP_CON_TON_FILTER_VALUE = "__con_ton__";
+
 interface TienTrinhStats {
   dangMo: number;
   giamSatChuaXuLy: number;
@@ -512,12 +517,20 @@ export function TranhChapModule({
   ];
 
   const monthSelectOptions = [
+    { value: TRANH_CHAP_CON_TON_FILTER_VALUE, label: "Các ca tranh chấp, KN còn tồn" },
     ...(monthData?.months.map((m) => ({ value: m, label: m })) ?? []),
   ];
 
   // "thangFilter" dung chung nhieu tab (xem chu thich o "monthControl" ben duoi) - doi thang phai
   // reset ve trang 1 cho MOI tab dang doc truc tiep theo thang (Cho xu ly + Cho xac nhan AI), khong
   // chi tab dang mo, vi nguoi dung co the doi thang roi chuyen tab ma khong load lai trang 1.
+  const isConTonFilter = thangFilter === TRANH_CHAP_CON_TON_FILTER_VALUE;
+  // "bao-cao-khu-vuc" gom ca ca DA xu ly nen khi chon "con ton" se HOP them thang moi nhat (xem backend
+  // TRANH_CHAP_CON_TON_FILTER_VALUE); "tai-khoan-ton" von da CHI gom tien trinh dang mo nen chi can bo
+  // han che thang, khong can hop them gi - 2 the bao cao dung 2 dong nhan khac nhau cho dung ban chat.
+  const thangFilterLabelBaoCao = isConTonFilter ? "Tháng mới nhất + các ca còn tồn" : thangFilter ? `Tháng ${thangFilter}` : "Tất cả thời gian";
+  const thangFilterLabelTaiKhoan = isConTonFilter ? "Các ca còn tồn (mọi thời gian)" : thangFilter ? `Tháng ${thangFilter}` : "Tất cả thời gian";
+
   const handleThangFilterChange = (v: string) => {
     setThangFilter(v);
     setPage(1);
@@ -1029,7 +1042,7 @@ export function TranhChapModule({
             <Card className="p-4">
               <div className="mb-3">
                 <div className="font-display font-bold text-sm">Báo cáo tranh chấp, khiếu nại theo khu vực</div>
-                {thangFilter && <div className="text-xs text-[var(--ink-400)] mt-0.5">Tháng {thangFilter}</div>}
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">{thangFilterLabelBaoCao}</div>
               </div>
               {reportLoading ? (
                 <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải báo cáo...</div>
@@ -1109,11 +1122,7 @@ export function TranhChapModule({
             <Card className="p-4">
               <div className="mb-3">
                 <div className="font-display font-bold text-sm">Thống kê tồn đọng theo nhân sự</div>
-                {thangFilter ? (
-                  <div className="text-xs text-[var(--ink-400)] mt-0.5">Tháng {thangFilter}</div>
-                ) : (
-                  <div className="text-xs text-[var(--ink-400)] mt-0.5">Tất cả thời gian</div>
-                )}
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">{thangFilterLabelTaiKhoan}</div>
               </div>
               {taiKhoanTonLoading ? (
                 <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải thống kê...</div>

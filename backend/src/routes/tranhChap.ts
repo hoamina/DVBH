@@ -64,6 +64,18 @@ function monthBounds(thang: string): { start: string; end: string } {
   return { start, end };
 }
 
+// CHOT 2026-09-12 (phan hoi nguoi dung): gia tri ao cho o chon "thang" dung chung trong Tranh chap,
+// KN (header cua TranhChapModule.tsx) - "Cac ca tranh chap, KN con ton". Voi cac danh sach ban chat
+// CHI gom ca dang cho xu ly (Cho xu ly/Cho xac nhan AI/tai-khoan-ton, tat ca ban ghi deu la "con
+// ton" theo dinh nghia), gia tri nay tuong duong "bo loc thang" (xem cac diem goi rieng ben duoi).
+// Voi bao-cao-khu-vuc (gom CA da xu ly), nguoi dung chot ro: hien thang MOI NHAT (nhu chon thang do
+// binh thuong) HOP voi TOAN BO ca dang con mo (bat ke thang nao) - xem latestMonthBounds().
+const TRANH_CHAP_CON_TON_FILTER_VALUE = "__con_ton__";
+
+function latestMonthBounds(): { start: string; end: string } {
+  return monthBounds(nowVN().slice(0, 7));
+}
+
 // CHOT 2026-08-20: them dieu kien "la_ksnb_doi_tac = 1" - truoc chi liet ke theo vai_tro (Giam sat/
 // TBP DVBH/QC) nen bi THIEU nguoi lam KSNB Doi tac (co la_ksnb_doi_tac nhung vai_tro thuc te la vai
 // tro khac, vd Viewer - xem chu thich scopeTranhChap() dau file) khoi danh sach "Dang cho nguoi xu
@@ -86,9 +98,11 @@ tranhChap.get("/tai-khoan-ton", async (c) => {
   };
 
   const thang = c.req.query("thang");
+  // CON_TON_FILTER_VALUE: bang nay von da CHI gom tien trinh dang mo (tt.dang_mo = 1 ben duoi) - bo
+  // han che thang nghia la hien TOAN BO tien trinh dang mo bat ke thang tao, dung y nghia "con ton".
   let dateClause = "";
   const binds = [...scopeClauseC.binds];
-  if (thang) {
+  if (thang && thang !== TRANH_CHAP_CON_TON_FILTER_VALUE) {
     dateClause = " AND strftime('%Y-%m', tt.ngay_tao) = ?";
     binds.push(thang);
   }
@@ -199,9 +213,11 @@ tranhChap.get("/cho-xu-ly", async (c) => {
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
 
+  // CON_TON_FILTER_VALUE: MOI ban ghi cua danh sach nay von da la "con ton" (chua tung co tien
+  // trinh/dang cho xac nhan), nen tuong duong bo han che thang - xem chu thich hang so o dau file.
   let monthClauseSql = "";
   const monthBinds: unknown[] = [];
-  if (monthParam) {
+  if (monthParam && monthParam !== TRANH_CHAP_CON_TON_FILTER_VALUE) {
     const { start, end } = monthBounds(monthParam);
     monthClauseSql = " AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?";
     monthBinds.push(start, end);
@@ -300,9 +316,11 @@ tranhChap.get("/cho-xac-nhan-ai", async (c) => {
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
 
+  // CON_TON_FILTER_VALUE: moi ban ghi o day von da la "chua xac nhan" (con ton) - xem chu thich
+  // hang so o dau file.
   let monthClauseSql = "";
   const monthBinds: unknown[] = [];
-  if (monthParam) {
+  if (monthParam && monthParam !== TRANH_CHAP_CON_TON_FILTER_VALUE) {
     const { start, end } = monthBounds(monthParam);
     monthClauseSql = " AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?";
     monthBinds.push(start, end);
@@ -586,9 +604,19 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const monthParam = c.req.query("thang");
 
+  // CON_TON_FILTER_VALUE: khac 3 diem goi kia (danh sach von da CHI gom ca con ton), bao cao nay GOM
+  // CA da xu ly nen khong the chi don gian bo han che thang - nguoi dung chot: hien thang MOI NHAT
+  // (nhu chon binh thuong) HOP voi TOAN BO ca dang con mo bat ke thang nao (status khac 4 trang thai
+  // dong trong TRANH_CHAP_TRANG_THAI_DONG, ke ca 'Chua xu ly' - dieu kien "status NOT IN (...)" tu
+  // dong dung vi 'Chua xu ly' khong nam trong danh sach dong).
   let monthClauseSql = "";
   const monthBinds: unknown[] = [];
-  if (monthParam) {
+  if (monthParam === TRANH_CHAP_CON_TON_FILTER_VALUE) {
+    const { start, end } = latestMonthBounds();
+    const dongList = TRANH_CHAP_TRANG_THAI_DONG.map((s) => `'${s}'`).join(", ");
+    monthClauseSql = ` AND ((c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?) OR ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${dongList}))`;
+    monthBinds.push(start, end);
+  } else if (monthParam) {
     const { start, end } = monthBounds(monthParam);
     monthClauseSql = " AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?";
     monthBinds.push(start, end);
