@@ -343,12 +343,14 @@ export function TranhChapModule({
   const xacNhanDoiTra = useMutation({
     mutationFn: ({ id, ketQua }: { id: string; ketQua: "dung" | "khong_phai" }) => api.post(`/tranh-chap/${encodeURIComponent(id)}/xac-nhan-doi-tra`, { ket_qua: ketQua }),
     onSuccess: (_data, variables) => {
-      addToast(variables.ketQua === "dung" ? "Đã xác nhận theo dõi đổi trả — vào chi tiết ca để \"Tiếp nhận\" xử lý như khiếu nại bình thường." : "Đã bỏ qua ca này.");
+      addToast(variables.ketQua === "dung" ? "Đã xác nhận: Đúng là đổi trả — ca sẽ chuyển sang \"Chờ xử lý\"." : "Đã bỏ qua ca này.");
       setConfirmingDoiTraCase(null);
       qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-cho-danh-gia"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-count"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-thang-list"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-da-xac-nhan"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly-badge"] });
     },
     onError: (err) => {
       addToast(describeTranhChapError(err, "Không thể xác nhận, thử lại sau."));
@@ -908,7 +910,7 @@ export function TranhChapModule({
       {view === "cho-xu-ly" ? (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Ca có <b>"Nghi ngờ tranh chấp"</b> (điền bởi CRM khi đóng ca) nhưng <b>chưa từng tạo tiến trình xử lý</b>. Sắp theo số ngày chờ giảm dần — ưu tiên xử lý ca chờ lâu nhất.
+            Ca có <b>"Nghi ngờ tranh chấp"</b> (điền bởi CRM khi đóng ca) hoặc <b>đã xác nhận thuộc diện "Theo dõi đổi trả"</b>, nhưng <b>chưa từng tạo tiến trình xử lý</b>. Sắp theo số ngày chờ giảm dần — ưu tiên xử lý ca chờ lâu nhất.
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={khuVucFilter} onChange={(v) => { setKhuVucFilter(v); setPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
@@ -1401,7 +1403,7 @@ export function TranhChapModule({
       ) : view === "theo-doi-doi-tra" ? (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Ca có <b>"Loại yêu cầu"</b> và <b>"Lưu ý lỗi linh kiện"</b> khớp danh mục đổi trả/đổi máy trong Cài đặt (tự động tính khi import). Bấm <b>"Xác nhận đổi trả"</b> rồi vào chi tiết ca bấm <b>"Tiếp nhận"</b> để xử lý như 1 khiếu nại bình thường, hoặc <b>"Bỏ qua"</b> để loại bỏ vĩnh viễn.
+            Ca có <b>"Loại yêu cầu"</b> và <b>"Lưu ý lỗi linh kiện"</b> khớp danh mục đổi trả/đổi máy trong Cài đặt (tự động tính khi import). Bấm <b>"Xác nhận đổi trả"</b> để chuyển ca sang <b>"Chờ xử lý"</b> xử lý như 1 khiếu nại bình thường, hoặc <b>"Bỏ qua"</b> để loại bỏ vĩnh viễn.
           </div>
           <div className="flex items-center gap-2 mb-4">
             <Btn size="sm" variant={ddSubView === "cho-danh-gia" ? "primary" : "ghost"} onClick={() => setDdSubView("cho-danh-gia")}>
@@ -1451,7 +1453,7 @@ export function TranhChapModule({
                   <div className="space-y-4">
                     <div className="text-sm text-[var(--ink-700)]">
                       {confirmingDoiTraCase.ketQua === "dung"
-                        ? `Ca ${confirmingDoiTraCase.id} sẽ được xác nhận thuộc diện theo dõi đổi trả và chuyển sang bảng "Đã xác nhận" — vào chi tiết ca để bấm "Tiếp nhận" xử lý như 1 khiếu nại bình thường.`
+                        ? `Ca ${confirmingDoiTraCase.id} sẽ được xác nhận thuộc diện theo dõi đổi trả, hiện trong bảng "Đã xác nhận" của tab này, và chuyển sang danh sách "Chờ xử lý" để xử lý như 1 khiếu nại bình thường.`
                         : `Ca ${confirmingDoiTraCase.id} sẽ bị loại vĩnh viễn khỏi danh sách chờ đánh giá — không thể hoàn tác.`}
                     </div>
                     <div className="flex justify-end gap-2">

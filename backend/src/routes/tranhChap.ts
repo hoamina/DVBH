@@ -228,7 +228,14 @@ tranhChap.get("/cho-xu-ly", async (c) => {
   // khac phan con lai cua danh sach nay la ca CHUA TUNG co tien trinh nao) - fix mismatch phat hien
   // thuc te: bao-cao-khu-vuc.count_chua_xu_ly da cong nhom ca nay vao nhung danh sach chi tiet o day
   // (cung tab "Cho xu ly") lai khong hien, gay lech so lieu StatCard vs bang chi tiet.
-  const baseWhereSql = `(${TRANH_CHAP_ELIGIBLE} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${IS_GQKN_DAY_LAI_GS_EXPR})${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
+  // SUA BUG (phan hoi nguoi dung 2026-09-12): ca DA XAC NHAN o tab "Theo doi doi tra"
+  // (THEO_DOI_DOI_TRA_DA_XAC_NHAN, theo_doi_doi_tra=1) truoc day KHONG rot vao day - chi nam im trong
+  // bang "Da xac nhan" cua tab do, khong ai thay de bam "Tiep nhan" (phai tu mo dung case do qua o
+  // tim ID). Gom vao chung "Cho xu ly" (dieu kien "chua tung co tien trinh" giong het TRANH_CHAP_
+  // ELIGIBLE) de xu ly nhu 1 khieu nai binh thuong qua 1 hang doi duy nhat - KHONG dong bo voi
+  // nghi_ngo_tranh_chap (2 co dam bao doc lap, tranh anh huong bao cao/thong ke dang doc rieng
+  // nghi_ngo_tranh_chap).
+  const baseWhereSql = `(${TRANH_CHAP_ELIGIBLE} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${THEO_DOI_DOI_TRA_DA_XAC_NHAN} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${IS_GQKN_DAY_LAI_GS_EXPR})${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
   const listWhereSql = `${baseWhereSql}${minDaysClauseSql}${idClauseSql}`;
   const binds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...nhomKhClause.binds, ...monthBinds];
   const listBinds = [...binds, ...idBinds];
@@ -390,9 +397,11 @@ tranhChap.post("/:caseId/xac-nhan-ai", async (c) => {
 // "Theo doi doi tra" (tab moi, CHOT 2026-09-03) - case_dvbh.theo_doi_doi_tra tinh TU DONG tai import
 // (xem lib/theoDoiDoiTra.ts + migration 0104), KHONG can dieu kien "da dong" nao khac (khac
 // TRANH_CHAP_ELIGIBLE/TRANH_CHAP_AI_CHO_XAC_NHAN o tren - chi dung dung 2 dieu kien nguoi dung yeu
-// cau). Sau khi xac nhan "dung" (-> 1), case hien trong bang "Da xac nhan" cua tab nay va van dung
-// NGUYEN quy trinh "Tiep nhan" hien co (POST /:caseId/tiep-nhan, khong rang buoc nghi_ngo_tranh_chap)
-// de tao tien trinh xu ly - KHONG tao duong rieng, dung y nghia "xu ly nhu 1 khieu nai binh thuong".
+// cau). Sau khi xac nhan "dung" (-> 1), case hien trong bang "Da xac nhan" cua tab nay VA (CHOT
+// 2026-09-12, phan hoi nguoi dung: ca bi "mat tich" khong ai thay de xu ly) rot vao chung danh sach
+// "Cho xu ly" (xem THEO_DOI_DOI_TRA_DA_XAC_NHAN trong baseWhereSql cua GET /cho-xu-ly) neu chua tung
+// co tien trinh - van dung NGUYEN quy trinh "Tiep nhan" hien co (POST /:caseId/tiep-nhan, khong rang
+// buoc nghi_ngo_tranh_chap) de tao tien trinh xu ly, dung y nghia "xu ly nhu 1 khieu nai binh thuong".
 // ============================================================
 const THEO_DOI_DOI_TRA_CHO_DANH_GIA = `c.theo_doi_doi_tra = 2`;
 const THEO_DOI_DOI_TRA_DA_XAC_NHAN = `c.theo_doi_doi_tra = 1`;
