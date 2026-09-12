@@ -451,6 +451,27 @@ vipham, DVBH sẽ chỉ hiển thị link chết, không có bản sao dự phò
 
 Tối đa **200 dòng/lần gọi** (vượt quá → `400 { "error": "TOO_MANY_ROWS" }`).
 
+**Quan trọng — nguyên tắc gọi API này, tránh trùng lặp dữ liệu:**
+- Mỗi lần gọi **luôn tạo thêm 1 dòng lịch sử giải trình MỚI** trong DVBH — endpoint này **không kiểm
+  tra trùng lặp và không ghi đè** lên dòng đã gửi trước đó cho cùng `vi_pham_id`, dù nội dung giống
+  hệt nhau. Dòng lịch sử này hiển thị trực tiếp trong màn hình "Chi tiết ca" (tab Vi phạm) mà
+  Giám sát/QC xem để ra quyết định, nên **gọi lại nhiều lần cho cùng 1 lượt giải trình sẽ khiến DVBH
+  hiển thị nhiều dòng giống hệt nhau**, gây khó đọc và có thể khiến người xem hiểu nhầm là KTV giải
+  trình nhiều lần khác nhau.
+- **Chỉ gọi endpoint này khi có 1 lượt giải trình thực sự mới hoặc đã chỉnh sửa nội dung** — không
+  gọi định kỳ để đồng bộ lại toàn bộ trạng thái hiện có của các `vi_pham_id` đã từng gửi trước đó
+  (khác với mô hình "đồng bộ toàn bộ, ghi đè" của `/sync/ktv`/`/sync/linh-kien` ở mục 8 — 2 endpoint
+  đó là bảng danh mục dùng để ghi đè, còn đây là **nhật ký từng lượt giải trình**, không phải trạng
+  thái hiện tại).
+- Nếu KTV **chỉnh sửa/bổ sung** một giải trình đã gửi trước đó, xem đây là 1 lượt giải trình MỚI và
+  gọi lại với nội dung mới — DVBH sẽ hiển thị thành 1 dòng lịch sử tiếp theo (không ghi đè dòng cũ),
+  đây là hành vi có chủ đích để giữ đầy đủ lịch sử, không phải lỗi.
+- Nếu cần **retry do lỗi mạng/timeout**: chỉ retry khi *chắc chắn* lần gọi trước đó chưa nhận được
+  phản hồi thành công (`ok: true` trong `results[]`) — không nên retry "cho chắc" mà không kiểm tra
+  kết quả lần gọi trước, vì DVBH không có cơ chế phát hiện/loại bỏ các lần gọi trùng.
+- DVBH hiện **chưa** có cơ chế chống trùng ở phía nhận (có thể bổ sung sau nếu phát sinh vấn đề thực
+  tế) — trách nhiệm gọi đúng 1 lần cho mỗi lượt giải trình thực sự thuộc về hệ vipham.
+
 **Response** (HTTP 200 nếu xác thực hợp lệ — lỗi được báo theo TỪNG dòng, không chặn cả batch):
 ```json
 { "results": [

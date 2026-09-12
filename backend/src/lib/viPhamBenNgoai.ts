@@ -47,6 +47,23 @@ export interface ViPhamCapNhatGiaiTrinhPayload extends ViPhamNotifyBase {
 
 export type ViPhamNotifyPayload = ViPhamNghiNgoMoiPayload | ViPhamCapNhatQcChotPayload | ViPhamCapNhatGiaiTrinhPayload;
 
+// Ghi vet MOI lan push (thanh cong lan that bai) vao vi_pham_push_log (migration 0109) - CHI de
+// giam sat/doi soat sau nay (chua co canh bao/report tu dong doc bang nay), KHONG doi hanh vi
+// fire-and-forget hien co (van khong retry, van khong chan luong chinh) - ban than viec ghi log
+// nay cung khong duoc phep nem loi lam vo luong chinh nen tu bao boc catch rieng.
+async function logPush(env: Env, payload: ViPhamNotifyPayload, ok: boolean, httpStatus: number | null, error: string | null) {
+  try {
+    await env.DB.prepare(
+      `INSERT INTO vi_pham_push_log (vi_pham_id, case_id, loai_su_kien, nguon_cap_nhat, ok, http_status, error)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(payload.vi_pham_id, payload.case_id, payload.loai_su_kien, "nguon_cap_nhat" in payload ? payload.nguon_cap_nhat : null, ok ? 1 : 0, httpStatus, error)
+      .run();
+  } catch (err) {
+    console.error(`[pushViPhamToVipham] ghi vi_pham_push_log that bai:`, err);
+  }
+}
+
 export async function pushViPhamToVipham(env: Env, payload: ViPhamNotifyPayload): Promise<void> {
   if (!env.VIPHAM_APP_URL || !env.VIPHAM_APP_API_KEY || !env.VIPHAM_APP) return;
   try {
@@ -64,11 +81,15 @@ export async function pushViPhamToVipham(env: Env, payload: ViPhamNotifyPayload)
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[pushViPhamToVipham] ${payload.loai_su_kien} vi_pham_id=${payload.vi_pham_id} tra loi ${res.status}: ${text.slice(0, 300)}`);
+      await logPush(env, payload, false, res.status, text.slice(0, 500));
+    } else {
+      await logPush(env, payload, true, res.status, null);
     }
   } catch (err) {
     // Khong duoc phep lam vo luong chinh (xem chu thich dau file) - NHUNG phai log lai de con debug,
     // truoc day catch rong nuot loi hoan toan khien 1042 (hoac bat ky loi nao khac) khong the phat
     // hien duoc tu ben ngoai (bai hoc tu vu "vi pham khong bao sang vipham" 2026-09-11).
     console.error(`[pushViPhamToVipham] ${payload.loai_su_kien} vi_pham_id=${payload.vi_pham_id} loi:`, err);
+    await logPush(env, payload, false, null, String(err).slice(0, 500));
   }
 }
