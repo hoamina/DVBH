@@ -1305,10 +1305,12 @@ export function CaseDetail({
                 const giaiTrinhGs = giaiTrinhCuaLoiNay.filter((g) => g.nguon !== "ktv_qua_api");
                 const renderGiaiTrinhRow = (g: ViPhamGiaiTrinhRow) => {
                   const anh = g.anh_urls ? (JSON.parse(g.anh_urls) as string[]) : [];
-                  // GS nhap thay khong con chon "giai trinh thay cho ai" nua (khong bat buoc phai biet
-                  // dung ten KTV) - hien ten nguoi THUC SU nhap (nguoi_nhap, tu session) thay the khi
-                  // thieu nguoi_giai_trinh, thay vi de trong "—".
-                  const tenHienThi = g.nguoi_giai_trinh || (g.nguoi_nhap ? formatPersonDisplay(g.nguoi_nhap, personDir) : "—");
+                  // nguoi_giai_trinh gio la GS (backend mac dinh = user.email khi GS bo trong, xem
+                  // routes/viPham.ts) - phai chay qua formatPersonDisplay nhu moi truong email khac
+                  // trong app de ra "Ten (email)" thay vi hien email tho. Voi dong "ktv_qua_api"
+                  // (chuoi hien thi co san tu vipham app, khong phai email) formatPersonDisplay khong
+                  // khop dir nao nen tra nguyen chuoi goc, an toan.
+                  const tenHienThi = formatPersonDisplay(g.nguoi_giai_trinh || g.nguoi_nhap, personDir);
                   return (
                     <div key={g.id} className="text-xs bg-slate-50 rounded-lg p-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
