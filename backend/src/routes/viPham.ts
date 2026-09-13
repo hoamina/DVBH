@@ -398,6 +398,77 @@ viPham.get("/leaderboard", async (c) => {
   return c.json(payload);
 });
 
+// POST /api/vi-pham/backfill-push-vipham?from=YYYY-MM-DD HH:MM:SS&limit=200 - chi Admin, chay THU
+// CONG (yeu cau 2026-09-13: bao lai toan bo vi pham ghi nhan tu 0h 1/9 sang vipham app, phong khi
+// mot so lan push truoc day that bai/chua co binding luc do). CHI bao lai su kien "nghi_ngo_moi" (ban
+// ghi goc) - khop dieu kien push that o routes/survey.ts POST /calls (bo qua ket_qua_cap_1 = 'Khong
+// loi', vi ban goc cung khong push cho truong hop nay). Idempotent 2 lop: (1) query loai tru cac
+// vi_pham DA co it nhat 1 lan push "nghi_ngo_moi" thanh cong trong vi_pham_push_log (migration 0109)
+// nen goi lai an toan, moi lan chi con xu ly phan con thieu - dung "remaining" de biet con hay het
+// giong backfill-crm-hash; (2) phia nhan (vipham app, xem handleNghiNgoMoi trong nhanViPham.ts) tu no
+// dung INSERT OR IGNORE khoa theo vi_pham_id nen du co goi trung (vd 2 lan cung 1 dot backfill) cung
+// khong tao dong trung/khong gui thong bao KTV lap lai - AN TOAN de goi lai nhieu lan.
+viPham.post("/backfill-push-vipham", requireRole("Admin"), async (c) => {
+  const from = c.req.query("from") || "2026-09-01 00:00:00";
+  const limitParam = Number(c.req.query("limit"));
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 200;
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT v.id, v.case_id, v.loai_loi, v.ket_qua_cap_1, v.nguoi_ghi_nhan, v.ngay_ghi_nhan,
+            cd.khach_hang, cd.khu_vuc, cd.ky_thuat_vien, cd.seri_san_pham
+     FROM vi_pham v
+     JOIN case_dvbh cd ON cd.id = v.case_id
+     WHERE v.ngay_ghi_nhan >= ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'
+       AND NOT EXISTS (
+         SELECT 1 FROM vi_pham_push_log pl
+         WHERE pl.vi_pham_id = v.id AND pl.loai_su_kien = 'nghi_ngo_moi' AND pl.ok = 1
+       )
+     ORDER BY v.id LIMIT ?`,
+  )
+    .bind(from, limit)
+    .all<{
+      id: string;
+      case_id: string;
+      loai_loi: string;
+      ket_qua_cap_1: string;
+      nguoi_ghi_nhan: string;
+      ngay_ghi_nhan: string;
+      khach_hang: string | null;
+      khu_vuc: string | null;
+      ky_thuat_vien: string | null;
+      seri_san_pham: string | null;
+    }>();
+
+  for (const row of results) {
+    await pushViPhamToVipham(c.env, {
+      loai_su_kien: "nghi_ngo_moi",
+      vi_pham_id: row.id,
+      case_id: row.case_id,
+      loai_loi: row.loai_loi,
+      ket_qua_cap_1: row.ket_qua_cap_1,
+      khach_hang: row.khach_hang,
+      khu_vuc: row.khu_vuc,
+      ky_thuat_vien: row.ky_thuat_vien,
+      seri_san_pham: row.seri_san_pham,
+      ngay_ghi_nhan: row.ngay_ghi_nhan,
+      nguoi_ghi_nhan: row.nguoi_ghi_nhan,
+    });
+  }
+
+  const remainingRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM vi_pham v
+     WHERE v.ngay_ghi_nhan >= ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'
+       AND NOT EXISTS (
+         SELECT 1 FROM vi_pham_push_log pl
+         WHERE pl.vi_pham_id = v.id AND pl.loai_su_kien = 'nghi_ngo_moi' AND pl.ok = 1
+       )`,
+  )
+    .bind(from)
+    .first<{ n: number }>();
+
+  return c.json({ processed: results.length, remaining: remainingRow?.n ?? 0 });
+});
+
 // PATCH /api/vi-pham/:id/cap2 - QC chot/bo vi pham cap 2 (final)
 viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
   const id = c.req.param("id")!;
