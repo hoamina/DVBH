@@ -186,8 +186,8 @@ Nam (UTC+7)** dạng text
 |---|---|---|---|
 | 401 | `MISSING_API_KEY` | Thiếu header `X-API-Key` | Kiểm tra lại cấu hình gửi header |
 | 401 | `INVALID_API_KEY` | Key sai hoặc đã bị thu hồi/vô hiệu hóa | Liên hệ bên vận hành để cấp lại/kiểm tra trạng thái key — **không retry liên tục**, key sai sẽ luôn sai |
-| 429 | `TOO_MANY_REQUESTS_IP` | Vượt giới hạn 60 request/phút tính theo địa chỉ IP gọi đến | Giãn tần suất gọi, xem mục 5 |
-| 429 | `TOO_MANY_REQUESTS_KEY` | Vượt giới hạn 200 request/phút tính theo API key | Giãn tần suất gọi, xem mục 5 |
+| 429 | `TOO_MANY_REQUESTS_IP` | IP gọi đến đang gửi liên tục request thiếu/sai `X-API-Key` (không phải do gọi nhiều với key hợp lệ) | Kiểm tra lại header `X-API-Key` đang gửi đúng key chưa |
+| 429 | `TOO_MANY_REQUESTS_KEY` | Vượt giới hạn request/phút tính theo API key (xem mục 5 — số cụ thể khác nhau theo endpoint) | Giãn tần suất gọi, xem mục 5 |
 
 Response lỗi có dạng `{ "error": "<MA_LOI>" }`. Không có case "case tồn tại nhưng không có quyền
 xem" — như đã nêu ở mục 3.1, mọi trường hợp không hợp lệ về ID đều trả `found: false` với HTTP 200,
@@ -195,12 +195,18 @@ không phải lỗi.
 
 ## 5. Giới hạn tần suất (rate limit)
 
-Có 2 lớp giới hạn độc lập, áp dụng đồng thời:
+Từ 2026-09-13, giới hạn tần suất tính **theo API key** (không còn giới hạn chung theo IP nguồn nữa —
+trước đây có, nhưng vì các hệ đối tác thường gọi sang từ Worker/server dùng chung IP egress xoay
+vòng của nhà cung cấp hạ tầng, giới hạn theo IP dễ ảnh hưởng nhầm nhiều tài khoản/dịch vụ dùng chung
+hạ tầng đó dù mỗi bên đều gọi hợp lệ):
 
-1. **Theo IP nguồn**: tối đa 60 request/phút cho mỗi địa chỉ IP gọi đến (tính theo cửa sổ trượt 60
-   giây). Nếu nhiều dịch vụ/đối tác khác cùng đi qua 1 IP (NAT/proxy dùng chung), giới hạn này tính
-   gộp.
-2. **Theo API key**: tối đa 200 request/phút cho mỗi key, không phụ thuộc IP gọi từ đâu.
+1. **Theo API key** (giới hạn chính, áp dụng cho request có key hợp lệ):
+   - `case-lookup`: tối đa 200 request/phút cho mỗi key.
+   - `sync/ktv`, `sync/linh-kien`, `sync/giai-trinh-vi-pham`: tối đa 20 request/phút cho mỗi key.
+2. **Theo IP, chỉ áp dụng cho request thiếu/sai key**: nếu 1 IP gửi liên tục request không có
+   `X-API-Key` hoặc key sai/đã bị thu hồi (quá ~30 lần/phút), IP đó tạm thời bị chặn ở tầng edge
+   trong khoảng 1 phút — cơ chế này không ảnh hưởng gì đến request có key hợp lệ, kể cả khi nhiều
+   tài khoản/dịch vụ khác nhau cùng dùng chung 1 địa chỉ IP gọi đến.
 
 **Khuyến nghị thiết kế phía đối tác**:
 - Nếu tra cứu theo hành vi gõ phím của người dùng (KTV gõ mã case), nên **debounce tối thiểu
@@ -237,8 +243,9 @@ Response mẫu (không tìm thấy):
 
 Khác với `case-lookup` (chỉ đọc, dùng chung cho nhiều đối tác), 2 endpoint dưới đây **ghi đè dữ
 liệu** và chỉ dành riêng cho hệ "Đặt mua linh kiện" — dùng key riêng, không dùng chung key với
-`case-lookup`. Cùng auth (`X-API-Key`) và cùng giới hạn IP 60 req/phút như mục 5.1, không có giới
-hạn riêng theo key (tần suất gọi thấp — cron 1h/lần + bấm tay).
+`case-lookup`. Cùng auth (`X-API-Key`), giới hạn 20 request/phút theo key (xem mục 5 — tần suất gọi
+thật sự thấp hơn nhiều, cron 1h/lần + bấm tay, nên ngưỡng này chỉ để chặn trường hợp key bị lộ/lỗi
+vòng lặp gọi liên tục).
 
 ### 8.1. `POST /api/partner/sync/ktv`
 
@@ -493,7 +500,7 @@ Mã lỗi ở mức toàn request (không phải từng dòng), giống mục 4:
 | 401 | `INVALID_API_KEY` | Key sai hoặc đã bị thu hồi |
 | 400 | `INVALID_BODY` | `rows` không phải mảng |
 | 400 | `TOO_MANY_ROWS` | Gửi quá 200 dòng/lần |
-| 429 | `TOO_MANY_REQUESTS_IP` | Vượt 60 request/phút theo IP — xem mục 5 |
+| 429 | `TOO_MANY_REQUESTS_KEY` | Vượt 20 request/phút theo key — xem mục 5 |
 
 Ví dụ gọi:
 ```bash

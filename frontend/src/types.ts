@@ -150,6 +150,15 @@ export interface ViPhamGiaiTrinhRow {
   created_at: string;
 }
 
+// Nhat ky day tin (chieu DVBH -> he "vipham") cho 1 vi_pham.id, chi loc san "nghi_ngo_moi" tu BE
+// (xem migration 0109_vi_pham_push_log.sql + lib/viPhamBenNgoai.ts). Dung de tick "da day sang app
+// vi pham" tren tung loi trong tab Vi pham - ok=1 la day thanh cong, khong co dong nao nghia la chua
+// tung day (thieu Service Binding/URL/key, hoac vi pham nay tao truoc khi co bang nay).
+export interface ViPhamPushLogRow {
+  vi_pham_id: string;
+  ok: number;
+}
+
 export interface KetQuaGoiRow {
   id: string;
   case_id: string;

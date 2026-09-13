@@ -56,6 +56,7 @@ import {
   type LinhKienRow,
   type ViPhamRow,
   type ViPhamGiaiTrinhRow,
+  type ViPhamPushLogRow,
   type CaLapDetection,
   type NapGasDanhGiaRow,
   type KetQuaGoiRow,
@@ -70,6 +71,7 @@ interface CaseDetailResponse {
   ketQuaGoi: KetQuaGoiRow[];
   viPham: ViPhamRow[];
   viPhamGiaiTrinh: ViPhamGiaiTrinhRow[];
+  viPhamPushLog: ViPhamPushLogRow[];
   caLap: CaLapDetection;
   napGasDanhGia: NapGasDanhGiaRow | null;
   bienBanHop: BienBanHopRow[];
@@ -627,6 +629,8 @@ export function CaseDetail({
 
   const viPhamList = data?.viPham ?? [];
   const viPhamGiaiTrinhList = data?.viPhamGiaiTrinh ?? [];
+  const viPhamPushLogList = data?.viPhamPushLog ?? [];
+  const daDayViPham = (viPhamId: string) => viPhamPushLogList.some((p) => p.vi_pham_id === viPhamId && p.ok);
   const ketQuaGoiList = data?.ketQuaGoi ?? [];
 
   const napGasDanhGia = data?.napGasDanhGia ?? null;
@@ -743,6 +747,21 @@ export function CaseDetail({
           jumpTab: "vi-pham",
         });
       }
+    }
+
+    // Giai trinh vi pham (migration 0108) - moi dong (KTV qua app ngoai HOAC Giam sat nhap tay thay)
+    // cung la 1 moc rieng trong "Tien trinh chung", khong chi nam trong tab "Vi pham" - phan biet
+    // nguon ngay tu typeLabel giong cach lam voi cac nhom con lai trong bang nay.
+    for (const g of viPhamGiaiTrinhList) {
+      pushDb({
+        key: `vp-gt-${g.id}`,
+        rawTs: g.ngay_giai_trinh,
+        tone: "coral",
+        typeLabel: g.nguon === "ktv_qua_api" ? "Vi phạm giải trình (KTV qua API)" : "Vi phạm giải trình (Giám sát nhập tay)",
+        actor: g.nguoi_giai_trinh,
+        summary: g.noi_dung_giai_trinh ?? "—",
+        jumpTab: "vi-pham",
+      });
     }
 
     for (const k of ketQuaGoiList) {
@@ -1260,60 +1279,88 @@ export function CaseDetail({
       <div className="space-y-3">
         {viPhamList.map((v) => {
           const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : v.ket_qua_cap_1 ? "chờ QC" : "Nghi ngờ";
+          const daDay = daDayViPham(v.id);
           return (
             <Card key={v.id} className="p-3">
               <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
                 <span className="font-semibold text-sm">{LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi}</span>
-                <Badge tone={statusTone(trangThai)}>{trangThai}</Badge>
+                <div className="flex items-center gap-1.5">
+                  {daDay && (
+                    <span title="Đã đẩy sang app vi phạm" className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--teal-600)]">
+                      ✓ Đã đẩy sang app vi phạm
+                    </span>
+                  )}
+                  <Badge tone={statusTone(trangThai)}>{trangThai}</Badge>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
                 <Field label="Kết quả cấp 1" value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
                 <Field label="Người ghi nhận" value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
                 <Field label="Ngày ghi nhận" value={fmtDateTime(v.ngay_ghi_nhan)} />
-                {v.chot_bo_cap_2 !== null && (
-                  <>
-                    <Field label="Người chốt cấp 2" value={v.nguoi_chot ? formatPersonDisplay(v.nguoi_chot, personDir) : "—"} />
-                    <Field label="Ngày chốt cấp 2" value={fmtDateTime(v.ngay_chot)} />
-                  </>
-                )}
               </div>
               {(() => {
                 const giaiTrinhCuaLoiNay = viPhamGiaiTrinhList.filter((g) => g.vi_pham_id === v.id);
-                return (
-                  <div className="mt-2 pt-2 border-t border-[var(--line)]">
-                    {giaiTrinhCuaLoiNay.length === 0 ? (
-                      <div className="text-xs text-[var(--ink-400)] italic mb-1.5">Chưa có giải trình.</div>
-                    ) : (
-                      <div className="space-y-1.5 mb-1.5">
-                        {giaiTrinhCuaLoiNay.map((g) => {
-                          const anh = g.anh_urls ? (JSON.parse(g.anh_urls) as string[]) : [];
-                          return (
-                            <div key={g.id} className="text-xs bg-slate-50 rounded-lg p-2">
-                              <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
-                                <span className="font-semibold">{g.nguoi_giai_trinh || "—"}</span>
-                                <Badge tone={g.nguon === "ktv_qua_api" ? "ocean" : "gray"}>{g.nguon === "ktv_qua_api" ? "Qua API" : "Giám sát nhập tay"}</Badge>
-                                <span className="text-[var(--ink-400)]">{fmtDate(g.ngay_giai_trinh)}</span>
-                              </div>
-                              {g.noi_dung_giai_trinh && <div className="text-[var(--ink-600)]">{g.noi_dung_giai_trinh}</div>}
-                              {g.ghi_chu && <div className="text-[var(--ink-400)] italic">{g.ghi_chu}</div>}
-                              {anh.length > 0 && (
-                                <div className="flex gap-1.5 mt-1 flex-wrap">
-                                  {anh.map((url, i) => (
-                                    <a key={i} href={url} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline">
-                                      Ảnh {i + 1}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                const giaiTrinhKtv = giaiTrinhCuaLoiNay.filter((g) => g.nguon === "ktv_qua_api");
+                const giaiTrinhGs = giaiTrinhCuaLoiNay.filter((g) => g.nguon !== "ktv_qua_api");
+                const renderGiaiTrinhRow = (g: ViPhamGiaiTrinhRow) => {
+                  const anh = g.anh_urls ? (JSON.parse(g.anh_urls) as string[]) : [];
+                  return (
+                    <div key={g.id} className="text-xs bg-slate-50 rounded-lg p-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
+                        <span className="font-semibold">{g.nguoi_giai_trinh || "—"}</span>
+                        <span className="text-[var(--ink-400)]">{fmtDate(g.ngay_giai_trinh)}</span>
                       </div>
+                      {g.noi_dung_giai_trinh && <div className="text-[var(--ink-600)]">{g.noi_dung_giai_trinh}</div>}
+                      {g.ghi_chu && <div className="text-[var(--ink-400)] italic">{g.ghi_chu}</div>}
+                      {anh.length > 0 && (
+                        <div className="flex gap-1.5 mt-1 flex-wrap">
+                          {anh.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline">
+                              Ảnh {i + 1}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                };
+                return (
+                  <div className="mt-2 pt-2 border-t border-[var(--line)] space-y-2">
+                    {giaiTrinhCuaLoiNay.length === 0 ? (
+                      <div className="text-xs text-[var(--ink-400)] italic">Chưa có giải trình.</div>
+                    ) : (
+                      <>
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Badge tone="ocean">Giải trình của KTV</Badge>
+                          </div>
+                          {giaiTrinhKtv.length === 0 ? (
+                            <div className="text-xs text-[var(--ink-400)] italic">Chưa có.</div>
+                          ) : (
+                            <div className="space-y-1.5">{giaiTrinhKtv.map(renderGiaiTrinhRow)}</div>
+                          )}
+                        </div>
+                        {giaiTrinhGs.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Badge tone="gray">Giải trình của giám sát</Badge>
+                            </div>
+                            <div className="space-y-1.5">{giaiTrinhGs.map(renderGiaiTrinhRow)}</div>
+                          </div>
+                        )}
+                      </>
                     )}
                     {canGiaiTrinhViPham && (
                       <Btn size="sm" variant="ghost" onClick={() => openViPhamGiaiTrinhModal(v.id)}>
                         Giải trình thay
                       </Btn>
+                    )}
+                    {v.chot_bo_cap_2 !== null && (
+                      <div className="pt-2 border-t border-[var(--line)] grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+                        <Field label="Chốt lỗi của QC" value={v.chot_bo_cap_2 ? "Đã xác nhận vi phạm" : "Không vi phạm"} />
+                        <Field label="Người chốt cấp 2" value={v.nguoi_chot ? formatPersonDisplay(v.nguoi_chot, personDir) : "—"} />
+                        <Field label="Ngày chốt cấp 2" value={fmtDateTime(v.ngay_chot)} />
+                      </div>
                     )}
                   </div>
                 );

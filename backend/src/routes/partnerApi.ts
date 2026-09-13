@@ -1,7 +1,14 @@
 import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
-import { findActivePartnerKey, checkRateLimit, logPartnerApiCall } from "../lib/partnerApiAuth";
+import {
+  findActivePartnerKey,
+  checkRateLimit,
+  logPartnerApiCall,
+  isIpBadAuthBlocked,
+  recordBadAuth,
+  checkPerKeyRateLimit,
+} from "../lib/partnerApiAuth";
 import { buildPartnerExcel, type PartnerCaseRow, type GiaiTrinhHistoryRow } from "../lib/partnerExcel";
 import { processKtvImportRows, type KtvImportRow } from "./settings";
 import { computeAndStoreHash } from "../lib/contentHash";
@@ -32,60 +39,52 @@ import { nowVN } from "../lib/vnTime";
  */
 const partnerApi = new Hono<{ Bindings: Env }>();
 
-// IP rate limit & API Key validity caching bang Cache API (giúp chặn DDoS/DoS miễn phí không tốn D1)
+// Khong con gioi han "N request/phut/IP" ap dung CHUNG cho moi request nua (xem giai thich
+// 2026-09-13 o dau lib/partnerApiAuth.ts) - cac he doc lap goi sang tu Worker khac dung chung IP
+// egress xoay vong cua Cloudflare, gioi han theo IP kieu do vua khong dung muc tieu vua de bop nham
+// ~300-400 tai khoan dung chung. Chi con chan theo IP khi request THIEU/SAI key (isIpBadAuthBlocked)
+// - dung muc tieu that su la chan flood key rac gay ton D1, khong anh huong key hop le.
 partnerApi.use("*", async (c, next) => {
-  const cache = caches.default;
   const ip = c.req.header("CF-Connecting-IP") || "local-ip";
-  const ipCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-ip-limit/${encodeURIComponent(ip)}`);
-
-  const cachedIp = await cache.match(ipCacheKey);
-  if (cachedIp) {
-    const data = (await cachedIp.json()) as { count: number; exp: number };
-    if (data.count > 60) {
-      return c.json({ error: "TOO_MANY_REQUESTS_IP" }, 429);
-    }
-    data.count++;
-    c.executionCtx.waitUntil(
-      cache.put(
-        ipCacheKey,
-        new Response(JSON.stringify(data), {
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": `max-age=${Math.max(1, Math.round((data.exp - Date.now()) / 1000))}`,
-          },
-        })
-      )
-    );
-  } else {
-    const exp = Date.now() + 60_000;
-    c.executionCtx.waitUntil(
-      cache.put(
-        ipCacheKey,
-        new Response(JSON.stringify({ count: 1, exp }), {
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "max-age=60",
-          },
-        })
-      )
-    );
+  if (await isIpBadAuthBlocked(ip)) {
+    return c.json({ error: "TOO_MANY_REQUESTS_IP" }, 429);
   }
 
   // Kiểm tra nhanh trong cache xem API Key này đã từng bị xác định là sai trước đó không
   const apiKey = c.req.header("X-API-Key") || "";
-  if (!apiKey) return c.json({ error: "MISSING_API_KEY" }, 401);
+  if (!apiKey) {
+    c.executionCtx.waitUntil(recordBadAuth(ip));
+    return c.json({ error: "MISSING_API_KEY" }, 401);
+  }
 
   const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
-  const cachedKey = await cache.match(keyCacheKey);
+  const cachedKey = await caches.default.match(keyCacheKey);
   if (cachedKey) {
     const keyData = (await cachedKey.json()) as { valid: boolean };
     if (!keyData.valid) {
+      c.executionCtx.waitUntil(recordBadAuth(ip));
       return c.json({ error: "INVALID_API_KEY" }, 401);
     }
   }
 
   await next();
 });
+
+// Danh dau 1 key la sai (cache 5 phut, tranh spam lam can quota D1) + tang bo dem "key sai/thieu"
+// theo IP (xem isIpBadAuthBlocked) - dung chung cho ca 3 diem tu choi INVALID_API_KEY ben duoi.
+async function rejectInvalidKey(c: Context<{ Bindings: Env }>, apiKey: string): Promise<void> {
+  const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
+  c.executionCtx.waitUntil(
+    caches.default.put(
+      keyCacheKey,
+      new Response(JSON.stringify({ valid: false }), {
+        headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
+      })
+    )
+  );
+  const ip = c.req.header("CF-Connecting-IP") || "local-ip";
+  c.executionCtx.waitUntil(recordBadAuth(ip));
+}
 
 const MAX_ROWS = 20_000;
 const MAX_RANGE_DAYS = 31;
@@ -116,16 +115,7 @@ partnerApi.get("/cases", async (c) => {
   const apiKey = c.req.header("X-API-Key")!;
   const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
   if (!keyRow) {
-    // Cache kết quả sai trong 5 phút để tránh bị spam làm cạn kiệt Quota đọc D1
-    const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
-    c.executionCtx.waitUntil(
-      caches.default.put(
-        keyCacheKey,
-        new Response(JSON.stringify({ valid: false }), {
-          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
-        })
-      )
-    );
+    await rejectInvalidKey(c, apiKey);
     return c.json({ error: "INVALID_API_KEY" }, 401);
   }
 
@@ -277,59 +267,28 @@ function parseHinhAnhUrls(raw: string | number | null): string[] {
 // COLUMNS o tren - dung khoa xac thuc rieng (X-API-Key thay vi session) vi ben goi la 1 he thong
 // khac, khong co nguoi dang nhap. KHONG ap dung rate-limit 30/ngay+60s cua "/cases" o tren (thiet
 // ke cho export hang loat dinh ky) - endpoint nay phuc vu tra cuu TUNG BAN GHI theo thoi gian thuc
-// (nguoi dung go ID, debounce 500ms). Ngoai lop chan IP chung o middleware "*" (60 req/phut/IP qua
-// Cache API), them 1 lop rate-limit rieng theo tung API key (200 req/phut) qua Cache API (khong ghi
-// D1 - tranh ton quota rows_written cho luu luong tra cuu tan suat cao) de gioi han thiet hai neu
-// 1 key bi lo/bi do quet ma khong anh huong cac doi tac/KTV khac dang dung chung IP egress.
+// (nguoi dung go ID, debounce 500ms). Rate-limit rieng theo tung API key (200 req/phut) qua Cache API
+// (khong ghi D1 - tranh ton quota rows_written cho luu luong tra cuu tan suat cao) de gioi han thiet
+// hai neu 1 key bi lo/bi do quet - KHONG con lop chan IP chung nua (xem comment o middleware "*"),
+// chi con chan IP khi key sai/thieu (isIpBadAuthBlocked) nen khong anh huong 300-400 tai khoan dung
+// chung 1 key/pool IP egress.
 const CASE_LOOKUP_KEY_LIMIT_PER_MIN = 200;
 
 partnerApi.get("/case-lookup", async (c) => {
   const apiKey = c.req.header("X-API-Key")!;
   const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
   if (!keyRow) {
-    const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
-    c.executionCtx.waitUntil(
-      caches.default.put(
-        keyCacheKey,
-        new Response(JSON.stringify({ valid: false }), {
-          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
-        })
-      )
-    );
+    await rejectInvalidKey(c, apiKey);
     return c.json({ error: "INVALID_API_KEY" }, 401);
   }
 
-  const cache = caches.default;
-  const keyLimitCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-lookup-key-limit/${keyRow.id}`);
-  const cachedKeyLimit = await cache.match(keyLimitCacheKey);
-  if (cachedKeyLimit) {
-    const data = (await cachedKeyLimit.json()) as { count: number; exp: number };
-    if (data.count > CASE_LOOKUP_KEY_LIMIT_PER_MIN) {
-      return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
-    }
-    data.count++;
-    c.executionCtx.waitUntil(
-      cache.put(
-        keyLimitCacheKey,
-        new Response(JSON.stringify(data), {
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": `max-age=${Math.max(1, Math.round((data.exp - Date.now()) / 1000))}`,
-          },
-        })
-      )
-    );
-  } else {
-    const exp = Date.now() + 60_000;
-    c.executionCtx.waitUntil(
-      cache.put(
-        keyLimitCacheKey,
-        new Response(JSON.stringify({ count: 1, exp }), {
-          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=60" },
-        })
-      )
-    );
-  }
+  const okLookup = await checkPerKeyRateLimit(
+    "partner-lookup-key-limit",
+    keyRow.id,
+    CASE_LOOKUP_KEY_LIMIT_PER_MIN,
+    (p) => c.executionCtx.waitUntil(p),
+  );
+  if (!okLookup) return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
 
   const id = c.req.query("id")?.trim();
   if (!id) return c.json({ found: false, preview: null, giaiTrinh: [] });
@@ -362,20 +321,27 @@ partnerApi.get("/case-lookup", async (c) => {
 // CHUNK_SIZE/batch cua sync client ben "Dat mua linh kien", tranh 1 request qua lon).
 const SYNC_MAX_ROWS = 200;
 
+// Gioi han rieng theo key cho 3 route /sync/* ben duoi - truoc day cac route nay chi dua vao lop
+// IP-limit chung (60/phut/IP) da bi bo (xem comment o middleware "*" o tren) de gioi han, nen can bu
+// bang gioi han THEO KEY o day, neu khong 1 key bi lo se ghi D1 khong gioi han. Tan suat that su chi
+// la cron 1h/lan + bam tay "Dong bo ngay" (xem comment tung route), 20/phut du rong rai cho ca
+// truong hop thu cong bam lap lai nhieu lan.
+const SYNC_KEY_LIMIT_PER_MIN = 20;
+
 async function requirePartnerKey(c: Context<{ Bindings: Env }>) {
   const apiKey = c.req.header("X-API-Key")!;
   const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
   if (!keyRow) {
-    const keyCacheKey = new Request(`https://internal-cache.dvbh-suite/partner-key-valid/${encodeURIComponent(apiKey)}`);
-    c.executionCtx.waitUntil(
-      caches.default.put(
-        keyCacheKey,
-        new Response(JSON.stringify({ valid: false }), {
-          headers: { "Content-Type": "application/json", "Cache-Control": "max-age=300" },
-        })
-      )
-    );
+    await rejectInvalidKey(c, apiKey);
+    return null;
   }
+  const okSync = await checkPerKeyRateLimit(
+    "partner-sync-key-limit",
+    keyRow.id,
+    SYNC_KEY_LIMIT_PER_MIN,
+    (p) => c.executionCtx.waitUntil(p),
+  );
+  if (!okSync) return "RATE_LIMITED" as const;
   return keyRow;
 }
 
@@ -385,6 +351,7 @@ async function requirePartnerKey(c: Context<{ Bindings: Env }>) {
 // ma_ktv + tu cap tai khoan placeholder cho dong co email_dang_nhap, khong nhan doi logic.
 partnerApi.post("/sync/ktv", async (c) => {
   const keyRow = await requirePartnerKey(c);
+  if (keyRow === "RATE_LIMITED") return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
   if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
 
   const body = await c.req.json<{ rows: KtvImportRow[] }>();
@@ -418,6 +385,7 @@ interface LinhKienSyncRow {
 // dung), khong con ai sua tay truc tiep o Settings DVBH nua.
 partnerApi.post("/sync/linh-kien", async (c) => {
   const keyRow = await requirePartnerKey(c);
+  if (keyRow === "RATE_LIMITED") return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
   if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
 
   const body = await c.req.json<{ rows: LinhKienSyncRow[] }>();
@@ -484,6 +452,7 @@ interface GiaiTrinhViPhamSyncRow {
 // Anh la URL (he ngoai tu luu tru anh cua ho) - DVBH chi luu chuoi URL, khong tai/luu anh thuc.
 partnerApi.post("/sync/giai-trinh-vi-pham", async (c) => {
   const keyRow = await requirePartnerKey(c);
+  if (keyRow === "RATE_LIMITED") return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
   if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
 
   const body = await c.req.json<{ rows: GiaiTrinhViPhamSyncRow[] }>();

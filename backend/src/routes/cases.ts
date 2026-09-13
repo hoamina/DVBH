@@ -1082,13 +1082,17 @@ cases.get("/:id", async (c) => {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
 
-  const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, caLap, napGasDanhGia, bienBanHop] = await Promise.all([
+  const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC").bind(id).all(),
     // Giai trinh vi pham (migration 0108) - KTV qua he ngoai hoac Giam sat nhap tay thay, xem
     // routes/viPham.ts POST /:id/giai-trinh + routes/partnerApi.ts POST /sync/giai-trinh-vi-pham.
     c.env.DB.prepare("SELECT * FROM vi_pham_giai_trinh WHERE case_id = ? ORDER BY created_at DESC").bind(id).all(),
+    // Nhat ky day tin sang he "vipham" (migration 0109, xem lib/viPhamBenNgoai.ts) - FE dung de tick
+    // "da day sang app vi pham" tren tung loi (chi can biet lan day "nghi_ngo_moi" - lan dau bao co -
+    // co thanh cong hay khong, cac lan cap nhat sau khong anh huong toi viec KTV co thay ca hay chua).
+    c.env.DB.prepare("SELECT vi_pham_id, ok FROM vi_pham_push_log WHERE case_id = ? AND loai_su_kien = 'nghi_ngo_moi' ORDER BY created_at DESC").bind(id).all(),
     getCaLapDetection(c.env.DB, id),
     // Danh gia nap gas (xem migration 0025 + backend/src/routes/napGas.ts) - moi ca chi co 1 dong
     // (case_id la PRIMARY KEY), null neu chua tung duoc chot.
@@ -1103,6 +1107,7 @@ cases.get("/:id", async (c) => {
     ketQuaGoi: ketQuaGoi.results,
     viPham: viPham.results,
     viPhamGiaiTrinh: viPhamGiaiTrinh.results,
+    viPhamPushLog: viPhamPushLog.results,
     caLap,
     napGasDanhGia: napGasDanhGia ?? null,
     bienBanHop: bienBanHop.results,
