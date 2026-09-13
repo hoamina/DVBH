@@ -1597,7 +1597,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   key: "case_id",
                   header: "Ca",
                   render: (r) => (
-                    <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(r.case_id, "khao-sat")}>
+                    <span className="font-mono text-[var(--ocean-600)] font-semibold cursor-pointer" onClick={() => openCase(r.case_id, "vi-pham")}>
                       {r.case_id}
                     </span>
                   ),

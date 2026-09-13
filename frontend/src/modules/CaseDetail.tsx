@@ -359,6 +359,10 @@ export function CaseDetail({
   // Giai trinh vi pham (migration 0108) - chi Giam sat/Admin duoc nhap tay THAY cho KTV, khop
   // requireRole("Giam sat", "Admin") o backend/src/routes/viPham.ts POST /:id/giai-trinh.
   const canGiaiTrinhViPham = currentUser?.vai_tro === "Giam sat" || currentUser?.vai_tro === "Admin";
+  // Chot/bo vi pham cap 2 - khop requireRole("QC", "Admin") o backend/src/routes/viPham.ts PATCH
+  // /:id/cap2 (truoc gio chi co UI trong SurveyModule.tsx tab "Cho QC", them tai day de QC chot ngay
+  // trong popup chi tiet ca, khong phai roi sang module khac).
+  const canChotCap2ViPham = currentUser?.vai_tro === "QC" || currentUser?.vai_tro === "Admin";
   const { data: phanLoaiOptions } = useQuery({
     queryKey: ["settings-phan-loai-tranh-chap"],
     queryFn: () => api.get<{ rows: PhanLoaiTranhChapRow[] }>("/settings/phan-loai-tranh-chap"),
@@ -565,6 +569,22 @@ export function CaseDetail({
       qc.setQueryData(["case", caseId], newEntry);
     },
     onError: () => addToast("Không thể lưu giải trình, thử lại sau."),
+  });
+
+  // Chot/bo vi pham cap 2 (QC) - dung LAI pattern "fetch that + ghi de closedDataCache" nhu tren, cong
+  // them invalidate ["survey"]/["survey-counts"] vi ket qua nay cung hien trong SurveyModule.tsx (tab
+  // "Cho QC"/"Đã xử lý") - khong invalidate thi module do se hien du lieu cu cho toi khi tu lam moi.
+  const qcChotCap2 = useMutation({
+    mutationFn: ({ id, chot }: { id: string; chot: boolean }) => api.patch(`/vi-pham/${id}/cap2`, { chot }),
+    onSuccess: async (_d, vars) => {
+      addToast(`QC đã ${vars.chot ? "chốt" : "bỏ"} vi phạm cấp 2`);
+      const fresh = await fetchCaseDetail(caseId!);
+      const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+      qc.setQueryData(["case", caseId], newEntry);
+      qc.invalidateQueries({ queryKey: ["survey"] });
+      qc.invalidateQueries({ queryKey: ["survey-counts"] });
+    },
+    onError: () => addToast("Không thể ghi nhận quyết định QC, thử lại sau."),
   });
 
   async function handleViPhamGiaiTrinhPhoto(viPhamId: string, file: File) {
@@ -1298,6 +1318,16 @@ export function CaseDetail({
                 <Field label="Kết quả cấp 1" value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
                 <Field label="Người ghi nhận" value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
                 <Field label="Ngày ghi nhận" value={fmtDateTime(v.ngay_ghi_nhan)} />
+                {canChotCap2ViPham && v.ket_qua_cap_1 !== null && v.chot_bo_cap_2 === null && (
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Btn size="sm" variant="success" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: true })}>
+                      Chốt lỗi
+                    </Btn>
+                    <Btn size="sm" variant="danger" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: false })}>
+                      Bỏ lỗi
+                    </Btn>
+                  </div>
+                )}
               </div>
               {(() => {
                 const giaiTrinhCuaLoiNay = viPhamGiaiTrinhList.filter((g) => g.vi_pham_id === v.id);
