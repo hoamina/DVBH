@@ -432,7 +432,7 @@ export function CaseDetail({
   // Giai trinh vi pham (migration 0108) - Giam sat nhap tay THAY cho KTV. Luu vi_pham.id dang giai
   // trinh (null = dong modal) - khac giaiTrinhModalOpen (giai trinh ton/SLA cua ca, khong lien quan).
   const [viPhamGiaiTrinhTarget, setViPhamGiaiTrinhTarget] = useState<string | null>(null);
-  const [viPhamGiaiTrinhForm, setViPhamGiaiTrinhForm] = useState({ nguoi_giai_trinh: "", ngay_giai_trinh: "", noi_dung_giai_trinh: "", ghi_chu: "" });
+  const [viPhamGiaiTrinhForm, setViPhamGiaiTrinhForm] = useState({ ngay_giai_trinh: "", noi_dung_giai_trinh: "", ghi_chu: "" });
   const [viPhamGiaiTrinhPhotos, setViPhamGiaiTrinhPhotos] = useState<string[]>([]);
   const [viPhamGiaiTrinhUploading, setViPhamGiaiTrinhUploading] = useState(false);
   const [caLapModalOpen, setCaLapModalOpen] = useState(false);
@@ -550,7 +550,6 @@ export function CaseDetail({
   const submitViPhamGiaiTrinh = useMutation({
     mutationFn: (viPhamId: string) =>
       api.post(`/vi-pham/${viPhamId}/giai-trinh`, {
-        nguoi_giai_trinh: viPhamGiaiTrinhForm.nguoi_giai_trinh || undefined,
         ngay_giai_trinh: viPhamGiaiTrinhForm.ngay_giai_trinh,
         noi_dung_giai_trinh: viPhamGiaiTrinhForm.noi_dung_giai_trinh || undefined,
         ghi_chu: viPhamGiaiTrinhForm.ghi_chu || undefined,
@@ -559,7 +558,7 @@ export function CaseDetail({
     onSuccess: async () => {
       addToast("Đã lưu giải trình vi phạm");
       setViPhamGiaiTrinhTarget(null);
-      setViPhamGiaiTrinhForm({ nguoi_giai_trinh: "", ngay_giai_trinh: "", noi_dung_giai_trinh: "", ghi_chu: "" });
+      setViPhamGiaiTrinhForm({ ngay_giai_trinh: "", noi_dung_giai_trinh: "", ghi_chu: "" });
       setViPhamGiaiTrinhPhotos([]);
       const fresh = await fetchCaseDetail(caseId!);
       const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
@@ -582,7 +581,7 @@ export function CaseDetail({
   }
 
   function openViPhamGiaiTrinhModal(viPhamId: string) {
-    setViPhamGiaiTrinhForm({ nguoi_giai_trinh: "", ngay_giai_trinh: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10), noi_dung_giai_trinh: "", ghi_chu: "" });
+    setViPhamGiaiTrinhForm({ ngay_giai_trinh: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10), noi_dung_giai_trinh: "", ghi_chu: "" });
     setViPhamGiaiTrinhPhotos([]);
     setViPhamGiaiTrinhTarget(viPhamId);
   }
@@ -758,7 +757,9 @@ export function CaseDetail({
         rawTs: g.ngay_giai_trinh,
         tone: "coral",
         typeLabel: g.nguon === "ktv_qua_api" ? "Vi phạm giải trình (KTV qua API)" : "Vi phạm giải trình (Giám sát nhập tay)",
-        actor: g.nguoi_giai_trinh,
+        // GS nhap thay khong con nhap ten KTV nua - rot ve nguoi_nhap (nguoi dang nhap thuc su ghi log
+        // nay) khi thieu nguoi_giai_trinh, khop dung fallback dung trong the "Vi pham" (renderGiaiTrinhRow).
+        actor: g.nguoi_giai_trinh || g.nguoi_nhap,
         summary: g.noi_dung_giai_trinh ?? "—",
         jumpTab: "vi-pham",
       });
@@ -1304,10 +1305,14 @@ export function CaseDetail({
                 const giaiTrinhGs = giaiTrinhCuaLoiNay.filter((g) => g.nguon !== "ktv_qua_api");
                 const renderGiaiTrinhRow = (g: ViPhamGiaiTrinhRow) => {
                   const anh = g.anh_urls ? (JSON.parse(g.anh_urls) as string[]) : [];
+                  // GS nhap thay khong con chon "giai trinh thay cho ai" nua (khong bat buoc phai biet
+                  // dung ten KTV) - hien ten nguoi THUC SU nhap (nguoi_nhap, tu session) thay the khi
+                  // thieu nguoi_giai_trinh, thay vi de trong "—".
+                  const tenHienThi = g.nguoi_giai_trinh || (g.nguoi_nhap ? formatPersonDisplay(g.nguoi_nhap, personDir) : "—");
                   return (
                     <div key={g.id} className="text-xs bg-slate-50 rounded-lg p-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap mb-0.5">
-                        <span className="font-semibold">{g.nguoi_giai_trinh || "—"}</span>
+                        <span className="font-semibold">{tenHienThi}</span>
                         <span className="text-[var(--ink-400)]">{fmtDate(g.ngay_giai_trinh)}</span>
                       </div>
                       {g.noi_dung_giai_trinh && <div className="text-[var(--ink-600)]">{g.noi_dung_giai_trinh}</div>}
@@ -2219,15 +2224,6 @@ export function CaseDetail({
             }}
             className="space-y-3"
           >
-            <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Người giải trình (tên KTV)</label>
-              <input
-                value={viPhamGiaiTrinhForm.nguoi_giai_trinh}
-                onChange={(e) => setViPhamGiaiTrinhForm({ ...viPhamGiaiTrinhForm, nguoi_giai_trinh: e.target.value })}
-                placeholder="Tên KTV được giải trình thay"
-                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-              />
-            </div>
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">
                 Ngày giải trình <span className="text-[var(--coral-500)]">*</span>

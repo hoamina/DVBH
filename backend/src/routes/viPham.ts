@@ -444,7 +444,11 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
 // phai upload truoc qua POST /:id/giai-trinh/anh (ben duoi) de lay URL, roi gui kem trong anh_urls.
 viPham.post("/:id/giai-trinh", requireRole("Giam sat", "Admin"), async (c) => {
   const id = c.req.param("id")!;
-  const vp = await c.env.DB.prepare("SELECT id, case_id FROM vi_pham WHERE id = ?").bind(id).first<{ id: string; case_id: string }>();
+  const vp = await c.env.DB.prepare(
+    `SELECT v.id, v.case_id, cd.ky_thuat_vien FROM vi_pham v JOIN case_dvbh cd ON cd.id = v.case_id WHERE v.id = ?`,
+  )
+    .bind(id)
+    .first<{ id: string; case_id: string; ky_thuat_vien: string | null }>();
   if (!vp) return c.json({ error: "NOT_FOUND" }, 404);
 
   const body = await c.req.json<{
@@ -458,7 +462,9 @@ viPham.post("/:id/giai-trinh", requireRole("Giam sat", "Admin"), async (c) => {
 
   const user = c.get("user");
   const newId = crypto.randomUUID();
-  const nguoiGiaiTrinh = body.nguoi_giai_trinh?.trim() || null;
+  // Khong dien "Nguoi giai trinh" -> mac dinh = ten KTV cua case (GS giai trinh THAY cho KTV nen ve
+  // ban chat nguoi giai trinh la KTV, khong bat GS phai go lai ten da co san trong case).
+  const nguoiGiaiTrinh = body.nguoi_giai_trinh?.trim() || vp.ky_thuat_vien?.trim() || null;
   const noiDungGiaiTrinh = body.noi_dung_giai_trinh?.trim() || null;
   const ghiChu = body.ghi_chu?.trim() || null;
   const anhUrls = (body.anh_urls ?? []).slice(0, 5);
