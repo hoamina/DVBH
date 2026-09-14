@@ -1299,7 +1299,14 @@ export function CaseDetail({
       {viPhamList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa ghi nhận vi phạm nào cho ca này.</div>}
       <div className="space-y-3">
         {viPhamList.map((v) => {
-          const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : v.ket_qua_cap_1 ? "chờ QC" : "Nghi ngờ";
+          // "Khong loi" (CHOT 2026-09-14): ket qua khao sat cap 1 da ket luan KHONG vi pham - khop
+          // dung XAC_NHAN_EXPR o backend (routes/viPham.ts, routes/survey.ts, notifications.ts...:
+          // "COALESCE(chot_bo_cap_2, CASE WHEN ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1")
+          // vi_pham nay da tinh la "khong vi phạm" mac dinh, KHONG con nam trong hang doi "cho QC" o
+          // bat ky route nao (xem WHERE ...ket_qua_cap_1 != 'Khong loi'...) - truoc day UI van hien
+          // "chờ QC" + nut Chot/Bo loi + Giai trinh thay du QC/GS khong con viec gi phai lam.
+          const laKhongLoi = v.ket_qua_cap_1 === "Khong loi";
+          const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : laKhongLoi ? "Không vi phạm" : v.ket_qua_cap_1 ? "chờ QC" : "Nghi ngờ";
           const daDay = daDayViPham(v.id);
           return (
             <Card key={v.id} className="p-3">
@@ -1318,7 +1325,7 @@ export function CaseDetail({
                 <Field label="Kết quả cấp 1" value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
                 <Field label="Người ghi nhận" value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
                 <Field label="Ngày ghi nhận" value={fmtDateTime(v.ngay_ghi_nhan)} />
-                {canChotCap2ViPham && v.ket_qua_cap_1 !== null && v.chot_bo_cap_2 === null && (
+                {canChotCap2ViPham && v.ket_qua_cap_1 !== null && v.chot_bo_cap_2 === null && !laKhongLoi && (
                   <div className="flex items-center justify-end gap-1.5">
                     <Btn size="sm" variant="success" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: true })}>
                       Chốt lỗi
@@ -1364,7 +1371,7 @@ export function CaseDetail({
                 return (
                   <div className="mt-2 pt-2 border-t border-[var(--line)] space-y-2">
                     {giaiTrinhCuaLoiNay.length === 0 ? (
-                      <div className="text-xs text-[var(--ink-400)] italic">Chưa có giải trình.</div>
+                      <div className="text-xs text-[var(--ink-400)] italic">{laKhongLoi ? "Không có lỗi — không cần giải trình." : "Chưa có giải trình."}</div>
                     ) : (
                       <>
                         <div>
@@ -1387,7 +1394,7 @@ export function CaseDetail({
                         )}
                       </>
                     )}
-                    {canGiaiTrinhViPham && (
+                    {canGiaiTrinhViPham && !laKhongLoi && (
                       <Btn size="sm" variant="ghost" onClick={() => openViPhamGiaiTrinhModal(v.id)}>
                         Giải trình thay
                       </Btn>

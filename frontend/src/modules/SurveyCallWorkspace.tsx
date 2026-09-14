@@ -315,6 +315,13 @@ export function SurveyCallWorkspace({
       addToast("Chọn kết luận cho ít nhất 1 loại lỗi trước khi lưu.");
       return;
     }
+    // "Loi khac" (CHOT 2026-09-14): khong co nhan dien san nhu "Loi khong lien he"/"Loi sai bao cao"
+    // nen bat buoc CSKH phai mo ta trong "Ghi chu", tranh ghi nhan mo ho khong biet loi gi khi doi
+    // chieu sau nay (vi_pham nhan API cung day kem ghi chu nay, xem routes/viPham.ts pushViPham...).
+    if (callResult === "Liên hệ thành công" && anyLoi && ketQuaCap1 === "Loi khac" && !ghiChu.trim()) {
+      addToast('Kết luận "Lỗi khác" bắt buộc phải nhập Ghi chú mô tả lỗi.');
+      return;
+    }
     try {
       const data = await submitCall.mutateAsync({
         case_id: activeRow.id,
@@ -414,6 +421,7 @@ export function SurveyCallWorkspace({
 
   const needed = activeRow ? neededLoaiLoi(activeRow) : [];
   const anyLoi = Object.keys(selected).some((k) => selected[k] && ketLuan[k] === "loi");
+  const ghiChuRequired = callResult === "Liên hệ thành công" && anyLoi && ketQuaCap1 === "Loi khac";
   const btnStyle = (active: boolean, tone: "teal" | "coral") =>
     `focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${
       active ? (tone === "teal" ? "bg-[var(--teal-500)] text-white border-[var(--teal-500)]" : "bg-[var(--coral-500)] text-white border-[var(--coral-500)]") : "border-[var(--line)] text-[var(--ink-600)]"
@@ -754,8 +762,17 @@ export function SurveyCallWorkspace({
                         </div>
                       )}
                       <div className="mb-4">
-                        <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
-                        <textarea rows={2} value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+                        <label className="text-xs font-semibold text-[var(--ink-400)]">
+                          Ghi chú{ghiChuRequired && <span className="text-[var(--coral-500)]"> * bắt buộc (kết luận "Lỗi khác")</span>}
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={ghiChu}
+                          onChange={(e) => setGhiChu(e.target.value)}
+                          className={`focus-ring w-full mt-1 border rounded-lg px-2.5 py-1.5 text-sm ${
+                            ghiChuRequired && !ghiChu.trim() ? "border-[var(--coral-300)]" : "border-[var(--line)]"
+                          }`}
+                        />
                       </div>
                       <div className="flex justify-between items-center gap-2 flex-wrap">
                         <div className="flex gap-2">
@@ -766,7 +783,10 @@ export function SurveyCallWorkspace({
                             Bỏ qua ⏭
                           </Btn>
                         </div>
-                        <Btn onClick={submitSuccessCall} disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k])}>
+                        <Btn
+                          onClick={submitSuccessCall}
+                          disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || (ghiChuRequired && !ghiChu.trim())}
+                        >
                           {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
                         </Btn>
                       </div>
