@@ -1618,11 +1618,18 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   header: "Kết quả khảo sát",
                   render: ({ vs }) => (
                     <div className="flex flex-wrap gap-1">
-                      {vs.map((v) => (
-                        <Badge key={v.id} tone={statusTone(v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : "chờ QC")}>
-                          {LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi} · {v.ket_qua_cap_1}
-                        </Badge>
-                      ))}
+                      {vs.map((v) => {
+                        // "Khong loi" (CHOT 2026-09-14, xem CaseDetail.tsx cung fix): da tinh la
+                        // "khong vi pham" mac dinh, khong con "cho QC" - cot nay xuat hien o CA tab
+                        // "da-xu-ly" (backend cho phep ket_qua_cap_1='Khong loi' vao tab do), khac
+                        // ketQuaQcChotCol o tren (chi cho-qc/vi-pham-da-chot, khong bao gio gap Khong loi).
+                        const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : v.ket_qua_cap_1 === "Khong loi" ? "Không vi phạm" : "chờ QC";
+                        return (
+                          <Badge key={v.id} tone={statusTone(trangThai)}>
+                            {LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi} · {v.ket_qua_cap_1}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   ),
                 },

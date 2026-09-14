@@ -675,11 +675,16 @@ export function SurveyCallWorkspace({
                             {h.ghi_chu && <div className="mt-0.5 text-[var(--ink-600)]">{h.ghi_chu}</div>}
                             {viPhamCuaCuocGoiNay.length > 0 && (
                               <div className="mt-1 pt-1 border-t border-[var(--line)] flex flex-wrap gap-1">
-                                {viPhamCuaCuocGoiNay.map((v) => (
-                                  <Badge key={v.id} tone={statusTone(v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : "chờ QC")}>
-                                    {LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi} · {v.ket_qua_cap_1 === "Khong loi" ? "Không lỗi" : v.ket_qua_cap_1}
-                                  </Badge>
-                                ))}
+                                {viPhamCuaCuocGoiNay.map((v) => {
+                                  // "Khong loi" (CHOT 2026-09-14, xem CaseDetail.tsx cung fix): da tinh
+                                  // la "khong vi pham" mac dinh, khong con "cho QC".
+                                  const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : v.ket_qua_cap_1 === "Khong loi" ? "Không vi phạm" : "chờ QC";
+                                  return (
+                                    <Badge key={v.id} tone={statusTone(trangThai)}>
+                                      {LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi} · {v.ket_qua_cap_1 === "Khong loi" ? "Không lỗi" : v.ket_qua_cap_1}
+                                    </Badge>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
