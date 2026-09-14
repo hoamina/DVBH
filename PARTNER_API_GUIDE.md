@@ -331,7 +331,8 @@ Content-Type: application/json
   "ky_thuat_vien": "Nguyen Van A",
   "seri_san_pham": "SN123456789",
   "ngay_ghi_nhan": "2026-09-11 09:15:23",
-  "nguoi_ghi_nhan": "cskh@dichvu3t.vn"
+  "nguoi_ghi_nhan": "cskh@dichvu3t.vn",
+  "ghi_chu": "Goi 3 lan khong bat may, sang chuyen thanh bao ban"
 }
 ```
 
@@ -348,6 +349,7 @@ Content-Type: application/json
 | `seri_san_pham` | string, có thể null | Số seri sản phẩm |
 | `ngay_ghi_nhan` | string | Giờ VN địa phương (UTC+7) dạng `YYYY-MM-DD HH:MM:SS`, **không phải** UTC/ISO-8601 — cùng quy ước với mục 3.3.1 |
 | `nguoi_ghi_nhan` | string | Email CSKH đã ghi nhận |
+| `ghi_chu` | string, có thể null | Ghi chú CSKH nhập lúc gọi (thêm 2026-09-14) — bắt buộc phía DVBH khi `ket_qua_cap_1 = "Loi khac"` (loại lỗi không có mô tả sẵn như 2 loại còn lại), nên có giá trị hầu hết các lần gọi với `ket_qua_cap_1` đó; các trường hợp khác có thể null nếu CSKH không nhập gì |
 
 #### 9.1.2. `loai_su_kien = "cap_nhat"` — Giám sát/QC vừa cập nhật thông tin của lỗi đó (thêm 2026-09-11)
 

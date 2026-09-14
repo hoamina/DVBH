@@ -1110,6 +1110,7 @@ survey.post(
           seri_san_pham: caseRow.seri_san_pham,
           ngay_ghi_nhan: ngayGhiNhan,
           nguoi_ghi_nhan: user.email,
+          ghi_chu: body.ghi_chu ?? null,
         }),
       );
     }

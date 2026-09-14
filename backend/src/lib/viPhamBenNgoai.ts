@@ -25,6 +25,10 @@ export interface ViPhamNghiNgoMoiPayload extends ViPhamNotifyBase {
   seri_san_pham: string | null;
   ngay_ghi_nhan: string;
   nguoi_ghi_nhan: string;
+  // Ghi chu CSKH nhap luc goi (routes/survey.ts POST /calls) - dac biet quan trong khi ket_qua_cap_1
+  // = "Loi khac" (khong co mo ta san nhu 2 loai con lai), thieu truong nay KTV ben vipham khong biet
+  // loi gi de tu giai trinh (CHOT 2026-09-14, xem PARTNER_API_GUIDE.md muc 9.1.1).
+  ghi_chu: string | null;
 }
 
 export interface ViPhamCapNhatQcChotPayload extends ViPhamNotifyBase {

@@ -415,9 +415,10 @@ viPham.post("/backfill-push-vipham", requireRole("Admin"), async (c) => {
 
   const { results } = await c.env.DB.prepare(
     `SELECT v.id, v.case_id, v.loai_loi, v.ket_qua_cap_1, v.nguoi_ghi_nhan, v.ngay_ghi_nhan,
-            cd.khach_hang, cd.khu_vuc, cd.ky_thuat_vien, cd.seri_san_pham
+            cd.khach_hang, cd.khu_vuc, cd.ky_thuat_vien, cd.seri_san_pham, kg.ghi_chu
      FROM vi_pham v
      JOIN case_dvbh cd ON cd.id = v.case_id
+     LEFT JOIN ket_qua_goi kg ON kg.id = v.ket_qua_goi_id
      WHERE v.ngay_ghi_nhan >= ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'
        AND NOT EXISTS (
          SELECT 1 FROM vi_pham_push_log pl
@@ -437,6 +438,7 @@ viPham.post("/backfill-push-vipham", requireRole("Admin"), async (c) => {
       khu_vuc: string | null;
       ky_thuat_vien: string | null;
       seri_san_pham: string | null;
+      ghi_chu: string | null;
     }>();
 
   for (const row of results) {
@@ -452,6 +454,7 @@ viPham.post("/backfill-push-vipham", requireRole("Admin"), async (c) => {
       seri_san_pham: row.seri_san_pham,
       ngay_ghi_nhan: row.ngay_ghi_nhan,
       nguoi_ghi_nhan: row.nguoi_ghi_nhan,
+      ghi_chu: row.ghi_chu,
     });
   }
 
