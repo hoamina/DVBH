@@ -1555,12 +1555,18 @@ export function CaseDetail({
                                     🔒 Đánh giá lặp
                                   </Btn>
                                   {/* "Bo qua" nhanh (CHOT 2026-08-05) - luu thang "Bo qua" + "Tinh
-                                      luong" cho phan nguoi dung hien co quyen, khong can mo modal. */}
+                                      luong" cho phan nguoi dung hien co quyen, khong can mo modal.
+                                      loading (CHOT 2026-09-14): truoc chi co disabled (mo opacity
+                                      40%, khong doi label/spinner) nen QC bam xong tuong nhu khong
+                                      phan hoi trong luc cho Promise.all(gs,qc) + refreshCaLapQueries
+                                      hoan tat - them spinner + chi hien o DUNG dong vua bam (so
+                                      boQuaLap.variables, vi 1 mutation dung chung cho ca danh sach). */}
                                   <Btn
                                     size="sm"
                                     variant="subtle"
                                     type="button"
                                     disabled={boQuaLap.isPending}
+                                    loading={boQuaLap.isPending && boQuaLap.variables === h.id}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       boQuaLap.mutate(h.id);

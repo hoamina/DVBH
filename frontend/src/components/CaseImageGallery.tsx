@@ -72,6 +72,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [rotation, setRotation] = useState(0);
   const [dragging, setDragging] = useState(false);
   const zoomWrapRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
@@ -87,11 +88,12 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [lightboxIndex, urls.length]);
 
-  // Reset zoom/pan moi khi doi anh (chuyen prev/next hoac mo lai lightbox) - tranh anh moi bi
-  // hien lech vi trí do giu lai pan/zoom cua anh truoc.
+  // Reset zoom/pan/rotation moi khi doi anh (chuyen prev/next hoac mo lai lightbox) - tranh anh moi
+  // bi hien lech vi trí hoac giu nguyen goc xoay cua anh truoc.
   useEffect(() => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setRotation(0);
   }, [lightboxIndex]);
 
   // zoom ve 1x thi luon reset pan ve {0,0} - tranh anh o scale(1) nhung van bi dich chuyen do con
@@ -261,10 +263,14 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               onError={() => setBrokenUrls((prev) => new Set(prev).add(urls[lightboxIndex]))}
               draggable={false}
               style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${zoom})`,
                 cursor: zoom > ZOOM_MIN ? (dragging ? "grabbing" : "grab") : "zoom-in",
+                // Xoay 90/270 thi chieu rong/cao thuc te cua anh bi doi cho - hoan doi luon
+                // gioi han max-height/max-width de anh khong bi tran ra ngoai vung xem.
+                maxHeight: rotation % 180 !== 0 ? "90vw" : "85vh",
+                maxWidth: rotation % 180 !== 0 ? "85vh" : "90vw",
               }}
-              className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg shadow-2xl select-none"
+              className="object-contain rounded-lg shadow-2xl select-none"
             />
           )}
 
@@ -311,6 +317,23 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
                     100%
                   </button>
                 )}
+                <span className="w-px h-3 bg-white/25" />
+                <button
+                  type="button"
+                  title="Xoay trái"
+                  onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 text-sm leading-none"
+                >
+                  ↺
+                </button>
+                <button
+                  type="button"
+                  title="Xoay phải"
+                  onClick={() => setRotation((r) => (r + 90) % 360)}
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 text-sm leading-none"
+                >
+                  ↻
+                </button>
                 <span className="w-px h-3 bg-white/25" />
               </>
             )}
