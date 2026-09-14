@@ -203,13 +203,18 @@ survey.get("/", async (c) => {
   const ngayRange = dayRangeBounds(c.req.query("ngay_tu"), c.req.query("ngay_den"));
   const ngaySql = ngayRange ? " AND v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?" : "";
   const ngayBinds = ngayRange ? [ngayRange.start, ngayRange.end] : [];
-  const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql + ngaySql;
+  // "co_giai_trinh=true" (CHOT 2026-09-14): filter "Danh sach da co giai trinh vi pham" - chi giu
+  // dong vi_pham co IT NHAT 1 ban giai trinh (KTV qua API HOAC GS nhap tay tren DVBH), ap dung dong
+  // nhat cho ca 3 tab "cho-qc"/"da-xu-ly"/"vi-pham-da-chot".
+  const coGiaiTrinhSql = c.req.query("co_giai_trinh") === "true" ? " AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id)" : "";
+  const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql + ngaySql + coGiaiTrinhSql;
   const extraBinds = [...khuVucClause.binds, ...ageClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds, ...ngayBinds];
   const limit = c.req.query("export") === "true" ? 5000 : 200;
   // Ban giai trinh MOI NHAT tu KTV (qua API) va tu Giam sat (nhap tay) cho moi dong vi_pham - dung
   // correlated subquery (idiom da co san trong codebase, xem "latestCanGoiLai") thay vi query rieng +
-  // gom nhom o JS, tan dung index idx_vi_pham_giai_trinh_vi_pham. Chi dung o tab "cho-qc" va
-  // "vi-pham-da-chot" (theo yeu cau) - "da-xu-ly" khong can.
+  // gom nhom o JS, tan dung index idx_vi_pham_giai_trinh_vi_pham. CHOT 2026-09-14: dung o CA 3 tab
+  // (truoc chi "cho-qc"/"vi-pham-da-chot") de khop voi filter "co_giai_trinh" o tren - "da-xu-ly" gio
+  // cung can hien noi dung giai trinh khi loc.
   const giaiTrinhCols = `,
         (SELECT g.noi_dung_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'ktv_qua_api' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_ktv_noi_dung,
         (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'ktv_qua_api' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_ktv_ngay,
@@ -251,7 +256,7 @@ survey.get("/", async (c) => {
   if (tab === "da-xu-ly") {
     // CROSS JOIN ... ON - xem chu thich o nhanh "cho-qc" ben tren, cung 1 ly do/fix.
     const query = `
-      SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham
+      SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham${giaiTrinhCols}
       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
       WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}
       ORDER BY v.ngay_ghi_nhan DESC
@@ -523,14 +528,28 @@ interface SurveyKhuVucRow {
   nghi_ngo_24h: number;
   nghi_ngo_lkh: number;
   nghi_ngo_hl: number;
+  // CHOT 2026-09-14: "da_goi_X" gio la ket_qua_cuoc_goi <> "Khong can khao sat" (truoc gom ca
+  // "Khong can khao sat") - xem chu thich day du o khoi3 trong computeSurveyKhuVucReport().
   da_goi_120p: number;
+  bo_qua_120p: number;
+  thanh_cong_120p: number;
   da_goi_24h: number;
+  bo_qua_24h: number;
+  thanh_cong_24h: number;
   da_goi_lkh: number;
+  bo_qua_lkh: number;
+  thanh_cong_lkh: number;
   da_goi_hl: number;
+  bo_qua_hl: number;
+  thanh_cong_hl: number;
   vi_pham_120p: number;
   vi_pham_24h: number;
   vi_pham_lkh: number;
   vi_pham_hl: number;
+  // Cong don ca 4 nhom loi (khong tach rieng tren UI) - trong so vi pham DA XAC NHAN, so co giai
+  // trinh cua KTV (qua he ngoai vipham app)/Giam sat (nhap thay tren DVBH).
+  giai_trinh_ktv: number;
+  giai_trinh_gs: number;
   tong_cuoc_goi: number;
   goi_thanh_cong: number;
   tong_nghi_ngo: number;
@@ -654,27 +673,68 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
   const nguoiKhaoSatJoinSql = params.nguoi_khao_sat ? " AND %ALIAS%.nguoi_ghi_nhan = ?" : "";
   const xacNhanExpr = (alias: string) => `COALESCE(${alias}.chot_bo_cap_2, CASE WHEN ${alias}.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1`;
   const khoi3JoinBinds = params.nguoi_khao_sat ? [params.nguoi_khao_sat, params.nguoi_khao_sat, params.nguoi_khao_sat, params.nguoi_khao_sat] : [];
+  // CHOT 2026-09-14: tach "da_goi_X" (dinh nghia lai = da goi VA CO ket luan, loai tru "Khong can
+  // khao sat") thanh 3 cot rieng - can JOIN them ket_qua_goi qua v_X.ket_qua_goi_id (PK, re) de biet
+  // ket_qua_cuoc_goi cua LAN GOI da tao ra dong vi_pham nay (submitSuccessCall() luon ghi ca vi_pham
+  // dong ket_luan="khong_loi" cho MOI loai_loi can khi callResult="Khong can khao sat" - xem
+  // SurveyCallWorkspace.tsx - nen v_X.id IS NOT NULL tu truoc gio da gop CA "Khong can khao sat" LAN
+  // cac ket luan that su, khong chi rieng "da goi thanh cong" nhu ten cot khien nguoi doc tuong).
+  //   - bo_qua_X = ket_qua_cuoc_goi = 'Khong can khao sat'
+  //   - da_goi_X (dinh nghia moi) = ket_qua_cuoc_goi <> 'Khong can khao sat' (gom ca goi thanh cong
+  //     LAN cac ket qua khac vd "Khong nghe may" - GHI CHU: nhanh nay hiem xay ra tren thuc te vi
+  //     submitFailedCall() luon gui results=[] nen KHONG tao dong vi_pham - nghia la da_goi_X ~=
+  //     thanh_cong_X trong da so truong hop, giu rieng 2 cot theo dung yeu cau chu he thong).
+  //   - thanh_cong_X = ket_qua_cuoc_goi = 'Lien he thanh cong'
+  // "giai_trinh_ktv_X"/"giai_trinh_gs_X": trong so vi pham DA XAC NHAN (xacNhanExpr), dem so co it
+  // nhat 1 dong vi_pham_giai_trinh tu KTV (nguon='ktv_qua_api')/GS (nguon='giam_sat_nhap_tay') -
+  // migration 0108. Cong don ve tong cuoi ham (khong tach rieng theo 4 nhom tren UI).
   const khoi3 = db
     .prepare(
       `SELECT ${dimCol} as nhom,
-         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_120p,
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND kq120.ket_qua_cuoc_goi != 'Không cần khảo sát' THEN 1 ELSE 0 END) as da_goi_120p,
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND kq120.ket_qua_cuoc_goi = 'Không cần khảo sát' THEN 1 ELSE 0 END) as bo_qua_120p,
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND kq120.ket_qua_cuoc_goi = 'Liên hệ thành công' THEN 1 ELSE 0 END) as thanh_cong_120p,
          SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND ${xacNhanExpr("v120")} THEN 1 ELSE 0 END) as vi_pham_120p,
-         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_24h,
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND ${xacNhanExpr("v120")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v120.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as giai_trinh_ktv_120p,
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND ${xacNhanExpr("v120")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v120.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as giai_trinh_gs_120p,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL AND kq24h.ket_qua_cuoc_goi != 'Không cần khảo sát' THEN 1 ELSE 0 END) as da_goi_24h,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL AND kq24h.ket_qua_cuoc_goi = 'Không cần khảo sát' THEN 1 ELSE 0 END) as bo_qua_24h,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL AND kq24h.ket_qua_cuoc_goi = 'Liên hệ thành công' THEN 1 ELSE 0 END) as thanh_cong_24h,
          SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL AND ${xacNhanExpr("v24h")} THEN 1 ELSE 0 END) as vi_pham_24h,
-         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_lkh,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL AND ${xacNhanExpr("v24h")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v24h.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as giai_trinh_ktv_24h,
+         SUM(CASE WHEN c.loi_qua_han_24h=1 AND v24h.id IS NOT NULL AND ${xacNhanExpr("v24h")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v24h.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as giai_trinh_gs_24h,
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL AND kqlkh.ket_qua_cuoc_goi != 'Không cần khảo sát' THEN 1 ELSE 0 END) as da_goi_lkh,
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL AND kqlkh.ket_qua_cuoc_goi = 'Không cần khảo sát' THEN 1 ELSE 0 END) as bo_qua_lkh,
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL AND kqlkh.ket_qua_cuoc_goi = 'Liên hệ thành công' THEN 1 ELSE 0 END) as thanh_cong_lkh,
          SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL AND ${xacNhanExpr("vlkh")} THEN 1 ELSE 0 END) as vi_pham_lkh,
-         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL THEN 1 ELSE 0 END) as da_goi_hl,
-         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} THEN 1 ELSE 0 END) as vi_pham_hl
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL AND ${xacNhanExpr("vlkh")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vlkh.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as giai_trinh_ktv_lkh,
+         SUM(CASE WHEN c.loi_lo_ke_hoach=1 AND vlkh.id IS NOT NULL AND ${xacNhanExpr("vlkh")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vlkh.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as giai_trinh_gs_lkh,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND kqhl.ket_qua_cuoc_goi != 'Không cần khảo sát' THEN 1 ELSE 0 END) as da_goi_hl,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND kqhl.ket_qua_cuoc_goi = 'Không cần khảo sát' THEN 1 ELSE 0 END) as bo_qua_hl,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND kqhl.ket_qua_cuoc_goi = 'Liên hệ thành công' THEN 1 ELSE 0 END) as thanh_cong_hl,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} THEN 1 ELSE 0 END) as vi_pham_hl,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vhl.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as giai_trinh_ktv_hl,
+         SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vhl.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as giai_trinh_gs_hl
        FROM case_dvbh c
        LEFT JOIN vi_pham v120 ON v120.case_id = c.id AND v120.loai_loi = 'Loi 120 phut'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "v120")}
+       LEFT JOIN ket_qua_goi kq120 ON kq120.id = v120.ket_qua_goi_id
        LEFT JOIN vi_pham v24h ON v24h.case_id = c.id AND v24h.loai_loi = 'Hen qua 24h'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "v24h")}
+       LEFT JOIN ket_qua_goi kq24h ON kq24h.id = v24h.ket_qua_goi_id
        LEFT JOIN vi_pham vlkh ON vlkh.case_id = c.id AND vlkh.loai_loi = 'Loi lo ke hoach'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "vlkh")}
+       LEFT JOIN ket_qua_goi kqlkh ON kqlkh.id = vlkh.ket_qua_goi_id
        LEFT JOIN vi_pham vhl ON vhl.case_id = c.id AND vhl.loai_loi = 'KH hen lai'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "vhl")}
+       LEFT JOIN ket_qua_goi kqhl ON kqhl.id = vhl.ket_qua_goi_id
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
        GROUP BY ${dimCol}`,
     )
     .bind(...khoi3JoinBinds, start, end, ...commonFilterBinds)
-    .all<{ nhom: string; da_goi_120p: number; vi_pham_120p: number; da_goi_24h: number; vi_pham_24h: number; da_goi_lkh: number; vi_pham_lkh: number; da_goi_hl: number; vi_pham_hl: number }>();
+    .all<{
+      nhom: string;
+      da_goi_120p: number; bo_qua_120p: number; thanh_cong_120p: number; vi_pham_120p: number; giai_trinh_ktv_120p: number; giai_trinh_gs_120p: number;
+      da_goi_24h: number; bo_qua_24h: number; thanh_cong_24h: number; vi_pham_24h: number; giai_trinh_ktv_24h: number; giai_trinh_gs_24h: number;
+      da_goi_lkh: number; bo_qua_lkh: number; thanh_cong_lkh: number; vi_pham_lkh: number; giai_trinh_ktv_lkh: number; giai_trinh_gs_lkh: number;
+      da_goi_hl: number; bo_qua_hl: number; thanh_cong_hl: number; vi_pham_hl: number; giai_trinh_ktv_hl: number; giai_trinh_gs_hl: number;
+    }>();
 
   // Khoi 4: phan loai KET QUA CUOC GOI (ngay THUC HIEN k.ngay_gio_thuc_hien, KHAC moc thang cua khoi
   // 1-3 la ngay tiep nhan ca - da xac nhan voi nguoi dung, vi 1 cuoc goi khao sat co the xay ra o
@@ -773,13 +833,23 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
         nghi_ngo_lkh: 0,
         nghi_ngo_hl: 0,
         da_goi_120p: 0,
+        bo_qua_120p: 0,
+        thanh_cong_120p: 0,
         da_goi_24h: 0,
+        bo_qua_24h: 0,
+        thanh_cong_24h: 0,
         da_goi_lkh: 0,
+        bo_qua_lkh: 0,
+        thanh_cong_lkh: 0,
         da_goi_hl: 0,
+        bo_qua_hl: 0,
+        thanh_cong_hl: 0,
         vi_pham_120p: 0,
         vi_pham_24h: 0,
         vi_pham_lkh: 0,
         vi_pham_hl: 0,
+        giai_trinh_ktv: 0,
+        giai_trinh_gs: 0,
         tong_cuoc_goi: 0,
         goi_thanh_cong: 0,
         tong_nghi_ngo: 0,
@@ -820,7 +890,30 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
 
   for (const r of r1.results) Object.assign(ensure(r.nhom), r);
   for (const r of r2.results) Object.assign(ensure(r.nhom), r);
-  for (const r of r3.results) Object.assign(ensure(r.nhom), r);
+  // Chi gan cac cot khop 1:1 voi SurveyKhuVucRow - r3 con 8 cot "giai_trinh_{ktv,gs}_{120p,24h,lkh,hl}"
+  // rieng (chi dung de cong don ben duoi), KHONG gan thang qua Object.assign de tranh ro ri thanh
+  // field thua trong response JSON.
+  for (const r of r3.results) {
+    const row = ensure(r.nhom);
+    row.da_goi_120p = r.da_goi_120p;
+    row.bo_qua_120p = r.bo_qua_120p;
+    row.thanh_cong_120p = r.thanh_cong_120p;
+    row.vi_pham_120p = r.vi_pham_120p;
+    row.da_goi_24h = r.da_goi_24h;
+    row.bo_qua_24h = r.bo_qua_24h;
+    row.thanh_cong_24h = r.thanh_cong_24h;
+    row.vi_pham_24h = r.vi_pham_24h;
+    row.da_goi_lkh = r.da_goi_lkh;
+    row.bo_qua_lkh = r.bo_qua_lkh;
+    row.thanh_cong_lkh = r.thanh_cong_lkh;
+    row.vi_pham_lkh = r.vi_pham_lkh;
+    row.da_goi_hl = r.da_goi_hl;
+    row.bo_qua_hl = r.bo_qua_hl;
+    row.thanh_cong_hl = r.thanh_cong_hl;
+    row.vi_pham_hl = r.vi_pham_hl;
+    row.giai_trinh_ktv = r.giai_trinh_ktv_120p + r.giai_trinh_ktv_24h + r.giai_trinh_ktv_lkh + r.giai_trinh_ktv_hl;
+    row.giai_trinh_gs = r.giai_trinh_gs_120p + r.giai_trinh_gs_24h + r.giai_trinh_gs_lkh + r.giai_trinh_gs_hl;
+  }
   for (const r of r4.results) Object.assign(ensure(r.nhom), r);
   for (const r of r5.results) Object.assign(ensure(r.nhom), r);
   for (const r of r6.results) Object.assign(ensure(r.nhom), r);
@@ -842,12 +935,18 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
     row.ty_le_da_goi_24h = pct(row.da_goi_24h, row.nghi_ngo_24h);
     row.ty_le_da_goi_lkh = pct(row.da_goi_lkh, row.nghi_ngo_lkh);
     row.ty_le_da_goi_hl = pct(row.da_goi_hl, row.nghi_ngo_hl);
-    row.ty_le_vi_pham_tren_da_goi_120p = pct(row.vi_pham_120p, row.da_goi_120p);
-    row.ty_le_vi_pham_tren_da_goi_24h = pct(row.vi_pham_24h, row.da_goi_24h);
-    row.ty_le_vi_pham_tren_da_goi_lkh = pct(row.vi_pham_lkh, row.da_goi_lkh);
-    row.ty_le_vi_pham_tren_da_goi_hl = pct(row.vi_pham_hl, row.da_goi_hl);
+    // CHOT 2026-09-14: mau so doi tu "da_goi_X" sang "thanh_cong_X" (Lien he thanh cong) theo yeu
+    // cau chu he thong - "% Vi pham" phai tra loi "trong so ca DA LIEN HE THANH CONG, bao nhieu %
+    // bi ket luan vi pham", khong tinh nhung ca chi ghi nhan duoc cuoc goi (khong "Khong can khao
+    // sat") nhung chua chac lien he thanh cong.
+    row.ty_le_vi_pham_tren_da_goi_120p = pct(row.vi_pham_120p, row.thanh_cong_120p);
+    row.ty_le_vi_pham_tren_da_goi_24h = pct(row.vi_pham_24h, row.thanh_cong_24h);
+    row.ty_le_vi_pham_tren_da_goi_lkh = pct(row.vi_pham_lkh, row.thanh_cong_lkh);
+    row.ty_le_vi_pham_tren_da_goi_hl = pct(row.vi_pham_hl, row.thanh_cong_hl);
     // Metric 5/6 (da xac nhan voi nguoi dung dung "vi pham 120'" trong ca 2 cong thuc, khong phai
-    // "hen lai" du ten chi so nhac den hen lai):
+    // "hen lai" du ten chi so nhac den hen lai) - LUU Y: "da_goi_120p" doi dinh nghia 2026-09-14 (nay
+    // loai tru "Khong can khao sat", truoc gom ca no) nen gia tri chi so nay cung doi theo, chua co
+    // yeu cau rieng de xet lai cong thuc nay.
     row.ty_le_da_goi_hen_lai_toan_he_thong = pct(row.tong_tiep_nhan - (row.nghi_ngo_120p - row.da_goi_120p), row.tong_tiep_nhan);
     row.ty_le_ktv_chu_dong_toan_he_thong = pct(row.tong_tiep_nhan - row.nghi_ngo_120p, row.tong_tiep_nhan);
     row.ty_le_goi_thanh_cong = pct(row.goi_thanh_cong, row.tong_cuoc_goi);
@@ -878,10 +977,10 @@ survey.get("/bao-cao-khu-vuc", async (c) => {
     if (dk === "khu_vuc" || dk === "tinh") continue;
     params[dk] = c.req.query(dk);
   }
-  // "bao-cao-khu-vuc-v5" - cho_goi_lai sua lai theo dung nghia goc (cuoc goi GAN NHAT tich can_goi_
-  // lai=1, khong phai "co bat ky cuoc goi nao"), them truong "con_loi_chua_goi" (2026-08-22 lan 3,
-  // xem chu thich o khoi 5 trong computeSurveyKhuVucReport) nen doi hau to key de ep tinh lai ngay.
-  const key = buildReportKey("survey/bao-cao-khu-vuc-v5", params, scope);
+  // "bao-cao-khu-vuc-v6" (2026-09-14): tach "da_goi_X" thanh bo_qua/da_goi/thanh_cong + them
+  // giai_trinh_ktv/giai_trinh_gs - doi hau to key (nhu lan "-v5" truoc) de ep tinh lai ngay, tranh
+  // cache cu (thieu cac truong moi) duoc tra ve cho toi khi domain "vi_pham" tinh co bump tu nhien.
+  const key = buildReportKey("survey/bao-cao-khu-vuc-v6", params, scope);
   const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
   return c.json(payload);
 });
