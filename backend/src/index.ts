@@ -39,6 +39,7 @@ import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
 import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
 import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
 import { syncNapGasFromSheet } from "./routes/importNapGas";
+import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -97,6 +98,13 @@ const ARCHIVE_CRON = "0 20 1 * *";
 const SHEET_SYNC_CRON = "0 2,6,9 * * *";
 const SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
 
+// 17h15/17h20/17h25 gio VN = 10h15/10h20/10h25 UTC - keo "Giai trinh ton B2B" tu API doi tac ETX
+// (xem lib/etxGiaiTrinhSync.ts). 3 moc co dinh (khong phai setTimeout dong) VI stack nay khong co
+// Durable Object/Queue - moc 17h20/17h25 chi la "thu lai" THAT SU khi hasSucceededToday() bao chua
+// xong (loi mang/API ETX tam thoi), tu bo qua ngay khi da xong o moc truoc do - tuong duong "that
+// bai thi thu lai sau 5 phut, toi da 2 lan" ma khong can them ha tang moi.
+const ETX_SYNC_CRONS = new Set(["15 10 * * *", "20 10 * * *", "25 10 * * *"]);
+
 // 08:00 sang gio VN = 01:00 UTC. Chot voi chu he thong 2026-08-02: gom luoi an toan "ca lap"/
 // dashboard (truoc la CA_LAP_REFRESH_CRON rieng, chay moi gio) vao chung 1 dot voi "Bao cao ngay
 // 08:00" (banner Tong quat, xem lib/dailySnapshot.ts) - co che CHINH cua ca 2 van la goi truc tiep
@@ -131,6 +139,19 @@ export default {
   fetch: app.fetch,
 
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
+    if (ETX_SYNC_CRONS.has(event.cron)) {
+      try {
+        if (await hasSucceededToday(env.DB)) return; // dot truoc trong ngay da xong, khong goi lai API
+        const result = await syncGiaiTrinhTonB2B(env);
+        if (!result.ok) {
+          console.error(`[cron-etx-giai-trinh] that bai (${result.reason})${"message" in result ? `: ${result.message}` : ""}`);
+        }
+      } catch (err) {
+        console.error("[cron-etx-giai-trinh] loi khong mong doi:", err instanceof Error ? err.message : String(err));
+      }
+      return;
+    }
+
     if (event.cron === SHEET_SYNC_CRON) {
       // Tuan tu (khong Promise.all) - 4 sync doc lap nhau, khong can chay song song; don gian va
       // de doc log theo dung thu tu hon la chay dong thoi khong can thiet.

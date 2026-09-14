@@ -19,6 +19,7 @@ import { buildBaocaoTonRows, renderBaocaoTonImage, renderCanhBaoTonImage } from 
 import { computeCanhBaoTonBuckets } from "../lib/canhBaoTon";
 import { getVnDateStr } from "../lib/reportCache";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
+import { syncGiaiTrinhTonB2B } from "../lib/etxGiaiTrinhSync";
 
 const VALID_LOAI_DONG_BO = new Set(["case", "linh_kien", "giai_trinh_cu", "giai_trinh_lap_cu", "khao_sat_cu", "nap_gas_danh_gia_cu"]);
 
@@ -1067,6 +1068,27 @@ settings.patch("/partner-keys/:id", adminOnly, async (c) => {
     .run();
 
   return c.json({ ok: true });
+});
+
+// ---------- Dong bo "Giai trinh ton B2B" tu API ETX (xem migration 0110, lib/etxGiaiTrinhSync.ts) ----------
+// Tab tra cuu cho Admin: xem lai tung lan goi API (17h15/17h20/17h25 cron, hoac bam tay) thanh cong
+// hay that bai. GET gioi han 500 dong gan nhat - bang da tu xoa dong qua 30 ngay (cleanupOldLogs()
+// trong etxGiaiTrinhSync.ts), khong can phan trang sau nay.
+settings.get("/etx-giai-trinh-sync-log", adminOnly, async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM etx_giai_trinh_sync_log ORDER BY created_at DESC, id DESC LIMIT 500").all();
+  return c.json({ rows: results });
+});
+
+// POST /api/settings/etx-giai-trinh-sync-log/chay-ngay - cho Admin chu dong chay lai ngay (vd sau
+// khi sua ETX_GIAI_TRINH_API_KEY, hoac muon lay ngay khong doi den 17h15) - khong doi hasSucceededToday()
+// (nguoi bam tay muon chay THAT, khac 2 dot cron retry tu dong).
+settings.post("/etx-giai-trinh-sync-log/chay-ngay", adminOnly, async (c) => {
+  const result = await syncGiaiTrinhTonB2B(c.env);
+  if (!result.ok) {
+    if (result.reason === "MISSING_API_KEY") return c.json({ error: "MISSING_API_KEY" }, 400);
+    return c.json({ error: "DOI_TAC_LIST_FAILED", message: result.message }, 502);
+  }
+  return c.json({ ok: true, soDongMoi: result.soDongMoi });
 });
 
 // ---------- SDT ky thuat vien (xem migration 0049_ktv_lien_he.sql) ----------

@@ -95,6 +95,10 @@ export interface Env {
   VIPHAM_APP_URL?: string;
   VIPHAM_APP_API_KEY?: string;
   VIPHAM_APP?: Fetcher;
+  // Khoa "pham vi toan bo" cua API doi tac ETX (doc duoc nhat ky giai trinh ton cua MOI doi tac B2B,
+  // xem lib/etxGiaiTrinhSync.ts + "API_B2B_giaitrinh v2.md") - optional vi local dev khong can goi
+  // API that; thieu bien nay thi cron tu bo qua (xem syncGiaiTrinhTonB2B "MISSING_API_KEY").
+  ETX_GIAI_TRINH_API_KEY?: string;
 }
 
 // QC them vao 2026-07-29: HANDOFF.md ghi "QC (nhu Viewer + chot/bo vi pham cap 2)" - truoc do QC

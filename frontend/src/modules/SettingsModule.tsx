@@ -25,6 +25,7 @@ import {
   type GiaiTrinhExcludeNgayRow,
   type PartnerApiKeyRow,
   type KtvLienHeRow,
+  type EtxSyncLogRow,
 } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
@@ -131,6 +132,7 @@ export function SettingsModule() {
   const [newPartnerKey, setNewPartnerKey] = useState({ tenDoiTac: "", ghiChu: "" });
   const [createdPartnerKey, setCreatedPartnerKey] = useState<{ tenDoiTac: string; apiKey: string } | null>(null);
   const [partnerKeyPage, setPartnerKeyPage] = useState(1);
+  const [etxSyncLogPage, setEtxSyncLogPage] = useState(1);
   // "Mua hàng" (phản hồi 2026-08-19: gộp settings liên quan module Đặt mua linh kiện vào 1 thẻ
   // chung) - sub-tab con giữa "Lý do chậm (Đặt mua LK)" (mới, bảng settings_ly_do_cham - KHÁC
   // "Lý do chậm" ở trên dùng cho giải trình ca tồn) và "Loại đề xuất" (dời nguyên từ tab riêng cũ).
@@ -247,6 +249,11 @@ export function SettingsModule() {
   const { data: partnerKeys } = useQuery({
     queryKey: ["settings-partner-keys"],
     queryFn: () => api.get<{ rows: PartnerApiKeyRow[] }>("/settings/partner-keys"),
+  });
+  const { data: etxSyncLog } = useQuery({
+    queryKey: ["settings-etx-giai-trinh-sync-log"],
+    queryFn: () => api.get<{ rows: EtxSyncLogRow[] }>("/settings/etx-giai-trinh-sync-log"),
+    enabled: tab === "etx-giai-trinh-sync-log",
   });
   const { data: ldeNhomData } = useQuery({
     queryKey: ["settings-lde-nhom"],
@@ -537,6 +544,15 @@ export function SettingsModule() {
     },
   });
 
+  const runEtxSyncNowMutation = useMutation({
+    mutationFn: () => api.post<{ ok: true; soDongMoi: number }>("/settings/etx-giai-trinh-sync-log/chay-ngay", {}),
+    onSuccess: (res) => {
+      addToast(`Đã chạy xong, ghi được ${res.soDongMoi} dòng giải trình mới`);
+      qc.invalidateQueries({ queryKey: ["settings-etx-giai-trinh-sync-log"] });
+    },
+    onError: () => addToast("Chạy thất bại — xem chi tiết trong bảng log bên dưới."),
+  });
+
   const saveNhomMutation = useMutation({
     mutationFn: () => {
       const body = { ten_nhom: nhomForm.ten_nhom.trim(), vai_tro_json: JSON.stringify(nhomForm.vai_tro_flags), bat_tat: nhomForm.bat_tat };
@@ -770,6 +786,31 @@ export function SettingsModule() {
     },
   ];
 
+  const etxSyncLogColumns: Column<EtxSyncLogRow>[] = [
+    {
+      key: "created_at",
+      header: "Thời điểm",
+      render: (r) => <span className="text-xs text-[var(--ink-400)] whitespace-nowrap">{r.created_at}</span>,
+    },
+    {
+      key: "doi_tac_ma",
+      header: "Đối tác",
+      render: (r) => (r.doi_tac_ma ? <span className="font-mono text-xs">{r.doi_tac_ma}</span> : <span className="font-semibold text-xs">Tổng kết cả lượt</span>),
+    },
+    {
+      key: "ok",
+      header: "Kết quả",
+      render: (r) =>
+        r.ok ? <span className="text-[var(--teal-500)] font-semibold">Thành công</span> : <span className="text-[var(--coral-500)] font-semibold">Thất bại</span>,
+    },
+    { key: "so_dong_moi", header: "Dòng mới", render: (r) => <span>{r.so_dong_moi ?? "—"}</span> },
+    {
+      key: "error",
+      header: "Chi tiết lỗi",
+      render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.error ?? "—"}</span>,
+    },
+  ];
+
   const partnerKeyColumns: Column<PartnerApiKeyRow>[] = [
     { key: "ten_doi_tac", header: "Đối tác", render: (r) => <span className="font-medium">{r.ten_doi_tac}</span> },
     { key: "api_key", header: "API Key", render: (r) => <span className="font-mono text-xs">{r.api_key}</span> },
@@ -872,6 +913,7 @@ export function SettingsModule() {
           { key: "giai-trinh-exclude-ngay", label: "Ngày loại trừ giải trình" },
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
           { key: "partner-keys", label: "API đối tác" },
+          { key: "etx-giai-trinh-sync-log", label: "Đồng bộ giải trình B2B (ETX)" },
           { key: "mua-hang", label: "Mua hàng" },
           { key: "google-drive", label: "Google Drive" },
         ]}
@@ -1340,6 +1382,33 @@ export function SettingsModule() {
             rowKey={(r) => r.id}
             emptyText="Chưa cấp key nào cho đối tác."
             storageKey="settings-partner-keys"
+          />
+        </div>
+      )}
+
+      {tab === "etx-giai-trinh-sync-log" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3 gap-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Nhật ký mỗi lần hệ thống kéo "Giải trình tồn B2B" từ API đối tác ETX (tự động 17h15 hằng ngày, thử lại lúc 17h20/17h25 nếu chưa xong) — dùng để tra cứu khi nghi ngờ có đối tác bị lỗi/thiếu
+              dòng. Chỉ giữ 30 ngày gần nhất, tự xóa dòng cũ hơn.
+            </div>
+            <Btn size="sm" onClick={() => runEtxSyncNowMutation.mutate()} disabled={runEtxSyncNowMutation.isPending}>
+              {runEtxSyncNowMutation.isPending ? "Đang chạy…" : "Chạy ngay"}
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={etxSyncLogColumns}
+            rows={(etxSyncLog?.rows ?? []).slice((etxSyncLogPage - 1) * PAGE_SIZE, etxSyncLogPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={etxSyncLogPage}
+            pageSize={PAGE_SIZE}
+            total={(etxSyncLog?.rows ?? []).length}
+            onPageChange={setEtxSyncLogPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có lượt đồng bộ nào."
+            storageKey="settings-etx-giai-trinh-sync-log"
           />
         </div>
       )}

@@ -473,6 +473,16 @@ export interface PartnerApiKeyRow {
   revoked_at: string | null;
 }
 
+export interface EtxSyncLogRow {
+  id: number;
+  doi_tac_ma: string | null;
+  ok: number;
+  so_dong_moi: number | null;
+  http_status: number | null;
+  error: string | null;
+  created_at: string;
+}
+
 export interface LinhKienRow {
   ma_linh_kien: string;
   ten_linh_kien: string;
