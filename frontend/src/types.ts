@@ -475,10 +475,10 @@ export interface PartnerApiKeyRow {
 
 export interface EtxSyncLogRow {
   id: number;
-  doi_tac_ma: string | null;
   ok: number;
-  so_dong_moi: number | null;
-  http_status: number | null;
+  so_case_cap_nhat: number;
+  so_lich_su_moi: number;
+  so_lich_su_trung: number;
   error: string | null;
   created_at: string;
 }

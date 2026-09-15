@@ -1,7 +1,6 @@
 import type { Env } from "../types";
-import { findExistingCaseIds, loadActiveLyDoNames, runBatched } from "./backfillImportProcessor";
+import { CHUNK_SIZE_BATCH, findExistingCaseIds, loadActiveLyDoNames } from "./backfillImportProcessor";
 import { bumpVersions } from "./dataVersions";
-import { nowVN } from "./vnTime";
 
 // Dong bo "Giai trinh ton B2B" tu API doi tac ETX (xem "API_B2B_giaitrinh v2.md" - khoa PHAM VI
 // TOAN BO, doc duoc moi doi tac). Da xac minh bang du lieu san xuat 2026-09-14: id_truy_xuat (API)
@@ -16,6 +15,9 @@ const ETX_FALLBACK_LY_DO = "Đối tác B2B (ETX) tự động";
 // da ghi duoc, xem giai_trinh UNIQUE constraint migration 0022).
 const LOOKBACK_DAYS = 3;
 const SO_DONG_PER_PAGE = 1000;
+// Gioi han do dai loi gop tu nhieu doi tac (chi mang tinh tra cuu, tranh 1 dot chay loi tram toan bo
+// doi tac lam cot error phinh qua kho doc/luu).
+const MAX_ERROR_LEN = 2000;
 
 interface EtxDoiTac {
   ma: string;
@@ -105,25 +107,27 @@ async function fetchAllDongForDoiTac(apiKey: string, maDoiTac: string, tu: strin
   return { ok: true, dong };
 }
 
-/** Kiem tra da co dong TONG KET (doi_tac_ma IS NULL) voi ok=1 trong ngay hom nay chua - dung cho 2
- * dot cron retry sau (17h20/17h25) tu bo qua neu dot truoc da chay xong, khong goi lai API ETX. */
+/** Kiem tra da co 1 lan chay thanh cong trong ngay hom nay chua - dung cho 2 dot cron retry sau
+ * (17h20/17h25) tu bo qua neu dot truoc da chay xong, khong goi lai API ETX. */
 export async function hasSucceededToday(db: D1Database): Promise<boolean> {
   const row = await db
-    .prepare(
-      `SELECT 1 FROM etx_giai_trinh_sync_log
-       WHERE doi_tac_ma IS NULL AND ok = 1 AND substr(created_at, 1, 10) = ?
-       LIMIT 1`,
-    )
+    .prepare(`SELECT 1 FROM etx_giai_trinh_sync_log WHERE ok = 1 AND substr(created_at, 1, 10) = ? LIMIT 1`)
     .bind(vnDateStr())
     .first();
   return row != null;
 }
 
-async function logAttempt(db: D1Database, maDoiTac: string | null, ok: boolean, soDongMoi: number | null, httpStatus: number | null, error: string | null): Promise<void> {
+async function writeSummaryLog(
+  db: D1Database,
+  params: { ok: boolean; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; error: string | null },
+): Promise<void> {
   try {
     await db
-      .prepare(`INSERT INTO etx_giai_trinh_sync_log (doi_tac_ma, ok, so_dong_moi, http_status, error) VALUES (?, ?, ?, ?, ?)`)
-      .bind(maDoiTac, ok ? 1 : 0, soDongMoi, httpStatus, error)
+      .prepare(
+        `INSERT INTO etx_giai_trinh_sync_log (ok, so_case_cap_nhat, so_lich_su_moi, so_lich_su_trung, error)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .bind(params.ok ? 1 : 0, params.soCaseCapNhat, params.soLichSuMoi, params.soLichSuTrung, params.error)
       .run();
   } catch (err) {
     console.error("[etxGiaiTrinhSync] ghi etx_giai_trinh_sync_log that bai:", err);
@@ -134,11 +138,16 @@ async function cleanupOldLogs(db: D1Database): Promise<void> {
   await db.prepare(`DELETE FROM etx_giai_trinh_sync_log WHERE created_at < datetime('now', '+7 hours', '-30 days')`).run();
 }
 
-export type EtxSyncResult = { ok: true; soDongMoi: number } | { ok: false; reason: "MISSING_API_KEY" } | { ok: false; reason: "DOI_TAC_LIST_FAILED"; message: string };
+export type EtxSyncResult =
+  | { ok: true; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number }
+  | { ok: false; reason: "MISSING_API_KEY" }
+  | { ok: false; reason: "DOI_TAC_LIST_FAILED"; message: string };
 
 /** Dong bo 1 luot: lay danh sach doi tac, keo nhat ky tung doi tac (bo qua so_dong=0), ghi vao
- * giai_trinh cho dong nao id_truy_xuat khop case_dvbh.id. Goi tu cron (index.ts) hoac route thu
- * cong (Admin, settings.ts POST /etx-giai-trinh-sync-log/chay-ngay). */
+ * giai_trinh cho dong nao id_truy_xuat khop case_dvbh.id. Ghi DUY NHAT 1 dong log tong ket cho ca
+ * luot chay (chot voi chu he thong 2026-09-14 - truoc do 1 dong/doi tac qua chi tiet, kho doc).
+ * Goi tu cron (index.ts) hoac route thu cong (Admin, settings.ts POST
+ * /etx-giai-trinh-sync-log/chay-ngay). */
 export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
   const db = env.DB;
   const apiKey = env.ETX_GIAI_TRINH_API_KEY;
@@ -149,34 +158,37 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
 
   const doiTacRes = await fetchDoiTacList(apiKey);
   if (!doiTacRes.ok) {
-    await logAttempt(db, null, false, null, doiTacRes.status, `Lay danh sach doi tac that bai: ${doiTacRes.error}`);
+    await writeSummaryLog(db, {
+      ok: false,
+      soCaseCapNhat: 0,
+      soLichSuMoi: 0,
+      soLichSuTrung: 0,
+      error: `Lay danh sach doi tac that bai: ${doiTacRes.error}`,
+    });
     await cleanupOldLogs(db);
     return { ok: false, reason: "DOI_TAC_LIST_FAILED", message: doiTacRes.error };
   }
 
   const activeLyDo = await loadActiveLyDoNames(db);
-  let tongSoDongMoi = 0;
-  let coLoi = false;
+  const caseIdsCapNhat = new Set<string>();
+  let soLichSuMoi = 0;
+  let soLichSuTrung = 0;
+  const loiTungDoiTac: string[] = [];
 
   for (const doiTac of doiTacRes.data.doi_tac) {
     if (!doiTac.so_dong) continue; // doi tac chua co dong nao - bo qua, tiet kiem 1 luot goi API
 
     const dongRes = await fetchAllDongForDoiTac(apiKey, doiTac.ma, tu, den);
     if (!dongRes.ok) {
-      coLoi = true;
-      await logAttempt(db, doiTac.ma, false, null, dongRes.status, dongRes.error);
-      continue; // 1 doi tac loi khong chan cac doi tac con lai (giong runSheetSync trong index.ts)
+      loiTungDoiTac.push(`${doiTac.ma}: ${dongRes.error}`);
+      continue; // 1 doi tac loi khong chan cac doi tac con lai
     }
-
-    if (dongRes.dong.length === 0) {
-      await logAttempt(db, doiTac.ma, true, 0, null, null);
-      continue;
-    }
+    if (dongRes.dong.length === 0) continue;
 
     const caseIds = dongRes.dong.map((d) => d.id_truy_xuat).filter(Boolean);
     const existingCaseIds = await findExistingCaseIds(db, caseIds);
 
-    const statements = dongRes.dong
+    const entries = dongRes.dong
       .filter((d) => d.id_truy_xuat && existingCaseIds.has(d.id_truy_xuat))
       .map((d) => {
         const lyDoGoc = d.ly_do?.trim() || "";
@@ -185,7 +197,7 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
         const noiDungParts = [`[ETX tự động] ${lyDoGoc || "(không rõ lý do)"}`];
         if (ghiChu) noiDungParts.push(ghiChu);
 
-        return db
+        const stmt = db
           .prepare(
             `INSERT INTO giai_trinh (id, case_id, ly_do_cham, noi_dung, linh_kien_thieu, ngay_du_kien_hoan_thanh,
                ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan, nguoi_giai_trinh, ngay_giai_trinh)
@@ -203,16 +215,38 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
             ETX_ACTOR_EMAIL,
             toVnLocalTimestamp(d.thoi_diem),
           );
+        return { stmt, caseId: d.id_truy_xuat };
       });
 
-    if (statements.length > 0) await runBatched(db, statements);
-    tongSoDongMoi += statements.length;
-    await logAttempt(db, doiTac.ma, true, statements.length, null, null);
+    // Chay tung batch va doc meta.changes cua TUNG statement de biet dong nao THAT SU insert duoc
+    // (changes=1) hay bi ON CONFLICT DO NOTHING bo qua vi da ton tai san (changes=0) - day la cach
+    // duy nhat phan biet "moi" voi "trung" khi dung 1 cau INSERT ... ON CONFLICT DO NOTHING chung.
+    for (let i = 0; i < entries.length; i += CHUNK_SIZE_BATCH) {
+      const chunk = entries.slice(i, i + CHUNK_SIZE_BATCH);
+      if (chunk.length === 0) continue;
+      const results = await db.batch(chunk.map((e) => e.stmt));
+      results.forEach((r, idx) => {
+        if ((r.meta?.changes ?? 0) > 0) {
+          soLichSuMoi++;
+          caseIdsCapNhat.add(chunk[idx].caseId);
+        } else {
+          soLichSuTrung++;
+        }
+      });
+    }
   }
 
-  if (tongSoDongMoi > 0) await bumpVersions(db, ["giai_trinh"]);
-  await logAttempt(db, null, !coLoi, tongSoDongMoi, null, coLoi ? "Co it nhat 1 doi tac loi - xem chi tiet cac dong cung dot chay" : null);
+  if (soLichSuMoi > 0) await bumpVersions(db, ["giai_trinh"]);
+
+  const ok = loiTungDoiTac.length === 0;
+  await writeSummaryLog(db, {
+    ok,
+    soCaseCapNhat: caseIdsCapNhat.size,
+    soLichSuMoi,
+    soLichSuTrung,
+    error: ok ? null : loiTungDoiTac.join("; ").slice(0, MAX_ERROR_LEN),
+  });
   await cleanupOldLogs(db);
 
-  return { ok: true, soDongMoi: tongSoDongMoi };
+  return { ok: true, soCaseCapNhat: caseIdsCapNhat.size, soLichSuMoi, soLichSuTrung };
 }

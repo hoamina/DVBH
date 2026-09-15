@@ -545,9 +545,10 @@ export function SettingsModule() {
   });
 
   const runEtxSyncNowMutation = useMutation({
-    mutationFn: () => api.post<{ ok: true; soDongMoi: number }>("/settings/etx-giai-trinh-sync-log/chay-ngay", {}),
+    mutationFn: () =>
+      api.post<{ ok: true; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number }>("/settings/etx-giai-trinh-sync-log/chay-ngay", {}),
     onSuccess: (res) => {
-      addToast(`Đã chạy xong, ghi được ${res.soDongMoi} dòng giải trình mới`);
+      addToast(`Đã chạy xong: ${res.soCaseCapNhat} case cập nhật, ${res.soLichSuMoi} lịch sử mới, ${res.soLichSuTrung} trùng`);
       qc.invalidateQueries({ queryKey: ["settings-etx-giai-trinh-sync-log"] });
     },
     onError: () => addToast("Chạy thất bại — xem chi tiết trong bảng log bên dưới."),
@@ -789,13 +790,8 @@ export function SettingsModule() {
   const etxSyncLogColumns: Column<EtxSyncLogRow>[] = [
     {
       key: "created_at",
-      header: "Thời điểm",
+      header: "Thời điểm gọi",
       render: (r) => <span className="text-xs text-[var(--ink-400)] whitespace-nowrap">{r.created_at}</span>,
-    },
-    {
-      key: "doi_tac_ma",
-      header: "Đối tác",
-      render: (r) => (r.doi_tac_ma ? <span className="font-mono text-xs">{r.doi_tac_ma}</span> : <span className="font-semibold text-xs">Tổng kết cả lượt</span>),
     },
     {
       key: "ok",
@@ -803,7 +799,9 @@ export function SettingsModule() {
       render: (r) =>
         r.ok ? <span className="text-[var(--teal-500)] font-semibold">Thành công</span> : <span className="text-[var(--coral-500)] font-semibold">Thất bại</span>,
     },
-    { key: "so_dong_moi", header: "Dòng mới", render: (r) => <span>{r.so_dong_moi ?? "—"}</span> },
+    { key: "so_case_cap_nhat", header: "Số case cập nhật", render: (r) => <span>{r.so_case_cap_nhat}</span> },
+    { key: "so_lich_su_moi", header: "Lịch sử ghi nhận mới", render: (r) => <span>{r.so_lich_su_moi}</span> },
+    { key: "so_lich_su_trung", header: "Lịch sử trùng", render: (r) => <span>{r.so_lich_su_trung}</span> },
     {
       key: "error",
       header: "Chi tiết lỗi",

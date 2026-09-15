@@ -15,7 +15,7 @@ import {
   extraDimFiltersFromParams,
 } from "../lib/filterParams";
 import { RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
-import { uploadToDrive } from "../lib/googleDrive";
+import { uploadPublicImage } from "../lib/googleDrive";
 import { toJsonArray } from "../lib/jsonArray";
 import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 import { nowVN } from "../lib/vnTime";
@@ -545,7 +545,10 @@ viPham.post("/:id/giai-trinh", requireRole("Giam sat", "Admin"), async (c) => {
     .bind(newId, id, vp.case_id, nguoiGiaiTrinh, body.ngay_giai_trinh, noiDungGiaiTrinh, ghiChu, toJsonArray(anhUrls), user.email)
     .run();
 
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+  // Domain rieng "vi_pham_giai_trinh" (2026-09-15), KHONG phai "vi_pham" - dong nay chi ghi bang
+  // vi_pham_giai_trinh, bump nham "vi_pham" se xoa cache /funnel, /leaderboard, /counts, /by-khu-vuc
+  // vo ich (khong bao cao nao trong so do doc bang nay) - xem giai thich day du o lib/dataVersions.ts.
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham_giai_trinh"]));
 
   // Bao cho he ngoai "vipham.dichvu3t.workers.dev" moi lan GS nhap giai trinh thay TRUC TIEP trong
   // DVBH (CHOT 2026-09-11, xem lib/viPhamBenNgoai.ts) - de vipham luon co ban giai trinh moi nhat cho
@@ -568,9 +571,15 @@ viPham.post("/:id/giai-trinh", requireRole("Giam sat", "Admin"), async (c) => {
   return c.json({ id: newId }, 201);
 });
 
-// POST /api/vi-pham/:id/giai-trinh/anh - upload 1 anh bang chung giai trinh len Google Drive (BINARY
-// THO, giong pattern routes/phieuXuatKho.ts POST /:id/anh-bien-ban) - goi toi da 5 lan roi gop URL
-// tra ve vao anh_urls khi submit POST /:id/giai-trinh o tren.
+// POST /api/vi-pham/:id/giai-trinh/anh - upload 1 anh bang chung giai trinh len Google Drive - goi
+// toi da 5 lan roi gop URL tra ve vao anh_urls khi submit POST /:id/giai-trinh o tren.
+// FIX 2026-09-15: truoc dung uploadToDrive() (Service Account rieng, xem lib/googleDrive.ts) - SA
+// KHONG co storage quota, Google tra 403 "Service Accounts do not have storage quota" cho MOI file
+// (da xac nhan 2026-08-17 khi doi huong settings.ts sang OAuth) nen moi lan GS giai trinh dinh kem
+// anh la loi "Khong the tai anh len" 100% cac lan. Doi sang uploadPublicImage() (OAuth uy quyen 1 tai
+// khoan Google that, cung pattern voi settings.ts anh linh kien) - tra ve thumbnailUrl thay
+// webViewLink, van la 1 URL xem duoc truc tiep, khop dung shape { ok, url } FE dang doc
+// (frontend/src/modules/CaseDetail.tsx handleViPhamGiaiTrinhAnh).
 viPham.post("/:id/giai-trinh/anh", requireRole("Giam sat", "Admin"), async (c) => {
   const id = c.req.param("id");
   const contentType = c.req.header("Content-Type") || "image/jpeg";
@@ -579,8 +588,8 @@ viPham.post("/:id/giai-trinh/anh", requireRole("Giam sat", "Admin"), async (c) =
   if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
 
   const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-  const uploaded = await uploadToDrive(c.env, bytes, contentType, `giai-trinh-vi-pham-${id}-${Date.now()}.${ext}`);
-  return c.json({ ok: true, url: uploaded.webViewLink });
+  const uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, `giai-trinh-vi-pham-${id}-${Date.now()}.${ext}`);
+  return c.json({ ok: true, url: uploaded.thumbnailUrl });
 });
 
 export default viPham;

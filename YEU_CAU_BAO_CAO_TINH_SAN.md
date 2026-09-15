@@ -5,7 +5,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 ## Nguyên lý
 
 1. Bảng `data_versions(domain TEXT PK, version INTEGER, updated_at)` — mỗi domain 1 dòng.
-2. Domain: `cases`, `giai_trinh`, `vi_pham`, `ket_qua_goi`, `giai_trinh_lap`, `blacklist`, `settings`, `users`, `nap_gas_danh_gia` (thêm 2026-07-24, xem migration 0025), `tranh_chap` (thêm 2026-07-29, xem migration 0035 — bảng `tranh_chap_tien_trinh`/`tranh_chap_log`), `dat_mua_lk` (thêm 2026-08-14 — bảng `dat_don_hang_log`/`phieu_xuat_kho_log`/`thieu_lk_log`/`tra_hang_log`/`phieu_dat`, xem routes/datMuaLinhKien.ts + phieuXuatKho.ts + traHang.ts).
+2. Domain: `cases`, `giai_trinh`, `vi_pham`, `ket_qua_goi`, `giai_trinh_lap`, `blacklist`, `settings`, `users`, `nap_gas_danh_gia` (thêm 2026-07-24, xem migration 0025), `tranh_chap` (thêm 2026-07-29, xem migration 0035 — bảng `tranh_chap_tien_trinh`/`tranh_chap_log`), `dat_mua_lk` (thêm 2026-08-14 — bảng `dat_don_hang_log`/`phieu_xuat_kho_log`/`thieu_lk_log`/`tra_hang_log`/`phieu_dat`, xem routes/datMuaLinhKien.ts + phieuXuatKho.ts + traHang.ts), `vi_pham_giai_trinh` (thêm 2026-09-15 — bảng `vi_pham_giai_trinh`, xem viPham.ts POST /:id/giai-trinh + partnerApi.ts POST /sync/giai-trinh-vi-pham; TÁCH RIÊNG khỏi `vi_pham` vì không báo cáo nào đọc bảng này ngoại trừ filter `co_giai_trinh` của GET /survey — bump nhầm "vi_pham" trước đó xóa cache /funnel, /leaderboard, /counts, /by-khu-vuc vô ích mỗi lần KTV/GS giải trình).
 3. Mọi đường GHI bump version domain tương ứng (UPSERT +1, chạy trong cùng batch/waitUntil với ghi chính).
 4. Endpoint báo cáo bọc qua `cachedReport(db, key, domains, compute)`:
    - key = tên endpoint + toàn bộ query param chuẩn hóa (sort key) + scope khu_vuc của user (sorted). Ví dụ: `rpt:cases/counts|khu_vuc=Hà Nội|scope=MB1,MB2`.
@@ -22,6 +22,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
   - `cases`: importRoute.ts (commit + sync-sheet, khi GHI_MOI+GHI_DE>0), cron archive (index.ts, khi meta.changes>0).
   - `giai_trinh`: cases.ts POST /:id/giai-trinh; importGiaiTrinh.ts (commit/sync khi có INSERT).
   - `vi_pham` + `ket_qua_goi`: survey.ts (POST /calls, assign, assign-bulk), viPham.ts (PATCH /:id/cap2), importKhaoSat.ts.
+  - `vi_pham_giai_trinh` (thêm 2026-09-15): viPham.ts POST /:id/giai-trinh, partnerApi.ts POST /sync/giai-trinh-vi-pham (chỉ bump khi có dòng ghi thành công). KHÔNG bump "vi_pham" ở 2 điểm này — chỉ ghi bảng vi_pham_giai_trinh.
   - `giai_trinh_lap`: caLap.ts các route ghi giai-trinh-lap/QC chốt, importGiaiTrinhLap.ts.
   - `blacklist`: caLap.ts blacklist POST/PATCH/DELETE/commit.
   - `settings`: settings.ts các route ghi (ly-do, linh-kien, sheet-urls).
@@ -61,11 +62,12 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 | GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases (+users cho giam-sat) (+ xem CHỐT 2026-08-01 dưới) |
 | GET /survey/counts, /by-khu-vuc | survey.ts | cases, vi_pham, ket_qua_goi |
 | GET /survey/bao-cao-khu-vuc (thêm 2026-07-30) | survey.ts | cases, vi_pham, ket_qua_goi |
+| GET /survey (field `totalCases`, thêm 2026-09-15) | survey.ts | cases, vi_pham (+ `vi_pham_giai_trinh` khi filter `co_giai_trinh=true`) |
 | GET /vi-pham/funnel (thêm ket_qua_goi 2026-08-22 — 8 chỉ số mới đọc luôn ket_qua_cuoc_goi) | viPham.ts | cases, vi_pham, ket_qua_goi |
 | GET /vi-pham/leaderboard | viPham.ts | cases, vi_pham |
 | GET /ca-lap/tong-quan | caLap.ts | cases, giai_trinh_lap, blacklist, settings (Block A doc settings_loai_yeu_cau_bo_qua_lap qua eligibleClause(), them 2026-08-29) |
 
-Lưu ý sla-trend/trend có param days/months — đưa vào key. KHÔNG bọc /survey danh sách, /ca-lap/danh-sach* (đã rẻ nhờ index 816 dòng).
+Lưu ý sla-trend/trend có param days/months — đưa vào key. KHÔNG bọc phần DANH SÁCH (rows) của /survey, /ca-lap/danh-sach* (đã rẻ nhờ index 816 dòng) — luôn đọc sống để đảm bảo dữ liệu mới nhất. CHỐT 2026-09-15: riêng field `totalCases` (COUNT(DISTINCT) đi kèm rows của GET /survey) ĐÃ bọc `cachedReport` — production đo được đây là nguồn rows_read lớn nhất toàn hệ thống (~340M rows/7 ngày qua `wrangler d1 insights`) vì chạy sống mỗi lần đổi tab/bộ lọc, trùng lặp hoàn toàn phép đếm đã có sẵn trong /survey/counts. Rows (danh sách 200/5000 dòng) vẫn đọc sống như cũ, không đổi.
 
 **CHỐT 2026-08-01 (thay thế mô tả gốc phía trên cho 3 endpoint kpis/pivot/revenue*):**
 - Đã **xoá hẳn** `GET /dashboard/sla-trend`, `GET /dashboard/violation-breakdown`, `GET /dashboard/monthly-trend` (cùng compute function + widget frontend) — chủ hệ thống chốt không dùng nữa, không còn trong codebase.

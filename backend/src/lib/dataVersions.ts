@@ -20,7 +20,14 @@
 // nay - xem R8 YEU_CAU_BAO_CAO_TINH_SAN.md ve nguyen tac "chi bump domain thuc su co bao cao phu
 // thuoc") - da doi lai domain dung khi them field badge nay, tranh lam moi luot duyet/tu choi don
 // mua linh kien vo tinh ep toan bo dashboard/report tinh lai khong can thiet.
-const ALL_DOMAINS = ["blacklist", "cases", "dat_mua_lk", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "settings", "tranh_chap", "users", "vi_pham"] as const;
+// "vi_pham_giai_trinh" them 2026-09-15: tach rieng khoi "vi_pham" - ghi giai trinh (viPham.ts POST
+// /:id/giai-trinh, partnerApi.ts POST /sync/giai-trinh-vi-pham) CHI insert bang vi_pham_giai_trinh,
+// KHONG dung bang vi_pham ma /funnel, /leaderboard, /counts, /by-khu-vuc, /notifications/count doc -
+// truoc day cac duong ghi nay bump nham domain "vi_pham" (dung y tuong tu bai hoc "dat_mua_lk" o
+// tren) khien ca loat bao cao vi_pham bi xoa cache moi lan KTV/GS giai trinh, ep tinh lai khong can
+// thiet. Domain moi CHI duoc dung boi phan totalCases co loc "co_giai_trinh=true" trong GET
+// /survey (xem routes/survey.ts).
+const ALL_DOMAINS = ["blacklist", "cases", "dat_mua_lk", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "settings", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay

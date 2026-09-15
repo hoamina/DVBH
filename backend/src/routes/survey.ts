@@ -178,7 +178,7 @@ survey.get("/call-history-by-case", async (c) => {
   return c.json({ rows: calls.results, viPham: viPham.results });
 });
 
-// GET /api/survey?tab=can-khao-sat|cho-qc|da-xu-ly&khu_vuc=&tuoi_tu=&tuoi_den=&tinh=&quan_huyen=&ky_thuat_vien=
+// GET /api/survey?tab=can-khao-sat|cho-qc|da-xu-ly&khu_vuc=&tuoi_tu=&tuoi_den=&tinh=&quan_huyen=&ky_thuat_vien=&ma_ca=
 survey.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "can-khao-sat";
   const scope = scopeByKhuVuc(c);
@@ -207,8 +207,19 @@ survey.get("/", async (c) => {
   // dong vi_pham co IT NHAT 1 ban giai trinh (KTV qua API HOAC GS nhap tay tren DVBH), ap dung dong
   // nhat cho ca 3 tab "cho-qc"/"da-xu-ly"/"vi-pham-da-chot".
   const coGiaiTrinhSql = c.req.query("co_giai_trinh") === "true" ? " AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id)" : "";
-  const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql + ngaySql + coGiaiTrinhSql;
-  const extraBinds = [...khuVucClause.binds, ...ageClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds, ...ngayBinds];
+  // "ma_ca" (them 2026-09-15): tim theo ma ca/serial NGAY TRONG SQL, cung ly do voi fix ngay_tu/
+  // ngay_den 2026-09-04 o tren - o "Nhap ID/Serial..." tren UI truoc day CHI loc client-side tren tap
+  // da bi LIMIT 200, nen 1 ca cu (vd da ghi nhan tu tuan truoc, bi hang nghin dong moi hon xep truoc
+  // trong ORDER BY ngay_ghi_nhan/ngay_chot DESC) khong bao gio xuat hien trong 200 dong dau du CO khop
+  // dieu kien tab (phat hien qua bao cao thuc te ca "1327339" - QC da xu ly nhung tim khong thay o ca
+  // 2 tab). Search truc tiep tren c.id/c.seri_san_pham, khong can index rieng - dieu kien chinh cua
+  // tab (v.*) da drive CROSS JOIN tu vi_pham (bang nho) truoc, them dieu kien nay chi loc THEM tren
+  // tap da duoc CROSS JOIN, khong lam tang so dong quet.
+  const maCaRaw = c.req.query("ma_ca")?.trim();
+  const maCaSql = maCaRaw ? " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)" : "";
+  const maCaBinds = maCaRaw ? [`%${maCaRaw}%`, `%${maCaRaw}%`] : [];
+  const extraFilter = khuVucClause.sql + ageClause.sql + tinhClause.sql + quanHuyenSql + ktvSql + ngaySql + coGiaiTrinhSql + maCaSql;
+  const extraBinds = [...khuVucClause.binds, ...ageClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds, ...ngayBinds, ...maCaBinds];
   const limit = c.req.query("export") === "true" ? 5000 : 200;
   // Ban giai trinh MOI NHAT tu KTV (qua API) va tu Giam sat (nhap tay) cho moi dong vi_pham - dung
   // correlated subquery (idiom da co san trong codebase, xem "latestCanGoiLai") thay vi query rieng +
@@ -220,6 +231,46 @@ survey.get("/", async (c) => {
         (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'ktv_qua_api' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_ktv_ngay,
         (SELECT g.noi_dung_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_noi_dung,
         (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_ngay`;
+
+  // totalCases (CHOT 2026-09-04, boc cachedReport 2026-09-15): chi tinh khi KHONG phai export (export
+  // da lay het/gan het du lieu trong LIMIT 5000 roi, khong can bao thieu) - de FE biet danh sach dang
+  // xem co bi cat bot khong so voi tong so ca thuc te khop dieu kien loc hien tai (LIMIT 200 chi la
+  // gioi han hien thi, khong phai gioi han du lieu that). RA SOAT 2026-09-15 (wrangler d1 insights
+  // production): cau COUNT(DISTINCT v.case_id) nay la nguon rows_read LON NHAT toan he thong (~340M/7
+  // ngay, ~65M/1 ngay rieng 3 bien the tab) vi truoc day chay SONG moi lan doi tab/bo loc, trong khi
+  // 4 endpoint anh em cung file (/funnel, /leaderboard, /counts, /by-khu-vuc) da qua cachedReport tu
+  // lau - gio boc lai dung pattern do. Domain them "vi_pham_giai_trinh" CHI khi co loc
+  // "co_giai_trinh=true" (phu thuoc EXISTS tren bang do) - xem lib/dataVersions.ts.
+  const totalCasesParams: Record<string, string | undefined> = {
+    khu_vuc: c.req.query("khu_vuc"),
+    tuoi_tu: c.req.query("tuoi_tu"),
+    tuoi_den: c.req.query("tuoi_den"),
+    tinh: c.req.query("tinh"),
+    quan_huyen: c.req.query("quan_huyen"),
+    ky_thuat_vien: c.req.query("ky_thuat_vien"),
+    ngay_tu: c.req.query("ngay_tu"),
+    ngay_den: c.req.query("ngay_den"),
+    co_giai_trinh: c.req.query("co_giai_trinh"),
+    ma_ca: maCaRaw,
+  };
+  async function totalCasesFor(whereCore: string): Promise<number | null> {
+    if (c.req.query("export") === "true") return null;
+    const key = buildReportKey(`survey/total-cases-${tab}`, totalCasesParams, scope);
+    return cachedReport(
+      c.env.DB,
+      key,
+      totalCasesParams.co_giai_trinh === "true" ? ["cases", "vi_pham", "vi_pham_giai_trinh"] : ["cases", "vi_pham"],
+      async () => {
+        const row = await c.env.DB.prepare(
+          `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+           WHERE ${whereCore}${scopeClause.sql}${extraFilter}`,
+        )
+          .bind(...scopeClause.binds, ...extraBinds)
+          .first<{ n: number }>();
+        return row?.n ?? 0;
+      },
+    );
+  }
 
   // "can-khao-sat"/"qua-han-khao-sat" da tach thanh GET /candidates?tab=&thang= (query D1 song, gioi
   // han theo thang mo ca - xem route ben tren) - khong con query o day.
@@ -238,18 +289,7 @@ survey.get("/", async (c) => {
       LIMIT ?
     `;
     const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
-    // totalCases (CHOT 2026-09-04): chi tinh khi KHONG phai export (export da lay het/gan het du
-    // lieu trong LIMIT 5000 roi, khong can bao thieu) - de FE biet danh sach dang xem co bi cat bot
-    // khong so voi tong so ca thuc te khop dieu kien loc hien tai (LIMIT 200 chi la gioi han hien
-    // thi, khong phai gioi han du lieu that).
-    let totalCases: number | null = null;
-    if (c.req.query("export") !== "true") {
-      const countRow = await c.env.DB.prepare(
-        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
-         WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}`,
-      ).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>();
-      totalCases = countRow?.n ?? null;
-    }
+    const totalCases = await totalCasesFor("v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL");
     return c.json({ rows: results, totalCases });
   }
 
@@ -263,14 +303,7 @@ survey.get("/", async (c) => {
       LIMIT ?
     `;
     const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
-    let totalCases: number | null = null;
-    if (c.req.query("export") !== "true") {
-      const countRow = await c.env.DB.prepare(
-        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
-         WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}`,
-      ).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>();
-      totalCases = countRow?.n ?? null;
-    }
+    const totalCases = await totalCasesFor("(v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)");
     return c.json({ rows: results, totalCases });
   }
 
@@ -286,14 +319,7 @@ survey.get("/", async (c) => {
       LIMIT ?
     `;
     const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
-    let totalCases: number | null = null;
-    if (c.req.query("export") !== "true") {
-      const countRow = await c.env.DB.prepare(
-        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
-         WHERE v.chot_bo_cap_2 = 1${scopeClause.sql}${extraFilter}`,
-      ).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>();
-      totalCases = countRow?.n ?? null;
-    }
+    const totalCases = await totalCasesFor("v.chot_bo_cap_2 = 1");
     return c.json({ rows: results, totalCases });
   }
 

@@ -1070,10 +1070,11 @@ settings.patch("/partner-keys/:id", adminOnly, async (c) => {
   return c.json({ ok: true });
 });
 
-// ---------- Dong bo "Giai trinh ton B2B" tu API ETX (xem migration 0110, lib/etxGiaiTrinhSync.ts) ----------
-// Tab tra cuu cho Admin: xem lai tung lan goi API (17h15/17h20/17h25 cron, hoac bam tay) thanh cong
-// hay that bai. GET gioi han 500 dong gan nhat - bang da tu xoa dong qua 30 ngay (cleanupOldLogs()
-// trong etxGiaiTrinhSync.ts), khong can phan trang sau nay.
+// ---------- Dong bo "Giai trinh ton B2B" tu API ETX (xem migration 0111, lib/etxGiaiTrinhSync.ts) ----------
+// Tab tra cuu cho Admin: moi lan goi API (17h15/17h20/17h25 cron, hoac bam tay) chi ghi DUY NHAT 1
+// dong log tong ket (chot 2026-09-14 - truoc do 1 dong/doi tac qua chi tiet). GET gioi han 500 dong
+// gan nhat - bang da tu xoa dong qua 30 ngay (cleanupOldLogs() trong etxGiaiTrinhSync.ts), khong can
+// phan trang sau nay.
 settings.get("/etx-giai-trinh-sync-log", adminOnly, async (c) => {
   const { results } = await c.env.DB.prepare("SELECT * FROM etx_giai_trinh_sync_log ORDER BY created_at DESC, id DESC LIMIT 500").all();
   return c.json({ rows: results });
@@ -1088,7 +1089,7 @@ settings.post("/etx-giai-trinh-sync-log/chay-ngay", adminOnly, async (c) => {
     if (result.reason === "MISSING_API_KEY") return c.json({ error: "MISSING_API_KEY" }, 400);
     return c.json({ error: "DOI_TAC_LIST_FAILED", message: result.message }, 502);
   }
-  return c.json({ ok: true, soDongMoi: result.soDongMoi });
+  return c.json({ ok: true, soCaseCapNhat: result.soCaseCapNhat, soLichSuMoi: result.soLichSuMoi, soLichSuTrung: result.soLichSuTrung });
 });
 
 // ---------- SDT ky thuat vien (xem migration 0049_ktv_lien_he.sql) ----------

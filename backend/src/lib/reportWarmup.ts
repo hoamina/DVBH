@@ -63,7 +63,11 @@ export async function warmDefaultReports(db: D1Database): Promise<void> {
       selfCached: true,
     },
     { endpoint: "missing-parts/by-khu-vuc", params: { dim: "khu_vuc" }, domains: ["cases", "giai_trinh", "settings"], compute: () => computeMissingPartsByKhuVuc(db, { dim: "khu_vuc" }, null) },
-    { endpoint: "survey/counts", params: {}, domains: ["cases", "vi_pham", "ket_qua_goi"], compute: () => computeSurveyCounts(db, {}, null) },
+    // "survey/counts-v2" (2026-09-15 fix): route that GET /survey/counts dung key "survey/counts-v2"
+    // (doi tu 2026-09-11 khi them tab vi-pham-da-chot) nhung warm-up van con warm key cu "survey/counts"
+    // - key that khong bao gio duoc tinh san, warm-up ghi vao 1 key chet khong ai doc toi. Sua lai
+    // khop dung endpoint that (xem buildReportKey trong routes/survey.ts GET /counts).
+    { endpoint: "survey/counts-v2", params: {}, domains: ["cases", "vi_pham", "ket_qua_goi"], compute: () => computeSurveyCounts(db, {}, null) },
     // selfCached: true - computeCaLapTongQuan (R9.3) tu chia 2 khoi cache noi bo rieng (thuan
     // import vs phu thuoc giai_trinh_lap). params PHAI khop dung request that cua CaLapModule.tsx
     // (luon gui thang=YYYY-MM, khong gui khu_vuc khi khong loc) - xem thangCaLap o tren.

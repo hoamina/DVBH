@@ -322,6 +322,17 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   // 1 tab nao), va "Ket qua cuoc goi" - rieng cho tab "Lich su khao sat" (cac tab khac khong co du
   // lieu nay o dang phang, "cho-qc"/"da-xu-ly" la case_id gop nhieu vi_pham nen khong hop).
   const [localIdFilter, setLocalIdFilter] = useState("");
+  // "ma_ca" debounce 500ms (them 2026-09-15, phat hien qua bao cao thuc te ca "1327339"): rieng 3 tab
+  // "cho-qc"/"da-xu-ly"/"vi-pham-da-chot" bi LIMIT 200 tren server (xem backend/src/routes/survey.ts),
+  // localIdFilter truoc day CHI loc client-side tren 200 dong da tai - 1 ca cu (ngay_ghi_nhan/ngay_chot
+  // xa hon 200 dong gan nhat) khong bao gio hien du CO khop dieu kien tab. Debounce roi gui len server
+  // qua param "ma_ca" (search that tren toan bo tap khop dieu kien, khong bi LIMIT chan) - localIdFilter
+  // (khong debounce) van dung de loc tuc thi tren du lieu da co trong luc cho ket qua server moi ve.
+  const [debouncedIdFilter, setDebouncedIdFilter] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedIdFilter(localIdFilter.trim()), 500);
+    return () => clearTimeout(t);
+  }, [localIdFilter]);
   // CHOT 2026-09-14: "Danh sach da co giai trinh vi pham" - chi ap dung 3 tab "cho-qc"/"da-xu-ly"/
   // "vi-pham-da-chot" (khop dung pham vi coGiaiTrinhSql o backend/src/routes/survey.ts GET "/").
   const [coGiaiTrinhFilter, setCoGiaiTrinhFilter] = useState(false);
@@ -408,7 +419,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   // ngay_tu/ngay_den (CHOT 2026-09-04): loc theo v.ngay_ghi_nhan NGAY O SERVER thay vi client-side
   // sau khi ket qua da bi LIMIT 200/5000 - truoc day loc ngay client-side tren tap da cat gay bao
   // thieu dong so voi thuc te khi tong so dong vuot LIMIT (xem backend/src/routes/survey.ts).
-  const viPhamListParams = { ...filterParams, ngay_tu: localNgayTuFilter, ngay_den: localNgayDenFilter, co_giai_trinh: coGiaiTrinhFilter || undefined };
+  // "ma_ca" (them 2026-09-15) - xem giai thich o debouncedIdFilter phia tren.
+  const viPhamListParams = {
+    ...filterParams,
+    ngay_tu: localNgayTuFilter,
+    ngay_den: localNgayDenFilter,
+    co_giai_trinh: coGiaiTrinhFilter || undefined,
+    ma_ca: debouncedIdFilter || undefined,
+  };
   const { data: choQc } = useQuery({
     queryKey: ["survey", "cho-qc", viPhamListParams],
     queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "cho-qc", ...viPhamListParams })}`),

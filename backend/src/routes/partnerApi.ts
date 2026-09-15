@@ -490,7 +490,13 @@ partnerApi.post("/sync/giai-trinh-vi-pham", async (c) => {
       .run();
     results.push({ vi_pham_id: row.vi_pham_id, ok: true });
   }
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+  // Domain rieng "vi_pham_giai_trinh" (2026-09-15), KHONG phai "vi_pham" - xem giai thich day du o
+  // lib/dataVersions.ts. Chi bump khi THUC SU co dong ghi thanh cong - he vipham co the goi dinh ky
+  // (cron) voi rows rong/toan loi, bump vo dieu kien truoc day xoa cache /funnel, /leaderboard,
+  // /counts, /by-khu-vuc mien phi khong can thiet.
+  if (results.some((r) => r.ok)) {
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham_giai_trinh"]));
+  }
   return c.json({ results });
 });
 
