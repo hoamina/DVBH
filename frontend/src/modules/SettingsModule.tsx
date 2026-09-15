@@ -139,6 +139,11 @@ export function SettingsModule() {
     gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "",
   });
 
+  const { data: driveStatus } = useQuery({
+    queryKey: ["settings-google-drive-status"],
+    queryFn: () => api.get<{ connected: boolean; google_email?: string; authorized_by?: string; authorized_at?: string }>("/settings/google-drive/status"),
+  });
+
   const { data: reasons } = useQuery({
     queryKey: ["settings-ly-do"],
     queryFn: () => fetchWithHashCache<{ rows: LyDoRow[] }>("settings-ly-do", "/settings/ly-do/version", "/settings/ly-do"),
@@ -713,8 +718,39 @@ export function SettingsModule() {
           { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
           { key: "partner-keys", label: "API đối tác" },
           { key: "loai-de-xuat", label: "Loại đề xuất" },
+          { key: "google-drive", label: "Google Drive" },
         ]}
       />
+      {tab === "google-drive" && (
+        <div className="mt-4 max-w-xl">
+          <Card>
+            <div className="text-sm text-[var(--ink-600)] mb-3">
+              Tài khoản Google được dùng để lưu ảnh (biên bản giao nhận PXK, ảnh linh kiện...) lên Drive. Ảnh sẽ thuộc dung lượng lưu trữ của chính tài khoản này
+              (không phải Service Account — Service Account không có dung lượng lưu trữ riêng nên không thể tạo file).
+            </div>
+            {driveStatus?.connected ? (
+              <div className="space-y-2">
+                <div className="text-sm">
+                  ✅ Đã kết nối: <b>{driveStatus.google_email}</b>
+                </div>
+                <div className="text-xs text-[var(--ink-500)]">
+                  Kết nối bởi {driveStatus.authorized_by} lúc {driveStatus.authorized_at}
+                </div>
+                <Btn variant="ghost" size="sm" onClick={() => { window.location.href = "/api/settings/google-drive/authorize"; }}>
+                  🔄 Kết nối lại (đổi tài khoản khác)
+                </Btn>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-sm text-[var(--coral-600)]">⚠ Chưa kết nối — tải ảnh biên bản PXK sẽ báo lỗi cho đến khi kết nối.</div>
+                <Btn size="sm" onClick={() => { window.location.href = "/api/settings/google-drive/authorize"; }}>
+                  Kết nối tài khoản Google Drive
+                </Btn>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
       {tab === "ly-do" && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">

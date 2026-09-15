@@ -1,8 +1,10 @@
 import { Hono } from "hono";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
+import { encryptSecret } from "../lib/secretBox";
 import { syncLinhKienFromSheet } from "../lib/linhKienSync";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { getSheetUrl } from "../lib/backfillSheetSync";
@@ -474,6 +476,111 @@ settings.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   // Bump domain "settings" (xem lib/dataVersions.ts).
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ ok: true });
+});
+
+// ---------- Google Drive OAuth (uy quyen 1 tai khoan Google THAT de upload anh) ----------
+// CHOT 2026-08-17: Service Account (GOOGLE_DRIVE_SA_*) khong the tao file trong 1 folder Drive ca
+// nhan - Google tra 403 "Service Accounts do not have storage quota" bat ke folder co duoc chia se
+// Editor hay khong (chi hoat dong voi Shared Drive, yeu cau Google Workspace tra phi). Giai phap:
+// uy quyen 1 tai khoan that qua OAuth (dung lai GOOGLE_CLIENT_ID/SECRET co san cho dang nhap, xin
+// them scope drive.file), luu refresh_token ma hoa trong bang google_drive_oauth (xem migration
+// 0080 + lib/secretBox.ts). Lan dau ket noi se TAO MOI 1 folder Drive (thuoc quota nguoi duoc uy
+// quyen) thay vi dung lai folder cu da chia se cho Service Account - vi scope drive.file chi thay
+// duoc file do CHINH APP nay tao ra, khong thay duoc folder co san du da duoc share Editor.
+const GOOGLE_DRIVE_STATE_COOKIE = "dvbh_drive_oauth_state";
+// Can them "openid email profile" ben canh drive.file - thieu 2 scope nay thi endpoint
+// oauth2/v3/userinfo (goi ngay sau o callback de biet da ket noi tai khoan Google nao) tra ve loi
+// (thieu quyen), du drive.file van hoat dong binh thuong cho upload - CHOT 2026-08-17 sau khi gap
+// loi "Khong the lay thong tin nguoi dung tu Google" khi test that.
+const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file openid email profile";
+
+settings.get("/google-drive/status", adminOnly, async (c) => {
+  const row = await c.env.DB.prepare("SELECT google_email, folder_id, authorized_by, authorized_at FROM google_drive_oauth WHERE id = 1").first<{
+    google_email: string;
+    folder_id: string;
+    authorized_by: string;
+    authorized_at: string;
+  }>();
+  if (!row) return c.json({ connected: false });
+  return c.json({ connected: true, ...row });
+});
+
+settings.get("/google-drive/authorize", adminOnly, async (c) => {
+  const state = crypto.randomUUID();
+  setCookie(c, GOOGLE_DRIVE_STATE_COOKIE, state, { httpOnly: true, secure: true, sameSite: "Lax", maxAge: 600, path: "/" });
+
+  const redirectUri = `${new URL(c.req.url).origin}/api/settings/google-drive/callback`;
+  const params = new URLSearchParams({
+    client_id: c.env.GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: GOOGLE_DRIVE_SCOPE,
+    state,
+    access_type: "offline",
+    prompt: "consent select_account",
+  });
+  return c.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+settings.get("/google-drive/callback", adminOnly, async (c) => {
+  const url = new URL(c.req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const savedState = getCookie(c, GOOGLE_DRIVE_STATE_COOKIE);
+  deleteCookie(c, GOOGLE_DRIVE_STATE_COOKIE, { path: "/" });
+
+  if (!code || !state || !savedState || state !== savedState) {
+    return c.text("Xac thuc that bai: state khong hop le.", 400);
+  }
+
+  const redirectUri = `${url.origin}/api/settings/google-drive/callback`;
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: c.env.GOOGLE_CLIENT_ID,
+      client_secret: c.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+    }),
+  });
+  if (!tokenRes.ok) return c.text("Khong the doi ma xac thuc voi Google: " + (await tokenRes.text()), 502);
+  const tokenJson = (await tokenRes.json()) as { access_token: string; refresh_token?: string };
+  if (!tokenJson.refresh_token) {
+    return c.text(
+      "Google khong tra ve refresh_token (co the tai khoan da tung uy quyen truoc do) - vao myaccount.google.com/permissions, go quyen truy cap cua app nay roi thu lai.",
+      400,
+    );
+  }
+
+  const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+  });
+  if (!userInfoRes.ok) return c.text("Khong the lay thong tin nguoi dung tu Google.", 502);
+  const userInfo = (await userInfoRes.json()) as { email: string };
+
+  const folderRes = await fetch("https://www.googleapis.com/drive/v3/files?fields=id", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${tokenJson.access_token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "DVBH - Anh tai lieu", mimeType: "application/vnd.google-apps.folder" }),
+  });
+  if (!folderRes.ok) return c.text("Khong the tao folder Drive: " + (await folderRes.text()), 502);
+  const { id: folderId } = (await folderRes.json()) as { id: string };
+
+  const refreshTokenEnc = await encryptSecret(c.env, tokenJson.refresh_token);
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    `INSERT INTO google_drive_oauth (id, google_email, refresh_token_enc, folder_id, authorized_by, authorized_at)
+     VALUES (1, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       google_email = excluded.google_email, refresh_token_enc = excluded.refresh_token_enc,
+       folder_id = excluded.folder_id, authorized_by = excluded.authorized_by, authorized_at = excluded.authorized_at`,
+  )
+    .bind(userInfo.email, refreshTokenEnc, folderId, user.email, nowVN())
+    .run();
+
+  return c.redirect(c.env.FRONTEND_URL || "/");
 });
 
 // POST /api/settings/linh-kien/sync-sheet - dong bo tu Google Sheet cong khai (link cau hinh o /sheet-urls)

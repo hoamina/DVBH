@@ -8,7 +8,7 @@ import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { autoClaimGs } from "../lib/scopeDatMua";
-import { uploadToDrive } from "../lib/googleDrive";
+import { uploadPublicImage } from "../lib/googleDrive";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -295,10 +295,19 @@ phieuXuatKho.post("/:id/anh-bien-ban", async (c) => {
 
   const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
   const filename = `bien-ban-${id}-${Date.now()}.${ext}`;
-  const uploaded = await uploadToDrive(c.env, bytes, contentType, filename);
+  let uploaded: { id: string; thumbnailUrl: string };
+  try {
+    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
+      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
+    }
+    return c.json({ error: "UPLOAD_FAILED", message }, 502);
+  }
 
-  await c.env.DB.prepare("UPDATE phieu_xuat_kho SET anh_bien_ban_url = ? WHERE id = ?").bind(uploaded.webViewLink, id).run();
-  return c.json({ ok: true, url: uploaded.webViewLink });
+  await c.env.DB.prepare("UPDATE phieu_xuat_kho SET anh_bien_ban_url = ? WHERE id = ?").bind(uploaded.thumbnailUrl, id).run();
+  return c.json({ ok: true, url: uploaded.thumbnailUrl });
 });
 
 // POST /api/phieu-xuat-kho/:id/chuyen-tien - { so_tien } TN (tao moi hoac dat lai) 1 khoan can KTV
