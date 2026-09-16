@@ -35,6 +35,10 @@ export interface ViPhamCapNhatQcChotPayload extends ViPhamNotifyBase {
   loai_su_kien: "cap_nhat";
   nguon_cap_nhat: "qc_chot_cap_2";
   chot_bo_cap_2: boolean;
+  // Them 2026-09-16: gia tri ket_qua_cap_1 CUOI CUNG (co the da bi QC sua lai khac gia tri CSKH chon
+  // ban dau - xem routes/viPham.ts PATCH /:id/cap2) - day la DUONG DUY NHAT app vipham nhan duoc gia
+  // tri da sua, case-lookup khong tra ve vi_pham nen khong the tu tra cuu lai.
+  ket_qua_cap_1: string;
   nguoi_chot: string;
   ngay_chot: string;
 }

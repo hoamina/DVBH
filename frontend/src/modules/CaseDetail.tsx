@@ -15,7 +15,7 @@ import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { LoadingInline } from "../components/ui/LoadingInline";
 import { TiepNhanModal, TienTrinhPanel } from "../components/TienTrinhPanel";
-import { api, buildQuery } from "../api/client";
+import { api, buildQuery, ApiError } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { getCachedEntry, setCachedEntry, type CacheEntry } from "../lib/closedDataCache";
@@ -60,6 +60,7 @@ import {
   type CaLapDetection,
   type NapGasDanhGiaRow,
   type KetQuaGoiRow,
+  type LoaiViPhamRow,
   parseLoaiKhaoSat,
 } from "../types";
 
@@ -363,6 +364,38 @@ export function CaseDetail({
   // /:id/cap2 (truoc gio chi co UI trong SurveyModule.tsx tab "Cho QC", them tai day de QC chot ngay
   // trong popup chi tiet ca, khong phai roi sang module khac).
   const canChotCap2ViPham = currentUser?.vai_tro === "QC" || currentUser?.vai_tro === "Admin";
+  // Tao vi_pham THU CONG (migration 0113, yeu cau chu he thong 2026-09-16) - moi vai tro TRU Viewer,
+  // khop requireRole(...) o backend/src/routes/viPham.ts POST /case/:caseId.
+  const canTaoViPhamThuCong = !!currentUser && currentUser.vai_tro !== "Viewer";
+  // Danh muc "Loai loi vi pham" (migration 0112) - cho QC chon lai loai loi thuc te luc chot cap 2
+  // (xem PATCH /:id/cap2 va state "qcKetQuaCap1Override" ben duoi), VA cho form tao vi_pham thu cong
+  // ben duoi (dung CHUNG danh muc, giong SurveyCallWorkspace.tsx).
+  const { data: loaiViPhamData } = useQuery({
+    queryKey: ["settings-loai-vi-pham"],
+    queryFn: () => api.get<{ rows: LoaiViPhamRow[] }>("/settings/loai-vi-pham"),
+    enabled: caseId !== null && (canChotCap2ViPham || canTaoViPhamThuCong),
+  });
+  const ketQuaCap1OptionsForQc = useMemo(
+    () =>
+      (loaiViPhamData?.rows ?? [])
+        .filter((r) => r.bat_tat)
+        .sort((a, b) => a.stt - b.stt)
+        .map((r) => ({ value: r.ten_loi, label: r.ten_loi })),
+    [loaiViPhamData],
+  );
+  // ten_loi -> bat_buoc_ghi_chu, dung cho form tao vi_pham thu cong ben duoi - cung pattern voi
+  // SurveyCallWorkspace.tsx (tranh so sanh chuoi cung "=== 'Loi khac'").
+  const batBuocGhiChuByTenLoi = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const r of loaiViPhamData?.rows ?? []) m.set(r.ten_loi, !!r.bat_buoc_ghi_chu);
+    return m;
+  }, [loaiViPhamData]);
+  // Gia tri QC dang sua tam thoi TRUOC khi bam Chot/Bo, key = vi_pham.id - rieng cho tung ca (reset
+  // khi doi caseId) vi day la form dang nhap dang do, khong phai du lieu da luu.
+  const [qcKetQuaCap1Override, setQcKetQuaCap1Override] = useState<Record<string, string>>({});
+  // Modal "Tao vi pham thu cong" (tab Vi pham cua CaseDetail) - state form rieng, reset khi dong modal.
+  const [manualViPhamOpen, setManualViPhamOpen] = useState(false);
+  const [manualViPhamForm, setManualViPhamForm] = useState({ ket_qua_cap_1: "", ghi_chu: "", ngay_ghi_nhan: "" });
   const { data: phanLoaiOptions } = useQuery({
     queryKey: ["settings-phan-loai-tranh-chap"],
     queryFn: () => api.get<{ rows: PhanLoaiTranhChapRow[] }>("/settings/phan-loai-tranh-chap"),
@@ -488,6 +521,7 @@ export function CaseDetail({
     setBlacklistConfirmOpen(false);
     setCompareId(null);
     setSerialHistorySource(null);
+    setQcKetQuaCap1Override({});
   }, [caseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mo modal giai trinh, tu dong dien lai theo lan giai trinh gan nhat de giam go lai noi dung
@@ -575,9 +609,15 @@ export function CaseDetail({
   // them invalidate ["survey"]/["survey-counts"] vi ket qua nay cung hien trong SurveyModule.tsx (tab
   // "Cho QC"/"Đã xử lý") - khong invalidate thi module do se hien du lieu cu cho toi khi tu lam moi.
   const qcChotCap2 = useMutation({
-    mutationFn: ({ id, chot }: { id: string; chot: boolean }) => api.patch(`/vi-pham/${id}/cap2`, { chot }),
+    mutationFn: ({ id, chot, ket_qua_cap_1 }: { id: string; chot: boolean; ket_qua_cap_1?: string }) =>
+      api.patch(`/vi-pham/${id}/cap2`, { chot, ket_qua_cap_1 }),
     onSuccess: async (_d, vars) => {
       addToast(`QC đã ${vars.chot ? "chốt" : "bỏ"} vi phạm cấp 2`);
+      setQcKetQuaCap1Override((prev) => {
+        const next = { ...prev };
+        delete next[vars.id];
+        return next;
+      });
       const fresh = await fetchCaseDetail(caseId!);
       const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
       qc.setQueryData(["case", caseId], newEntry);
@@ -585,6 +625,35 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
     },
     onError: () => addToast("Không thể ghi nhận quyết định QC, thử lại sau."),
+  });
+
+  // Tao vi_pham thu cong (migration 0113) - dung LAI pattern "fetch that + ghi de closedDataCache" nhu
+  // qcChotCap2 o tren, cong them invalidate ["survey"]/["survey-counts"] vi dong moi nay cung roi vao
+  // hang doi "Cho QC" cua SurveyModule.tsx.
+  const createViPhamThuCong = useMutation({
+    mutationFn: () =>
+      api.post(`/vi-pham/case/${caseId}`, {
+        ket_qua_cap_1: manualViPhamForm.ket_qua_cap_1,
+        ghi_chu: manualViPhamForm.ghi_chu || undefined,
+        ngay_ghi_nhan: manualViPhamForm.ngay_ghi_nhan || undefined,
+      }),
+    onSuccess: async () => {
+      addToast("Đã ghi nhận vi phạm, chờ QC xác nhận");
+      setManualViPhamOpen(false);
+      setManualViPhamForm({ ket_qua_cap_1: "", ghi_chu: "", ngay_ghi_nhan: "" });
+      const fresh = await fetchCaseDetail(caseId!);
+      const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+      qc.setQueryData(["case", caseId], newEntry);
+      qc.invalidateQueries({ queryKey: ["survey"] });
+      qc.invalidateQueries({ queryKey: ["survey-counts"] });
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      if (code === "GHI_CHU_BAT_BUOC") addToast("Loại lỗi này bắt buộc phải nhập Ghi chú.");
+      else if (code === "DUPLICATE") addToast("Vi phạm này đã tồn tại cho ca này.");
+      else if (code === "INVALID_KET_QUA_CAP_1") addToast("Loại lỗi không hợp lệ, thử lại.");
+      else addToast("Không thể ghi nhận vi phạm, thử lại sau.");
+    },
   });
 
   async function handleViPhamGiaiTrinhPhoto(viPhamId: string, file: File) {
@@ -1296,6 +1365,13 @@ export function CaseDetail({
 
   const viPhamContent = (
     <div>
+      {canTaoViPhamThuCong && (
+        <div className="flex justify-end mb-4">
+          <Btn size="sm" onClick={() => setManualViPhamOpen(true)}>
+            + Tạo vi phạm thủ công
+          </Btn>
+        </div>
+      )}
       {viPhamList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa ghi nhận vi phạm nào cho ca này.</div>}
       <div className="space-y-3">
         {viPhamList.map((v) => {
@@ -1321,21 +1397,46 @@ export function CaseDetail({
                   <Badge tone={statusTone(trangThai)}>{trangThai}</Badge>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-                <Field label="Kết quả cấp 1" value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
-                <Field label="Người ghi nhận" value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
-                <Field label="Ngày ghi nhận" value={fmtDateTime(v.ngay_ghi_nhan)} />
-                {canChotCap2ViPham && v.ket_qua_cap_1 !== null && v.chot_bo_cap_2 === null && !laKhongLoi && (
-                  <div className="flex items-center justify-end gap-1.5">
-                    <Btn size="sm" variant="success" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: true })}>
-                      Chốt lỗi
-                    </Btn>
-                    <Btn size="sm" variant="danger" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: false })}>
-                      Bỏ lỗi
-                    </Btn>
+              {(() => {
+                // QC duoc sua lai loai loi thuc te truoc khi chot (migration 0112, CHOT 2026-09-16) -
+                // vd CSKH chon tam "Loi khac" luc goi, QC danh gia ky hon sua thanh 1 loai loi cu the
+                // trong danh muc. Chi cho sua khi con dang "cho QC" (chua chot/bo) - sau khi da chot
+                // quay lai hien tinh (read-only) nhu cu.
+                const qcEditable = canChotCap2ViPham && v.ket_qua_cap_1 !== null && v.chot_bo_cap_2 === null && !laKhongLoi;
+                const effectiveKetQuaCap1 = qcKetQuaCap1Override[v.id] ?? v.ket_qua_cap_1 ?? "";
+                const optionsWithCurrent = ketQuaCap1OptionsForQc.some((o) => o.value === effectiveKetQuaCap1)
+                  ? ketQuaCap1OptionsForQc
+                  : [{ value: effectiveKetQuaCap1, label: effectiveKetQuaCap1 }, ...ketQuaCap1OptionsForQc];
+                return (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+                    {qcEditable ? (
+                      <div>
+                        <label className="text-[11px] font-semibold text-[var(--ink-400)] block mb-0.5">Kết quả cấp 1</label>
+                        <Select
+                          value={effectiveKetQuaCap1}
+                          onChange={(val) => setQcKetQuaCap1Override({ ...qcKetQuaCap1Override, [v.id]: val })}
+                          options={optionsWithCurrent}
+                          className="w-full"
+                        />
+                      </div>
+                    ) : (
+                      <Field label="Kết quả cấp 1" value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
+                    )}
+                    <Field label="Người ghi nhận" value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
+                    <Field label="Ngày ghi nhận" value={fmtDateTime(v.ngay_ghi_nhan)} />
+                    {qcEditable && (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Btn size="sm" variant="success" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: true, ket_qua_cap_1: effectiveKetQuaCap1 })}>
+                          Chốt lỗi
+                        </Btn>
+                        <Btn size="sm" variant="danger" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: false, ket_qua_cap_1: effectiveKetQuaCap1 })}>
+                          Bỏ lỗi
+                        </Btn>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
               {(() => {
                 const giaiTrinhCuaLoiNay = viPhamGiaiTrinhList.filter((g) => g.vi_pham_id === v.id);
                 const giaiTrinhKtv = giaiTrinhCuaLoiNay.filter((g) => g.nguon === "ktv_qua_api");
@@ -2328,6 +2429,68 @@ export function CaseDetail({
               </Btn>
               <Btn disabled={submitViPhamGiaiTrinh.isPending || !viPhamGiaiTrinhForm.ngay_giai_trinh}>
                 {submitViPhamGiaiTrinh.isPending ? "Đang lưu…" : "Lưu giải trình"}
+              </Btn>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {manualViPhamOpen && (
+        <Modal open onClose={() => setManualViPhamOpen(false)} title={`Tạo vi phạm thủ công — Ca ${caseId}`} width="max-w-lg">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!manualViPhamForm.ket_qua_cap_1) return;
+              if (batBuocGhiChuByTenLoi.get(manualViPhamForm.ket_qua_cap_1) && !manualViPhamForm.ghi_chu.trim()) return;
+              createViPhamThuCong.mutate();
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">
+                Loại lỗi <span className="text-[var(--coral-500)]">*</span>
+              </label>
+              <Select
+                value={manualViPhamForm.ket_qua_cap_1}
+                onChange={(val) => setManualViPhamForm({ ...manualViPhamForm, ket_qua_cap_1: val })}
+                options={[{ value: "", label: "— Chọn loại lỗi —" }, ...ketQuaCap1OptionsForQc]}
+                className="w-full mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">
+                Ghi chú
+                {batBuocGhiChuByTenLoi.get(manualViPhamForm.ket_qua_cap_1) && <span className="text-[var(--coral-500)]"> *</span>}
+              </label>
+              <textarea
+                value={manualViPhamForm.ghi_chu}
+                onChange={(e) => setManualViPhamForm({ ...manualViPhamForm, ghi_chu: e.target.value })}
+                rows={3}
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày ghi nhận</label>
+              <input
+                type="date"
+                value={manualViPhamForm.ngay_ghi_nhan}
+                onChange={(e) => setManualViPhamForm({ ...manualViPhamForm, ngay_ghi_nhan: e.target.value })}
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+              <div className="text-[11px] text-[var(--ink-400)] mt-0.5">Để trống sẽ dùng thời điểm hiện tại.</div>
+            </div>
+            <div className="flex justify-end items-center gap-2 pt-1">
+              <Btn variant="ghost" type="button" onClick={() => setManualViPhamOpen(false)}>
+                Hủy
+              </Btn>
+              <Btn
+                disabled={
+                  createViPhamThuCong.isPending ||
+                  !manualViPhamForm.ket_qua_cap_1 ||
+                  (!!batBuocGhiChuByTenLoi.get(manualViPhamForm.ket_qua_cap_1) && !manualViPhamForm.ghi_chu.trim())
+                }
+              >
+                {createViPhamThuCong.isPending ? "Đang lưu…" : "Tạo vi phạm"}
               </Btn>
             </div>
           </form>

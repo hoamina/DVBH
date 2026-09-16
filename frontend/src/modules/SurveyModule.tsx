@@ -13,7 +13,7 @@ import { ChartCanvas } from "../components/chart/ChartCanvas";
 import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
-import { LOAI_LOI_META, LOAI_LOI_KEYS, parseLoaiKhaoSat, type LoaiLoi, type ViPhamRow, type KetQuaGoiRow } from "../types";
+import { LOAI_LOI_META, LOAI_LOI_KEYS, parseLoaiKhaoSat, type LoaiLoi, type ViPhamRow, type KetQuaGoiRow, type LoaiViPhamRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
@@ -826,10 +826,34 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
 
+  // Danh muc "Loai loi vi pham" (migration 0112) - cho QC chon lai loai loi thuc te luc chot cap 2 o
+  // tab "Cho QC" (mirror CaseDetail.tsx, cung queryKey "settings-loai-vi-pham" de tan dung cache).
+  const { data: loaiViPhamData } = useQuery({
+    queryKey: ["settings-loai-vi-pham"],
+    queryFn: () => api.get<{ rows: LoaiViPhamRow[] }>("/settings/loai-vi-pham"),
+    enabled: isQC,
+  });
+  const ketQuaCap1OptionsForQc = useMemo(
+    () =>
+      (loaiViPhamData?.rows ?? [])
+        .filter((r) => r.bat_tat)
+        .sort((a, b) => a.stt - b.stt)
+        .map((r) => ({ value: r.ten_loi, label: r.ten_loi })),
+    [loaiViPhamData],
+  );
+  // Gia tri QC dang sua tam thoi TRUOC khi bam Chot/Bo, key = vi_pham.id.
+  const [qcKetQuaCap1Override, setQcKetQuaCap1Override] = useState<Record<string, string>>({});
+
   const qcDecide = useMutation({
-    mutationFn: ({ id, chot }: { id: string; chot: boolean }) => api.patch(`/vi-pham/${id}/cap2`, { chot }),
+    mutationFn: ({ id, chot, ket_qua_cap_1 }: { id: string; chot: boolean; ket_qua_cap_1?: string }) =>
+      api.patch(`/vi-pham/${id}/cap2`, { chot, ket_qua_cap_1 }),
     onSuccess: (_d, vars) => {
       addToast(`QC đã ${vars.chot ? "chốt" : "bỏ"} vi phạm cấp 2 cho ${vars.id}`);
+      setQcKetQuaCap1Override((prev) => {
+        const next = { ...prev };
+        delete next[vars.id];
+        return next;
+      });
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
     },
@@ -1635,13 +1659,33 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   key: "ket_qua",
                   header: "Kết quả khảo sát",
                   render: ({ vs }) => (
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {vs.map((v) => {
                         // "Khong loi" (CHOT 2026-09-14, xem CaseDetail.tsx cung fix): da tinh la
                         // "khong vi pham" mac dinh, khong con "cho QC" - cot nay xuat hien o CA tab
                         // "da-xu-ly" (backend cho phep ket_qua_cap_1='Khong loi' vao tab do), khac
                         // ketQuaQcChotCol o tren (chi cho-qc/vi-pham-da-chot, khong bao gio gap Khong loi).
                         const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : v.ket_qua_cap_1 === "Khong loi" ? "Không vi phạm" : "chờ QC";
+                        // Tab "cho-qc" (QC dang xu ly, chua chot/bo): cho sua lai loai loi thuc te
+                        // truoc khi bam Chot/Bo (migration 0112, CHOT 2026-09-16) - xem CaseDetail.tsx
+                        // cung tinh nang nay o popup chi tiet ca.
+                        if (tab === "cho-qc" && isQC) {
+                          const effectiveKetQuaCap1 = qcKetQuaCap1Override[v.id] ?? v.ket_qua_cap_1 ?? "";
+                          const optionsWithCurrent = ketQuaCap1OptionsForQc.some((o) => o.value === effectiveKetQuaCap1)
+                            ? ketQuaCap1OptionsForQc
+                            : [{ value: effectiveKetQuaCap1, label: effectiveKetQuaCap1 }, ...ketQuaCap1OptionsForQc];
+                          return (
+                            <div key={v.id} className="flex items-center gap-1">
+                              <span className="text-[11px] font-semibold text-[var(--ink-400)]">{LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi}</span>
+                              <Select
+                                value={effectiveKetQuaCap1}
+                                onChange={(val) => setQcKetQuaCap1Override({ ...qcKetQuaCap1Override, [v.id]: val })}
+                                options={optionsWithCurrent}
+                                className="min-w-[180px]"
+                              />
+                            </div>
+                          );
+                        }
                         return (
                           <Badge key={v.id} tone={statusTone(trangThai)}>
                             {LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi} · {v.ket_qua_cap_1}
@@ -1666,16 +1710,19 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     <div className="text-right">
                       {tab === "cho-qc" && isQC && (
                         <div className="flex gap-1.5 justify-end flex-wrap">
-                          {vs.map((v) => (
-                            <span key={v.id} className="flex gap-1">
-                              <Btn size="sm" variant="success" onClick={() => qcDecide.mutate({ id: v.id, chot: true })}>
-                                Chốt {LOAI_LOI_META[v.loai_loi]?.short}
-                              </Btn>
-                              <Btn size="sm" variant="danger" onClick={() => qcDecide.mutate({ id: v.id, chot: false })}>
-                                Bỏ {LOAI_LOI_META[v.loai_loi]?.short}
-                              </Btn>
-                            </span>
-                          ))}
+                          {vs.map((v) => {
+                            const effectiveKetQuaCap1 = qcKetQuaCap1Override[v.id] ?? v.ket_qua_cap_1 ?? undefined;
+                            return (
+                              <span key={v.id} className="flex gap-1">
+                                <Btn size="sm" variant="success" onClick={() => qcDecide.mutate({ id: v.id, chot: true, ket_qua_cap_1: effectiveKetQuaCap1 })}>
+                                  Chốt {LOAI_LOI_META[v.loai_loi]?.short}
+                                </Btn>
+                                <Btn size="sm" variant="danger" onClick={() => qcDecide.mutate({ id: v.id, chot: false, ket_qua_cap_1: effectiveKetQuaCap1 })}>
+                                  Bỏ {LOAI_LOI_META[v.loai_loi]?.short}
+                                </Btn>
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                       {tab === "cho-qc" && !isQC && <span className="text-xs text-[var(--ink-400)] italic">Chờ QC xử lý</span>}

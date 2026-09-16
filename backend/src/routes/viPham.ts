@@ -19,6 +19,9 @@ import { uploadPublicImage } from "../lib/googleDrive";
 import { toJsonArray } from "../lib/jsonArray";
 import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 import { nowVN } from "../lib/vnTime";
+import { loadKetQuaCap1ValidValues, isGhiChuBatBuocForKetQuaCap1 } from "../lib/ketQuaCap1";
+import { nextSequentialId } from "../lib/idCounter";
+import { syncViPhamFromSheet } from "../lib/viPhamSheetSync";
 
 const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
@@ -472,10 +475,107 @@ viPham.post("/backfill-push-vipham", requireRole("Admin"), async (c) => {
   return c.json({ processed: results.length, remaining: remainingRow?.n ?? 0 });
 });
 
-// PATCH /api/vi-pham/:id/cap2 - QC chot/bo vi pham cap 2 (final)
+// POST /api/vi-pham/case/:caseId - tao vi_pham THU CONG ngay trong tab "Vi pham" cua CaseDetail.tsx
+// (them 2026-09-16, yeu cau chu he thong). Moi vai tro TRU Viewer duoc tao (quyen rong hon cac route
+// khac trong file nay, dung theo yeu cau) - loai_loi LUON = 'Khac' (xem migration 0113): day la kenh
+// ghi nhan vi pham KHONG thuoc 4 loai SLA tu dong (loi_120p/qua_han_24h/lo_ke_hoach/kh_hen_lai, cac
+// loai do da co co che tu dong phat hien + luong CSKH khao sat rieng, khong can/khong nen tao thu
+// cong trung voi luong do). Luon vao "cho QC" (chot_bo_cap_2 = NULL) du nguoi tao la ai - CHOT voi
+// chu he thong: an toan hon vi quyen tao rat rong, gom ca CSKH/TN CSKH khong thuoc nhom QC/Giam sat,
+// de QC van kiem tra lai truoc khi tinh la vi pham chinh thuc.
+viPham.post(
+  "/case/:caseId",
+  requireRole("Admin", "QC", "Giam sat", "TBP DVBH", "CSKH", "TN CSKH", "TBP CSKH", "KSNB Doi tac"),
+  async (c) => {
+    const caseId = c.req.param("caseId")!;
+    const body = await c.req.json<{ ket_qua_cap_1?: string; ghi_chu?: string; ngay_ghi_nhan?: string }>();
+    const ketQuaCap1 = body.ket_qua_cap_1?.trim();
+    if (!ketQuaCap1) return c.json({ error: "INVALID_BODY" }, 400);
+    // Khong duoc tao "Khong loi" qua duong nay - day la kenh GHI NHAN VI PHAM, khac PATCH /:id/cap2
+    // (QC co the sua ket_qua_cap_1 cua 1 vi pham DA TON TAI, cung chan gia tri nay - xem tren).
+    if (ketQuaCap1 === "Khong loi") return c.json({ error: "INVALID_KET_QUA_CAP_1" }, 400);
+
+    const validValues = await loadKetQuaCap1ValidValues(c.env.DB);
+    if (!validValues.has(ketQuaCap1)) return c.json({ error: "INVALID_KET_QUA_CAP_1" }, 400);
+
+    // Bat buoc Ghi chu khi danh muc danh dau bat_buoc_ghi_chu=1 (vd "Lỗi khác") - cung quy tac voi CSKH
+    // ghi nhan qua dien thoai (xem SurveyCallWorkspace.tsx batBuocGhiChuByTenLoi) VA la dieu kien BAT
+    // BUOC cua PARTNER_API_GUIDE.md muc 9.1.1 khi bao "nghi_ngo_moi" sang app vipham voi 1 loi khong ro
+    // mo ta. Dung cot bat_buoc_ghi_chu thay vi so sanh chuoi cung (xem isGhiChuBatBuocForKetQuaCap1).
+    const ghiChu = body.ghi_chu?.trim() || null;
+    if ((await isGhiChuBatBuocForKetQuaCap1(c.env.DB, ketQuaCap1)) && !ghiChu) return c.json({ error: "GHI_CHU_BAT_BUOC" }, 400);
+
+    const caseRow = await c.env.DB.prepare("SELECT id, khu_vuc, khach_hang, ky_thuat_vien, seri_san_pham FROM case_dvbh WHERE id = ?")
+      .bind(caseId)
+      .first<{ id: string; khu_vuc: string | null; khach_hang: string | null; ky_thuat_vien: string | null; seri_san_pham: string | null }>();
+    if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+
+    // Mirror POST /survey/calls - CSKH/TN CSKH/Giam sat/KSNB Doi tac bi gioi han khu_vuc khong duoc
+    // ghi nhan vi pham cho ca ngoai pham vi phu trach, du biet duoc case_id.
+    const scope = scopeByKhuVuc(c);
+    if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
+      return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+    }
+
+    const user = c.get("user");
+    const viPhamId = await nextSequentialId(c.env.DB, "vi_pham", "L", 6);
+    const ngayGhiNhan = body.ngay_ghi_nhan?.trim() || nowVN();
+
+    const result = await c.env.DB.prepare(
+      `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan)
+       VALUES (?, NULL, ?, 'Khac', ?, ?, ?, ?)
+       ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
+    )
+      .bind(viPhamId, caseId, ketQuaCap1, ghiChu, user.email, ngayGhiNhan)
+      .run();
+    if (!result.meta.changes) return c.json({ error: "DUPLICATE" }, 409);
+
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+    // Bao sang app vipham nhu 1 "nghi ngo moi" (giong het luong CSKH ghi nhan qua dien thoai, xem
+    // routes/survey.ts POST /calls) - waitUntil, khong doi phan hoi.
+    c.executionCtx.waitUntil(
+      pushViPhamToVipham(c.env, {
+        loai_su_kien: "nghi_ngo_moi",
+        vi_pham_id: viPhamId,
+        case_id: caseId,
+        loai_loi: "Khac",
+        ket_qua_cap_1: ketQuaCap1,
+        khach_hang: caseRow.khach_hang,
+        khu_vuc: caseRow.khu_vuc,
+        ky_thuat_vien: caseRow.ky_thuat_vien,
+        seri_san_pham: caseRow.seri_san_pham,
+        ngay_ghi_nhan: ngayGhiNhan,
+        nguoi_ghi_nhan: user.email,
+        ghi_chu: ghiChu,
+      }),
+    );
+
+    return c.json({ id: viPhamId }, 201);
+  },
+);
+
+// POST /api/vi-pham/sync-sheet - dong bo thu cong (Admin) tu Google Sheet "vi_pham_ngoai" (link cau
+// hinh o Settings > sheet-urls) - tu dong 1 lan/ngay qua cron (xem index.ts VI_PHAM_SHEET_SYNC_CRON).
+viPham.post("/sync-sheet", requireRole("Admin"), async (c) => {
+  const user = c.get("user");
+  const result = await syncViPhamFromSheet(c.env, user.email);
+  if (!result.ok) {
+    if (result.reason === "MISSING_SHEET_URL") return c.json({ error: "MISSING_SHEET_URL" }, 400);
+    return c.json({ error: "FETCH_FAILED", message: result.message }, 502);
+  }
+  return c.json(result.summary);
+});
+
+// PATCH /api/vi-pham/:id/cap2 - QC chot/bo vi pham cap 2 (final). "ket_qua_cap_1" optional (them
+// 2026-09-16, yeu cau chu he thong): cho phep QC sua lai loai loi thuc te truoc khi chot, vi du CSKH
+// chon tam "Loi khac" luc goi nhung QC danh gia ky hon thay dung ra la 1 loai loi cu the khac trong
+// danh muc "Loai loi vi pham" (settings_loai_vi_pham) - GIU NGUYEN gia tri CSKH da chon neu QC khong
+// gui truong nay (backward-compat, khong bat buoc doi UI/API cua ai dang goi endpoint nay ma khong
+// biet truong moi). Gia tri cuoi cung (sau khi QC co the da sua) la nguon THAT SU duoc dung de tinh
+// bao cao/leaderboard (xem XAC_NHAN_EXPR) VA duoc bao sang app vipham (xem duoi).
 viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
   const id = c.req.param("id")!;
-  const body = await c.req.json<{ chot: boolean }>();
+  const body = await c.req.json<{ chot: boolean; ket_qua_cap_1?: string }>();
   if (typeof body.chot !== "boolean") return c.json({ error: "INVALID_BODY" }, 400);
 
   const row = await c.env.DB.prepare("SELECT id, case_id, ket_qua_cap_1 FROM vi_pham WHERE id = ?")
@@ -485,12 +585,24 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
   // Mirror CHECK chk_cap2_sau_cap1: khong duoc chot cap 2 khi chua co cap 1
   if (row.ket_qua_cap_1 === null) return c.json({ error: "CAP1_CHUA_CO" }, 400);
 
+  let finalKetQuaCap1 = row.ket_qua_cap_1;
+  const ketQuaCap1Moi = body.ket_qua_cap_1?.trim();
+  if (ketQuaCap1Moi && ketQuaCap1Moi !== row.ket_qua_cap_1) {
+    // QC khong duoc doi thanh "Khong loi" qua duong nay - ca da vao hang doi "cho QC" nghia la CSKH
+    // da ket luan CO nghi ngo (khac "Khong loi"), doi thanh "Khong loi" phai qua luong khac (sua lai
+    // ket qua cuoc goi), khong phai qua PATCH /cap2 nay.
+    if (ketQuaCap1Moi === "Khong loi") return c.json({ error: "INVALID_KET_QUA_CAP_1" }, 400);
+    const validValues = await loadKetQuaCap1ValidValues(c.env.DB);
+    if (!validValues.has(ketQuaCap1Moi)) return c.json({ error: "INVALID_KET_QUA_CAP_1" }, 400);
+    finalKetQuaCap1 = ketQuaCap1Moi;
+  }
+
   const user = c.get("user");
   const ngayChot = nowVN();
   await c.env.DB.prepare(
-    "UPDATE vi_pham SET chot_bo_cap_2 = ?, nguoi_chot = ?, ngay_chot = ? WHERE id = ?",
+    "UPDATE vi_pham SET chot_bo_cap_2 = ?, nguoi_chot = ?, ngay_chot = ?, ket_qua_cap_1 = ? WHERE id = ?",
   )
-    .bind(body.chot ? 1 : 0, user.email, ngayChot, id)
+    .bind(body.chot ? 1 : 0, user.email, ngayChot, finalKetQuaCap1, id)
     .run();
 
   // Bump domain "vi_pham" (xem lib/dataVersions.ts).
@@ -498,6 +610,9 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
 
   // Bao cho he ngoai "vipham.dichvu3t.workers.dev" moi lan QC chot/bo cap 2 (CHOT 2026-09-11, xem
   // lib/viPhamBenNgoai.ts) - waitUntil, khong doi phan hoi, khong retry (giong het co che "nghi_ngo_moi").
+  // "ket_qua_cap_1" them vao payload (2026-09-16) - thieu truong nay thi app vipham se khong bao gio
+  // biet QC da sua lai loai loi thuc te (case-lookup KHONG tra ve vi_pham/ket_qua_cap_1, xem
+  // routes/partnerApi.ts CASE_LOOKUP_COLUMNS), day la duong DUY NHAT app do nhan duoc gia tri cuoi.
   c.executionCtx.waitUntil(
     pushViPhamToVipham(c.env, {
       loai_su_kien: "cap_nhat",
@@ -505,12 +620,13 @@ viPham.patch("/:id/cap2", requireRole("QC", "Admin"), async (c) => {
       vi_pham_id: id,
       case_id: row.case_id,
       chot_bo_cap_2: body.chot,
+      ket_qua_cap_1: finalKetQuaCap1,
       nguoi_chot: user.email,
       ngay_chot: ngayChot,
     }),
   );
 
-  return c.json({ ok: true });
+  return c.json({ ok: true, ket_qua_cap_1: finalKetQuaCap1 });
 });
 
 // POST /api/vi-pham/:id/giai-trinh - Giam sat nhap tay THAY cho KTV (khi KTV khong tu giai trinh qua

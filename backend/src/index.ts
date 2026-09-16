@@ -40,6 +40,7 @@ import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
 import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
 import { syncNapGasFromSheet } from "./routes/importNapGas";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
+import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -129,6 +130,13 @@ const DAILY_SNAPSHOT_CRON = "0 1 * * *";
 // ca 2 wrangler*.jsonc "triggers.crons".
 const DAILY_LOG_1730_CRON = "30 10 * * *";
 
+// 03:00 sang gio VN = 20:00 UTC (ngay hom truoc) - dong bo hang ngay vi_pham tu Google Sheet QC tu
+// quan ly ben ngoai he thong (them 2026-09-16, yeu cau chu he thong - xem lib/viPhamSheetSync.ts).
+// Gio nay CO Y chon khac gio voi ARCHIVE_CRON (cung "0 20 1 * *" nhung chi ngay 1 hang thang) - 2
+// cron khac nhau, KHONG gop duoc vi 1 cai chay hang ngay, 1 cai chi 1 lan/thang.
+const VI_PHAM_SHEET_SYNC_CRON = "0 20 * * *";
+const VI_PHAM_SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
+
 // Chay 1 sync, ghi log neu that bai (nuot loi - KHONG throw) de 1 sync loi khong chan cac sync con
 // lai trong cung dot cron. Log qua console.error (xem qua `wrangler tail`) vi day la tac vu nen,
 // khong co response HTTP nao de bao loi cho nguoi dung nhu route /sync-sheet thu cong.
@@ -167,6 +175,11 @@ export default {
       await runSheetSync("giai_trinh_lap_cu", () => syncGiaiTrinhLapFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
       await runSheetSync("khao_sat_cu", () => syncKhaoSatFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
       await runSheetSync("nap_gas_danh_gia_cu", () => syncNapGasFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
+      return;
+    }
+
+    if (event.cron === VI_PHAM_SHEET_SYNC_CRON) {
+      await runSheetSync("vi_pham_ngoai", () => syncViPhamFromSheet(env, VI_PHAM_SHEET_SYNC_ACTOR_EMAIL));
       return;
     }
 

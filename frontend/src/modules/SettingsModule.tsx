@@ -96,6 +96,7 @@ const LOAI_DONG_BO_LABELS: Record<string, string> = {
   giai_trinh_lap_cu: "Giải trình lặp cũ",
   khao_sat_cu: "Khảo sát cũ",
   nap_gas_danh_gia_cu: "Đánh giá nạp gas cũ",
+  vi_pham_ngoai: "Vi phạm QC tự ghi (Sheet ngoài, đồng bộ 03:00 hàng ngày)",
 };
 
 export function SettingsModule() {

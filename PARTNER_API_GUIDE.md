@@ -366,6 +366,7 @@ gộp, không chờ debounce), phân biệt qua field `nguon_cap_nhat`:
   "vi_pham_id": "L-000123",
   "case_id": "1324863",
   "chot_bo_cap_2": true,
+  "ket_qua_cap_1": "Loi khac",
   "nguoi_chot": "qc@dichvu3t.vn",
   "ngay_chot": "2026-09-11 10:30:00"
 }
@@ -374,6 +375,7 @@ gộp, không chờ debounce), phân biệt qua field `nguon_cap_nhat`:
 | Field | Kiểu | Ý nghĩa |
 |---|---|---|
 | `chot_bo_cap_2` | boolean | `true` = QC xác nhận đúng là vi phạm, `false` = QC kết luận không vi phạm (bỏ) |
+| `ket_qua_cap_1` | string | **Thêm 2026-09-16.** Giá trị loại lỗi CUỐI CÙNG tại thời điểm chốt — QC có thể sửa lại khác với giá trị CSKH chọn ban đầu (ví dụ CSKH chọn tạm "Loi khac", QC đánh giá kỹ hơn sửa thành 1 loại lỗi cụ thể trong danh mục "Loại lỗi vi phạm") trước khi chốt/bỏ. Đây là **giá trị duy nhất nên dùng để hiển thị/tính toán loại lỗi từ thời điểm này** — nếu hệ vipham đã lưu `ket_qua_cap_1` từ lần báo `nghi_ngo_moi` (mục 9.1.1), cần **ghi đè** bằng giá trị ở đây khi nhận được sự kiện này, vì `case-lookup` (mục 1–7) không trả về được dữ liệu `vi_pham`/`ket_qua_cap_1` nên đây là đường duy nhất hệ vipham nhận được giá trị đã sửa |
 | `nguoi_chot` | string | Email QC vừa chốt/bỏ |
 | `ngay_chot` | string | Giờ VN địa phương, cùng định dạng/quy ước với `ngay_ghi_nhan` ở mục 9.1.1 |
 
