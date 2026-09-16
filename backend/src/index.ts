@@ -103,7 +103,15 @@ const SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
 // Durable Object/Queue - moc 17h20/17h25 chi la "thu lai" THAT SU khi hasSucceededToday() bao chua
 // xong (loi mang/API ETX tam thoi), tu bo qua ngay khi da xong o moc truoc do - tuong duong "that
 // bai thi thu lai sau 5 phut, toi da 2 lan" ma khong can them ha tang moi.
-const ETX_SYNC_CRONS = new Set(["15 10 * * *", "20 10 * * *", "25 10 * * *"]);
+// 1 CHUOI CRON DUY NHAT "15,20,25 10 * * *" (khong phai 3 phan tu mang rieng) - phat hien 2026-09-16:
+// khai bao 3 phan tu rieng lam TONG so Cron Trigger cua Worker vuot qua gioi han cua Cloudflare (co
+// san 4 cron khac + 3 cai nay = 7), nen deploy "thanh cong" ve mat CLI nhung Cloudflare ROI 3 trigger
+// nay ma khong bao loi (wrangler khong phat hien) - ket qua la lich chua bao gio thuc su chay (0 dong
+// trong etx_giai_trinh_sync_log ke tu luc trien khai). Gop lai thanh 1 phan tu (giong pattern
+// SHEET_SYNC_CRON "0 2,6,9 * * *" da dung o duoi) de giam tong so Cron Trigger, dong thoi van
+// giu dung 3 moc gio 10h15/10h20/10h25 UTC. event.cron tra ve dung nguyen van chuoi da khai bao
+// (da xac minh qua SHEET_SYNC_CRON dang chay that), nen so sanh bang chuoi la du, khong can Set.
+const ETX_SYNC_CRON = "15,20,25 10 * * *";
 
 // 08:00 sang gio VN = 01:00 UTC. Chot voi chu he thong 2026-08-02: gom luoi an toan "ca lap"/
 // dashboard (truoc la CA_LAP_REFRESH_CRON rieng, chay moi gio) vao chung 1 dot voi "Bao cao ngay
@@ -139,7 +147,7 @@ export default {
   fetch: app.fetch,
 
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    if (ETX_SYNC_CRONS.has(event.cron)) {
+    if (event.cron === ETX_SYNC_CRON) {
       try {
         if (await hasSucceededToday(env.DB)) return; // dot truoc trong ngay da xong, khong goi lai API
         const result = await syncGiaiTrinhTonB2B(env);

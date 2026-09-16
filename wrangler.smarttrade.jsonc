@@ -31,7 +31,7 @@
   ],
 
   "triggers": {
-    "crons": ["0 20 1 * *", "0 2,6,9 * * *", "0 1 * * *", "30 10 * * *", "15 10 * * *", "20 10 * * *", "25 10 * * *"]
+    "crons": ["0 20 1 * *", "0 2,6,9 * * *", "0 1 * * *", "30 10 * * *", "15,20,25 10 * * *"]
   },
 
   // Them 2026-09-11: "VIPHAM_APP" - Service Binding toi Worker "vipham" (Giai trinh vi pham). Bat
