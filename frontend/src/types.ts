@@ -385,6 +385,21 @@ export interface LyDoChamMuaLkRow {
   ngay_cap_nhat: string;
 }
 
+/** 1 dong trong settings_loai_vi_pham (migration 0112) - danh muc "Loai loi vi pham" Admin quan ly
+ * trong Settings, CSKH chon tu day khi ket luan cap 1 cho tung loi trong SurveyCallWorkspace.tsx.
+ * ten_loi la gia tri THUC SU luu vao vi_pham.ket_qua_cap_1 (cot TEXT tu do, khong FK). */
+export interface LoaiViPhamRow {
+  id: number;
+  ten_loi: string;
+  nhom_loi: string;
+  diem_the: number;
+  bat_buoc_ghi_chu: number;
+  bat_tat: number;
+  stt: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+}
+
 /** 1 dong trong settings_loai_yeu_cau_bo_qua_lap (migration 0103) - "Loai yeu cau" duoc loai khoi
  * toan bo pham vi xet Ca lap khi bat_tat=1, xem backend/src/lib/caLapEligible.ts. */
 export interface LoaiYeuCauBoQuaLapRow {

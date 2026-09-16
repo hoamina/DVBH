@@ -10,7 +10,7 @@ import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWit
 import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
-import { LOAI_LOI_META, fmtDateTime, type LoaiLoi, type CaseRow, type ViPhamRow, type KetQuaGoiRow } from "../types";
+import { LOAI_LOI_META, fmtDateTime, type LoaiLoi, type CaseRow, type ViPhamRow, type KetQuaGoiRow, type LoaiViPhamRow } from "../types";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { CanKhaoSatRow, neededLoaiLoi } from "./SurveyModule";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
@@ -111,6 +111,26 @@ export function SurveyCallWorkspace({
   if (!thangSelectOptions.some((o) => o.value === thang)) {
     thangSelectOptions.unshift({ value: thang, label: `${thang} (hiện tại)` });
   }
+
+  // "Loai loi vi pham" (migration 0112, Settings tab "Loại lỗi vi phạm") - danh sach dong cho dropdown
+  // "Ket qua cap 1", thay 3 lua chon cung truoc day. Chi hien dong dang bat (bat_tat=1) trong dropdown,
+  // sap theo stt - dong da tat van con nguyen trong DB cho du lieu lich su, chi an khoi lua chon moi.
+  const { data: loaiViPhamData } = useQuery({
+    queryKey: ["settings-loai-vi-pham"],
+    queryFn: () => api.get<{ rows: LoaiViPhamRow[] }>("/settings/loai-vi-pham"),
+  });
+  const activeLoaiViPham = useMemo(
+    () => (loaiViPhamData?.rows ?? []).filter((r) => r.bat_tat).sort((a, b) => a.stt - b.stt),
+    [loaiViPhamData],
+  );
+  const ketQuaCap1Options = useMemo(() => activeLoaiViPham.map((r) => ({ value: r.ten_loi, label: r.ten_loi })), [activeLoaiViPham]);
+  // ten_loi -> bat_buoc_ghi_chu, dung de biet 1 lua chon co bat buoc Ghi chu hay khong (thay the viec
+  // so sanh chuoi cung "ket_qua_cap_1 === 'Loi khac'" truoc day - xem migration 0112).
+  const batBuocGhiChuByTenLoi = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const r of activeLoaiViPham) m.set(r.ten_loi, !!r.bat_buoc_ghi_chu);
+    return m;
+  }, [activeLoaiViPham]);
 
   // Doc song tu D1, gioi han theo thang mo ca (xem hooks/useSurveyCandidates.ts) - dung chung
   // hook/queryKey voi SurveyModule.tsx nen 2 man cung mo 1 thang se chia se 1 lan fetch.
@@ -276,7 +296,10 @@ export function SurveyCallWorkspace({
   const [callResult, setCallResult] = useState("Liên hệ thành công");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [ketLuan, setKetLuan] = useState<Record<string, "loi" | "khong_loi">>({});
-  const [ketQuaCap1, setKetQuaCap1] = useState("Loi khong lien he");
+  // Doi tu 1 string dung chung cho ca 4 loai_loi sang 1 dong rieng/loai (CHOT 2026-09-16, yeu cau chu
+  // he thong): moi loai_loi duoc chon "Loi" gio co dropdown "Ket qua cap 1" RIENG, khong con dung
+  // chung 1 gia tri cho tat ca cac loi trong cung 1 cuoc goi.
+  const [ketQuaCap1, setKetQuaCap1] = useState<Record<string, string>>({});
   const [ghiChu, setGhiChu] = useState("");
   const [lyDoThatBai, setLyDoThatBai] = useState(LY_DO_THAT_BAI_OPTIONS[0]);
   const [canGoiLai, setCanGoiLai] = useState(true);
@@ -288,7 +311,7 @@ export function SurveyCallWorkspace({
     setCallResult("Liên hệ thành công");
     setSelected(Object.fromEntries(needed.map((k) => [k, false])));
     setKetLuan(Object.fromEntries(needed.map((k) => [k, "khong_loi"])));
-    setKetQuaCap1("Loi khong lien he");
+    setKetQuaCap1({});
     setGhiChu("");
     setLyDoThatBai(LY_DO_THAT_BAI_OPTIONS[0]);
     setCanGoiLai(true);
@@ -315,11 +338,18 @@ export function SurveyCallWorkspace({
       addToast("Chọn kết luận cho ít nhất 1 loại lỗi trước khi lưu.");
       return;
     }
-    // "Loi khac" (CHOT 2026-09-14): khong co nhan dien san nhu "Loi khong lien he"/"Loi sai bao cao"
-    // nen bat buoc CSKH phai mo ta trong "Ghi chu", tranh ghi nhan mo ho khong biet loi gi khi doi
-    // chieu sau nay (vi_pham nhan API cung day kem ghi chu nay, xem routes/viPham.ts pushViPham...).
-    if (callResult === "Liên hệ thành công" && anyLoi && ketQuaCap1 === "Loi khac" && !ghiChu.trim()) {
-      addToast('Kết luận "Lỗi khác" bắt buộc phải nhập Ghi chú mô tả lỗi.');
+    // Moi loai_loi ket luan "Loi" bat buoc phai chon Ket qua cap 1 (CHOT 2026-09-16 - danh sach gio
+    // 14 lua chon tu Settings, khong con gia tri mac dinh doan truoc duoc).
+    if (callResult === "Liên hệ thành công" && missingKetQuaCap1) {
+      addToast("Chọn Kết quả cấp 1 cho tất cả lỗi đã kết luận \"Lỗi\" trước khi lưu.");
+      return;
+    }
+    // Bat buoc ghi chu neu co loi thuoc dong bat_buoc_ghi_chu=1 (vd "Lỗi khác" - xem migration 0112,
+    // batBuocGhiChuByTenLoi) - khong co mo ta san nen bat buoc CSKH phai mo ta trong "Ghi chu", tranh
+    // ghi nhan mo ho khong biet loi gi khi doi chieu sau nay (vi_pham nhan API cung day kem ghi chu
+    // nay, xem routes/viPham.ts pushViPham...).
+    if (callResult === "Liên hệ thành công" && ghiChuRequired && !ghiChu.trim()) {
+      addToast("Lỗi này bắt buộc phải nhập Ghi chú mô tả lỗi.");
       return;
     }
     try {
@@ -330,7 +360,7 @@ export function SurveyCallWorkspace({
         ghi_chu: ghiChu || undefined,
         results: callResult === "Không cần khảo sát"
           ? needed.map((loai) => ({ loai_loi: loai, ket_luan: "khong_loi" as const }))
-          : chosen.map((loai) => ({ loai_loi: loai, ket_luan: ketLuan[loai], ket_qua_cap_1: ketLuan[loai] === "loi" ? ketQuaCap1 : undefined })),
+          : chosen.map((loai) => ({ loai_loi: loai, ket_luan: ketLuan[loai], ket_qua_cap_1: ketLuan[loai] === "loi" ? ketQuaCap1[loai] : undefined })),
       });
       // Case chi thuc su "xong" (roi khoi hang doi) khi TAT CA loai_loi can khao sat da co ket qua -
       // gom ca loai vua ghi nhan (daGhiNhan) LAN loai da duoc nguoi khac ghi nhan truoc do (boQua).
@@ -420,8 +450,14 @@ export function SurveyCallWorkspace({
   }, [activeRow, callResult, selected, ketLuan, ketQuaCap1, ghiChu, lyDoThatBai, canGoiLai, currentIndex, pool.length]);
 
   const needed = activeRow ? neededLoaiLoi(activeRow) : [];
-  const anyLoi = Object.keys(selected).some((k) => selected[k] && ketLuan[k] === "loi");
-  const ghiChuRequired = callResult === "Liên hệ thành công" && anyLoi && ketQuaCap1 === "Loi khac";
+  const loiEntries = needed.filter((k) => selected[k] && ketLuan[k] === "loi");
+  // "Ket qua cap 1 chua chon" (CHOT 2026-09-16): moi loai_loi da ket luan "Loi" bat buoc phai chon 1
+  // gia tri tu danh sach (khong con gia tri mac dinh san nhu truoc, vi danh sach gio 14 lua chon,
+  // khong the doan dung y CSKH) - chan submit neu con thieu, xem submitSuccessCall.
+  const missingKetQuaCap1 = loiEntries.some((k) => !ketQuaCap1[k]);
+  // Bat buoc Ghi chu neu BAT KY loi da chon co gia tri ket_qua_cap_1 thuoc dong bat_buoc_ghi_chu=1
+  // (vd "Loi khac", xem migration 0112) - thay the so sanh chuoi cung truoc day.
+  const ghiChuRequired = callResult === "Liên hệ thành công" && loiEntries.some((k) => batBuocGhiChuByTenLoi.get(ketQuaCap1[k] ?? "") === true);
   const btnStyle = (active: boolean, tone: "teal" | "coral") =>
     `focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${
       active ? (tone === "teal" ? "bg-[var(--teal-500)] text-white border-[var(--teal-500)]" : "bg-[var(--coral-500)] text-white border-[var(--coral-500)]") : "border-[var(--line)] text-[var(--ink-600)]"
@@ -734,41 +770,41 @@ export function SurveyCallWorkspace({
                         <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">Chọn kết luận cho từng loại lỗi nghi ngờ</label>
                         <div className="space-y-2.5">
                           {needed.map((loai) => (
-                            <div key={loai} className="border border-[var(--line)] rounded-xl p-3 flex items-center gap-3 flex-wrap">
-                              <label className="flex items-center gap-2 font-semibold text-sm flex-1 min-w-[160px]">
-                                <input type="checkbox" checked={!!selected[loai]} onChange={(e) => setSelected({ ...selected, [loai]: e.target.checked })} />
-                                {LOAI_LOI_META[loai].label}
-                              </label>
-                              <div className="flex gap-1">
-                                <button type="button" disabled={!selected[loai]} onClick={() => setKetLuan({ ...ketLuan, [loai]: "khong_loi" })} className={btnStyle(ketLuan[loai] === "khong_loi", "teal")}>
-                                  Không lỗi
-                                </button>
-                                <button type="button" disabled={!selected[loai]} onClick={() => setKetLuan({ ...ketLuan, [loai]: "loi" })} className={btnStyle(ketLuan[loai] === "loi", "coral")}>
-                                  Lỗi
-                                </button>
+                            <div key={loai} className="border border-[var(--line)] rounded-xl p-3 flex flex-col gap-2">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <label className="flex items-center gap-2 font-semibold text-sm flex-1 min-w-[160px]">
+                                  <input type="checkbox" checked={!!selected[loai]} onChange={(e) => setSelected({ ...selected, [loai]: e.target.checked })} />
+                                  {LOAI_LOI_META[loai].label}
+                                </label>
+                                <div className="flex gap-1">
+                                  <button type="button" disabled={!selected[loai]} onClick={() => setKetLuan({ ...ketLuan, [loai]: "khong_loi" })} className={btnStyle(ketLuan[loai] === "khong_loi", "teal")}>
+                                    Không lỗi
+                                  </button>
+                                  <button type="button" disabled={!selected[loai]} onClick={() => setKetLuan({ ...ketLuan, [loai]: "loi" })} className={btnStyle(ketLuan[loai] === "loi", "coral")}>
+                                    Lỗi
+                                  </button>
+                                </div>
                               </div>
+                              {/* Ket qua cap 1 RIENG cho tung loai_loi (CHOT 2026-09-16) - danh sach doc tu Settings
+                                  "Loại lỗi vi phạm" (migration 0112), khong con dung chung 1 dropdown cho ca 4 loi. */}
+                              {selected[loai] && ketLuan[loai] === "loi" && (
+                                <div>
+                                  <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả cấp 1</label>
+                                  <Select
+                                    value={ketQuaCap1[loai] ?? ""}
+                                    onChange={(v) => setKetQuaCap1({ ...ketQuaCap1, [loai]: v })}
+                                    options={[{ value: "", label: "-- Chọn kết quả --" }, ...ketQuaCap1Options]}
+                                    className="w-full mt-1"
+                                  />
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
                       </div>
-                      {anyLoi && (
-                        <div className="mb-3">
-                          <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả cấp 1 (áp dụng cho các loại kết luận "Lỗi")</label>
-                          <Select
-                            value={ketQuaCap1}
-                            onChange={setKetQuaCap1}
-                            options={[
-                              { value: "Loi khong lien he", label: "Lỗi không liên hệ" },
-                              { value: "Loi sai bao cao", label: "Lỗi sai báo cáo" },
-                              { value: "Loi khac", label: "Lỗi khác" },
-                            ]}
-                            className="w-full mt-1"
-                          />
-                        </div>
-                      )}
                       <div className="mb-4">
                         <label className="text-xs font-semibold text-[var(--ink-400)]">
-                          Ghi chú{ghiChuRequired && <span className="text-[var(--coral-500)]"> * bắt buộc (kết luận "Lỗi khác")</span>}
+                          Ghi chú{ghiChuRequired && <span className="text-[var(--coral-500)]"> * bắt buộc (lỗi cần mô tả)</span>}
                         </label>
                         <textarea
                           rows={2}
@@ -790,7 +826,7 @@ export function SurveyCallWorkspace({
                         </div>
                         <Btn
                           onClick={submitSuccessCall}
-                          disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || (ghiChuRequired && !ghiChu.trim())}
+                          disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || missingKetQuaCap1 || (ghiChuRequired && !ghiChu.trim())}
                         >
                           {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
                         </Btn>

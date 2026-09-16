@@ -17,7 +17,17 @@ const SHEET_DATE_TIME_FIELDS = new Set(["ngay_gio_thuc_hien", "ngay_chot"]);
 const importKhaoSat = new Hono<{ Bindings: Env }>();
 importKhaoSat.use("*", verifySessionMiddleware, loadUser, requireRole("Admin", "TBP DVBH"));
 
-const KET_QUA_CAP_1_VALUES = new Set(["Khong loi", "Loi khong lien he", "Loi sai bao cao", "Loi khac"]);
+// "Khong loi" (sentinel) + 3 gia tri CU (khong dau, dang cu) khong con hien trong dropdown DVBH nua
+// nhung sheet AppSheet ben ngoai (khong kiem soat duoc, co the van con dung dung gia tri cu) van
+// duoc chap nhan - GIU lai de khong lam loi import that (xem migration 0112). Danh sach loai loi
+// "dang dung" gio doc THEM tu settings_loai_vi_pham (CA dong bat_tat=0, khong chi loc active - sheet
+// ben ngoai khong bat buoc phai theo dung trang thai bat/tat cua DVBH) qua loadKetQuaCap1ValidValues().
+const KET_QUA_CAP_1_FIXED_VALUES = ["Khong loi", "Loi khong lien he", "Loi sai bao cao", "Loi khac"];
+
+async function loadKetQuaCap1ValidValues(db: D1Database): Promise<Set<string>> {
+  const { results } = await db.prepare("SELECT ten_loi FROM settings_loai_vi_pham").all<{ ten_loi: string }>();
+  return new Set([...KET_QUA_CAP_1_FIXED_VALUES, ...results.map((r) => r.ten_loi)]);
+}
 
 interface BackfillRow {
   case_id?: string;
@@ -125,10 +135,11 @@ async function loadExistingKetQuaGoiKeys(db: D1Database, caseIds: string[]): Pro
 async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean) {
   const summary = { thanhCong: 0, loi: 0, trungLap: 0, errors: [] as string[] };
   const caseIds = rows.map((r) => String(r.case_id ?? "").trim());
-  const [existingCaseIds, existingViPhamPairs, existingKetQuaGoiKeys] = await Promise.all([
+  const [existingCaseIds, existingViPhamPairs, existingKetQuaGoiKeys, ketQuaCap1ValidValues] = await Promise.all([
     findExistingCaseIds(db, caseIds),
     loadExistingViPhamPairs(db, caseIds),
     loadExistingKetQuaGoiKeys(db, caseIds),
+    loadKetQuaCap1ValidValues(db),
   ]);
 
   interface ValidRow {
@@ -163,7 +174,7 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       return;
     }
     const ketQuaCap1 = String(row.ket_qua_cap_1 ?? "").trim() || null;
-    if (ketQuaCap1 && !KET_QUA_CAP_1_VALUES.has(ketQuaCap1)) {
+    if (ketQuaCap1 && !ketQuaCap1ValidValues.has(ketQuaCap1)) {
       summary.loi++;
       summary.errors.push(`Dong ${i + 1}: ket_qua_cap_1 "${ketQuaCap1}" khong hop le`);
       return;

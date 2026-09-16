@@ -47,7 +47,7 @@ const linhKienWriteRoles = requireQuanLyDanhMucLk;
 
 async function logAudit(
   db: D1Database,
-  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap" | "settings_loai_yeu_cau_bo_qua_lap" | "settings_loai_yeu_cau_doi_tra" | "settings_luu_y_loi_linh_kien_doi_tra" | "settings_ly_do_ton_tranh_chap",
+  bang: "settings_ly_do" | "settings_ly_do_cham" | "linh_kien" | "settings_phan_loai_tranh_chap" | "settings_ket_qua_xu_ly_tranh_chap" | "settings_loai_yeu_cau_bo_qua_lap" | "settings_loai_yeu_cau_doi_tra" | "settings_luu_y_loi_linh_kien_doi_tra" | "settings_ly_do_ton_tranh_chap" | "settings_loai_vi_pham",
   banGhiId: string,
   nguoiThayDoi: string,
   truongThayDoi: string,
@@ -182,6 +182,69 @@ settings.patch("/ly-do-cham/:id", adminOnly, async (c) => {
     .run();
 
   await logAudit(c.env.DB, "settings_ly_do_cham", String(id), user.email, "updated", existing, next);
+  return c.json({ ok: true });
+});
+
+// ---------- Loai loi vi pham (migration 0112) ----------
+// Danh muc "Loai loi vi pham" - CSKH chon tu day khi ghi nhan ket qua cap 1 cho tung loi trong
+// SurveyCallWorkspace.tsx (xem GET nay o do, khong gioi han role vi la dropdown giai trinh dung
+// chung). ten_loi la GIA TRI THUC SU luu vao vi_pham.ket_qua_cap_1 (cot TEXT tu do, khong FK) - xem
+// chu thich day du o migration 0112. GET tra ca dong bat_tat=0 (FE tu loc active cho dropdown, giu
+// dong tat de Admin xem lai/bat lai duoc, giong het pattern /ly-do-cham).
+settings.get("/loai-vi-pham", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_loai_vi_pham ORDER BY stt, id").all();
+  return c.json({ rows: results });
+});
+
+settings.post("/loai-vi-pham", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten_loi: string; nhom_loi: string; diem_the?: number; bat_buoc_ghi_chu?: boolean; bat_tat?: boolean; stt?: number }>();
+  if (!body.ten_loi?.trim()) return c.json({ error: "MISSING_TEN_LOI" }, 400);
+  if (!body.nhom_loi?.trim()) return c.json({ error: "MISSING_NHOM_LOI" }, 400);
+
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    `INSERT INTO settings_loai_vi_pham (ten_loi, nhom_loi, diem_the, bat_buoc_ghi_chu, bat_tat, stt, nguoi_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+  )
+    .bind(
+      body.ten_loi.trim(),
+      body.nhom_loi.trim(),
+      body.diem_the ?? 0,
+      body.bat_buoc_ghi_chu ? 1 : 0,
+      body.bat_tat === false ? 0 : 1,
+      body.stt ?? 0,
+      user.email,
+    )
+    .first();
+
+  await logAudit(c.env.DB, "settings_loai_vi_pham", String((row as { id: number }).id), user.email, "created", null, row);
+  return c.json(row, 201);
+});
+
+settings.patch("/loai-vi-pham/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{
+    ten_loi?: string; nhom_loi?: string; diem_the?: number; bat_buoc_ghi_chu?: boolean; bat_tat?: boolean; stt?: number;
+  }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_vi_pham WHERE id = ?").bind(id).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const next = {
+    ten_loi: body.ten_loi !== undefined ? body.ten_loi.trim() : existing.ten_loi,
+    nhom_loi: body.nhom_loi !== undefined ? body.nhom_loi.trim() : existing.nhom_loi,
+    diem_the: body.diem_the !== undefined ? body.diem_the : existing.diem_the,
+    bat_buoc_ghi_chu: body.bat_buoc_ghi_chu !== undefined ? (body.bat_buoc_ghi_chu ? 1 : 0) : existing.bat_buoc_ghi_chu,
+    bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
+    stt: body.stt !== undefined ? body.stt : existing.stt,
+  };
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    "UPDATE settings_loai_vi_pham SET ten_loi = ?, nhom_loi = ?, diem_the = ?, bat_buoc_ghi_chu = ?, bat_tat = ?, stt = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?",
+  )
+    .bind(next.ten_loi, next.nhom_loi, next.diem_the, next.bat_buoc_ghi_chu, next.bat_tat, next.stt, user.email, nowVN(), id)
+    .run();
+
+  await logAudit(c.env.DB, "settings_loai_vi_pham", String(id), user.email, "updated", existing, next);
   return c.json({ ok: true });
 });
 

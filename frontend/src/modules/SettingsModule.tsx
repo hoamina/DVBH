@@ -14,6 +14,7 @@ import { useToast } from "../components/ui/Toast";
 import {
   type LyDoRow,
   type LyDoChamMuaLkRow,
+  type LoaiViPhamRow,
   type PhanLoaiTranhChapRow,
   type KetQuaXuLyTranhChapRow,
   type LyDoTonTranhChapRow,
@@ -143,6 +144,12 @@ export function SettingsModule() {
     ten_ly_do: "", muaHang: true, baoHanh: false, quan_ly_don_thieu_linh_kien: false, bat_tat: true, stt: "0",
   });
   const [lyDoChamPage, setLyDoChamPage] = useState(1);
+  const [loaiViPhamOpen, setLoaiViPhamOpen] = useState(false);
+  const [editingLoaiViPhamId, setEditingLoaiViPhamId] = useState<number | null>(null);
+  const [loaiViPhamForm, setLoaiViPhamForm] = useState({
+    ten_loi: "", nhom_loi: "", diem_the: "0", bat_buoc_ghi_chu: false, bat_tat: true, stt: "0",
+  });
+  const [loaiViPhamPage, setLoaiViPhamPage] = useState(1);
   const [ldeNhomOpen, setLdeNhomOpen] = useState(false);
   const [editingNhomId, setEditingNhomId] = useState<number | null>(null);
   const [nhomForm, setNhomForm] = useState({ ten_nhom: "", vai_tro_flags: [] as string[], bat_tat: true });
@@ -180,6 +187,10 @@ export function SettingsModule() {
   const { data: lyDoChamRows } = useQuery({
     queryKey: ["settings-ly-do-cham"],
     queryFn: () => api.get<{ rows: LyDoChamMuaLkRow[] }>("/settings/ly-do-cham"),
+  });
+  const { data: loaiViPhamRows } = useQuery({
+    queryKey: ["settings-loai-vi-pham"],
+    queryFn: () => api.get<{ rows: LoaiViPhamRow[] }>("/settings/loai-vi-pham"),
   });
   const { data: ktvLienHe } = useQuery({
     queryKey: KTV_PHONE_QUERY_KEY,
@@ -332,6 +343,57 @@ export function SettingsModule() {
       setEditingLyDoChamId(null);
       qc.invalidateQueries({ queryKey: ["settings-ly-do-cham"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-ly-do-cham"] });
+    },
+    onError: () => addToast("Không thể lưu, thử lại sau."),
+  });
+
+  // "Loại lỗi vi phạm" (migration 0112) - CSKH chon tu day khi ket luan cap 1 tung loi trong
+  // SurveyCallWorkspace.tsx (xem qua GET /settings/loai-vi-pham, khong cache hash vi bang nho/it doi).
+  const toggleLoaiViPhamMutation = useMutation({
+    mutationFn: ({ id, field, value }: { id: number; field: "bat_tat" | "bat_buoc_ghi_chu"; value: boolean }) =>
+      api.patch(`/settings/loai-vi-pham/${id}`, { [field]: value }),
+    onSuccess: () => {
+      addToast("Đã cập nhật loại lỗi vi phạm");
+      qc.invalidateQueries({ queryKey: ["settings-loai-vi-pham"] });
+    },
+    onError: () => addToast("Không thể cập nhật, thử lại sau."),
+  });
+
+  function openAddLoaiViPham() {
+    setEditingLoaiViPhamId(null);
+    setLoaiViPhamForm({ ten_loi: "", nhom_loi: "", diem_the: "0", bat_buoc_ghi_chu: false, bat_tat: true, stt: String((loaiViPhamRows?.rows ?? []).length) });
+    setLoaiViPhamOpen(true);
+  }
+  function openEditLoaiViPham(r: LoaiViPhamRow) {
+    setEditingLoaiViPhamId(r.id);
+    setLoaiViPhamForm({
+      ten_loi: r.ten_loi,
+      nhom_loi: r.nhom_loi,
+      diem_the: String(r.diem_the),
+      bat_buoc_ghi_chu: !!r.bat_buoc_ghi_chu,
+      bat_tat: !!r.bat_tat,
+      stt: String(r.stt),
+    });
+    setLoaiViPhamOpen(true);
+  }
+
+  const saveLoaiViPhamMutation = useMutation({
+    mutationFn: () => {
+      const body = {
+        ten_loi: loaiViPhamForm.ten_loi.trim(),
+        nhom_loi: loaiViPhamForm.nhom_loi.trim(),
+        diem_the: Number(loaiViPhamForm.diem_the) || 0,
+        bat_buoc_ghi_chu: loaiViPhamForm.bat_buoc_ghi_chu,
+        bat_tat: loaiViPhamForm.bat_tat,
+        stt: Number(loaiViPhamForm.stt) || 0,
+      };
+      return editingLoaiViPhamId ? api.patch(`/settings/loai-vi-pham/${editingLoaiViPhamId}`, body) : api.post("/settings/loai-vi-pham", body);
+    },
+    onSuccess: () => {
+      addToast(editingLoaiViPhamId ? "Đã cập nhật loại lỗi vi phạm" : "Đã thêm loại lỗi vi phạm mới");
+      setLoaiViPhamOpen(false);
+      setEditingLoaiViPhamId(null);
+      qc.invalidateQueries({ queryKey: ["settings-loai-vi-pham"] });
     },
     onError: () => addToast("Không thể lưu, thử lại sau."),
   });
@@ -701,6 +763,34 @@ export function SettingsModule() {
     },
   ];
 
+  const loaiViPhamColumns: Column<LoaiViPhamRow>[] = [
+    { key: "stt", header: "STT", render: (r) => <span className="text-xs text-[var(--ink-500)]">{r.stt}</span> },
+    { key: "ten_loi", header: "Lỗi", render: (r) => <span className="font-medium">{r.ten_loi}</span> },
+    { key: "nhom_loi", header: "Nhóm lỗi", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.nhom_loi}</span> },
+    { key: "diem_the", header: "Điểm thẻ", render: (r) => <span className="text-xs">{r.diem_the}</span> },
+    {
+      key: "bat_buoc_ghi_chu",
+      header: "Bắt buộc ghi chú",
+      render: (r) => (
+        <ToggleSwitch checked={!!r.bat_buoc_ghi_chu} onChange={() => toggleLoaiViPhamMutation.mutate({ id: r.id, field: "bat_buoc_ghi_chu", value: !r.bat_buoc_ghi_chu })} />
+      ),
+    },
+    {
+      key: "bat_tat",
+      header: "Bật / Tắt",
+      render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLoaiViPhamMutation.mutate({ id: r.id, field: "bat_tat", value: !r.bat_tat })} />,
+    },
+    {
+      key: "action",
+      header: "",
+      render: (r) => (
+        <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={() => openEditLoaiViPham(r)}>
+          Sửa
+        </button>
+      ),
+    },
+  ];
+
   const phanLoaiColumns: Column<PhanLoaiTranhChapRow>[] = [
     { key: "ten_phan_loai", header: "Tên phân loại", render: (r) => <span className="font-medium">{r.ten_phan_loai}</span> },
     { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => togglePhanLoai.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
@@ -901,6 +991,7 @@ export function SettingsModule() {
         onChange={setTab}
         tabs={[
           { key: "ly-do", label: "Lý do chậm" },
+          { key: "loai-vi-pham", label: "Loại lỗi vi phạm" },
           { key: "ktv-lien-he", label: "Danh sách KTV" },
           { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
           { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
@@ -985,6 +1076,31 @@ export function SettingsModule() {
             rowKey={(r) => r.id}
             emptyText="Chưa có lý do chậm nào."
             storageKey="settings-ly-do"
+          />
+        </div>
+      )}
+      {tab === "loai-vi-pham" && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-[var(--ink-600)]">
+              Danh mục "Loại lỗi vi phạm" — CSKH chọn từ đây khi kết luận cấp 1 cho từng lỗi trong màn hình gọi khảo sát. Tắt 1 dòng sẽ ẩn khỏi danh sách chọn nhưng KHÔNG đổi dữ liệu đã ghi trước đó.
+            </div>
+            <Btn size="sm" onClick={openAddLoaiViPham}>
+              + Thêm loại lỗi
+            </Btn>
+          </div>
+          <PaginatedTable
+            columns={loaiViPhamColumns}
+            rows={(loaiViPhamRows?.rows ?? []).slice((loaiViPhamPage - 1) * PAGE_SIZE, loaiViPhamPage * PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={loaiViPhamPage}
+            pageSize={PAGE_SIZE}
+            total={(loaiViPhamRows?.rows ?? []).length}
+            onPageChange={setLoaiViPhamPage}
+            rowKey={(r) => r.id}
+            emptyText="Chưa có loại lỗi vi phạm nào."
+            storageKey="settings-loai-vi-pham"
           />
         </div>
       )}
@@ -2156,6 +2272,73 @@ export function SettingsModule() {
               disabled={!lyDoChamForm.ten_ly_do.trim() || (!lyDoChamForm.muaHang && !lyDoChamForm.baoHanh) || saveLyDoChamMutation.isPending}
             >
               {editingLyDoChamId ? "Lưu" : "Thêm"}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={loaiViPhamOpen}
+        onClose={() => { setLoaiViPhamOpen(false); setEditingLoaiViPhamId(null); }}
+        title={editingLoaiViPhamId ? "Sửa loại lỗi vi phạm" : "Thêm loại lỗi vi phạm mới"}
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Lỗi</label>
+            <input
+              value={loaiViPhamForm.ten_loi}
+              onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, ten_loi: e.target.value })}
+              placeholder="Vd: Thực hiện sai quy trình nghiệp vụ kỹ thuật viên"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Nhóm lỗi</label>
+            <input
+              value={loaiViPhamForm.nhom_loi}
+              onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, nhom_loi: e.target.value })}
+              placeholder="Vd: Lỗi quy trình, sai hẹn, trang phục"
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Điểm thẻ tương ứng</label>
+            <input
+              type="number"
+              step="0.25"
+              value={loaiViPhamForm.diem_the}
+              onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, diem_the: e.target.value })}
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={loaiViPhamForm.bat_buoc_ghi_chu}
+              onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, bat_buoc_ghi_chu: e.target.checked })}
+            />
+            Bắt buộc CSKH nhập Ghi chú khi chọn lỗi này (vd: "Lỗi khác")
+          </label>
+          <div>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">Thứ tự (STT)</label>
+            <input
+              type="number"
+              value={loaiViPhamForm.stt}
+              onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, stt: e.target.value })}
+              className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={loaiViPhamForm.bat_tat} onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, bat_tat: e.target.checked })} />
+            Đang bật
+          </label>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" onClick={() => { setLoaiViPhamOpen(false); setEditingLoaiViPhamId(null); }}>Hủy</Btn>
+            <Btn
+              onClick={() => saveLoaiViPhamMutation.mutate()}
+              disabled={!loaiViPhamForm.ten_loi.trim() || !loaiViPhamForm.nhom_loi.trim() || saveLoaiViPhamMutation.isPending}
+            >
+              {editingLoaiViPhamId ? "Lưu" : "Thêm"}
             </Btn>
           </div>
         </div>
