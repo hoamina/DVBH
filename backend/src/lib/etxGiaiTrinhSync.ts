@@ -197,11 +197,16 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
         const noiDungParts = [`[ETX tự động] ${lyDoGoc || "(không rõ lý do)"}`];
         if (ghiChu) noiDungParts.push(ghiChu);
 
+        // Dung chuoi rong '' (khong phai NULL that) cho 3 cot optional nay - UNIQUE constraint cua
+        // SQLite coi 2 gia tri NULL la "khac nhau moi lan" (xem canh bao ngay trong migration 0022),
+        // nen neu de NULL, ON CONFLICT DO NOTHING se khong bao gio bat duoc trung khi dong bo lai
+        // cung 1 dong ETX (nam trong cua so LOOKBACK_DAYS=3 ngay) - da xac nhan gay 164/358 dong
+        // trung lap that tren production truoc khi sua (2026-09-16).
         const stmt = db
           .prepare(
             `INSERT INTO giai_trinh (id, case_id, ly_do_cham, noi_dung, linh_kien_thieu, ngay_du_kien_hoan_thanh,
                ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan, nguoi_giai_trinh, ngay_giai_trinh)
-             VALUES (?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?)
+             VALUES (?, ?, ?, ?, '', ?, '', ?, ?, ?)
              ON CONFLICT(case_id, ly_do_cham, nguoi_giai_trinh, ngay_giai_trinh, noi_dung, linh_kien_thieu,
                ngay_du_kien_hoan_thanh, ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan) DO NOTHING`,
           )
@@ -210,8 +215,8 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
             d.id_truy_xuat,
             lyDoCham,
             noiDungParts.join(" - "),
-            d.du_kien_xong || null,
-            d.id_dat_linh_kien || null,
+            d.du_kien_xong || "",
+            d.id_dat_linh_kien || "",
             ETX_ACTOR_EMAIL,
             toVnLocalTimestamp(d.thoi_diem),
           );
