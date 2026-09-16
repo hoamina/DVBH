@@ -35,10 +35,6 @@ import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { generateCanhBaoTonSnapshot } from "./lib/canhBaoTon";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
-import { syncGiaiTrinhFromSheet } from "./routes/importGiaiTrinh";
-import { syncGiaiTrinhLapFromSheet } from "./routes/importGiaiTrinhLap";
-import { syncKhaoSatFromSheet } from "./routes/importKhaoSat";
-import { syncNapGasFromSheet } from "./routes/importNapGas";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
 
@@ -84,20 +80,6 @@ app.onError((err, c) => {
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
 const ARCHIVE_AFTER = "-3 months";
-// Chot voi chu he thong 2026-08-02: archive khong can chay hang ngay nua, gom vao 1 lan/thang vao
-// ngay 1 (20:00 UTC ngay 1 = 03:00 gio VN ngay 2) - luong ghi archived_at khong nhay cam thoi gian
-// thuc, gom 1 thang/lan van du don ca da hoan thanh >3 thang. Phai khai bao trong ca 2
-// wrangler*.jsonc "triggers.crons".
-const ARCHIVE_CRON = "0 20 1 * *";
-
-// 3 lan/ngay - 9h/13h/16h gio VN = 2h/6h/9h UTC (chot voi chu he thong 2026-07-29) - tu dong dong
-// bo 4 Google Sheet "cu" (giai_trinh/giai_trinh_lap/khao_sat/nap_gas_danh_gia) do AppSheet dien du
-// lieu, thay cho viec phai tu bam "Dong bo ngay" trong module Import moi ngay. KHONG dong toi CRM
-// chinh (case_dvbh, POST /api/import/sync-sheet) - van dong bo tay theo yeu cau rieng cua chu he
-// thong. Actor la user "he thong" co dinh (migration 0033) - can vi import_history.nguoi_import co
-// FK REFERENCES users(email), khong the ghi 1 email tuy y.
-const SHEET_SYNC_CRON = "0 2,6,9 * * *";
-const SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
 
 // 17h15/17h20/17h25 gio VN = 10h15/10h20/10h25 UTC - keo "Giai trinh ton B2B" tu API doi tac ETX
 // (xem lib/etxGiaiTrinhSync.ts). 3 moc co dinh (khong phai setTimeout dong) VI stack nay khong co
@@ -108,10 +90,10 @@ const SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
 // khai bao 3 phan tu rieng lam TONG so Cron Trigger cua Worker vuot qua gioi han cua Cloudflare (co
 // san 4 cron khac + 3 cai nay = 7), nen deploy "thanh cong" ve mat CLI nhung Cloudflare ROI 3 trigger
 // nay ma khong bao loi (wrangler khong phat hien) - ket qua la lich chua bao gio thuc su chay (0 dong
-// trong etx_giai_trinh_sync_log ke tu luc trien khai). Gop lai thanh 1 phan tu (giong pattern
-// SHEET_SYNC_CRON "0 2,6,9 * * *" da dung o duoi) de giam tong so Cron Trigger, dong thoi van
-// giu dung 3 moc gio 10h15/10h20/10h25 UTC. event.cron tra ve dung nguyen van chuoi da khai bao
-// (da xac minh qua SHEET_SYNC_CRON dang chay that), nen so sanh bang chuoi la du, khong can Set.
+// trong etx_giai_trinh_sync_log ke tu luc trien khai). Gop lai thanh 1 phan tu (dung pattern list
+// nhieu gio/phut trong 1 truong cron, giong VI_PHAM_SHEET_SYNC_CRON o duoi) de giam tong so Cron
+// Trigger, dong thoi van giu dung 3 moc gio 10h15/10h20/10h25 UTC. event.cron tra ve dung nguyen
+// van chuoi da khai bao, nen so sanh bang chuoi la du, khong can Set.
 const ETX_SYNC_CRON = "15,20,25 10 * * *";
 
 // 08:00 sang gio VN = 01:00 UTC. Chot voi chu he thong 2026-08-02: gom luoi an toan "ca lap"/
@@ -131,9 +113,12 @@ const DAILY_SNAPSHOT_CRON = "0 1 * * *";
 const DAILY_LOG_1730_CRON = "30 10 * * *";
 
 // 03:00 sang gio VN = 20:00 UTC (ngay hom truoc) - dong bo hang ngay vi_pham tu Google Sheet QC tu
-// quan ly ben ngoai he thong (them 2026-09-16, yeu cau chu he thong - xem lib/viPhamSheetSync.ts).
-// Gio nay CO Y chon khac gio voi ARCHIVE_CRON (cung "0 20 1 * *" nhung chi ngay 1 hang thang) - 2
-// cron khac nhau, KHONG gop duoc vi 1 cai chay hang ngay, 1 cai chi 1 lan/thang.
+// quan ly ben ngoai he thong (them 2026-09-16, xem lib/viPhamSheetSync.ts). Gop chung voi archive
+// case (truoc la ARCHIVE_CRON rieng "0 20 1 * *") vao CUNG 1 entry cron nay - chot voi chu he thong
+// 2026-09-16 de giam tong so Cron Trigger cua Worker (dang gan gioi han Cloudflare, xem etx-giai-trinh
+// bug cung ngay). Archive van CHI chay 1 lan/thang - dung new Date().getUTCDate() === 1 lam guard
+// TRONG CODE (thay vi dua vao truong "ngay" cua bieu thuc cron) de giu dung y nghia "ngay 1 UTC = 03h
+// VN ngay 2" nhu cu, khong doi lich archive.
 const VI_PHAM_SHEET_SYNC_CRON = "0 20 * * *";
 const VI_PHAM_SHEET_SYNC_ACTOR_EMAIL = "he-thong-tu-dong@dvbh.internal";
 
@@ -168,18 +153,25 @@ export default {
       return;
     }
 
-    if (event.cron === SHEET_SYNC_CRON) {
-      // Tuan tu (khong Promise.all) - 4 sync doc lap nhau, khong can chay song song; don gian va
-      // de doc log theo dung thu tu hon la chay dong thoi khong can thiet.
-      await runSheetSync("giai_trinh_cu", () => syncGiaiTrinhFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
-      await runSheetSync("giai_trinh_lap_cu", () => syncGiaiTrinhLapFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
-      await runSheetSync("khao_sat_cu", () => syncKhaoSatFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
-      await runSheetSync("nap_gas_danh_gia_cu", () => syncNapGasFromSheet(env.DB, SHEET_SYNC_ACTOR_EMAIL));
-      return;
-    }
-
     if (event.cron === VI_PHAM_SHEET_SYNC_CRON) {
       await runSheetSync("vi_pham_ngoai", () => syncViPhamFromSheet(env, VI_PHAM_SHEET_SYNC_ACTOR_EMAIL));
+      // Archive gop chung vao day (truoc la ARCHIVE_CRON rieng "0 20 1 * *") - guard bang ngay UTC
+      // thay vi truong "ngay" cua cron de giu dung lich cu "ngay 1 UTC = 03h VN ngay 2", van chi
+      // chay 1 lan/thang du entry cron nay fire moi ngay.
+      if (new Date().getUTCDate() === 1) {
+        // idx_case_archive_pending (migration 0019) phuc vu dung cau nay: chi giu lai cac dong
+        // archived_at IS NULL nen SQLite khong phai quet lai ca phan da archive tu lau.
+        // Khong bump domain "cases" o day - archive tu dong KHONG lam bao cao tinh san cu di, chi
+        // import (commit/sync-sheet) moi bump domain nay (xem R8 trong YEU_CAU_BAO_CAO_TINH_SAN.md
+        // va comment o lib/dataVersions.ts).
+        await env.DB.prepare(
+          `UPDATE case_dvbh SET archived_at = datetime('now', '+7 hours')
+           WHERE thoi_gian_hoan_thanh IS NOT NULL AND archived_at IS NULL
+             AND thoi_gian_hoan_thanh < datetime('now', '+7 hours', ?)`,
+        )
+          .bind(ARCHIVE_AFTER)
+          .run();
+      }
       return;
     }
 
@@ -262,19 +254,5 @@ export default {
       return;
     }
 
-    if (event.cron === ARCHIVE_CRON) {
-      // idx_case_archive_pending (migration 0019) phuc vu dung cau nay: chi giu lai cac dong
-      // archived_at IS NULL nen SQLite khong phai quet lai ca phan da archive tu lau.
-      // Khong bump domain "cases" o day - archive tu dong KHONG lam bao cao tinh san cu di, chi
-      // import (commit/sync-sheet) moi bump domain nay (xem R8 trong YEU_CAU_BAO_CAO_TINH_SAN.md
-      // va comment o lib/dataVersions.ts).
-      await env.DB.prepare(
-        `UPDATE case_dvbh SET archived_at = datetime('now', '+7 hours')
-         WHERE thoi_gian_hoan_thanh IS NOT NULL AND archived_at IS NULL
-           AND thoi_gian_hoan_thanh < datetime('now', '+7 hours', ?)`,
-      )
-        .bind(ARCHIVE_AFTER)
-        .run();
-    }
   },
 };
