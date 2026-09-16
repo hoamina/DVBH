@@ -250,9 +250,13 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
       statements.push(
         db
           .prepare(
+            // Conflict target phai khop DUNG UNIQUE hien tai cua bang (case_id, loai_loi, ket_qua_cap_1)
+            // - xem migration 0113/0114, va comment chi tiet o routes/survey.ts POST /calls (cung 1 bug
+            // fix 2026-09-16, khac cho nay chi anh huong sync AppSheet "khao sat cu" thay vi luong CSKH
+            // nhap tay).
             `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
              VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now', '+7 hours')), ?, ?, ?)
-             ON CONFLICT(case_id, loai_loi) DO NOTHING`,
+             ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
           )
           .bind(
             viPhamId,

@@ -1101,10 +1101,16 @@ survey.post(
       statements.push(
         c.env.DB.prepare(
           // ON CONFLICT: neu da co nguoi khac ghi nhan cung (case_id, loai_loi) truoc (rang buoc UNIQUE
-          // chan race 2 CSKH cung khao sat 1 luc), bo qua dong nay thay vi loi ca request
+          // chan race 2 CSKH cung khao sat 1 luc), bo qua dong nay thay vi loi ca request. Cot conflict
+          // target PHAI khop DUNG UNIQUE hien tai cua bang la (case_id, loai_loi, ket_qua_cap_1) - xem
+          // migration 0113/0114 (truoc day chi UNIQUE(case_id, loai_loi), da mo rong them ket_qua_cap_1
+          // de ho tro nhieu vi_pham 'Khac'/'KSNB' khac nhau tren 1 ca) - fix bug thuc te 2026-09-16:
+          // sai lech nay lam SQLite tu choi ca cau INSERT ("ON CONFLICT clause does not match any
+          // PRIMARY KEY or UNIQUE constraint"), khien CSKH KHONG luu duoc bat ky ket qua khao sat nao
+          // co results (chi log cuoc goi khong thanh cong - results rong - moi khong bi anh huong).
           `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan, ngay_ghi_nhan)
            VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(case_id, loai_loi) DO NOTHING`,
+           ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
         ).bind(viPhamId, ketQuaGoiId, body.case_id, r.loai_loi, ketQuaCap1, user.email, ngayGhiNhan),
       );
     }
