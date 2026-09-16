@@ -477,9 +477,10 @@ viPham.post("/backfill-push-vipham", requireRole("Admin"), async (c) => {
 
 // POST /api/vi-pham/case/:caseId - tao vi_pham THU CONG ngay trong tab "Vi pham" cua CaseDetail.tsx
 // (them 2026-09-16, yeu cau chu he thong). Moi vai tro TRU Viewer duoc tao (quyen rong hon cac route
-// khac trong file nay, dung theo yeu cau) - loai_loi LUON = 'Khac' (xem migration 0113): day la kenh
-// ghi nhan vi pham KHONG thuoc 4 loai SLA tu dong (loi_120p/qua_han_24h/lo_ke_hoach/kh_hen_lai, cac
-// loai do da co co che tu dong phat hien + luong CSKH khao sat rieng, khong can/khong nen tao thu
+// khac trong file nay, dung theo yeu cau) - loai_loi LUON = 'Khac' ("Vi phạm ghi nhận trực tiếp" o FE,
+// xem migration 0114 - RIENG voi 'KSNB' cua dong bo Sheet tu dong, xem lib/viPhamSheetSync.ts): day la
+// kenh ghi nhan vi pham KHONG thuoc 4 loai SLA tu dong (loi_120p/qua_han_24h/lo_ke_hoach/kh_hen_lai,
+// cac loai do da co co che tu dong phat hien + luong CSKH khao sat rieng, khong can/khong nen tao thu
 // cong trung voi luong do). Luon vao "cho QC" (chot_bo_cap_2 = NULL) du nguoi tao la ai - CHOT voi
 // chu he thong: an toan hon vi quyen tao rat rong, gom ca CSKH/TN CSKH khong thuoc nhom QC/Giam sat,
 // de QC van kiem tra lai truoc khi tinh la vi pham chinh thuc.

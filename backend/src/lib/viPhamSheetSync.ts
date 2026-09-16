@@ -5,10 +5,11 @@
 // hoặc sai hẹn với KH theo quy định" khac "Không liên hệ hoặc sai hẹn..." da seed - ep khop se lam
 // mat du lieu that), "Nội dung 3T cần giải trình" (-> vi_pham.ghi_chu).
 //
-// Moi dong tao 1 vi_pham voi loai_loi='Khac' (xem migration 0113), KHONG co ket_qua_goi dung sau (Sheet
-// nay khong xuat phat tu cuoc goi CSKH) - vao "cho QC" nhu binh thuong (CHOT voi chu he thong: khong
-// tu dong chot, de QC van kiem tra lai truoc khi tinh la vi pham chinh thuc, phong truong hop
-// case_id/noi dung ghi sai trong Sheet).
+// Moi dong tao 1 vi_pham voi loai_loi='KSNB' (rieng voi 'Khac' cua tao thu cong trong app, xem
+// migration 0114 - phan biet nguon "tu Sheet KSNB" voi "ghi nhan truc tiep trong app" o nhan hien thi
+// FE), KHONG co ket_qua_goi dung sau (Sheet nay khong xuat phat tu cuoc goi CSKH) - vao "cho QC" nhu
+// binh thuong (CHOT voi chu he thong: khong tu dong chot, de QC van kiem tra lai truoc khi tinh la vi
+// pham chinh thuc, phong truong hop case_id/noi dung ghi sai trong Sheet).
 import type { Env } from "../types";
 import { fetchSheetText, getSheetUrl, parseBackfillTsv } from "./backfillSheetSync";
 import { logImportHistory } from "./backfillImportProcessor";
@@ -139,7 +140,7 @@ export async function syncViPhamFromSheet(env: Env, actorEmail: string): Promise
         // ON CONFLICT: khoa UNIQUE(case_id, loai_loi, ket_qua_cap_1) - dong bo lai dung 1 dong da co
         // tu lan chay truoc thi bo qua (idempotency tu nhien cho cron hang ngay doc lai TOAN BO sheet).
         `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan)
-         VALUES (?, NULL, ?, 'Khac', ?, ?, ?, ?)
+         VALUES (?, NULL, ?, 'KSNB', ?, ?, ?, ?)
          ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
       )
       .bind(ids[i], r.case_id, r.vi_pham!.trim(), r.noi_dung?.trim() || null, actorEmail, r.ngay_thuc_hien || ngayGhiNhanMac),
@@ -163,7 +164,7 @@ export async function syncViPhamFromSheet(env: Env, actorEmail: string): Promise
           loai_su_kien: "nghi_ngo_moi",
           vi_pham_id: ids[i],
           case_id: r.case_id,
-          loai_loi: "Khac",
+          loai_loi: "KSNB",
           ket_qua_cap_1: r.vi_pham!.trim(),
           khach_hang: caseInfo?.khach_hang ?? null,
           khu_vuc: caseInfo?.khu_vuc ?? null,

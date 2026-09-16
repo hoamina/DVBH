@@ -180,13 +180,20 @@ export interface KetQuaGoiRow {
   seri_san_pham?: string | null;
 }
 
-export type LoaiLoi = "Loi 120 phut" | "Hen qua 24h" | "Loi lo ke hoach" | "KH hen lai";
+// "Khac"/"KSNB" (migration 0113/0114) - 2 nguon vi_pham KHONG qua cuoc goi CSKH, KHONG nam trong 4
+// loai SLA tu dong nen KHONG dua vao LOAI_LOI_KEYS (danh sach do chi phuc vu bao cao/bo loc theo 4
+// cot SLA co san o DashboardModule.tsx/SurveyModule.tsx) - chi can co trong LOAI_LOI_META de hien thi
+// dung nhan thay vi rot ve chuoi tho khong dau (xem cho gia tri v.loai_loi trong CaseDetail.tsx/
+// SurveyModule.tsx/SurveyCallWorkspace.tsx).
+export type LoaiLoi = "Loi 120 phut" | "Hen qua 24h" | "Loi lo ke hoach" | "KH hen lai" | "Khac" | "KSNB";
 
 export const LOAI_LOI_META: Record<LoaiLoi, { label: string; short: string }> = {
   "Loi 120 phut": { label: "Lỗi 120 phút", short: "120'" },
   "Hen qua 24h": { label: "Hẹn quá 24h", short: "24h hẹn" },
   "Loi lo ke hoach": { label: "Lỡ kế hoạch", short: "Lỡ KH" },
   "KH hen lai": { label: "KH hẹn lại", short: "KH hẹn lại" },
+  Khac: { label: "Vi phạm ghi nhận trực tiếp", short: "Trực tiếp" },
+  KSNB: { label: "Vi phạm ghi nhận từ KSNB", short: "KSNB" },
 };
 export const LOAI_LOI_KEYS: LoaiLoi[] = ["Loi 120 phut", "Hen qua 24h", "Loi lo ke hoach", "KH hen lai"];
 

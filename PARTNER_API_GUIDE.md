@@ -341,7 +341,7 @@ Content-Type: application/json
 | `loai_su_kien` | string | Luôn là `"nghi_ngo_moi"` cho loại sự kiện này |
 | `vi_pham_id` | string | ID duy nhất của lỗi này (dùng để gửi giải trình về ở mục 9.2 — **bắt buộc lưu lại**, đây là khoá nối 2 chiều) |
 | `case_id` | string | ID case bảo hành |
-| `loai_loi` | string | 1 trong: `Loi 120 phut`, `Hen qua 24h`, `Loi lo ke hoach`, `KH hen lai` |
+| `loai_loi` | string | 1 trong: `Loi 120 phut`, `Hen qua 24h`, `Loi lo ke hoach`, `KH hen lai` (4 loại tự động theo SLA), hoặc `Khac` (ghi nhận thủ công ngay trong app DVBH, bất kỳ vai trò nào), hoặc `KSNB` (đồng bộ tự động hàng ngày 03:00 giờ VN từ Google Sheet do KSNB quản lý — thêm 2026-09-16) |
 | `ket_qua_cap_1` | string, có thể null | Kết luận cấp 1 của CSKH — 1 trong `Loi khong lien he`, `Loi sai bao cao`, `Loi khac` (không bao giờ là `Khong loi`/null trong lời gọi này — DVBH chỉ báo sang khi CSKH đã kết luận CÓ nghi ngờ) |
 | `khach_hang` | string, có thể null | Tên khách hàng |
 | `khu_vuc` | string, có thể null | Khu vực |
