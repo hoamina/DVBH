@@ -17,14 +17,17 @@ interface DetectionResponse {
   giaiTrinhLap: CaLapDetection["giaiTrinhLap"];
 }
 
-/** CHOT 2026-08-20: goi y "Hinh thuc xu ly" mac dinh theo "Ly do lap" (chot_danh_gia_lap/qc_chot) vua
- * chon - "Lap do nghiep vu KTV"/"Lap do tay nghe KTV" => "TINH LAP, KHONG TINH LUONG"; "Lap do trung
- * su vu" => "KHONG TINH LUONG, LOI BAO CAO". Cac ly do con lai (chat luong linh kien/sai bao cao) giu
- * nguyen mac dinh cu (tu 2026-08-05, ben QC) la "Tinh lap khong tinh luong" - CHI "Bo qua" khong goi y
- * gi (nguoi dung tu chon). Nguoi dung van chon lai duoc binh thuong sau do qua ChoiceSelect. */
+/** CHOT 2026-08-20 (sua 2026-09-17): goi y "Hinh thuc xu ly" mac dinh theo "Ly do lap"
+ * (chot_danh_gia_lap/qc_chot) vua chon - "Lap do nghiep vu KTV"/"Lap do tay nghe KTV"/"Lap do sai bao
+ * cao" => "TINH LAP, KHONG TINH LUONG"; "Lap do trung su vu" => "KHONG TINH LUONG, LOI BAO CAO";
+ * "Lap do chat luong linh kien" => "TINH LUONG" (truoc 2026-09-17 dung chung mac dinh "Tinh lap khong
+ * tinh luong" voi nhom con lai, tach rieng theo yeu cau nguoi dung - loi do chat luong linh kien
+ * khong phai loi KTV nen van tinh luong cho KTV). CHI "Bo qua" khong goi y gi (nguoi dung tu chon).
+ * Nguoi dung van chon lai duoc binh thuong sau do qua ChoiceSelect. */
 function suggestedHinhThuc(lyDoLap: CaLapLoai): HinhThucXuLy | undefined {
   if (lyDoLap === "Bo qua") return undefined;
   if (lyDoLap === "Lap do trung su vu") return "Khong tinh luong loi bao cao";
+  if (lyDoLap === "Lap do chat luong linh kien") return "Tinh luong";
   return "Tinh lap khong tinh luong";
 }
 
@@ -53,6 +56,14 @@ export function CaLapEvalModal({
   const [hinhThucForm, setHinhThucForm] = useState("");
   const [qcLapForm, setQcLapForm] = useState({ qc_chot: "", qc_ghi_chu: "" });
   const [qcHinhThucForm, setQcHinhThucForm] = useState("");
+  // Sua 2026-09-17: "hinhThucForm === ''" KHONG du de phan biet "chua tung dong den" voi "da tung
+  // duoc GOI Y tu dong roi" - sau khi 1 lan goi y chay, hinhThucForm khong con rong nua nen doi "Ly do
+  // lap" lan 2 se KHONG goi y lai duoc du nguoi dung chua he TU TAY sua "Hinh thuc xu ly". Tach rieng
+  // co "touched" nay - CHI bat len khi chinh ChoiceSelect "Hinh thuc xu ly" duoc nguoi dung bam doi
+  // (khong bat khi code tu dat gia tri goi y) - de goi y van chay lai moi lan doi "Ly do lap" cho den
+  // khi nguoi dung THAT SU tu tay chon 1 gia tri khac.
+  const [hinhThucTouched, setHinhThucTouched] = useState(false);
+  const [qcHinhThucTouched, setQcHinhThucTouched] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["ca-lap-detection", caseId],
@@ -136,7 +147,10 @@ export function CaLapEvalModal({
               <label className="text-xs font-semibold text-[var(--ink-400)]">Hình thức xử lý</label>
               <ChoiceSelect
                 value={effectiveHinhThuc}
-                onChange={setHinhThucForm}
+                onChange={(v) => {
+                  setHinhThucForm(v);
+                  setHinhThucTouched(true);
+                }}
                 className="w-full"
                 options={HINH_THUC_XU_LY_KEYS.map((k) => ({ value: k, label: HINH_THUC_XU_LY_META[k].label }))}
               />
@@ -145,12 +159,13 @@ export function CaLapEvalModal({
                 value={effectiveChotDanhGiaLap}
                 onChange={(v) => {
                   setGsLapForm({ ...gsLapForm, chot_danh_gia_lap: v });
-                  // CHOT 2026-08-20: chon "Ly do lap" thi tu dong goi y "Hinh thuc xu ly" tuong ung
-                  // (xem suggestedHinhThuc dau file) - CHI khi Giam sat CHUA tung tu tay sua truong nay
-                  // trong phien lam viec nay (hinhThucForm con rong) VA chua co gia tri da luu tren
-                  // server (khong ghi de mat lua chon co san) - van doi lai duoc binh thuong sau do.
+                  // CHOT 2026-08-20 (sua 2026-09-17): chon "Ly do lap" thi tu dong goi y "Hinh thuc xu
+                  // ly" tuong ung (xem suggestedHinhThuc dau file) - CHI khi Giam sat CHUA tung TU TAY
+                  // sua truong "Hinh thuc xu ly" (hinhThucTouched, xem state o tren) VA chua co gia tri
+                  // da luu tren server (khong ghi de mat lua chon co san) - goi y chay LAI moi lan doi
+                  // "Ly do lap" (khong chi lan dau) cho den khi nguoi dung that su tu tay chon.
                   const suggestion = suggestedHinhThuc(v as CaLapLoai);
-                  if (suggestion && hinhThucForm === "" && !giaiTrinhLap?.chot_hinh_thuc_xu_ly) {
+                  if (suggestion && !hinhThucTouched && !giaiTrinhLap?.chot_hinh_thuc_xu_ly) {
                     setHinhThucForm(suggestion);
                   }
                 }}
@@ -202,13 +217,14 @@ export function CaLapEvalModal({
                 value={effectiveQcChot}
                 onChange={(v) => {
                   setQcLapForm((prev) => ({ ...prev, qc_chot: v }));
-                  // CHOT 2026-08-05 diem 3 (sua 2026-08-20 - xem suggestedHinhThuc dau file): chon "Ly
-                  // do lap" thi tu dong goi y "Hinh thuc xu ly" tuong ung - CHI khi QC CHUA tung tu tay
-                  // sua truong nay trong phien lam viec nay (qcHinhThucForm con rong) VA Giam sat cung
-                  // chua tung dat gia tri nao (khong ghi de mat lua chon co san) - QC van doi lai duoc
-                  // binh thuong sau do qua ChoiceSelect "Hinh thuc xu ly" ben duoi.
+                  // CHOT 2026-08-05 diem 3 (sua 2026-08-20, sua tiep 2026-09-17 - xem suggestedHinhThuc
+                  // dau file): chon "Ly do lap" thi tu dong goi y "Hinh thuc xu ly" tuong ung - CHI khi
+                  // QC CHUA tung TU TAY sua truong "Hinh thuc xu ly" (qcHinhThucTouched, xem state o
+                  // tren) VA Giam sat cung chua tung dat gia tri nao (khong ghi de mat lua chon co san)
+                  // - goi y chay LAI moi lan doi "Ly do lap" cho den khi QC that su tu tay chon qua
+                  // ChoiceSelect "Hinh thuc xu ly" ben duoi.
                   const suggestion = suggestedHinhThuc(v as CaLapLoai);
-                  if (suggestion && qcHinhThucForm === "" && !giaiTrinhLap?.chot_hinh_thuc_xu_ly) {
+                  if (suggestion && !qcHinhThucTouched && !giaiTrinhLap?.chot_hinh_thuc_xu_ly) {
                     setQcHinhThucForm(suggestion);
                   }
                 }}
@@ -218,7 +234,10 @@ export function CaLapEvalModal({
               <label className="text-xs font-semibold text-[var(--ink-400)]">Hình thức xử lý</label>
               <ChoiceSelect
                 value={effectiveQcHinhThuc}
-                onChange={setQcHinhThucForm}
+                onChange={(v) => {
+                  setQcHinhThucForm(v);
+                  setQcHinhThucTouched(true);
+                }}
                 className="w-full"
                 options={HINH_THUC_XU_LY_KEYS.map((k) => ({ value: k, label: HINH_THUC_XU_LY_META[k].label }))}
               />
