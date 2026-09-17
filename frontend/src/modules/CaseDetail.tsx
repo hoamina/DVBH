@@ -1437,6 +1437,14 @@ export function CaseDetail({
                   </div>
                 );
               })()}
+              {// Ghi chu (migration 0113 - tao thu cong/dong bo Sheet KSNB) - truoc day chua hien o
+              // dau ca (bug thuc te 2026-09-17), chi luu trong DB/gui API ma khong render ra UI.
+              v.ghi_chu && (
+                <div className="mt-1.5 text-xs text-[var(--ink-600)]">
+                  <span className="text-[11px] font-semibold text-[var(--ink-400)]">Ghi chú: </span>
+                  {v.ghi_chu}
+                </div>
+              )}
               {(() => {
                 const giaiTrinhCuaLoiNay = viPhamGiaiTrinhList.filter((g) => g.vi_pham_id === v.id);
                 const giaiTrinhKtv = giaiTrinhCuaLoiNay.filter((g) => g.nguon === "ktv_qua_api");

@@ -118,6 +118,7 @@ export interface ViPhamRow {
   ket_qua_goi_id: string;
   loai_loi: LoaiLoi;
   ket_qua_cap_1: string | null;
+  ghi_chu?: string | null;
   chot_bo_cap_2: number | null;
   nguoi_ghi_nhan: string;
   ngay_ghi_nhan: string;
