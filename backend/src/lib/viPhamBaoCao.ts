@@ -78,6 +78,7 @@ export interface ViPhamBaoCaoTongQuanPayload {
   slGhiNhan: number;
   slKtvGiaiTrinh: number;
   slGsGiaiTrinh: number;
+  slChoKtvGiaiTrinh: number;
   slChoQcChot: number;
   slQcDaChot: number;
   slQcDaBo: number;
@@ -103,7 +104,14 @@ export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPham
   const baseBinds = [start, end, ...caseFilter.binds, ...cap1Filter.binds];
   const baseWhere = `v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}`;
 
-  const [slGhiNhan, slKtvGiaiTrinh, slGsGiaiTrinh, slChoQcChot, slQcDaChot, slQcDaBo] = await Promise.all([
+  // CHOT voi chu he thong 2026-09-20 (lan 2): tach "cho QC chot" (chot_bo_cap_2 IS NULL) thanh 2
+  // buoc - "cho KTV/GS giai trinh" (CHUA co dong nao trong vi_pham_giai_trinh, bat ke nguon) va
+  // "cho QC chot" thuc su (DA co giai trinh tu KTV hoac GS, dang doi QC xem xet chot cap 2) - 2 buoc
+  // nay cong lai DUNG BANG tong "chot_bo_cap_2 IS NULL" truoc day (khong lam thay doi tong, chi chia
+  // nho de phan biet "dang cho nguoi lien quan giai trinh" voi "da giai trinh xong, cho QC xu ly").
+  const daGiaiTrinhExists = "EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)";
+
+  const [slGhiNhan, slKtvGiaiTrinh, slGsGiaiTrinh, slChoKtvGiaiTrinh, slChoQcChot, slQcDaChot, slQcDaBo] = await Promise.all([
     db
       .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id WHERE ${baseWhere}`)
       .bind(...baseBinds)
@@ -125,7 +133,17 @@ export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPham
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
-      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id WHERE v.chot_bo_cap_2 IS NULL AND ${baseWhere}`)
+      .prepare(
+        `SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.chot_bo_cap_2 IS NULL AND NOT ${daGiaiTrinhExists} AND ${baseWhere}`,
+      )
+      .bind(...baseBinds)
+      .first<{ n: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.chot_bo_cap_2 IS NULL AND ${daGiaiTrinhExists} AND ${baseWhere}`,
+      )
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
@@ -142,6 +160,7 @@ export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPham
     slGhiNhan: slGhiNhan?.n ?? 0,
     slKtvGiaiTrinh: slKtvGiaiTrinh?.n ?? 0,
     slGsGiaiTrinh: slGsGiaiTrinh?.n ?? 0,
+    slChoKtvGiaiTrinh: slChoKtvGiaiTrinh?.n ?? 0,
     slChoQcChot: slChoQcChot?.n ?? 0,
     slQcDaChot: slQcDaChot?.n ?? 0,
     slQcDaBo: slQcDaBo?.n ?? 0,

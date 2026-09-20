@@ -30,6 +30,7 @@ interface TongQuanPayload {
   slGhiNhan: number;
   slKtvGiaiTrinh: number;
   slGsGiaiTrinh: number;
+  slChoKtvGiaiTrinh: number;
   slChoQcChot: number;
   slQcDaChot: number;
   slQcDaBo: number;
@@ -191,6 +192,7 @@ export function BaoCaoViPhamModule() {
           <StatCard label="SL ghi nhận" value={tongQuan?.slGhiNhan ?? 0} tone="ocean" />
           <StatCard label="SL KTV đã giải trình" value={tongQuan?.slKtvGiaiTrinh ?? 0} tone="teal" />
           <StatCard label="SL GS giải trình hộ" value={tongQuan?.slGsGiaiTrinh ?? 0} tone="teal" />
+          <StatCard label="SL chờ KTV/GS giải trình" value={tongQuan?.slChoKtvGiaiTrinh ?? 0} tone="orange" muted={!tongQuan?.slChoKtvGiaiTrinh} />
           <StatCard label="SL chờ QC chốt" value={tongQuan?.slChoQcChot ?? 0} tone="amber" muted={!tongQuan?.slChoQcChot} />
           <StatCard label="SL QC đã chốt" value={tongQuan?.slQcDaChot ?? 0} tone="coral" />
           <StatCard label="SL QC đã bỏ" value={tongQuan?.slQcDaBo ?? 0} tone="gray" />
