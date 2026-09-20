@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { parseHinhAnhUrls } from "./hinhAnhUrls";
 
 /**
  * Dung file .xlsx tra ve cho API doi tac (xem PARTNER_API_GUIDE.md muc 3 - dung 1 cot header, moi ca
@@ -6,20 +7,46 @@ import * as XLSX from "xlsx";
  * toan trong Workers runtime.
  */
 
+// Bo cot dong bo voi CASE_LOOKUP_COLUMNS (partnerApi.ts) tu 2026-09-20 - xem comment o CASE_COLUMNS
+// ben do. dt_san_pham/dt_linh_kien/dt_dich_vu la REAL (number), phan con lai TEXT.
 export interface PartnerCaseRow {
   id: string;
+  ky_thuat_vien: string | null;
   khach_hang: string | null;
+  seri_san_pham: string | null;
   khu_vuc: string | null;
   tinh: string | null;
-  doi_tac: string | null;
+  quan_huyen: string | null;
   hang: string | null;
-  nhom_san_pham: string | null;
-  seri_san_pham: string | null;
+  san_pham_bao_hanh: string | null;
+  tien_do_hoan_thanh: string | null;
   mo_ta_loi: string | null;
+  nhom_san_pham: string | null;
+  nhom_yeu_cau: string | null;
+  loai_yeu_cau: string | null;
+  hinh_thuc_bao_hanh: string | null;
+  ngay_mua: string | null;
   thoi_gian_cskh_tiep_nhan: string | null;
   thoi_gian_hen_xu_ly: string | null;
   thoi_gian_hoan_thanh: string | null;
-  tien_do_hoan_thanh: string | null;
+  doi_tac: string | null;
+  link_crm: string | null;
+  noi_dung_xu_ly: string | null;
+  luu_y_loi_linh_kien: string | null;
+  cach_thuc_xu_ly: string | null;
+  nganh: string | null;
+  loai_nganh: string | null;
+  nhom_kh: string | null;
+  dt_san_pham: number | null;
+  dt_linh_kien: number | null;
+  dt_dich_vu: number | null;
+  ly_do_qua_han: string | null;
+  ngay_import: string | null;
+  ngay_cap_nhat_gan_nhat: string | null;
+  dung_han: string | null;
+  xu_ly_24h_bucket: string | null;
+  ly_do_huy: string | null;
+  link_hinh_anh: string | null;
 }
 
 export interface GiaiTrinhHistoryRow {
@@ -34,18 +61,42 @@ export interface GiaiTrinhHistoryRow {
 
 const HEADERS = [
   "ID",
+  "KTV",
   "Khách hàng",
+  "Serial sản phẩm",
   "Khu vực",
   "Tỉnh",
-  "Đối tác",
+  "Quận/Huyện",
   "Hãng",
-  "Nhóm sản phẩm",
-  "Serial sản phẩm",
+  "Sản phẩm bảo hành",
+  "Tiến độ",
   "Mô tả lỗi",
+  "Nhóm sản phẩm",
+  "Nhóm yêu cầu",
+  "Loại yêu cầu",
+  "Hình thức bảo hành",
+  "Ngày mua",
   "Thời gian tiếp nhận",
   "Thời gian hẹn xử lý",
   "Thời gian hoàn thành",
-  "Tiến độ",
+  "Đối tác",
+  "Link CRM",
+  "Nội dung xử lý",
+  "Lưu ý lỗi linh kiện",
+  "Cách thức xử lý",
+  "Ngành",
+  "Loại ngành",
+  "Nhóm KH",
+  "DT sản phẩm",
+  "DT linh kiện",
+  "DT dịch vụ",
+  "Lý do quá hạn",
+  "Ngày import",
+  "Ngày cập nhật gần nhất",
+  "Đúng hạn",
+  "Nhóm xử lý 24h",
+  "Lý do huỷ",
+  "Link hình ảnh",
   "Số lần giải trình",
   "Lịch sử giải trình",
 ];
@@ -75,18 +126,42 @@ export function buildPartnerExcel(cases: PartnerCaseRow[], history: GiaiTrinhHis
       .join("\n");
     aoa.push([
       c.id,
+      c.ky_thuat_vien,
       c.khach_hang,
+      c.seri_san_pham,
       c.khu_vuc,
       c.tinh,
-      c.doi_tac,
+      c.quan_huyen,
       c.hang,
-      c.nhom_san_pham,
-      c.seri_san_pham,
+      c.san_pham_bao_hanh,
+      c.tien_do_hoan_thanh,
       c.mo_ta_loi,
+      c.nhom_san_pham,
+      c.nhom_yeu_cau,
+      c.loai_yeu_cau,
+      c.hinh_thuc_bao_hanh,
+      c.ngay_mua,
       fmtVN(c.thoi_gian_cskh_tiep_nhan),
       fmtVN(c.thoi_gian_hen_xu_ly),
       fmtVN(c.thoi_gian_hoan_thanh),
-      c.tien_do_hoan_thanh,
+      c.doi_tac,
+      c.link_crm,
+      c.noi_dung_xu_ly,
+      c.luu_y_loi_linh_kien,
+      c.cach_thuc_xu_ly,
+      c.nganh,
+      c.loai_nganh,
+      c.nhom_kh,
+      c.dt_san_pham,
+      c.dt_linh_kien,
+      c.dt_dich_vu,
+      c.ly_do_qua_han,
+      fmtVN(c.ngay_import),
+      fmtVN(c.ngay_cap_nhat_gan_nhat),
+      c.dung_han,
+      c.xu_ly_24h_bucket,
+      c.ly_do_huy,
+      parseHinhAnhUrls(c.link_hinh_anh).join("\n"),
       rows.length,
       lichSuGiaiTrinh,
     ]);

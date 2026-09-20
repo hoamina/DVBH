@@ -526,3 +526,87 @@ dùng chung, không dùng lại key của mục 8 (`/sync/ktv`/`/sync/linh-kien`
 2. **Key DVBH cấp CHO hệ vipham để gọi vào `/sync/giai-trinh-vi-pham`** (mục 9.2): liên hệ bên vận
    hành DVBH để được cấp (giống cách cấp key `case-lookup` ở mục 1) — đội vipham lưu bí mật phía
    server của mình, không nhúng vào client/app di động.
+
+## 10. Xuất dữ liệu hàng loạt theo khoảng ngày (`GET /api/partner/cases`)
+
+Khác với `case-lookup` (tra 1 case theo ID, real-time), endpoint này dùng để **quét định kỳ** lấy
+nhiều case cùng lúc theo khoảng ngày hoàn thành, trả về **1 file Excel (.xlsx)**, không phải JSON.
+Dùng cùng cơ chế xác thực `X-API-Key` (mục 1), nhưng **rate-limit khác hẳn** `case-lookup` — xem
+mục 10.4.
+
+### 10.1. Request
+
+```
+GET /api/partner/cases?mode=da-dong&tu_ngay=<YYYY-MM-DD>&den_ngay=<YYYY-MM-DD>
+X-API-Key: <api_key_cua_doi_tac>
+```
+
+| Tham số | Bắt buộc | Mô tả |
+|---|---|---|
+| `mode` | Có | `da-dong` (case đã hoàn thành trong khoảng ngày `tu_ngay`–`den_ngay`, lọc theo `Thời gian hoàn thành`) hoặc `dang-ton` (toàn bộ case **chưa** hoàn thành hiện tại — bỏ qua `tu_ngay`/`den_ngay` nếu có gửi) |
+| `tu_ngay`, `den_ngay` | Có nếu `mode=da-dong` | Dạng `YYYY-MM-DD`, bao gồm cả 2 đầu mút. Khoảng ngày tối đa **31 ngày**. |
+
+### 10.2. Response
+
+- Thành công: HTTP 200, `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+  file đính kèm tên `dvbh_da_dong_<tu_ngay>_<den_ngay>.xlsx` hoặc `dvbh_dang_ton_<ngày hôm nay>.xlsx`.
+- Lỗi: JSON `{ "error": "<MA_LOI>" }` (xem mục 10.3) — **không** trả file trong trường hợp lỗi.
+- Nếu không có case nào khớp điều kiện: vẫn trả về file `.xlsx` hợp lệ, chỉ có dòng tiêu đề, không
+  phải lỗi.
+
+### 10.3. Cột dữ liệu trong file Excel
+
+Mỗi dòng là 1 case, cột theo đúng thứ tự sau (đồng bộ với bộ field của `case-lookup` mục 3.4 — xem
+mục đó để biết ý nghĩa/kiểu dữ liệu chi tiết từng field, ở đây chỉ liệt kê tên cột hiển thị):
+
+`ID`, `KTV`, `Khách hàng`, `Serial sản phẩm`, `Khu vực`, `Tỉnh`, `Quận/Huyện`, `Hãng`, `Sản phẩm bảo
+hành`, `Tiến độ`, `Mô tả lỗi`, `Nhóm sản phẩm`, `Nhóm yêu cầu`, `Loại yêu cầu`, `Hình thức bảo
+hành`, `Ngày mua`, `Thời gian tiếp nhận`, `Thời gian hẹn xử lý`, `Thời gian hoàn thành`, `Đối tác`,
+`Link CRM`, `Nội dung xử lý`, `Lưu ý lỗi linh kiện`, `Cách thức xử lý`, `Ngành`, `Loại ngành`,
+`Nhóm KH`, `DT sản phẩm`, `DT linh kiện`, `DT dịch vụ`, `Lý do quá hạn`, `Ngày import`, `Ngày cập
+nhật gần nhất`, `Đúng hạn`, `Nhóm xử lý 24h`, `Lý do huỷ`, `Link hình ảnh`, `Số lần giải trình`,
+`Lịch sử giải trình`.
+
+Ghi chú riêng cho file Excel (khác cách JSON của `case-lookup` trả về):
+- Các cột thời gian (`Thời gian tiếp nhận`, `Thời gian hẹn xử lý`, `Thời gian hoàn thành`, `Ngày
+  import`, `Ngày cập nhật gần nhất`) được **định dạng lại** thành `dd/mm/yyyy HH:mm` (giờ VN địa
+  phương, không đổi timezone) — khác định dạng `YYYY-MM-DD HH:MM:SS` thô của `case-lookup`.
+- `Link hình ảnh`: nhiều URL trong cùng 1 ô, phân tách bằng ký tự xuống dòng (`\n`) trong ô Excel,
+  không phải mảng JSON.
+- `Số lần giải trình` / `Lịch sử giải trình`: 2 cột **tổng hợp thêm**, không phải cột gốc của
+  `case_dvbh` — lấy từ bảng `giai_trinh` (không phải mục 3.3 `giaiTrinh` của `case-lookup`, tuy cùng
+  nguồn dữ liệu). `Lịch sử giải trình` gộp toàn bộ các lượt giải trình thành nhiều dòng trong 1 ô,
+  mỗi dòng dạng `<ngày giờ> - <lý do chậm> - <nội dung>`.
+
+### 10.4. Rate limit — khác `case-lookup`
+
+Endpoint này thiết kế cho **quét định kỳ**, không phải tra cứu thời gian thực, nên giới hạn chặt
+hơn nhiều và tính khác `case-lookup` (mục 5):
+
+- Tối đa **30 lần gọi/ngày** (theo ngày lịch Việt Nam) cho mỗi API key.
+- Tối thiểu **60 giây** giữa 2 lần gọi liên tiếp (cùng key).
+- Tối đa **31 ngày** trong 1 khoảng `tu_ngay`–`den_ngay`.
+- Tối đa **20.000 dòng** kết quả cho 1 lần gọi (vượt quá → lỗi, xem mục 10.5) — nếu khoảng ngày cần
+  lấy vượt quá giới hạn này, chia nhỏ thành nhiều lần gọi với khoảng ngày hẹp hơn.
+
+### 10.5. Mã lỗi riêng của `/cases`
+
+| HTTP status | `error` | Ý nghĩa |
+|---|---|---|
+| 400 | `INVALID_MODE` | `mode` không phải `da-dong`/`dang-ton` |
+| 400 | `INVALID_DATE_RANGE` | Thiếu/sai định dạng `tu_ngay`/`den_ngay`, hoặc `tu_ngay` sau `den_ngay` |
+| 400 | `RANGE_TOO_LARGE` | Khoảng ngày vượt quá 31 ngày |
+| 400 | `TOO_MANY_ROWS` | Kết quả vượt quá 20.000 dòng — chia nhỏ khoảng ngày rồi gọi lại |
+| 429 | `DAILY_LIMIT_EXCEEDED` | Đã gọi 30 lần trong ngày (giờ VN) cho key này |
+| 429 | `MIN_INTERVAL_NOT_MET` | Gọi lại trước khi đủ 60 giây từ lần gọi thành công gần nhất |
+
+Ngoài ra vẫn áp dụng `MISSING_API_KEY`/`INVALID_API_KEY`/`TOO_MANY_REQUESTS_IP` như mục 4 (lỗi xác
+thực chung cho toàn bộ router `/api/partner`).
+
+### 10.6. Ví dụ gọi API
+
+```bash
+curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/cases?mode=da-dong&tu_ngay=2026-09-01&den_ngay=2026-09-20" \
+  -H "X-API-Key: <api_key_cua_doi_tac>" \
+  -o dvbh_export.xlsx
+```
