@@ -86,12 +86,22 @@ export interface ViPhamBaoCaoTongQuanPayload {
 // GET /bao-cao-vi-pham/tong-quan - 6 chi so dem theo dung 1 moc "ngay_ghi_nhan" (xem chu thich dau
 // file). "SL ghi nhan" dem THEO DONG vi_pham (khong phai theo case - CHOT ro voi chu he thong de
 // tranh lap lai nham lan "16 vs 18" da tung xay ra voi Phau xu ly vi pham).
+//
+// CHOT voi chu he thong 2026-09-20 (sau khi phat hien "SL ghi nhan" = 10863, qua cao so voi thuc
+// te): "vi pham ghi nhan" = lo bi CSKH CHOT LA CO LOI o cap 1 (v.ket_qua_cap_1 IS NOT NULL AND !=
+// 'Khong loi'), KHONG phai moi dong vi_pham auto-flag (rat nhieu dong chi la ung vien SLA cho CSKH
+// khao sat, phan lon ket luan "Khong loi" - vd thang 9/2026 co 10393/10863 dong la "Khong loi",
+// chi 470 dong CSKH thuc su chot co loi). Dieu kien nay dung HET nguyen ban tu funnel dashboard
+// (xem routes/viPham.ts dong ~225 "nghiNgo"/buoc "co loi" cua funnel) - ap dung LAM DIEU KIEN GOC
+// cho CA 6 chi so duoi day, vi moi chi so deu la 1 trang thai trong vong doi cua 1 "vi pham ghi
+// nhan" (cho QC/da giai trinh/da chot/da bo) - khong co chi so nao hop ly khi tinh tren tap "Khong
+// loi" hoac "chua CSKH ket luan".
 export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPhamBaoCaoParams, scope: string[] | null): Promise<ViPhamBaoCaoTongQuanPayload> {
   const { start, end } = monthBounds(params.thang || new Date().toISOString().slice(0, 7));
   const caseFilter = buildCaseFilter(params, scope);
   const cap1Filter = ketQuaCap1Filter(params);
   const baseBinds = [start, end, ...caseFilter.binds, ...cap1Filter.binds];
-  const baseWhere = `v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?${caseFilter.sql}${cap1Filter.sql}`;
+  const baseWhere = `v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}`;
 
   const [slGhiNhan, slKtvGiaiTrinh, slGsGiaiTrinh, slChoQcChot, slQcDaChot, slQcDaBo] = await Promise.all([
     db
@@ -115,10 +125,7 @@ export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPham
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
-      .prepare(
-        `SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
-         WHERE v.chot_bo_cap_2 IS NULL AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND ${baseWhere}`,
-      )
+      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id WHERE v.chot_bo_cap_2 IS NULL AND ${baseWhere}`)
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
@@ -175,7 +182,10 @@ export async function computeViPhamBaoCaoDaChieu(
   const caseFilter = buildCaseFilter(params, scope);
   const cap1Filter = ketQuaCap1Filter(params);
   const binds = [start, end, ...caseFilter.binds, ...cap1Filter.binds];
-  const where = `v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?${caseFilter.sql}${cap1Filter.sql}`;
+  // Cung dieu kien "CSKH chot co loi" nhu computeViPhamBaoCaoTongQuan o tren - xem chu thich CHOT
+  // 2026-09-20 tai do. Tac dung phu: nhom theo "ket_qua_cap_1" gio KHONG con hien dong "Khong loi"
+  // trong bang (dung y nghia hon cho 1 bao cao "phan tich vi pham").
+  const where = `v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}`;
 
   const { results } = await db
     .prepare(
