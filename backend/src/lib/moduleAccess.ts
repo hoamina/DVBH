@@ -23,15 +23,18 @@ const TAM_TAT_MODULES = ["dat-mua-lk", "tra-hang"];
 
 // "luy-ke" (Bao cao luy ke, them 2026-08-28) - cap cho DUNG nhung vai tro dang co "revenue" (bao
 // cao cap quan ly, xem HANDOFF.md) - giu 2 danh sach nay khop nhau moi khi doi 1 trong 2.
+// "bao-cao-vi-pham" (them 2026-09-20, yeu cau chu he thong): cap cho QC (nguoi chot loi truc tiep),
+// Giam sat (giai trinh thay + theo doi KTV), TBP DVBH/TBP CSKH (cap quan ly) - KHONG cap CSKH/TN CSKH
+// (chi ghi nhan, khong can xem bao cao phan tich) va KHONG cap Viewer/KSNB Doi tac (ngoai pham vi).
 export const DEFAULT_MODULES_BY_ROLE: Record<VaiTro, string[]> = {
-  Admin: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
+  Admin: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
   Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
-  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "ca-lap", "danh-sach-tong", "giao-dien"],
+  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
-  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "danh-sach-tong", "giao-dien"],
+  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "bao-cao-vi-pham", "danh-sach-tong", "giao-dien"],
   "KSNB Doi tac": ["tranh-chap", "giao-dien"],
 };
 
