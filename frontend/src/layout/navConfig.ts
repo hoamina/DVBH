@@ -30,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "nap-gas", label: "Đánh giá nạp gas", icon: "🛢", countKey: "napGas" },
       { key: "survey", label: "Quản lý khảo sát", icon: "◐", countKey: "survey" },
       { key: "bao-cao-vi-pham", label: "Báo cáo vi phạm", icon: "🛡" },
+      { key: "bao-cao-nskx", label: "Báo cáo NSKX", icon: "📊" },
       { key: "ca-lap", label: "Ca lặp", icon: "🔁", countKey: "caLap" },
       { key: "danh-sach-tong", label: "Danh sách tổng", icon: "📋" },
       // "tra-hang" la 1 tab CON cua module dat-mua-lk (App.tsx render lai DatMuaLinhKienModule voi
@@ -63,15 +64,15 @@ export const NAV_GROUPS: NavGroup[] = [
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
   Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
+  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "bao-cao-nskx", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "bao-cao-nskx", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
   // "dat-mua-lk"/"tra-hang" KHONG con hardcode o day tu 2026-08-16 (migration 0081) - Tac nghiep
   // tach doc lap khoi vai_tro (xem App.tsx dong cap them tu dong theo la_tac_nghiep, khop dung
   // DEFAULT_MODULES_BY_ROLE["TBP DVBH"] o backend/src/lib/moduleAccess.ts).
-  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "bao-cao-nskx", "ca-lap", "danh-sach-tong", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "bao-cao-vi-pham", "danh-sach-tong", "giao-dien"],
+  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "bao-cao-vi-pham", "bao-cao-nskx", "danh-sach-tong", "giao-dien"],
   // KSNB Doi tac: CHI xem (khong con giai trinh duoc, chot 2026-07-24 - xem canGiaiTrinh trong
   // App.tsx) bao cao tranh chap, khong duoc vao module nao khac (quyet dinh nghiep vu rieng - xem
   // scopeTranhChap() trong tranhChap.ts).
@@ -88,6 +89,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "nap-gas": "Đánh giá nạp gas",
   survey: "Quản lý khảo sát",
   "bao-cao-vi-pham": "Báo cáo vi phạm",
+  "bao-cao-nskx": "Báo cáo NSKX",
   "ca-lap": "Ca lặp",
   "danh-sach-tong": "Danh sách tổng",
   import: "Import data",

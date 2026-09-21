@@ -16,6 +16,7 @@ import { TranhChapModule } from "./modules/TranhChapModule";
 import { NapGasModule } from "./modules/NapGasModule";
 import { SurveyModule } from "./modules/SurveyModule";
 import { BaoCaoViPhamModule } from "./modules/BaoCaoViPhamModule";
+import { BaoCaoNskxModule } from "./modules/BaoCaoNskxModule";
 import { CaLapModule } from "./modules/CaLapModule";
 import { DanhSachTongModule } from "./modules/DanhSachTongModule";
 import { ImportModule } from "./modules/ImportModule";
@@ -277,6 +278,7 @@ function MainApp({
           {active === "nap-gas" && <NapGasModule openCase={openCase} />}
           {active === "survey" && <SurveyModule openCase={openCase} />}
           {active === "bao-cao-vi-pham" && <BaoCaoViPhamModule />}
+          {active === "bao-cao-nskx" && <BaoCaoNskxModule />}
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}
           {active === "danh-sach-tong" && <DanhSachTongModule openCase={openCase} />}
           {active === "import" && <ImportModule />}

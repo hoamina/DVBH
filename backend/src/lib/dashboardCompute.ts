@@ -20,6 +20,10 @@ export interface DashboardFilterParams {
   // tong ("Filter tong") lan "Bang pivot phan tich da chieu" (ca 2 deu dung chung
   // buildDashboardFilterClause ben duoi).
   nhom_san_pham?: string;
+  // "doi_tac" (them cho bao cao NSKX rieng, xem lib/nskxBaoCao.ts) - filter dung 1 doi_tac cu the,
+  // KHONG dung chung voi dropdown "doi_tac" dashboard (do la 1 dim cua PIVOT_DIMS ben duoi, khac
+  // muc dich: pivot GOM NHOM theo doi_tac, con param nay LOC CON MOT gia tri doi_tac).
+  doi_tac?: string;
   // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
   // undefined>) khi bien da duoc gan kieu ten (interface) thay vi object literal - xem lib/reportCache.ts.
   [key: string]: string | undefined;
@@ -68,6 +72,11 @@ export function buildDashboardFilterClause(params: DashboardFilterParams, scope:
   if (params.nhom_san_pham) {
     sql += ` AND ${prefix}nhom_san_pham = ?`;
     binds.push(params.nhom_san_pham);
+  }
+
+  if (params.doi_tac) {
+    sql += ` AND ${prefix}doi_tac = ?`;
+    binds.push(params.doi_tac);
   }
 
   // Doi strftime('%Y-%m', cot) = ... sang dang RANGE (>=, <) de planner dung duoc index tren
