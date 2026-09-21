@@ -3751,3 +3751,21 @@ File sửa/thêm: `backend/src/lib/dashboardCompute.ts`, `backend/src/lib/nskxBa
 `frontend/src/layout/navConfig.ts`, `frontend/src/modules/BaoCaoNskxModule.tsx` (mới),
 `frontend/src/modules/UsersModule.tsx`, `frontend/src/App.tsx`, `YEU_CAU_BAO_CAO_TINH_SAN.md`.
 Chưa bump `APP_VERSION`/deploy — chờ yêu cầu deploy từ chủ hệ thống.
+
+**Sửa ngay sau đó cùng ngày (2026-09-21):** chủ hệ thống hỏi lại "báo cáo NSKX mới có đang hao phí
+lượt đọc ghi không hợp lý không" — kiểm tra bằng `EXPLAIN QUERY PLAN` trên D1 local phát hiện đúng là
+CÓ: cách tái dùng ban đầu (thêm `doi_tac` vào `DashboardFilterParams`, gọi lại
+`computeDashboardKpis`/`computeDashboardPivot`) bị `buildDashboardFilterClause()` ép `INDEXED BY
+idx_case_ton`/`idx_case_hoan_thanh_not_null` (tối ưu cho trường hợp KHÔNG lọc doi_tac) — SQLite không
+kết hợp được 2 `INDEXED BY`, nên `doi_tac='NSKX'` chỉ lọc ĐƯỢC SAU KHI đã quét hết case đang tồn +
+đóng trong tháng (production ước ~1500+ dòng), rồi bỏ gần hết vì NSKX là đối tác nhỏ — 6 truy vấn của
+3 endpoint (`/tong-quan` x4, `/da-chieu`, `/aging`) đều dính. Fix: `nskxBaoCao.ts` tự xây WHERE riêng
+đặt `doi_tac='NSKX'` dẫn đầu KHÔNG ép `INDEXED BY` — xác nhận lại bằng `EXPLAIN QUERY PLAN` cả 6 truy
+vấn đều ra `SEARCH ... USING INDEX idx_case_doi_tac`, chỉ đọc đúng số dòng có doi_tac=NSKX. Bỏ
+`doi_tac` khỏi `dashboardCompute.ts` (không còn nơi nào dùng, để lại sẽ là bẫy tái dùng nhầm cho lần
+sau). Test lại bằng cách tạm gắn `doi_tac='NSKX'` cho 3 case mở trên D1 local (nhớ đổi cả `khu_vuc` vì
+bản ghi mẫu ban đầu trùng đúng 1 giá trị trong danh sách loại trừ `KHU_VUC_AN_KHOI_BAO_CAO`, khiến lần
+test đầu vẫn ra toàn 0 — không phải bug), xác nhận cả 3 tab UI ra số đúng, revert dữ liệu test sau khi
+xong. **Bài học chung:** khi thêm 1 filter hẹp (vd `doi_tac`) vào 1 hàm dùng chung đã có sẵn
+`INDEXED BY`/UNION ALL tối ưu cho use-case khác, PHẢI kiểm `EXPLAIN QUERY PLAN` trước khi tin là "tái
+dùng code = tái dùng được cả hiệu năng" — 2 việc độc lập nhau.
