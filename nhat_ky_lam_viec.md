@@ -3710,3 +3710,44 @@ thẻ "Lọc tổng" (`quickFilterLocTongBcn`/`nhom_san_pham_group`) sẵn có n
 
 File sửa: `backend/src/routes/missingParts.ts`, `frontend/src/modules/MissingPartsModule.tsx`,
 `migrations/0106_giai_trinh_case_ngay_index.sql` (mới), `frontend/src/version.ts`.
+
+## 2026-09-21 — Tab mới "Báo cáo NSKX": tách case đối tác NSKX ra phân tích trực quan riêng
+
+Yêu cầu chủ hệ thống: "cần tách riêng các ca bảo hành NSKX ra các phân tích trực quan sinh động".
+Đã chốt qua trao đổi: tab/module mới (không nhét vào Backlog/Dashboard), tên "Báo cáo NSKX", xu hướng
+theo ngày bắt buộc tái sử dụng data có sẵn (không tạo bảng/cron mới), KPI cards giống bộ 5 thẻ của
+Dashboard tổng thể, phạm vi = SLA/Backlog + Vi phạm CSKH + Khảo sát CSKH (chưa cần Doanh thu).
+
+**Thiết kế — tối đa tái dùng, không migration:**
+- `backend/src/lib/dashboardCompute.ts`: thêm `doi_tac?: string` vào `DashboardFilterParams` +
+  1 nhánh filter trong `buildDashboardFilterClause` (y hệt pattern `hang`/`nhom_san_pham`) — nhờ vậy
+  `computeDashboardKpis`/`computeDashboardPivot` dùng LẠI NGUYÊN VẸN cho NSKX chỉ bằng cách gọi với
+  `{ ...params, doi_tac: "NSKX" }`, không viết lại SQL KPI/pivot.
+- `backend/src/lib/nskxBaoCao.ts` (mới): `computeNskxTongQuan`/`computeNskxDaChieu` gọi thẳng 2 hàm
+  trên; `computeNskxAging` (phân bố tuổi 0-1/2-3/>=4 ngày) là query LIVE riêng dùng `ageExpr()`
+  (ageCalc.ts); `computeNskxXuHuong` đọc lại bảng `daily_snapshot` đã có (bucket `backlogNskx.count`,
+  ghi mỗi 08:00 VN, không purge) — scope_key suy đúng theo user gọi bằng `roleVariantOf()` +
+  `buildSnapshotScopeKey()` (2 hàm export sẵn trong `dailySnapshot.ts`) để "Giam sat" (không nằm
+  trong `ROLES_XEM_TOAN_BO`) chỉ thấy đúng khu vực mình phụ trách, không lộ số toàn hệ thống.
+- `backend/src/routes/baoCaoNskx.ts` (mới, rập khuôn `baoCaoViPham.ts`): 4 endpoint
+  `/tong-quan`, `/da-chieu`, `/aging`, `/xu-huong`, gate `hasModule(user, "bao-cao-nskx")`, mỗi
+  endpoint bọc `cachedReport()` — đã cập nhật domain list vào `YEU_CAU_BAO_CAO_TINH_SAN.md`.
+- Quyền: `"bao-cao-nskx"` thêm vào `DEFAULT_MODULES_BY_ROLE` (moduleAccess.ts) + `ROLE_MODULES`
+  (navConfig.ts) cho ĐÚNG 5 vai trò giống "bao-cao-vi-pham" (Admin/QC/Giam sat/TBP DVBH/TBP CSKH),
+  và thêm vào `BC_MODULE_KEYS`/`CUSTOMIZABLE_MODULE_KEYS` trong `UsersModule.tsx` để Admin bật/tắt
+  riêng theo từng user qua "Phân quyền" (cơ chế `users.modules` đã có, migration 0042).
+- Frontend `frontend/src/modules/BaoCaoNskxModule.tsx` (mới): 3 tab "Tổng quan" (5 StatCard + chart
+  đường xu hướng bằng `ChartCanvas`/chart.js đã có sẵn), "Đa chiều" (bar chart + bảng theo khu vực/
+  KTV), "Phân bố tuổi" (bar chart 3 bucket).
+
+**Test:** typecheck backend+frontend sạch. Chạy `dev:worker`+`dev:frontend`, đăng nhập DEV bypass
+(Admin), xác nhận cả 4 endpoint `/api/bao-cao-nskx/*` trả 200, cả 3 tab UI render đúng (rỗng vì D1
+local không có case NSKX — đúng kỳ vọng), xu hướng theo ngày đọc được lịch sử `daily_snapshot` có
+sẵn (30 điểm dữ liệu, toàn 0). Xác nhận modal "Phân quyền" trong Quản lý User hiện chip "Báo cáo
+NSKX" trong "Module được xem" và bấm bật/tắt được (đóng bằng "Hủy", không lưu đè dữ liệu test).
+
+File sửa/thêm: `backend/src/lib/dashboardCompute.ts`, `backend/src/lib/nskxBaoCao.ts` (mới),
+`backend/src/lib/moduleAccess.ts`, `backend/src/routes/baoCaoNskx.ts` (mới), `backend/src/index.ts`,
+`frontend/src/layout/navConfig.ts`, `frontend/src/modules/BaoCaoNskxModule.tsx` (mới),
+`frontend/src/modules/UsersModule.tsx`, `frontend/src/App.tsx`, `YEU_CAU_BAO_CAO_TINH_SAN.md`.
+Chưa bump `APP_VERSION`/deploy — chờ yêu cầu deploy từ chủ hệ thống.
