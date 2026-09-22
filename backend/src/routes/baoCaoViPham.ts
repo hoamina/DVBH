@@ -5,7 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc } from "../middleware/scopeByKhuVuc";
 import { hasModule } from "../lib/moduleAccess";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
-import { computeViPhamBaoCaoTongQuan, computeViPhamBaoCaoDaChieu, computeViPhamDiemThe, type ViPhamBaoCaoParams } from "../lib/viPhamBaoCao";
+import { computeViPhamBaoCaoTongQuan, computeViPhamBaoCaoDaChieu, computeViPhamDiemThe, computeViPhamDanhSach, type ViPhamBaoCaoParams } from "../lib/viPhamBaoCao";
 
 // Module rieng "Bao cao vi pham" (tach khoi tab "Bao cao" cua Quan ly khao sat - yeu cau chu he
 // thong 2026-09-20, xem lib/viPhamBaoCao.ts cho toan bo logic tinh toan + quy uoc moc thoi gian).
@@ -56,6 +56,17 @@ baoCaoViPham.get("/diem-the", async (c) => {
   const params = readParams(c);
   const key = buildReportKey("bao-cao-vi-pham/diem-the", params, scope);
   const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "settings"], () => computeViPhamDiemThe(c.env.DB, params, scope));
+  return c.json(payload);
+});
+
+// GET /api/bao-cao-vi-pham/danh-sach?thang=...&trang_thai=...&export=true - tab "Tat ca vi pham",
+// danh sach tung dong de tai Excel (yeu cau them 2026-09-22). "trang_thai" KHONG bat buoc phai la
+// "co loi" nhu 3 bao cao tren - xem TRANG_THAI_CLAUSES trong lib/viPhamBaoCao.ts.
+baoCaoViPham.get("/danh-sach", async (c) => {
+  const scope = scopeByKhuVuc(c);
+  const params = { ...readParams(c), trang_thai: c.req.query("trang_thai"), export: c.req.query("export") };
+  const key = buildReportKey("bao-cao-vi-pham/danh-sach", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "vi_pham_giai_trinh", "settings"], () => computeViPhamDanhSach(c.env.DB, params, scope));
   return c.json(payload);
 });
 

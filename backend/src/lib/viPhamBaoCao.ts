@@ -35,6 +35,9 @@ export interface ViPhamBaoCaoParams {
   nhom_kh?: string;
   nguon_crm?: string;
   ket_qua_cap_1?: string;
+  // Rieng cho computeViPhamDanhSach - xem TRANG_THAI_CLAUSES.
+  trang_thai?: string;
+  export?: string;
   // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
   // undefined>) - xem lib/reportCache.ts.
   [key: string]: string | undefined;
@@ -271,6 +274,104 @@ export async function computeViPhamDiemThe(db: D1Database, params: ViPhamBaoCaoP
       khuVuc: r.khu_vuc,
       soViPham: r.so_vi_pham,
       tongDiem: Math.round(r.tong_diem * 100) / 100,
+    })),
+  };
+}
+
+export interface ViPhamDanhSachRow {
+  id: string;
+  caseId: string;
+  khuVuc: string | null;
+  kyThuatVien: string | null;
+  khachHang: string | null;
+  loaiLoi: string;
+  ketQuaCap1: string | null;
+  trangThai: string;
+  ghiChu: string | null;
+  diemThe: number;
+  nguoiGhiNhan: string;
+  ngayGhiNhan: string;
+  nguoiChot: string | null;
+  ngayChot: string | null;
+}
+
+// Nhan hien thi trang thai (tieng Viet) tu 2 cot tho ket_qua_cap_1/chot_bo_cap_2 - dung CHUNG giua
+// SQL (loc theo "trang_thai") va JS (gan nhan cho tung dong tra ve), tranh 2 noi ra 2 dinh nghia
+// lech nhau.
+const TRANG_THAI_CLAUSES: Record<string, string> = {
+  khong_loi: "v.ket_qua_cap_1 = 'Khong loi'",
+  cho_giai_trinh: "v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND NOT EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)",
+  cho_qc_chot: "v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)",
+  da_chot: "v.chot_bo_cap_2 = 1",
+  da_bo: "v.chot_bo_cap_2 = 0",
+};
+
+function trangThaiLabel(ketQuaCap1: string | null, chotBoCap2: number | null): string {
+  if (ketQuaCap1 === null) return "Chưa CSKH xử lý";
+  if (ketQuaCap1 === "Khong loi") return "Không lỗi";
+  if (chotBoCap2 === 1) return "QC đã chốt";
+  if (chotBoCap2 === 0) return "QC đã bỏ";
+  return "Chờ QC chốt";
+}
+
+// GET /bao-cao-vi-pham/danh-sach - tab "Tat ca vi pham" (them 2026-09-22, yeu cau chu he thong):
+// danh sach TUNG DONG vi_pham (khong gom nhom) de tai ve Excel - khac 3 bao cao tren (LUON gioi han
+// "co loi"), o day mac dinh hien HET (ke ca "Khong loi") va cho loc theo "trang_thai" (xem
+// TRANG_THAI_CLAUSES) vi muc dich la xuat du lieu tho lam bao cao rieng, khong phai 1 chi so co
+// dinh. Cung neo "ngay_ghi_nhan" nhu Tong quan/Da chieu. LIMIT 5000 (dung lai nguyen ven pattern
+// "export=true" cua routes/survey.ts GET / - xem chu thich o do) - thuc te 1 thang chi ~470-11000
+// dong tuy co loc "khong_loi" hay khong, du bien an toan cho ca nam neu loc rong.
+export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCaoParams, scope: string[] | null): Promise<{ rows: ViPhamDanhSachRow[] }> {
+  const { start, end } = monthBounds(params.thang || new Date().toISOString().slice(0, 7));
+  const caseFilter = buildCaseFilter(params, scope);
+  const cap1Filter = ketQuaCap1Filter(params);
+  const trangThaiSql = params.trang_thai && TRANG_THAI_CLAUSES[params.trang_thai] ? ` AND ${TRANG_THAI_CLAUSES[params.trang_thai]}` : "";
+  const limit = params.export === "true" ? 5000 : 500;
+  const binds = [start, end, ...caseFilter.binds, ...cap1Filter.binds, limit];
+
+  const { results } = await db
+    .prepare(
+      `SELECT v.id, v.case_id, c.khu_vuc, c.ky_thuat_vien, c.khach_hang, v.loai_loi, v.ket_qua_cap_1, v.chot_bo_cap_2,
+         ${DIEM_THE_EXPR} as diem_the, v.ghi_chu, v.nguoi_ghi_nhan, v.ngay_ghi_nhan, v.nguoi_chot, v.ngay_chot
+       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+       WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
+       ORDER BY v.ngay_ghi_nhan DESC
+       LIMIT ?`,
+    )
+    .bind(...binds)
+    .all<{
+      id: string;
+      case_id: string;
+      khu_vuc: string | null;
+      ky_thuat_vien: string | null;
+      khach_hang: string | null;
+      loai_loi: string;
+      ket_qua_cap_1: string | null;
+      chot_bo_cap_2: number | null;
+      diem_the: number;
+      ghi_chu: string | null;
+      nguoi_ghi_nhan: string;
+      ngay_ghi_nhan: string;
+      nguoi_chot: string | null;
+      ngay_chot: string | null;
+    }>();
+
+  return {
+    rows: results.map((r) => ({
+      id: r.id,
+      caseId: r.case_id,
+      khuVuc: r.khu_vuc,
+      kyThuatVien: r.ky_thuat_vien,
+      khachHang: r.khach_hang,
+      loaiLoi: r.loai_loi,
+      ketQuaCap1: r.ket_qua_cap_1,
+      trangThai: trangThaiLabel(r.ket_qua_cap_1, r.chot_bo_cap_2),
+      ghiChu: r.ghi_chu,
+      diemThe: r.ket_qua_cap_1 && r.ket_qua_cap_1 !== "Khong loi" ? Math.round(r.diem_the * 100) / 100 : 0,
+      nguoiGhiNhan: r.nguoi_ghi_nhan,
+      ngayGhiNhan: r.ngay_ghi_nhan,
+      nguoiChot: r.nguoi_chot,
+      ngayChot: r.ngay_chot,
     })),
   };
 }

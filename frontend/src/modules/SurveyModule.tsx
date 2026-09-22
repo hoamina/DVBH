@@ -318,6 +318,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   // gio (thoi_gian_cskh_tiep_nhan/ngay_ghi_nhan/ngay_gio_thuc_hien).
   const [localNgayTuFilter, setLocalNgayTuFilter] = useState("");
   const [localNgayDenFilter, setLocalNgayDenFilter] = useState("");
+  // "Thang" cho 3 tab "cho-qc"/"da-xu-ly"/"vi-pham-da-chot" (them 2026-09-22, yeu cau chu he thong
+  // "thieu loc theo thang") - CHI la 1 nut "dat nhanh" ghi vao CHINH localNgayTuFilter/
+  // localNgayDenFilter da co san (KHONG them param server rieng) - dung LAI nguyen ven pipeline
+  // ngay_tu/ngay_den da duoc chuyen sang loc server-side truoc do (xem chu thich "ma_ca" o tren, tranh
+  // lap lai bug LIMIT 200 tung xay ra voi ca "1327339"). Khong dung useLocalStorageState (khac
+  // thangDanhSach) - phai reset dong bo voi localNgayTuFilter/Den khi doi tab (xem useEffect ben duoi),
+  // 2 gia tri nay luon phai khop nhau tren UI.
+  const [localThangViPhamFilter, setLocalThangViPhamFilter] = useState("");
   // CHOT 2026-08-06: loc theo ID ca - dung chung cho CA 5 tab cua "Danh sach chi tiet" (khong rieng
   // 1 tab nao), va "Ket qua cuoc goi" - rieng cho tab "Lich su khao sat" (cac tab khac khong co du
   // lieu nay o dang phang, "cho-qc"/"da-xu-ly" la case_id gop nhieu vi_pham nen khong hop).
@@ -347,12 +355,26 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     setLocalLoaiLoiFilter("");
     setLocalNgayTuFilter("");
     setLocalNgayDenFilter("");
+    setLocalThangViPhamFilter("");
     setLocalIdFilter("");
     setLocalKetQuaFilter("");
     setLocalNguoiGoiFilter("");
     setLocalLoaiKhaoSatFilter("");
     setPage(1);
   }, [tab, view]);
+
+  // Ngay cuoi cung cua 1 thang "YYYY-MM" (tinh qua "ngay 0 cua thang sau", khong lien quan
+  // AGE_ANCHOR/gio VN - day chi la phep tinh lich thuan tuy cho 1 nut dat nhanh UI).
+  function lastDayOfMonthStr(thang: string): string {
+    const [y, m] = thang.split("-").map(Number);
+    return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  }
+  function applyThangViPham(thang: string) {
+    setLocalThangViPhamFilter(thang);
+    setLocalNgayTuFilter(thang ? `${thang}-01` : "");
+    setLocalNgayDenFilter(thang ? lastDayOfMonthStr(thang) : "");
+    setPage(1);
+  }
 
   const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:survey-khu-vuc", "");
   // Thang cho "Danh sach chi tiet" (tab can-khao-sat/qua-han-khao-sat) - CHOT 2026-08-02: gioi han
@@ -1353,6 +1375,20 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               </div>
             )}
 
+            {(tab === "cho-qc" || tab === "da-xu-ly" || tab === "vi-pham-da-chot") && (
+              <div className="flex items-center gap-1.5">
+                {/* Nut "dat nhanh" ghi thang vao localNgayTuFilter/localNgayDenFilter (xem
+                    applyThangViPham) - KHONG phai 1 filter rieng, van dung chung o vao/den ben duoi
+                    nen nguoi dung van chinh tay them duoc sau khi chon thang. */}
+                <span className="text-xs font-semibold text-[var(--ink-600)]">Tháng:</span>
+                <Select
+                  value={localThangViPhamFilter}
+                  onChange={applyThangViPham}
+                  options={[{ value: "", label: "Tất cả các tháng" }, ...danhSachMonthOptions]}
+                />
+              </div>
+            )}
+
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-[var(--ink-600)]">ID/Serial:</span>
               <input
@@ -1482,7 +1518,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               />
             </div>
 
-            {(localKtvFilter || localLoaiLoiFilter || localPhanLoaiFilter || localNgayTuFilter || localNgayDenFilter || localIdFilter || localKetQuaFilter || localNguoiGoiFilter || localLoaiKhaoSatFilter || coGiaiTrinhFilter) && (
+            {(localKtvFilter || localLoaiLoiFilter || localPhanLoaiFilter || localNgayTuFilter || localNgayDenFilter || localThangViPhamFilter || localIdFilter || localKetQuaFilter || localNguoiGoiFilter || localLoaiKhaoSatFilter || coGiaiTrinhFilter) && (
               <button
                 className="text-xs text-[var(--ocean-600)] hover:underline ml-auto font-medium"
                 onClick={() => {
@@ -1491,6 +1527,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   setLocalPhanLoaiFilter("");
                   setLocalNgayTuFilter("");
                   setLocalNgayDenFilter("");
+                  setLocalThangViPhamFilter("");
                   setLocalIdFilter("");
                   setLocalKetQuaFilter("");
                   setLocalNguoiGoiFilter("");

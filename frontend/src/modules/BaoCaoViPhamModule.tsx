@@ -52,6 +52,55 @@ interface DiemTheRow {
   tongDiem: number;
 }
 
+interface DanhSachRow {
+  id: string;
+  caseId: string;
+  khuVuc: string | null;
+  kyThuatVien: string | null;
+  khachHang: string | null;
+  loaiLoi: string;
+  ketQuaCap1: string | null;
+  trangThai: string;
+  ghiChu: string | null;
+  diemThe: number;
+  nguoiGhiNhan: string;
+  ngayGhiNhan: string;
+  nguoiChot: string | null;
+  ngayChot: string | null;
+}
+
+const TRANG_THAI_OPTIONS = [
+  { value: "", label: "Tất cả trạng thái" },
+  { value: "khong_loi", label: "Không lỗi" },
+  { value: "cho_giai_trinh", label: "Chờ KTV/GS giải trình" },
+  { value: "cho_qc_chot", label: "Chờ QC chốt" },
+  { value: "da_chot", label: "QC đã chốt" },
+  { value: "da_bo", label: "QC đã bỏ" },
+];
+
+// Ca 500 dong tren man hinh vua khop LIMIT server (xem computeViPhamDanhSach) - dau hieu HEURISTIC
+// danh sach co the con bi cat bot, khong phai con so chinh xac (khong query rieng 1 COUNT(*) cho
+// tab nay, tranh them 1 nguon rows_read moi chi de hien 1 dong canh bao - xem YEU_CAU_BAO_CAO_
+// TINH_SAN.md ve ky luat rows_read).
+const DANH_SACH_SCREEN_LIMIT = 500;
+
+const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
+  id: "Mã vi phạm",
+  caseId: "ID case",
+  khuVuc: "Khu vực",
+  kyThuatVien: "KTV",
+  khachHang: "Khách hàng",
+  loaiLoi: "Loại lỗi",
+  ketQuaCap1: "Kết quả chốt cấp 1",
+  trangThai: "Trạng thái",
+  ghiChu: "Ghi chú",
+  diemThe: "Điểm thẻ",
+  nguoiGhiNhan: "Người ghi nhận",
+  ngayGhiNhan: "Ngày ghi nhận",
+  nguoiChot: "Người chốt",
+  ngayChot: "Ngày chốt",
+};
+
 const NHOM_OPTIONS = [
   { value: "khu_vuc", label: "Khu vực" },
   { value: "ky_thuat_vien", label: "Kỹ thuật viên" },
@@ -114,7 +163,8 @@ function heatBg(pct: number): string {
 export function BaoCaoViPhamModule() {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
-  const [tab, setTab] = useState<"tong-quan" | "da-chieu" | "diem-the">("tong-quan");
+  const [tab, setTab] = useState<"tong-quan" | "da-chieu" | "diem-the" | "danh-sach">("tong-quan");
+  const [trangThai, setTrangThai] = useState("");
   const [filters, setFilters] = useLocalStorageState<BaoCaoViPhamFilters>("filters:bao-cao-vi-pham", {
     thang: CURRENT_MONTH_VALUE,
     khu_vuc: ALL_KHU_VUC,
@@ -164,6 +214,20 @@ export function BaoCaoViPhamModule() {
     queryFn: () => api.get<{ rows: DiemTheRow[] }>(`/bao-cao-vi-pham/diem-the${buildQuery(apiParams)}`),
     enabled: tab === "diem-the",
   });
+  const { data: danhSach } = useQuery({
+    queryKey: ["bao-cao-vi-pham-danh-sach", apiParams, trangThai],
+    queryFn: () => api.get<{ rows: DanhSachRow[] }>(`/bao-cao-vi-pham/danh-sach${buildQuery({ ...apiParams, trang_thai: trangThai || undefined })}`),
+    enabled: tab === "danh-sach",
+  });
+
+  // Xuat Excel: goi lai API rieng voi export=true (LIMIT 5000 thay vi 500 tren man hinh) - dung
+  // nguyen pattern handleExport() cua SurveyModule.tsx (routes/survey.ts GET /?export=true), KHONG
+  // chi xuat dung 500 dong dang hien tren man hinh.
+  async function handleExportDanhSach() {
+    const res = await api.get<{ rows: DanhSachRow[] }>(`/bao-cao-vi-pham/danh-sach${buildQuery({ ...apiParams, trang_thai: trangThai || undefined, export: "true" })}`);
+    const rows = res.rows.map((r) => ({ ...r, khuVuc: r.khuVuc ? shortKhuVuc(r.khuVuc) : r.khuVuc }));
+    await exportRowsToExcel(rows, "bao_cao_vi_pham_danh_sach.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
+  }
 
   const nhomLabel = NHOM_OPTIONS.find((o) => o.value === nhom)?.label ?? "Nhóm";
 
@@ -182,6 +246,7 @@ export function BaoCaoViPhamModule() {
           { key: "tong-quan", label: "Tổng quan" },
           { key: "da-chieu", label: "Đa chiều" },
           { key: "diem-the", label: "Điểm thẻ" },
+          { key: "danh-sach", label: "Tất cả vi phạm" },
         ]}
         active={tab}
         onChange={(k) => setTab(k as typeof tab)}
@@ -312,6 +377,64 @@ export function BaoCaoViPhamModule() {
               {(diemThe?.rows ?? []).length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                    Không có dữ liệu.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {tab === "danh-sach" && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[var(--ink-600)]">Trạng thái:</span>
+              <Select value={trangThai} onChange={setTrangThai} options={TRANG_THAI_OPTIONS} />
+            </div>
+            <Btn variant="ghost" size="sm" onClick={handleExportDanhSach}>
+              ⬇ Xuất Excel
+            </Btn>
+          </div>
+          {(danhSach?.rows.length ?? 0) >= DANH_SACH_SCREEN_LIMIT && (
+            <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-50)] border border-[var(--amber-200)] rounded-lg px-3 py-1.5 mb-2">
+              Đang hiển thị {DANH_SACH_SCREEN_LIMIT} dòng gần nhất trên màn hình — có thể còn nhiều dòng khớp bộ lọc hơn. Bấm <b>⬇ Xuất Excel</b> để tải đầy đủ (tối đa 5000 dòng).
+            </div>
+          )}
+          <table className="dense w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                <th className="py-2 pr-3">Mã VP</th>
+                <th className="py-2 pr-3">ID case</th>
+                <th className="py-2 pr-3">Khu vực</th>
+                <th className="py-2 pr-3">KTV</th>
+                <th className="py-2 pr-3">Loại lỗi</th>
+                <th className="py-2 pr-3">Kết quả cấp 1</th>
+                <th className="py-2 pr-3">Trạng thái</th>
+                <th className="py-2 pr-3">Điểm thẻ</th>
+                <th className="py-2 pr-3">Ngày ghi nhận</th>
+                <th className="py-2 pr-3">Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(danhSach?.rows ?? []).map((r) => (
+                <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                  <td className="py-2 pr-3 font-mono text-xs">{r.id}</td>
+                  <td className="py-2 pr-3 font-mono text-xs">{r.caseId}</td>
+                  <td className="py-2 pr-3">{r.khuVuc ? shortKhuVuc(r.khuVuc) : "—"}</td>
+                  <td className="py-2 pr-3">{r.kyThuatVien ?? "—"}</td>
+                  <td className="py-2 pr-3">{r.loaiLoi}</td>
+                  <td className="py-2 pr-3">{r.ketQuaCap1 ?? "—"}</td>
+                  <td className="py-2 pr-3">{r.trangThai}</td>
+                  <td className="py-2 pr-3 font-mono">{r.diemThe || "—"}</td>
+                  <td className="py-2 pr-3 text-xs">{r.ngayGhiNhan}</td>
+                  <td className="py-2 pr-3 text-xs text-[var(--ink-600)]">{r.ghiChu ?? ""}</td>
+                </tr>
+              ))}
+              {(danhSach?.rows ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={10} className="py-8 text-center text-[var(--ink-400)] text-sm">
                     Không có dữ liệu.
                   </td>
                 </tr>
