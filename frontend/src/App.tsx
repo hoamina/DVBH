@@ -277,7 +277,7 @@ function MainApp({
           {active === "tranh-chap" && <TranhChapModule openCase={openCase} headerExtra={headerExtraEl} />}
           {active === "nap-gas" && <NapGasModule openCase={openCase} />}
           {active === "survey" && <SurveyModule openCase={openCase} />}
-          {active === "bao-cao-vi-pham" && <BaoCaoViPhamModule />}
+          {active === "bao-cao-vi-pham" && <BaoCaoViPhamModule openCase={openCase} />}
           {active === "bao-cao-nskx" && <BaoCaoNskxModule />}
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}
           {active === "danh-sach-tong" && <DanhSachTongModule openCase={openCase} />}

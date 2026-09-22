@@ -201,7 +201,7 @@ function danhSachColumns(isQC: boolean, chotMutation: { isPending: boolean; muta
       header: "Thao tác",
       render: (r) =>
         r.chotBoCap2 === null ? (
-          <div className="flex gap-1">
+          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
             <Btn size="sm" variant="success" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: true })}>
               Chốt
             </Btn>
@@ -217,7 +217,7 @@ function danhSachColumns(isQC: boolean, chotMutation: { isPending: boolean; muta
   return cols;
 }
 
-export function BaoCaoViPhamModule() {
+export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const role = auth.status === "authenticated" ? auth.user.vai_tro : null;
@@ -493,9 +493,11 @@ export function BaoCaoViPhamModule() {
             pageSize={DANH_SACH_PAGE_SIZE}
             total={danhSach?.rows.length ?? 0}
             onPageChange={setDanhSachPage}
+            onRowClick={(r) => (r.caseId ? openCase(r.caseId, "vi-pham") : addToast("Vi phạm này không gắn ID case (import trực tiếp KTV)"))}
             rowKey={(r) => r.id}
             emptyText="Không có dữ liệu."
             storageKey="bao-cao-vi-pham-danh-sach"
+            columnSettingsPlacement="toolbar"
           />
         </Card>
       )}

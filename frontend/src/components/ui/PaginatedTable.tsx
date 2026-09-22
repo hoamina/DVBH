@@ -96,6 +96,11 @@ interface PaginatedTableProps<T> {
    * bo tren may nguoi dung, khong dong bo len server, moi bang (moi "storageKey" khac nhau) nho
    * cau hinh rieng. Bo qua prop nay se giu nguyen hanh vi cu (khong keo/chon cot duoc). */
   storageKey?: string;
+  /** Vi tri nut "⚙ Tuy chinh cot": "header" (mac dinh, giu nguyen hanh vi CHOT 2026-08-13 - nam
+   * trong o dau cot ghim) hoac "toolbar" (nam rieng 1 dong phia tren bang, can phai - dung cho bang
+   * da co san 1 dong filter/toolbar rieng ben tren, tranh nut bi chen giua cac tieu de cot). Chi anh
+   * huong vi tri hien thi, khong doi logic ben trong (state/localStorage van dung chung 1 co che). */
+  columnSettingsPlacement?: "header" | "toolbar";
 }
 
 export function PaginatedTable<T>({
@@ -118,6 +123,7 @@ export function PaginatedTable<T>({
   sortDir,
   onSortChange,
   storageKey,
+  columnSettingsPlacement = "header",
 }: PaginatedTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColWidths(storageKey));
@@ -244,8 +250,44 @@ export function PaginatedTable<T>({
     window.addEventListener("mouseup", onUp);
   }
 
+  // Nut "⚙ Tuy chinh cot" + panel - tach rieng vi co the render o 1 trong 2 vi tri tuy
+  // columnSettingsPlacement (xem prop). "toolbar" mo panel ve phia phai (right-0) thay vi trai
+  // (left-0) de khong bi tran ra ngoai the vien card khi nut nam sat mep phai 1 dong toolbar rieng.
+  const columnSettingsControl = storageKey && (
+    <span className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setSettingsOpen((v) => !v)}
+        className="focus-ring inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--ocean-400)] bg-[var(--ocean-100)] text-[var(--ocean-700)] hover:bg-[var(--ocean-400)] hover:text-white normal-case font-semibold transition-colors"
+        title="Chọn cột hiển thị / ẩn bớt, đổi độ rộng, kéo thả sắp xếp cột"
+      >
+        <span className="text-sm leading-none">⚙</span>
+        <span className="hidden sm:inline whitespace-nowrap">Tùy chỉnh cột</span>
+      </button>
+      {settingsOpen && (
+        <div
+          className={`absolute ${columnSettingsPlacement === "toolbar" ? "right-0" : "left-0"} top-full mt-2 w-64 max-h-96 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 z-20 anim-in normal-case font-normal`}
+        >
+          <div className="px-3 py-1.5 text-xs text-[var(--ink-600)] border-b border-[var(--line)] mb-1">
+            ↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột
+          </div>
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Cột hiển thị (bỏ tick để ẩn bớt)</div>
+          {toggleableColumns.map((tc) => (
+            <label key={tc.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
+              <input type="checkbox" checked={resolvedOrder.includes(tc.key)} onChange={() => toggleColumn(tc.key)} className="w-3.5 h-3.5" />
+              {tc.header}
+            </label>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+
   return (
     <Card className="overflow-hidden">
+      {columnSettingsPlacement === "toolbar" && storageKey && (
+        <div className="flex items-center justify-end px-3 py-2 border-b border-[var(--line)]">{columnSettingsControl}</div>
+      )}
       <div className="overflow-x-auto">
         <table className="dense w-full text-sm">
           <thead>
@@ -282,7 +324,7 @@ export function PaginatedTable<T>({
                       {col.header}
                       {isActive && <span>{sortDir === "asc" ? "▲" : "▼"}</span>}
                     </span>
-                    {isPinned && storageKey && (
+                    {isPinned && storageKey && columnSettingsPlacement === "header" && (
                       // CHOT 2026-08-13: nut "⚙" truoc qua nho/mo nhat (chi 1 ky tu mau xam), nhieu
                       // nguoi dung khong biet co the tuy chinh cot - doi sang nut co nen/vien mau
                       // ocean + nhan chu (an tren man hinh rat hep) de noi bat hon han phan header con
@@ -291,32 +333,9 @@ export function PaginatedTable<T>({
                       // panel - nguoi dung yeu cau ro "tat bot ca cot dang hien thi" (khong chi bat cot
                       // an) giong dung the "Quan ly ton", nen gio liet ke TOAN BO toggleableColumns
                       // (gom ca cot "thuong" truoc day co dinh) - moi cot tru cot ghim dau tien deu bat/
-                      // tat duoc.
-                      <span className="relative inline-block ml-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => setSettingsOpen((v) => !v)}
-                          className="focus-ring inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--ocean-400)] bg-[var(--ocean-100)] text-[var(--ocean-700)] hover:bg-[var(--ocean-400)] hover:text-white normal-case font-semibold transition-colors"
-                          title="Chọn cột hiển thị / ẩn bớt, đổi độ rộng, kéo thả sắp xếp cột"
-                        >
-                          <span className="text-sm leading-none">⚙</span>
-                          <span className="hidden sm:inline whitespace-nowrap">Tùy chỉnh cột</span>
-                        </button>
-                        {settingsOpen && (
-                          <div className="absolute left-0 top-full mt-2 w-64 max-h-96 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 z-20 anim-in normal-case font-normal">
-                            <div className="px-3 py-1.5 text-xs text-[var(--ink-600)] border-b border-[var(--line)] mb-1">
-                              ↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột
-                            </div>
-                            <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Cột hiển thị (bỏ tick để ẩn bớt)</div>
-                            {toggleableColumns.map((tc) => (
-                              <label key={tc.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
-                                <input type="checkbox" checked={resolvedOrder.includes(tc.key)} onChange={() => toggleColumn(tc.key)} className="w-3.5 h-3.5" />
-                                {tc.header}
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </span>
+                      // tat duoc. columnSettingsPlacement === "toolbar" render nut nay o 1 dong rieng
+                      // phia tren bang thay vi o day (xem ngay tren <Card>).
+                      <span className="ml-2 inline-block">{columnSettingsControl}</span>
                     )}
                     {storageKey && (
                       // CHOT 2026-08-13: them 1 duong ke doc LUON HIEN (khong chi khi hover nua) giua
