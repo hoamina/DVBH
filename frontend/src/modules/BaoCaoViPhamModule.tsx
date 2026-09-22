@@ -72,9 +72,11 @@ interface DanhSachRow {
   ngayChot: string | null;
 }
 
+// CHOT voi chu he thong 2026-09-22 (lan 2): "Khong loi" KHONG con la 1 lua chon loc o day - vi pham
+// CSKH ket luan khong loi KHONG duoc tinh la vi pham, loai het khoi danh sach nay tu goc (xem chu
+// thich computeViPhamDanhSach trong backend/src/lib/viPhamBaoCao.ts).
 const TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả trạng thái" },
-  { value: "khong_loi", label: "Không lỗi" },
   { value: "cho_giai_trinh", label: "Chờ KTV/GS giải trình" },
   { value: "cho_qc_chot", label: "Chờ QC chốt" },
   { value: "da_chot", label: "QC đã chốt" },

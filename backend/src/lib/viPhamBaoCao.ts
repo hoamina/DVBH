@@ -335,42 +335,45 @@ export interface ViPhamDanhSachRow {
 
 // Nhan hien thi trang thai (tieng Viet) tu 2 cot tho ket_qua_cap_1/chot_bo_cap_2 - dung CHUNG giua
 // SQL (loc theo "trang_thai") va JS (gan nhan cho tung dong tra ve), tranh 2 noi ra 2 dinh nghia
-// lech nhau. "vi_pham_ktv" (nhanh "ktv") KHONG co khai niem "Khong loi"/"cho giai trinh" (khong qua
-// CSKH cap 1, khong co vi_pham_giai_trinh) - 2 dieu kien nay tra "1=0" (loai het nhanh do) thay vi
-// mot dieu kien luon dung, tranh hien nham 1 dong "ktv" khi nguoi dung dang loc rieng "Khong loi".
+// lech nhau. KHONG con "khong_loi" trong danh sach nay (CHOT voi chu he thong 2026-09-22 lan 2 -
+// xem chu thich computeViPhamDanhSach): vi pham CSKH ket luan "Khong loi" KHONG duoc tinh la vi
+// pham, loai het khoi ca danh sach (khong chi 1 lua chon loc). "vi_pham_ktv" (nhanh "ktv") KHONG co
+// khai niem "cho giai trinh" (khong qua CSKH cap 1, khong co vi_pham_giai_trinh) - dieu kien nay tra
+// "1=0" (loai het nhanh do) thay vi 1 dieu kien luon dung.
 const TRANG_THAI_CLAUSES: Record<string, string> = {
-  khong_loi: "v.ket_qua_cap_1 = 'Khong loi'",
-  cho_giai_trinh: "v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND NOT EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)",
-  cho_qc_chot: "v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)",
+  cho_giai_trinh: "v.chot_bo_cap_2 IS NULL AND NOT EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)",
+  cho_qc_chot: "v.chot_bo_cap_2 IS NULL AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)",
   da_chot: "v.chot_bo_cap_2 = 1",
   da_bo: "v.chot_bo_cap_2 = 0",
 };
 const TRANG_THAI_CLAUSES_KTV: Record<string, string> = {
-  khong_loi: "1=0",
   cho_giai_trinh: "1=0",
   cho_qc_chot: "vk.chot_bo_cap_2 IS NULL",
   da_chot: "vk.chot_bo_cap_2 = 1",
   da_bo: "vk.chot_bo_cap_2 = 0",
 };
 
-function trangThaiLabel(source: "case" | "ktv", ketQuaCap1: string | null, chotBoCap2: number | null): string {
-  if (source === "ktv") {
-    if (chotBoCap2 === 1) return "QC đã chốt";
-    if (chotBoCap2 === 0) return "QC đã bỏ";
-    return "Chờ QC chốt";
-  }
-  if (ketQuaCap1 === null) return "Chưa CSKH xử lý";
-  if (ketQuaCap1 === "Khong loi") return "Không lỗi";
+function trangThaiLabel(chotBoCap2: number | null): string {
   if (chotBoCap2 === 1) return "QC đã chốt";
   if (chotBoCap2 === 0) return "QC đã bỏ";
   return "Chờ QC chốt";
 }
 
 // GET /bao-cao-vi-pham/danh-sach - tab "Tat ca vi pham" (them 2026-09-22, yeu cau chu he thong):
-// danh sach TUNG DONG vi_pham (khong gom nhom) de tai ve Excel - khac 3 bao cao tren (LUON gioi han
-// "co loi"), o day mac dinh hien HET (ke ca "Khong loi") va cho loc theo "trang_thai" (xem
-// TRANG_THAI_CLAUSES). Cung neo "ngay_ghi_nhan" nhu Tong quan/Da chieu. LIMIT 5000 (dung lai nguyen
-// ven pattern "export=true" cua routes/survey.ts GET / - xem chu thich o do).
+// danh sach TUNG DONG vi_pham (khong gom nhom) de tai ve Excel.
+//
+// CHOT voi chu he thong 2026-09-22 (lan 2, sau khi giao dien ban dau lo ca "Khong loi" vao danh
+// sach): "danh sach vi pham" CHI gom (a) vi pham CSKH DA CHOT CAP 1 la co loi (v.ket_qua_cap_1 IS
+// NOT NULL AND != 'Khong loi' - dung HET dieu kien "co loi" cua Tong quan/Da chieu, xem chu thich
+// CHOT o computeViPhamBaoCaoTongQuan) VA (b) vi pham import/dong bo tu ben ngoai (KSNB Sheet, Excel
+// import, vi_pham_ktv) - CA 2 nhom nay deu KHONG BAO GIO co ket_qua_cap_1 = 'Khong loi' theo thiet
+// ke (KSNB sync luon dien 1 loai loi that tu Sheet; Excel import CHAN cung "Khong loi" tai
+// routes/importViPham.ts), nen CHI 1 dieu kien "co loi" tren nhanh "case" la du, khong can xu ly
+// rieng cho tung nguon. "Khong loi" KHONG con la 1 lua chon loc duoc nua (xem TRANG_THAI_CLAUSES) -
+// day la thay doi PHAM VI, khong phai 1 filter tuy chon.
+//
+// Cung neo "ngay_ghi_nhan" nhu Tong quan/Da chieu. LIMIT 5000 (dung lai nguyen ven pattern
+// "export=true" cua routes/survey.ts GET / - xem chu thich o do).
 //
 // UNION ALL voi vi_pham_ktv (them 2026-09-22, migration 0115) - day la tab DUY NHAT hien vi pham
 // "gan truc tiep KTV" (khong qua case) de GS/QC xem va chot/bo (xem "source" tren tung dong, FE
@@ -393,7 +396,7 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
            v.loai_loi as loai_loi, v.ket_qua_cap_1 as ket_qua_cap_1, v.chot_bo_cap_2 as chot_bo_cap_2, ${DIEM_THE_EXPR} as diem_the,
            v.ghi_chu as ghi_chu, v.nguoi_ghi_nhan as nguoi_ghi_nhan, v.ngay_ghi_nhan as ngay_ghi_nhan, v.nguoi_chot as nguoi_chot, v.ngay_chot as ngay_chot
          FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
-         WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
+         WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
          UNION ALL
          SELECT 'ktv' as source, vk.id as id, NULL as case_id, vk.khu_vuc as khu_vuc, vk.ky_thuat_vien as ky_thuat_vien, NULL as khach_hang,
            vk.loai_loi as loai_loi, vk.ket_qua_cap_1 as ket_qua_cap_1, vk.chot_bo_cap_2 as chot_bo_cap_2, ${diemTheExpr("vk")} as diem_the,
@@ -433,10 +436,10 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
       khachHang: r.khach_hang,
       loaiLoi: r.loai_loi,
       ketQuaCap1: r.ket_qua_cap_1,
-      trangThai: trangThaiLabel(r.source, r.ket_qua_cap_1, r.chot_bo_cap_2),
+      trangThai: trangThaiLabel(r.chot_bo_cap_2),
       chotBoCap2: r.chot_bo_cap_2,
       ghiChu: r.ghi_chu,
-      diemThe: r.ket_qua_cap_1 && r.ket_qua_cap_1 !== "Khong loi" ? Math.round(r.diem_the * 100) / 100 : 0,
+      diemThe: Math.round(r.diem_the * 100) / 100,
       nguoiGhiNhan: r.nguoi_ghi_nhan,
       ngayGhiNhan: r.ngay_ghi_nhan,
       nguoiChot: r.nguoi_chot,
