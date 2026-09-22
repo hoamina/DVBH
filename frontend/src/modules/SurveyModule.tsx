@@ -6,6 +6,8 @@ import { Badge, statusTone } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
+import { StatCard } from "../components/ui/StatCard";
+import { ImportUploader } from "../components/ImportUploader";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
@@ -299,7 +301,14 @@ export function neededLoaiLoi(row: CanKhaoSatRow): LoaiLoi[] {
 const VIEWS = [
   { key: "bao-cao", label: "Báo cáo" },
   { key: "danh-sach", label: "Danh sách chi tiết" },
+  { key: "nhap-excel", label: "Nhập Excel" },
 ];
+
+interface ImportViPhamSummary {
+  thanhCong: number;
+  loi: number;
+  errors: string[];
+}
 
 const PAGE_SIZE = 20;
 
@@ -406,7 +415,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const canSurvey = ["CSKH", "TN CSKH", "TBP CSKH", "Admin"].includes(role ?? "");
   // CHOT 2026-08-05: Mo quyen xem "Danh sach chi tiet" cho vai tro CSKH theo yeu cau cua chu he thong
   const canViewDanhSach = true;
-  const visibleViews = canViewDanhSach ? VIEWS : VIEWS.filter((v) => v.key !== "danh-sach");
+  // "Nhap Excel" (them 2026-09-22, yeu cau chu he thong) - dung DANH SACH VAI TRO CHO PHEP IMPORT
+  // (khac requireRole tren backend routes/importViPham.ts chi de UI/UX, backend van la nguon xac
+  // thuc that su) - QC them vao day (khong co trong canSurvey, vi QC khong tu goi khao sat) vi QC
+  // cung duoc phep import theo yeu cau.
+  const canImportViPham = ["CSKH", "TN CSKH", "TBP CSKH", "Admin", "QC"].includes(role ?? "");
+  const visibleViews = (canViewDanhSach ? VIEWS : VIEWS.filter((v) => v.key !== "danh-sach")).filter((v) => v.key !== "nhap-excel" || canImportViPham);
   const effectiveView = canViewDanhSach ? view : "bao-cao";
 
   const filterParams = { khu_vuc: khuVucFilter, tinh: tinhFilter, quan_huyen: quanHuyenFilter, ky_thuat_vien: ktvFilter };
@@ -1330,7 +1344,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             />
           </Card>
         </div>
-      ) : (
+      ) : effectiveView === "danh-sach" ? (
         <div className="mt-4">
           {(tinhFilter || quanHuyenFilter || ktvFilter) && (
             <div className="text-xs text-[var(--ink-400)] mb-2">
@@ -1861,6 +1875,38 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 />
               );
             })()}
+        </div>
+      ) : (
+        <div className="mt-4 max-w-xl">
+          <ImportUploader<ImportViPhamSummary>
+            description={
+              <>
+                Ghi nhận vi phạm hàng loạt từ Excel. Mỗi dòng cần <b className="font-mono">ID case</b> HOẶC <b className="font-mono">ID KTV</b> (nếu không có ID case - gắn thẳng vào KTV theo
+                ngày, không qua case) + <b className="font-mono">Ngày ghi nhận</b> + <b className="font-mono">Kết quả cấp 1</b> (chọn theo danh mục "Loại vi phạm" trong Settings). Vi phạm import
+                vẫn vào hàng chờ QC chốt cấp 2 như bình thường (xem tab "Tất cả vi phạm" của module Báo cáo vi phạm).
+              </>
+            }
+            templateUrl="/api/import/vi-pham/template"
+            previewUrl="/import/vi-pham/preview"
+            commitUrl="/import/vi-pham/commit"
+            columnMapUrl="/import/vi-pham/column-map"
+            buildBody={(rows, filename) => ({ rows, filename })}
+            renderSummary={(s) => (
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
+                <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+              </div>
+            )}
+            getErrors={(s) => s.errors}
+            successMessage={(s) => `Import thành công: ${s.thanhCong} vi phạm`}
+            invalidateKeys={[
+              ["survey"],
+              ["survey-counts"],
+              ["bao-cao-vi-pham-tong-quan"],
+              ["bao-cao-vi-pham-danh-sach"],
+              ["bao-cao-vi-pham-diem-the"],
+            ]}
+          />
         </div>
       )}
 

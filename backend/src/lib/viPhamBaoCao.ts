@@ -62,10 +62,11 @@ function buildCaseFilter(params: ViPhamBaoCaoParams, scope: string[] | null): { 
 }
 
 // Drill-down theo 1 loai loi cu the (click tu 1 dong bang da chieu) - ap dung THEM cho ca Tong quan
-// lan Da chieu, khong bat buoc.
-function ketQuaCap1Filter(params: ViPhamBaoCaoParams): { sql: string; binds: unknown[] } {
+// lan Da chieu, khong bat buoc. "alias" (them 2026-09-22) de dung lai duoc cho nhanh vi_pham_ktv
+// ("vk") trong computeViPhamDanhSach, mac dinh "v" (vi_pham) cho 2 noi goi cu.
+function ketQuaCap1Filter(params: ViPhamBaoCaoParams, alias = "v"): { sql: string; binds: unknown[] } {
   if (!params.ket_qua_cap_1) return { sql: "", binds: [] };
-  return { sql: " AND v.ket_qua_cap_1 = ?", binds: [params.ket_qua_cap_1] };
+  return { sql: ` AND ${alias}.ket_qua_cap_1 = ?`, binds: [params.ket_qua_cap_1] };
 }
 
 // Diem the cua 1 dong vi_pham - tra ve diem_the tu danh muc settings_loai_vi_pham theo dung ten_loi
@@ -75,7 +76,29 @@ function ketQuaCap1Filter(params: ViPhamBaoCaoParams): { sql: string; binds: unk
 // (0.25 diem, gia tri THAP NHAT trong danh muc) thay vi bo sot hoan toan, dung 1 hang so co dinh (KHONG
 // tra cuu lai theo ten "Lỗi khác" - tranh phu thuoc ten co the bi Admin doi trong Settings).
 export const DIEM_THE_FALLBACK = 0.25;
-const DIEM_THE_EXPR = `COALESCE((SELECT s.diem_the FROM settings_loai_vi_pham s WHERE s.ten_loi = v.ket_qua_cap_1), ${DIEM_THE_FALLBACK})`;
+// Tach thanh ham nhan alias (them 2026-09-22) - can dung lai cho ca alias "v" (vi_pham) LAN "vk"
+// (vi_pham_ktv, migration 0115) trong cac UNION ALL diem-the/danh-sach ben duoi.
+function diemTheExpr(alias: string): string {
+  return `COALESCE((SELECT s.diem_the FROM settings_loai_vi_pham s WHERE s.ten_loi = ${alias}.ket_qua_cap_1), ${DIEM_THE_FALLBACK})`;
+}
+const DIEM_THE_EXPR = diemTheExpr("v");
+
+// Bo loc tren vi_pham_ktv (migration 0115, vi pham import KHONG gan case) - alias BAT BUOC "vk".
+// "nhom_kh"/"nguon_crm" KHONG the ap dung (vi_pham_ktv khong co case_dvbh de doc 2 dim nay) - dang co
+// 1 trong 2 dieu kien nay ACTIVE thi loai HET nhanh vi_pham_ktv khoi UNION (tra "1=0"), tranh tra ve
+// nham dong khong thoa dieu kien loc nguoi dung dang chon.
+function buildKtvFilter(params: ViPhamBaoCaoParams, scope: string[] | null): { sql: string; binds: unknown[] } {
+  if (params.nhom_kh || params.nguon_crm) return { sql: " AND 1=0", binds: [] };
+  const scopeClauseBase = khuVucWhereClause(scope, "vk.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("vk.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("vk.khu_vuc", params.khu_vuc);
+  const ktvSql = params.ky_thuat_vien ? " AND vk.ky_thuat_vien = ?" : "";
+  const ktvBinds = params.ky_thuat_vien ? [params.ky_thuat_vien] : [];
+  return {
+    sql: scopeClauseBase.sql + exclusion.sql + khuVucClause.sql + ktvSql,
+    binds: [...scopeClauseBase.binds, ...exclusion.binds, ...khuVucClause.binds, ...ktvBinds],
+  };
+}
 
 export interface ViPhamBaoCaoTongQuanPayload {
   slGhiNhan: number;
@@ -249,20 +272,31 @@ export interface ViPhamDiemTheRow {
 // thich CHU DICH dau file). "khu_vuc" cua 1 KTV lay XAP XI qua MAX() (KTV thuc te gan nhu luon co
 // dinh 1 khu vuc - ma KTV da nhung san khu vuc trong ten, vd "(truongnx.ctv24h)" - sai lech neu co
 // chi xay ra trong truong hop hiem KTV chuyen khu vuc giua thang, chap nhan duoc cho ban v1).
+//
+// UNION ALL voi vi_pham_ktv (them 2026-09-22, migration 0115, xem chu thich buildKtvFilter) - vi
+// pham import KHONG gan case ("gan truc tiep ID KTV theo ngay") PHAI cong vao diem the thang, day
+// chinh la muc dich duoc yeu cau khi them tinh nang import. GROUP BY 2 lan (inner GOM theo tung
+// nhanh, outer GOM lai theo ky_thuat_vien) vi 1 KTV co the vua co diem tu vi_pham (co case) vua co
+// diem tu vi_pham_ktv (khong case) trong cung 1 thang.
 export async function computeViPhamDiemThe(db: D1Database, params: ViPhamBaoCaoParams, scope: string[] | null): Promise<{ rows: ViPhamDiemTheRow[] }> {
   const { start, end } = monthBounds(params.thang || new Date().toISOString().slice(0, 7));
   const caseFilter = buildCaseFilter(params, scope);
-  const binds = [start, end, ...caseFilter.binds];
+  const ktvFilter = buildKtvFilter(params, scope);
+  const binds = [start, end, ...caseFilter.binds, start, end, ...ktvFilter.binds];
 
   const { results } = await db
     .prepare(
-      `SELECT c.ky_thuat_vien as ky_thuat_vien, MAX(c.khu_vuc) as khu_vuc,
-         COUNT(*) as so_vi_pham,
-         SUM(${DIEM_THE_EXPR}) as tong_diem
-       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
-       WHERE v.chot_bo_cap_2 = 1 AND c.ky_thuat_vien IS NOT NULL
-         AND v.ngay_chot >= ? AND v.ngay_chot < ?${caseFilter.sql}
-       GROUP BY c.ky_thuat_vien
+      `SELECT ky_thuat_vien, MAX(khu_vuc) as khu_vuc, SUM(cnt) as so_vi_pham, SUM(diem) as tong_diem FROM (
+         SELECT c.ky_thuat_vien as ky_thuat_vien, c.khu_vuc as khu_vuc, 1 as cnt, ${DIEM_THE_EXPR} as diem
+         FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.chot_bo_cap_2 = 1 AND c.ky_thuat_vien IS NOT NULL
+           AND v.ngay_chot >= ? AND v.ngay_chot < ?${caseFilter.sql}
+         UNION ALL
+         SELECT vk.ky_thuat_vien as ky_thuat_vien, vk.khu_vuc as khu_vuc, 1 as cnt, ${diemTheExpr("vk")} as diem
+         FROM vi_pham_ktv vk
+         WHERE vk.chot_bo_cap_2 = 1 AND vk.ngay_chot >= ? AND vk.ngay_chot < ?${ktvFilter.sql}
+       )
+       GROUP BY ky_thuat_vien
        ORDER BY tong_diem DESC`,
     )
     .bind(...binds)
@@ -280,13 +314,17 @@ export async function computeViPhamDiemThe(db: D1Database, params: ViPhamBaoCaoP
 
 export interface ViPhamDanhSachRow {
   id: string;
-  caseId: string;
+  source: "case" | "ktv";
+  caseId: string | null;
   khuVuc: string | null;
   kyThuatVien: string | null;
   khachHang: string | null;
   loaiLoi: string;
   ketQuaCap1: string | null;
   trangThai: string;
+  // Dang tho (them 2026-09-22) de FE tu quyet dinh hien nut chot/bo (isQC && chotBoCap2 === null)
+  // thay vi phai so sanh chuoi trangThai (nhan hien thi co the doi, khong nen dung lam dieu kien).
+  chotBoCap2: number | null;
   ghiChu: string | null;
   diemThe: number;
   nguoiGhiNhan: string;
@@ -297,7 +335,9 @@ export interface ViPhamDanhSachRow {
 
 // Nhan hien thi trang thai (tieng Viet) tu 2 cot tho ket_qua_cap_1/chot_bo_cap_2 - dung CHUNG giua
 // SQL (loc theo "trang_thai") va JS (gan nhan cho tung dong tra ve), tranh 2 noi ra 2 dinh nghia
-// lech nhau.
+// lech nhau. "vi_pham_ktv" (nhanh "ktv") KHONG co khai niem "Khong loi"/"cho giai trinh" (khong qua
+// CSKH cap 1, khong co vi_pham_giai_trinh) - 2 dieu kien nay tra "1=0" (loai het nhanh do) thay vi
+// mot dieu kien luon dung, tranh hien nham 1 dong "ktv" khi nguoi dung dang loc rieng "Khong loi".
 const TRANG_THAI_CLAUSES: Record<string, string> = {
   khong_loi: "v.ket_qua_cap_1 = 'Khong loi'",
   cho_giai_trinh: "v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND NOT EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)",
@@ -305,8 +345,20 @@ const TRANG_THAI_CLAUSES: Record<string, string> = {
   da_chot: "v.chot_bo_cap_2 = 1",
   da_bo: "v.chot_bo_cap_2 = 0",
 };
+const TRANG_THAI_CLAUSES_KTV: Record<string, string> = {
+  khong_loi: "1=0",
+  cho_giai_trinh: "1=0",
+  cho_qc_chot: "vk.chot_bo_cap_2 IS NULL",
+  da_chot: "vk.chot_bo_cap_2 = 1",
+  da_bo: "vk.chot_bo_cap_2 = 0",
+};
 
-function trangThaiLabel(ketQuaCap1: string | null, chotBoCap2: number | null): string {
+function trangThaiLabel(source: "case" | "ktv", ketQuaCap1: string | null, chotBoCap2: number | null): string {
+  if (source === "ktv") {
+    if (chotBoCap2 === 1) return "QC đã chốt";
+    if (chotBoCap2 === 0) return "QC đã bỏ";
+    return "Chờ QC chốt";
+  }
   if (ketQuaCap1 === null) return "Chưa CSKH xử lý";
   if (ketQuaCap1 === "Khong loi") return "Không lỗi";
   if (chotBoCap2 === 1) return "QC đã chốt";
@@ -317,31 +369,46 @@ function trangThaiLabel(ketQuaCap1: string | null, chotBoCap2: number | null): s
 // GET /bao-cao-vi-pham/danh-sach - tab "Tat ca vi pham" (them 2026-09-22, yeu cau chu he thong):
 // danh sach TUNG DONG vi_pham (khong gom nhom) de tai ve Excel - khac 3 bao cao tren (LUON gioi han
 // "co loi"), o day mac dinh hien HET (ke ca "Khong loi") va cho loc theo "trang_thai" (xem
-// TRANG_THAI_CLAUSES) vi muc dich la xuat du lieu tho lam bao cao rieng, khong phai 1 chi so co
-// dinh. Cung neo "ngay_ghi_nhan" nhu Tong quan/Da chieu. LIMIT 5000 (dung lai nguyen ven pattern
-// "export=true" cua routes/survey.ts GET / - xem chu thich o do) - thuc te 1 thang chi ~470-11000
-// dong tuy co loc "khong_loi" hay khong, du bien an toan cho ca nam neu loc rong.
+// TRANG_THAI_CLAUSES). Cung neo "ngay_ghi_nhan" nhu Tong quan/Da chieu. LIMIT 5000 (dung lai nguyen
+// ven pattern "export=true" cua routes/survey.ts GET / - xem chu thich o do).
+//
+// UNION ALL voi vi_pham_ktv (them 2026-09-22, migration 0115) - day la tab DUY NHAT hien vi pham
+// "gan truc tiep KTV" (khong qua case) de GS/QC xem va chot/bo (xem "source" tren tung dong, FE
+// dung de biet goi PATCH /api/vi-pham/:id/cap2 hay /api/vi-pham-ktv/:id/cap2).
 export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCaoParams, scope: string[] | null): Promise<{ rows: ViPhamDanhSachRow[] }> {
   const { start, end } = monthBounds(params.thang || new Date().toISOString().slice(0, 7));
   const caseFilter = buildCaseFilter(params, scope);
-  const cap1Filter = ketQuaCap1Filter(params);
+  const cap1Filter = ketQuaCap1Filter(params, "v");
+  const ktvFilter = buildKtvFilter(params, scope);
+  const cap1FilterKtv = ketQuaCap1Filter(params, "vk");
   const trangThaiSql = params.trang_thai && TRANG_THAI_CLAUSES[params.trang_thai] ? ` AND ${TRANG_THAI_CLAUSES[params.trang_thai]}` : "";
+  const trangThaiSqlKtv = params.trang_thai && TRANG_THAI_CLAUSES_KTV[params.trang_thai] ? ` AND ${TRANG_THAI_CLAUSES_KTV[params.trang_thai]}` : "";
   const limit = params.export === "true" ? 5000 : 500;
-  const binds = [start, end, ...caseFilter.binds, ...cap1Filter.binds, limit];
+  const binds = [start, end, ...caseFilter.binds, ...cap1Filter.binds, start, end, ...ktvFilter.binds, ...cap1FilterKtv.binds, limit];
 
   const { results } = await db
     .prepare(
-      `SELECT v.id, v.case_id, c.khu_vuc, c.ky_thuat_vien, c.khach_hang, v.loai_loi, v.ket_qua_cap_1, v.chot_bo_cap_2,
-         ${DIEM_THE_EXPR} as diem_the, v.ghi_chu, v.nguoi_ghi_nhan, v.ngay_ghi_nhan, v.nguoi_chot, v.ngay_chot
-       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
-       WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
-       ORDER BY v.ngay_ghi_nhan DESC
+      `SELECT * FROM (
+         SELECT 'case' as source, v.id as id, v.case_id as case_id, c.khu_vuc as khu_vuc, c.ky_thuat_vien as ky_thuat_vien, c.khach_hang as khach_hang,
+           v.loai_loi as loai_loi, v.ket_qua_cap_1 as ket_qua_cap_1, v.chot_bo_cap_2 as chot_bo_cap_2, ${DIEM_THE_EXPR} as diem_the,
+           v.ghi_chu as ghi_chu, v.nguoi_ghi_nhan as nguoi_ghi_nhan, v.ngay_ghi_nhan as ngay_ghi_nhan, v.nguoi_chot as nguoi_chot, v.ngay_chot as ngay_chot
+         FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ?${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
+         UNION ALL
+         SELECT 'ktv' as source, vk.id as id, NULL as case_id, vk.khu_vuc as khu_vuc, vk.ky_thuat_vien as ky_thuat_vien, NULL as khach_hang,
+           vk.loai_loi as loai_loi, vk.ket_qua_cap_1 as ket_qua_cap_1, vk.chot_bo_cap_2 as chot_bo_cap_2, ${diemTheExpr("vk")} as diem_the,
+           vk.ghi_chu as ghi_chu, vk.nguoi_ghi_nhan as nguoi_ghi_nhan, vk.ngay_ghi_nhan as ngay_ghi_nhan, vk.nguoi_chot as nguoi_chot, vk.ngay_chot as ngay_chot
+         FROM vi_pham_ktv vk
+         WHERE vk.ngay_ghi_nhan >= ? AND vk.ngay_ghi_nhan < ?${ktvFilter.sql}${cap1FilterKtv.sql}${trangThaiSqlKtv}
+       )
+       ORDER BY ngay_ghi_nhan DESC
        LIMIT ?`,
     )
     .bind(...binds)
     .all<{
+      source: "case" | "ktv";
       id: string;
-      case_id: string;
+      case_id: string | null;
       khu_vuc: string | null;
       ky_thuat_vien: string | null;
       khach_hang: string | null;
@@ -359,13 +426,15 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
   return {
     rows: results.map((r) => ({
       id: r.id,
+      source: r.source,
       caseId: r.case_id,
       khuVuc: r.khu_vuc,
       kyThuatVien: r.ky_thuat_vien,
       khachHang: r.khach_hang,
       loaiLoi: r.loai_loi,
       ketQuaCap1: r.ket_qua_cap_1,
-      trangThai: trangThaiLabel(r.ket_qua_cap_1, r.chot_bo_cap_2),
+      trangThai: trangThaiLabel(r.source, r.ket_qua_cap_1, r.chot_bo_cap_2),
+      chotBoCap2: r.chot_bo_cap_2,
       ghiChu: r.ghi_chu,
       diemThe: r.ket_qua_cap_1 && r.ket_qua_cap_1 !== "Khong loi" ? Math.round(r.diem_the * 100) / 100 : 0,
       nguoiGhiNhan: r.nguoi_ghi_nhan,

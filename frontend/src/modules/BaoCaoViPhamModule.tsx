@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "../components/ui/Card";
 import { StatCard } from "../components/ui/StatCard";
 import { Select } from "../components/ui/Select";
 import { Btn } from "../components/ui/Btn";
 import { Tabs } from "../components/ui/Tabs";
+import { useToast } from "../components/ui/Toast";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { api, buildQuery } from "../api/client";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -54,13 +55,15 @@ interface DiemTheRow {
 
 interface DanhSachRow {
   id: string;
-  caseId: string;
+  source: "case" | "ktv";
+  caseId: string | null;
   khuVuc: string | null;
   kyThuatVien: string | null;
   khachHang: string | null;
   loaiLoi: string;
   ketQuaCap1: string | null;
   trangThai: string;
+  chotBoCap2: number | null;
   ghiChu: string | null;
   diemThe: number;
   nguoiGhiNhan: string;
@@ -163,6 +166,10 @@ function heatBg(pct: number): string {
 export function BaoCaoViPhamModule() {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
+  const role = auth.status === "authenticated" ? auth.user.vai_tro : null;
+  const isQC = role === "QC" || role === "Admin";
+  const qcClient = useQueryClient();
+  const addToast = useToast();
   const [tab, setTab] = useState<"tong-quan" | "da-chieu" | "diem-the" | "danh-sach">("tong-quan");
   const [trangThai, setTrangThai] = useState("");
   const [filters, setFilters] = useLocalStorageState<BaoCaoViPhamFilters>("filters:bao-cao-vi-pham", {
@@ -228,6 +235,21 @@ export function BaoCaoViPhamModule() {
     const rows = res.rows.map((r) => ({ ...r, khuVuc: r.khuVuc ? shortKhuVuc(r.khuVuc) : r.khuVuc }));
     await exportRowsToExcel(rows, "bao_cao_vi_pham_danh_sach.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
   }
+
+  // Chot/bo cap 2 ngay trong bang - 2 endpoint khac nhau tuy "source" (xem ViPhamDanhSachRow.source,
+  // "ktv" = vi pham import khong gan case, migration 0115, khong co buoc giai trinh qua app ngoai
+  // nen QC chot thang tai day thay vi qua SurveyModule).
+  const chotMutation = useMutation({
+    mutationFn: ({ row, chot }: { row: DanhSachRow; chot: boolean }) =>
+      api.patch(row.source === "ktv" ? `/vi-pham-ktv/${row.id}/cap2` : `/vi-pham/${row.id}/cap2`, { chot }),
+    onSuccess: () => {
+      qcClient.invalidateQueries({ queryKey: ["bao-cao-vi-pham-danh-sach"] });
+      qcClient.invalidateQueries({ queryKey: ["bao-cao-vi-pham-tong-quan"] });
+      qcClient.invalidateQueries({ queryKey: ["bao-cao-vi-pham-diem-the"] });
+      qcClient.invalidateQueries({ queryKey: ["bao-cao-vi-pham-da-chieu"] });
+    },
+    onError: () => addToast("Không chốt/bỏ được - thử lại sau"),
+  });
 
   const nhomLabel = NHOM_OPTIONS.find((o) => o.value === nhom)?.label ?? "Nhóm";
 
@@ -415,13 +437,17 @@ export function BaoCaoViPhamModule() {
                 <th className="py-2 pr-3">Điểm thẻ</th>
                 <th className="py-2 pr-3">Ngày ghi nhận</th>
                 <th className="py-2 pr-3">Ghi chú</th>
+                {isQC && <th className="py-2 pr-3">Thao tác</th>}
               </tr>
             </thead>
             <tbody>
               {(danhSach?.rows ?? []).map((r) => (
                 <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                  <td className="py-2 pr-3 font-mono text-xs">{r.id}</td>
-                  <td className="py-2 pr-3 font-mono text-xs">{r.caseId}</td>
+                  <td className="py-2 pr-3 font-mono text-xs">
+                    {r.id}
+                    {r.source === "ktv" && <span className="ml-1 text-[10px] text-[var(--ink-400)]" title="Vi phạm import trực tiếp KTV, không gắn ID case">(KTV)</span>}
+                  </td>
+                  <td className="py-2 pr-3 font-mono text-xs">{r.caseId ?? "—"}</td>
                   <td className="py-2 pr-3">{r.khuVuc ? shortKhuVuc(r.khuVuc) : "—"}</td>
                   <td className="py-2 pr-3">{r.kyThuatVien ?? "—"}</td>
                   <td className="py-2 pr-3">{r.loaiLoi}</td>
@@ -430,11 +456,27 @@ export function BaoCaoViPhamModule() {
                   <td className="py-2 pr-3 font-mono">{r.diemThe || "—"}</td>
                   <td className="py-2 pr-3 text-xs">{r.ngayGhiNhan}</td>
                   <td className="py-2 pr-3 text-xs text-[var(--ink-600)]">{r.ghiChu ?? ""}</td>
+                  {isQC && (
+                    <td className="py-2 pr-3">
+                      {r.chotBoCap2 === null ? (
+                        <div className="flex gap-1">
+                          <Btn size="sm" variant="success" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: true })}>
+                            Chốt
+                          </Btn>
+                          <Btn size="sm" variant="danger" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: false })}>
+                            Bỏ
+                          </Btn>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--ink-400)]">—</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
               {(danhSach?.rows ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                  <td colSpan={isQC ? 11 : 10} className="py-8 text-center text-[var(--ink-400)] text-sm">
                     Không có dữ liệu.
                   </td>
                 </tr>

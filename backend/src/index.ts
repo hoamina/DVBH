@@ -7,6 +7,8 @@ import tranhChapRoutes from "./routes/tranhChap";
 import napGasRoutes from "./routes/napGas";
 import surveyRoutes from "./routes/survey";
 import viPhamRoutes from "./routes/viPham";
+import viPhamKtvRoutes from "./routes/viPhamKtv";
+import importViPhamRoutes from "./routes/importViPham";
 import baoCaoViPhamRoutes from "./routes/baoCaoViPham";
 import baoCaoNskxRoutes from "./routes/baoCaoNskx";
 import importRoutes from "./routes/importRoute";
@@ -49,6 +51,7 @@ app.route("/api/tranh-chap", tranhChapRoutes);
 app.route("/api/nap-gas", napGasRoutes);
 app.route("/api/survey", surveyRoutes);
 app.route("/api/vi-pham", viPhamRoutes);
+app.route("/api/vi-pham-ktv", viPhamKtvRoutes);
 app.route("/api/bao-cao-vi-pham", baoCaoViPhamRoutes);
 app.route("/api/bao-cao-nskx", baoCaoNskxRoutes);
 app.route("/api/import", importRoutes);
@@ -56,6 +59,7 @@ app.route("/api/import/giai-trinh", importGiaiTrinhRoutes);
 app.route("/api/import/giai-trinh-lap", importGiaiTrinhLapRoutes);
 app.route("/api/import/khao-sat", importKhaoSatRoutes);
 app.route("/api/import/nap-gas", importNapGasRoutes);
+app.route("/api/import/vi-pham", importViPhamRoutes);
 // Prefix rieng biet hoan toan voi "/api/import" (khong dung verifySessionMiddleware - xem
 // routes/externalImport.ts) - pipeline Python QuickSight goi qua API key tinh.
 app.route("/api/external-import", externalImportRoutes);
