@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "../components/ui/Card";
 import { StatCard } from "../components/ui/StatCard";
 import { Select } from "../components/ui/Select";
 import { Btn } from "../components/ui/Btn";
 import { Tabs } from "../components/ui/Tabs";
+import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { useToast } from "../components/ui/Toast";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { api, buildQuery } from "../api/client";
@@ -89,6 +90,11 @@ const TRANG_THAI_OPTIONS = [
 // TINH_SAN.md ve ky luat rows_read).
 const DANH_SACH_SCREEN_LIMIT = 500;
 
+// Phan trang phia client tren tap du lieu da tai (toi da DANH_SACH_SCREEN_LIMIT dong) - dung
+// nguyen quy uoc PaginatedTable chung toan bo app (vd SurveyModule.tsx), khong tu y dung bang
+// tho khong phan trang cho danh sach tung dong nhu tab nay.
+const DANH_SACH_PAGE_SIZE = 20;
+
 const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
   id: "Mã vi phạm",
   caseId: "ID case",
@@ -165,6 +171,52 @@ function heatBg(pct: number): string {
   return `rgba(216, 76, 76, ${alpha})`;
 }
 
+// Cot cho PaginatedTable cua tab "Tat ca vi pham" - tach ham rieng (thay vi inline trong JSX) vi
+// cot "Thao tac" phu thuoc ca isQC lan chotMutation (callback + trang thai isPending).
+function danhSachColumns(isQC: boolean, chotMutation: { isPending: boolean; mutate: (v: { row: DanhSachRow; chot: boolean }) => void }): Column<DanhSachRow>[] {
+  const cols: Column<DanhSachRow>[] = [
+    {
+      key: "id",
+      header: "Mã VP",
+      render: (r) => (
+        <span className="font-mono text-xs">
+          {r.id}
+          {r.source === "ktv" && <span className="ml-1 text-[10px] text-[var(--ink-400)]" title="Vi phạm import trực tiếp KTV, không gắn ID case">(KTV)</span>}
+        </span>
+      ),
+    },
+    { key: "caseId", header: "ID case", render: (r) => <span className="font-mono text-xs">{r.caseId ?? "—"}</span> },
+    { key: "khuVuc", header: "Khu vực", render: (r) => (r.khuVuc ? shortKhuVuc(r.khuVuc) : "—") },
+    { key: "kyThuatVien", header: "KTV", render: (r) => r.kyThuatVien ?? "—" },
+    { key: "loaiLoi", header: "Loại lỗi", render: (r) => r.loaiLoi },
+    { key: "ketQuaCap1", header: "Kết quả cấp 1", render: (r) => r.ketQuaCap1 ?? "—" },
+    { key: "trangThai", header: "Trạng thái", render: (r) => r.trangThai },
+    { key: "diemThe", header: "Điểm thẻ", render: (r) => <span className="font-mono">{r.diemThe || "—"}</span> },
+    { key: "ngayGhiNhan", header: "Ngày ghi nhận", render: (r) => <span className="text-xs">{r.ngayGhiNhan}</span> },
+    { key: "ghiChu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghiChu ?? ""}</span> },
+  ];
+  if (isQC) {
+    cols.push({
+      key: "thaoTac",
+      header: "Thao tác",
+      render: (r) =>
+        r.chotBoCap2 === null ? (
+          <div className="flex gap-1">
+            <Btn size="sm" variant="success" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: true })}>
+              Chốt
+            </Btn>
+            <Btn size="sm" variant="danger" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: false })}>
+              Bỏ
+            </Btn>
+          </div>
+        ) : (
+          <span className="text-xs text-[var(--ink-400)]">—</span>
+        ),
+    });
+  }
+  return cols;
+}
+
 export function BaoCaoViPhamModule() {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
@@ -174,6 +226,7 @@ export function BaoCaoViPhamModule() {
   const addToast = useToast();
   const [tab, setTab] = useState<"tong-quan" | "da-chieu" | "diem-the" | "danh-sach">("tong-quan");
   const [trangThai, setTrangThai] = useState("");
+  const [danhSachPage, setDanhSachPage] = useState(1);
   const [filters, setFilters] = useLocalStorageState<BaoCaoViPhamFilters>("filters:bao-cao-vi-pham", {
     thang: CURRENT_MONTH_VALUE,
     khu_vuc: ALL_KHU_VUC,
@@ -228,6 +281,11 @@ export function BaoCaoViPhamModule() {
     queryFn: () => api.get<{ rows: DanhSachRow[] }>(`/bao-cao-vi-pham/danh-sach${buildQuery({ ...apiParams, trang_thai: trangThai || undefined })}`),
     enabled: tab === "danh-sach",
   });
+  // Quay ve trang 1 moi khi bo loc doi (khong thi co the dung o 1 trang rong neu du lieu moi it
+  // hon vi tri trang dang xem).
+  useEffect(() => {
+    setDanhSachPage(1);
+  }, [apiParams.thang, apiParams.khu_vuc, apiParams.ky_thuat_vien, apiParams.nhom_kh, apiParams.nguon_crm, trangThai]);
 
   // Xuat Excel: goi lai API rieng voi export=true (LIMIT 5000 thay vi 500 tren man hinh) - dung
   // nguyen pattern handleExport() cua SurveyModule.tsx (routes/survey.ts GET /?export=true), KHONG
@@ -423,68 +481,22 @@ export function BaoCaoViPhamModule() {
           </div>
           {(danhSach?.rows.length ?? 0) >= DANH_SACH_SCREEN_LIMIT && (
             <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-50)] border border-[var(--amber-200)] rounded-lg px-3 py-1.5 mb-2">
-              Đang hiển thị {DANH_SACH_SCREEN_LIMIT} dòng gần nhất trên màn hình — có thể còn nhiều dòng khớp bộ lọc hơn. Bấm <b>⬇ Xuất Excel</b> để tải đầy đủ (tối đa 5000 dòng).
+              Đang hiển thị {DANH_SACH_SCREEN_LIMIT} dòng gần nhất — có thể còn nhiều dòng khớp bộ lọc hơn. Bấm <b>⬇ Xuất Excel</b> để tải đầy đủ (tối đa 5000 dòng).
             </div>
           )}
-          <table className="dense w-full text-sm">
-            <thead>
-              <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                <th className="py-2 pr-3">Mã VP</th>
-                <th className="py-2 pr-3">ID case</th>
-                <th className="py-2 pr-3">Khu vực</th>
-                <th className="py-2 pr-3">KTV</th>
-                <th className="py-2 pr-3">Loại lỗi</th>
-                <th className="py-2 pr-3">Kết quả cấp 1</th>
-                <th className="py-2 pr-3">Trạng thái</th>
-                <th className="py-2 pr-3">Điểm thẻ</th>
-                <th className="py-2 pr-3">Ngày ghi nhận</th>
-                <th className="py-2 pr-3">Ghi chú</th>
-                {isQC && <th className="py-2 pr-3">Thao tác</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {(danhSach?.rows ?? []).map((r) => (
-                <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                  <td className="py-2 pr-3 font-mono text-xs">
-                    {r.id}
-                    {r.source === "ktv" && <span className="ml-1 text-[10px] text-[var(--ink-400)]" title="Vi phạm import trực tiếp KTV, không gắn ID case">(KTV)</span>}
-                  </td>
-                  <td className="py-2 pr-3 font-mono text-xs">{r.caseId ?? "—"}</td>
-                  <td className="py-2 pr-3">{r.khuVuc ? shortKhuVuc(r.khuVuc) : "—"}</td>
-                  <td className="py-2 pr-3">{r.kyThuatVien ?? "—"}</td>
-                  <td className="py-2 pr-3">{r.loaiLoi}</td>
-                  <td className="py-2 pr-3">{r.ketQuaCap1 ?? "—"}</td>
-                  <td className="py-2 pr-3">{r.trangThai}</td>
-                  <td className="py-2 pr-3 font-mono">{r.diemThe || "—"}</td>
-                  <td className="py-2 pr-3 text-xs">{r.ngayGhiNhan}</td>
-                  <td className="py-2 pr-3 text-xs text-[var(--ink-600)]">{r.ghiChu ?? ""}</td>
-                  {isQC && (
-                    <td className="py-2 pr-3">
-                      {r.chotBoCap2 === null ? (
-                        <div className="flex gap-1">
-                          <Btn size="sm" variant="success" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: true })}>
-                            Chốt
-                          </Btn>
-                          <Btn size="sm" variant="danger" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: false })}>
-                            Bỏ
-                          </Btn>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-[var(--ink-400)]">—</span>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {(danhSach?.rows ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={isQC ? 11 : 10} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                    Không có dữ liệu.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <PaginatedTable<DanhSachRow>
+            columns={danhSachColumns(isQC, chotMutation)}
+            rows={(danhSach?.rows ?? []).slice((danhSachPage - 1) * DANH_SACH_PAGE_SIZE, danhSachPage * DANH_SACH_PAGE_SIZE)}
+            isLoading={false}
+            isError={false}
+            page={danhSachPage}
+            pageSize={DANH_SACH_PAGE_SIZE}
+            total={danhSach?.rows.length ?? 0}
+            onPageChange={setDanhSachPage}
+            rowKey={(r) => r.id}
+            emptyText="Không có dữ liệu."
+            storageKey="bao-cao-vi-pham-danh-sach"
+          />
         </Card>
       )}
     </div>
