@@ -227,6 +227,11 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
   const [tab, setTab] = useState<"tong-quan" | "da-chieu" | "diem-the" | "danh-sach">("tong-quan");
   const [trangThai, setTrangThai] = useState("");
   const [danhSachPage, setDanhSachPage] = useState(1);
+  // Portal target de nut "Tuy chinh cot" cua PaginatedTable render chung 1 hang voi filter Trang
+  // thai + nut Xuat Excel (thay vi rieng 1 hang phia tren bang) - xem PaginatedTable.tsx
+  // columnSettingsContainer. useState (khong phai useRef) vi can trigger re-render khi DOM node
+  // gan xong de PaginatedTable portal vao dung luc.
+  const [colSettingsSlot, setColSettingsSlot] = useState<HTMLDivElement | null>(null);
   const [filters, setFilters] = useLocalStorageState<BaoCaoViPhamFilters>("filters:bao-cao-vi-pham", {
     thang: CURRENT_MONTH_VALUE,
     khu_vuc: ALL_KHU_VUC,
@@ -475,9 +480,12 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
               <span className="text-xs font-semibold text-[var(--ink-600)]">Trạng thái:</span>
               <Select value={trangThai} onChange={setTrangThai} options={TRANG_THAI_OPTIONS} />
             </div>
-            <Btn variant="ghost" size="sm" onClick={handleExportDanhSach}>
-              ⬇ Xuất Excel
-            </Btn>
+            <div className="flex items-center gap-2">
+              <div ref={setColSettingsSlot} />
+              <Btn variant="ghost" size="sm" onClick={handleExportDanhSach}>
+                ⬇ Xuất Excel
+              </Btn>
+            </div>
           </div>
           {(danhSach?.rows.length ?? 0) >= DANH_SACH_SCREEN_LIMIT && (
             <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-50)] border border-[var(--amber-200)] rounded-lg px-3 py-1.5 mb-2">
@@ -497,7 +505,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
             rowKey={(r) => r.id}
             emptyText="Không có dữ liệu."
             storageKey="bao-cao-vi-pham-danh-sach"
-            columnSettingsPlacement="toolbar"
+            columnSettingsContainer={colSettingsSlot}
           />
         </Card>
       )}

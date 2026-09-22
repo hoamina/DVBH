@@ -68,5 +68,9 @@ export function computeCaseTickers(
     tickers.push({ label: "Vi phạm chờ QC", tone: "amber" });
   }
 
+  if (c.tien_do_hoan_thanh === "Không hoàn thành XLSC") {
+    tickers.push({ label: "Ca thất bại", tone: "coral" });
+  }
+
   return tickers;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Card } from "./Card";
 import { Btn } from "./Btn";
 import { LoadingInline } from "./LoadingInline";
@@ -96,11 +97,13 @@ interface PaginatedTableProps<T> {
    * bo tren may nguoi dung, khong dong bo len server, moi bang (moi "storageKey" khac nhau) nho
    * cau hinh rieng. Bo qua prop nay se giu nguyen hanh vi cu (khong keo/chon cot duoc). */
   storageKey?: string;
-  /** Vi tri nut "⚙ Tuy chinh cot": "header" (mac dinh, giu nguyen hanh vi CHOT 2026-08-13 - nam
-   * trong o dau cot ghim) hoac "toolbar" (nam rieng 1 dong phia tren bang, can phai - dung cho bang
-   * da co san 1 dong filter/toolbar rieng ben tren, tranh nut bi chen giua cac tieu de cot). Chi anh
-   * huong vi tri hien thi, khong doi logic ben trong (state/localStorage van dung chung 1 co che). */
-  columnSettingsPlacement?: "header" | "toolbar";
+  /** Neu truyen 1 DOM node (vd qua callback ref len 1 <div> trong toolbar/filter rieng cua trang
+   * goi), nut "⚙ Tuy chinh cot" + panel se duoc render (qua createPortal) VAO DUNG node do thay vi
+   * o vi tri mac dinh trong header cot ghim dau tien - cho phep trang goi dat nut nay chung 1 hang
+   * voi cac filter/nut khac cua no (vd canh nut "Xuat Excel"). Component van giu nguyen state/
+   * localStorage o day, chi doi noi RENDER. Bo qua prop nay (hoac node con null luc render dau,
+   * truoc khi ref gan xong) se giu nguyen vi tri cu trong header. */
+  columnSettingsContainer?: HTMLElement | null;
 }
 
 export function PaginatedTable<T>({
@@ -123,7 +126,7 @@ export function PaginatedTable<T>({
   sortDir,
   onSortChange,
   storageKey,
-  columnSettingsPlacement = "header",
+  columnSettingsContainer,
 }: PaginatedTableProps<T>) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColWidths(storageKey));
@@ -250,9 +253,11 @@ export function PaginatedTable<T>({
     window.addEventListener("mouseup", onUp);
   }
 
-  // Nut "⚙ Tuy chinh cot" + panel - tach rieng vi co the render o 1 trong 2 vi tri tuy
-  // columnSettingsPlacement (xem prop). "toolbar" mo panel ve phia phai (right-0) thay vi trai
-  // (left-0) de khong bi tran ra ngoai the vien card khi nut nam sat mep phai 1 dong toolbar rieng.
+  // Nut "⚙ Tuy chinh cot" + panel - tach rieng thanh 1 bien vi co the render o 1 trong 2 noi: mac
+  // dinh ngay trong header cot ghim (xem <th> ben duoi), hoac qua createPortal vao
+  // columnSettingsContainer neu trang goi truyen vao (xem prop). Panel mo ve phia phai (right-0)
+  // khi co container rieng, tranh tran ra ngoai khi nut nam sat mep phai 1 hang toolbar cua trang
+  // goi - "left-0" khi o vi tri mac dinh trong header (hanh vi cu, giu nguyen CHOT 2026-08-13).
   const columnSettingsControl = storageKey && (
     <span className="relative inline-block" onClick={(e) => e.stopPropagation()}>
       <button
@@ -266,7 +271,7 @@ export function PaginatedTable<T>({
       </button>
       {settingsOpen && (
         <div
-          className={`absolute ${columnSettingsPlacement === "toolbar" ? "right-0" : "left-0"} top-full mt-2 w-64 max-h-96 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 z-20 anim-in normal-case font-normal`}
+          className={`absolute ${columnSettingsContainer ? "right-0" : "left-0"} top-full mt-2 w-64 max-h-96 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 z-20 anim-in normal-case font-normal`}
         >
           <div className="px-3 py-1.5 text-xs text-[var(--ink-600)] border-b border-[var(--line)] mb-1">
             ↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột
@@ -285,9 +290,7 @@ export function PaginatedTable<T>({
 
   return (
     <Card className="overflow-hidden">
-      {columnSettingsPlacement === "toolbar" && storageKey && (
-        <div className="flex items-center justify-end px-3 py-2 border-b border-[var(--line)]">{columnSettingsControl}</div>
-      )}
+      {columnSettingsContainer && createPortal(columnSettingsControl, columnSettingsContainer)}
       <div className="overflow-x-auto">
         <table className="dense w-full text-sm">
           <thead>
@@ -324,7 +327,7 @@ export function PaginatedTable<T>({
                       {col.header}
                       {isActive && <span>{sortDir === "asc" ? "▲" : "▼"}</span>}
                     </span>
-                    {isPinned && storageKey && columnSettingsPlacement === "header" && (
+                    {isPinned && storageKey && !columnSettingsContainer && (
                       // CHOT 2026-08-13: nut "⚙" truoc qua nho/mo nhat (chi 1 ky tu mau xam), nhieu
                       // nguoi dung khong biet co the tuy chinh cot - doi sang nut co nen/vien mau
                       // ocean + nhan chu (an tren man hinh rat hep) de noi bat hon han phan header con
@@ -333,8 +336,8 @@ export function PaginatedTable<T>({
                       // panel - nguoi dung yeu cau ro "tat bot ca cot dang hien thi" (khong chi bat cot
                       // an) giong dung the "Quan ly ton", nen gio liet ke TOAN BO toggleableColumns
                       // (gom ca cot "thuong" truoc day co dinh) - moi cot tru cot ghim dau tien deu bat/
-                      // tat duoc. columnSettingsPlacement === "toolbar" render nut nay o 1 dong rieng
-                      // phia tren bang thay vi o day (xem ngay tren <Card>).
+                      // tat duoc. Neu columnSettingsContainer duoc truyen vao, nut nay duoc portal ra
+                      // ngoai container do thay vi render o day (xem createPortal ngay tren <Card>).
                       <span className="ml-2 inline-block">{columnSettingsControl}</span>
                     )}
                     {storageKey && (
