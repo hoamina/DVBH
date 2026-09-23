@@ -4,7 +4,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc } from "../middleware/scopeByKhuVuc";
-import { csvTemplateResponse } from "../lib/csvTemplate";
+import { excelTemplateResponse } from "../lib/excelTemplate";
 import { parseSheetDateTime } from "../lib/sheetDateParser";
 import { loadKetQuaCap1ValidValues, isGhiChuBatBuocForKetQuaCap1 } from "../lib/ketQuaCap1";
 import { reserveSequentialIds } from "../lib/idCounter";
@@ -57,13 +57,14 @@ export const COLUMN_MAP: Record<string, string> = {
 
 importViPham.get("/column-map", (c) => c.json({ columnMap: COLUMN_MAP }));
 
-const TEMPLATE_CSV =
-  "ID CASE,ID KTV,NGÀY GHI NHẬN,LOẠI LỖI,KẾT QUẢ CẤP 1,GHI CHÚ\n" +
-  "1234567,,01/09/2026,Khac,Lỗi khác,Có ID case - anh_xa vao case nay\n" +
-  ",truongnx.ctv24h,02/09/2026,Khac,Lỗi khác,Khong co ID case - gan thang vao KTV theo ma\n";
+const TEMPLATE_ROWS = [
+  ["ID CASE", "ID KTV", "NGÀY GHI NHẬN", "LOẠI LỖI", "KẾT QUẢ CẤP 1", "GHI CHÚ"],
+  ["1234567", "", "01/09/2026", "Khac", "Lỗi khác", "Có ID case - ánh xạ vào case này"],
+  ["", "truongnx.ctv24h", "02/09/2026", "Khac", "Lỗi khác", "Không có ID case - gắn thẳng vào KTV theo mã"],
+];
 
 // GET /api/import/vi-pham/template
-importViPham.get("/template", (c) => csvTemplateResponse(c, TEMPLATE_CSV, "mau_import_vi_pham.csv"));
+importViPham.get("/template", (c) => excelTemplateResponse(c, TEMPLATE_ROWS, "mau_import_vi_pham.xlsx"));
 
 interface ParsedRow {
   lineNo: number;
