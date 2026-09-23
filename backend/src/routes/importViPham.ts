@@ -24,7 +24,14 @@ import { bumpVersions } from "../lib/dataVersions";
 // vi pham" cua module Bao cao vi pham), dung "Ghi chu" nguoi import dien nhu noi dung giai trinh
 // thay the.
 const importViPham = new Hono<{ Bindings: Env }>();
-importViPham.use("*", verifySessionMiddleware, loadUser, requireRole("Admin", "QC", "CSKH", "TN CSKH", "TBP CSKH"));
+importViPham.use("*", verifySessionMiddleware, loadUser);
+// requireRole chi ap cho /preview + /commit (doc/ghi du lieu that) - KHONG ap cho /template va
+// /column-map (chi la file mau/metadata tinh, khong nhay cam, giong pattern cac router import khac
+// nhu importGiaiTrinh.ts/importKhaoSat.ts). Truoc day requireRole nam o middleware "*" chung nen
+// nguoi dung thay duoc tab "Nhap Excel" (frontend gate canImportViPham trung 5 vai tro nay) nhung
+// vao thoi diem bam "Tai mau file" lai bi 403 neu vai_tro cua ho lech (vd bi doi vai tro sau khi tab
+// da mo san trong localStorage) - tach rieng de tai mau khong con phu thuoc dung 5 vai tro nay nua.
+const requireImportRole = requireRole("Admin", "QC", "CSKH", "TN CSKH", "TBP CSKH");
 
 // "KSNB" co CHU DICH KHONG co trong danh sach nay - danh rieng cho dong bo Google Sheet tu dong
 // (xem migration 0114), import tay khong duoc nhan danh nguon do.
@@ -229,7 +236,7 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
 }
 
 // POST /api/import/vi-pham/preview
-importViPham.post("/preview", async (c) => {
+importViPham.post("/preview", requireImportRole, async (c) => {
   const body = await c.req.json<{ rows: ImportRow[] }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const scope = scopeByKhuVuc(c);
@@ -238,7 +245,7 @@ importViPham.post("/preview", async (c) => {
 });
 
 // POST /api/import/vi-pham/commit
-importViPham.post("/commit", async (c) => {
+importViPham.post("/commit", requireImportRole, async (c) => {
   const body = await c.req.json<{ rows: ImportRow[]; filename?: string }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const scope = scopeByKhuVuc(c);
