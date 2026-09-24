@@ -104,6 +104,7 @@ const DANH_SACH_PAGE_SIZE = 20;
 
 const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
   id: "Mã vi phạm",
+  nguon: "Nguồn",
   caseId: "ID case",
   khuVuc: "Khu vực",
   kyThuatVien: "KTV",
@@ -111,16 +112,17 @@ const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
   loaiLoi: "Loại lỗi",
   ketQuaCap1: "Kết quả chốt cấp 1",
   trangThai: "Trạng thái",
+  giaiTrinhKtvNoiDung: "Giải trình của KTV",
+  giaiTrinhKtvNgay: "Ngày giải trình KTV",
+  giaiTrinhGsNoiDung: "Giải trình của GS",
+  giaiTrinhGsNgay: "Ngày giải trình GS",
+  ketQuaChotQc: "Kết quả chốt QC",
   ghiChu: "Ghi chú",
   diemThe: "Điểm thẻ",
   nguoiGhiNhan: "Người ghi nhận",
   ngayGhiNhan: "Ngày ghi nhận",
   nguoiChot: "Người chốt",
   ngayChot: "Ngày chốt",
-  giaiTrinhKtvNoiDung: "Giải trình của KTV",
-  giaiTrinhKtvNgay: "Ngày giải trình KTV",
-  giaiTrinhGsNoiDung: "Giải trình của GS",
-  giaiTrinhGsNgay: "Ngày giải trình GS",
 };
 
 const NHOM_OPTIONS = [
@@ -331,9 +333,38 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
   // Xuat Excel: goi lai API rieng voi export=true (LIMIT 5000 thay vi 500 tren man hinh) - dung
   // nguyen pattern handleExport() cua SurveyModule.tsx (routes/survey.ts GET /?export=true), KHONG
   // chi xuat dung 500 dong dang hien tren man hinh.
+  //
+  // Dung whitelist tuong minh (khong spread {...r}) thay vi de exportRowsToExcel() xuat nguyen cot
+  // tho cua DanhSachRow - 2 truong "source"/"chotBoCap2" (enum/co the null, dung noi bo cho FE quyet
+  // dinh hien nut Chot/Bo) khong co nhan Viet hoa rieng trong DANH_SACH_EXPORT_LABELS nen truoc day
+  // bi xuat kem theo TEN KHOA THO (vd cot "chotBoCap2" voi gia tri 0/1/null) thay vi hien nhu cot
+  // "Kết quả chốt QC" (dang chu, giong het cot tren man hinh) - CHOT sau bao cao "file tai ve khong
+  // du cot" 2026-09-24: chuyen sang derive 2 truong hien thi "nguon"/"ketQuaChotQc" ngay tai day,
+  // dam bao Excel khop CHINH XAC danh sach cot dang hien tren man hinh.
   async function handleExportDanhSach() {
     const res = await api.get<{ rows: DanhSachRow[] }>(`/bao-cao-vi-pham/danh-sach${buildQuery({ ...apiParams, trang_thai: trangThai || undefined, export: "true" })}`);
-    const rows = res.rows.map((r) => ({ ...r, khuVuc: r.khuVuc ? shortKhuVuc(r.khuVuc) : r.khuVuc }));
+    const rows = res.rows.map((r) => ({
+      id: r.id,
+      nguon: r.source === "ktv" ? "Import KTV (không gắn case)" : "Case",
+      caseId: r.caseId ?? "",
+      khuVuc: r.khuVuc ? shortKhuVuc(r.khuVuc) : "",
+      kyThuatVien: r.kyThuatVien ?? "",
+      khachHang: r.khachHang ?? "",
+      loaiLoi: r.loaiLoi,
+      ketQuaCap1: r.ketQuaCap1 ?? "",
+      trangThai: r.trangThai,
+      giaiTrinhKtvNoiDung: r.giaiTrinhKtvNoiDung ?? "",
+      giaiTrinhKtvNgay: r.giaiTrinhKtvNgay ?? "",
+      giaiTrinhGsNoiDung: r.giaiTrinhGsNoiDung ?? "",
+      giaiTrinhGsNgay: r.giaiTrinhGsNgay ?? "",
+      ketQuaChotQc: r.chotBoCap2 !== null ? (r.chotBoCap2 ? "Đã xác nhận" : "Không vi phạm") : "Chờ QC",
+      ghiChu: r.ghiChu ?? "",
+      diemThe: r.diemThe,
+      nguoiGhiNhan: r.nguoiGhiNhan,
+      ngayGhiNhan: r.ngayGhiNhan,
+      nguoiChot: r.nguoiChot ?? "",
+      ngayChot: r.ngayChot ?? "",
+    }));
     await exportRowsToExcel(rows, "bao_cao_vi_pham_danh_sach.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
   }
 
