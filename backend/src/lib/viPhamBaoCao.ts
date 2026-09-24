@@ -331,6 +331,15 @@ export interface ViPhamDanhSachRow {
   ngayGhiNhan: string;
   nguoiChot: string | null;
   ngayChot: string | null;
+  // 4 truong giai trinh (them 2026-09-24) - chi co o nhanh "case" (doc vi_pham_giai_trinh, xem
+  // giaiTrinhCols() ben duoi, port nguyen SQL tu routes/survey.ts giaiTrinhCols de nhat quan noi
+  // dung/dinh dang voi bang "Danh sach" cua Quan ly khao sat). Nhanh "ktv" LUON null - vi_pham_ktv
+  // (migration 0115, vi pham import KHONG gan case) KHONG co buoc giai trinh qua vi_pham_giai_trinh
+  // (chi FK toi vi_pham(id), xem migration 0108).
+  giaiTrinhKtvNoiDung: string | null;
+  giaiTrinhKtvNgay: string | null;
+  giaiTrinhGsNoiDung: string | null;
+  giaiTrinhGsNgay: string | null;
 }
 
 // Nhan hien thi trang thai (tieng Viet) tu 2 cot tho ket_qua_cap_1/chot_bo_cap_2 - dung CHUNG giua
@@ -352,6 +361,15 @@ const TRANG_THAI_CLAUSES_KTV: Record<string, string> = {
   da_chot: "vk.chot_bo_cap_2 = 1",
   da_bo: "vk.chot_bo_cap_2 = 0",
 };
+
+// Noi dung giai trinh gan nhat cua KTV/GS cho 1 vi_pham.id - port nguyen SQL tu giaiTrinhCols() o
+// routes/survey.ts (giu dung 4 ten cot de nhat quan) de tab "Tat ca vi pham" hien cung 1 noi dung
+// voi tab "Danh sach" cua Quan ly khao sat, khong tinh lai theo cach khac.
+const GIAI_TRINH_COLS = `,
+    (SELECT g.noi_dung_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'ktv_qua_api' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_ktv_noi_dung,
+    (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'ktv_qua_api' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_ktv_ngay,
+    (SELECT g.noi_dung_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_noi_dung,
+    (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_ngay`;
 
 function trangThaiLabel(chotBoCap2: number | null): string {
   if (chotBoCap2 === 1) return "QC đã chốt";
@@ -394,13 +412,14 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
       `SELECT * FROM (
          SELECT 'case' as source, v.id as id, v.case_id as case_id, c.khu_vuc as khu_vuc, c.ky_thuat_vien as ky_thuat_vien, c.khach_hang as khach_hang,
            v.loai_loi as loai_loi, v.ket_qua_cap_1 as ket_qua_cap_1, v.chot_bo_cap_2 as chot_bo_cap_2, ${DIEM_THE_EXPR} as diem_the,
-           v.ghi_chu as ghi_chu, v.nguoi_ghi_nhan as nguoi_ghi_nhan, v.ngay_ghi_nhan as ngay_ghi_nhan, v.nguoi_chot as nguoi_chot, v.ngay_chot as ngay_chot
+           v.ghi_chu as ghi_chu, v.nguoi_ghi_nhan as nguoi_ghi_nhan, v.ngay_ghi_nhan as ngay_ghi_nhan, v.nguoi_chot as nguoi_chot, v.ngay_chot as ngay_chot${GIAI_TRINH_COLS}
          FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
          WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
          UNION ALL
          SELECT 'ktv' as source, vk.id as id, NULL as case_id, vk.khu_vuc as khu_vuc, vk.ky_thuat_vien as ky_thuat_vien, NULL as khach_hang,
            vk.loai_loi as loai_loi, vk.ket_qua_cap_1 as ket_qua_cap_1, vk.chot_bo_cap_2 as chot_bo_cap_2, ${diemTheExpr("vk")} as diem_the,
-           vk.ghi_chu as ghi_chu, vk.nguoi_ghi_nhan as nguoi_ghi_nhan, vk.ngay_ghi_nhan as ngay_ghi_nhan, vk.nguoi_chot as nguoi_chot, vk.ngay_chot as ngay_chot
+           vk.ghi_chu as ghi_chu, vk.nguoi_ghi_nhan as nguoi_ghi_nhan, vk.ngay_ghi_nhan as ngay_ghi_nhan, vk.nguoi_chot as nguoi_chot, vk.ngay_chot as ngay_chot,
+           NULL as giai_trinh_ktv_noi_dung, NULL as giai_trinh_ktv_ngay, NULL as giai_trinh_gs_noi_dung, NULL as giai_trinh_gs_ngay
          FROM vi_pham_ktv vk
          WHERE vk.ngay_ghi_nhan >= ? AND vk.ngay_ghi_nhan < ?${ktvFilter.sql}${cap1FilterKtv.sql}${trangThaiSqlKtv}
        )
@@ -424,6 +443,10 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
       ngay_ghi_nhan: string;
       nguoi_chot: string | null;
       ngay_chot: string | null;
+      giai_trinh_ktv_noi_dung: string | null;
+      giai_trinh_ktv_ngay: string | null;
+      giai_trinh_gs_noi_dung: string | null;
+      giai_trinh_gs_ngay: string | null;
     }>();
 
   return {
@@ -444,6 +467,10 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
       ngayGhiNhan: r.ngay_ghi_nhan,
       nguoiChot: r.nguoi_chot,
       ngayChot: r.ngay_chot,
+      giaiTrinhKtvNoiDung: r.giai_trinh_ktv_noi_dung,
+      giaiTrinhKtvNgay: r.giai_trinh_ktv_ngay,
+      giaiTrinhGsNoiDung: r.giai_trinh_gs_noi_dung,
+      giaiTrinhGsNgay: r.giai_trinh_gs_ngay,
     })),
   };
 }

@@ -6,6 +6,7 @@ import { Select } from "../components/ui/Select";
 import { Btn } from "../components/ui/Btn";
 import { Tabs } from "../components/ui/Tabs";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
+import { Badge, statusTone } from "../components/ui/Badge";
 import { useToast } from "../components/ui/Toast";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { api, buildQuery } from "../api/client";
@@ -71,6 +72,12 @@ interface DanhSachRow {
   ngayGhiNhan: string;
   nguoiChot: string | null;
   ngayChot: string | null;
+  // Chi co o dong source==="case" (doc vi_pham_giai_trinh) - xem GIAI_TRINH_COLS trong
+  // backend/src/lib/viPhamBaoCao.ts, dong "ktv" luon null (vi_pham_ktv khong co buoc giai trinh).
+  giaiTrinhKtvNoiDung: string | null;
+  giaiTrinhKtvNgay: string | null;
+  giaiTrinhGsNoiDung: string | null;
+  giaiTrinhGsNgay: string | null;
 }
 
 // CHOT voi chu he thong 2026-09-22 (lan 2): "Khong loi" KHONG con la 1 lua chon loc o day - vi pham
@@ -110,6 +117,10 @@ const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
   ngayGhiNhan: "Ngày ghi nhận",
   nguoiChot: "Người chốt",
   ngayChot: "Ngày chốt",
+  giaiTrinhKtvNoiDung: "Giải trình của KTV",
+  giaiTrinhKtvNgay: "Ngày giải trình KTV",
+  giaiTrinhGsNoiDung: "Giải trình của GS",
+  giaiTrinhGsNgay: "Ngày giải trình GS",
 };
 
 const NHOM_OPTIONS = [
@@ -171,6 +182,20 @@ function heatBg(pct: number): string {
   return `rgba(216, 76, 76, ${alpha})`;
 }
 
+// Hien 1 o "Giai trinh cua KTV/GS" - rut gon 40 ky tu + ngay giai trinh, dung y het pattern
+// giaiTrinhCol() cua SurveyModule.tsx (tab cho-qc/da-xu-ly/vi-pham-da-chot) de nhat quan cach hien
+// thi giua 2 noi cung doc du lieu tu vi_pham_giai_trinh.
+function renderGiaiTrinh(noiDung: string | null, ngay: string | null) {
+  if (!noiDung) return <span className="text-xs text-[var(--ink-300)] italic">Chưa có</span>;
+  const rutGon = noiDung.length > 40 ? `${noiDung.slice(0, 40)}…` : noiDung;
+  return (
+    <div className="text-xs max-w-[200px] truncate" title={noiDung}>
+      {rutGon}
+      {ngay && <span className="text-[var(--ink-400)]"> ({ngay.slice(0, 10)})</span>}
+    </div>
+  );
+}
+
 // Cot cho PaginatedTable cua tab "Tat ca vi pham" - tach ham rieng (thay vi inline trong JSX) vi
 // cot "Thao tac" phu thuoc ca isQC lan chotMutation (callback + trang thai isPending).
 function danhSachColumns(isQC: boolean, chotMutation: { isPending: boolean; mutate: (v: { row: DanhSachRow; chot: boolean }) => void }): Column<DanhSachRow>[] {
@@ -191,6 +216,17 @@ function danhSachColumns(isQC: boolean, chotMutation: { isPending: boolean; muta
     { key: "loaiLoi", header: "Loại lỗi", render: (r) => r.loaiLoi },
     { key: "ketQuaCap1", header: "Kết quả cấp 1", render: (r) => r.ketQuaCap1 ?? "—" },
     { key: "trangThai", header: "Trạng thái", render: (r) => r.trangThai },
+    { key: "giaiTrinhKtv", header: "Giải trình của KTV", render: (r) => renderGiaiTrinh(r.giaiTrinhKtvNoiDung, r.giaiTrinhKtvNgay) },
+    { key: "giaiTrinhGs", header: "Giải trình của GS", render: (r) => renderGiaiTrinh(r.giaiTrinhGsNoiDung, r.giaiTrinhGsNgay) },
+    {
+      key: "ketQuaChotQc",
+      header: "Kết quả chốt QC",
+      render: (r) => (
+        <Badge tone={statusTone(r.chotBoCap2 !== null ? (r.chotBoCap2 ? "đã xác nhận" : "Không vi phạm") : "chờ QC")}>
+          {r.chotBoCap2 !== null ? (r.chotBoCap2 ? "Đã xác nhận" : "Không vi phạm") : "Chờ QC"}
+        </Badge>
+      ),
+    },
     { key: "diemThe", header: "Điểm thẻ", render: (r) => <span className="font-mono">{r.diemThe || "—"}</span> },
     { key: "ngayGhiNhan", header: "Ngày ghi nhận", render: (r) => <span className="text-xs">{r.ngayGhiNhan}</span> },
     { key: "ghiChu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghiChu ?? ""}</span> },
