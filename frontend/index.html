@@ -3,7 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/png" href="/logo-37.png" />
+    <!-- Icon "DVBH 3T" dung CHUNG cho tab trinh duyet, sidebar, man hinh login va icon PWA cai len
+         man hinh chinh (2026-09-26, thay logo-37.png cu) - xem frontend/public/icon-*.png. -->
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <!-- PWA "Cài đặt vào màn hình chính" - cung co che voi linh-kien-app/vi pham app
+         (display:"standalone"), nut cai dat o Sidebar (InstallAppButton.tsx). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#106eb4" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="DVBH 3T" />
+    <meta name="application-name" content="DVBH 3T" />
     <title>Dịch Vụ 3T - DVBH</title>
   </head>
   <body>

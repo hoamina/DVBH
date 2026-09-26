@@ -3769,3 +3769,18 @@ test đầu vẫn ra toàn 0 — không phải bug), xác nhận cả 3 tab UI r
 xong. **Bài học chung:** khi thêm 1 filter hẹp (vd `doi_tac`) vào 1 hàm dùng chung đã có sẵn
 `INDEXED BY`/UNION ALL tối ưu cho use-case khác, PHẢI kiểm `EXPLAIN QUERY PLAN` trước khi tin là "tái
 dùng code = tái dùng được cả hiệu năng" — 2 việc độc lập nhau.
+
+## 2026-09-26 — Icon mới "DVBH 3T" + cài đặt PWA lên màn hình điện thoại
+
+Chủ hệ thống gửi icon mới (nền xanh, chữ "3T", tài liệu + kính lúp + thùng hàng), yêu cầu dùng cho
+toàn bộ hệ thống và thêm chức năng cài lên màn hình điện thoại giống linh-kien-app / vi pham app, tên
+app "DVBH 3T". Sinh bộ icon từ ảnh gốc (Python/PIL, cắt nền trắng quanh góc bo thành trong suốt):
+`frontend/public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (icon thu nhỏ trên nền
+`#106eb4` để Android cắt tròn không mất nội dung), `apple-touch-icon.png` (nền đặc, iOS tự bo góc),
+`favicon.png`/`favicon.ico`. Thêm `manifest.webmanifest` (`display: standalone`), thẻ manifest/
+apple-touch-icon/theme-color trong `index.html`. Sidebar + LoginScreen đổi `logo-37.png` →
+`icon-192.png` (file `logo-37.png` cũ để lại, không còn nơi nào tham chiếu). Hook `usePwaInstall.ts`
+port nguyên từ linh-kien-app; nút `InstallAppButton.tsx` chỉ hiện ở Sidebar mobile, ẩn khi đã chạy dạng
+app (standalone). Android/Chrome bấm là gọi prompt cài thật; iOS/không có prompt → Modal hướng dẫn thủ
+công (render qua `createPortal` vì Sidebar mobile nằm trong div có `transform`, `fixed` sẽ bị kẹt
+trong khung 256px). Không thêm service worker (Chrome hiện không còn bắt buộc SW để cài PWA).

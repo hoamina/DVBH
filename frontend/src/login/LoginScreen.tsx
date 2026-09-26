@@ -10,7 +10,7 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
   return (
     <div className="min-h-screen ripple-bg flex items-center justify-center" style={{ background: "linear-gradient(160deg, var(--ocean-950), var(--ocean-800))" }}>
       <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-sm text-center anim-in">
-        <img src="/logo-37.png" alt="Ông Thợ 3T" width={52} height={52} className="mx-auto mb-3 rounded-xl" />
+        <img src="/icon-192.png" alt="DVBH 3T" width={52} height={52} className="mx-auto mb-3 rounded-xl" />
         <div className="font-display font-extrabold text-xl mb-1">{title}</div>
         <div className="text-sm text-[var(--ink-400)] mb-7">{sub}</div>
         {variant === "login" && (

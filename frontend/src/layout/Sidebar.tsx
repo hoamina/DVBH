@@ -3,6 +3,7 @@ import { NAV_GROUPS, type NavItem } from "./navConfig";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
 import { api } from "../api/client";
+import { InstallAppButton } from "./InstallAppButton";
 
 // datMuaLk la object breakdown-theo-loai-viec (xem DatMuaLkBreakdown o backend/src/routes/notifications.ts)
 // tu 2026-08-15 - sidebar chi can ".total" de hien 1 con so gon, breakdown chi tiet hien trong
@@ -62,7 +63,7 @@ export function Sidebar({
       style={{ background: "linear-gradient(180deg, var(--sidebar-from), var(--sidebar-to) 60%)" }}
     >
       <div className="flex items-center gap-2.5 px-4 h-16 shrink-0 border-b border-[var(--sidebar-highlight)]">
-        <img src="/logo-37.png" alt="Ông Thợ 3T" width={30} height={30} className="shrink-0 rounded-md" />
+        <img src="/icon-192.png" alt="DVBH 3T" width={30} height={30} className="shrink-0 rounded-md" />
         {(!collapsed || isMobile) && (
           <div className="leading-tight">
             <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">DỊCH VỤ 3T - DVBH</div>
@@ -109,6 +110,11 @@ export function Sidebar({
           );
         })}
       </nav>
+      {isMobile && (
+        <div className="px-2.5 pt-1 shrink-0">
+          <InstallAppButton onNavigateAway={onMobileClose} />
+        </div>
+      )}
       {!isMobile && (
         <button
           onClick={() => setCollapsed(!collapsed)}
