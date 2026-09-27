@@ -30,6 +30,13 @@ const KET_QUA_GOI_OPTIONS = [
 
 const LY_DO_THAT_BAI_OPTIONS = ["Khách không nghe máy", "Thuê bao không liên lạc được", "Số điện thoại sai", "Khách hẹn gọi lại giờ khác", "Khác"];
 
+// "Da hen KH?" (CHOT 2026-09-27, migration 0117) - 3 gia tri khop DA_HEN_KH_VALUES o backend/src/routes/survey.ts.
+const DA_HEN_KH_OPTIONS: { value: string; label: string }[] = [
+  { value: "Da hen KH", label: "Đã hẹn KH" },
+  { value: "Chua hen KH", label: "Chưa hẹn KH" },
+  { value: "Khong xac dinh", label: "Không xác định" },
+];
+
 function buildAdHocRow(detail: { case: CaseRow; viPham: ViPhamRow[] }): QueueItem {
   const c = detail.case;
   const already = new Set(detail.viPham.map((v) => v.loai_loi));
@@ -303,10 +310,15 @@ export function SurveyCallWorkspace({
   const [ghiChu, setGhiChu] = useState("");
   const [lyDoThatBai, setLyDoThatBai] = useState(LY_DO_THAT_BAI_OPTIONS[0]);
   const [canGoiLai, setCanGoiLai] = useState(true);
+  // "Da hen KH?" (CHOT 2026-09-27) - chi ap dung cho loai_loi "Loi 120 phut", bat buoc khi checkbox
+  // do duoc tick (khong phan biet ket luan Khong loi/Loi - day la cau hoi ve BAN THAN cuoc goi).
+  const [daHenKh, setDaHenKh] = useState("");
 
-  useEffect(() => {
-    if (!activeRow) return;
-    const needed = neededLoaiLoi(activeRow);
+  // Reset toan bo form ve trang - dung chung cho ca 2 truong hop: chuyen sang ca khac (useEffect ben
+  // duoi) VA bam "Chi luu cuoc goi" (khong chuyen ca, nhung can nhap 1 ban ghi cuoc goi HOAN TOAN moi
+  // cho CUNG 1 ca - CHOT 2026-09-27).
+  function resetForm(row: QueueItem) {
+    const needed = neededLoaiLoi(row);
     setContactType("Khách hàng");
     setCallResult("Liên hệ thành công");
     setSelected(Object.fromEntries(needed.map((k) => [k, false])));
@@ -315,6 +327,12 @@ export function SurveyCallWorkspace({
     setGhiChu("");
     setLyDoThatBai(LY_DO_THAT_BAI_OPTIONS[0]);
     setCanGoiLai(true);
+    setDaHenKh("");
+  }
+
+  useEffect(() => {
+    if (!activeRow) return;
+    resetForm(activeRow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRow?.id]);
 
@@ -326,11 +344,15 @@ export function SurveyCallWorkspace({
       ghi_chu?: string;
       ly_do_that_bai?: string;
       can_goi_lai?: boolean;
+      da_hen_kh?: string;
       results: { loai_loi: LoaiLoi; ket_luan: "loi" | "khong_loi"; ket_qua_cap_1?: string }[];
     }) => api.post<{ id: string; daGhiNhan: LoaiLoi[]; boQua: LoaiLoi[] }>("/survey/calls", payload),
   });
 
-  async function submitSuccessCall() {
+  // "advance" = false (nut "Chi luu cuoc goi", CHOT 2026-09-27): luu ket qua nhung KHONG danh dau ca
+  // xong/day xuong cuoi hang doi - dung khi CSKH can ghi nhieu ban ghi cuoc goi khac nhau cho CUNG 1
+  // ca (vd goi lai nhieu lan trong ngay) ma khong muon he thong tu chuyen sang ca khac giua cac lan.
+  async function submitSuccessCall(advance: boolean) {
     if (!activeRow) return;
     const needed = neededLoaiLoi(activeRow);
     const chosen = needed.filter((k) => selected[k]);
@@ -342,6 +364,12 @@ export function SurveyCallWorkspace({
     // 14 lua chon tu Settings, khong con gia tri mac dinh doan truoc duoc).
     if (callResult === "Liên hệ thành công" && missingKetQuaCap1) {
       addToast("Chọn Kết quả cấp 1 cho tất cả lỗi đã kết luận \"Lỗi\" trước khi lưu.");
+      return;
+    }
+    // "Da hen KH?" (CHOT 2026-09-27): bat buoc khi checkbox "Loi 120 phut" duoc tick, bat ke ket luan
+    // Khong loi/Loi (xem missingDaHenKh).
+    if (callResult === "Liên hệ thành công" && missingDaHenKh) {
+      addToast("Chọn \"Đã hẹn KH?\" cho lỗi 120 phút trước khi lưu.");
       return;
     }
     // Bat buoc ghi chu neu co loi thuoc dong bat_buoc_ghi_chu=1 (vd "Lỗi khác" - xem migration 0112,
@@ -358,10 +386,21 @@ export function SurveyCallWorkspace({
         doi_tuong_lien_he: contactType,
         ket_qua_cuoc_goi: callResult,
         ghi_chu: ghiChu || undefined,
+        da_hen_kh: chosen.includes("Loi 120 phut" as LoaiLoi) ? daHenKh : undefined,
         results: callResult === "Không cần khảo sát"
           ? needed.map((loai) => ({ loai_loi: loai, ket_luan: "khong_loi" as const }))
           : chosen.map((loai) => ({ loai_loi: loai, ket_luan: ketLuan[loai], ket_qua_cap_1: ketLuan[loai] === "loi" ? ketQuaCap1[loai] : undefined })),
       });
+      setSessionDone((n) => n + 1);
+      qc.invalidateQueries({ queryKey: ["survey-counts"] });
+      refetchCandidates();
+      if (!advance) {
+        // Chi luu cuoc goi: khong dong bo calledIds/bumpOrder/adHocId - o lai DUNG ca nay, reset form
+        // trang de nhap 1 ban ghi cuoc goi moi.
+        resetForm(activeRow);
+        addToast(`Đã lưu thêm 1 kết quả cuộc gọi cho ca ${activeRow.id} — vẫn ở lại ca này.`);
+        return;
+      }
       // Case chi thuc su "xong" (roi khoi hang doi) khi TAT CA loai_loi can khao sat da co ket qua -
       // gom ca loai vua ghi nhan (daGhiNhan) LAN loai da duoc nguoi khac ghi nhan truoc do (boQua).
       // Neu agent chi chon 1 phan (vd 1/2 loai_loi), cac loai con lai VAN can xu ly - khong duoc
@@ -376,9 +415,6 @@ export function SurveyCallWorkspace({
         bumpCounter.current += 1;
         setBumpOrder((prev) => new Map(prev).set(activeRow.id, bumpCounter.current));
       }
-      setSessionDone((n) => n + 1);
-      qc.invalidateQueries({ queryKey: ["survey-counts"] });
-      refetchCandidates();
       if (adHocId) setAdHocId(null);
       if (remaining.length > 0) {
         const remainLabel = remaining.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ");
@@ -398,7 +434,7 @@ export function SurveyCallWorkspace({
     }
   }
 
-  async function submitFailedCall() {
+  async function submitFailedCall(advance: boolean) {
     if (!activeRow) return;
     try {
       await submitCall.mutateAsync({
@@ -410,9 +446,14 @@ export function SurveyCallWorkspace({
         can_goi_lai: canGoiLai,
         results: [],
       });
+      setSessionRetry((n) => n + 1);
+      if (!advance) {
+        resetForm(activeRow);
+        addToast(`Đã lưu cuộc gọi chưa liên hệ được cho ca ${activeRow.id} — vẫn ở lại ca này.`);
+        return;
+      }
       bumpCounter.current += 1;
       setBumpOrder((prev) => new Map(prev).set(activeRow.id, bumpCounter.current));
-      setSessionRetry((n) => n + 1);
       if (adHocId) setAdHocId(null);
       addToast(`Đã lưu cuộc gọi chưa liên hệ được cho ca ${activeRow.id} — sẽ quay lại cuối hàng đợi.`);
     } catch {
@@ -429,8 +470,8 @@ export function SurveyCallWorkspace({
       if (e.ctrlKey && e.key === "Enter") {
         if (!activeRow || neededLoaiLoi(activeRow).length === 0) return;
         e.preventDefault();
-        if (callResult === "Liên hệ thành công" || callResult === "Không cần khảo sát") void submitSuccessCall();
-        else void submitFailedCall();
+        if (callResult === "Liên hệ thành công" || callResult === "Không cần khảo sát") void submitSuccessCall(true);
+        else void submitFailedCall(true);
         return;
       }
       // PageDown/PageUp de bo qua/quay lai bang phim, nhung chi khi khong dang go trong
@@ -447,7 +488,7 @@ export function SurveyCallWorkspace({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRow, callResult, selected, ketLuan, ketQuaCap1, ghiChu, lyDoThatBai, canGoiLai, currentIndex, pool.length]);
+  }, [activeRow, callResult, selected, ketLuan, ketQuaCap1, ghiChu, lyDoThatBai, canGoiLai, daHenKh, currentIndex, pool.length]);
 
   const needed = activeRow ? neededLoaiLoi(activeRow) : [];
   const loiEntries = needed.filter((k) => selected[k] && ketLuan[k] === "loi");
@@ -455,6 +496,9 @@ export function SurveyCallWorkspace({
   // gia tri tu danh sach (khong con gia tri mac dinh san nhu truoc, vi danh sach gio 14 lua chon,
   // khong the doan dung y CSKH) - chan submit neu con thieu, xem submitSuccessCall.
   const missingKetQuaCap1 = loiEntries.some((k) => !ketQuaCap1[k]);
+  // "Da hen KH?" (CHOT 2026-09-27): bat buoc ngay khi checkbox "Loi 120 phut" duoc tick, khong phan
+  // biet ket luan Khong loi/Loi (day la cau hoi ve BAN THAN cuoc goi - xem migration 0117).
+  const missingDaHenKh = !!selected["Loi 120 phut"] && !daHenKh;
   // Bat buoc Ghi chu neu BAT KY loi da chon co gia tri ket_qua_cap_1 thuoc dong bat_buoc_ghi_chu=1
   // (vd "Loi khac", xem migration 0112) - thay the so sanh chuoi cung truoc day.
   const ghiChuRequired = callResult === "Liên hệ thành công" && loiEntries.some((k) => batBuocGhiChuByTenLoi.get(ketQuaCap1[k] ?? "") === true);
@@ -798,6 +842,27 @@ export function SurveyCallWorkspace({
                                   />
                                 </div>
                               )}
+                              {/* "Da hen KH?" (CHOT 2026-09-27, migration 0117) - CHI ap dung "Loi 120 phut",
+                                  hien/bat buoc ngay khi tick checkbox, bat ke ket luan Khong loi/Loi. */}
+                              {loai === "Loi 120 phut" && selected[loai] && (
+                                <div>
+                                  <label className="text-xs font-semibold text-[var(--ink-400)]">
+                                    Đã gọi đặt hẹn với KH chưa? <span className="text-[var(--coral-500)]">* bắt buộc</span>
+                                  </label>
+                                  <div className="flex gap-1 mt-1">
+                                    {DA_HEN_KH_OPTIONS.map((opt) => (
+                                      <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setDaHenKh(opt.value)}
+                                        className={btnStyle(daHenKh === opt.value, "teal")}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -824,12 +889,23 @@ export function SurveyCallWorkspace({
                             Bỏ qua ⏭
                           </Btn>
                         </div>
-                        <Btn
-                          onClick={submitSuccessCall}
-                          disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || missingKetQuaCap1 || (ghiChuRequired && !ghiChu.trim())}
-                        >
-                          {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
-                        </Btn>
+                        <div className="flex gap-2">
+                          {/* "Chi luu cuoc goi" (CHOT 2026-09-27): luu nhung o lai ca nay - dung khi can
+                              ghi nhieu ban ghi cuoc goi khac nhau cho cung 1 ca. */}
+                          <Btn
+                            variant="ghost"
+                            onClick={() => submitSuccessCall(false)}
+                            disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || missingKetQuaCap1 || missingDaHenKh || (ghiChuRequired && !ghiChu.trim())}
+                          >
+                            {submitCall.isPending ? "Đang lưu…" : "💾 Chỉ lưu cuộc gọi"}
+                          </Btn>
+                          <Btn
+                            onClick={() => submitSuccessCall(true)}
+                            disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || missingKetQuaCap1 || missingDaHenKh || (ghiChuRequired && !ghiChu.trim())}
+                          >
+                            {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
+                          </Btn>
+                        </div>
                       </div>
                     </>
                   ) : callResult === "Không cần khảo sát" ? (
@@ -850,7 +926,7 @@ export function SurveyCallWorkspace({
                             Bỏ qua ⏭
                           </Btn>
                         </div>
-                        <Btn onClick={submitSuccessCall} disabled={submitCall.isPending}>
+                        <Btn onClick={() => submitSuccessCall(true)} disabled={submitCall.isPending}>
                           {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
                         </Btn>
                       </div>
@@ -879,9 +955,14 @@ export function SurveyCallWorkspace({
                             Bỏ qua ⏭
                           </Btn>
                         </div>
-                        <Btn variant="success" onClick={submitFailedCall} disabled={submitCall.isPending}>
+                        <div className="flex gap-2">
+                          <Btn variant="ghost" onClick={() => submitFailedCall(false)} disabled={submitCall.isPending}>
+                            {submitCall.isPending ? "Đang lưu…" : "📵 Chỉ lưu cuộc gọi"}
+                          </Btn>
+                          <Btn variant="success" onClick={() => submitFailedCall(true)} disabled={submitCall.isPending}>
                           {submitCall.isPending ? "Đang lưu…" : "📵 Lưu cuộc gọi & tiếp theo"}
-                        </Btn>
+                          </Btn>
+                        </div>
                       </div>
                     </>
                   )}

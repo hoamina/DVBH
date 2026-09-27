@@ -28,6 +28,9 @@ import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 // YEU_CAU_BAO_CAO_TINH_SAN.md - ap dung dong nhat, don gian hon tach rieng tung endpoint).
 const SURVEY_REPORT_DOMAINS = ["cases", "vi_pham", "ket_qua_goi"] as const;
 
+// "Da hen KH?" (migration 0117) - xem chu thich day du o POST /calls ben duoi.
+export const DA_HEN_KH_VALUES = ["Da hen KH", "Chua hen KH", "Khong xac dinh"] as const;
+
 const survey = new Hono<{ Bindings: Env }>();
 survey.use("*", verifySessionMiddleware, loadUser);
 
@@ -559,6 +562,9 @@ interface SurveyKhuVucRow {
   da_goi_120p: number;
   bo_qua_120p: number;
   thanh_cong_120p: number;
+  // Chi dung cho cong thuc "Ty le % da goi hen 120'" (CHOT 2026-09-27, migration 0117) - CHI tinh
+  // ca da lien he thanh cong VA da chon "Da hen KH", khac "da_goi_120p"/"thanh_cong_120p" o tren.
+  da_goi_120p_hen_thanh_cong: number;
   da_goi_24h: number;
   bo_qua_24h: number;
   thanh_cong_24h: number;
@@ -696,7 +702,22 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
   // vi_pham) bi gioi han dung nguoi da khao sat. "Vi pham da xac nhan" dung dung bieu thuc
   // XAC_NHAN_EXPR o routes/viPham.ts/dashboard.ts: QC da chot la vi pham, hoac chua QC xet nhung
   // CSKH da ket luan loi cap 1.
-  const nguoiKhaoSatJoinSql = params.nguoi_khao_sat ? " AND %ALIAS%.nguoi_ghi_nhan = ?" : "";
+  // FIX 2026-09-27 (phat hien khi lam tinh nang "Chi luu cuoc goi"/da_hen_kh): tu migration
+  // 0113/0114, UNIQUE(vi_pham) da noi long thanh (case_id, loai_loi, ket_qua_cap_1) - 1 case CO THE
+  // co nhieu dong vi_pham CUNG loai_loi neu 2 lan luu chon ket_qua_cap_1 khac nhau (chinh la tinh
+  // huong nut "Chi luu cuoc goi" moi cho phep xay ra thuong xuyen hon). JOIN truc tiep theo
+  // (case_id, loai_loi) nhu truoc se FAN OUT (1 case ra nhieu dong ket qua), dem trung ca cac cot
+  // da_goi_X/vi_pham_X/giai_trinh_X. Sua: JOIN qua 1 subquery chon dung 1 dong vi_pham MOI NHAT
+  // (ORDER BY ngay_ghi_nhan DESC, id DESC LIMIT 1) cho moi (case, loai_loi) - dam bao 1:1. Neu co
+  // loc "nguoi_khao_sat", dieu kien nam NGAY TRONG subquery (khong phai o ngoai) - giu nguyen y
+  // nghia cu: mau so (tong_tiep_nhan o khoi 1) khong bi thu hep, chi tu so (da_goi/vi_pham) bi gioi
+  // han dung nguoi da khao sat.
+  const nguoiKhaoSatSubSql = params.nguoi_khao_sat ? " AND v.nguoi_ghi_nhan = ?" : "";
+  const latestViPhamJoin = (alias: string, loaiLoi: string) => `
+       LEFT JOIN vi_pham ${alias} ON ${alias}.id = (
+         SELECT v.id FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = '${loaiLoi}'${nguoiKhaoSatSubSql}
+         ORDER BY v.ngay_ghi_nhan DESC, v.id DESC LIMIT 1
+       )`;
   const xacNhanExpr = (alias: string) => `COALESCE(${alias}.chot_bo_cap_2, CASE WHEN ${alias}.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1`;
   const khoi3JoinBinds = params.nguoi_khao_sat ? [params.nguoi_khao_sat, params.nguoi_khao_sat, params.nguoi_khao_sat, params.nguoi_khao_sat] : [];
   // CHOT 2026-09-14: tach "da_goi_X" (dinh nghia lai = da goi VA CO ket luan, loai tru "Khong can
@@ -720,6 +741,10 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
          SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND kq120.ket_qua_cuoc_goi != 'Không cần khảo sát' THEN 1 ELSE 0 END) as da_goi_120p,
          SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND kq120.ket_qua_cuoc_goi = 'Không cần khảo sát' THEN 1 ELSE 0 END) as bo_qua_120p,
          SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND kq120.ket_qua_cuoc_goi = 'Liên hệ thành công' THEN 1 ELSE 0 END) as thanh_cong_120p,
+         -- "da_goi_120p_hen_thanh_cong" (CHOT 2026-09-27, migration 0117): dung rieng cho cong thuc
+         -- "Ty le % da goi hen 120'" - CHI tinh ca da lien he thanh cong VA da chon "Da hen KH" (khac
+         -- "da_goi_120p"/"thanh_cong_120p" o tren, khong xet field da_hen_kh).
+         SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND kq120.ket_qua_cuoc_goi = 'Liên hệ thành công' AND kq120.da_hen_kh = 'Da hen KH' THEN 1 ELSE 0 END) as da_goi_120p_hen_thanh_cong,
          SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND ${xacNhanExpr("v120")} THEN 1 ELSE 0 END) as vi_pham_120p,
          SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND ${xacNhanExpr("v120")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v120.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as giai_trinh_ktv_120p,
          SUM(CASE WHEN c.loi_120p=1 AND v120.id IS NOT NULL AND ${xacNhanExpr("v120")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v120.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as giai_trinh_gs_120p,
@@ -742,13 +767,13 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
          SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vhl.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as giai_trinh_ktv_hl,
          SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vhl.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as giai_trinh_gs_hl
        FROM case_dvbh c
-       LEFT JOIN vi_pham v120 ON v120.case_id = c.id AND v120.loai_loi = 'Loi 120 phut'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "v120")}
+       ${latestViPhamJoin("v120", "Loi 120 phut")}
        LEFT JOIN ket_qua_goi kq120 ON kq120.id = v120.ket_qua_goi_id
-       LEFT JOIN vi_pham v24h ON v24h.case_id = c.id AND v24h.loai_loi = 'Hen qua 24h'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "v24h")}
+       ${latestViPhamJoin("v24h", "Hen qua 24h")}
        LEFT JOIN ket_qua_goi kq24h ON kq24h.id = v24h.ket_qua_goi_id
-       LEFT JOIN vi_pham vlkh ON vlkh.case_id = c.id AND vlkh.loai_loi = 'Loi lo ke hoach'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "vlkh")}
+       ${latestViPhamJoin("vlkh", "Loi lo ke hoach")}
        LEFT JOIN ket_qua_goi kqlkh ON kqlkh.id = vlkh.ket_qua_goi_id
-       LEFT JOIN vi_pham vhl ON vhl.case_id = c.id AND vhl.loai_loi = 'KH hen lai'${nguoiKhaoSatJoinSql.replace("%ALIAS%", "vhl")}
+       ${latestViPhamJoin("vhl", "KH hen lai")}
        LEFT JOIN ket_qua_goi kqhl ON kqhl.id = vhl.ket_qua_goi_id
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
        GROUP BY ${dimCol}`,
@@ -756,7 +781,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
     .bind(...khoi3JoinBinds, start, end, ...commonFilterBinds)
     .all<{
       nhom: string;
-      da_goi_120p: number; bo_qua_120p: number; thanh_cong_120p: number; vi_pham_120p: number; giai_trinh_ktv_120p: number; giai_trinh_gs_120p: number;
+      da_goi_120p: number; bo_qua_120p: number; thanh_cong_120p: number; da_goi_120p_hen_thanh_cong: number; vi_pham_120p: number; giai_trinh_ktv_120p: number; giai_trinh_gs_120p: number;
       da_goi_24h: number; bo_qua_24h: number; thanh_cong_24h: number; vi_pham_24h: number; giai_trinh_ktv_24h: number; giai_trinh_gs_24h: number;
       da_goi_lkh: number; bo_qua_lkh: number; thanh_cong_lkh: number; vi_pham_lkh: number; giai_trinh_ktv_lkh: number; giai_trinh_gs_lkh: number;
       da_goi_hl: number; bo_qua_hl: number; thanh_cong_hl: number; vi_pham_hl: number; giai_trinh_ktv_hl: number; giai_trinh_gs_hl: number;
@@ -861,6 +886,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
         da_goi_120p: 0,
         bo_qua_120p: 0,
         thanh_cong_120p: 0,
+        da_goi_120p_hen_thanh_cong: 0,
         da_goi_24h: 0,
         bo_qua_24h: 0,
         thanh_cong_24h: 0,
@@ -924,6 +950,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
     row.da_goi_120p = r.da_goi_120p;
     row.bo_qua_120p = r.bo_qua_120p;
     row.thanh_cong_120p = r.thanh_cong_120p;
+    row.da_goi_120p_hen_thanh_cong = r.da_goi_120p_hen_thanh_cong;
     row.vi_pham_120p = r.vi_pham_120p;
     row.da_goi_24h = r.da_goi_24h;
     row.bo_qua_24h = r.bo_qua_24h;
@@ -970,10 +997,11 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
     row.ty_le_vi_pham_tren_da_goi_lkh = pct(row.vi_pham_lkh, row.thanh_cong_lkh);
     row.ty_le_vi_pham_tren_da_goi_hl = pct(row.vi_pham_hl, row.thanh_cong_hl);
     // Metric 5/6 (da xac nhan voi nguoi dung dung "vi pham 120'" trong ca 2 cong thuc, khong phai
-    // "hen lai" du ten chi so nhac den hen lai) - LUU Y: "da_goi_120p" doi dinh nghia 2026-09-14 (nay
-    // loai tru "Khong can khao sat", truoc gom ca no) nen gia tri chi so nay cung doi theo, chua co
-    // yeu cau rieng de xet lai cong thuc nay.
-    row.ty_le_da_goi_hen_lai_toan_he_thong = pct(row.tong_tiep_nhan - (row.nghi_ngo_120p - row.da_goi_120p), row.tong_tiep_nhan);
+    // "hen lai" du ten chi so nhac den hen lai). CHOT 2026-09-27: doi mau so tu "da_goi_120p" (moi
+    // ket luan da co, ke ca that bai/khong hen) sang "da_goi_120p_hen_thanh_cong" (CHI tinh ca da
+    // lien he thanh cong VA da chon "Da hen KH", migration 0117) - danh dung y nghia ten cot "da goi
+    // HEN 120'", truoc day dung nham da_goi_120p rong hon lam chi so bi thoi phong.
+    row.ty_le_da_goi_hen_lai_toan_he_thong = pct(row.tong_tiep_nhan - (row.nghi_ngo_120p - row.da_goi_120p_hen_thanh_cong), row.tong_tiep_nhan);
     row.ty_le_ktv_chu_dong_toan_he_thong = pct(row.tong_tiep_nhan - row.nghi_ngo_120p, row.tong_tiep_nhan);
     row.ty_le_goi_thanh_cong = pct(row.goi_thanh_cong, row.tong_cuoc_goi);
   }
@@ -1003,10 +1031,9 @@ survey.get("/bao-cao-khu-vuc", async (c) => {
     if (dk === "khu_vuc" || dk === "tinh") continue;
     params[dk] = c.req.query(dk);
   }
-  // "bao-cao-khu-vuc-v6" (2026-09-14): tach "da_goi_X" thanh bo_qua/da_goi/thanh_cong + them
-  // giai_trinh_ktv/giai_trinh_gs - doi hau to key (nhu lan "-v5" truoc) de ep tinh lai ngay, tranh
-  // cache cu (thieu cac truong moi) duoc tra ve cho toi khi domain "vi_pham" tinh co bump tu nhien.
-  const key = buildReportKey("survey/bao-cao-khu-vuc-v6", params, scope);
+  // "bao-cao-khu-vuc-v7" (2026-09-27): them "da_goi_120p_hen_thanh_cong" + sua JOIN vi_pham (chi lay
+  // dong moi nhat/case+loai_loi, tranh dem trung) - doi hau to key nhu lan "-v6" truoc.
+  const key = buildReportKey("survey/bao-cao-khu-vuc-v7", params, scope);
   const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
   return c.json(payload);
 });
@@ -1023,6 +1050,7 @@ survey.post(
       ghi_chu?: string;
       ly_do_that_bai?: string;
       can_goi_lai?: boolean;
+      da_hen_kh?: string;
       results: { loai_loi: LoaiLoi; ket_luan: "loi" | "khong_loi"; ket_qua_cap_1?: string }[];
     }>();
 
@@ -1030,6 +1058,12 @@ survey.post(
     // chi ghi lai ket_qua_goi (co can_goi_lai) de goi lai sau, khong ket luan vi pham nao ca.
     if (!body.case_id || !Array.isArray(body.results) || (body.results.length === 0 && body.can_goi_lai === undefined)) {
       return c.json({ error: "INVALID_BODY" }, 400);
+    }
+    // "Da hen KH?" (CHOT 2026-09-27, migration 0117): bat buoc khi cuoc goi nay co dinh kem ket luan
+    // cho "Loi 120 phut" (bat ke Khong loi/Loi - day la cau hoi ve BAN THAN cuoc goi, doc lap voi ket
+    // luan cuoi cung) - dung de tinh lai "Ty le % da goi hen 120'" (xem computeSurveyKhuVucReport).
+    if (body.results.some((r) => r.loai_loi === "Loi 120 phut") && !DA_HEN_KH_VALUES.includes(body.da_hen_kh as (typeof DA_HEN_KH_VALUES)[number])) {
+      return c.json({ error: "DA_HEN_KH_BAT_BUOC" }, 400);
     }
 
     const caseRow = await c.env.DB.prepare(
@@ -1074,8 +1108,8 @@ survey.post(
     const ketQuaGoiId = await nextSequentialId(c.env.DB, "ket_qua_goi", "CG", 6);
 
     await c.env.DB.prepare(
-      `INSERT INTO ket_qua_goi (id, case_id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, ghi_chu, ly_do_that_bai, can_goi_lai, nguoi_thuc_hien, ngay_gio_thuc_hien)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ket_qua_goi (id, case_id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, ghi_chu, ly_do_that_bai, can_goi_lai, nguoi_thuc_hien, ngay_gio_thuc_hien, da_hen_kh)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         ketQuaGoiId,
@@ -1088,6 +1122,7 @@ survey.post(
         body.can_goi_lai === undefined ? null : body.can_goi_lai ? 1 : 0,
         user.email,
         nowVN(),
+        body.results.some((r) => r.loai_loi === "Loi 120 phut") ? body.da_hen_kh : null,
       )
       .run();
 

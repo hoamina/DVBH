@@ -118,6 +118,7 @@ interface SurveyBaoCaoRow {
   da_goi_120p: number;
   bo_qua_120p: number;
   thanh_cong_120p: number;
+  da_goi_120p_hen_thanh_cong: number;
   da_goi_24h: number;
   bo_qua_24h: number;
   thanh_cong_24h: number;
@@ -196,6 +197,7 @@ const SURVEY_BAO_CAO_EXPORT_LABELS: Record<string, string> = {
   da_goi_120p: "Đã gọi 120 phút",
   ty_le_da_goi_120p: "% Đã gọi 120 phút",
   thanh_cong_120p: "Đã gọi thành công 120 phút",
+  da_goi_120p_hen_thanh_cong: "Đã gọi hẹn thành công 120 phút",
   vi_pham_120p: "Vi phạm 120 phút",
   ty_le_vi_pham_120p: "% Vi phạm 120 phút",
   ty_le_vi_pham_tren_da_goi_120p: "% Vi phạm / đã gọi thành công 120 phút",
@@ -534,6 +536,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     const da_goi_120p = sum("da_goi_120p");
     const bo_qua_120p = sum("bo_qua_120p");
     const thanh_cong_120p = sum("thanh_cong_120p");
+    const da_goi_120p_hen_thanh_cong = sum("da_goi_120p_hen_thanh_cong");
     const da_goi_24h = sum("da_goi_24h");
     const bo_qua_24h = sum("bo_qua_24h");
     const thanh_cong_24h = sum("thanh_cong_24h");
@@ -573,6 +576,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       da_goi_120p,
       bo_qua_120p,
       thanh_cong_120p,
+      da_goi_120p_hen_thanh_cong,
       da_goi_24h,
       bo_qua_24h,
       thanh_cong_24h,
@@ -620,7 +624,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       ty_le_vi_pham_tren_da_goi_24h: pctLocal(vi_pham_24h, thanh_cong_24h),
       ty_le_vi_pham_tren_da_goi_lkh: pctLocal(vi_pham_lkh, thanh_cong_lkh),
       ty_le_vi_pham_tren_da_goi_hl: pctLocal(vi_pham_hl, thanh_cong_hl),
-      ty_le_da_goi_hen_lai_toan_he_thong: pctLocal(tong_tiep_nhan - (nghi_ngo_120p - da_goi_120p), tong_tiep_nhan),
+      // CHOT 2026-09-27: doi mau so tu da_goi_120p sang da_goi_120p_hen_thanh_cong (khop fix backend).
+      ty_le_da_goi_hen_lai_toan_he_thong: pctLocal(tong_tiep_nhan - (nghi_ngo_120p - da_goi_120p_hen_thanh_cong), tong_tiep_nhan),
       ty_le_ktv_chu_dong_toan_he_thong: pctLocal(tong_tiep_nhan - nghi_ngo_120p, tong_tiep_nhan),
       ty_le_goi_thanh_cong: pctLocal(goi_thanh_cong, tong_cuoc_goi),
     };
