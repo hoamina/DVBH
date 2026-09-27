@@ -287,6 +287,17 @@ function renderViPhamTd(count: number, tyLe: number, key?: string) {
   );
 }
 
+// Nhan tieu de cot + dau "(?)" hover hien chu thich cach tinh (title native, khong can Tooltip
+// component rieng) - dung cho bang "Bao cao khao sat theo khu vuc" theo yeu cau hien thi giai thich
+// cong thuc ngay tren UI thay vi phai hoi lai.
+function ThInfo({ label, info }: { label: string; info: string }) {
+  return (
+    <>
+      {label} <span className="cursor-help text-[var(--ink-300)] normal-case" title={info}>(?)</span>
+    </>
+  );
+}
+
 export const FLAG_TO_LOAI: Record<string, LoaiLoi> = {
   need_loi_120p: "Loi 120 phut",
   need_loi_qua_han_24h: "Hen qua 24h",
@@ -1177,37 +1188,86 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     </th>
                   </tr>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">Ca CRM mở mới</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Ca CRM đã đóng</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">% KTV chủ động 120'</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Tỷ lệ % đã gọi hẹn 120'</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom bg-[var(--amber-100)] text-[var(--amber-700)]">Cần gọi</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Chờ gọi lại</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Còn lỗi chưa gọi</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Tổng nghi ngờ</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">
+                      <ThInfo label="Ca CRM mở mới" info="Số ca có 'Thời gian CSKH tiếp nhận' (ngày mở ca) nằm trong kỳ lọc." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Ca CRM đã đóng" info="Số ca có 'Thời gian hoàn thành' nằm trong kỳ lọc - khác mốc thời gian với cột 'Ca CRM mở mới' bên cạnh." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="% KTV chủ động 120'" info="(Ca CRM mở mới − Nghi ngờ 120 phút) / Ca CRM mở mới × 100 - tỷ lệ ca KHÔNG bị nghi ngờ lỗi 120 phút." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo
+                        label="Tỷ lệ % đã gọi hẹn 120'"
+                        info="(Ca CRM mở mới − (Nghi ngờ 120 phút − Đã gọi hẹn thành công 120')) / Ca CRM mở mới × 100. 'Đã gọi hẹn thành công' = cuộc gọi kết quả 'Liên hệ thành công' VÀ đã chọn 'Đã hẹn KH'."
+                      />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom bg-[var(--amber-100)] text-[var(--amber-700)]">
+                      <ThInfo label="Cần gọi" info="Số ca đang cần khảo sát, còn trong hạn xử lý (chưa quá hạn) = 'Chờ gọi lại' + 'Còn lỗi chưa gọi' + chưa gọi lần nào." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Chờ gọi lại" info="Trong số 'Cần gọi': ca có cuộc gọi GẦN NHẤT bị tích 'Cần gọi lại'." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Còn lỗi chưa gọi" info="Trong số 'Cần gọi': ca đã có ít nhất 1 cuộc gọi (cho loại lỗi khác) nhưng còn 1 loại lỗi khác hoàn toàn chưa từng gọi." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Tổng nghi ngờ" info="Tổng 4 cột 'Nghi ngờ' (120 phút + Quá 24h + Lỡ kế hoạch + Hẹn lại)." />
+                    </th>
                     <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">120 phút</th>
                     <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">Quá 24h</th>
                     <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">Lỡ kế hoạch</th>
                     <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">Hẹn lại</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Tổng vi phạm</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">KTV giải trình</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">GS giải trình</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">KSNB chốt lỗi</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">KSNB bỏ lỗi</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">Đã khảo sát</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Khảo sát thành công</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Khảo sát thất bại</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Đang chờ khảo sát lại</th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">Bỏ qua không khảo sát</th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Tổng vi phạm" info="Tổng 4 cột 'Vi phạm' (120 phút + Quá 24h + Lỡ kế hoạch + Hẹn lại)." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="KTV giải trình" info="Trong số vi phạm: có ít nhất 1 bản giải trình do KTV tự gửi qua hệ thống vipham (API)." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="GS giải trình" info="Trong số vi phạm: có ít nhất 1 bản giải trình do Giám sát nhập tay thay KTV." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="KSNB chốt lỗi" info="Số vi phạm đã được KSNB/QC chốt là lỗi thật." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="KSNB bỏ lỗi" info="Số vi phạm đã được KSNB/QC chốt bỏ (không tính lỗi)." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">
+                      <ThInfo label="Đã khảo sát" info="Số ca PHÂN BIỆT có ít nhất 1 cuộc gọi trong kỳ - tính theo ngày THỰC HIỆN cuộc gọi, khác mốc 'mở ca' ở nhóm bên trái." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Khảo sát thành công" info="Số CUỘC GỌI (không phải số ca) có kết quả 'Liên hệ thành công', trên tổng số cuộc gọi trong kỳ (tỷ lệ % kèm theo)." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Khảo sát thất bại" info="Số cuộc gọi không thuộc 3 nhóm còn lại: không phải 'Cần gọi lại', không phải 'Không cần khảo sát', không phải 'Liên hệ thành công' (vd Không nghe máy, Số sai...)." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Đang chờ khảo sát lại" info="Số cuộc gọi bị CSKH tích 'Cần gọi lại' (chưa kết luận xong)." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label="Bỏ qua không khảo sát" info="Số cuộc gọi có kết quả 'Không cần khảo sát'." />
+                    </th>
                   </tr>
                   <tr className="text-left text-[var(--ink-400)] text-[10px] uppercase border-b border-[var(--line)]">
                     {[0, 1, 2, 3].map((i) => (
                       <Fragment key={i}>
-                        <th className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-100)] text-[var(--ocean-600)]">Nghi ngờ</th>
-                        <th className="py-1 px-2 text-center bg-slate-50 text-[var(--ink-400)]">Bỏ qua</th>
-                        <th className="py-1 px-2 text-center bg-slate-50">Đã gọi</th>
-                        <th className="py-1 px-2 text-center bg-teal-50 text-teal-700">Đã gọi thành công</th>
-                        <th className="py-1 px-2 text-center bg-[var(--coral-100)] text-[var(--coral-600)]">Vi phạm</th>
+                        <th className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-100)] text-[var(--ocean-600)]">
+                          <ThInfo label="Nghi ngờ" info="Số ca bị hệ thống gắn cờ nghi ngờ lỗi này. Tỷ lệ % kèm theo = trên tổng 'Ca CRM mở mới'." />
+                        </th>
+                        <th className="py-1 px-2 text-center bg-slate-50 text-[var(--ink-400)]">
+                          <ThInfo label="Bỏ qua" info="Trong số nghi ngờ: đã gọi và CSKH kết luận 'Không cần khảo sát'." />
+                        </th>
+                        <th className="py-1 px-2 text-center bg-slate-50">
+                          <ThInfo label="Đã gọi" info="Trong số nghi ngờ: đã gọi và có kết luận (khác 'Không cần khảo sát'). Tỷ lệ % kèm theo = trên tổng số nghi ngờ cùng loại." />
+                        </th>
+                        <th className="py-1 px-2 text-center bg-teal-50 text-teal-700">
+                          <ThInfo label="Đã gọi thành công" info="Trong số đã gọi: kết quả cuộc gọi = 'Liên hệ thành công'." />
+                        </th>
+                        <th className="py-1 px-2 text-center bg-[var(--coral-100)] text-[var(--coral-600)]">
+                          <ThInfo label="Vi phạm" info="Trong số nghi ngờ: đã bị kết luận vi phạm (QC đã chốt lỗi, hoặc CSKH kết luận lỗi mà QC chưa xét). Tỷ lệ % kèm theo = trên số 'Đã gọi thành công' cùng loại." />
+                        </th>
                       </Fragment>
                     ))}
                   </tr>
