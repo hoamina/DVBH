@@ -40,12 +40,14 @@ baoCaoViPham.get("/tong-quan", async (c) => {
 
 // GET /api/bao-cao-vi-pham/da-chieu?thang=...&nhom=khu_vuc|ky_thuat_vien|ket_qua_cap_1|nhom_kh|nguon_crm
 // - bang nhom theo 1 chieu (yeu cau #2). Phu thuoc them domain "settings" vi co cot tong diem the
-// (doc settings_loai_vi_pham.diem_the).
+// (doc settings_loai_vi_pham.diem_the). Them domain "vi_pham_giai_trinh" 2026-09-28 (them 3 cot
+// KTV/GS/cho giai trinh + ty le giai trinh, doc bang do) - bump key sang "-v2" vi shape response
+// doi (them field moi).
 baoCaoViPham.get("/da-chieu", async (c) => {
   const scope = scopeByKhuVuc(c);
   const params = { ...readParams(c), nhom: c.req.query("nhom") };
-  const key = buildReportKey("bao-cao-vi-pham/da-chieu", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "settings"], () => computeViPhamBaoCaoDaChieu(c.env.DB, params, scope));
+  const key = buildReportKey("bao-cao-vi-pham/da-chieu-v2", params, scope);
+  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "vi_pham_giai_trinh", "settings"], () => computeViPhamBaoCaoDaChieu(c.env.DB, params, scope));
   return c.json(payload);
 });
 

@@ -46,6 +46,10 @@ interface DaChieuRow {
   soDaBo: number;
   tyLeDaChot: number;
   tongDiemThe: number;
+  soKtvGiaiTrinh: number;
+  soGsGiaiTrinh: number;
+  soChoGiaiTrinh: number;
+  tyLeGiaiTrinh: number;
 }
 
 interface DiemTheRow {
@@ -436,6 +440,10 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
                   soDaBo: "SL đã bỏ",
                   tyLeDaChot: "% Đã chốt",
                   tongDiemThe: "Tổng điểm thẻ",
+                  soKtvGiaiTrinh: "Ca KTV đã giải trình",
+                  soGsGiaiTrinh: "Ca GS đã giải trình",
+                  soChoGiaiTrinh: "Ca chờ giải trình",
+                  tyLeGiaiTrinh: "% Tỷ lệ giải trình",
                 })
               }
             >
@@ -451,6 +459,10 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
                 <th className="py-2 pr-3">SL đã bỏ</th>
                 <th className="py-2 pr-3">% Đã chốt</th>
                 <th className="py-2 pr-3">Tổng điểm thẻ</th>
+                <th className="py-2 pr-3">Ca KTV đã giải trình</th>
+                <th className="py-2 pr-3">Ca GS đã giải trình</th>
+                <th className="py-2 pr-3">Ca chờ giải trình</th>
+                <th className="py-2 pr-3">Tỷ lệ giải trình</th>
               </tr>
             </thead>
             <tbody>
@@ -464,11 +476,17 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
                     {r.tyLeDaChot}%
                   </td>
                   <td className="py-2 pr-3 font-mono">{r.tongDiemThe}</td>
+                  <td className="py-2 pr-3 font-mono">{r.soKtvGiaiTrinh}</td>
+                  <td className="py-2 pr-3 font-mono">{r.soGsGiaiTrinh}</td>
+                  <td className="py-2 pr-3 font-mono" style={{ backgroundColor: r.soChoGiaiTrinh ? "var(--amber-100)" : undefined }}>
+                    {r.soChoGiaiTrinh}
+                  </td>
+                  <td className="py-2 pr-3 font-mono">{r.tyLeGiaiTrinh}%</td>
                 </tr>
               ))}
               {(daChieu?.rows ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                  <td colSpan={10} className="py-8 text-center text-[var(--ink-400)] text-sm">
                     Không có dữ liệu.
                   </td>
                 </tr>

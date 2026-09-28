@@ -66,7 +66,7 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 | GET /vi-pham/funnel (thêm ket_qua_goi 2026-08-22 — 8 chỉ số mới đọc luôn ket_qua_cuoc_goi) | viPham.ts | cases, vi_pham, ket_qua_goi |
 | GET /vi-pham/leaderboard | viPham.ts | cases, vi_pham |
 | GET /bao-cao-vi-pham/tong-quan (thêm 2026-09-20) | baoCaoViPham.ts | cases, vi_pham, vi_pham_giai_trinh |
-| GET /bao-cao-vi-pham/da-chieu (thêm 2026-09-20) | baoCaoViPham.ts | cases, vi_pham, settings (đọc settings_loai_vi_pham.diem_the) |
+| GET /bao-cao-vi-pham/da-chieu (thêm 2026-09-20, thêm domain vi_pham_giai_trinh 2026-09-28 cho 3 cột giải trình + tỷ lệ) | baoCaoViPham.ts | cases, vi_pham, vi_pham_giai_trinh, settings (đọc settings_loai_vi_pham.diem_the) |
 | GET /bao-cao-vi-pham/diem-the (thêm 2026-09-20) | baoCaoViPham.ts | cases, vi_pham, settings (đọc settings_loai_vi_pham.diem_the) |
 | GET /bao-cao-nskx/tong-quan (thêm 2026-09-21) | baoCaoNskx.ts | cases, vi_pham, giai_trinh (gọi thẳng computeDashboardKpis với doi_tac=NSKX) |
 | GET /bao-cao-nskx/da-chieu (thêm 2026-09-21) | baoCaoNskx.ts | cases (gọi thẳng computeDashboardPivot với doi_tac=NSKX) |

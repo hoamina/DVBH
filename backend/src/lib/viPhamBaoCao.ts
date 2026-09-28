@@ -200,6 +200,16 @@ export interface ViPhamBaoCaoDaChieuRow {
   soDaBo: number;
   tyLeDaChot: number;
   tongDiemThe: number;
+  // Them 2026-09-28 (yeu cau chu he thong): 3 cot giai trinh + 1 ty le, dung CHUNG dinh nghia voi
+  // 3 chi so tuong ung o computeViPhamBaoCaoTongQuan (soKtvGiaiTrinh/soGsGiaiTrinh/soChoGiaiTrinh =
+  // "cho_giai_trinh" trong TRANG_THAI_CLAUSES) - CHU Y: 1 dong vi_pham co the VUA co giai trinh KTV
+  // VUA co giai trinh GS (khong loai tru nhau), nen soKtvGiaiTrinh + soGsGiaiTrinh CO THE lon hon
+  // soGhiNhan - day la thiet ke duoc chu he thong xac nhan cho cong thuc tyLeGiaiTrinh ben duoi (tinh
+  // theo dung cong thuc (KTV + GS) / tong ghi nhan, khong khu trung).
+  soKtvGiaiTrinh: number;
+  soGsGiaiTrinh: number;
+  soChoGiaiTrinh: number;
+  tyLeGiaiTrinh: number;
 }
 
 // Cac chieu nhom hop le cho GET /bao-cao-vi-pham/da-chieu?nhom=... - whitelist chong SQL injection
@@ -232,20 +242,36 @@ export async function computeViPhamBaoCaoDaChieu(
   // trong bang (dung y nghia hon cho 1 bao cao "phan tich vi pham").
   const where = `v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}`;
 
+  // "So KTV/GS da giai trinh"/"So cho giai trinh" - dung HET dinh nghia voi 3 chi so tuong ung o
+  // computeViPhamBaoCaoTongQuan (daGiaiTrinhExists) de nhat quan giua 2 tab, chi khac la GROUP BY
+  // theo tung nhom thay vi 1 tong duy nhat.
+  const daGiaiTrinhExists = "EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)";
   const { results } = await db
     .prepare(
       `SELECT ${dimExpr} as nhom,
          COUNT(*) as so_ghi_nhan,
          SUM(CASE WHEN v.chot_bo_cap_2 = 1 THEN 1 ELSE 0 END) as so_da_chot,
          SUM(CASE WHEN v.chot_bo_cap_2 = 0 THEN 1 ELSE 0 END) as so_da_bo,
-         SUM(CASE WHEN v.chot_bo_cap_2 = 1 THEN ${DIEM_THE_EXPR} ELSE 0 END) as tong_diem_the
+         SUM(CASE WHEN v.chot_bo_cap_2 = 1 THEN ${DIEM_THE_EXPR} ELSE 0 END) as tong_diem_the,
+         SUM(CASE WHEN EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as so_ktv_giai_trinh,
+         SUM(CASE WHEN EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as so_gs_giai_trinh,
+         SUM(CASE WHEN v.chot_bo_cap_2 IS NULL AND NOT ${daGiaiTrinhExists} THEN 1 ELSE 0 END) as so_cho_giai_trinh
        FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
        WHERE ${dimExpr} IS NOT NULL AND ${where}
        GROUP BY ${dimExpr}
        ORDER BY so_ghi_nhan DESC`,
     )
     .bind(...binds)
-    .all<{ nhom: string; so_ghi_nhan: number; so_da_chot: number; so_da_bo: number; tong_diem_the: number }>();
+    .all<{
+      nhom: string;
+      so_ghi_nhan: number;
+      so_da_chot: number;
+      so_da_bo: number;
+      tong_diem_the: number;
+      so_ktv_giai_trinh: number;
+      so_gs_giai_trinh: number;
+      so_cho_giai_trinh: number;
+    }>();
 
   return {
     rows: results.map((r) => ({
@@ -255,6 +281,10 @@ export async function computeViPhamBaoCaoDaChieu(
       soDaBo: r.so_da_bo,
       tyLeDaChot: r.so_ghi_nhan ? Math.round((r.so_da_chot / r.so_ghi_nhan) * 1000) / 10 : 0,
       tongDiemThe: Math.round(r.tong_diem_the * 100) / 100,
+      soKtvGiaiTrinh: r.so_ktv_giai_trinh,
+      soGsGiaiTrinh: r.so_gs_giai_trinh,
+      soChoGiaiTrinh: r.so_cho_giai_trinh,
+      tyLeGiaiTrinh: r.so_ghi_nhan ? Math.round(((r.so_ktv_giai_trinh + r.so_gs_giai_trinh) / r.so_ghi_nhan) * 1000) / 10 : 0,
     })),
   };
 }
