@@ -393,14 +393,22 @@ export function SurveyCallWorkspace({
       });
       setSessionDone((n) => n + 1);
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
-      refetchCandidates();
+      // Luon lam moi log lich su cuoc goi cua CHINH ca dang xem (BUG 2026-09-28: truoc day khong
+      // invalidate query nay nen bang "Lich su cuoc goi" khong hien ban ghi vua luu cho toi khi doi
+      // sang ca khac roi quay lai).
+      qc.invalidateQueries({ queryKey: ["survey-call-history-by-case", activeRow.id] });
       if (!advance) {
         // Chi luu cuoc goi: khong dong bo calledIds/bumpOrder/adHocId - o lai DUNG ca nay, reset form
-        // trang de nhap 1 ban ghi cuoc goi moi.
+        // trang de nhap 1 ban ghi cuoc goi moi. KHONG goi refetchCandidates() o day (BUG 2026-09-28):
+        // neu day la lan ghi nhan cuoi cung lam ca "xong" theo tieu chi cua server, refetch se lam ca
+        // nay bien mat khoi pool ngay lap tuc du calledIds khong doi, day nguoi dung sang ca khac
+        // ngoai y muon - dung y "Chi luu cuoc goi" la de nhap THEM ban ghi cho CUNG 1 ca, ke ca ca da
+        // "goi xong" theo server, nen KHONG duoc phep tu dong roi khoi ca hien tai trong truong hop nay.
         resetForm(activeRow);
         addToast(`Đã lưu thêm 1 kết quả cuộc gọi cho ca ${activeRow.id} — vẫn ở lại ca này.`);
         return;
       }
+      refetchCandidates();
       // Case chi thuc su "xong" (roi khoi hang doi) khi TAT CA loai_loi can khao sat da co ket qua -
       // gom ca loai vua ghi nhan (daGhiNhan) LAN loai da duoc nguoi khac ghi nhan truoc do (boQua).
       // Neu agent chi chon 1 phan (vd 1/2 loai_loi), cac loai con lai VAN can xu ly - khong duoc
@@ -447,6 +455,7 @@ export function SurveyCallWorkspace({
         results: [],
       });
       setSessionRetry((n) => n + 1);
+      qc.invalidateQueries({ queryKey: ["survey-call-history-by-case", activeRow.id] });
       if (!advance) {
         resetForm(activeRow);
         addToast(`Đã lưu cuộc gọi chưa liên hệ được cho ca ${activeRow.id} — vẫn ở lại ca này.`);
