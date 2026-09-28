@@ -37,6 +37,22 @@ const DA_HEN_KH_OPTIONS: { value: string; label: string }[] = [
   { value: "Khong xac dinh", label: "Không xác định" },
 ];
 
+// Toan bo loai_loi ma CASE co co (theo co gia tri goc c.loi_120p/... - KHONG loai tru theo "already
+// co ket luan hay chua" nhu buildAdHocRow lam voi need_loi_*) - dung cho nut "Goi bo sung" (them
+// 2026-09-28): cho phep CSKH mo lai form nhap 1 cuoc goi MOI cho 1 ca da duoc ket luan het (needed
+// rong) khi tim thu cong, thay vi chi con 2 lua chon "Xem ho so"/"Quay lai hang doi".
+const CASE_FLAG_TO_LOAI: Record<string, LoaiLoi> = {
+  loi_120p: "Loi 120 phut",
+  loi_qua_han_24h: "Hen qua 24h",
+  loi_lo_ke_hoach: "Loi lo ke hoach",
+  loi_kh_hen_lai: "KH hen lai",
+};
+function allApplicableLoaiLoi(c: CaseRow): LoaiLoi[] {
+  return Object.entries(CASE_FLAG_TO_LOAI)
+    .filter(([field]) => (c as unknown as Record<string, number>)[field] === 1)
+    .map(([, loai]) => loai);
+}
+
 function buildAdHocRow(detail: { case: CaseRow; viPham: ViPhamRow[] }): QueueItem {
   const c = detail.case;
   const already = new Set(detail.viPham.map((v) => v.loai_loi));
@@ -247,6 +263,14 @@ export function SurveyCallWorkspace({
   const queueRow = currentIndex >= 0 ? pool[currentIndex] : null;
   const adHocRow = adHocId && adHocDetail ? buildAdHocRow(adHocDetail) : null;
   const activeRow = adHocId ? adHocRow : queueRow;
+  // "Goi bo sung" (them 2026-09-28): khi tim thu cong 1 ca ma MOI loai_loi da co ket luan (needed
+  // rong), cho phep bam nut de mo lai form voi TOAN BO loai_loi CASE thuc su co (allApplicableLoaiLoi,
+  // khong loai tru theo "already") - vi du cu the: ca da duoc goi 1 lan ket luan "Khong loi" cho ca
+  // 2 loai nghi ngo, nhung CSKH can ghi nhan THEM 1 cuoc goi moi (sua/bo sung thong tin). Reset ve
+  // false moi khi doi ca (xem useEffect duoi). CHI ap dung cho nhanh ad-hoc (tim thu cong) - hang doi
+  // binh thuong da tu loai cac ca xong khoi pool tu truoc, khong can nut nay.
+  const [boSungMode, setBoSungMode] = useState(false);
+  const needed = activeRow ? (boSungMode && adHocDetail ? allApplicableLoaiLoi(adHocDetail.case) : neededLoaiLoi(activeRow)) : [];
 
   // Lich su cuoc goi truoc do + cac loi DA CHOT cua ca dang xem - CHOT 2026-08-22 lan 2, chu he
   // thong yeu cau "them log lich su goi khi vao che do cuoc goi" de CSKH biet cac lan lien he truoc,
@@ -317,8 +341,8 @@ export function SurveyCallWorkspace({
   // Reset toan bo form ve trang - dung chung cho ca 2 truong hop: chuyen sang ca khac (useEffect ben
   // duoi) VA bam "Chi luu cuoc goi" (khong chuyen ca, nhung can nhap 1 ban ghi cuoc goi HOAN TOAN moi
   // cho CUNG 1 ca - CHOT 2026-09-27).
-  function resetForm(row: QueueItem) {
-    const needed = neededLoaiLoi(row);
+  function resetForm(row: QueueItem, neededList: LoaiLoi[] = neededLoaiLoi(row)) {
+    const needed = neededList;
     setContactType("Khách hàng");
     setCallResult("Liên hệ thành công");
     setSelected(Object.fromEntries(needed.map((k) => [k, false])));
@@ -332,7 +356,8 @@ export function SurveyCallWorkspace({
 
   useEffect(() => {
     if (!activeRow) return;
-    resetForm(activeRow);
+    resetForm(activeRow, neededLoaiLoi(activeRow));
+    setBoSungMode(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRow?.id]);
 
@@ -354,7 +379,6 @@ export function SurveyCallWorkspace({
   // ca (vd goi lai nhieu lan trong ngay) ma khong muon he thong tu chuyen sang ca khac giua cac lan.
   async function submitSuccessCall(advance: boolean) {
     if (!activeRow) return;
-    const needed = neededLoaiLoi(activeRow);
     const chosen = needed.filter((k) => selected[k]);
     if (callResult === "Liên hệ thành công" && chosen.length === 0) {
       addToast("Chọn kết luận cho ít nhất 1 loại lỗi trước khi lưu.");
@@ -397,14 +421,19 @@ export function SurveyCallWorkspace({
       // invalidate query nay nen bang "Lich su cuoc goi" khong hien ban ghi vua luu cho toi khi doi
       // sang ca khac roi quay lai).
       qc.invalidateQueries({ queryKey: ["survey-call-history-by-case", activeRow.id] });
+      // Lam moi ca chi tiet ad-hoc (danh sach vi_pham "already" dung de tinh need_loi_* cua
+      // buildAdHocRow) - chi co tac dung khi dang o che do tim thu cong, khong lam gi o hang doi
+      // thuong (query bi disabled khi adHocId null).
+      qc.invalidateQueries({ queryKey: ["survey-workspace-case", activeRow.id] });
       if (!advance) {
         // Chi luu cuoc goi: khong dong bo calledIds/bumpOrder/adHocId - o lai DUNG ca nay, reset form
-        // trang de nhap 1 ban ghi cuoc goi moi. KHONG goi refetchCandidates() o day (BUG 2026-09-28):
-        // neu day la lan ghi nhan cuoi cung lam ca "xong" theo tieu chi cua server, refetch se lam ca
-        // nay bien mat khoi pool ngay lap tuc du calledIds khong doi, day nguoi dung sang ca khac
-        // ngoai y muon - dung y "Chi luu cuoc goi" la de nhap THEM ban ghi cho CUNG 1 ca, ke ca ca da
-        // "goi xong" theo server, nen KHONG duoc phep tu dong roi khoi ca hien tai trong truong hop nay.
-        resetForm(activeRow);
+        // trang de nhap 1 ban ghi cuoc goi moi (giu nguyen tap loai_loi dang hien - boSungMode neu co
+        // - khong thu hep lai theo neededLoaiLoi mac dinh). KHONG goi refetchCandidates() o day (BUG
+        // 2026-09-28): neu day la lan ghi nhan cuoi cung lam ca "xong" theo tieu chi cua server,
+        // refetch se lam ca nay bien mat khoi pool ngay lap tuc du calledIds khong doi, day nguoi
+        // dung sang ca khac ngoai y muon - dung y "Chi luu cuoc goi" la de nhap THEM ban ghi cho CUNG
+        // 1 ca, ke ca ca da "goi xong" theo server, nen KHONG duoc phep tu dong roi khoi ca hien tai.
+        resetForm(activeRow, needed);
         addToast(`Đã lưu thêm 1 kết quả cuộc gọi cho ca ${activeRow.id} — vẫn ở lại ca này.`);
         return;
       }
@@ -456,8 +485,9 @@ export function SurveyCallWorkspace({
       });
       setSessionRetry((n) => n + 1);
       qc.invalidateQueries({ queryKey: ["survey-call-history-by-case", activeRow.id] });
+      qc.invalidateQueries({ queryKey: ["survey-workspace-case", activeRow.id] });
       if (!advance) {
-        resetForm(activeRow);
+        resetForm(activeRow, needed);
         addToast(`Đã lưu cuộc gọi chưa liên hệ được cho ca ${activeRow.id} — vẫn ở lại ca này.`);
         return;
       }
@@ -477,7 +507,7 @@ export function SurveyCallWorkspace({
     }
     function handler(e: KeyboardEvent) {
       if (e.ctrlKey && e.key === "Enter") {
-        if (!activeRow || neededLoaiLoi(activeRow).length === 0) return;
+        if (!activeRow || needed.length === 0) return;
         e.preventDefault();
         if (callResult === "Liên hệ thành công" || callResult === "Không cần khảo sát") void submitSuccessCall(true);
         else void submitFailedCall(true);
@@ -497,9 +527,8 @@ export function SurveyCallWorkspace({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRow, callResult, selected, ketLuan, ketQuaCap1, ghiChu, lyDoThatBai, canGoiLai, daHenKh, currentIndex, pool.length]);
+  }, [activeRow, needed, callResult, selected, ketLuan, ketQuaCap1, ghiChu, lyDoThatBai, canGoiLai, daHenKh, currentIndex, pool.length]);
 
-  const needed = activeRow ? neededLoaiLoi(activeRow) : [];
   const loiEntries = needed.filter((k) => selected[k] && ketLuan[k] === "loi");
   // "Ket qua cap 1 chua chon" (CHOT 2026-09-16): moi loai_loi da ket luan "Loi" bat buoc phai chon 1
   // gia tri tu danh sach (khong con gia tri mac dinh san nhu truoc, vi danh sach gio 14 lua chon,
@@ -793,6 +822,19 @@ export function SurveyCallWorkspace({
                     <Btn size="sm" variant="ghost" type="button" onClick={() => openCase(activeRow.id, "vi-pham")}>
                       Xem hồ sơ
                     </Btn>
+                    {adHocId && adHocDetail && allApplicableLoaiLoi(adHocDetail.case).length > 0 && (
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => {
+                          setBoSungMode(true);
+                          resetForm(activeRow, allApplicableLoaiLoi(adHocDetail.case));
+                        }}
+                      >
+                        📞 Gọi bổ sung
+                      </Btn>
+                    )}
                     {adHocId ? (
                       <Btn size="sm" type="button" onClick={() => setAdHocId(null)}>
                         Quay lại hàng đợi
