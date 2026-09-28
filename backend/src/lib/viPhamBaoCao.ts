@@ -401,9 +401,18 @@ const GIAI_TRINH_COLS = `,
     (SELECT g.noi_dung_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_noi_dung,
     (SELECT g.ngay_giai_trinh FROM vi_pham_giai_trinh g WHERE g.vi_pham_id = v.id AND g.nguon = 'giam_sat_nhap_tay' ORDER BY g.created_at DESC LIMIT 1) as giai_trinh_gs_ngay`;
 
-function trangThaiLabel(chotBoCap2: number | null): string {
+// Them 2026-09-28 (yeu cau chu he thong): tach nhan "Cho QC chot" (chotBoCap2 IS NULL) thanh 2 nhan
+// rieng - dung HET dieu kien voi TRANG_THAI_CLAUSES.cho_giai_trinh/cho_qc_chot o tren (truoc day 2
+// dieu kien nay CHI dung de LOC, nhan hien thi tren cot "Trang thai" luon gop chung thanh 1 "Cho QC
+// chot" du filter da tach roi, gay nham lan). "hasGiaiTrinh" = TRUE khi CO it nhat 1 dong
+// vi_pham_giai_trinh (KTV hoac GS) - dung cot ngay_giai_trinh (NOT NULL theo schema migration 0108,
+// khac noi_dung_giai_trinh co the null) de kiem tra "co ton tai" chinh xac hon la kiem tra noi_dung.
+// Nhanh "vi_pham_ktv" (source = "ktv") KHONG co khai niem giai trinh (xem TRANG_THAI_CLAUSES_KTV) -
+// luon roi vao "Cho QC chot" khi chotBoCap2 con NULL, bat ke hasGiaiTrinh (luon false o nhanh do).
+function trangThaiLabel(chotBoCap2: number | null, source: "case" | "ktv", hasGiaiTrinh: boolean): string {
   if (chotBoCap2 === 1) return "QC đã chốt";
   if (chotBoCap2 === 0) return "QC đã bỏ";
+  if (source === "case" && !hasGiaiTrinh) return "Chờ KTV/GS giải trình";
   return "Chờ QC chốt";
 }
 
@@ -489,7 +498,7 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
       khachHang: r.khach_hang,
       loaiLoi: r.loai_loi,
       ketQuaCap1: r.ket_qua_cap_1,
-      trangThai: trangThaiLabel(r.chot_bo_cap_2),
+      trangThai: trangThaiLabel(r.chot_bo_cap_2, r.source, r.giai_trinh_ktv_ngay !== null || r.giai_trinh_gs_ngay !== null),
       chotBoCap2: r.chot_bo_cap_2,
       ghiChu: r.ghi_chu,
       diemThe: Math.round(r.diem_the * 100) / 100,
