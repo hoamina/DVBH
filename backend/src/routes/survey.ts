@@ -1062,7 +1062,16 @@ survey.post(
     // "Da hen KH?" (CHOT 2026-09-27, migration 0117): bat buoc khi cuoc goi nay co dinh kem ket luan
     // cho "Loi 120 phut" (bat ke Khong loi/Loi - day la cau hoi ve BAN THAN cuoc goi, doc lap voi ket
     // luan cuoi cung) - dung de tinh lai "Ty le % da goi hen 120'" (xem computeSurveyKhuVucReport).
-    if (body.results.some((r) => r.loai_loi === "Loi 120 phut") && !DA_HEN_KH_VALUES.includes(body.da_hen_kh as (typeof DA_HEN_KH_VALUES)[number])) {
+    // FIX 2026-09-28: loai tru nhanh "Khong can khao sat" - nhanh nay tu dong ket luan "khong_loi"
+    // cho MOI loai_loi can (ke ca "Loi 120 phut") ma KHONG tung hoi CSKH cau "Da hen KH?" (UI chi hien
+    // cau hoi nay khi CSKH chu dong tick chon "Loi 120 phut" o nhanh "Lien he thanh cong" - xem
+    // SurveyCallWorkspace.tsx) - neu khong loai tru se luon bao loi DA_HEN_KH_BAT_BUOC cho moi ca co
+    // co loi_120p=1 khi CSKH chon "Khong can khao sat".
+    if (
+      body.ket_qua_cuoc_goi !== "Không cần khảo sát" &&
+      body.results.some((r) => r.loai_loi === "Loi 120 phut") &&
+      !DA_HEN_KH_VALUES.includes(body.da_hen_kh as (typeof DA_HEN_KH_VALUES)[number])
+    ) {
       return c.json({ error: "DA_HEN_KH_BAT_BUOC" }, 400);
     }
 
@@ -1122,7 +1131,7 @@ survey.post(
         body.can_goi_lai === undefined ? null : body.can_goi_lai ? 1 : 0,
         user.email,
         nowVN(),
-        body.results.some((r) => r.loai_loi === "Loi 120 phut") ? body.da_hen_kh : null,
+        body.ket_qua_cuoc_goi !== "Không cần khảo sát" && body.results.some((r) => r.loai_loi === "Loi 120 phut") ? (body.da_hen_kh ?? null) : null,
       )
       .run();
 
