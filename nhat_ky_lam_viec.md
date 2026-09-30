@@ -3938,3 +3938,18 @@ lỗi "GQKN - Vi phạm có khiếu nại") import lên không thấy đủ, ví
   (so với dòng đã ghi + trùng trong chính file), FE hiện 3 ô "Hợp lệ, sẽ ghi mới / Đã có (sẽ bỏ qua) / Lỗi
   định dạng". Test local: import 2 dòng dạng thật từ Excel (ngày ISO UTC, Loại lỗi có "\n" cuối) → lần 2
   preview + commit đều 0 mới · 2 đã có.
+
+## 2026-09-30 (tiếp) — Ca 1341623: import báo "đã có" nhưng chi tiết ca không thấy vi phạm (v1.401)
+
+Gốc: chi tiết **ca đã đóng** được cache IndexedDB (`fetchCaseDetailCached`, CaseDetail.tsx) và dùng VÔ THỜI
+HẠN tới khi bấm "Đồng bộ lại" — người dùng đã mở ca 1341623 trước khi import nên vẫn thấy bản cũ, trong khi
+import đọc thẳng D1 nên báo trùng. Ảnh hưởng chung: mọi vi phạm/giải trình/khảo sát ghi từ nơi khác (QC chốt,
+đồng bộ Sheet, người dùng khác) không hiện trên máy đã cache ca đó.
+- Backend `cases.ts`: `CASE_DETAIL_DOMAINS` (9 domain mà `GET /cases/:id` đọc); `GET /:id` trả kèm
+  `detailVersion` (version-tag đọc TRƯỚC dữ liệu); route mới `GET /cases/detail-version` (1 SELECT ~9 dòng
+  `data_versions`, đăng ký trước `/:id`).
+- FE: trước khi dùng cache ca đã đóng, so `detailVersion` hiện tại (gộp request trong 15s) với bản lưu; khác
+  → tải lại. Lỗi mạng khi hỏi version → vẫn dùng cache. Cache cũ không có `detailVersion` → tải lại 1 lần.
+- Hạn chế: `bien_ban_hop` không bump domain nào → biên bản họp người khác ghi vẫn phụ thuộc cache như trước.
+Test local: mở ca đã đóng 1197297 (vào cache) → import 1 vi phạm → tải lại trang, mở lại → gọi
+detail-version, tự tải lại, tab Vi phạm hiện "GQKN - Vi phạm có khiếu nại". Đã xoá dữ liệu test.

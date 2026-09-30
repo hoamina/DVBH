@@ -68,6 +68,8 @@ import {
 type ViewMode = "compact" | "expanded";
 
 interface CaseDetailResponse {
+  // Version-tag du lieu luc tai (backend CASE_DETAIL_DOMAINS) - dung de biet cache ca da dong con moi.
+  detailVersion?: string;
   case: CaseRow;
   giaiTrinh: GiaiTrinhRow[];
   ketQuaGoi: KetQuaGoiRow[];
@@ -86,10 +88,26 @@ async function fetchCaseDetail(caseId: string): Promise<CaseDetailResponse> {
 // Dung chung cho ca ca goc VA ca doi chieu (cung 1 namespace cache "case-{id}"/["case", id] -
 // tan dung lai du lieu da tung mo truoc do cho ca nao). Xem comment goc o cho goi lan dau ve ly do
 // dieu kien "caLap !== undefined" bat buoc phai co (bug ca "1255604").
+// Gop cac lan hoi version gan nhau (mo nhieu ca / ca doi chieu lien tiep) thanh 1 request trong 15s.
+let detailVersionPromise: { at: number; p: Promise<string> } | null = null;
+function getCurrentDetailVersion(): Promise<string> {
+  if (!detailVersionPromise || Date.now() - detailVersionPromise.at > 15_000) {
+    const p = api.get<{ detailVersion: string }>("/cases/detail-version").then((r) => r.detailVersion);
+    p.catch(() => (detailVersionPromise = null));
+    detailVersionPromise = { at: Date.now(), p };
+  }
+  return detailVersionPromise.p;
+}
+
 async function fetchCaseDetailCached(id: string): Promise<CacheEntry<CaseDetailResponse>> {
   const cacheKey = `case-${id}`;
   const cached = await getCachedEntry<CaseDetailResponse>(cacheKey);
-  if (cached && cached.data.case.thoi_gian_hoan_thanh && cached.data.caLap !== undefined) return cached;
+  if (cached && cached.data.case.thoi_gian_hoan_thanh && cached.data.caLap !== undefined) {
+    // Chi dung cache khi du lieu lien quan CHUA doi tu luc luu (bug 2026-09-30: truoc day giu vo thoi han,
+    // vi pham import/QC chot tu noi khac khong hien). Loi mang khi hoi version -> van dung cache nhu cu.
+    const current = await getCurrentDetailVersion().catch(() => null);
+    if (current === null || current === cached.data.detailVersion) return cached;
+  }
 
   const fresh = await fetchCaseDetail(id);
   if (fresh.case.thoi_gian_hoan_thanh) return setCachedEntry(cacheKey, fresh);

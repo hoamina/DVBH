@@ -21,7 +21,14 @@ import {
   NEED_TAI_GIAI_TRINH,
 } from "../lib/needGiaiTrinh";
 import { getCaLapDetection, NGUONG_NGAY_LAP } from "./caLap";
-import { bumpVersions } from "../lib/dataVersions";
+import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersions";
+
+// Cac domain ma GET /cases/:id doc (xem Promise.all trong route do). FE cache chi tiet ca DA DONG vao
+// IndexedDB (fetchCaseDetailCached, CaseDetail.tsx) - truoc day giu VO THOI HAN, nen vi pham/giai trinh
+// ghi tu NOI KHAC (import Excel, QC, dong bo Sheet, nguoi dung khac) khong hien (bug 2026-09-30, ca
+// 1341623: import bao "da co" nhung chi tiet ca khong thay). Nay tra kem detailVersion = version-tag cac
+// domain nay; FE so voi GET /cases/detail-version truoc khi dung cache.
+const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "cases", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey } from "../lib/dailySnapshot";
@@ -1071,6 +1078,10 @@ cases.get("/data-version", async (c) => {
 });
 
 // GET /api/cases/:id
+// GET /api/cases/detail-version - rat nhe (1 SELECT ~9 dong data_versions), FE goi truoc khi dung cache
+// chi tiet ca da dong (xem CASE_DETAIL_DOMAINS). PHAI dang ky truoc "/:id".
+cases.get("/detail-version", async (c) => c.json({ detailVersion: await getVersionTag(c.env.DB, CASE_DETAIL_DOMAINS) }));
+
 // Log "Dat mua linh kien" cua 1 ca tu he linh-kien-app (xem lib/linhKienTimeline.ts) - FE ghep vao
 // tab "Tien trinh chung"/"Mua hang"/"Thieu hang" cua CaseDetail. Cung kiem tra pham vi khu vuc voi
 // GET /:id ben duoi (1 PK lookup) truoc khi goi sang he ngoai.
@@ -1097,6 +1108,8 @@ cases.get("/:id", async (c) => {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
 
+  // Doc tag TRUOC du lieu: neu co ghi xen giua, tag cu hon du lieu -> lan mo sau tu tai lai (an toan).
+  const detailVersion = await getVersionTag(c.env.DB, CASE_DETAIL_DOMAINS);
   const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
@@ -1126,6 +1139,7 @@ cases.get("/:id", async (c) => {
     caLap,
     napGasDanhGia: napGasDanhGia ?? null,
     bienBanHop: bienBanHop.results,
+    detailVersion,
   });
 });
 
