@@ -448,13 +448,13 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
     .prepare(
       `SELECT * FROM (
          SELECT 'case' as source, v.id as id, v.case_id as case_id, c.khu_vuc as khu_vuc, c.ky_thuat_vien as ky_thuat_vien, c.khach_hang as khach_hang,
-           v.loai_loi as loai_loi, v.ket_qua_cap_1 as ket_qua_cap_1, v.chot_bo_cap_2 as chot_bo_cap_2, ${DIEM_THE_EXPR} as diem_the,
+           COALESCE(v.loai_loi_chi_tiet, v.loai_loi) as loai_loi, v.ket_qua_cap_1 as ket_qua_cap_1, v.chot_bo_cap_2 as chot_bo_cap_2, ${DIEM_THE_EXPR} as diem_the,
            v.ghi_chu as ghi_chu, v.nguoi_ghi_nhan as nguoi_ghi_nhan, v.ngay_ghi_nhan as ngay_ghi_nhan, v.nguoi_chot as nguoi_chot, v.ngay_chot as ngay_chot${GIAI_TRINH_COLS}
          FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
          WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
          UNION ALL
          SELECT 'ktv' as source, vk.id as id, NULL as case_id, vk.khu_vuc as khu_vuc, vk.ky_thuat_vien as ky_thuat_vien, NULL as khach_hang,
-           vk.loai_loi as loai_loi, vk.ket_qua_cap_1 as ket_qua_cap_1, vk.chot_bo_cap_2 as chot_bo_cap_2, ${diemTheExpr("vk")} as diem_the,
+           COALESCE(vk.loai_loi_chi_tiet, vk.loai_loi) as loai_loi, vk.ket_qua_cap_1 as ket_qua_cap_1, vk.chot_bo_cap_2 as chot_bo_cap_2, ${diemTheExpr("vk")} as diem_the,
            vk.ghi_chu as ghi_chu, vk.nguoi_ghi_nhan as nguoi_ghi_nhan, vk.ngay_ghi_nhan as ngay_ghi_nhan, vk.nguoi_chot as nguoi_chot, vk.ngay_chot as ngay_chot,
            NULL as giai_trinh_ktv_noi_dung, NULL as giai_trinh_ktv_ngay, NULL as giai_trinh_gs_noi_dung, NULL as giai_trinh_gs_ngay
          FROM vi_pham_ktv vk

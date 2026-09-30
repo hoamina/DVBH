@@ -117,6 +117,8 @@ export interface ViPhamRow {
   case_id: string;
   ket_qua_goi_id: string;
   loai_loi: LoaiLoi;
+  // Loai loi TU DO tu file import (migration 0118) - uu tien hien thi hon nhan cua loai_loi neu co.
+  loai_loi_chi_tiet?: string | null;
   ket_qua_cap_1: string | null;
   ghi_chu?: string | null;
   chot_bo_cap_2: number | null;

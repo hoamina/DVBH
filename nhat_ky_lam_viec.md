@@ -3867,3 +3867,22 @@ mục này). Sửa (`importViPham.ts`, `SurveyModule.tsx`, `ImportUploader.tsx`)
 Test local qua `/api/import/vi-pham/preview`: 3 dòng (danh mục ở cột nguồn / nguồn có dấu / để trống) hợp
 lệ, dòng giá trị lạ báo lỗi mới. Chưa xác minh được "GQKN - Vi phạm có khiếu nại" có trong danh mục
 production hay không (không truy vấn tuỳ ý được D1 remote) — nếu chưa có, cần thêm vào Settings.
+
+## 2026-09-30 (tiếp) — Import vi phạm: cột "Loại lỗi" là phân loại TỰ DO (v1.396, migration 0118)
+
+Chủ hệ thống đính chính v1.395 (mình hiểu sai 2 lần): danh mục Settings "Loại lỗi vi phạm" chỉ áp cho
+cột "KẾT QUẢ CẤP 1"; cột "LOẠI LỖI" trong file (vd "GQKN - Vi phạm có khiếu nại") là **phân loại tự do,
+lưu nguyên văn** (chốt qua AskUserQuestion). Gỡ toàn bộ logic suy đoán của v1.395 (đổi tên cột "NGUỒN
+LỖI", map giá trị danh mục sang KQ cấp 1).
+- Migration `0118`: `ALTER TABLE vi_pham/vi_pham_ktv ADD COLUMN loai_loi_chi_tiet TEXT` (đã apply
+  smarttrade trước khi deploy code).
+- `importViPham.ts`: LOẠI LỖI trùng (không phân biệt dấu/hoa thường) 1 trong 5 nguồn cố định → lưu
+  `loai_loi` như cũ; giá trị khác → `loai_loi='Khac'` + `loai_loi_chi_tiet` = nguyên văn (cắt 200 ký tự).
+  Không còn báo lỗi cho cột này. KQ cấp 1 vẫn kiểm theo danh mục. File mẫu cập nhật ví dụ.
+- Hiển thị `loai_loi_chi_tiet` ưu tiên hơn nhãn nguồn: báo cáo "Tất cả vi phạm" (`viPhamBaoCao.ts`
+  COALESCE), chi tiết ca tab Vi phạm + Tiến trình chung, hàng chờ QC (`SurveyModule.tsx`).
+- Giữ fix `ImportUploader` (header vắng mặt không ghi đè giá trị) từ v1.395 — vô hại, đúng hơn.
+- Hạn chế đã biết: UNIQUE(case_id, loai_loi, ket_qua_cap_1) của `vi_pham` → 2 dòng cùng ca + cùng KQ
+  cấp 1 nhưng khác "Loại lỗi" tự do sẽ chỉ ghi dòng đầu (cả 2 cùng `loai_loi='Khac'`).
+Test local: preview + commit 2 dòng (GQKN tự do / "Lỗi 120 phút" có dấu) → lưu đúng, dòng KQ cấp 1 ngoài
+danh mục vẫn bị chặn; đã xoá dữ liệu test.

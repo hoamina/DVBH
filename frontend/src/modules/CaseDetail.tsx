@@ -828,7 +828,7 @@ export function CaseDetail({
         key: `vp-${v.id}-ghi-nhan`,
         rawTs: v.ngay_ghi_nhan,
         tone: "coral",
-        typeLabel: `Vi phạm ghi nhận (${LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi})`,
+        typeLabel: `Vi phạm ghi nhận (${v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi)})`,
         actor: v.nguoi_ghi_nhan,
         summary: v.ket_qua_cap_1 ?? "Chưa khảo sát",
         jumpTab: "vi-pham",
@@ -1434,7 +1434,7 @@ export function CaseDetail({
           return (
             <Card key={v.id} className="p-3">
               <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-                <span className="font-semibold text-sm">{LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi}</span>
+                <span className="font-semibold text-sm">{v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi)}</span>
                 <div className="flex items-center gap-1.5">
                   {daDay && (
                     <span title="Đã đẩy sang app vi phạm" className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--teal-600)]">
