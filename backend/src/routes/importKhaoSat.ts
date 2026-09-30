@@ -256,7 +256,7 @@ async function processRows(db: D1Database, rows: BackfillRow[], commit: boolean)
             // nhap tay).
             `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
              VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now', '+7 hours')), ?, ?, ?)
-             ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
+             ON CONFLICT(case_id, loai_loi, ket_qua_cap_1, khoa_trung) DO NOTHING`,
           )
           .bind(
             viPhamId,

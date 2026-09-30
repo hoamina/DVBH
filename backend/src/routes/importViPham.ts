@@ -9,7 +9,7 @@ import { parseSheetDateTime } from "../lib/sheetDateParser";
 import { loadKetQuaCap1ValidValues, isGhiChuBatBuocForKetQuaCap1, normalizeKetQuaCap1 } from "../lib/ketQuaCap1";
 import { nowVN } from "../lib/vnTime";
 import { reserveSequentialIds } from "../lib/idCounter";
-import { runBatched, logImportHistory } from "../lib/backfillImportProcessor";
+import { logImportHistory, CHUNK_SIZE_BATCH } from "../lib/backfillImportProcessor";
 import { bumpVersions } from "../lib/dataVersions";
 
 // Import vi pham hang loat tu Excel (yeu cau chu he thong 2026-09-22), cho CSKH/TN CSKH/TBP CSKH/
@@ -50,6 +50,15 @@ function boDau(v: string): string {
 }
 const LOAI_LOI_BY_BO_DAU = new Map([...LOAI_LOI_IMPORT_VALUES].map((v) => [boDau(v), v]));
 
+// Khoa chong trung (migration 0119) - 1 ID co the co NHIEU vi pham: dong nguon 'Khac' (gom moi "Loai loi"
+// tu do) khoa theo "loai loi tu do | ngay | ghi chu" -> nhieu dong / ca, import lai dung file cu van khong
+// nhan doi. Nguon co dinh khac 'Khac' giu khoa '' (gop voi luong khao sat CSKH nhu truoc). PHAI khop cong
+// thuc backfill SQL trong migrations/0119_vi_pham_khoa_trung.sql.
+function khoaTrungImport(loaiLoi: string, loaiLoiChiTiet: string | null, ngayGhiNhan: string, ghiChu: string | null): string {
+  if (loaiLoi !== "Khac") return "";
+  return `${loaiLoiChiTiet ?? ""}|${ngayGhiNhan.slice(0, 10)}|${ghiChu ?? ""}`;
+}
+
 interface ImportRow {
   case_id?: string;
   ktv_id?: string;
@@ -85,13 +94,26 @@ interface ParsedRow {
   ktvId: string;
   loaiLoi: string;
   loaiLoiChiTiet: string | null;
+  khoaTrung: string;
   ketQuaCap1: string;
   ghiChu: string | null;
   ngayGhiNhan: string;
 }
 
+// Nhu runBatched() nhung tra ve tong so dong THUC SU ghi (meta.changes) - ON CONFLICT DO NOTHING bo qua
+// dong trung thi changes = 0, de bao dung "X moi / Y da co" thay vi dem ca dong bi bo qua.
+async function runBatchedCountChanges(db: D1Database, statements: D1PreparedStatement[]): Promise<number> {
+  let total = 0;
+  for (let i = 0; i < statements.length; i += CHUNK_SIZE_BATCH) {
+    const results = await db.batch(statements.slice(i, i + CHUNK_SIZE_BATCH));
+    for (const r of results) total += r.meta?.changes ?? 0;
+  }
+  return total;
+}
+
 async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, scope: string[] | null, actorEmail: string) {
-  const summary = { thanhCong: 0, loi: 0, errors: [] as string[] };
+  // boQuaTrung: dong hop le nhung DA CO san (khoa trung, vd import lai dung file) - chi dem luc commit.
+  const summary = { thanhCong: 0, loi: 0, boQuaTrung: 0, errors: [] as string[] };
   const validValues = await loadKetQuaCap1ValidValues(db);
   const ghiChuBatBuocCache = new Map<string, boolean>();
   async function ghiChuBatBuoc(tenLoi: string): Promise<boolean> {
@@ -149,7 +171,8 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
       continue;
     }
 
-    const parsed: ParsedRow = { lineNo, caseId, ktvId, loaiLoi, loaiLoiChiTiet, ketQuaCap1, ghiChu: String(row.ghi_chu ?? "").trim() || null, ngayGhiNhan };
+    const ghiChu = String(row.ghi_chu ?? "").trim() || null;
+    const parsed: ParsedRow = { lineNo, caseId, ktvId, loaiLoi, loaiLoiChiTiet, khoaTrung: khoaTrungImport(loaiLoi, loaiLoiChiTiet, ngayGhiNhan, ghiChu), ketQuaCap1, ghiChu, ngayGhiNhan };
     if (caseId) caseRows.push(parsed);
     else ktvRows.push(parsed);
   }
@@ -215,6 +238,7 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
     // loi ngay luc insert (chot_bo_cap_2 = 0, nguoi_chot = nguoi import) - khong vao hang doi "cho QC".
     // Luong import von khong push sang app vipham (xem chu thich dau file) nen khong can chan them.
     const ngayChotAuto = nowVN();
+    let inserted = 0;
     const autoBoLoi = (kq: string): [number | null, string | null, string | null] =>
       kq === "Khong loi" ? [0, actorEmail, ngayChotAuto] : [null, null, null];
     if (validCaseRows.length > 0) {
@@ -222,28 +246,30 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
       const statements = validCaseRows.map((r, i) =>
         db
           .prepare(
-            `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, loai_loi_chi_tiet, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
-             VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
+            `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, loai_loi_chi_tiet, khoa_trung, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
+             VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(case_id, loai_loi, ket_qua_cap_1, khoa_trung) DO NOTHING`,
           )
-          .bind(ids[i], r.caseId, r.loaiLoi, r.loaiLoiChiTiet, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan, ...autoBoLoi(r.ketQuaCap1)),
+          .bind(ids[i], r.caseId, r.loaiLoi, r.loaiLoiChiTiet, r.khoaTrung, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan, ...autoBoLoi(r.ketQuaCap1)),
       );
-      await runBatched(db, statements);
+      inserted += await runBatchedCountChanges(db, statements);
     }
     if (validKtvRows.length > 0) {
       const ids = await reserveSequentialIds(db, "vi_pham_ktv", "LK", 6, validKtvRows.length);
       const statements = validKtvRows.map((r, i) =>
         db
           .prepare(
-            `INSERT INTO vi_pham_ktv (id, ky_thuat_vien, khu_vuc, loai_loi, loai_loi_chi_tiet, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(ky_thuat_vien, ngay_ghi_nhan, loai_loi, ket_qua_cap_1) DO NOTHING`,
+            `INSERT INTO vi_pham_ktv (id, ky_thuat_vien, khu_vuc, loai_loi, loai_loi_chi_tiet, khoa_trung, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(ky_thuat_vien, ngay_ghi_nhan, loai_loi, ket_qua_cap_1, khoa_trung) DO NOTHING`,
           )
-          .bind(ids[i], r.info.kyThuatVienFull, r.info.khuVuc, r.loaiLoi, r.loaiLoiChiTiet, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan, ...autoBoLoi(r.ketQuaCap1)),
+          .bind(ids[i], r.info.kyThuatVienFull, r.info.khuVuc, r.loaiLoi, r.loaiLoiChiTiet, r.khoaTrung, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan, ...autoBoLoi(r.ketQuaCap1)),
       );
-      await runBatched(db, statements);
+      inserted += await runBatchedCountChanges(db, statements);
     }
-    if (validCaseRows.length > 0 || validKtvRows.length > 0) await bumpVersions(db, ["vi_pham"]);
+    summary.boQuaTrung = summary.thanhCong - inserted;
+    summary.thanhCong = inserted;
+    if (inserted > 0) await bumpVersions(db, ["vi_pham"]);
   }
 
   return summary;

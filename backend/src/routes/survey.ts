@@ -1154,7 +1154,7 @@ survey.post(
           // co results (chi log cuoc goi khong thanh cong - results rong - moi khong bi anh huong).
           `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, nguoi_ghi_nhan, ngay_ghi_nhan)
            VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
+           ON CONFLICT(case_id, loai_loi, ket_qua_cap_1, khoa_trung) DO NOTHING`,
         ).bind(viPhamId, ketQuaGoiId, body.case_id, r.loai_loi, ketQuaCap1, user.email, ngayGhiNhan),
       );
     }

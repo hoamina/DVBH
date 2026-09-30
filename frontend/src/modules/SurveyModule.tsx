@@ -320,6 +320,7 @@ const VIEWS = [
 interface ImportViPhamSummary {
   thanhCong: number;
   loi: number;
+  boQuaTrung?: number;
   errors: string[];
 }
 
@@ -1964,7 +1965,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               </div>
             )}
             getErrors={(s) => s.errors}
-            successMessage={(s) => `Import thành công: ${s.thanhCong} vi phạm`}
+            successMessage={(s) => `Import thành công: ${s.thanhCong} vi phạm mới${s.boQuaTrung ? ` · bỏ qua ${s.boQuaTrung} dòng đã có trước đó` : ""}`}
             invalidateKeys={[
               ["survey"],
               ["survey-counts"],

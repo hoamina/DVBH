@@ -141,7 +141,7 @@ export async function syncViPhamFromSheet(env: Env, actorEmail: string): Promise
         // tu lan chay truoc thi bo qua (idempotency tu nhien cho cron hang ngay doc lai TOAN BO sheet).
         `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan)
          VALUES (?, NULL, ?, 'KSNB', ?, ?, ?, ?)
-         ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
+         ON CONFLICT(case_id, loai_loi, ket_qua_cap_1, khoa_trung) DO NOTHING`,
       )
       .bind(ids[i], r.case_id, r.vi_pham!.trim(), r.noi_dung?.trim() || null, actorEmail, r.ngay_thuc_hien || ngayGhiNhanMac),
   );

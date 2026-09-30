@@ -526,7 +526,7 @@ viPham.post(
     const result = await c.env.DB.prepare(
       `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
        VALUES (?, NULL, ?, 'Khac', ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
+       ON CONFLICT(case_id, loai_loi, ket_qua_cap_1, khoa_trung) DO NOTHING`,
     )
       .bind(viPhamId, caseId, ketQuaCap1, ghiChu, user.email, ngayGhiNhan, laKhongLoi ? 0 : null, laKhongLoi ? user.email : null, laKhongLoi ? nowVN() : null)
       .run();

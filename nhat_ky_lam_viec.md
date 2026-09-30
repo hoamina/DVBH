@@ -3886,3 +3886,21 @@ LỖI", map giá trị danh mục sang KQ cấp 1).
   cấp 1 nhưng khác "Loại lỗi" tự do sẽ chỉ ghi dòng đầu (cả 2 cùng `loai_loi='Khac'`).
 Test local: preview + commit 2 dòng (GQKN tự do / "Lỗi 120 phút" có dấu) → lưu đúng, dòng KQ cấp 1 ngoài
 danh mục vẫn bị chặn; đã xoá dữ liệu test.
+
+## 2026-09-30 (tiếp) — 1 ID nhiều vi phạm khi import (v1.397, migration 0119)
+
+Yêu cầu: 1 ID (case/KTV) có thể có nhiều vi phạm. UNIQUE cũ `vi_pham(case_id, loai_loi, ket_qua_cap_1)`
+gộp mọi dòng import cùng ca + cùng KQ cấp 1 (đều `loai_loi='Khac'`) thành 1 — mất vi phạm âm thầm.
+- Migration `0119`: thêm `khoa_trung TEXT NOT NULL DEFAULT ''` vào UNIQUE của `vi_pham` và `vi_pham_ktv`
+  (recreate table — `vi_pham` có bảng con `vi_pham_giai_trinh` nên sao lưu/drop/khôi phục bảng con đúng kỹ
+  thuật 0114; backfill `khoa_trung` cho dòng đã có `loai_loi_chi_tiet`). Local: số dòng vi_pham/giải trình
+  giữ nguyên, `PRAGMA foreign_key_check` sạch.
+- `importViPham.ts` `khoaTrungImport()`: nguồn 'Khac' (mọi "Loại lỗi" tự do) → `"<loại lỗi>|<ngày>|<ghi
+  chú>"` → nhiều vi phạm/ca, import lại đúng file không nhân đôi; nguồn cố định khác giữ '' (gộp với luồng
+  khảo sát như cũ). Commit đếm số dòng thực ghi (`meta.changes`) → trả `thanhCong` (mới) + `boQuaTrung`
+  (đã có), thông báo FE "X vi phạm mới · bỏ qua Y dòng đã có trước đó".
+- 6 câu `ON CONFLICT(case_id, loai_loi, ket_qua_cap_1)` (survey, importKhaoSat, viPhamSheetSync, viPham,
+  importViPham x2) đổi sang có `khoa_trung` — bắt buộc, SQLite yêu cầu target khớp đúng 1 UNIQUE.
+Test local: 4 vi phạm cùng ca + cùng KQ cấp 1 (khác loại lỗi/ngày) ghi đủ 4; import lại → 0 mới; câu insert
+kiểu luồng khảo sát 2 lần → 1 dòng. Khi triển khai: migrate rồi deploy liền nhau (code cũ lỗi ON CONFLICT
+trong khoảng giữa).
