@@ -1437,14 +1437,24 @@ export function CaseDetail({
                   </div>
                 );
               })()}
-              {// Ghi chu (migration 0113 - tao thu cong/dong bo Sheet KSNB) - truoc day chua hien o
-              // dau ca (bug thuc te 2026-09-17), chi luu trong DB/gui API ma khong render ra UI.
-              v.ghi_chu && (
-                <div className="mt-1.5 text-xs text-[var(--ink-600)]">
-                  <span className="text-[11px] font-semibold text-[var(--ink-400)]">Ghi chú: </span>
-                  {v.ghi_chu}
-                </div>
-              )}
+              {(() => {
+                // Ghi chu mo ta loi: vi_pham.ghi_chu (migration 0113 - chi co o vi pham tao thu cong/
+                // dong bo Sheet KSNB), fallback ket_qua_goi.ghi_chu cua cuoc goi CSKH da sinh ra loi
+                // nay - vi pham tu cuoc goi khao sat KHONG luu ghi chu rieng tren vi_pham (mo ta loi
+                // CSKH nhap nam o ket_qua_goi, dung chung cho ca cuoc goi), truoc day the vi pham
+                // khong hien gi (yeu cau 2026-09-30).
+                const moTa = v.ghi_chu?.trim() || ketQuaGoiList.find((k) => k.id === v.ket_qua_goi_id)?.ghi_chu?.trim() || null;
+                return (
+                  <div className="mt-1.5">
+                    <div className="text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Ghi chú mô tả lỗi</div>
+                    {moTa ? (
+                      <div className="text-sm font-medium text-[var(--ink-900)] whitespace-pre-wrap">{moTa}</div>
+                    ) : (
+                      <div className="text-xs text-[var(--ink-400)] italic">Không có ghi chú.</div>
+                    )}
+                  </div>
+                );
+              })()}
               {(() => {
                 const giaiTrinhCuaLoiNay = viPhamGiaiTrinhList.filter((g) => g.vi_pham_id === v.id);
                 const giaiTrinhKtv = giaiTrinhCuaLoiNay.filter((g) => g.nguon === "ktv_qua_api");
