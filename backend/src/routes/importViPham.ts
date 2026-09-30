@@ -50,6 +50,19 @@ function boDau(v: string): string {
 }
 const LOAI_LOI_BY_BO_DAU = new Map([...LOAI_LOI_IMPORT_VALUES].map((v) => [boDau(v), v]));
 
+// O ngay kieu Date trong Excel: ImportUploader (SheetJS cellDates) -> Date -> JSON = ISO UTC
+// ("2026-09-25T10:55:46.000Z", da tru 7h tu gio VN tren file). parseSheetDateTime khong nhan dang nay nen
+// truoc day luu NGUYEN chuoi UTC (lech -7h, sai dinh dang) - bug 2026-09-30, du lieu cu sua o migration 0120.
+// Quy ve gio VN dia phuong "YYYY-MM-DD HH:MM:SS" theo quy uoc toan he thong. CHI ap dung cho import vi
+// pham (khong sua chung parseSheetDateTime/ImportUploader - import CRM dang luu nguyen gia tri, doi dinh
+// dang o do se lam lech crm_hash hang loat).
+function isoUtcToVnLocal(raw: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/.test(raw)) return raw;
+  const ms = Date.parse(raw);
+  if (Number.isNaN(ms)) return raw;
+  return new Date(ms + 7 * 3600 * 1000).toISOString().slice(0, 19).replace("T", " ");
+}
+
 // Khoa chong trung (migration 0119) - 1 ID co the co NHIEU vi pham: dong nguon 'Khac' (gom moi "Loai loi"
 // tu do) khoa theo "loai loi tu do | ngay | ghi chu" -> nhieu dong / ca, import lai dung file cu van khong
 // nhan doi. Nguon co dinh khac 'Khac' giu khoa '' (gop voi luong khao sat CSKH nhu truoc). PHAI khop cong
@@ -141,7 +154,7 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
       summary.errors.push(`Dong ${lineNo}: thieu "Ngay ghi nhan"`);
       continue;
     }
-    const ngayGhiNhan = parseSheetDateTime(ngayRaw);
+    const ngayGhiNhan = parseSheetDateTime(isoUtcToVnLocal(ngayRaw));
     if (!/^\d{4}-\d{2}-\d{2}/.test(ngayGhiNhan)) {
       summary.loi++;
       summary.errors.push(`Dong ${lineNo}: "Ngay ghi nhan" = "${ngayRaw}" khong dung dinh dang (dd/mm/yyyy hoac yyyy-mm-dd)`);

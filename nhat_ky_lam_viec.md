@@ -3918,3 +3918,18 @@ cũ trong `importViPham.ts` về "Tải mẫu bị 403" chính là triệu chứ
 Test local (tạm đổi user dev sang TBP CSKH rồi trả lại Admin): column-map/template/preview vi phạm 200; import
 CRM (`/api/import/history`) và import khảo sát vẫn 403 như thiết kế. TBP DVBH vẫn KHÔNG có tab "Nhập Excel"
 vi phạm (không thuộc 5 vai trò được import — chưa đổi).
+
+## 2026-09-30 (tiếp) — Import vi phạm: "không thấy ghi nhận đủ" + ngày ghi nhận lệch -7h (v1.399, migration 0120)
+
+Chủ hệ thống hỏi file `mau_import_vi_pham_29.9. (1).xlsx` (81 dòng, 81 ca khác nhau, đều có ID case, Loại
+lỗi "GQKN - Vi phạm có khiếu nại") import lên không thấy đủ, ví dụ ca 1341623. Phân tích file:
+- **67/81 dòng có Kết quả cấp 1 = "Không có lỗi"** (gồm ca 1341623) → theo chốt cùng ngày vẫn ghi nhận nhưng
+  tự động chốt QC bỏ lỗi, nên KHÔNG hiện ở báo cáo "Tất cả vi phạm"/hàng chờ QC (lọc `!= 'Khong loi'`), chỉ
+  thấy trong tab Vi phạm của chi tiết ca. 14 dòng còn lại là lỗi thật.
+- **Bug thật tìm thêm:** cột Ngày ghi nhận trong file là kiểu ngày Excel → `ImportUploader` (SheetJS
+  `cellDates`) gửi ISO UTC `2026-09-25T10:55:46.000Z` (giờ VN − 7h); `parseSheetDateTime` không nhận dạng
+  nên lưu nguyên chuỗi UTC: lệch −7h, dòng trước 7h sáng lùi 1 ngày, sai định dạng quy ước.
+  Sửa CHỈ trong `importViPham.ts` (`isoUtcToVnLocal`) — không sửa chung `ImportUploader`/`parseSheetDateTime`
+  vì import CRM lưu nguyên giá trị, đổi định dạng ở đó sẽ lệch `crm_hash` hàng loạt (cần điều tra riêng xem
+  file CRM có ô kiểu ngày không). Migration `0120`: `+7h` cho `ngay_ghi_nhan` dạng ISO có 'T' ở `vi_pham`/
+  `vi_pham_ktv` + tính lại `khoa_trung`. Test local trên dòng mẫu (20:30Z → 03:30 hôm sau, khóa trùng đổi theo).
