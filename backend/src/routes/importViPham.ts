@@ -41,6 +41,16 @@ const requireImportRole = requireRole("Admin", "QC", "CSKH", "TN CSKH", "TBP CSK
 // (xem migration 0114), import tay khong duoc nhan danh nguon do.
 const LOAI_LOI_IMPORT_VALUES = new Set(["Loi 120 phut", "Hen qua 24h", "Loi lo ke hoach", "KH hen lai", "Khac"]);
 
+// Cot "Nguon loi" (ten cu trong file mau: "LOAI LOI") = NGUON ghi nhan (co dinh, CHECK o vi_pham.loai_loi),
+// KHAC danh muc dong "Loai loi vi pham" (Settings, dung cho "Ket qua cap 1"). Fix 2026-09-30: nguoi dung
+// de nhap gia tri danh muc vao cot nay vi trung ten (81/81 dong bi tu choi) - nay:
+//  - nhan ca cach viet co dau cua 5 nguon co dinh ("Lỗi 120 phút", "Khác"...);
+//  - gia tri thuoc danh muc "Loai loi vi pham" -> nguon = "Khac", dung lam Ket qua cap 1 neu cot do trong.
+function boDau(v: string): string {
+  return v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u0111/g, "d").replace(/\u0110/g, "D").toLowerCase().replace(/\s+/g, " ").trim();
+}
+const LOAI_LOI_BY_BO_DAU = new Map([...LOAI_LOI_IMPORT_VALUES].map((v) => [boDau(v), v]));
+
 interface ImportRow {
   case_id?: string;
   ktv_id?: string;
@@ -54,7 +64,8 @@ export const COLUMN_MAP: Record<string, string> = {
   "ID CASE": "case_id",
   "ID KTV": "ktv_id",
   "NGÀY GHI NHẬN": "ngay_ghi_nhan",
-  "LOẠI LỖI": "loai_loi",
+  "LOẠI LỖI": "loai_loi", // ten cu - file mau cu van import duoc
+  "NGUỒN LỖI": "loai_loi",
   "KẾT QUẢ CẤP 1": "ket_qua_cap_1",
   "GHI CHÚ": "ghi_chu",
 };
@@ -62,8 +73,8 @@ export const COLUMN_MAP: Record<string, string> = {
 importViPham.get("/column-map", (c) => c.json({ columnMap: COLUMN_MAP }));
 
 const TEMPLATE_ROWS = [
-  ["ID CASE", "ID KTV", "NGÀY GHI NHẬN", "LOẠI LỖI", "KẾT QUẢ CẤP 1", "GHI CHÚ"],
-  ["1234567", "", "01/09/2026", "Khac", "Lỗi khác", "Có ID case - ánh xạ vào case này"],
+  ["ID CASE", "ID KTV", "NGÀY GHI NHẬN", "NGUỒN LỖI", "KẾT QUẢ CẤP 1", "GHI CHÚ"],
+  ["1234567", "", "01/09/2026", "Khác", "Lỗi khác", "Có ID case - ánh xạ vào case này. NGUỒN LỖI: Lỗi 120 phút / Hẹn quá 24h / Lỗi lỡ kế hoạch / KH hẹn lại / Khác (để trống = Khác)"],
   ["", "truongnx.ctv24h", "02/09/2026", "Khac", "Lỗi khác", "Không có ID case - gắn thẳng vào KTV theo mã"],
 ];
 
@@ -117,14 +128,22 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
     }
 
     const loaiLoiRaw = String(row.loai_loi ?? "").trim();
-    const loaiLoi = loaiLoiRaw || "Khac";
-    if (!LOAI_LOI_IMPORT_VALUES.has(loaiLoi)) {
+    let loaiLoi = loaiLoiRaw ? LOAI_LOI_BY_BO_DAU.get(boDau(loaiLoiRaw)) : "Khac";
+    let ketQuaCap1Raw = String(row.ket_qua_cap_1 ?? "").trim();
+    if (!loaiLoi && validValues.has(normalizeKetQuaCap1(loaiLoiRaw))) {
+      // Gia tri danh muc "Loai loi vi pham" nhap nham vao cot nguon loi.
+      loaiLoi = "Khac";
+      if (!ketQuaCap1Raw) ketQuaCap1Raw = loaiLoiRaw;
+    }
+    if (!loaiLoi) {
       summary.loi++;
-      summary.errors.push(`Dong ${lineNo}: "Loai loi" = "${loaiLoiRaw}" khong hop le (chi nhan: ${[...LOAI_LOI_IMPORT_VALUES].join(", ")}, de trong = "Khac")`);
+      summary.errors.push(
+        `Dong ${lineNo}: "Nguon loi" = "${loaiLoiRaw}" khong hop le - chi nhan: ${[...LOAI_LOI_IMPORT_VALUES].join(", ")} (de trong = "Khac"), hoac 1 gia tri trong danh muc "Loai loi vi pham" (Settings)`,
+      );
       continue;
     }
 
-    const ketQuaCap1 = normalizeKetQuaCap1(String(row.ket_qua_cap_1 ?? ""));
+    const ketQuaCap1 = normalizeKetQuaCap1(ketQuaCap1Raw);
     if (!ketQuaCap1) {
       summary.loi++;
       summary.errors.push(`Dong ${lineNo}: thieu "Ket qua cap 1"`);
@@ -133,7 +152,7 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
     // "Khong loi" (2026-09-30): van ghi nhan, nhung tu dong chot QC bo loi luc commit (xem duoi).
     if (!validValues.has(ketQuaCap1)) {
       summary.loi++;
-      summary.errors.push(`Dong ${lineNo}: "Ket qua cap 1" = "${ketQuaCap1}" khong co trong danh muc "Loai vi pham" (Settings)`);
+      summary.errors.push(`Dong ${lineNo}: "Ket qua cap 1" = "${ketQuaCap1}" khong co trong danh muc "Loai loi vi pham" (Settings)`);
       continue;
     }
     if ((await ghiChuBatBuoc(ketQuaCap1)) && !String(row.ghi_chu ?? "").trim()) {

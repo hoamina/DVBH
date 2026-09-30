@@ -56,8 +56,10 @@ export async function parseSpreadsheet(
         }
         const mapped = rawRows.map((raw) => {
           const row: Record<string, unknown> = {};
+          // Nhieu header (ten cu + ten moi) co the tro CUNG 1 dbCol - header vang mat khong duoc ghi de
+          // gia tri da doc tu header co mat.
           for (const [excelCol, dbCol] of Object.entries(columnMap)) {
-            row[dbCol] = raw[excelCol] ?? null;
+            row[dbCol] = raw[excelCol] ?? row[dbCol] ?? null;
           }
           return row;
         });

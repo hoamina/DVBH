@@ -1947,7 +1947,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             description={
               <>
                 Ghi nhận vi phạm hàng loạt từ Excel. Mỗi dòng cần <b className="font-mono">ID case</b> HOẶC <b className="font-mono">ID KTV</b> (nếu không có ID case - gắn thẳng vào KTV theo
-                ngày, không qua case) + <b className="font-mono">Ngày ghi nhận</b> + <b className="font-mono">Kết quả cấp 1</b> (chọn theo danh mục "Loại vi phạm" trong Settings). Vi phạm import
+                ngày, không qua case) + <b className="font-mono">Ngày ghi nhận</b> + <b className="font-mono">Kết quả cấp 1</b> (theo danh mục "Loại lỗi vi phạm" trong Settings). Cột <b className="font-mono">Nguồn lỗi</b> (tên cũ "Loại lỗi") là nguồn ghi nhận — Lỗi 120 phút / Hẹn quá 24h / Lỗi lỡ kế hoạch / KH hẹn lại / Khác, để trống = Khác; nếu điền nhầm 1 giá trị danh mục "Loại lỗi vi phạm" vào cột này, hệ thống tự hiểu là Kết quả cấp 1. Vi phạm import
                 vẫn vào hàng chờ QC chốt cấp 2 như bình thường (xem tab "Tất cả vi phạm" của module Báo cáo vi phạm). Dòng có Kết quả cấp 1 = <b className="font-mono">Không có lỗi</b> vẫn
                 được ghi nhận nhưng tự động chốt QC bỏ lỗi, không gửi KTV giải trình.
               </>

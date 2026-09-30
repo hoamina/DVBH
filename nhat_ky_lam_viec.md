@@ -3850,3 +3850,20 @@ vi phạm lên hệ thống nhưng không bắn ca qua API cho KTV giải trình
 
 Không cần migration (CHECK `chk_cap2_sau_cap1` chỉ yêu cầu có `ket_qua_cap_1` khi đã chốt cấp 2).
 Test: typecheck backend + frontend sạch.
+
+## 2026-09-30 (tiếp) — Import vi phạm: cột "Loại lỗi" từ chối 81/81 dòng (v1.395)
+
+Chủ hệ thống import file có cột "LOẠI LỖI" = "GQKN - Vi phạm có khiếu nại" → 81 dòng lỗi định dạng. Gốc:
+cột "LOẠI LỖI" trong file mẫu thực chất là NGUỒN ghi nhận (5 giá trị cố định, CHECK ở `vi_pham.loai_loi`),
+còn danh mục động Settings "Loại lỗi vi phạm" chỉ áp cho "KẾT QUẢ CẤP 1" — trùng tên nên người dùng điền
+giá trị danh mục vào nhầm cột; dòng hướng dẫn còn ghi sai tên danh mục ("Loại vi phạm", Settings không có
+mục này). Sửa (`importViPham.ts`, `SurveyModule.tsx`, `ImportUploader.tsx`):
+- File mẫu đổi cột thành "NGUỒN LỖI" (vẫn nhận header cũ "LOẠI LỖI"); `ImportUploader` không để header
+  vắng mặt ghi đè giá trị khi 2 header cùng trỏ 1 cột DB.
+- Nhận cách viết có dấu của 5 nguồn cố định ("Lỗi 120 phút", "Khác"...).
+- Giá trị thuộc danh mục "Loại lỗi vi phạm" điền vào cột nguồn → nguồn = "Khac", dùng làm Kết quả cấp 1
+  nếu cột đó trống; giá trị không thuộc đâu cả → thông báo lỗi nói rõ 2 cách điền hợp lệ.
+- Sửa dòng hướng dẫn cho đúng tên danh mục + giải thích cột Nguồn lỗi.
+Test local qua `/api/import/vi-pham/preview`: 3 dòng (danh mục ở cột nguồn / nguồn có dấu / để trống) hợp
+lệ, dòng giá trị lạ báo lỗi mới. Chưa xác minh được "GQKN - Vi phạm có khiếu nại" có trong danh mục
+production hay không (không truy vấn tuỳ ý được D1 remote) — nếu chưa có, cần thêm vào Settings.
