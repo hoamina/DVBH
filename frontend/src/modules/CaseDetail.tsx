@@ -2601,9 +2601,13 @@ export function CaseDetail({
               <Select
                 value={manualViPhamForm.ket_qua_cap_1}
                 onChange={(val) => setManualViPhamForm({ ...manualViPhamForm, ket_qua_cap_1: val })}
-                options={[{ value: "", label: "— Chọn loại lỗi —" }, ...ketQuaCap1OptionsForQc]}
+                options={[{ value: "", label: "— Chọn loại lỗi —" }, ...ketQuaCap1OptionsForQc, { value: "Khong loi", label: "Không có lỗi" }]}
                 className="w-full mt-1"
               />
+              {/* "Khong loi" (2026-09-30): van ghi nhan nhung backend tu chot QC bo loi, khong gui KTV giai trinh. */}
+              {manualViPhamForm.ket_qua_cap_1 === "Khong loi" && (
+                <div className="text-[11px] text-[var(--ink-400)] mt-0.5">Vẫn ghi nhận lên hệ thống nhưng tự động chốt QC bỏ lỗi, không gửi KTV giải trình.</div>
+              )}
             </div>
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">

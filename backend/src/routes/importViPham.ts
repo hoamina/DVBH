@@ -6,7 +6,8 @@ import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc } from "../middleware/scopeByKhuVuc";
 import { excelTemplateResponse } from "../lib/excelTemplate";
 import { parseSheetDateTime } from "../lib/sheetDateParser";
-import { loadKetQuaCap1ValidValues, isGhiChuBatBuocForKetQuaCap1 } from "../lib/ketQuaCap1";
+import { loadKetQuaCap1ValidValues, isGhiChuBatBuocForKetQuaCap1, normalizeKetQuaCap1 } from "../lib/ketQuaCap1";
+import { nowVN } from "../lib/vnTime";
 import { reserveSequentialIds } from "../lib/idCounter";
 import { runBatched, logImportHistory } from "../lib/backfillImportProcessor";
 import { bumpVersions } from "../lib/dataVersions";
@@ -23,6 +24,9 @@ import { bumpVersions } from "../lib/dataVersions";
 // trinh duoc vi pham import qua app ngoai - GS/QC xem va chot/bo truc tiep tren DVBH (tab "Tat ca
 // vi pham" cua module Bao cao vi pham), dung "Ghi chu" nguoi import dien nhu noi dung giai trinh
 // thay the.
+//
+// 2026-09-30: dong co "Ket qua cap 1" = "Không có lỗi" (quy ve sentinel "Khong loi", xem
+// normalizeKetQuaCap1) VAN duoc ghi nhan, nhung tu dong chot QC bo loi (chot_bo_cap_2 = 0) luc insert.
 const importViPham = new Hono<{ Bindings: Env }>();
 importViPham.use("*", verifySessionMiddleware, loadUser);
 // requireRole chi ap cho /preview + /commit (doc/ghi du lieu that) - KHONG ap cho /template va
@@ -120,17 +124,13 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
       continue;
     }
 
-    const ketQuaCap1 = String(row.ket_qua_cap_1 ?? "").trim();
+    const ketQuaCap1 = normalizeKetQuaCap1(String(row.ket_qua_cap_1 ?? ""));
     if (!ketQuaCap1) {
       summary.loi++;
       summary.errors.push(`Dong ${lineNo}: thieu "Ket qua cap 1"`);
       continue;
     }
-    if (ketQuaCap1 === "Khong loi") {
-      summary.loi++;
-      summary.errors.push(`Dong ${lineNo}: khong duoc import "Khong loi" - day la kenh GHI NHAN vi pham`);
-      continue;
-    }
+    // "Khong loi" (2026-09-30): van ghi nhan, nhung tu dong chot QC bo loi luc commit (xem duoi).
     if (!validValues.has(ketQuaCap1)) {
       summary.loi++;
       summary.errors.push(`Dong ${lineNo}: "Ket qua cap 1" = "${ketQuaCap1}" khong co trong danh muc "Loai vi pham" (Settings)`);
@@ -204,16 +204,22 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
   summary.thanhCong = validCaseRows.length + validKtvRows.length;
 
   if (commit) {
+    // KQ cap 1 = "Khong loi" (yeu cau chu he thong 2026-09-30): van ghi nhan nhung tu dong chot QC BO
+    // loi ngay luc insert (chot_bo_cap_2 = 0, nguoi_chot = nguoi import) - khong vao hang doi "cho QC".
+    // Luong import von khong push sang app vipham (xem chu thich dau file) nen khong can chan them.
+    const ngayChotAuto = nowVN();
+    const autoBoLoi = (kq: string): [number | null, string | null, string | null] =>
+      kq === "Khong loi" ? [0, actorEmail, ngayChotAuto] : [null, null, null];
     if (validCaseRows.length > 0) {
       const ids = await reserveSequentialIds(db, "vi_pham", "L", 6, validCaseRows.length);
       const statements = validCaseRows.map((r, i) =>
         db
           .prepare(
-            `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan)
-             VALUES (?, NULL, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
+             VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
           )
-          .bind(ids[i], r.caseId, r.loaiLoi, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan),
+          .bind(ids[i], r.caseId, r.loaiLoi, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan, ...autoBoLoi(r.ketQuaCap1)),
       );
       await runBatched(db, statements);
     }
@@ -222,11 +228,11 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
       const statements = validKtvRows.map((r, i) =>
         db
           .prepare(
-            `INSERT INTO vi_pham_ktv (id, ky_thuat_vien, khu_vuc, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO vi_pham_ktv (id, ky_thuat_vien, khu_vuc, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(ky_thuat_vien, ngay_ghi_nhan, loai_loi, ket_qua_cap_1) DO NOTHING`,
           )
-          .bind(ids[i], r.info.kyThuatVienFull, r.info.khuVuc, r.loaiLoi, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan),
+          .bind(ids[i], r.info.kyThuatVienFull, r.info.khuVuc, r.loaiLoi, r.ketQuaCap1, r.ghiChu, actorEmail, r.ngayGhiNhan, ...autoBoLoi(r.ketQuaCap1)),
       );
       await runBatched(db, statements);
     }

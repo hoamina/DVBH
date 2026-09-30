@@ -423,10 +423,8 @@ function trangThaiLabel(chotBoCap2: number | null, source: "case" | "ktv", hasGi
 // sach): "danh sach vi pham" CHI gom (a) vi pham CSKH DA CHOT CAP 1 la co loi (v.ket_qua_cap_1 IS
 // NOT NULL AND != 'Khong loi' - dung HET dieu kien "co loi" cua Tong quan/Da chieu, xem chu thich
 // CHOT o computeViPhamBaoCaoTongQuan) VA (b) vi pham import/dong bo tu ben ngoai (KSNB Sheet, Excel
-// import, vi_pham_ktv) - CA 2 nhom nay deu KHONG BAO GIO co ket_qua_cap_1 = 'Khong loi' theo thiet
-// ke (KSNB sync luon dien 1 loai loi that tu Sheet; Excel import CHAN cung "Khong loi" tai
-// routes/importViPham.ts), nen CHI 1 dieu kien "co loi" tren nhanh "case" la du, khong can xu ly
-// rieng cho tung nguon. "Khong loi" KHONG con la 1 lua chon loc duoc nua (xem TRANG_THAI_CLAUSES) -
+// import, vi_pham_ktv). Tu 2026-09-30 Excel import/tao thu cong CHO PHEP "Khong loi" (tu chot QC bo
+// loi, xem routes/importViPham.ts) nen nhanh vi_pham_ktv cung phai loc != 'Khong loi' nhu nhanh "case". "Khong loi" KHONG con la 1 lua chon loc duoc nua (xem TRANG_THAI_CLAUSES) -
 // day la thay doi PHAM VI, khong phai 1 filter tuy chon.
 //
 // Cung neo "ngay_ghi_nhan" nhu Tong quan/Da chieu. LIMIT 5000 (dung lai nguyen ven pattern
@@ -460,7 +458,7 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
            vk.ghi_chu as ghi_chu, vk.nguoi_ghi_nhan as nguoi_ghi_nhan, vk.ngay_ghi_nhan as ngay_ghi_nhan, vk.nguoi_chot as nguoi_chot, vk.ngay_chot as ngay_chot,
            NULL as giai_trinh_ktv_noi_dung, NULL as giai_trinh_ktv_ngay, NULL as giai_trinh_gs_noi_dung, NULL as giai_trinh_gs_ngay
          FROM vi_pham_ktv vk
-         WHERE vk.ngay_ghi_nhan >= ? AND vk.ngay_ghi_nhan < ?${ktvFilter.sql}${cap1FilterKtv.sql}${trangThaiSqlKtv}
+         WHERE vk.ngay_ghi_nhan >= ? AND vk.ngay_ghi_nhan < ? AND vk.ket_qua_cap_1 != 'Khong loi'${ktvFilter.sql}${cap1FilterKtv.sql}${trangThaiSqlKtv}
        )
        ORDER BY ngay_ghi_nhan DESC
        LIMIT ?`,

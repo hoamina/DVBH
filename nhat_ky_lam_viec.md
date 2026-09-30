@@ -3830,3 +3830,23 @@ login), gắn tạm 1 đơn test vào ca local `1164357` → timeline hiện đ�
 xử lý, tóm tắt thời lượng, 2 tab. Đã xoá dữ liệu/key test local sau khi xong.
 **Hạn chế:** chỉ dùng cho từng ca (không có cột danh sách/báo cáo); trước khi linh-kien-app deploy bản
 mở rộng thì chỉ hiện mốc cơ bản (không tên người, không chi tiết ticket thiếu LK).
+
+## 2026-09-30 (tiếp) — Vi phạm "Không có lỗi": vẫn ghi nhận, không gửi KTV, tự chốt QC bỏ lỗi (v1.395)
+
+Yêu cầu: khi import Excel hoặc tạo vi phạm thủ công mà "KẾT QUẢ CẤP 1" = "Không có lỗi" thì vẫn ghi nhận
+vi phạm lên hệ thống nhưng không bắn ca qua API cho KTV giải trình + tự động chốt QC bỏ lỗi.
+
+- `lib/ketQuaCap1.ts`: `normalizeKetQuaCap1()` quy "Không có lỗi"/"Không lỗi"/"Khong co loi" về sentinel
+  `Khong loi` (giá trị mọi query báo cáo đang lọc `!= 'Khong loi'`).
+- `routes/importViPham.ts`: bỏ chặn "Khong loi"; dòng "Khong loi" insert kèm `chot_bo_cap_2 = 0`,
+  `nguoi_chot` = người import, `ngay_chot` = nowVN() (cả nhánh `vi_pham` và `vi_pham_ktv`). Import vốn
+  không push sang app vipham nên không cần chặn thêm.
+- `routes/viPham.ts` `POST /case/:caseId`: bỏ chặn "Khong loi"; insert tự chốt bỏ lỗi như trên và
+  **return trước** `pushViPhamToVipham` (không gửi "nghi_ngo_moi" sang app vipham).
+- `lib/viPhamBaoCao.ts`: tab "Tất cả vi phạm" nhánh `vi_pham_ktv` thêm `AND vk.ket_qua_cap_1 != 'Khong loi'`
+  (trước đây giả định bảng này không bao giờ có "Khong loi"). Điểm thẻ vẫn chỉ tính `chot_bo_cap_2 = 1`.
+- FE: form "Tạo vi phạm thủ công" (CaseDetail) thêm lựa chọn "Không có lỗi" + dòng giải thích; mô tả tab
+  import vi phạm (SurveyModule) ghi rõ hành vi mới.
+
+Không cần migration (CHECK `chk_cap2_sau_cap1` chỉ yêu cầu có `ket_qua_cap_1` khi đã chốt cấp 2).
+Test: typecheck backend + frontend sạch.

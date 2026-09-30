@@ -19,7 +19,7 @@ import { uploadPublicImage } from "../lib/googleDrive";
 import { toJsonArray } from "../lib/jsonArray";
 import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 import { nowVN } from "../lib/vnTime";
-import { loadKetQuaCap1ValidValues, isGhiChuBatBuocForKetQuaCap1 } from "../lib/ketQuaCap1";
+import { loadKetQuaCap1ValidValues, isGhiChuBatBuocForKetQuaCap1, normalizeKetQuaCap1 } from "../lib/ketQuaCap1";
 import { nextSequentialId } from "../lib/idCounter";
 import { syncViPhamFromSheet } from "../lib/viPhamSheetSync";
 
@@ -490,11 +490,12 @@ viPham.post(
   async (c) => {
     const caseId = c.req.param("caseId")!;
     const body = await c.req.json<{ ket_qua_cap_1?: string; ghi_chu?: string; ngay_ghi_nhan?: string }>();
-    const ketQuaCap1 = body.ket_qua_cap_1?.trim();
+    const ketQuaCap1 = normalizeKetQuaCap1(body.ket_qua_cap_1 ?? "");
     if (!ketQuaCap1) return c.json({ error: "INVALID_BODY" }, 400);
-    // Khong duoc tao "Khong loi" qua duong nay - day la kenh GHI NHAN VI PHAM, khac PATCH /:id/cap2
-    // (QC co the sua ket_qua_cap_1 cua 1 vi pham DA TON TAI, cung chan gia tri nay - xem tren).
-    if (ketQuaCap1 === "Khong loi") return c.json({ error: "INVALID_KET_QUA_CAP_1" }, 400);
+    // "Khong loi" (yeu cau chu he thong 2026-09-30, truoc do bi chan o day): VAN ghi nhan vi pham len
+    // he thong, nhung tu dong chot QC BO loi ngay luc tao (chot_bo_cap_2 = 0) va KHONG push sang app
+    // vipham (KTV khong phai giai trinh) - xem khoi INSERT/push ben duoi.
+    const laKhongLoi = ketQuaCap1 === "Khong loi";
 
     const validValues = await loadKetQuaCap1ValidValues(c.env.DB);
     if (!validValues.has(ketQuaCap1)) return c.json({ error: "INVALID_KET_QUA_CAP_1" }, 400);
@@ -523,15 +524,16 @@ viPham.post(
     const ngayGhiNhan = body.ngay_ghi_nhan?.trim() || nowVN();
 
     const result = await c.env.DB.prepare(
-      `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan)
-       VALUES (?, NULL, ?, 'Khac', ?, ?, ?, ?)
+      `INSERT INTO vi_pham (id, ket_qua_goi_id, case_id, loai_loi, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan, chot_bo_cap_2, nguoi_chot, ngay_chot)
+       VALUES (?, NULL, ?, 'Khac', ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(case_id, loai_loi, ket_qua_cap_1) DO NOTHING`,
     )
-      .bind(viPhamId, caseId, ketQuaCap1, ghiChu, user.email, ngayGhiNhan)
+      .bind(viPhamId, caseId, ketQuaCap1, ghiChu, user.email, ngayGhiNhan, laKhongLoi ? 0 : null, laKhongLoi ? user.email : null, laKhongLoi ? nowVN() : null)
       .run();
     if (!result.meta.changes) return c.json({ error: "DUPLICATE" }, 409);
 
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["vi_pham"]));
+    if (laKhongLoi) return c.json({ id: viPhamId }, 201);
     // Bao sang app vipham nhu 1 "nghi ngo moi" (giong het luong CSKH ghi nhan qua dien thoai, xem
     // routes/survey.ts POST /calls) - waitUntil, khong doi phan hoi.
     c.executionCtx.waitUntil(

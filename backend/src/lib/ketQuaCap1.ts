@@ -7,6 +7,17 @@
 // nguon ben ngoai/QC sua lai gia tri cu khong bat buoc phai theo dung trang thai bat/tat hien tai).
 export const KET_QUA_CAP_1_FIXED_VALUES = ["Khong loi", "Loi khong lien he", "Loi sai bao cao", "Loi khac"];
 
+// Cac cach ghi "khong co loi" nguoi dung hay go (file Excel import / form tao thu cong) -> quy ve
+// sentinel "Khong loi" duy nhat ma moi query bao cao dang loc (ket_qua_cap_1 != 'Khong loi').
+// Them 2026-09-30 (yeu cau chu he thong): vi pham import/tao moi voi KQ cap 1 = "Không có lỗi" VAN
+// ghi nhan len he thong nhung KHONG push sang app vipham cho KTV giai trinh + tu dong chot QC bo loi
+// (chot_bo_cap_2 = 0) - xem routes/importViPham.ts + routes/viPham.ts POST /case/:caseId.
+const KHONG_LOI_ALIASES = new Set(["khong loi", "khong co loi", "không lỗi", "không có lỗi"]);
+export function normalizeKetQuaCap1(raw: string): string {
+  const v = raw.trim();
+  return KHONG_LOI_ALIASES.has(v.normalize("NFC").toLowerCase().replace(/\s+/g, " ")) ? "Khong loi" : v;
+}
+
 export async function loadKetQuaCap1ValidValues(db: D1Database): Promise<Set<string>> {
   const { results } = await db.prepare("SELECT ten_loi FROM settings_loai_vi_pham").all<{ ten_loi: string }>();
   return new Set([...KET_QUA_CAP_1_FIXED_VALUES, ...results.map((r) => r.ten_loi)]);

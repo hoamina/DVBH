@@ -1948,7 +1948,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <>
                 Ghi nhận vi phạm hàng loạt từ Excel. Mỗi dòng cần <b className="font-mono">ID case</b> HOẶC <b className="font-mono">ID KTV</b> (nếu không có ID case - gắn thẳng vào KTV theo
                 ngày, không qua case) + <b className="font-mono">Ngày ghi nhận</b> + <b className="font-mono">Kết quả cấp 1</b> (chọn theo danh mục "Loại vi phạm" trong Settings). Vi phạm import
-                vẫn vào hàng chờ QC chốt cấp 2 như bình thường (xem tab "Tất cả vi phạm" của module Báo cáo vi phạm).
+                vẫn vào hàng chờ QC chốt cấp 2 như bình thường (xem tab "Tất cả vi phạm" của module Báo cáo vi phạm). Dòng có Kết quả cấp 1 = <b className="font-mono">Không có lỗi</b> vẫn
+                được ghi nhận nhưng tự động chốt QC bỏ lỗi, không gửi KTV giải trình.
               </>
             }
             templateUrl="/api/import/vi-pham/template"
