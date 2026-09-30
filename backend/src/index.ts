@@ -54,12 +54,17 @@ app.route("/api/vi-pham", viPhamRoutes);
 app.route("/api/vi-pham-ktv", viPhamKtvRoutes);
 app.route("/api/bao-cao-vi-pham", baoCaoViPhamRoutes);
 app.route("/api/bao-cao-nskx", baoCaoNskxRoutes);
+// "/api/import/vi-pham" PHAI mount TRUOC "/api/import": importRoutes co use("*", requireRole("Admin",
+// "TBP DVBH")) - middleware "*" cua router mount o "/api/import" khop CA moi duong dan con, nen neu mount
+// sau thi CSKH/TN CSKH/TBP CSKH/QC bi 403 o moi endpoint import vi pham (bug 2026-09-30: chon file
+// khong co phan hoi vi /column-map bi 403). Mount truoc -> handler vi pham tra response, ket thuc chuoi.
+// Cac router import con con lai dung CUNG bo vai tro voi importRoutes nen khong bi anh huong.
+app.route("/api/import/vi-pham", importViPhamRoutes);
 app.route("/api/import", importRoutes);
 app.route("/api/import/giai-trinh", importGiaiTrinhRoutes);
 app.route("/api/import/giai-trinh-lap", importGiaiTrinhLapRoutes);
 app.route("/api/import/khao-sat", importKhaoSatRoutes);
 app.route("/api/import/nap-gas", importNapGasRoutes);
-app.route("/api/import/vi-pham", importViPhamRoutes);
 // Prefix rieng biet hoan toan voi "/api/import" (khong dung verifySessionMiddleware - xem
 // routes/externalImport.ts) - pipeline Python QuickSight goi qua API key tinh.
 app.route("/api/external-import", externalImportRoutes);

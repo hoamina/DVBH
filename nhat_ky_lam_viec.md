@@ -3904,3 +3904,17 @@ gộp mọi dòng import cùng ca + cùng KQ cấp 1 (đều `loai_loi='Khac'`) 
 Test local: 4 vi phạm cùng ca + cùng KQ cấp 1 (khác loại lỗi/ngày) ghi đủ 4; import lại → 0 mới; câu insert
 kiểu luồng khảo sát 2 lần → 1 dòng. Khi triển khai: migrate rồi deploy liền nhau (code cũ lỗi ON CONFLICT
 trong khoảng giữa).
+
+## 2026-09-30 (tiếp) — TBP CSKH/CSKH/TN CSKH/QC không import được vi phạm (v1.398)
+
+Chủ hệ thống test vai trò TBP: bấm import vi phạm, chọn file không có phản hồi. Gốc: `index.ts` mount
+`/api/import` (router import CRM, `use("*", requireRole("Admin","TBP DVBH"))`) TRƯỚC `/api/import/vi-pham`
+— middleware `*` của router mount tại `/api/import` khớp mọi đường dẫn con, nên mọi endpoint import vi phạm
+(column-map/template/preview/commit) 403 với 4 vai trò được phép theo thiết kế (`requireImportRole`).
+`ImportUploader` thấy chưa có column map thì `return` im lặng → trông như "không mở/không chạy". (Chú thích
+cũ trong `importViPham.ts` về "Tải mẫu bị 403" chính là triệu chứng này, bị chẩn đoán nhầm.)
+- `index.ts`: mount `/api/import/vi-pham` trước `/api/import` (handler vi phạm trả response, kết thúc chuỗi).
+- `ImportUploader.tsx`: không còn return im lặng — toast lỗi tải cấu hình cột / đang tải.
+Test local (tạm đổi user dev sang TBP CSKH rồi trả lại Admin): column-map/template/preview vi phạm 200; import
+CRM (`/api/import/history`) và import khảo sát vẫn 403 như thiết kế. TBP DVBH vẫn KHÔNG có tab "Nhập Excel"
+vi phạm (không thuộc 5 vai trò được import — chưa đổi).

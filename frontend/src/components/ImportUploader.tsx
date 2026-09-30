@@ -116,7 +116,7 @@ export function ImportUploader<TSummary>({
   const addToast = useToast();
   const qc = useQueryClient();
 
-  const { data: columnMapData } = useQuery({
+  const { data: columnMapData, error: columnMapError } = useQuery({
     queryKey: ["import-column-map", columnMapUrl],
     queryFn: () => api.get<{ columnMap: Record<string, string> }>(columnMapUrl!),
     enabled: !!columnMapUrl,
@@ -143,7 +143,15 @@ export function ImportUploader<TSummary>({
   });
 
   async function handleFileChosen(file: File) {
-    if (columnMapUrl && !columnMap && !columnMapData) return;
+    // Truoc day return IM LANG -> nguoi dung chon file xong khong thay gi (vd /column-map bi 403).
+    if (columnMapUrl && !columnMap && !columnMapData) {
+      addToast(
+        columnMapError
+          ? `Không tải được cấu hình cột import: ${describeError(columnMapError)}`
+          : "Đang tải cấu hình cột import, vui lòng chọn lại file sau vài giây.",
+      );
+      return;
+    }
     setFilename(file.name);
     try {
       const rows = await parseSpreadsheet(file, columnMap ?? columnMapData?.columnMap, requireAllColumns);
