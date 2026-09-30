@@ -28,6 +28,7 @@ import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForK
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG } from "../lib/tranhChapTienTrinh";
+import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
 
 const cases = new Hono<{ Bindings: Env }>();
 
@@ -1070,6 +1071,20 @@ cases.get("/data-version", async (c) => {
 });
 
 // GET /api/cases/:id
+// Log "Dat mua linh kien" cua 1 ca tu he linh-kien-app (xem lib/linhKienTimeline.ts) - FE ghep vao
+// tab "Tien trinh chung"/"Mua hang"/"Thieu hang" cua CaseDetail. Cung kiem tra pham vi khu vuc voi
+// GET /:id ben duoi (1 PK lookup) truoc khi goi sang he ngoai.
+cases.get("/:id/linh-kien-timeline", async (c) => {
+  const id = c.req.param("id");
+  const caseRow = await c.env.DB.prepare("SELECT khu_vuc FROM case_dvbh WHERE id = ?").bind(id).first<{ khu_vuc: string | null }>();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+  return c.json(await fetchLinhKienTimeline(c.env, id));
+});
+
 cases.get("/:id", async (c) => {
   const id = c.req.param("id");
   if (!id) return c.json({ error: "INVALID_ID" }, 400);

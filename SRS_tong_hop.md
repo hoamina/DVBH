@@ -176,3 +176,9 @@ Ghi chú kỹ thuật:
   nhóm sheet này không có tín hiệu "còn mở/đã đóng" đáng tin cậy để suy ra mốc kết thúc như tranh
   chấp — đây là lựa chọn diễn giải của lập trình, KHÔNG phải yêu cầu tường minh, cần nêu rõ nếu chủ hệ
   thống muốn đổi quy tắc này sau.
+- **Bổ sung 2026-09-30 — nguồn thứ 2 song song: hệ "Đặt mua linh kiện" (linh-kien-app).** Ngoài 2 sheet
+  Mua hàng/Thiếu hàng ở trên (vẫn giữ), "Tiến trình chung" + tab Mua hàng/Thiếu hàng còn ghép log của
+  linh-kien-app, kéo theo yêu cầu khi mở ca qua `GET /api/cases/:id/linh-kien-timeline` (backend gọi
+  `GET /api/partner/v1/case-timeline` của linh-kien-app qua Service Binding `LINHKIEN_APP`, không lưu D1).
+  Mỗi dòng log (đơn/ticket thiếu LK/phiếu xuất kho/trả hàng) = 1 mốc, nhãn trạng thái map từ enum sự kiện
+  cố định của API (`frontend/src/lib/linhKienTimeline.ts`); người thực hiện = `actor_name (email)`.

@@ -3795,3 +3795,38 @@ nằm ở `ket_qua_goi.ghi_chu`, dùng chung cho cả cuộc gọi → thẻ vi 
 (`v.ket_qua_goi_id`, dữ liệu đã có sẵn ở FE, không đổi backend), rỗng thì "Không có ghi chú.". Hạn chế:
 1 cuộc gọi kết luận nhiều lỗi thì các thẻ hiện cùng 1 ghi chú. Từ phiên này chủ hệ thống cho phép tự
 deploy `deploy:smarttrade` ngay sau commit, không cần hỏi lại.
+
+## 2026-09-30 (tiếp) — Kéo log "Đặt mua linh kiện" từ linh-kien-app vào "Tiến trình chung" (v1.394)
+
+Yêu cầu: 2 luồng mua hàng + thiếu hàng — kéo API từ hệ `linh-kien-app` về, xếp nối tiếp theo thời gian
+vào log lịch sử của ca, tự xác định thông tin cần kéo. Chủ hệ thống chốt: **giữ song song** nguồn AppSheet
+(2 Google Sheet mua-hang/thieu-hang vẫn nhận ~3.500 dòng/tháng, dòng mới nhất 28/09) — kiểm bằng cách tải
+TSV thật đếm theo tháng. Chốt phương án **A — gọi theo yêu cầu khi mở chi tiết ca** (không lưu D1, không
+cron; đã trình bày so sánh với B cron kéo về D1 / C linh-kien-app đẩy sang / D trình duyệt gọi thẳng).
+
+**linh-kien-app** (commit `8e15703`, CHƯA push/deploy — repo đó đang có 12 file sửa dở chưa commit của
+phiên khác, deploy sẽ kéo theo): `GET /api/partner/v1/case-timeline` bổ sung tương thích ngược —
+`actor_name` mỗi sự kiện (tên KTV > ten_misa/ten tài khoản), đơn thêm `loai_de_xuat`, `so_luong_de_xuat`,
+`so_luong_thuc_xuat`, `ly_do_cham`, `nguoi_tao_ten`, `nguoi_nhan_hang_ten`, block `thieu_lk[]` (lý do từ
+`settings_ly_do_cham`, ngày dự kiến có hàng, ngày hàng về thực tế) — vì log tạo ticket thiếu LK không có
+ghi chú, thiếu block này thì không biết thiếu vì sao.
+
+**DVBH:**
+- `wrangler.smarttrade.jsonc`: Service Binding `LINHKIEN_APP` → Worker `linhkien` (tránh lỗi 1042) +
+  var `LINHKIEN_APP_URL`; secret `LINHKIEN_APP_API_KEY` chủ hệ thống tự đặt (key tạo trong linh-kien-app
+  Settings → API đối tác).
+- `backend/src/lib/linhKienTimeline.ts` (mới) + `GET /api/cases/:id/linh-kien-timeline` (`cases.ts`,
+  cùng kiểm tra phạm vi khu vực như `GET /:id`). Lỗi/timeout 8s/chưa cấu hình → `{ok:false}`, không vỡ
+  chi tiết ca. Không đụng D1 ngoài 1 PK lookup.
+- `frontend/src/lib/linhKienTimeline.ts` (mới): hook + nhãn tiếng Việt cho enum sự kiện.
+- `CaseDetail.tsx`: mỗi dòng log (đơn/thiếu LK/PXK/trả hàng) thành 1 mốc "Tiến trình chung" (nhãn
+  "Đặt mua LK/Thiếu LK/Xuất kho LK/Trả hàng LK: …", sự kiện PXK dùng chung nhiều đơn chỉ hiện 1 lần);
+  mốc AppSheet đổi nhãn thành "Mua hàng (AppSheet)/Thiếu hàng (AppSheet)"; "Thời gian đặt hàng/xử lý
+  thiếu hàng" gộp cả 2 nguồn; tab Mua hàng/Thiếu hàng thêm khối "Hệ Đặt mua linh kiện" trên khối AppSheet,
+  số đếm tab cộng cả 2 nguồn.
+
+**Test:** typecheck 2 repo sạch; chạy local linh-kien-app (8788, key test tạm) + DVBH (8787/5173, dev
+login), gắn tạm 1 đơn test vào ca local `1164357` → timeline hiện đúng 10 mốc, lý do thiếu LK, tên người
+xử lý, tóm tắt thời lượng, 2 tab. Đã xoá dữ liệu/key test local sau khi xong.
+**Hạn chế:** chỉ dùng cho từng ca (không có cột danh sách/báo cáo); trước khi linh-kien-app deploy bản
+mở rộng thì chỉ hiện mốc cơ bản (không tên người, không chi tiết ticket thiếu LK).

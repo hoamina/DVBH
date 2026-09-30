@@ -117,6 +117,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     them here are effectively legacy for hand-editing.
   - `missingParts.ts` — tracks `thieu_lk` (missing parts) per order line; closed by `la_kho` users
     when parts arrive, which resumes the parent `dat_don_hang` row.
+  - `cases.ts` `GET /:id/linh-kien-timeline` — proxies linh-kien-app's `GET /api/partner/v1/case-timeline`
+    (purchase/missing-part/PXK/return logs for one case) via Service Binding `LINHKIEN_APP` + secret
+    `LINHKIEN_APP_API_KEY` (`lib/linhKienTimeline.ts`); called on demand when a case is opened, nothing
+    stored in D1. Merged into CaseDetail "Tiến trình chung" alongside the AppSheet Google Sheet source
+    (kept in parallel by decision 2026-09-30).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
 - `middleware/` — `session.ts` verifies the `dvbh_session` JWT cookie and sets `email`; a route then
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via
@@ -256,7 +261,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0068`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0117`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

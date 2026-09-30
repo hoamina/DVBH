@@ -95,6 +95,13 @@ export interface Env {
   VIPHAM_APP_URL?: string;
   VIPHAM_APP_API_KEY?: string;
   VIPHAM_APP?: Fetcher;
+  // He "Dat mua linh kien" (linhkien.dichvu3t.workers.dev) - keo log mua hang/thieu LK theo ca qua
+  // GET /api/partner/v1/case-timeline (xem lib/linhKienTimeline.ts). Ca 3 optional: thieu URL/KEY thi
+  // endpoint tra configured=false; thieu binding (local dev) thi fetch() thang URL (vd wrangler dev
+  // cua linh-kien-app o cong 8788).
+  LINHKIEN_APP_URL?: string;
+  LINHKIEN_APP_API_KEY?: string;
+  LINHKIEN_APP?: Fetcher;
   // Khoa "pham vi toan bo" cua API doi tac ETX (doc duoc nhat ky giai trinh ton cua MOI doi tac B2B,
   // xem lib/etxGiaiTrinhSync.ts + "API_B2B_giaitrinh v2.md") - optional vi local dev khong can goi
   // API that; thieu bien nay thi cron tu bo qua (xem syncGiaiTrinhTonB2B "MISSING_API_KEY").

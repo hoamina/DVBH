@@ -25,6 +25,7 @@ import { computeCaseTickers } from "../lib/caseTickers";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchMuaHang, matchBaoHanh, matchThieuHang, matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purchaseWarrantyMatch";
 import { parseRawRow } from "../lib/purchaseWarrantySync";
+import { useLinhKienTimeline, linhKienEventLabel, linhKienSourceLabel, linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienActorDisplay, linhKienIsoToVnLocal } from "../lib/linhKienTimeline";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
@@ -714,6 +715,14 @@ export function CaseDetail({
     () => (c ? [...matchPoDatHang(c.id, giaiTrinhList, poDatHang)].sort((a, b) => parseSheetDateTime(b.ngayTao) - parseSheetDateTime(a.ngayTao)) : []),
     [c, giaiTrinhList, poDatHang],
   );
+  // Log he "Dat mua linh kien" (linh-kien-app) cua ca nay - keo qua backend theo yeu cau, KHONG luu D1
+  // (CHOT 2026-09-30, xem lib/linhKienTimeline.ts). Chay SONG SONG voi nguon AppSheet o tren.
+  const { data: lkTimeline, isLoading: lkLoading } = useLinhKienTimeline(c?.id);
+  const lkOrders = useMemo(() => lkTimeline?.orders ?? [], [lkTimeline]);
+  const lkThieuTickets = useMemo(() => lkOrders.flatMap((o) => (o.thieu_lk ?? []).map((t) => ({ order: o, ticket: t }))), [lkOrders]);
+  // So "yeu cau thieu LK" tu he Dat mua LK - uu tien block thieu_lk (API moi); linh-kien-app ban cu chua
+  // co block nay thi dem so don co it nhat 1 su kien nguon thieu_lk.
+  const lkThieuCount = lkThieuTickets.length > 0 ? lkThieuTickets.length : lkOrders.filter((o) => o.timeline.some((e) => e.source === "thieu_lk")).length;
 
   const viPhamList = data?.viPham ?? [];
   const viPhamGiaiTrinhList = data?.viPhamGiaiTrinh ?? [];
@@ -930,18 +939,18 @@ export function CaseDetail({
     // dinh 1 mau/nguon (khong con doi theo trang thai duyet/ket qua nhu truoc) de phan biet NGUON
     // log ngay tu mau sac trong tab "Tien trinh chung" - trang thai cu the van doc duoc qua typeLabel.
     for (const r of muaHangMatched) {
-      pushSheet({ key: `mh-${r.id}-1`, rawTs: r.ngayTao, tone: "amber", typeLabel: "Mua hàng: Tạo đề xuất", summary: r.loaiDeXuat || "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-1`, rawTs: r.ngayTao, tone: "amber", typeLabel: "Mua hàng (AppSheet): Tạo đề xuất", summary: r.loaiDeXuat || "—", jumpTab: "mua-hang" });
       pushSheet({
         key: `mh-${r.id}-2`,
         rawTs: r.ngayXacNhan,
         tone: "amber",
-        typeLabel: "Mua hàng: Tác nghiệp tiếp nhận",
+        typeLabel: "Mua hàng (AppSheet): Tác nghiệp tiếp nhận",
         summary: r.trangThaiDuyet && r.trangThaiDuyet !== "ĐỒNG Ý" ? `Trạng thái duyệt: ${r.trangThaiDuyet}` : "—",
         jumpTab: "mua-hang",
       });
-      pushSheet({ key: `mh-${r.id}-3`, rawTs: r.ngayAdminTaoDonXuat, tone: "amber", typeLabel: "Mua hàng: Tác nghiệp tạo phiếu", summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-4`, rawTs: r.ngayKeToanDuyet, tone: "amber", typeLabel: "Mua hàng: Kế toán duyệt phiếu", summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-5`, rawTs: r.ngayKhoXacNhan, tone: "amber", typeLabel: "Mua hàng: Kho duyệt xuất hàng", summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-3`, rawTs: r.ngayAdminTaoDonXuat, tone: "amber", typeLabel: "Mua hàng (AppSheet): Tác nghiệp tạo phiếu", summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-4`, rawTs: r.ngayKeToanDuyet, tone: "amber", typeLabel: "Mua hàng (AppSheet): Kế toán duyệt phiếu", summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-5`, rawTs: r.ngayKhoXacNhan, tone: "amber", typeLabel: "Mua hàng (AppSheet): Kho duyệt xuất hàng", summary: "—", jumpTab: "mua-hang" });
     }
 
     for (const r of baoHanhMatched) {
@@ -956,10 +965,41 @@ export function CaseDetail({
     }
 
     for (const r of thieuHangMatched) {
-      pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: "Thiếu hàng: Tạo yêu cầu", summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: "Thiếu hàng: Kho đã tiếp nhận", summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-3`, rawTs: r.ngayKhoXacNhan, tone: "lime", typeLabel: "Thiếu hàng: Kho xác nhận hàng về", summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-4`, rawTs: r.ngayAdminXuLy, tone: "lime", typeLabel: "Thiếu hàng: Admin kết thúc", summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Tạo yêu cầu", summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Kho đã tiếp nhận", summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-3`, rawTs: r.ngayKhoXacNhan, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Kho xác nhận hàng về", summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-4`, rawTs: r.ngayAdminXuLy, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Admin kết thúc", summary: "—", jumpTab: "thieu-hang" });
+    }
+
+    // He "Dat mua linh kien" (linh-kien-app) - moi dong log cua don/ticket thieu LK/phieu xuat kho/tra
+    // hang la 1 moc. Su kien PXK co the lap lai o nhieu don cung phieu (API gan cho moi don) - chi lay
+    // 1 lan theo (thoi diem + ma su kien + ghi chu).
+    const seenLk = new Set<string>();
+    for (const o of lkOrders) {
+      const lkName = o.ten_lk || o.ma_lk;
+      for (const [i, e] of o.timeline.entries()) {
+        const dedupeKey = e.source === "phieu_xuat_kho" ? `pxk|${e.at}|${e.event}|${e.note ?? ""}` : `${o.order_id}|${i}`;
+        if (seenLk.has(dedupeKey)) continue;
+        seenLk.add(dedupeKey);
+        let detail = e.note ?? "";
+        // Log tao ticket thieu LK khong co ghi chu - lay ly do/ngay du kien tu block thieu_lk cung thoi diem.
+        if (e.event === "thieu_lk_cho_kho_xu_ly" && !detail) {
+          const t = (o.thieu_lk ?? []).find((x) => x.ngay_tao === e.at);
+          if (t) detail = [t.ly_do ? `Lý do: ${t.ly_do}` : "", t.ngay_du_kien_co_hang ? `Dự kiến có hàng: ${fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang))}` : ""].filter(Boolean).join(" · ");
+        }
+        const head = e.source === "phieu_xuat_kho" ? `${o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ") || "PXK"} · ${lkName}` : `${o.order_id} · ${lkName}`;
+        const vnLocal = linhKienIsoToVnLocal(e.at);
+        events.push({
+          key: `lk-${dedupeKey}`,
+          sortMs: parseFlexibleDbDate(vnLocal).getTime(),
+          displayTime: fmtDateTime(vnLocal),
+          tone: e.source === "thieu_lk" ? "lime" : "amber",
+          typeLabel: `${linhKienSourceLabel(e.source, o.loai_don)}: ${linhKienEventLabel(e.event)}`,
+          actor: linhKienActorDisplay(e),
+          summary: detail ? `${head}\n${detail}` : head,
+          jumpTab: e.source === "thieu_lk" ? "thieu-hang" : "mua-hang",
+        });
+      }
     }
 
     qcThucTeMatched.forEach((r, i) => {
@@ -976,7 +1016,7 @@ export function CaseDetail({
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
-  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched]);
+  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders]);
 
   // "Tieu de tom tat" (chot 2026-08-22) - 5 khoang thoi gian tinh theo "kieu bao trum" (min moc dau -
   // max moc cuoi cua CHINH nhom do, hoac "hien tai" neu con dang mo - CHI ap dung cho case/tranh chap
@@ -984,8 +1024,9 @@ export function CaseDetail({
   // hay chua" dang tin cay tren sheet nen CHI tinh khoang da ghi nhan duoc, khong suy doan "hien tai").
   const tienTrinhChungSummary = useMemo(() => {
     const dayDiff = (startMs: number, endMs: number) => (endMs - startMs) / 86400000;
-    const envelopeDays = (rows: Record<string, string>[], fields: string[]): number | null => {
-      const stamps: number[] = [];
+    // extraStamps: moc tu he Dat mua LK (linh-kien-app) gop CHUNG vao cung nhom voi nguon AppSheet.
+    const envelopeDays = (rows: Record<string, string>[], fields: string[], extraStamps: number[] = []): number | null => {
+      const stamps: number[] = [...extraStamps];
       for (const r of rows) for (const f of fields) {
         const ms = parseSheetDateTime(r[f]);
         if (ms) stamps.push(ms);
@@ -1007,7 +1048,13 @@ export function CaseDetail({
       tranhChapDuration = dayDiff(Math.min(...starts), endMs);
     }
 
-    const datHangDuration = envelopeDays(muaHangMatched, ["ngayTao", "ngayXacNhan", "ngayAdminTaoDonXuat", "ngayKeToanDuyet", "ngayKhoXacNhan"]);
+    const lkStamps = (pred: (source: string) => boolean) =>
+      lkOrders.flatMap((o) => o.timeline.filter((e) => pred(e.source)).map((e) => parseFlexibleDbDate(linhKienIsoToVnLocal(e.at)).getTime()));
+    const datHangDuration = envelopeDays(
+      muaHangMatched,
+      ["ngayTao", "ngayXacNhan", "ngayAdminTaoDonXuat", "ngayKeToanDuyet", "ngayKhoXacNhan"],
+      lkStamps((src) => src === "mua_hang" || src === "phieu_xuat_kho"),
+    );
     const baoHanhDuration = envelopeDays(baoHanhMatched, [
       "thoiGianTao",
       "ngayGui",
@@ -1018,10 +1065,10 @@ export function CaseDetail({
       "ngayKhoGuiHangChoKtv",
       "ngayKtvNhanHang",
     ]);
-    const thieuHangDuration = envelopeDays(thieuHangMatched, ["ngayTao", "ngayTiepNhan", "ngayKhoXacNhan", "ngayAdminXuLy"]);
+    const thieuHangDuration = envelopeDays(thieuHangMatched, ["ngayTao", "ngayTiepNhan", "ngayKhoXacNhan", "ngayAdminXuLy"], lkStamps((src) => src === "thieu_lk"));
 
     return { caseDuration, tranhChapDuration, datHangDuration, baoHanhDuration, thieuHangDuration };
-  }, [c, tienTrinhListForCase, muaHangMatched, baoHanhMatched, thieuHangMatched]);
+  }, [c, tienTrinhListForCase, muaHangMatched, baoHanhMatched, thieuHangMatched, lkOrders]);
 
   const summaryItems: { label: string; value: number | null }[] = [
     { label: "Thời gian xử lý case", value: tienTrinhChungSummary.caseDuration },
@@ -1826,8 +1873,89 @@ export function CaseDetail({
     </div>
   );
 
+  // Khoi "He Dat mua linh kien" (linh-kien-app) dau tab Mua hang/Thieu hang - nguon AppSheet ben duoi
+  // giu nguyen (chot 2026-09-30: 2 nguon song song).
+  const lkStatusLine = lkLoading ? (
+    <div className="flex items-center gap-2 text-xs text-[var(--ink-500)]">
+      <LoadingInline /> Đang tải từ hệ Đặt mua linh kiện…
+    </div>
+  ) : lkTimeline && !lkTimeline.configured ? (
+    <div className="text-xs text-[var(--ink-400)] italic">Chưa cấu hình kết nối hệ Đặt mua linh kiện.</div>
+  ) : lkTimeline && !lkTimeline.ok ? (
+    <div className="text-xs text-red-600 italic">Không tải được dữ liệu từ hệ Đặt mua linh kiện ({lkTimeline.error}).</div>
+  ) : null;
+  const lkOrdersBlock = (
+    <div className="mb-4">
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Hệ Đặt mua linh kiện</div>
+      {lkStatusLine}
+      {!lkLoading && lkTimeline?.ok && lkOrders.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Không có đơn nào gắn với ca này.</div>}
+      <div className="space-y-3">
+        {lkOrders.map((o) => (
+          <Card key={o.order_id} className="p-3">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+              <span className="font-semibold text-sm">{o.ten_lk || o.ma_lk}</span>
+              <div className="flex items-center gap-1.5">
+                <Badge tone="gray">{linhKienLoaiDonLabel(o.loai_don)}</Badge>
+                <Badge tone={statusWordTone(linhKienTrangThaiLabel(o.trang_thai_hien_tai))}>{linhKienTrangThaiLabel(o.trang_thai_hien_tai)}</Badge>
+              </div>
+            </div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{o.order_id}</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+              <Field label="Mã linh kiện" value={o.ma_lk} />
+              <Field label="Loại đề xuất" value={o.loai_de_xuat || "—"} />
+              <Field label="SL đề xuất / thực xuất" value={`${o.so_luong_de_xuat ?? "—"} / ${o.so_luong_thuc_xuat ?? "—"}`} />
+              <Field label="Ngày tạo" value={fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))} />
+              <Field label="Người tạo" value={o.nguoi_tao_ten ? `${o.nguoi_tao_ten} (${o.nguoi_tao})` : o.nguoi_tao} />
+              <Field label="Người nhận hàng" value={o.nguoi_nhan_hang ? (o.nguoi_nhan_hang_ten ? `${o.nguoi_nhan_hang_ten} (${o.nguoi_nhan_hang})` : o.nguoi_nhan_hang) : "—"} />
+              {o.phieu_xuat_kho.length > 0 && <Field label="Phiếu xuất kho" value={o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ")} />}
+              {o.ly_do_cham && <Field label="Lý do chậm" value={o.ly_do_cham} />}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+  const lkThieuBlock = (
+    <div className="mb-4">
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Hệ Đặt mua linh kiện</div>
+      {lkStatusLine}
+      {!lkLoading && lkTimeline?.ok && lkThieuTickets.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">
+          {lkThieuCount > 0
+            ? "Có yêu cầu thiếu linh kiện (xem mốc trong Tiến trình chung) — hệ Đặt mua LK chưa trả chi tiết lý do/ngày hàng về."
+            : "Không có yêu cầu thiếu linh kiện nào."}
+        </div>
+      )}
+      <div className="space-y-3">
+        {lkThieuTickets.map(({ order: o, ticket: t }) => {
+          const lastThieu = [...o.timeline].reverse().find((e) => e.source === "thieu_lk");
+          const trangThai = lastThieu ? linhKienEventLabel(lastThieu.event) : "—";
+          return (
+            <Card key={t.id} className="p-3">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+                <span className="font-semibold text-sm">{t.ly_do || "(chưa rõ lý do)"}</span>
+                <Badge tone={statusWordTone(trangThai)}>{trangThai}</Badge>
+              </div>
+              <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
+                {t.id} · {o.order_id}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+                <Field label="Linh kiện" value={`${o.ma_lk}${o.ten_lk ? ` – ${o.ten_lk}` : ""}`} />
+                <Field label="Ngày tạo" value={fmtDateTime(linhKienIsoToVnLocal(t.ngay_tao))} />
+                <Field label="Ngày dự kiến có hàng" value={t.ngay_du_kien_co_hang ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang)) : "—"} />
+                <Field label="Ngày hàng về thực tế" value={t.ngay_hang_ve_thuc_te ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_hang_ve_thuc_te)) : "—"} />
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   const muaHangContent = (
     <div>
+      {lkOrdersBlock}
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn AppSheet (Google Sheet)</div>
       {purchaseSyncBanner}
       {!purchaseSyncing && muaHangMatched.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn mua hàng liên quan đến ca này.</div>
@@ -1908,6 +2036,8 @@ export function CaseDetail({
 
   const thieuHangContent = (
     <div>
+      {lkThieuBlock}
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn AppSheet (Google Sheet)</div>
       {purchaseSyncBanner}
       {!purchaseSyncing && thieuHangMatched.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">Không có yêu cầu xử lý thiếu hàng liên quan đến ca này.</div>
@@ -2069,9 +2199,9 @@ export function CaseDetail({
           { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
-          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
+          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
           { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
-          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
@@ -2084,9 +2214,9 @@ export function CaseDetail({
           { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
-          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length },
+          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
           { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
-          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length },
+          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
