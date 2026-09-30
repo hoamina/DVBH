@@ -3784,3 +3784,14 @@ port nguyên từ linh-kien-app; nút `InstallAppButton.tsx` chỉ hiện ở Si
 app (standalone). Android/Chrome bấm là gọi prompt cài thật; iOS/không có prompt → Modal hướng dẫn thủ
 công (render qua `createPortal` vì Sidebar mobile nằm trong div có `transform`, `fixed` sẽ bị kẹt
 trong khung 256px). Không thêm service worker (Chrome hiện không còn bắt buộc SW để cài PWA).
+
+## 2026-09-30 — Tab Vi phạm (chi tiết ca): hiện "Ghi chú mô tả lỗi" (v1.393)
+
+Thẻ vi phạm trong tab Vi phạm của `CaseDetail.tsx` trước đây chỉ render `vi_pham.ghi_chu` (migration
+0113) — cột này chỉ có dữ liệu với vi phạm tạo thủ công/đồng bộ Sheet KSNB. Vi phạm sinh từ cuộc gọi
+khảo sát CSKH không lưu ghi chú riêng: mô tả lỗi CSKH nhập (ô "Ghi chú", bắt buộc khi lỗi cần mô tả)
+nằm ở `ket_qua_goi.ghi_chu`, dùng chung cho cả cuộc gọi → thẻ vi phạm trống. Nay luôn hiện trường
+"Ghi chú mô tả lỗi" = `vi_pham.ghi_chu`, fallback `ket_qua_goi.ghi_chu` của đúng cuộc gọi
+(`v.ket_qua_goi_id`, dữ liệu đã có sẵn ở FE, không đổi backend), rỗng thì "Không có ghi chú.". Hạn chế:
+1 cuộc gọi kết luận nhiều lỗi thì các thẻ hiện cùng 1 ghi chú. Từ phiên này chủ hệ thống cho phép tự
+deploy `deploy:smarttrade` ngay sau commit, không cần hỏi lại.
