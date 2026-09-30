@@ -3933,3 +3933,8 @@ lỗi "GQKN - Vi phạm có khiếu nại") import lên không thấy đủ, ví
   vì import CRM lưu nguyên giá trị, đổi định dạng ở đó sẽ lệch `crm_hash` hàng loạt (cần điều tra riêng xem
   file CRM có ô kiểu ngày không). Migration `0120`: `+7h` cho `ngay_ghi_nhan` dạng ISO có 'T' ở `vi_pham`/
   `vi_pham_ktv` + tính lại `khoa_trung`. Test local trên dòng mẫu (20:30Z → 03:30 hôm sau, khóa trùng đổi theo).
+- (v1.400) Chủ hệ thống hỏi import lại file có bị trùng không: KHÔNG — khóa `khoa_trung` (0119, ngày đã sửa
+  ở 0120 cùng công thức) bỏ qua dòng đã có. Thêm đếm trước ở bước **xem trước**: preview trả `boQuaTrung`
+  (so với dòng đã ghi + trùng trong chính file), FE hiện 3 ô "Hợp lệ, sẽ ghi mới / Đã có (sẽ bỏ qua) / Lỗi
+  định dạng". Test local: import 2 dòng dạng thật từ Excel (ngày ISO UTC, Loại lỗi có "\n" cuối) → lần 2
+  preview + commit đều 0 mới · 2 đã có.

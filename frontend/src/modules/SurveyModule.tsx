@@ -1959,8 +1959,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             columnMapUrl="/import/vi-pham/column-map"
             buildBody={(rows, filename) => ({ rows, filename })}
             renderSummary={(s) => (
-              <div className="grid grid-cols-2 gap-3 mb-2">
-                <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                <StatCard label="Hợp lệ, sẽ ghi mới" value={s.thanhCong} tone="teal" />
+                <StatCard label="Đã có (sẽ bỏ qua)" value={s.boQuaTrung ?? 0} tone="gray" />
                 <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
               </div>
             )}

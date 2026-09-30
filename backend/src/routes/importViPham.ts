@@ -246,6 +246,41 @@ async function processRows(db: D1Database, rows: ImportRow[], commit: boolean, s
 
   summary.thanhCong = validCaseRows.length + validKtvRows.length;
 
+  if (!commit) {
+    // Preview: dem truoc dong DA CO (cung khoa UNIQUE voi dong da ghi, hoac trung dong khac trong chinh
+    // file) de nguoi dung thay "se bo qua" TRUOC khi bam xac nhan - vd import lai dung file cu.
+    const seen = new Set<string>();
+    const caseIdList = [...new Set(validCaseRows.map((r) => r.caseId))];
+    for (let i = 0; i < caseIdList.length; i += 100) {
+      const chunk = caseIdList.slice(i, i + 100);
+      const { results } = await db
+        .prepare(`SELECT case_id, loai_loi, ket_qua_cap_1, khoa_trung FROM vi_pham WHERE case_id IN (${chunk.map(() => "?").join(", ")})`)
+        .bind(...chunk)
+        .all<{ case_id: string; loai_loi: string; ket_qua_cap_1: string | null; khoa_trung: string }>();
+      for (const e of results) seen.add(`c|${e.case_id}|${e.loai_loi}|${e.ket_qua_cap_1}|${e.khoa_trung}`);
+    }
+    const ktvList = [...new Set(validKtvRows.map((r) => r.info.kyThuatVienFull))];
+    for (let i = 0; i < ktvList.length; i += 100) {
+      const chunk = ktvList.slice(i, i + 100);
+      const { results } = await db
+        .prepare(`SELECT ky_thuat_vien, ngay_ghi_nhan, loai_loi, ket_qua_cap_1, khoa_trung FROM vi_pham_ktv WHERE ky_thuat_vien IN (${chunk.map(() => "?").join(", ")})`)
+        .bind(...chunk)
+        .all<{ ky_thuat_vien: string; ngay_ghi_nhan: string; loai_loi: string; ket_qua_cap_1: string; khoa_trung: string }>();
+      for (const e of results) seen.add(`k|${e.ky_thuat_vien}|${e.ngay_ghi_nhan}|${e.loai_loi}|${e.ket_qua_cap_1}|${e.khoa_trung}`);
+    }
+    const keys = [
+      ...validCaseRows.map((r) => `c|${r.caseId}|${r.loaiLoi}|${r.ketQuaCap1}|${r.khoaTrung}`),
+      ...validKtvRows.map((r) => `k|${r.info.kyThuatVienFull}|${r.ngayGhiNhan}|${r.loaiLoi}|${r.ketQuaCap1}|${r.khoaTrung}`),
+    ];
+    let trung = 0;
+    for (const k of keys) {
+      if (seen.has(k)) trung++;
+      else seen.add(k);
+    }
+    summary.boQuaTrung = trung;
+    summary.thanhCong -= trung;
+  }
+
   if (commit) {
     // KQ cap 1 = "Khong loi" (yeu cau chu he thong 2026-09-30): van ghi nhan nhung tu dong chot QC BO
     // loi ngay luc insert (chot_bo_cap_2 = 0, nguoi_chot = nguoi import) - khong vao hang doi "cho QC".
