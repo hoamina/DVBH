@@ -16,6 +16,11 @@ Mục 9 mô tả tích hợp **2 chiều** mới (thêm 2026-09-11) với hệ �
 (chiều 1), và hệ đó gọi ngược `POST /sync/giai-trinh-vi-pham` để trả kết quả giải trình về (chiều 2,
 cùng dạng "ghi" như mục 8).
 
+Mục 10 mô tả `GET /api/partner/cases` — xuất Excel hàng loạt theo khoảng ngày. Mục 11 (thêm
+2026-10-02) mô tả `GET /api/partner/danh-sach-ton` — trả JSON 2 danh sách ca tồn cần cảnh báo:
+danh sách **Cảnh báo tồn cấp 2 (CEO)** (chốt 08:00 hằng ngày) và **ca tồn NSKX ≥ 3 ngày** (tính tại
+thời điểm gọi).
+
 **Quan trọng — mô hình phân quyền**: endpoint này KHÔNG lọc dữ liệu theo đối tác hay theo KTV. Bất
 kỳ request nào có API key hợp lệ đều có thể tra cứu **bất kỳ ID case nào** trong hệ thống. Toàn bộ
 việc kiểm tra "người gọi có được phép xem case này không" là trách nhiệm của **hệ thống đối tác**,
