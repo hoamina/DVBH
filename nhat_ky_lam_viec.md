@@ -3953,3 +3953,17 @@ import đọc thẳng D1 nên báo trùng. Ảnh hưởng chung: mọi vi phạm
 - Hạn chế: `bien_ban_hop` không bump domain nào → biên bản họp người khác ghi vẫn phụ thuộc cache như trước.
 Test local: mở ca đã đóng 1197297 (vào cache) → import 1 vi phạm → tải lại trang, mở lại → gọi
 detail-version, tự tải lại, tab Vi phạm hiện "GQKN - Vi phạm có khiếu nại". Đã xoá dữ liệu test.
+
+## 2026-10-02 — API đối tác kéo danh sách ca tồn cảnh báo (v1.402)
+
+Yêu cầu: đối tác cần kéo riêng (1) danh sách ca báo tồn cấp độ CEO ở Quản lý tồn, (2) ca tồn NSKX trên 3 ngày.
+- Route mới `GET /api/partner/danh-sach-ton?loai=canh-bao-ceo|nskx-ton-3-ngay` (`partnerApi.ts`, X-API-Key như
+  các endpoint đối tác khác, 30 req/phút/key qua Cache API — không ghi D1). Logic ở `lib/partnerDanhSachTon.ts`.
+- `canh-bao-ceo`: đọc snapshot đóng băng 08:00 (`getCanhBaoTonSnapshot`) — 4 nhóm Cấp 2 ton20/vipSvip7/locTong5/
+  tranhChap5, mã nhóm ổn định cho đối tác; 1 dòng/ca + mảng `nhom`; cờ `con_ton` cho ca đã đóng sau 08:00.
+- `nskx-ton-3-ngay`: tính sống, `CASE_FILTER_TON` + `doi_tac IN ('NSKX','[NSKX]')` (dữ liệu local import cũ có dạng
+  `[NSKX]`; báo cáo NSKX hiện có chỉ lọc `'NSKX'`) + tuổi tồn ≥ 3.
+- Mỗi ca kèm `tuoi_ton`, giải trình gần nhất, tranh chấp mới nhất (trạng thái + tuổi). Không trả cột `dt_*`.
+- Tài liệu: `PARTNER_API_GUIDE.md` mục 11.
+Test local (key tạm, đã xoá): canh-bao-ceo 200 (1416 ca, 15 ca thuộc 2 nhóm, khớp tong_hop snapshot); nskx 200
+(48 ca); loai sai → 400 INVALID_LOAI; key sai → 401; thiếu key → 401.

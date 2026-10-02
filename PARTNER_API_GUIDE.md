@@ -610,3 +610,69 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/cases?mode=da-dong&tu_nga
   -H "X-API-Key: <api_key_cua_doi_tac>" \
   -o dvbh_export.xlsx
 ```
+
+## 11. Danh sách ca tồn cần cảnh báo (`GET /api/partner/danh-sach-ton`) — thêm 2026-10-02
+
+Trả JSON (không phải Excel) 1 trong 2 danh sách, chọn bằng tham số `loai`:
+
+| `loai` | Danh sách | Thời điểm số liệu |
+|---|---|---|
+| `canh-bao-ceo` | Đúng danh sách thẻ **"Cảnh báo tồn · Cấp 2 (CEO)"** ở module Quản lý tồn — 4 nhóm: `ton_tren_20_ngay` (tồn >20 ngày), `vip_svip_tu_7_ngay` (KH VIP/S.VIP tồn ≥7 ngày), `loc_tong_tu_5_ngay` (Lọc tổng tồn ≥5 ngày), `tranh_chap_tu_5_ngay` (tranh chấp/KN chưa đóng ≥5 ngày) | **Chốt 08:00 giờ VN** mỗi ngày (cùng nguồn UI + ảnh Telegram) — gọi lại trong ngày ra cùng danh sách. Ca đã đóng/huỷ sau 08:00 vẫn còn trong danh sách, xem `con_ton`. |
+| `nskx-ton-3-ngay` | Ca **đang tồn** của đối tác NSKX có tuổi tồn ≥ 3 ngày (cùng nghĩa bộ lọc "Tồn trên 3 ngày" + Đối tác NSKX ở Quản lý tồn) | Tính **tại thời điểm gọi** (`chot_luc = null`) |
+
+Tuổi tồn = số ngày từ `thoi_gian_cskh_tiep_nhan` đến 00:00 hôm nay (giờ VN) — cùng công thức toàn hệ thống.
+
+### 11.1. Request
+
+```bash
+curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=canh-bao-ceo" -H "X-API-Key: <api_key_cua_doi_tac>"
+curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-ton-3-ngay" -H "X-API-Key: <api_key_cua_doi_tac>"
+```
+
+### 11.2. Response (200)
+
+```json
+{
+  "loai": "canh-bao-ceo",
+  "mo_ta": "Cảnh báo tồn cấp 2 (CEO) — chốt 08:00 hằng ngày",
+  "thoi_diem_lay": "2026-10-02 10:30:40",
+  "chot_luc": "2026-10-02 08:00:03",
+  "tong_hop": [
+    { "ma": "ton_tren_20_ngay", "ten": "Tồn >20 ngày", "so_ca": 120 },
+    { "ma": "vip_svip_tu_7_ngay", "ten": "VIP/S.VIP tồn ≥7 ngày", "so_ca": 4 },
+    { "ma": "loc_tong_tu_5_ngay", "ten": "Lọc tổng tồn ≥5 ngày", "so_ca": 15 },
+    { "ma": "tranh_chap_tu_5_ngay", "ten": "Tranh chấp/KN ≥5 ngày", "so_ca": 1 }
+  ],
+  "so_ca": 131,
+  "cases": [
+    {
+      "id": "1104980", "khu_vuc": "...", "tinh": "...", "quan_huyen": "...", "ky_thuat_vien": "...",
+      "khach_hang": "...", "nhom_kh": "...", "doi_tac": "...", "hang": "...", "nhom_san_pham": "...",
+      "san_pham_bao_hanh": "...", "seri_san_pham": "...", "mo_ta_loi": "...", "nhom_yeu_cau": "...",
+      "loai_yeu_cau": "...", "tien_do_hoan_thanh": "...", "thoi_gian_cskh_tiep_nhan": "2026-04-01",
+      "thoi_gian_hen_xu_ly": "2026-05-17", "thoi_gian_hoan_thanh": null, "noi_dung_xu_ly": "...",
+      "link_crm": "https://...",
+      "tuoi_ton": 184,
+      "con_ton": true,
+      "giai_trinh_gan_nhat": { "ly_do_cham": "...", "noi_dung": "...", "nguoi_giai_trinh": "...", "ngay_giai_trinh": "..." },
+      "tranh_chap": { "trang_thai": "CSKH dang xu ly", "ngay_tao": "...", "tuoi_ngay": 6 },
+      "nhom": ["ton_tren_20_ngay", "loc_tong_tu_5_ngay"]
+    }
+  ]
+}
+```
+
+- 1 ca có thể thuộc nhiều nhóm → xuất hiện **1 lần** trong `cases`, mảng `nhom` liệt kê các nhóm. Vì vậy
+  `so_ca` (số ca không trùng) có thể nhỏ hơn tổng `tong_hop[].so_ca`. Field `nhom` chỉ có ở `canh-bao-ceo`.
+- `giai_trinh_gan_nhat` / `tranh_chap` = `null` nếu ca chưa có. `cases` sắp xếp theo `tuoi_ton` giảm dần.
+- Không trả các cột doanh thu (`dt_*`).
+
+### 11.3. Mã lỗi & rate limit
+
+| HTTP | `error` | Ý nghĩa |
+|---|---|---|
+| 400 | `INVALID_LOAI` | `loai` thiếu/sai — body kèm `loai_hop_le` |
+| 401 | `MISSING_API_KEY` / `INVALID_API_KEY` | như mục 4 |
+| 429 | `TOO_MANY_REQUESTS_KEY` | Quá **30 request/phút/key** |
+
+Không giới hạn số lần/ngày. Khuyến nghị: `canh-bao-ceo` kéo 1 lần sau 08:05 mỗi ngày; `nskx-ton-3-ngay` 15–60 phút/lần.

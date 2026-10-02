@@ -15,6 +15,7 @@ import { computeAndStoreHash } from "../lib/contentHash";
 import { bumpVersions } from "../lib/dataVersions";
 import { nowVN } from "../lib/vnTime";
 import { parseHinhAnhUrls } from "../lib/hinhAnhUrls";
+import { buildDanhSachTon, DANH_SACH_TON_LOAI, type DanhSachTonLoai } from "../lib/partnerDanhSachTon";
 
 /**
  * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
@@ -300,6 +301,35 @@ partnerApi.get("/case-lookup", async (c) => {
 
   const preview = { ...caseRow, link_hinh_anh: parseHinhAnhUrls(caseRow.link_hinh_anh) };
   return c.json({ found: true, preview, giaiTrinh });
+});
+
+// GET /api/partner/danh-sach-ton?loai=canh-bao-ceo|nskx-ton-3-ngay - 2 danh sach ca ton rieng cho doi
+// tac keo ve (yeu cau 2026-10-02, xem lib/partnerDanhSachTon.ts + PARTNER_API_GUIDE.md muc 11). JSON
+// (khong phai Excel nhu /cases) vi danh sach nho (vai chuc-vai tram ca). canh-bao-ceo doc snapshot dong
+// bang 08:00 -> goi lai trong ngay ra cung ket qua; nskx tinh song. 30 req/phut/key (Cache API, khong
+// ghi D1) - du cho doi tac quet 15-60 phut/lan va bam tay.
+const DANH_SACH_TON_KEY_LIMIT_PER_MIN = 30;
+
+partnerApi.get("/danh-sach-ton", async (c) => {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    await rejectInvalidKey(c, apiKey);
+    return c.json({ error: "INVALID_API_KEY" }, 401);
+  }
+  const ok = await checkPerKeyRateLimit(
+    "partner-danh-sach-ton-key-limit",
+    keyRow.id,
+    DANH_SACH_TON_KEY_LIMIT_PER_MIN,
+    (p) => c.executionCtx.waitUntil(p),
+  );
+  if (!ok) return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+
+  const loai = c.req.query("loai")?.trim() ?? "";
+  if (!(loai in DANH_SACH_TON_LOAI)) {
+    return c.json({ error: "INVALID_LOAI", message: "loai phai la 1 trong: " + Object.keys(DANH_SACH_TON_LOAI).join(", "), loai_hop_le: DANH_SACH_TON_LOAI }, 400);
+  }
+  return c.json(await buildDanhSachTon(c.env.DB, loai as DanhSachTonLoai));
 });
 
 // Dung chung cho ca 2 route sync ben duoi - gioi han so dong 1 lan goi (khop dung
