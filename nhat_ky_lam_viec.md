@@ -3967,3 +3967,19 @@ Yêu cầu: đối tác cần kéo riêng (1) danh sách ca báo tồn cấp đ�
 - Tài liệu: `PARTNER_API_GUIDE.md` mục 11.
 Test local (key tạm, đã xoá): canh-bao-ceo 200 (1416 ca, 15 ca thuộc 2 nhóm, khớp tong_hop snapshot); nskx 200
 (48 ca); loai sai → 400 INVALID_LOAI; key sai → 401; thiếu key → 401.
+
+## 2026-10-02 — Rà soát "Chờ xử lý" KN: ẩn ca CRM báo thẳng có lý do quá hạn không phải khiếu nại (v1.403)
+
+Đọc D1 production: hàng đợi "Chờ xử lý" có 2.810 ca, **không ca nào có người xác nhận** (toàn bộ do
+import CRM gửi cờ "Nghi ngờ tranh chấp" = 1; 18 ca xác nhận "Đúng" từ tab Chờ xác nhận AI đều đã có
+tiến trình). Ví dụ ca 1328624, 1329653 đều "Đúng hạn", xử lý dưới 24h, lý do quá hạn để trống.
+
+Chốt với chủ hệ thống: ca **không có người xác nhận** chỉ coi là khiếu nại khi `ly_do_qua_han` thuộc
+"Chưa thống nhất phương án xử lý" hoặc "Khách hàng chưa đồng ý với báo giá". Cách làm là **lọc bằng
+code, không sửa dữ liệu**: CRM đổi sang lý do hợp lệ thì ca tự hiện lại.
+
+- `routes/tranhChap.ts`: thêm điều kiện vào `TRANH_CHAP_ELIGIBLE` (hằng số dùng chung cho GET /cho-xu-ly,
+  /bao-cao-khu-vuc, `computeTranhChapCount` của badge sidebar). Ca đã có tiến trình không bị ảnh hưởng.
+- `routes/notifications.ts`: thêm `tc` vào cache key `notifications/count` để badge cũ không còn dùng.
+
+Đếm thử trên production trước khi deploy: ẩn 86 ca (gồm 1328624, 1329653), giữ 2.724 ca.

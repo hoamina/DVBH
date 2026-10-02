@@ -352,7 +352,8 @@ notifications.get("/count", async (c) => {
     return c.json(empty);
   }
   const scope = scopeByKhuVuc(c);
-  const params = { vai_tro: user.vai_tro ?? "", la_ksnb_doi_tac: user.la_ksnb_doi_tac ? "1" : "" };
+  // "tc": doi khi doi dieu kien TRANH_CHAP_ELIGIBLE (routes/tranhChap.ts) de cache badge cu khong con dung.
+  const params = { vai_tro: user.vai_tro ?? "", la_ksnb_doi_tac: user.la_ksnb_doi_tac ? "1" : "", tc: "20261002" };
   const key = buildReportKey("notifications/count", params, scope);
   const [rest, datMuaLk] = await Promise.all([
     cachedReport(

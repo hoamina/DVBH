@@ -164,7 +164,15 @@ tranhChap.get("/tai-khoan-ton", async (c) => {
 // xu ly tranh chap moi (tranh_chap_tien_trinh/tranh_chap_log, ben duoi) - da XOA GET / va GET
 // /by-khu-vuc cu (tung tra "chuaGiaiTrinh"/bao cao theo da_giai_trinh) cung cac ham/hang so chi
 // phuc vu rieng 2 route do (baseJoin, SELECT_COLS, monthBounds, computeTranhChapByKhuVuc).
-const TRANH_CHAP_ELIGIBLE = `c.nghi_ngo_tranh_chap = 1 AND c.tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC')`;
+//
+// CHOT 2026-10-02 (ra soat cung chu he thong): ca nghi_ngo_tranh_chap = 1 do CRM/import bao THANG (khong
+// co nguoi xac nhan - nghi_ngo_tranh_chap_xac_nhan_boi IS NULL) CHI tinh la khieu nai khi "Ly do qua han"
+// dung logic khieu nai (TRANH_CHAP_LY_DO_QUA_HAN_HOP_LE). Ly do khac (KH hen lai lich, thoi tiet, khong
+// lien lac duoc, chu quan...) hoac de trong -> an khoi Cho xu ly + badge + bao cao khu vuc (vd ca
+// 1328624). Loc bang code, KHONG sua du lieu: CRM doi sang ly do hop le thi ca tu hien lai. Ca da co
+// nguoi xac nhan (bam "Dung la tranh chap" o tab Cho xac nhan AI) hoac DA co tien trinh van giu nguyen.
+const TRANH_CHAP_LY_DO_QUA_HAN_HOP_LE = ["Chưa thống nhất phương án xử lý", "Khách hàng chưa đồng ý với báo giá"];
+const TRANH_CHAP_ELIGIBLE = `c.nghi_ngo_tranh_chap = 1 AND c.tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC') AND (c.nghi_ngo_tranh_chap_xac_nhan_boi IS NOT NULL OR TRIM(c.ly_do_qua_han) IN (${TRANH_CHAP_LY_DO_QUA_HAN_HOP_LE.map((s) => `'${s}'`).join(", ")}))`;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap = 2" = AI phat hien, DANG CHO xac nhan thu cong (khac "= 1" la
 // DA XAC NHAN, hoac tu CRM that hoac sau khi qua buoc xac nhan nay) - xem ratchetNghiNgoTranhChap()
