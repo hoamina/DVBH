@@ -9,8 +9,13 @@
 // van DOC (bao cao, danh sach) nen dung "c.can_khao_sat = 1" thay vi lap lai dieu kien nay truc
 // tiep - chi lib/canKhaoSat.ts (noi TINH gia tri) va cac luong backfill/tu-heal moi can import
 // hang so nay.
+//
+// CHOT 2026-10-02 (chu he thong): KH co ten chua "ĐMX" (vd "[ĐMX] [API ĐMX] ...", ~23% hang doi luc do)
+// KHONG thuoc dien CSKH khao sat vi pham - loai khoi dieu kien goc. Ca cu dang can_khao_sat = 1 duoc
+// selfHealCanKhaoSat() (cron 08:00 VN) tinh lai ve 0; ca moi/import sau tu dung dieu kien nay.
 export const NEED_SURVEY_CONDITION = `(
-  (
+  COALESCE(c.khach_hang, '') NOT LIKE '%ĐMX%'
+  AND (
     (c.loi_120p = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi 120 phut'))
     OR (c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h'))
     OR (c.loi_lo_ke_hoach = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi lo ke hoach'))

@@ -3983,3 +3983,12 @@ code, không sửa dữ liệu**: CRM đổi sang lý do hợp lệ thì ca tự
 - `routes/notifications.ts`: thêm `tc` vào cache key `notifications/count` để badge cũ không còn dùng.
 
 Đếm thử trên production trước khi deploy: ẩn 86 ca (gồm 1328624, 1329653), giữ 2.724 ca.
+
+## 2026-10-02 (tiếp) — Loại KH "ĐMX" khỏi danh sách cần khảo sát vi phạm (v1.404)
+
+Phản hồi: danh sách cần khảo sát bị đẩy nhầm KH ĐMX. D1 production: 10.847 / 47.093 ca `can_khao_sat = 1`
+có `khach_hang` chứa "ĐMX" (dạng "[ĐMX] [API ĐMX] …"). Trước đây chưa từng có quy tắc loại ĐMX.
+
+- `lib/surveyConditions.ts`: `NEED_SURVEY_CONDITION` thêm `COALESCE(c.khach_hang,'') NOT LIKE '%ĐMX%'`.
+  Import CRM/khảo sát tính lại `can_khao_sat` bằng hằng số này nên ca mới tự đúng.
+- Ca cũ đang `can_khao_sat = 1`: `selfHealCanKhaoSat()` (cron 08:00 VN) quét lại toàn bộ nhóm này và đưa về 0.
