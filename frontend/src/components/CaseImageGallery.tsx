@@ -5,6 +5,19 @@ import { useEffect, useRef, useState } from "react";
 // Chuan hoa "%2F" -> "/" TRUOC khi so trung: cung 1 anh doi luc bi ma hoa "/" thanh "%2F" o 1 vai
 // URL (phan segment path cua S3 key), khien 2 URL thuc chat giong het nhau lai bi coi la khac nhau
 // neu so sanh chuoi tho.
+// Ban chep cua backend/src/lib/hinhAnhUrls.ts splitImageUrls() (khac workspace, giu 2 ben dong bo) -
+// cat tai MOI cho bat dau "http(s)://" (khong phu thuoc dau phan cach) vi du lieu thuc te co nhieu
+// dang noi URL: ";" xen rac "0" (CRM tu 31/07), va file Excel "cap nhat 1 cot" lam URL DINH LIEN nhau
+// ("a.jpeg0https://..." / "a.jpeg,nullhttps://..." / "a.jpeghttps://..." - ~4.900 ca, vd 1330894).
+// Rac "0"/"null"/dau phan cach dinh sau duoi file bi cat bo; dang "URL, Ten file.jpeg" giu nguyen.
+const DUOI_FILE_RE = /(\.(?:jpe?g|png|gif|webp|heic|bmp|mp4|mov))(?:[\s,;]*(?:null|0))*[\s,;]*$/i;
+function splitImageUrls(raw: string): string[] {
+  return raw
+    .split(/(?=https?:\/\/)/i)
+    .map((s) => s.trim().replace(DUOI_FILE_RE, "$1").replace(/[\s,;]+$/, ""))
+    .filter((s) => /^https?:\/\//i.test(s));
+}
+
 export function parseLinkHinhAnh(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
@@ -14,12 +27,7 @@ export function parseLinkHinhAnh(raw: string | null | undefined): string[] {
     const urls: string[] = [];
     for (const v of parsed) {
       if (typeof v !== "string" || !v) continue;
-      // Tu 2026-07-31 CRM gui them dinh dang "url1;0;0;url2;;url3" (URL S3 day du noi bang ";" xen gia
-      // tri rac "0"/rong) - ban parse luc import cu khong tach ";" nen ca chuoi bi luu thanh 1 phan tu
-      // (~6.600 ca, vd 1330894, khong xem duoc anh). Tach lai o day + bo token khong phai URL.
-      for (const part of v.split(";")) {
-        const s = part.trim();
-        if (!/^https?:\/\//i.test(s)) continue;
+      for (const s of splitImageUrls(v)) {
         const normalized = s.replaceAll("%2F", "/");
         if (!seen.has(normalized)) {
           seen.add(normalized);

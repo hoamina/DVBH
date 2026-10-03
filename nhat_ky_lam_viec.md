@@ -4020,3 +4020,17 @@ nguyên chuỗi thành 1 "ảnh" → URL hỏng. Đếm qua `json_each`: 6.646 c
 - Ghi: `ratchet.ts parseLinkHinhAnh` tách ";" trước rồi mới tách `,key.com/`, bỏ token "0". `crm_hash`
   tính trên giá trị chuẩn hóa → ca lỗi có trong file import kế tiếp sẽ GHI_DE 1 lần (tự sửa dữ liệu lưu).
 - Test: 2 parser trên giá trị thật 1330894 → 3 URL (đều 200 image/jpeg); định dạng cũ giữ nguyên.
+
+## 2026-10-03 (tiếp) — Ảnh vẫn lỗi sau "cập nhật 1 cột": URL dính liền nhau, tách theo mọi "https://" (v1.407)
+
+Người dùng import lại cột link ảnh qua "Cập nhật riêng 1 cột" (`mau_cap_nhat_link_hinh_anh.xlsx`, 20.817
+dòng × 3 lần) nhưng vẫn lỗi. D1 sau import: 1330894 giờ có dạng `…3021.jpeg0`, `…3023.jpeghttps://…`.
+File Excel ghép link bằng công thức nên URL dính liền: 3 dạng `jpeg0`, `jpeg,nullhttps://`,
+`jpeghttps://`. 4.886 ca bị.
+
+- `lib/hinhAnhUrls.ts`: hàm mới `splitImageUrls()` — cắt tại MỌI chỗ bắt đầu `http(s)://`, bỏ rác
+  `0`/`null`/`,`/`;` dính sau đuôi file; giữ "URL, Tên file.jpeg". `parseHinhAnhUrls` dùng hàm này.
+- `CaseImageGallery.tsx`: bản chép `splitImageUrls` (khác workspace) cho `parseLinkHinhAnh` hiển thị.
+- `ratchet.ts parseLinkHinhAnh` (import CRM + cập nhật 1 cột): đổi `key.com/` → S3 rồi `splitImageUrls`,
+  khử trùng; bỏ `LINK_HINH_ANH_SPLIT_RE` cũ.
+- Test: giá trị thật 1330894 → 3 URL; chạy trên 500 ca lỗi thật từ D1 → 1.230 URL, 0 bất thường.

@@ -1,3 +1,5 @@
+import { splitImageUrls } from "./hinhAnhUrls";
+
 /**
  * Port truc tiep tu import.js (thiet ke goc Node.js/pg) sang D1.
  * Nguyen tac ratchet 1 chieu cho 4 cot nghi ngo vi pham:
@@ -151,22 +153,14 @@ const LINK_HINH_ANH_MAX = 30;
 function escapeRegExpLiteral(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-const LINK_HINH_ANH_SPLIT_RE = new RegExp(`,(?=${escapeRegExpLiteral(LINK_HINH_ANH_SHORT_DOMAIN)})`);
 
 export function parseLinkHinhAnh(rawValue: unknown): string | null {
   if (rawValue === undefined || rawValue === null || rawValue === "") return null;
-  const urls = String(rawValue)
-    // Dinh dang thu 2 (CRM gui tu 2026-07-31): "url1;0;0;url2;;url3" - URL day du noi bang ";" xen gia
-    // tri rac "0"/rong. Tach ";" truoc, roi moi doan van tach theo ",key.com/" nhu cu.
-    .split(";")
-    .flatMap((part) => part.split(LINK_HINH_ANH_SPLIT_RE))
-    // Anh CUOI CUNG trong chuoi tho thuong con dinh 1 dau phay (hoac dau phay + khoang trang) o cuoi
-    // cung (khong co "key.com" nao theo sau de tach), vi vay tach xong van con dinh vao segment cuoi -
-    // cat bo moi dau phay/khoang trang o CUOI moi doan (khong chi trim khoang trang thong thuong).
-    .map((s) => s.trim().replace(/[,\s]+$/, ""))
-    .filter((s) => s.length > 0 && s !== "0")
-    .slice(0, LINK_HINH_ANH_MAX)
-    .map((s) => s.replaceAll(LINK_HINH_ANH_SHORT_DOMAIN, LINK_HINH_ANH_S3_BASE));
+  // Doi domain rut gon "key.com/" (chi khi dung dau 1 token, khong nam trong ten mien khac) thanh S3
+  // TRUOC, roi tach bang splitImageUrls() (cat tai moi "https://", bo rac "0"/"null" dinh sau duoi file -
+  // xem lib/hinhAnhUrls.ts cho danh sach cac dang noi URL gap thuc te).
+  const withDomain = String(rawValue).replace(/(?<![\w.])key\.com\//g, LINK_HINH_ANH_S3_BASE);
+  const urls = [...new Set(splitImageUrls(withDomain))].slice(0, LINK_HINH_ANH_MAX);
   return urls.length > 0 ? JSON.stringify(urls) : null;
 }
 
