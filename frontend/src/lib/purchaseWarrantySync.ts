@@ -219,11 +219,16 @@ export function isStale(cachedAt: string | undefined): boolean {
 export async function getDataset(dataset: PurchaseWarrantyDataset, opts?: { force?: boolean }): Promise<{ rows: SheetRow[]; cachedAt: string }> {
   const key = cacheKey(dataset);
   const cached = await getCachedEntry<SheetRow[]>(key);
-  if (!opts?.force && cached && !isStale(cached.cachedAt)) {
+  // Cache RONG (0 dong) luon coi la het han (fix 2026-10-03): 1 lan tai hong/rong (vd sheet dang
+  // duoc sua) tung bi luu lai lam tab "Linh kien thieu" hien "Chua co PO" cho MOI ma du sheet that van
+  // co du lieu - ma van bao "da dong bo".
+  if (!opts?.force && cached && cached.data.length > 0 && !isStale(cached.cachedAt)) {
     return { rows: cached.data, cachedAt: cached.cachedAt };
   }
   try {
     const rows = await fetchAndMergeDataset(dataset);
+    // Khong de 1 lan tai tra ve rong ghi de cache dang co du lieu.
+    if (rows.length === 0 && cached && cached.data.length > 0) return { rows: cached.data, cachedAt: cached.cachedAt };
     const entry = await setCachedEntry(key, rows);
     return { rows, cachedAt: entry.cachedAt };
   } catch (err) {

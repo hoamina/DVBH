@@ -52,6 +52,9 @@ export function usePurchaseWarrantyData() {
     isRefreshing:
       (muaHangQ.isFetching || baoHanhQ.isFetching || thieuHangQ.isFetching || qcThucTeQ.isFetching || poDatHangQ.isFetching) && !isSyncing,
     lastSyncedAt,
+    // Rieng tap "po-dat-hang" - tab "Linh kien thieu" (MissingPartsModule) hien trang thai dong bo PO.
+    poSyncedAt: poDatHangQ.data?.cachedAt ?? null,
+    poError: poDatHangQ.error ? String((poDatHangQ.error as Error).message ?? poDatHangQ.error) : null,
     refreshAll,
   };
 }

@@ -3992,3 +3992,19 @@ có `khach_hang` chứa "ĐMX" (dạng "[ĐMX] [API ĐMX] …"). Trước đây 
 - `lib/surveyConditions.ts`: `NEED_SURVEY_CONDITION` thêm `COALESCE(c.khach_hang,'') NOT LIKE '%ĐMX%'`.
   Import CRM/khảo sát tính lại `can_khao_sat` bằng hằng số này nên ca mới tự đúng.
 - Ca cũ đang `can_khao_sat = 1`: `selfHealCanKhaoSat()` (cron 08:00 VN) quét lại toàn bộ nhóm này và đưa về 0.
+
+## 2026-10-03 — "Ca thiếu linh kiện" > tab "Linh kiện thiếu": mọi mã hiện "Chưa có PO" + nút đồng bộ PO thủ công (v1.405)
+
+Phản hồi: tab "Linh kiện thiếu" hiện "Chưa có PO" cho mọi mã (vd 3003030196, 3003030208…).
+
+Chẩn đoán: tải thẳng sheet PO (`po-dat-hang`, gid=819742813): 7.780 dòng, cả 6 mã trong ảnh đều có
+8–36 dòng PO từ 2025; chạy `tsvParser` của app trên file đó → ghép đúng; fetch từ origin
+`dvbh.dichvu3t.workers.dev` trong trình duyệt → 200, 3 MB, CORS ok. → Dữ liệu/logic ghép đúng, lỗi là
+**cache IndexedDB của trình duyệt người dùng giữ 0 dòng PO** (1 lần tải hỏng/rỗng), trong khi UI vẫn
+ghi "đã đồng bộ" và không có cách tải lại ở màn này.
+
+- `lib/purchaseWarrantySync.ts` `getDataset`: cache 0 dòng luôn coi là hết hạn; lần tải trả về rỗng
+  không ghi đè cache đang có dữ liệu.
+- `hooks/usePurchaseWarrantyData.ts`: thêm `poSyncedAt`, `poError`.
+- `MissingPartsModule.tsx` `LinhKienThieuTab`: nút "🔄 Đồng bộ PO" (gọi `refreshAll`, tải lại cả 5 sheet)
+  + dòng trạng thái "PO: N dòng · đồng bộ lúc …" (đỏ khi 0 dòng / lỗi tải).

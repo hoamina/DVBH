@@ -26,6 +26,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
+import { useToast } from "../components/ui/Toast";
 
 // Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
 // theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
@@ -249,8 +250,23 @@ function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: s
 // chua xac nhan duoc co tach theo kho hay khong - dung dung 2 truong san co "Kho can dat hang" +
 // "Ngay ve gan nhat toan quoc".
 function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoading: boolean }) {
-  const { poDatHang, muaHang, baoHanh, isSyncing } = usePurchaseWarrantyData();
+  const { poDatHang, muaHang, baoHanh, isSyncing, poSyncedAt, poError, refreshAll } = usePurchaseWarrantyData();
+  const addToast = useToast();
   const [detailMa, setDetailMa] = useState<string | null>(null);
+  // Dong bo thu cong (2026-10-03): du lieu PO doc tu Google Sheet va luu cache IndexedDB cua TUNG trinh
+  // duyet (TTL 2 gio) - 1 lan tai hong tung lam ca bang hien "Chua co PO" ma khong co cach nao tai lai.
+  const [syncingPo, setSyncingPo] = useState(false);
+  async function dongBoPo() {
+    setSyncingPo(true);
+    try {
+      await refreshAll();
+      addToast("Đã đồng bộ lại dữ liệu PO / mua hàng / bảo hành từ Google Sheet.");
+    } catch (err) {
+      addToast(`Không đồng bộ được: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSyncingPo(false);
+    }
+  }
   const [search, setSearch] = useState("");
 
   const enriched = useMemo(
@@ -280,10 +296,26 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
         <div>
           <div className="font-display font-bold text-sm">Danh sách linh kiện đang thiếu</div>
           <div className="text-xs text-[var(--ink-400)] mt-0.5">
-            Đối chiếu với dữ liệu PO đặt hàng ({isSyncing ? "đang đồng bộ…" : "đã đồng bộ từ Google Sheet"}). Bấm vào 1 dòng để xem chi tiết PO / đơn mua hàng / bảo hành liên quan tới mã đó.
+            Đối chiếu với dữ liệu PO đặt hàng từ Google Sheet. Bấm vào 1 dòng để xem chi tiết PO / đơn mua hàng / bảo hành liên quan tới mã đó.
+          </div>
+          <div className="text-xs mt-0.5">
+            {isSyncing || syncingPo ? (
+              <span className="text-[var(--ink-400)]">Đang đồng bộ PO…</span>
+            ) : poError && poDatHang.length === 0 ? (
+              <span className="text-[var(--coral-500)] font-semibold">Không tải được dữ liệu PO ({poError}) — bấm "Đồng bộ PO" để thử lại.</span>
+            ) : (
+              <span className={poDatHang.length === 0 ? "text-[var(--coral-500)] font-semibold" : "text-[var(--ink-400)]"}>
+                PO: {poDatHang.length.toLocaleString("vi-VN")} dòng{poSyncedAt ? ` · đồng bộ lúc ${fmtDateTime(poSyncedAt)}` : ""}
+              </span>
+            )}
           </div>
         </div>
-        <IdSerialSearchInput value={search} onChange={setSearch} placeholder="Tìm theo mã/tên linh kiện…" />
+        <div className="flex items-center gap-2">
+          <Btn size="sm" variant="ghost" onClick={dongBoPo} disabled={syncingPo || isSyncing}>
+            {syncingPo ? "⏳ Đang đồng bộ…" : "🔄 Đồng bộ PO"}
+          </Btn>
+          <IdSerialSearchInput value={search} onChange={setSearch} placeholder="Tìm theo mã/tên linh kiện…" />
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="dense w-full text-sm">
