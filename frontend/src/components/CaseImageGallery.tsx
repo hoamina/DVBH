@@ -14,10 +14,17 @@ export function parseLinkHinhAnh(raw: string | null | undefined): string[] {
     const urls: string[] = [];
     for (const v of parsed) {
       if (typeof v !== "string" || !v) continue;
-      const normalized = v.replaceAll("%2F", "/");
-      if (!seen.has(normalized)) {
-        seen.add(normalized);
-        urls.push(normalized);
+      // Tu 2026-07-31 CRM gui them dinh dang "url1;0;0;url2;;url3" (URL S3 day du noi bang ";" xen gia
+      // tri rac "0"/rong) - ban parse luc import cu khong tach ";" nen ca chuoi bi luu thanh 1 phan tu
+      // (~6.600 ca, vd 1330894, khong xem duoc anh). Tach lai o day + bo token khong phai URL.
+      for (const part of v.split(";")) {
+        const s = part.trim();
+        if (!/^https?:\/\//i.test(s)) continue;
+        const normalized = s.replaceAll("%2F", "/");
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
+          urls.push(normalized);
+        }
       }
     }
     return urls;

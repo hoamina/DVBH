@@ -156,12 +156,15 @@ const LINK_HINH_ANH_SPLIT_RE = new RegExp(`,(?=${escapeRegExpLiteral(LINK_HINH_A
 export function parseLinkHinhAnh(rawValue: unknown): string | null {
   if (rawValue === undefined || rawValue === null || rawValue === "") return null;
   const urls = String(rawValue)
-    .split(LINK_HINH_ANH_SPLIT_RE)
+    // Dinh dang thu 2 (CRM gui tu 2026-07-31): "url1;0;0;url2;;url3" - URL day du noi bang ";" xen gia
+    // tri rac "0"/rong. Tach ";" truoc, roi moi doan van tach theo ",key.com/" nhu cu.
+    .split(";")
+    .flatMap((part) => part.split(LINK_HINH_ANH_SPLIT_RE))
     // Anh CUOI CUNG trong chuoi tho thuong con dinh 1 dau phay (hoac dau phay + khoang trang) o cuoi
     // cung (khong co "key.com" nao theo sau de tach), vi vay tach xong van con dinh vao segment cuoi -
     // cat bo moi dau phay/khoang trang o CUOI moi doan (khong chi trim khoang trang thong thuong).
     .map((s) => s.trim().replace(/[,\s]+$/, ""))
-    .filter((s) => s.length > 0)
+    .filter((s) => s.length > 0 && s !== "0")
     .slice(0, LINK_HINH_ANH_MAX)
     .map((s) => s.replaceAll(LINK_HINH_ANH_SHORT_DOMAIN, LINK_HINH_ANH_S3_BASE));
   return urls.length > 0 ? JSON.stringify(urls) : null;

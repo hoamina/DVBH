@@ -4008,3 +4008,15 @@ ghi "đã đồng bộ" và không có cách tải lại ở màn này.
 - `hooks/usePurchaseWarrantyData.ts`: thêm `poSyncedAt`, `poError`.
 - `MissingPartsModule.tsx` `LinhKienThieuTab`: nút "🔄 Đồng bộ PO" (gọi `refreshAll`, tải lại cả 5 sheet)
   + dòng trạng thái "PO: N dòng · đồng bộ lúc …" (đỏ khi 0 dòng / lỗi tải).
+
+## 2026-10-03 (tiếp) — Ca 1330894 (và ~6.646 ca) không xem được ảnh: CRM gửi link nối bằng ";" (v1.406)
+
+D1: `link_hinh_anh` của 1330894 là JSON array **1 phần tử** chứa cả chuỗi `url1;0;0;url2;…;;;` (URL S3
+đầy đủ nối bằng ";" + rác "0"/rỗng). `parseLinkHinhAnh` (ratchet.ts) chỉ tách theo `,key.com/` nên lưu
+nguyên chuỗi thành 1 "ảnh" → URL hỏng. Đếm qua `json_each`: 6.646 ca, import 31/07 → 01/10/2026.
+
+- Đọc (sửa ngay cho ca cũ, không ghi D1): `CaseImageGallery.tsx parseLinkHinhAnh` + `lib/hinhAnhUrls.ts`
+  `parseHinhAnhUrls` — tách theo ";", chỉ giữ token bắt đầu `http`, khử trùng.
+- Ghi: `ratchet.ts parseLinkHinhAnh` tách ";" trước rồi mới tách `,key.com/`, bỏ token "0". `crm_hash`
+  tính trên giá trị chuẩn hóa → ca lỗi có trong file import kế tiếp sẽ GHI_DE 1 lần (tự sửa dữ liệu lưu).
+- Test: 2 parser trên giá trị thật 1330894 → 3 URL (đều 200 image/jpeg); định dạng cũ giữ nguyên.
