@@ -4034,3 +4034,17 @@ File Excel ghép link bằng công thức nên URL dính liền: 3 dạng `jpeg0
 - `ratchet.ts parseLinkHinhAnh` (import CRM + cập nhật 1 cột): đổi `key.com/` → S3 rồi `splitImageUrls`,
   khử trùng; bỏ `LINK_HINH_ANH_SPLIT_RE` cũ.
 - Test: giá trị thật 1330894 → 3 URL; chạy trên 500 ca lỗi thật từ D1 → 1.230 URL, 0 bất thường.
+
+## 2026-10-03 — Quản lý tồn > Báo cáo: "Số ca tồn theo KTV" (v1.408)
+
+Yêu cầu: mẫu báo cáo tồn theo KTV (cột 2 khu vực, cột ngang ngày 1 → cuối tháng), lọc khoảng ngày tồn, tải
+Excel, kèm lũy kế / trung bình / biến động / theo dõi nhanh. Chốt qua hỏi đáp: lọc tuổi = mốc + tùy chọn,
+làm cả 3 báo cáo phụ, đặt thẻ dưới bảng cũ. So sánh "lưu chết 08:00" vs "tính lúc xem" (tra danh sách id
+`backlogTongTon` của daily_snapshot + case_dvbh, ~3–10k rows_read mỗi lần tính lại, gán KTV hiện tại) →
+chủ hệ thống chọn **lưu chết, không bổ sung ngày cũ**. Code: migration 0121 `ton_ktv_daily`,
+`lib/tonKtvSnapshot.ts` (generate + đọc/gộp tháng), `GET /api/cases/ton-ktv`, hook vào cron 08:00 +
+`POST /import/refresh-reports`, frontend `TonTheoKtvCard.tsx`. Tách `khuVucNameMatcher()` dùng chung với
+`ton-trend`. Test local (dev-login): tổng 189 dòng KTV×khu vực = 1415 khớp `ton-trend`; lọc 60–90 ngày,
+khu vực QLDVBH, ngày đối chiếu cuối tháng trước, chế độ biến động đều đúng (dữ liệu giả các ngày trước đã
+xóa khỏi D1 local sau test). Sau deploy cần bấm "Làm mới báo cáo" để có ngay dòng hôm nay, nếu không thì
+dòng đầu tiên xuất hiện ở cron 08:00 ngày mai.

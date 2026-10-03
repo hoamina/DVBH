@@ -28,6 +28,7 @@ import { matchMuaHang, matchBaoHanh } from "../lib/purchaseWarrantyMatch";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
 
 function pct(a: number, b: number) {
@@ -2331,6 +2332,8 @@ export function BacklogModule({
               </table>
             </div>
           </Card>
+
+          <TonTheoKtvCard khuVucFilter={khuVucFilter} filterLabel={tonTrendFilterLabel} />
         </>
       ) : view === "canh-bao-ton-cap1" ? (
         <CanhBaoTonCapView

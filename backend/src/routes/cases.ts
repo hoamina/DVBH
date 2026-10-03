@@ -36,6 +36,7 @@ import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc,
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG } from "../lib/tranhChapTienTrinh";
 import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
+import { getTonKtvMonth } from "../lib/tonKtvSnapshot";
 
 const cases = new Hono<{ Bindings: Env }>();
 
@@ -862,6 +863,19 @@ cases.get("/giai-trinh-daily-trend", async (c) => {
   return c.json({ rows, excludedNgay: exclusionResults });
 });
 
+// Bo loc khu_vuc chung cua module Quan ly ton ("" = tat ca, QLDVBH_FILTER_VALUE = nhom qldvbh, con lai
+// = danh sach phan tach dau phay) ap len TEN khu_vuc trong du lieu da dong bang (khong phai WHERE tren
+// cot) - dung chung cho ton-trend va ton-ktv.
+function khuVucNameMatcher(khuVucFilter: string | undefined): (name: string) => boolean {
+  if (!khuVucFilter) return () => true;
+  if (khuVucFilter === QLDVBH_FILTER_VALUE) return (name) => name.includes("qldvbh");
+  const values = khuVucFilter
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  return (name) => values.includes(name);
+}
+
 // GET /api/cases/ton-trend?tu_ngay=&den_ngay=&khu_vuc= - "So ca ton theo moc thoi gian" (Quan ly ton,
 // cuoi tab Bao cao). Doc THANG tu daily_snapshot (khong tinh song NEED_* qua case_dvbh) - moi ngay 1
 // dong chot san luc 08:00 (xem lib/dailySnapshot.ts generateDailySnapshot), da co san backlogTongTon/
@@ -914,16 +928,7 @@ cases.get("/ton-trend", async (c) => {
   // san trong JSON thay vi WHERE tren cot, vi day la du lieu dong bang - xem chu thich BacklogBuckets.
   // khuVucReportRows o dailySnapshot.ts) - khong loc thi giu nguyen 5 cot tong da dong bang (backlogTongTon/
   // Tren3/5/7/14 - luon khop voi tong TAT CA khu_vuc trong kv_rows vi cung tinh tren 1 tap case).
-  const matchesKhuVuc: (name: string) => boolean = !khuVucFilter
-    ? () => true
-    : khuVucFilter === QLDVBH_FILTER_VALUE
-      ? (name) => name.includes("qldvbh")
-      : ((values) => (name: string) => values.includes(name))(
-          khuVucFilter
-            .split(",")
-            .map((v) => v.trim())
-            .filter(Boolean),
-        );
+  const matchesKhuVuc = khuVucNameMatcher(khuVucFilter);
 
   const rows = results.map((r) => {
     if (!khuVucFilter) {
@@ -945,6 +950,26 @@ cases.get("/ton-trend", async (c) => {
   });
 
   return c.json({ rows });
+});
+
+// GET /api/cases/ton-ktv?thang=YYYY-MM&khu_vuc=&tuoi_tu=&tuoi_den= - "So ca ton theo KTV" (Quan ly ton
+// > Bao cao, ngay duoi "So ca ton theo moc thoi gian"). Doc THANG tu ton_ktv_daily (chot chet 08:00,
+// xem lib/tonKtvSnapshot.ts) - ~31 dong/lan xem, khong tinh song, khong can cachedReport. Pham vi xem
+// giong ton-trend: Giam sat chi thay khu_vuc_phu_trach, vai tro con lai thay toan he thong. tuoi_tu/
+// tuoi_den = khoang tuoi ton BAO GOM 2 dau (bo trong = khong gioi han).
+cases.get("/ton-ktv", async (c) => {
+  const user = c.get("user");
+  const isGiamSat = roleVariantOf(user.vai_tro) === "giam_sat";
+  // Giam sat chua duoc phan khu vuc -> phamVi rong -> khong khop dong nao (giong ton-trend tra rows rong).
+  const phamVi = isGiamSat ? user.khu_vuc_phu_trach : null;
+
+  const thang = c.req.query("thang") ?? "";
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(thang)) return c.json({ error: "INVALID_THANG", message: "Tháng không hợp lệ (YYYY-MM)." }, 400);
+  const parseTuoi = (v: string | undefined) => (v !== undefined && v !== "" && Number.isFinite(Number(v)) ? Math.max(0, Math.floor(Number(v))) : null);
+
+  const matchesFilter = khuVucNameMatcher(c.req.query("khu_vuc") || undefined);
+  const matchesKhuVuc = phamVi ? (kv: string) => phamVi.includes(kv) && matchesFilter(kv) : matchesFilter;
+  return c.json(await getTonKtvMonth(c.env.DB, thang, matchesKhuVuc, parseTuoi(c.req.query("tuoi_tu")), parseTuoi(c.req.query("tuoi_den"))));
 });
 
 // GET /api/cases/canh-bao-ton?khu_vuc= - 8 so dem "Canh bao ton danh cho QL" cua snapshot dong bang

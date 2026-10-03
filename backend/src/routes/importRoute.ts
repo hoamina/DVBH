@@ -17,6 +17,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { warmDefaultReports } from "../lib/reportWarmup";
 import { generateDailySnapshot, generateKhuVucBacklogSnapshots } from "../lib/dailySnapshot";
 import { generateBacklogAgeSnapshot } from "../lib/backlogAgeSnapshot";
+import { generateTonKtvSnapshot } from "../lib/tonKtvSnapshot";
 import { nowVN } from "../lib/vnTime";
 import { recomputeDaDongDayChunks } from "../lib/daDongDayChunks";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
@@ -175,6 +176,11 @@ importRoute.post("/refresh-reports", async (c) => {
     await generateBacklogAgeSnapshot(c.env.DB);
   } catch (err) {
     console.error("refresh-reports: loi khi generateBacklogAgeSnapshot", err);
+  }
+  try {
+    await generateTonKtvSnapshot(c.env.DB);
+  } catch (err) {
+    console.error("refresh-reports: loi khi generateTonKtvSnapshot", err);
   }
   return c.json({ ok: true });
 });

@@ -32,6 +32,7 @@ import traHangRoutes from "./routes/traHang";
 import backlogAgeReportRoutes from "./routes/backlogAgeReport";
 import luyKeRoutes from "./routes/luyKe";
 import { generateBacklogAgeSnapshot } from "./lib/backlogAgeSnapshot";
+import { generateTonKtvSnapshot } from "./lib/tonKtvSnapshot";
 import { computeAndPushLuyKeCurrentMonth } from "./lib/luyKeCompute";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
@@ -212,6 +213,12 @@ export default {
         await generateBacklogAgeSnapshot(env.DB);
       } catch (err) {
         console.error("[cron-daily-snapshot] generateBacklogAgeSnapshot loi:", err instanceof Error ? err.message : String(err));
+      }
+      // "So ca ton theo KTV" (Quan ly ton > Bao cao) - chot chet 08:00, xem lib/tonKtvSnapshot.ts.
+      try {
+        await generateTonKtvSnapshot(env.DB);
+      } catch (err) {
+        console.error("[cron-daily-snapshot] generateTonKtvSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
       // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
       // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem

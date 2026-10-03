@@ -182,3 +182,21 @@ Ghi chú kỹ thuật:
   `GET /api/partner/v1/case-timeline` của linh-kien-app qua Service Binding `LINHKIEN_APP`, không lưu D1).
   Mỗi dòng log (đơn/ticket thiếu LK/phiếu xuất kho/trả hàng) = 1 mốc, nhãn trạng thái map từ enum sự kiện
   cố định của API (`frontend/src/lib/linhKienTimeline.ts`); người thực hiện = `actor_name (email)`.
+
+## 7. Quản lý tồn > Báo cáo: "Số ca tồn theo KTV" (chốt 2026-10-03)
+
+- **Mẫu báo cáo**: dòng = (KTV, Khu vực), cột ngang = ngày 1 → ngày cuối tháng (chọn tháng), mỗi ô = số
+  ca tồn chốt 08:00 ngày đó. Thẻ mới nằm ngay dưới bảng "Số ca tồn theo mốc thời gian", dùng chung bộ lọc
+  khu vực của module.
+- **Lọc tuổi tồn**: nút nhanh Tất cả / ≥3 / ≥5 / ≥7 / ≥14 ngày + "Tùy chọn" từ X đến Y ngày (bao gồm 2 đầu,
+  bỏ trống Y = không giới hạn). Tuổi tồn tính như cột ≥3/5/7/14 của bảng mốc thời gian (mốc 00:00 VN).
+- **Chỉ số phụ** (tính trên cùng ma trận): Lũy kế (tổng ca-ngày tồn), TB tồn/ngày (lũy kế ÷ số ngày có
+  dữ liệu), Đầu kỳ, Cuối kỳ, Biến động (cuối − đầu); chế độ "Biến động so với ngày trước" (mỗi ô = tăng/giảm
+  so với ngày có dữ liệu trước đó, ngày 1 so với ngày cuối tháng trước; tăng = đỏ, giảm = xanh); "Theo dõi
+  tồn nhanh": tồn ngày mới nhất + chênh lệch, lũy kế tháng, TB/ngày, số KTV có tồn, top 10 KTV tồn cao
+  nhất, top 10 KTV tăng tồn nhiều nhất. Xuất Excel theo chế độ đang xem (kèm dòng TỔNG CỘNG).
+- **Lưu chết 08:00** (so sánh với phương án "tính lúc xem", chủ hệ thống chọn lưu chết): bảng
+  `ton_ktv_daily` (migration 0121), 1 dòng JSON/ngày = histogram tuổi tồn theo (KTV, khu vực), cùng tập ca
+  với `backlogTongTon` của báo cáo 08:00 nên tổng khớp bảng mốc thời gian. Gán KTV **tại thời điểm chốt**.
+  Không bổ sung ngày cũ — có dữ liệu từ ngày deploy (v1.408). Ghi bởi cron 08:00 + nút "Làm mới báo cáo"
+  (Import data). Giám sát chỉ thấy khu vực phụ trách (lọc lúc đọc).
