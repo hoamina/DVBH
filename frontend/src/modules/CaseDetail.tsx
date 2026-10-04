@@ -11,7 +11,7 @@ import { Modal } from "../components/ui/Modal";
 import { CacheBanner } from "../components/ui/CacheBanner";
 import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
-import { LoiLinhKienPanel, DonBaoHanhOdooItem, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
+import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { LoadingInline } from "../components/ui/LoadingInline";
@@ -2052,16 +2052,7 @@ export function CaseDetail({
       {donBaoHanhOdooList.length > 0 && (
         <div className="mb-4">
           <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({donBaoHanhOdooList.length}) — chi tiết theo linh kiện ở tab "Lỗi linh kiện"</div>
-          <div className="space-y-1.5">
-            {donBaoHanhOdooList.map((o) => (
-              <div key={o.odoo_id}>
-                <div className="text-xs text-[var(--ink-600)] mb-0.5">
-                  {o.ten_linh_kien || "(chưa rõ linh kiện)"} {o.ma_linh_kien && <span className="font-mono text-[var(--ink-400)]">{o.ma_linh_kien}</span>}
-                </div>
-                <DonBaoHanhOdooItem o={o} />
-              </div>
-            ))}
-          </div>
+          <DonBaoHanhOdooList parts={linhKienLoiList} orders={donBaoHanhOdooList} />
           <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">Nguồn AppSheet (Google Sheet)</div>
         </div>
       )}

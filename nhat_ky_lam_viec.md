@@ -4068,3 +4068,14 @@ song QuickSight, gộp và đẩy chung qua `/api/external-import/commit`. Lần
   gửi cột Odoo vẫn giữ `tinh_cu`/`linh_kien_loi`.
 - Sau deploy: chạy `db:migrate:smarttrade` TRƯỚC `deploy:smarttrade`; rồi bật `ODOO_SEND_ADDRESS_FIELDS`,
   `ODOO_SEND_PARTS_FIELD`, `ODOO_SEND_WARRANTY` = "true" trong workflow của auto qs.
+
+## 2026-10-04 (tiếp) — Lỗi linh kiện: phân biệt có/không tạo đơn bảo hành, chi tiết đơn (v1.410)
+
+Logic Odoo: đơn bảo hành linh kiện là CON của 1 dòng linh kiện báo lỗi cùng phiếu. Đã kiểm tra `fields_get`
+cả 3 model: KHÔNG có khóa nối trực tiếp (chỉ cùng `request_id` + sản phẩm `part_id`/`product_id`) → nối theo
+mã linh kiện trong phạm vi ca, MỖI đơn gán đúng 1 dòng cha; nhiều dòng trùng mã (vd SC261002619: 4 dòng
+"Rơ le nhiệt", 1 đơn) thì đơn thứ i → dòng thứ i theo STT, đơn dư vào dòng cuối.
+- `LoiLinhKienPanel.tsx`: nhãn "✓ Đã tạo đơn BH (n)" / "Không tạo đơn BH" từng linh kiện, ô tổng + bộ lọc
+  "Đã tạo đơn / Không tạo đơn", đơn hiển thị dạng cây con; bấm đơn → modal chi tiết (thanh trạng thái
+  new→repairing→repaired→done, thông tin bảo hành/cập nhật, linh kiện cha, đơn khác cùng linh kiện,
+  "Mở trên Odoo"). Tab "Bảo hành" mục Nguồn Odoo: ghi "Thuộc linh kiện lỗi (n)", bấm mở cùng modal.
