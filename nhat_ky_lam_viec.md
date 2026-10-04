@@ -4085,3 +4085,14 @@ mã linh kiện trong phạm vi ca, MỖI đơn gán đúng 1 dòng cha; nhiều
 Tab "Lỗi linh kiện" (`LoiLinhKienPanel.tsx`) có 2 bộ lọc cùng chức năng: lưới 4 thẻ số đếm bấm được (Linh
 kiện lỗi / Đã tạo đơn BH / Không tạo đơn / Đơn bảo hành) và hàng chip (Tất cả / Đã tạo đơn / Không tạo đơn /
 từng linh kiện). Theo yêu cầu bỏ lưới thẻ bên trên, giữ hàng chip.
+
+## 2026-10-04 — Popup chi tiết ca: lăn chuột làm trôi trang nền phía sau (v1.412)
+
+Lỗi: khi popup chi tiết ca đang mở, lăn chuột trên vùng popup không có gì để cuộn (tab nội dung ngắn,
+header, nền mờ) hoặc đã cuộn hết thì sự kiện lăn "xuyên" xuống thanh cuộn `<html>` của trang gốc — popup
+đứng yên còn nền phía sau trôi (tái hiện local: trang gốc trôi 500px). Sửa: hook mới
+`hooks/useLockBodyScroll.ts` đặt `overflow: hidden` cho `<html>` khi popup mở, có bộ đếm cho popup lồng nhau
+(Modal mở trên CaseDetail không mở khóa sớm); gắn vào `CaseDetail` (theo `caseId` — component này luôn được
+mount ở App.tsx, trả null khi chưa chọn ca) và `Modal` dùng chung. Không gắn vào `Drawer` (thiết kế cho phép
+xem danh sách phía sau). Test local: trước khi mở trang cuộn bình thường, khi mở trang nền đứng yên còn cột
+trái popup vẫn cuộn hết, sau khi đóng trang cuộn lại bình thường.

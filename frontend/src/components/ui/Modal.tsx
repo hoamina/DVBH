@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLockBodyScroll } from "../../hooks/useLockBodyScroll";
 
 export function Modal({
   open,
@@ -26,6 +27,7 @@ export function Modal({
   // "Dat Mua Linh Kien 2.0" #18). Mac dinh undefined = khong doi giao dien cac noi goi Modal khac.
   headerExtra?: ReactNode;
 }) {
+  useLockBodyScroll(open);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-4">

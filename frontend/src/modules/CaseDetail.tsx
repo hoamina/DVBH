@@ -8,6 +8,7 @@ import { ChoiceSelect } from "../components/ui/ChoiceSelect";
 import { Btn } from "../components/ui/Btn";
 import { Tabs, type TabItem } from "../components/ui/Tabs";
 import { Modal } from "../components/ui/Modal";
+import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { CacheBanner } from "../components/ui/CacheBanner";
 import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
@@ -354,6 +355,9 @@ export function CaseDetail({
   onBack: () => void;
   onBackToRoot: () => void;
 }) {
+  // Popup dang mo -> khoa cuon trang goc phia sau (xem hooks/useLockBodyScroll.ts). CaseDetail LUON
+  // duoc mount o App.tsx (tra null khi chua chon ca) nen phai gan theo caseId, khong khoa co dinh.
+  useLockBodyScroll(!!caseId);
   const addToast = useToast();
   const qc = useQueryClient();
   const personDir = usePersonDirectory();
