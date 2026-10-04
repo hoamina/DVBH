@@ -4079,3 +4079,9 @@ mã linh kiện trong phạm vi ca, MỖI đơn gán đúng 1 dòng cha; nhiều
   "Đã tạo đơn / Không tạo đơn", đơn hiển thị dạng cây con; bấm đơn → modal chi tiết (thanh trạng thái
   new→repairing→repaired→done, thông tin bảo hành/cập nhật, linh kiện cha, đơn khác cùng linh kiện,
   "Mở trên Odoo"). Tab "Bảo hành" mục Nguồn Odoo: ghi "Thuộc linh kiện lỗi (n)", bấm mở cùng modal.
+
+## 2026-10-04 — Tab "Lỗi linh kiện": bỏ lưới 4 thẻ lọc trùng (v1.411)
+
+Tab "Lỗi linh kiện" (`LoiLinhKienPanel.tsx`) có 2 bộ lọc cùng chức năng: lưới 4 thẻ số đếm bấm được (Linh
+kiện lỗi / Đã tạo đơn BH / Không tạo đơn / Đơn bảo hành) và hàng chip (Tất cả / Đã tạo đơn / Không tạo đơn /
+từng linh kiện). Theo yêu cầu bỏ lưới thẻ bên trên, giữ hàng chip.

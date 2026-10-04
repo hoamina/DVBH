@@ -386,24 +386,8 @@ export function LoiLinhKienPanel({ parts, orders }: { parts: LinhKienLoiItem[]; 
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-2 mb-3">
-        {(
-          [
-            ["Linh kiện lỗi", parts.length, "text-[var(--ocean-600)]", "all"],
-            ["Đã tạo đơn BH", coDon.length, "text-[var(--teal-500)]", "co-don"],
-            ["Không tạo đơn", khongDon.length, "text-[var(--ink-500)]", "khong-don"],
-            ["Đơn bảo hành", orders.length, "text-[var(--ink-900)]", "all"],
-          ] as const
-        ).map(([label, n, cls, f]) => (
-          <button key={label} type="button" onClick={() => setFilter(f)} className="focus-ring text-left">
-            <Card className={`px-3 py-2 ${filter === f && label !== "Đơn bảo hành" ? "ring-2 ring-[var(--ocean-500)]" : ""}`}>
-              <div className="text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">{label}</div>
-              <div className={`text-xl font-bold ${cls}`}>{n}</div>
-            </Card>
-          </button>
-        ))}
-      </div>
-
+      {/* Chi giu 1 bo loc dang chip (2026-10-04) - truoc day con 1 luoi 4 the so dem bam duoc ngay tren,
+          trung chuc nang voi hang chip nay. */}
       {parts.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {chip("all", `Tất cả (${parts.length})`)}
