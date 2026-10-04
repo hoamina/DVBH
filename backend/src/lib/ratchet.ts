@@ -22,6 +22,15 @@ export const BUSINESS_FIELDS = [
   "link_hinh_anh",
 ] as const;
 
+// Cot TUY CHON (migration 0122) - hien chi nguon Odoo OCRM gui (pipeline auto qs, ca QuickSight de
+// NULL): dia chi CU truoc sap nhap + danh sach linh kien loi (JSON array). Khac BUSINESS_FIELDS o 2
+// diem: (1) chi ghi khi dong import CO key nay (importProcessor.ts) - dong khong gui key thi giu
+// nguyen gia tri DB; (2) chi dua vao crm_hash KHI CO GIA TRI (computeCrmHash) - them cot moi KHONG
+// lam doi hash cua hang tram nghin ca cu (tranh GHI_DE hang loat o lan import ke tiep).
+// KHONG dua vao COLUMN_MAP: import Excel thu cong (ImportUploader.parseSpreadsheet) gan null cho moi
+// cot COLUMN_MAP vang mat trong file -> se xoa sach gia tri Odoo moi lan import tay.
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi"] as const;
+
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
 // ratchetNghiNgoTranhChap() ben duoi) de phan biet "AI phat hien, cho xac nhan" (2) voi "da xac nhan
@@ -223,7 +232,34 @@ export function resplitStoredLinkHinhAnh(dbValue: string): string | null {
 export function businessFieldValue(field: string, incoming: Record<string, unknown>): unknown {
   if (field === "tinh_vao_kpi") return normalizeTinhVaoKpi(incoming[field]) ? 1 : 0;
   if (field === "link_hinh_anh") return parseLinkHinhAnh(incoming[field]);
+  if (field === "linh_kien_loi") return normalizeLinhKienLoi(incoming[field]);
+  if ((OPTIONAL_FIELDS as readonly string[]).includes(field) && incoming[field] === "") return null;
   return incoming[field] ?? null;
+}
+
+// "linh_kien_loi": API gui mang object (hoac chuoi JSON tu file Excel) -> luu chuoi JSON; mang rong/
+// khong hop le -> NULL.
+export function normalizeLinhKienLoi(rawValue: unknown): string | null {
+  let arr: unknown = rawValue;
+  if (typeof rawValue === "string") {
+    if (!rawValue.trim()) return null;
+    try {
+      arr = JSON.parse(rawValue);
+    } catch {
+      return null;
+    }
+  }
+  return Array.isArray(arr) && arr.length > 0 ? JSON.stringify(arr) : null;
+}
+
+// Phan hash cua OPTIONAL_FIELDS - chi cot CO GIA TRI moi duoc noi them (xem OPTIONAL_FIELDS).
+function optionalHashParts(values: (f: string) => unknown): string[] {
+  const parts: string[] = [];
+  for (const f of OPTIONAL_FIELDS) {
+    const v = canonicalizeForHash(f, values(f));
+    if (v !== "") parts.push(`${f}=${v}`);
+  }
+  return parts;
 }
 
 // Cac cot so thuc - chuan hoa qua Number() truoc khi hash de "100000" (DB) vs "100000.0" (Excel)
@@ -258,6 +294,7 @@ async function sha256Hex(text: string): Promise<string> {
 
 export async function computeCrmHash(incoming: Record<string, unknown>): Promise<string> {
   const parts = BUSINESS_FIELDS.map((f) => `${f}=${canonicalizeForHash(f, businessFieldValue(f, incoming))}`);
+  parts.push(...optionalHashParts((f) => businessFieldValue(f, incoming)));
   return sha256Hex(parts.join("|"));
 }
 
@@ -272,5 +309,6 @@ export async function computeCrmHash(incoming: Record<string, unknown>): Promise
  */
 export async function computeCrmHashFromDbRow(dbRow: Record<string, unknown>): Promise<string> {
   const parts = BUSINESS_FIELDS.map((f) => `${f}=${canonicalizeForHash(f, dbRow[f])}`);
+  parts.push(...optionalHashParts((f) => dbRow[f]));
   return sha256Hex(parts.join("|"));
 }

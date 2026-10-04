@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { processImport } from "../lib/importProcessor";
-import { COLUMN_MAP, BUSINESS_FIELDS, businessFieldValue, computeCrmHashFromDbRow, resplitStoredLinkHinhAnh } from "../lib/ratchet";
+import { COLUMN_MAP, BUSINESS_FIELDS, OPTIONAL_FIELDS, businessFieldValue, computeCrmHashFromDbRow, resplitStoredLinkHinhAnh } from "../lib/ratchet";
 import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { csvTemplateResponse } from "../lib/csvTemplate";
@@ -266,7 +266,7 @@ importRoute.post("/backfill-crm-hash", requireRole("Admin"), async (c) => {
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 2000) : 1000;
 
   const { results } = await c.env.DB.prepare(
-    `SELECT id, ${BUSINESS_FIELDS.join(", ")} FROM case_dvbh WHERE crm_hash IS NULL ORDER BY id LIMIT ?`,
+    `SELECT id, ${[...BUSINESS_FIELDS, ...OPTIONAL_FIELDS].join(", ")} FROM case_dvbh WHERE crm_hash IS NULL ORDER BY id LIMIT ?`,
   )
     .bind(limit)
     .all<Record<string, unknown>>();

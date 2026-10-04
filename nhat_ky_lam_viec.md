@@ -4048,3 +4048,23 @@ chủ hệ thống chọn **lưu chết, không bổ sung ngày cũ**. Code: mig
 khu vực QLDVBH, ngày đối chiếu cuối tháng trước, chế độ biến động đều đúng (dữ liệu giả các ngày trước đã
 xóa khỏi D1 local sau test). Sau deploy cần bấm "Làm mới báo cáo" để có ngay dòng hôm nay, nếu không thì
 dòng đầu tiên xuất hiện ở cron 08:00 ngày mai.
+
+## 2026-10-04 — Nguồn Odoo OCRM: địa chỉ cũ/mới, linh kiện lỗi, đơn bảo hành Odoo (v1.409)
+
+Pipeline auto qs (repo Auto-QuickSight, thư mục `ocrm/`) tải thêm nguồn Odoo OCRM (ocrm.happinno.com) song
+song QuickSight, gộp và đẩy chung qua `/api/external-import/commit`. Lần này bổ sung phía dvbh:
+
+- Migration 0122: `case_dvbh` thêm `tinh_cu`/`huyen_cu`/`xa_cu` (địa chỉ trước sáp nhập; `tinh`/`quan_huyen`
+  của ca Odoo = Tỉnh MỚI / Xã MỚI) + `linh_kien_loi` (JSON array, 1 phần tử/linh kiện báo lỗi: stt, mã/tên
+  LK, nguồn gốc lỗi, hiện tượng, nhóm lỗi, nguyên nhân, cách xử lý, ghi chú...). Bảng mới `don_bao_hanh_odoo`.
+- `ratchet.ts OPTIONAL_FIELDS`: chỉ ghi khi dòng import có key (ca QuickSight không bị xóa), chỉ đưa vào
+  `crm_hash` khi có giá trị (hash các ca cũ KHÔNG đổi → không GHI_DE hàng loạt). Không đưa vào `COLUMN_MAP`.
+- `POST /api/external-import/don-bao-hanh-odoo`: upsert theo id Odoo, bỏ qua đơn không đổi `ngay_cap_nhat_odoo`.
+- CaseDetail: địa chỉ tách 2 dòng Mới/Cũ (khi có địa chỉ cũ); tab mới "Lỗi linh kiện" — thẻ (1),(2)... lọc
+  nhanh từng linh kiện, luồng Hiện tượng → Nguyên nhân → Cách xử lý, đơn bảo hành Odoo khớp theo mã LK
+  (đơn không khớp liệt kê riêng); tab "Bảo hành" thêm mục "Nguồn Odoo"; "Tiến trình chung" thêm mốc tạo /
+  kết thúc đơn bảo hành Odoo.
+- Test local: 52 ca Odoo thật + 428 đơn (417 khớp LK báo lỗi); gửi lại lần 2 → BO_QUA toàn bộ; dòng không
+  gửi cột Odoo vẫn giữ `tinh_cu`/`linh_kien_loi`.
+- Sau deploy: chạy `db:migrate:smarttrade` TRƯỚC `deploy:smarttrade`; rồi bật `ODOO_SEND_ADDRESS_FIELDS`,
+  `ODOO_SEND_PARTS_FIELD`, `ODOO_SEND_WARRANTY` = "true" trong workflow của auto qs.

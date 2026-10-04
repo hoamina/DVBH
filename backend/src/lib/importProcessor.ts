@@ -1,5 +1,6 @@
 import {
   BUSINESS_FIELDS,
+  OPTIONAL_FIELDS,
   VIOLATION_FIELDS,
   normalizeViolationFlag,
   ratchetFlag,
@@ -148,6 +149,12 @@ async function fetchExistingRows(
   return map;
 }
 
+// OPTIONAL_FIELDS (ratchet.ts) chi ghi khi dong import CO key - dong khong gui (vd ca QuickSight)
+// giu nguyen gia tri DB thay vi bi ghi de thanh NULL.
+function presentOptionalFields(incoming: ImportRow): string[] {
+  return OPTIONAL_FIELDS.filter((f) => Object.prototype.hasOwnProperty.call(incoming, f));
+}
+
 function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, crmHash: string, doiTraSets: DoiTraSets): D1PreparedStatement {
   const normalizedFlags = Object.fromEntries(
     VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f]) ? 1 : 0]),
@@ -157,8 +164,10 @@ function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, 
   const businessValues = Object.fromEntries(BUSINESS_FIELDS.map((f) => [f, businessFieldValue(f, incoming)]));
   // Dong MOI luon bat dau tu currentDbValue=0 (khong the da bi khoa 1/3) - xem lib/theoDoiDoiTra.ts.
   const theoDoiDoiTra = computeTheoDoiDoiTra(0, businessValues.loai_yeu_cau, businessValues.luu_y_loi_linh_kien, doiTraSets.loaiYeuCauSet, doiTraSets.luuYLoiLinhKienSet);
-  const fields = ["id", ...BUSINESS_FIELDS, ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "theo_doi_doi_tra", "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
+  const optional = presentOptionalFields(incoming);
+  const fields = ["id", ...BUSINESS_FIELDS, ...optional, ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "theo_doi_doi_tra", "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
   const values = {
+    ...Object.fromEntries(optional.map((f) => [f, businessFieldValue(f, incoming)])),
     id: incoming.id,
     ...businessValues,
     ...normalizedFlags,
@@ -186,6 +195,10 @@ function buildFullOverwrite(
   const setClauses: string[] = [];
   const values: unknown[] = [];
   for (const field of BUSINESS_FIELDS) {
+    setClauses.push(`${field} = ?`);
+    values.push(businessFieldValue(field, incoming));
+  }
+  for (const field of presentOptionalFields(incoming)) {
     setClauses.push(`${field} = ?`);
     values.push(businessFieldValue(field, incoming));
   }

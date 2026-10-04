@@ -122,6 +122,14 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     `LINHKIEN_APP_API_KEY` (`lib/linhKienTimeline.ts`); called on demand when a case is opened, nothing
     stored in D1. Merged into CaseDetail "Tiến trình chung" alongside the AppSheet Google Sheet source
     (kept in parallel by decision 2026-09-30).
+  - `externalImport.ts` `POST /don-bao-hanh-odoo` — "danh sách đơn bảo hành từ Odoo" (OCRM model
+    `technical.service.warranty`) pushed by the auto qs pipeline (`ocrm/warranty.py`), upserted into
+    `don_bao_hanh_odoo` by Odoo id (skips rows whose `ngay_cap_nhat_odoo` didn't change), bumps domain
+    `don_bao_hanh_odoo` (part of `CASE_DETAIL_DOMAINS`). Odoo cases also carry `OPTIONAL_FIELDS`
+    (`ratchet.ts`: `tinh_cu`/`huyen_cu`/`xa_cu`/`linh_kien_loi`, migration 0122) — written only when the
+    key is present in the row, hashed only when non-empty, deliberately NOT in `COLUMN_MAP` (manual Excel
+    import would null them). CaseDetail tab "Lỗi linh kiện" (`components/LoiLinhKienPanel.tsx`) joins
+    `linh_kien_loi` items with `don_bao_hanh_odoo` rows by `ma_linh_kien`.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
 - `middleware/` — `session.ts` verifies the `dvbh_session` JWT cookie and sets `email`; a route then
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via
@@ -261,7 +269,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0121`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0122`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

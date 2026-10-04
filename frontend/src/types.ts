@@ -34,6 +34,12 @@ export interface CaseRow {
   ngay_mua: string | null;
   nhom_kh: string | null;
   link_hinh_anh: string | null;
+  // Migration 0122 - chi ca nguon Odoo OCRM co gia tri: dia chi CU truoc sap nhap (tinh/quan_huyen =
+  // Tinh MOI / Xa MOI) + danh sach linh kien loi (chuoi JSON LinhKienLoiItem[]).
+  tinh_cu?: string | null;
+  huyen_cu?: string | null;
+  xa_cu?: string | null;
+  linh_kien_loi?: string | null;
   ngay_import: string;
   ngay_cap_nhat_gan_nhat: string;
   assigned_to: string | null;
@@ -617,4 +623,40 @@ export function fmtDateTime(d: string | null | undefined): string {
 export function fmtDate(d: string | null | undefined): string {
   if (!d) return "—";
   return new Date(d.replace(" ", "T")).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" });
+}
+
+// Linh kien bao loi cua 1 ca (nguon Odoo, case_dvbh.linh_kien_loi) - xem components/LoiLinhKienPanel.tsx.
+export interface LinhKienLoiItem {
+  stt: number;
+  ma_linh_kien: string;
+  ten_linh_kien: string;
+  nguon_goc_loi: string;
+  hien_tuong_loi: string;
+  mo_ta_hien_tuong: string;
+  nhom_loi: string;
+  nguyen_nhan_loi: string;
+  mo_ta_nguyen_nhan: string;
+  cach_thuc_xu_ly: string;
+  ghi_chu: string;
+}
+
+// Don bao hanh linh kien tu Odoo (bang don_bao_hanh_odoo, migration 0122).
+export interface DonBaoHanhOdooRow {
+  odoo_id: number;
+  ma_don: string | null;
+  case_id: string | null;
+  ma_linh_kien: string | null;
+  ten_linh_kien: string | null;
+  so_luong: number | null;
+  don_gia: number | null;
+  thanh_tien: number | null;
+  trang_thai: string | null;
+  tinh_trang_loi: string | null;
+  ghi_chu: string | null;
+  ngay_tao: string | null;
+  ngay_hoan_thanh: string | null;
+  nguoi_tao: string | null;
+  ngay_cap_nhat_odoo: string | null;
+  con_hieu_luc: number;
+  ngay_dong_bo: string;
 }

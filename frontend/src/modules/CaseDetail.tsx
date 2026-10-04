@@ -11,6 +11,7 @@ import { Modal } from "../components/ui/Modal";
 import { CacheBanner } from "../components/ui/CacheBanner";
 import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
+import { LoiLinhKienPanel, DonBaoHanhOdooItem, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { LoadingInline } from "../components/ui/LoadingInline";
@@ -51,6 +52,7 @@ import {
   NAP_GAS_PHI_DICH_VU_META,
   NAP_GAS_PHI_DICH_VU_KEYS,
   type CaseRow,
+  type DonBaoHanhOdooRow,
   type GiaiTrinhRow,
   type BienBanHopRow,
   type LyDoRow,
@@ -79,6 +81,8 @@ interface CaseDetailResponse {
   caLap: CaLapDetection;
   napGasDanhGia: NapGasDanhGiaRow | null;
   bienBanHop: BienBanHopRow[];
+  // Optional: cache IndexedDB cua ca da dong luu truoc migration 0122 khong co truong nay.
+  donBaoHanhOdoo?: DonBaoHanhOdooRow[];
 }
 
 async function fetchCaseDetail(caseId: string): Promise<CaseDetailResponse> {
@@ -158,7 +162,30 @@ function renderCaseFieldsGrid(
             </span>
           }
         />
-        <Field label="Khu vực / Tỉnh" value={`${shortKhuVuc(c.khu_vuc)} — ${c.tinh ?? "—"} ${c.quan_huyen ? "— " + c.quan_huyen : ""}`} />
+        {c.tinh_cu || c.huyen_cu || c.xa_cu ? (
+          <>
+            <Field label="Khu vực" value={shortKhuVuc(c.khu_vuc)} />
+            <div className="col-span-2">
+              <Field
+                label="Địa chỉ"
+                value={
+                  <div className="space-y-1">
+                    <div className="flex items-start gap-2">
+                      <Badge tone="teal">Mới</Badge>
+                      <span>{[c.quan_huyen, c.tinh].filter(Boolean).join(", ") || "—"}</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-[var(--ink-600)]">
+                      <Badge tone="gray">Cũ</Badge>
+                      <span>{[c.xa_cu, c.huyen_cu, c.tinh_cu].filter(Boolean).join(", ") || "—"}</span>
+                    </div>
+                  </div>
+                }
+              />
+            </div>
+          </>
+        ) : (
+          <Field label="Khu vực / Tỉnh" value={`${shortKhuVuc(c.khu_vuc)} — ${c.tinh ?? "—"} ${c.quan_huyen ? "— " + c.quan_huyen : ""}`} />
+        )}
         <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />
         <Field label="Kỹ thuật viên" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />
         <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />
@@ -524,6 +551,8 @@ export function CaseDetail({
     [giaiTrinhList],
   );
   const bienBanHopList = data?.bienBanHop ?? [];
+  const donBaoHanhOdooList = useMemo(() => data?.donBaoHanhOdoo ?? [], [data]);
+  const linhKienLoiList = useMemo(() => parseLinhKienLoi(data?.case.linh_kien_loi), [data]);
   const [bienBanHopNoiDung, setBienBanHopNoiDung] = useState("");
   // CHOT 2026-08-16: an cac tab "rong" (count === 0) de giam roi mat thanh tab - chu he thong phan
   // hoi so tab qua nhieu kho quet nhanh. Khong luu qua localStorage (moi ca 1 trang thai rieng la hop
@@ -982,6 +1011,12 @@ export function CaseDetail({
       pushSheet({ key: `bh-${r.id}-8`, rawTs: r.ngayKtvNhanHang, tone: "rose", typeLabel: "Bảo hành: KTV đã nhận được linh kiện", summary: "—", jumpTab: "bao-hanh" });
     }
 
+    for (const o of donBaoHanhOdooList) {
+      const lk = o.ten_linh_kien || o.ma_linh_kien || "—";
+      pushDb({ key: `bho-${o.odoo_id}-1`, rawTs: o.ngay_tao, tone: "rose", typeLabel: `Bảo hành (Odoo): Tạo đơn ${o.ma_don ?? ""}`, actor: o.nguoi_tao, summary: lk, jumpTab: "loi-linh-kien" });
+      pushDb({ key: `bho-${o.odoo_id}-2`, rawTs: o.ngay_hoan_thanh, tone: "rose", typeLabel: `Bảo hành (Odoo): ${donBhTrangThai(o.trang_thai).label} ${o.ma_don ?? ""}`, actor: null, summary: lk, jumpTab: "loi-linh-kien" });
+    }
+
     for (const r of thieuHangMatched) {
       pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Tạo yêu cầu", summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
       pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Kho đã tiếp nhận", summary: "—", jumpTab: "thieu-hang" });
@@ -1034,7 +1069,7 @@ export function CaseDetail({
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
-  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders]);
+  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList]);
 
   // "Tieu de tom tat" (chot 2026-08-22) - 5 khoang thoi gian tinh theo "kieu bao trum" (min moc dau -
   // max moc cuoi cua CHINH nhom do, hoac "hien tai" neu con dang mo - CHI ap dung cho case/tranh chap
@@ -2010,8 +2045,26 @@ export function CaseDetail({
     </div>
   );
 
+  const loiLinhKienContent = <LoiLinhKienPanel parts={linhKienLoiList} orders={donBaoHanhOdooList} />;
+
   const baoHanhContent = (
     <div>
+      {donBaoHanhOdooList.length > 0 && (
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({donBaoHanhOdooList.length}) — chi tiết theo linh kiện ở tab "Lỗi linh kiện"</div>
+          <div className="space-y-1.5">
+            {donBaoHanhOdooList.map((o) => (
+              <div key={o.odoo_id}>
+                <div className="text-xs text-[var(--ink-600)] mb-0.5">
+                  {o.ten_linh_kien || "(chưa rõ linh kiện)"} {o.ma_linh_kien && <span className="font-mono text-[var(--ink-400)]">{o.ma_linh_kien}</span>}
+                </div>
+                <DonBaoHanhOdooItem o={o} />
+              </div>
+            ))}
+          </div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">Nguồn AppSheet (Google Sheet)</div>
+        </div>
+      )}
       {purchaseSyncBanner}
       {!purchaseSyncing && baoHanhMatched.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn bảo hành liên quan đến ca này.</div>
@@ -2218,7 +2271,8 @@ export function CaseDetail({
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
-          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
+          { key: "loi-linh-kien", label: "Lỗi linh kiện", count: linhKienLoiList.length },
+          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length + donBaoHanhOdooList.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
@@ -2233,7 +2287,8 @@ export function CaseDetail({
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
-          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length },
+          { key: "loi-linh-kien", label: "Lỗi linh kiện", count: linhKienLoiList.length },
+          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length + donBaoHanhOdooList.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
@@ -2387,6 +2442,7 @@ export function CaseDetail({
               {tab === "ca-lap" && caLapContent}
               {tab === "nap-gas" && napGasContent}
               {tab === "mua-hang" && muaHangContent}
+              {tab === "loi-linh-kien" && loiLinhKienContent}
               {tab === "bao-hanh" && baoHanhContent}
               {tab === "thieu-hang" && thieuHangContent}
               {tab === "po-dat-hang" && poDatHangContent}
@@ -2408,7 +2464,8 @@ export function CaseDetail({
             {tab === "ca-lap" && caLapContent}
             {tab === "nap-gas" && napGasContent}
             {tab === "mua-hang" && muaHangContent}
-            {tab === "bao-hanh" && baoHanhContent}
+            {tab === "loi-linh-kien" && loiLinhKienContent}
+              {tab === "bao-hanh" && baoHanhContent}
             {tab === "thieu-hang" && thieuHangContent}
             {tab === "qc-thuc-te" && qcThucTeContent}
             {tab === "tranh-chap" && tranhChapContent}
