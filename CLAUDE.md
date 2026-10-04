@@ -130,6 +130,15 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     key is present in the row, hashed only when non-empty, deliberately NOT in `COLUMN_MAP` (manual Excel
     import would null them). CaseDetail tab "Lỗi linh kiện" (`components/LoiLinhKienPanel.tsx`) joins
     `linh_kien_loi` items with `don_bao_hanh_odoo` rows by `ma_linh_kien`.
+  - `partnerApi.ts` `GET /don-bao-hanh-odoo` + `POST /sync/sua-chua-trang-thai` (2026-10-04, migration
+    0123) — the "Sửa chữa bảo hành" Worker (`suachua`) PULLS Odoo warranty orders every 15 min with a
+    `(ngay_dong_bo, odoo_id)` cursor (+ `?ids=` re-fetch for orders whose case arrived later; LEFT JOIN
+    `case_dvbh.ky_thuat_vien` so suachua can match the KTV) and PUSHES back its repair status in batches.
+    Repair status lives in separate `sc_*` columns — never overwrites Odoo's `trang_thai`, never touches
+    `ngay_dong_bo` (would re-trigger the pull). Pull chosen over push: read/write cost is ~equal (a few
+    hundred rows/day vs. 4-5 pipeline runs/day) but pull self-heals and adds no risk to external-import.
+    Neither endpoint calls `logPartnerApiCall` (would write 1 D1 row per 15-min poll). `LoiLinhKienPanel`
+    shows the `sc_*` status as a second badge.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
 - `middleware/` — `session.ts` verifies the `dvbh_session` JWT cookie and sets `email`; a route then
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via

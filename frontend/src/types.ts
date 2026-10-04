@@ -659,4 +659,10 @@ export interface DonBaoHanhOdooRow {
   ngay_cap_nhat_odoo: string | null;
   con_hieu_luc: number;
   ngay_dong_bo: string;
+  // Trang thai gui sua do he "Sua chua bao hanh" (suachua) day nguoc ve - cot rieng, khong de trang_thai Odoo.
+  sc_trang_thai?: string | null;
+  sc_ma_phieu?: string | null;
+  sc_chi_tiet?: string | null;
+  sc_cap_nhat?: string | null;
+  sc_ngay_nhan?: string | null;
 }

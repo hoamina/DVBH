@@ -515,4 +515,98 @@ partnerApi.post("/sync/giai-trinh-vi-pham", async (c) => {
   return c.json({ results });
 });
 
+// ===== He "Sua chua bao hanh" (suachua) <-> don bao hanh Odoo (yeu cau 04/10/2026) =====
+// Chieu Odoo -> suachua: suachua TU XIN dinh ky (cron 15 phut) theo con tro tang dan (ngay_dong_bo,
+// odoo_id) - chon pull thay vi dvbh day vi: chi phi doc/ghi 2 huong xap xi (vai tram dong/ngay), pull
+// tu phuc hoi khi suachua loi/deploy, va khong them rui ro vao luong external-import. KHONG goi
+// logPartnerApiCall (ghi D1 moi lan) - 96 lan/ngay phan lon rong. Gioi han theo key qua Cache API.
+const DON_BH_ODOO_KEY_LIMIT_PER_MIN = 30;
+const DON_BH_ODOO_MAX_LIMIT = 500;
+const DON_BH_ODOO_COLUMNS =
+  "d.odoo_id, d.ma_don, d.case_id, d.ma_linh_kien, d.ten_linh_kien, d.so_luong, d.trang_thai, d.tinh_trang_loi, d.ghi_chu, d.ngay_tao, d.ngay_hoan_thanh, d.ngay_cap_nhat_odoo, d.con_hieu_luc, d.ngay_dong_bo, c.ky_thuat_vien";
+
+// GET /api/partner/don-bao-hanh-odoo?since=<ngay_dong_bo>&after_id=<odoo_id>&limit=500
+//   hoac ?ids=1,2,3 (lay lai dong cu the, vd don ve truoc case -> chua biet KTV, toi da 200 id).
+// ky_thuat_vien lay tu case_dvbh (LEFT JOIN, NULL neu case chua ve).
+partnerApi.get("/don-bao-hanh-odoo", async (c) => {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    await rejectInvalidKey(c, apiKey);
+    return c.json({ error: "INVALID_API_KEY" }, 401);
+  }
+  const ok = await checkPerKeyRateLimit("partner-don-bh-odoo-key-limit", keyRow.id, DON_BH_ODOO_KEY_LIMIT_PER_MIN, (p) => c.executionCtx.waitUntil(p));
+  if (!ok) return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+
+  const idsParam = c.req.query("ids")?.trim();
+  if (idsParam) {
+    const ids = idsParam.split(",").map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0).slice(0, 200);
+    if (ids.length === 0) return c.json({ rows: [] });
+    const { results } = await c.env.DB.prepare(
+      `SELECT ${DON_BH_ODOO_COLUMNS} FROM don_bao_hanh_odoo d LEFT JOIN case_dvbh c ON c.id = d.case_id WHERE d.odoo_id IN (${ids.map(() => "?").join(",")})`,
+    )
+      .bind(...ids)
+      .all();
+    return c.json({ rows: results });
+  }
+
+  const since = c.req.query("since")?.trim() || "";
+  const afterId = Number(c.req.query("after_id") || 0) || 0;
+  const limit = Math.min(Math.max(Number(c.req.query("limit") || DON_BH_ODOO_MAX_LIMIT) || DON_BH_ODOO_MAX_LIMIT, 1), DON_BH_ODOO_MAX_LIMIT);
+  const { results } = await c.env.DB.prepare(
+    `SELECT ${DON_BH_ODOO_COLUMNS} FROM don_bao_hanh_odoo d LEFT JOIN case_dvbh c ON c.id = d.case_id
+     WHERE d.ngay_dong_bo > ? OR (d.ngay_dong_bo = ? AND d.odoo_id > ?)
+     ORDER BY d.ngay_dong_bo, d.odoo_id LIMIT ?`,
+  )
+    .bind(since, since, afterId, limit)
+    .all<{ odoo_id: number; ngay_dong_bo: string }>();
+  const last = results[results.length - 1];
+  return c.json({ rows: results, has_more: results.length === limit, next: last ? { since: last.ngay_dong_bo, after_id: last.odoo_id } : null });
+});
+
+interface SuaChuaTrangThaiRow {
+  odoo_id: number;
+  trang_thai: string | null;
+  ma_phieu?: string | null;
+  chi_tiet?: string | null;
+  thoi_diem: string;
+}
+
+// POST /api/partner/sync/sua-chua-trang-thai - { rows: SuaChuaTrangThaiRow[] } - suachua gom day theo lo
+// (toi da 1 request/15 phut). Ghi vao cot rieng sc_*, bo qua ban tin cu den muon (sc_cap_nhat >= thoi_diem).
+// trang_thai = null nghia la don da bi go khoi thung ben suachua -> xoa trang thai gui sua.
+partnerApi.post("/sync/sua-chua-trang-thai", async (c) => {
+  const keyRow = await requirePartnerKey(c);
+  if (keyRow === "RATE_LIMITED") return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+  if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
+
+  const body = await c.req.json<{ rows: SuaChuaTrangThaiRow[] }>().catch(() => ({ rows: null as unknown as SuaChuaTrangThaiRow[] }));
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  if (body.rows.length > SYNC_MAX_ROWS) return c.json({ error: "TOO_MANY_ROWS" }, 400);
+
+  const now = nowVN();
+  const stmts: D1PreparedStatement[] = [];
+  let loi = 0;
+  for (const r of body.rows) {
+    const id = Number(r?.odoo_id);
+    if (!Number.isInteger(id) || id <= 0 || !r.thoi_diem) {
+      loi++;
+      continue;
+    }
+    stmts.push(
+      c.env.DB.prepare(
+        `UPDATE don_bao_hanh_odoo SET sc_trang_thai = ?, sc_ma_phieu = ?, sc_chi_tiet = ?, sc_cap_nhat = ?, sc_ngay_nhan = ?
+         WHERE odoo_id = ? AND (sc_cap_nhat IS NULL OR sc_cap_nhat <= ?)`,
+      ).bind(r.trang_thai ?? null, r.ma_phieu ?? null, r.chi_tiet ?? null, r.thoi_diem, now, id, r.thoi_diem),
+    );
+  }
+  let capNhat = 0;
+  if (stmts.length > 0) {
+    const res = await c.env.DB.batch(stmts);
+    capNhat = res.reduce((s, x) => s + (x.meta?.changes ?? 0), 0);
+  }
+  if (capNhat > 0) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["don_bao_hanh_odoo"]));
+  return c.json({ cap_nhat: capNhat, bo_qua: stmts.length - capNhat, loi });
+});
+
 export default partnerApi;

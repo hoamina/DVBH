@@ -32,6 +32,22 @@ export const DON_BH_TRANG_THAI: Record<string, { label: string; tone: BadgeTone 
 };
 const FLOW = ["new", "repairing", "repaired", "done"] as const;
 
+// Trang thai gui sua ben he "Sua chua bao hanh" (suachua day ve qua /api/partner/sync/sua-chua-trang-thai).
+const SC_TRANG_THAI: Record<string, { label: string; tone: BadgeTone }> = {
+  cho_gui: { label: "Sửa chữa: KTV đã đóng thùng", tone: "gray" },
+  dang_gui: { label: "Sửa chữa: đang gửi về kho", tone: "amber" },
+  kho_da_nhan: { label: "Sửa chữa: kho đã nhận", tone: "ocean" },
+  dang_xu_ly: { label: "Sửa chữa: đang xử lý", tone: "ocean" },
+  cho_tra: { label: "Sửa chữa: chờ trả KTV", tone: "orange" },
+  dang_tra: { label: "Sửa chữa: đang trả KTV", tone: "orange" },
+  hoan_tat: { label: "Sửa chữa: KTV đã nhận lại", tone: "teal" },
+  tu_choi: { label: "Sửa chữa: từ chối/huỷ", tone: "coral" },
+};
+export function scTrangThai(code: string | null | undefined) {
+  if (!code) return null;
+  return SC_TRANG_THAI[code] ?? { label: `Sửa chữa: ${code}`, tone: "gray" as BadgeTone };
+}
+
 export function donBhTrangThai(code: string | null) {
   return DON_BH_TRANG_THAI[code ?? ""] ?? { label: code || "—", tone: "gray" as BadgeTone };
 }
@@ -94,6 +110,7 @@ export function DonBaoHanhOdooItem({ o, onOpen, parentLabel }: { o: DonBaoHanhOd
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-mono text-xs font-bold text-[var(--ink-900)]">{o.ma_don ?? `#${o.odoo_id}`}</span>
           <Badge tone={st.tone}>{st.label}</Badge>
+          {scTrangThai(o.sc_trang_thai) && <Badge tone={scTrangThai(o.sc_trang_thai)!.tone}>{scTrangThai(o.sc_trang_thai)!.label}</Badge>}
           {o.con_hieu_luc === 0 && <Badge tone="gray">Đã lưu trữ</Badge>}
         </div>
         <span className="text-xs text-[var(--ink-500)]">
@@ -203,6 +220,14 @@ export function DonBaoHanhOdooModal({
             {o.con_hieu_luc === 0 && <Badge tone="gray">Đã lưu trữ trên Odoo</Badge>}
             <span className="text-xs text-[var(--ink-400)]">Ca {o.case_id ?? "—"}</span>
           </div>
+          {scTrangThai(o.sc_trang_thai) && (
+            <div className="mb-2 flex items-center gap-2 flex-wrap text-xs text-[var(--ink-500)]">
+              <Badge tone={scTrangThai(o.sc_trang_thai)!.tone}>{scTrangThai(o.sc_trang_thai)!.label}</Badge>
+              {o.sc_ma_phieu && <span className="font-mono">{o.sc_ma_phieu}</span>}
+              {o.sc_chi_tiet && <span>· {o.sc_chi_tiet}</span>}
+              {o.sc_cap_nhat && <span>· cập nhật {fmtDateTime(o.sc_cap_nhat)}</span>}
+            </div>
+          )}
           <StatusFlow code={o.trang_thai} />
         </div>
 
