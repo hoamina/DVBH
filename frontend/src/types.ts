@@ -630,6 +630,7 @@ export interface LinhKienLoiItem {
   stt: number;
   ma_linh_kien: string;
   ten_linh_kien: string;
+  nhom_linh_kien?: string; // vd "Sensor", "Dây RO" (danh muc linh kien Odoo, tu 2026-10-05)
   nguon_goc_loi: string;
   hien_tuong_loi: string;
   mo_ta_hien_tuong: string;
@@ -637,6 +638,7 @@ export interface LinhKienLoiItem {
   nguyen_nhan_loi: string;
   mo_ta_nguyen_nhan: string;
   cach_thuc_xu_ly: string;
+  mo_ta_cach_xu_ly?: string; // "Mô tả cách thức xử lý" (tu 2026-10-05)
   ghi_chu: string;
 }
 

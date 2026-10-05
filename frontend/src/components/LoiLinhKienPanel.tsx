@@ -268,7 +268,9 @@ export function DonBaoHanhOdooModal({
               </div>
               <InfoRow label="Hiện tượng lỗi" value={[parent.hien_tuong_loi, parent.mo_ta_hien_tuong].filter(Boolean).join(" — ")} />
               <InfoRow label="Nhóm lỗi — Nguyên nhân" value={[parent.nhom_loi, parent.nguyen_nhan_loi, parent.mo_ta_nguyen_nhan].filter(Boolean).join(" — ")} />
-              <InfoRow label="Cách thức xử lý" value={[parent.cach_thuc_xu_ly, parent.ghi_chu].filter(Boolean).join(" — ")} />
+              {parent.nhom_linh_kien && <InfoRow label="Nhóm linh kiện" value={parent.nhom_linh_kien} />}
+              <InfoRow label="Cách thức xử lý" value={[parent.cach_thuc_xu_ly, parent.mo_ta_cach_xu_ly].filter(Boolean).join(" — ")} />
+              {parent.ghi_chu && <InfoRow label="Ghi chú" value={parent.ghi_chu} />}
             </>
           ) : (
             <div className="text-sm italic text-[var(--ink-400)]">
@@ -339,7 +341,13 @@ function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHan
           </span>
           <div className="min-w-0">
             <div className="font-semibold text-sm text-[var(--ink-900)] leading-snug">{p.ten_linh_kien || "(chưa rõ tên linh kiện)"}</div>
-            {p.ma_linh_kien && <div className="font-mono text-xs text-[var(--ink-400)]">{p.ma_linh_kien}</div>}
+            {(p.ma_linh_kien || p.nhom_linh_kien) && (
+              <div className="text-xs text-[var(--ink-400)]">
+                {p.ma_linh_kien && <span className="font-mono">{p.ma_linh_kien}</span>}
+                {p.ma_linh_kien && p.nhom_linh_kien && " · "}
+                {p.nhom_linh_kien && <span>Nhóm LK: {p.nhom_linh_kien}</span>}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -351,8 +359,9 @@ function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHan
       <div className="space-y-2.5 border-l-2 border-[var(--line)] ml-3 pl-2">
         <Step label="Hiện tượng lỗi" main={p.hien_tuong_loi} desc={p.mo_ta_hien_tuong} tone="bg-[var(--coral-500)]" />
         <Step label="Nhóm lỗi — Nguyên nhân" main={nguyenNhan} desc={p.mo_ta_nguyen_nhan} tone="bg-[var(--amber-500)]" />
-        <Step label="Cách thức xử lý" main={p.cach_thuc_xu_ly} desc={p.ghi_chu} tone="bg-[var(--teal-500)]" />
+        <Step label="Cách thức xử lý" main={p.cach_thuc_xu_ly} desc={p.mo_ta_cach_xu_ly} tone="bg-[var(--teal-500)]" />
       </div>
+      {p.ghi_chu && <div className="text-xs text-[var(--ink-500)] mt-2 ml-3">Ghi chú: {p.ghi_chu}</div>}
 
       <div className="mt-3 pt-3 border-t border-[var(--line)]">
         <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">Đơn bảo hành linh kiện ({orders.length})</div>
