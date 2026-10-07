@@ -123,6 +123,14 @@ async function fetchCaseDetailCached(id: string): Promise<CacheEntry<CaseDetailR
 // truc tiep tren chuoi ngay thuan) - mot so ca backfill thang 7/2026 chi co ngay thuan, nen can them
 // " 00:00:00" truoc khi parse. Dung chung cho "gap_days" hien thi trong tab Ca lap (badge tren cung +
 // tung dong "Chuoi lich su theo serial" - CHOT 2026-08-20: 2 cho nay PHAI dung 1 cong thuc duy nhat).
+// Badge trang thai ca dau phan Thong tin: ca da dong ma tien do "Không hoàn thành XLSC" (CRM/Odoo "Thất
+// bại") hien "Thất bại" thay vi "Đã hoàn thành" (khop ticker "Ca thất bại", lib/caseTickers.ts).
+function caseStatusBadge(c: CaseRow) {
+  if (!c.thoi_gian_hoan_thanh) return <Badge tone="amber">Đang tồn đọng</Badge>;
+  if (c.tien_do_hoan_thanh === "Không hoàn thành XLSC") return <Badge tone="coral">Thất bại</Badge>;
+  return <Badge tone="teal">Đã hoàn thành</Badge>;
+}
+
 function parseFlexibleDbDate(v: string) {
   return parseDbDateTime(v.includes(":") ? v : `${v} 00:00:00`);
 }
@@ -1383,7 +1391,7 @@ export function CaseDetail({
       {compareC && (
         <>
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <Badge tone={compareC.thoi_gian_hoan_thanh ? "teal" : "amber"}>{compareC.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn đọng"}</Badge>
+            {caseStatusBadge(compareC)}
           </div>
           {renderCaseFieldsGrid(
             compareC,
@@ -2101,7 +2109,7 @@ export function CaseDetail({
   const infoContent = c && (
     <>
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <Badge tone={c.thoi_gian_hoan_thanh ? "teal" : "amber"}>{c.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn đọng"}</Badge>
+        {caseStatusBadge(c)}
         {c.huy_bo_at && (
           <Badge tone="gray" solid>
             🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}

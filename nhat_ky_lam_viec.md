@@ -4141,3 +4141,10 @@ tồn (vd SC26100105). Nguyên nhân ở pipeline `auto qs/ocrm/transform_odoo.p
 meomeo3101/Auto-QuickSight): ca đã kết thúc lấy "Thời điểm đóng ca" → cột "Ngày hoàn thành" (chủ hệ thống đổi
 tên cột trong mẫu xuất Odoo "THAI V4") → "Thời điểm xin hủy" (chỉ ca Thất bại). Chạy workflow 1 lần với
 `odoo_full=true` (run 37584655672, GHI_DE 376) → 318/318 ca đã có thời gian hoàn thành. Không sửa code DVBH.
+
+## 2026-10-07 — Chi tiết ca: badge trạng thái "Thất bại" (v1.420)
+
+Badge đầu phần Thông tin (ca gốc + ca đối chiếu) trước chỉ có 2 giá trị theo `thoi_gian_hoan_thanh`: "Đã hoàn
+thành"/"Đang tồn đọng" → ca đã đóng với tiến độ "Không hoàn thành XLSC" (Thất bại) vẫn hiện "Đã hoàn thành".
+Nay thêm nhánh thứ 3: đã đóng + "Không hoàn thành XLSC" → badge đỏ "Thất bại" (`caseStatusBadge()` trong
+CaseDetail.tsx, khớp ticker "Ca thất bại" của `lib/caseTickers.ts`).
