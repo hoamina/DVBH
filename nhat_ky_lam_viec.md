@@ -4120,3 +4120,15 @@ KTV, các mốc thời gian, đúng hạn/24h — trước là lưới trên cù
 **Linh kiện bảo hành**. Mặc định mở "Cơ bản", reset khi đổi ca. `renderCaseFieldsGrid` tách thành các khối
 (`topFields`/`coBanFields`/`xuLyGrid`/3 section) dùng chung cho 2 bố cục; ca đối chiếu (không truyền
 `xuLyTabs`) vẫn giữ bố cục xếp dọc cũ.
+
+## 2026-10-07 — Quản lý tồn: thẻ "Tổng cần giải trình" (MB2) = 1 nhưng bấm vào danh sách trống (v1.419)
+
+Nguyên nhân: ca `SC26100356` thuộc MB2 lúc chốt 08:01, sau đó import đổi `khu_vuc` sang MN2. Thẻ đếm theo
+tập ID đóng băng (35 đầu ngày − 34 đã giải trình = 1), còn danh sách drill-down (`GET /api/cases?snapshot_0800=
+true&khu_vuc=MB2`) vẫn lọc thêm `c.khu_vuc = MB2` theo giá trị HIỆN TẠI → loại mất ca. Sửa: khi tập ID lấy từ
+snapshot riêng theo khu vực (1 khu vực hoặc "Tất cả DVBH" — `getBacklogSnapshotIds` trả thêm `perKhuVuc`)
+thì bỏ lọc khu vực/scope/khu vực ẩn theo giá trị hiện tại (tập ID đã giới hạn đúng khu vực lúc 08:00), chỉ
+kiểm tra quyền xem khu vực được chọn (403 như `/backlog-daily`). Nhánh "Tất cả DVBH" nay lọc theo đúng
+`scopeByKhuVuc` (trước chỉ lọc Giám sát theo `khu_vuc_phu_trach`, lệch thẻ khi có `khu_vuc_duoc_xem`).
+Ca đã chuyển khu vực vẫn hiện trong danh sách với khu vực mới. Chưa xử lý: ca bị hủy sau 08:00 (danh sách
+vẫn loại `huy_bo_at`, thẻ vẫn đếm).

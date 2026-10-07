@@ -460,20 +460,31 @@ cases.get("/", async (c) => {
           return { ids: bucket.ids, since: null as unknown as string, sinceByKhuVuc: {} as Record<string, string> };
         })()
       : snapshot0800
-        ? await getBacklogSnapshotIds(c.env.DB, c.get("user"), khuVucFilter || undefined, tab === "da-giai-trinh-trong-ngay" ? "tong" : (c.req.query("category") ?? "tong"))
+        ? await getBacklogSnapshotIds(c.env.DB, c.get("user"), khuVucFilter || undefined, tab === "da-giai-trinh-trong-ngay" ? "tong" : (c.req.query("category") ?? "tong"), scope)
         : null;
   if (snapshot0800 && snapshotResult === null) return c.json({ error: "SNAPSHOT_NOT_FOUND" }, 409);
+  // Bug 2026-10-07 (MB2 "Tong can giai trinh" = 1 nhung danh sach trong): ca SC26100356 thuoc MB2 luc
+  // chot 08:00, sau do import doi khu_vuc sang MN2 -> StatCard (tap ID dong bang) van dem, danh sach
+  // loc lai "c.khu_vuc = MB2" theo gia tri HIEN TAI nen loai mat. Khi tap ID lay tu snapshot rieng
+  // theo khu_vuc (perKhuVuc) thi no DA gioi han dung khu_vuc luc 08:00 -> bo loc khu_vuc/scope/
+  // exclusion theo gia tri hien tai, chi kiem tra quyen xem khu_vuc duoc chon (giong /backlog-daily).
+  const frozenPerKhuVuc = tab !== "canh-bao-ton" && !!snapshotResult && "perKhuVuc" in snapshotResult && snapshotResult.perKhuVuc;
+  if (frozenPerKhuVuc && khuVucFilter !== QLDVBH_FILTER_VALUE && scope !== null && !scope.includes(khuVucFilter!)) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+  const noClause = { sql: "", binds: [] as unknown[] };
+  const listScopeClause = frozenPerKhuVuc ? noClause : scopeClause;
   const snapshotIds = snapshotResult ? snapshotResult.ids : null;
   if (snapshotIds && snapshotIds.length === 0) return c.json({ rows: [], page, pageSize, total: 0 });
 
   const since = snapshotResult ? snapshotResult.since : null;
   const sinceByKhuVuc = snapshotResult ? snapshotResult.sinceByKhuVuc : {};
 
-  const khuVucClause = khuVucAdHocClause("c.khu_vuc", khuVucFilter);
+  const khuVucClause = frozenPerKhuVuc ? noClause : khuVucAdHocClause("c.khu_vuc", khuVucFilter);
   const ageClause = ageFilterClause(c.req.query("tuoi_tu"), c.req.query("tuoi_den"));
   const ktv = c.req.query("ky_thuat_vien");
   const ktvClause: { sql: string; binds: unknown[] } = ktv ? { sql: " AND c.ky_thuat_vien = ?", binds: [ktv] } : { sql: "", binds: [] };
-  const exclusionClause = khuVucReportExclusionClause("c.khu_vuc");
+  const exclusionClause = frozenPerKhuVuc ? noClause : khuVucReportExclusionClause("c.khu_vuc");
   const extraFilter = khuVucClause.sql + ageClause.sql + dimClause.sql + sharedClause.sql + idClause.sql + ktvClause.sql + exclusionClause.sql;
   // D1 gioi han 100 bind parameters/cau. Snapshot toan he thong co the co hang tram ID, nen
   // truyen ca tap qua json_each(?) thay vi tao mot "?" cho tung ID (loi nay tung lam UI chi hien
@@ -508,10 +519,10 @@ cases.get("/", async (c) => {
     whereSql = `WHERE ${snapshotIdClause}${idClause.sql}${ktvClause.sql}${khuVucClause.sql}`;
     binds = [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds), ...idClause.binds, ...ktvClause.binds, ...khuVucClause.binds];
   } else {
-    whereSql = `WHERE ${caseStateFilter} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${snapshotIdClause ? "" : ` AND ${tabFilter}`}${scopeClause.sql}${extraFilter}`;
+    whereSql = `WHERE ${caseStateFilter} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${snapshotIdClause ? "" : ` AND ${tabFilter}`}${listScopeClause.sql}${extraFilter}`;
     binds = [
       ...(snapshotIds ? [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds)] : []),
-      ...scopeClause.binds,
+      ...listScopeClause.binds,
       ...khuVucClause.binds,
       ...ageClause.binds,
       ...dimClause.binds,

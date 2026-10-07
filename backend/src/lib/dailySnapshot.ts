@@ -894,8 +894,9 @@ export async function getBacklogSnapshotIds(
   db: D1Database,
   user: AppUser,
   khuVucFilter: string | undefined,
-  category: string
-): Promise<{ ids: string[]; since: string; sinceByKhuVuc: Record<string, string> } | null> {
+  category: string,
+  scope: string[] | null,
+): Promise<{ ids: string[]; since: string; sinceByKhuVuc: Record<string, string>; perKhuVuc: boolean } | null> {
   let bucketsList: BacklogBuckets[] = [];
   let since: string | null = null;
   const sinceByKhuVuc: Record<string, string> = {};
@@ -904,11 +905,9 @@ export async function getBacklogSnapshotIds(
     // Nhóm các khu vực QLDVBH
     const { results } = await db.prepare("SELECT DISTINCT khu_vuc FROM case_dvbh WHERE khu_vuc LIKE '%qldvbh%'").all<{ khu_vuc: string }>();
     let list = results.map((r) => r.khu_vuc);
-    const roleVariant = roleVariantOf(user.vai_tro);
-    if (roleVariant === "giam_sat") {
-      const scope = user.khu_vuc_phu_trach;
-      list = list.filter((kv) => scope.includes(kv));
-    }
+    // Loc theo DUNG scopeByKhuVuc nhu route /backlog-daily (StatCard) - truoc day chi loc Giam sat theo
+    // khu_vuc_phu_trach, lech voi StatCard khi co khu_vuc_duoc_xem hoac vai tro khac co pham vi.
+    if (scope !== null) list = list.filter((kv) => scope.includes(kv));
     for (const kv of list) {
       const { buckets, generatedAt } = await getBacklogBucketsForKhuVuc(db, kv);
       bucketsList.push(buckets);
@@ -957,7 +956,9 @@ export async function getBacklogSnapshotIds(
     }
   }
 
-  return { ids: Array.from(allIds), since: since as string, sinceByKhuVuc };
+  // perKhuVuc: tap ID lay tu snapshot RIENG theo khu_vuc (1 khu_vuc hoac nhom QLDVBH) - da gioi han
+  // dung khu_vuc TAI THOI DIEM 08:00, route khong duoc loc lai theo khu_vuc HIEN TAI (xem cases.ts).
+  return { ids: Array.from(allIds), since: since as string, sinceByKhuVuc, perKhuVuc: khuVucFilter === QLDVBH_FILTER_VALUE || (!!khuVucFilter && !khuVucFilter.includes(",")) };
 }
 
 /** scope_key on dinh cho snapshot Quan ly ton loc theo DUNG 1 khu_vuc bat ky (khong gan voi
