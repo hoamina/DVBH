@@ -4106,3 +4106,8 @@ Theo yêu cầu: thẻ "Thông tin xử lý" (cột trái / tab Thông tin) chia
 nội dung này. Các mục trong "Tiến trình chung" trỏ tới 2 tab cũ (`jumpTab` loi-linh-kien/bao-hanh) nay qua
 `jumpToTab()`: mở đúng tab con + cuộn tới thẻ (compact thì chuyển về tab "Thông tin" trước). Tab con reset
 về "Xử lý" khi đổi ca. Kèm sửa lỗi cũ: chế độ "Ngắn gọn" có tab "PO đặt hàng" nhưng không render nội dung.
+
+## 2026-10-07 — Chi tiết ca: nút "+ Thêm giải trình" lên cùng dòng trạng thái (v1.417)
+
+Nút "+ Thêm giải trình" (phần Thông tin của ca gốc) chuyển từ dòng riêng lên cùng hàng với badge
+"Đã hoàn thành"/"Đang tồn đọng" + nút Hủy ca, căn phải (`ml-auto`) — bớt 1 dòng trống phía trên lưới thông tin.

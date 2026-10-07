@@ -2079,18 +2079,15 @@ export function CaseDetail({
               Hủy ca
             </Btn>
           ))}
+        {canGiaiTrinh && (
+          <Btn size="sm" className="ml-auto" onClick={openGiaiTrinhModal}>
+            + Thêm giải trình
+          </Btn>
+        )}
       </div>
 
       {viewMode === "compact" && isFromCache && entry && (
         <CacheBanner cachedAt={entry.cachedAt} onSync={() => syncCaseMutation.mutate()} isSyncing={syncCaseMutation.isPending} />
-      )}
-
-      {canGiaiTrinh && (
-        <div className="flex justify-end mb-3">
-          <Btn size="sm" onClick={openGiaiTrinhModal}>
-            + Thêm giải trình
-          </Btn>
-        </div>
       )}
 
       {renderCaseFieldsGrid(
