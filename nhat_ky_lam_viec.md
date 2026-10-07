@@ -4132,3 +4132,12 @@ kiểm tra quyền xem khu vực được chọn (403 như `/backlog-daily`). Nh
 `scopeByKhuVuc` (trước chỉ lọc Giám sát theo `khu_vuc_phu_trach`, lệch thẻ khi có `khu_vuc_duoc_xem`).
 Ca đã chuyển khu vực vẫn hiện trong danh sách với khu vực mới. Chưa xử lý: ca bị hủy sau 08:00 (danh sách
 vẫn loại `huy_bo_at`, thẻ vẫn đếm).
+
+## 2026-10-07 — Ca Odoo "Không hoàn thành XLSC" hiện "Đang tồn đọng" (sửa ở pipeline auto qs)
+
+318 ca Odoo trạng thái "Thất bại" (→ "Không hoàn thành XLSC") không có `thoi_gian_hoan_thanh` → app tính là ca
+tồn (vd SC26100105). Nguyên nhân ở pipeline `auto qs/ocrm/transform_odoo.py`: chỉ điền thời gian hoàn thành cho
+"Đã đóng ca"/"Hoàn thành", mà Odoo không ghi "Thời điểm đóng ca" cho ca Thất bại. Sửa (commit `4afb87f` repo
+meomeo3101/Auto-QuickSight): ca đã kết thúc lấy "Thời điểm đóng ca" → cột "Ngày hoàn thành" (chủ hệ thống đổi
+tên cột trong mẫu xuất Odoo "THAI V4") → "Thời điểm xin hủy" (chỉ ca Thất bại). Chạy workflow 1 lần với
+`odoo_full=true` (run 37584655672, GHI_DE 376) → 318/318 ca đã có thời gian hoàn thành. Không sửa code DVBH.
