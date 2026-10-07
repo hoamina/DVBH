@@ -29,7 +29,7 @@ export const BUSINESS_FIELDS = [
 // lam doi hash cua hang tram nghin ca cu (tranh GHI_DE hang loat o lan import ke tiep).
 // KHONG dua vao COLUMN_MAP: import Excel thu cong (ImportUploader.parseSpreadsheet) gan null cho moi
 // cot COLUMN_MAP vang mat trong file -> se xoa sach gia tri Odoo moi lan import tay.
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi"] as const;
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi"] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/

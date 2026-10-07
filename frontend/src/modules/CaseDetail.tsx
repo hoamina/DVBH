@@ -173,7 +173,7 @@ function renderCaseFieldsGrid(
   const coBanFields = (
     <>
       {/* Ca Odoo (ma SC...) luon hien 2 dong Mới/Cũ: Odoo khong nhap dia chi cu thi ghi ro, tranh hieu nham la chua dong bo */}
-      {c.tinh_cu || c.huyen_cu || c.xa_cu || /^SC\d/.test(String(c.id)) ? (
+      {c.tinh_moi || c.xa_moi || c.tinh_cu || c.huyen_cu || c.xa_cu || /^SC\d/.test(String(c.id)) ? (
         <>
           <Field label="Khu vực" value={shortKhuVuc(c.khu_vuc)} />
           <div className="col-span-2">
@@ -183,11 +183,11 @@ function renderCaseFieldsGrid(
                 <div className="space-y-1">
                   <div className="flex items-start gap-2">
                     <Badge tone="teal">Mới</Badge>
-                    <span>{[c.quan_huyen, c.tinh].filter(Boolean).join(", ") || "—"}</span>
+                    <span>{[c.xa_moi, c.tinh_moi].filter(Boolean).join(", ") || "—"}</span>
                   </div>
                   <div className="flex items-start gap-2 text-[var(--ink-600)]">
                     <Badge tone="gray">Cũ</Badge>
-                    <span>{[c.xa_cu, c.huyen_cu, c.tinh_cu].filter(Boolean).join(", ") || "— (Odoo không nhập)"}</span>
+                    <span>{[c.xa_cu, c.huyen_cu ?? c.quan_huyen, c.tinh_cu ?? c.tinh].filter(Boolean).join(", ") || "— (Odoo không nhập)"}</span>
                   </div>
                 </div>
               }
