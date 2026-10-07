@@ -130,8 +130,10 @@ function parseFlexibleDbDate(v: string) {
 // Phan "chi doc" cua thong tin khach hang (fields grid + 3 Card) - dung chung cho ca goc (cot trai,
 // co them nut hanh dong bao quanh o noi goi) va ca doi chieu (cot giua, thuan tham khao, khong nut
 // hanh dong). "serialExtra" la phan tu dat canh Serial (nut them Blacklist hoac badge da blacklist).
-// "xuLyTabs" (2026-10-07): chi ca goc truyen - the "Thong tin xu ly" chia tab con, 2 tab "Loi linh kien"
-// + "Bao hanh" chuyen tu thanh tab chinh vao day; ca doi chieu khong truyen -> giu nguyen nhu cu.
+// "xuLyTabs" (2026-10-07): chi ca goc truyen - gom phan thong tin duoi Khach hang/Serial vao 1 the chia
+// tab con: Co ban (khu vuc/dia chi/KTV/moc thoi gian) / Xu ly / Bo sung (anh + doanh thu + phan loai) /
+// Linh kien loi / Linh kien bao hanh (2 tab cuoi chuyen tu thanh tab chinh vao). Ca doi chieu khong
+// truyen -> giu nguyen bo cuc cu (luoi + cac Card xep doc).
 type XuLyTabs = { active: string; onChange: (key: string) => void; tabs: TabItem[]; panels: Record<string, ReactNode>; cardRef: RefObject<HTMLDivElement> };
 function renderCaseFieldsGrid(
   c: CaseRow,
@@ -141,135 +143,171 @@ function renderCaseFieldsGrid(
   onSerialClick?: () => void,
   xuLyTabs?: XuLyTabs,
 ) {
-  const xuLyActive = xuLyTabs?.active ?? "xu-ly";
+  const topFields = (
+    <>
+      <Field label="Khách hàng" value={c.khach_hang ?? "—"} />
+      <Field
+        label="Serial"
+        value={
+          <span className="flex items-center gap-2">
+            {c.seri_san_pham && onSerialClick ? (
+              <button
+                type="button"
+                onClick={onSerialClick}
+                title="Xem các ca trùng serial này"
+                className={`font-mono underline decoration-dotted underline-offset-2 hover:text-[var(--ocean-600)] focus-ring rounded ${
+                  serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""
+                }`}
+              >
+                {c.seri_san_pham}
+              </button>
+            ) : (
+              <span className={`font-mono ${serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""}`}>{c.seri_san_pham ?? "—"}</span>
+            )}
+            {serialExtra}
+          </span>
+        }
+      />
+    </>
+  );
+  const coBanFields = (
+    <>
+      {/* Ca Odoo (ma SC...) luon hien 2 dong Mới/Cũ: Odoo khong nhap dia chi cu thi ghi ro, tranh hieu nham la chua dong bo */}
+      {c.tinh_cu || c.huyen_cu || c.xa_cu || /^SC\d/.test(String(c.id)) ? (
+        <>
+          <Field label="Khu vực" value={shortKhuVuc(c.khu_vuc)} />
+          <div className="col-span-2">
+            <Field
+              label="Địa chỉ"
+              value={
+                <div className="space-y-1">
+                  <div className="flex items-start gap-2">
+                    <Badge tone="teal">Mới</Badge>
+                    <span>{[c.quan_huyen, c.tinh].filter(Boolean).join(", ") || "—"}</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-[var(--ink-600)]">
+                    <Badge tone="gray">Cũ</Badge>
+                    <span>{[c.xa_cu, c.huyen_cu, c.tinh_cu].filter(Boolean).join(", ") || "— (Odoo không nhập)"}</span>
+                  </div>
+                </div>
+              }
+            />
+          </div>
+        </>
+      ) : (
+        <Field label="Khu vực / Tỉnh" value={`${shortKhuVuc(c.khu_vuc)} — ${c.tinh ?? "—"} ${c.quan_huyen ? "— " + c.quan_huyen : ""}`} />
+      )}
+      <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />
+      <Field label="Kỹ thuật viên" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />
+      <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />
+      <Field label="Hẹn xử lý" value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />
+      <Field label="Thời gian hoàn thành" value={fmtDateTime(c.thoi_gian_hoan_thanh)} />
+      <Field label="Dự kiến hoàn thành (giải trình gần nhất)" value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />
+      <Field label="Ngày import" value={fmtDateTime(c.ngay_import)} />
+      <Field label="Cập nhật gần nhất" value={fmtDateTime(c.ngay_cap_nhat_gan_nhat)} />
+      <Field label="Đúng hạn / Xử lý 24h" value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />
+    </>
+  );
+  const xuLyGrid = (
+    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+      <Field label="Nhóm / Loại yêu cầu" value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />
+      <Field label="Cách thức xử lý" value={c.cach_thuc_xu_ly ?? "—"} />
+      <Field label="Sản phẩm bảo hành" value={c.san_pham_bao_hanh ?? "—"} />
+      <Field label="Hình thức bảo hành" value={c.hinh_thuc_bao_hanh ?? "—"} />
+      <Field label="Tiến độ hoàn thành" value={c.tien_do_hoan_thanh ?? "—"} />
+      <Field label="Lý do hủy" value={c.ly_do_huy ?? "—"} />
+      <Field label="Lý do quá hạn" value={c.ly_do_qua_han ?? "—"} />
+      <div className="col-span-2">
+        <Field label="Mô tả lỗi" value={c.mo_ta_loi ?? "—"} />
+      </div>
+      <div className="col-span-2">
+        <Field label="Lưu ý lỗi linh kiện" value={c.luu_y_loi_linh_kien ?? "—"} />
+      </div>
+      <div className="col-span-2">
+        <Field label="Nội dung xử lý chi tiết" value={c.noi_dung_xu_ly ?? "—"} />
+      </div>
+    </div>
+  );
+  const hinhAnhSection = (
+    <>
+      <div className="font-display font-bold text-sm mb-3">
+        Hình ảnh báo cáo công việc
+        {parseLinkHinhAnh(c.link_hinh_anh).length > 0 && ` (${parseLinkHinhAnh(c.link_hinh_anh).length})`}
+      </div>
+      <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />
+    </>
+  );
+  const doanhThuSection = (
+    <>
+      <div className="font-display font-bold text-sm mb-3">Doanh thu</div>
+      <div className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
+        <Field label="DT sản phẩm" value={fmtVND(c.dt_san_pham)} />
+        <Field label="DT linh kiện" value={fmtVND(c.dt_linh_kien)} />
+        <Field label="DT dịch vụ" value={fmtVND(c.dt_dich_vu)} />
+      </div>
+    </>
+  );
+  const phanLoaiSection = (
+    <>
+      <div className="font-display font-bold text-sm mb-3">Phân loại &amp; nguồn gốc</div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+        <Field label="Đối tác" value={c.doi_tac ?? "—"} />
+        <Field label="Ngày mua" value={fmtDate(c.ngay_mua)} />
+        <Field label="Nhóm khách hàng" value={c.nhom_kh ?? "—"} />
+        <Field label="Ngành / Loại ngành" value={`${c.nganh ?? "—"} — ${c.loai_nganh ?? "—"}`} />
+        <Field
+          label="Link CRM"
+          value={
+            c.link_crm ? (
+              <a href={c.link_crm} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline">
+                Mở trên CRM
+              </a>
+            ) : (
+              "—"
+            )
+          }
+        />
+      </div>
+    </>
+  );
+
+  if (xuLyTabs) {
+    const active = xuLyTabs.active;
+    return (
+      <>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">{topFields}</div>
+        <div ref={xuLyTabs.cardRef} className="scroll-mt-4">
+          <Card className="p-4">
+            <Tabs active={active} onChange={xuLyTabs.onChange} tabs={xuLyTabs.tabs} />
+            {active === "co-ban" && <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">{coBanFields}</div>}
+            {active === "xu-ly" && xuLyGrid}
+            {active === "bo-sung" && (
+              <div className="space-y-4">
+                <div>{hinhAnhSection}</div>
+                <div className="border-t border-[var(--line)] pt-4">{doanhThuSection}</div>
+                <div className="border-t border-[var(--line)] pt-4">{phanLoaiSection}</div>
+              </div>
+            )}
+            {xuLyTabs.panels[active]}
+          </Card>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">
-        <Field label="Khách hàng" value={c.khach_hang ?? "—"} />
-        <Field
-          label="Serial"
-          value={
-            <span className="flex items-center gap-2">
-              {c.seri_san_pham && onSerialClick ? (
-                <button
-                  type="button"
-                  onClick={onSerialClick}
-                  title="Xem các ca trùng serial này"
-                  className={`font-mono underline decoration-dotted underline-offset-2 hover:text-[var(--ocean-600)] focus-ring rounded ${
-                    serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""
-                  }`}
-                >
-                  {c.seri_san_pham}
-                </button>
-              ) : (
-                <span className={`font-mono ${serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""}`}>{c.seri_san_pham ?? "—"}</span>
-              )}
-              {serialExtra}
-            </span>
-          }
-        />
-        {/* Ca Odoo (ma SC...) luon hien 2 dong Mới/Cũ: Odoo khong nhap dia chi cu thi ghi ro, tranh hieu nham la chua dong bo */}
-        {c.tinh_cu || c.huyen_cu || c.xa_cu || /^SC\d/.test(String(c.id)) ? (
-          <>
-            <Field label="Khu vực" value={shortKhuVuc(c.khu_vuc)} />
-            <div className="col-span-2">
-              <Field
-                label="Địa chỉ"
-                value={
-                  <div className="space-y-1">
-                    <div className="flex items-start gap-2">
-                      <Badge tone="teal">Mới</Badge>
-                      <span>{[c.quan_huyen, c.tinh].filter(Boolean).join(", ") || "—"}</span>
-                    </div>
-                    <div className="flex items-start gap-2 text-[var(--ink-600)]">
-                      <Badge tone="gray">Cũ</Badge>
-                      <span>{[c.xa_cu, c.huyen_cu, c.tinh_cu].filter(Boolean).join(", ") || "— (Odoo không nhập)"}</span>
-                    </div>
-                  </div>
-                }
-              />
-            </div>
-          </>
-        ) : (
-          <Field label="Khu vực / Tỉnh" value={`${shortKhuVuc(c.khu_vuc)} — ${c.tinh ?? "—"} ${c.quan_huyen ? "— " + c.quan_huyen : ""}`} />
-        )}
-        <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />
-        <Field label="Kỹ thuật viên" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />
-        <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />
-        <Field label="Hẹn xử lý" value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />
-        <Field label="Thời gian hoàn thành" value={fmtDateTime(c.thoi_gian_hoan_thanh)} />
-        <Field label="Dự kiến hoàn thành (giải trình gần nhất)" value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />
-        <Field label="Ngày import" value={fmtDateTime(c.ngay_import)} />
-        <Field label="Cập nhật gần nhất" value={fmtDateTime(c.ngay_cap_nhat_gan_nhat)} />
-        <Field label="Đúng hạn / Xử lý 24h" value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />
+        {topFields}
+        {coBanFields}
       </div>
-
-      <div ref={xuLyTabs?.cardRef} className="scroll-mt-4">
       <Card className="p-4 mb-3">
         <div className="font-display font-bold text-sm mb-3">Thông tin xử lý</div>
-        {xuLyTabs && <Tabs active={xuLyActive} onChange={xuLyTabs.onChange} tabs={xuLyTabs.tabs} />}
-        {xuLyActive !== "xu-ly" && xuLyTabs?.panels[xuLyActive]}
-        {xuLyActive === "xu-ly" && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-          <Field label="Nhóm / Loại yêu cầu" value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />
-          <Field label="Cách thức xử lý" value={c.cach_thuc_xu_ly ?? "—"} />
-          <Field label="Sản phẩm bảo hành" value={c.san_pham_bao_hanh ?? "—"} />
-          <Field label="Hình thức bảo hành" value={c.hinh_thuc_bao_hanh ?? "—"} />
-          <Field label="Tiến độ hoàn thành" value={c.tien_do_hoan_thanh ?? "—"} />
-          <Field label="Lý do hủy" value={c.ly_do_huy ?? "—"} />
-          <Field label="Lý do quá hạn" value={c.ly_do_qua_han ?? "—"} />
-          <div className="col-span-2">
-            <Field label="Mô tả lỗi" value={c.mo_ta_loi ?? "—"} />
-          </div>
-          <div className="col-span-2">
-            <Field label="Lưu ý lỗi linh kiện" value={c.luu_y_loi_linh_kien ?? "—"} />
-          </div>
-          <div className="col-span-2">
-            <Field label="Nội dung xử lý chi tiết" value={c.noi_dung_xu_ly ?? "—"} />
-          </div>
-        </div>
-        )}
+        {xuLyGrid}
       </Card>
-      </div>
-
-      <Card className="p-4 mb-3">
-        <div className="font-display font-bold text-sm mb-3">
-          Hình ảnh báo cáo công việc
-          {parseLinkHinhAnh(c.link_hinh_anh).length > 0 && ` (${parseLinkHinhAnh(c.link_hinh_anh).length})`}
-        </div>
-        <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />
-      </Card>
-
-      <Card className="p-4 mb-3">
-        <div className="font-display font-bold text-sm mb-3">Doanh thu</div>
-        <div className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
-          <Field label="DT sản phẩm" value={fmtVND(c.dt_san_pham)} />
-          <Field label="DT linh kiện" value={fmtVND(c.dt_linh_kien)} />
-          <Field label="DT dịch vụ" value={fmtVND(c.dt_dich_vu)} />
-        </div>
-      </Card>
-
-      <Card className="p-4">
-        <div className="font-display font-bold text-sm mb-3">Phân loại &amp; nguồn gốc</div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-          <Field label="Đối tác" value={c.doi_tac ?? "—"} />
-          <Field label="Ngày mua" value={fmtDate(c.ngay_mua)} />
-          <Field label="Nhóm khách hàng" value={c.nhom_kh ?? "—"} />
-          <Field label="Ngành / Loại ngành" value={`${c.nganh ?? "—"} — ${c.loai_nganh ?? "—"}`} />
-          <Field
-            label="Link CRM"
-            value={
-              c.link_crm ? (
-                <a href={c.link_crm} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline">
-                  Mở trên CRM
-                </a>
-              ) : (
-                "—"
-              )
-            }
-          />
-        </div>
-      </Card>
+      <Card className="p-4 mb-3">{hinhAnhSection}</Card>
+      <Card className="p-4 mb-3">{doanhThuSection}</Card>
+      <Card className="p-4">{phanLoaiSection}</Card>
     </>
   );
 }
@@ -394,8 +432,8 @@ export function CaseDetail({
   // Ca "doi chieu" (Phan 1: bang so sanh) - chi mot cot phu, doc-only, dung LAI dung namespace
   // cache ["case", id] nhu ca goc de tan dung du lieu da tung mo truoc do cho ca nao.
   const [compareId, setCompareId] = useState<string | null>(null);
-  // Tab con trong the "Thong tin xu ly" (xu-ly / loi-linh-kien / bao-hanh) - xem renderCaseFieldsGrid.
-  const [xuLyTab, setXuLyTab] = useState("xu-ly");
+  // Tab con trong the thong tin ca (co-ban / xu-ly / bo-sung / loi-linh-kien / bao-hanh) - xem renderCaseFieldsGrid.
+  const [xuLyTab, setXuLyTab] = useState("co-ban");
   const xuLyCardRef = useRef<HTMLDivElement>(null);
   const { data: compareEntry } = useQuery({
     queryKey: ["case", compareId],
@@ -587,7 +625,7 @@ export function CaseDetail({
     setEvalRowCaseId(null);
     setBlacklistConfirmOpen(false);
     setCompareId(null);
-    setXuLyTab("xu-ly");
+    setXuLyTab("co-ban");
     setSerialHistorySource(null);
     setQcKetQuaCap1Override({});
   }, [caseId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2012,7 +2050,7 @@ export function CaseDetail({
     <div>
       {donBaoHanhOdooList.length > 0 && (
         <div className="mb-4">
-          <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({donBaoHanhOdooList.length}) — chi tiết theo linh kiện ở tab "Lỗi linh kiện"</div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({donBaoHanhOdooList.length}) — chi tiết theo linh kiện ở tab "Linh kiện lỗi"</div>
           <DonBaoHanhOdooList parts={linhKienLoiList} orders={donBaoHanhOdooList} />
           <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">Nguồn AppSheet (Google Sheet)</div>
         </div>
@@ -2114,8 +2152,10 @@ export function CaseDetail({
           onChange: setXuLyTab,
           cardRef: xuLyCardRef,
           tabs: [
+            { key: "co-ban", label: "Cơ bản" },
             { key: "xu-ly", label: "Xử lý" },
-            { key: "loi-linh-kien", label: "Lỗi linh kiện", count: linhKienLoiList.length },
+            { key: "bo-sung", label: "Bổ sung" },
+            { key: "loi-linh-kien", label: "Linh kiện lỗi", count: linhKienLoiList.length },
             { key: "bao-hanh", label: "Linh kiện bảo hành", count: baoHanhMatched.length + donBaoHanhOdooList.length },
           ],
           panels: { "loi-linh-kien": loiLinhKienContent, "bao-hanh": baoHanhContent },

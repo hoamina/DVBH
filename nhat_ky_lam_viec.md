@@ -4111,3 +4111,12 @@ về "Xử lý" khi đổi ca. Kèm sửa lỗi cũ: chế độ "Ngắn gọn" 
 
 Nút "+ Thêm giải trình" (phần Thông tin của ca gốc) chuyển từ dòng riêng lên cùng hàng với badge
 "Đã hoàn thành"/"Đang tồn đọng" + nút Hủy ca, căn phải (`ml-auto`) — bớt 1 dòng trống phía trên lưới thông tin.
+
+## 2026-10-07 — Chi tiết ca: gom thông tin ca thành 5 tab con (v1.418)
+
+Ca gốc: dưới Khách hàng/Serial chỉ còn 1 thẻ chia 5 tab con — **Cơ bản** (khu vực, địa chỉ, hãng/nhóm SP,
+KTV, các mốc thời gian, đúng hạn/24h — trước là lưới trên cùng), **Xử lý**, **Bổ sung** (gộp 3 thẻ cũ: Hình
+ảnh báo cáo công việc + Doanh thu + Phân loại & nguồn gốc), **Linh kiện lỗi** (đổi tên từ "Lỗi linh kiện"),
+**Linh kiện bảo hành**. Mặc định mở "Cơ bản", reset khi đổi ca. `renderCaseFieldsGrid` tách thành các khối
+(`topFields`/`coBanFields`/`xuLyGrid`/3 section) dùng chung cho 2 bố cục; ca đối chiếu (không truyền
+`xuLyTabs`) vẫn giữ bố cục xếp dọc cũ.
