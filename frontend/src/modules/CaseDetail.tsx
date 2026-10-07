@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, statusTone, type BadgeTone, type AnyBadgeTone } from "../components/ui/Badge";
 import { Field } from "../components/ui/Field";
@@ -130,13 +130,18 @@ function parseFlexibleDbDate(v: string) {
 // Phan "chi doc" cua thong tin khach hang (fields grid + 3 Card) - dung chung cho ca goc (cot trai,
 // co them nut hanh dong bao quanh o noi goi) va ca doi chieu (cot giua, thuan tham khao, khong nut
 // hanh dong). "serialExtra" la phan tu dat canh Serial (nut them Blacklist hoac badge da blacklist).
+// "xuLyTabs" (2026-10-07): chi ca goc truyen - the "Thong tin xu ly" chia tab con, 2 tab "Loi linh kien"
+// + "Bao hanh" chuyen tu thanh tab chinh vao day; ca doi chieu khong truyen -> giu nguyen nhu cu.
+type XuLyTabs = { active: string; onChange: (key: string) => void; tabs: TabItem[]; panels: Record<string, ReactNode>; cardRef: RefObject<HTMLDivElement> };
 function renderCaseFieldsGrid(
   c: CaseRow,
   serialExtra?: ReactNode,
   serialBlacklisted?: boolean,
   canEditKtvPhone?: boolean,
   onSerialClick?: () => void,
+  xuLyTabs?: XuLyTabs,
 ) {
+  const xuLyActive = xuLyTabs?.active ?? "xu-ly";
   return (
     <>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">
@@ -199,8 +204,12 @@ function renderCaseFieldsGrid(
         <Field label="Đúng hạn / Xử lý 24h" value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />
       </div>
 
+      <div ref={xuLyTabs?.cardRef} className="scroll-mt-4">
       <Card className="p-4 mb-3">
         <div className="font-display font-bold text-sm mb-3">Thông tin xử lý</div>
+        {xuLyTabs && <Tabs active={xuLyActive} onChange={xuLyTabs.onChange} tabs={xuLyTabs.tabs} />}
+        {xuLyActive !== "xu-ly" && xuLyTabs?.panels[xuLyActive]}
+        {xuLyActive === "xu-ly" && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
           <Field label="Nhóm / Loại yêu cầu" value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />
           <Field label="Cách thức xử lý" value={c.cach_thuc_xu_ly ?? "—"} />
@@ -219,7 +228,9 @@ function renderCaseFieldsGrid(
             <Field label="Nội dung xử lý chi tiết" value={c.noi_dung_xu_ly ?? "—"} />
           </div>
         </div>
+        )}
       </Card>
+      </div>
 
       <Card className="p-4 mb-3">
         <div className="font-display font-bold text-sm mb-3">
@@ -383,6 +394,9 @@ export function CaseDetail({
   // Ca "doi chieu" (Phan 1: bang so sanh) - chi mot cot phu, doc-only, dung LAI dung namespace
   // cache ["case", id] nhu ca goc de tan dung du lieu da tung mo truoc do cho ca nao.
   const [compareId, setCompareId] = useState<string | null>(null);
+  // Tab con trong the "Thong tin xu ly" (xu-ly / loi-linh-kien / bao-hanh) - xem renderCaseFieldsGrid.
+  const [xuLyTab, setXuLyTab] = useState("xu-ly");
+  const xuLyCardRef = useRef<HTMLDivElement>(null);
   const { data: compareEntry } = useQuery({
     queryKey: ["case", compareId],
     queryFn: () => fetchCaseDetailCached(compareId!),
@@ -573,6 +587,7 @@ export function CaseDetail({
     setEvalRowCaseId(null);
     setBlacklistConfirmOpen(false);
     setCompareId(null);
+    setXuLyTab("xu-ly");
     setSerialHistorySource(null);
     setQcKetQuaCap1Override({});
   }, [caseId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1174,7 +1189,7 @@ export function CaseDetail({
               {e.jumpTab ? (
                 <button
                   type="button"
-                  onClick={() => onTabChange(e.jumpTab!)}
+                  onClick={() => jumpToTab(e.jumpTab!)}
                   className={`relative pl-4 border-l-2 w-full text-left hover:bg-[var(--bg)] rounded-r-lg transition-colors ${TIMELINE_TONE_BORDER[e.tone]}`}
                 >
                   {inner}
@@ -1312,65 +1327,6 @@ export function CaseDetail({
   });
 
   if (!caseId) return null;
-
-  // Noi dung "Thong tin khach hang" - o "expanded" la 1 cot ghim ben trai (luon hien), o "compact"
-  // la 1 tab nhu ban thiet ke cu. Banner cache chi hien O DAY (trong noi dung) khi "compact" - ban
-  // "expanded" hien gon hon ngay trong thanh tieu de (xem headerBar) vi tren do con nhieu cho trong.
-  const infoContent = c && (
-    <>
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <Badge tone={c.thoi_gian_hoan_thanh ? "teal" : "amber"}>{c.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn đọng"}</Badge>
-        {c.huy_bo_at && (
-          <Badge tone="gray" solid>
-            🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
-          </Badge>
-        )}
-        {canHuyCa &&
-          (c.huy_bo_at ? (
-            <Btn size="sm" variant="ghost" onClick={() => boHuyCa.mutate()} disabled={boHuyCa.isPending}>
-              {boHuyCa.isPending ? "Đang bỏ hủy…" : "Bỏ hủy ca"}
-            </Btn>
-          ) : (
-            <Btn size="sm" variant="danger" onClick={() => setHuyCaConfirmOpen(true)}>
-              Hủy ca
-            </Btn>
-          ))}
-      </div>
-
-      {viewMode === "compact" && isFromCache && entry && (
-        <CacheBanner cachedAt={entry.cachedAt} onSync={() => syncCaseMutation.mutate()} isSyncing={syncCaseMutation.isPending} />
-      )}
-
-      {canGiaiTrinh && (
-        <div className="flex justify-end mb-3">
-          <Btn size="sm" onClick={openGiaiTrinhModal}>
-            + Thêm giải trình
-          </Btn>
-        </div>
-      )}
-
-      {renderCaseFieldsGrid(
-        c,
-        caLap?.serialBlacklisted ? (
-          <Badge tone="gray">🚫 Đã blacklist</Badge>
-        ) : (
-          c.seri_san_pham &&
-          (canGsLap || canQcLap) && (
-            <button
-              type="button"
-              onClick={() => setBlacklistConfirmOpen(true)}
-              className="text-xs font-bold text-white bg-[var(--coral-500)] rounded-full px-3 py-1 shadow-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
-            >
-              ➕ Blacklist
-            </button>
-          )
-        ),
-        caLap?.serialBlacklisted,
-        !!currentUser?.vai_tro && KTV_PHONE_EDIT_ROLES.includes(currentUser.vai_tro),
-        caLap?.lichSu.length ? () => setSerialHistorySource("root") : undefined,
-      )}
-    </>
-  );
 
   // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
   const compareContent = compareId && (
@@ -2101,6 +2057,88 @@ export function CaseDetail({
     </div>
   );
 
+  // Noi dung "Thong tin khach hang" - o "expanded" la 1 cot ghim ben trai (luon hien), o "compact"
+  // la 1 tab nhu ban thiet ke cu. Banner cache chi hien O DAY (trong noi dung) khi "compact" - ban
+  // "expanded" hien gon hon ngay trong thanh tieu de (xem headerBar) vi tren do con nhieu cho trong.
+  const infoContent = c && (
+    <>
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <Badge tone={c.thoi_gian_hoan_thanh ? "teal" : "amber"}>{c.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn đọng"}</Badge>
+        {c.huy_bo_at && (
+          <Badge tone="gray" solid>
+            🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
+          </Badge>
+        )}
+        {canHuyCa &&
+          (c.huy_bo_at ? (
+            <Btn size="sm" variant="ghost" onClick={() => boHuyCa.mutate()} disabled={boHuyCa.isPending}>
+              {boHuyCa.isPending ? "Đang bỏ hủy…" : "Bỏ hủy ca"}
+            </Btn>
+          ) : (
+            <Btn size="sm" variant="danger" onClick={() => setHuyCaConfirmOpen(true)}>
+              Hủy ca
+            </Btn>
+          ))}
+      </div>
+
+      {viewMode === "compact" && isFromCache && entry && (
+        <CacheBanner cachedAt={entry.cachedAt} onSync={() => syncCaseMutation.mutate()} isSyncing={syncCaseMutation.isPending} />
+      )}
+
+      {canGiaiTrinh && (
+        <div className="flex justify-end mb-3">
+          <Btn size="sm" onClick={openGiaiTrinhModal}>
+            + Thêm giải trình
+          </Btn>
+        </div>
+      )}
+
+      {renderCaseFieldsGrid(
+        c,
+        caLap?.serialBlacklisted ? (
+          <Badge tone="gray">🚫 Đã blacklist</Badge>
+        ) : (
+          c.seri_san_pham &&
+          (canGsLap || canQcLap) && (
+            <button
+              type="button"
+              onClick={() => setBlacklistConfirmOpen(true)}
+              className="text-xs font-bold text-white bg-[var(--coral-500)] rounded-full px-3 py-1 shadow-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
+            >
+              ➕ Blacklist
+            </button>
+          )
+        ),
+        caLap?.serialBlacklisted,
+        !!currentUser?.vai_tro && KTV_PHONE_EDIT_ROLES.includes(currentUser.vai_tro),
+        caLap?.lichSu.length ? () => setSerialHistorySource("root") : undefined,
+        {
+          active: xuLyTab,
+          onChange: setXuLyTab,
+          cardRef: xuLyCardRef,
+          tabs: [
+            { key: "xu-ly", label: "Xử lý" },
+            { key: "loi-linh-kien", label: "Lỗi linh kiện", count: linhKienLoiList.length },
+            { key: "bao-hanh", label: "Linh kiện bảo hành", count: baoHanhMatched.length + donBaoHanhOdooList.length },
+          ],
+          panels: { "loi-linh-kien": loiLinhKienContent, "bao-hanh": baoHanhContent },
+        },
+      )}
+    </>
+  );
+
+  // Tiến trinh chung tro toi "loi-linh-kien"/"bao-hanh" (nay la tab con trong the Thong tin xu ly):
+  // mo dung tab con + cuon toi the; compact phai chuyen ve tab "info" truoc vi the nam trong do.
+  function jumpToTab(key: string) {
+    if (key === "loi-linh-kien" || key === "bao-hanh") {
+      setXuLyTab(key);
+      if (viewMode === "compact") onTabChange("info");
+      setTimeout(() => xuLyCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      return;
+    }
+    onTabChange(key);
+  }
+
   const thieuHangContent = (
     <div>
       {lkThieuBlock}
@@ -2267,8 +2305,6 @@ export function CaseDetail({
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
-          { key: "loi-linh-kien", label: "Lỗi linh kiện", count: linhKienLoiList.length },
-          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length + donBaoHanhOdooList.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
@@ -2283,8 +2319,6 @@ export function CaseDetail({
           { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
           { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
-          { key: "loi-linh-kien", label: "Lỗi linh kiện", count: linhKienLoiList.length },
-          { key: "bao-hanh", label: "Bảo hành", count: baoHanhMatched.length + donBaoHanhOdooList.length },
           { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
@@ -2438,8 +2472,6 @@ export function CaseDetail({
               {tab === "ca-lap" && caLapContent}
               {tab === "nap-gas" && napGasContent}
               {tab === "mua-hang" && muaHangContent}
-              {tab === "loi-linh-kien" && loiLinhKienContent}
-              {tab === "bao-hanh" && baoHanhContent}
               {tab === "thieu-hang" && thieuHangContent}
               {tab === "po-dat-hang" && poDatHangContent}
               {tab === "qc-thuc-te" && qcThucTeContent}
@@ -2460,9 +2492,8 @@ export function CaseDetail({
             {tab === "ca-lap" && caLapContent}
             {tab === "nap-gas" && napGasContent}
             {tab === "mua-hang" && muaHangContent}
-            {tab === "loi-linh-kien" && loiLinhKienContent}
-              {tab === "bao-hanh" && baoHanhContent}
             {tab === "thieu-hang" && thieuHangContent}
+            {tab === "po-dat-hang" && poDatHangContent}
             {tab === "qc-thuc-te" && qcThucTeContent}
             {tab === "tranh-chap" && tranhChapContent}
           </div>

@@ -4096,3 +4096,13 @@ header, nền mờ) hoặc đã cuộn hết thì sự kiện lăn "xuyên" xu�
 mount ở App.tsx, trả null khi chưa chọn ca) và `Modal` dùng chung. Không gắn vào `Drawer` (thiết kế cho phép
 xem danh sách phía sau). Test local: trước khi mở trang cuộn bình thường, khi mở trang nền đứng yên còn cột
 trái popup vẫn cuộn hết, sau khi đóng trang cuộn lại bình thường.
+
+## 2026-10-07 — Chi tiết ca: "Lỗi linh kiện" + "Linh kiện bảo hành" thành tab con của thẻ "Thông tin xử lý" (v1.416)
+
+Theo yêu cầu: thẻ "Thông tin xử lý" (cột trái / tab Thông tin) chia 3 tab con **Xử lý** (các trường cũ) /
+**Lỗi linh kiện** / **Linh kiện bảo hành** (nội dung tab "Bảo hành" cũ: đơn Odoo + nguồn AppSheet). 2 tab
+"Lỗi linh kiện" và "Bảo hành" bỏ khỏi thanh tab chính. `renderCaseFieldsGrid` nhận thêm tham số `xuLyTabs`
+(chỉ ca gốc truyền; ca đối chiếu giữ nguyên); `infoContent` dời xuống sau `baoHanhContent` để dùng được 2
+nội dung này. Các mục trong "Tiến trình chung" trỏ tới 2 tab cũ (`jumpTab` loi-linh-kien/bao-hanh) nay qua
+`jumpToTab()`: mở đúng tab con + cuộn tới thẻ (compact thì chuyển về tab "Thông tin" trước). Tab con reset
+về "Xử lý" khi đổi ca. Kèm sửa lỗi cũ: chế độ "Ngắn gọn" có tab "PO đặt hàng" nhưng không render nội dung.
