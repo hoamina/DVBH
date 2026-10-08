@@ -6,7 +6,7 @@ import { Badge, type BadgeTone } from "./ui/Badge";
 import { LoadingInline } from "./ui/LoadingInline";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { linhKienLoaiDonLabel, linhKienTrangThaiLabel } from "../lib/linhKienTimeline";
-import { fmtSl } from "./TonKhoLk";
+import { fmtSl, TonKhoCapNhatLine } from "./TonKhoLk";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
 import type { SheetRow } from "../lib/purchaseWarrantySync";
@@ -209,6 +209,9 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
         <Badge tone="gray">KTV giữ {fmtSl(tonKtv)} ({ktv.length} người)</Badge>
         <Badge tone="coral">{cases.length} ca đang thiếu</Badge>
         <Badge tone={ticketMo.length ? "amber" : "gray"}>{ticketMo.length} ticket thiếu hàng đang mở</Badge>
+        <span className="ml-auto">
+          <TonKhoCapNhatLine />
+        </span>
       </div>
       {nhanDinh && (
         <div

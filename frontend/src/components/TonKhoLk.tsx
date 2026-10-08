@@ -85,6 +85,20 @@ function useInvalidateTonKho() {
 }
 
 /** Dong trang thai: phien ban ton kho dang dung + nut "Đồng bộ ngay". Phien ban khong phai hom nay -> canh bao. */
+/** Dong "Ke toan cap nhat ..." gon cho noi chi can xem (Ho so linh kien) - khong co nut dong bo. */
+export function TonKhoCapNhatLine() {
+  const meta = useTonKhoMeta().data?.meta ?? null;
+  if (!meta?.phien_ban) return <span className="text-xs text-[var(--coral-500)]">Chưa có dữ liệu tồn kho từ kế toán.</span>;
+  const cu = !meta.phien_ban.startsWith(vnToday());
+  return (
+    <span className={`text-xs ${cu ? "text-[var(--amber-600)] font-semibold" : "text-[var(--ink-400)]"}`}>
+      Kế toán cập nhật tồn kho lúc {fmtDateTime(meta.phien_ban)}
+      {meta.ky_tu_ngay ? ` (MISA kỳ ${meta.ky_tu_ngay}–${meta.ky_den_ngay ?? "?"})` : ""}
+      {cu ? " — chưa có bản hôm nay" : ""}
+    </span>
+  );
+}
+
 export function TonKhoSyncBar() {
   const { data } = useTonKhoMeta();
   const addToast = useToast();

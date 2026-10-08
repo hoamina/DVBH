@@ -4208,3 +4208,9 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 
 - Phản hồi "giao diện đang bị nhỏ ở giữa" (màn 1920px, popup chỉ ~1150px do `max-w-6xl`): popup Hồ sơ linh kiện đổi sang
   `max-w-[1800px]` + cao cố định `calc(100vh - 2rem)` → phủ gần hết màn hình, nội dung cuộn bên trong.
+
+## 2026-10-08 — Hồ sơ linh kiện: hiện ngày giờ kế toán cập nhật tồn kho (v1.426)
+
+- Yêu cầu "bổ sung thêm ngày giờ cập nhật của kế toán": `TonKhoCapNhatLine` (TonKhoLk.tsx) đặt cuối hàng badge của Hồ sơ
+  linh kiện — "Kế toán cập nhật tồn kho lúc HH:mm dd/mm/yyyy (MISA kỳ …)" lấy `ton_kho_lk_meta.phien_ban` (giờ Kế toán import
+  bên linh-kien-app); chữ cam + "chưa có bản hôm nay" nếu bản đang dùng không phải của hôm nay.
