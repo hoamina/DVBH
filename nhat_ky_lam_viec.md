@@ -4296,3 +4296,12 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   mail gần nhất, kết thúc bởi) - bấm dòng mở ca ở tab "Đổi trả".
 - Tiến trình chung: thêm nhóm mốc **"Đổi trả: …"** (phát sinh mail, tiếp nhận, đề xuất, duyệt, giao xử lý, SO, DO, mở ca mới,
   thành công + nhật ký thao tác), nhảy về tab "Đổi trả".
+
+## 2026-10-08 — Đổi trả: mở ca đúng tab "Đổi trả", giờ VN trong Tiến trình chung (v1.435)
+
+- `App.tsx` `VALID_TABS` thiếu "luong-mail" → bấm dòng ở tab "Luồng duyệt đổi trả" (openCase(id, "luong-mail")) bị rơi về
+  tab mặc định. Đã thêm vào cả compact/expanded.
+- Tiến trình chung: mốc "Đổi trả: …" dùng nhầm `linhKienIsoToVnLocal` (hàm này chỉ cắt chuỗi vì hệ linh kiện gửi sẵn giờ VN)
+  trong khi hệ theodoidoimay gửi ISO UTC → lệch sớm 7 tiếng. Nay cộng +7 ra giờ VN.
+- Hệ theodoidoimay (cùng ngày): sửa chống trùng thư trích dẫn (thêm so tiêu đề - trước đây 2 thư cùng người gửi cách nhau
+  ≤ 2 phút bị coi là 1, mất thư đề xuất 13:48 của ca SC261006460 khi có FW 13:50) + tách lại trích dẫn từ R2 → bù 2 thư.

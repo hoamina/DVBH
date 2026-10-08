@@ -172,9 +172,10 @@ function MainApp({
   const FIRST_TAB: Record<"compact" | "expanded", string> = { compact: "info", expanded: "giai-trinh" };
   // "tien-trinh-chung" them 2026-08-22 (CaseDetail.tsx) - PHAI co mat o day cung ly do voi "tranh-chap"
   // (xem chu thich ngay tren): thieu se lam tab bi coi la khong hop le, tu dong rot ve FIRST_TAB.
+  // "luong-mail" (tab "Đổi trả", v1.435) - tab "Luồng duyệt đổi trả" cua module Tranh chap mo thang vao tab nay.
   const VALID_TABS: Record<"compact" | "expanded", string[]> = {
-    compact: ["info", "tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap"],
-    expanded: ["tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap"],
+    compact: ["info", "tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"],
+    expanded: ["tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"],
   };
 
   // openCase() bat dau phien MOI (reset stack) - dung cho moi noi mo ca tu 1 danh sach/tim kiem.

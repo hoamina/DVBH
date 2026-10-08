@@ -1218,12 +1218,16 @@ export function CaseDetail({
     }
 
     // Luong doi tra (he theodoidoimay, tab "Đổi trả"): moc mail (phat sinh -> de xuat -> duyet -> giao xu ly ->
-    // SO/DO), ca moi doi cho KH + nhat ky thao tac (he thong tu dong / nguoi ket thuc, gan ca doi...). Thoi gian ISO UTC.
+    // SO/DO), ca moi doi cho KH + nhat ky thao tac (he thong tu dong / nguoi ket thuc, gan ca doi...). Thoi gian he do la
+    // ISO UTC ("...Z") -> PHAI cong 7h ra gio VN (KHONG dung linhKienIsoToVnLocal: ham do chi cat chuoi vi he linh kien gui
+    // san gio VN - dung o day lam moc doi tra lech som 7 tieng, loi v1.434).
     const dt = mailTimeline?.luong;
     if (dt) {
       const pushDt = (key: string, iso: string | null | undefined, label: string, actor: string | null, summary: string) => {
         if (!iso) return;
-        const vnLocal = linhKienIsoToVnLocal(iso);
+        const ms = Date.parse(iso);
+        if (Number.isNaN(ms)) return;
+        const vnLocal = new Date(ms + 7 * 3600_000).toISOString().slice(0, 19).replace("T", " ");
         events.push({ key: `dt-${key}`, sortMs: parseFlexibleDbDate(vnLocal).getTime(), displayTime: fmtDateTime(vnLocal), tone: "rose", typeLabel: `Đổi trả: ${label}`, actor, summary, jumpTab: "luong-mail" });
       };
       const dx = dt.de_xuat ?? {};
