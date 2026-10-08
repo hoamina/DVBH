@@ -4259,3 +4259,12 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   khi dòng import có key). Chốt nghiệp vụ: nối ca MỚI đổi cho KH với ca GỐC **chỉ** theo ID khách hàng, không tra SĐT.
   Pipeline QuickSight cần gửi thêm key `id_khach_hang`. Lưu ý: lần đầu pipeline gửi cột này, `crm_hash` của các ca có giá trị
   sẽ đổi 1 lần → các ca đó bị ghi đè 1 lần (bình thường, không lặp lại).
+
+## 2026-10-08 — Tab "Luồng mail": hiện ca MỚI đổi cho KH + mốc "Đổi trả thành công" (v1.432)
+
+- Hệ theodoidoimay (bảng `ca_moi`, đồng bộ 3h/lần) nối ca gốc đã duyệt đổi với ca mới **cùng `id_khach_hang`**, tiếp nhận
+  trong 60 ngày sau mốc duyệt; tự gán khi đúng 1 ứng viên khớp model, còn lại người dùng xác nhận trên trang báo cáo của hệ đó
+  (ID Odoo có thể là đại lý/siêu thị dùng chung). API đối tác trả thêm `ca_moi`.
+- DVBH: `lib/mailTimeline.ts` chuyển tiếp `ca_moi`; `LuongMailPanel` thêm 2 mốc "Mở ca mới" / "Đổi trả thành công"
+  (ca mới có tiến độ "Hoàn thành…") và thẻ "Ca mới đổi cho KH" (trạng thái gán, danh sách ứng viên); bấm mã ca → mở ca đó
+  (`onOpenCase` = pushCase, giữ nút Quay lại). Không thêm migration.

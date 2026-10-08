@@ -52,6 +52,18 @@ export interface MailLuong {
   de_xuat: Record<string, string>; // bang 22 truong trong mail de xuat (Hãng, Lý do đổi, Chính sách...)
 }
 
+/** Ca MOI mo de doi cho KH - he theodoidoimay noi voi ca goc CHI theo case_dvbh.id_khach_hang (sau moc duyet). */
+export interface MailCaMoi {
+  id_khach_hang: string;
+  ca_moi_id: string | null;
+  trang_thai_gan: "tu_dong" | "xac_nhan" | "goi_y" | "nhieu_ung_vien" | "chua_co" | "khong_co_id_kh";
+  ca_moi_tn_at: string | null; // ISO UTC
+  ca_moi_ht_at: string | null; // ca moi hoan thanh = doi tra thanh cong
+  ca_moi_tien_do: string;
+  ca_moi_san_pham: string;
+  ung_vien: { id: string; tn_at: string | null; ht_at: string | null; san_pham: string; tien_do: string; khop_model: boolean }[];
+}
+
 export interface MailTimelineResult {
   configured: boolean;
   ok: boolean;
@@ -59,12 +71,13 @@ export interface MailTimelineResult {
   found: boolean;
   luong: MailLuong | null;
   thu: MailThu[];
+  ca_moi: MailCaMoi | null;
 }
 
 const TIMEOUT_MS = 8000;
 
 export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailTimelineResult> {
-  const empty = { found: false, luong: null, thu: [] };
+  const empty = { found: false, luong: null, thu: [], ca_moi: null };
   if (!env.THEODOI_APP_URL || !env.THEODOI_APP_API_KEY) {
     return { configured: false, ok: false, error: "NOT_CONFIGURED", ...empty };
   }
@@ -79,7 +92,7 @@ export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailT
       console.error(`[mailTimeline] case=${caseId} HTTP ${res.status}: ${text.slice(0, 300)}`);
       return { configured: true, ok: false, error: `HTTP_${res.status}`, ...empty };
     }
-    const body = (await res.json()) as { found?: boolean; luong?: MailLuong | null; thu?: MailThu[] };
+    const body = (await res.json()) as { found?: boolean; luong?: MailLuong | null; thu?: MailThu[]; ca_moi?: MailCaMoi | null };
     return {
       configured: true,
       ok: true,
@@ -87,6 +100,7 @@ export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailT
       found: Boolean(body.found),
       luong: body.luong ?? null,
       thu: Array.isArray(body.thu) ? body.thu : [],
+      ca_moi: body.ca_moi ?? null,
     };
   } catch (err) {
     console.error(`[mailTimeline] case=${caseId} loi:`, err);

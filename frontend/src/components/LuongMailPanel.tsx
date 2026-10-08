@@ -47,6 +47,17 @@ interface MailLuong {
   de_xuat: Record<string, string>;
 }
 
+interface MailCaMoi {
+  id_khach_hang: string;
+  ca_moi_id: string | null;
+  trang_thai_gan: string;
+  ca_moi_tn_at: string | null;
+  ca_moi_ht_at: string | null;
+  ca_moi_tien_do: string;
+  ca_moi_san_pham: string;
+  ung_vien: { id: string; tn_at: string | null; ht_at: string | null; san_pham: string; tien_do: string; khop_model: boolean }[];
+}
+
 export interface MailTimelineResult {
   configured: boolean;
   ok: boolean;
@@ -54,6 +65,7 @@ export interface MailTimelineResult {
   found: boolean;
   luong: MailLuong | null;
   thu: MailThu[];
+  ca_moi: MailCaMoi | null;
 }
 
 export function useMailTimeline(caseId: string | null | undefined) {
@@ -85,6 +97,17 @@ const MOC_THU: Record<string, { label: string; tone: AnyBadgeTone }> = {
   len_so_do: { label: "Lên SO + DO", tone: "violet" },
 };
 
+// Trang thai noi ca moi (he theodoidoimay): tu gan khi dung 1 ung vien cung ID KH + khop model;
+// con lai nguoi dung xac nhan tren trang bao cao cua he do.
+const CA_MOI_GAN: Record<string, { label: string; tone: AnyBadgeTone }> = {
+  tu_dong: { label: "Tự gán (khớp model)", tone: "teal" },
+  xac_nhan: { label: "Đã xác nhận", tone: "teal" },
+  goi_y: { label: "Gợi ý - chờ xác nhận", tone: "amber" },
+  nhieu_ung_vien: { label: "Nhiều ứng viên - chờ xác nhận", tone: "amber" },
+  chua_co: { label: "Chưa có ca mới", tone: "gray" },
+  khong_co_id_kh: { label: "Ca gốc chưa có ID khách hàng", tone: "gray" },
+};
+
 // Cac truong nhay cam / da co o the Thong tin ca - an khoi bang de xuat.
 const AN_TRUONG_DE_XUAT = new Set(["SĐT", "Địa chỉ"]);
 
@@ -111,7 +134,55 @@ function khoang(from: string | null, to: string | null): string {
   return `${Math.floor(gio / 24)} ngày ${gio % 24 ? `${gio % 24} giờ` : ""}`.trim();
 }
 
-export function LuongMailPanel({ caseId }: { caseId: string }) {
+function CaMoiCard({ cm, onOpenCase }: { cm: MailCaMoi; onOpenCase?: (id: string) => void }) {
+  const gan = CA_MOI_GAN[cm.trang_thai_gan] ?? { label: cm.trang_thai_gan, tone: "gray" as const };
+  const moCa = (id: string) =>
+    onOpenCase ? (
+      <button type="button" className="font-mono font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => onOpenCase(id)}>
+        {id}
+      </button>
+    ) : (
+      <span className="font-mono font-semibold">{id}</span>
+    );
+  const choXacNhan = !cm.ca_moi_id && cm.ung_vien.length > 0;
+  return (
+    <Card className="p-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+        <div className="text-xs font-semibold text-[var(--ink-500)]">Ca mới đổi cho KH</div>
+        <Badge tone={gan.tone}>{gan.label}</Badge>
+      </div>
+      {cm.ca_moi_id ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+          <Field label="Mã ca mới" value={moCa(cm.ca_moi_id)} />
+          <Field label="Sản phẩm" value={cm.ca_moi_san_pham || "—"} />
+          <Field label="Mở ca mới" value={fmtVn(cm.ca_moi_tn_at)} />
+          <Field label="Tiến độ" value={cm.ca_moi_tien_do || "—"} />
+          {cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) && <Field label="Đổi trả thành công" value={fmtVn(cm.ca_moi_ht_at)} />}
+        </div>
+      ) : choXacNhan ? (
+        <div className="space-y-1">
+          <div className="text-xs text-[var(--ink-500)]">Ca cùng ID khách hàng mở sau khi duyệt (xác nhận trên trang báo cáo Theo dõi đổi máy):</div>
+          {cm.ung_vien.map((u) => (
+            <div key={u.id} className="flex items-baseline gap-2 text-sm flex-wrap">
+              {moCa(u.id)}
+              <span className="text-xs text-[var(--ink-500)]">{fmtVn(u.tn_at)}</span>
+              <span className="text-xs text-[var(--ink-700)] truncate">{u.san_pham}</span>
+              {u.khop_model && <Badge tone="teal">Khớp model</Badge>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-sm text-[var(--ink-400)] italic">
+          {cm.trang_thai_gan === "khong_co_id_kh"
+            ? "Ca gốc chưa có ID khách hàng từ pipeline - chưa tìm được ca mới."
+            : "Chưa thấy ca nào cùng ID khách hàng được mở sau khi duyệt."}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenCase?: (id: string) => void }) {
   const { data, isLoading } = useMailTimeline(caseId);
   const [moRong, setMoRong] = useState<Record<number, boolean>>({});
 
@@ -139,6 +210,14 @@ export function LuongMailPanel({ caseId }: { caseId: string }) {
     { label: "Lên SO", at: l.len_so_at },
     { label: "Lên DO", at: l.len_do_at },
   ];
+  const cm = data.ca_moi;
+  if (l.duyet_at) {
+    moc.push({ label: "Mở ca mới", at: cm?.ca_moi_id ? cm.ca_moi_tn_at : null, who: cm?.ca_moi_id ?? undefined });
+    moc.push({
+      label: "Đổi trả thành công",
+      at: cm?.ca_moi_id && cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) ? cm.ca_moi_ht_at : null,
+    });
+  }
   const deXuat = Object.entries(l.de_xuat ?? {}).filter(([k, v]) => v && !AN_TRUONG_DE_XUAT.has(k));
 
   return (
@@ -169,6 +248,8 @@ export function LuongMailPanel({ caseId }: { caseId: string }) {
           })}
         </ol>
       </Card>
+
+      {cm && <CaMoiCard cm={cm} onOpenCase={onOpenCase} />}
 
       {deXuat.length > 0 && (
         <Card className="p-3">

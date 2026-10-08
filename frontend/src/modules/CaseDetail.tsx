@@ -2655,7 +2655,7 @@ export function CaseDetail({
               {tab === "po-dat-hang" && poDatHangContent}
               {tab === "qc-thuc-te" && qcThucTeContent}
               {tab === "tranh-chap" && tranhChapContent}
-              {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} />}
+              {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} onOpenCase={onOpenCase} />}
             </div>
           </div>
         )}
@@ -2676,7 +2676,7 @@ export function CaseDetail({
             {tab === "po-dat-hang" && poDatHangContent}
             {tab === "qc-thuc-te" && qcThucTeContent}
             {tab === "tranh-chap" && tranhChapContent}
-            {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} />}
+            {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} onOpenCase={onOpenCase} />}
           </div>
         )}
       </div>
