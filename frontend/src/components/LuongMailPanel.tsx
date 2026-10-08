@@ -1,13 +1,18 @@
 // Tab "Luồng mail" trong Chi tiet ca - luong mail doi tra cua ca keo tu he theodoidoimay qua backend DVBH
 // (GET /api/cases/:id/mail-timeline -> backend/src/lib/mailTimeline.ts). Goi theo yeu cau khi mo ca,
 // khong luu D1 (giong lib/linhKienTimeline.ts).
+// Bo cuc (v1.433): moc xu ly dang log -> ca moi -> de xuat (thu gon) -> nhat ky thu 1 dong/thu; noi dung thu doc
+// trong 1 popup chung (danh sach thu ben trai + noi dung ben phai). Noi dung da duoc he theodoidoimay lam gon
+// (noi_dung: bo bang dan phang/chu ky; tom_tat: 1 dong) - body_new chi dung cho "Xem nguyên văn".
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Badge, type AnyBadgeTone } from "./ui/Badge";
+import { Btn } from "./ui/Btn";
 import { Card } from "./ui/Card";
 import { Field } from "./ui/Field";
 import { LoadingInline } from "./ui/LoadingInline";
+import { Modal } from "./ui/Modal";
 
 interface MailThu {
   nguon: "gmail" | "trich_dan";
@@ -19,6 +24,8 @@ interface MailThu {
   subject: string;
   sent_at: string;
   body_new: string;
+  noi_dung?: string; // da lam gon (he cu chua co -> fallback body_new)
+  tom_tat?: string;
   attachments: { name: string; size: number; type: string }[];
   la_de_xuat: number;
   la_duyet: number;
@@ -110,6 +117,10 @@ const CA_MOI_GAN: Record<string, { label: string; tone: AnyBadgeTone }> = {
 
 // Cac truong nhay cam / da co o the Thong tin ca - an khoi bang de xuat.
 const AN_TRUONG_DE_XUAT = new Set(["SĐT", "Địa chỉ"]);
+// 4 truong chinh hien khi bang de xuat dang thu gon.
+const TRUONG_CHINH = ["Model máy lỗi", "Máy/Linh kiện đề xuất đổi", "Lý do đổi", "Chính sách đổi hàng"];
+// Dong ghi chu he theodoidoimay chen vao noi_dung thay cho bang de xuat bi dan phang (src/gonThu.ts).
+const GHI_CHU_BANG = /^\[Bảng đề xuất đổi[^\]]*\]$/;
 
 const fmtVn = (iso: string | null) =>
   iso
@@ -123,6 +134,9 @@ const fmtVn = (iso: string | null) =>
       }).format(new Date(iso))
     : "—";
 
+const fmtNgan = (iso: string) =>
+  new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+
 /** "1 ngày 3 giờ" giua 2 moc (de nhin thoi gian xu ly tung buoc). */
 function khoang(from: string | null, to: string | null): string {
   if (!from || !to) return "";
@@ -132,6 +146,43 @@ function khoang(from: string | null, to: string | null): string {
   const gio = Math.floor(phut / 60);
   if (gio < 24) return `${gio} giờ ${phut % 60 ? `${phut % 60} phút` : ""}`.trim();
   return `${Math.floor(gio / 24)} ngày ${gio % 24 ? `${gio % 24} giờ` : ""}`.trim();
+}
+
+const tenNguoiGui = (t: MailThu) => t.from_name || t.from_email.split("@")[0];
+const noiDung = (t: MailThu) => t.noi_dung ?? t.body_new;
+const tomTat = (t: MailThu) => t.tom_tat ?? t.body_new.split("\n").find((s) => s.trim().length > 3)?.trim() ?? "";
+
+function NhanThu({ t }: { t: MailThu }) {
+  const mocThu = MOC_THU[t.moc];
+  return (
+    <>
+      {t.la_de_xuat === 1 && <Badge tone="amber">Đề xuất</Badge>}
+      {t.la_duyet === 1 && <Badge tone="teal">Duyệt</Badge>}
+      {mocThu && <Badge tone={mocThu.tone}>{mocThu.label}</Badge>}
+    </>
+  );
+}
+
+function BangDeXuat({ rows }: { rows: [string, string][] }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+      {rows.map(([k, v]) => (
+        <Field
+          key={k}
+          label={k}
+          value={
+            /^https?:\/\//.test(v) ? (
+              <a className="text-[var(--ocean-600)] hover:underline" href={v} target="_blank" rel="noreferrer">
+                Mở link
+              </a>
+            ) : (
+              v
+            )
+          }
+        />
+      ))}
+    </div>
+  );
 }
 
 function CaMoiCard({ cm, onOpenCase }: { cm: MailCaMoi; onOpenCase?: (id: string) => void }) {
@@ -182,9 +233,116 @@ function CaMoiCard({ cm, onOpenCase }: { cm: MailCaMoi; onOpenCase?: (id: string
   );
 }
 
+/** Popup doc mail: danh sach thu (trai) + noi dung thu dang chon (phai), nut thu truoc/sau. */
+function DocMailModal({
+  thu,
+  idx,
+  setIdx,
+  deXuat,
+  onClose,
+}: {
+  thu: MailThu[];
+  idx: number;
+  setIdx: (i: number) => void;
+  deXuat: [string, string][];
+  onClose: () => void;
+}) {
+  const [nguyenVan, setNguyenVan] = useState(false);
+  const t = thu[idx];
+  const chon = (i: number) => {
+    setIdx(i);
+    setNguyenVan(false);
+  };
+  const dong = nguyenVan ? [t.body_new] : noiDung(t).split("\n");
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Mail đổi trả (${thu.length} thư)`}
+      width="max-w-5xl"
+      height="h-[88vh]"
+      footer={
+        <div className="flex items-center justify-between gap-2">
+          <Btn variant="ghost" size="sm" disabled={idx === 0} onClick={() => chon(idx - 1)}>
+            ‹ Thư trước
+          </Btn>
+          <span className="text-xs text-[var(--ink-500)]">
+            {idx + 1} / {thu.length}
+          </span>
+          <Btn variant="ghost" size="sm" disabled={idx === thu.length - 1} onClick={() => chon(idx + 1)}>
+            Thư sau ›
+          </Btn>
+        </div>
+      }
+    >
+      <div className="flex gap-4 h-full min-h-0">
+        <ol className="hidden md:block w-64 shrink-0 overflow-y-auto border-r border-[var(--line)] pr-2 -my-1">
+          {thu.map((x, i) => (
+            <li key={`${x.gmail_id}-${i}`}>
+              <button
+                type="button"
+                onClick={() => chon(i)}
+                className={`w-full text-left rounded-lg px-2 py-1.5 my-0.5 ${i === idx ? "bg-[var(--ocean-100)]" : "hover:bg-slate-50"}`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-sm font-semibold truncate">{tenNguoiGui(x)}</span>
+                  <span className="text-[11px] text-[var(--ink-400)] shrink-0">{fmtNgan(x.sent_at)}</span>
+                </div>
+                <div className="text-xs text-[var(--ink-500)] truncate">{tomTat(x)}</div>
+                <div className="flex gap-1 mt-0.5 flex-wrap empty:hidden">
+                  <NhanThu t={x} />
+                </div>
+              </button>
+            </li>
+          ))}
+        </ol>
+
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          <div className="font-semibold text-[var(--ink-900)] mb-1">{t.subject}</div>
+          <div className="flex items-center gap-1.5 flex-wrap mb-2">
+            <NhanThu t={t} />
+            {t.nguon === "trich_dan" && <Badge tone="gray">Khôi phục từ trích dẫn</Badge>}
+          </div>
+          <div className="text-xs text-[var(--ink-500)] space-y-0.5 mb-3 border-b border-[var(--line)] pb-2">
+            <div>
+              <b className="text-[var(--ink-700)]">{t.from_name || t.from_email}</b> {t.from_name && `<${t.from_email}>`} · {fmtVn(t.sent_at)}
+            </div>
+            {t.to_addr && <div className="break-words">Đến: {t.to_addr}</div>}
+            {t.cc_addr && <div className="break-words">CC: {t.cc_addr}</div>}
+          </div>
+          <div className="text-sm text-[var(--ink-700)] whitespace-pre-line break-words space-y-1">
+            {dong.map((s, i) =>
+              GHI_CHU_BANG.test(s.trim()) && deXuat.length ? (
+                <div key={i} className="my-2 rounded-lg border border-[var(--line)] p-3 bg-slate-50/60">
+                  <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Bảng đề xuất đổi</div>
+                  <BangDeXuat rows={deXuat} />
+                </div>
+              ) : (
+                <div key={i}>{s}</div>
+              ),
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-[var(--line)] text-xs text-[var(--ink-500)] flex-wrap">
+            {t.attachments.length > 0 && <span>📎 {t.attachments.map((a) => a.name).join(", ")}</span>}
+            <button type="button" className="text-[var(--ocean-600)] hover:underline" onClick={() => setNguyenVan((v) => !v)}>
+              {nguyenVan ? "Xem bản gọn" : "Xem nguyên văn"}
+            </button>
+            {t.gmail_link && (
+              <a className="text-[var(--ocean-600)] hover:underline" href={t.gmail_link} target="_blank" rel="noreferrer">
+                Mở trong Gmail theo dõi
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenCase?: (id: string) => void }) {
   const { data, isLoading } = useMailTimeline(caseId);
-  const [moRong, setMoRong] = useState<Record<number, boolean>>({});
+  const [docIdx, setDocIdx] = useState<number | null>(null);
+  const [moDeXuat, setMoDeXuat] = useState(false);
 
   if (isLoading) {
     return (
@@ -200,7 +358,9 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
   }
 
   const l = data.luong;
+  const thu = data.thu;
   const tt = TRANG_THAI[l.trang_thai] ?? { label: l.trang_thai, tone: "gray" as const };
+  const cm = data.ca_moi;
   const moc: { label: string; at: string | null; who?: string }[] = [
     { label: "Phát sinh", at: l.origin_at, who: l.origin_name || l.origin_email },
     { label: "Karofi tiếp nhận", at: l.tiep_nhan_at },
@@ -210,7 +370,6 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
     { label: "Lên SO", at: l.len_so_at },
     { label: "Lên DO", at: l.len_do_at },
   ];
-  const cm = data.ca_moi;
   if (l.duyet_at) {
     moc.push({ label: "Mở ca mới", at: cm?.ca_moi_id ? cm.ca_moi_tn_at : null, who: cm?.ca_moi_id ?? undefined });
     moc.push({
@@ -219,11 +378,12 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
     });
   }
   const deXuat = Object.entries(l.de_xuat ?? {}).filter(([k, v]) => v && !AN_TRUONG_DE_XUAT.has(k));
+  const deXuatChinh = TRUONG_CHINH.map((k) => [k, l.de_xuat?.[k] ?? ""] as [string, string]).filter(([, v]) => v);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <Card className="p-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             <Badge tone={tt.tone} solid>
               {tt.label}
@@ -231,17 +391,21 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
             {l.loai_yeu_cau && <Badge tone="gray">{l.loai_yeu_cau}</Badge>}
             {l.serial && <span className="text-xs font-mono text-[var(--ink-500)]">{l.serial}</span>}
           </div>
-          <span className="text-xs text-[var(--ink-400)]">{l.msg_count} thư</span>
+          {thu.length > 0 && (
+            <Btn variant="subtle" size="sm" onClick={() => setDocIdx(thu.length - 1)}>
+              ✉ Đọc mail ({thu.length})
+            </Btn>
+          )}
         </div>
-        <ol className="space-y-1.5">
+        <ol className="space-y-1">
           {moc.map((m, i) => {
             const truoc = moc.slice(0, i).reverse().find((x) => x.at)?.at ?? null;
             return (
               <li key={m.label} className="flex items-baseline gap-2 text-sm">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${m.at ? "bg-[var(--teal-500)]" : "bg-slate-300"}`} />
                 <span className={`w-36 shrink-0 ${m.at ? "font-semibold text-[var(--ink-900)]" : "text-[var(--ink-400)]"}`}>{m.label}</span>
-                <span className={m.at ? "text-[var(--ink-700)]" : "text-[var(--ink-400)]"}>{fmtVn(m.at)}</span>
-                {m.at && truoc && <span className="text-xs text-[var(--ink-400)]">+{khoang(truoc, m.at)}</span>}
+                <span className={`shrink-0 ${m.at ? "text-[var(--ink-700)]" : "text-[var(--ink-400)]"}`}>{fmtVn(m.at)}</span>
+                {m.at && truoc && <span className="text-xs text-[var(--ink-400)] shrink-0">+{khoang(truoc, m.at)}</span>}
                 {m.at && m.who && <span className="text-xs text-[var(--ink-500)] truncate">· {m.who}</span>}
               </li>
             );
@@ -253,64 +417,41 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
 
       {deXuat.length > 0 && (
         <Card className="p-3">
-          <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nội dung đề xuất đổi</div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-            {deXuat.map(([k, v]) => (
-              <Field
-                key={k}
-                label={k}
-                value={/^https?:\/\//.test(v) ? <a className="text-[var(--ocean-600)] hover:underline" href={v} target="_blank" rel="noreferrer">Mở link</a> : v}
-              />
-            ))}
+          <button type="button" className="w-full flex items-center justify-between gap-2 text-left" onClick={() => setMoDeXuat((v) => !v)}>
+            <span className="text-xs font-semibold text-[var(--ink-500)]">Nội dung đề xuất đổi</span>
+            <span className="text-xs text-[var(--ocean-600)]">{moDeXuat ? "Thu gọn ▴" : `Xem đủ ${deXuat.length} trường ▾`}</span>
+          </button>
+          <div className="mt-2">
+            <BangDeXuat rows={moDeXuat ? deXuat : deXuatChinh} />
           </div>
         </Card>
       )}
 
-      <div>
-        <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Các thư trong luồng</div>
-        <div className="space-y-2">
-          {data.thu.map((t, i) => {
-            const mocThu = MOC_THU[t.moc];
-            const dai = t.body_new.length > 280;
-            return (
-              <Card key={`${t.gmail_id}-${i}`} className="p-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
-                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                    <span className="font-semibold text-sm truncate">{t.from_name || t.from_email}</span>
-                    {t.from_name && <span className="text-xs text-[var(--ink-400)]">{t.from_email}</span>}
-                    {t.la_de_xuat === 1 && <Badge tone="amber">Đề xuất</Badge>}
-                    {t.la_duyet === 1 && <Badge tone="teal">Duyệt</Badge>}
-                    {mocThu && <Badge tone={mocThu.tone}>{mocThu.label}</Badge>}
-                    {t.nguon === "trich_dan" && <Badge tone="gray">Từ trích dẫn</Badge>}
-                  </div>
-                  <span className="text-xs text-[var(--ink-500)]">{fmtVn(t.sent_at)}</span>
-                </div>
-                <div className="text-xs text-[var(--ink-400)] mb-1.5 truncate">{t.subject}</div>
-                {t.body_new && (
-                  <div className="text-sm text-[var(--ink-700)] whitespace-pre-line">
-                    {dai && !moRong[i] ? `${t.body_new.slice(0, 280)}…` : t.body_new}
-                    {dai && (
-                      <button type="button" className="ml-1 text-xs font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => setMoRong((s) => ({ ...s, [i]: !s[i] }))}>
-                        {moRong[i] ? "Thu gọn" : "Xem thêm"}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {(t.attachments.length > 0 || t.gmail_link) && (
-                  <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--ink-500)] flex-wrap">
-                    {t.attachments.length > 0 && <span>📎 {t.attachments.map((a) => a.name).join(", ")}</span>}
-                    {t.gmail_link && (
-                      <a className="text-[var(--ocean-600)] hover:underline" href={t.gmail_link} target="_blank" rel="noreferrer">
-                        Mở trong Gmail theo dõi
-                      </a>
-                    )}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      </div>
+      {thu.length > 0 && (
+        <Card className="p-0 overflow-hidden">
+          <div className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-[var(--ink-500)]">Nhật ký mail · bấm 1 thư để đọc</div>
+          <ol className="divide-y divide-[var(--line)]">
+            {thu.map((t, i) => (
+              <li key={`${t.gmail_id}-${i}`}>
+                <button type="button" onClick={() => setDocIdx(i)} className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-start gap-3">
+                  <span className="text-xs text-[var(--ink-400)] w-[78px] shrink-0 pt-0.5 tabular-nums">{fmtNgan(t.sent_at)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sm font-semibold text-[var(--ink-900)] truncate max-w-[220px]">{tenNguoiGui(t)}</span>
+                      <NhanThu t={t} />
+                    </span>
+                    <span className="block text-xs text-[var(--ink-500)] truncate">{tomTat(t)}</span>
+                  </span>
+                  {t.attachments.length > 0 && <span className="text-xs text-[var(--ink-400)] shrink-0 pt-0.5">📎{t.attachments.length}</span>}
+                  <span className="text-[var(--ink-400)] shrink-0">›</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+
+      {docIdx !== null && thu[docIdx] && <DocMailModal thu={thu} idx={docIdx} setIdx={setDocIdx} deXuat={deXuat} onClose={() => setDocIdx(null)} />}
     </div>
   );
 }

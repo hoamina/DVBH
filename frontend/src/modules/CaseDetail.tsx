@@ -2486,7 +2486,7 @@ export function CaseDetail({
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
-          { key: "luong-mail", label: "Luồng mail", count: mailTimeline?.thu.length ?? 0 },
+          { key: "luong-mail", label: "Đổi trả", count: mailTimeline?.thu.length ?? 0 },
         ]
       : [
           { key: "tien-trinh-chung", label: "Tiến trình chung", count: tienTrinhChungEvents.length },
@@ -2501,7 +2501,7 @@ export function CaseDetail({
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
-          { key: "luong-mail", label: "Luồng mail", count: mailTimeline?.thu.length ?? 0 },
+          { key: "luong-mail", label: "Đổi trả", count: mailTimeline?.thu.length ?? 0 },
         ];
 
   // "info"/"giai-trinh" la 2 tab loi luon hien; tab dang active cung luon hien (khong tu bien mat

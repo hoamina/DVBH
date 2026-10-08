@@ -4268,3 +4268,14 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - DVBH: `lib/mailTimeline.ts` chuyển tiếp `ca_moi`; `LuongMailPanel` thêm 2 mốc "Mở ca mới" / "Đổi trả thành công"
   (ca mới có tiến độ "Hoàn thành…") và thẻ "Ca mới đổi cho KH" (trạng thái gán, danh sách ứng viên); bấm mã ca → mở ca đó
   (`onOpenCase` = pushCase, giữ nút Quay lại). Không thêm migration.
+
+## 2026-10-08 — Tab "Luồng mail" đổi tên "Đổi trả" + giao diện gọn dạng log, đọc mail trong 1 popup (v1.433)
+
+- Lỗi hiển thị: mail Outlook có bảng HTML → bản text bị "dàn phẳng" mỗi ô 1 dòng (bảng đề xuất 22 cột thành 22 dòng tiêu đề
+  rồi 22 dòng giá trị). Sửa ở nguồn (hệ theodoidoimay `src/gonThu.ts`): API trả thêm `noi_dung` (bỏ bảng đề xuất → dòng
+  "[Bảng đề xuất đổi]", bảng khác ghép "Tiêu đề: giá trị", bỏ chữ ký/link trùng) + `tom_tat` (1 dòng). `body_new` giữ cho "Xem nguyên văn".
+- Tab đổi nhãn "Luồng mail" → **"Đổi trả"** (key nội bộ vẫn `luong-mail`).
+- `LuongMailPanel`: mốc xử lý dạng log → thẻ ca mới → đề xuất thu gọn 4 trường chính (Model lỗi, Máy đề xuất đổi, Lý do,
+  Chính sách; bấm "Xem đủ") → **Nhật ký mail** 1 dòng/thư (giờ · người gửi · nhãn · tóm tắt). Bấm 1 thư hoặc nút "Đọc mail"
+  → popup **Mail đổi trả** chung: danh sách thư bên trái + nội dung bên phải (Đến/CC, bảng đề xuất hiện đúng dạng bảng thay
+  cho dòng ghi chú, đính kèm, Xem nguyên văn, mở Gmail), nút Thư trước/Thư sau. Không thêm migration.

@@ -20,6 +20,8 @@ export interface MailThu {
   subject: string;
   sent_at: string; // ISO UTC
   body_new: string; // phan noi dung moi (da cat trich dan), toi da 2000 ky tu
+  noi_dung: string; // ban da lam gon de hien thi (bo bang dan phang, chu ky) - he theodoidoimay src/gonThu.ts
+  tom_tat: string; // 1 dong tom tat cho nhat ky mail
   attachments: { name: string; size: number; type: string }[];
   la_de_xuat: number;
   la_duyet: number;
