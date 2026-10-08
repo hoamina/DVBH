@@ -14,7 +14,7 @@ import { CacheBanner } from "../components/ui/CacheBanner";
 import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
-import { LuongMailPanel, useMailTimeline } from "../components/LuongMailPanel";
+import { LuongMailPanel, useMailTimeline, NHAT_KY_LABEL } from "../components/LuongMailPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
@@ -1217,6 +1217,31 @@ export function CaseDetail({
       }
     }
 
+    // Luong doi tra (he theodoidoimay, tab "Đổi trả"): moc mail (phat sinh -> de xuat -> duyet -> giao xu ly ->
+    // SO/DO), ca moi doi cho KH + nhat ky thao tac (he thong tu dong / nguoi ket thuc, gan ca doi...). Thoi gian ISO UTC.
+    const dt = mailTimeline?.luong;
+    if (dt) {
+      const pushDt = (key: string, iso: string | null | undefined, label: string, actor: string | null, summary: string) => {
+        if (!iso) return;
+        const vnLocal = linhKienIsoToVnLocal(iso);
+        events.push({ key: `dt-${key}`, sortMs: parseFlexibleDbDate(vnLocal).getTime(), displayTime: fmtDateTime(vnLocal), tone: "rose", typeLabel: `Đổi trả: ${label}`, actor, summary, jumpTab: "luong-mail" });
+      };
+      const dx = dt.de_xuat ?? {};
+      pushDt("phat-sinh", dt.origin_at, "Phát sinh mail", dt.origin_name || dt.origin_email || null, dt.subject || "—");
+      pushDt("tiep-nhan", dt.tiep_nhan_at, "Karofi tiếp nhận", null, "—");
+      pushDt("de-xuat", dt.de_xuat_at, "Đề xuất đổi", dt.de_xuat_from || null, [dx["Máy/Linh kiện đề xuất đổi"] && `Đề xuất: ${dx["Máy/Linh kiện đề xuất đổi"]}`, dx["Lý do đổi"]].filter(Boolean).join(" · ") || "—");
+      pushDt("duyet", dt.duyet_at, "Duyệt đổi", dt.duyet_from || null, "—");
+      pushDt("giao", dt.giao_xu_ly_at, "Karofi giao xử lý", null, "—");
+      pushDt("so", dt.len_so_at, "Lên SO", null, "—");
+      pushDt("do", dt.len_do_at, "Lên DO", null, "—");
+      const cmDt = mailTimeline?.ca_moi;
+      if (cmDt?.ca_moi_id) {
+        pushDt("ca-moi", cmDt.ca_moi_tn_at, "Mở ca mới", null, `Ca đổi ${cmDt.ca_moi_id}${cmDt.ca_moi_san_pham ? ` · ${cmDt.ca_moi_san_pham}` : ""}`);
+        if (cmDt.ca_moi_ht_at && /^Hoàn thành/i.test(cmDt.ca_moi_tien_do)) pushDt("thanh-cong", cmDt.ca_moi_ht_at, "Đổi trả thành công", null, `Ca đổi ${cmDt.ca_moi_id} · ${cmDt.ca_moi_tien_do}`);
+      }
+      (mailTimeline?.nhat_ky ?? []).forEach((n, i) => pushDt(`nk-${i}`, n.at, NHAT_KY_LABEL[n.hanh_dong] ?? n.hanh_dong, n.nguoi, n.chi_tiet || "—"));
+    }
+
     qcThucTeMatched.forEach((r, i) => {
       pushSheet({ key: `qc-${r.idCrm}-${i}`, rawTs: r.ngayDanhGia, tone: "cyan", typeLabel: "QC thực tế", summary: r.ketQua || "—", jumpTab: "qc-thuc-te" });
     });
@@ -1231,7 +1256,7 @@ export function CaseDetail({
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
-  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList]);
+  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList, mailTimeline]);
 
   // "Tieu de tom tat" (chot 2026-08-22) - 5 khoang thoi gian tinh theo "kieu bao trum" (min moc dau -
   // max moc cuoi cua CHINH nhom do, hoac "hien tai" neu con dang mo - CHI ap dung cho case/tranh chap
@@ -2655,7 +2680,7 @@ export function CaseDetail({
               {tab === "po-dat-hang" && poDatHangContent}
               {tab === "qc-thuc-te" && qcThucTeContent}
               {tab === "tranh-chap" && tranhChapContent}
-              {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} onOpenCase={onOpenCase} />}
+              {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} khuVuc={c.khu_vuc} onOpenCase={onOpenCase} />}
             </div>
           </div>
         )}
@@ -2676,7 +2701,7 @@ export function CaseDetail({
             {tab === "po-dat-hang" && poDatHangContent}
             {tab === "qc-thuc-te" && qcThucTeContent}
             {tab === "tranh-chap" && tranhChapContent}
-            {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} onOpenCase={onOpenCase} />}
+            {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} khuVuc={c.khu_vuc} onOpenCase={onOpenCase} />}
           </div>
         )}
       </div>

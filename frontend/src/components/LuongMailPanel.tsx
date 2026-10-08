@@ -1,18 +1,24 @@
-// Tab "Luồng mail" trong Chi tiet ca - luong mail doi tra cua ca keo tu he theodoidoimay qua backend DVBH
+// Tab "Đổi trả" (key "luong-mail") trong Chi tiet ca - luong doi tra cua ca keo tu he theodoidoimay qua backend DVBH
 // (GET /api/cases/:id/mail-timeline -> backend/src/lib/mailTimeline.ts). Goi theo yeu cau khi mo ca,
 // khong luu D1 (giong lib/linhKienTimeline.ts).
 // Bo cuc (v1.433): moc xu ly dang log -> ca moi -> de xuat (thu gon) -> nhat ky thu 1 dong/thu; noi dung thu doc
 // trong 1 popup chung (danh sach thu ben trai + noi dung ben phai). Noi dung da duoc he theodoidoimay lam gon
 // (noi_dung: bo bang dan phang/chu ky; tom_tat: 1 dong) - body_new chi dung cho "Xem nguyên văn".
+// v1.434: nut "Kết thúc luồng"/"Mở lại" (he kia ngung truy van DVBH cho ca da ket thuc), nhap ma ca doi thu cong
+// khi he thong khong tu tim duoc, nhat ky thao tac (Hệ thống / ten nguoi dung). Quyen = quyen ghi tranh chap
+// (POST /api/cases/:id/doi-tra/:action, backend kiem tra canWriteTranhChap).
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, ApiError } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
+import { canWriteTranhChap } from "../lib/tranhChapShared";
 import { Badge, type AnyBadgeTone } from "./ui/Badge";
 import { Btn } from "./ui/Btn";
 import { Card } from "./ui/Card";
 import { Field } from "./ui/Field";
 import { LoadingInline } from "./ui/LoadingInline";
 import { Modal } from "./ui/Modal";
+import { useToast } from "./ui/Toast";
 
 interface MailThu {
   nguon: "gmail" | "trich_dan";
@@ -33,7 +39,7 @@ interface MailThu {
   gmail_link: string | null;
 }
 
-interface MailLuong {
+export interface MailLuong {
   trang_thai: string;
   loai_yeu_cau: string;
   serial: string;
@@ -52,9 +58,12 @@ interface MailLuong {
   len_so_at: string | null;
   len_do_at: string | null;
   de_xuat: Record<string, string>;
+  ket_thuc_at?: string | null;
+  ket_thuc_boi?: string;
+  ket_thuc_ghi_chu?: string;
 }
 
-interface MailCaMoi {
+export interface MailCaMoi {
   id_khach_hang: string;
   ca_moi_id: string | null;
   trang_thai_gan: string;
@@ -65,6 +74,14 @@ interface MailCaMoi {
   ung_vien: { id: string; tn_at: string | null; ht_at: string | null; san_pham: string; tien_do: string; khop_model: boolean }[];
 }
 
+export interface MailNhatKy {
+  hanh_dong: string;
+  nguoi: string;
+  nguoi_email: string;
+  chi_tiet: string;
+  at: string;
+}
+
 export interface MailTimelineResult {
   configured: boolean;
   ok: boolean;
@@ -73,6 +90,7 @@ export interface MailTimelineResult {
   luong: MailLuong | null;
   thu: MailThu[];
   ca_moi: MailCaMoi | null;
+  nhat_ky?: MailNhatKy[];
 }
 
 export function useMailTimeline(caseId: string | null | undefined) {
@@ -86,7 +104,28 @@ export function useMailTimeline(caseId: string | null | undefined) {
   });
 }
 
-const TRANG_THAI: Record<string, { label: string; tone: AnyBadgeTone }> = {
+type DoiTraAction = "ket-thuc" | "mo-lai" | "ca-moi";
+
+/** Thao tac luong doi tra qua backend DVBH -> he theodoidoimay (he do ghi nhat ky ten nguoi thao tac). */
+function useDoiTraAction(caseId: string) {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  return useMutation({
+    mutationFn: (v: { action: DoiTraAction; body: { ghi_chu?: string; ca_moi_id?: string | null }; thongBao: string }) =>
+      api.post(`/cases/${encodeURIComponent(caseId)}/doi-tra/${v.action}`, v.body),
+    onSuccess: (_d, v) => {
+      addToast(v.thongBao);
+      qc.invalidateQueries({ queryKey: ["mail-timeline", caseId] });
+      qc.invalidateQueries({ queryKey: ["tranh-chap-luong-doi-tra"] });
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : "";
+      addToast(code === "FORBIDDEN_ROLE" ? "Bạn không có quyền thao tác luồng đổi trả của ca này." : code || "Không lưu được, thử lại sau.");
+    },
+  });
+}
+
+export const TRANG_THAI_LUONG: Record<string, { label: string; tone: AnyBadgeTone }> = {
   phat_sinh: { label: "Phát sinh", tone: "gray" },
   tiep_nhan: { label: "Karofi đã tiếp nhận", tone: "sky" },
   cho_duyet: { label: "Chờ duyệt đổi", tone: "amber" },
@@ -105,14 +144,23 @@ const MOC_THU: Record<string, { label: string; tone: AnyBadgeTone }> = {
 };
 
 // Trang thai noi ca moi (he theodoidoimay): tu gan khi dung 1 ung vien cung ID KH + khop model;
-// con lai nguoi dung xac nhan tren trang bao cao cua he do.
-const CA_MOI_GAN: Record<string, { label: string; tone: AnyBadgeTone }> = {
-  tu_dong: { label: "Tự gán (khớp model)", tone: "teal" },
+// con lai nguoi dung chon/nhap ma ca doi thu cong (o day hoac trang bao cao cua he do).
+export const CA_MOI_GAN: Record<string, { label: string; tone: AnyBadgeTone }> = {
+  tu_dong: { label: "Hệ thống tự gán (khớp model)", tone: "teal" },
   xac_nhan: { label: "Đã xác nhận", tone: "teal" },
   goi_y: { label: "Gợi ý - chờ xác nhận", tone: "amber" },
   nhieu_ung_vien: { label: "Nhiều ứng viên - chờ xác nhận", tone: "amber" },
   chua_co: { label: "Chưa có ca mới", tone: "gray" },
   khong_co_id_kh: { label: "Ca gốc chưa có ID khách hàng", tone: "gray" },
+};
+
+export const NHAT_KY_LABEL: Record<string, string> = {
+  tao_tu_mail: "Thêm vào luồng đổi trả",
+  ket_thuc: "Kết thúc luồng đổi trả",
+  mo_lai: "Mở lại luồng đổi trả",
+  gan_ca_moi: "Gán ca đổi máy",
+  khong_co_ca_moi: "Xác nhận không có ca mới",
+  bo_ca_moi: "Bỏ gán ca đổi máy",
 };
 
 // Cac truong nhay cam / da co o the Thong tin ca - an khoi bang de xuat.
@@ -121,8 +169,9 @@ const AN_TRUONG_DE_XUAT = new Set(["SĐT", "Địa chỉ"]);
 const TRUONG_CHINH = ["Model máy lỗi", "Máy/Linh kiện đề xuất đổi", "Lý do đổi", "Chính sách đổi hàng"];
 // Dong ghi chu he theodoidoimay chen vao noi_dung thay cho bang de xuat bi dan phang (src/gonThu.ts).
 const GHI_CHU_BANG = /^\[Bảng đề xuất đổi[^\]]*\]$/;
+const MA_CA_RE = /^(\d{6,8}|SC\d{6,12})$/i;
 
-const fmtVn = (iso: string | null) =>
+export const fmtVn = (iso: string | null | undefined) =>
   iso
     ? new Intl.DateTimeFormat("vi-VN", {
         timeZone: "Asia/Ho_Chi_Minh",
@@ -185,8 +234,23 @@ function BangDeXuat({ rows }: { rows: [string, string][] }) {
   );
 }
 
-function CaMoiCard({ cm, onOpenCase }: { cm: MailCaMoi; onOpenCase?: (id: string) => void }) {
-  const gan = CA_MOI_GAN[cm.trang_thai_gan] ?? { label: cm.trang_thai_gan, tone: "gray" as const };
+function CaMoiCard({
+  cm,
+  ganBoi,
+  canWrite,
+  dangLuu,
+  onGan,
+  onOpenCase,
+}: {
+  cm: MailCaMoi | null;
+  ganBoi: MailNhatKy | undefined;
+  canWrite: boolean;
+  dangLuu: boolean;
+  onGan: (caMoiId: string | null, thongBao: string) => void;
+  onOpenCase?: (id: string) => void;
+}) {
+  const [ma, setMa] = useState("");
+  const gan = cm ? (CA_MOI_GAN[cm.trang_thai_gan] ?? { label: cm.trang_thai_gan, tone: "gray" as const }) : CA_MOI_GAN.chua_co;
   const moCa = (id: string) =>
     onOpenCase ? (
       <button type="button" className="font-mono font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => onOpenCase(id)}>
@@ -195,38 +259,89 @@ function CaMoiCard({ cm, onOpenCase }: { cm: MailCaMoi; onOpenCase?: (id: string
     ) : (
       <span className="font-mono font-semibold">{id}</span>
     );
-  const choXacNhan = !cm.ca_moi_id && cm.ung_vien.length > 0;
+  const ungVien = cm?.ung_vien ?? [];
+  const daXacNhanKhongCo = cm?.trang_thai_gan === "xac_nhan" && !cm.ca_moi_id;
+  const maHopLe = MA_CA_RE.test(ma.trim());
   return (
     <Card className="p-3">
       <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
         <div className="text-xs font-semibold text-[var(--ink-500)]">Ca mới đổi cho KH</div>
-        <Badge tone={gan.tone}>{gan.label}</Badge>
+        <Badge tone={gan.tone}>{daXacNhanKhongCo ? "Đã xác nhận không có ca mới" : gan.label}</Badge>
       </div>
-      {cm.ca_moi_id ? (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-          <Field label="Mã ca mới" value={moCa(cm.ca_moi_id)} />
-          <Field label="Sản phẩm" value={cm.ca_moi_san_pham || "—"} />
-          <Field label="Mở ca mới" value={fmtVn(cm.ca_moi_tn_at)} />
-          <Field label="Tiến độ" value={cm.ca_moi_tien_do || "—"} />
-          {cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) && <Field label="Đổi trả thành công" value={fmtVn(cm.ca_moi_ht_at)} />}
-        </div>
-      ) : choXacNhan ? (
-        <div className="space-y-1">
-          <div className="text-xs text-[var(--ink-500)]">Ca cùng ID khách hàng mở sau khi duyệt (xác nhận trên trang báo cáo Theo dõi đổi máy):</div>
-          {cm.ung_vien.map((u) => (
-            <div key={u.id} className="flex items-baseline gap-2 text-sm flex-wrap">
-              {moCa(u.id)}
-              <span className="text-xs text-[var(--ink-500)]">{fmtVn(u.tn_at)}</span>
-              <span className="text-xs text-[var(--ink-700)] truncate">{u.san_pham}</span>
-              {u.khop_model && <Badge tone="teal">Khớp model</Badge>}
-            </div>
-          ))}
-        </div>
+      {cm?.ca_moi_id ? (
+        <>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            <Field label="Mã ca đổi" value={moCa(cm.ca_moi_id)} />
+            <Field label="Sản phẩm" value={cm.ca_moi_san_pham || "—"} />
+            <Field label="Mở ca mới" value={fmtVn(cm.ca_moi_tn_at)} />
+            <Field label="Tiến độ" value={cm.ca_moi_tien_do || "—"} />
+            {cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) && <Field label="Đổi trả thành công" value={fmtVn(cm.ca_moi_ht_at)} />}
+          </div>
+          <div className="flex items-center justify-between gap-2 mt-2 text-xs text-[var(--ink-500)] flex-wrap">
+            <span>{ganBoi ? `Gán bởi ${ganBoi.nguoi} · ${fmtVn(ganBoi.at)}` : ""}</span>
+            {canWrite && (
+              <button type="button" disabled={dangLuu} className="text-[var(--coral-500)] hover:underline disabled:opacity-40" onClick={() => onGan(null, "Đã bỏ gán ca đổi máy.")}>
+                Bỏ gán / nhập lại
+              </button>
+            )}
+          </div>
+        </>
       ) : (
-        <div className="text-sm text-[var(--ink-400)] italic">
-          {cm.trang_thai_gan === "khong_co_id_kh"
-            ? "Ca gốc chưa có ID khách hàng từ pipeline - chưa tìm được ca mới."
-            : "Chưa thấy ca nào cùng ID khách hàng được mở sau khi duyệt."}
+        <div className="space-y-2">
+          {ungVien.length > 0 ? (
+            <div className="space-y-1">
+              <div className="text-xs text-[var(--ink-500)]">Ca cùng ID khách hàng mở sau khi duyệt:</div>
+              {ungVien.map((u) => (
+                <div key={u.id} className="flex items-baseline gap-2 text-sm flex-wrap">
+                  {moCa(u.id)}
+                  <span className="text-xs text-[var(--ink-500)]">{fmtVn(u.tn_at)}</span>
+                  <span className="text-xs text-[var(--ink-700)] truncate">{u.san_pham}</span>
+                  {u.khop_model && <Badge tone="teal">Khớp model</Badge>}
+                  {canWrite && (
+                    <button type="button" disabled={dangLuu} className="text-xs font-semibold text-[var(--ocean-600)] hover:underline disabled:opacity-40" onClick={() => onGan(u.id, `Đã gán ca đổi ${u.id}.`)}>
+                      Chọn ca này
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-[var(--ink-400)] italic">
+              {daXacNhanKhongCo
+                ? `Đã xác nhận không có ca mới${ganBoi ? ` (${ganBoi.nguoi} · ${fmtVn(ganBoi.at)})` : ""}.`
+                : cm?.trang_thai_gan === "khong_co_id_kh"
+                  ? "Ca gốc chưa có ID khách hàng từ pipeline - hệ thống chưa tự tìm được ca mới."
+                  : "Chưa thấy ca nào cùng ID khách hàng được mở sau khi duyệt."}
+            </div>
+          )}
+          {canWrite && (
+            <form
+              className="flex items-center gap-2 flex-wrap"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (maHopLe) onGan(ma.trim().toUpperCase(), `Đã gán ca đổi ${ma.trim().toUpperCase()}.`);
+              }}
+            >
+              <input
+                value={ma}
+                onChange={(e) => setMa(e.target.value)}
+                placeholder="Nhập mã ca đổi (vd 1357104 / SC26...)"
+                className="focus-ring flex-1 min-w-[200px] rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-sm font-mono"
+              />
+              <Btn size="sm" type="submit" disabled={!maHopLe || dangLuu} loading={dangLuu}>
+                Gán ca đổi
+              </Btn>
+              {!daXacNhanKhongCo ? (
+                <Btn size="sm" variant="ghost" type="button" disabled={dangLuu} onClick={() => onGan("", "Đã xác nhận không có ca mới.")}>
+                  Không có ca mới
+                </Btn>
+              ) : (
+                <Btn size="sm" variant="ghost" type="button" disabled={dangLuu} onClick={() => onGan(null, "Đã bỏ xác nhận - hệ thống sẽ tự tìm lại.")}>
+                  Bỏ xác nhận
+                </Btn>
+              )}
+            </form>
+          )}
         </div>
       )}
     </Card>
@@ -339,29 +454,66 @@ function DocMailModal({
   );
 }
 
-export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenCase?: (id: string) => void }) {
+/** Popup xac nhan ket thuc luong doi tra (ghi chu tuy chon, luu vao nhat ky). */
+function KetThucModal({ caseId, dangLuu, onClose, onXacNhan }: { caseId: string; dangLuu: boolean; onClose: () => void; onXacNhan: (ghiChu: string) => void }) {
+  const [ghiChu, setGhiChu] = useState("");
+  return (
+    <Modal open onClose={onClose} title="Kết thúc luồng đổi trả?" width="max-w-md">
+      <div className="space-y-3">
+        <div className="text-sm text-[var(--ink-700)]">
+          Xác nhận luồng đổi trả của ca <b className="font-mono">{caseId}</b> đã xong. Hệ thống sẽ <b>ngừng tự động cập nhật</b> (đồng bộ tranh chấp, tìm ca mới) cho ca này; mail mới vẫn được lưu. Có thể mở lại sau.
+        </div>
+        <textarea
+          value={ghiChu}
+          onChange={(e) => setGhiChu(e.target.value)}
+          rows={3}
+          placeholder="Ghi chú (tuỳ chọn) - vd: KH đã nhận máy mới"
+          className="focus-ring w-full rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-sm"
+        />
+        <div className="flex justify-end gap-2">
+          <Btn variant="ghost" onClick={onClose}>
+            Hủy
+          </Btn>
+          <Btn variant="success" loading={dangLuu} onClick={() => onXacNhan(ghiChu.trim())}>
+            Kết thúc luồng
+          </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string; khuVuc?: string | null; onOpenCase?: (id: string) => void }) {
   const { data, isLoading } = useMailTimeline(caseId);
+  const auth = useAuth();
+  const user = auth.status === "authenticated" ? auth.user : null;
+  const canWrite = !!user && canWriteTranhChap(user, khuVuc ?? null);
+  const thaoTac = useDoiTraAction(caseId);
   const [docIdx, setDocIdx] = useState<number | null>(null);
   const [moDeXuat, setMoDeXuat] = useState(false);
+  const [hoiKetThuc, setHoiKetThuc] = useState(false);
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-[var(--ink-500)]">
-        <LoadingInline /> Đang tải luồng mail…
+        <LoadingInline /> Đang tải luồng đổi trả…
       </div>
     );
   }
   if (!data || !data.configured) return <div className="text-xs text-[var(--ink-400)] italic">Chưa cấu hình kết nối hệ Theo dõi đổi máy.</div>;
-  if (!data.ok) return <div className="text-xs text-red-600 italic">Không tải được luồng mail ({data.error}).</div>;
+  if (!data.ok) return <div className="text-xs text-red-600 italic">Không tải được luồng đổi trả ({data.error}).</div>;
   if (!data.found || !data.luong) {
-    return <div className="text-sm text-[var(--ink-400)] italic">Chưa có luồng mail đổi trả nào gắn với ca này.</div>;
+    return <div className="text-sm text-[var(--ink-400)] italic">Chưa có luồng đổi trả nào gắn với ca này.</div>;
   }
 
   const l = data.luong;
   const thu = data.thu;
-  const tt = TRANG_THAI[l.trang_thai] ?? { label: l.trang_thai, tone: "gray" as const };
+  const nhatKy = data.nhat_ky ?? [];
+  const tt = TRANG_THAI_LUONG[l.trang_thai] ?? { label: l.trang_thai, tone: "gray" as const };
   const cm = data.ca_moi;
-  const moc: { label: string; at: string | null; who?: string }[] = [
+  const ganBoi = [...nhatKy].reverse().find((n) => n.hanh_dong === "gan_ca_moi" || n.hanh_dong === "khong_co_ca_moi");
+  const daKetThuc = !!l.ket_thuc_at;
+  const moc: { label: string; at: string | null | undefined; who?: string }[] = [
     { label: "Phát sinh", at: l.origin_at, who: l.origin_name || l.origin_email },
     { label: "Karofi tiếp nhận", at: l.tiep_nhan_at },
     { label: "Đề xuất đổi", at: l.de_xuat_at, who: l.de_xuat_from },
@@ -370,33 +522,64 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
     { label: "Lên SO", at: l.len_so_at },
     { label: "Lên DO", at: l.len_do_at },
   ];
-  if (l.duyet_at) {
+  if (l.duyet_at || cm?.ca_moi_id) {
     moc.push({ label: "Mở ca mới", at: cm?.ca_moi_id ? cm.ca_moi_tn_at : null, who: cm?.ca_moi_id ?? undefined });
     moc.push({
       label: "Đổi trả thành công",
       at: cm?.ca_moi_id && cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) ? cm.ca_moi_ht_at : null,
     });
   }
+  if (daKetThuc) moc.push({ label: "Kết thúc luồng", at: l.ket_thuc_at, who: l.ket_thuc_boi });
   const deXuat = Object.entries(l.de_xuat ?? {}).filter(([k, v]) => v && !AN_TRUONG_DE_XUAT.has(k));
   const deXuatChinh = TRUONG_CHINH.map((k) => [k, l.de_xuat?.[k] ?? ""] as [string, string]).filter(([, v]) => v);
+  const ganCaMoi = (caMoiId: string | null, thongBao: string) => thaoTac.mutate({ action: "ca-moi", body: { ca_moi_id: caMoiId }, thongBao });
 
   return (
     <div className="space-y-3">
       <Card className="p-3">
         <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge tone={tt.tone} solid>
-              {tt.label}
-            </Badge>
+            {daKetThuc ? (
+              <Badge tone="gray" solid>
+                Đã kết thúc luồng
+              </Badge>
+            ) : (
+              <Badge tone={tt.tone} solid>
+                {tt.label}
+              </Badge>
+            )}
             {l.loai_yeu_cau && <Badge tone="gray">{l.loai_yeu_cau}</Badge>}
             {l.serial && <span className="text-xs font-mono text-[var(--ink-500)]">{l.serial}</span>}
           </div>
-          {thu.length > 0 && (
-            <Btn variant="subtle" size="sm" onClick={() => setDocIdx(thu.length - 1)}>
-              ✉ Đọc mail ({thu.length})
-            </Btn>
-          )}
+          <div className="flex items-center gap-1.5">
+            {thu.length > 0 && (
+              <Btn variant="subtle" size="sm" onClick={() => setDocIdx(thu.length - 1)}>
+                ✉ Đọc mail ({thu.length})
+              </Btn>
+            )}
+            {canWrite &&
+              (daKetThuc ? (
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  loading={thaoTac.isPending}
+                  onClick={() => thaoTac.mutate({ action: "mo-lai", body: {}, thongBao: "Đã mở lại luồng đổi trả - hệ thống tiếp tục tự cập nhật." })}
+                >
+                  Mở lại luồng
+                </Btn>
+              ) : (
+                <Btn variant="success" size="sm" onClick={() => setHoiKetThuc(true)}>
+                  ✓ Kết thúc luồng
+                </Btn>
+              ))}
+          </div>
         </div>
+        {daKetThuc && (
+          <div className="text-xs text-[var(--ink-500)] mb-2">
+            Kết thúc bởi <b className="text-[var(--ink-700)]">{l.ket_thuc_boi}</b> · {fmtVn(l.ket_thuc_at)}
+            {l.ket_thuc_ghi_chu ? ` · ${l.ket_thuc_ghi_chu}` : ""} — hệ thống không còn tự cập nhật luồng này.
+          </div>
+        )}
         <ol className="space-y-1">
           {moc.map((m, i) => {
             const truoc = moc.slice(0, i).reverse().find((x) => x.at)?.at ?? null;
@@ -413,7 +596,9 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
         </ol>
       </Card>
 
-      {cm && <CaMoiCard cm={cm} onOpenCase={onOpenCase} />}
+      {(cm || l.duyet_at) && (
+        <CaMoiCard cm={cm} ganBoi={ganBoi} canWrite={canWrite && !daKetThuc} dangLuu={thaoTac.isPending} onGan={ganCaMoi} onOpenCase={onOpenCase} />
+      )}
 
       {deXuat.length > 0 && (
         <Card className="p-3">
@@ -451,7 +636,36 @@ export function LuongMailPanel({ caseId, onOpenCase }: { caseId: string; onOpenC
         </Card>
       )}
 
+      {nhatKy.length > 0 && (
+        <Card className="p-3">
+          <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">Nhật ký thao tác</div>
+          <ol className="space-y-1">
+            {nhatKy.map((n, i) => (
+              <li key={i} className="flex items-baseline gap-2 text-xs flex-wrap">
+                <span className="text-[var(--ink-400)] w-[78px] shrink-0 tabular-nums">{fmtNgan(n.at)}</span>
+                <span className="font-semibold text-[var(--ink-700)]">{NHAT_KY_LABEL[n.hanh_dong] ?? n.hanh_dong}</span>
+                <span className="text-[var(--ink-500)]">· {n.nguoi}</span>
+                {n.chi_tiet && <span className="text-[var(--ink-400)] truncate">· {n.chi_tiet}</span>}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+
       {docIdx !== null && thu[docIdx] && <DocMailModal thu={thu} idx={docIdx} setIdx={setDocIdx} deXuat={deXuat} onClose={() => setDocIdx(null)} />}
+      {hoiKetThuc && (
+        <KetThucModal
+          caseId={caseId}
+          dangLuu={thaoTac.isPending}
+          onClose={() => setHoiKetThuc(false)}
+          onXacNhan={(ghiChu) =>
+            thaoTac.mutate(
+              { action: "ket-thuc", body: { ghi_chu: ghiChu }, thongBao: "Đã kết thúc luồng đổi trả." },
+              { onSuccess: () => setHoiKetThuc(false) },
+            )
+          }
+        />
+      )}
     </div>
   );
 }

@@ -52,6 +52,18 @@ export interface MailLuong {
   len_so_at: string | null;
   len_do_at: string | null;
   de_xuat: Record<string, string>; // bang 22 truong trong mail de xuat (Hãng, Lý do đổi, Chính sách...)
+  ket_thuc_at: string | null; // nguoi dung xac nhan ket thuc luong doi tra (he do ngung truy van DVBH cho ca nay)
+  ket_thuc_boi: string;
+  ket_thuc_ghi_chu: string;
+}
+
+/** Nhat ky thao tac tren luong doi tra: he thong tu dong (nguoi = "Hệ thống") hoac nguoi dung DVBH. */
+export interface MailNhatKy {
+  hanh_dong: "tao_tu_mail" | "ket_thuc" | "mo_lai" | "gan_ca_moi" | "khong_co_ca_moi" | "bo_ca_moi";
+  nguoi: string;
+  nguoi_email: string;
+  chi_tiet: string;
+  at: string; // ISO UTC
 }
 
 /** Ca MOI mo de doi cho KH - he theodoidoimay noi voi ca goc CHI theo case_dvbh.id_khach_hang (sau moc duyet). */
@@ -74,27 +86,102 @@ export interface MailTimelineResult {
   luong: MailLuong | null;
   thu: MailThu[];
   ca_moi: MailCaMoi | null;
+  nhat_ky: MailNhatKy[];
 }
 
 const TIMEOUT_MS = 8000;
 
+/** Goi API doi tac cua theodoidoimay: Service Binding tren production, fetch() thang URL khi local dev. */
+async function goiTheoDoi(env: Env, path: string, init: RequestInit = {}): Promise<Response> {
+  const url = `${env.THEODOI_APP_URL}${path}`;
+  const req: RequestInit = {
+    ...init,
+    headers: { "X-API-Key": env.THEODOI_APP_API_KEY ?? "", "Content-Type": "application/json", ...(init.headers ?? {}) },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  };
+  return env.THEODOI_APP ? env.THEODOI_APP.fetch(url, req) : fetch(url, req);
+}
+
+export function theoDoiConfigured(env: Env): boolean {
+  return !!env.THEODOI_APP_URL && !!env.THEODOI_APP_API_KEY;
+}
+
+export type DoiTraAction = "ket-thuc" | "mo-lai" | "ca-moi";
+
+/**
+ * Thao tac tren luong doi tra (ket thuc / mo lai / nhap ma ca moi thu cong). DVBH da kiem tra quyen - gui kem
+ * ten + email nguoi thao tac de he theodoidoimay ghi nhat ky. Tra { ok, error, status } (khong nem loi).
+ */
+export async function postDoiTraAction(
+  env: Env,
+  action: DoiTraAction,
+  body: { case_id: string; nguoi: string; email: string; ghi_chu?: string; ca_moi_id?: string | null },
+): Promise<{ ok: boolean; error: string | null; status: number }> {
+  if (!theoDoiConfigured(env)) return { ok: false, error: "NOT_CONFIGURED", status: 503 };
+  try {
+    const res = await goiTheoDoi(env, `/api/partner/doi-tra/${action}`, { method: "POST", body: JSON.stringify(body) });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    return { ok: res.ok && !!data.ok, error: res.ok ? null : (data.error ?? `HTTP_${res.status}`), status: res.status };
+  } catch (err) {
+    console.error(`[mailTimeline] ${action} case=${body.case_id} loi:`, err);
+    return { ok: false, error: String(err).slice(0, 200), status: 502 };
+  }
+}
+
+/** 1 dong trong danh sach luong doi tra (tab "Luồng duyệt đổi trả"). */
+export interface LuongDoiTraRow {
+  case_id: string;
+  trang_thai: MailLuong["trang_thai"];
+  loai_yeu_cau: string;
+  serial: string;
+  msg_count: number;
+  origin_at: string | null;
+  last_at: string | null;
+  tiep_nhan_at: string | null;
+  de_xuat_at: string | null;
+  duyet_at: string | null;
+  giao_xu_ly_at: string | null;
+  len_so_at: string | null;
+  len_do_at: string | null;
+  ket_thuc_at: string | null;
+  ket_thuc_boi: string;
+  created_at: string;
+  ca_moi_id: string | null;
+  ca_moi_gan: MailCaMoi["trang_thai_gan"] | null;
+  ca_moi_tn_at: string | null;
+  ca_moi_ht_at: string | null;
+  ca_moi_tien_do: string | null;
+}
+
+/** Toan bo luong doi tra da gan case (vai tram dong) - noi goi tu loc theo pham vi/bo loc va phan trang. */
+export async function fetchLuongDoiTraList(env: Env): Promise<{ ok: boolean; error: string | null; rows: LuongDoiTraRow[] }> {
+  if (!theoDoiConfigured(env)) return { ok: false, error: "NOT_CONFIGURED", rows: [] };
+  try {
+    const res = await goiTheoDoi(env, "/api/partner/luong-list");
+    if (!res.ok) return { ok: false, error: `HTTP_${res.status}`, rows: [] };
+    const data = (await res.json()) as { rows?: LuongDoiTraRow[] };
+    return { ok: true, error: null, rows: Array.isArray(data.rows) ? data.rows : [] };
+  } catch (err) {
+    console.error("[mailTimeline] luong-list loi:", err);
+    return { ok: false, error: String(err).slice(0, 200), rows: [] };
+  }
+}
+
 export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailTimelineResult> {
-  const empty = { found: false, luong: null, thu: [], ca_moi: null };
+  const empty = { found: false, luong: null, thu: [], ca_moi: null, nhat_ky: [] };
   if (!env.THEODOI_APP_URL || !env.THEODOI_APP_API_KEY) {
     return { configured: false, ok: false, error: "NOT_CONFIGURED", ...empty };
   }
-  const url = `${env.THEODOI_APP_URL}/api/partner/case?id=${encodeURIComponent(caseId)}`;
-  const init: RequestInit = { headers: { "X-API-Key": env.THEODOI_APP_API_KEY }, signal: AbortSignal.timeout(TIMEOUT_MS) };
   try {
     // Service Binding tren production (fetch() thang workers.dev cung tai khoan bi loi 1042 - xem
     // lib/viPhamBenNgoai.ts); local dev khong co binding thi fetch() thang URL.
-    const res = env.THEODOI_APP ? await env.THEODOI_APP.fetch(url, init) : await fetch(url, init);
+    const res = await goiTheoDoi(env, `/api/partner/case?id=${encodeURIComponent(caseId)}`);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[mailTimeline] case=${caseId} HTTP ${res.status}: ${text.slice(0, 300)}`);
       return { configured: true, ok: false, error: `HTTP_${res.status}`, ...empty };
     }
-    const body = (await res.json()) as { found?: boolean; luong?: MailLuong | null; thu?: MailThu[]; ca_moi?: MailCaMoi | null };
+    const body = (await res.json()) as { found?: boolean; luong?: MailLuong | null; thu?: MailThu[]; ca_moi?: MailCaMoi | null; nhat_ky?: MailNhatKy[] };
     return {
       configured: true,
       ok: true,
@@ -103,6 +190,7 @@ export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailT
       luong: body.luong ?? null,
       thu: Array.isArray(body.thu) ? body.thu : [],
       ca_moi: body.ca_moi ?? null,
+      nhat_ky: Array.isArray(body.nhat_ky) ? body.nhat_ky : [],
     };
   } catch (err) {
     console.error(`[mailTimeline] case=${caseId} loi:`, err);

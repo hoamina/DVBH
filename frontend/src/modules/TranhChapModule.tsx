@@ -24,6 +24,7 @@ import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { ImportUploader } from "../components/ImportUploader";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { TRANG_THAI_LUONG, CA_MOI_GAN, fmtVn } from "../components/LuongMailPanel";
 import {
   TRANG_THAI_LABELS,
   TRANG_THAI_TONE,
@@ -73,6 +74,7 @@ const VIEWS = [
   { key: "doi-may", label: "KN đổi máy" },
   { key: "cho-xac-nhan-ai", label: "Chờ xác nhận AI" },
   { key: "theo-doi-doi-tra", label: "Theo dõi đổi trả" },
+  { key: "luong-doi-tra", label: "Luồng duyệt đổi trả" },
   { key: "tien-trinh", label: "Quản lý tiến trình" },
 ];
 
@@ -80,6 +82,27 @@ const VIEWS = [
 // - PHAI khop dung hang so DOI_MAY_PHAN_LOAI ben backend/src/routes/tranhChap.ts (Admin doi ten trong
 // Cai dat thi phai sua ca 2 noi).
 const DOI_MAY_PHAN_LOAI = "KH đòi đổi máy";
+
+// Tab "Luồng duyệt đổi trả" (v1.434): luong doi tra tu he theodoidoimay (mail de xuat -> duyet -> giao xu ly ->
+// SO/DO -> ca moi) ghep thong tin ca DVBH - GET /tranh-chap/luong-doi-tra (backend loc pham vi + phan trang).
+interface LuongDoiTraListRow {
+  id: string;
+  khach_hang: string | null;
+  khu_vuc: string | null;
+  nhom_kh: string | null;
+  loai_yeu_cau: string | null;
+  san_pham_bao_hanh: string | null;
+  trang_thai: string;
+  msg_count: number;
+  de_xuat_at: string | null;
+  duyet_at: string | null;
+  last_at: string | null;
+  ket_thuc_at: string | null;
+  ket_thuc_boi: string;
+  ca_moi_id: string | null;
+  ca_moi_gan: string | null;
+  ca_moi_tien_do: string | null;
+}
 
 // CHOT 2026-09-03: 1 bang PaginatedTable rieng cho MOI thang trong bang "Da xac nhan" cua tab "Theo
 // doi doi tra" (yeu cau nguoi dung: "hiện theo tháng và chia nhỏ bảng") - tach thanh component rieng
@@ -236,9 +259,96 @@ export function TranhChapModule({
     queryFn: () => api.get<{ unfilteredTotal: number }>(`/tranh-chap/cho-xu-ly${buildQuery({ page: 1, pageSize: 1 })}`),
   });
 
+  // Badge tab "Luồng duyệt đổi trả" = so luong dang mo trong pham vi (khong theo bo loc dang chon).
+  const { data: luongDoiTraBadge } = useQuery({
+    queryKey: ["tranh-chap-luong-doi-tra", "badge"],
+    queryFn: () => api.get<{ dangMo: number }>(`/tranh-chap/luong-doi-tra${buildQuery({ page: 1, pageSize: 1 })}`),
+    staleTime: 5 * 60 * 1000,
+  });
+  const [ldPage, setLdPage] = useState(1);
+  const [ldKhuVuc, setLdKhuVuc] = useLocalStorageState("filters:tranh-chap-ld-khu-vuc", "");
+  const [ldTinh, setLdTinh] = useLocalStorageState("filters:tranh-chap-ld-tinh", "");
+  const [ldNhomKh, setLdNhomKh] = useLocalStorageState("filters:tranh-chap-ld-nhom-kh", "");
+  const [ldTrangThai, setLdTrangThai] = useLocalStorageState("filters:tranh-chap-ld-trang-thai", "dang_mo");
+  const [ldBuoc, setLdBuoc] = useLocalStorageState("filters:tranh-chap-ld-buoc", "");
+  const [ldIdSearch, setLdIdSearch] = useState("");
+  const { data: ldData, isLoading: ldLoading, isError: ldError, refetch: refetchLd } = useQuery({
+    queryKey: ["tranh-chap-luong-doi-tra", ldPage, ldKhuVuc, ldTinh, ldNhomKh, ldTrangThai, ldBuoc, ldIdSearch],
+    queryFn: () =>
+      api.get<Paged<LuongDoiTraListRow> & { dangMo: number; error: string | null }>(
+        `/tranh-chap/luong-doi-tra${buildQuery({ page: ldPage, pageSize: 20, khu_vuc: ldKhuVuc, tinh: ldTinh, nhom_kh: ldNhomKh, trang_thai: ldTrangThai, buoc: ldBuoc, id: ldIdSearch || undefined })}`,
+      ),
+    enabled: view === "luong-doi-tra",
+  });
+  const luongDoiTraColumns: Column<LuongDoiTraListRow>[] = [
+    { key: "id", header: "ID", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
+    {
+      key: "khach_hang",
+      header: "Khách hàng",
+      render: (r) => (
+        <>
+          {isVipKh(r.nhom_kh) && <VipBadge />}
+          {r.khach_hang ?? "—"}
+        </>
+      ),
+    },
+    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
+    { key: "san_pham", header: "Sản phẩm", render: (r) => <span className="text-xs">{r.san_pham_bao_hanh ?? "—"}</span> },
+    {
+      key: "trang_thai",
+      header: "Trạng thái luồng",
+      render: (r) =>
+        r.ket_thuc_at ? (
+          <Badge tone="gray">Đã kết thúc</Badge>
+        ) : (
+          <Badge tone={TRANG_THAI_LUONG[r.trang_thai]?.tone ?? "gray"}>{TRANG_THAI_LUONG[r.trang_thai]?.label ?? r.trang_thai}</Badge>
+        ),
+    },
+    { key: "de_xuat", header: "Đề xuất", render: (r) => <span className="text-xs">{fmtVn(r.de_xuat_at)}</span> },
+    { key: "duyet", header: "Duyệt", render: (r) => <span className="text-xs">{fmtVn(r.duyet_at)}</span> },
+    {
+      key: "ca_moi",
+      header: "Ca đổi",
+      render: (r) =>
+        r.ca_moi_id ? (
+          <span className="text-xs">
+            <span className="font-mono font-semibold">{r.ca_moi_id}</span>
+            {r.ca_moi_tien_do ? <span className="text-[var(--ink-500)]"> · {r.ca_moi_tien_do}</span> : null}
+          </span>
+        ) : r.ca_moi_gan && r.ca_moi_gan !== "chua_co" ? (
+          <Badge tone={CA_MOI_GAN[r.ca_moi_gan]?.tone ?? "gray"}>{r.ca_moi_gan === "xac_nhan" ? "Không có ca mới" : (CA_MOI_GAN[r.ca_moi_gan]?.label ?? r.ca_moi_gan)}</Badge>
+        ) : (
+          <span className="text-xs text-[var(--ink-400)]">—</span>
+        ),
+    },
+    {
+      key: "last_at",
+      header: "Mail gần nhất",
+      render: (r) => (
+        <span className="text-xs">
+          {fmtVn(r.last_at)}
+          {r.msg_count ? ` (${r.msg_count} thư)` : ""}
+        </span>
+      ),
+    },
+    {
+      key: "ket_thuc",
+      header: "Kết thúc",
+      render: (r) =>
+        r.ket_thuc_at ? (
+          <span className="text-xs">
+            {fmtVn(r.ket_thuc_at)} · {r.ket_thuc_boi}
+          </span>
+        ) : (
+          <span className="text-xs text-[var(--ink-400)]">—</span>
+        ),
+    },
+  ];
+
   const viewsWithCount = VIEWS.map((v) => {
     if (v.key === "cho-xac-nhan-ai") return { ...v, count: choXacNhanAiCountData?.count };
     if (v.key === "theo-doi-doi-tra") return { ...v, count: theoDoiDoiTraCountData?.count };
+    if (v.key === "luong-doi-tra") return { ...v, count: luongDoiTraBadge?.dangMo };
     if (v.key === "doi-may") return { ...v, count: dmStats?.dangMo };
     if (v.key === "cho-xu-ly") return { ...v, count: choXuLyBadge?.unfilteredTotal };
     return v;
@@ -1493,6 +1603,55 @@ export function TranhChapModule({
               <DaXacNhanDoiTraMonthTable key={thang} thang={thang} khuVuc={ddKhuVuc} tinh={ddTinh} nhomKh={ddNhomKh} idSearch={ddIdSearch} openCase={openCase} />
             ))
           )}
+        </div>
+      ) : view === "luong-doi-tra" ? (
+        <div className="mt-4">
+          <div className="text-sm text-[var(--ink-600)] mb-4">
+            Các ca có <b>luồng mail đổi trả</b> (CC <span className="font-mono">theodoidoimay@gmail.com</span>): Phát sinh → Karofi tiếp nhận → Đề xuất đổi → Duyệt → Giao xử lý → SO/DO → Mở ca đổi → Đổi trả thành công. Bấm 1 dòng để mở ca ở tab <b>"Đổi trả"</b> (kết thúc luồng, gán ca đổi thủ công).
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <KhuVucFilterControl value={ldKhuVuc} onChange={(v) => { setLdKhuVuc(v); setLdPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
+            <MultiSelectFilter label="Tỉnh" value={ldTinh} onChange={(v) => { setLdTinh(v); setLdPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label="Nhóm KH" value={ldNhomKh} onChange={(v) => { setLdNhomKh(v); setLdPage(1); }} options={nhomKhSelectOptions} />
+            <Select
+              value={ldTrangThai}
+              onChange={(v) => { setLdTrangThai(v); setLdPage(1); }}
+              options={[
+                { value: "dang_mo", label: "Đang mở" },
+                { value: "ket_thuc", label: "Đã kết thúc" },
+                { value: "", label: "Tất cả" },
+              ]}
+            />
+            <Select
+              value={ldBuoc}
+              onChange={(v) => { setLdBuoc(v); setLdPage(1); }}
+              options={[{ value: "", label: "Tất cả bước" }, ...Object.entries(TRANG_THAI_LUONG).map(([value, x]) => ({ value, label: x.label }))]}
+            />
+            <IdSerialSearchInput
+              value={ldIdSearch}
+              onChange={(v) => {
+                setLdIdSearch(v);
+                setLdPage(1);
+              }}
+            />
+          </div>
+          {ldData?.error && <div className="text-xs text-red-600 italic mb-2">Không tải được dữ liệu từ hệ Theo dõi đổi máy ({ldData.error}).</div>}
+          <PaginatedTable
+            columns={luongDoiTraColumns}
+            rows={ldData?.rows ?? []}
+            isLoading={ldLoading}
+            isError={ldError}
+            onRetry={refetchLd}
+            page={ldPage}
+            pageSize={20}
+            total={ldData?.total ?? 0}
+            onPageChange={setLdPage}
+            onRowClick={(r) => openCase(r.id, "luong-mail")}
+            rowKey={(r) => r.id}
+            rowClassName={(r) => vipRowClassName(r.nhom_kh)}
+            emptyText="Không có luồng đổi trả nào."
+            storageKey="tranh-chap-luong-doi-tra"
+          />
         </div>
       ) : (
         <div className="mt-4">

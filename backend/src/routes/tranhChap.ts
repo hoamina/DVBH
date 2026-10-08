@@ -12,6 +12,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { AGE_ANCHOR } from "../lib/ageCalc";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { csvTemplateResponse } from "../lib/csvTemplate";
+import { fetchLuongDoiTraList, type LuongDoiTraRow } from "../lib/mailTimeline";
 import {
   ALL_TRANG_THAI_LOG,
   GIAM_SAT_STATUSES,
@@ -497,6 +498,57 @@ tranhChap.get("/theo-doi-doi-tra/cho-danh-gia/count", async (c) => {
   const key = buildReportKey("tranh-chap/theo-doi-doi-tra/cho-danh-gia/count", {}, scope);
   const count = await cachedReport(c.env.DB, key, ["cases", "tranh_chap"], () => computeTheoDoiDoiTraChoDanhGiaCount(c.env.DB, scope));
   return c.json({ count });
+});
+
+// GET /api/tranh-chap/luong-doi-tra?trang_thai=dang_mo|ket_thuc|(rong=tat ca)&buoc=&khu_vuc=&tinh=&nhom_kh=&id=&page=&pageSize=
+// Tab "Luồng duyệt đổi trả": luong doi tra (mail de xuat -> duyet -> giao xu ly -> SO/DO -> ca moi) lay tu he
+// theodoidoimay (lib/mailTimeline.ts, vai tram dong, goi moi lan - khong cache vi du lieu nam o he kia), ghep thong
+// tin ca tu case_dvbh theo CUNG pham vi khu vuc + bo loc nhu cac tab khac, loc/phan trang trong bo nho.
+// "dangMo" = so luong dang mo trong pham vi (khong ap bo loc trang thai) - dung cho badge tab.
+tranhChap.get("/luong-doi-tra", async (c) => {
+  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const list = await fetchLuongDoiTraList(c.env);
+  if (!list.ok) return c.json({ rows: [], page, pageSize, total: 0, dangMo: 0, error: list.error });
+
+  const scope = scopeTranhChap(c);
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
+  const idFilter = (c.req.query("id") ?? "").trim();
+  const idClauseSql = idFilter ? " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)" : "";
+  const ids = list.rows.map((r) => r.case_id);
+  const { results } = await c.env.DB.prepare(
+    `SELECT CAST(c.id AS TEXT) AS id, c.khach_hang, c.khu_vuc, c.tinh, c.nhom_kh, c.loai_yeu_cau, c.san_pham_bao_hanh,
+            c.seri_san_pham, c.ky_thuat_vien, c.tien_do_hoan_thanh
+     FROM case_dvbh c
+     WHERE c.id IN (SELECT value FROM json_each(?))${scopeClauseBase.sql}${exclusion.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${idClauseSql}`,
+  )
+    .bind(
+      JSON.stringify([...ids, ...ids.map((x) => x.toLowerCase())]),
+      ...scopeClauseBase.binds,
+      ...exclusion.binds,
+      ...khuVucClause.binds,
+      ...tinhClause.binds,
+      ...nhomKhClause.binds,
+      ...(idFilter ? [`%${idFilter}%`, `%${idFilter}%`] : []),
+    )
+    .all<Record<string, unknown> & { id: string }>();
+  const caseMap = new Map(results.map((r) => [r.id.toUpperCase(), r]));
+
+  const trongPhamVi = list.rows.filter((r) => caseMap.has(r.case_id.toUpperCase()));
+  const trangThai = c.req.query("trang_thai") ?? "dang_mo";
+  const buoc = c.req.query("buoc") ?? "";
+  const loc = trongPhamVi.filter(
+    (r: LuongDoiTraRow) =>
+      (trangThai === "dang_mo" ? !r.ket_thuc_at : trangThai === "ket_thuc" ? !!r.ket_thuc_at : true) && (!buoc || r.trang_thai === buoc),
+  );
+  // Dang mo truoc, roi hoat dong gan nhat truoc.
+  loc.sort((a, b) => Number(!!a.ket_thuc_at) - Number(!!b.ket_thuc_at) || (b.last_at ?? b.created_at).localeCompare(a.last_at ?? a.created_at));
+  const rows = loc.slice((page - 1) * pageSize, page * pageSize).map((r) => ({ ...caseMap.get(r.case_id.toUpperCase()), ...r, id: r.case_id }));
+  return c.json({ rows, page, pageSize, total: loc.length, dangMo: trongPhamVi.filter((r) => !r.ket_thuc_at).length, error: null });
 });
 
 // POST /api/tranh-chap/:caseId/xac-nhan-doi-tra - xac nhan/bo qua 1 ca khop dieu kien tu dong

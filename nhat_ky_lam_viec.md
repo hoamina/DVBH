@@ -4279,3 +4279,20 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   Chính sách; bấm "Xem đủ") → **Nhật ký mail** 1 dòng/thư (giờ · người gửi · nhãn · tóm tắt). Bấm 1 thư hoặc nút "Đọc mail"
   → popup **Mail đổi trả** chung: danh sách thư bên trái + nội dung bên phải (Đến/CC, bảng đề xuất hiện đúng dạng bảng thay
   cho dòng ghi chú, đính kèm, Xem nguyên văn, mở Gmail), nút Thư trước/Thư sau. Không thêm migration.
+
+## 2026-10-08 — Đổi trả: kết thúc luồng, gán ca đổi thủ công, tab "Luồng duyệt đổi trả", vào Tiến trình chung (v1.434)
+
+- Hệ theodoidoimay (migration 0007): `luong.ket_thuc_at/boi/ghi_chu` + bảng `nhat_ky` (ai làm gì: "Hệ thống" khi tự động
+  thêm luồng từ mail / tự gán ca mới; tên người dùng DVBH khi thao tác). Luồng đã kết thúc **không còn truy vấn DVBH**
+  (đồng bộ 3h, tìm ca mới, gắn lại ban đêm); mail mới vẫn lưu. API đối tác mới: `POST /api/partner/doi-tra/{ket-thuc|mo-lai|ca-moi}`,
+  `GET /api/partner/luong-list`; `/api/partner/case` trả thêm `ket_thuc_*` + `nhat_ky`.
+- DVBH backend: `POST /api/cases/:id/doi-tra/:action` (quyền = `canWriteTranhChap` + phạm vi khu vực, gửi kèm tên/email người
+  thao tác); `GET /api/tranh-chap/luong-doi-tra` (lấy danh sách từ hệ kia, ghép `case_dvbh` cùng phạm vi/bộ lọc như các tab
+  khác, lọc Đang mở/Đã kết thúc/bước, phân trang; `dangMo` cho badge).
+- Tab "Đổi trả" (chi tiết ca): nút **✓ Kết thúc luồng** (popup ghi chú) / **Mở lại luồng**; thẻ "Ca mới đổi cho KH" có ô
+  **nhập mã ca đổi** khi hệ thống không tự tìm được, "Chọn ca này" cho ứng viên, "Không có ca mới", "Bỏ gán"; hiện người gán;
+  thẻ **Nhật ký thao tác**.
+- Tranh chấp, KN: tab mới **"Luồng duyệt đổi trả"** (ID, KH, khu vực, sản phẩm, trạng thái luồng, đề xuất, duyệt, ca đổi,
+  mail gần nhất, kết thúc bởi) - bấm dòng mở ca ở tab "Đổi trả".
+- Tiến trình chung: thêm nhóm mốc **"Đổi trả: …"** (phát sinh mail, tiếp nhận, đề xuất, duyệt, giao xử lý, SO, DO, mở ca mới,
+  thành công + nhật ký thao tác), nhảy về tab "Đổi trả".

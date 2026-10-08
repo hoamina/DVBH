@@ -34,9 +34,9 @@ import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey } from "../lib/dailySnapshot";
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
-import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG } from "../lib/tranhChapTienTrinh";
+import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, canWriteTranhChap } from "../lib/tranhChapTienTrinh";
 import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
-import { fetchMailTimeline } from "../lib/mailTimeline";
+import { fetchMailTimeline, postDoiTraAction, type DoiTraAction } from "../lib/mailTimeline";
 import { getTonKtvMonth } from "../lib/tonKtvSnapshot";
 
 const cases = new Hono<{ Bindings: Env }>();
@@ -1143,6 +1143,31 @@ cases.get("/:id/mail-timeline", async (c) => {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
   return c.json(await fetchMailTimeline(c.env, id));
+});
+
+// Thao tac tren luong doi tra (he theodoidoimay): ket thuc / mo lai luong, nhap ma ca moi (ca doi may cho KH)
+// thu cong khi he thong khong tu tim duoc. Cung quyen GHI tranh chap (canWriteTranhChap). He do ghi nhat ky
+// ten + email nguoi thao tac; luong da ket thuc thi he do ngung truy van DVBH cho ca nay.
+cases.post("/:id/doi-tra/:action", async (c) => {
+  const id = c.req.param("id");
+  const action = c.req.param("action") as DoiTraAction;
+  if (!["ket-thuc", "mo-lai", "ca-moi"].includes(action)) return c.json({ error: "INVALID_ACTION" }, 400);
+  const caseRow = await c.env.DB.prepare("SELECT khu_vuc FROM case_dvbh WHERE id = ?").bind(id).first<{ khu_vuc: string | null }>();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  if (!canWriteTranhChap(c, caseRow.khu_vuc)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const body = await c.req.json<{ ghi_chu?: string; ca_moi_id?: string | null }>().catch(() => ({}) as { ghi_chu?: string; ca_moi_id?: string | null });
+  const user = c.get("user");
+  const kq = await postDoiTraAction(c.env, action, {
+    case_id: id,
+    nguoi: user.ten || user.email,
+    email: user.email,
+    ghi_chu: String(body.ghi_chu ?? "").slice(0, 500),
+    ...(action === "ca-moi" ? { ca_moi_id: body.ca_moi_id === undefined ? null : body.ca_moi_id } : {}),
+  });
+  if (!kq.ok) return c.json({ error: kq.error }, kq.status >= 400 && kq.status < 600 ? (kq.status as 400) : 502);
+  return c.json({ ok: true });
 });
 
 cases.get("/:id", async (c) => {
