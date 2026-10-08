@@ -4239,3 +4239,9 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   `linh_kien_loi` + `donBaoHanhOdoo` từ `GET /cases/:id` của ca đó, đơn BH AppSheet khớp theo mã ca đối chiếu.
 - Refactor: `baoHanhContent` → `renderBaoHanh(parts, orders, matched)` dùng chung; khối `compareContent` dời xuống sau
   khi `renderBaoHanh`/`purchaseSyncBanner` đã khởi tạo (tránh TDZ).
+
+## 2026-10-08 — Kiểu xem 2/3: ẩn tiêu đề trung gian (v1.430)
+
+- Yêu cầu "ẩn các tiêu đề trung gian khi gộp tab": bỏ các dòng "Cơ bản / Xử lý / Bổ sung / Linh kiện lỗi / Gửi bảo hành"
+  khi gộp (Kiểu 2 tab "Nội dung", Kiểu 3 "Thông tin case") — các phần chỉ còn ngăn bằng đường kẻ. Tiêu đề con bên trong
+  phần Bổ sung (Hình ảnh / Doanh thu / Phân loại) giữ nguyên. Áp dụng cả ca gốc lẫn cột đối chiếu.

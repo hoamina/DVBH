@@ -329,15 +329,15 @@ function renderCaseFieldsGrid(
         <div className="border-t border-[var(--line)] pt-4">{phanLoaiSection}</div>
       </div>
     );
-    // Kieu 2/3 xep doc nhieu phan: moi phan co tieu de + data-sec (jumpToTab cuon toi dung phan).
-    const sec = (key: string, title: string, node: ReactNode) => (
+    // Kieu 2/3 xep doc nhieu phan, ngan bang duong ke - KHONG hien tieu de trung gian (chot 2026-10-08); data-sec de
+    // jumpToTab cuon toi dung phan.
+    const sec = (key: string, node: ReactNode) => (
       <div key={key} data-sec={key} className="scroll-mt-4">
-        <div className="font-display font-bold text-sm mb-3 text-[var(--ocean-600)]">{title}</div>
         {node}
       </div>
     );
     const stack = (parts: ReactNode[]) => <div className="space-y-4 [&>*+*]:border-t [&>*+*]:border-[var(--line)] [&>*+*]:pt-4">{parts}</div>;
-    const noiDung = [sec("co-ban", "Cơ bản", coBanGrid), sec("xu-ly", "Xử lý", xuLyGrid), sec("bo-sung", "Bổ sung", boSung)];
+    const noiDung = [sec("co-ban", coBanGrid), sec("xu-ly", xuLyGrid), sec("bo-sung", boSung)];
     return (
       <>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">{topFields}</div>
@@ -370,8 +370,8 @@ function renderCaseFieldsGrid(
             {active === "tat-ca" &&
               stack([
                 ...noiDung,
-                sec("loi-linh-kien", `Linh kiện lỗi${xuLyTabs.countLoi ? ` (${xuLyTabs.countLoi})` : ""}`, xuLyTabs.panels["loi-linh-kien"]),
-                sec("bao-hanh", `Gửi bảo hành${xuLyTabs.countBaoHanh ? ` (${xuLyTabs.countBaoHanh})` : ""}`, xuLyTabs.panels["bao-hanh"]),
+                sec("loi-linh-kien", xuLyTabs.panels["loi-linh-kien"]),
+                sec("bao-hanh", xuLyTabs.panels["bao-hanh"]),
               ])}
             {(active === "loi-linh-kien" || active === "bao-hanh") && xuLyTabs.panels[active]}
           </Card>
