@@ -5,7 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { hasModule } from "../lib/moduleAccess";
 import { cachedReport } from "../lib/reportCache";
 import { bumpVersions } from "../lib/dataVersions";
-import { getTonKhoLkMeta, syncTonKhoLk } from "../lib/tonKhoLk";
+import { getTonKhoLkMeta, syncTonKhoLk, callLinhKienPartner } from "../lib/tonKhoLk";
 import { nowVN } from "../lib/vnTime";
 
 // /api/ton-kho-lk - ton kho linh kien keo tu linh-kien-app (2026-10-08, xem lib/tonKhoLk.ts). Dung trong module
@@ -94,6 +94,30 @@ tonKhoLk.put("/kho/:ma", async (c) => {
   }
   await bumpVersions(c.env.DB, ["ton_kho"]);
   return c.json({ ok: true });
+});
+
+// GET /ma/:ma - ton cua 1 ma hang o TUNG kho (kho cong ty + kho KTV) kem nhom MB/MN - "Ho so linh kien" (GD2).
+// idx_ton_kho_lk_ma_hang -> chi doc dung so dong cua ma do.
+tonKhoLk.get("/ma/:ma", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT t.nguon, t.ma_kho, t.ten_kho, t.ma_ktv, t.ten_ktv, t.khu_vuc_ma, t.ten_hang, t.dvt, t.cuoi_ky, n.nhom
+     FROM ton_kho_lk t LEFT JOIN ton_kho_nhom_kho n ON n.ma_kho = t.ma_kho
+     WHERE t.ma_hang = ? ORDER BY t.cuoi_ky DESC`,
+  )
+    .bind(c.req.param("ma"))
+    .all();
+  return c.json({ rows: results });
+});
+
+// GET /ma/:ma/lich-su - don dat hang gan nhat + ticket thieu hang cua 1 ma ben linh-kien-app (goi THEO YEU CAU luc mo
+// Ho so linh kien, khong luu D1 - cung chot voi lib/linhKienTimeline.ts). Loi -> 502 de UI hien "khong tai duoc".
+tonKhoLk.get("/ma/:ma/lich-su", async (c) => {
+  try {
+    const data = await callLinhKienPartner(c.env, `/v1/linh-kien/lich-su?ma=${encodeURIComponent(c.req.param("ma"))}&limit=50`);
+    return c.json(data);
+  } catch (err) {
+    return c.json({ error: "LINHKIEN_APP_ERROR", message: err instanceof Error ? err.message : String(err) }, 502);
+  }
 });
 
 export default tonKhoLk;

@@ -90,7 +90,10 @@ missingParts.get("/", async (c) => {
   // "SL KH VIP" quick-filter (MissingPartsModule) - cung quy uoc "c.nhom_kh LIKE '%VIP%'" nhu
   // vipHighlight.tsx/canhBaoTon.ts, gom ca "VIP" lan "S.VIP" trong 1 dieu kien.
   const vipClause: { sql: string; binds: unknown[] } = c.req.query("nhom_kh_group") === "vip" ? { sql: " AND c.nhom_kh LIKE '%VIP%'", binds: [] } : { sql: "", binds: [] };
-  const extraFilter = ageClause.sql + khuVucClause.sql + dimClause.sql + idClause.sql + modelClause.sql + doiTacClause.sql + modelGroupClause.sql + vipClause.sql;
+  // "ma_lk" (2026-10-08, "Ho so linh kien"): chi ca dang bao thieu DUNG ma linh kien nay (giai trinh gan nhat).
+  const maLk = (c.req.query("ma_lk") ?? "").trim();
+  const maLkClause: { sql: string; binds: unknown[] } = maLk ? { sql: " AND lg.linh_kien_thieu = ?", binds: [maLk] } : { sql: "", binds: [] };
+  const extraFilter = ageClause.sql + khuVucClause.sql + dimClause.sql + idClause.sql + modelClause.sql + doiTacClause.sql + modelGroupClause.sql + vipClause.sql + maLkClause.sql;
   const extraBinds = [
     ...ageClause.binds,
     ...khuVucClause.binds,
@@ -100,6 +103,7 @@ missingParts.get("/", async (c) => {
     ...doiTacClause.binds,
     ...modelGroupClause.binds,
     ...vipClause.binds,
+    ...maLkClause.binds,
   ];
 
   // CHOT 2026-09-04: gop COUNT + SELECT lam 1 lan quet (COUNT(*) OVER()) thay vi 2 truy van rieng

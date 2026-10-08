@@ -53,7 +53,7 @@ export type SyncTonKhoResult =
   | { ok: true; changed: true; phien_ban: string; so_dong: number }
   | { ok: false; error: string };
 
-async function callPartner<T>(env: Env, path: string): Promise<T> {
+export async function callLinhKienPartner<T>(env: Env, path: string): Promise<T> {
   if (!env.LINHKIEN_APP_URL || !env.LINHKIEN_APP_API_KEY) throw new Error("CHUA_CAU_HINH_LINHKIEN_APP");
   const url = `${env.LINHKIEN_APP_URL}/api/partner${path}`;
   const init: RequestInit = { headers: { "X-API-Key": env.LINHKIEN_APP_API_KEY }, signal: AbortSignal.timeout(TIMEOUT_MS) };
@@ -78,7 +78,7 @@ async function keoNguon(env: Env, nguon: "kho" | "ktv", phienBan: string): Promi
   const rows: RemoteRow[] = [];
   let afterId = 0;
   for (;;) {
-    const page = await callPartner<{ phien_ban: string | null; rows: RemoteRow[]; next_after_id: number | null }>(
+    const page = await callLinhKienPartner<{ phien_ban: string | null; rows: RemoteRow[]; next_after_id: number | null }>(
       env,
       `/v1/ton-kho?nguon=${nguon}&after_id=${afterId}&limit=${PAGE_LIMIT}`,
     );
@@ -95,7 +95,7 @@ async function keoNguon(env: Env, nguon: "kho" | "ktv", phienBan: string): Promi
 export async function syncTonKhoLk(env: Env, opts: { force?: boolean; actor: string }): Promise<SyncTonKhoResult> {
   const db = env.DB;
   try {
-    const remote = await callPartner<RemoteMeta>(env, "/v1/ton-kho/meta");
+    const remote = await callLinhKienPartner<RemoteMeta>(env, "/v1/ton-kho/meta");
     const local = await getTonKhoLkMeta(db);
     if (!remote.phien_ban) {
       await ghiKiemTra(db, null);

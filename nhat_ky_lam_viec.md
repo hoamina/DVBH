@@ -4166,3 +4166,16 @@ báo cáo hành động).
   trạng thái phiên bản tồn kho; tab mới **"Cấu hình kho"** (gán từng mã kho MB/MN/Không tính, tóm tắt công thức
   "Tồn kho MB = 6804-MB + …").
 - Số liệu thật lúc làm: ~8.700 dòng (1.596 kho công ty / 21 mã kho; 7.107 tồn KTV, trong đó 252 mã kho chưa khớp KTV).
+
+## 2026-10-08 — Tồn kho linh kiện GĐ2: "Hồ sơ linh kiện" (v1.422; linh-kien-app v1.305)
+
+Bấm 1 mã ở tab "Linh kiện thiếu" → popup **Hồ sơ linh kiện** (`components/HoSoLinhKien.tsx`, thay modal PO cũ — phần
+PO/mua hàng/bảo hành Google Sheet giữ nguyên ở cuối): các con số tổng (Tồn MB/MN, KTV giữ, số ca thiếu, ticket thiếu hàng
+mở) + **dòng nhận định nhanh** (kho có hàng → điều chuyển / KTV cùng khu vực đang giữ / chỉ KTV nơi khác / hết toàn hệ
+thống → cần PO); bảng ca đang báo thiếu mã đó (bấm mở ca); tồn từng kho công ty (MB/MN/không tính); KTV đang giữ hàng
+(ưu tiên KTV cùng khu vực với ca thiếu, đánh dấu mã kho chưa khớp KTV); ticket thiếu hàng (trạng thái kho xử lý, dự kiến
+/ thực tế hàng về); 50 đơn đặt hàng gần nhất (loại, trạng thái, SL, người nhận, ca).
+- DVBH API: `GET /api/ton-kho-lk/ma/:ma` (index seek), `GET /api/ton-kho-lk/ma/:ma/lich-su` (proxy linh-kien-app, gọi lúc
+  mở, không lưu), `GET /api/missing-parts?ma_lk=` (lọc ca theo mã LK của giải trình gần nhất).
+- linh-kien-app v1.305: `GET /api/partner/v1/linh-kien/lich-su?ma=` + index `idx_ddh_ma_lk` (migration 0072 bên đó;
+  trước đó tra theo mã quét ~1.450 dòng/lần).

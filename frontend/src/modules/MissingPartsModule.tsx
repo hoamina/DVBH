@@ -28,6 +28,7 @@ import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { useToast } from "../components/ui/Toast";
 import { TonKhoSyncBar, TonKhoCauHinhTab, useTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
+import { HoSoLinhKien } from "../components/HoSoLinhKien";
 
 // Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
 // theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
@@ -260,7 +261,7 @@ function TonKhoCell({ value, loaded }: { value: number | undefined; loaded: bool
 // 2026-08-16 (sau khi hoi lai chu he thong): khong tach "ngay ve kho HN/kho HCM" rieng vi du lieu that
 // chua xac nhan duoc co tach theo kho hay khong - dung dung 2 truong san co "Kho can dat hang" +
 // "Ngay ve gan nhat toan quoc".
-function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoading: boolean }) {
+function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRow[]; isLoading: boolean; openCase: (id: string, tab?: string) => void }) {
   const { poDatHang, muaHang, baoHanh, isSyncing, poSyncedAt, poError, refreshAll } = usePurchaseWarrantyData();
   const addToast = useToast();
   const [detailMa, setDetailMa] = useState<string | null>(null);
@@ -309,7 +310,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
         <div>
           <div className="font-display font-bold text-sm">Danh sách linh kiện đang thiếu</div>
           <div className="text-xs text-[var(--ink-400)] mt-0.5">
-            Đối chiếu với dữ liệu PO đặt hàng từ Google Sheet. Bấm vào 1 dòng để xem chi tiết PO / đơn mua hàng / bảo hành liên quan tới mã đó.
+            Bấm vào 1 dòng để mở Hồ sơ linh kiện: tồn từng kho / KTV đang giữ, ca đang thiếu, ticket thiếu hàng, lịch sử đặt hàng, PO.
           </div>
           <div className="mt-1">
             <TonKhoSyncBar />
@@ -388,7 +389,14 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
       </div>
 
       {detail && (
-        <Modal open title={`${detail.ma_lk} — ${detail.ten_lk ?? "Không rõ tên (mã ngoài danh mục)"}`} onClose={() => setDetailMa(null)} width="max-w-4xl">
+        <Modal open title={`Hồ sơ linh kiện ${detail.ma_lk} — ${detail.ten_lk ?? "Không rõ tên (mã ngoài danh mục)"}`} onClose={() => setDetailMa(null)} width="max-w-6xl">
+          <HoSoLinhKien
+            maLk={detail.ma_lk}
+            openCase={(id, tab) => {
+              setDetailMa(null);
+              openCase(id, tab);
+            }}
+            sheetSection={
           <div className="space-y-4">
             <div>
               <div className="font-semibold text-xs uppercase tracking-wide text-[var(--indigo-600)] mb-1.5">PO đặt hàng liên quan ({detail.po.length})</div>
@@ -403,6 +411,8 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
               <SheetRowsTable rows={detailBaoHanh} columns={BAO_HANH_COLS} />
             </div>
           </div>
+            }
+          />
         </Modal>
       )}
     </Card>
@@ -770,7 +780,7 @@ export function MissingPartsModule({
       {view === "cau-hinh-kho" ? (
         <TonKhoCauHinhTab />
       ) : view === "linh-kien-thieu" ? (
-        <LinhKienThieuTab rows={linhKienThieuQuery.data?.rows ?? []} isLoading={linhKienThieuQuery.isLoading} />
+        <LinhKienThieuTab rows={linhKienThieuQuery.data?.rows ?? []} isLoading={linhKienThieuQuery.isLoading} openCase={openCase} />
       ) : view === "bao-cao" ? (
         <Card className="p-3 mt-3">
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
