@@ -4224,3 +4224,9 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   - Kiểu 3: 1 tab "Thông tin case" xếp dọc tất cả 5 phần.
 - Đổi kiểu khi đang ở tab không còn tồn tại → tự quy về tab tương ứng (vd "Xử lý" → "Nội dung"). `jumpToTab` từ Tiến
   trình chung: Kiểu 3 cuộn tới đúng phần (`data-sec`), Kiểu 1/2 mở tab + cuộn tới đầu thẻ.
+
+## 2026-10-08 — Cột "Ca đối chiếu" (ca lặp): thêm ticker trạng thái + Link CRM (v1.428)
+
+- Yêu cầu: "trong màn hình đối chiếu ca lặp, bổ sung trạng thái tiêu đề và link truy cập". Dòng tiêu đề cột đối chiếu
+  giờ hiện các ticker giống tiêu đề ca gốc (`computeCaseTickers` trên dữ liệu `GET /cases/:id` của ca đối chiếu — Vi
+  phạm chờ QC, Tồn chưa giải trình, Ca lặp…) + nút "🔗 Link CRM" khi ca có `link_crm`. Không gọi thêm API nào.

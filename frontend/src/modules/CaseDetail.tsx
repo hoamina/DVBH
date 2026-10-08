@@ -1463,8 +1463,24 @@ export function CaseDetail({
   // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
   const compareContent = compareId && (
     <>
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">Ca đối chiếu: {compareId}</div>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        {/* Ticker trang thai + Link CRM nhu tieu de ca goc (2026-10-08) - cung du lieu GET /cases/:id. */}
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">Ca đối chiếu: {compareId}</div>
+          {compareC &&
+            computeCaseTickers(compareC, compareData?.giaiTrinh ?? [], compareData?.viPham ?? [], activeLyDo, compareData?.caLap).map((t, i) => (
+              <Badge key={i} tone={t.tone}>
+                {t.label}
+              </Badge>
+            ))}
+          {compareC?.link_crm && (
+            <a href={compareC.link_crm} target="_blank" rel="noreferrer">
+              <Btn size="sm" variant="subtle" type="button">
+                🔗 Link CRM
+              </Btn>
+            </a>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setCompareId(null)}
