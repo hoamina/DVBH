@@ -4230,3 +4230,12 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - Yêu cầu: "trong màn hình đối chiếu ca lặp, bổ sung trạng thái tiêu đề và link truy cập". Dòng tiêu đề cột đối chiếu
   giờ hiện các ticker giống tiêu đề ca gốc (`computeCaseTickers` trên dữ liệu `GET /cases/:id` của ca đối chiếu — Vi
   phạm chờ QC, Tồn chưa giải trình, Ca lặp…) + nút "🔗 Link CRM" khi ca có `link_crm`. Không gọi thêm API nào.
+
+## 2026-10-08 — Cột "Ca đối chiếu" dùng chung thẻ chia tab + Kiểu xem (v1.429)
+
+- Yêu cầu: "giao diện của ca đối chiếu cũng thay đổi tương tự (chia tab + 3 lựa chọn)". Cột đối chiếu truyền `xuLyTabs`
+  vào `renderCaseFieldsGrid` như ca gốc: cùng 3 Kiểu (chung 1 lựa chọn `dvbh_case_info_layout` — đổi ở cột nào cũng áp
+  dụng cả 2), tab đang mở riêng (`compareXuLyTab`). Tab "Lỗi"/"Gửi BH" dùng dữ liệu của CHÍNH ca đối chiếu:
+  `linh_kien_loi` + `donBaoHanhOdoo` từ `GET /cases/:id` của ca đó, đơn BH AppSheet khớp theo mã ca đối chiếu.
+- Refactor: `baoHanhContent` → `renderBaoHanh(parts, orders, matched)` dùng chung; khối `compareContent` dời xuống sau
+  khi `renderBaoHanh`/`purchaseSyncBanner` đã khởi tạo (tránh TDZ).

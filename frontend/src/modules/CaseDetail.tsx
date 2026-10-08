@@ -519,6 +519,9 @@ export function CaseDetail({
   const [compareId, setCompareId] = useState<string | null>(null);
   // Tab con trong the thong tin ca (co-ban / xu-ly / bo-sung / loi-linh-kien / bao-hanh) - xem renderCaseFieldsGrid.
   const [xuLyTab, setXuLyTab] = useState("co-ban");
+  // Cot ca doi chieu dung cung the tab + Kieu xem (chung lua chon Kieu voi ca goc), tab dang mo rieng.
+  const [compareXuLyTab, setCompareXuLyTab] = useState("co-ban");
+  const compareCardRef = useRef<HTMLDivElement>(null);
   const [caseInfoLayout, setCaseInfoLayout] = useState<CaseInfoLayout>(readCaseInfoLayout);
   function changeCaseInfoLayout(l: CaseInfoLayout) {
     setCaseInfoLayout(l);
@@ -906,6 +909,9 @@ export function CaseDetail({
     usePurchaseWarrantyData();
   const muaHangMatched = useMemo(() => (c ? matchMuaHang(c.id, giaiTrinhList, muaHang) : []), [c, giaiTrinhList, muaHang]);
   const baoHanhMatched = useMemo(() => (c ? matchBaoHanh(c.id, baoHanh) : []), [c, baoHanh]);
+  const compareBaoHanhMatched = useMemo(() => (compareC ? matchBaoHanh(compareC.id, baoHanh) : []), [compareC, baoHanh]);
+  const compareLoiList = useMemo(() => parseLinhKienLoi(compareC?.linh_kien_loi), [compareC]);
+  const compareOrders = useMemo(() => compareData?.donBaoHanhOdoo ?? [], [compareData]);
   const thieuHangMatched = useMemo(() => matchThieuHang(muaHangMatched, baoHanhMatched, thieuHang), [muaHangMatched, baoHanhMatched, thieuHang]);
   const qcThucTeMatched = useMemo(() => (c ? matchQcThucTe(c.id, qcThucTe) : []), [c, qcThucTe]);
   // Sap moi tao len tren - xem parseSheetDateTime() ve ly do khong dung localeCompare truc tiep tren
@@ -1459,54 +1465,6 @@ export function CaseDetail({
   });
 
   if (!caseId) return null;
-
-  // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
-  const compareContent = compareId && (
-    <>
-      <div className="flex items-start justify-between gap-2 mb-3">
-        {/* Ticker trang thai + Link CRM nhu tieu de ca goc (2026-10-08) - cung du lieu GET /cases/:id. */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">Ca đối chiếu: {compareId}</div>
-          {compareC &&
-            computeCaseTickers(compareC, compareData?.giaiTrinh ?? [], compareData?.viPham ?? [], activeLyDo, compareData?.caLap).map((t, i) => (
-              <Badge key={i} tone={t.tone}>
-                {t.label}
-              </Badge>
-            ))}
-          {compareC?.link_crm && (
-            <a href={compareC.link_crm} target="_blank" rel="noreferrer">
-              <Btn size="sm" variant="subtle" type="button">
-                🔗 Link CRM
-              </Btn>
-            </a>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setCompareId(null)}
-          className="focus-ring w-6 h-6 rounded hover:bg-slate-100 text-[var(--ink-400)] text-xs shrink-0"
-        >
-          ✕
-        </button>
-      </div>
-      {!compareC && <LoadingInline />}
-      {compareC && (
-        <>
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            {caseStatusBadge(compareC)}
-            {mucDoBadge(compareC.muc_do)}
-          </div>
-          {renderCaseFieldsGrid(
-            compareC,
-            compareData?.caLap.serialBlacklisted ? <Badge tone="gray">🚫 Đã blacklist</Badge> : undefined,
-            compareData?.caLap.serialBlacklisted,
-            undefined,
-            compareData?.caLap.lichSu.length ? () => setSerialHistorySource("compare") : undefined,
-          )}
-        </>
-      )}
-    </>
-  );
 
   const giaiTrinhContent = c && (
     <>
@@ -2157,53 +2115,118 @@ export function CaseDetail({
 
   const loiLinhKienContent = <LoiLinhKienPanel parts={linhKienLoiList} orders={donBaoHanhOdooList} />;
 
-  const baoHanhContent = (
-    <div>
-      {donBaoHanhOdooList.length > 0 && (
-        <div className="mb-4">
-          <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({donBaoHanhOdooList.length}) — chi tiết theo linh kiện ở mục "Lỗi"</div>
-          <DonBaoHanhOdooList parts={linhKienLoiList} orders={donBaoHanhOdooList} />
-          <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">Nguồn AppSheet (Google Sheet)</div>
-        </div>
-      )}
-      {purchaseSyncBanner}
-      {!purchaseSyncing && baoHanhMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn bảo hành liên quan đến ca này.</div>
-      )}
-      <div className="space-y-3">
-        {baoHanhMatched.map((r) => (
-          <Card key={r.id} className="p-3">
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.modelSanPham || "(chưa rõ model)"}</span>
-              <div className="flex items-center gap-1.5">
-                {r._region && <Badge tone="gray">{r._region}</Badge>}
-                {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
+  // Dung chung cho ca goc + cot ca doi chieu (2026-10-08) - moi ben truyen du lieu cua chinh ca do.
+  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched) {
+    return (
+      <div>
+        {orders.length > 0 && (
+          <div className="mb-4">
+            <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({orders.length}) — chi tiết theo linh kiện ở mục "Lỗi"</div>
+            <DonBaoHanhOdooList parts={parts} orders={orders} />
+            <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">Nguồn AppSheet (Google Sheet)</div>
+          </div>
+        )}
+        {purchaseSyncBanner}
+        {!purchaseSyncing && matched.length === 0 && (
+          <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn bảo hành liên quan đến ca này.</div>
+        )}
+        <div className="space-y-3">
+          {matched.map((r) => (
+            <Card key={r.id} className="p-3">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+                <span className="font-semibold text-sm">{r.modelSanPham || "(chưa rõ model)"}</span>
+                <div className="flex items-center gap-1.5">
+                  {r._region && <Badge tone="gray">{r._region}</Badge>}
+                  {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
+                </div>
               </div>
-            </div>
-            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Serial" value={r.serial || "—"} />
-              <Field label="Hãng" value={r.hang || "—"} />
-              <Field label="Linh kiện sửa" value={r.linhKienSua || "—"} />
-              <Field label="Tình trạng hư hỏng" value={r.tinhTrangHuHong || "—"} />
-              <Field label="Phương án xử lý" value={r.phuongAnXuLy || "—"} />
-              <Field label="Cách thức xử lý" value={r.cachThucXuLy || "—"} />
-              <Field label="Nguyên nhân chậm" value={r.nguyenNhanCham || "—"} />
-              <Field label="Người sửa" value={r.nguoiSua || "—"} />
-              <Field label="Ngày gửi" value={r.ngayGui || "—"} />
-              <Field label="Ngày giờ trả xong" value={r.ngayGioTraXong || "—"} />
-              {r.danhGiaKetQua && <Field label="Đánh giá kết quả sau sửa chữa" value={r.danhGiaKetQua} />}
-              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
-            </div>
-            <div className="flex justify-end mt-2">
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn bảo hành ${r.id}`, raw: parseRawRow(r) })}>
-                🔍 Xem đầy đủ
-              </Btn>
-            </div>
-          </Card>
-        ))}
+              <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+                <Field label="Serial" value={r.serial || "—"} />
+                <Field label="Hãng" value={r.hang || "—"} />
+                <Field label="Linh kiện sửa" value={r.linhKienSua || "—"} />
+                <Field label="Tình trạng hư hỏng" value={r.tinhTrangHuHong || "—"} />
+                <Field label="Phương án xử lý" value={r.phuongAnXuLy || "—"} />
+                <Field label="Cách thức xử lý" value={r.cachThucXuLy || "—"} />
+                <Field label="Nguyên nhân chậm" value={r.nguyenNhanCham || "—"} />
+                <Field label="Người sửa" value={r.nguoiSua || "—"} />
+                <Field label="Ngày gửi" value={r.ngayGui || "—"} />
+                <Field label="Ngày giờ trả xong" value={r.ngayGioTraXong || "—"} />
+                {r.danhGiaKetQua && <Field label="Đánh giá kết quả sau sửa chữa" value={r.danhGiaKetQua} />}
+                {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+              </div>
+              <div className="flex justify-end mt-2">
+                <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn bảo hành ${r.id}`, raw: parseRawRow(r) })}>
+                  🔍 Xem đầy đủ
+                </Btn>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
-    </div>
+    );
+  }
+  const baoHanhContent = renderBaoHanh(linhKienLoiList, donBaoHanhOdooList, baoHanhMatched);
+
+  // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
+  const compareContent = compareId && (
+    <>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        {/* Ticker trang thai + Link CRM nhu tieu de ca goc (2026-10-08) - cung du lieu GET /cases/:id. */}
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">Ca đối chiếu: {compareId}</div>
+          {compareC &&
+            computeCaseTickers(compareC, compareData?.giaiTrinh ?? [], compareData?.viPham ?? [], activeLyDo, compareData?.caLap).map((t, i) => (
+              <Badge key={i} tone={t.tone}>
+                {t.label}
+              </Badge>
+            ))}
+          {compareC?.link_crm && (
+            <a href={compareC.link_crm} target="_blank" rel="noreferrer">
+              <Btn size="sm" variant="subtle" type="button">
+                🔗 Link CRM
+              </Btn>
+            </a>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setCompareId(null)}
+          className="focus-ring w-6 h-6 rounded hover:bg-slate-100 text-[var(--ink-400)] text-xs shrink-0"
+        >
+          ✕
+        </button>
+      </div>
+      {!compareC && <LoadingInline />}
+      {compareC && (
+        <>
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            {caseStatusBadge(compareC)}
+            {mucDoBadge(compareC.muc_do)}
+          </div>
+          {renderCaseFieldsGrid(
+            compareC,
+            compareData?.caLap.serialBlacklisted ? <Badge tone="gray">🚫 Đã blacklist</Badge> : undefined,
+            compareData?.caLap.serialBlacklisted,
+            undefined,
+            compareData?.caLap.lichSu.length ? () => setSerialHistorySource("compare") : undefined,
+            {
+              active: compareXuLyTab,
+              onChange: setCompareXuLyTab,
+              layout: caseInfoLayout,
+              onLayoutChange: changeCaseInfoLayout,
+              cardRef: compareCardRef,
+              countLoi: compareLoiList.length,
+              countBaoHanh: compareBaoHanhMatched.length + compareOrders.length,
+              panels: {
+                "loi-linh-kien": <LoiLinhKienPanel parts={compareLoiList} orders={compareOrders} />,
+                "bao-hanh": renderBaoHanh(compareLoiList, compareOrders, compareBaoHanhMatched),
+              },
+            },
+          )}
+        </>
+      )}
+    </>
   );
 
   // Noi dung "Thong tin khach hang" - o "expanded" la 1 cot ghim ben trai (luon hien), o "compact"
