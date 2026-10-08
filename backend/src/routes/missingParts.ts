@@ -226,7 +226,11 @@ export async function computeLinhKienThieu(db: D1Database, params: LinhKienThieu
 
   const { results } = await db
     .prepare(
-      `SELECT lg.linh_kien_thieu as ma_lk, lk.ten_linh_kien as ten_lk, COUNT(DISTINCT c.id) as so_ca
+      `SELECT lg.linh_kien_thieu as ma_lk, lk.ten_linh_kien as ten_lk, COUNT(DISTINCT c.id) as so_ca,
+              -- GD3 ton kho linh kien (2026-10-08): uu tien (tong ngay cho / ca lau nhat) + so ca theo mien de doi chieu ton MB/MN.
+              MAX(${AGE_EXPR}) as tuoi_max, SUM(${AGE_EXPR}) as tong_tuoi,
+              SUM(CASE WHEN c.khu_vuc LIKE '%qldvbh.mb%' OR c.khu_vuc LIKE '%miền Bắc%' THEN 1 ELSE 0 END) as so_ca_mb,
+              SUM(CASE WHEN c.khu_vuc LIKE '%qldvbh.mn%' OR c.khu_vuc LIKE '%miền Nam%' THEN 1 ELSE 0 END) as so_ca_mn
        FROM case_dvbh c
        ${baseJoin(CASE_FILTER_TON)}
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = lg.linh_kien_thieu
@@ -252,7 +256,9 @@ missingParts.get("/linh-kien-thieu", async (c) => {
     nhom_san_pham_group: c.req.query("nhom_san_pham_group"),
     doi_tac: c.req.query("doi_tac"),
   };
-  const key = buildReportKey("missing-parts/linh-kien-thieu", params, scope);
+  // "/v2" (2026-10-08): them cot tuoi_max/tong_tuoi/so_ca_mb/so_ca_mn - doi key de khong doc lai payload cache cu
+  // (cache chi tu het han khi domain doi, khong theo code deploy).
+  const key = buildReportKey("missing-parts/linh-kien-thieu/v2", params, scope);
   const data = await cachedReport(c.env.DB, key, ["cases", "giai_trinh", "settings"], () => computeLinhKienThieu(c.env.DB, params, scope));
   return c.json(data);
 });

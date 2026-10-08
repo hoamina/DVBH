@@ -4179,3 +4179,11 @@ thống → cần PO); bảng ca đang báo thiếu mã đó (bấm mở ca); t�
   mở, không lưu), `GET /api/missing-parts?ma_lk=` (lọc ca theo mã LK của giải trình gần nhất).
 - linh-kien-app v1.305: `GET /api/partner/v1/linh-kien/lich-su?ma=` + index `idx_ddh_ma_lk` (migration 0072 bên đó;
   trước đó tra theo mã quét ~1.450 dòng/lần).
+
+## 2026-10-08 — Tồn kho linh kiện GĐ3: thẻ báo cáo hành động (v1.423)
+
+Tab "Linh kiện thiếu": phân loại từng mã theo việc cần làm (Kho có hàng / Chỉ KTV đang giữ / Hết hàng chưa có PO / Hết
+hàng PO trễ / Hết hàng chờ PO) + cờ "Lệch tồn giữa miền"; 6 thẻ (số mã + số ca) bấm để lọc; thêm cột Ca lâu nhất, Tồn KTV,
+Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng ngày chờ) / ca lâu nhất; Xuất Excel. Backend
+`computeLinhKienThieu` thêm `tuoi_max`/`tong_tuoi`/`so_ca_mb`/`so_ca_mn` (cùng 1 truy vấn), đổi cache key sang
+`missing-parts/linh-kien-thieu/v2` để không đọc payload cũ. Định nghĩa đầy đủ: SRS_tong_hop.md §8. Hoàn tất 3 giai đoạn.

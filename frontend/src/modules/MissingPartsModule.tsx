@@ -177,6 +177,11 @@ interface LinhKienThieuRow {
   ma_lk: string;
   ten_lk: string | null;
   so_ca: number;
+  // GD3 (2026-10-08) - cache cu (truoc v1.423) co the chua co -> optional
+  tuoi_max?: number | null;
+  tong_tuoi?: number | null;
+  so_ca_mb?: number;
+  so_ca_mn?: number;
 }
 
 const PO_DAT_HANG_COLS: { key: string; label: string }[] = [
@@ -255,6 +260,26 @@ function TonKhoCell({ value, loaded }: { value: number | undefined; loaded: bool
   );
 }
 
+// GD3 ton kho linh kien (2026-10-08): phan loai TUNG ma LK dang thieu theo "viec can lam" (loai tru nhau, thu tu uu
+// tien xu ly) + 1 co doc lap "lech mien". Ton = ton cuoi ky MISA keo tu linh-kien-app (MB/MN theo tab Cấu hình kho).
+type TinhTrangLk = "co-hang-kho" | "chi-ktv" | "het-chua-po" | "het-po-tre" | "het-cho-po";
+const TINH_TRANG_LK: Record<TinhTrangLk, { label: string; mo_ta: string; tone: "teal" | "amber" | "coral" | "orange" | "gray" }> = {
+  "co-hang-kho": { label: "Kho có hàng", mo_ta: "Tồn MB/MN > 0 mà ca vẫn báo thiếu → điều chuyển ngay", tone: "teal" },
+  "chi-ktv": { label: "Chỉ KTV đang giữ", mo_ta: "Kho MB/MN hết, KTV còn hàng → điều phối KTV", tone: "amber" },
+  "het-chua-po": { label: "Hết hàng, chưa có PO", mo_ta: "Kho + KTV đều 0 và chưa có PO → cần đặt hàng", tone: "coral" },
+  "het-po-tre": { label: "Hết hàng, PO trễ", mo_ta: "Có PO nhưng đã quá ngày dự kiến hàng về", tone: "orange" },
+  "het-cho-po": { label: "Hết hàng, chờ PO", mo_ta: "Có PO, chưa tới ngày dự kiến (hoặc PO chưa ghi ngày)", tone: "gray" },
+};
+
+// "dd/mm/yyyy[ hh:mm]" hoac "yyyy-mm-dd..." -> "yyyy-mm-dd" (so sanh chuoi voi hom nay); khong doc duoc -> null.
+function ngaySheet(v: string | undefined): string | null {
+  if (!v) return null;
+  const a = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (a) return `${a[3]}-${a[2].padStart(2, "0")}-${a[1].padStart(2, "0")}`;
+  const b = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return b ? `${b[1]}-${b[2]}-${b[3]}` : null;
+}
+
 // Tab "Linh kien thieu": gom nhom ca "dang ton" theo ma linh kien (backend /linh-kien-thieu), doi
 // chieu voi du lieu PO/mua hang/bao hanh dong bo tu Google Sheet (usePurchaseWarrantyData - CHI co o
 // frontend, khong co o backend nen doi chieu hoan toan phia client, giong CaseDetail.tsx). CHOT
@@ -289,16 +314,96 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
         const po = matchPoDatHangByLinhKien(r.ma_lk, poDatHang);
         // Uu tien PO cap nhat/tao gan nhat de hien tom tat 1 dong o bang danh sach - xem het trong modal chi tiet.
         const latestPo = [...po].sort((a, b) => (b.ngayCapNhat || b.ngayTao || "").localeCompare(a.ngayCapNhat || a.ngayTao || ""))[0] as SheetRow | undefined;
-        return { ...r, po, latestPo };
+        const t = tonKho?.get(r.ma_lk);
+        const tonMb = t?.ton_mb ?? 0;
+        const tonMn = t?.ton_mn ?? 0;
+        const tonKtv = t?.ton_ktv ?? 0;
+        const homNay = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+        const ngayVe = ngaySheet(latestPo?.ngayDuKienGanNhat);
+        const tinhTrang: TinhTrangLk | null = !tonKho
+          ? null
+          : tonMb + tonMn > 0
+            ? "co-hang-kho"
+            : tonKtv > 0
+              ? "chi-ktv"
+              : po.length === 0
+                ? "het-chua-po"
+                : ngayVe && ngayVe < homNay
+                  ? "het-po-tre"
+                  : "het-cho-po";
+        // Ca thieu o mien nay nhung kho mien nay het, kho mien kia con -> dieu chuyen lien mien.
+        const lechMien = !!tonKho && (((r.so_ca_mb ?? 0) > 0 && tonMb <= 0 && tonMn > 0) || ((r.so_ca_mn ?? 0) > 0 && tonMn <= 0 && tonMb > 0));
+        return { ...r, po, latestPo, tonMb, tonMn, tonKtv, tinhTrang, lechMien };
       }),
-    [rows, poDatHang],
+    [rows, poDatHang, tonKho],
   );
+
+  // The bao cao hanh dong (GD3): bam 1 the = loc bang theo dung nhom do, bam lai = bo loc.
+  const [locTinhTrang, setLocTinhTrang] = useState<TinhTrangLk | "lech-mien" | null>(null);
+  const [sapXep, setSapXep] = useState("so-ca");
+  const demTinhTrang = useMemo(() => {
+    const m: Record<string, { ma: number; ca: number }> = {};
+    for (const r of enriched) {
+      for (const k of [r.tinhTrang, r.lechMien ? "lech-mien" : null]) {
+        if (!k) continue;
+        m[k] ??= { ma: 0, ca: 0 };
+        m[k].ma += 1;
+        m[k].ca += r.so_ca;
+      }
+    }
+    return m;
+  }, [enriched]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return enriched;
-    return enriched.filter((r) => r.ma_lk.toLowerCase().includes(q) || (r.ten_lk ?? "").toLowerCase().includes(q));
-  }, [enriched, search]);
+    const list = enriched
+      .filter((r) => !locTinhTrang || (locTinhTrang === "lech-mien" ? r.lechMien : r.tinhTrang === locTinhTrang))
+      .filter((r) => !q || r.ma_lk.toLowerCase().includes(q) || (r.ten_lk ?? "").toLowerCase().includes(q));
+    if (sapXep === "uu-tien") return [...list].sort((a, b) => (b.tong_tuoi ?? 0) - (a.tong_tuoi ?? 0));
+    if (sapXep === "lau-nhat") return [...list].sort((a, b) => (b.tuoi_max ?? 0) - (a.tuoi_max ?? 0));
+    return list;
+  }, [enriched, search, locTinhTrang, sapXep]);
+
+  function xuatExcel() {
+    exportRowsToExcel(
+      filtered.map((r) => ({
+        ma_lk: r.ma_lk,
+        ten_lk: r.ten_lk ?? "",
+        so_ca: r.so_ca,
+        so_ca_mb: r.so_ca_mb ?? "",
+        so_ca_mn: r.so_ca_mn ?? "",
+        tuoi_max: r.tuoi_max ?? "",
+        tong_tuoi: r.tong_tuoi ?? "",
+        ton_mb: r.tonMb,
+        ton_mn: r.tonMn,
+        ton_ktv: r.tonKtv,
+        tinh_trang: r.tinhTrang ? TINH_TRANG_LK[r.tinhTrang].label : "",
+        lech_mien: r.lechMien ? "Có" : "",
+        so_po: r.po.length,
+        kho_can_dat: r.latestPo?.khoCanDat ?? "",
+        ngay_du_kien: r.latestPo?.ngayDuKienGanNhat ?? "",
+      })),
+      "linh_kien_thieu_ton_kho.xlsx",
+      "Data",
+      {
+        ma_lk: "Mã LK",
+        ten_lk: "Tên linh kiện",
+        so_ca: "Số ca thiếu",
+        so_ca_mb: "Ca MB",
+        so_ca_mn: "Ca MN",
+        tuoi_max: "Ca lâu nhất (ngày)",
+        tong_tuoi: "Tổng ngày chờ",
+        ton_mb: "Tồn kho MB",
+        ton_mn: "Tồn kho MN",
+        ton_ktv: "Tồn KTV",
+        tinh_trang: "Tình trạng",
+        lech_mien: "Lệch miền",
+        so_po: "Số PO",
+        kho_can_dat: "Kho cần đặt",
+        ngay_du_kien: "Ngày dự kiến hàng về",
+      },
+    );
+  }
 
   const detail = detailMa ? enriched.find((r) => r.ma_lk === detailMa) : null;
   const detailMuaHang = detail ? matchMuaHangByLinhKien(detail.ma_lk, muaHang) : [];
@@ -332,8 +437,50 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
             {syncingPo ? "⏳ Đang đồng bộ…" : "🔄 Đồng bộ PO"}
           </Btn>
           <IdSerialSearchInput value={search} onChange={setSearch} placeholder="Tìm theo mã/tên linh kiện…" />
+          <Select
+            value={sapXep}
+            onChange={setSapXep}
+            options={[
+              { value: "so-ca", label: "Sắp xếp: nhiều ca nhất" },
+              { value: "uu-tien", label: "Sắp xếp: ưu tiên (tổng ngày chờ)" },
+              { value: "lau-nhat", label: "Sắp xếp: ca chờ lâu nhất" },
+            ]}
+          />
+          <Btn size="sm" variant="ghost" onClick={xuatExcel}>
+            ⬇ Xuất Excel
+          </Btn>
         </div>
       </div>
+      {tonKho && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
+          {(Object.keys(TINH_TRANG_LK) as TinhTrangLk[]).map((k) => (
+            <div key={k} title={TINH_TRANG_LK[k].mo_ta}>
+              <StatCard
+                size="sm"
+                label={TINH_TRANG_LK[k].label}
+                value={demTinhTrang[k]?.ma ?? 0}
+                sub={`${demTinhTrang[k]?.ca ?? 0} ca đang chờ`}
+                tone={TINH_TRANG_LK[k].tone}
+                muted={!demTinhTrang[k]}
+                active={locTinhTrang === k}
+                onClick={() => setLocTinhTrang((v) => (v === k ? null : k))}
+              />
+            </div>
+          ))}
+          <div title="Ca thiếu ở miền này nhưng kho miền này hết, kho miền kia còn → điều chuyển liên miền">
+            <StatCard
+              size="sm"
+              label="Lệch tồn giữa miền"
+              value={demTinhTrang["lech-mien"]?.ma ?? 0}
+              sub={`${demTinhTrang["lech-mien"]?.ca ?? 0} ca đang chờ`}
+              tone="ocean"
+              muted={!demTinhTrang["lech-mien"]}
+              active={locTinhTrang === "lech-mien"}
+              onClick={() => setLocTinhTrang((v) => (v === "lech-mien" ? null : "lech-mien"))}
+            />
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="dense w-full text-sm">
           <thead>
@@ -341,8 +488,11 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
               <th className="py-2 pr-3">Mã LK</th>
               <th className="py-2 pr-3">Tên linh kiện</th>
               <th className="py-2 pr-3">Số ca đang báo thiếu</th>
+              <th className="py-2 pr-3 text-right">Ca lâu nhất</th>
               <th className="py-2 pr-3 text-right">Tồn kho MB</th>
               <th className="py-2 pr-3 text-right">Tồn kho MN</th>
+              <th className="py-2 pr-3 text-right">Tồn KTV</th>
+              <th className="py-2 pr-3">Tình trạng</th>
               <th className="py-2 pr-3">Kho cần đặt hàng</th>
               <th className="py-2 pr-3">Ngày dự kiến hàng về</th>
               <th className="py-2 pr-3">Ngày về gần nhất toàn quốc</th>
@@ -361,9 +511,24 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
                 <td className="py-2 pr-3">{r.ten_lk ?? <span className="text-[var(--ink-400)] italic text-xs">Không rõ (mã ngoài danh mục)</span>}</td>
                 <td className="py-2 pr-3">
                   <Pill tone="coral">{r.so_ca}</Pill>
+                  {r.so_ca_mb || r.so_ca_mn ? (
+                    <span className="ml-1 text-[10px] text-[var(--ink-400)] whitespace-nowrap">
+                      MB {r.so_ca_mb ?? 0} · MN {r.so_ca_mn ?? 0}
+                    </span>
+                  ) : null}
                 </td>
-                <TonKhoCell value={tonKho?.get(r.ma_lk)?.ton_mb} loaded={!!tonKho} />
-                <TonKhoCell value={tonKho?.get(r.ma_lk)?.ton_mn} loaded={!!tonKho} />
+                <td className="py-2 pr-3 text-right text-xs">{r.tuoi_max != null ? `${r.tuoi_max} ngày` : "—"}</td>
+                <TonKhoCell value={r.tonMb} loaded={!!tonKho} />
+                <TonKhoCell value={r.tonMn} loaded={!!tonKho} />
+                <TonKhoCell value={r.tonKtv} loaded={!!tonKho} />
+                <td className="py-2 pr-3 text-xs whitespace-nowrap">
+                  {r.tinhTrang && <Badge tone={TINH_TRANG_LK[r.tinhTrang].tone}>{TINH_TRANG_LK[r.tinhTrang].label}</Badge>}
+                  {r.lechMien && (
+                    <span className="ml-1">
+                      <Badge tone="ocean">Lệch miền</Badge>
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 pr-3 text-xs">{r.latestPo?.khoCanDat || "—"}</td>
                 <td className="py-2 pr-3 text-xs">{r.latestPo?.ngayDuKienGanNhat || "—"}</td>
                 <td className="py-2 pr-3 text-xs">{r.latestPo?.ngayVeGanNhatToanQuoc || "—"}</td>
@@ -379,7 +544,7 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
             ))}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                <td colSpan={13} className="py-8 text-center text-[var(--ink-400)] text-sm">
                   {enriched.length === 0 ? "Không có linh kiện nào đang thiếu." : "Không tìm thấy linh kiện phù hợp."}
                 </td>
               </tr>

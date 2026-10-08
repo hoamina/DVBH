@@ -200,3 +200,18 @@ Ghi chú kỹ thuật:
   với `backlogTongTon` của báo cáo 08:00 nên tổng khớp bảng mốc thời gian. Gán KTV **tại thời điểm chốt**.
   Không bổ sung ngày cũ — có dữ liệu từ ngày deploy (v1.408). Ghi bởi cron 08:00 + nút "Làm mới báo cáo"
   (Import data). Giám sát chỉ thấy khu vực phụ trách (lọc lúc đọc).
+
+## 8. Ca thiếu linh kiện: tồn kho linh kiện từ linh-kien-app (chốt 2026-10-08)
+
+**Nguồn:** file MISA "tồn kho công nợ" Kế toán import hằng ngày bên linh-kien-app (kho công ty + kho KTV). DVBH kéo về qua
+API đối tác `GET /api/partner/v1/ton-kho(/meta)`, lưu `ton_kho_lk` — **chỉ 1 phiên bản**, có bản mới thì ghi đè toàn bộ.
+**Lịch:** hỏi mỗi giờ 8h–18h (giờ VN), thứ 2–thứ 7; đã kéo được bản của hôm nay thì dừng hỏi tới hết ngày; nút "Đồng bộ tồn
+kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
+**Số tồn** = tồn cuối kỳ MISA (KHÔNG trừ đơn đã đặt sau lúc import).
+
+| Hạng mục | Nội dung |
+|---|---|
+| Cột "Tồn kho MB/MN" (tab Linh kiện thiếu) | Cộng tồn các kho gán MB/MN ở tab **Cấu hình kho** (mặc định theo linh-kien-app: MB = 6804-MB, GLMB, SNKMB, VGMB, MMMB; MN = 6803, VGMN). Kèm cột "Tồn KTV" (tổng mọi kho KTV) và "Ca lâu nhất". |
+| Tình trạng từng mã (loại trừ nhau, theo thứ tự) | **Kho có hàng** (MB+MN > 0 → điều chuyển) → **Chỉ KTV đang giữ** → **Hết hàng, chưa có PO** → **Hết hàng, PO trễ** (quá ngày dự kiến hàng về của PO gần nhất) → **Hết hàng, chờ PO**. Cờ riêng **Lệch tồn giữa miền**: ca thiếu ở miền này (khu vực qldvbh.mb*/mn*) mà kho miền này hết, kho miền kia còn. |
+| Thẻ báo cáo | 6 thẻ trên đầu tab (số mã + số ca đang chờ), bấm = lọc bảng; sắp xếp "nhiều ca / ưu tiên theo tổng ngày chờ / ca chờ lâu nhất"; Xuất Excel. |
+| Hồ sơ linh kiện (bấm 1 mã) | Nhận định nhanh + ca đang thiếu + tồn từng kho công ty + KTV đang giữ (ưu tiên cùng khu vực ca thiếu) + ticket thiếu hàng (kho xử lý tới đâu) + 50 đơn đặt hàng gần nhất (linh-kien-app, gọi lúc mở) + PO/mua hàng/bảo hành (Google Sheet). |
