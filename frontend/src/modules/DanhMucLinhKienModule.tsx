@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
+import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { ToggleSwitch } from "../components/ui/ToggleSwitch";
@@ -220,7 +221,7 @@ function PartDetailDrawer({ part, onClose, onEdit }: { part: LinhKienRow | null;
       <div className="drawer-in fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[var(--surface)] shadow-2xl flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[var(--line)] shrink-0">
           <div className="min-w-0">
-            <div className="font-mono text-xs font-semibold text-[var(--ocean-600)] tracking-wide">{part.ma_linh_kien}</div>
+            <div className="font-mono text-xs font-semibold text-[var(--ocean-600)] tracking-wide"><MaLinhKienLink ma={part.ma_linh_kien} ten={part.ten_linh_kien} /></div>
             <h3 className="font-display font-bold text-lg text-[var(--ink-900)] leading-snug mt-0.5 truncate">{part.ten_linh_kien}</h3>
           </div>
           <button onClick={onClose} className="focus-ring shrink-0 w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">

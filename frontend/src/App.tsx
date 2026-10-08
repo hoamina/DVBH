@@ -12,6 +12,7 @@ import { RevenueModule } from "./modules/RevenueModule";
 import { LuyKeModule } from "./modules/LuyKeModule";
 import { BacklogModule } from "./modules/BacklogModule";
 import { MissingPartsModule } from "./modules/MissingPartsModule";
+import { HoSoLinhKienProvider } from "./components/HoSoLinhKienProvider";
 import { TranhChapModule } from "./modules/TranhChapModule";
 import { NapGasModule } from "./modules/NapGasModule";
 import { SurveyModule } from "./modules/SurveyModule";
@@ -226,6 +227,7 @@ function MainApp({
   }
 
   return (
+    <HoSoLinhKienProvider enabled={allowedModules.includes("missing-parts")} openCase={openCase}>
     <div className="flex min-h-screen">
       {/* Tai khoan "chi Dat mua linh kien" khong nhan loi chao/nhac nho danh cho nhan vien noi bo -
           chot 2026-08-14. */}
@@ -309,5 +311,6 @@ function MainApp({
         canHuyCa={canHuyCa}
       />
     </div>
+    </HoSoLinhKienProvider>
   );
 }

@@ -9,12 +9,11 @@ import { Pill } from "../components/ui/Pill";
 import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
-import { Modal } from "../components/ui/Modal";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { useMissingPartsDaDongChunked, type MissingPartClosedCase } from "../hooks/useMissingPartsDaDongChunked";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
-import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
+import { matchPoDatHangByLinhKien } from "../lib/purchaseWarrantyMatch";
 import type { SheetRow } from "../lib/purchaseWarrantySync";
 import { api, buildQuery } from "../api/client";
 import { fmtDate, fmtDateTime, type Paged } from "../types";
@@ -28,7 +27,7 @@ import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { useToast } from "../components/ui/Toast";
 import { TonKhoSyncBar, TonKhoCauHinhTab, useTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
-import { HoSoLinhKien } from "../components/HoSoLinhKien";
+import { useMoHoSoLinhKien, MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 
 // Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
 // theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
@@ -184,73 +183,6 @@ interface LinhKienThieuRow {
   so_ca_mn?: number;
 }
 
-const PO_DAT_HANG_COLS: { key: string; label: string }[] = [
-  { key: "id", label: "ID đặt LK" },
-  { key: "doiTac", label: "Đối tác" },
-  { key: "khoCanDat", label: "Kho cần đặt" },
-  { key: "soLuongDat", label: "SL đặt" },
-  { key: "slNhapTheoAmis", label: "SL nhập Amis" },
-  { key: "soLuongConThieu", label: "SL còn thiếu" },
-  { key: "trangThai", label: "Trạng thái" },
-  { key: "tocDoHangVe", label: "Tốc độ về" },
-  { key: "canhBao", label: "Cảnh báo" },
-  { key: "ngayDuKienGanNhat", label: "Ngày dự kiến hàng về" },
-  { key: "ngayVeGanNhatToanQuoc", label: "Ngày về gần nhất toàn quốc" },
-  { key: "ngayCapNhat", label: "Cập nhật" },
-];
-
-const MUA_HANG_COLS: { key: string; label: string }[] = [
-  { key: "id", label: "ID" },
-  { key: "loaiDeXuat", label: "Loại đề xuất" },
-  { key: "soLuongDeXuat", label: "SL đề xuất" },
-  { key: "trangThaiDuyet", label: "Trạng thái duyệt" },
-  { key: "soLuongThucXuat", label: "SL thực xuất" },
-  { key: "trangThaiGuiHang", label: "Trạng thái gửi hàng" },
-  { key: "ngayKtvNhanHang", label: "Ngày KTV nhận" },
-  { key: "giaDeXuat", label: "Giá đề xuất" },
-];
-
-const BAO_HANH_COLS: { key: string; label: string }[] = [
-  { key: "id", label: "ID" },
-  { key: "trangThai", label: "Trạng thái" },
-  { key: "modelSanPham", label: "Model" },
-  { key: "serial", label: "Serial" },
-  { key: "phuongAnXuLy", label: "Phương án xử lý" },
-  { key: "ngayGui", label: "Ngày gửi" },
-  { key: "ngayGioTraXong", label: "Ngày trả xong" },
-  { key: "nguoiSua", label: "Người sửa" },
-];
-
-function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: string; label: string }[] }) {
-  if (rows.length === 0) return <div className="text-xs text-[var(--ink-400)] italic py-1.5">Không có dữ liệu liên quan.</div>;
-  return (
-    <div className="overflow-x-auto">
-      <table className="dense w-full text-xs">
-        <thead>
-          <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
-            {columns.map((c) => (
-              <th key={c.key} className="py-1.5 pr-3">
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} className="border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60">
-              {columns.map((c) => (
-                <td key={c.key} className="py-1.5 pr-3">
-                  {r[c.key] || "—"}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 // O ton kho: > 0 to dam xanh (dang co hang ma ca van bao thieu -> can dieu chuyen), 0/khong co dong = "0" mo.
 function TonKhoCell({ value, loaded }: { value: number | undefined; loaded: boolean }) {
   if (!loaded) return <td className="py-2 pr-3 text-right text-xs text-[var(--ink-400)]">…</td>;
@@ -286,10 +218,10 @@ function ngaySheet(v: string | undefined): string | null {
 // 2026-08-16 (sau khi hoi lai chu he thong): khong tach "ngay ve kho HN/kho HCM" rieng vi du lieu that
 // chua xac nhan duoc co tach theo kho hay khong - dung dung 2 truong san co "Kho can dat hang" +
 // "Ngay ve gan nhat toan quoc".
-function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRow[]; isLoading: boolean; openCase: (id: string, tab?: string) => void }) {
-  const { poDatHang, muaHang, baoHanh, isSyncing, poSyncedAt, poError, refreshAll } = usePurchaseWarrantyData();
+function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoading: boolean }) {
+  const { poDatHang, isSyncing, poSyncedAt, poError, refreshAll } = usePurchaseWarrantyData();
   const addToast = useToast();
-  const [detailMa, setDetailMa] = useState<string | null>(null);
+  const moHoSo = useMoHoSoLinhKien();
   // Dong bo thu cong (2026-10-03): du lieu PO doc tu Google Sheet va luu cache IndexedDB cua TUNG trinh
   // duyet (TTL 2 gio) - 1 lan tai hong tung lam ca bang hien "Chua co PO" ma khong co cach nao tai lai.
   const [syncingPo, setSyncingPo] = useState(false);
@@ -405,9 +337,6 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
     );
   }
 
-  const detail = detailMa ? enriched.find((r) => r.ma_lk === detailMa) : null;
-  const detailMuaHang = detail ? matchMuaHangByLinhKien(detail.ma_lk, muaHang) : [];
-  const detailBaoHanh = detail ? matchBaoHanhByLinhKien(detail.ma_lk, baoHanh) : [];
 
   return (
     <Card className="p-3 mt-3">
@@ -505,7 +434,7 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
               <tr
                 key={r.ma_lk}
                 className="border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60 hover:bg-slate-50 cursor-pointer"
-                onClick={() => setDetailMa(r.ma_lk)}
+                onClick={() => moHoSo?.(r.ma_lk, r.ten_lk)}
               >
                 <td className="py-2 pr-3 font-mono font-semibold text-[var(--ocean-600)]">{r.ma_lk}</td>
                 <td className="py-2 pr-3">{r.ten_lk ?? <span className="text-[var(--ink-400)] italic text-xs">Không rõ (mã ngoài danh mục)</span>}</td>
@@ -553,33 +482,6 @@ function LinhKienThieuTab({ rows, isLoading, openCase }: { rows: LinhKienThieuRo
         </table>
       </div>
 
-      {detail && (
-        <Modal open title={`Hồ sơ linh kiện ${detail.ma_lk} — ${detail.ten_lk ?? "Không rõ tên (mã ngoài danh mục)"}`} onClose={() => setDetailMa(null)} width="max-w-6xl">
-          <HoSoLinhKien
-            maLk={detail.ma_lk}
-            openCase={(id, tab) => {
-              setDetailMa(null);
-              openCase(id, tab);
-            }}
-            sheetSection={
-          <div className="space-y-4">
-            <div>
-              <div className="font-semibold text-xs uppercase tracking-wide text-[var(--indigo-600)] mb-1.5">PO đặt hàng liên quan ({detail.po.length})</div>
-              <SheetRowsTable rows={detail.po} columns={PO_DAT_HANG_COLS} />
-            </div>
-            <div>
-              <div className="font-semibold text-xs uppercase tracking-wide text-[var(--ocean-600)] mb-1.5">Đơn mua hàng liên quan ({detailMuaHang.length})</div>
-              <SheetRowsTable rows={detailMuaHang} columns={MUA_HANG_COLS} />
-            </div>
-            <div>
-              <div className="font-semibold text-xs uppercase tracking-wide text-[var(--amber-600)] mb-1.5">Bảo hành liên quan ({detailBaoHanh.length})</div>
-              <SheetRowsTable rows={detailBaoHanh} columns={BAO_HANH_COLS} />
-            </div>
-          </div>
-            }
-          />
-        </Modal>
-      )}
     </Card>
   );
 }
@@ -815,7 +717,7 @@ export function MissingPartsModule({
     {
       key: "linh_kien",
       header: "Linh kiện thiếu",
-      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber">{c.last_linh_kien_thieu}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>),
+      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>),
     },
     { key: "ngay_yeu_cau", header: "Ngày yêu cầu có hàng", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_yeu_cau_co_hang)}</span> },
     { key: "ngay_du_kien", header: "Ngày dự kiến HT", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_du_kien_hoan_thanh)}</span> },
@@ -840,7 +742,7 @@ export function MissingPartsModule({
     {
       key: "linh_kien",
       header: "Linh kiện thiếu",
-      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber">{c.last_linh_kien_thieu}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>),
+      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>),
     },
     { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
@@ -945,7 +847,7 @@ export function MissingPartsModule({
       {view === "cau-hinh-kho" ? (
         <TonKhoCauHinhTab />
       ) : view === "linh-kien-thieu" ? (
-        <LinhKienThieuTab rows={linhKienThieuQuery.data?.rows ?? []} isLoading={linhKienThieuQuery.isLoading} openCase={openCase} />
+        <LinhKienThieuTab rows={linhKienThieuQuery.data?.rows ?? []} isLoading={linhKienThieuQuery.isLoading} />
       ) : view === "bao-cao" ? (
         <Card className="p-3 mt-3">
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">

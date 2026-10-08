@@ -41,7 +41,7 @@ export function Modal({
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto p-5">{children}</div>
+        <div className="overflow-y-auto min-h-0 flex-1 p-5">{children}</div>
         {footer && <div className="border-t border-[var(--line)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -1657,7 +1658,16 @@ export function BacklogModule({
       header: "Khoảng tồn",
       render: (c) => <span className="text-xs">{khoangTon(c)}</span>,
     },
-    textCol("last_ma_linh_kien_thieu", CASE_FIELD_LABELS.last_ma_linh_kien_thieu),
+    {
+      key: "last_ma_linh_kien_thieu",
+      header: CASE_FIELD_LABELS.last_ma_linh_kien_thieu,
+      render: (c) =>
+        c.last_ma_linh_kien_thieu ? (
+          <MaLinhKienLink ma={c.last_ma_linh_kien_thieu} ten={linhKienTenMap.get(c.last_ma_linh_kien_thieu)} className="text-xs" />
+        ) : (
+          <span className="text-xs">—</span>
+        ),
+    },
     {
       // "Ten linh kien" khong co san tren CaseRow (chi co ma) - tra cuu qua danh muc linh_kien da
       // cache o linhKienTenMap (settings-linh-kien), thuan frontend, khong goi them API rieng.

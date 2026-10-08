@@ -7,13 +7,17 @@ import { LoadingInline } from "./ui/LoadingInline";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { linhKienLoaiDonLabel, linhKienTrangThaiLabel } from "../lib/linhKienTimeline";
 import { fmtSl } from "./TonKhoLk";
+import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
+import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
+import type { SheetRow } from "../lib/purchaseWarrantySync";
 
 // "Ho so linh kien" (GD2 ton kho linh kien, 2026-10-08) - bam 1 ma LK o tab "Linh kiện thiếu": tra loi nhanh
 // "dang ton o kho nao, SL bao nhieu, KTV nao dang giu, ca nao dang cho, kho xu ly thieu hang chua, don/PO the nao".
 //   - Ton tung kho / KTV: ton_kho_lk (keo tu linh-kien-app, /api/ton-kho-lk/ma/:ma).
 //   - Ca dang bao thieu: /api/missing-parts?ma_lk= (dung scope khu vuc cua nguoi xem).
 //   - Lich su dat hang + ticket thieu hang: linh-kien-app, goi luc mo (/api/ton-kho-lk/ma/:ma/lich-su, khong luu).
-//   - PO / mua hang / bao hanh (Google Sheet): phan "sheetSection" do noi goi truyen vao (giu nguyen nhu cu).
+//   - PO / mua hang / bao hanh (Google Sheet, usePurchaseWarrantyData - cache IndexedDB san co).
+// Mo tu BAT KY dau qua HoSoLinhKienProvider / <MaLinhKienLink> (2026-10-08).
 
 interface TonRow {
   nguon: "kho" | "ktv";
@@ -71,7 +75,7 @@ const THIEU_LK_TRANG_THAI: Record<string, { label: string; tone: BadgeTone; mo: 
 
 function Section({ title, tone, children }: { title: string; tone: string; children: ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className={`font-semibold text-xs uppercase tracking-wide mb-1.5 ${tone}`}>{title}</div>
       {children}
     </div>
@@ -82,10 +86,81 @@ function Empty({ text }: { text: string }) {
   return <div className="text-xs text-[var(--ink-400)] italic py-1.5">{text}</div>;
 }
 
+const PO_DAT_HANG_COLS: { key: string; label: string }[] = [
+  { key: "id", label: "ID đặt LK" },
+  { key: "doiTac", label: "Đối tác" },
+  { key: "khoCanDat", label: "Kho cần đặt" },
+  { key: "soLuongDat", label: "SL đặt" },
+  { key: "slNhapTheoAmis", label: "SL nhập Amis" },
+  { key: "soLuongConThieu", label: "SL còn thiếu" },
+  { key: "trangThai", label: "Trạng thái" },
+  { key: "tocDoHangVe", label: "Tốc độ về" },
+  { key: "canhBao", label: "Cảnh báo" },
+  { key: "ngayDuKienGanNhat", label: "Ngày dự kiến hàng về" },
+  { key: "ngayVeGanNhatToanQuoc", label: "Ngày về gần nhất toàn quốc" },
+  { key: "ngayCapNhat", label: "Cập nhật" },
+];
+
+const MUA_HANG_COLS: { key: string; label: string }[] = [
+  { key: "id", label: "ID" },
+  { key: "loaiDeXuat", label: "Loại đề xuất" },
+  { key: "soLuongDeXuat", label: "SL đề xuất" },
+  { key: "trangThaiDuyet", label: "Trạng thái duyệt" },
+  { key: "soLuongThucXuat", label: "SL thực xuất" },
+  { key: "trangThaiGuiHang", label: "Trạng thái gửi hàng" },
+  { key: "ngayKtvNhanHang", label: "Ngày KTV nhận" },
+  { key: "giaDeXuat", label: "Giá đề xuất" },
+];
+
+const BAO_HANH_COLS: { key: string; label: string }[] = [
+  { key: "id", label: "ID" },
+  { key: "trangThai", label: "Trạng thái" },
+  { key: "modelSanPham", label: "Model" },
+  { key: "serial", label: "Serial" },
+  { key: "phuongAnXuLy", label: "Phương án xử lý" },
+  { key: "ngayGui", label: "Ngày gửi" },
+  { key: "ngayGioTraXong", label: "Ngày trả xong" },
+  { key: "nguoiSua", label: "Người sửa" },
+];
+
+function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: string; label: string }[] }) {
+  if (rows.length === 0) return <div className="text-xs text-[var(--ink-400)] italic py-1.5">Không có dữ liệu liên quan.</div>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="dense w-full text-xs">
+        <thead>
+          <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
+            {columns.map((c) => (
+              <th key={c.key} className="py-1.5 pr-3">
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className="border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60">
+              {columns.map((c) => (
+                <td key={c.key} className="py-1.5 pr-3">
+                  {r[c.key] || "—"}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 const TH = "py-1.5 pr-3";
 const TR = "border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60";
 
-export function HoSoLinhKien({ maLk, openCase, sheetSection }: { maLk: string; openCase?: (id: string, tab?: string) => void; sheetSection: ReactNode }) {
+export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id: string, tab?: string) => void }) {
+  const { poDatHang, muaHang, baoHanh } = usePurchaseWarrantyData();
+  const po = useMemo(() => matchPoDatHangByLinhKien(maLk, poDatHang), [maLk, poDatHang]);
+  const muaHangRows = useMemo(() => matchMuaHangByLinhKien(maLk, muaHang), [maLk, muaHang]);
+  const baoHanhRows = useMemo(() => matchBaoHanhByLinhKien(maLk, baoHanh), [maLk, baoHanh]);
   const tonQ = useQuery({ queryKey: ["ton-kho-lk-ma", maLk], queryFn: () => api.get<{ rows: TonRow[] }>(`/ton-kho-lk/ma/${encodeURIComponent(maLk)}`) });
   const caQ = useQuery({
     queryKey: ["missing-parts-ma-lk", maLk],
@@ -184,13 +259,14 @@ export function HoSoLinhKien({ maLk, openCase, sheetSection }: { maLk: string; o
         )}
       </Section>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4 [&>*]:min-w-0">
         <Section title="Tồn theo kho công ty" tone="text-[var(--ocean-600)]">
           {tonQ.isLoading ? (
             <LoadingInline />
           ) : kho.length === 0 ? (
             <Empty text="Không kho công ty nào có mã này." />
           ) : (
+            <div className="overflow-x-auto">
             <table className="dense w-full text-xs">
               <thead>
                 <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
@@ -212,6 +288,7 @@ export function HoSoLinhKien({ maLk, openCase, sheetSection }: { maLk: string; o
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Section>
 
@@ -221,7 +298,7 @@ export function HoSoLinhKien({ maLk, openCase, sheetSection }: { maLk: string; o
           ) : ktvSorted.length === 0 ? (
             <Empty text="Không KTV nào đang giữ mã này." />
           ) : (
-            <div className="max-h-64 overflow-y-auto">
+            <div className="max-h-64 overflow-auto">
               <table className="dense w-full text-xs">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
@@ -355,7 +432,15 @@ export function HoSoLinhKien({ maLk, openCase, sheetSection }: { maLk: string; o
         )}
       </Section>
 
-      {sheetSection}
+      <Section title={`PO đặt hàng liên quan (${po.length})`} tone="text-[var(--indigo-600)]">
+        <SheetRowsTable rows={po} columns={PO_DAT_HANG_COLS} />
+      </Section>
+      <Section title={`Đơn mua hàng liên quan — Google Sheet (${muaHangRows.length})`} tone="text-[var(--ocean-600)]">
+        <SheetRowsTable rows={muaHangRows} columns={MUA_HANG_COLS} />
+      </Section>
+      <Section title={`Bảo hành liên quan (${baoHanhRows.length})`} tone="text-[var(--amber-600)]">
+        <SheetRowsTable rows={baoHanhRows} columns={BAO_HANH_COLS} />
+      </Section>
     </div>
   );
 }

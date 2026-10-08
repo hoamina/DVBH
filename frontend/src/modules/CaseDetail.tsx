@@ -15,6 +15,7 @@ import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGalle
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
+import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { LoadingInline } from "../components/ui/LoadingInline";
 import { TiepNhanModal, TienTrinhPanel } from "../components/TienTrinhPanel";
@@ -1430,7 +1431,7 @@ export function CaseDetail({
               </div>
               <div className="text-sm font-semibold">{l.ly_do_cham}</div>
               <div className="text-sm text-[var(--ink-600)]">{l.noi_dung}</div>
-              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">Linh kiện thiếu: {l.linh_kien_thieu}</div>}
+              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">Linh kiện thiếu: <MaLinhKienLink ma={l.linh_kien_thieu} /></div>}
               {l.ngay_yeu_cau_co_hang && <div className="text-xs text-[var(--ink-400)] mt-0.5">Ngày yêu cầu có hàng: {fmtDate(l.ngay_yeu_cau_co_hang)}</div>}
               {l.ma_xuat_hang_lien_quan && <div className="text-xs text-[var(--ink-400)]">Mã xuất hàng liên quan: {l.ma_xuat_hang_lien_quan}</div>}
             </div>
@@ -1964,7 +1965,7 @@ export function CaseDetail({
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{o.order_id}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Mã linh kiện" value={o.ma_lk} />
+              <Field label="Mã linh kiện" value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk} />} />
               <Field label="Loại đề xuất" value={o.loai_de_xuat || "—"} />
               <Field label="SL đề xuất / thực xuất" value={`${o.so_luong_de_xuat ?? "—"} / ${o.so_luong_thuc_xuat ?? "—"}`} />
               <Field label="Ngày tạo" value={fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))} />
@@ -2003,7 +2004,7 @@ export function CaseDetail({
                 {t.id} · {o.order_id}
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-                <Field label="Linh kiện" value={`${o.ma_lk}${o.ten_lk ? ` – ${o.ten_lk}` : ""}`} />
+                <Field label="Linh kiện" value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk}>{`${o.ma_lk}${o.ten_lk ? ` – ${o.ten_lk}` : ""}`}</MaLinhKienLink>} />
                 <Field label="Ngày tạo" value={fmtDateTime(linhKienIsoToVnLocal(t.ngay_tao))} />
                 <Field label="Ngày dự kiến có hàng" value={t.ngay_du_kien_co_hang ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang)) : "—"} />
                 <Field label="Ngày hàng về thực tế" value={t.ngay_hang_ve_thuc_te ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_hang_ve_thuc_te)) : "—"} />
@@ -2035,7 +2036,7 @@ export function CaseDetail({
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Mã linh kiện" value={r.maLinhKien || "—"} />
+              <Field label="Mã linh kiện" value={r.maLinhKien ? <MaLinhKienLink ma={r.maLinhKien} /> : "—"} />
               <Field label="Loại đề xuất" value={r.loaiDeXuat || "—"} />
               <Field label="SL đề xuất / thực xuất" value={`${r.soLuongDeXuat || "—"} / ${r.soLuongThucXuat || "—"}`} />
               <Field label="Giá đề xuất" value={r.giaDeXuat || "—"} />
@@ -2233,7 +2234,7 @@ export function CaseDetail({
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Mã linh kiện đề xuất" value={r.maLinhKienDeXuat || "—"} />
+              <Field label="Mã linh kiện đề xuất" value={r.maLinhKienDeXuat ? <MaLinhKienLink ma={r.maLinhKienDeXuat} /> : "—"} />
               <Field label="Đối tác" value={r.doiTac || "—"} />
               <Field label="Kho cần đặt hàng" value={r.khoCanDat || "—"} />
               <Field label="SL đặt / nhập Amis / còn thiếu" value={`${r.soLuongDat || "—"} / ${r.slNhapTheoAmis || "—"} / ${r.soLuongConThieu || "—"}`} />

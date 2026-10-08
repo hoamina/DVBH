@@ -4187,3 +4187,19 @@ hàng PO trễ / Hết hàng chờ PO) + cờ "Lệch tồn giữa miền"; 6 th
 Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng ngày chờ) / ca lâu nhất; Xuất Excel. Backend
 `computeLinhKienThieu` thêm `tuoi_max`/`tong_tuoi`/`so_ca_mb`/`so_ca_mn` (cùng 1 truy vấn), đổi cache key sang
 `missing-parts/linh-kien-thieu/v2` để không đọc payload cũ. Định nghĩa đầy đủ: SRS_tong_hop.md §8. Hoàn tất 3 giai đoạn.
+
+## 2026-10-08 — Mã linh kiện ở mọi nơi mở "Hồ sơ linh kiện" + sửa popup tràn màn hình (v1.424)
+
+- Yêu cầu: "các vị trí có hiện thị mã linh kiện => cho phép mở giao diện UI quản lý tồn theo mã linh kiện đó" + "UI popup
+  giao diện linh kiện kéo dài tràn màn hình".
+- `components/HoSoLinhKienProvider.tsx` (mới): 1 popup Hồ sơ linh kiện dùng chung cấp App (bọc `MainApp`, render sau
+  CaseDetail → nằm trên cùng). `<MaLinhKienLink ma ten />` = mã gạch chân chấm, bấm mở hồ sơ (stopPropagation để không
+  kích hoạt click dòng/thẻ cha). Chỉ bật khi user có module `missing-parts` (API `/api/ton-kho-lk` gate theo module này)
+  — không quyền thì hiện chữ thường. Bấm 1 ca trong hồ sơ → đóng hồ sơ, mở ca.
+- Gắn link tại: Chi tiết ca (GT tồn "Linh kiện thiếu", đơn đặt mua LK, ticket thiếu hàng, đề xuất LK AppSheet ×2),
+  `LoiLinhKienPanel` (lỗi LK Odoo + đơn BH Odoo), Quản lý tồn (cột "Mã LK thiếu gần nhất"), Ca thiếu linh kiện (badge
+  LK thiếu ở 2 danh sách), Danh mục linh kiện (mã trong drawer). Tab "Linh kiện thiếu" dùng chung popup này.
+- `HoSoLinhKien` tự lấy PO/mua hàng/bảo hành (usePurchaseWarrantyData) thay vì nhận `sheetSection` từ nơi gọi;
+  `SheetRowsTable` + các COLS chuyển từ MissingPartsModule sang.
+- Tràn màn hình: `Modal` body thêm `min-h-0 flex-1` (cuộn trong popup thay vì đẩy cao), các Section/grid item `min-w-0`,
+  bảng bọc `overflow-x-auto`. Kiểm tra local ở viewport 1100×650: popup cao 572px, thân cuộn dọc, không tràn ngang.

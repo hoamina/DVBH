@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Badge, type BadgeTone } from "./ui/Badge";
 import { Card } from "./ui/Card";
+import { MaLinhKienLink } from "./HoSoLinhKienProvider";
 import { Modal } from "./ui/Modal";
 import { fmtDateTime, fmtVND, type DonBaoHanhOdooRow, type LinhKienLoiItem } from "../types";
 
@@ -237,7 +238,7 @@ export function DonBaoHanhOdooModal({
             label="Linh kiện"
             value={
               <span>
-                {o.ten_linh_kien ?? "—"} {o.ma_linh_kien && <span className="font-mono text-xs text-[var(--ink-400)]">({o.ma_linh_kien})</span>}
+                {o.ten_linh_kien ?? "—"} {o.ma_linh_kien && <span className="font-mono text-xs text-[var(--ink-400)]">(<MaLinhKienLink ma={o.ma_linh_kien} ten={o.ten_linh_kien} />)</span>}
               </span>
             }
           />
@@ -343,7 +344,7 @@ function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHan
             <div className="font-semibold text-sm text-[var(--ink-900)] leading-snug">{p.ten_linh_kien || "(chưa rõ tên linh kiện)"}</div>
             {(p.ma_linh_kien || p.nhom_linh_kien) && (
               <div className="text-xs text-[var(--ink-400)]">
-                {p.ma_linh_kien && <span className="font-mono">{p.ma_linh_kien}</span>}
+                {p.ma_linh_kien && <MaLinhKienLink ma={p.ma_linh_kien} ten={p.ten_linh_kien} className="font-mono" />}
                 {p.ma_linh_kien && p.nhom_linh_kien && " · "}
                 {p.nhom_linh_kien && <span>Nhóm LK: {p.nhom_linh_kien}</span>}
               </div>
