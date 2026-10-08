@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, statusTone, type BadgeTone, type AnyBadgeTone } from "../components/ui/Badge";
+import { mucDoBadge } from "../components/ui/MucDoBadge";
 import { Field } from "../components/ui/Field";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
@@ -219,6 +220,7 @@ function renderCaseFieldsGrid(
   const xuLyGrid = (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
       <Field label="Nhóm / Loại yêu cầu" value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />
+      <Field label="Mức độ" value={mucDoBadge(c.muc_do) ?? "—"} />
       <Field label="Cách thức xử lý" value={c.cach_thuc_xu_ly ?? "—"} />
       <Field label="Sản phẩm bảo hành" value={c.san_pham_bao_hanh ?? "—"} />
       <Field label="Hình thức bảo hành" value={c.hinh_thuc_bao_hanh ?? "—"} />
@@ -1392,6 +1394,7 @@ export function CaseDetail({
         <>
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             {caseStatusBadge(compareC)}
+            {mucDoBadge(compareC.muc_do)}
           </div>
           {renderCaseFieldsGrid(
             compareC,
@@ -2110,6 +2113,7 @@ export function CaseDetail({
     <>
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         {caseStatusBadge(c)}
+        {mucDoBadge(c.muc_do)}
         {c.huy_bo_at && (
           <Badge tone="gray" solid>
             🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}

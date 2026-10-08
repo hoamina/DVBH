@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
+import { mucDoBadge } from "../components/ui/MucDoBadge";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
@@ -1640,6 +1641,7 @@ export function BacklogModule({
     dateCol("thoi_gian_hen_xu_ly", CASE_FIELD_LABELS.thoi_gian_hen_xu_ly),
     textCol("nhom_yeu_cau", CASE_FIELD_LABELS.nhom_yeu_cau),
     textCol("loai_yeu_cau", CASE_FIELD_LABELS.loai_yeu_cau),
+    { key: "muc_do", header: CASE_FIELD_LABELS.muc_do, render: (c) => mucDoBadge(c.muc_do) ?? <span className="text-xs">—</span> },
     textCol("hinh_thuc_bao_hanh", CASE_FIELD_LABELS.hinh_thuc_bao_hanh),
     textCol("tien_do_hoan_thanh", CASE_FIELD_LABELS.tien_do_hoan_thanh),
     textCol("noi_dung_xu_ly", CASE_FIELD_LABELS.noi_dung_xu_ly),

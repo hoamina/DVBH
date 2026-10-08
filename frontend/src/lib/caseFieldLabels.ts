@@ -24,6 +24,7 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   thoi_gian_hen_xu_ly: "Thời gian hẹn xử lý",
   nhom_yeu_cau: "Nhóm yêu cầu",
   loai_yeu_cau: "Loại yêu cầu",
+  muc_do: "Mức độ",
   san_pham_bao_hanh: "Sản phẩm bảo hành",
   hinh_thuc_bao_hanh: "Hình thức bảo hành",
   tien_do_hoan_thanh: "Tiến độ hoàn thành",

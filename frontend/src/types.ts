@@ -38,6 +38,8 @@ export interface CaseRow {
   // loi (chuoi JSON LinhKienLoiItem[]). Tu 2026-10-07 (migration 0124) tinh/quan_huyen = dia chi CU cho
   // MOI nguon; dia chi MOI sau sap nhap nam o tinh_moi/xa_moi (chi ca Odoo).
   tinh_moi?: string | null;
+  // Migration 0126 - "Mức độ" (Độ ưu tiên CRM/Odoo): Cao / Gấp / Rất gấp.
+  muc_do?: string | null;
   xa_moi?: string | null;
   tinh_cu?: string | null;
   huyen_cu?: string | null;
