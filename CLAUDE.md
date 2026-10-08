@@ -117,6 +117,10 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     them here are effectively legacy for hand-editing.
   - `missingParts.ts` — tracks `thieu_lk` (missing parts) per order line; closed by `la_kho` users
     when parts arrive, which resumes the parent `dat_don_hang` row.
+  - `cases.ts` `GET /:id/mail-timeline` — same pattern for the independent "Theo dõi đổi máy" Worker (`theodoidoimay`,
+    repo "thu ky mail doi may"): proxies its `GET /api/partner/case?id=` via Service Binding `THEODOI_APP` + secret
+    `THEODOI_APP_API_KEY` (`lib/mailTimeline.ts`), on demand, nothing stored in D1. Shown as CaseDetail tab "Luồng mail"
+    (`components/LuongMailPanel.tsx`): exchange-approval milestones parsed from CC'd emails.
   - `cases.ts` `GET /:id/linh-kien-timeline` — proxies linh-kien-app's `GET /api/partner/v1/case-timeline`
     (purchase/missing-part/PXK/return logs for one case) via Service Binding `LINHKIEN_APP` + secret
     `LINHKIEN_APP_API_KEY` (`lib/linhKienTimeline.ts`); called on demand when a case is opened, nothing

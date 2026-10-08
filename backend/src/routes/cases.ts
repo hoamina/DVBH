@@ -36,6 +36,7 @@ import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc,
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG } from "../lib/tranhChapTienTrinh";
 import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
+import { fetchMailTimeline } from "../lib/mailTimeline";
 import { getTonKtvMonth } from "../lib/tonKtvSnapshot";
 
 const cases = new Hono<{ Bindings: Env }>();
@@ -1130,6 +1131,18 @@ cases.get("/:id/linh-kien-timeline", async (c) => {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
   return c.json(await fetchLinhKienTimeline(c.env, id));
+});
+
+// Luong mail doi tra (he theodoidoimay) - cung pham vi khu vuc nhu chi tiet ca.
+cases.get("/:id/mail-timeline", async (c) => {
+  const id = c.req.param("id");
+  const caseRow = await c.env.DB.prepare("SELECT khu_vuc FROM case_dvbh WHERE id = ?").bind(id).first<{ khu_vuc: string | null }>();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+  return c.json(await fetchMailTimeline(c.env, id));
 });
 
 cases.get("/:id", async (c) => {

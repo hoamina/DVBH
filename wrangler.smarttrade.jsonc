@@ -42,9 +42,12 @@
   // Them 2026-09-30: "LINHKIEN_APP" - Service Binding toi Worker "linhkien" (he Dat mua linh kien doc
   // lap, linhkien.dichvu3t.workers.dev) de keo log mua hang/thieu LK cua 1 ca (lib/linhKienTimeline.ts)
   // - cung ly do 1042 nhu VIPHAM_APP. LINHKIEN_APP_API_KEY dat qua "wrangler secret put".
+  // Them 2026-10-08: "THEODOI_APP" - Service Binding toi Worker "theodoidoimay" (luong mail doi tra cua 1
+  // ca, lib/mailTimeline.ts). THEODOI_APP_API_KEY dat qua "wrangler secret put".
   "services": [
     { "binding": "VIPHAM_APP", "service": "vipham" },
-    { "binding": "LINHKIEN_APP", "service": "linhkien" }
+    { "binding": "LINHKIEN_APP", "service": "linhkien" },
+    { "binding": "THEODOI_APP", "service": "theodoidoimay" }
   ],
 
   "vars": {
@@ -55,6 +58,7 @@
     // chi doi huong mang, phan pathname van do Hono ben nhan tu doc). VIPHAM_APP_API_KEY dat qua
     // "wrangler secret put" (da dat).
     "VIPHAM_APP_URL": "https://vipham.dichvu3t.workers.dev",
-    "LINHKIEN_APP_URL": "https://linhkien.dichvu3t.workers.dev"
+    "LINHKIEN_APP_URL": "https://linhkien.dichvu3t.workers.dev",
+    "THEODOI_APP_URL": "https://theodoidoimay.dichvu3t.workers.dev"
   }
 }

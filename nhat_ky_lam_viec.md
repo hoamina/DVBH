@@ -4245,3 +4245,17 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - Yêu cầu "ẩn các tiêu đề trung gian khi gộp tab": bỏ các dòng "Cơ bản / Xử lý / Bổ sung / Linh kiện lỗi / Gửi bảo hành"
   khi gộp (Kiểu 2 tab "Nội dung", Kiểu 3 "Thông tin case") — các phần chỉ còn ngăn bằng đường kẻ. Tiêu đề con bên trong
   phần Bổ sung (Hình ảnh / Doanh thu / Phân loại) giữ nguyên. Áp dụng cả ca gốc lẫn cột đối chiếu.
+
+## 2026-10-08 — Chi tiết ca: tab "Luồng mail" đổi trả (hệ theodoidoimay) + cột `id_khach_hang` (nhánh `luong-mail`, chưa deploy)
+
+- Hệ độc lập **theodoidoimay** (repo "thu ky mail doi may", https://theodoidoimay.dichvu3t.workers.dev) nhận mail CC vào
+  `theodoidoimay@gmail.com`, gom luồng theo mã case (cuối tiêu đề "HỖ TRỢ ĐỔI MÁY: ..._<mã case>") / serial / header, nhận
+  diện mốc: Phát sinh → Karofi tiếp nhận → Đề xuất đổi → TBP 3T duyệt → Karofi giao xử lý → Lên SO → Lên DO.
+- DVBH: `GET /api/cases/:id/mail-timeline` (`lib/mailTimeline.ts`) proxy `GET /api/partner/case?id=` của theodoidoimay qua
+  Service Binding `THEODOI_APP` + secret `THEODOI_APP_API_KEY` — y hệt mẫu `linh-kien-timeline`: gọi theo yêu cầu khi mở ca,
+  không lưu D1, lỗi không làm hỏng chi tiết ca. Frontend: tab "Luồng mail" (`components/LuongMailPanel.tsx`) — dải mốc +
+  khoảng thời gian giữa các mốc, bảng đề xuất 22 trường (ẩn SĐT/Địa chỉ), danh sách thư + link mở Gmail theo dõi.
+- Migration 0127: `case_dvbh.id_khach_hang` (cột "ID khách hàng" của QuickSight; Odoo chưa có) — `OPTIONAL_FIELDS` (chỉ ghi
+  khi dòng import có key). Chốt nghiệp vụ: nối ca MỚI đổi cho KH với ca GỐC **chỉ** theo ID khách hàng, không tra SĐT.
+  Pipeline QuickSight cần gửi thêm key `id_khach_hang`. Lưu ý: lần đầu pipeline gửi cột này, `crm_hash` của các ca có giá trị
+  sẽ đổi 1 lần → các ca đó bị ghi đè 1 lần (bình thường, không lặp lại).

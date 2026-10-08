@@ -14,6 +14,7 @@ import { CacheBanner } from "../components/ui/CacheBanner";
 import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
+import { LuongMailPanel, useMailTimeline } from "../components/LuongMailPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
@@ -923,6 +924,9 @@ export function CaseDetail({
   // Log he "Dat mua linh kien" (linh-kien-app) cua ca nay - keo qua backend theo yeu cau, KHONG luu D1
   // (CHOT 2026-09-30, xem lib/linhKienTimeline.ts). Chay SONG SONG voi nguon AppSheet o tren.
   const { data: lkTimeline, isLoading: lkLoading } = useLinhKienTimeline(c?.id);
+  // Luong mail doi tra (he theodoidoimay) - chi lay so thu de hien tren tab; noi dung do LuongMailPanel
+  // tu tai (cung queryKey -> React Query dung chung 1 lan goi).
+  const { data: mailTimeline } = useMailTimeline(c?.id);
   const lkOrders = useMemo(() => lkTimeline?.orders ?? [], [lkTimeline]);
   const lkThieuTickets = useMemo(() => lkOrders.flatMap((o) => (o.thieu_lk ?? []).map((t) => ({ order: o, ticket: t }))), [lkOrders]);
   // So "yeu cau thieu LK" tu he Dat mua LK - uu tien block thieu_lk (API moi); linh-kien-app ban cu chua
@@ -2482,6 +2486,7 @@ export function CaseDetail({
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
+          { key: "luong-mail", label: "Luồng mail", count: mailTimeline?.thu.length ?? 0 },
         ]
       : [
           { key: "tien-trinh-chung", label: "Tiến trình chung", count: tienTrinhChungEvents.length },
@@ -2496,6 +2501,7 @@ export function CaseDetail({
           { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
           { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
+          { key: "luong-mail", label: "Luồng mail", count: mailTimeline?.thu.length ?? 0 },
         ];
 
   // "info"/"giai-trinh" la 2 tab loi luon hien; tab dang active cung luon hien (khong tu bien mat
@@ -2649,6 +2655,7 @@ export function CaseDetail({
               {tab === "po-dat-hang" && poDatHangContent}
               {tab === "qc-thuc-te" && qcThucTeContent}
               {tab === "tranh-chap" && tranhChapContent}
+              {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} />}
             </div>
           </div>
         )}
@@ -2669,6 +2676,7 @@ export function CaseDetail({
             {tab === "po-dat-hang" && poDatHangContent}
             {tab === "qc-thuc-te" && qcThucTeContent}
             {tab === "tranh-chap" && tranhChapContent}
+            {tab === "luong-mail" && c && <LuongMailPanel caseId={c.id} />}
           </div>
         )}
       </div>
