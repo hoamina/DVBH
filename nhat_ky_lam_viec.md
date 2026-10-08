@@ -4246,7 +4246,7 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   khi gộp (Kiểu 2 tab "Nội dung", Kiểu 3 "Thông tin case") — các phần chỉ còn ngăn bằng đường kẻ. Tiêu đề con bên trong
   phần Bổ sung (Hình ảnh / Doanh thu / Phân loại) giữ nguyên. Áp dụng cả ca gốc lẫn cột đối chiếu.
 
-## 2026-10-08 — Chi tiết ca: tab "Luồng mail" đổi trả (hệ theodoidoimay) + cột `id_khach_hang` (nhánh `luong-mail`, chưa deploy)
+## 2026-10-08 — Chi tiết ca: tab "Luồng mail" đổi trả (hệ theodoidoimay) + cột `id_khach_hang` (v1.431)
 
 - Hệ độc lập **theodoidoimay** (repo "thu ky mail doi may", https://theodoidoimay.dichvu3t.workers.dev) nhận mail CC vào
   `theodoidoimay@gmail.com`, gom luồng theo mã case (cuối tiêu đề "HỖ TRỢ ĐỔI MÁY: ..._<mã case>") / serial / header, nhận
