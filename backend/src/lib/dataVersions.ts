@@ -29,7 +29,9 @@
 // /survey (xem routes/survey.ts).
 // "don_bao_hanh_odoo" (2026-10-04): don bao hanh dong bo tu Odoo (externalImport.ts
 // POST /don-bao-hanh-odoo) - chi CaseDetail doc (CASE_DETAIL_DOMAINS), khong bao cao nao.
-const ALL_DOMAINS = ["blacklist", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "settings", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
+// "ton_kho" (2026-10-08): ton kho linh kien keo tu linh-kien-app (lib/tonKhoLk.ts syncTonKhoLk) + cau hinh nhom
+// kho MB/MN (routes/tonKhoLk.ts PUT /kho/:ma) - chi cac endpoint /api/ton-kho-lk doc.
+const ALL_DOMAINS = ["blacklist", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay

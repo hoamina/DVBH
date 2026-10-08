@@ -46,6 +46,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 | GET /nap-gas/by-khu-vuc (thêm 2026-07-24) | napGas.ts | cases, nap_gas_danh_gia |
 | GET /tranh-chap/tien-trinh/stats (thêm 2026-07-29, nhận thêm `phan_loai` optional 2026-08-21 — key có `phan_loai` khi truyền) | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/count (thêm 2026-07-29) | tranhChap.ts | cases, tranh_chap |
+| GET /ton-kho-lk/tong-hop, GET /ton-kho-lk/kho (thêm 2026-10-08) | tonKhoLk.ts | ton_kho (bump khi kéo phiên bản tồn kho mới từ linh-kien-app — `lib/tonKhoLk.ts syncTonKhoLk` — và khi sửa cấu hình nhóm kho MB/MN `PUT /ton-kho-lk/kho/:ma`) |
 | GET /tranh-chap/doi-may/theo-khu-vuc (thêm 2026-08-21 — tab "Đòi đổi máy", cố định lọc `phan_loai_tranh_chap = 'KH đòi đổi máy'`) | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/cho-xac-nhan-ai/count (thêm 2026-08-22 — badge đỏ trên tab "Chờ xác nhận AI") | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/theo-doi-doi-tra/cho-danh-gia/count (thêm 2026-09-03 — badge đỏ trên tab "Theo dõi đổi trả") | tranhChap.ts | cases, tranh_chap |

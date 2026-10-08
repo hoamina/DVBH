@@ -42,12 +42,15 @@ import { generateCanhBaoTonSnapshot } from "./lib/canhBaoTon";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
+import { autoSyncTonKhoLk } from "./lib/tonKhoLk";
+import tonKhoLkRoutes from "./routes/tonKhoLk";
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.route("/api/auth", authRoutes);
 app.route("/api/cases", casesRoutes);
 app.route("/api/missing-parts", missingPartsRoutes);
+app.route("/api/ton-kho-lk", tonKhoLkRoutes);
 app.route("/api/tranh-chap", tranhChapRoutes);
 app.route("/api/nap-gas", napGasRoutes);
 app.route("/api/survey", surveyRoutes);
@@ -116,7 +119,10 @@ const ETX_SYNC_CRON = "15,20,25 10 * * *";
 // ngay sau khi import/ghi du lieu that (importRoute.ts/externalImport.ts), nen day chi con la luoi
 // an toan du phong, khong can tan suat cao hon 1 lan/ngay. Phai khai bao trong ca 2
 // wrangler*.jsonc "triggers.crons".
-const DAILY_SNAPSHOT_CRON = "0 1 * * *";
+// 2026-10-08: mo rong thanh MOI GIO 01-11 UTC (= 8h-18h VN) de hoi ton kho linh kien ben linh-kien-app
+// (lib/tonKhoLk.ts autoSyncTonKhoLk) MA KHONG them Cron Trigger thu 5 (Worker da tung bi Cloudflare am tham bo
+// trigger khi vuot gioi han, xem ETX_SYNC_CRON). Toan bo viec "08:00" ben duoi chi chay khi gio UTC theo lich = 1.
+const DAILY_SNAPSHOT_CRON = "0 1-11 * * *";
 
 // 17:30 chieu gio VN = 10:30 UTC - "chot" ty le giai trinh trong ngay theo khu vuc vao bang
 // giai_trinh_daily_log (migration 0040, xem lib/dailySnapshot.ts chotGiaiTrinhDailyLog) - LICH SU
@@ -190,6 +196,13 @@ export default {
     }
 
     if (event.cron === DAILY_SNAPSHOT_CRON) {
+      try {
+        await autoSyncTonKhoLk(env, event.scheduledTime);
+      } catch (err) {
+        console.error("[cron-ton-kho-lk] loi khong mong doi:", err instanceof Error ? err.message : String(err));
+      }
+      // Cac viec chot 08:00 VN - KHONG chay o cac lan fire 9h-18h VN them vao 2026-10-08.
+      if (new Date(event.scheduledTime).getUTCHours() !== 1) return;
       try {
         await generateDailySnapshot(env.DB, "auto");
       } catch (err) {

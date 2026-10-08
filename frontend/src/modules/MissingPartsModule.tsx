@@ -27,6 +27,7 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { useToast } from "../components/ui/Toast";
+import { TonKhoSyncBar, TonKhoCauHinhTab, useTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 
 // Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
 // theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
@@ -168,6 +169,7 @@ const VIEWS = [
   { key: "bao-cao", label: "Báo cáo" },
   { key: "danh-sach", label: "Danh sách chi tiết" },
   { key: "linh-kien-thieu", label: "Linh kiện thiếu" },
+  { key: "cau-hinh-kho", label: "Cấu hình kho" },
 ];
 
 interface LinhKienThieuRow {
@@ -243,6 +245,15 @@ function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: s
   );
 }
 
+// O ton kho: > 0 to dam xanh (dang co hang ma ca van bao thieu -> can dieu chuyen), 0/khong co dong = "0" mo.
+function TonKhoCell({ value, loaded }: { value: number | undefined; loaded: boolean }) {
+  if (!loaded) return <td className="py-2 pr-3 text-right text-xs text-[var(--ink-400)]">…</td>;
+  const v = value ?? 0;
+  return (
+    <td className={`py-2 pr-3 text-right text-xs ${v > 0 ? "font-bold text-[var(--teal-600)]" : "text-[var(--ink-400)]"}`}>{fmtSl(v)}</td>
+  );
+}
+
 // Tab "Linh kien thieu": gom nhom ca "dang ton" theo ma linh kien (backend /linh-kien-thieu), doi
 // chieu voi du lieu PO/mua hang/bao hanh dong bo tu Google Sheet (usePurchaseWarrantyData - CHI co o
 // frontend, khong co o backend nen doi chieu hoan toan phia client, giong CaseDetail.tsx). CHOT
@@ -268,6 +279,8 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
     }
   }
   const [search, setSearch] = useState("");
+  // Ton kho MB/MN theo ma hang (keo tu linh-kien-app, 2026-10-08) - ma_lk o day = ma hang MISA (cung bo ma).
+  const { map: tonKho } = useTonKhoTongHop();
 
   const enriched = useMemo(
     () =>
@@ -298,6 +311,9 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
           <div className="text-xs text-[var(--ink-400)] mt-0.5">
             Đối chiếu với dữ liệu PO đặt hàng từ Google Sheet. Bấm vào 1 dòng để xem chi tiết PO / đơn mua hàng / bảo hành liên quan tới mã đó.
           </div>
+          <div className="mt-1">
+            <TonKhoSyncBar />
+          </div>
           <div className="text-xs mt-0.5">
             {isSyncing || syncingPo ? (
               <span className="text-[var(--ink-400)]">Đang đồng bộ PO…</span>
@@ -324,6 +340,8 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
               <th className="py-2 pr-3">Mã LK</th>
               <th className="py-2 pr-3">Tên linh kiện</th>
               <th className="py-2 pr-3">Số ca đang báo thiếu</th>
+              <th className="py-2 pr-3 text-right">Tồn kho MB</th>
+              <th className="py-2 pr-3 text-right">Tồn kho MN</th>
               <th className="py-2 pr-3">Kho cần đặt hàng</th>
               <th className="py-2 pr-3">Ngày dự kiến hàng về</th>
               <th className="py-2 pr-3">Ngày về gần nhất toàn quốc</th>
@@ -343,6 +361,8 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
                 <td className="py-2 pr-3">
                   <Pill tone="coral">{r.so_ca}</Pill>
                 </td>
+                <TonKhoCell value={tonKho?.get(r.ma_lk)?.ton_mb} loaded={!!tonKho} />
+                <TonKhoCell value={tonKho?.get(r.ma_lk)?.ton_mn} loaded={!!tonKho} />
                 <td className="py-2 pr-3 text-xs">{r.latestPo?.khoCanDat || "—"}</td>
                 <td className="py-2 pr-3 text-xs">{r.latestPo?.ngayDuKienGanNhat || "—"}</td>
                 <td className="py-2 pr-3 text-xs">{r.latestPo?.ngayVeGanNhatToanQuoc || "—"}</td>
@@ -358,7 +378,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
             ))}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                <td colSpan={10} className="py-8 text-center text-[var(--ink-400)] text-sm">
                   {enriched.length === 0 ? "Không có linh kiện nào đang thiếu." : "Không tìm thấy linh kiện phù hợp."}
                 </td>
               </tr>
@@ -518,7 +538,7 @@ export function MissingPartsModule({
     queryKey: ["missing-parts-by-khu-vuc", khuVucFilter, modelFilter, doiTacFilter, reportDim],
     queryFn: () =>
       api.get<{ rows: KhuVucRow[] }>(`/missing-parts/by-khu-vuc${buildQuery({ khu_vuc: khuVucFilter, nhom_san_pham: modelFilter, doi_tac: doiTacFilter, dim: reportDim })}`),
-    enabled: view !== "linh-kien-thieu",
+    enabled: view !== "linh-kien-thieu" && view !== "cau-hinh-kho",
   });
 
   // Dong "Tong cong" dau bang - cong don cac cot so tren cac dong dang hien. "so_ma_linh_kien" KHONG
@@ -747,7 +767,9 @@ export function MissingPartsModule({
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
 
-      {view === "linh-kien-thieu" ? (
+      {view === "cau-hinh-kho" ? (
+        <TonKhoCauHinhTab />
+      ) : view === "linh-kien-thieu" ? (
         <LinhKienThieuTab rows={linhKienThieuQuery.data?.rows ?? []} isLoading={linhKienThieuQuery.isLoading} />
       ) : view === "bao-cao" ? (
         <Card className="p-3 mt-3">

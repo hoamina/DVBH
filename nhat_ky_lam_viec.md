@@ -4148,3 +4148,21 @@ Badge đầu phần Thông tin (ca gốc + ca đối chiếu) trước chỉ có
 thành"/"Đang tồn đọng" → ca đã đóng với tiến độ "Không hoàn thành XLSC" (Thất bại) vẫn hiện "Đã hoàn thành".
 Nay thêm nhánh thứ 3: đã đóng + "Không hoàn thành XLSC" → badge đỏ "Thất bại" (`caseStatusBadge()` trong
 CaseDetail.tsx, khớp ticker "Ca thất bại" của `lib/caseTickers.ts`).
+
+## 2026-10-08 — Tồn kho linh kiện từ linh-kien-app, GĐ1 (v1.421, migration 0125)
+
+Yêu cầu: quản lý mã linh kiện tồn theo kho MB/MN/KTV, dữ liệu kéo từ linh-kien-app (file MISA "tồn kho công nợ"
+Kế toán import hằng ngày). Chốt với chủ hệ thống: số tồn = **tồn cuối kỳ MISA** (không trừ đơn đang giữ hàng),
+kéo **cả tồn KTV**, làm lần lượt 3 giai đoạn (GĐ1 đồng bộ + cột MB/MN + cấu hình kho; GĐ2 hồ sơ linh kiện; GĐ3 thẻ
+báo cáo hành động).
+- linh-kien-app v1.304: thêm `GET /api/partner/v1/ton-kho/meta` + `GET /api/partner/v1/ton-kho?nguon=kho|ktv`
+  (phân trang con trỏ id, kèm `phien_ban` mỗi trang).
+- DVBH: bảng `ton_kho_lk` (1 phiên bản, ghi đè toàn bộ trong 1 batch), `ton_kho_lk_meta`, `ton_kho_nhom_kho` (seed
+  theo cách linh-kien-app gán kho đang bật: MB = 6804-MB, GLMB, SNKMB, VGMB, MMMB; MN = 6803, VGMN). Domain mới
+  `ton_kho`. Lịch: hỏi mỗi giờ 8h–18h VN T2–T7, đã có bản hôm nay thì dừng; nút "Đồng bộ tồn kho" (force chỉ
+  Admin/TBP DVBH). Không thêm Cron Trigger mới: `DAILY_SNAPSHOT_CRON` đổi `"0 1 * * *"` → `"0 1-11 * * *"`, mọi
+  việc chốt 08:00 trong nhánh đó chặn bằng giờ UTC theo lịch = 1.
+- UI module Ca thiếu linh kiện: tab "Linh kiện thiếu" thêm cột **Tồn kho MB / Tồn kho MN** (> 0 tô xanh đậm) + dòng
+  trạng thái phiên bản tồn kho; tab mới **"Cấu hình kho"** (gán từng mã kho MB/MN/Không tính, tóm tắt công thức
+  "Tồn kho MB = 6804-MB + …").
+- Số liệu thật lúc làm: ~8.700 dòng (1.596 kho công ty / 21 mã kho; 7.107 tồn KTV, trong đó 252 mã kho chưa khớp KTV).

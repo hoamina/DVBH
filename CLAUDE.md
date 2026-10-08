@@ -140,6 +140,14 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     Neither endpoint calls `logPartnerApiCall` (would write 1 D1 row per 15-min poll). `LoiLinhKienPanel`
     shows the `sc_*` status as a second badge.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
+  - `tonKhoLk.ts` (2026-10-08, migration 0125, `lib/tonKhoLk.ts`) — spare-part stock pulled from linh-kien-app's
+    `GET /api/partner/v1/ton-kho(/meta)` (the MISA stock file Kế toán imports daily there; Service Binding
+    `LINHKIEN_APP`). Only ONE version kept: a new `phien_ban` (linh-kien-app import time) → DELETE + re-insert all
+    of `ton_kho_lk` (~8.7k rows) in one batch, bump domain `ton_kho`. Auto-checked hourly 8h–18h VN Mon–Sat
+    (stops for the day once today's version is in) by piggybacking on `DAILY_SNAPSHOT_CRON`, now `"0 1-11 * * *"`
+    — every "08:00" job in that branch is guarded by `getUTCHours(scheduledTime) === 1`; this avoids a 5th Cron
+    Trigger (see the ETX_SYNC_CRON note on the silently dropped triggers). `ton_kho_nhom_kho` = which `ma_kho`
+    sum into "Tồn kho MB"/"Tồn kho MN" (tab "Cấu hình kho", Admin/TBP DVBH edit). UI: `components/TonKhoLk.tsx`.
 - `middleware/` — `session.ts` verifies the `dvbh_session` JWT cookie and sets `email`; a route then
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via
   `loadUser.ts` and sets `user`; `requireRole.ts` gates by role; `scopeByKhuVuc.ts` builds the
@@ -278,7 +286,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0122`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0125`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
