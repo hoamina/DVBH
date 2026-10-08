@@ -4214,3 +4214,13 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - Yêu cầu "bổ sung thêm ngày giờ cập nhật của kế toán": `TonKhoCapNhatLine` (TonKhoLk.tsx) đặt cuối hàng badge của Hồ sơ
   linh kiện — "Kế toán cập nhật tồn kho lúc HH:mm dd/mm/yyyy (MISA kỳ …)" lấy `ton_kho_lk_meta.phien_ban` (giờ Kế toán import
   bên linh-kien-app); chữ cam + "chưa có bản hôm nay" nếu bản đang dùng không phải của hôm nay.
+
+## 2026-10-08 — Chi tiết ca: chọn "Kiểu xem" thẻ thông tin ca (v1.427)
+
+- Yêu cầu: nút chọn kiểu xem trong UI case, 3 kiểu, lưu cache máy người dùng. Nhóm nút "Kiểu 1 | 2 | 3" ở góc phải hàng
+  tab của thẻ thông tin ca (chỉ ca gốc), lưu `localStorage["dvbh_case_info_layout"]`, mặc định Kiểu 1.
+  - Kiểu 1: 5 tab như cũ, rút gọn tên "Linh kiện lỗi" → "Lỗi", "Linh kiện bảo hành" → "Gửi BH" (số đếm vẫn là chấm đỏ).
+  - Kiểu 2: 3 tab "Nội dung" (Cơ bản + Xử lý + Bổ sung xếp dọc, có tiêu đề từng phần) / "Lỗi" / "Gửi BH".
+  - Kiểu 3: 1 tab "Thông tin case" xếp dọc tất cả 5 phần.
+- Đổi kiểu khi đang ở tab không còn tồn tại → tự quy về tab tương ứng (vd "Xử lý" → "Nội dung"). `jumpToTab` từ Tiến
+  trình chung: Kiểu 3 cuộn tới đúng phần (`data-sec`), Kiểu 1/2 mở tab + cuộn tới đầu thẻ.

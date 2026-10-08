@@ -144,7 +144,33 @@ function parseFlexibleDbDate(v: string) {
 // tab con: Co ban (khu vuc/dia chi/KTV/moc thoi gian) / Xu ly / Bo sung (anh + doanh thu + phan loai) /
 // Linh kien loi / Linh kien bao hanh (2 tab cuoi chuyen tu thanh tab chinh vao). Ca doi chieu khong
 // truyen -> giu nguyen bo cuc cu (luoi + cac Card xep doc).
-type XuLyTabs = { active: string; onChange: (key: string) => void; tabs: TabItem[]; panels: Record<string, ReactNode>; cardRef: RefObject<HTMLDivElement> };
+// "layout" (2026-10-08, chon o the, luu localStorage tung may): 1 = 5 tab (Cơ bản/Xử lý/Bổ sung/Lỗi/Gửi BH);
+// 2 = 3 tab (Nội dung gop Co ban+Xu ly+Bo sung / Lỗi / Gửi BH); 3 = 1 tab "Thông tin case" xep doc tat ca.
+export type CaseInfoLayout = 1 | 2 | 3;
+const CASE_INFO_LAYOUT_KEY = "dvbh_case_info_layout";
+function readCaseInfoLayout(): CaseInfoLayout {
+  try {
+    const v = Number(localStorage.getItem(CASE_INFO_LAYOUT_KEY));
+    return v === 2 || v === 3 ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+const CASE_INFO_LAYOUT_HINT: Record<CaseInfoLayout, string> = {
+  1: "Kiểu 1: 5 tab — Cơ bản / Xử lý / Bổ sung / Lỗi / Gửi BH",
+  2: "Kiểu 2: 3 tab — Nội dung / Lỗi / Gửi BH",
+  3: "Kiểu 3: 1 tab — gộp tất cả thông tin case",
+};
+type XuLyTabs = {
+  active: string;
+  onChange: (key: string) => void;
+  layout: CaseInfoLayout;
+  onLayoutChange: (l: CaseInfoLayout) => void;
+  countLoi: number;
+  countBaoHanh: number;
+  panels: Record<string, ReactNode>;
+  cardRef: RefObject<HTMLDivElement>;
+};
 function renderCaseFieldsGrid(
   c: CaseRow,
   serialExtra?: ReactNode,
@@ -283,23 +309,71 @@ function renderCaseFieldsGrid(
   );
 
   if (xuLyTabs) {
-    const active = xuLyTabs.active;
+    const { layout } = xuLyTabs;
+    const loiTab: TabItem = { key: "loi-linh-kien", label: "Lỗi", count: xuLyTabs.countLoi };
+    const bhTab: TabItem = { key: "bao-hanh", label: "Gửi BH", count: xuLyTabs.countBaoHanh };
+    const tabs: TabItem[] =
+      layout === 3
+        ? [{ key: "tat-ca", label: "Thông tin case" }]
+        : layout === 2
+          ? [{ key: "noi-dung", label: "Nội dung" }, loiTab, bhTab]
+          : [{ key: "co-ban", label: "Cơ bản" }, { key: "xu-ly", label: "Xử lý" }, { key: "bo-sung", label: "Bổ sung" }, loiTab, bhTab];
+    // Tab dang chon co the thuoc kieu khac (vd doi Kieu 1 -> 2 khi dang o "xu-ly") -> quy ve tab tuong ung.
+    let active = xuLyTabs.active;
+    if (!tabs.some((t) => t.key === active)) active = layout === 2 && ["co-ban", "xu-ly", "bo-sung"].includes(active) ? "noi-dung" : tabs[0].key;
+    const coBanGrid = <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">{coBanFields}</div>;
+    const boSung = (
+      <div className="space-y-4">
+        <div>{hinhAnhSection}</div>
+        <div className="border-t border-[var(--line)] pt-4">{doanhThuSection}</div>
+        <div className="border-t border-[var(--line)] pt-4">{phanLoaiSection}</div>
+      </div>
+    );
+    // Kieu 2/3 xep doc nhieu phan: moi phan co tieu de + data-sec (jumpToTab cuon toi dung phan).
+    const sec = (key: string, title: string, node: ReactNode) => (
+      <div key={key} data-sec={key} className="scroll-mt-4">
+        <div className="font-display font-bold text-sm mb-3 text-[var(--ocean-600)]">{title}</div>
+        {node}
+      </div>
+    );
+    const stack = (parts: ReactNode[]) => <div className="space-y-4 [&>*+*]:border-t [&>*+*]:border-[var(--line)] [&>*+*]:pt-4">{parts}</div>;
+    const noiDung = [sec("co-ban", "Cơ bản", coBanGrid), sec("xu-ly", "Xử lý", xuLyGrid), sec("bo-sung", "Bổ sung", boSung)];
     return (
       <>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">{topFields}</div>
         <div ref={xuLyTabs.cardRef} className="scroll-mt-4">
           <Card className="p-4">
-            <Tabs active={active} onChange={xuLyTabs.onChange} tabs={xuLyTabs.tabs} />
-            {active === "co-ban" && <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">{coBanFields}</div>}
-            {active === "xu-ly" && xuLyGrid}
-            {active === "bo-sung" && (
-              <div className="space-y-4">
-                <div>{hinhAnhSection}</div>
-                <div className="border-t border-[var(--line)] pt-4">{doanhThuSection}</div>
-                <div className="border-t border-[var(--line)] pt-4">{phanLoaiSection}</div>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <Tabs active={active} onChange={xuLyTabs.onChange} tabs={tabs} />
               </div>
-            )}
-            {xuLyTabs.panels[active]}
+              <div className="flex shrink-0 rounded-lg border border-[var(--line)] overflow-hidden mt-1.5" role="group" aria-label="Kiểu xem">
+                {([1, 2, 3] as CaseInfoLayout[]).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    title={CASE_INFO_LAYOUT_HINT[l]}
+                    onClick={() => xuLyTabs.onLayoutChange(l)}
+                    className={`focus-ring px-2 py-1 text-xs font-semibold whitespace-nowrap ${
+                      layout === l ? "bg-[var(--ocean-500)] text-white" : "text-[var(--ink-500)] hover:bg-slate-100"
+                    }`}
+                  >
+                    Kiểu {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {active === "co-ban" && coBanGrid}
+            {active === "xu-ly" && xuLyGrid}
+            {active === "bo-sung" && boSung}
+            {active === "noi-dung" && stack(noiDung)}
+            {active === "tat-ca" &&
+              stack([
+                ...noiDung,
+                sec("loi-linh-kien", `Linh kiện lỗi${xuLyTabs.countLoi ? ` (${xuLyTabs.countLoi})` : ""}`, xuLyTabs.panels["loi-linh-kien"]),
+                sec("bao-hanh", `Gửi bảo hành${xuLyTabs.countBaoHanh ? ` (${xuLyTabs.countBaoHanh})` : ""}`, xuLyTabs.panels["bao-hanh"]),
+              ])}
+            {(active === "loi-linh-kien" || active === "bao-hanh") && xuLyTabs.panels[active]}
           </Card>
         </div>
       </>
@@ -445,6 +519,15 @@ export function CaseDetail({
   const [compareId, setCompareId] = useState<string | null>(null);
   // Tab con trong the thong tin ca (co-ban / xu-ly / bo-sung / loi-linh-kien / bao-hanh) - xem renderCaseFieldsGrid.
   const [xuLyTab, setXuLyTab] = useState("co-ban");
+  const [caseInfoLayout, setCaseInfoLayout] = useState<CaseInfoLayout>(readCaseInfoLayout);
+  function changeCaseInfoLayout(l: CaseInfoLayout) {
+    setCaseInfoLayout(l);
+    try {
+      localStorage.setItem(CASE_INFO_LAYOUT_KEY, String(l));
+    } catch {
+      /* localStorage bi chan -> chi ap dung trong phien */
+    }
+  }
   const xuLyCardRef = useRef<HTMLDivElement>(null);
   const { data: compareEntry } = useQuery({
     queryKey: ["case", compareId],
@@ -2062,7 +2145,7 @@ export function CaseDetail({
     <div>
       {donBaoHanhOdooList.length > 0 && (
         <div className="mb-4">
-          <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({donBaoHanhOdooList.length}) — chi tiết theo linh kiện ở tab "Linh kiện lỗi"</div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({donBaoHanhOdooList.length}) — chi tiết theo linh kiện ở mục "Lỗi"</div>
           <DonBaoHanhOdooList parts={linhKienLoiList} orders={donBaoHanhOdooList} />
           <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">Nguồn AppSheet (Google Sheet)</div>
         </div>
@@ -2163,14 +2246,11 @@ export function CaseDetail({
         {
           active: xuLyTab,
           onChange: setXuLyTab,
+          layout: caseInfoLayout,
+          onLayoutChange: changeCaseInfoLayout,
           cardRef: xuLyCardRef,
-          tabs: [
-            { key: "co-ban", label: "Cơ bản" },
-            { key: "xu-ly", label: "Xử lý" },
-            { key: "bo-sung", label: "Bổ sung" },
-            { key: "loi-linh-kien", label: "Linh kiện lỗi", count: linhKienLoiList.length },
-            { key: "bao-hanh", label: "Linh kiện bảo hành", count: baoHanhMatched.length + donBaoHanhOdooList.length },
-          ],
+          countLoi: linhKienLoiList.length,
+          countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length,
           panels: { "loi-linh-kien": loiLinhKienContent, "bao-hanh": baoHanhContent },
         },
       )}
@@ -2183,7 +2263,11 @@ export function CaseDetail({
     if (key === "loi-linh-kien" || key === "bao-hanh") {
       setXuLyTab(key);
       if (viewMode === "compact") onTabChange("info");
-      setTimeout(() => xuLyCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+      // Kieu 3 xep doc -> cuon toi dung phan (data-sec); Kieu 1/2 -> cuon toi dau the.
+      setTimeout(() => {
+        const card = xuLyCardRef.current;
+        (card?.querySelector(`[data-sec="${key}"]`) ?? card)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
       return;
     }
     onTabChange(key);
