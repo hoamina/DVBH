@@ -4203,3 +4203,8 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   `SheetRowsTable` + các COLS chuyển từ MissingPartsModule sang.
 - Tràn màn hình: `Modal` body thêm `min-h-0 flex-1` (cuộn trong popup thay vì đẩy cao), các Section/grid item `min-w-0`,
   bảng bọc `overflow-x-auto`. Kiểm tra local ở viewport 1100×650: popup cao 572px, thân cuộn dọc, không tràn ngang.
+
+## 2026-10-08 — Popup Hồ sơ linh kiện gần toàn màn hình (v1.425)
+
+- Phản hồi "giao diện đang bị nhỏ ở giữa" (màn 1920px, popup chỉ ~1150px do `max-w-6xl`): popup Hồ sơ linh kiện đổi sang
+  `max-w-[1800px]` + cao cố định `calc(100vh - 2rem)` → phủ gần hết màn hình, nội dung cuộn bên trong.

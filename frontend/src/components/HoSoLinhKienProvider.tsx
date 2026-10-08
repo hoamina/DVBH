@@ -19,7 +19,7 @@ export function HoSoLinhKienProvider({ enabled, openCase, children }: { enabled:
     <HoSoLinhKienContext.Provider value={enabled ? mo : null}>
       {children}
       {dangMo && (
-        <Modal open title={`Hồ sơ linh kiện ${dangMo.ma}${dangMo.ten ? ` — ${dangMo.ten}` : ""}`} onClose={() => setDangMo(null)} width="max-w-6xl">
+        <Modal open title={`Hồ sơ linh kiện ${dangMo.ma}${dangMo.ten ? ` — ${dangMo.ten}` : ""}`} onClose={() => setDangMo(null)} width="max-w-[1800px]" height="h-[calc(100vh-2rem)]">
           <HoSoLinhKien
             maLk={dangMo.ma}
             openCase={(id, tab) => {
