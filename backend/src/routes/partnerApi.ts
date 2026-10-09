@@ -524,7 +524,7 @@ partnerApi.post("/sync/giai-trinh-vi-pham", async (c) => {
 const DON_BH_ODOO_KEY_LIMIT_PER_MIN = 30;
 const DON_BH_ODOO_MAX_LIMIT = 500;
 const DON_BH_ODOO_COLUMNS =
-  "d.odoo_id, d.ma_don, d.case_id, d.ma_linh_kien, d.ten_linh_kien, d.so_luong, d.trang_thai, d.tinh_trang_loi, d.ghi_chu, d.ngay_tao, d.ngay_hoan_thanh, d.ngay_cap_nhat_odoo, d.con_hieu_luc, d.ngay_dong_bo, c.ky_thuat_vien";
+  "d.odoo_id, d.ma_don, d.case_id, d.ma_linh_kien, d.ten_linh_kien, d.so_luong, d.trang_thai, d.tinh_trang_loi, d.ghi_chu, d.ngay_tao, d.ngay_hoan_thanh, d.ngay_cap_nhat_odoo, d.con_hieu_luc, d.ngay_dong_bo, d.ma_import_odoo, c.ky_thuat_vien";
 
 // GET /api/partner/don-bao-hanh-odoo?since=<ngay_dong_bo>&after_id=<odoo_id>&limit=500
 //   hoac ?ids=1,2,3 (lay lai dong cu the, vd don ve truoc case -> chua biet KTV, toi da 200 id).

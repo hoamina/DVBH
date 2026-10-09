@@ -666,6 +666,7 @@ export interface DonBaoHanhOdooRow {
   ngay_cap_nhat_odoo: string | null;
   con_hieu_luc: number;
   ngay_dong_bo: string;
+  ma_import_odoo?: string | null; // External ID Odoo (migration 0129)
   // Trang thai gui sua do he "Sua chua bao hanh" (suachua) day nguoc ve - cot rieng, khong de trang_thai Odoo.
   sc_trang_thai?: string | null;
   sc_ma_phieu?: string | null;

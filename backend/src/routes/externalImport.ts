@@ -72,10 +72,12 @@ externalImport.post("/refresh-reports", async (c) => {
 // -3/+1 ngay. UPSERT theo odoo_id; dong co ngay_cap_nhat_odoo KHONG doi -> bo qua (khong ghi).
 // Body: { rows: [{ odoo_id, ma_don, case_id, ma_linh_kien, ten_linh_kien, so_luong, don_gia,
 // thanh_tien, trang_thai, tinh_trang_loi, ghi_chu, ngay_tao, ngay_hoan_thanh, nguoi_tao,
-// ngay_cap_nhat_odoo, con_hieu_luc }] } - gio deu la gio VN "YYYY-MM-DD HH:MM:SS".
+// ngay_cap_nhat_odoo, con_hieu_luc, ma_import_odoo }] } - gio deu la gio VN "YYYY-MM-DD HH:MM:SS".
+// ma_import_odoo (migration 0129) = External ID de import nguoc Odoo; doi gia tri cung tinh la "doi".
 const DON_BH_FIELDS = [
   "ma_don", "case_id", "ma_linh_kien", "ten_linh_kien", "so_luong", "don_gia", "thanh_tien", "trang_thai",
   "tinh_trang_loi", "ghi_chu", "ngay_tao", "ngay_hoan_thanh", "nguoi_tao", "ngay_cap_nhat_odoo", "con_hieu_luc",
+  "ma_import_odoo",
 ] as const;
 
 externalImport.post("/don-bao-hanh-odoo", async (c) => {
@@ -94,15 +96,17 @@ externalImport.post("/don-bao-hanh-odoo", async (c) => {
   }
 
   const ids = [...byId.keys()];
-  const existing = new Map<number, string | null>();
+  const existing = new Map<number, { key: string; maImport: string | null }>();
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100);
     const { results } = await c.env.DB.prepare(
-      `SELECT odoo_id, ngay_cap_nhat_odoo, con_hieu_luc FROM don_bao_hanh_odoo WHERE odoo_id IN (${chunk.map(() => "?").join(", ")})`,
+      `SELECT odoo_id, ngay_cap_nhat_odoo, con_hieu_luc, ma_import_odoo FROM don_bao_hanh_odoo WHERE odoo_id IN (${chunk.map(() => "?").join(", ")})`,
     )
       .bind(...chunk)
-      .all<{ odoo_id: number; ngay_cap_nhat_odoo: string | null; con_hieu_luc: number }>();
-    for (const r of results) existing.set(r.odoo_id, `${r.ngay_cap_nhat_odoo}|${r.con_hieu_luc}`);
+      .all<{ odoo_id: number; ngay_cap_nhat_odoo: string | null; con_hieu_luc: number; ma_import_odoo: string | null }>();
+    for (const r of results) {
+      existing.set(r.odoo_id, { key: `${r.ngay_cap_nhat_odoo}|${r.con_hieu_luc}|${r.ma_import_odoo}`, maImport: r.ma_import_odoo });
+    }
   }
 
   const now = nowVN();
@@ -120,10 +124,14 @@ externalImport.post("/don-bao-hanh-odoo", async (c) => {
   let capNhat = 0;
   for (const [id, r] of byId) {
     const old = existing.get(id);
-    if (old !== undefined && old === `${val(r, "ngay_cap_nhat_odoo")}|${val(r, "con_hieu_luc")}`) continue;
+    // Pipeline cu chua gui ma_import_odoo (undefined) -> giu gia tri dang luu, khong coi la "doi"
+    const maImport = r.ma_import_odoo === undefined ? (old?.maImport ?? null) : (val(r, "ma_import_odoo") as string | null);
+    if (old !== undefined && old.key === `${val(r, "ngay_cap_nhat_odoo")}|${val(r, "con_hieu_luc")}|${maImport}`) continue;
     if (old === undefined) ghiMoi++;
     else capNhat++;
-    statements.push(c.env.DB.prepare(sql).bind(id, ...DON_BH_FIELDS.map((f) => val(r, f)), now));
+    statements.push(
+      c.env.DB.prepare(sql).bind(id, ...DON_BH_FIELDS.map((f) => (f === "ma_import_odoo" ? maImport : val(r, f))), now),
+    );
   }
   for (let i = 0; i < statements.length; i += 500) await c.env.DB.batch(statements.slice(i, i + 500));
   if (statements.length > 0) await bumpVersions(c.env.DB, ["don_bao_hanh_odoo"]);
