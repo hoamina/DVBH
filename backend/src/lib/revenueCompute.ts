@@ -9,6 +9,9 @@ import { khuVucAdHocClause, khuVucReportExclusionClause, CURRENT_MONTH_VALUE } f
 import { kpiEligibleClause } from "./kpiEligible";
 
 const REVENUE_EXPR = "COALESCE(dt_san_pham,0) + COALESCE(dt_linh_kien,0) + COALESCE(dt_dich_vu,0)";
+// 2026-10-09: so ca PHAT SINH doanh thu (> 0) - cho cot "% Upsale" (= so_ca_co_dt / so_ca, so_ca da la ca Hoan thanh
+// XLSC tinh KPI) va "Gia tri TB don" (= doanh_thu / so_ca_co_dt) o bang theo tinh / KTV.
+const CO_DT_EXPR = `SUM(CASE WHEN (${REVENUE_EXPR}) > 0 THEN 1 ELSE 0 END)`;
 
 // Doanh thu chi tinh ca "tinh vao KPI" - xem giai thich chi tiet trong lib/kpiEligible.ts. Truoc
 // day route nay KHONG loc gi ca, gay lech ~161 trieu (tren tong ~2.8 ty) so voi cach tinh dung.
@@ -79,7 +82,7 @@ export async function computeRevenue(
   // chuan hoa ten. Khong co trong snapshot 08:00 -> luon qua cachedReport.
   if (params.dim === "ky_thuat_vien_tinh") {
     const { results } = await db.prepare(
-      `SELECT ky_thuat_vien as nhom, COALESCE(NULLIF(tinh,''), tinh_moi) as tinh, COUNT(*) as so_ca, SUM(${REVENUE_EXPR}) as doanh_thu
+      `SELECT ky_thuat_vien as nhom, COALESCE(NULLIF(tinh,''), tinh_moi) as tinh, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
        FROM case_dvbh WHERE ky_thuat_vien IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
        GROUP BY ky_thuat_vien, COALESCE(NULLIF(tinh,''), tinh_moi)`,
     )
@@ -91,7 +94,7 @@ export async function computeRevenue(
   // 2026-10-09: "tinh" = bao cao "Doanh thu theo tinh" - MOI ca (ke ca chua gan KTV), tinh tho (frontend chuan hoa ten).
   if (params.dim === "tinh") {
     const { results } = await db.prepare(
-      `SELECT COALESCE(NULLIF(tinh,''), tinh_moi) as nhom, COUNT(*) as so_ca, SUM(${REVENUE_EXPR}) as doanh_thu
+      `SELECT COALESCE(NULLIF(tinh,''), tinh_moi) as nhom, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
        FROM case_dvbh WHERE ${KPI_ELIGIBLE_CLAUSE}${sql}
        GROUP BY COALESCE(NULLIF(tinh,''), tinh_moi)`,
     )
@@ -113,7 +116,7 @@ export async function computeRevenue(
     .first();
 
   const { results } = await db.prepare(
-    `SELECT ${dim} as nhom, COUNT(*) as so_ca, SUM(${REVENUE_EXPR}) as doanh_thu
+    `SELECT ${dim} as nhom, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
      FROM case_dvbh WHERE ${dim} IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
      GROUP BY ${dim} ORDER BY doanh_thu DESC`,
   )

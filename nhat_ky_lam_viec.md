@@ -4388,3 +4388,13 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   ca không bị đẩy lại hàng đợi vì nghi ngờ bị loại trừ.
 - Kiểm tra local: thêm loại trừ 120' cho KTV chỉ có lỗi 120' → 3 ca `can_khao_sat` 1→0; xóa → 0→1; ca có cả 120' + Lỡ
   KH → vẫn trong danh sách, `loai_tru_120p=1`; import file 5 dòng → 3 hợp lệ (1 dòng 2 nhóm lỗi), 2 lỗi báo rõ.
+
+## 2026-10-09 — Báo cáo doanh thu: cột "% Upsale" + "Giá trị TB đơn" (v1.442)
+- Backend `revenueCompute.ts`: thêm `so_ca_co_dt` (số ca có doanh thu > 0) vào mọi query theo dim; key cache thêm `rv: "2"`
+  để cache cũ (chưa có cột) không bị dùng lại.
+- Bảng "Doanh thu theo tỉnh" + "Doanh thu theo kỹ thuật viên": thêm cột "Ca phát sinh DT", "% Upsale" = ca phát sinh DT /
+  tổng ca Hoàn thành XLSC (đổi nhãn "Số ca" → "Số ca HT XLSC" — `so_ca` vốn chỉ đếm ca Hoàn thành XLSC tính KPI),
+  "Giá trị TB đơn" = doanh thu / ca phát sinh DT; giữ cột "DT trung bình / ca". Xuất Excel 2 bảng có đủ cột mới.
+- Snapshot 08:00 của bảng KTV tạo trước bản này chưa có `so_ca_co_dt` → frontend tự gom từ dữ liệu KTV × tỉnh (sống).
+- Kiểm tra local tháng 07/2026: 933 ca, 250 ca phát sinh DT → 26.8%, TB đơn 612.765đ (khớp giữa bảng tỉnh và KTV);
+  lọc HCM → 124 / 50 / 40.3% / 536.720đ.
