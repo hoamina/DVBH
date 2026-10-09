@@ -43,6 +43,8 @@ const SC_TRANG_THAI: Record<string, { label: string; tone: BadgeTone }> = {
   dang_tra: { label: "Sửa chữa: đang trả KTV", tone: "orange" },
   hoan_tat: { label: "Sửa chữa: KTV đã nhận lại", tone: "teal" },
   tu_choi: { label: "Sửa chữa: từ chối/huỷ", tone: "coral" },
+  // KTV xac nhan don Odoo tao nham, khong can gui bao hanh (suachua v1.014, 09/10/2026) - mo lai -> null.
+  khong_gui: { label: "Sửa chữa: KTV xác nhận không gửi", tone: "gray" },
 };
 export function scTrangThai(code: string | null | undefined) {
   if (!code) return null;
