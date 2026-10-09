@@ -322,7 +322,13 @@ function renderCaseFieldsGrid(
     // Tab dang chon co the thuoc kieu khac (vd doi Kieu 1 -> 2 khi dang o "xu-ly") -> quy ve tab tuong ung.
     let active = xuLyTabs.active;
     if (!tabs.some((t) => t.key === active)) active = layout === 2 && ["co-ban", "xu-ly", "bo-sung"].includes(active) ? "noi-dung" : tabs[0].key;
-    const coBanGrid = <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">{coBanFields}</div>;
+    // 2026-10-09: Khach hang + Serial nam DAU tab "Co ban" (truoc day o tren the, ngoai tab).
+    const coBanGrid = (
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+        {topFields}
+        {coBanFields}
+      </div>
+    );
     const boSung = (
       <div className="space-y-4">
         <div>{hinhAnhSection}</div>
@@ -341,7 +347,6 @@ function renderCaseFieldsGrid(
     const noiDung = [sec("co-ban", coBanGrid), sec("xu-ly", xuLyGrid), sec("bo-sung", boSung)];
     return (
       <>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm mb-4">{topFields}</div>
         <div ref={xuLyTabs.cardRef} className="scroll-mt-4">
           <Card className="p-4">
             <div className="flex items-start gap-2">
@@ -2208,6 +2213,8 @@ export function CaseDetail({
         {/* Ticker trang thai + Link CRM nhu tieu de ca goc (2026-10-08) - cung du lieu GET /cases/:id. */}
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">Ca đối chiếu: {compareId}</div>
+          {compareC && caseStatusBadge(compareC)}
+          {compareC && mucDoBadge(compareC.muc_do)}
           {compareC &&
             computeCaseTickers(compareC, compareData?.giaiTrinh ?? [], compareData?.viPham ?? [], activeLyDo, compareData?.caLap).map((t, i) => (
               <Badge key={i} tone={t.tone}>
@@ -2233,10 +2240,6 @@ export function CaseDetail({
       {!compareC && <LoadingInline />}
       {compareC && (
         <>
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            {caseStatusBadge(compareC)}
-            {mucDoBadge(compareC.muc_do)}
-          </div>
           {renderCaseFieldsGrid(
             compareC,
             compareData?.caLap.serialBlacklisted ? <Badge tone="gray">🚫 Đã blacklist</Badge> : undefined,
@@ -2267,31 +2270,7 @@ export function CaseDetail({
   // "expanded" hien gon hon ngay trong thanh tieu de (xem headerBar) vi tren do con nhieu cho trong.
   const infoContent = c && (
     <>
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {caseStatusBadge(c)}
-        {mucDoBadge(c.muc_do)}
-        {c.huy_bo_at && (
-          <Badge tone="gray" solid>
-            🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
-          </Badge>
-        )}
-        {canHuyCa &&
-          (c.huy_bo_at ? (
-            <Btn size="sm" variant="ghost" onClick={() => boHuyCa.mutate()} disabled={boHuyCa.isPending}>
-              {boHuyCa.isPending ? "Đang bỏ hủy…" : "Bỏ hủy ca"}
-            </Btn>
-          ) : (
-            <Btn size="sm" variant="danger" onClick={() => setHuyCaConfirmOpen(true)}>
-              Hủy ca
-            </Btn>
-          ))}
-        {canGiaiTrinh && (
-          <Btn size="sm" className="ml-auto" onClick={openGiaiTrinhModal}>
-            + Thêm giải trình
-          </Btn>
-        )}
-      </div>
-
+      {/* 2026-10-09: trang thai / muc do / huy ca chuyen len thanh tieu de (headerBar); "+ Thêm giải trình" chi con o tab GT ton. */}
       {viewMode === "compact" && isFromCache && entry && (
         <CacheBanner cachedAt={entry.cachedAt} onSync={() => syncCaseMutation.mutate()} isSyncing={syncCaseMutation.isPending} />
       )}
@@ -2596,6 +2575,13 @@ export function CaseDetail({
           </>
         )}
         <h3 className="font-display font-bold text-[var(--ink-900)] truncate">Chi tiết ca {caseId}</h3>
+        {c && caseStatusBadge(c)}
+        {c && mucDoBadge(c.muc_do)}
+        {c?.huy_bo_at && (
+          <Badge tone="gray" solid>
+            🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
+          </Badge>
+        )}
         {tickers.map((t, i) => (
           <Badge key={i} tone={t.tone}>
             {t.label}
@@ -2608,6 +2594,17 @@ export function CaseDetail({
             </Btn>
           </a>
         )}
+        {c &&
+          canHuyCa &&
+          (c.huy_bo_at ? (
+            <Btn size="sm" variant="ghost" onClick={() => boHuyCa.mutate()} disabled={boHuyCa.isPending}>
+              {boHuyCa.isPending ? "Đang bỏ hủy…" : "Bỏ hủy ca"}
+            </Btn>
+          ) : (
+            <Btn size="sm" variant="danger" onClick={() => setHuyCaConfirmOpen(true)}>
+              Hủy ca
+            </Btn>
+          ))}
       </div>
 
       {viewMode === "expanded" && isFromCache && entry && (

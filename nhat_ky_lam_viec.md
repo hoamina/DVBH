@@ -4344,3 +4344,11 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   Bảng: tiêu đề dính khi cuộn; ca sắp theo tuổi tồn (≥15 ngày đỏ, ≥7 cam), ngày cần hàng đã qua tô đỏ "quá hẹn";
   kho tính MB/MN có hàng tô xanh, kho "Không tính" mờ; KTV cùng khu vực ca thiếu tô xanh; ticket đang mở lên đầu + tô
   vàng, ticket đã đóng mờ.
+
+## 2026-10-09 — Chi tiết ca: dồn trạng thái lên thanh tiêu đề, Khách hàng/Serial vào tab "Cơ bản" (v1.433)
+
+- Yêu cầu: (1) chuyển tên khách hàng + serial vào tab "Cơ bản"; (2) trạng thái "Đã hoàn thành" + Mức độ + nút Hủy ca lên
+  thanh tiêu đề cùng "Chi tiết ca …"; bỏ "+ Thêm giải trình" ở phần thông tin ca, chỉ còn ở tab "GT tồn".
+- Thanh tiêu đề: Chi tiết ca · trạng thái · mức độ · (Đã hủy) · ticker · Link CRM · Hủy ca/Bỏ hủy ca.
+- Khách hàng + Serial (kèm nút Blacklist, bấm serial xem ca trùng) nằm đầu lưới "Cơ bản" ở mọi Kiểu xem.
+- Cột "Ca đối chiếu" làm tương tự cho nhất quán: trạng thái + mức độ lên dòng tiêu đề cột, Khách hàng/Serial vào "Cơ bản".
