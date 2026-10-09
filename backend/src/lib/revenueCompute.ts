@@ -88,6 +88,18 @@ export async function computeRevenue(
     return { totals: null, byDim: results };
   }
 
+  // 2026-10-09: "tinh" = bao cao "Doanh thu theo tinh" - MOI ca (ke ca chua gan KTV), tinh tho (frontend chuan hoa ten).
+  if (params.dim === "tinh") {
+    const { results } = await db.prepare(
+      `SELECT COALESCE(NULLIF(tinh,''), tinh_moi) as nhom, COUNT(*) as so_ca, SUM(${REVENUE_EXPR}) as doanh_thu
+       FROM case_dvbh WHERE ${KPI_ELIGIBLE_CLAUSE}${sql}
+       GROUP BY COALESCE(NULLIF(tinh,''), tinh_moi)`,
+    )
+      .bind(...binds)
+      .all();
+    return { totals: null, byDim: results };
+  }
+
   const dim = REVENUE_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
 
   const totals = await db.prepare(

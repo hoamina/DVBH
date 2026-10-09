@@ -4365,3 +4365,12 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - Sự cố quy trình: phiên khác đã nâng APP_VERSION lên 1.436 (luồng đổi trả); lệnh `sed` tăng version của phiên này giả
   định số cũ (1.431/1.432) nên không khớp → 2 lần deploy "v1.432" (Hồ sơ linh kiện) và "v1.433" (thanh tiêu đề chi tiết
   ca) KHÔNG tăng số, footer vẫn v1.436. Từ bản này tăng version bằng cách đọc số hiện tại rồi +1.
+
+## 2026-10-09 — Báo cáo doanh thu: thêm bảng "Doanh thu theo tỉnh" (v1.439)
+
+- Yêu cầu "thêm báo cáo doanh thu theo tỉnh". `GET /api/revenue?dim=tinh` (mọi ca tính KPI kể cả chưa gán KTV, gom theo
+  `tinh`/`tinh_moi` thô, cùng bộ lọc tháng/khu vực/hãng + scope, `cachedReport` domain `cases`, không qua snapshot 08:00).
+- Thẻ "Doanh thu theo tỉnh" giữa 2 biểu đồ và bảng KTV: tên tỉnh chuẩn hóa (dùng chung `chuanHoaTinh`), sắp theo doanh
+  thu, dòng Tổng cộng, cột Số ca / Doanh thu / DT trung bình/ca / Tỷ trọng (thanh ngang + %), Xuất Excel. Bấm 1 tỉnh →
+  thêm/bỏ tỉnh đó vào bộ lọc "Tỉnh" của bảng KTV (dòng đang lọc tô xanh + ✓).
+- Kiểm tra local T7/2026: tổng theo tỉnh 933 ca / 153.191.360đ = tổng bảng KTV; lọc Hồ Chí Minh khớp 124 ca / 26.836.000đ.

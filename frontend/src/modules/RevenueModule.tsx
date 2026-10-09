@@ -79,6 +79,35 @@ export function RevenueModule() {
     return [...gom.values()];
   }, [tinhChon, byKtv, byKtvTinh]);
 
+  // Bao cao "Doanh thu theo tinh" (2026-10-09): moi ca (ke ca chua gan KTV), gop theo ten tinh da chuan hoa; bam 1 dong
+  // -> them/bo tinh do vao bo loc Tinh cua bang KTV ben duoi.
+  const { data: byTinh } = useQuery({
+    queryKey: ["revenue-tinh", filterParams],
+    queryFn: () => api.get<{ byDim: { nhom: string | null; so_ca: number; doanh_thu: number }[] }>(`/revenue${buildQuery({ ...filterParams, dim: "tinh" })}`),
+  });
+  const tinhRows = useMemo(() => {
+    const gom = new Map<string, { tinh: string; so_ca: number; doanh_thu: number }>();
+    for (const r of byTinh?.byDim ?? []) {
+      const t = chuanHoaTinh(r.nhom);
+      const g = gom.get(t) ?? { tinh: t, so_ca: 0, doanh_thu: 0 };
+      g.so_ca += r.so_ca;
+      g.doanh_thu += r.doanh_thu ?? 0;
+      gom.set(t, g);
+    }
+    return [...gom.values()].sort((a, b) => b.doanh_thu - a.doanh_thu);
+  }, [byTinh]);
+  const tinhTong = useMemo(
+    () => tinhRows.reduce((acc, r) => ({ so_ca: acc.so_ca + r.so_ca, doanh_thu: acc.doanh_thu + r.doanh_thu }), { so_ca: 0, doanh_thu: 0 }),
+    [tinhRows],
+  );
+  const tinhMax = tinhRows[0]?.doanh_thu ?? 0;
+  const toggleTinh = (t: string) => {
+    const next = new Set(tinhChon);
+    if (next.has(t)) next.delete(t);
+    else next.add(t);
+    setTinhFilter([...next].join("|"));
+  };
+
   const totals = byKhuVuc?.totals;
 
   // Dong "Tong cong" dau bang KTV - cong so_ca/doanh_thu tren cac dong dang hien, tinh lai "DT trung
@@ -119,6 +148,95 @@ export function RevenueModule() {
           />
         </Card>
       </div>
+      <Card className="p-4 mb-4">
+        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <div>
+            <div className="font-display font-bold text-sm">Doanh thu theo tỉnh</div>
+            <div className="text-xs text-[var(--ink-400)] mt-0.5">Tất cả ca tính KPI (kể cả chưa gán KTV), sắp theo doanh thu · bấm 1 tỉnh để lọc bảng KTV bên dưới</div>
+          </div>
+          <Btn
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              exportRowsToExcel(
+                tinhRows.map((r) => ({
+                  ...r,
+                  dt_tb: r.so_ca ? Math.round(r.doanh_thu / r.so_ca) : 0,
+                  ty_trong: tinhTong.doanh_thu ? `${((r.doanh_thu / tinhTong.doanh_thu) * 100).toFixed(1)}%` : "0%",
+                })),
+                "doanh_thu_theo_tinh.xlsx",
+                "Data",
+                { tinh: "Tỉnh", so_ca: "Số ca", doanh_thu: "Doanh thu", dt_tb: "DT trung bình / ca", ty_trong: "Tỷ trọng" },
+              )
+            }
+          >
+            ⬇ Xuất Excel
+          </Btn>
+        </div>
+        <div className="overflow-auto max-h-[420px]">
+          <table className="dense w-full text-sm">
+            <thead className="sticky top-0 z-[1] bg-[var(--surface)]">
+              <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
+                <th className="py-2 pr-3 w-10">#</th>
+                <th className="py-2 pr-3">Tỉnh</th>
+                <th className="py-2 pr-3 text-right">Số ca</th>
+                <th className="py-2 pr-3 text-right">Doanh thu</th>
+                <th className="py-2 pr-3 text-right">DT trung bình / ca</th>
+                <th className="py-2 pr-3 w-[28%]">Tỷ trọng</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tinhRows.length > 0 && (
+                <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
+                  <td className="py-2 pr-3" />
+                  <td className="py-2 pr-3">Tổng cộng ({tinhRows.length} tỉnh)</td>
+                  <td className="py-2 pr-3 font-mono text-right">{tinhTong.so_ca}</td>
+                  <td className="py-2 pr-3 font-mono text-right">{fmtVND(tinhTong.doanh_thu)}</td>
+                  <td className="py-2 pr-3 font-mono text-right">{tinhTong.so_ca ? fmtVND(Math.round(tinhTong.doanh_thu / tinhTong.so_ca)) : fmtVND(0)}</td>
+                  <td className="py-2 pr-3 text-xs text-[var(--ink-400)]">100%</td>
+                </tr>
+              )}
+              {tinhRows.map((r, i) => {
+                const pct = tinhTong.doanh_thu ? (r.doanh_thu / tinhTong.doanh_thu) * 100 : 0;
+                const dangLoc = tinhChon.has(r.tinh);
+                return (
+                  <tr
+                    key={r.tinh}
+                    onClick={() => toggleTinh(r.tinh)}
+                    title={dangLoc ? "Bỏ tỉnh này khỏi bộ lọc bảng KTV" : "Lọc bảng KTV theo tỉnh này"}
+                    className={`border-b border-[var(--line)] last:border-0 cursor-pointer ${dangLoc ? "bg-[var(--ocean-100)]" : "hover:bg-slate-50"}`}
+                  >
+                    <td className="py-2 pr-3 text-xs text-[var(--ink-400)]">{i + 1}</td>
+                    <td className="py-2 pr-3 font-semibold">
+                      {dangLoc && <span className="text-[var(--ocean-600)]">✓ </span>}
+                      {r.tinh}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-right">{r.so_ca}</td>
+                    <td className="py-2 pr-3 font-mono text-right">{fmtVND(r.doanh_thu)}</td>
+                    <td className="py-2 pr-3 font-mono text-right">{r.so_ca ? fmtVND(Math.round(r.doanh_thu / r.so_ca)) : fmtVND(0)}</td>
+                    <td className="py-2 pr-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="h-full rounded-full bg-[var(--ocean-500)]" style={{ width: `${tinhMax ? (r.doanh_thu / tinhMax) * 100 : 0}%` }} />
+                        </div>
+                        <span className="text-xs font-mono w-12 text-right">{pct.toFixed(1)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {tinhRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                    Không có dữ liệu.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="font-display font-bold text-sm">
