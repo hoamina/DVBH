@@ -4330,3 +4330,17 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   "Luồng duyệt đổi trả" (hệ kia không còn cập nhật ca mới của luồng đã kết thúc) - mốc "Đổi trả thành công" luôn đúng,
   không tốn lượt đồng bộ. `luong-list` xin theo trạng thái (mặc định chỉ luồng đang mở) thay vì toàn bộ.
 - Tab "Đổi trả": luồng đã kết thúc vẫn nhập mã ca đổi thủ công được; chú thích tự kết thúc 30 ngày.
+
+## 2026-10-09 — Hồ sơ linh kiện: dựng lại bố cục có điểm nhấn + phân tách (v1.432)
+
+- Phản hồi: "giao diện không có điểm nhấn và phân tách, rất khó nhìn cho người cần kiểm soát thông tin".
+- Đầu popup: 6 thẻ số liệu lớn (`StatCard`) — Tồn kho MB / MN / KTV đang giữ (kèm số KTV cùng KV ca thiếu) / Ca đang
+  thiếu (kèm tuổi tồn lâu nhất) / Ticket thiếu hàng mở / PO liên quan; thẻ = 0 tự mờ. Ô nhận định thành khung có icon +
+  tiêu đề (✅ Có thể xử lý ngay / 🔁 Điều chuyển từ KTV / ⚠️ Chỉ còn ở KTV khu vực khác / ⛔ Hết hàng toàn hệ thống).
+- Nội dung chia 4 vùng đánh số theo luồng xử lý: ① Nhu cầu (ca đang báo thiếu) · ② Nguồn hàng hiện có (kho công ty |
+  KTV, dòng "Kế toán cập nhật…" đặt ở đây) · ③ Xử lý & cung ứng (ticket thiếu hàng, lịch sử đặt hàng, PO) · ④ Tham khảo
+  (đơn mua hàng Google Sheet, bảo hành).
+- Mỗi phần là 1 thẻ có vạch màu trái + nền tiêu đề nhạt + số đếm tô màu; phần rỗng thu về 1 dòng mờ kèm lý do.
+  Bảng: tiêu đề dính khi cuộn; ca sắp theo tuổi tồn (≥15 ngày đỏ, ≥7 cam), ngày cần hàng đã qua tô đỏ "quá hẹn";
+  kho tính MB/MN có hàng tô xanh, kho "Không tính" mờ; KTV cùng khu vực ca thiếu tô xanh; ticket đang mở lên đầu + tô
+  vàng, ticket đã đóng mờ.
