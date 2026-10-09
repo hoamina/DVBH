@@ -65,6 +65,7 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 import { SurveyCallWorkspace } from "./SurveyCallWorkspace";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 import { TinhHuyenFilterControl } from "../components/TinhHuyenFilterControl";
+import { KhaoSatLoaiTruTab } from "../components/KhaoSatLoaiTru";
 
 interface FunnelData {
   tongCaMo: number;
@@ -96,6 +97,11 @@ export interface CanKhaoSatRow {
   need_loi_qua_han_24h: number;
   need_loi_lo_ke_hoach: number;
   need_loi_kh_hen_lai: number;
+  // 1 = nghi ngo loai nay thuoc "Danh sach loai tru" (KTV + nhom loi + khoang ngay) -> khong bat buoc goi, UI lam mo.
+  loai_tru_120p?: number;
+  loai_tru_qua_han_24h?: number;
+  loai_tru_lo_ke_hoach?: number;
+  loai_tru_kh_hen_lai?: number;
   trang_thai_goi?: "chua_goi" | "cho_goi_lai" | "con_loi_chua_goi";
   mo_ta_loi?: string | null;
   ky_thuat_vien?: string | null;
@@ -306,6 +312,22 @@ export const FLAG_TO_LOAI: Record<string, LoaiLoi> = {
   need_loi_kh_hen_lai: "KH hen lai",
 };
 
+const LOAI_TRU_FIELD: Record<string, LoaiLoi> = {
+  loai_tru_120p: "Loi 120 phut",
+  loai_tru_qua_han_24h: "Hen qua 24h",
+  loai_tru_lo_ke_hoach: "Loi lo ke hoach",
+  loai_tru_kh_hen_lai: "KH hen lai",
+};
+/** Cac loai nghi ngo cua ca thuoc "Danh sach loai tru" (2026-10-09) - khong bat buoc goi, hien mo + canh bao. */
+export function loaiTruLoaiLoi(row: CanKhaoSatRow): Set<LoaiLoi> {
+  return new Set(
+    Object.entries(LOAI_TRU_FIELD)
+      .filter(([field]) => (row as unknown as Record<string, number | undefined>)[field] === 1)
+      .map(([, loai]) => loai),
+  );
+}
+export const LOAI_TRU_CANH_BAO = "KTV thuộc Danh sách loại trừ trong khoảng ngày này — nghi ngờ này không cần gọi";
+
 export function neededLoaiLoi(row: CanKhaoSatRow): LoaiLoi[] {
   return Object.entries(FLAG_TO_LOAI)
     .filter(([field]) => (row as unknown as Record<string, number>)[field])
@@ -316,6 +338,7 @@ const VIEWS = [
   { key: "bao-cao", label: "Báo cáo" },
   { key: "danh-sach", label: "Danh sách chi tiết" },
   { key: "nhap-excel", label: "Nhập Excel" },
+  { key: "loai-tru", label: "Danh sách loại trừ" },
 ];
 
 interface ImportViPhamSummary {
@@ -435,7 +458,11 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   // thuc that su) - QC them vao day (khong co trong canSurvey, vi QC khong tu goi khao sat) vi QC
   // cung duoc phep import theo yeu cau.
   const canImportViPham = ["CSKH", "TN CSKH", "TBP CSKH", "Admin", "QC"].includes(role ?? "");
-  const visibleViews = (canViewDanhSach ? VIEWS : VIEWS.filter((v) => v.key !== "danh-sach")).filter((v) => v.key !== "nhap-excel" || canImportViPham);
+  // "Danh sach loai tru" (2026-10-09): TN CSKH / TBP CSKH quan ly (+Admin) - backend requireRole cung danh sach nay.
+  const canLoaiTru = ["TN CSKH", "TBP CSKH", "Admin"].includes(role ?? "");
+  const visibleViews = (canViewDanhSach ? VIEWS : VIEWS.filter((v) => v.key !== "danh-sach"))
+    .filter((v) => v.key !== "nhap-excel" || canImportViPham)
+    .filter((v) => v.key !== "loai-tru" || canLoaiTru);
   const effectiveView = canViewDanhSach ? view : "bao-cao";
 
   const filterParams = { khu_vuc: khuVucFilter, tinh: tinhFilter, quan_huyen: quanHuyenFilter, ky_thuat_vien: ktvFilter };
@@ -1650,11 +1677,17 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (row) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={row.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span> },
                 { key: "loai_loi", header: "Loại lỗi nghi ngờ", render: (row) => (
                   <div className="flex flex-wrap gap-1">
-                    {neededLoaiLoi(row).map((loai) => (
-                      <Badge key={loai} tone="ocean">
-                        {LOAI_LOI_META[loai].short}
-                      </Badge>
-                    ))}
+                    {neededLoaiLoi(row).map((loai) =>
+                      loaiTruLoaiLoi(row).has(loai) ? (
+                        <span key={loai} title={LOAI_TRU_CANH_BAO} className="opacity-50 line-through">
+                          <Badge tone="gray">{LOAI_LOI_META[loai].short} · loại trừ</Badge>
+                        </span>
+                      ) : (
+                        <Badge key={loai} tone="ocean">
+                          {LOAI_LOI_META[loai].short}
+                        </Badge>
+                      ),
+                    )}
                   </div>
                 ) },
                 { key: "trang_thai_goi", header: "Trạng thái", render: (row) => (
@@ -1944,6 +1977,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               );
             })()}
         </div>
+      ) : effectiveView === "loai-tru" ? (
+        <KhaoSatLoaiTruTab kyThuatVienOptions={khuVucOptions?.kyThuatVien ?? []} />
       ) : (
         <div className="mt-4 max-w-xl">
           <ImportUploader<ImportViPhamSummary>

@@ -12,7 +12,7 @@ import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { LOAI_LOI_META, fmtDateTime, type LoaiLoi, type CaseRow, type ViPhamRow, type KetQuaGoiRow, type LoaiViPhamRow } from "../types";
 import { QLDVBH_FILTER_VALUE } from "../constants";
-import { CanKhaoSatRow, neededLoaiLoi } from "./SurveyModule";
+import { CanKhaoSatRow, neededLoaiLoi, loaiTruLoaiLoi, LOAI_TRU_CANH_BAO } from "./SurveyModule";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 
@@ -271,6 +271,8 @@ export function SurveyCallWorkspace({
   // binh thuong da tu loai cac ca xong khoi pool tu truoc, khong can nut nay.
   const [boSungMode, setBoSungMode] = useState(false);
   const needed = activeRow ? (boSungMode && adHocDetail ? allApplicableLoaiLoi(adHocDetail.case) : neededLoaiLoi(activeRow)) : [];
+  // Nghi ngo thuoc "Danh sach loai tru" (2026-10-09) - van cho ket luan neu muon, nhung hien mo + canh bao khong can goi.
+  const loaiTru = activeRow ? loaiTruLoaiLoi(activeRow) : new Set<LoaiLoi>();
 
   // Lich su cuoc goi truoc do + cac loi DA CHOT cua ca dang xem - CHOT 2026-08-22 lan 2, chu he
   // thong yeu cau "them log lich su goi khi vao che do cuoc goi" de CSKH biet cac lan lien he truoc,
@@ -443,7 +445,8 @@ export function SurveyCallWorkspace({
       // Neu agent chi chon 1 phan (vd 1/2 loai_loi), cac loai con lai VAN can xu ly - khong duoc
       // them vao calledIds (se an vinh vien case khoi hang doi phien nay, xem BUG report).
       const resolvedThisRound = new Set([...data.daGhiNhan, ...data.boQua]);
-      const remaining = needed.filter((k) => !resolvedThisRound.has(k));
+      // Loai thuoc "Danh sach loai tru" khong bat buoc -> khong giu ca lai hang doi vi no (2026-10-09).
+      const remaining = needed.filter((k) => !resolvedThisRound.has(k) && !loaiTru.has(k));
       if (remaining.length === 0) {
         setCalledIds((prev) => new Set(prev).add(activeRow.id));
       } else {
@@ -727,11 +730,17 @@ export function SurveyCallWorkspace({
 
                 {needed.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-3">
-                    {needed.map((loai) => (
-                      <Badge key={loai} tone="ocean">
-                        {LOAI_LOI_META[loai].label}
-                      </Badge>
-                    ))}
+                    {needed.map((loai) =>
+                      loaiTru.has(loai) ? (
+                        <span key={loai} title={LOAI_TRU_CANH_BAO} className="opacity-50 line-through">
+                          <Badge tone="gray">{LOAI_LOI_META[loai].label} · loại trừ</Badge>
+                        </span>
+                      ) : (
+                        <Badge key={loai} tone="ocean">
+                          {LOAI_LOI_META[loai].label}
+                        </Badge>
+                      ),
+                    )}
                   </div>
                 )}
 
@@ -865,7 +874,10 @@ export function SurveyCallWorkspace({
                         <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">Chọn kết luận cho từng loại lỗi nghi ngờ</label>
                         <div className="space-y-2.5">
                           {needed.map((loai) => (
-                            <div key={loai} className="border border-[var(--line)] rounded-xl p-3 flex flex-col gap-2">
+                            <div key={loai} className={`border border-[var(--line)] rounded-xl p-3 flex flex-col gap-2 ${loaiTru.has(loai) ? "opacity-60 bg-slate-50" : ""}`}>
+                              {loaiTru.has(loai) && (
+                                <div className="text-xs font-semibold text-[var(--amber-600)]">⚠️ {LOAI_TRU_CANH_BAO}</div>
+                              )}
                               <div className="flex items-center gap-3 flex-wrap">
                                 <label className="flex items-center gap-2 font-semibold text-sm flex-1 min-w-[160px]">
                                   <input type="checkbox" checked={!!selected[loai]} onChange={(e) => setSelected({ ...selected, [loai]: e.target.checked })} />

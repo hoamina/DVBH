@@ -4374,3 +4374,17 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   thu, dòng Tổng cộng, cột Số ca / Doanh thu / DT trung bình/ca / Tỷ trọng (thanh ngang + %), Xuất Excel. Bấm 1 tỉnh →
   thêm/bỏ tỉnh đó vào bộ lọc "Tỉnh" của bảng KTV (dòng đang lọc tô xanh + ✓).
 - Kiểm tra local T7/2026: tổng theo tỉnh 933 ca / 153.191.360đ = tổng bảng KTV; lọc Hồ Chí Minh khớp 124 ca / 26.836.000đ.
+
+## 2026-10-09 — Quản lý khảo sát: tab "Danh sách loại trừ" (v1.440, migration 0128)
+
+- Yêu cầu: TN CSKH/TBP CSKH tạo danh sách KTV + nhóm lỗi bỏ qua trong khoảng ngày (vd KTV A, lỗi 120', 1/10–31/10);
+  ca chỉ có lỗi đó → tự bỏ khỏi danh sách cần gọi; ca có lỗi khác → vẫn cần gọi, lỗi bị loại trừ hiện mờ + cảnh báo;
+  tạo thủ công từng KTV hoặc import danh sách.
+- Backend: bảng `khao_sat_loai_tru` (0128); `NEED_SURVEY_CONDITION` thêm `AND NOT loaiTruExistsSql(...)` từng nhóm lỗi;
+  `/survey/candidates` trả thêm `loai_tru_*`; `GET/POST /survey/loai-tru`, `DELETE /survey/loai-tru/:id` — thêm/xóa tính
+  lại `can_khao_sat` các ca bị ảnh hưởng bằng 1 câu UPDATE (bỏ qua dòng không đổi) + bump `ket_qua_goi`.
+- Frontend: `components/KhaoSatLoaiTru.tsx` (form thủ công + import Excel có file mẫu/xem trước + danh sách lọc còn hiệu
+  lực/tất cả, tìm KTV, xóa); badge nghi ngờ mờ "· loại trừ" ở danh sách cần gọi + màn hình gọi (khối kết luận mờ + ⚠️);
+  ca không bị đẩy lại hàng đợi vì nghi ngờ bị loại trừ.
+- Kiểm tra local: thêm loại trừ 120' cho KTV chỉ có lỗi 120' → 3 ca `can_khao_sat` 1→0; xóa → 0→1; ca có cả 120' + Lỡ
+  KH → vẫn trong danh sách, `loai_tru_120p=1`; import file 5 dòng → 3 hợp lệ (1 dòng 2 nhóm lỗi), 2 lỗi báo rõ.

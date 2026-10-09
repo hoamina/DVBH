@@ -20,7 +20,7 @@ import {
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
-import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
+import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION, LOAI_TRU_SELECT_COLUMNS } from "../lib/surveyConditions";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 
@@ -86,6 +86,7 @@ survey.get("/candidates", async (c) => {
             CASE WHEN c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h') THEN 1 ELSE 0 END as need_loi_qua_han_24h,
             CASE WHEN c.loi_lo_ke_hoach = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi lo ke hoach') THEN 1 ELSE 0 END as need_loi_lo_ke_hoach,
             CASE WHEN c.loi_kh_hen_lai = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'KH hen lai') THEN 1 ELSE 0 END as need_loi_kh_hen_lai,
+            ${LOAI_TRU_SELECT_COLUMNS},
             -- Phan loai 3 nhom loai tru nhau (CHOT 2026-08-22 lan 3, dung cong thuc voi khoi 5 cua
             -- computeSurveyKhuVucReport - xem chu thich day du o do): "chua_goi" (chua co ban ghi
             -- ket_qua_goi nao), "cho_goi_lai" (cuoc goi GAN NHAT tich can_goi_lai=1), "con_loi_chua_
@@ -1335,6 +1336,97 @@ survey.post("/assign-bulk/commit", requireRole("TN CSKH", "TBP CSKH", "Admin"), 
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   const summary = await processBulkAssign(c.env.DB, body.rows, true, scopeByKhuVuc(c));
   return c.json(summary);
+});
+
+// ===================== Danh sach loai tru (2026-10-09, migration 0128) =====================
+// TN CSKH / TBP CSKH (+Admin) khai bao KTV + nhom loi + khoang ngay khong bat buoc khao sat (thu cong tung KTV hoac
+// import danh sach). Dieu kien ap dung nam o lib/surveyConditions.ts (NEED_SURVEY_CONDITION + LOAI_TRU_SELECT_COLUMNS).
+// Moi lan them/xoa -> tinh lai can_khao_sat cho DUNG cac ca bi anh huong (1 cau UPDATE, chi ghi dong doi gia tri) +
+// bump "ket_qua_goi" (bao cao khao sat + badge sidebar dung domain nay).
+const LOAI_TRU_LOAI_LOI = ["Loi 120 phut", "Hen qua 24h", "Loi lo ke hoach", "KH hen lai"] as const;
+const LOAI_TRU_ROLES = ["TN CSKH", "TBP CSKH", "Admin"] as const;
+const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const CO_LOI_SQL = "(c.loi_120p = 1 OR c.loi_qua_han_24h = 1 OR c.loi_lo_ke_hoach = 1 OR c.loi_kh_hen_lai = 1)";
+const RECOMPUTE_SET = `can_khao_sat = CASE WHEN ${NEED_SURVEY_CONDITION} THEN 1 ELSE 0 END`;
+const RECOMPUTE_CHANGED = `c.can_khao_sat IS NOT (CASE WHEN ${NEED_SURVEY_CONDITION} THEN 1 ELSE 0 END)`;
+
+// GET /api/survey/loai-tru - toan bo danh sach (bang nho), moi nhat truoc. Ai vao duoc module khao sat deu xem duoc.
+survey.get("/loai-tru", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM khao_sat_loai_tru ORDER BY id DESC").all();
+  return c.json({ rows: results, canEdit: (LOAI_TRU_ROLES as readonly string[]).includes(c.get("user").vai_tro ?? "") });
+});
+
+// POST /api/survey/loai-tru  body: { rows: [{ ma_ktv, ten_ktv?, loai_loi, tu_ngay, den_ngay, ghi_chu? }], nguon?: "thu_cong"|"import" }
+// Frontend da doi KTV ve ma_ktv (tu danh sach KTV that) truoc khi gui; o day chi validate dinh dang.
+survey.post("/loai-tru", requireRole(...LOAI_TRU_ROLES), async (c) => {
+  const body = await c.req.json<{
+    rows: { ma_ktv?: string; ten_ktv?: string | null; loai_loi?: string; tu_ngay?: string; den_ngay?: string; ghi_chu?: string | null }[];
+    nguon?: string;
+  }>();
+  if (!Array.isArray(body.rows) || body.rows.length === 0) return c.json({ error: "EMPTY" }, 400);
+  if (body.rows.length > 2000) return c.json({ error: "QUA_NHIEU_DONG", message: "Tối đa 2000 dòng mỗi lần." }, 400);
+  const nguon = body.nguon === "import" ? "import" : "thu_cong";
+  const loi: string[] = [];
+  const rows = body.rows.map((r, i) => {
+    const maKtv = (r.ma_ktv ?? "").trim().replace(/^\(|\)$/g, "");
+    const tu = (r.tu_ngay ?? "").trim();
+    const den = (r.den_ngay ?? "").trim();
+    if (!maKtv) loi.push(`Dòng ${i + 1}: thiếu KTV`);
+    if (!(LOAI_TRU_LOAI_LOI as readonly string[]).includes(r.loai_loi ?? "")) loi.push(`Dòng ${i + 1}: nhóm lỗi không hợp lệ`);
+    if (!NGAY_RE.test(tu) || !NGAY_RE.test(den)) loi.push(`Dòng ${i + 1}: ngày không hợp lệ (YYYY-MM-DD)`);
+    else if (tu > den) loi.push(`Dòng ${i + 1}: "Từ ngày" sau "Đến ngày"`);
+    return { maKtv, ten: r.ten_ktv?.trim() || null, loai: r.loai_loi!, tu, den, ghiChu: r.ghi_chu?.trim() || null };
+  });
+  if (loi.length > 0) return c.json({ error: "INVALID_ROWS", message: loi.slice(0, 20).join("; ") }, 400);
+
+  const user = c.get("user");
+  const now = nowVN();
+  const before = await c.env.DB.prepare("SELECT COALESCE(MAX(id), 0) as m FROM khao_sat_loai_tru").first<{ m: number }>();
+  await c.env.DB.batch(
+    rows.map((r) =>
+      c.env.DB.prepare(
+        "INSERT INTO khao_sat_loai_tru (ma_ktv, ten_ktv, loai_loi, tu_ngay, den_ngay, ghi_chu, nguon, nguoi_tao, ngay_tao) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      ).bind(r.maKtv, r.ten, r.loai, r.tu, r.den, r.ghiChu, nguon, user.email, now),
+    ),
+  );
+
+  // Ca bi anh huong = ca co co loi, tiep nhan trong [min tu, max den], khop 1 dong VUA THEM (id > before).
+  const minTu = rows.reduce((m, r) => (r.tu < m ? r.tu : m), rows[0].tu);
+  const maxDen = rows.reduce((m, r) => (r.den > m ? r.den : m), rows[0].den);
+  const upd = await c.env.DB.prepare(
+    `UPDATE case_dvbh AS c SET ${RECOMPUTE_SET}
+     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${CO_LOI_SQL}
+       AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < date(?, '+1 day')
+       AND EXISTS (SELECT 1 FROM khao_sat_loai_tru x WHERE x.id > ?
+         AND substr(c.ky_thuat_vien, 1, length(x.ma_ktv) + 2) = '(' || x.ma_ktv || ')'
+         AND substr(c.thoi_gian_cskh_tiep_nhan, 1, 10) BETWEEN x.tu_ngay AND x.den_ngay)
+       AND ${RECOMPUTE_CHANGED}`,
+  )
+    .bind(minTu, maxDen, before?.m ?? 0)
+    .run();
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["ket_qua_goi"]));
+  return c.json({ added: rows.length, caCapNhat: upd.meta.changes ?? 0 }, 201);
+});
+
+// DELETE /api/survey/loai-tru/:id - xoa 1 dong, tinh lai cac ca cua KTV do trong khoang ngay cua dong vua xoa.
+survey.delete("/loai-tru/:id", requireRole(...LOAI_TRU_ROLES), async (c) => {
+  const id = Number(c.req.param("id"));
+  const row = await c.env.DB.prepare("SELECT ma_ktv, tu_ngay, den_ngay FROM khao_sat_loai_tru WHERE id = ?")
+    .bind(id)
+    .first<{ ma_ktv: string; tu_ngay: string; den_ngay: string }>();
+  if (!row) return c.json({ error: "NOT_FOUND" }, 404);
+  await c.env.DB.prepare("DELETE FROM khao_sat_loai_tru WHERE id = ?").bind(id).run();
+  const upd = await c.env.DB.prepare(
+    `UPDATE case_dvbh AS c SET ${RECOMPUTE_SET}
+     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${CO_LOI_SQL}
+       AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < date(?, '+1 day')
+       AND substr(c.ky_thuat_vien, 1, ?) = ?
+       AND ${RECOMPUTE_CHANGED}`,
+  )
+    .bind(row.tu_ngay, row.den_ngay, row.ma_ktv.length + 2, `(${row.ma_ktv})`)
+    .run();
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["ket_qua_goi"]));
+  return c.json({ ok: true, caCapNhat: upd.meta.changes ?? 0 });
 });
 
 export default survey;

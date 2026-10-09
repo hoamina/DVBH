@@ -215,3 +215,18 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
 | Tình trạng từng mã (loại trừ nhau, theo thứ tự) | **Kho có hàng** (MB+MN > 0 → điều chuyển) → **Chỉ KTV đang giữ** → **Hết hàng, chưa có PO** → **Hết hàng, PO trễ** (quá ngày dự kiến hàng về của PO gần nhất) → **Hết hàng, chờ PO**. Cờ riêng **Lệch tồn giữa miền**: ca thiếu ở miền này (khu vực qldvbh.mb*/mn*) mà kho miền này hết, kho miền kia còn. |
 | Thẻ báo cáo | 6 thẻ trên đầu tab (số mã + số ca đang chờ), bấm = lọc bảng; sắp xếp "nhiều ca / ưu tiên theo tổng ngày chờ / ca chờ lâu nhất"; Xuất Excel. |
 | Hồ sơ linh kiện (bấm 1 mã) | Nhận định nhanh + ca đang thiếu + tồn từng kho công ty + KTV đang giữ (ưu tiên cùng khu vực ca thiếu) + ticket thiếu hàng (kho xử lý tới đâu) + 50 đơn đặt hàng gần nhất (linh-kien-app, gọi lúc mở) + PO/mua hàng/bảo hành (Google Sheet). |
+
+
+## 9. Quản lý khảo sát: "Danh sách loại trừ" (chốt 2026-10-09)
+
+- Người quản lý: TN CSKH, TBP CSKH (+ Admin). Tab chỉ hiện với các vai trò này; backend `requireRole` cùng danh sách.
+- Mỗi dòng = 1 KTV + 1 nhóm lỗi (120 phút / Hẹn quá 24h / Lỡ kế hoạch / KH hẹn lại) + khoảng ngày [từ, đến], so với
+  **ngày CSKH tiếp nhận ca**. KTV khớp theo mã `(ma)` đầu chuỗi `ky_thuat_vien` (ổn định qua các lần đổi tên).
+- Hiệu lực: nghi ngờ thuộc loại trừ không còn tính "cần khảo sát" (`NEED_SURVEY_CONDITION`). Ca chỉ có nghi ngờ bị
+  loại trừ → tự rời danh sách cần gọi; ca còn nghi ngờ khác → vẫn cần gọi, nghi ngờ bị loại trừ hiện mờ + gạch ngang +
+  cảnh báo "không cần gọi" (danh sách + màn hình gọi); CSKH vẫn có thể kết luận nếu muốn, nhưng ca không bị giữ lại
+  hàng đợi vì nghi ngờ đó.
+- Tạo: thủ công (chọn KTV từ danh sách, chọn nhiều nhóm lỗi → mỗi nhóm 1 dòng) hoặc import Excel (cột KTV — mã hoặc
+  chuỗi CRM, Nhóm lỗi — nhiều nhóm cách dấu phẩy / "Tất cả", Từ ngày, Đến ngày dd/mm/yyyy, Ghi chú; có file mẫu, xem
+  trước dòng lỗi trước khi import). Sửa = xóa + tạo lại. Mỗi lần thêm/xóa tính lại `can_khao_sat` ngay cho ca bị ảnh hưởng.
+- Chưa áp dụng cho các chỉ số báo cáo khảo sát (tỷ lệ nghi ngờ/vi phạm vẫn đếm theo cờ lỗi gốc).

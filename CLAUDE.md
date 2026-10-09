@@ -144,6 +144,12 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     Neither endpoint calls `logPartnerApiCall` (would write 1 D1 row per 15-min poll). `LoiLinhKienPanel`
     shows the `sc_*` status as a second badge.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
+  - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
+    (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
+    case's CSKH-received date. Wired into `NEED_SURVEY_CONDITION` (`lib/surveyConditions.ts` `loaiTruExistsSql`), so
+    an excluded suspicion no longer makes `can_khao_sat = 1`; candidates also return `loai_tru_*` flags so the UI fades
+    an excluded suspicion on cases that still need a call for other reasons. Add/delete recompute `can_khao_sat` for
+    the affected cases with one `UPDATE … WHERE can_khao_sat IS NOT <new>` (no-op rows not written).
   - `tonKhoLk.ts` (2026-10-08, migration 0125, `lib/tonKhoLk.ts`) — spare-part stock pulled from linh-kien-app's
     `GET /api/partner/v1/ton-kho(/meta)` (the MISA stock file Kế toán imports daily there; Service Binding
     `LINHKIEN_APP`). Only ONE version kept: a new `phien_ban` (linh-kien-app import time) → DELETE + re-insert all
@@ -297,7 +303,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0125`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0128`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
