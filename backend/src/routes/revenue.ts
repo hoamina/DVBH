@@ -31,9 +31,11 @@ const REVENUE_SNAPSHOT_FIELD: Record<string, "revenueByKhuVuc" | "revenueByHang"
 // 2026-08-01) thay the hoan toan "Doanh thu theo Giam sat" cu (route /giam-sat da bi go bo).
 revenue.get("/", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const dim = REVENUE_SNAPSHOT_FIELD[c.req.query("dim") ?? "khu_vuc"] ? (c.req.query("dim") as string) : "khu_vuc";
+  const dimQ = c.req.query("dim") ?? "khu_vuc";
+  // "ky_thuat_vien_tinh" (2026-10-09, bo loc Tinh cho bang KTV) khong co trong snapshot 08:00 -> bo qua nhanh snapshot.
+  const dim = REVENUE_SNAPSHOT_FIELD[dimQ] || dimQ === "ky_thuat_vien_tinh" ? dimQ : "khu_vuc";
   const params = { dim, khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
-  if (isDefaultReportParams(params)) {
+  if (REVENUE_SNAPSHOT_FIELD[dim] && isDefaultReportParams(params)) {
     const snap = await getSnapshotForUser(c.env.DB, c.get("user"));
     if (snap) return c.json(snap.payload[REVENUE_SNAPSHOT_FIELD[dim]]);
   }

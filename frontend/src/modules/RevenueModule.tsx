@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "../components/ui/StatCard";
 import { Card } from "../components/ui/Card";
@@ -11,6 +11,22 @@ import { fmtVND } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { MultiSelectFilter } from "../components/MultiSelectFilter";
+
+// Ten tinh giua 2 nguon lech nhau (CRM "Cần Thơ" / Odoo "Thành phố Cần Thơ", "Tỉnh Hoà Bình", Huế 2 cach ghi) - gom ve
+// 1 ten de loc. Ca 2 nguon deu dung 63 tinh cu (do thuc te 2026-10-09).
+function chuanHoaTinh(t: string | null): string {
+  let s = (t ?? "").normalize("NFC").trim().replace(/^(Tỉnh|Thành phố|TP\.?)\s+/i, "").replace(/Hoà/g, "Hòa");
+  if (s === "Thừa Thiên Huế") s = "Huế";
+  return s || "(Không rõ tỉnh)";
+}
+
+interface RevenueKtvTinhRow {
+  nhom: string;
+  tinh: string | null;
+  so_ca: number;
+  doanh_thu: number;
+}
 
 interface RevenueByDim {
   totals: { tong: number; dt_san_pham: number; dt_linh_kien: number; dt_dich_vu: number };
@@ -38,19 +54,44 @@ export function RevenueModule() {
     queryFn: () => api.get<RevenueByDim>(`/revenue${buildQuery({ ...filterParams, dim: "ky_thuat_vien" })}`),
   });
 
+  // Bo loc Tinh rieng cho bang KTV (2026-10-09). Chua chon tinh -> giu nguyen so lieu cu (dim ky_thuat_vien, dong bo
+  // bao cao 08:00); chon tinh -> cong tu dim "ky_thuat_vien_tinh" (KTV x tinh) da chuan hoa ten tinh.
+  const [tinhFilter, setTinhFilter] = useState("");
+  const { data: byKtvTinh } = useQuery({
+    queryKey: ["revenue-ktv-tinh", filterParams],
+    queryFn: () => api.get<{ byDim: RevenueKtvTinhRow[] }>(`/revenue${buildQuery({ ...filterParams, dim: "ky_thuat_vien_tinh" })}`),
+  });
+  const tinhOptions = useMemo(
+    () => [...new Set((byKtvTinh?.byDim ?? []).map((r) => chuanHoaTinh(r.tinh)))].sort((a, b) => a.localeCompare(b, "vi")),
+    [byKtvTinh],
+  );
+  const tinhChon = useMemo(() => new Set(tinhFilter.split("|").filter(Boolean)), [tinhFilter]);
+  const ktvRows = useMemo(() => {
+    if (tinhChon.size === 0) return byKtv?.byDim ?? [];
+    const gom = new Map<string, { nhom: string; so_ca: number; doanh_thu: number }>();
+    for (const r of byKtvTinh?.byDim ?? []) {
+      if (!tinhChon.has(chuanHoaTinh(r.tinh))) continue;
+      const g = gom.get(r.nhom) ?? { nhom: r.nhom, so_ca: 0, doanh_thu: 0 };
+      g.so_ca += r.so_ca;
+      g.doanh_thu += r.doanh_thu ?? 0;
+      gom.set(r.nhom, g);
+    }
+    return [...gom.values()];
+  }, [tinhChon, byKtv, byKtvTinh]);
+
   const totals = byKhuVuc?.totals;
 
   // Dong "Tong cong" dau bang KTV - cong so_ca/doanh_thu tren cac dong dang hien, tinh lai "DT trung
   // binh/ca" tu tong (khong cong trung binh cua trung binh tung dong).
   const ktvTotal = useMemo(() => {
-    const rows = byKtv?.byDim ?? [];
+    const rows = ktvRows;
     const soCa = rows.reduce((acc, r) => acc + r.so_ca, 0);
     const doanhThu = rows.reduce((acc, r) => acc + r.doanh_thu, 0);
     return { soCa, doanhThu };
-  }, [byKtv]);
+  }, [ktvRows]);
 
   // Cot dau tien (Ky thuat vien) sap A-Z.
-  const sortedKtvRows = [...(byKtv?.byDim ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  const sortedKtvRows = [...ktvRows].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
 
   return (
     <div className="anim-in">
@@ -80,20 +121,27 @@ export function RevenueModule() {
       </div>
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="font-display font-bold text-sm">Doanh thu theo kỹ thuật viên</div>
-          <Btn
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              exportRowsToExcel(sortedKtvRows, "doanh_thu_ky_thuat_vien.xlsx", "Data", {
-                nhom: "Kỹ thuật viên",
-                so_ca: "Số ca",
-                doanh_thu: "Doanh thu",
-              })
-            }
-          >
-            ⬇ Xuất Excel
-          </Btn>
+          <div className="font-display font-bold text-sm">
+            Doanh thu theo kỹ thuật viên
+            {tinhChon.size > 0 && <span className="ml-2 text-xs font-semibold text-[var(--ocean-600)]">· {[...tinhChon].join(", ")}</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <MultiSelectFilter label="Tỉnh" value={tinhFilter} onChange={setTinhFilter} options={tinhOptions} />
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                exportRowsToExcel(
+                  sortedKtvRows.map((r) => ({ ...r, ...(tinhChon.size > 0 ? { tinh: [...tinhChon].join(", ") } : {}) })),
+                  tinhChon.size > 0 ? "doanh_thu_ky_thuat_vien_theo_tinh.xlsx" : "doanh_thu_ky_thuat_vien.xlsx",
+                  "Data",
+                  { nhom: "Kỹ thuật viên", so_ca: "Số ca", doanh_thu: "Doanh thu", tinh: "Tỉnh (bộ lọc)" },
+                )
+              }
+            >
+              ⬇ Xuất Excel
+            </Btn>
+          </div>
         </div>
         <table className="dense w-full text-sm">
           <thead>

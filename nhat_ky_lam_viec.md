@@ -4331,7 +4331,7 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   không tốn lượt đồng bộ. `luong-list` xin theo trạng thái (mặc định chỉ luồng đang mở) thay vì toàn bộ.
 - Tab "Đổi trả": luồng đã kết thúc vẫn nhập mã ca đổi thủ công được; chú thích tự kết thúc 30 ngày.
 
-## 2026-10-09 — Hồ sơ linh kiện: dựng lại bố cục có điểm nhấn + phân tách (v1.432)
+## 2026-10-09 — Hồ sơ linh kiện: dựng lại bố cục có điểm nhấn + phân tách (v1.432 — thực tế footer vẫn v1.436, xem mục 2026-10-09 doanh thu theo tỉnh)
 
 - Phản hồi: "giao diện không có điểm nhấn và phân tách, rất khó nhìn cho người cần kiểm soát thông tin".
 - Đầu popup: 6 thẻ số liệu lớn (`StatCard`) — Tồn kho MB / MN / KTV đang giữ (kèm số KTV cùng KV ca thiếu) / Ca đang
@@ -4345,10 +4345,23 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   kho tính MB/MN có hàng tô xanh, kho "Không tính" mờ; KTV cùng khu vực ca thiếu tô xanh; ticket đang mở lên đầu + tô
   vàng, ticket đã đóng mờ.
 
-## 2026-10-09 — Chi tiết ca: dồn trạng thái lên thanh tiêu đề, Khách hàng/Serial vào tab "Cơ bản" (v1.433)
+## 2026-10-09 — Chi tiết ca: dồn trạng thái lên thanh tiêu đề, Khách hàng/Serial vào tab "Cơ bản" (v1.433 — thực tế footer vẫn v1.436, xem mục 2026-10-09 doanh thu theo tỉnh)
 
 - Yêu cầu: (1) chuyển tên khách hàng + serial vào tab "Cơ bản"; (2) trạng thái "Đã hoàn thành" + Mức độ + nút Hủy ca lên
   thanh tiêu đề cùng "Chi tiết ca …"; bỏ "+ Thêm giải trình" ở phần thông tin ca, chỉ còn ở tab "GT tồn".
 - Thanh tiêu đề: Chi tiết ca · trạng thái · mức độ · (Đã hủy) · ticker · Link CRM · Hủy ca/Bỏ hủy ca.
 - Khách hàng + Serial (kèm nút Blacklist, bấm serial xem ca trùng) nằm đầu lưới "Cơ bản" ở mọi Kiểu xem.
 - Cột "Ca đối chiếu" làm tương tự cho nhất quán: trạng thái + mức độ lên dòng tiêu đề cột, Khách hàng/Serial vào "Cơ bản".
+
+## 2026-10-09 — Báo cáo doanh thu: bộ lọc Tỉnh cho bảng "Doanh thu theo kỹ thuật viên" (v1.437)
+
+- Yêu cầu: thêm filter theo tỉnh cho báo cáo "Doanh thu theo kỹ thuật viên".
+- Backend: `GET /api/revenue?dim=ky_thuat_vien_tinh` (gom KTV × tỉnh; tỉnh = `tinh`, Odoo thiếu thì `tinh_moi`), cùng bộ lọc
+  tháng/khu vực/hãng + scope, qua `cachedReport` domain `cases` (không có trong snapshot 08:00 → bỏ qua nhánh snapshot).
+- Frontend: `MultiSelectFilter` "Tỉnh" ở góc bảng KTV (chọn nhiều). Chưa chọn tỉnh → bảng giữ nguyên số liệu cũ (dim
+  `ky_thuat_vien`, đồng bộ báo cáo 08:00); chọn tỉnh → cộng từ KTV × tỉnh. Tên tỉnh chuẩn hóa vì 2 nguồn lệch nhau
+  (CRM "Cần Thơ" / Odoo "Thành phố Cần Thơ", "Tỉnh Hoà Bình", "Thừa Thiên Huế"/"Thành phố Huế" → "Huế"); cả 2 nguồn
+  đều dùng 63 tỉnh cũ (đo production). Xuất Excel kèm cột "Tỉnh (bộ lọc)" khi đang lọc.
+- Sự cố quy trình: phiên khác đã nâng APP_VERSION lên 1.436 (luồng đổi trả); lệnh `sed` tăng version của phiên này giả
+  định số cũ (1.431/1.432) nên không khớp → 2 lần deploy "v1.432" (Hồ sơ linh kiện) và "v1.433" (thanh tiêu đề chi tiết
+  ca) KHÔNG tăng số, footer vẫn v1.436. Từ bản này tăng version bằng cách đọc số hiện tại rồi +1.

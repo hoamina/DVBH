@@ -72,8 +72,23 @@ export async function computeRevenue(
   params: RevenueFilterParams & { dim?: string },
   scope: string[] | null,
 ): Promise<{ totals: unknown; byDim: unknown[] }> {
-  const dim = REVENUE_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
   const { sql, binds } = buildRevenueFilterClause(params, scope);
+
+  // 2026-10-09: "ky_thuat_vien_tinh" = KTV x tinh (cho bo loc Tinh cua bang "Doanh thu theo KTV"). Tinh lay
+  // tinh (CRM + Odoo tinh cu), Odoo thieu thi tinh_moi - GIA TRI THO (co tien to "Tỉnh"/"Thành phố"...), frontend tu
+  // chuan hoa ten. Khong co trong snapshot 08:00 -> luon qua cachedReport.
+  if (params.dim === "ky_thuat_vien_tinh") {
+    const { results } = await db.prepare(
+      `SELECT ky_thuat_vien as nhom, COALESCE(NULLIF(tinh,''), tinh_moi) as tinh, COUNT(*) as so_ca, SUM(${REVENUE_EXPR}) as doanh_thu
+       FROM case_dvbh WHERE ky_thuat_vien IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
+       GROUP BY ky_thuat_vien, COALESCE(NULLIF(tinh,''), tinh_moi)`,
+    )
+      .bind(...binds)
+      .all();
+    return { totals: null, byDim: results };
+  }
+
+  const dim = REVENUE_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
 
   const totals = await db.prepare(
     `SELECT SUM(${REVENUE_EXPR}) as tong,
