@@ -12,7 +12,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { AGE_ANCHOR } from "../lib/ageCalc";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { csvTemplateResponse } from "../lib/csvTemplate";
-import { fetchLuongDoiTraList, type LuongDoiTraRow } from "../lib/mailTimeline";
+import { caMoiLive, fetchLuongDoiTraList, type LuongDoiTraRow } from "../lib/mailTimeline";
 import {
   ALL_TRANG_THAI_LOG,
   GIAM_SAT_STATUSES,
@@ -508,7 +508,9 @@ tranhChap.get("/theo-doi-doi-tra/cho-danh-gia/count", async (c) => {
 tranhChap.get("/luong-doi-tra", async (c) => {
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
-  const list = await fetchLuongDoiTraList(c.env);
+  // Loc trang thai ngay o he theodoidoimay (mac dinh "dang_mo" -> chi vai chuc-tram dong nho tu ket thuc 30 ngay).
+  const trangThai = c.req.query("trang_thai") ?? "dang_mo";
+  const list = await fetchLuongDoiTraList(c.env, trangThai);
   if (!list.ok) return c.json({ rows: [], page, pageSize, total: 0, dangMo: 0, error: list.error });
 
   const scope = scopeTranhChap(c);
@@ -539,7 +541,6 @@ tranhChap.get("/luong-doi-tra", async (c) => {
   const caseMap = new Map(results.map((r) => [r.id.toUpperCase(), r]));
 
   const trongPhamVi = list.rows.filter((r) => caseMap.has(r.case_id.toUpperCase()));
-  const trangThai = c.req.query("trang_thai") ?? "dang_mo";
   const buoc = c.req.query("buoc") ?? "";
   const loc = trongPhamVi.filter(
     (r: LuongDoiTraRow) =>
@@ -547,7 +548,13 @@ tranhChap.get("/luong-doi-tra", async (c) => {
   );
   // Dang mo truoc, roi hoat dong gan nhat truoc.
   loc.sort((a, b) => Number(!!a.ket_thuc_at) - Number(!!b.ket_thuc_at) || (b.last_at ?? b.created_at).localeCompare(a.last_at ?? a.created_at));
-  const rows = loc.slice((page - 1) * pageSize, page * pageSize).map((r) => ({ ...caseMap.get(r.case_id.toUpperCase()), ...r, id: r.case_id }));
+  const trang = loc.slice((page - 1) * pageSize, page * pageSize);
+  // Tien do ca doi lay truc tiep tu case_dvbh (he kia ngung cap nhat ca moi khi luong da ket thuc).
+  const live = await caMoiLive(c.env, trang.map((r) => r.ca_moi_id).filter((x): x is string => !!x));
+  const rows = trang.map((r) => {
+    const cm = r.ca_moi_id ? live.get(r.ca_moi_id.toUpperCase()) : undefined;
+    return { ...caseMap.get(r.case_id.toUpperCase()), ...r, ...(cm ?? {}), id: r.case_id };
+  });
   return c.json({ rows, page, pageSize, total: loc.length, dangMo: trongPhamVi.filter((r) => !r.ket_thuc_at).length, error: null });
 });
 

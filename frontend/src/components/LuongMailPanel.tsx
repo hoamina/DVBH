@@ -7,6 +7,8 @@
 // v1.434: nut "Kết thúc luồng"/"Mở lại" (he kia ngung truy van DVBH cho ca da ket thuc), nhap ma ca doi thu cong
 // khi he thong khong tu tim duoc, nhat ky thao tac (Hệ thống / ten nguoi dung). Quyen = quyen ghi tranh chap
 // (POST /api/cases/:id/doi-tra/:action, backend kiem tra canWriteTranhChap).
+// v1.436: he kia TU ket thuc luong sau 30 ngay khong co thong tin moi (nguoi = "Hệ thống"); luong da ket thuc VAN nhap ma
+// ca doi thu cong duoc (khong ton luot kiem tra tu dong). Tien do ca doi do backend DVBH doc truc tiep tu case_dvbh.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api/client";
@@ -461,7 +463,7 @@ function KetThucModal({ caseId, dangLuu, onClose, onXacNhan }: { caseId: string;
     <Modal open onClose={onClose} title="Kết thúc luồng đổi trả?" width="max-w-md">
       <div className="space-y-3">
         <div className="text-sm text-[var(--ink-700)]">
-          Xác nhận luồng đổi trả của ca <b className="font-mono">{caseId}</b> đã xong. Hệ thống sẽ <b>ngừng tự động cập nhật</b> (đồng bộ tranh chấp, tìm ca mới) cho ca này; mail mới vẫn được lưu. Có thể mở lại sau.
+          Xác nhận luồng đổi trả của ca <b className="font-mono">{caseId}</b> đã xong. Hệ thống sẽ <b>ngừng tự động cập nhật</b> (đồng bộ tranh chấp, tìm ca mới) cho ca này; mail mới vẫn được lưu, vẫn nhập mã ca đổi thủ công được. Có thể mở lại sau. (Luồng không có thông tin mới trong 30 ngày sẽ được hệ thống tự kết thúc.)
         </div>
         <textarea
           value={ghiChu}
@@ -577,7 +579,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
         {daKetThuc && (
           <div className="text-xs text-[var(--ink-500)] mb-2">
             Kết thúc bởi <b className="text-[var(--ink-700)]">{l.ket_thuc_boi}</b> · {fmtVn(l.ket_thuc_at)}
-            {l.ket_thuc_ghi_chu ? ` · ${l.ket_thuc_ghi_chu}` : ""} — hệ thống không còn tự cập nhật luồng này.
+            {l.ket_thuc_ghi_chu ? ` · ${l.ket_thuc_ghi_chu}` : ""} — hệ thống không còn tự tìm/cập nhật; vẫn nhập mã ca đổi thủ công được.
           </div>
         )}
         <ol className="space-y-1">
@@ -597,7 +599,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
       </Card>
 
       {(cm || l.duyet_at) && (
-        <CaMoiCard cm={cm} ganBoi={ganBoi} canWrite={canWrite && !daKetThuc} dangLuu={thaoTac.isPending} onGan={ganCaMoi} onOpenCase={onOpenCase} />
+        <CaMoiCard cm={cm} ganBoi={ganBoi} canWrite={canWrite} dangLuu={thaoTac.isPending} onGan={ganCaMoi} onOpenCase={onOpenCase} />
       )}
 
       {deXuat.length > 0 && (

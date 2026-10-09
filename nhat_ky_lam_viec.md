@@ -4319,3 +4319,14 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - Giao diện: hook `useExportRunner` (báo lỗi bằng toast + khoá nút "⏳ Đang xuất…") cho cả 6 nút Xuất Excel gọi API:
   Ca lặp, Quản lý tồn, Báo cáo vi phạm, Danh sách tổng, Lịch sử import, Khảo sát.
 - CLAUDE.md: thêm quy tắc giới hạn 100 bind param của D1.
+
+## 2026-10-09 — Đổi trả: tự kết thúc 30 ngày, ca mới theo danh mục "Theo dõi đổi trả", tiến độ ca đổi đọc tại DVBH (v1.436)
+
+- Hệ theodoidoimay (chốt nghiệp vụ): không lưu toàn văn/đính kèm (R2) nữa, chỉ thông tin luồng; tìm ca mới chỉ trong 30 ngày
+  sau duyệt và ứng viên phải khớp danh mục Cài đặt "Theo dõi đổi trả" (`settings_loai_yeu_cau_doi_tra` +
+  `settings_luu_y_loi_linh_kien_doi_tra`, bat_tat=1 - hệ kia đọc trực tiếp, sửa Cài đặt là áp dụng ngay); đã có ca mới
+  thì ngừng tìm; tự kết thúc luồng khi 30 ngày không có thông tin mới (nhật ký "Hệ thống").
+- DVBH: `caMoiLive()` (lib/mailTimeline.ts) đọc tiến độ ca đổi từ chính `case_dvbh` khi mở tab "Đổi trả" và trong tab
+  "Luồng duyệt đổi trả" (hệ kia không còn cập nhật ca mới của luồng đã kết thúc) - mốc "Đổi trả thành công" luôn đúng,
+  không tốn lượt đồng bộ. `luong-list` xin theo trạng thái (mặc định chỉ luồng đang mở) thay vì toàn bộ.
+- Tab "Đổi trả": luồng đã kết thúc vẫn nhập mã ca đổi thủ công được; chú thích tự kết thúc 30 ngày.

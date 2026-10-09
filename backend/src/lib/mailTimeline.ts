@@ -153,11 +153,14 @@ export interface LuongDoiTraRow {
   ca_moi_tien_do: string | null;
 }
 
-/** Toan bo luong doi tra da gan case (vai tram dong) - noi goi tu loc theo pham vi/bo loc va phan trang. */
-export async function fetchLuongDoiTraList(env: Env): Promise<{ ok: boolean; error: string | null; rows: LuongDoiTraRow[] }> {
+/**
+ * Luong doi tra da gan case, loc trang thai PHIA he kia ("dang_mo" | "ket_thuc" | "" = tat ca) - mac dinh chi luong dang mo
+ * (luong tu ket thuc sau 30 ngay -> so dong nho). Noi goi tu loc theo pham vi khu vuc/bo loc va phan trang.
+ */
+export async function fetchLuongDoiTraList(env: Env, trangThai = ""): Promise<{ ok: boolean; error: string | null; rows: LuongDoiTraRow[] }> {
   if (!theoDoiConfigured(env)) return { ok: false, error: "NOT_CONFIGURED", rows: [] };
   try {
-    const res = await goiTheoDoi(env, "/api/partner/luong-list");
+    const res = await goiTheoDoi(env, `/api/partner/luong-list?trang_thai=${encodeURIComponent(trangThai)}`);
     if (!res.ok) return { ok: false, error: `HTTP_${res.status}`, rows: [] };
     const data = (await res.json()) as { rows?: LuongDoiTraRow[] };
     return { ok: true, error: null, rows: Array.isArray(data.rows) ? data.rows : [] };
@@ -165,6 +168,40 @@ export async function fetchLuongDoiTraList(env: Env): Promise<{ ok: boolean; err
     console.error("[mailTimeline] luong-list loi:", err);
     return { ok: false, error: String(err).slice(0, 200), rows: [] };
   }
+}
+
+/** "2026-09-28 17:08:40" (gio VN, dinh dang case_dvbh) -> ISO UTC (dinh dang he theodoidoimay). */
+function vnToIso(s: string | null): string | null {
+  if (!s) return null;
+  const t = Date.parse(`${s.trim().replace(" ", "T")}+07:00`);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+
+/**
+ * Tien do HIEN TAI cua ca moi (ca doi cho KH) doc tu chinh D1 cua DVBH - he theodoidoimay ngung cap nhat ca moi khi luong
+ * da ket thuc (tu ket thuc 30 ngay / gan tay sau khi ket thuc), nen DVBH tu doc de hien dung "Đổi trả thành công".
+ */
+export async function caMoiLive(
+  env: Env,
+  ids: string[],
+): Promise<Map<string, Pick<MailCaMoi, "ca_moi_tn_at" | "ca_moi_ht_at" | "ca_moi_tien_do" | "ca_moi_san_pham">>> {
+  const out = new Map<string, Pick<MailCaMoi, "ca_moi_tn_at" | "ca_moi_ht_at" | "ca_moi_tien_do" | "ca_moi_san_pham">>();
+  if (!ids.length) return out;
+  const { results } = await env.DB.prepare(
+    `SELECT CAST(id AS TEXT) AS id, thoi_gian_cskh_tiep_nhan, thoi_gian_hoan_thanh, tien_do_hoan_thanh, san_pham_bao_hanh
+     FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))`,
+  )
+    .bind(JSON.stringify([...ids, ...ids.map((x) => x.toLowerCase())]))
+    .all<{ id: string; thoi_gian_cskh_tiep_nhan: string | null; thoi_gian_hoan_thanh: string | null; tien_do_hoan_thanh: string | null; san_pham_bao_hanh: string | null }>();
+  for (const r of results) {
+    out.set(r.id.toUpperCase(), {
+      ca_moi_tn_at: vnToIso(r.thoi_gian_cskh_tiep_nhan),
+      ca_moi_ht_at: vnToIso(r.thoi_gian_hoan_thanh),
+      ca_moi_tien_do: r.tien_do_hoan_thanh ?? "",
+      ca_moi_san_pham: r.san_pham_bao_hanh ?? "",
+    });
+  }
+  return out;
 }
 
 export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailTimelineResult> {
@@ -182,6 +219,11 @@ export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailT
       return { configured: true, ok: false, error: `HTTP_${res.status}`, ...empty };
     }
     const body = (await res.json()) as { found?: boolean; luong?: MailLuong | null; thu?: MailThu[]; ca_moi?: MailCaMoi | null; nhat_ky?: MailNhatKy[] };
+    const caMoi = body.ca_moi ?? null;
+    if (caMoi?.ca_moi_id) {
+      const live = (await caMoiLive(env, [caMoi.ca_moi_id])).get(caMoi.ca_moi_id.toUpperCase());
+      if (live) Object.assign(caMoi, live);
+    }
     return {
       configured: true,
       ok: true,
@@ -189,7 +231,7 @@ export async function fetchMailTimeline(env: Env, caseId: string): Promise<MailT
       found: Boolean(body.found),
       luong: body.luong ?? null,
       thu: Array.isArray(body.thu) ? body.thu : [],
-      ca_moi: body.ca_moi ?? null,
+      ca_moi: caMoi,
       nhat_ky: Array.isArray(body.nhat_ky) ? body.nhat_ky : [],
     };
   } catch (err) {
