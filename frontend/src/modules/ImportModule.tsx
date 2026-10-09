@@ -8,6 +8,7 @@ import { api, buildQuery } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useExportRunner } from "../hooks/useExportRunner";
 import { ImportUploader, describeError } from "../components/ImportUploader";
 import { Select } from "../components/ui/Select";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
@@ -77,6 +78,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
     queryFn: () => api.get<{ rows: ImportHistoryRow[] }>(`/import/history${buildQuery({ loai })}`),
   });
 
+  const exportRunner = useExportRunner();
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-3">
@@ -84,7 +86,8 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
         <Btn
           variant="ghost"
           size="sm"
-          onClick={async () => {
+          disabled={exportRunner.busy}
+          onClick={exportRunner.run(async () => {
             const res = await api.get<{ rows: ImportHistoryRow[] }>(`/import/history${buildQuery({ loai, export: true })}`);
             await exportRowsToExcel(res.rows, exportFileName, "Data", {
               id: "ID",
@@ -97,9 +100,9 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
               loi: "Lỗi",
               bg_error: "Ghi chú / Lỗi chi tiết",
             });
-          }}
+          })}
         >
-          ⬇ Xuất Excel
+          {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
         </Btn>
       </div>
       <div className="overflow-x-auto">

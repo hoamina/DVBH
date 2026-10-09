@@ -19,6 +19,7 @@ import { useBacklogAgeReport } from "../hooks/useBacklogAgeReport";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, fmtVND, type CaseRow, type Paged, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useExportRunner } from "../hooks/useExportRunner";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE, KHU_VUC_AN_KHOI_BAO_CAO } from "../constants";
@@ -1475,6 +1476,7 @@ export function BacklogModule({
     };
   }
 
+  const exportRunner = useExportRunner();
   async function handleExport() {
     const all = await api.get<{ rows: CaseRow[] }>(`/cases${buildQuery({ ...listParams, page: undefined, pageSize: undefined, export: true })}`);
     // Cot "Ten linh kien thieu gan nhat"/"SL don mua"/"SL don bao hanh" chi co tren frontend (tra
@@ -2428,8 +2430,8 @@ export function BacklogModule({
             )}
             {dsTab !== "da-dong" && (
               <div className="ml-auto">
-                <Btn variant="ghost" size="sm" onClick={handleExport}>
-                  ⬇ Xuất Excel
+                <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
+                  {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
                 </Btn>
               </div>
             )}

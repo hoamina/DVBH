@@ -11,6 +11,7 @@ import { useToast } from "../components/ui/Toast";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { api, buildQuery } from "../api/client";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useExportRunner } from "../hooks/useExportRunner";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE, CURRENT_MONTH_VALUE } from "../constants";
@@ -345,6 +346,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
   // "Kết quả chốt QC" (dang chu, giong het cot tren man hinh) - CHOT sau bao cao "file tai ve khong
   // du cot" 2026-09-24: chuyen sang derive 2 truong hien thi "nguon"/"ketQuaChotQc" ngay tai day,
   // dam bao Excel khop CHINH XAC danh sach cot dang hien tren man hinh.
+  const exportRunner = useExportRunner();
   async function handleExportDanhSach() {
     const res = await api.get<{ rows: DanhSachRow[] }>(`/bao-cao-vi-pham/danh-sach${buildQuery({ ...apiParams, trang_thai: trangThai || undefined, export: "true" })}`);
     const rows = res.rows.map((r) => ({
@@ -567,8 +569,8 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
             </div>
             <div className="flex items-center gap-2">
               <div ref={setColSettingsSlot} />
-              <Btn variant="ghost" size="sm" onClick={handleExportDanhSach}>
-                ⬇ Xuất Excel
+              <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExportDanhSach)} disabled={exportRunner.busy}>
+                {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
               </Btn>
             </div>
           </div>

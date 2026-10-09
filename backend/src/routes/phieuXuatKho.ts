@@ -10,6 +10,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { autoClaimGs, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
 import { uploadToDrive } from "../lib/googleDrive";
+import { allInChunks } from "../lib/d1InChunks";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -158,35 +159,35 @@ phieuXuatKho.post("/", async (c) => {
   // Xac nhan tung dong that su hop le (da "TN da duyet" + chua gan PXK nao) truoc khi ghi - tranh
   // gan nham dong dang "Cho TN duyet"/da co ma_xuat_kho tu 1 PXK khac (vd 2 tab cung mo, hoac ID cu
   // con luu trong bo nho trinh duyet).
-  const placeholders = body.dat_don_hang_ids.map(() => "?").join(", ");
-  const { results: hopLe } = await c.env.DB.prepare(
-    `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL
+  // 3 cau IN (...) duoi day chia lo <=100 bind (gioi han D1) qua allInChunks - 1 PXK co the gom nhieu dong.
+  const hopLe = await allInChunks<{ id: string }>(
+    c.env.DB,
+    body.dat_don_hang_ids,
+    (ph) => `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${ph}) AND ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL
        AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`,
-  )
-    .bind(...body.dat_don_hang_ids)
-    .all<{ id: string }>();
-  const hopLeIds = new Set((hopLe as { id: string }[]).map((r) => r.id));
+  );
+  const hopLeIds = new Set(hopLe.map((r) => r.id));
   const khongHopLe = body.dat_don_hang_ids.filter((id) => !hopLeIds.has(id));
   if (khongHopLe.length > 0) return c.json({ error: "DON_HANG_KHONG_HOP_LE", ids: khongHopLe }, 400);
 
   // Chot nghiep vu 2026-08-15: 1 PXK CHI duoc gan cho 1 KTV duy nhat - kiem tra moi dong chon deu
   // thuoc dung nguoi_nhan_hang da khai bao (xem migration 0074).
-  const { results: ktvRows } = await c.env.DB.prepare(
-    `SELECT DISTINCT ddh.nguoi_nhan_hang FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders})`,
-  )
-    .bind(...body.dat_don_hang_ids)
-    .all<{ nguoi_nhan_hang: string | null }>();
-  const ktvSet = new Set((ktvRows as { nguoi_nhan_hang: string | null }[]).map((r) => r.nguoi_nhan_hang));
+  const ktvRows = await allInChunks<{ nguoi_nhan_hang: string | null }>(
+    c.env.DB,
+    body.dat_don_hang_ids,
+    (ph) => `SELECT DISTINCT ddh.nguoi_nhan_hang FROM dat_don_hang ddh WHERE ddh.id IN (${ph})`,
+  );
+  const ktvSet = new Set(ktvRows.map((r) => r.nguoi_nhan_hang));
   if (ktvSet.size !== 1 || !ktvSet.has(nguoiNhanHang)) return c.json({ error: "NHIEU_KTV_TRONG_1_PXK" }, 400);
 
   // Chot 2026-08-16 (dot 3 gop y #8): 1 PXK CHI duoc gom dong CUNG 1 loai_don (mua/cong_no) - khong
   // bao gio tron 2 loai trong 1 phieu (tra_hang da bi loai o buoc kiem tra hopLe o tren).
-  const { results: loaiDonRows } = await c.env.DB.prepare(
-    `SELECT DISTINCT ddh.loai_don FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders})`,
-  )
-    .bind(...body.dat_don_hang_ids)
-    .all<{ loai_don: string }>();
-  const loaiDonSet = new Set((loaiDonRows as { loai_don: string }[]).map((r) => r.loai_don));
+  const loaiDonRows = await allInChunks<{ loai_don: string }>(
+    c.env.DB,
+    body.dat_don_hang_ids,
+    (ph) => `SELECT DISTINCT ddh.loai_don FROM dat_don_hang ddh WHERE ddh.id IN (${ph})`,
+  );
+  const loaiDonSet = new Set(loaiDonRows.map((r) => r.loai_don));
   if (loaiDonSet.size !== 1 || !loaiDonSet.has(body.loai_don)) return c.json({ error: "NHIEU_LOAI_TRONG_1_PXK" }, 400);
 
   const user = c.get("user");

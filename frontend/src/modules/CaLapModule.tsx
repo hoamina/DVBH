@@ -23,6 +23,7 @@ import {
   type CaLapLoai,
 } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useExportRunner } from "../hooks/useExportRunner";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { trangThaiLapOf, trangThaiKeyOf } from "../lib/caLapStatus";
@@ -372,6 +373,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     qc_chua: "Chờ QC xử lý",
   };
 
+  const exportRunner = useExportRunner();
   async function handleExport() {
     const all = await api.get<{ rows: CaLapListRow[] }>(
       `/ca-lap/danh-sach${buildQuery({ khu_vuc: khuVucFilter, thang, trang_thai: trangThai, export: true })}`,
@@ -723,8 +725,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
 
           <div className="flex items-center justify-between mb-1">
             <div />
-            <Btn variant="ghost" size="sm" onClick={handleExport}>
-              ⬇ Xuất Excel
+            <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
+              {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
             </Btn>
           </div>
           <Tabs

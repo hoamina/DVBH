@@ -16,6 +16,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { nowVN } from "../lib/vnTime";
 import { parseHinhAnhUrls } from "../lib/hinhAnhUrls";
 import { buildDanhSachTon, DANH_SACH_TON_LOAI, type DanhSachTonLoai } from "../lib/partnerDanhSachTon";
+import { allInChunks } from "../lib/d1InChunks";
 
 /**
  * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
@@ -542,11 +543,12 @@ partnerApi.get("/don-bao-hanh-odoo", async (c) => {
   if (idsParam) {
     const ids = idsParam.split(",").map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0).slice(0, 200);
     if (ids.length === 0) return c.json({ rows: [] });
-    const { results } = await c.env.DB.prepare(
-      `SELECT ${DON_BH_ODOO_COLUMNS} FROM don_bao_hanh_odoo d LEFT JOIN case_dvbh c ON c.id = d.case_id WHERE d.odoo_id IN (${ids.map(() => "?").join(",")})`,
-    )
-      .bind(...ids)
-      .all();
+    // Toi da 200 id ma D1 chi cho 100 bind/cau -> chia lo (truoc 2026-10-09: >100 id la loi 500).
+    const results = await allInChunks(
+      c.env.DB,
+      ids,
+      (ph) => `SELECT ${DON_BH_ODOO_COLUMNS} FROM don_bao_hanh_odoo d LEFT JOIN case_dvbh c ON c.id = d.case_id WHERE d.odoo_id IN (${ph})`,
+    );
     return c.json({ rows: results });
   }
 

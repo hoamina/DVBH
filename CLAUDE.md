@@ -258,6 +258,11 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
   (a matching index, or a narrower `WHERE`/`IN` set) — not reducing columns selected. The lever for
   cutting `rows_written` is reducing *how many rows get written at all* (skip no-op writes) and
   *how many indexes a hot column touches* — not the payload size of the write.
+- **Max 100 bound parameters per statement** (D1-specific; plain SQLite allows ~32k). A dynamic
+  `IN (?, ?, ...)` built from a data-driven list (ids, emails) fails with "too many SQL variables" once
+  the list + other binds pass 100 — the Ca lặp Excel export did exactly this with ~3-4k prior ids
+  (fixed 2026-10-09). Use `lib/d1InChunks.ts` `allInChunks()` (chunks into one `db.batch`) or a SQL
+  subquery instead of passing the list; small fixed lists (khu vực, status constants) are fine.
 - **Free vs Paid plan, for scale context:** Free = 5M rows-read/day hard cap (queries fail past it),
   100k rows-written/day hard cap. Workers Paid ($5/mo base, a specific dashboard subscription
   distinct from just having a card on file for R2 pay-as-you-go) = 25 **billion** rows-read/month

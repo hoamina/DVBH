@@ -20,6 +20,7 @@ import { computeCanhBaoTonBuckets } from "../lib/canhBaoTon";
 import { getVnDateStr } from "../lib/reportCache";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
 import { syncGiaiTrinhTonB2B } from "../lib/etxGiaiTrinhSync";
+import { allInChunks } from "../lib/d1InChunks";
 
 const VALID_LOAI_DONG_BO = new Set(["case", "linh_kien", "giai_trinh_cu", "giai_trinh_lap_cu", "khao_sat_cu", "nap_gas_danh_gia_cu"]);
 
@@ -1224,11 +1225,9 @@ settings.post("/ktv-lien-he", ktvWriteRoles, async (c) => {
 async function filterValidGsEmails(db: D1Database, emails: (string | null)[]): Promise<Set<string>> {
   const distinct = [...new Set(emails.filter((e): e is string => !!e))];
   if (distinct.length === 0) return new Set();
-  const { results } = await db
-    .prepare(`SELECT email FROM users WHERE email IN (${distinct.map(() => "?").join(",")})`)
-    .bind(...distinct)
-    .all<{ email: string }>();
-  return new Set((results as { email: string }[]).map((r) => r.email));
+  // Chia lo <=100 bind (gioi han D1) - danh sach GS tu dong bo KTV co the dai.
+  const results = await allInChunks<{ email: string }>(db, distinct, (ph) => `SELECT email FROM users WHERE email IN (${ph})`);
+  return new Set(results.map((r) => r.email));
 }
 
 async function provisionPlaceholderUser(

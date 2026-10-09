@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { Env } from "../types";
 import { ageExpr } from "./ageCalc";
 import { fromJsonArray } from "./jsonArray";
+import { allInChunks } from "./d1InChunks";
 
 /** Redesign 2026-07-31: tach 2 giai doan xu ly tranh chap - Giam sat xu ly TRUOC (5 trang thai), neu
  * khong tu xu ly duoc thi chon "Giam sat chuyen CSKH" de ban giao sang CSKH (4 trang thai rieng).
@@ -182,17 +183,17 @@ export async function loadGiamSatHistoryByCaseIds(
   caseIds: string[],
 ): Promise<{ caseId: string; tienTrinhId: string; email: string; ten: string | null }[]> {
   if (caseIds.length === 0) return [];
-  const placeholders = caseIds.map(() => "?").join(", ");
   const statusPlaceholders = GIAM_SAT_STATUSES.map(() => "?").join(", ");
-  const { results } = await db
-    .prepare(
-      `SELECT tt.case_id, tt.id as tien_trinh_id, ll.nguoi_xu_ly as email, u.ten
+  // Chia lo <=100 bind (gioi han D1) - API cho pageSize toi 200.
+  const results = await allInChunks<{ case_id: string; tien_trinh_id: string; email: string; ten: string | null }>(
+    db,
+    caseIds,
+    (ph) => `SELECT tt.case_id, tt.id as tien_trinh_id, ll.nguoi_xu_ly as email, u.ten
        FROM tranh_chap_tien_trinh tt
        JOIN tranh_chap_log ll ON ll.tien_trinh_id = tt.id
        LEFT JOIN users u ON u.email = ll.nguoi_xu_ly
-       WHERE tt.case_id IN (${placeholders}) AND ll.trang_thai_xu_ly IN (${statusPlaceholders})`,
-    )
-    .bind(...caseIds, ...GIAM_SAT_STATUSES)
-    .all<{ case_id: string; tien_trinh_id: string; email: string; ten: string | null }>();
+       WHERE tt.case_id IN (${ph}) AND ll.trang_thai_xu_ly IN (${statusPlaceholders})`,
+    { tailBinds: GIAM_SAT_STATUSES },
+  );
   return results.map((r) => ({ caseId: r.case_id, tienTrinhId: r.tien_trinh_id, email: r.email, ten: r.ten }));
 }

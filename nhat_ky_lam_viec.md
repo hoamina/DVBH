@@ -4305,3 +4305,17 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   trong khi hệ theodoidoimay gửi ISO UTC → lệch sớm 7 tiếng. Nay cộng +7 ra giờ VN.
 - Hệ theodoidoimay (cùng ngày): sửa chống trùng thư trích dẫn (thêm so tiêu đề - trước đây 2 thư cùng người gửi cách nhau
   ≤ 2 phút bị coi là 1, mất thư đề xuất 13:48 của ca SC261006460 khi có FW 13:50) + tách lại trích dẫn từ R2 → bù 2 thư.
+
+## 2026-10-09 — Sửa lỗi "tải file" ở Ca lặp (QC báo) + rà soát chức năng tương tự (v1.431)
+
+- Nguyên nhân: `GET /api/ca-lap/danh-sach?export=true` lấy "ca gốc" bằng 1 câu `WHERE id IN (?, ?, …)` với toàn bộ
+  `prior_id` của tháng. D1 giới hạn **100 tham số / câu lệnh**; tháng 7–9/2026 mỗi tháng ~3.200–3.800 ca gốc (đo trên
+  production) → tài khoản xem toàn quốc (QC) luôn bị lỗi 500. Nút "Xuất Excel" không bắt lỗi nên bấm "im lặng".
+  Sửa: lấy ca gốc bằng subquery trên chính CTE `lap` + điều kiện lọc (1 câu, số tham số cố định).
+- Rà soát toàn backend các `IN (...)` dựng từ danh sách động: thêm `lib/d1InChunks.ts` `allInChunks()` (chia lô ≤100
+  tham số, 1 `db.batch`) và áp vào 4 chỗ có thể vượt: `partnerApi` `GET /don-bao-hanh-odoo?ids=` (cho tới 200 id —
+  sửa chữa bảo hành gửi >100 id là lỗi), `settings` `filterValidGsEmails`, `phieuXuatKho` (3 câu kiểm tra dòng),
+  `tranhChapTienTrinh.loadGiamSatHistoryByCaseIds`. Các chỗ còn lại đã chia lô sẵn hoặc chỉ là danh sách nhỏ cố định.
+- Giao diện: hook `useExportRunner` (báo lỗi bằng toast + khoá nút "⏳ Đang xuất…") cho cả 6 nút Xuất Excel gọi API:
+  Ca lặp, Quản lý tồn, Báo cáo vi phạm, Danh sách tổng, Lịch sử import, Khảo sát.
+- CLAUDE.md: thêm quy tắc giới hạn 100 bind param của D1.

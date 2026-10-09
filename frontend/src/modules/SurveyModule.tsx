@@ -17,6 +17,7 @@ import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { LOAI_LOI_META, LOAI_LOI_KEYS, parseLoaiKhaoSat, type LoaiLoi, type ViPhamRow, type KetQuaGoiRow, type LoaiViPhamRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useExportRunner } from "../hooks/useExportRunner";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
@@ -912,6 +913,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     },
   });
 
+  const exportRunner = useExportRunner();
   async function handleExport() {
     if (tab === "can-khao-sat" || tab === "qua-han-khao-sat") {
       const rows = filteredRows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) }));
@@ -1626,8 +1628,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   ⇄ Gán CSKH hàng loạt
                 </Btn>
               )}
-              <Btn variant="ghost" size="sm" onClick={handleExport}>
-                ⬇ Xuất Excel
+              <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
+                {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
               </Btn>
             </div>
           </div>

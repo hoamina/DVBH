@@ -136,15 +136,21 @@ caLap.get("/danh-sach", async (c) => {
     // trong trang xuat (xem CLAUDE.md "D1 read-budget discipline").
     const priorIds = [...new Set(lapRows.filter((r) => r.prior_id).map((r) => String(r.prior_id)))];
 
+    // FIX 2026-10-09 (QC bao "loi tai file"): truoc day gom priorIds thanh 1 "IN (?, ?, ...)" - D1 gioi han 100 bind
+    // param/cau lenh, ma 1 thang co ~3-4 nghin ca goc (tai khoan xem toan quoc) -> loi "too many SQL variables" -> 500,
+    // nut Xuat Excel im lang. Gio lay ca goc bang SUBQUERY tren chinh CTE "lap" + whereSql (1 cau, bind co dinh, khong
+    // ton them query/invocation). Doi lai quet lai partial index lap them 1 lan - chap nhan duoc vi chi khi bam xuat.
     let originRows: Record<string, unknown>[] = [];
     if (priorIds.length > 0) {
-      const scopeClauseOrigin = khuVucWhereClause(scope, "khu_vuc");
-      const exclusionOrigin = khuVucReportExclusionClause("khu_vuc");
-      const placeholders = priorIds.map(() => "?").join(", ");
+      const scopeClauseOrigin = khuVucWhereClause(scope, "o.khu_vuc");
+      const exclusionOrigin = khuVucReportExclusionClause("o.khu_vuc");
       const { results: originResults } = await c.env.DB.prepare(
-        `SELECT * FROM case_dvbh WHERE id IN (${placeholders}) AND thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${scopeClauseOrigin.sql}${exclusionOrigin.sql}`,
+        `${CA_LAP_CTE}
+        SELECT o.* FROM case_dvbh o
+        WHERE o.id IN (SELECT lap.prior_id FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id ${whereSql})
+          AND o.thoi_gian_hoan_thanh >= ? AND o.thoi_gian_hoan_thanh < ?${scopeClauseOrigin.sql}${exclusionOrigin.sql}`,
       )
-        .bind(...priorIds, start, end, ...scopeClauseOrigin.binds, ...exclusionOrigin.binds)
+        .bind(...binds, start, end, ...scopeClauseOrigin.binds, ...exclusionOrigin.binds)
         .all();
       originRows = (originResults as Record<string, unknown>[]).map((r) => ({ ...r, loai_dong: "Ca gốc" }) as Record<string, unknown>);
     }

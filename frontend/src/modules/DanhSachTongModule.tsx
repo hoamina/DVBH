@@ -10,6 +10,7 @@ import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, buildQuery } from "../api/client";
 import { fmtDateTime, fmtVND, type CaseRow, type Paged } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { useExportRunner } from "../hooks/useExportRunner";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { useDaDongChunked } from "../hooks/useDaDongChunked";
@@ -127,6 +128,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
   const exportOptions = isAdmin ? { includeFields: ["link_hinh_anh"] } : undefined;
 
+  const exportRunner = useExportRunner();
   async function handleExport() {
     if (tab === "dang-ton") {
       const all = await api.get<{ rows: CaseRow[] }>(`/cases/tong-hop${buildQuery({ trang_thai: "dang-ton", export: true, khu_vuc: khuVucFilter, hang: hangFilter, id: idSearch || undefined })}`);
@@ -216,8 +218,8 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
         tabs={TABS}
       />
       <div className="flex justify-end mb-2 mt-4">
-        <Btn variant="ghost" size="sm" onClick={handleExport}>
-          ⬇ Xuất Excel
+        <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
+          {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
         </Btn>
       </div>
       {tab === "thang" && monthThrottled.length > 0 && (
