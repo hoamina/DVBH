@@ -354,3 +354,11 @@ login to Admin — see `secrets.md` for the rotation/cleanup note on that value.
 Nine roles (`VAI_TRO_VALUES` in `types.ts`): Admin, Viewer, QC, Giám sát, TBP DVBH, CSKH, TN CSKH,
 TBP CSKH, KSNB Đối tác — each with a different module/region scope, see `navConfig.ts` and
 `HANDOFF.md` "Vai trò & phân quyền" for the business rules behind each.
+
+## Nhận việc từ Trợ lý Mây (tự sửa)
+- Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.
+- Kiểm tra bắt buộc trước khi mở PR: `npm run build` (eslint chạy trước; đỏ = dừng). Flutter: `flutter analyze && flutter build web`.
+- Nhánh `may/may-xxxxx`, PR vào `main`, tiêu đề bắt đầu bằng mã, mô tả tiếng Việt (nguyên nhân · cách sửa · cách thử), ghi `Closes #<issue>`.
+- KHÔNG BAO GIỜ: sửa `firestore.rules`/`storage.rules`/hàm `hrLink`/secrets; chạy `firebase deploy` trần; đổi tính năng ngoài issue; xoá dữ liệu.
+- Không chắc / cần người quyết: bình luận `MÂY: CẦN NGƯỜI` + lý do rồi dừng.
+- Deploy do workflow `may-deploy` làm sau khi được duyệt — KHÔNG tự deploy trong lúc sửa.
