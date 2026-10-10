@@ -13,6 +13,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen } from "../lib/diaGioi";
 
 interface DailyReportBucket {
   baseline: number;
@@ -70,6 +71,7 @@ const ALL_MODEL = "Tất cả Model";
 export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) => void } = {}) {
   const [filters, setFilters] = useLocalStorageState<DashboardFilters>("filters:dashboard", { khu_vuc: ALL_KHU_VUC, hang: ALL_HANG, thang: CURRENT_MONTH_VALUE });
   const [pivotDim, setPivotDim] = useLocalStorageState("filters:dashboard-pivot-dim", "khu_vuc");
+  const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
   // CHOT 2026-08-12: bo loc "Model" rieng cho the "Tong quan" (khong dua vao FilterBar/DashboardFilters
   // dung chung voi RevenueModule - tranh hien Select thua o Bao cao doanh thu, noi khong ai yeu cau) -
   // ap dung dong thoi cho ca "Filter tong" (kpi) lan "Bang pivot phan tich da chieu" qua filterParams.
@@ -125,7 +127,11 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
 
   // Cot dau tien (Nhom) sap A-Z - CHI ap dung cho bang pivot day du, KHONG ap dung cho "ktvRanked"
   // ben duoi (bang xep hang Top 10 theo ty le SLA, sap A-Z se lam mat y nghia xep hang).
-  const sortedPivotRows = [...(pivot?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  // Nhom theo "Tinh" (2026-10-10): server tra cap tho (tinh, tinh_moi), gom theo che do "Dia gioi cu / moi".
+  const sortedPivotRows =
+    pivotDim === "tinh"
+      ? gopBangTheoTinh(pivot?.rows ?? [], dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
+      : [...(pivot?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
 
   // KTV chi xet nhung ai co du luong (>=5 ca) de tranh nhieu do mau nho, lay top 10 nhieu ca nhat sap theo ty le SLA tang dan (thap nhat truoc)
   const ktvRanked = [...(pivotKtv?.rows ?? [])]

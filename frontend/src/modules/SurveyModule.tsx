@@ -65,7 +65,7 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 import { SurveyCallWorkspace } from "./SurveyCallWorkspace";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 import { TinhHuyenFilterControl } from "../components/TinhHuyenFilterControl";
-import { useDiaGioiLoc, useOnDiaGioiModeChange } from "../lib/diaGioi";
+import { useDiaGioiLoc, useOnDiaGioiModeChange, gomTheoDiaGioi, soSanhTen, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 import { KhaoSatLoaiTruTab } from "../components/KhaoSatLoaiTru";
 
 interface FunnelData {
@@ -571,8 +571,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   // dang hien, roi tinh lai TAT CA cot % tu tong (khong cong trung binh % tung dong) - dung CHINH
   // XAC cong thuc backend/src/routes/survey.ts computeSurveyKhuVucReport() (dong 575-595) de khop
   // dung y nghia tung ty le.
-  const baoCaoTotal = useMemo(() => {
-    const rows = baoCaoKhuVuc?.rows ?? [];
+  // Gop nhieu dong bao cao thanh 1 (cong cot dem, tinh lai moi cot %) - dung cho dong "Tong cong" va (2026-10-10) cho
+  // cac dong nhom theo Tinh / Quan-Huyen-Xa da gom theo che do "Dia gioi cu / moi".
+  function gopDongBaoCao(rows: SurveyBaoCaoRow[], nhom: string): SurveyBaoCaoRow {
     const pctLocal = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
     const sum = (key: keyof SurveyBaoCaoRow) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
     const tong_tiep_nhan = sum("tong_tiep_nhan");
@@ -614,7 +615,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     const cho_khao_sat_lai = sum("cho_khao_sat_lai");
     const bo_qua_khong_khao_sat = sum("bo_qua_khong_khao_sat");
     const row: SurveyBaoCaoRow = {
-      nhom: "Tổng cộng",
+      nhom,
       tong_tiep_nhan,
       tong_hoan_thanh,
       nghi_ngo_120p,
@@ -678,10 +679,20 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       ty_le_goi_thanh_cong: pctLocal(goi_thanh_cong, tong_cuoc_goi),
     };
     return row;
-  }, [baoCaoKhuVuc]);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baoCaoTotal = useMemo(() => gopDongBaoCao(baoCaoKhuVuc?.rows ?? [], "Tổng cộng"), [baoCaoKhuVuc]);
 
-  // Cot dau tien sap A-Z.
-  const sortedBaoCaoRows = [...(baoCaoKhuVuc?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  // Cot dau tien sap A-Z. Nhom theo Tinh / cap 2: server tra cap tho, gom theo che do "Dia gioi cu / moi" (_dg = gia tri
+  // dua vao bo loc khi drill-down).
+  const sortedBaoCaoRows: (SurveyBaoCaoRow & { _dg?: string })[] =
+    reportDim === "tinh" || reportDim === "quan_huyen"
+      ? gomTheoDiaGioi(baoCaoKhuVuc?.rows ?? [], (r) => r.nhom, diaGioi.mode, diaGioi.idx, reportDim === "tinh" ? 1 : 2)
+          .map((g) => ({ ...gopDongBaoCao(g.rows, g.label), _dg: g.value }))
+          .sort((a, b) => soSanhTen(a.nhom, b.nhom))
+      : [...(baoCaoKhuVuc?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  const nhanDimBaoCao = (d: string) =>
+    d === "tinh" ? NHAN_CAP_1[diaGioi.mode] : d === "quan_huyen" ? NHAN_CAP_2[diaGioi.mode] : SURVEY_REPORT_DIM_OPTIONS.find((o) => o.value === d)?.label ?? "Nhóm";
   const { data: khuVucOptions } = useQuery({
     queryKey: ["dashboard-filters"],
     queryFn: () =>
@@ -1130,8 +1141,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   setPage(1);
                 }}
                 options={[
-                  ...SURVEY_REPORT_DIM_OPTIONS,
-                  ...(tinhFilter ? [{ value: "quan_huyen", label: "Quận/Huyện" }] : []),
+                  ...SURVEY_REPORT_DIM_OPTIONS.map((o) => ({ ...o, label: nhanDimBaoCao(o.value) })),
+                  ...(tinhFilter ? [{ value: "quan_huyen", label: nhanDimBaoCao("quan_huyen") }] : []),
                 ]}
               />
               <TinhHuyenFilterControl
@@ -1214,7 +1225,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <table className="dense w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th rowSpan={3} className="py-2 pr-3 align-bottom">{SURVEY_REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label ?? (reportDim === "quan_huyen" ? "Quận/Huyện" : "Nhóm")}</th>
+                    <th rowSpan={3} className="py-2 pr-3 align-bottom">{nhanDimBaoCao(reportDim)}</th>
                     <th colSpan={33} className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-50)] text-[var(--ocean-600)]" title="Loc va nhom theo thoi_gian_cskh_tiep_nhan (ngay ca duoc mo)">
                       Tính toán theo thời gian mở ca
                     </th>
@@ -1362,7 +1373,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{r.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono font-semibold bg-[var(--amber-100)] text-[var(--amber-700)]">
                         {canViewDanhSach ? (
-                          <button className="hover:underline" onClick={() => drillDown(r.nhom, "can-khao-sat")}>
+                          <button className="hover:underline" onClick={() => drillDown(r._dg ?? r.nhom, "can-khao-sat")}>
                             {r.cho_khao_sat}
                           </button>
                         ) : (
@@ -1372,22 +1383,22 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-mono">{r.cho_goi_lai}</td>
                       <td className="py-2 pr-3 font-mono">{r.con_loi_chua_goi}</td>
                       <td className="py-2 pr-3 font-mono">{r.tong_nghi_ngo}</td>
-                      {renderNghiNgoTd(r.nghi_ngo_120p, r.ty_le_nghi_ngo_120p, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderNghiNgoTd(r.nghi_ngo_120p, r.ty_le_nghi_ngo_120p, canViewDanhSach ? () => drillDown(r._dg ?? r.nhom, "can-khao-sat") : undefined)}
                       {renderBoQuaTd(r.bo_qua_120p)}
                       {renderDaGoiTd(r.da_goi_120p, r.ty_le_da_goi_120p)}
                       {renderThanhCongTd(r.thanh_cong_120p)}
                       {renderViPhamTd(r.vi_pham_120p, r.ty_le_vi_pham_tren_da_goi_120p)}
-                      {renderNghiNgoTd(r.nghi_ngo_24h, r.ty_le_nghi_ngo_24h, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderNghiNgoTd(r.nghi_ngo_24h, r.ty_le_nghi_ngo_24h, canViewDanhSach ? () => drillDown(r._dg ?? r.nhom, "can-khao-sat") : undefined)}
                       {renderBoQuaTd(r.bo_qua_24h)}
                       {renderDaGoiTd(r.da_goi_24h, r.ty_le_da_goi_24h)}
                       {renderThanhCongTd(r.thanh_cong_24h)}
                       {renderViPhamTd(r.vi_pham_24h, r.ty_le_vi_pham_tren_da_goi_24h)}
-                      {renderNghiNgoTd(r.nghi_ngo_lkh, r.ty_le_nghi_ngo_lkh, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderNghiNgoTd(r.nghi_ngo_lkh, r.ty_le_nghi_ngo_lkh, canViewDanhSach ? () => drillDown(r._dg ?? r.nhom, "can-khao-sat") : undefined)}
                       {renderBoQuaTd(r.bo_qua_lkh)}
                       {renderDaGoiTd(r.da_goi_lkh, r.ty_le_da_goi_lkh)}
                       {renderThanhCongTd(r.thanh_cong_lkh)}
                       {renderViPhamTd(r.vi_pham_lkh, r.ty_le_vi_pham_tren_da_goi_lkh)}
-                      {renderNghiNgoTd(r.nghi_ngo_hl, r.ty_le_nghi_ngo_hl, canViewDanhSach ? () => drillDown(r.nhom, "can-khao-sat") : undefined)}
+                      {renderNghiNgoTd(r.nghi_ngo_hl, r.ty_le_nghi_ngo_hl, canViewDanhSach ? () => drillDown(r._dg ?? r.nhom, "can-khao-sat") : undefined)}
                       {renderBoQuaTd(r.bo_qua_hl)}
                       {renderDaGoiTd(r.da_goi_hl, r.ty_le_da_goi_hl)}
                       {renderThanhCongTd(r.thanh_cong_hl)}

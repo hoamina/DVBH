@@ -44,6 +44,7 @@ import {
   type KetQuaXuLyTranhChapRow,
   type LyDoTonTranhChapRow,
 } from "../lib/tranhChapShared";
+import { useDiaGioiIndex } from "../lib/diaGioi";
 import {
   fmtDateTime,
   fmtDate,
@@ -172,6 +173,27 @@ type XuLyTabs = {
   panels: Record<string, ReactNode>;
   cardRef: RefObject<HTMLDivElement>;
 };
+// Ca cu (chi co dia chi cu, vd QuickSight): hien them tinh MOI quy doi theo bang "Quy đổi tỉnh" (2026-10-10, lib/diaGioi.ts).
+function DiaChiCaCu({ c }: { c: CaseRow }) {
+  const { idx } = useDiaGioiIndex();
+  const tinhMoi = c.tinh ? idx.tinhMoi(c.tinh, null) : "";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-start gap-2">
+        <Badge tone="teal">Mới</Badge>
+        <span>
+          {tinhMoi || "—"}
+          {tinhMoi && <span className="ml-1 text-[11px] text-[var(--ink-400)]">(quy đổi từ tỉnh cũ)</span>}
+        </span>
+      </div>
+      <div className="flex items-start gap-2 text-[var(--ink-600)]">
+        <Badge tone="gray">Cũ</Badge>
+        <span>{[c.quan_huyen, c.tinh ? idx.tinhCu(c.tinh) : null].filter(Boolean).join(", ") || "—"}</span>
+      </div>
+    </div>
+  );
+}
+
 function renderCaseFieldsGrid(
   c: CaseRow,
   serialExtra?: ReactNode,
@@ -232,7 +254,12 @@ function renderCaseFieldsGrid(
           </div>
         </>
       ) : (
-        <Field label="Khu vực / Tỉnh" value={`${shortKhuVuc(c.khu_vuc)} — ${c.tinh ?? "—"} ${c.quan_huyen ? "— " + c.quan_huyen : ""}`} />
+        <>
+          <Field label="Khu vực" value={shortKhuVuc(c.khu_vuc)} />
+          <div className="col-span-2">
+            <Field label="Địa chỉ" value={<DiaChiCaCu c={c} />} />
+          </div>
+        </>
       )}
       <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />
       <Field label="Kỹ thuật viên" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />

@@ -33,6 +33,7 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
+import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen, tachNhomDiaGioi, nhanTinh, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 
 function pct(a: number, b: number) {
   return b ? Math.round((a / b) * 1000) / 10 : 0;
@@ -182,6 +183,9 @@ function BacklogAgeReportTab() {
   const pageSize = 15;
 
   const { rows, months, isLoading, isError, refetch } = useBacklogAgeReport(thang);
+  // Dim "tinh" (2026-10-10): gia_tri = cap tho (tinh, tinh_moi) tu snapshot moi / chi tinh cu o snapshot cu - gom theo
+  // che do "Dia gioi cu / moi".
+  const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
 
   useEffect(() => {
     setPage(1);
@@ -213,15 +217,16 @@ function BacklogAgeReportTab() {
     const map = new Map<string, AgeReportAggRow>();
     for (const r of rows) {
       if (r.dim !== dim || r.gia_tri === "__nhom_qldvbh__") continue;
-      const cur = map.get(r.gia_tri) ?? { gia_tri: r.gia_tri, so_ca: 0, tong_tuoi: 0 };
+      const giaTri = dim === "tinh" ? nhanTinh(dgMode, dgIdx.tinh(dgMode, tachNhomDiaGioi(r.gia_tri))) : r.gia_tri;
+      const cur = map.get(giaTri) ?? { gia_tri: giaTri, so_ca: 0, tong_tuoi: 0 };
       cur.so_ca += r.so_ca;
       cur.tong_tuoi += r.tong_tuoi;
-      map.set(r.gia_tri, cur);
+      map.set(giaTri, cur);
     }
     const list = [...map.values()];
     list.sort((a, b) => {
       if (sortBy === "gia_tri") {
-        const c = a.gia_tri.localeCompare(b.gia_tri);
+        const c = dim === "tinh" ? soSanhTen(a.gia_tri, b.gia_tri) : a.gia_tri.localeCompare(b.gia_tri);
         return sortDir === "asc" ? c : -c;
       }
       const av = sortBy === "so_ca" ? a.so_ca : sortBy === "tong_tuoi" ? a.tong_tuoi : avgTuoiTon(a);
@@ -229,7 +234,7 @@ function BacklogAgeReportTab() {
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return list;
-  }, [rows, dim, sortBy, sortDir]);
+  }, [rows, dim, sortBy, sortDir, dgMode, dgIdx]);
 
   const pagedRows = aggRows.slice((page - 1) * pageSize, page * pageSize);
   const dimLabel = AGE_REPORT_DIM_OPTIONS.find((o) => o.value === dim)?.label ?? "Giá trị";
@@ -1056,6 +1061,8 @@ export function BacklogModule({
   // Drill-down tu bao cao 08:00 phai giu ca da dong trong ngay trong danh sach can giai trinh.
   const [listFromSnapshot0800, setListFromSnapshot0800] = useState(false);
   const [reportDim, setReportDim] = useLocalStorageState("filters:backlog-report-dim", "khu_vuc");
+  // Nhom theo "Tinh" (2026-10-10): server tra cap tho (tinh, tinh_moi), gom theo che do "Dia gioi cu / moi" (lib/diaGioi.ts).
+  const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
   const [nhomKey, setNhomKey] = useLocalStorageState("filters:backlog-nhom-key", "can-giai-trinh:tong");
   // Chi tieu dang xem trong khoi "Canh bao ton theo ngay" - luu cache phien xem truoc theo yeu cau
   // nguoi dung (CHOT 2026-08-16), rieng cho tung tab Cap 1/Cap 2 (2 tab doc lap sau khi tach).
@@ -1299,7 +1306,11 @@ export function BacklogModule({
       .sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
   }, [showDailyCols, backlogDaily]);
   // CHOT 2026-08-01: cot dau tien (nhom) sap A-Z - ap dung du nguon la dong bang hay song.
-  const displayKhuVucRows: KhuVucRow[] = [...(showDailyCols ? frozenKhuVucRows : (khuVucStats?.rows ?? []))].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  const liveKhuVucRows = khuVucStats?.rows ?? [];
+  const displayKhuVucRows: KhuVucRow[] =
+    reportDim === "tinh" && !showDailyCols
+      ? gopBangTheoTinh(liveKhuVucRows, dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
+      : [...(showDailyCols ? frozenKhuVucRows : liveKhuVucRows)].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
 
   // CHOT 2026-08-06: khi showDailyCols, bang hien THEM 4 cot "trong ngay" (Ty le GT thang/Can GT
   // ngay/Da GT ngay/Ty le GT ngay - tinh tu backlogDaily.byKhuVuc, KHONG nam trong KhuVucRow) - truoc
@@ -1633,8 +1644,10 @@ export function BacklogModule({
   }
   const optionalCaseColumns: Column<CaseRow>[] = [
     textCol("seri_san_pham", CASE_FIELD_LABELS.seri_san_pham),
-    textCol("tinh", CASE_FIELD_LABELS.tinh),
-    textCol("quan_huyen", CASE_FIELD_LABELS.quan_huyen),
+    // Tinh / cap 2 theo che do "Dia gioi cu / moi" (2026-10-10): cu = tinh + quan/huyen, moi = tinh moi (ca cu quy doi
+    // theo bang) + xa/phuong moi.
+    { key: "tinh", header: NHAN_CAP_1[dgMode], render: (c) => <span className="text-xs">{dgIdx.tinh(dgMode, c) || "—"}</span> },
+    { key: "quan_huyen", header: NHAN_CAP_2[dgMode], render: (c) => <span className="text-xs">{(dgMode === "moi" ? c.xa_moi : c.quan_huyen) || "—"}</span> },
     textCol("hang", CASE_FIELD_LABELS.hang),
     textCol("nhom_san_pham", CASE_FIELD_LABELS.nhom_san_pham),
     textCol("nganh", CASE_FIELD_LABELS.nganh),

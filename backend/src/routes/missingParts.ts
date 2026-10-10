@@ -4,7 +4,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause, AGE_ANCHOR } from "../lib/ageCalc";
-import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, khuVucReportExclusionClause } from "../lib/filterParams";
+import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, khuVucReportExclusionClause, dimGroupExpr, diaGioiLoc, gopClause } from "../lib/filterParams";
 import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { getDaDongManifest, getDaDongReasons, getThieuLinhKienLyDoList } from "../lib/daDongDayChunks";
@@ -60,7 +60,11 @@ missingParts.get("/", async (c) => {
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const trangThai = c.req.query("trang_thai") === "da-dong" ? "da-dong" : "dang-ton";
 
-  const dimClause = dimAdHocClause(`c.${REPORT_DIMS[c.req.query("dim") ?? ""] ?? "khu_vuc"}`, c.req.query("dim"), c.req.query("dim_value"));
+  // Drill-down dong "Tinh" (2026-10-10) gui "dg_loc" (gia tri tho da khai trien theo che do cu/moi) thay dim_value.
+  const dimClause = gopClause(
+    dimAdHocClause(`c.${REPORT_DIMS[c.req.query("dim") ?? ""] ?? "khu_vuc"}`, c.req.query("dim"), c.req.query("dim_value")),
+    diaGioiLoc(c.req.query("dg_loc")),
+  );
 
   // "Da dong" (tab thieu linh kien) da tach thanh /da-dong-manifest, dung chung file R2 theo ngay
   // voi cases.ts (xem lib/daDongDayChunks.ts) - noi dung chunk goi qua POST /api/cases/da-dong-chunks.
@@ -166,7 +170,7 @@ export interface MissingPartsByKhuVucParams {
  * thay the (vd van nhom theo Khu vuc nhung chi tinh rieng Model = "Loc tong"). */
 export async function computeMissingPartsByKhuVuc(db: D1Database, params: MissingPartsByKhuVucParams, scope: string[] | null) {
   const dimColRaw = REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
-  const dimCol = `c.${dimColRaw}`;
+  const dimCol = dimGroupExpr(dimColRaw);
 
   const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");

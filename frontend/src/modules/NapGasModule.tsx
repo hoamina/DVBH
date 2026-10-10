@@ -18,6 +18,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { useDiaGioiLoc, gopBangTheoTinh, soSanhTen } from "../lib/diaGioi";
 
 interface NapGasCase {
   id: string;
@@ -94,7 +95,10 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
 
   // Chi gui dim/dim_value cho danh sach chi tiet khi drill-down tu 1 dong KHONG phai khu_vuc -
   // khu_vuc da co san co che loc rieng (khuVucFilter) tu truoc gio.
-  const dimFilter = drillDim !== "khu_vuc" ? { dim: drillDim, dim_value: drillValue } : {};
+  // Drill-down dong "Tinh" (2026-10-10): gui "dg_loc" (gia tri tho theo che do "Dia gioi cu / moi") thay dim_value.
+  const diaGioi = useDiaGioiLoc();
+  const dimFilter =
+    drillDim === "tinh" ? { dg_loc: diaGioi.buildDgLoc([drillValue]) ?? undefined } : drillDim !== "khu_vuc" ? { dim: drillDim, dim_value: drillValue } : {};
 
   const { data: khuVucOptions } = useQuery({
     queryKey: ["dashboard-filters"],
@@ -106,7 +110,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
   });
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["nap-gas", page, khuVucFilter, thang, drillDim, drillValue, trangThai, idSearch],
+    queryKey: ["nap-gas", page, khuVucFilter, thang, drillDim, drillValue, dimFilter, trangThai, idSearch],
     queryFn: () =>
       api.get<Paged<NapGasCase> & { chuaDanhGia: number }>(
         `/nap-gas${buildQuery({ page, pageSize, khu_vuc: khuVucFilter, thang, trang_thai: trangThai, id: idSearch || undefined, ...dimFilter })}`,
@@ -120,7 +124,10 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
   });
 
   // Cot dau tien sap A-Z.
-  const sortedKhuVucRows = [...(khuVucStats?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  const sortedKhuVucRows: (KhuVucRow & { _dg?: string })[] =
+    reportDim === "tinh"
+      ? gopBangTheoTinh(khuVucStats?.rows ?? [], diaGioi.mode, diaGioi.idx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
+      : [...(khuVucStats?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
 
   const tongQuanKpi = sortedKhuVucRows.reduce(
     (acc, r) => ({ tong: acc.tong + r.tong, daDanhGia: acc.daDanhGia + r.da_danh_gia, chuaDanhGia: acc.chuaDanhGia + r.chua_danh_gia }),
@@ -319,17 +326,17 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
                     <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
                       <td className="py-2 pr-3 font-semibold">{reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
                       <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom)}>
+                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r._dg ?? r.nhom)}>
                           {r.tong}
                         </button>
                       </td>
                       <td className="py-2 pr-3 font-mono">
-                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r.nhom, "da-danh-gia")}>
+                        <button className="text-[var(--ocean-600)] hover:underline" onClick={() => drillDown(r._dg ?? r.nhom, "da-danh-gia")}>
                           {r.da_danh_gia}
                         </button>
                       </td>
                       <td className="py-2 pr-3 font-mono" style={{ color: r.chua_danh_gia > 0 ? "var(--coral-500)" : undefined }}>
-                        <button className="hover:underline" onClick={() => drillDown(r.nhom, "chua-danh-gia")}>
+                        <button className="hover:underline" onClick={() => drillDown(r._dg ?? r.nhom, "chua-danh-gia")}>
                           {r.chua_danh_gia}
                         </button>
                       </td>

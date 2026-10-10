@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, khuVucReportExclusionClause } from "../lib/filterParams";
+import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, khuVucReportExclusionClause, dimGroupExpr, diaGioiLoc, gopClause } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { ageExpr } from "../lib/ageCalc";
@@ -66,7 +66,11 @@ napGas.get("/", async (c) => {
   const thang = c.req.query("thang") || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const dimClause = dimAdHocClause(`c.${REPORT_DIMS[c.req.query("dim") ?? ""] ?? "khu_vuc"}`, c.req.query("dim"), c.req.query("dim_value"));
+  // Drill-down dong "Tinh" (2026-10-10) gui "dg_loc" (gia tri tho da khai trien theo che do cu/moi) thay dim_value.
+  const dimClause = gopClause(
+    dimAdHocClause(`c.${REPORT_DIMS[c.req.query("dim") ?? ""] ?? "khu_vuc"}`, c.req.query("dim"), c.req.query("dim_value")),
+    diaGioiLoc(c.req.query("dg_loc")),
+  );
   const trangThai = trangThaiClause(c.req.query("trang_thai"));
   // CHOT 2026-08-12: o tim ID/Serial rieng cho "Danh sach chi tiet" (giong pattern idClause cua
   // cases.ts GET "/") - khop CA id lan seri_san_pham.
@@ -174,7 +178,7 @@ export interface NapGasByKhuVucParams {
  * de FE hien "liet ke cac phan loai danh gia nap gas theo tung cot" trong bang bao cao. */
 export async function computeNapGasByKhuVuc(db: D1Database, params: NapGasByKhuVucParams, scope: string[] | null) {
   const dimColRaw = REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
-  const dimCol = `c.${dimColRaw}`;
+  const dimCol = dimGroupExpr(dimColRaw);
   const thang = params.thang || new Date().toISOString().slice(0, 7);
   const { start, end } = monthBounds(thang);
 

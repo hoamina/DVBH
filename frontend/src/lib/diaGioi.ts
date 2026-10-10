@@ -164,8 +164,10 @@ export function nhanCap2(mode: DiaGioiMode, ten: string): string {
 
 /** Sap theo ten bo tien to (de "Thành phố Hà Nội" nam o van H), nhom trong cuoi cung. */
 export function soSanhTen(a: string, b: string): number {
-  if (!a) return b ? 1 : 0;
-  if (!b) return -1;
+  // Nhom trong ("" hoac nhan dang "(...)") xep cuoi.
+  const cuoiA = !a || a.startsWith("(");
+  const cuoiB = !b || b.startsWith("(");
+  if (cuoiA || cuoiB) return cuoiA === cuoiB ? 0 : cuoiA ? 1 : -1;
   return boTienTo(a).localeCompare(boTienTo(b), "vi");
 }
 
@@ -308,4 +310,78 @@ export function useDiaGioiLoc() {
   const nhanCap2Cua = (tinh: string, k2: string): string => cap2Options(tinh).find((o) => o.value === k2 || o.value === khoaTen(k2))?.label ?? k2;
 
   return { mode, setMode, idx, ready, tinhOptions, cap2Options, chuanTinh, buildDgLoc, nhanCap2Cua };
+}
+
+// ---------- Gom dong bao cao "nhom theo Tinh / Quan-Huyen" ----------
+
+/** Ky tu noi cap tho trong cot "nhom" khi server nhom theo dim tinh/quan_huyen (backend filterParams.ts dimGroupExpr). */
+export const DG_SEP = "\u001f";
+
+interface DiaGioiTho {
+  tinh: string | null;
+  tinh_moi: string | null;
+  quan_huyen: string | null;
+  xa_moi: string | null;
+}
+
+/** Tach "nhom" server tra ve. Du lieu cu (cache/snapshot truoc 2026-10-10) chi co 1 phan: tinh (cap 1) / quan_huyen (cap 2). */
+export function tachNhomDiaGioi(nhom: string | null | undefined, cap: 1 | 2 = 1): DiaGioiTho {
+  const p = (nhom ?? "").split(DG_SEP);
+  if (p.length === 1) {
+    return cap === 1
+      ? { tinh: p[0] || null, tinh_moi: null, quan_huyen: null, xa_moi: null }
+      : { tinh: null, tinh_moi: null, quan_huyen: p[0] || null, xa_moi: null };
+  }
+  return { tinh: p[0] || null, tinh_moi: p[1] || null, quan_huyen: p[2] || null, xa_moi: p[3] || null };
+}
+
+export interface NhomDiaGioi<T> {
+  /** Gia tri dung cho drill-down / bo loc: ten tinh chuan (cap 1) hoac khoa cap 2; nhom trong = DG_TRONG. */
+  value: string;
+  label: string;
+  rows: T[];
+}
+
+/**
+ * Gom cac dong bao cao (moi dong = 1 cap tho) ve nhom theo che do cu/moi: cap 1 = tinh, cap 2 = quan/huyen (cu) hoac
+ * xa/phuong moi (moi). Noi goi tu cong/tinh lai cac cot cua tung nhom (xem congDong).
+ */
+export function gomTheoDiaGioi<T>(rows: T[], getNhom: (r: T) => string | null | undefined, mode: DiaGioiMode, idx: DiaGioiIndex, cap: 1 | 2 = 1): NhomDiaGioi<T>[] {
+  const map = new Map<string, { rows: T[]; raw: Set<string> }>();
+  for (const r of rows) {
+    const d = tachNhomDiaGioi(getNhom(r), cap);
+    let key: string;
+    let raw = "";
+    if (cap === 1) key = idx.tinh(mode, d);
+    else {
+      raw = (mode === "moi" ? d.xa_moi : d.quan_huyen) ?? "";
+      key = khoaTen(raw);
+    }
+    let g = map.get(key);
+    if (!g) map.set(key, (g = { rows: [], raw: new Set() }));
+    g.rows.push(r);
+    if (raw.trim()) g.raw.add(clean(raw));
+  }
+  return [...map.entries()].map(([key, g]) => {
+    if (cap === 1) return { value: key || DG_TRONG, label: nhanTinh(mode, key), rows: g.rows };
+    const coTien = [...g.raw].filter(coTienTo);
+    const ten = !key ? "" : coTien.length === 1 ? coTien[0] : boTienTo([...g.raw][0] ?? key);
+    return { value: key || DG_TRONG, label: nhanCap2(mode, ten), rows: g.rows };
+  });
+}
+
+/** Cong don moi cot SO cua cac dong (cot khac lay theo dong dau), roi ghi de bang "ghiDe". */
+export function congDong<T extends object>(rows: T[], ghiDe: Partial<T>): T {
+  const out: Record<string, unknown> = { ...(rows[0] as Record<string, unknown>) };
+  for (const r of rows.slice(1)) {
+    for (const [k, v] of Object.entries(r as Record<string, unknown>)) {
+      if (typeof v === "number") out[k] = (Number(out[k]) || 0) + v;
+    }
+  }
+  return { ...(out as T), ...ghiDe };
+}
+
+/** Tien dung: gom + cong don cho bang chi co cot dem (moi cot so deu cong duoc). */
+export function gopBangTheoTinh<T extends { nhom: string }>(rows: T[], mode: DiaGioiMode, idx: DiaGioiIndex): (T & { _dg: string })[] {
+  return gomTheoDiaGioi(rows, (r) => r.nhom, mode, idx, 1).map((g) => ({ ...congDong(g.rows, { nhom: g.label } as Partial<T>), _dg: g.value }));
 }

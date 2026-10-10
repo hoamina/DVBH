@@ -18,6 +18,7 @@ import {
   extraDimFiltersFromParams,
   diaGioiLoc,
   gopClause,
+  dimGroupExpr,
 } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -641,7 +642,7 @@ interface SurveyKhuVucRow {
 // va toi uu (D1 tinh rows_read theo so dong QUET, tach khoi khong lam tang tong so dong quet).
 export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKhuVucParams, scope: string[] | null) {
   const dimColRaw = SURVEY_REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
-  const dimCol = `c.${dimColRaw}`;
+  const dimCol = dimGroupExpr(dimColRaw);
 
   const thang = params.thang || new Date().toISOString().slice(0, 7);
   let start: string;
@@ -1039,7 +1040,7 @@ survey.get("/bao-cao-khu-vuc", async (c) => {
   }
   // "bao-cao-khu-vuc-v7" (2026-09-27): them "da_goi_120p_hen_thanh_cong" + sua JOIN vi_pham (chi lay
   // dong moi nhat/case+loai_loi, tranh dem trung) - doi hau to key nhu lan "-v6" truoc.
-  const key = buildReportKey("survey/bao-cao-khu-vuc-v7", params, scope);
+  const key = buildReportKey("survey/bao-cao-khu-vuc-v8", params, scope);
   const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
   return c.json(payload);
 });

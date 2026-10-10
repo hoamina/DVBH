@@ -7,7 +7,7 @@
  * lib/dailySnapshot.ts (duong dong bang 08:00).
  */
 import { khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause, khuVucReportExclusionClause, CURRENT_MONTH_VALUE } from "./filterParams";
+import { khuVucAdHocClause, khuVucReportExclusionClause, CURRENT_MONTH_VALUE, dimGroupExpr } from "./filterParams";
 
 // Bo loc dung chung cho cac bao cao Dashboard (kpis/pivot) - PHIEN BAN KHONG PHU THUOC Context, khac
 // parseFilterParams(c) trong lib/filterParams.ts, vi cac ham computeXxx phai goi lai duoc tu snapshot
@@ -193,7 +193,8 @@ export async function computeDashboardPivot(
   params: DashboardFilterParams & { dimKey?: string },
   scope: string[] | null,
 ): Promise<{ rows: TrendRow[] }> {
-  const dim = PIVOT_DIMS[params.dimKey ?? "khu_vuc"] ?? "khu_vuc";
+  // "tinh" -> cap tho (tinh, tinh_moi), frontend gom theo che do "Dia gioi cu / moi" (filterParams.ts dimGroupExpr).
+  const dim = dimGroupExpr(PIVOT_DIMS[params.dimKey ?? "khu_vuc"] ?? "khu_vuc", "");
   const { from, sql, binds } = buildDashboardFilterClause(params, scope);
 
   const { results } = await db.prepare(

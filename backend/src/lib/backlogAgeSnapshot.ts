@@ -14,6 +14,7 @@
 import { ageExprAtAnchor } from "./ageCalc";
 import { caseFilterTonAt0800, TON_ANCHOR_0800 } from "./needGiaiTrinh";
 import { getVnDateStr } from "./reportCache";
+import { dimGroupExpr } from "./filterParams";
 
 const AGE_0800_EXPR = ageExprAtAnchor(TON_ANCHOR_0800, "c.thoi_gian_cskh_tiep_nhan");
 const TON_FILTER_C = caseFilterTonAt0800("c");
@@ -61,14 +62,18 @@ export async function generateBacklogAgeSnapshot(db: D1Database): Promise<void> 
        FROM case_dvbh c ${baseWhere} AND c.khu_vuc LIKE '%qldvbh%'
        HAVING COUNT(*) > 0`,
     ).bind(ngay),
-    ...BACKLOG_AGE_DIMS.map((dim) =>
-      db.prepare(
+    ...BACKLOG_AGE_DIMS.map((dim) => {
+      // "tinh" (2026-10-10): gia_tri = cap tho (tinh cu, tinh_moi) noi  - frontend gom theo che do "Dia gioi cu /
+      // moi" (filterParams.ts dimGroupExpr). Snapshot truoc ngay nay chi co tinh cu - frontend van doc duoc.
+      const expr = dimGroupExpr(dim);
+      const coGiaTri = dim === "tinh" ? "(COALESCE(c.tinh,'') != '' OR COALESCE(c.tinh_moi,'') != '')" : `c.${dim} IS NOT NULL AND c.${dim} != ''`;
+      return db.prepare(
         `INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca)
-         SELECT ?, ?, c.${dim}, SUM(${AGE_0800_EXPR}), COUNT(*)
-         FROM case_dvbh c ${baseWhere} AND c.${dim} IS NOT NULL AND c.${dim} != ''
-         GROUP BY c.${dim}`,
-      ).bind(ngay, dim),
-    ),
+         SELECT ?, ?, ${expr}, SUM(${AGE_0800_EXPR}), COUNT(*)
+         FROM case_dvbh c ${baseWhere} AND ${coGiaTri}
+         GROUP BY ${expr}`,
+      ).bind(ngay, dim);
+    }),
   ];
   await db.batch(statements);
 

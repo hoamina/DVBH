@@ -12,7 +12,8 @@
 // exportRowsToExcel. CHOT 2026-08-03: rieng "Danh sach tong" cho Admin van duoc xuat cot nay (can
 // tra cuu anh khi xu ly khieu nai/doi soat) - noi goi truyen includeFields: ["link_hinh_anh"] de bo
 // qua loai tru CHI cho lan xuat do, khong doi mac dinh cho moi noi khac.
-const EXCLUDED_EXPORT_FIELDS = ["link_hinh_anh"];
+// "_dg" = khoa noi bo cua dong bao cao gom theo dia gioi (lib/diaGioi.ts gopBangTheoTinh), khong xuat.
+const EXCLUDED_EXPORT_FIELDS = ["link_hinh_anh", "_dg"];
 
 export async function exportRowsToExcel<T extends object>(
   rows: T[],

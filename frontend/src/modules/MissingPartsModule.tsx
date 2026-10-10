@@ -28,6 +28,7 @@ import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { useToast } from "../components/ui/Toast";
 import { TonKhoSyncBar, TonKhoCauHinhTab, useTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 import { useMoHoSoLinhKien, MaLinhKienLink } from "../components/HoSoLinhKienProvider";
+import { useDiaGioiIndex, useDiaGioiLoc, gomTheoDiaGioi, congDong, soSanhTen, DG_TRONG } from "../lib/diaGioi";
 
 // Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
 // theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
@@ -54,6 +55,7 @@ function MissingPartsDaDongList({
   const pageSize = 10;
 
   const { rows: allRows, isLoading, isError, refetch, throttled } = useMissingPartsDaDongChunked(thang);
+  const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
 
   const rows = useMemo(() => {
     let r = allRows;
@@ -68,14 +70,18 @@ function MissingPartsDaDongList({
       );
       r = r.filter((row) => row.khu_vuc && set.has(row.khu_vuc));
     }
-    if (dimFilter.dim && dimFilter.dim_value && dimFilter.dim !== "khu_vuc") {
+    if (dimFilter.dim === "tinh" && dimFilter.dim_value) {
+      // Dong "Tinh" da gom theo che do "Dia gioi cu / moi" (2026-10-10) - so theo ten da chuan hoa.
+      const can = dimFilter.dim_value === DG_TRONG ? "" : dimFilter.dim_value;
+      r = r.filter((row) => dgIdx.tinh(dgMode, row as { tinh?: string | null; tinh_moi?: string | null }) === can);
+    } else if (dimFilter.dim && dimFilter.dim_value && dimFilter.dim !== "khu_vuc") {
       const key = dimFilter.dim as keyof MissingPartClosedCase;
       r = r.filter((row) => row[key] === dimFilter.dim_value);
     }
     const q = idSearch.trim().toLowerCase();
     if (q) r = r.filter((row) => row.id.toLowerCase().includes(q) || (row.seri_san_pham ?? "").toLowerCase().includes(q));
     return r;
-  }, [allRows, khuVucFilter, dimFilter, idSearch]);
+  }, [allRows, khuVucFilter, dimFilter, idSearch, dgMode, dgIdx]);
 
   const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
 
@@ -541,6 +547,9 @@ export function MissingPartsModule({
   // Chi gui dim/dim_value cho danh sach chi tiet khi drill-down tu 1 dong KHONG phai khu_vuc -
   // khu_vuc da co san co che loc rieng (khuVucFilter) tu truoc gio.
   const dimFilter = drillDim !== "khu_vuc" ? { dim: drillDim, dim_value: drillValue } : {};
+  // Drill-down dong "Tinh" (2026-10-10): danh sach dang ton loc qua "dg_loc" (gia tri tho theo che do cu/moi).
+  const diaGioi = useDiaGioiLoc();
+  const dimQuery = drillDim === "tinh" ? { dg_loc: diaGioi.buildDgLoc([drillValue]) ?? undefined } : dimFilter;
 
   const ageRange =
     ageBucketKey === "custom"
@@ -548,7 +557,7 @@ export function MissingPartsModule({
       : { tuoiTu: AGE_BUCKETS.find((b) => b.key === ageBucketKey)?.tuoiTu, tuoiDen: AGE_BUCKETS.find((b) => b.key === ageBucketKey)?.tuoiDen };
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["missing-parts", page, khuVucFilter, modelFilter, doiTacFilter, quickFilterLocTongBcn, quickFilterVip, ageRange.tuoiTu, ageRange.tuoiDen, drillDim, drillValue, idSearch],
+    queryKey: ["missing-parts", page, khuVucFilter, modelFilter, doiTacFilter, quickFilterLocTongBcn, quickFilterVip, ageRange.tuoiTu, ageRange.tuoiDen, drillDim, drillValue, dimQuery, idSearch],
     queryFn: () =>
       api.get<Paged<MissingPartCase>>(
         `/missing-parts${buildQuery({
@@ -562,7 +571,7 @@ export function MissingPartsModule({
           tuoi_tu: ageRange.tuoiTu,
           tuoi_den: ageRange.tuoiDen,
           id: idSearch || undefined,
-          ...dimFilter,
+          ...dimQuery,
         })}`,
       ),
     enabled: view === "danh-sach" && trangThai === "dang-ton",
@@ -636,7 +645,14 @@ export function MissingPartsModule({
   }, [khuVucStats]);
 
   // Cot dau tien sap A-Z.
-  const sortedKhuVucRows = [...(khuVucStats?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  // Nhom theo "Tinh" (2026-10-10): gom cap tho (tinh, tinh_moi) theo che do "Dia gioi cu / moi"; "so_ma_linh_kien"
+  // (COUNT DISTINCT) khong cong duoc khi 1 nhom gop nhieu cap tho -> de trong.
+  const sortedKhuVucRows: (Omit<KhuVucRow, "so_ma_linh_kien"> & { so_ma_linh_kien: number | null; _dg?: string })[] =
+    reportDim === "tinh"
+      ? gomTheoDiaGioi(khuVucStats?.rows ?? [], (r) => r.nhom, diaGioi.mode, diaGioi.idx)
+          .map((g) => ({ ...congDong(g.rows, { nhom: g.label }), so_ma_linh_kien: g.rows.length === 1 ? g.rows[0].so_ma_linh_kien : null, _dg: g.value }))
+          .sort((a, b) => soSanhTen(a.nhom, b.nhom))
+      : [...(khuVucStats?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
 
   function drillDown(value: string, opts?: { tuoiTu?: string; tuoiDen?: string }) {
     if (reportDim === "khu_vuc") {
@@ -907,18 +923,20 @@ export function MissingPartsModule({
                   <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60 hover:bg-slate-50">
                     <td className="py-2 pr-3 font-semibold">{reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
                     <td className="py-2 pr-3">
-                      <Pill tone={r.tong_ton > 0 ? "indigo" : "gray"} onClick={() => drillDown(r.nhom, { tuoiTu: "1" })}>
+                      <Pill tone={r.tong_ton > 0 ? "indigo" : "gray"} onClick={() => drillDown(r._dg ?? r.nhom, { tuoiTu: "1" })}>
                         {r.tong_ton}
                       </Pill>
                     </td>
                     {KHU_VUC_BUCKET_COLS.map((col) => (
                       <td key={col.key} className="py-2 pr-3">
-                        <Pill tone={Number(r[col.key]) > 0 ? "coral" : "gray"} onClick={() => drillDown(r.nhom, { tuoiTu: col.tuoiTu })}>
+                        <Pill tone={Number(r[col.key]) > 0 ? "coral" : "gray"} onClick={() => drillDown(r._dg ?? r.nhom, { tuoiTu: col.tuoiTu })}>
                           {r[col.key]}
                         </Pill>
                       </td>
                     ))}
-                    <td className="py-2 pr-3 font-mono">{r.so_ma_linh_kien}</td>
+                    <td className="py-2 pr-3 font-mono" title={r.so_ma_linh_kien === null ? "Không cộng được khi gộp nhiều tên tỉnh (đếm mã linh kiện khác nhau)" : undefined}>
+                      {r.so_ma_linh_kien ?? "—"}
+                    </td>
                     <td className="py-2 pr-3 font-mono">{r.lo_ke_hoach}</td>
                   </tr>
                 ))}

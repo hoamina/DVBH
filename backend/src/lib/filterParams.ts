@@ -171,6 +171,20 @@ export function diaGioiLoc(raw: string | undefined, prefix = "c."): { sql: strin
   return { sql, binds };
 }
 
+/**
+ * Bieu thuc "nhom theo" cho 1 dim (2026-10-10, "Dia gioi cu / moi"): dim "tinh" -> cap THO (tinh cu, tinh_moi) noi
+ * bang ky tu ; "quan_huyen" -> (tinh, tinh_moi, quan_huyen, xa_moi). Frontend (lib/diaGioi.ts gomTheoDiaGioi)
+ * tach + chuan hoa ten + gom theo che do cu/moi dang chon - server KHONG chuan hoa. Ca chua co tinh cu nhung co tinh
+ * moi (Odoo chua dong) van co nhom rieng thay vi bi loai nhu "tinh IS NOT NULL" truoc day. Dim khac: cot thuan.
+ * "dimColRaw" PHAI da qua whitelist (REPORT_DIMS/...). "prefix" = alias bang ("c." hoac "").
+ */
+export function dimGroupExpr(dimColRaw: string, prefix = "c."): string {
+  const cot = (x: string) => `COALESCE(${prefix}${x},'')`;
+  if (dimColRaw === "tinh") return `(${cot("tinh")} || char(31) || ${cot("tinh_moi")})`;
+  if (dimColRaw === "quan_huyen") return `(${cot("tinh")} || char(31) || ${cot("tinh_moi")} || char(31) || ${cot("quan_huyen")} || char(31) || ${cot("xa_moi")})`;
+  return `${prefix}${dimColRaw}`;
+}
+
 /** Gop nhieu clause {sql, binds} thanh 1 (giu thu tu). */
 export function gopClause(...clauses: { sql: string; binds: unknown[] }[]): { sql: string; binds: unknown[] } {
   return { sql: clauses.map((x) => x.sql).join(""), binds: clauses.flatMap((x) => x.binds) };

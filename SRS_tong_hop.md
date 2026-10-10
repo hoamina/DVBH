@@ -249,5 +249,10 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
   tỉnh → huyện/xã, phễu vi phạm, báo cáo theo khu vực), Tranh chấp (6 tab), Doanh thu (bảng theo tỉnh + lọc tỉnh bảng KTV).
 - Kiểm tra trên tên thật production: 67 biến thể tên QuickSight → 63 tỉnh cũ, Odoo 63 tỉnh cũ + 34 tỉnh mới, không còn tên lọt
   bảng. Bảng quy đổi khớp 63/63 cặp (tỉnh cũ, tỉnh mới) Odoo ghi thật (2 ca lệch là lỗi nhập địa chỉ).
-- **Đợt 2 (chưa làm):** các bảng "nhóm theo Tỉnh" (Tổng quát pivot, Quản lý tồn báo cáo + tuổi tồn TB, Ca thiếu LK, Nạp gas,
-  Khảo sát theo tỉnh/huyện) và cột tỉnh/huyện trong danh sách.
+- **Đợt 2 (v1.444):** các bảng "nhóm theo Tỉnh" — server nhóm theo cặp thô `(tinh, tinh_moi)` (cấp 2: thêm `quan_huyen`,
+  `xa_moi`) nối bằng ký tự `` (`filterParams.ts dimGroupExpr`), client gộp theo chế độ (`lib/diaGioi.ts gomTheoDiaGioi`) rồi
+  cộng cột đếm / tính lại cột %: Tổng quát (pivot), Quản lý tồn (báo cáo tồn + Tuổi tồn TB), Ca thiếu LK ("Số mã linh kiện" để
+  trống khi 1 nhóm gộp nhiều tên — COUNT DISTINCT không cộng được), Nạp gas, Khảo sát (theo Tỉnh, theo Quận/Huyện ↔ Xã/Phường
+  mới). Bấm 1 dòng tỉnh để xem danh sách → lọc qua `dg_loc`. Cột Tỉnh / Quận-Huyện trong Danh sách chi tiết Quản lý tồn đổi
+  theo chế độ; chi tiết ca cũ hiện thêm "tỉnh mới (quy đổi)". Dữ liệu cache/snapshot cũ chỉ có tỉnh cũ vẫn đọc được (client tự
+  quy đổi).

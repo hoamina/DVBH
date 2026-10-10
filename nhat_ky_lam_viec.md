@@ -4411,3 +4411,13 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - Kiểm tra local: Doanh thu 07/2026 cũ 60 nhóm / mới 32 tỉnh, tổng giữ 933 ca; HCM mới 482 = HCM 350 + Bình Dương 62 +
   BR-VT 49 + 21 ca chưa có tỉnh cũ; lọc xã mới thu hẹp đúng. Tên thật production gộp đủ 63 cũ / 34 mới.
 - Còn lại (đợt 2): các báo cáo nhóm theo Tỉnh + cột tỉnh/huyện trong danh sách.
+
+## 2026-10-10 — Địa giới cũ / mới (đợt 2: các báo cáo nhóm theo Tỉnh) (v1.444)
+- Backend `filterParams.ts dimGroupExpr`: dim "tinh" → `tinh ||  || tinh_moi`, "quan_huyen" → 4 cột; áp vào cases
+  backlog-by-khu-vuc, missing-parts/nap-gas by-khu-vuc (+ list nhận `dg_loc` khi drill-down tỉnh), survey bao-cao-khu-vuc
+  (key `-v8`), dashboard pivot, snapshot Tuổi tồn TB (`backlogAgeSnapshot.ts`).
+- Frontend `lib/diaGioi.ts` thêm `tachNhomDiaGioi`/`gomTheoDiaGioi`/`congDong`/`gopBangTheoTinh`; áp vào Dashboard pivot,
+  Backlog (báo cáo tồn + Tuổi tồn TB + cột Tỉnh/Quận-Huyện danh sách), MissingParts (số mã LK gộp → "—"), NapGas, Survey (báo
+  cáo theo Tỉnh/Quận-Huyện↔Xã mới, tách `gopDongBaoCao` tính lại %). CaseDetail: ca cũ hiện "Mới: tỉnh quy đổi / Cũ".
+  `exportExcel` bỏ cột nội bộ `_dg`.
+- Kiểm tra local: Quản lý tồn theo tỉnh cũ 63 + "(Chưa có tỉnh cũ)" / mới 34, tổng giữ 1.426; An Giang mới 42 = AG 24 + KG 18.

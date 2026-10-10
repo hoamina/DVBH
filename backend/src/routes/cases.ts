@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause as ageFilterClauseFor } from "../lib/ageCalc";
-import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters, QLDVBH_FILTER_VALUE, khuVucReportExclusionClause, diaGioiLoc } from "../lib/filterParams";
+import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters, QLDVBH_FILTER_VALUE, khuVucReportExclusionClause, diaGioiLoc, dimGroupExpr } from "../lib/filterParams";
 import { getDaDongManifest, getDaDongChunks, getDaDongReasons } from "../lib/daDongDayChunks";
 import { checkAndConsumeDownloadQuota } from "../lib/r2DownloadRateLimit";
 import { findExistingCaseIds, runBatched, logImportHistory } from "../lib/backfillImportProcessor";
@@ -311,7 +311,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
  * fallback 0 cho an toan). Cong thuc SQL tung cot GIU NGUYEN 100% so voi ban truoc khi tach. */
 export async function computeBacklogByKhuVuc(db: D1Database, params: Record<string, string | undefined>, scope: string[] | null): Promise<{ rows: Record<string, string | number>[] }> {
   const dimColRaw = REPORT_DIMS[params.dim ?? "khu_vuc"] ?? "khu_vuc";
-  const dimCol = `c.${dimColRaw}`;
+  const dimCol = dimGroupExpr(dimColRaw);
 
   const scopeClauseC = khuVucWhereClause(scope, "c.khu_vuc");
   const khuVucClauseC = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
