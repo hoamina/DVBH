@@ -4445,3 +4445,7 @@ Code:
 
 **Phát hiện lỗi dữ liệu (tách việc riêng):** `case_dvbh.so_gio_xu_ly` mất dấu thập phân ở nhiều dòng
 (5.427h → 5427222222; hệ số khác nhau từng dòng) — 05–07/2026 và một phần 09/2026; 08 và 10/2026 sạch.
+- Bổ sung (cùng ngày): `migrations/0132_luy_ke_toc_do_mien_so_chot.sql` điền sẵn số chốt từ ảnh sheet
+  (Tổng RTAT MB/MN + SLA/24h cuối tuần) cho 16 tháng 04/2025 → 07/2026, nguon='tay' (sửa được qua ✎).
+  08–09/2026 không có trong ảnh → để trống. TB RTAT hiển thị tính lại = tổng ngày × 24 / số ca lũy kế
+  của miền, nên lệch nhẹ so với cột TB của sheet.
