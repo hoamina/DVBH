@@ -4421,3 +4421,27 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
   cáo theo Tỉnh/Quận-Huyện↔Xã mới, tách `gopDongBaoCao` tính lại %). CaseDetail: ca cũ hiện "Mới: tỉnh quy đổi / Cũ".
   `exportExcel` bỏ cột nội bộ `_dg`.
 - Kiểm tra local: Quản lý tồn theo tỉnh cũ 63 + "(Chưa có tỉnh cũ)" / mới 34, tổng giữ 1.426; An Giang mới 42 = AG 24 + KG 18.
+
+## 2026-10-10 — Báo cáo lũy kế: tab "Tốc độ theo miền" (v1.445, migration 0131)
+
+Yêu cầu: bổ sung báo cáo "7. Tốc độ xử lý theo tháng của DVBH theo miền" (sheet của chủ hệ thống) vào
+menu Báo cáo lũy kế. Chốt với chủ hệ thống:
+- Số ca / đúng hạn / 24h / % (TQ, MB, MN; bỏ "KHO ĐMX") **tính từ chunk lũy kế** — chấp nhận lệch nhẹ so
+  với sheet cũ (đối chiếu: 04/2025 sheet 18.321 vs lũy kế 18.099; 07/2026 19.655 vs 19.328 — nguồn khác).
+  MB/MN theo ".mb"/".mn" trong mã khu vực; khu vực khác (KDDV, B2B, Phòng BH 3T) chỉ vào Toàn quốc.
+- RTAT + tốc độ cuối tuần (ca **CSKH tiếp nhận T7/CN**): **tự tính từ 10/2026** (cron 08:00, cùng lượt
+  đọc với lũy kế; 3 ngày đầu tháng chốt lại tháng trước); các tháng trước Admin/TBP DVBH **nhập tay**.
+
+Code:
+- `migrations/0131_luy_ke_toc_do_mien.sql`: bảng 1 dòng/tháng (rtat_mb/mn_ngay, so_ca_gio_mb/mn,
+  cuoi_tuan_sla/24h, nguon auto|tay).
+- `lib/luyKeCompute.ts`: `computeLuyKeMonthWithTocDo` + `summarizeTocDoMien`; `TOC_DO_MIEN_AUTO_TU_THANG`.
+  RTAT dùng `so_gio_xu_ly` (giờ CRM — khớp mặt bằng sheet: 10/2026 MB 19,7h / MN 26,7h; giờ đồng hồ
+  tiếp nhận→xong ra ~44h, không khớp) qua `gioXuLyHopLe()` bỏ giá trị > giờ đồng hồ + 24h.
+- `routes/luyKe.ts`: `GET /toc-do-mien`, `PUT /toc-do-mien/:thang` (Admin/TBP DVBH, chỉ tháng < 2026-10).
+- `components/LuyKeTocDoMien.tsx` + tab trong `LuyKeModule.tsx`: dòng "Năm YYYY" + từng tháng, ✎ nhập tay,
+  xuất Excel. TB RTAT = tổng ngày × 24 / số ca (tháng tự động: số ca có giờ hợp lệ). TB RTAT TQ tính
+  gộp có trọng số (sheet cũ lấy trung bình cộng MB/MN).
+
+**Phát hiện lỗi dữ liệu (tách việc riêng):** `case_dvbh.so_gio_xu_ly` mất dấu thập phân ở nhiều dòng
+(5.427h → 5427222222; hệ số khác nhau từng dòng) — 05–07/2026 và một phần 09/2026; 08 và 10/2026 sạch.

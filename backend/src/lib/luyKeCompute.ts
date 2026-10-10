@@ -38,6 +38,8 @@ interface CaseRowForLuyKe {
   hang: string | null;
   nganh: string | null;
   ky_thuat_vien: string | null;
+  thoi_gian_cskh_tiep_nhan: string | null;
+  thoi_gian_hoan_thanh: string;
 }
 
 function classifyPhanLoai(nhomYeuCau: string | null, nhomKh: string | null, doiTac: string | null): string {
@@ -102,6 +104,80 @@ function nextMonthStr(thang: string): string {
 /** Tinh toan pivot 1 thang tu case_dvbh that - khong ghi gi, chi tra ve LuyKeRow[] (giong dinh dang
  * dong Excel import thu cong) de goi noi nao muon (cron hoac endpoint thu cong deu dung chung). */
 export async function computeLuyKeMonthFromCases(db: D1Database, thang: string): Promise<LuyKeRow[]> {
+  return (await computeLuyKeMonthWithTocDo(db, thang)).rows;
+}
+
+// Thang dau tien "Toc do theo mien" (bang luy_ke_toc_do_mien, migration 0131) tu tinh tu case_dvbh -
+// CHOT 2026-10-10 voi chu he thong: cac thang truoc do nguoi dung nhap so chot bang tay.
+export const TOC_DO_MIEN_AUTO_TU_THANG = "2026-10";
+
+export interface TocDoMienRow {
+  rtat_mb_ngay: number;
+  rtat_mn_ngay: number;
+  so_ca_gio_mb: number;
+  so_ca_gio_mn: number;
+  cuoi_tuan_sla: number | null;
+  cuoi_tuan_24h: number | null;
+  cuoi_tuan_so_ca: number;
+}
+
+// Mien suy tu ma khu vuc "(qldvbh.mb2) ..." / "(qldvbh.mn1) ..." - khop cach tinh MB/MN o client
+// (LuyKeModule.tsx mienOf). Khu vuc khong co ".mb"/".mn" chi tinh vao toan quoc.
+function mienOf(khuVuc: string | null): "MB" | "MN" | null {
+  const k = (khuVuc ?? "").toLowerCase();
+  if (k.includes(".mb")) return "MB";
+  if (k.includes(".mn")) return "MN";
+  return null;
+}
+
+// So gio xu ly dung cho RTAT/24h cuoi tuan = so_gio_xu_ly cua CRM (khop RTAT sheet cu cua chu he thong,
+// khac han gio dong ho tiep nhan -> xong vi CRM tru thoi gian cho), NHUNG kiem chung 2026-10-10 cot nay
+// bi mat dau thap phan o nhieu dong (vd 5.427 gio luu thanh 5427222222 - he so sai khac nhau tung dong,
+// khong chia nguoc lai duoc) o 05-07/2026 va 1 phan 09/2026. Chan: gia tri lon hon gio dong ho + 24h la
+// du lieu hong -> tra null (bo khoi ca tong lan mau so, khong lam lech trung binh).
+function gioXuLyHopLe(c: CaseRowForLuyKe): number | null {
+  if (c.so_gio_xu_ly === null || !c.thoi_gian_cskh_tiep_nhan) return null;
+  const ms = Date.parse(`${c.thoi_gian_hoan_thanh.replace(" ", "T")}Z`) - Date.parse(`${c.thoi_gian_cskh_tiep_nhan.replace(" ", "T")}Z`);
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return c.so_gio_xu_ly <= ms / 3_600_000 + 24 ? c.so_gio_xu_ly : null;
+}
+
+/** RTAT + toc do cuoi tuan cho 1 thang, tren CUNG tap ca cua luy ke (cung bo loc), bo "KHO ĐMX".
+ * RTAT = tong gioXuLyHopLe, mau so TB RTAT la so ca co gio hop le. "Cuoi tuan" = ca CSKH tiep nhan Thu
+ * 7/Chu nhat; "24h" cuoi tuan dung gioXuLyHopLe, khong co thi uoc luong tu xu_ly_24h_bucket (giong luy ke). */
+function summarizeTocDoMien(cases: CaseRowForLuyKe[]): TocDoMienRow {
+  const out = { rtatMbGio: 0, rtatMnGio: 0, so_ca_gio_mb: 0, so_ca_gio_mn: 0, ctTong: 0, ctDungHan: 0, ct24h: 0 };
+  for (const c of cases) {
+    if (classifyPhanLoai(c.nhom_yeu_cau, c.nhom_kh, c.doi_tac) === "KHO ĐMX") continue;
+    const mien = mienOf(c.khu_vuc);
+    const gio = gioXuLyHopLe(c);
+    if (gio !== null && mien === "MB") {
+      out.rtatMbGio += gio;
+      out.so_ca_gio_mb++;
+    } else if (gio !== null && mien === "MN") {
+      out.rtatMnGio += gio;
+      out.so_ca_gio_mn++;
+    }
+    const ngay = c.thoi_gian_cskh_tiep_nhan ? new Date(`${c.thoi_gian_cskh_tiep_nhan.slice(0, 10)}T00:00:00Z`).getUTCDay() : -1;
+    if (ngay === 0 || ngay === 6) {
+      const gioCt = gio ?? estimateHoursFromBucket24h(c.xu_ly_24h_bucket);
+      out.ctTong++;
+      if (c.dung_han === "Đúng hạn") out.ctDungHan++;
+      if (gioCt !== null && gioCt < 24) out.ct24h++;
+    }
+  }
+  return {
+    rtat_mb_ngay: out.rtatMbGio / 24,
+    rtat_mn_ngay: out.rtatMnGio / 24,
+    so_ca_gio_mb: out.so_ca_gio_mb,
+    so_ca_gio_mn: out.so_ca_gio_mn,
+    cuoi_tuan_sla: out.ctTong ? out.ctDungHan / out.ctTong : null,
+    cuoi_tuan_24h: out.ctTong ? out.ct24h / out.ctTong : null,
+    cuoi_tuan_so_ca: out.ctTong,
+  };
+}
+
+export async function computeLuyKeMonthWithTocDo(db: D1Database, thang: string): Promise<{ rows: LuyKeRow[]; tocDo: TocDoMienRow }> {
   // huy_bo_at IS NULL: khop quy uoc da CHOT o dashboardCompute.ts (currentMonthOrOpenSource) cho
   // cung dang truy van "case hoan thanh trong 1 thang" - case da HUY BO van co the con giu nguyen
   // dung_han/thoi_gian_hoan_thanh cu tu truoc luc huy (kiem chung that: 4/22952 dong thang 2026-08),
@@ -125,7 +201,7 @@ export async function computeLuyKeMonthFromCases(db: D1Database, thang: string):
   const exclusion = khuVucReportExclusionClause();
   const { results: cases } = await db
     .prepare(
-      `SELECT id, khu_vuc, nhom_yeu_cau, nhom_kh, doi_tac, dung_han, so_gio_xu_ly, xu_ly_24h_bucket, hang, nganh, ky_thuat_vien
+      `SELECT id, khu_vuc, nhom_yeu_cau, nhom_kh, doi_tac, dung_han, so_gio_xu_ly, xu_ly_24h_bucket, hang, nganh, ky_thuat_vien, thoi_gian_cskh_tiep_nhan, thoi_gian_hoan_thanh
        FROM case_dvbh
        WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ? AND dung_han IN ('Đúng hạn', 'Quá hạn')
          AND huy_bo_at IS NULL AND tinh_vao_kpi = 1
@@ -160,7 +236,21 @@ export async function computeLuyKeMonthFromCases(db: D1Database, thang: string):
     else groups.set(key, { khu_vuc, phan_loai, dung_han: c.dung_han, toc_do, thang, tren_96h, nam, hang, doi_tuong, nganh, nguon_crm, kh_vip: "KH thường", sl: 1 });
   }
 
-  return [...groups.values()];
+  return { rows: [...groups.values()], tocDo: summarizeTocDoMien(cases) };
+}
+
+async function saveTocDoMienAuto(db: D1Database, thang: string, t: TocDoMienRow): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO luy_ke_toc_do_mien (thang, rtat_mb_ngay, rtat_mn_ngay, so_ca_gio_mb, so_ca_gio_mn, cuoi_tuan_sla, cuoi_tuan_24h, cuoi_tuan_so_ca, nguon, nguoi_cap_nhat, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'auto', NULL, ?)
+       ON CONFLICT(thang) DO UPDATE SET rtat_mb_ngay = excluded.rtat_mb_ngay, rtat_mn_ngay = excluded.rtat_mn_ngay,
+         so_ca_gio_mb = excluded.so_ca_gio_mb, so_ca_gio_mn = excluded.so_ca_gio_mn, cuoi_tuan_sla = excluded.cuoi_tuan_sla,
+         cuoi_tuan_24h = excluded.cuoi_tuan_24h, cuoi_tuan_so_ca = excluded.cuoi_tuan_so_ca, nguon = 'auto', nguoi_cap_nhat = NULL,
+         updated_at = excluded.updated_at`,
+    )
+    .bind(thang, t.rtat_mb_ngay, t.rtat_mn_ngay, t.so_ca_gio_mb, t.so_ca_gio_mn, t.cuoi_tuan_sla, t.cuoi_tuan_24h, t.cuoi_tuan_so_ca, nowVN())
+    .run();
 }
 
 /** Diem goi CHINH cho cron 08:00 VN - chi tinh lai THANG HIEN TAI (dang chay, so lieu con doi hang
@@ -168,6 +258,19 @@ export async function computeLuyKeMonthFromCases(db: D1Database, thang: string):
  * cong khi can, xem luyKeChunks.ts). */
 export async function computeAndPushLuyKeCurrentMonth(env: Env): Promise<void> {
   const thang = nowVN().slice(0, 7);
-  const rows = await computeLuyKeMonthFromCases(env.DB, thang);
+  const { rows, tocDo } = await computeLuyKeMonthWithTocDo(env.DB, thang);
   await recomputeLuyKeMonth(env, thang, rows);
+  if (thang >= TOC_DO_MIEN_AUTO_TU_THANG) await saveTocDoMienAuto(env.DB, thang, tocDo);
+  // Ca hoan thanh cuoi ngay cuoi thang chi duoc thay o lan chay 08:00 ngay 1 thang sau - chot lai
+  // RTAT/cuoi tuan thang truoc trong 3 ngay dau thang (chi bang nho nay, khong dung chunk luy ke).
+  const prev = prevMonthStr(thang);
+  if (Number(nowVN().slice(8, 10)) <= 3 && prev >= TOC_DO_MIEN_AUTO_TU_THANG) {
+    const { tocDo: tocDoPrev } = await computeLuyKeMonthWithTocDo(env.DB, prev);
+    await saveTocDoMienAuto(env.DB, prev, tocDoPrev);
+  }
+}
+
+function prevMonthStr(thang: string): string {
+  const [y, m] = thang.split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
 }

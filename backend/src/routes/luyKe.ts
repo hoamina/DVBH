@@ -7,6 +7,8 @@ import { hasModule } from "../lib/moduleAccess";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { logImportHistory } from "../lib/backfillImportProcessor";
 import { recomputeLuyKeMonth, getLuyKeManifest, getLuyKeChunks, type LuyKeRow } from "../lib/luyKeChunks";
+import { TOC_DO_MIEN_AUTO_TU_THANG } from "../lib/luyKeCompute";
+import { nowVN } from "../lib/vnTime";
 
 const luyKe = new Hono<{ Bindings: Env }>();
 
@@ -165,6 +167,55 @@ luyKe.post("/chunks", async (c) => {
 
   const chunks = await getLuyKeChunks(c.env, requested);
   return c.json({ chunks });
+});
+
+// GET /api/luy-ke/toc-do-mien - RTAT + toc do cuoi tuan tung thang (bang luy_ke_toc_do_mien, migration
+// 0131, ~1 dong/thang nen doc thang khong qua cachedReport). Cac cot so ca/dung han/24h cua tab "Toc do
+// theo mien" tinh o client tu chunk luy ke, khong o day.
+luyKe.get("/toc-do-mien", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM luy_ke_toc_do_mien ORDER BY thang").all();
+  return c.json({ rows: results, autoTuThang: TOC_DO_MIEN_AUTO_TU_THANG });
+});
+
+function optNumber(v: unknown, opts: { pct?: boolean } = {}): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null || v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return opts.pct ? n / 100 : n;
+}
+
+// PUT /api/luy-ke/toc-do-mien/:thang - nhap so chot bang tay cho thang TRUOC TOC_DO_MIEN_AUTO_TU_THANG
+// (CHOT 2026-10-10: tu thang do tro di cron tu tinh, khong cho sua tay de khong bi cron ghi de mat).
+// Body: rtat_mb_ngay, rtat_mn_ngay (ngay), cuoi_tuan_sla_pct, cuoi_tuan_24h_pct (%, vd 89.1) - de
+// rong/null = xoa gia tri o.
+luyKe.put("/toc-do-mien/:thang", requireRole("Admin", "TBP DVBH"), async (c) => {
+  const thang = c.req.param("thang")!;
+  if (!/^\d{4}-\d{2}$/.test(thang)) return c.json({ error: "INVALID_THANG" }, 400);
+  if (thang >= TOC_DO_MIEN_AUTO_TU_THANG) return c.json({ error: "THANG_TU_DONG", message: `Từ ${TOC_DO_MIEN_AUTO_TU_THANG} hệ thống tự tính, không nhập tay.` }, 400);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}) as Record<string, unknown>);
+  const vals = {
+    rtat_mb_ngay: optNumber(body.rtat_mb_ngay),
+    rtat_mn_ngay: optNumber(body.rtat_mn_ngay),
+    cuoi_tuan_sla: optNumber(body.cuoi_tuan_sla_pct, { pct: true }),
+    cuoi_tuan_24h: optNumber(body.cuoi_tuan_24h_pct, { pct: true }),
+  };
+  const bodyKey = { rtat_mb_ngay: "rtat_mb_ngay", rtat_mn_ngay: "rtat_mn_ngay", cuoi_tuan_sla: "cuoi_tuan_sla_pct", cuoi_tuan_24h: "cuoi_tuan_24h_pct" } as const;
+  for (const k of Object.keys(vals) as (keyof typeof vals)[]) {
+    // Co gui truong nay nhung khong phai so hop le -> bao loi thay vi am tham ghi NULL.
+    if (vals[k] === undefined && body[bodyKey[k]] !== undefined) return c.json({ error: "INVALID_VALUE", field: bodyKey[k] }, 400);
+  }
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    `INSERT INTO luy_ke_toc_do_mien (thang, rtat_mb_ngay, rtat_mn_ngay, cuoi_tuan_sla, cuoi_tuan_24h, nguon, nguoi_cap_nhat, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'tay', ?, ?)
+     ON CONFLICT(thang) DO UPDATE SET rtat_mb_ngay = excluded.rtat_mb_ngay, rtat_mn_ngay = excluded.rtat_mn_ngay,
+       cuoi_tuan_sla = excluded.cuoi_tuan_sla, cuoi_tuan_24h = excluded.cuoi_tuan_24h, nguon = 'tay',
+       nguoi_cap_nhat = excluded.nguoi_cap_nhat, updated_at = excluded.updated_at`,
+  )
+    .bind(thang, vals.rtat_mb_ngay ?? null, vals.rtat_mn_ngay ?? null, vals.cuoi_tuan_sla ?? null, vals.cuoi_tuan_24h ?? null, user.email, nowVN())
+    .run();
+  return c.json({ ok: true });
 });
 
 export default luyKe;

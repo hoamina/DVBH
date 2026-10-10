@@ -18,6 +18,7 @@ import { useLuyKeChunked, type LuyKeRow } from "../hooks/useLuyKeChunked";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../constants";
+import { LuyKeTocDoMien } from "../components/LuyKeTocDoMien";
 
 // Anh xa dung tieu de cot file Excel mau (xem sheet "Sheet1" cua "Phân tích báo cáo lũy kế.xlsx")
 // sang field noi bo - dung truc tiep cho parseSpreadsheet(), khong qua columnMapUrl vi schema co
@@ -254,7 +255,7 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
 export function LuyKeModule() {
   const auth = useAuth();
   const canImport = auth.status === "authenticated" && (auth.user.vai_tro === "Admin" || auth.user.vai_tro === "TBP DVBH");
-  const [tab, setTab] = useLocalStorageState<"dashboard" | "import">("luy-ke:tab", "dashboard");
+  const [tab, setTab] = useLocalStorageState<"dashboard" | "toc-do-mien" | "import">("luy-ke:tab", "dashboard");
   const { rows: rawRows, months, isLoading, isError, refetch } = useLuyKeChunked();
   // An khoi bao cao - khop KHU_VUC_AN_KHOI_BAO_CAO da CHOT o he thong khac (xem constants.ts): du
   // lieu doc thang tu R2 KHONG qua endpoint co loc san nen phai tu loc o client, giong BacklogModule.tsx
@@ -406,13 +407,16 @@ export function LuyKeModule() {
       <Tabs
         tabs={[
           { key: "dashboard", label: "Tổng quan" },
+          { key: "toc-do-mien", label: "Tốc độ theo miền" },
           ...(canImport ? [{ key: "import", label: "Nhập dữ liệu" }] : []),
         ]}
         active={tab}
-        onChange={(k) => setTab(k as "dashboard" | "import")}
+        onChange={(k) => setTab(k as "dashboard" | "toc-do-mien" | "import")}
       />
 
       {tab === "import" && canImport && <LuyKeImportPanel onImported={refetch} />}
+
+      {tab === "toc-do-mien" && (isLoading && rows.length === 0 ? <LoadingCard label="Đang tải dữ liệu báo cáo lũy kế…" /> : <LuyKeTocDoMien rows={rows} canEdit={canImport} />)}
 
       {tab === "dashboard" && (
         <>
