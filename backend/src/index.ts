@@ -44,6 +44,7 @@ import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
 import { autoSyncTonKhoLk } from "./lib/tonKhoLk";
 import tonKhoLkRoutes from "./routes/tonKhoLk";
+import diaGioiRoutes from "./routes/diaGioi";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -51,6 +52,7 @@ app.route("/api/auth", authRoutes);
 app.route("/api/cases", casesRoutes);
 app.route("/api/missing-parts", missingPartsRoutes);
 app.route("/api/ton-kho-lk", tonKhoLkRoutes);
+app.route("/api/dia-gioi", diaGioiRoutes);
 app.route("/api/tranh-chap", tranhChapRoutes);
 app.route("/api/nap-gas", napGasRoutes);
 app.route("/api/survey", surveyRoutes);

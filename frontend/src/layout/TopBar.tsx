@@ -9,6 +9,7 @@ import { LoadingInline } from "../components/ui/LoadingInline";
 import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { SearchResultsPopup, type SearchMatchRow } from "../components/SearchResultsPopup";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { DiaGioiToggle } from "../components/DiaGioiToggle";
 
 interface DeltaBucket {
   baseline: number;
@@ -208,6 +209,7 @@ export function TopBar({
       <GlobalSearch onFound={onSearch} className="hidden md:block w-40 lg:w-52" />
       <Greeting />
       <div className="ml-auto flex items-center gap-3">
+        <DiaGioiToggle className="hidden sm:flex" />
         <button onClick={() => goTo("giao-dien")} className="focus-ring w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-base" title="Đổi giao diện">
           🎨
         </button>

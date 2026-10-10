@@ -77,26 +77,27 @@ export async function computeRevenue(
 ): Promise<{ totals: unknown; byDim: unknown[] }> {
   const { sql, binds } = buildRevenueFilterClause(params, scope);
 
-  // 2026-10-09: "ky_thuat_vien_tinh" = KTV x tinh (cho bo loc Tinh cua bang "Doanh thu theo KTV"). Tinh lay
-  // tinh (CRM + Odoo tinh cu), Odoo thieu thi tinh_moi - GIA TRI THO (co tien to "Tỉnh"/"Thành phố"...), frontend tu
-  // chuan hoa ten. Khong co trong snapshot 08:00 -> luon qua cachedReport.
+  // 2026-10-09: "ky_thuat_vien_tinh" = KTV x tinh (cho bo loc Tinh cua bang "Doanh thu theo KTV"). 2026-10-10: tra CA
+  // cap tho (tinh = tinh cu, tinh_moi) - frontend chuan hoa ten + gom theo che do "Dia gioi cu / moi" (lib/diaGioi.ts).
+  // Khong co trong snapshot 08:00 -> luon qua cachedReport.
   if (params.dim === "ky_thuat_vien_tinh") {
     const { results } = await db.prepare(
-      `SELECT ky_thuat_vien as nhom, COALESCE(NULLIF(tinh,''), tinh_moi) as tinh, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
+      `SELECT ky_thuat_vien as nhom, tinh, tinh_moi, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
        FROM case_dvbh WHERE ky_thuat_vien IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
-       GROUP BY ky_thuat_vien, COALESCE(NULLIF(tinh,''), tinh_moi)`,
+       GROUP BY ky_thuat_vien, tinh, tinh_moi`,
     )
       .bind(...binds)
       .all();
     return { totals: null, byDim: results };
   }
 
-  // 2026-10-09: "tinh" = bao cao "Doanh thu theo tinh" - MOI ca (ke ca chua gan KTV), tinh tho (frontend chuan hoa ten).
+  // 2026-10-09: "tinh" = bao cao "Doanh thu theo tinh" - MOI ca (ke ca chua gan KTV). 2026-10-10: nhom theo cap tho
+  // (tinh cu, tinh_moi) - frontend chuan hoa + gom theo che do cu/moi.
   if (params.dim === "tinh") {
     const { results } = await db.prepare(
-      `SELECT COALESCE(NULLIF(tinh,''), tinh_moi) as nhom, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
+      `SELECT tinh, tinh_moi, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
        FROM case_dvbh WHERE ${KPI_ELIGIBLE_CLAUSE}${sql}
-       GROUP BY COALESCE(NULLIF(tinh,''), tinh_moi)`,
+       GROUP BY tinh, tinh_moi`,
     )
       .bind(...binds)
       .all();

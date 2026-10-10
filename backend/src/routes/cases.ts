@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause as ageFilterClauseFor } from "../lib/ageCalc";
-import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters, QLDVBH_FILTER_VALUE, khuVucReportExclusionClause } from "../lib/filterParams";
+import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters, QLDVBH_FILTER_VALUE, khuVucReportExclusionClause, diaGioiLoc } from "../lib/filterParams";
 import { getDaDongManifest, getDaDongChunks, getDaDongReasons } from "../lib/daDongDayChunks";
 import { checkAndConsumeDownloadQuota } from "../lib/r2DownloadRateLimit";
 import { findExistingCaseIds, runBatched, logImportHistory } from "../lib/backfillImportProcessor";
@@ -115,7 +115,7 @@ function ageFilterClause(tuoiTu?: string, tuoiDen?: string): { sql: string; bind
  * RIENG cho cases.ts (khong dua vao REPORT_DIMS dung chung o filterParams.ts vi se anh huong
  * missingParts.ts/napGas.ts/survey.ts - giong quyet dinh o computeSurveyKhuVucReport truoc do). */
 function readReportFilterParams(c: Context<{ Bindings: Env }>): Record<string, string | undefined> {
-  const params: Record<string, string | undefined> = { khu_vuc: c.req.query("khu_vuc"), ky_thuat_vien: c.req.query("ky_thuat_vien") };
+  const params: Record<string, string | undefined> = { khu_vuc: c.req.query("khu_vuc"), ky_thuat_vien: c.req.query("ky_thuat_vien"), dg_loc: c.req.query("dg_loc") };
   for (const dimKey of Object.keys(REPORT_DIMS)) {
     if (dimKey === "khu_vuc") continue;
     params[dimKey] = c.req.query(dimKey);
@@ -142,7 +142,8 @@ function sharedReportFiltersFromParams(params: Record<string, string | undefined
     sql += ` AND ${prefix}ky_thuat_vien = ?`;
     binds.push(params.ky_thuat_vien);
   }
-  return { sql, binds };
+  const dg = diaGioiLoc(params.dg_loc, prefix);
+  return { sql: sql + dg.sql, binds: [...binds, ...dg.binds] };
 }
 
 export interface CasesCountsPayload {

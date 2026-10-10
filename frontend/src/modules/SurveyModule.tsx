@@ -65,6 +65,7 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 import { SurveyCallWorkspace } from "./SurveyCallWorkspace";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 import { TinhHuyenFilterControl } from "../components/TinhHuyenFilterControl";
+import { useDiaGioiLoc, useOnDiaGioiModeChange } from "../lib/diaGioi";
 import { KhaoSatLoaiTruTab } from "../components/KhaoSatLoaiTru";
 
 interface FunnelData {
@@ -434,6 +435,15 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const [reportDim, setReportDim] = useLocalStorageState("filters:survey-report-dim", "khu_vuc");
   const [tinhFilter, setTinhFilter] = useLocalStorageState("filters:survey-tinh", "");
   const [quanHuyenFilter, setQuanHuyenFilter] = useLocalStorageState("filters:survey-quan-huyen", "");
+  // "Địa giới cũ / mới" (2026-10-10): tinh/cap 2 dang chon -> query param "dg_loc" (gia tri tho da khai trien, xem
+  // lib/diaGioi.ts). null = dang tai danh sach dia gioi ma co lua chon -> tam hoan cac query tu chay.
+  const diaGioi = useDiaGioiLoc();
+  const dgLoc = diaGioi.buildDgLoc(tinhFilter ? [tinhFilter] : [], quanHuyenFilter ? [quanHuyenFilter] : []);
+  const dgParam = dgLoc ?? undefined;
+  useOnDiaGioiModeChange(() => {
+    setTinhFilter("");
+    setQuanHuyenFilter("");
+  });
   const [ktvFilter, setKtvFilter] = useLocalStorageState("filters:survey-ktv", "");
   const [nguoiKhaoSatFilter, setNguoiKhaoSatFilter] = useLocalStorageState("filters:survey-nguoi-khao-sat", "");
   const [thangReport, setThangReport] = useLocalStorageState("filters:survey-thang-report", new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
@@ -465,7 +475,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     .filter((v) => v.key !== "loai-tru" || canLoaiTru);
   const effectiveView = canViewDanhSach ? view : "bao-cao";
 
-  const filterParams = { khu_vuc: khuVucFilter, tinh: tinhFilter, quan_huyen: quanHuyenFilter, ky_thuat_vien: ktvFilter };
+  const filterParams = { khu_vuc: khuVucFilter, dg_loc: dgParam, ky_thuat_vien: ktvFilter };
 
   const { data: monthOptions } = useQuery({
     queryKey: ["dashboard-months"],
@@ -488,10 +498,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   } = useSurveyCandidates({
     thang: thangDanhSach,
     khuVuc: khuVucFilter,
-    tinh: tinhFilter,
-    quanHuyen: quanHuyenFilter,
+    dgLoc: dgParam,
     ktv: ktvFilter,
-    enabled: view === "danh-sach" && (tab === "can-khao-sat" || tab === "qua-han-khao-sat"),
+    enabled: view === "danh-sach" && (tab === "can-khao-sat" || tab === "qua-han-khao-sat") && dgLoc !== null,
   });
 
   // ngay_tu/ngay_den (CHOT 2026-09-04): loc theo v.ngay_ghi_nhan NGAY O SERVER thay vi client-side
@@ -508,12 +517,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const { data: choQc } = useQuery({
     queryKey: ["survey", "cho-qc", viPhamListParams],
     queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "cho-qc", ...viPhamListParams })}`),
-    enabled: view === "danh-sach" && tab === "cho-qc",
+    enabled: view === "danh-sach" && tab === "cho-qc" && dgLoc !== null,
   });
   const { data: daXuLy } = useQuery({
     queryKey: ["survey", "da-xu-ly", viPhamListParams],
     queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "da-xu-ly", ...viPhamListParams })}`),
-    enabled: view === "danh-sach" && tab === "da-xu-ly",
+    enabled: view === "danh-sach" && tab === "da-xu-ly" && dgLoc !== null,
   });
   // "Vi pham da chot" (CHOT 2026-09-11): tab MOI, CHI vi pham QC da chot=1 (chot_bo_cap_2 = 1) - tach
   // rieng voi "da-xu-ly" (tab do con gom ca ket luan "Khong loi") de xem lai giai trinh KTV/Giam sat
@@ -521,7 +530,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const { data: viPhamDaChot } = useQuery({
     queryKey: ["survey", "vi-pham-da-chot", viPhamListParams],
     queryFn: () => api.get<{ rows: ViPhamRow[]; totalCases: number | null }>(`/survey${buildQuery({ tab: "vi-pham-da-chot", ...viPhamListParams })}`),
-    enabled: view === "danh-sach" && tab === "vi-pham-da-chot",
+    enabled: view === "danh-sach" && tab === "vi-pham-da-chot" && dgLoc !== null,
   });
   // "Lich su khao sat" (CHOT 2026-08-06) - toan bo cuoc goi (ket_qua_goi) trong thang, gioi han
   // giong "Can khao sat"/"Qua han khao sat" (dung chung thangDanhSach) - xem GET /survey/call-history.
@@ -540,14 +549,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   // domain "ket_qua_goi" (bump gan nhu lien tuc gio hanh chinh, xem SURVEY_REPORT_DOMAINS o
   // backend/src/routes/survey.ts) thay vi tu dong goi lai moi khi nguoi dung doi Thang/Khu vuc/KTV...
   const { data: baoCaoKhuVuc, refetch: refetchBaoCaoKhuVuc } = useQuery({
-    queryKey: ["survey-bao-cao-khu-vuc", reportDim, khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter, nguoiKhaoSatFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
+    queryKey: ["survey-bao-cao-khu-vuc", reportDim, khuVucFilter, dgParam, ktvFilter, nguoiKhaoSatFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
     queryFn: () =>
       api.get<{ rows: SurveyBaoCaoRow[]; thang: string }>(
         `/survey/bao-cao-khu-vuc${buildQuery({
           dim: reportDim,
           khu_vuc: khuVucFilter,
-          tinh: tinhFilter,
-          quan_huyen: quanHuyenFilter,
+          dg_loc: dgParam,
           ky_thuat_vien: ktvFilter,
           nguoi_khao_sat: nguoiKhaoSatFilter,
           thang: thangReport,
@@ -689,13 +697,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     // ngay_goi_tu-den/nguon_crm) - truoc day chi nhan "thang" nen bat ky bo loc nao khac dang duoc
     // chon (vd "Ngay goi tu/den" con luu tu truoc trong localStorage) se lam Phau va bang khu vuc
     // lech nhau ma khong nhan ra (xem chu thich day du o computeViPhamFunnel, backend/src/routes/viPham.ts).
-    queryKey: ["vi-pham-funnel", khuVucFilter, tinhFilter, quanHuyenFilter, ktvFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
+    queryKey: ["vi-pham-funnel", khuVucFilter, dgParam, ktvFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
     queryFn: () =>
       api.get<FunnelData>(
         `/vi-pham/funnel${buildQuery({
           khu_vuc: khuVucFilter,
-          tinh: tinhFilter,
-          quan_huyen: quanHuyenFilter,
+          dg_loc: dgParam,
           ky_thuat_vien: ktvFilter,
           thang: thangReport,
           ngay_goi_tu: ngayGoiTuReport || undefined,
@@ -1130,8 +1137,6 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <TinhHuyenFilterControl
                 tinh={tinhFilter}
                 quanHuyen={quanHuyenFilter}
-                tinhOptions={khuVucOptions?.tinh ?? []}
-                tinhHuyenMap={khuVucOptions?.tinhHuyen ?? {}}
                 onTinhChange={setTinhFilter}
                 onQuanHuyenChange={setQuanHuyenFilter}
               />
@@ -1444,7 +1449,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           {(tinhFilter || quanHuyenFilter || ktvFilter) && (
             <div className="text-xs text-[var(--ink-400)] mb-2">
               Đang lọc thêm:{" "}
-              {[tinhFilter && `Tỉnh "${tinhFilter}"`, quanHuyenFilter && `Huyện "${quanHuyenFilter}"`, ktvFilter && `KTV "${ktvFilter}"`].filter(Boolean).join(", ")}{" "}
+              {[tinhFilter && `Tỉnh "${tinhFilter}"`, quanHuyenFilter && `Huyện/Xã "${diaGioi.nhanCap2Cua(tinhFilter, quanHuyenFilter)}"`, ktvFilter && `KTV "${ktvFilter}"`].filter(Boolean).join(", ")}{" "}
               <button
                 className="text-[var(--ocean-600)] underline"
                 onClick={() => {

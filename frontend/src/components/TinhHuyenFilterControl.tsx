@@ -1,43 +1,42 @@
 import { Select } from "./ui/Select";
+import { useDiaGioiLoc, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 
 /**
- * Bo loc long nhau Tinh -> Quan/Huyen (dung cho Bao cao khao sat theo khu vuc). Select tinh luon
- * hien; Select huyen CHI hien khi da chon 1 tinh cu the (khac "Tat ca cac tinh" = tinh rong) - danh
- * sach huyen lay tu tinhHuyenMap[tinh] (xem GET /dashboard/filters, field "tinhHuyen"). Doi tinh se
- * tu xoa lua chon huyen dang co (huyen cu co the khong thuoc tinh moi).
+ * Bo loc long nhau Tinh -> cap 2 theo che do "Địa giới cũ / mới" chung (lib/diaGioi.ts, 2026-10-10): cu = Tinh cu ->
+ * Quan/Huyen, moi = Tinh moi -> Xa/Phuong moi. Gia tri tinh = ten chuan da gom (vd "Thành phố Hà Nội"), cap 2 = khoa
+ * chuan hoa - noi goi dung useDiaGioiLoc().buildDgLoc() de ra query param "dg_loc". Select cap 2 CHI hien khi da chon
+ * 1 tinh; doi tinh tu xoa cap 2.
  */
 export function TinhHuyenFilterControl({
   tinh,
   quanHuyen,
-  tinhOptions,
-  tinhHuyenMap,
   onTinhChange,
   onQuanHuyenChange,
 }: {
   tinh: string;
   quanHuyen: string;
-  tinhOptions: string[];
-  tinhHuyenMap: Record<string, string[]>;
   onTinhChange: (tinh: string) => void;
   onQuanHuyenChange: (quanHuyen: string) => void;
 }) {
-  const huyenOptions = tinh ? tinhHuyenMap[tinh] ?? [] : [];
+  const { mode, tinhOptions, cap2Options, chuanTinh } = useDiaGioiLoc();
+  const tinhChuan = tinh ? chuanTinh(tinh) : null;
+  const cap2 = tinh ? cap2Options(tinh) : [];
 
   return (
     <div className="flex items-center gap-1.5">
       <Select
-        value={tinh}
+        value={tinhChuan !== null ? tinh : ""}
         onChange={(v) => {
           onTinhChange(v);
           onQuanHuyenChange("");
         }}
-        options={[{ value: "", label: "Tất cả các tỉnh" }, ...tinhOptions.map((t) => ({ value: t, label: t }))]}
+        options={[{ value: "", label: `Tất cả ${NHAN_CAP_1[mode].toLowerCase()}` }, ...tinhOptions]}
       />
-      {tinh && huyenOptions.length > 0 && (
+      {tinh && cap2.length > 0 && (
         <Select
           value={quanHuyen}
           onChange={onQuanHuyenChange}
-          options={[{ value: "", label: "Tất cả huyện" }, ...huyenOptions.map((h) => ({ value: h, label: h }))]}
+          options={[{ value: "", label: `Tất cả ${NHAN_CAP_2[mode].toLowerCase()}` }, ...cap2]}
         />
       )}
     </div>

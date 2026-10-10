@@ -150,6 +150,12 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     an excluded suspicion no longer makes `can_khao_sat = 1`; candidates also return `loai_tru_*` flags so the UI fades
     an excluded suspicion on cases that still need a call for other reasons. Add/delete recompute `can_khao_sat` for
     the affected cases with one `UPDATE … WHERE can_khao_sat IS NOT <new>` (no-op rows not written).
+  - `diaGioi.ts` (2026-10-10, migration 0130 `tinh_quy_doi`) — "Địa giới cũ / mới": global toggle on TopBar, name
+    normalization + old→new province mapping done CLIENT-side (`frontend/src/lib/diaGioi.ts`); server only serves the raw
+    mapping table + raw `(tinh, quan_huyen, tinh_moi, xa_moi)` combos (`/to-hop`). Filters arrive as `dg_loc` (JSON of raw
+    values, one bind via `json_each`) → `lib/filterParams.ts diaGioiLoc`. Old address = `tinh`/`quan_huyen` for every source
+    (Odoo copies `tinh_cu` into it when closed), new = `tinh_moi`/`xa_moi` (Odoo only). New report endpoints grouping by
+    province should return the raw `(tinh, tinh_moi)` pair and let the client group, not a server-normalized name.
   - `tonKhoLk.ts` (2026-10-08, migration 0125, `lib/tonKhoLk.ts`) — spare-part stock pulled from linh-kien-app's
     `GET /api/partner/v1/ton-kho(/meta)` (the MISA stock file Kế toán imports daily there; Service Binding
     `LINHKIEN_APP`). Only ONE version kept: a new `phien_ban` (linh-kien-app import time) → DELETE + re-insert all
@@ -303,7 +309,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0128`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0130`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

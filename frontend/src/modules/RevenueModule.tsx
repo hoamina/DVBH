@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "../components/ui/StatCard";
 import { Card } from "../components/ui/Card";
@@ -12,18 +12,12 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
-
-// Ten tinh giua 2 nguon lech nhau (CRM "Cần Thơ" / Odoo "Thành phố Cần Thơ", "Tỉnh Hoà Bình", Huế 2 cach ghi) - gom ve
-// 1 ten de loc. Ca 2 nguon deu dung 63 tinh cu (do thuc te 2026-10-09).
-function chuanHoaTinh(t: string | null): string {
-  let s = (t ?? "").normalize("NFC").trim().replace(/^(Tỉnh|Thành phố|TP\.?)\s+/i, "").replace(/Hoà/g, "Hòa");
-  if (s === "Thừa Thiên Huế") s = "Huế";
-  return s || "(Không rõ tỉnh)";
-}
+import { useDiaGioiIndex, nhanTinh, soSanhTen, NHAN_CAP_1, DIA_GIOI_LABEL } from "../lib/diaGioi";
 
 interface RevenueKtvTinhRow {
   nhom: string;
   tinh: string | null;
+  tinh_moi: string | null;
   so_ca: number;
   so_ca_co_dt: number;
   doanh_thu: number;
@@ -71,14 +65,19 @@ export function RevenueModule() {
 
   // Bo loc Tinh rieng cho bang KTV (2026-10-09). Chua chon tinh -> giu nguyen so lieu cu (dim ky_thuat_vien, dong bo
   // bao cao 08:00); chon tinh -> cong tu dim "ky_thuat_vien_tinh" (KTV x tinh) da chuan hoa ten tinh.
+  // 2026-10-10: ten tinh theo che do "Địa giới cũ / mới" chung (lib/diaGioi.ts) - server tra cap tho (tinh, tinh_moi).
+  const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
+  const tenTinh = (r: { tinh: string | null; tinh_moi: string | null }) => nhanTinh(dgMode, dgIdx.tinh(dgMode, r));
   const [tinhFilter, setTinhFilter] = useState("");
+  useEffect(() => setTinhFilter(""), [dgMode]);
   const { data: byKtvTinh } = useQuery({
     queryKey: ["revenue-ktv-tinh", filterParams],
     queryFn: () => api.get<{ byDim: RevenueKtvTinhRow[] }>(`/revenue${buildQuery({ ...filterParams, dim: "ky_thuat_vien_tinh" })}`),
   });
   const tinhOptions = useMemo(
-    () => [...new Set((byKtvTinh?.byDim ?? []).map((r) => chuanHoaTinh(r.tinh)))].sort((a, b) => a.localeCompare(b, "vi")),
-    [byKtvTinh],
+    () => [...new Set((byKtvTinh?.byDim ?? []).map(tenTinh))].sort(soSanhTen),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [byKtvTinh, dgMode, dgIdx],
   );
   const tinhChon = useMemo(() => new Set(tinhFilter.split("|").filter(Boolean)), [tinhFilter]);
   const ktvRows = useMemo((): ({ nhom: string } & DongDt)[] => {
@@ -90,7 +89,7 @@ export function RevenueModule() {
     }
     const gom = new Map<string, { nhom: string } & DongDt>();
     for (const r of byKtvTinh?.byDim ?? []) {
-      if (tinhChon.size > 0 && !tinhChon.has(chuanHoaTinh(r.tinh))) continue;
+      if (tinhChon.size > 0 && !tinhChon.has(tenTinh(r))) continue;
       const g = gom.get(r.nhom) ?? { nhom: r.nhom, so_ca: 0, so_ca_co_dt: 0, doanh_thu: 0 };
       g.so_ca += r.so_ca;
       g.so_ca_co_dt += r.so_ca_co_dt ?? 0;
@@ -98,18 +97,22 @@ export function RevenueModule() {
       gom.set(r.nhom, g);
     }
     return [...gom.values()];
-  }, [tinhChon, byKtv, byKtvTinh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tinhChon, byKtv, byKtvTinh, dgMode, dgIdx]);
 
   // Bao cao "Doanh thu theo tinh" (2026-10-09): moi ca (ke ca chua gan KTV), gop theo ten tinh da chuan hoa; bam 1 dong
   // -> them/bo tinh do vao bo loc Tinh cua bang KTV ben duoi.
   const { data: byTinh } = useQuery({
     queryKey: ["revenue-tinh", filterParams],
-    queryFn: () => api.get<{ byDim: { nhom: string | null; so_ca: number; so_ca_co_dt: number; doanh_thu: number }[] }>(`/revenue${buildQuery({ ...filterParams, dim: "tinh" })}`),
+    queryFn: () =>
+      api.get<{ byDim: { tinh: string | null; tinh_moi: string | null; so_ca: number; so_ca_co_dt: number; doanh_thu: number }[] }>(
+        `/revenue${buildQuery({ ...filterParams, dim: "tinh" })}`,
+      ),
   });
   const tinhRows = useMemo(() => {
     const gom = new Map<string, { tinh: string } & DongDt>();
     for (const r of byTinh?.byDim ?? []) {
-      const t = chuanHoaTinh(r.nhom);
+      const t = tenTinh(r);
       const g = gom.get(t) ?? { tinh: t, so_ca: 0, so_ca_co_dt: 0, doanh_thu: 0 };
       g.so_ca += r.so_ca;
       g.so_ca_co_dt += r.so_ca_co_dt ?? 0;
@@ -117,7 +120,8 @@ export function RevenueModule() {
       gom.set(t, g);
     }
     return [...gom.values()].sort((a, b) => b.doanh_thu - a.doanh_thu);
-  }, [byTinh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [byTinh, dgMode, dgIdx]);
   const tinhTong = useMemo(
     () =>
       tinhRows.reduce(
@@ -179,7 +183,9 @@ export function RevenueModule() {
       <Card className="p-4 mb-4">
         <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <div>
-            <div className="font-display font-bold text-sm">Doanh thu theo tỉnh</div>
+            <div className="font-display font-bold text-sm">
+              Doanh thu theo tỉnh <span className="text-xs font-semibold text-[var(--ocean-600)]">· {DIA_GIOI_LABEL[dgMode]}</span>
+            </div>
             <div className="text-xs text-[var(--ink-400)] mt-0.5">Tất cả ca tính KPI (kể cả chưa gán KTV), sắp theo doanh thu · bấm 1 tỉnh để lọc bảng KTV bên dưới</div>
           </div>
           <Btn
@@ -196,7 +202,7 @@ export function RevenueModule() {
                 })),
                 "doanh_thu_theo_tinh.xlsx",
                 "Data",
-                { tinh: "Tỉnh", so_ca: "Số ca HT XLSC", doanh_thu: "Doanh thu", ty_trong: "Tỷ trọng", ...NHAN_UPSALE },
+                { tinh: NHAN_CAP_1[dgMode], so_ca: "Số ca HT XLSC", doanh_thu: "Doanh thu", ty_trong: "Tỷ trọng", ...NHAN_UPSALE },
               )
             }
           >
@@ -208,7 +214,7 @@ export function RevenueModule() {
             <thead className="sticky top-0 z-[1] bg-[var(--surface)]">
               <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                 <th className="py-2 pr-3 w-10">#</th>
-                <th className="py-2 pr-3">Tỉnh</th>
+                <th className="py-2 pr-3">{NHAN_CAP_1[dgMode]}</th>
                 <th className="py-2 pr-3 text-right">Số ca HT XLSC</th>
                 <th className="py-2 pr-3 text-right">Ca phát sinh DT</th>
                 <th className="py-2 pr-3 text-right">% Upsale</th>
@@ -283,7 +289,7 @@ export function RevenueModule() {
             {tinhChon.size > 0 && <span className="ml-2 text-xs font-semibold text-[var(--ocean-600)]">· {[...tinhChon].join(", ")}</span>}
           </div>
           <div className="flex items-center gap-2">
-            <MultiSelectFilter label="Tỉnh" value={tinhFilter} onChange={setTinhFilter} options={tinhOptions} />
+            <MultiSelectFilter label={NHAN_CAP_1[dgMode]} value={tinhFilter} onChange={setTinhFilter} options={tinhOptions} />
             <Btn
               variant="ghost"
               size="sm"

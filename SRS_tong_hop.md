@@ -230,3 +230,24 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
   chuỗi CRM, Nhóm lỗi — nhiều nhóm cách dấu phẩy / "Tất cả", Từ ngày, Đến ngày dd/mm/yyyy, Ghi chú; có file mẫu, xem
   trước dòng lỗi trước khi import). Sửa = xóa + tạo lại. Mỗi lần thêm/xóa tính lại `can_khao_sat` ngay cho ca bị ảnh hưởng.
 - Chưa áp dụng cho các chỉ số báo cáo khảo sát (tỷ lệ nghi ngờ/vi phạm vẫn đếm theo cờ lỗi gốc).
+
+## 10. Địa giới cũ / mới — tỉnh, huyện, xã (chốt 2026-10-10)
+
+- **Dữ liệu:** ca QuickSight (cũ) chỉ có `tinh`/`quan_huyen` theo địa giới CŨ (tên lúc có lúc không tiền tố, vd "Hà Nội" /
+  "Thành phố Hà Nội"). Ca Odoo (từ 1/10) luôn có `tinh_moi`/`xa_moi` (địa giới MỚI, có tiền tố) và có thêm `tinh`/`quan_huyen`
+  (= `tinh_cu`/`huyen_cu`) khi ca đã đóng, chưa đóng thì để trống.
+- **Nút chung "Địa giới: Cũ | Mới"** trên thanh đầu trang (lưu trên máy người dùng), áp dụng cho mọi báo cáo/bộ lọc tỉnh:
+  - Cũ: nhóm/lọc theo tỉnh cũ → cấp 2 = Quận/Huyện. Ca chưa có tỉnh cũ → nhóm "(Chưa có tỉnh cũ)".
+  - Mới: ca có `tinh_moi` dùng thẳng; ca chưa có (toàn bộ ca cũ) → quy đổi tỉnh cũ → tỉnh mới theo bảng **Cài đặt → Quy đổi
+    tỉnh** (`tinh_quy_doi`, migration 0130, nạp sẵn 63 → 34 theo nghị quyết sáp nhập 2025, Admin/TBP DVBH sửa/thêm tên biến
+    thể). Cấp 2 = Xã/Phường mới; ca cũ không có → "(Chưa có xã mới)" (không quy đổi huyện → xã vì cấp huyện đã bỏ).
+- **Chuẩn hoá tên ở client** (`frontend/src/lib/diaGioi.ts`), server không phân tích: khoá so khớp = bỏ tiền tố (Tỉnh/Thành
+  phố/TP/Quận/Huyện/Thị xã/Xã/Phường…) + bỏ dấu + chữ thường ("Hoà Bình" = "Hòa Bình", "Thừa Thiên Huế" → Huế); tên hiển thị
+  chuẩn có tiền tố ("Thành phố Hà Nội"). Cấp 2: ưu tiên bản có tiền tố nếu dữ liệu chỉ có 1 kiểu.
+- **Lọc:** client khai triển lựa chọn về các giá trị THÔ có trong DB (danh sách tổ hợp `GET /api/dia-gioi/to-hop`, cache theo
+  domain `cases`) rồi gửi `dg_loc` (JSON, 1 bind + `json_each`) — `filterParams.ts diaGioiLoc`. Đã áp dụng: Khảo sát (lọc
+  tỉnh → huyện/xã, phễu vi phạm, báo cáo theo khu vực), Tranh chấp (6 tab), Doanh thu (bảng theo tỉnh + lọc tỉnh bảng KTV).
+- Kiểm tra trên tên thật production: 67 biến thể tên QuickSight → 63 tỉnh cũ, Odoo 63 tỉnh cũ + 34 tỉnh mới, không còn tên lọt
+  bảng. Bảng quy đổi khớp 63/63 cặp (tỉnh cũ, tỉnh mới) Odoo ghi thật (2 ca lệch là lỗi nhập địa chỉ).
+- **Đợt 2 (chưa làm):** các bảng "nhóm theo Tỉnh" (Tổng quát pivot, Quản lý tồn báo cáo + tuổi tồn TB, Ca thiếu LK, Nạp gas,
+  Khảo sát theo tỉnh/huyện) và cột tỉnh/huyện trong danh sách.

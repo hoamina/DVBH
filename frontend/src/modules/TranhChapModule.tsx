@@ -24,6 +24,7 @@ import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { ImportUploader } from "../components/ImportUploader";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { useDiaGioiLoc, useOnDiaGioiModeChange, NHAN_CAP_1 } from "../lib/diaGioi";
 import { TRANG_THAI_LUONG, CA_MOI_GAN, fmtVn } from "../components/LuongMailPanel";
 import {
   TRANG_THAI_LABELS,
@@ -123,11 +124,12 @@ function DaXacNhanDoiTraMonthTable({
   openCase: (id: string, tab?: string) => void;
 }) {
   const [page, setPage] = useState(1);
+  const dgLoc = useDiaGioiLoc().buildDgLoc(tinh.split("|")) ?? undefined;
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["tranh-chap-theo-doi-doi-tra-da-xac-nhan", thang, page, khuVuc, tinh, nhomKh, idSearch],
+    queryKey: ["tranh-chap-theo-doi-doi-tra-da-xac-nhan", thang, page, khuVuc, dgLoc, nhomKh, idSearch],
     queryFn: () =>
       api.get<Paged<TheoDoiDoiTraDaXacNhanRow>>(
-        `/tranh-chap/theo-doi-doi-tra/da-xac-nhan${buildQuery({ thang, page, pageSize: 10, khu_vuc: khuVuc, tinh, nhom_kh: nhomKh, id: idSearch || undefined })}`,
+        `/tranh-chap/theo-doi-doi-tra/da-xac-nhan${buildQuery({ thang, page, pageSize: 10, khu_vuc: khuVuc, dg_loc: dgLoc, nhom_kh: nhomKh, id: idSearch || undefined })}`,
       ),
   });
 
@@ -203,6 +205,9 @@ export function TranhChapModule({
   // CHOT 2026-08-20: bo loc "Tinh" (chon nhieu tinh cung luc) - chi luu localStorage phia client,
   // khong can dong bo server (giong moi bo loc khac cua module nay, xem useLocalStorageState).
   const [tinhFilter, setTinhFilter] = useLocalStorageState("filters:tranh-chap-tinh", "");
+  // "Địa giới cũ / mới" (2026-10-10): moi bo loc Tinh cua module (chon nhieu, "|") -> query param "dg_loc" (lib/diaGioi.ts).
+  const diaGioi = useDiaGioiLoc();
+  const dgLocOf = (v: string) => diaGioi.buildDgLoc(v.split("|")) ?? undefined;
   // CHOT 2026-08-20: them loc "Nhom KH" (chon nhieu) - mirror pattern cua "Tinh" o tren, mirror
   // BacklogModule.tsx.
   const [nhomKhFilter, setNhomKhFilter] = useLocalStorageState("filters:tranh-chap-nhom-kh", "");
@@ -273,10 +278,10 @@ export function TranhChapModule({
   const [ldBuoc, setLdBuoc] = useLocalStorageState("filters:tranh-chap-ld-buoc", "");
   const [ldIdSearch, setLdIdSearch] = useState("");
   const { data: ldData, isLoading: ldLoading, isError: ldError, refetch: refetchLd } = useQuery({
-    queryKey: ["tranh-chap-luong-doi-tra", ldPage, ldKhuVuc, ldTinh, ldNhomKh, ldTrangThai, ldBuoc, ldIdSearch],
+    queryKey: ["tranh-chap-luong-doi-tra", ldPage, ldKhuVuc, dgLocOf(ldTinh), ldNhomKh, ldTrangThai, ldBuoc, ldIdSearch],
     queryFn: () =>
       api.get<Paged<LuongDoiTraListRow> & { dangMo: number; error: string | null }>(
-        `/tranh-chap/luong-doi-tra${buildQuery({ page: ldPage, pageSize: 20, khu_vuc: ldKhuVuc, tinh: ldTinh, nhom_kh: ldNhomKh, trang_thai: ldTrangThai, buoc: ldBuoc, id: ldIdSearch || undefined })}`,
+        `/tranh-chap/luong-doi-tra${buildQuery({ page: ldPage, pageSize: 20, khu_vuc: ldKhuVuc, dg_loc: dgLocOf(ldTinh), nhom_kh: ldNhomKh, trang_thai: ldTrangThai, buoc: ldBuoc, id: ldIdSearch || undefined })}`,
       ),
     enabled: view === "luong-doi-tra",
   });
@@ -355,10 +360,10 @@ export function TranhChapModule({
   });
 
   const { data: aiData, isLoading: aiLoading, isError: aiError, refetch: refetchAi } = useQuery({
-    queryKey: ["tranh-chap-cho-xac-nhan-ai", aiPage, aiKhuVuc, aiTinh, aiNhomKh, thangFilter, aiIdSearch],
+    queryKey: ["tranh-chap-cho-xac-nhan-ai", aiPage, aiKhuVuc, dgLocOf(aiTinh), aiNhomKh, thangFilter, aiIdSearch],
     queryFn: () =>
       api.get<Paged<ChoXuLyCase & { thoi_gian_hoan_thanh: string | null; last_ly_do_cham: string | null; so_ngay_cho: number }>>(
-        `/tranh-chap/cho-xac-nhan-ai${buildQuery({ page: aiPage, pageSize: 10, khu_vuc: aiKhuVuc, tinh: aiTinh, nhom_kh: aiNhomKh, thang: thangFilter, id: aiIdSearch || undefined })}`,
+        `/tranh-chap/cho-xac-nhan-ai${buildQuery({ page: aiPage, pageSize: 10, khu_vuc: aiKhuVuc, dg_loc: dgLocOf(aiTinh), nhom_kh: aiNhomKh, thang: thangFilter, id: aiIdSearch || undefined })}`,
       ),
     enabled: view === "cho-xac-nhan-ai",
   });
@@ -441,10 +446,10 @@ export function TranhChapModule({
   const [confirmingDoiTraCase, setConfirmingDoiTraCase] = useState<{ id: string; ketQua: "dung" | "khong_phai" } | null>(null);
 
   const { data: ddData, isLoading: ddLoading, isError: ddError, refetch: refetchDd } = useQuery({
-    queryKey: ["tranh-chap-theo-doi-doi-tra-cho-danh-gia", ddPage, ddKhuVuc, ddTinh, ddNhomKh, ddIdSearch],
+    queryKey: ["tranh-chap-theo-doi-doi-tra-cho-danh-gia", ddPage, ddKhuVuc, dgLocOf(ddTinh), ddNhomKh, ddIdSearch],
     queryFn: () =>
       api.get<Paged<TheoDoiDoiTraRow>>(
-        `/tranh-chap/theo-doi-doi-tra/cho-danh-gia${buildQuery({ page: ddPage, pageSize: 10, khu_vuc: ddKhuVuc, tinh: ddTinh, nhom_kh: ddNhomKh, id: ddIdSearch || undefined })}`,
+        `/tranh-chap/theo-doi-doi-tra/cho-danh-gia${buildQuery({ page: ddPage, pageSize: 10, khu_vuc: ddKhuVuc, dg_loc: dgLocOf(ddTinh), nhom_kh: ddNhomKh, id: ddIdSearch || undefined })}`,
       ),
     enabled: view === "theo-doi-doi-tra" && ddSubView === "cho-danh-gia",
   });
@@ -531,7 +536,7 @@ export function TranhChapModule({
     try {
       setIsExporting(true);
       const res = await api.get<Paged<ChoXuLyCase & { thoi_gian_hoan_thanh: string | null; last_ly_do_cham: string | null; so_ngay_cho: number }>>(
-        `/tranh-chap/cho-xu-ly${buildQuery({ page: 1, pageSize: 1000, khu_vuc: khuVucFilter, tinh: tinhFilter, nhom_kh: nhomKhFilter, thang: thangFilter, min_days: minDaysFilter !== null ? String(minDaysFilter) : "", id: idSearch || undefined })}`
+        `/tranh-chap/cho-xu-ly${buildQuery({ page: 1, pageSize: 1000, khu_vuc: khuVucFilter, dg_loc: dgLocOf(tinhFilter), nhom_kh: nhomKhFilter, thang: thangFilter, min_days: minDaysFilter !== null ? String(minDaysFilter) : "", id: idSearch || undefined })}`
       );
       
       const headerLabels = {
@@ -565,7 +570,15 @@ export function TranhChapModule({
     queryKey: ["dashboard-filters"],
     queryFn: () => api.get<{ khuVuc: string[]; hang: string[]; tinh: (string | null)[]; nhomKh: (string | null)[] }>("/dashboard/filters"),
   });
-  const tinhSelectOptions = (khuVucOptions?.tinh.filter((t): t is string => !!t) ?? []).sort((a, b) => a.localeCompare(b, "vi"));
+  const tinhSelectOptions = diaGioi.tinhOptions;
+  useOnDiaGioiModeChange(() => {
+    setTinhFilter("");
+    setTtTinh("");
+    setAiTinh("");
+    setLdTinh("");
+    setDdTinh("");
+    setDmTinh("");
+  });
   const nhomKhSelectOptions = (khuVucOptions?.nhomKh.filter((t): t is string => !!t) ?? []).sort((a, b) => a.localeCompare(b, "vi"));
   const { data: phanLoaiOptions } = useQuery({
     queryKey: ["settings-phan-loai-tranh-chap"],
@@ -652,7 +665,7 @@ export function TranhChapModule({
   const [idSearch, setIdSearch] = useState("");
 
   const { data: choXuLy, isLoading: choXuLyLoading, isError: choXuLyError, refetch: refetchChoXuLy } = useQuery({
-    queryKey: ["tranh-chap-cho-xu-ly", page, khuVucFilter, tinhFilter, nhomKhFilter, thangFilter, minDaysFilter, idSearch],
+    queryKey: ["tranh-chap-cho-xu-ly", page, khuVucFilter, dgLocOf(tinhFilter), nhomKhFilter, thangFilter, minDaysFilter, idSearch],
     queryFn: () =>
       api.get<Paged<ChoXuLyCase & { thoi_gian_hoan_thanh: string | null; last_ly_do_cham: string | null; so_ngay_cho: number }> & {
         choTuNgay3: number;
@@ -661,7 +674,7 @@ export function TranhChapModule({
         choTuNgay14: number;
         unfilteredTotal: number;
       }>(
-        `/tranh-chap/cho-xu-ly${buildQuery({ page, pageSize: 10, khu_vuc: khuVucFilter, tinh: tinhFilter, nhom_kh: nhomKhFilter, thang: thangFilter, min_days: minDaysFilter !== null ? String(minDaysFilter) : "", id: idSearch || undefined })}`,
+        `/tranh-chap/cho-xu-ly${buildQuery({ page, pageSize: 10, khu_vuc: khuVucFilter, dg_loc: dgLocOf(tinhFilter), nhom_kh: nhomKhFilter, thang: thangFilter, min_days: minDaysFilter !== null ? String(minDaysFilter) : "", id: idSearch || undefined })}`,
       ),
     enabled: view === "cho-xu-ly",
   });
@@ -833,14 +846,14 @@ export function TranhChapModule({
     enabled: view === "tien-trinh",
   });
   const { data: ttData, isLoading: ttLoading, isError: ttError, refetch: refetchTt } = useQuery({
-    queryKey: ["tranh-chap-tien-trinh", ttPage, ttKhuVuc, ttTinh, ttNhomKh, ttPhanLoai, ttMucDo, ttTrangThai, ttHan, ttCuaToi, ttNguoiDangXuLy, ttLoaiDangXuLy, ttIdSearch],
+    queryKey: ["tranh-chap-tien-trinh", ttPage, ttKhuVuc, dgLocOf(ttTinh), ttNhomKh, ttPhanLoai, ttMucDo, ttTrangThai, ttHan, ttCuaToi, ttNguoiDangXuLy, ttLoaiDangXuLy, ttIdSearch],
     queryFn: () =>
       api.get<Paged<TienTrinhRow>>(
         `/tranh-chap/tien-trinh${buildQuery({
           page: ttPage,
           pageSize: 10,
           khu_vuc: ttKhuVuc,
-          tinh: ttTinh,
+          dg_loc: dgLocOf(ttTinh),
           nhom_kh: ttNhomKh,
           phan_loai: ttPhanLoai,
           muc_do: ttMucDo,
@@ -984,14 +997,14 @@ export function TranhChapModule({
   };
 
   const { data: dmData, isLoading: dmLoading, isError: dmError, refetch: refetchDm } = useQuery({
-    queryKey: ["tranh-chap-doi-may-tien-trinh", dmPage, dmKhuVuc, dmTinh, dmNhomKh, dmTrangThai, dmHan, dmIdSearch, dmNguoiDangXuLy, dmLoaiDangXuLy],
+    queryKey: ["tranh-chap-doi-may-tien-trinh", dmPage, dmKhuVuc, dgLocOf(dmTinh), dmNhomKh, dmTrangThai, dmHan, dmIdSearch, dmNguoiDangXuLy, dmLoaiDangXuLy],
     queryFn: () =>
       api.get<Paged<TienTrinhRow>>(
         `/tranh-chap/tien-trinh${buildQuery({
           page: dmPage,
           pageSize: 10,
           khu_vuc: dmKhuVuc,
-          tinh: dmTinh,
+          dg_loc: dgLocOf(dmTinh),
           nhom_kh: dmNhomKh,
           phan_loai: DOI_MAY_PHAN_LOAI,
           trang_thai: dmTrangThai,
@@ -1042,7 +1055,7 @@ export function TranhChapModule({
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={khuVucFilter} onChange={(v) => { setKhuVucFilter(v); setPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
-            <MultiSelectFilter label="Tỉnh" value={tinhFilter} onChange={(v) => { setTinhFilter(v); setPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={tinhFilter} onChange={(v) => { setTinhFilter(v); setPage(1); }} options={tinhSelectOptions} />
             <MultiSelectFilter label="Nhóm KH" value={nhomKhFilter} onChange={(v) => { setNhomKhFilter(v); setPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput
               value={idSearch}
@@ -1317,7 +1330,7 @@ export function TranhChapModule({
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={dmKhuVuc} onChange={(v) => { setDmKhuVuc(v); setDmPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
-            <MultiSelectFilter label="Tỉnh" value={dmTinh} onChange={(v) => { setDmTinh(v); setDmPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={dmTinh} onChange={(v) => { setDmTinh(v); setDmPage(1); }} options={tinhSelectOptions} />
             <MultiSelectFilter label="Nhóm KH" value={dmNhomKh} onChange={(v) => { setDmNhomKh(v); setDmPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput value={dmIdSearch} onChange={(v) => { setDmIdSearch(v); setDmPage(1); }} />
           </div>
@@ -1469,7 +1482,7 @@ export function TranhChapModule({
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={aiKhuVuc} onChange={(v) => { setAiKhuVuc(v); setAiPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
-            <MultiSelectFilter label="Tỉnh" value={aiTinh} onChange={(v) => { setAiTinh(v); setAiPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={aiTinh} onChange={(v) => { setAiTinh(v); setAiPage(1); }} options={tinhSelectOptions} />
             <MultiSelectFilter label="Nhóm KH" value={aiNhomKh} onChange={(v) => { setAiNhomKh(v); setAiPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput
               value={aiIdSearch}
@@ -1539,7 +1552,7 @@ export function TranhChapModule({
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={ddKhuVuc} onChange={(v) => { setDdKhuVuc(v); setDdPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
-            <MultiSelectFilter label="Tỉnh" value={ddTinh} onChange={(v) => { setDdTinh(v); setDdPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={ddTinh} onChange={(v) => { setDdTinh(v); setDdPage(1); }} options={tinhSelectOptions} />
             <MultiSelectFilter label="Nhóm KH" value={ddNhomKh} onChange={(v) => { setDdNhomKh(v); setDdPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput
               value={ddIdSearch}
@@ -1611,7 +1624,7 @@ export function TranhChapModule({
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={ldKhuVuc} onChange={(v) => { setLdKhuVuc(v); setLdPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
-            <MultiSelectFilter label="Tỉnh" value={ldTinh} onChange={(v) => { setLdTinh(v); setLdPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={ldTinh} onChange={(v) => { setLdTinh(v); setLdPage(1); }} options={tinhSelectOptions} />
             <MultiSelectFilter label="Nhóm KH" value={ldNhomKh} onChange={(v) => { setLdNhomKh(v); setLdPage(1); }} options={nhomKhSelectOptions} />
             <Select
               value={ldTrangThai}
@@ -1657,7 +1670,7 @@ export function TranhChapModule({
         <div className="mt-4">
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={ttKhuVuc} onChange={(v) => { setTtKhuVuc(v); setTtPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
-            <MultiSelectFilter label="Tỉnh" value={ttTinh} onChange={(v) => { setTtTinh(v); setTtPage(1); }} options={tinhSelectOptions} />
+            <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={ttTinh} onChange={(v) => { setTtTinh(v); setTtPage(1); }} options={tinhSelectOptions} />
             <MultiSelectFilter label="Nhóm KH" value={ttNhomKh} onChange={(v) => { setTtNhomKh(v); setTtPage(1); }} options={nhomKhSelectOptions} />
             <Select
               value={ttPhanLoai}

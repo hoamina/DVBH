@@ -122,6 +122,61 @@ export function multiValueAdHocClause(column: string, rawValue: string | undefin
 }
 
 /**
+ * Bo loc "Dia gioi cu / moi" (2026-10-10) - query param "dg_loc" = JSON do frontend (lib/diaGioi.ts buildDgLoc) dung:
+ *   {m:"cu"|"moi", t:[tinh tho], tm:[tinh_moi tho], h:[quan_huyen tho], x:[xa_moi tho]}
+ * Frontend chuan hoa ten + quy doi tinh cu -> moi roi KHAI TRIEN lua chon cua nguoi dung ve dung cac gia tri THO dang co
+ * trong case_dvbh (vd "Thanh pho Ha Noi" -> ["Ha Noi","Thanh pho Ha Noi"]) - server chi so khop chuoi, khong chuan hoa.
+ * Gia tri "" = nhom trong (ca chua co tinh cu / chua co xa moi...). Mang truyen qua 1 bind JSON + json_each (khong vuong
+ * gioi han 100 bind cua D1 du chon nhieu tinh).
+ * - m="cu":  tinh IN t [AND quan_huyen IN h]
+ * - m="moi": ca CO tinh_moi -> tinh_moi IN tm; ca CHUA co tinh_moi (moi ca QuickSight cu) -> tinh (cu) IN t (frontend
+ *            da gom san cac tinh cu quy doi ve tinh moi dang chon) [AND xa_moi IN x]
+ * Mang rong/vang mat = khong loc cap do. "prefix" = alias bang ("c." mac dinh, "" khi khong alias).
+ */
+export function diaGioiLoc(raw: string | undefined, prefix = "c."): { sql: string; binds: unknown[] } {
+  if (!raw) return { sql: "", binds: [] };
+  let loc: { m?: string; t?: unknown; tm?: unknown; h?: unknown; x?: unknown };
+  try {
+    loc = JSON.parse(raw);
+  } catch {
+    return { sql: "", binds: [] };
+  }
+  const arr = (v: unknown): string[] | null => (Array.isArray(v) && v.length > 0 ? v.map((x) => String(x ?? "")) : null);
+  const inJson = (expr: string) => `${expr} IN (SELECT value FROM json_each(?))`;
+  const t = arr(loc.t);
+  const tm = arr(loc.tm);
+  let sql = "";
+  const binds: unknown[] = [];
+  if (loc.m === "moi") {
+    if (t || tm) {
+      sql += ` AND (CASE WHEN COALESCE(${prefix}tinh_moi,'') <> '' THEN ${inJson(`${prefix}tinh_moi`)} ELSE ${inJson(`COALESCE(${prefix}tinh,'')`)} END)`;
+      binds.push(JSON.stringify(tm ?? []), JSON.stringify(t ?? []));
+    }
+    const x = arr(loc.x);
+    if (x) {
+      sql += ` AND ${inJson(`COALESCE(${prefix}xa_moi,'')`)}`;
+      binds.push(JSON.stringify(x));
+    }
+  } else {
+    if (t) {
+      sql += ` AND ${inJson(`COALESCE(${prefix}tinh,'')`)}`;
+      binds.push(JSON.stringify(t));
+    }
+    const h = arr(loc.h);
+    if (h) {
+      sql += ` AND ${inJson(`COALESCE(${prefix}quan_huyen,'')`)}`;
+      binds.push(JSON.stringify(h));
+    }
+  }
+  return { sql, binds };
+}
+
+/** Gop nhieu clause {sql, binds} thanh 1 (giu thu tu). */
+export function gopClause(...clauses: { sql: string; binds: unknown[] }[]): { sql: string; binds: unknown[] } {
+  return { sql: clauses.map((x) => x.sql).join(""), binds: clauses.flatMap((x) => x.binds) };
+}
+
+/**
  * Cac cot duoc phep dung lam "nhom theo" trong cac bao cao dang GROUP BY 1 chieu tuy chon
  * (missingParts.ts /by-khu-vuc, cases.ts /backlog-by-khu-vuc) - whitelist chong SQL injection ten
  * cot (khong the bind ten cot nhu gia tri thuong). Gia tri la ten cot THUAN (khong alias) - noi
@@ -165,7 +220,8 @@ export function sharedReportFilters(c: Context<{ Bindings: Env }>, prefix = ""):
     sql += clause.sql;
     binds.push(...clause.binds);
   }
-  return { sql, binds };
+  const dg = diaGioiLoc(c.req.query("dg_loc"), prefix);
+  return { sql: sql + dg.sql, binds: [...binds, ...dg.binds] };
 }
 
 // Chuyen tu routes/survey.ts (2026-08-22) de routes/viPham.ts dung lai duoc (funnel/leaderboard can

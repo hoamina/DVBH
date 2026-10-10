@@ -4,7 +4,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause, khuVucReportExclusionClause, multiValueAdHocClause } from "../lib/filterParams";
+import { khuVucAdHocClause, khuVucReportExclusionClause, multiValueAdHocClause, diaGioiLoc, gopClause } from "../lib/filterParams";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nextSequentialId, reserveSequentialIds } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
@@ -214,7 +214,7 @@ tranhChap.get("/cho-xu-ly", async (c) => {
   // CHOT 2026-08-20: bo loc "tinh" (chon nhieu tinh cung luc, chi luu localStorage phia client - xem
   // TranhChapModule.tsx) - hanh vi giong khuVucClause: anh huong CA StatCard/bucket (baseWhereSql) lan
   // danh sach, khong phai loc rieng danh sach nhu id/min_days.
-  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(multiValueAdHocClause("c.tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   // CHOT 2026-08-20: them "Nhom KH" (chon nhieu, giong "tinh" o tren) - mirror pattern cua BacklogModule.
   const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
   const monthParam = c.req.query("thang");
@@ -318,7 +318,7 @@ tranhChap.get("/cho-xac-nhan-ai", async (c) => {
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(multiValueAdHocClause("c.tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
   const monthParam = c.req.query("thang");
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
@@ -442,7 +442,7 @@ tranhChap.get("/theo-doi-doi-tra/cho-danh-gia", async (c) => {
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(multiValueAdHocClause("c.tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
   const monthParam = c.req.query("thang");
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
@@ -517,7 +517,7 @@ tranhChap.get("/luong-doi-tra", async (c) => {
   const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(multiValueAdHocClause("c.tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
   const idFilter = (c.req.query("id") ?? "").trim();
   const idClauseSql = idFilter ? " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)" : "";
@@ -622,7 +622,7 @@ tranhChap.get("/theo-doi-doi-tra/da-xac-nhan", async (c) => {
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(multiValueAdHocClause("c.tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
   const monthParam = c.req.query("thang");
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
@@ -959,7 +959,7 @@ tranhChap.get("/tien-trinh", async (c) => {
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
   // CHOT 2026-08-20: bo loc "tinh" (chon nhieu tinh cung luc) cho danh sach "Quan ly tien trinh" -
   // xem chu thich tuong tu o GET /cho-xu-ly ben tren.
-  const tinhClause = multiValueAdHocClause("c.tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(multiValueAdHocClause("c.tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   // CHOT 2026-08-20: them "Nhom KH" (chon nhieu) - mirror pattern cua BacklogModule/GET /cho-xu-ly.
   const nhomKhClause = multiValueAdHocClause("c.nhom_kh", c.req.query("nhom_kh"));
   const phanLoai = c.req.query("phan_loai");

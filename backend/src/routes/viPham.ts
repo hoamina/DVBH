@@ -13,6 +13,8 @@ import {
   dayRangeBounds,
   nguonCrmClause,
   extraDimFiltersFromParams,
+  diaGioiLoc,
+  gopClause,
 } from "../lib/filterParams";
 import { RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION } from "../lib/surveyConditions";
 import { uploadPublicImage } from "../lib/googleDrive";
@@ -54,6 +56,7 @@ export interface ViPhamFunnelParams {
   khu_vuc?: string;
   tinh?: string;
   quan_huyen?: string;
+  dg_loc?: string;
   ky_thuat_vien?: string;
   ngay_goi_tu?: string;
   ngay_goi_den?: string;
@@ -111,7 +114,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
   const scopeClauseCBase = khuVucWhereClause(scope, "c.khu_vuc");
   const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
-  const tinhClause = dimAdHocClause("c.tinh", "tinh", params.tinh);
+  const tinhClause = gopClause(dimAdHocClause("c.tinh", "tinh", params.tinh), diaGioiLoc(params.dg_loc));
   const quanHuyenSql = params.tinh && params.quan_huyen ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = params.tinh && params.quan_huyen ? [params.quan_huyen] : [];
   const ktvSql = params.ky_thuat_vien ? " AND c.ky_thuat_vien = ?" : "";
@@ -265,6 +268,7 @@ viPham.get("/funnel", async (c) => {
     thang: c.req.query("thang"),
     khu_vuc: c.req.query("khu_vuc"),
     tinh: c.req.query("tinh"),
+    dg_loc: c.req.query("dg_loc"),
     quan_huyen: c.req.query("quan_huyen"),
     ky_thuat_vien: c.req.query("ky_thuat_vien"),
     ngay_goi_tu: c.req.query("ngay_goi_tu"),

@@ -41,7 +41,7 @@ revenue.get("/", async (c) => {
     if (snap) return c.json(snap.payload[REVENUE_SNAPSHOT_FIELD[dim]]);
   }
   // "rv": doi khi doi output compute() (2 = them so_ca_co_dt, 2026-10-09) - cache cu cung ngay khong tu het han.
-  const key = buildReportKey("revenue", { ...params, rv: "2" }, scope);
+  const key = buildReportKey("revenue", { ...params, rv: "3" }, scope);
   const payload = await cachedReport(c.env.DB, key, ["cases"], () => computeRevenue(c.env.DB, params, scope));
   return c.json(payload);
 });

@@ -4398,3 +4398,16 @@ Tình trạng, số ca MB/MN dưới số ca; sắp xếp theo ưu tiên (tổng
 - Snapshot 08:00 của bảng KTV tạo trước bản này chưa có `so_ca_co_dt` → frontend tự gom từ dữ liệu KTV × tỉnh (sống).
 - Kiểm tra local tháng 07/2026: 933 ca, 250 ca phát sinh DT → 26.8%, TB đơn 612.765đ (khớp giữa bảng tỉnh và KTV);
   lọc HCM → 124 / 50 / 40.3% / 536.720đ.
+
+## 2026-10-10 — Địa giới cũ / mới (đợt 1: nền tảng + bộ lọc + Doanh thu) (v1.443, migration 0130)
+- Nút "Địa giới: Cũ | Mới" trên TopBar (`components/DiaGioiToggle.tsx`, lưu localStorage), thư viện `lib/diaGioi.ts`
+  (chuẩn hoá tên bỏ tiền tố/dấu, quy đổi cũ → mới, cây lựa chọn theo chế độ, dựng `dg_loc`).
+- Migration 0130 `tinh_quy_doi` (63 dòng); route `/api/dia-gioi` (quy-doi GET/PUT/DELETE, to-hop); Cài đặt → tab "Quy đổi tỉnh"
+  (`components/TinhQuyDoiSettings.tsx`, cảnh báo tên tỉnh trong dữ liệu chưa có quy đổi).
+- Backend `filterParams.ts diaGioiLoc` (+ `gopClause`) gắn vào survey (candidates/call-history/danh sách/báo cáo khu vực),
+  vi-pham funnel, tranh-chap (6 route), cases (sharedReportFilters + bản params) — cache key có `dg_loc`.
+- Khảo sát: `TinhHuyenFilterControl` viết lại (tỉnh → huyện/xã theo chế độ); Tranh chấp: 6 bộ lọc Tỉnh dùng option chuẩn hoá;
+  Doanh thu: server trả cặp (tinh, tinh_moi), client gom theo chế độ (key `rv: "3"`). Đổi chế độ → xoá lựa chọn tỉnh đang lưu.
+- Kiểm tra local: Doanh thu 07/2026 cũ 60 nhóm / mới 32 tỉnh, tổng giữ 933 ca; HCM mới 482 = HCM 350 + Bình Dương 62 +
+  BR-VT 49 + 21 ca chưa có tỉnh cũ; lọc xã mới thu hẹp đúng. Tên thật production gộp đủ 63 cũ / 34 mới.
+- Còn lại (đợt 2): các báo cáo nhóm theo Tỉnh + cột tỉnh/huyện trong danh sách.

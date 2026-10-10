@@ -9,6 +9,7 @@ import { ToggleSwitch } from "../components/ui/ToggleSwitch";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { StatCard } from "../components/ui/StatCard";
 import { ImportUploader } from "../components/ImportUploader";
+import { TinhQuyDoiSettings } from "../components/TinhQuyDoiSettings";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import {
@@ -1006,8 +1007,10 @@ export function SettingsModule() {
           { key: "etx-giai-trinh-sync-log", label: "Đồng bộ giải trình B2B (ETX)" },
           { key: "mua-hang", label: "Mua hàng" },
           { key: "google-drive", label: "Google Drive" },
+          { key: "quy-doi-tinh", label: "Quy đổi tỉnh" },
         ]}
       />
+      {tab === "quy-doi-tinh" && <TinhQuyDoiSettings />}
       {tab === "google-drive" && (
         <div className="mt-4 max-w-xl">
           <Card>

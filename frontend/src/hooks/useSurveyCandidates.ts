@@ -16,8 +16,8 @@ import type { CanKhaoSatRow } from "../modules/SurveyModule";
 export interface SurveyCandidatesFilters {
   thang: string;
   khuVuc?: string;
-  tinh?: string;
-  quanHuyen?: string;
+  // Bo loc tinh/huyen/xa theo "Địa giới cũ / mới" (2026-10-10) - xem lib/diaGioi.ts buildDgLoc.
+  dgLoc?: string;
   ktv?: string;
   // Mac dinh true (dung cho SurveyCallWorkspace.tsx - luon can du lieu de chon ca goi). SurveyModule.tsx
   // truyen rieng theo view/tab dang mo, tranh fetch ca 2 tab "Can khao sat"/"Qua han khao sat" khi
@@ -26,12 +26,12 @@ export interface SurveyCandidatesFilters {
 }
 
 function useCandidatesTab(tab: "can-khao-sat" | "qua-han-khao-sat", filters: SurveyCandidatesFilters) {
-  const { thang, khuVuc, tinh, quanHuyen, ktv, enabled = true } = filters;
+  const { thang, khuVuc, dgLoc, ktv, enabled = true } = filters;
   return useQuery({
-    queryKey: ["survey-candidates", tab, thang, khuVuc, tinh, quanHuyen, ktv],
+    queryKey: ["survey-candidates", tab, thang, khuVuc, dgLoc, ktv],
     queryFn: () =>
       api.get<{ rows: CanKhaoSatRow[] }>(
-        `/survey/candidates${buildQuery({ tab, thang, khu_vuc: khuVuc, tinh, quan_huyen: quanHuyen, ky_thuat_vien: ktv })}`,
+        `/survey/candidates${buildQuery({ tab, thang, khu_vuc: khuVuc, dg_loc: dgLoc, ky_thuat_vien: ktv })}`,
       ),
     enabled,
   });

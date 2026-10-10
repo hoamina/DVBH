@@ -16,6 +16,8 @@ import {
   dayRangeBounds,
   nguonCrmClause,
   extraDimFiltersFromParams,
+  diaGioiLoc,
+  gopClause,
 } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -68,7 +70,7 @@ survey.get("/candidates", async (c) => {
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const tinhClause = dimAdHocClause("c.tinh", "tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(dimAdHocClause("c.tinh", "tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   const quanHuyenSql = c.req.query("tinh") && c.req.query("quan_huyen") ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = c.req.query("tinh") && c.req.query("quan_huyen") ? [c.req.query("quan_huyen")] : [];
   const ktv = c.req.query("ky_thuat_vien");
@@ -124,7 +126,7 @@ survey.get("/call-history", async (c) => {
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
-  const tinhClause = dimAdHocClause("c.tinh", "tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(dimAdHocClause("c.tinh", "tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   const quanHuyenSql = c.req.query("tinh") && c.req.query("quan_huyen") ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = c.req.query("tinh") && c.req.query("quan_huyen") ? [c.req.query("quan_huyen")] : [];
   const ktv = c.req.query("ky_thuat_vien");
@@ -193,7 +195,7 @@ survey.get("/", async (c) => {
   const ageClause = ageFilterClause("c.thoi_gian_cskh_tiep_nhan", c.req.query("tuoi_tu"), c.req.query("tuoi_den"));
   // 3 bo loc them cho drill-down tu Bao cao khao sat theo khu vuc (Phan C) - quan_huyen chi ap
   // dung khi da chon 1 tinh cu the, giong quy uoc o computeSurveyKhuVucReport.
-  const tinhClause = dimAdHocClause("c.tinh", "tinh", c.req.query("tinh"));
+  const tinhClause = gopClause(dimAdHocClause("c.tinh", "tinh", c.req.query("tinh")), diaGioiLoc(c.req.query("dg_loc")));
   const quanHuyenSql = c.req.query("tinh") && c.req.query("quan_huyen") ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = c.req.query("tinh") && c.req.query("quan_huyen") ? [c.req.query("quan_huyen")] : [];
   const ktv = c.req.query("ky_thuat_vien");
@@ -251,6 +253,7 @@ survey.get("/", async (c) => {
     tuoi_den: c.req.query("tuoi_den"),
     tinh: c.req.query("tinh"),
     quan_huyen: c.req.query("quan_huyen"),
+    dg_loc: c.req.query("dg_loc"),
     ky_thuat_vien: c.req.query("ky_thuat_vien"),
     ngay_tu: c.req.query("ngay_tu"),
     ngay_den: c.req.query("ngay_den"),
@@ -537,6 +540,7 @@ export interface SurveyKhuVucParams {
   khu_vuc?: string;
   tinh?: string;
   quan_huyen?: string;
+  dg_loc?: string;
   ky_thuat_vien?: string;
   nguoi_khao_sat?: string;
   // Khoang ngay goi (CHOT 2026-08-06: doi tu 1 ngay don "ngay_goi" sang khoang - chu he thong yeu
@@ -656,7 +660,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
-  const tinhClause = dimAdHocClause("c.tinh", "tinh", params.tinh);
+  const tinhClause = gopClause(dimAdHocClause("c.tinh", "tinh", params.tinh), diaGioiLoc(params.dg_loc));
   // quan_huyen chi ap dung khi da chon 1 tinh cu the (tranh loc mo ho - nhieu tinh co the trung ten
   // huyen, vd "Thanh pho" o nhieu tinh khac nhau).
   const quanHuyenSql = params.tinh && params.quan_huyen ? " AND c.quan_huyen = ?" : "";
@@ -1022,6 +1026,7 @@ survey.get("/bao-cao-khu-vuc", async (c) => {
     khu_vuc: c.req.query("khu_vuc"),
     tinh: c.req.query("tinh"),
     quan_huyen: c.req.query("quan_huyen"),
+    dg_loc: c.req.query("dg_loc"),
     ky_thuat_vien: c.req.query("ky_thuat_vien"),
     nguoi_khao_sat: c.req.query("nguoi_khao_sat"),
     ngay_goi_tu: c.req.query("ngay_goi_tu"),
