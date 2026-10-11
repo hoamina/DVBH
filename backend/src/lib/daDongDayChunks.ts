@@ -57,7 +57,7 @@ async function sha256Hex(text: string): Promise<string> {
 async function computeDayRows(db: D1Database, ngay: string): Promise<Record<string, unknown>[]> {
   const { results } = await db
     .prepare(
-      `SELECT c.* FROM case_dvbh c
+      `SELECT c.* FROM case_hieu_luc c
        WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < date(?, '+1 day')
        ORDER BY c.id ASC`,
     )
@@ -138,7 +138,7 @@ export async function getDaDongReasons(db: D1Database, thang: string, start: str
            SELECT gt.case_id, gt.ly_do_cham, gt.ngay_giai_trinh, gt.ngay_du_kien_hoan_thanh, gt.linh_kien_thieu, gt.ngay_yeu_cau_co_hang,
                   ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
            FROM giai_trinh gt
-           WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?)
+           WHERE gt.case_id IN (SELECT id FROM case_hieu_luc WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?)
          )
          WHERE rn = 1`,
       )
@@ -235,7 +235,7 @@ export async function selfHealDaDongDayChunks(env: Env): Promise<{ checked: bool
   // dau - cac lan sau chi doc phan thay doi. Chap nhan duoc vi day la chi phi 1 lan, khong lap lai.
   const { results } = await db
     .prepare(
-      `SELECT DISTINCT date(thoi_gian_hoan_thanh) as ngay FROM case_dvbh
+      `SELECT DISTINCT date(thoi_gian_hoan_thanh) as ngay FROM case_hieu_luc
        WHERE thoi_gian_hoan_thanh IS NOT NULL AND updated_at > ?`,
     )
     .bind(marker ?? "0000-00-00")

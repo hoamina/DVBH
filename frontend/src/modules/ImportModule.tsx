@@ -149,7 +149,86 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
   );
 }
 
-export function ImportModule() {
+type HuyBoRow = {
+  id: string;
+  khach_hang: string | null;
+  khu_vuc: string | null;
+  ky_thuat_vien: string | null;
+  tien_do_hoan_thanh: string | null;
+  thoi_gian_hoan_thanh: string | null;
+  huy_bo_at: string;
+  huy_bo_by: string | null;
+  huy_bo_ly_do: string | null;
+};
+
+// Danh sach "Ca da huy bo" (Admin) - ca huy bo bi an khoi MOI bao cao/danh sach/bo loc (view
+// case_hieu_luc, migration 0133), day la noi duy nhat liet ke lai chung; bam 1 dong mo chi tiet ca de "Bo huy".
+function HuyBoListCard({ openCase }: { openCase?: (id: string) => void }) {
+  const [q, setQ] = useState("");
+  const { data, isLoading } = useQuery({
+    queryKey: ["cases-huy-bo-list", q.trim()],
+    queryFn: () => api.get<{ rows: HuyBoRow[] }>(`/cases/huy-bo${buildQuery({ id: q.trim() || undefined })}`),
+  });
+  const rows = data?.rows ?? [];
+  return (
+    <Card className="p-4 mt-5">
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+        <div className="font-display font-bold text-sm">Ca đã hủy bỏ {data ? `(${rows.length}${rows.length >= 2000 ? "+" : ""})` : ""}</div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Tìm theo ID / serial…"
+          className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-48"
+        />
+      </div>
+      <div className="text-xs text-[var(--ink-600)] mb-2">
+        Các ca này không được tính trong bất kỳ báo cáo, danh sách hay bộ lọc nào. Bấm vào 1 dòng để mở chi tiết ca và "Bỏ hủy ca" nếu cần.
+      </div>
+      {isLoading ? (
+        <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-[var(--ink-400)]">Không có ca nào.</div>
+      ) : (
+        <div className="overflow-auto max-h-[480px]">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-[var(--surface-0,white)]">
+              <tr className="text-left text-[var(--ink-400)]">
+                <th className="py-1.5 pr-3">ID</th>
+                <th className="py-1.5 pr-3">Khách hàng</th>
+                <th className="py-1.5 pr-3">Khu vực</th>
+                <th className="py-1.5 pr-3">KTV</th>
+                <th className="py-1.5 pr-3">Tiến độ</th>
+                <th className="py-1.5 pr-3">Hủy lúc</th>
+                <th className="py-1.5 pr-3">Người hủy</th>
+                <th className="py-1.5">Lý do</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.id}
+                  onClick={() => openCase?.(r.id)}
+                  className={`border-t border-[var(--line)] ${openCase ? "cursor-pointer hover:bg-[var(--surface-100)]" : ""}`}
+                >
+                  <td className="py-1.5 pr-3 font-mono">{r.id}</td>
+                  <td className="py-1.5 pr-3">{r.khach_hang ?? "—"}</td>
+                  <td className="py-1.5 pr-3">{r.khu_vuc ?? "—"}</td>
+                  <td className="py-1.5 pr-3">{r.ky_thuat_vien ?? "—"}</td>
+                  <td className="py-1.5 pr-3">{r.tien_do_hoan_thanh ?? "—"}</td>
+                  <td className="py-1.5 pr-3 whitespace-nowrap">{r.huy_bo_at}</td>
+                  <td className="py-1.5 pr-3">{r.huy_bo_by ?? "—"}</td>
+                  <td className="py-1.5">{r.huy_bo_ly_do ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function ImportModule({ openCase }: { openCase?: (id: string) => void } = {}) {
   const [tab, setTab] = useState("crm");
   const [updateColumnField, setUpdateColumnField] = useState("");
   // Toast tu dong bien mat sau 3.2s, khong hop de doc het danh sach loi (co the toi hang tram
@@ -545,9 +624,12 @@ export function ImportModule() {
               ["ca-lap-tong-quan"],
               ["missing-parts"],
               ["nap-gas"],
+              ["cases-huy-bo-ids"],
+              ["cases-huy-bo-list"],
             ]}
           />
           <ImportHistoryCard loai="huy_ca_bulk" exportFileName="lich_su_huy_ca.xlsx" />
+          <HuyBoListCard openCase={openCase} />
         </>
       )}
 

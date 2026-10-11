@@ -91,13 +91,13 @@ export async function computeNskxTongQuan(db: D1Database, params: NskxBaoCaoPara
       SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as co_tinh_24h,
       SUM(CASE WHEN thoi_gian_hoan_thanh IS NULL THEN 1 ELSE 0 END) as ton,
       SUM(loi_120p + loi_qua_han_24h + loi_lo_ke_hoach + loi_kh_hen_lai) as nghi_ngo
-    FROM case_dvbh WHERE 1=1${sql}`,
+    FROM case_hieu_luc WHERE 1=1${sql}`,
   )
     .bind(...binds)
     .first<Record<string, number>>();
 
   const tonDaGiaiTrinh = await db.prepare(
-    `SELECT COUNT(*) as n FROM case_dvbh c
+    `SELECT COUNT(*) as n FROM case_hieu_luc c
      WHERE c.thoi_gian_hoan_thanh IS NULL AND EXISTS (SELECT 1 FROM giai_trinh g WHERE g.case_id = c.id)${sqlC}`,
   )
     .bind(...bindsC)
@@ -105,7 +105,7 @@ export async function computeNskxTongQuan(db: D1Database, params: NskxBaoCaoPara
 
   const xacNhan = await db.prepare(
     `SELECT COUNT(*) as n FROM vi_pham v
-     INNER JOIN case_dvbh c ON c.id = v.case_id
+     INNER JOIN case_hieu_luc c ON c.id = v.case_id
      WHERE COALESCE(v.chot_bo_cap_2, CASE WHEN v.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1${sqlC}`,
   )
     .bind(...bindsC)
@@ -113,7 +113,7 @@ export async function computeNskxTongQuan(db: D1Database, params: NskxBaoCaoPara
 
   const daKhaoSat = await db.prepare(
     `SELECT COUNT(*) as n FROM vi_pham v
-     INNER JOIN case_dvbh c ON c.id = v.case_id
+     INNER JOIN case_hieu_luc c ON c.id = v.case_id
      WHERE 1=1${sqlC}`,
   )
     .bind(...bindsC)
@@ -160,7 +160,7 @@ export async function computeNskxDaChieu(db: D1Database, params: NskxBaoCaoParam
          SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) as sla_ok,
          SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han IS NOT NULL THEN 1 ELSE 0 END) as dung_han_tinh,
          SUM(loi_120p + loi_qua_han_24h + loi_lo_ke_hoach + loi_kh_hen_lai) as nghi_ngo
-       FROM case_dvbh WHERE ${dim} IS NOT NULL${sql}
+       FROM case_hieu_luc WHERE ${dim} IS NOT NULL${sql}
        GROUP BY ${dim}
        ORDER BY total DESC`,
     )
@@ -189,7 +189,7 @@ export async function computeNskxAging(db: D1Database, params: NskxBaoCaoParams,
         SUM(CASE WHEN ${age} < 2 THEN 1 ELSE 0 END) as bucket_0_1,
         SUM(CASE WHEN ${age} >= 2 AND ${age} < 4 THEN 1 ELSE 0 END) as bucket_2_3,
         SUM(CASE WHEN ${age} >= 4 THEN 1 ELSE 0 END) as bucket_4_plus
-      FROM case_dvbh WHERE thoi_gian_hoan_thanh IS NULL${sql}`,
+      FROM case_hieu_luc WHERE thoi_gian_hoan_thanh IS NULL${sql}`,
     )
     .bind(...binds)
     .first<{ bucket_0_1: number; bucket_2_3: number; bucket_4_plus: number }>();

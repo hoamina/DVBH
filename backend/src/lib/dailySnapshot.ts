@@ -182,7 +182,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
   const needIdQuery = (needExpr: string) =>
     db
       .prepare(
-        `SELECT c.id as id FROM case_dvbh c
+        `SELECT c.id as id FROM case_hieu_luc c
          ${joinScope}
          WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${needExpr}${khuVucClause}`,
       )
@@ -210,7 +210,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
   ] = await Promise.all([
     db
       .prepare(
-        `SELECT c.id as id, c.khu_vuc as khu_vuc FROM case_dvbh c
+        `SELECT c.id as id, c.khu_vuc as khu_vuc FROM case_hieu_luc c
          ${joinScope}
          WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${NEED_TONG}${khuVucClause}`,
       )
@@ -218,7 +218,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
       .all<{ id: string; khu_vuc: string | null }>(),
     db
       .prepare(
-        `SELECT c.id as id FROM case_dvbh c
+        `SELECT c.id as id FROM case_hieu_luc c
          WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${khuVucClause}`,
       )
       .bind(...khuVucBinds)
@@ -230,7 +230,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
            SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 5 THEN 1 ELSE 0 END) as tren_5,
            SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 7 THEN 1 ELSE 0 END) as tren_7,
            SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 14 THEN 1 ELSE 0 END) as tren_14
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${khuVucClause}`,
       )
       .bind(...khuVucBinds)
@@ -268,7 +268,7 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
            SUM(CASE WHEN ${NEED_B2B_1_NGAY} THEN 1 ELSE 0 END) as b2b_1_ngay,
            SUM(CASE WHEN ${NEED_NSKX_2_NGAY} THEN 1 ELSE 0 END) as nskx_2_ngay,
            SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          ${joinScope}
          WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.khu_vuc IS NOT NULL${khuVucClause}
          GROUP BY c.khu_vuc`,
@@ -365,7 +365,7 @@ export async function computeSnapshotPayload(db: D1Database, roleVariant: RoleVa
   const [linhKienRows, caLapRows, khaoSatRows, doanhThuRow, kpis, pivotResults, revenueByKhuVuc, revenueByHang, revenueByKtv, backlogBuckets] = await Promise.all([
     db
       .prepare(
-        `SELECT c.id as id FROM case_dvbh c
+        `SELECT c.id as id FROM case_hieu_luc c
          ${missingPartsJoin(CASE_FILTER_TON)}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${khuVucClause}`,
       )
@@ -379,14 +379,14 @@ export async function computeSnapshotPayload(db: D1Database, roleVariant: RoleVa
       .all<{ id: string }>(),
     db
       .prepare(
-        `SELECT c.id as id FROM case_dvbh c
+        `SELECT c.id as id FROM case_hieu_luc c
          WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1${khuVucClause}`,
       )
       .bind(...khuVucBinds)
       .all<{ id: string }>(),
     db
       .prepare(
-        `SELECT SUM(${REVENUE_EXPR_C}) as tong FROM case_dvbh c
+        `SELECT SUM(${REVENUE_EXPR_C}) as tong FROM case_hieu_luc c
          WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${kpiEligibleClause("c.")}${khuVucClause}`,
       )
       .bind(start, end, ...khuVucBinds)
@@ -903,7 +903,7 @@ export async function getBacklogSnapshotIds(
 
   if (khuVucFilter === QLDVBH_FILTER_VALUE) {
     // Nhóm các khu vực QLDVBH
-    const { results } = await db.prepare("SELECT DISTINCT khu_vuc FROM case_dvbh WHERE khu_vuc LIKE '%qldvbh%'").all<{ khu_vuc: string }>();
+    const { results } = await db.prepare("SELECT DISTINCT khu_vuc FROM case_hieu_luc WHERE khu_vuc LIKE '%qldvbh%'").all<{ khu_vuc: string }>();
     let list = results.map((r) => r.khu_vuc);
     // Loc theo DUNG scopeByKhuVuc nhu route /backlog-daily (StatCard) - truoc day chi loc Giam sat theo
     // khu_vuc_phu_trach, lech voi StatCard khi co khu_vuc_duoc_xem hoac vai tro khac co pham vi.
@@ -978,7 +978,7 @@ export async function generateKhuVucBacklogSnapshots(db: D1Database, generatedBy
   const ngay = getVnDateStr();
   const generatedAt = nowVN();
 
-  const { results } = await db.prepare("SELECT DISTINCT khu_vuc FROM case_dvbh WHERE khu_vuc IS NOT NULL").all<{ khu_vuc: string }>();
+  const { results } = await db.prepare("SELECT DISTINCT khu_vuc FROM case_hieu_luc WHERE khu_vuc IS NOT NULL").all<{ khu_vuc: string }>();
   for (const { khu_vuc } of results) {
     try {
       const buckets = await computeBacklogBuckets(db, [khu_vuc]);

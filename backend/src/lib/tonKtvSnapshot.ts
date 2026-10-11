@@ -37,7 +37,7 @@ export async function generateTonKtvSnapshot(db: D1Database): Promise<void> {
     .prepare(
       `SELECT COALESCE(c.ky_thuat_vien, '') AS ktv, COALESCE(c.khu_vuc, '') AS kv,
               COALESCE(${tuoiExpr}, -1) AS tuoi, COUNT(*) AS n
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        WHERE ${caseFilterTonAt0800("c")} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${exclusion.sql}
        GROUP BY 1, 2, 3`,
     )

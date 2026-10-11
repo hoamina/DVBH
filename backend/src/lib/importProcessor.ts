@@ -195,6 +195,16 @@ function buildFullOverwrite(
   const setClauses: string[] = [];
   const values: unknown[] = [];
   for (const field of BUSINESS_FIELDS) {
+    if (field === "khu_vuc") {
+      // Admin da sua tay khu vuc ca nay (migration 0133) -> GIU khu_vuc da sua, chi cap nhat khu_vuc_crm
+      // (gia tri CRM moi nhat, dung khi Admin bam "Khoi phuc theo CRM").
+      const v = businessFieldValue(field, incoming);
+      setClauses.push("khu_vuc = CASE WHEN khu_vuc_sua_at IS NOT NULL THEN khu_vuc ELSE ? END");
+      values.push(v);
+      setClauses.push("khu_vuc_crm = CASE WHEN khu_vuc_sua_at IS NOT NULL THEN ? ELSE khu_vuc_crm END");
+      values.push(v);
+      continue;
+    }
     setClauses.push(`${field} = ?`);
     values.push(businessFieldValue(field, incoming));
   }

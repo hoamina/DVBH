@@ -159,7 +159,7 @@ partnerApi.get("/cases", async (c) => {
   }
 
   // Tải trước số dòng kết quả từ D1
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as cnt FROM case_dvbh WHERE ${whereSql}`)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as cnt FROM case_hieu_luc WHERE ${whereSql}`)
     .bind(...whereBinds)
     .first<{ cnt: number }>();
   const totalCount = countRow?.cnt ?? 0;
@@ -202,14 +202,14 @@ partnerApi.get("/cases", async (c) => {
   }
 
   const { results: caseRows } = await c.env.DB.prepare(
-    `SELECT ${CASE_COLUMNS} FROM case_dvbh WHERE ${whereSql} ORDER BY id`,
+    `SELECT ${CASE_COLUMNS} FROM case_hieu_luc WHERE ${whereSql} ORDER BY id`,
   )
     .bind(...whereBinds)
     .all<PartnerCaseRow>();
 
   const { results: historyRows } = await c.env.DB.prepare(
     `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh FROM giai_trinh
-     WHERE case_id IN (SELECT id FROM case_dvbh WHERE ${whereSql})
+     WHERE case_id IN (SELECT id FROM case_hieu_luc WHERE ${whereSql})
      ORDER BY case_id, ngay_giai_trinh ASC`,
   )
     .bind(...whereBinds)

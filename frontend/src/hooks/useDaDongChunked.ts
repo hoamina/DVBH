@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useHuyBoIds } from "./useHuyBoIds";
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
 import type { CaseRow } from "../types";
@@ -122,5 +123,13 @@ export function useDaDongChunked(thang: string, enabled = true) {
     sync();
   }, [sync]);
 
-  return { rows, isLoading, isError, throttled, refetch: sync };
+  // Bo ca da huy bo (CHOT 2026-10-11): ca huy truoc khi chunk duoc ghi da co huy_bo_at trong chunk, ca
+  // huy SAU khi ghi chunk chi biet qua tap id tu server (xem useHuyBoIds).
+  const huyBoIds = useHuyBoIds();
+  const visibleRows = useMemo(
+    () => rows.filter((r) => !(r as { huy_bo_at?: string | null }).huy_bo_at && !huyBoIds.has(String(r.id))),
+    [rows, huyBoIds],
+  );
+
+  return { rows: visibleRows, isLoading, isError, throttled, refetch: sync };
 }

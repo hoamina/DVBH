@@ -18,7 +18,7 @@ export function missingPartsJoin(caseFilterSql: string): string {
       SELECT gt.case_id, gt.ly_do_cham,
              ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
       FROM giai_trinh gt
-      WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE ${caseFilterSql})
+      WHERE gt.case_id IN (SELECT id FROM case_hieu_luc WHERE ${caseFilterSql})
     ) WHERE rn = 1
   ) lg ON lg.case_id = c.id
   INNER JOIN settings_ly_do sld ON sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1
@@ -96,7 +96,7 @@ export async function computeDailyReportData(db: D1Database, user: AppUser): Pro
     // nay LUON khop voi tile "Tong can giai trinh" nguoi dung thay khi mo module Quan ly ton.
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${NEED_TONG}${khuVucClause}`,
       )
@@ -104,7 +104,7 @@ export async function computeDailyReportData(db: D1Database, user: AppUser): Pro
       .first<{ n: number }>(),
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          ${missingPartsJoin(CASE_FILTER_TON)}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${khuVucClause}`,
       )
@@ -116,7 +116,7 @@ export async function computeDailyReportData(db: D1Database, user: AppUser): Pro
     // lam.
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1${khuVucClause}`,
       )
       .bind(...khuVucBinds)
@@ -130,7 +130,7 @@ export async function computeDailyReportData(db: D1Database, user: AppUser): Pro
     canViewRevenue
       ? db
           .prepare(
-            `SELECT SUM(${REVENUE_EXPR_C}) as tong FROM case_dvbh c
+            `SELECT SUM(${REVENUE_EXPR_C}) as tong FROM case_hieu_luc c
              WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${kpiEligibleClause("c.")}${khuVucClause}`,
           )
           .bind(start, end, ...khuVucBinds)

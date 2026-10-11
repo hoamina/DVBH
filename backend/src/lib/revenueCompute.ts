@@ -83,7 +83,7 @@ export async function computeRevenue(
   if (params.dim === "ky_thuat_vien_tinh") {
     const { results } = await db.prepare(
       `SELECT ky_thuat_vien as nhom, tinh, tinh_moi, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
-       FROM case_dvbh WHERE ky_thuat_vien IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
+       FROM case_hieu_luc WHERE ky_thuat_vien IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
        GROUP BY ky_thuat_vien, tinh, tinh_moi`,
     )
       .bind(...binds)
@@ -96,7 +96,7 @@ export async function computeRevenue(
   if (params.dim === "tinh") {
     const { results } = await db.prepare(
       `SELECT tinh, tinh_moi, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
-       FROM case_dvbh WHERE ${KPI_ELIGIBLE_CLAUSE}${sql}
+       FROM case_hieu_luc WHERE ${KPI_ELIGIBLE_CLAUSE}${sql}
        GROUP BY tinh, tinh_moi`,
     )
       .bind(...binds)
@@ -111,14 +111,14 @@ export async function computeRevenue(
        SUM(COALESCE(dt_san_pham,0)) as dt_san_pham,
        SUM(COALESCE(dt_linh_kien,0)) as dt_linh_kien,
        SUM(COALESCE(dt_dich_vu,0)) as dt_dich_vu
-     FROM case_dvbh WHERE ${KPI_ELIGIBLE_CLAUSE}${sql}`,
+     FROM case_hieu_luc WHERE ${KPI_ELIGIBLE_CLAUSE}${sql}`,
   )
     .bind(...binds)
     .first();
 
   const { results } = await db.prepare(
     `SELECT ${dim} as nhom, COUNT(*) as so_ca, ${CO_DT_EXPR} as so_ca_co_dt, SUM(${REVENUE_EXPR}) as doanh_thu
-     FROM case_dvbh WHERE ${dim} IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
+     FROM case_hieu_luc WHERE ${dim} IS NOT NULL AND ${KPI_ELIGIBLE_CLAUSE}${sql}
      GROUP BY ${dim} ORDER BY doanh_thu DESC`,
   )
     .bind(...binds)

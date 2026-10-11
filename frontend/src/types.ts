@@ -52,6 +52,10 @@ export interface CaseRow {
   huy_bo_at: string | null;
   huy_bo_by: string | null;
   huy_bo_ly_do: string | null;
+  // Migration 0133 - Admin sua tay khu vuc (khu_vuc = gia tri hieu luc, khu_vuc_crm = gia tri CRM luc do)
+  khu_vuc_crm?: string | null;
+  khu_vuc_sua_by?: string | null;
+  khu_vuc_sua_at?: string | null;
   loi_120p: number;
   loi_qua_han_24h: number;
   loi_lo_ke_hoach: number;

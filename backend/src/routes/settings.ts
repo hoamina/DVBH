@@ -385,7 +385,7 @@ settings.get("/loai-yeu-cau-bo-qua-lap", async (c) => {
 // ta lam dieu kien so khop that bai am tham - xem eligibleClause() so sanh bang dau "=").
 settings.get("/loai-yeu-cau-bo-qua-lap/goi-y", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT DISTINCT loai_yeu_cau FROM case_dvbh WHERE loai_yeu_cau IS NOT NULL AND loai_yeu_cau != '' ORDER BY loai_yeu_cau",
+    "SELECT DISTINCT loai_yeu_cau FROM case_hieu_luc WHERE loai_yeu_cau IS NOT NULL AND loai_yeu_cau != '' ORDER BY loai_yeu_cau",
   ).all<{ loai_yeu_cau: string }>();
   return c.json({ rows: results.map((r) => r.loai_yeu_cau) });
 });
@@ -443,7 +443,7 @@ settings.get("/loai-yeu-cau-doi-tra", async (c) => {
 
 settings.get("/loai-yeu-cau-doi-tra/goi-y", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT DISTINCT loai_yeu_cau FROM case_dvbh WHERE loai_yeu_cau IS NOT NULL AND loai_yeu_cau != '' ORDER BY loai_yeu_cau",
+    "SELECT DISTINCT loai_yeu_cau FROM case_hieu_luc WHERE loai_yeu_cau IS NOT NULL AND loai_yeu_cau != '' ORDER BY loai_yeu_cau",
   ).all<{ loai_yeu_cau: string }>();
   return c.json({ rows: results.map((r) => r.loai_yeu_cau) });
 });
@@ -490,7 +490,7 @@ settings.get("/luu-y-loi-linh-kien-doi-tra", async (c) => {
 
 settings.get("/luu-y-loi-linh-kien-doi-tra/goi-y", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT DISTINCT luu_y_loi_linh_kien FROM case_dvbh WHERE luu_y_loi_linh_kien IS NOT NULL AND luu_y_loi_linh_kien != '' ORDER BY luu_y_loi_linh_kien",
+    "SELECT DISTINCT luu_y_loi_linh_kien FROM case_hieu_luc WHERE luu_y_loi_linh_kien IS NOT NULL AND luu_y_loi_linh_kien != '' ORDER BY luu_y_loi_linh_kien",
   ).all<{ luu_y_loi_linh_kien: string }>();
   return c.json({ rows: results.map((r) => r.luu_y_loi_linh_kien) });
 });

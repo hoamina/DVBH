@@ -55,7 +55,7 @@ const ph = (n: number) => Array(n).fill("?").join(", ");
 
 async function loadCasesByIds(db: D1Database, ids: string[]): Promise<CaseRowRaw[]> {
   return inChunks(ids, async (chunk) =>
-    (await db.prepare(`SELECT ${CASE_COLS} FROM case_dvbh c WHERE c.id IN (${ph(chunk.length)})`).bind(...chunk).all<CaseRowRaw>()).results,
+    (await db.prepare(`SELECT ${CASE_COLS} FROM case_hieu_luc c WHERE c.id IN (${ph(chunk.length)})`).bind(...chunk).all<CaseRowRaw>()).results,
   );
 }
 
@@ -80,7 +80,7 @@ async function loadExtras(db: D1Database, ids: string[]) {
       await db
         .prepare(
           `SELECT c.id AS case_id, tt.ngay_tao, ${CASE_TRANH_CHAP_STATUS_EXPR} AS trang_thai, ${TUOI_TIEN_TRINH_EXPR} AS tuoi_ngay
-           FROM case_dvbh c JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
+           FROM case_hieu_luc c JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
            WHERE c.id IN (${ph(chunk.length)})`,
         )
         .bind(...chunk)
@@ -134,7 +134,7 @@ export async function buildDanhSachTon(db: D1Database, loai: DanhSachTonLoai) {
 
   const { results: rows } = await db
     .prepare(
-      `SELECT ${CASE_COLS} FROM case_dvbh c
+      `SELECT ${CASE_COLS} FROM case_hieu_luc c
        WHERE c.doi_tac IN ('NSKX', '[NSKX]') AND c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL
          AND ${AGE_C} >= 3
        ORDER BY tuoi_ton DESC, c.id`,

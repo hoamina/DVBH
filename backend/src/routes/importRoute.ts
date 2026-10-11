@@ -456,6 +456,13 @@ importRoute.post("/update-column/commit", requireRole("Admin"), async (c) => {
   const statements = [...existing].map((id) => {
     const row = valid.get(id)!;
     const value = businessFieldValue(parsed.column, row);
+    // khu_vuc da duoc Admin sua tay (migration 0133): giu nguyen, chi cap nhat khu_vuc_crm.
+    if (parsed.column === "khu_vuc") {
+      return c.env.DB.prepare(
+        `UPDATE case_dvbh SET khu_vuc = CASE WHEN khu_vuc_sua_at IS NOT NULL THEN khu_vuc ELSE ? END,
+           khu_vuc_crm = CASE WHEN khu_vuc_sua_at IS NOT NULL THEN ? ELSE khu_vuc_crm END, updated_at = ? WHERE id = ?`,
+      ).bind(value, value, nowVN(), id);
+    }
     return c.env.DB.prepare(`UPDATE case_dvbh SET ${parsed.column} = ?, updated_at = ? WHERE id = ?`).bind(value, nowVN(), id);
   });
   for (let i = 0; i < statements.length; i += 500) {

@@ -24,7 +24,7 @@ export function latestGiaiTrinhJoin(caseFilterSql: string): string {
     SELECT * FROM (
       SELECT gt.*, ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
       FROM giai_trinh gt
-      WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE ${caseFilterSql})
+      WHERE gt.case_id IN (SELECT id FROM case_hieu_luc WHERE ${caseFilterSql})
     ) WHERE rn = 1
   ) lg ON lg.case_id = c.id
 `;

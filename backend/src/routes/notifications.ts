@@ -263,7 +263,7 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
     db
       .prepare(
         `SELECT COUNT(*) as n FROM vi_pham v
-         CROSS JOIN case_dvbh c ON c.id = v.case_id
+         CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClauseC.sql}`,
       )
       .bind(...scopeClauseC.binds)
@@ -284,7 +284,7 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_dvbh c INDEXED BY idx_case_nghi_ngo_nap_gas
-         WHERE c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC'
+         WHERE c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'Hoàn thành XLSC' AND c.huy_bo_at IS NULL
            AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?
            AND NOT EXISTS (SELECT 1 FROM nap_gas_danh_gia ndg WHERE ndg.case_id = c.id)${scopeClauseC.sql}`,
       )
@@ -297,7 +297,7 @@ export async function computeNotificationsCount(db: D1Database, user: AppUser, s
   // (theo phan quyen moi vai tro, co nghia la ap dung scopeClauseC nhu cu).
   const surveyCountRow = await db
     .prepare(
-      `SELECT COUNT(*) as n FROM case_dvbh c
+      `SELECT COUNT(*) as n FROM case_hieu_luc c
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
          AND c.can_khao_sat = 1
          AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?

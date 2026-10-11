@@ -194,6 +194,114 @@ function DiaChiCaCu({ c }: { c: CaseRow }) {
   );
 }
 
+// Admin sua tay khu vuc cua DUNG ca nay (backend PATCH/DELETE /cases/:id/khu-vuc, migration 0133) -
+// gia tri sua tay song sot qua import CRM; CRM van cap nhat khu_vuc_crm de "Khoi phuc theo CRM".
+function KhuVucField({ c }: { c: CaseRow }) {
+  const auth = useAuth();
+  const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(c.khu_vuc ?? "");
+  const { data: filters } = useQuery({
+    queryKey: ["dashboard-filters"],
+    queryFn: () => api.get<{ khuVuc: string[] }>("/dashboard/filters"),
+    enabled: open,
+  });
+  async function refresh() {
+    const fresh = await fetchCaseDetail(String(c.id));
+    const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${c.id}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+    qc.setQueryData(["case", String(c.id)], newEntry);
+    qc.invalidateQueries({ queryKey: ["backlog-list"] });
+    qc.invalidateQueries({ queryKey: ["backlog-by-khu-vuc"] });
+    qc.invalidateQueries({ queryKey: ["notifications-count"] });
+  }
+  const save = useMutation({
+    mutationFn: () => api.patch(`/cases/${c.id}/khu-vuc`, { khu_vuc: value }),
+    onSuccess: async () => {
+      addToast("Đã cập nhật khu vực");
+      setOpen(false);
+      await refresh();
+    },
+    onError: () => addToast("Không thể lưu khu vực, thử lại sau."),
+  });
+  const restore = useMutation({
+    mutationFn: () => api.delete(`/cases/${c.id}/khu-vuc`),
+    onSuccess: async () => {
+      addToast("Đã khôi phục khu vực theo CRM");
+      await refresh();
+    },
+    onError: () => addToast("Không thể khôi phục, thử lại sau."),
+  });
+  const options = Array.from(new Set([...(filters?.khuVuc ?? []), ...(c.khu_vuc ? [c.khu_vuc] : [])]));
+  return (
+    <>
+      <Field
+        label="Khu vực"
+        value={
+          <div className="space-y-1">
+            <span className="flex items-center gap-1.5">
+              {shortKhuVuc(c.khu_vuc)}
+              {isAdmin && (
+                <button
+                  type="button"
+                  title="Sửa khu vực của ca này (Admin)"
+                  onClick={() => {
+                    setValue(c.khu_vuc ?? "");
+                    setOpen(true);
+                  }}
+                  className="focus-ring rounded px-1 text-xs text-[var(--ink-400)] hover:text-[var(--ocean-600)]"
+                >
+                  ✎
+                </button>
+              )}
+            </span>
+            {c.khu_vuc_sua_at && (
+              <div className="text-[11px] font-normal text-[var(--ink-400)]">
+                <Badge tone="amber">Sửa tay</Badge> {c.khu_vuc_sua_by} · {fmtDateTime(c.khu_vuc_sua_at)} · CRM: {shortKhuVuc(c.khu_vuc_crm) || "—"}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => restore.mutate()}
+                    disabled={restore.isPending}
+                    className="ml-1 font-semibold text-[var(--ocean-600)] hover:underline disabled:opacity-40"
+                  >
+                    {restore.isPending ? "Đang khôi phục…" : "Khôi phục theo CRM"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        }
+      />
+      {isAdmin && (
+        <Modal
+          open={open}
+          onClose={() => setOpen(false)}
+          title={`Sửa khu vực ca ${c.id}`}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Btn variant="ghost" onClick={() => setOpen(false)}>
+                Hủy
+              </Btn>
+              <Btn onClick={() => save.mutate()} disabled={!value || value === c.khu_vuc || save.isPending}>
+                {save.isPending ? "Đang lưu…" : "Lưu"}
+              </Btn>
+            </div>
+          }
+        >
+          <div className="space-y-2 text-sm">
+            <div className="text-[var(--ink-600)]">
+              Chỉ áp dụng cho đúng ca này. Các lần import CRM sau sẽ không ghi đè khu vực đã sửa tay (vẫn khôi phục theo CRM được).
+            </div>
+            <Select value={value} onChange={setValue} options={options.map((k) => ({ value: k, label: k }))} className="w-full" />
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
 function renderCaseFieldsGrid(
   c: CaseRow,
   serialExtra?: ReactNode,
@@ -234,7 +342,7 @@ function renderCaseFieldsGrid(
       {/* Ca Odoo (ma SC...) luon hien 2 dong Mới/Cũ: Odoo khong nhap dia chi cu thi ghi ro, tranh hieu nham la chua dong bo */}
       {c.tinh_moi || c.xa_moi || c.tinh_cu || c.huyen_cu || c.xa_cu || /^SC\d/.test(String(c.id)) ? (
         <>
-          <Field label="Khu vực" value={shortKhuVuc(c.khu_vuc)} />
+          <KhuVucField c={c} />
           <div className="col-span-2">
             <Field
               label="Địa chỉ"
@@ -255,7 +363,7 @@ function renderCaseFieldsGrid(
         </>
       ) : (
         <>
-          <Field label="Khu vực" value={shortKhuVuc(c.khu_vuc)} />
+          <KhuVucField c={c} />
           <div className="col-span-2">
             <Field label="Địa chỉ" value={<DiaChiCaCu c={c} />} />
           </div>
@@ -1484,6 +1592,8 @@ export function CaseDetail({
     qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
     qc.invalidateQueries({ queryKey: ["missing-parts"] });
     qc.invalidateQueries({ queryKey: ["nap-gas"] });
+    qc.invalidateQueries({ queryKey: ["cases-huy-bo-ids"] });
+    qc.invalidateQueries({ queryKey: ["cases-huy-bo-list"] });
   }
 
   const huyCa = useMutation({

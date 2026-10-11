@@ -57,7 +57,7 @@ function needIdQuery(db: D1Database, needExpr: string) {
   const tonAnchorC = caseFilterTonAt0800("c");
   return db
     .prepare(
-      `SELECT c.id as id FROM case_dvbh c
+      `SELECT c.id as id FROM case_hieu_luc c
        WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${needExpr}${exclusion.sql}`,
     )
     .bind(...exclusion.binds)
@@ -68,7 +68,7 @@ function tranhChapIdQuery(db: D1Database, minAge: number) {
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   return db
     .prepare(
-      `SELECT c.id as id FROM case_dvbh c
+      `SELECT c.id as id FROM case_hieu_luc c
        JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
        WHERE ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${TRANH_CHAP_DONG_PLACEHOLDERS}) AND ${TUOI_TIEN_TRINH_EXPR} >= ?${exclusion.sql}`,
     )
@@ -117,7 +117,7 @@ export async function computeCanhBaoTonByKhuVuc(db: D1Database): Promise<Record<
            SUM(CASE WHEN ${NEED_VIP_SVIP_7_NGAY} THEN 1 ELSE 0 END) as vipSvip7,
            SUM(CASE WHEN ${NEED_LOC_TONG_3_NGAY} THEN 1 ELSE 0 END) as locTong3,
            SUM(CASE WHEN ${NEED_LOC_TONG_5_NGAY} THEN 1 ELSE 0 END) as locTong5
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.khu_vuc IS NOT NULL${exclusion.sql}
          GROUP BY c.khu_vuc`,
       )
@@ -128,7 +128,7 @@ export async function computeCanhBaoTonByKhuVuc(db: D1Database): Promise<Record<
         `SELECT c.khu_vuc as khu_vuc,
            SUM(CASE WHEN ${TUOI_TIEN_TRINH_EXPR} >= 3 THEN 1 ELSE 0 END) as tranhChap3,
            SUM(CASE WHEN ${TUOI_TIEN_TRINH_EXPR} >= 5 THEN 1 ELSE 0 END) as tranhChap5
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
          WHERE ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${TRANH_CHAP_DONG_PLACEHOLDERS}) AND c.khu_vuc IS NOT NULL${exclusion.sql}
          GROUP BY c.khu_vuc`,
@@ -223,7 +223,7 @@ export async function filterBucketsByKhuVuc(db: D1Database, buckets: CanhBaoTonB
   if (allIds.length === 0) return buckets;
   const khuVucClause = khuVucAdHocClause("khu_vuc", khuVucFilter);
   const { results } = await db
-    .prepare(`SELECT id FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))${khuVucClause.sql}`)
+    .prepare(`SELECT id FROM case_hieu_luc WHERE id IN (SELECT value FROM json_each(?))${khuVucClause.sql}`)
     .bind(JSON.stringify(allIds), ...khuVucClause.binds)
     .all<{ id: string }>();
   const allowed = new Set(results.map((r) => r.id));
@@ -269,7 +269,7 @@ export async function computeCanhBaoTonProgressToday(db: D1Database, buckets: Ca
     const [{ results: closedRows }, { results: gtRows }] = await Promise.all([
       db
         .prepare(
-          `SELECT id FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?)) AND thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < date(?, '+1 day')`,
+          `SELECT id FROM case_hieu_luc WHERE id IN (SELECT value FROM json_each(?)) AND thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < date(?, '+1 day')`,
         )
         .bind(JSON.stringify(normalIds), todayVN, todayVN)
         .all<{ id: string }>(),
@@ -292,7 +292,7 @@ export async function computeCanhBaoTonProgressToday(db: D1Database, buckets: Ca
       db
         .prepare(
           `SELECT c.id as case_id, ll.trang_thai_xu_ly as trang_thai, ll.created_at as latest_log_at
-           FROM case_dvbh c
+           FROM case_hieu_luc c
            JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
            JOIN tranh_chap_log ll ON ll.id = (SELECT id FROM tranh_chap_log WHERE tien_trinh_id = tt.id ORDER BY id DESC LIMIT 1)
            WHERE c.id IN (SELECT value FROM json_each(?))`,

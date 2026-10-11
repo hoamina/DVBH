@@ -25,7 +25,7 @@ function baseJoin(caseFilterSql: string): string {
       SELECT gt.case_id, gt.ly_do_cham, gt.linh_kien_thieu, gt.ngay_yeu_cau_co_hang, gt.ngay_du_kien_hoan_thanh,
              ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
       FROM giai_trinh gt
-      WHERE gt.case_id IN (SELECT id FROM case_dvbh WHERE ${caseFilterSql})
+      WHERE gt.case_id IN (SELECT id FROM case_hieu_luc WHERE ${caseFilterSql})
     ) WHERE rn = 1
   ) lg ON lg.case_id = c.id
   INNER JOIN settings_ly_do sld ON sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1
@@ -121,7 +121,7 @@ missingParts.get("/", async (c) => {
   // id DESC/moi nhat truoc nhu cu) - theo yeu cau uu tien xu ly ca cang tre cang truoc.
   const query = `
     SELECT ${SELECT_COLS}, COUNT(*) OVER() as total_count
-    FROM case_dvbh c
+    FROM case_hieu_luc c
     ${baseJoin(CASE_FILTER_TON)}
     WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}
     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), tuoi_ton DESC, c.id DESC
@@ -192,7 +192,7 @@ export async function computeMissingPartsByKhuVuc(db: D1Database, params: Missin
          SUM(CASE WHEN ${AGE_EXPR} >= 1 THEN COALESCE(c.dt_linh_kien, 0) ELSE 0 END) as tong_gia_tri_linh_kien,
          COUNT(DISTINCT CASE WHEN ${AGE_EXPR} >= 1 THEN lg.linh_kien_thieu END) as so_ma_linh_kien,
          SUM(CASE WHEN ${AGE_EXPR} >= 1 AND c.thoi_gian_hen_xu_ly IS NOT NULL AND c.thoi_gian_hen_xu_ly < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as lo_ke_hoach
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        ${baseJoin(CASE_FILTER_TON)}
        WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${scopeClause.sql}${extraFilter}
        GROUP BY ${dimCol}
@@ -235,7 +235,7 @@ export async function computeLinhKienThieu(db: D1Database, params: LinhKienThieu
               MAX(${AGE_EXPR}) as tuoi_max, SUM(${AGE_EXPR}) as tong_tuoi,
               SUM(CASE WHEN c.khu_vuc LIKE '%qldvbh.mb%' OR c.khu_vuc LIKE '%miền Bắc%' THEN 1 ELSE 0 END) as so_ca_mb,
               SUM(CASE WHEN c.khu_vuc LIKE '%qldvbh.mn%' OR c.khu_vuc LIKE '%miền Nam%' THEN 1 ELSE 0 END) as so_ca_mn
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        ${baseJoin(CASE_FILTER_TON)}
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = lg.linh_kien_thieu
        WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL

@@ -194,7 +194,7 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_chua_gt_3_ngay} THEN 1 ELSE 0 END) as dmx_chua_gt_3_ngay,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_tai_giai_trinh} THEN 1 ELSE 0 END) as dmx_tai_giai_trinh,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_lo_ke_hoach} THEN 1 ELSE 0 END) as dmx_lo_ke_hoach
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
        WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}`,
     )
@@ -256,7 +256,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
            SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
            SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14,
            SUM(CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 1 ELSE 0 END) as vip_ton
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}${extraFilter}`,
       )
       .bind(...scopeClauseC.binds, ...extraBinds)
@@ -270,7 +270,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
     const row = await db
       .prepare(
         `SELECT SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}${extraFilter}`,
       )
@@ -330,7 +330,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
            SUM(CASE WHEN ${AGE_EXPR} >= 5 THEN 1 ELSE 0 END) as tren_5,
            SUM(CASE WHEN ${AGE_EXPR} >= 7 THEN 1 ELSE 0 END) as tren_7,
            SUM(CASE WHEN ${AGE_EXPR} >= 14 THEN 1 ELSE 0 END) as tren_14
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
          GROUP BY ${dimCol}
          ORDER BY tong_ton DESC`,
@@ -355,7 +355,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.b2b} THEN 1 ELSE 0 END) as b2b_1_ngay,
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as nskx_2_ngay,
            SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
-         FROM case_dvbh c
+         FROM case_hieu_luc c
          ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
          GROUP BY ${dimCol}`,
@@ -589,7 +589,7 @@ cases.get("/", async (c) => {
       : latestGiaiTrinhJoin(snapshot0800 ? caseFilterTonAt0800() : CASE_FILTER_TON_AND_CLOSED_RECENTLY);
 
   const countRow = await c.env.DB.prepare(
-    `SELECT COUNT(*) as total FROM case_dvbh c ${join} ${whereSql}`,
+    `SELECT COUNT(*) as total FROM case_hieu_luc c ${join} ${whereSql}`,
   )
     .bind(...binds)
     .first<{ total: number }>();
@@ -649,7 +649,7 @@ cases.get("/", async (c) => {
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.loc_tong_bcn} THEN 1 ELSE 0 END) as need_loc_tong_bcn,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.vip_24h} THEN 1 ELSE 0 END) as need_vip_24h,
            ${AGE_EXPR} as tuoi_ton
-    FROM case_dvbh c
+    FROM case_hieu_luc c
     ${join}
     ${whereSql}
     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), ${sortExpr} ${sortDir}
@@ -747,7 +747,7 @@ cases.get("/search", async (c) => {
             (c.ca_lap_prior_ht IS NOT NULL AND c.huy_bo_at IS NULL
              AND (julianday(c.thoi_gian_hoan_thanh) - julianday(c.ca_lap_prior_ht)) <= ${NGUONG_NGAY_LAP}
              AND gl.chot_danh_gia_lap IS NULL) as can_giai_trinh_lap
-     FROM case_dvbh c LEFT JOIN giai_trinh_lap gl ON gl.case_id = c.id
+     FROM case_hieu_luc c LEFT JOIN giai_trinh_lap gl ON gl.case_id = c.id
      WHERE (c.id = ? OR c.seri_san_pham = ?)${scopeClause.sql}
      ORDER BY c.thoi_gian_hoan_thanh DESC LIMIT 20`,
   )
@@ -815,7 +815,7 @@ cases.get("/backlog-daily", async (c) => {
   const khuVucParam = c.req.query("khu_vuc");
   if (khuVucParam === QLDVBH_FILTER_VALUE) {
     const scope = scopeByKhuVuc(c);
-    const { results } = await c.env.DB.prepare("SELECT DISTINCT khu_vuc FROM case_dvbh WHERE khu_vuc LIKE '%qldvbh%'").all<{ khu_vuc: string }>();
+    const { results } = await c.env.DB.prepare("SELECT DISTINCT khu_vuc FROM case_hieu_luc WHERE khu_vuc LIKE '%qldvbh%'").all<{ khu_vuc: string }>();
     let list = results.map((r) => r.khu_vuc);
     if (scope !== null) list = list.filter((kv) => scope.includes(kv));
     const data = await getBacklogDailyForKhuVucGroup(c.env.DB, list);
@@ -1077,7 +1077,7 @@ cases.get("/tong-hop", async (c) => {
      ${scopeClause.sql}${khuVucClause.sql}${hangClause.sql}${trangThaiClause}${idClause.sql}`;
   const binds = [...scopeClause.binds, ...khuVucClause.binds, ...hangClause.binds, ...idClause.binds];
 
-  const baseQuery = `SELECT c.* FROM case_dvbh c ${whereSql} ORDER BY c.id DESC`;
+  const baseQuery = `SELECT c.* FROM case_hieu_luc c ${whereSql} ORDER BY c.id DESC`;
 
   if (c.req.query("export") === "true") {
     const { results } = await c.env.DB.prepare(`${baseQuery} LIMIT 5000`).bind(...binds).all();
@@ -1088,7 +1088,7 @@ cases.get("/tong-hop", async (c) => {
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
 
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c ${whereSql}`)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_hieu_luc c ${whereSql}`)
     .bind(...binds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(`${baseQuery} LIMIT ? OFFSET ?`)
@@ -1169,6 +1169,29 @@ cases.post("/:id/doi-tra/:action", async (c) => {
   });
   if (!kq.ok) return c.json({ error: kq.error }, kq.status >= 400 && kq.status < 600 ? (kq.status as 400) : 502);
   return c.json({ ok: true });
+});
+
+// GET /api/cases/huy-bo/ids - TOAN BO id ca da huy bo (moi user). Client dung de loc chunk R2 "Ca da
+// dong" (chunk chup du lieu luc import, ca huy SAU do van con trong chunk - khong ghi lai R2 khi huy).
+// Doc qua idx_case_huy_bo_at (migration 0037) - chi quet dung so ca da huy (~vai nghin).
+cases.get("/huy-bo/ids", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE huy_bo_at IS NOT NULL").all<{ id: string }>();
+  return c.json({ ids: results.map((r) => r.id) });
+});
+
+// GET /api/cases/huy-bo?id= - danh sach "Ca da huy bo" (chi Admin, CHOT 2026-10-11) - noi DUY NHAT con
+// liet ke ca huy bo (moi danh sach/bao cao khac doc view case_hieu_luc). Bam 1 dong mo chi tiet ca de
+// "Bo huy".
+cases.get("/huy-bo", requireRole("Admin"), async (c) => {
+  const idFilter = (c.req.query("id") ?? "").trim();
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, khach_hang, khu_vuc, ky_thuat_vien, tien_do_hoan_thanh, thoi_gian_hoan_thanh, huy_bo_at, huy_bo_by, huy_bo_ly_do
+     FROM case_dvbh WHERE huy_bo_at IS NOT NULL${idFilter ? " AND (id LIKE ? OR seri_san_pham LIKE ?)" : ""}
+     ORDER BY huy_bo_at DESC LIMIT 2000`,
+  )
+    .bind(...(idFilter ? [`%${idFilter}%`, `%${idFilter}%`] : []))
+    .all();
+  return c.json({ rows: results });
 });
 
 cases.get("/:id", async (c) => {
@@ -1372,6 +1395,43 @@ cases.post("/:id/bo-huy", requireRole("Admin"), async (c) => {
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
 
+  return c.json({ ok: true });
+});
+
+// PATCH /api/cases/:id/khu-vuc {khu_vuc} - Admin sua tay khu vuc DUNG cua 1 ca (CHOT 2026-10-11: chi
+// ca nay, khong lan sang ca khac cua cung KTV). Luu gia tri CRM truoc do vao khu_vuc_crm (chi lan dau
+// sua - sua lan 2 van giu gia tri CRM goc). Import CRM sau nay khong ghi de (xem migration 0133 +
+// importProcessor buildFullOverwrite). Bump "cases": khu_vuc doi -> moi bao cao/scope theo khu vuc doi.
+// Luu y: chunk R2 "Ca da dong" cua ngay hoan thanh ca nay giu khu_vuc cu toi lan import ke tiep ghi lai
+// ngay do (khong them diem ghi R2 moi - xem quy tac R2 trong CLAUDE.md).
+cases.patch("/:id/khu-vuc", requireRole("Admin"), async (c) => {
+  const id = c.req.param("id")!;
+  const body = await c.req.json<{ khu_vuc?: string }>().catch(() => ({}) as { khu_vuc?: string });
+  const khuVuc = body.khu_vuc?.trim();
+  if (!khuVuc) return c.json({ error: "INVALID_KHU_VUC" }, 400);
+  const user = c.get("user");
+  const result = await c.env.DB.prepare(
+    `UPDATE case_dvbh SET khu_vuc_crm = CASE WHEN khu_vuc_sua_at IS NULL THEN khu_vuc ELSE khu_vuc_crm END,
+       khu_vuc = ?, khu_vuc_sua_by = ?, khu_vuc_sua_at = ? WHERE id = ?`,
+  )
+    .bind(khuVuc, user.email, nowVN(), id)
+    .run();
+  if (!result.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+  return c.json({ ok: true });
+});
+
+// DELETE /api/cases/:id/khu-vuc - "Khoi phuc theo CRM": tra khu_vuc ve gia tri CRM moi nhat da luu.
+cases.delete("/:id/khu-vuc", requireRole("Admin"), async (c) => {
+  const id = c.req.param("id")!;
+  const result = await c.env.DB.prepare(
+    `UPDATE case_dvbh SET khu_vuc = khu_vuc_crm, khu_vuc_crm = NULL, khu_vuc_sua_by = NULL, khu_vuc_sua_at = NULL
+     WHERE id = ? AND khu_vuc_sua_at IS NOT NULL`,
+  )
+    .bind(id)
+    .run();
+  if (!result.meta.changes) return c.json({ error: "KHONG_CO_SUA_TAY" }, 404);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
   return c.json({ ok: true });
 });
 

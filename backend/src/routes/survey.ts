@@ -100,7 +100,7 @@ survey.get("/candidates", async (c) => {
               WHEN (SELECT k.can_goi_lai FROM ket_qua_goi k WHERE k.case_id = c.id ORDER BY k.ngay_gio_thuc_hien DESC LIMIT 1) = 1 THEN 'cho_goi_lai'
               ELSE 'con_loi_chua_goi'
             END as trang_thai_goi
-     FROM case_dvbh c
+     FROM case_hieu_luc c
      WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
        AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?
        AND ${timeCondition} AND c.can_khao_sat = 1${scopeClause.sql}${extraFilter}
@@ -141,7 +141,7 @@ survey.get("/call-history", async (c) => {
             k.ly_do_that_bai, k.can_goi_lai, k.nguoi_thuc_hien, k.ngay_gio_thuc_hien,
             c.khach_hang, c.khu_vuc, c.tinh, c.quan_huyen, c.ky_thuat_vien, c.seri_san_pham
      FROM ket_qua_goi k
-     INNER JOIN case_dvbh c ON c.id = k.case_id
+     INNER JOIN case_hieu_luc c ON c.id = k.case_id
      WHERE k.ngay_gio_thuc_hien >= ? AND k.ngay_gio_thuc_hien < ?${scopeClause.sql}${extraFilter}
      ORDER BY k.ngay_gio_thuc_hien DESC`,
   )
@@ -270,7 +270,7 @@ survey.get("/", async (c) => {
       totalCasesParams.co_giai_trinh === "true" ? ["cases", "vi_pham", "vi_pham_giai_trinh"] : ["cases", "vi_pham"],
       async () => {
         const row = await c.env.DB.prepare(
-          `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+          `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
            WHERE ${whereCore}${scopeClause.sql}${extraFilter}`,
         )
           .bind(...scopeClause.binds, ...extraBinds)
@@ -291,7 +291,7 @@ survey.get("/", async (c) => {
     // ~110-120K rows_read cho 200 dong tra ve). CROSS JOIN ep quet v truoc, tra c theo PK sau.
     const query = `
       SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham${giaiTrinhCols}
-      FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+      FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
       WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}
       ORDER BY v.ngay_ghi_nhan DESC
       LIMIT ?
@@ -305,7 +305,7 @@ survey.get("/", async (c) => {
     // CROSS JOIN ... ON - xem chu thich o nhanh "cho-qc" ben tren, cung 1 ly do/fix.
     const query = `
       SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham${giaiTrinhCols}
-      FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+      FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
       WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}
       ORDER BY v.ngay_ghi_nhan DESC
       LIMIT ?
@@ -321,7 +321,7 @@ survey.get("/", async (c) => {
     // song voi ket qua QC da chot, khong lan voi ca "khong loi").
     const query = `
       SELECT v.*, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.seri_san_pham${giaiTrinhCols}
-      FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+      FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
       WHERE v.chot_bo_cap_2 = 1${scopeClause.sql}${extraFilter}
       ORDER BY v.ngay_chot DESC
       LIMIT ?
@@ -362,11 +362,11 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
   const monthBinds = params.thang ? Object.values(monthBounds(params.thang)) : [];
 
   const canKhaoSatQuery = `
-    SELECT COUNT(*) as n FROM case_dvbh c
+    SELECT COUNT(*) as n FROM case_hieu_luc c
     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1${scopeClause.sql}${extraFilter}${monthClauseSql}
   `;
   const quaHanKhaoSatQuery = `
-    SELECT COUNT(*) as n FROM case_dvbh c
+    SELECT COUNT(*) as n FROM case_hieu_luc c
     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${OVERDUE_SURVEY_CONDITION} AND c.can_khao_sat = 1${scopeClause.sql}${extraFilter}${monthClauseSql}
   `;
   // CHOT 2026-08-20 (rao soat lag): "CROSS JOIN" thay "INNER JOIN" - ket qua giong het (SQLite coi 2
@@ -375,15 +375,15 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
   // roi moi tra case_dvbh theo PK, thay vi de planner tu chon (D1 Insights do duoc dang tu chon quet
   // gan het case_dvbh ~64k-201k rows/lan du dieu kien loc chinh nam o vi_pham).
   const choQcQuery = `
-    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}
   `;
   const daXuLyQuery = `
-    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}
   `;
   const viPhamDaChotQuery = `
-    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
     WHERE v.chot_bo_cap_2 = 1${scopeClause.sql}${extraFilter}
   `;
 
@@ -439,23 +439,23 @@ export async function computeSurveyByKhuVuc(db: D1Database, params: SurveyByKhuV
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
 
   const canKhaoSatQuery = `
-    SELECT c.khu_vuc as khu_vuc, COUNT(*) as n FROM case_dvbh c
+    SELECT c.khu_vuc as khu_vuc, COUNT(*) as n FROM case_hieu_luc c
     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1 AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
   const quaHanKhaoSatQuery = `
-    SELECT c.khu_vuc as khu_vuc, COUNT(*) as n FROM case_dvbh c
+    SELECT c.khu_vuc as khu_vuc, COUNT(*) as n FROM case_hieu_luc c
     WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${OVERDUE_SURVEY_CONDITION} AND c.can_khao_sat = 1 AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
   // CROSS JOIN ... ON - cung fix 2026-08-20 nhu computeSurveyCounts()/GET "/" (xem chu thich o do).
   const choQcQuery = `
-    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
   const daXuLyQuery = `
-    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+    SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
     WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL) AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
@@ -684,7 +684,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
          SUM(CASE WHEN c.loi_qua_han_24h=1 THEN 1 ELSE 0 END) as nghi_ngo_24h,
          SUM(CASE WHEN c.loi_lo_ke_hoach=1 THEN 1 ELSE 0 END) as nghi_ngo_lkh,
          SUM(CASE WHEN c.loi_kh_hen_lai=1 THEN 1 ELSE 0 END) as nghi_ngo_hl
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
        GROUP BY ${dimCol}`,
     )
@@ -695,7 +695,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
   const khoi2 = db
     .prepare(
       `SELECT ${dimCol} as nhom, COUNT(*) as tong_hoan_thanh
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
        GROUP BY ${dimCol}`,
     )
@@ -772,7 +772,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
          SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} THEN 1 ELSE 0 END) as vi_pham_hl,
          SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vhl.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as giai_trinh_ktv_hl,
          SUM(CASE WHEN c.loi_kh_hen_lai=1 AND vhl.id IS NOT NULL AND ${xacNhanExpr("vhl")} AND EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = vhl.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as giai_trinh_gs_hl
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        ${latestViPhamJoin("v120", "Loi 120 phut")}
        LEFT JOIN ket_qua_goi kq120 ON kq120.id = v120.ket_qua_goi_id
        ${latestViPhamJoin("v24h", "Hen qua 24h")}
@@ -813,7 +813,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
          SUM(CASE WHEN COALESCE(k.can_goi_lai,0) != 1 AND k.ket_qua_cuoc_goi = 'Liên hệ thành công' THEN 1 ELSE 0 END) as goi_thanh_cong,
          SUM(CASE WHEN COALESCE(k.can_goi_lai,0) != 1 AND (k.ket_qua_cuoc_goi IS NULL OR (k.ket_qua_cuoc_goi != 'Không cần khảo sát' AND k.ket_qua_cuoc_goi != 'Liên hệ thành công')) THEN 1 ELSE 0 END) as khao_sat_that_bai
        FROM ket_qua_goi k
-       INNER JOIN case_dvbh c ON c.id = k.case_id
+       INNER JOIN case_hieu_luc c ON c.id = k.case_id
        WHERE k.ngay_gio_thuc_hien >= ? AND k.ngay_gio_thuc_hien < ? AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${commonFilterSql}${params.nguoi_khao_sat ? " AND k.nguoi_thuc_hien = ?" : ""}
        GROUP BY ${dimCol}`,
     )
@@ -853,7 +853,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
          SUM(CASE WHEN ${RECENT_OR_OPEN_CONDITION} THEN 1 ELSE 0 END) as cho_khao_sat,
          SUM(CASE WHEN ${RECENT_OR_OPEN_CONDITION} AND ${latestCanGoiLai} = 1 THEN 1 ELSE 0 END) as cho_goi_lai,
          SUM(CASE WHEN ${RECENT_OR_OPEN_CONDITION} AND ${hasAnyCall} AND ${latestCanGoiLai} IS NOT 1 THEN 1 ELSE 0 END) as con_loi_chua_goi
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql} AND c.can_khao_sat = 1
        GROUP BY ${dimCol}`,
     )
@@ -868,7 +868,7 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
          SUM(CASE WHEN v.chot_bo_cap_2 = 1 THEN 1 ELSE 0 END) as ksnb_chot,
          SUM(CASE WHEN v.chot_bo_cap_2 = 0 THEN 1 ELSE 0 END) as ksnb_bo
        FROM vi_pham v
-       INNER JOIN case_dvbh c ON c.id = v.case_id
+       INNER JOIN case_hieu_luc c ON c.id = v.case_id
        WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ? AND ${dimCol} IS NOT NULL${commonFilterSql}
        GROUP BY ${dimCol}`,
     )

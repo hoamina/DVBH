@@ -85,7 +85,7 @@ napGas.get("/", async (c) => {
 
   const query = `
     SELECT ${SELECT_COLS}
-    FROM case_dvbh c
+    FROM case_hieu_luc c
     ${JOIN_DANH_GIA}
     WHERE ${NAP_GAS_ELIGIBLE} AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}${dimClause.sql}${trangThai}${idClause.sql}
   `;
@@ -128,7 +128,7 @@ napGas.patch(
     // khong bi khoa.
     const caseRow = await c.env.DB.prepare(
       `SELECT id, khu_vuc, ${ageExpr("c.thoi_gian_hoan_thanh")} as tuoi_hoan_thanh
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        WHERE c.id = ? AND c.huy_bo_at IS NULL`,
     )
       .bind(id)
@@ -199,7 +199,7 @@ export async function computeNapGasByKhuVuc(db: D1Database, params: NapGasByKhuV
          SUM(CASE WHEN ndg.danh_gia_nap_gas = 'Tu nap gas thay Block' THEN 1 ELSE 0 END) as tu_nap_gas_thay_block,
          SUM(CASE WHEN ndg.danh_gia_nap_gas = 'Sua chua khac' THEN 1 ELSE 0 END) as sua_chua_khac,
          SUM(CASE WHEN ndg.danh_gia_nap_gas = 'Kiem tra' THEN 1 ELSE 0 END) as kiem_tra
-       FROM case_dvbh c
+       FROM case_hieu_luc c
        ${JOIN_DANH_GIA}
        WHERE ${NAP_GAS_ELIGIBLE} AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${dimCol} IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
        GROUP BY ${dimCol}

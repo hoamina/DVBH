@@ -51,7 +51,7 @@ diaGioi.delete("/quy-doi", requireRole("Admin", "TBP DVBH"), async (c) => {
 diaGioi.get("/to-hop", async (c) => {
   const data = await cachedReport(c.env.DB, "dia-gioi/to-hop", ["cases"], async () => {
     const rows = await c.env.DB.prepare(
-      "SELECT DISTINCT tinh, quan_huyen, tinh_moi, xa_moi FROM case_dvbh",
+      "SELECT DISTINCT tinh, quan_huyen, tinh_moi, xa_moi FROM case_hieu_luc",
     ).raw<[string | null, string | null, string | null, string | null]>();
     return { rows };
   });

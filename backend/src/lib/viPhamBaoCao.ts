@@ -139,12 +139,12 @@ export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPham
 
   const [slGhiNhan, slKtvGiaiTrinh, slGsGiaiTrinh, slChoKtvGiaiTrinh, slChoQcChot, slQcDaChot, slQcDaBo] = await Promise.all([
     db
-      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id WHERE ${baseWhere}`)
+      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id WHERE ${baseWhere}`)
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
       .prepare(
-        `SELECT COUNT(DISTINCT v.id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+        `SELECT COUNT(DISTINCT v.id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          JOIN vi_pham_giai_trinh gt ON gt.vi_pham_id = v.id AND gt.nguon = 'ktv_qua_api'
          WHERE ${baseWhere}`,
       )
@@ -152,7 +152,7 @@ export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPham
       .first<{ n: number }>(),
     db
       .prepare(
-        `SELECT COUNT(DISTINCT v.id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+        `SELECT COUNT(DISTINCT v.id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          JOIN vi_pham_giai_trinh gt ON gt.vi_pham_id = v.id AND gt.nguon = 'giam_sat_nhap_tay'
          WHERE ${baseWhere}`,
       )
@@ -160,24 +160,24 @@ export async function computeViPhamBaoCaoTongQuan(db: D1Database, params: ViPham
       .first<{ n: number }>(),
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+        `SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          WHERE v.chot_bo_cap_2 IS NULL AND NOT ${daGiaiTrinhExists} AND ${baseWhere}`,
       )
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+        `SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          WHERE v.chot_bo_cap_2 IS NULL AND ${daGiaiTrinhExists} AND ${baseWhere}`,
       )
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
-      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id WHERE v.chot_bo_cap_2 = 1 AND ${baseWhere}`)
+      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id WHERE v.chot_bo_cap_2 = 1 AND ${baseWhere}`)
       .bind(...baseBinds)
       .first<{ n: number }>(),
     db
-      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id WHERE v.chot_bo_cap_2 = 0 AND ${baseWhere}`)
+      .prepare(`SELECT COUNT(*) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id WHERE v.chot_bo_cap_2 = 0 AND ${baseWhere}`)
       .bind(...baseBinds)
       .first<{ n: number }>(),
   ]);
@@ -256,7 +256,7 @@ export async function computeViPhamBaoCaoDaChieu(
          SUM(CASE WHEN EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id AND gt.nguon = 'ktv_qua_api') THEN 1 ELSE 0 END) as so_ktv_giai_trinh,
          SUM(CASE WHEN EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id AND gt.nguon = 'giam_sat_nhap_tay') THEN 1 ELSE 0 END) as so_gs_giai_trinh,
          SUM(CASE WHEN v.chot_bo_cap_2 IS NULL AND NOT ${daGiaiTrinhExists} THEN 1 ELSE 0 END) as so_cho_giai_trinh
-       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+       FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
        WHERE ${dimExpr} IS NOT NULL AND ${where}
        GROUP BY ${dimExpr}
        ORDER BY so_ghi_nhan DESC`,
@@ -318,7 +318,7 @@ export async function computeViPhamDiemThe(db: D1Database, params: ViPhamBaoCaoP
     .prepare(
       `SELECT ky_thuat_vien, MAX(khu_vuc) as khu_vuc, SUM(cnt) as so_vi_pham, SUM(diem) as tong_diem FROM (
          SELECT c.ky_thuat_vien as ky_thuat_vien, c.khu_vuc as khu_vuc, 1 as cnt, ${DIEM_THE_EXPR} as diem
-         FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          WHERE v.chot_bo_cap_2 = 1 AND c.ky_thuat_vien IS NOT NULL
            AND v.ngay_chot >= ? AND v.ngay_chot < ?${caseFilter.sql}
          UNION ALL
@@ -450,7 +450,7 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
          SELECT 'case' as source, v.id as id, v.case_id as case_id, c.khu_vuc as khu_vuc, c.ky_thuat_vien as ky_thuat_vien, c.khach_hang as khach_hang,
            COALESCE(v.loai_loi_chi_tiet, v.loai_loi) as loai_loi, v.ket_qua_cap_1 as ket_qua_cap_1, v.chot_bo_cap_2 as chot_bo_cap_2, ${DIEM_THE_EXPR} as diem_the,
            v.ghi_chu as ghi_chu, v.nguoi_ghi_nhan as nguoi_ghi_nhan, v.ngay_ghi_nhan as ngay_ghi_nhan, v.nguoi_chot as nguoi_chot, v.ngay_chot as ngay_chot${GIAI_TRINH_COLS}
-         FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+         FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          WHERE v.ngay_ghi_nhan >= ? AND v.ngay_ghi_nhan < ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'${caseFilter.sql}${cap1Filter.sql}${trangThaiSql}
          UNION ALL
          SELECT 'ktv' as source, vk.id as id, NULL as case_id, vk.khu_vuc as khu_vuc, vk.ky_thuat_vien as ky_thuat_vien, NULL as khach_hang,

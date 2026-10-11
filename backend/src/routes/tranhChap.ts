@@ -127,7 +127,7 @@ tranhChap.get("/tai-khoan-ton", async (c) => {
         tt.nguoi_xu_ly_hien_tai as nguoi_xu_ly,
         tt.dang_cho_nguoi_xu_ly_hien_tai as dang_cho_nguoi_xu_ly
       FROM tranh_chap_tien_trinh tt
-      CROSS JOIN case_dvbh c ON c.id = tt.case_id
+      CROSS JOIN case_hieu_luc c ON c.id = tt.case_id
       WHERE tt.dang_mo = 1
         AND c.archived_at IS NULL AND c.huy_bo_at IS NULL
         ${scopeClauseC.sql}
@@ -267,10 +267,10 @@ tranhChap.get("/cho-xu-ly", async (c) => {
   const ageColExpr = `CAST((julianday(${AGE_ANCHOR}) - julianday(c.thoi_gian_hoan_thanh)) AS INTEGER)`;
 
 
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${listWhereSql}`)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_hieu_luc c WHERE ${listWhereSql}`)
     .bind(...listBinds)
     .first<{ total: number }>();
-  const baseCountRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${baseWhereSql}`)
+  const baseCountRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_hieu_luc c WHERE ${baseWhereSql}`)
     .bind(...binds)
     .first<{ total: number }>();
   const bucketRow = await c.env.DB.prepare(
@@ -279,14 +279,14 @@ tranhChap.get("/cho-xu-ly", async (c) => {
        SUM(CASE WHEN ${ageColExpr} >= 7 THEN 1 ELSE 0 END) as cho_tu_7_ngay,
        SUM(CASE WHEN ${ageColExpr} >= 10 THEN 1 ELSE 0 END) as cho_tu_10_ngay,
        SUM(CASE WHEN ${ageColExpr} >= 14 THEN 1 ELSE 0 END) as cho_tu_14_ngay
-     FROM case_dvbh c WHERE ${baseWhereSql}`,
+     FROM case_hieu_luc c WHERE ${baseWhereSql}`,
   )
     .bind(...binds)
     .first<{ cho_tu_3_ngay: number; cho_tu_7_ngay: number; cho_tu_10_ngay: number; cho_tu_14_ngay: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.ly_do_qua_han as last_ly_do_cham,
        ${ageColExpr} as so_ngay_cho, ${IS_GQKN_DAY_LAI_GS_EXPR} as is_gqkn_day_lai_gs
-     FROM case_dvbh c WHERE ${listWhereSql}
+     FROM case_hieu_luc c WHERE ${listWhereSql}
      ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.thoi_gian_hoan_thanh ASC
      LIMIT ? OFFSET ?`,
   )
@@ -345,13 +345,13 @@ tranhChap.get("/cho-xac-nhan-ai", async (c) => {
   const listBinds = [...binds, ...idBinds];
   const ageColExpr = `CAST((julianday(${AGE_ANCHOR}) - julianday(c.thoi_gian_hoan_thanh)) AS INTEGER)`;
 
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${listWhereSql}`)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_hieu_luc c WHERE ${listWhereSql}`)
     .bind(...listBinds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.ly_do_qua_han as last_ly_do_cham,
        ${ageColExpr} as so_ngay_cho
-     FROM case_dvbh c WHERE ${listWhereSql}
+     FROM case_hieu_luc c WHERE ${listWhereSql}
      ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.thoi_gian_hoan_thanh ASC
      LIMIT ? OFFSET ?`,
   )
@@ -374,7 +374,7 @@ async function computeChoXacNhanAiCount(db: D1Database, scope: string[] | null):
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const row = await db
     .prepare(
-      `SELECT COUNT(*) as n FROM case_dvbh c
+      `SELECT COUNT(*) as n FROM case_hieu_luc c
        WHERE ${TRANH_CHAP_AI_CHO_XAC_NHAN} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id)${scopeClause.sql}`,
     )
     .bind(...scopeClause.binds)
@@ -466,12 +466,12 @@ tranhChap.get("/theo-doi-doi-tra/cho-danh-gia", async (c) => {
   const binds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...nhomKhClause.binds, ...monthBinds];
   const listBinds = [...binds, ...idBinds];
 
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${listWhereSql}`)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_hieu_luc c WHERE ${listWhereSql}`)
     .bind(...listBinds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.loai_yeu_cau, c.luu_y_loi_linh_kien
-     FROM case_dvbh c WHERE ${listWhereSql}
+     FROM case_hieu_luc c WHERE ${listWhereSql}
      ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.thoi_gian_hoan_thanh DESC
      LIMIT ? OFFSET ?`,
   )
@@ -487,7 +487,7 @@ async function computeTheoDoiDoiTraChoDanhGiaCount(db: D1Database, scope: string
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const row = await db
-    .prepare(`SELECT COUNT(*) as n FROM case_dvbh c WHERE ${THEO_DOI_DOI_TRA_CHO_DANH_GIA}${scopeClause.sql}`)
+    .prepare(`SELECT COUNT(*) as n FROM case_hieu_luc c WHERE ${THEO_DOI_DOI_TRA_CHO_DANH_GIA}${scopeClause.sql}`)
     .bind(...scopeClause.binds)
     .first<{ n: number }>();
   return row?.n ?? 0;
@@ -525,7 +525,7 @@ tranhChap.get("/luong-doi-tra", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT CAST(c.id AS TEXT) AS id, c.khach_hang, c.khu_vuc, c.tinh, c.nhom_kh, c.loai_yeu_cau, c.san_pham_bao_hanh,
             c.seri_san_pham, c.ky_thuat_vien, c.tien_do_hoan_thanh
-     FROM case_dvbh c
+     FROM case_hieu_luc c
      WHERE c.id IN (SELECT value FROM json_each(?))${scopeClauseBase.sql}${exclusion.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${idClauseSql}`,
   )
     .bind(
@@ -597,7 +597,7 @@ async function computeThangListDaXacNhanDoiTra(db: D1Database, scope: string[] |
   const scopeClause = { sql: scopeClauseBase.sql + exclusion.sql, binds: [...scopeClauseBase.binds, ...exclusion.binds] };
   const { results } = await db
     .prepare(
-      `SELECT DISTINCT strftime('%Y-%m', c.thoi_gian_hoan_thanh) as thang FROM case_dvbh c
+      `SELECT DISTINCT strftime('%Y-%m', c.thoi_gian_hoan_thanh) as thang FROM case_hieu_luc c
        WHERE ${THEO_DOI_DOI_TRA_DA_XAC_NHAN} AND c.thoi_gian_hoan_thanh IS NOT NULL${scopeClause.sql}
        ORDER BY thang DESC`,
     )
@@ -646,14 +646,14 @@ tranhChap.get("/theo-doi-doi-tra/da-xac-nhan", async (c) => {
   const binds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...nhomKhClause.binds, ...monthBinds];
   const listBinds = [...binds, ...idBinds];
 
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_dvbh c WHERE ${listWhereSql}`)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM case_hieu_luc c WHERE ${listWhereSql}`)
     .bind(...listBinds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.loai_yeu_cau, c.luu_y_loi_linh_kien,
        c.theo_doi_doi_tra_xac_nhan_boi, c.theo_doi_doi_tra_xac_nhan_luc,
        EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) as co_tien_trinh
-     FROM case_dvbh c WHERE ${listWhereSql}
+     FROM case_hieu_luc c WHERE ${listWhereSql}
      ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), c.thoi_gian_hoan_thanh DESC
      LIMIT ? OFFSET ?`,
   )
@@ -709,7 +709,7 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
         c.nghi_ngo_tranh_chap,
         ${CASE_TRANH_CHAP_STATUS_EXPR} as status,
         ${IS_GQKN_DAY_LAI_GS_EXPR} as is_gqkn_day_lai_gs
-      FROM case_dvbh c
+      FROM case_hieu_luc c
       WHERE ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))
         ${scopeClause.sql}
         ${monthClauseSql}
@@ -741,7 +741,7 @@ async function computeDoiMayTheoKhuVuc(db: D1Database, scope: string[] | null) {
          COUNT(*) as dang_mo,
          SUM(CASE WHEN tt.thoi_gian_du_kien_xong_hien_tai IS NOT NULL AND tt.thoi_gian_du_kien_xong_hien_tai < ${AGE_ANCHOR} THEN 1 ELSE 0 END) as qua_han
        FROM tranh_chap_tien_trinh tt
-       CROSS JOIN case_dvbh c ON c.id = tt.case_id
+       CROSS JOIN case_hieu_luc c ON c.id = tt.case_id
        WHERE tt.phan_loai_tranh_chap = ? AND tt.dang_mo = 1${scopeClause.sql}
        GROUP BY c.khu_vuc
        ORDER BY c.khu_vuc ASC`,
@@ -1042,7 +1042,7 @@ tranhChap.get("/tien-trinh", async (c) => {
   // tu chon quet case_dvbh (D1 Insights do duoc dang quet gan het ~188k rows/lan du dieu kien loc
   // chinh nam ben tranh_chap_tien_trinh/tranh_chap_log).
   const baseFrom = `FROM tranh_chap_tien_trinh tt
-    CROSS JOIN case_dvbh c ON c.id = tt.case_id
+    CROSS JOIN case_hieu_luc c ON c.id = tt.case_id
     LEFT JOIN tranh_chap_log ll ON ll.id = (SELECT id FROM tranh_chap_log WHERE tien_trinh_id = tt.id ORDER BY id DESC LIMIT 1)
     WHERE ${whereSql}`;
 
@@ -1122,7 +1122,7 @@ export async function computeTienTrinhStats(db: D1Database, scope: string[] | nu
          SUM(CASE WHEN tt.thoi_gian_du_kien_xong_hien_tai IS NOT NULL AND tt.thoi_gian_du_kien_xong_hien_tai >= ${AGE_ANCHOR} AND tt.thoi_gian_du_kien_xong_hien_tai < date(${AGE_ANCHOR}, '+2 day') THEN 1 ELSE 0 END) as sap_den_han,
          SUM(CASE WHEN CAST((julianday(datetime('now')) - julianday(tt.log_created_at_hien_tai)) AS INTEGER) >= 3 THEN 1 ELSE 0 END) as qua_han_cap_nhat
        FROM tranh_chap_tien_trinh tt
-       CROSS JOIN case_dvbh c ON c.id = tt.case_id
+       CROSS JOIN case_hieu_luc c ON c.id = tt.case_id
        WHERE tt.dang_mo = 1${scopeClause.sql}${phanLoaiClause}`,
     )
     .bind(...scopeClause.binds, ...(phanLoai ? [phanLoai] : []))
@@ -1215,7 +1215,7 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
   }
 
   const tt = await c.env.DB.prepare(
-    `SELECT tt.case_id, tt.dang_cho_nguoi_xu_ly_hien_tai, c.khu_vuc, ${latestLogStatusOfTienTrinh("tt.id")} as trang_thai FROM tranh_chap_tien_trinh tt JOIN case_dvbh c ON c.id = tt.case_id WHERE tt.id = ?`,
+    `SELECT tt.case_id, tt.dang_cho_nguoi_xu_ly_hien_tai, c.khu_vuc, ${latestLogStatusOfTienTrinh("tt.id")} as trang_thai FROM tranh_chap_tien_trinh tt JOIN case_hieu_luc c ON c.id = tt.case_id WHERE tt.id = ?`,
   )
     .bind(id)
     .first<{ case_id: string; dang_cho_nguoi_xu_ly_hien_tai: string | null; khu_vuc: string | null; trang_thai: string | null }>();
@@ -1321,7 +1321,7 @@ tranhChap.post("/log/:logId/log-con", async (c) => {
     `SELECT ll.id, ll.tien_trinh_id, ll.trang_thai_xu_ly, ll.dang_cho_nguoi_xu_ly, c.khu_vuc
      FROM tranh_chap_log ll
      JOIN tranh_chap_tien_trinh tt ON tt.id = ll.tien_trinh_id
-     JOIN case_dvbh c ON c.id = tt.case_id
+     JOIN case_hieu_luc c ON c.id = tt.case_id
      WHERE ll.id = ?`,
   )
     .bind(logId)
@@ -1498,7 +1498,7 @@ export async function computeTranhChapCount(db: D1Database, scope: string[] | nu
   const cond = isKsnb ? "IN" : "NOT IN";
   const row = await db
     .prepare(
-      `SELECT COUNT(*) as n FROM case_dvbh c
+      `SELECT COUNT(*) as n FROM case_hieu_luc c
        WHERE ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))${scopeClause.sql}
          AND c.thoi_gian_hoan_thanh >= ?
          AND ${CASE_TRANH_CHAP_STATUS_EXPR} ${cond} (${statusList.map(() => "?").join(", ")})`,

@@ -284,7 +284,7 @@ function MainApp({
           {active === "bao-cao-nskx" && <BaoCaoNskxModule />}
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}
           {active === "danh-sach-tong" && <DanhSachTongModule openCase={openCase} />}
-          {active === "import" && <ImportModule />}
+          {active === "import" && <ImportModule openCase={openCase} />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}
           {active === "giao-dien" && <ThemeModule />}

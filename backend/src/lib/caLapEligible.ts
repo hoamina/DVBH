@@ -22,6 +22,6 @@
 // tra ve 0/am o Bao cao theo khu vuc). Fix: qualify ro ve TRAI (case_dvbh.loai_yeu_cau) khi prefix
 // rong - SQLite cho phep dung ten bang goc de qualify khi KHONG co alias rieng trong FROM.
 export function eligibleClause(prefix: string): string {
-  const outerLoaiYeuCau = prefix ? `${prefix}loai_yeu_cau` : "case_dvbh.loai_yeu_cau";
+  const outerLoaiYeuCau = prefix ? `${prefix}loai_yeu_cau` : "case_hieu_luc.loai_yeu_cau"; // 2026-10-11: moi cho goi prefix="" doc view case_hieu_luc (migration 0133)
   return ` AND ${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND (${prefix}hinh_thuc_bao_hanh IS NULL OR ${prefix}hinh_thuc_bao_hanh != 'Gọi điện tư vấn') AND ${prefix}huy_bo_at IS NULL AND NOT EXISTS (SELECT 1 FROM settings_loai_yeu_cau_bo_qua_lap x WHERE x.loai_yeu_cau = ${outerLoaiYeuCau} AND x.bat_tat = 1)`;
 }

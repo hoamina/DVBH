@@ -146,7 +146,7 @@ caLap.get("/danh-sach", async (c) => {
       const exclusionOrigin = khuVucReportExclusionClause("o.khu_vuc");
       const { results: originResults } = await c.env.DB.prepare(
         `${CA_LAP_CTE}
-        SELECT o.* FROM case_dvbh o
+        SELECT o.* FROM case_hieu_luc o
         WHERE o.id IN (SELECT lap.prior_id FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id ${whereSql})
           AND o.thoi_gian_hoan_thanh >= ? AND o.thoi_gian_hoan_thanh < ?${scopeClauseOrigin.sql}${exclusionOrigin.sql}`,
       )
@@ -232,7 +232,7 @@ caLap.get("/danh-sach/status", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT gl.*
      FROM giai_trinh_lap gl
-     JOIN case_dvbh c ON c.id = gl.case_id
+     JOIN case_hieu_luc c ON c.id = gl.case_id
      WHERE c.ca_lap_prior_ht IS NOT NULL
        AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}`,
   )
@@ -315,11 +315,11 @@ interface KtvRowB {
 async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
   const { scopeClause, scopeClauseLap, khuVucClause, khuVucClauseLap, rasoatBinds, lapBinds } = ctx;
 
-  const raSoatQuery = `SELECT COUNT(*) as n FROM case_dvbh WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
-  const validQuery = `SELECT COUNT(*) as n FROM case_dvbh
+  const raSoatQuery = `SELECT COUNT(*) as n FROM case_hieu_luc WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
+  const validQuery = `SELECT COUNT(*) as n FROM case_hieu_luc
     WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?
       AND seri_san_pham IS NOT NULL AND length(seri_san_pham) > 4
-      AND NOT EXISTS (SELECT 1 FROM blacklist_serial b WHERE b.seri_san_pham = UPPER(TRIM(case_dvbh.seri_san_pham)) AND b.bat_tat = 1)
+      AND NOT EXISTS (SELECT 1 FROM blacklist_serial b WHERE b.seri_san_pham = UPPER(TRIM(case_hieu_luc.seri_san_pham)) AND b.bat_tat = 1)
       ${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
 
   // Tach tu lapKpiQuery goc: 4 cot nay chi doc CTE `lap` (case_dvbh), khong doc gl.* nen khong can
@@ -339,16 +339,16 @@ async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
   const khuVucQueryA = `
     WITH raSoatByKv AS (
       SELECT khu_vuc, COUNT(*) as raSoat
-      FROM case_dvbh
+      FROM case_hieu_luc
       WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}
       GROUP BY khu_vuc
     ),
     validByKv AS (
       SELECT khu_vuc, COUNT(*) as validSerial
-      FROM case_dvbh
+      FROM case_hieu_luc
       WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?
         AND seri_san_pham IS NOT NULL AND length(seri_san_pham) > 4
-        AND NOT EXISTS (SELECT 1 FROM blacklist_serial b WHERE b.seri_san_pham = UPPER(TRIM(case_dvbh.seri_san_pham)) AND b.bat_tat = 1)
+        AND NOT EXISTS (SELECT 1 FROM blacklist_serial b WHERE b.seri_san_pham = UPPER(TRIM(case_hieu_luc.seri_san_pham)) AND b.bat_tat = 1)
         ${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}
       GROUP BY khu_vuc
     ),
@@ -376,7 +376,7 @@ async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
   const ktvQueryA = `
     WITH raSoatByKtv AS (
       SELECT ky_thuat_vien, COUNT(*) as raSoat
-      FROM case_dvbh
+      FROM case_hieu_luc
       WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}
       GROUP BY ky_thuat_vien
     ),
@@ -651,7 +651,7 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
       .prepare(
         `SELECT id, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
                 (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
-         FROM case_dvbh WHERE id = ? AND ca_lap_prior_ht IS NOT NULL AND huy_bo_at IS NULL`,
+         FROM case_hieu_luc WHERE id = ? AND ca_lap_prior_ht IS NOT NULL AND huy_bo_at IS NULL`,
       )
       .bind(caseId)
       .first<{ id: string; gap_days: number; prior_id: string; prior_ht: string }>(),
@@ -673,7 +673,7 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
         `SELECT c.id, c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hoan_thanh, c.ky_thuat_vien, c.tien_do_hoan_thanh, c.cach_thuc_xu_ly, c.link_crm, c.huy_bo_at,
                 (c.ca_lap_prior_ht IS NOT NULL AND c.huy_bo_at IS NULL AND (julianday(c.thoi_gian_hoan_thanh) - julianday(c.ca_lap_prior_ht)) <= ${NGUONG_NGAY_LAP}) as eligible_for_eval,
                 gl.chot_danh_gia_lap, gl.qc_chot
-         FROM case_dvbh c LEFT JOIN giai_trinh_lap gl ON gl.case_id = c.id
+         FROM case_hieu_luc c LEFT JOIN giai_trinh_lap gl ON gl.case_id = c.id
          WHERE c.seri_san_pham = ? ORDER BY c.thoi_gian_cskh_tiep_nhan DESC`,
       )
       .bind(seri)

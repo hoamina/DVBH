@@ -4449,3 +4449,26 @@ Code:
   (Tổng RTAT MB/MN + SLA/24h cuối tuần) cho 16 tháng 04/2025 → 07/2026, nguon='tay' (sửa được qua ✎).
   08–09/2026 không có trong ảnh → để trống. TB RTAT hiển thị tính lại = tổng ngày × 24 / số ca lũy kế
   của miền, nên lệch nhẹ so với cột TB của sheet.
+
+## 2026-10-11 — Ca hủy bỏ không tính ở đâu nữa + Admin sửa tay khu vực của ca (v1.446, migration 0133)
+Yêu cầu: (1) trong chi tiết ca cho Admin chọn lại khu vực đúng; (2) ca đã hủy không tính trong bất kỳ báo
+cáo nào, không hiện trong danh sách/bộ lọc/lựa chọn. Chốt với chủ hệ thống:
+- Sửa khu vực áp cho **đúng ca đang mở**, giữ nguyên qua các lần import CRM.
+- "Ca hủy" = ca Admin **"Hủy bỏ"** (`huy_bo_at`, ~3.514 ca), KHÔNG gồm ca CRM có `ly_do_huy`.
+- Admin vẫn mở được ca hủy bằng tìm ID + có danh sách riêng "Ca đã hủy bỏ".
+
+Code:
+- `migrations/0133_case_hieu_luc_va_khu_vuc_thu_cong.sql`: VIEW `case_hieu_luc` (= `case_dvbh WHERE
+  huy_bo_at IS NULL`); 3 cột `khu_vuc_crm`/`khu_vuc_sua_by`/`khu_vuc_sua_at`; bump mọi data_versions +
+  xóa `precomputed_cache`.
+- ~150 truy vấn đọc (báo cáo, danh sách, dropdown, partner `/cases`, chunk R2 đã đóng) đổi `case_dvbh` →
+  `case_hieu_luc`. Giữ bảng gốc cho: luồng ghi, tra 1 ca theo id, truy vấn có `INDEXED BY` (SQLite không
+  cho trên view — các chỗ đó tự thêm `huy_bo_at IS NULL`). EXPLAIN xác nhận view vẫn dùng index gốc.
+  `eligibleClause("")` qualify `case_hieu_luc.loai_yeu_cau`.
+- Ca hủy SAU khi chunk R2 ngày đó đã ghi vẫn nằm trong chunk → client lọc bằng `GET /api/cases/huy-bo/ids`
+  (`hooks/useHuyBoIds.ts`, áp trong `useDaDongChunked` + `useMissingPartsDaDongChunked`). Không thêm điểm ghi R2.
+- Khu vực sửa tay: `PATCH/DELETE /api/cases/:id/khu-vuc` (Admin); import (`buildFullOverwrite` + "cập nhật
+  1 cột") không ghi đè `khu_vuc` khi `khu_vuc_sua_at` có giá trị, chỉ cập nhật `khu_vuc_crm`. UI:
+  `KhuVucField` trong `CaseDetail.tsx` (✎, badge "Sửa tay", "Khôi phục theo CRM").
+- `GET /api/cases/huy-bo?id=` (Admin) + card "Ca đã hủy bỏ" trong Import → tab Hủy ca; bấm dòng mở chi tiết ca.
+- Lưu ý: chunk R2 vẫn giữ khu vực cũ của ca đã sửa tay cho tới lần import kế tiếp ghi lại ngày đó.

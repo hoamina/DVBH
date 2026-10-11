@@ -202,7 +202,7 @@ export async function computeLuyKeMonthWithTocDo(db: D1Database, thang: string):
   const { results: cases } = await db
     .prepare(
       `SELECT id, khu_vuc, nhom_yeu_cau, nhom_kh, doi_tac, dung_han, so_gio_xu_ly, xu_ly_24h_bucket, hang, nganh, ky_thuat_vien, thoi_gian_cskh_tiep_nhan, thoi_gian_hoan_thanh
-       FROM case_dvbh
+       FROM case_hieu_luc
        WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ? AND dung_han IN ('Đúng hạn', 'Quá hạn')
          AND huy_bo_at IS NULL AND tinh_vao_kpi = 1
          AND (so_gio_xu_ly IS NOT NULL OR xu_ly_24h_bucket IS NOT NULL)${exclusion.sql}`,

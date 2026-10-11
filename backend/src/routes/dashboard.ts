@@ -34,12 +34,12 @@ export async function computeDashboardFilters(db: D1Database, scope: string[] | 
 
   const distinctOf = (col: string) =>
     db
-      .prepare(`SELECT DISTINCT ${col} FROM case_dvbh WHERE ${col} IS NOT NULL${scopeClause.sql} ORDER BY ${col}`)
+      .prepare(`SELECT DISTINCT ${col} FROM case_hieu_luc WHERE ${col} IS NOT NULL${scopeClause.sql} ORDER BY ${col}`)
       .bind(...scopeClause.binds)
       .all<Record<string, string>>();
 
   const tinhHuyenRes = db
-    .prepare(`SELECT DISTINCT tinh, quan_huyen FROM case_dvbh WHERE tinh IS NOT NULL AND quan_huyen IS NOT NULL${scopeClause.sql} ORDER BY tinh, quan_huyen`)
+    .prepare(`SELECT DISTINCT tinh, quan_huyen FROM case_hieu_luc WHERE tinh IS NOT NULL AND quan_huyen IS NOT NULL${scopeClause.sql} ORDER BY tinh, quan_huyen`)
     .bind(...scopeClause.binds)
     .all<{ tinh: string; quan_huyen: string }>();
 
@@ -129,7 +129,7 @@ export interface DashboardMonthsPayload {
 export async function computeDashboardMonths(db: D1Database): Promise<DashboardMonthsPayload> {
   const { results } = await db
     .prepare(
-      `SELECT DISTINCT strftime('%Y-%m', thoi_gian_hoan_thanh) as thang FROM case_dvbh
+      `SELECT DISTINCT strftime('%Y-%m', thoi_gian_hoan_thanh) as thang FROM case_hieu_luc
        WHERE thoi_gian_hoan_thanh IS NOT NULL ORDER BY thang DESC`,
     )
     .all<{ thang: string }>();

@@ -53,13 +53,13 @@ export async function generateBacklogAgeSnapshot(db: D1Database): Promise<void> 
     db.prepare(
       `INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca)
        SELECT ?, 'tong', 'tat_ca', COALESCE(SUM(${AGE_0800_EXPR}), 0), COUNT(*)
-       FROM case_dvbh c ${baseWhere}`,
+       FROM case_hieu_luc c ${baseWhere}`,
     ).bind(ngay),
     // Nhom khu vuc QLDVBH - giong dung nhom loc "QLDVBH" da co san o Quan ly ton (khu_vuc LIKE '%qldvbh%').
     db.prepare(
       `INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca)
        SELECT ?, 'khu_vuc', '__nhom_qldvbh__', COALESCE(SUM(${AGE_0800_EXPR}), 0), COUNT(*)
-       FROM case_dvbh c ${baseWhere} AND c.khu_vuc LIKE '%qldvbh%'
+       FROM case_hieu_luc c ${baseWhere} AND c.khu_vuc LIKE '%qldvbh%'
        HAVING COUNT(*) > 0`,
     ).bind(ngay),
     ...BACKLOG_AGE_DIMS.map((dim) => {
@@ -70,7 +70,7 @@ export async function generateBacklogAgeSnapshot(db: D1Database): Promise<void> 
       return db.prepare(
         `INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca)
          SELECT ?, ?, ${expr}, SUM(${AGE_0800_EXPR}), COUNT(*)
-         FROM case_dvbh c ${baseWhere} AND ${coGiaTri}
+         FROM case_hieu_luc c ${baseWhere} AND ${coGiaTri}
          GROUP BY ${expr}`,
       ).bind(ngay, dim);
     }),

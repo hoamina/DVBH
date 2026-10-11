@@ -134,7 +134,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
   const [tongCaMo, nghiNgo, khongCanGoi, daGoi, quaHanChuaXuLy, chuaXuLy, choGoiLai, conLoiChuaGoi, viPhamCap1, qcDaChot] = await Promise.all([
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL
            AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
       )
@@ -146,7 +146,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
         `SELECT COUNT(*) as n FROM (
            ${FLAG_BRANCHES.map(
              (b) =>
-               `SELECT c.id FROM case_dvbh c
+               `SELECT c.id FROM case_hieu_luc c
                 WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.${b.flagCol} = 1
                   AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
            ).join(" UNION ")}
@@ -158,7 +158,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
     db
       .prepare(
         `SELECT COUNT(DISTINCT k.case_id) as n
-         FROM ket_qua_goi k CROSS JOIN case_dvbh c ON c.id = k.case_id
+         FROM ket_qua_goi k CROSS JOIN case_hieu_luc c ON c.id = k.case_id
          WHERE k.ket_qua_cuoc_goi = 'Không cần khảo sát'
            AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
       )
@@ -168,7 +168,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
     db
       .prepare(
         `SELECT COUNT(DISTINCT k.case_id) as n
-         FROM ket_qua_goi k CROSS JOIN case_dvbh c ON c.id = k.case_id
+         FROM ket_qua_goi k CROSS JOIN case_hieu_luc c ON c.id = k.case_id
          WHERE c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
       )
       .bind(start, end, ...scopeClauseC.binds)
@@ -176,7 +176,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
 
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
            AND ${OVERDUE_SURVEY_CONDITION}
            AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
@@ -186,7 +186,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
 
     db
       .prepare(
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
            AND ${RECENT_OR_OPEN_CONDITION}
            AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
@@ -199,7 +199,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
         // choGoiLai DUNG NGHIA (CHOT 2026-08-22 lan 3, sua tu dinh nghia rong ban dau): cuoc goi
         // GAN NHAT cua ca bi tich can_goi_lai=1 - KHONG con la "co bat ky cuoc goi nao". Tap con cua
         // chuaXuLy, cung RECENT_OR_OPEN_CONDITION.
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
            AND ${RECENT_OR_OPEN_CONDITION}
            AND ${latestCanGoiLaiC} = 1
@@ -213,7 +213,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
         // conLoiChuaGoi (them 2026-08-22 lan 3): da co cuoc goi, cuoc goi GAN NHAT khong phai
         // can_goi_lai=1 (thuong da thanh cong), nhung case van con_khao_sat=1 vi con loai loi KHAC
         // chua tung duoc goi - vi du that ca 1291772 (120p+24h da goi xong, "Lo ke hoach" chua goi).
-        `SELECT COUNT(*) as n FROM case_dvbh c
+        `SELECT COUNT(*) as n FROM case_hieu_luc c
          WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.can_khao_sat = 1
            AND ${RECENT_OR_OPEN_CONDITION}
            AND ${hasAnyCallC} AND ${latestCanGoiLaiC} IS NOT 1
@@ -224,7 +224,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
 
     db
       .prepare(
-        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'
            AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
       )
@@ -233,7 +233,7 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
 
     db
       .prepare(
-        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+        `SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
          WHERE v.chot_bo_cap_2 IS NOT NULL
            AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}`,
       )
@@ -339,10 +339,10 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
     // case_dvbh, ~9x it rows_read hon voi cung dieu kien loc).
     const { results } = await db.prepare(
       `SELECT c.ky_thuat_vien as nhom, COUNT(*) as so_vi_pham,
-         (SELECT COUNT(*) FROM case_dvbh c2 WHERE c2.ky_thuat_vien = c.ky_thuat_vien
+         (SELECT COUNT(*) FROM case_hieu_luc c2 WHERE c2.ky_thuat_vien = c.ky_thuat_vien
             AND c2.archived_at IS NULL AND c2.huy_bo_at IS NULL
             AND c2.thoi_gian_cskh_tiep_nhan >= ? AND c2.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC2.sql}) as tong_ca
-       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+       FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
        WHERE ${XAC_NHAN_EXPR} AND c.ky_thuat_vien IS NOT NULL
          AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
        GROUP BY c.ky_thuat_vien
@@ -362,14 +362,14 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
   const { results } = await db.prepare(
     `WITH confirmed_by_khu_vuc AS (
        SELECT c.khu_vuc as khu_vuc, COUNT(*) as so_vi_pham
-       FROM vi_pham v CROSS JOIN case_dvbh c ON c.id = v.case_id
+       FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
        WHERE ${XAC_NHAN_EXPR} AND c.khu_vuc IS NOT NULL
          AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
        GROUP BY c.khu_vuc
      ),
      total_by_khu_vuc AS (
        SELECT c2.khu_vuc as khu_vuc, COUNT(*) as tong_ca
-       FROM case_dvbh c2
+       FROM case_hieu_luc c2
        WHERE c2.archived_at IS NULL AND c2.huy_bo_at IS NULL AND c2.khu_vuc IS NOT NULL
          AND c2.thoi_gian_cskh_tiep_nhan >= ? AND c2.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC2.sql}
        GROUP BY c2.khu_vuc
@@ -424,7 +424,7 @@ viPham.post("/backfill-push-vipham", requireRole("Admin"), async (c) => {
     `SELECT v.id, v.case_id, v.loai_loi, v.ket_qua_cap_1, v.nguoi_ghi_nhan, v.ngay_ghi_nhan,
             cd.khach_hang, cd.khu_vuc, cd.ky_thuat_vien, cd.seri_san_pham, kg.ghi_chu
      FROM vi_pham v
-     JOIN case_dvbh cd ON cd.id = v.case_id
+     JOIN case_hieu_luc cd ON cd.id = v.case_id
      LEFT JOIN ket_qua_goi kg ON kg.id = v.ket_qua_goi_id
      WHERE v.ngay_ghi_nhan >= ? AND v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi'
        AND NOT EXISTS (
