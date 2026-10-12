@@ -59,6 +59,58 @@ export interface GiaiTrinhHistoryRow {
   nguoi_giai_trinh?: string;
 }
 
+// Khao sat + vi pham theo case (them 2026-10-12) - dung chung /cases (Excel) va /case-lookup (JSON).
+export interface KhaoSatHistoryRow {
+  case_id: string;
+  loai_khao_sat: string | null;
+  ket_qua_cuoc_goi: string | null;
+  dien_giai: string | null;
+  ngay_gio_thuc_hien: string;
+}
+export interface ViPhamHistoryRow {
+  id: string;
+  case_id: string;
+  loai_loi: string;
+  ket_qua_cap_1: string | null;
+  chot_bo_cap_2: number | null;
+  ngay_ghi_nhan: string;
+}
+export interface ViPhamGiaiTrinhHistoryRow {
+  vi_pham_id: string;
+  noi_dung_giai_trinh: string | null;
+  ngay_giai_trinh: string;
+}
+
+/** loai_khao_sat luu chuoi JSON mang (vd '["Hen qua 24h"]') -> mang; gia tri cu khong phai JSON -> [chuoi]. */
+export function parseLoaiKhaoSat(v: string | number | null): string[] {
+  if (typeof v !== "string" || !v) return [];
+  try {
+    const p = JSON.parse(v);
+    return Array.isArray(p) ? p.map(String) : [v];
+  } catch {
+    return [v];
+  }
+}
+
+/** "Chua danh gia cap 1" (ket_qua_cap_1 NULL) / "Cho QC" / "Xac nhan loi" / "Bo loi" (chot_bo_cap_2 = 1 / 0 -
+ * cung nghia XAC_NHAN_EXPR o routes/viPham.ts). */
+export function viPhamTrangThai(r: { ket_qua_cap_1: string | number | null; chot_bo_cap_2: string | number | null }): string {
+  if (r.chot_bo_cap_2 === 1) return "Xac nhan loi";
+  if (r.chot_bo_cap_2 === 0) return "Bo loi";
+  return r.ket_qua_cap_1 == null ? "Chua danh gia cap 1" : "Cho QC";
+}
+
+function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = key(r);
+    const list = m.get(k);
+    if (list) list.push(r);
+    else m.set(k, [r]);
+  }
+  return m;
+}
+
 const HEADERS = [
   "ID",
   "KTV",
@@ -99,6 +151,11 @@ const HEADERS = [
   "Link hình ảnh",
   "Số lần giải trình",
   "Lịch sử giải trình",
+  // Them 2026-10-12 - noi vao CUOI de khong lech vi tri cac cot cu doi tac dang doc.
+  "Số lần khảo sát",
+  "Lịch sử khảo sát",
+  "Số vi phạm",
+  "Lịch sử vi phạm",
 ];
 
 // "YYYY-MM-DD HH:MM:SS" (gio VN dia phuong, khong quy doi - xem vnTime.ts) -> "dd/mm/yyyy HH:mm".
@@ -110,7 +167,16 @@ function fmtVN(dt: string | null): string {
   return `${d}/${mo}/${y} ${h}:${mi}`;
 }
 
-export function buildPartnerExcel(cases: PartnerCaseRow[], history: GiaiTrinhHistoryRow[]): Uint8Array {
+export function buildPartnerExcel(
+  cases: PartnerCaseRow[],
+  history: GiaiTrinhHistoryRow[],
+  khaoSat: KhaoSatHistoryRow[] = [],
+  viPham: ViPhamHistoryRow[] = [],
+  viPhamGiaiTrinh: ViPhamGiaiTrinhHistoryRow[] = [],
+): Uint8Array {
+  const ksByCase = groupBy(khaoSat, (r) => r.case_id);
+  const vpByCase = groupBy(viPham, (r) => r.case_id);
+  const vpGtByViPham = groupBy(viPhamGiaiTrinh, (r) => r.vi_pham_id);
   const byCaseId = new Map<string, GiaiTrinhHistoryRow[]>();
   for (const row of history) {
     const list = byCaseId.get(row.case_id);
@@ -123,6 +189,17 @@ export function buildPartnerExcel(cases: PartnerCaseRow[], history: GiaiTrinhHis
     const rows = byCaseId.get(c.id) ?? [];
     const lichSuGiaiTrinh = rows
       .map((r) => `${fmtVN(r.ngay_giai_trinh)} - ${r.ly_do_cham} - ${r.noi_dung ?? ""}`)
+      .join("\n");
+    const ksRows = ksByCase.get(c.id) ?? [];
+    const lichSuKhaoSat = ksRows
+      .map((r) => `${fmtVN(r.ngay_gio_thuc_hien)} - ${parseLoaiKhaoSat(r.loai_khao_sat).join(", ")} - ${r.ket_qua_cuoc_goi ?? ""}${r.dien_giai ? ` - ${r.dien_giai}` : ""}`)
+      .join("\n");
+    const vpRows = vpByCase.get(c.id) ?? [];
+    const lichSuViPham = vpRows
+      .map((r) => {
+        const gt = (vpGtByViPham.get(r.id) ?? []).map((g) => `  + Giải trình ${fmtVN(g.ngay_giai_trinh)}: ${g.noi_dung_giai_trinh ?? ""}`);
+        return [`${fmtVN(r.ngay_ghi_nhan)} - ${r.loai_loi} - ${r.ket_qua_cap_1 ?? ""} - ${viPhamTrangThai(r)}`, ...gt].join("\n");
+      })
       .join("\n");
     aoa.push([
       c.id,
@@ -164,6 +241,10 @@ export function buildPartnerExcel(cases: PartnerCaseRow[], history: GiaiTrinhHis
       parseHinhAnhUrls(c.link_hinh_anh).join("\n"),
       rows.length,
       lichSuGiaiTrinh,
+      ksRows.length,
+      lichSuKhaoSat,
+      vpRows.length,
+      lichSuViPham,
     ]);
   }
 

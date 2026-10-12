@@ -4492,3 +4492,11 @@ Yêu cầu: bổ sung dữ liệu khảo sát + vi phạm theo từng case khi �
   cả 3 bảng mới đều có index theo `case_id` → chỉ đọc đúng số dòng của case.
 - Tài liệu: PARTNER_API_GUIDE.md §3.2, §3.3.2.
 - Không đổi `GET /api/partner/cases` (xuất Excel hàng loạt) và `danh-sach-ton`.
+
+## 2026-10-12 — API xuất Excel hàng loạt (`/api/partner/cases`): thêm khảo sát + vi phạm (v1.450)
+- File Excel thêm 4 cột cuối: Số lần khảo sát, Lịch sử khảo sát, Số vi phạm, Lịch sử vi phạm (kèm trạng
+  thái + giải trình vi phạm). Nối vào cuối, vị trí cột cũ không đổi.
+- 4 truy vấn phụ (giải trình, khảo sát, vi phạm, giải trình vi phạm) cùng kiểu `case_id IN (subquery)`,
+  gom 1 `db.batch`, đều đi index theo `case_id`.
+- `parseLoaiKhaoSat` / `viPhamTrangThai` chuyển vào `lib/partnerExcel.ts`, dùng chung với `case-lookup`.
+- Tài liệu: PARTNER_API_GUIDE.md §10.3.

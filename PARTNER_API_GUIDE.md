@@ -618,7 +618,8 @@ hành`, `Ngày mua`, `Thời gian tiếp nhận`, `Thời gian hẹn xử lý`, 
 `Link CRM`, `Nội dung xử lý`, `Lưu ý lỗi linh kiện`, `Cách thức xử lý`, `Ngành`, `Loại ngành`,
 `Nhóm KH`, `DT sản phẩm`, `DT linh kiện`, `DT dịch vụ`, `Lý do quá hạn`, `Ngày import`, `Ngày cập
 nhật gần nhất`, `Đúng hạn`, `Nhóm xử lý 24h`, `Lý do huỷ`, `Link hình ảnh`, `Số lần giải trình`,
-`Lịch sử giải trình`.
+`Lịch sử giải trình`, `Số lần khảo sát`, `Lịch sử khảo sát`, `Số vi phạm`, `Lịch sử vi phạm` (4 cột
+cuối thêm 2026-10-12, nối vào cuối nên vị trí các cột cũ không đổi).
 
 Ghi chú riêng cho file Excel (khác cách JSON của `case-lookup` trả về):
 - Các cột thời gian (`Thời gian tiếp nhận`, `Thời gian hẹn xử lý`, `Thời gian hoàn thành`, `Ngày
@@ -630,6 +631,13 @@ Ghi chú riêng cho file Excel (khác cách JSON của `case-lookup` trả về)
   `case_dvbh` — lấy từ bảng `giai_trinh` (không phải mục 3.3 `giaiTrinh` của `case-lookup`, tuy cùng
   nguồn dữ liệu). `Lịch sử giải trình` gộp toàn bộ các lượt giải trình thành nhiều dòng trong 1 ô,
   mỗi dòng dạng `<ngày giờ> - <lý do chậm> - <nội dung>`.
+- `Số lần khảo sát` / `Lịch sử khảo sát` (thêm 2026-10-12): các cuộc gọi khảo sát CSKH (cùng nguồn
+  `khaoSat` của `case-lookup`, mục 3.3.2), cũ trước mới sau, mỗi dòng
+  `<ngày giờ> - <loại khảo sát> - <kết quả cuộc gọi> - <diễn giải>`.
+- `Số vi phạm` / `Lịch sử vi phạm` (thêm 2026-10-12): các vi phạm của case (cùng nguồn `viPham`), mỗi vi
+  phạm 1 dòng `<ngày ghi nhận> - <loại lỗi> - <kết quả cấp 1> - <trạng thái>` (trạng thái:
+  `Chua danh gia cap 1` / `Cho QC` / `Xac nhan loi` / `Bo loi`), các lượt giải trình vi phạm nằm ngay
+  bên dưới dạng `  + Giải trình <ngày giờ>: <nội dung>`.
 
 ### 10.4. Rate limit — khác `case-lookup`
 

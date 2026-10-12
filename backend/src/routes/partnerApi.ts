@@ -10,7 +10,16 @@ import {
   recordBadAuth,
   checkPerKeyRateLimit,
 } from "../lib/partnerApiAuth";
-import { buildPartnerExcel, type PartnerCaseRow, type GiaiTrinhHistoryRow } from "../lib/partnerExcel";
+import {
+  buildPartnerExcel,
+  parseLoaiKhaoSat,
+  viPhamTrangThai,
+  type PartnerCaseRow,
+  type GiaiTrinhHistoryRow,
+  type KhaoSatHistoryRow,
+  type ViPhamHistoryRow,
+  type ViPhamGiaiTrinhHistoryRow,
+} from "../lib/partnerExcel";
 import { processKtvImportRows, type KtvImportRow } from "./settings";
 import { computeAndStoreHash } from "../lib/contentHash";
 import { bumpVersions } from "../lib/dataVersions";
@@ -208,15 +217,35 @@ partnerApi.get("/cases", async (c) => {
     .bind(...whereBinds)
     .all<PartnerCaseRow>();
 
-  const { results: historyRows } = await c.env.DB.prepare(
-    `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh FROM giai_trinh
-     WHERE case_id IN (SELECT id FROM case_hieu_luc WHERE ${whereSql})
-     ORDER BY case_id, ngay_giai_trinh ASC`,
-  )
-    .bind(...whereBinds)
-    .all<GiaiTrinhHistoryRow>();
+  // Giai trinh + khao sat + vi pham (+ giai trinh vi pham) cua tap case - cung kieu subquery IN, cac bang
+  // deu co index theo case_id; gom 1 db.batch. Khao sat/vi pham them 2026-10-12.
+  const caseIdsSql = `SELECT id FROM case_hieu_luc WHERE ${whereSql}`;
+  const [gtRes, ksRes, vpRes, vpGtRes] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh FROM giai_trinh
+       WHERE case_id IN (${caseIdsSql}) ORDER BY case_id, ngay_giai_trinh ASC`,
+    ).bind(...whereBinds),
+    c.env.DB.prepare(
+      `SELECT case_id, loai_khao_sat, ket_qua_cuoc_goi, dien_giai, ngay_gio_thuc_hien FROM ket_qua_goi
+       WHERE case_id IN (${caseIdsSql}) ORDER BY case_id, ngay_gio_thuc_hien ASC`,
+    ).bind(...whereBinds),
+    c.env.DB.prepare(
+      `SELECT id, case_id, loai_loi, ket_qua_cap_1, chot_bo_cap_2, ngay_ghi_nhan FROM vi_pham
+       WHERE case_id IN (${caseIdsSql}) ORDER BY case_id, ngay_ghi_nhan ASC`,
+    ).bind(...whereBinds),
+    c.env.DB.prepare(
+      `SELECT vi_pham_id, noi_dung_giai_trinh, ngay_giai_trinh FROM vi_pham_giai_trinh
+       WHERE case_id IN (${caseIdsSql}) ORDER BY ngay_giai_trinh ASC`,
+    ).bind(...whereBinds),
+  ]);
 
-  const buffer = buildPartnerExcel(caseRows, historyRows);
+  const buffer = buildPartnerExcel(
+    caseRows,
+    gtRes.results as unknown as GiaiTrinhHistoryRow[],
+    ksRes.results as unknown as KhaoSatHistoryRow[],
+    vpRes.results as unknown as ViPhamHistoryRow[],
+    vpGtRes.results as unknown as ViPhamGiaiTrinhHistoryRow[],
+  );
   // Ep kieu ArrayBuffer - xlsx tra ve Uint8Array<ArrayBufferLike> (TS lib khong biet chac khong phai
   // SharedArrayBuffer), trong khi day thuc su la Uint8Array thuong tu XLSX.write({type:"array"}).
   return c.body(buffer as unknown as ArrayBuffer, 200, {
@@ -318,16 +347,6 @@ partnerApi.get("/case-lookup", async (c) => {
   ]);
   const giaiTrinh = gtRes.results as unknown as GiaiTrinhHistoryRow[];
   type KhaoSatRow = { can_goi_lai: number | null } & Record<string, string | number | null>;
-  // loai_khao_sat luu chuoi JSON mang (vd '["Hen qua 24h"]') -> tra mang; gia tri cu khong phai JSON -> [chuoi].
-  const parseLoaiKhaoSat = (v: string | number | null): string[] => {
-    if (typeof v !== "string" || !v) return [];
-    try {
-      const p = JSON.parse(v);
-      return Array.isArray(p) ? p.map(String) : [v];
-    } catch {
-      return [v];
-    }
-  };
   const khaoSat = (ksRes.results as KhaoSatRow[]).map((r) => ({
     ...r,
     loai_khao_sat: parseLoaiKhaoSat(r.loai_khao_sat),
@@ -341,12 +360,9 @@ partnerApi.get("/case-lookup", async (c) => {
     vpGtByViPham.get(vi_pham_id)!.push({ ...rest, anh_urls: parseHinhAnhUrls(anh_urls) } as never);
   }
   type ViPhamRow = { id: string; ket_qua_cap_1: string | null; chot_bo_cap_2: number | null } & Record<string, string | number | null>;
-  // trang_thai: "Chua danh gia cap 1" (ket_qua_cap_1 NULL) / "Cho QC" (co cap 1, QC chua chot cap 2) /
-  // "Xac nhan loi" / "Bo loi" (chot_bo_cap_2 = 1 / 0 - cung nghia XAC_NHAN_EXPR o routes/viPham.ts).
   const viPham = (vpRes.results as ViPhamRow[]).map((r) => ({
     ...r,
-    trang_thai:
-      r.chot_bo_cap_2 === 1 ? "Xac nhan loi" : r.chot_bo_cap_2 === 0 ? "Bo loi" : r.ket_qua_cap_1 == null ? "Chua danh gia cap 1" : "Cho QC",
+    trang_thai: viPhamTrangThai(r),
     giai_trinh: vpGtByViPham.get(r.id) ?? [],
   }));
 
