@@ -278,10 +278,10 @@ export function TranhChapModule({
   const [ldBuoc, setLdBuoc] = useLocalStorageState("filters:tranh-chap-ld-buoc", "");
   const [ldIdSearch, setLdIdSearch] = useState("");
   const { data: ldData, isLoading: ldLoading, isError: ldError, refetch: refetchLd } = useQuery({
-    queryKey: ["tranh-chap-luong-doi-tra", ldPage, ldKhuVuc, dgLocOf(ldTinh), ldNhomKh, ldTrangThai, ldBuoc, ldIdSearch],
+    queryKey: ["tranh-chap-luong-doi-tra", ldPage, ldKhuVuc, dgLocOf(ldTinh), ldNhomKh, ldTrangThai, ldBuoc, thangFilter, ldIdSearch],
     queryFn: () =>
       api.get<Paged<LuongDoiTraListRow> & { dangMo: number; error: string | null }>(
-        `/tranh-chap/luong-doi-tra${buildQuery({ page: ldPage, pageSize: 20, khu_vuc: ldKhuVuc, dg_loc: dgLocOf(ldTinh), nhom_kh: ldNhomKh, trang_thai: ldTrangThai, buoc: ldBuoc, id: ldIdSearch || undefined })}`,
+        `/tranh-chap/luong-doi-tra${buildQuery({ page: ldPage, pageSize: 20, khu_vuc: ldKhuVuc, dg_loc: dgLocOf(ldTinh), nhom_kh: ldNhomKh, trang_thai: ldTrangThai, buoc: ldBuoc, thang: thangFilter, id: ldIdSearch || undefined })}`,
       ),
     enabled: view === "luong-doi-tra",
   });
@@ -658,6 +658,7 @@ export function TranhChapModule({
     setThangFilter(v);
     setPage(1);
     setAiPage(1);
+    setLdPage(1);
   };
 
   // ---------- Tab "Cho xu ly" ----------

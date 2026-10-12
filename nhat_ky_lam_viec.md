@@ -4500,3 +4500,11 @@ Yêu cầu: bổ sung dữ liệu khảo sát + vi phạm theo từng case khi �
   gom 1 `db.batch`, đều đi index theo `case_id`.
 - `parseLoaiKhaoSat` / `viPhamTrangThai` chuyển vào `lib/partnerExcel.ts`, dùng chung với `case-lookup`.
 - Tài liệu: PARTNER_API_GUIDE.md §10.3.
+
+## 2026-10-12 — Tranh chấp, KN: tab "Luồng duyệt đổi trả" theo bộ lọc tháng tổng (v1.451)
+Phản hồi: tab "Luồng duyệt đổi trả" không theo filter tổng. Nguyên nhân: ô chọn tháng trên header module (dùng
+chung mọi tab) không được truyền vào `GET /api/tranh-chap/luong-doi-tra`.
+- Backend: thêm `thang` — lọc theo tháng **phát sinh luồng** (`origin_at`, thiếu thì `created_at`; giờ ISO UTC của
+  hệ theodoidoimay đổi sang giờ VN trước khi lấy tháng). "Các ca còn tồn" = không giới hạn tháng như các tab khác.
+- Frontend: truyền `thangFilter` + đưa vào queryKey; đổi tháng reset trang 1 của tab này. Badge số đang mở trên
+  tab vẫn không theo bộ lọc (như cũ).

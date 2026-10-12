@@ -500,7 +500,7 @@ tranhChap.get("/theo-doi-doi-tra/cho-danh-gia/count", async (c) => {
   return c.json({ count });
 });
 
-// GET /api/tranh-chap/luong-doi-tra?trang_thai=dang_mo|ket_thuc|(rong=tat ca)&buoc=&khu_vuc=&tinh=&nhom_kh=&id=&page=&pageSize=
+// GET /api/tranh-chap/luong-doi-tra?trang_thai=dang_mo|ket_thuc|(rong=tat ca)&buoc=&khu_vuc=&tinh=&nhom_kh=&thang=&id=&page=&pageSize=
 // Tab "Luồng duyệt đổi trả": luong doi tra (mail de xuat -> duyet -> giao xu ly -> SO/DO -> ca moi) lay tu he
 // theodoidoimay (lib/mailTimeline.ts, vai tram dong, goi moi lan - khong cache vi du lieu nam o he kia), ghep thong
 // tin ca tu case_dvbh theo CUNG pham vi khu vuc + bo loc nhu cac tab khac, loc/phan trang trong bo nho.
@@ -542,9 +542,20 @@ tranhChap.get("/luong-doi-tra", async (c) => {
 
   const trongPhamVi = list.rows.filter((r) => caseMap.has(r.case_id.toUpperCase()));
   const buoc = c.req.query("buoc") ?? "";
+  // Bo loc "thang" TONG cua module (header TranhChapModule, sua 2026-10-12 - truoc day tab nay bo qua): theo thang
+  // PHAT SINH luong (origin_at, thieu thi created_at). Thoi gian he theodoidoimay la ISO UTC -> doi sang gio VN
+  // truoc khi lay "YYYY-MM". "Con ton" (TRANH_CHAP_CON_TON_FILTER_VALUE) = khong gioi han thang (nhu cac tab khac).
+  const thang = c.req.query("thang") ?? "";
+  const locThang = /^\d{4}-\d{2}$/.test(thang) ? thang : "";
+  const thangVN = (iso: string | null): string => {
+    const t = iso ? Date.parse(iso) : NaN;
+    return Number.isNaN(t) ? "" : new Date(t + 7 * 3600_000).toISOString().slice(0, 7);
+  };
   const loc = trongPhamVi.filter(
     (r: LuongDoiTraRow) =>
-      (trangThai === "dang_mo" ? !r.ket_thuc_at : trangThai === "ket_thuc" ? !!r.ket_thuc_at : true) && (!buoc || r.trang_thai === buoc),
+      (trangThai === "dang_mo" ? !r.ket_thuc_at : trangThai === "ket_thuc" ? !!r.ket_thuc_at : true) &&
+      (!buoc || r.trang_thai === buoc) &&
+      (!locThang || thangVN(r.origin_at ?? r.created_at) === locThang),
   );
   // Dang mo truoc, roi hoat dong gan nhat truoc.
   loc.sort((a, b) => Number(!!a.ket_thuc_at) - Number(!!b.ket_thuc_at) || (b.last_at ?? b.created_at).localeCompare(a.last_at ?? a.created_at));
