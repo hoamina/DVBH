@@ -514,6 +514,10 @@ cases.get("/", async (c) => {
   // KHONG dung scopeClause/ageClause/dim/shared/exclusion (van bo, giu dung y nghia "escalation toan
   // he thong" cho phan KHONG duoc nguoi dung chu dong loc).
   const isCanhBaoTonFrozen = tab === "canh-bao-ton" && !!snapshotIdClause;
+  // CHOT 2026-10-12: danh sach dong bang 08:00 cua Canh bao ton doc BANG GOC (khong qua view case_hieu_luc)
+  // - ca bi huy bo SAU 08:00 van phai hien (kem nhan "Da huy") cho khop so da chot, tranh nguoi giai
+  // trinh thay so con ma khong thay ca.
+  const listFrom = isCanhBaoTonFrozen ? "case_dvbh" : "case_hieu_luc";
 
   let whereSql: string;
   let binds: unknown[];
@@ -589,7 +593,7 @@ cases.get("/", async (c) => {
       : latestGiaiTrinhJoin(snapshot0800 ? caseFilterTonAt0800() : CASE_FILTER_TON_AND_CLOSED_RECENTLY);
 
   const countRow = await c.env.DB.prepare(
-    `SELECT COUNT(*) as total FROM case_hieu_luc c ${join} ${whereSql}`,
+    `SELECT COUNT(*) as total FROM ${listFrom} c ${join} ${whereSql}`,
   )
     .bind(...binds)
     .first<{ total: number }>();
@@ -649,7 +653,7 @@ cases.get("/", async (c) => {
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.loc_tong_bcn} THEN 1 ELSE 0 END) as need_loc_tong_bcn,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.vip_24h} THEN 1 ELSE 0 END) as need_vip_24h,
            ${AGE_EXPR} as tuoi_ton
-    FROM case_hieu_luc c
+    FROM ${listFrom} c
     ${join}
     ${whereSql}
     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), ${sortExpr} ${sortDir}

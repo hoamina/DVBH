@@ -6,7 +6,9 @@
  *    snapshot dong bang 08:00 VN (getCanhBaoTonSnapshot, lib/canhBaoTon.ts - cung nguon voi UI + anh
  *    Telegram), KHONG tinh lai song, de doi tac va CEO nhin cung 1 con so trong ngay. 4 nhom (ton20 /
  *    vipSvip7 / locTong5 / tranhChap5); 1 ca co the thuoc nhieu nhom -> tra 1 dong/ca + mang "nhom".
- *    Ca da dong/huy SAU 08:00 van nam trong danh sach (dong bang) - co co "con_ton" de doi tac biet.
+ *    Ca da dong/huy SAU 08:00 van nam trong danh sach (dong bang) - co co "con_ton" + "da_huy" de doi tac
+ *    biet. Vi vay loadCasesByIds/loadExtras doc BANG GOC case_dvbh, khong qua view case_hieu_luc (CHOT
+ *    2026-10-12: bo ca huy khoi danh sach se lech so tong_hop da chot, nguoi giai trinh bi roi).
  * 2. "nskx-ton-3-ngay" - ca DANG TON (CASE_FILTER_TON) cua doi_tac = 'NSKX' co tuoi ton >= 3 ngay (cung
  *    nghia "Ton tren 3 ngay" = tuoiTu 3 cua bo loc Quan ly ton), tinh SONG tai thoi diem goi. Loc
  *    doi_tac dan dau, dung idx_case_doi_tac (xem bai hoc INDEXED BY o nskxBaoCao.ts). Nhan ca '[NSKX]'
@@ -41,9 +43,10 @@ const CASE_COLS =
   "c.tien_do_hoan_thanh, c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hen_xu_ly, c.thoi_gian_hoan_thanh, " +
   "c.noi_dung_xu_ly, c.link_crm, " +
   `${AGE_C} AS tuoi_ton, ` +
-  "CASE WHEN c.thoi_gian_hoan_thanh IS NULL AND c.huy_bo_at IS NULL AND c.archived_at IS NULL THEN 1 ELSE 0 END AS con_ton";
+  "CASE WHEN c.thoi_gian_hoan_thanh IS NULL AND c.huy_bo_at IS NULL AND c.archived_at IS NULL THEN 1 ELSE 0 END AS con_ton, " +
+  "CASE WHEN c.huy_bo_at IS NOT NULL THEN 1 ELSE 0 END AS da_huy";
 
-type CaseRowRaw = Record<string, string | number | null> & { id: string; con_ton: number; tuoi_ton: number };
+type CaseRowRaw = Record<string, string | number | null> & { id: string; con_ton: number; da_huy: number; tuoi_ton: number };
 const ID_CHUNK = 90; // D1 gioi han ~100 tham so / cau
 
 async function inChunks<T>(ids: string[], run: (chunk: string[]) => Promise<T[]>): Promise<T[]> {
@@ -55,7 +58,7 @@ const ph = (n: number) => Array(n).fill("?").join(", ");
 
 async function loadCasesByIds(db: D1Database, ids: string[]): Promise<CaseRowRaw[]> {
   return inChunks(ids, async (chunk) =>
-    (await db.prepare(`SELECT ${CASE_COLS} FROM case_hieu_luc c WHERE c.id IN (${ph(chunk.length)})`).bind(...chunk).all<CaseRowRaw>()).results,
+    (await db.prepare(`SELECT ${CASE_COLS} FROM case_dvbh c WHERE c.id IN (${ph(chunk.length)})`).bind(...chunk).all<CaseRowRaw>()).results,
   );
 }
 
@@ -80,7 +83,7 @@ async function loadExtras(db: D1Database, ids: string[]) {
       await db
         .prepare(
           `SELECT c.id AS case_id, tt.ngay_tao, ${CASE_TRANH_CHAP_STATUS_EXPR} AS trang_thai, ${TUOI_TIEN_TRINH_EXPR} AS tuoi_ngay
-           FROM case_hieu_luc c JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
+           FROM case_dvbh c JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
            WHERE c.id IN (${ph(chunk.length)})`,
         )
         .bind(...chunk)
@@ -97,6 +100,7 @@ function shapeCase(r: CaseRowRaw, extras: Awaited<ReturnType<typeof loadExtras>>
   return {
     ...r,
     con_ton: r.con_ton === 1,
+    da_huy: r.da_huy === 1,
     giai_trinh_gan_nhat: gt
       ? { ly_do_cham: gt.ly_do_cham, noi_dung: gt.noi_dung, nguoi_giai_trinh: gt.nguoi_giai_trinh, ngay_giai_trinh: gt.ngay_giai_trinh }
       : null,

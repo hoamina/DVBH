@@ -4472,3 +4472,13 @@ Code:
   `KhuVucField` trong `CaseDetail.tsx` (✎, badge "Sửa tay", "Khôi phục theo CRM").
 - `GET /api/cases/huy-bo?id=` (Admin) + card "Ca đã hủy bỏ" trong Import → tab Hủy ca; bấm dòng mở chi tiết ca.
 - Lưu ý: chunk R2 vẫn giữ khu vực cũ của ca đã sửa tay cho tới lần import kế tiếp ghi lại ngày đó.
+
+## 2026-10-12 — Cảnh báo tồn chốt 08:00: giữ lại ca bị hủy sau giờ chốt (v1.448)
+v1.446 chuyển mọi truy vấn đọc sang view `case_hieu_luc` nên ca bị Admin hủy SAU 08:00 biến mất khỏi danh
+sách "Cảnh báo tồn" đã chốt, trong khi số chốt vẫn đếm ca đó. Chủ hệ thống: số cứng đã chốt 08:00, bỏ ca
+khỏi danh sách làm người giải trình rối (thấy số còn mà không thấy ca) → giữ lại.
+- `routes/cases.ts`: danh sách tab `canh-bao-ton` (snapshot 08:00) đọc bảng gốc `case_dvbh` (`listFrom`).
+- `lib/canhBaoTon.ts`: `filterBucketsByKhuVuc` + `computeCanhBaoTonProgressToday` đọc bảng gốc; ca hủy
+  hôm nay tính vào "Đã kết thúc".
+- `lib/partnerDanhSachTon.ts` (API `canh-bao-ceo`): đọc bảng gốc, thêm cờ `da_huy` (PARTNER_API_GUIDE §11).
+- `BacklogModule.tsx`: nhãn "🚫 Đã hủy" cạnh ID trong Danh sách chi tiết.

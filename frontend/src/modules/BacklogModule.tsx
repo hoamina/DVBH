@@ -1518,7 +1518,22 @@ export function BacklogModule({
   }
 
   const columns: Column<CaseRow>[] = [
-    { key: "id", header: "ID", sortKey: "id", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
+    {
+      key: "id",
+      header: "ID",
+      sortKey: "id",
+      // Ca huy bo sau 08:00 van nam trong danh sach Canh bao ton da chot (khop so) - gan nhan de nguoi giai trinh biet
+      render: (c) => (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span>
+          {c.huy_bo_at && (
+            <span title={c.huy_bo_ly_do ? `Đã hủy: ${c.huy_bo_ly_do}` : "Ca đã hủy bỏ sau giờ chốt 08:00"}>
+              <Badge tone="gray">🚫 Đã hủy</Badge>
+            </span>
+          )}
+        </span>
+      ),
+    },
     {
       key: "khach_hang",
       header: "Khách hàng",

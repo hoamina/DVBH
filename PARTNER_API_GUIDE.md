@@ -622,7 +622,7 @@ Trả JSON (không phải Excel) 1 trong 2 danh sách, chọn bằng tham số `
 
 | `loai` | Danh sách | Thời điểm số liệu |
 |---|---|---|
-| `canh-bao-ceo` | Đúng danh sách thẻ **"Cảnh báo tồn · Cấp 2 (CEO)"** ở module Quản lý tồn — 4 nhóm: `ton_tren_20_ngay` (tồn >20 ngày), `vip_svip_tu_7_ngay` (KH VIP/S.VIP tồn ≥7 ngày), `loc_tong_tu_5_ngay` (Lọc tổng tồn ≥5 ngày), `tranh_chap_tu_5_ngay` (tranh chấp/KN chưa đóng ≥5 ngày) | **Chốt 08:00 giờ VN** mỗi ngày (cùng nguồn UI + ảnh Telegram) — gọi lại trong ngày ra cùng danh sách. Ca đã đóng/huỷ sau 08:00 vẫn còn trong danh sách, xem `con_ton`. |
+| `canh-bao-ceo` | Đúng danh sách thẻ **"Cảnh báo tồn · Cấp 2 (CEO)"** ở module Quản lý tồn — 4 nhóm: `ton_tren_20_ngay` (tồn >20 ngày), `vip_svip_tu_7_ngay` (KH VIP/S.VIP tồn ≥7 ngày), `loc_tong_tu_5_ngay` (Lọc tổng tồn ≥5 ngày), `tranh_chap_tu_5_ngay` (tranh chấp/KN chưa đóng ≥5 ngày) | **Chốt 08:00 giờ VN** mỗi ngày (cùng nguồn UI + ảnh Telegram) — gọi lại trong ngày ra cùng danh sách. Ca đã đóng/huỷ sau 08:00 vẫn còn trong danh sách, xem `con_ton` / `da_huy`. |
 | `nskx-ton-3-ngay` | Ca **đang tồn** của đối tác NSKX có tuổi tồn ≥ 3 ngày (cùng nghĩa bộ lọc "Tồn trên 3 ngày" + Đối tác NSKX ở Quản lý tồn) | Tính **tại thời điểm gọi** (`chot_luc = null`) |
 
 Tuổi tồn = số ngày từ `thoi_gian_cskh_tiep_nhan` đến 00:00 hôm nay (giờ VN) — cùng công thức toàn hệ thống.
@@ -659,6 +659,7 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
       "link_crm": "https://...",
       "tuoi_ton": 184,
       "con_ton": true,
+      "da_huy": false,
       "giai_trinh_gan_nhat": { "ly_do_cham": "...", "noi_dung": "...", "nguoi_giai_trinh": "...", "ngay_giai_trinh": "..." },
       "tranh_chap": { "trang_thai": "CSKH dang xu ly", "ngay_tao": "...", "tuoi_ngay": 6 },
       "nhom": ["ton_tren_20_ngay", "loc_tong_tu_5_ngay"]
@@ -670,6 +671,9 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
 - 1 ca có thể thuộc nhiều nhóm → xuất hiện **1 lần** trong `cases`, mảng `nhom` liệt kê các nhóm. Vì vậy
   `so_ca` (số ca không trùng) có thể nhỏ hơn tổng `tong_hop[].so_ca`. Field `nhom` chỉ có ở `canh-bao-ceo`.
 - `giai_trinh_gan_nhat` / `tranh_chap` = `null` nếu ca chưa có. `cases` sắp xếp theo `tuoi_ton` giảm dần.
+- `con_ton` = ca còn tồn tại thời điểm gọi (chưa hoàn thành, chưa huỷ, chưa lưu trữ). `da_huy` = ca đã bị
+  Admin huỷ bỏ. Với `canh-bao-ceo`, ca đã đóng hoặc bị huỷ **sau 08:00** vẫn giữ trong `cases` (`con_ton: false`,
+  ca huỷ thì `da_huy: true`) để `so_ca` luôn khớp số đã chốt ở `tong_hop`.
 - Không trả các cột doanh thu (`dt_*`).
 
 ### 11.3. Mã lỗi & rate limit

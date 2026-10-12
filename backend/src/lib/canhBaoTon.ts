@@ -223,7 +223,8 @@ export async function filterBucketsByKhuVuc(db: D1Database, buckets: CanhBaoTonB
   if (allIds.length === 0) return buckets;
   const khuVucClause = khuVucAdHocClause("khu_vuc", khuVucFilter);
   const { results } = await db
-    .prepare(`SELECT id FROM case_hieu_luc WHERE id IN (SELECT value FROM json_each(?))${khuVucClause.sql}`)
+    // Bang goc (khong qua view case_hieu_luc): ca huy bo sau 08:00 van thuoc tap da chot (CHOT 2026-10-12)
+    .prepare(`SELECT id FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))${khuVucClause.sql}`)
     .bind(JSON.stringify(allIds), ...khuVucClause.binds)
     .all<{ id: string }>();
   const allowed = new Set(results.map((r) => r.id));
@@ -269,9 +270,11 @@ export async function computeCanhBaoTonProgressToday(db: D1Database, buckets: Ca
     const [{ results: closedRows }, { results: gtRows }] = await Promise.all([
       db
         .prepare(
-          `SELECT id FROM case_hieu_luc WHERE id IN (SELECT value FROM json_each(?)) AND thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < date(?, '+1 day')`,
+          // Ca bi huy bo hom nay cung tinh "Da ket thuc" (het ton) - CHOT 2026-10-12, doc bang goc.
+          `SELECT id FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))
+             AND ((thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < date(?, '+1 day')) OR (huy_bo_at >= ? AND huy_bo_at < date(?, '+1 day')))`,
         )
-        .bind(JSON.stringify(normalIds), todayVN, todayVN)
+        .bind(JSON.stringify(normalIds), todayVN, todayVN, todayVN, todayVN)
         .all<{ id: string }>(),
       db
         .prepare(
@@ -292,7 +295,7 @@ export async function computeCanhBaoTonProgressToday(db: D1Database, buckets: Ca
       db
         .prepare(
           `SELECT c.id as case_id, ll.trang_thai_xu_ly as trang_thai, ll.created_at as latest_log_at
-           FROM case_hieu_luc c
+           FROM case_dvbh c
            JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
            JOIN tranh_chap_log ll ON ll.id = (SELECT id FROM tranh_chap_log WHERE tien_trinh_id = tt.id ORDER BY id DESC LIMIT 1)
            WHERE c.id IN (SELECT value FROM json_each(?))`,
