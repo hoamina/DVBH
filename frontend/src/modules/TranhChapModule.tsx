@@ -103,6 +103,22 @@ interface LuongDoiTraListRow {
   ca_moi_id: string | null;
   ca_moi_gan: string | null;
   ca_moi_tien_do: string | null;
+  // Trang thai KN (tien trinh tranh chap moi nhat) cua ca - 'Chua xu ly' = chua co tien trinh nao.
+  kn_trang_thai: string | null;
+}
+
+// Badge trang thai KN dung chung cho bang Luong doi tra; 'Chua xu ly' (chua tung tao tien trinh) hien "Chưa có KN".
+function knTrangThaiBadge(s: string | null) {
+  if (!s || s === "Chua xu ly") return <span className="text-xs text-[var(--ink-400)]">Chưa có KN</span>;
+  return <Badge tone={TRANG_THAI_TONE[s] ?? "gray"}>{TRANG_THAI_LABELS[s] ?? s}</Badge>;
+}
+
+// Badge trang thai luong doi tra (cot moi o bang tien trinh KN, 2026-10-12).
+function luongDoiTraStatusBadge(l: { trang_thai: string } | null | undefined) {
+  if (!l) return <span className="text-xs text-[var(--ink-400)]">—</span>;
+  if (l.trang_thai === "ket_thuc") return <Badge tone="gray">Đã kết thúc</Badge>;
+  if (l.trang_thai === "thanh_cong") return <Badge tone="teal">Đổi trả thành công</Badge>;
+  return <Badge tone={TRANG_THAI_LUONG[l.trang_thai]?.tone ?? "gray"}>{TRANG_THAI_LUONG[l.trang_thai]?.label ?? l.trang_thai}</Badge>;
 }
 
 // CHOT 2026-09-03: 1 bang PaginatedTable rieng cho MOI thang trong bang "Da xac nhan" cua tab "Theo
@@ -309,6 +325,7 @@ export function TranhChapModule({
           <Badge tone={TRANG_THAI_LUONG[r.trang_thai]?.tone ?? "gray"}>{TRANG_THAI_LUONG[r.trang_thai]?.label ?? r.trang_thai}</Badge>
         ),
     },
+    { key: "kn_trang_thai", header: "Trạng thái KN", render: (r) => knTrangThaiBadge(r.kn_trang_thai) },
     { key: "de_xuat", header: "Đề xuất", render: (r) => <span className="text-xs">{fmtVn(r.de_xuat_at)}</span> },
     { key: "duyet", header: "Duyệt", render: (r) => <span className="text-xs">{fmtVn(r.duyet_at)}</span> },
     {
@@ -916,6 +933,7 @@ export function TranhChapModule({
       header: "Trạng thái",
       render: (r) => (r.trang_thai_xu_ly ? <Badge tone={TRANG_THAI_TONE[r.trang_thai_xu_ly] ?? "gray"}>{TRANG_THAI_LABELS[r.trang_thai_xu_ly] ?? r.trang_thai_xu_ly}</Badge> : "—"),
     },
+    { key: "luong_doi_tra", header: "Luồng đổi trả", render: (r) => luongDoiTraStatusBadge(r.luong_doi_tra) },
     { key: "nguoi_xu_ly", header: "Người xử lý gần nhất", render: (r) => (r.nguoi_xu_ly ? formatPersonDisplay(r.nguoi_xu_ly, personDir) : "—") },
     {
       key: "ly_do_ton_tranh_chap_gan_nhat",

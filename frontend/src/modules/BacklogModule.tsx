@@ -449,16 +449,21 @@ interface GiaiTrinhTrendRow {
 // "Canh bao ton danh cho QL" (xem backend/src/lib/canhBaoTon.ts) - 8 chi tieu co dinh, Cap 1 (TP
 // DVBH) + Cap 2 (CEO). CANH_BAO_TON_METRICS la nguon duy nhat cho ca card tong quan lan 8 bang lich
 // su theo ngay (tranh khai bao lap 2 noi).
-type CanhBaoTonMetricKey = "ton14" | "vipSvip5" | "locTong3" | "tranhChap3" | "ton20" | "vipSvip7" | "locTong5" | "tranhChap5";
+// luongDoiTra7/10 (2026-10-12): luong doi tra (he theodoidoimay) ton >=7 / >=10 ngay - xem backend lib/luongDoiTraTon.ts.
+type CanhBaoTonMetricKey =
+  | "ton14" | "vipSvip5" | "locTong3" | "tranhChap3" | "luongDoiTra7"
+  | "ton20" | "vipSvip7" | "locTong5" | "tranhChap5" | "luongDoiTra10";
 const CANH_BAO_TON_METRICS: { cap: 1 | 2; key: CanhBaoTonMetricKey; label: string; trendCol: string }[] = [
   { cap: 1, key: "ton14", label: "Tồn ≥14 ngày", trendCol: "ton_14_ngay" },
   { cap: 1, key: "vipSvip5", label: "VIP/S.VIP tồn ≥5 ngày", trendCol: "vip_svip_5_ngay" },
   { cap: 1, key: "locTong3", label: "Lọc tổng tồn ≥3 ngày", trendCol: "loc_tong_3_ngay" },
   { cap: 1, key: "tranhChap3", label: "Tranh chấp/KN ≥3 ngày", trendCol: "tranh_chap_3_ngay" },
+  { cap: 1, key: "luongDoiTra7", label: "Luồng đổi trả ≥7 ngày", trendCol: "luong_doi_tra_7_ngay" },
   { cap: 2, key: "ton20", label: "Tồn >20 ngày", trendCol: "ton_20_ngay" },
   { cap: 2, key: "vipSvip7", label: "VIP/S.VIP tồn ≥7 ngày", trendCol: "vip_svip_7_ngay" },
   { cap: 2, key: "locTong5", label: "Lọc tổng tồn ≥5 ngày", trendCol: "loc_tong_5_ngay" },
   { cap: 2, key: "tranhChap5", label: "Tranh chấp/KN ≥5 ngày", trendCol: "tranh_chap_5_ngay" },
+  { cap: 2, key: "luongDoiTra10", label: "Luồng đổi trả ≥10 ngày", trendCol: "luong_doi_tra_10_ngay" },
 ];
 interface CanhBaoTonTrendPoint {
   yesterday: number | null;
@@ -475,6 +480,8 @@ interface CanhBaoTonCountsPayload {
   counts: Record<CanhBaoTonMetricKey, number>;
   trend: Record<CanhBaoTonMetricKey, CanhBaoTonTrendPoint>;
   progress: Record<CanhBaoTonMetricKey, CanhBaoTonProgressToday>;
+  // Chi tieu nguon ngoai D1 (luong doi tra) chua lay duoc luc chot - cron moi gio tu thu lai.
+  loi?: Partial<Record<CanhBaoTonMetricKey, string>>;
 }
 const CANH_BAO_TON_METRIC_KEY = "backlog.canhBaoTon.selectedMetric";
 
@@ -888,7 +895,7 @@ function DailyCountTrendTable({ title, metricCol, rows, trendDays }: { title: st
                   const val = valueOf(row.days.find((d) => d.ngay === day));
                   return (
                     <td key={day} className="py-2 px-2 text-center font-mono">
-                      {val !== undefined ? val : <span className="text-[var(--ink-400)]">—</span>}
+                      {val != null ? val : <span className="text-[var(--ink-400)]">—</span>}
                     </td>
                   );
                 })}
@@ -1005,10 +1012,14 @@ function CanhBaoTonCapView({
         </span>
         {canhBaoTon && <span className="text-[11px] text-[var(--ink-400)]">chốt {fmtGeneratedAt(canhBaoTon.generatedAt)}</span>}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
         {metrics.map((m) => {
           const v = canhBaoTon?.counts[m.key] ?? 0;
-          const sub = canhBaoTon ? canhBaoTonYesterdaySub(v, canhBaoTon.trend[m.key].yesterday) : undefined;
+          const sub = canhBaoTon?.loi?.[m.key]
+            ? { text: "Chưa lấy được số liệu — tự thử lại mỗi giờ", className: "text-[var(--ink-400)]" }
+            : canhBaoTon && canhBaoTon.trend[m.key]
+              ? canhBaoTonYesterdaySub(v, canhBaoTon.trend[m.key].yesterday)
+              : undefined;
           return (
             <CanhBaoTonStatCard
               key={m.key}

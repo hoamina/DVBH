@@ -58,6 +58,8 @@ export type RoleVariant = "giam_sat" | "qc" | "khac";
 export interface SnapshotBucket {
   ids: string[];
   count: number;
+  // Chi bucket nguon NGOAI D1 (luong doi tra, lib/canhBaoTon.ts) - ma loi khi khong lay duoc luc chot.
+  loi?: string;
 }
 
 // Quan ly ton (CHOT 2026-08-01) - cac bucket rieng cho khoi "Tong ton"/"Can giai trinh" cua trang nay

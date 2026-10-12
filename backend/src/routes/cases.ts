@@ -456,7 +456,7 @@ cases.get("/", async (c) => {
     tab === "canh-bao-ton" && snapshot0800
       ? await (async () => {
           const metricKey = c.req.query("category") as CanhBaoTonMetricKey | undefined;
-          const snap = await getCanhBaoTonSnapshot(c.env.DB);
+          const snap = await getCanhBaoTonSnapshot(c.env);
           const bucket = metricKey ? snap.buckets[metricKey] : undefined;
           if (!bucket) return null;
           return { ids: bucket.ids, since: null as unknown as string, sinceByKhuVuc: {} as Record<string, string> };
@@ -998,13 +998,15 @@ cases.get("/ton-ktv", async (c) => {
 // tong quan, bam vao 1 o dieu huong sang GET /cases?tab=canh-bao-ton&category=<key>&snapshot_0800=true.
 cases.get("/canh-bao-ton", async (c) => {
   const khuVucFilter = c.req.query("khu_vuc") || undefined;
-  const [snap, trend] = await Promise.all([getCanhBaoTonSnapshot(c.env.DB), getCanhBaoTonTrendDeltas(c.env.DB, khuVucFilter)]);
+  const [snap, trend] = await Promise.all([getCanhBaoTonSnapshot(c.env), getCanhBaoTonTrendDeltas(c.env.DB, khuVucFilter)]);
   const buckets = await filterBucketsByKhuVuc(c.env.DB, snap.buckets, khuVucFilter);
   const counts = Object.fromEntries(Object.entries(buckets).map(([key, bucket]) => [key, bucket.count]));
   // CHOT 2026-08-20 (item 4): 3 con so phu "hom nay" (da GT/da ket thuc/hien tai con) moi o metric -
   // tinh tren DUNG buckets DA loc khu_vuc o tren, dam bao dong bo voi counts.
-  const progress = await computeCanhBaoTonProgressToday(c.env.DB, buckets);
-  return c.json({ generatedAt: snap.generatedAt, counts, trend, progress });
+  const progress = await computeCanhBaoTonProgressToday(c.env, buckets);
+  // Bucket nguon ngoai D1 (luong doi tra) chua lay duoc luc chot -> UI hien "chưa lấy được" thay vi so 0.
+  const loi = Object.fromEntries(Object.entries(snap.buckets).filter(([, b]) => b.loi).map(([k, b]) => [k, b.loi]));
+  return c.json({ generatedAt: snap.generatedAt, counts, trend, progress, loi });
 });
 
 // GET /api/cases/canh-bao-ton-daily-trend?days=14&khu_vuc= - bang lich su theo ngay cua "Canh bao ton
@@ -1020,7 +1022,7 @@ cases.get("/canh-bao-ton-daily-trend", async (c) => {
 
   const { results } = await c.env.DB.prepare(
     `SELECT ngay, khu_vuc, ton_14_ngay, vip_svip_5_ngay, loc_tong_3_ngay, tranh_chap_3_ngay,
-            ton_20_ngay, vip_svip_7_ngay, loc_tong_5_ngay, tranh_chap_5_ngay
+            ton_20_ngay, vip_svip_7_ngay, loc_tong_5_ngay, tranh_chap_5_ngay, luong_doi_tra_7_ngay, luong_doi_tra_10_ngay
      FROM canh_bao_ton_daily_log
      WHERE ngay >= date('now', '+7 hours', ?)${scopeClause.sql}${khuVucClause.sql}
      ORDER BY khu_vuc ASC, ngay DESC`,
@@ -1037,6 +1039,8 @@ cases.get("/canh-bao-ton-daily-trend", async (c) => {
       vip_svip_7_ngay: number;
       loc_tong_5_ngay: number;
       tranh_chap_5_ngay: number;
+      luong_doi_tra_7_ngay: number | null;
+      luong_doi_tra_10_ngay: number | null;
     }>();
 
   const byKhuVuc = new Map<string, (typeof results)[number][]>();

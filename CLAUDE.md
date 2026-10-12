@@ -216,6 +216,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     relationships (creator / Tram parent / GS assignment), not `khu_vuc_phu_trach`.
   - `dailySnapshot.ts` — runs at the daily cron: snapshots giai_trinh counts, pushes a PNG report
     image via Telegram (`telegram.ts` + `reportImage.ts`).
+  - `canhBaoTon.ts` + `luongDoiTraTon.ts` — "Cảnh báo tồn" card (Quản lý tồn), frozen at 08:00. Since 2026-10-12 it
+    has 5 metrics per level; `luongDoiTra7`/`luongDoiTra10` come from the external theodoidoimay Worker (open flow,
+    exchange case not completed, age from mail `origin_at`), not D1 — so their bucket can carry `loi` when that Worker
+    was unreachable at 08:00, and every hourly `DAILY_SNAPSHOT_CRON` fire retries (`retryLuongDoiTraSnapshot`).
+    `getCanhBaoTonSnapshot`/`computeCanhBaoTonBuckets` take `Env` (need the Service Binding), not `D1Database`.
   - `telegram.ts` — sends PNG images via Telegram Bot API (`sendTelegramPhoto`); used only by
     `dailySnapshot.ts` for the 17:30 VN daily report push.
 
@@ -314,7 +319,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0133`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0134`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

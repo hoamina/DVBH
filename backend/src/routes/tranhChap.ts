@@ -13,6 +13,7 @@ import { AGE_ANCHOR } from "../lib/ageCalc";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { caMoiLive, fetchLuongDoiTraList, type LuongDoiTraRow } from "../lib/mailTimeline";
+import { fetchLuongDoiTraListCached } from "../lib/luongDoiTraTon";
 import {
   ALL_TRANG_THAI_LOG,
   GIAM_SAT_STATUSES,
@@ -524,7 +525,8 @@ tranhChap.get("/luong-doi-tra", async (c) => {
   const ids = list.rows.map((r) => r.case_id);
   const { results } = await c.env.DB.prepare(
     `SELECT CAST(c.id AS TEXT) AS id, c.khach_hang, c.khu_vuc, c.tinh, c.nhom_kh, c.loai_yeu_cau, c.san_pham_bao_hanh,
-            c.seri_san_pham, c.ky_thuat_vien, c.tien_do_hoan_thanh
+            c.seri_san_pham, c.ky_thuat_vien, c.tien_do_hoan_thanh,
+            ${CASE_TRANH_CHAP_STATUS_EXPR} AS kn_trang_thai
      FROM case_hieu_luc c
      WHERE c.id IN (SELECT value FROM json_each(?))${scopeClauseBase.sql}${exclusion.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${idClauseSql}`,
   )
@@ -1106,7 +1108,21 @@ tranhChap.get("/tien-trinh", async (c) => {
     return { ...r, giam_sat_phu_trach: giamSatMap.get(rr.khu_vuc ?? "") ?? [], gs_tung_xu_ly: gsTungXuLy };
   });
 
-  return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
+  // Cot "Luồng đổi trả" (CHOT 2026-10-12): trang thai luong cua ca (he theodoidoimay, cache isolate 5 phut) -
+  // "ket_thuc" / "thanh_cong" (ca doi da hoan thanh) / ma buoc cua luong; null = ca khong co luong doi tra.
+  let luongLoi: string | null = null;
+  const luongByCase = new Map<string, { trang_thai: string; at: string | null }>();
+  if (rows.length) {
+    const list = await fetchLuongDoiTraListCached(c.env, "");
+    if (!list.ok) luongLoi = list.error;
+    for (const l of list.rows) {
+      const trangThai = l.ket_thuc_at ? "ket_thuc" : l.ca_moi_ht_at && /^Hoàn thành/i.test(l.ca_moi_tien_do ?? "") ? "thanh_cong" : l.trang_thai;
+      luongByCase.set(l.case_id.toUpperCase(), { trang_thai: trangThai, at: l.ket_thuc_at ?? l.last_at });
+    }
+  }
+  const rowsWithLuong = rows.map((r) => ({ ...r, luong_doi_tra: luongByCase.get(String((r as unknown as { case_id: string }).case_id).toUpperCase()) ?? null }));
+
+  return c.json({ rows: rowsWithLuong, page, pageSize, total: countRow?.total ?? 0, luongLoi });
 });
 
 /** Tach tu tranhChap.get("/tien-trinh/stats") - so lieu StatCard cua tab quan ly tien trinh.

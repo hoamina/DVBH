@@ -4508,3 +4508,25 @@ chung mọi tab) không được truyền vào `GET /api/tranh-chap/luong-doi-tr
   hệ theodoidoimay đổi sang giờ VN trước khi lấy tháng). "Các ca còn tồn" = không giới hạn tháng như các tab khác.
 - Frontend: truyền `thangFilter` + đưa vào queryKey; đổi tháng reset trang 1 của tab này. Badge số đang mở trên
   tab vẫn không theo bộ lọc (như cũ).
+
+## 2026-10-12 — Luồng đổi trả ↔ Khiếu nại: cột chéo + cảnh báo tồn luồng (v1.452, migration 0134)
+Yêu cầu: (1) bảng Luồng đổi trả hiện trạng thái KN của ca, bảng Khiếu nại hiện trạng thái luồng đổi trả;
+(2) luồng đổi trả tồn ≥7 ngày → Cảnh báo tồn cấp TBP, ≥10 ngày → cấp CEO, chốt 08:00. Đánh giá trước khi làm:
+- Dữ liệu luồng nằm ở hệ theodoidoimay (không lưu D1) → mọi chỗ dùng phải gọi Service Binding. Rủi ro: hệ kia không
+  phản hồi lúc 08:00 → bucket mang `loi`, cron mỗi giờ (9h–18h) tự thử lại (`retryLuongDoiTraSnapshot`), UI ghi
+  "Chưa lấy được số liệu" thay vì số 0.
+- Định nghĩa "tồn": luồng chưa kết thúc VÀ ca đổi chưa "Hoàn thành" (đọc live D1, cùng tiêu chí mốc "Đổi trả thành
+  công"); tuổi = từ lúc phát sinh mail (`origin_at`) tới 00:00 hôm nay giờ VN (cắt nguyên ngày như ageExpr). Chỉ
+  tính luồng có ca gốc trong `case_hieu_luc`, bỏ khu vực ẩn khỏi báo cáo.
+- Cột chéo: bảng luồng lấy trạng thái KN bằng `CASE_TRANH_CHAP_STATUS_EXPR` ngay trong câu SQL sẵn có; bảng tiến
+  trình KN (tab Theo dõi tiến trình + KN đổi máy, chung `/tien-trinh`) gắn trạng thái luồng sau truy vấn, danh sách
+  luồng cache trong isolate 5 phút (Cache API không chạy trên *.workers.dev).
+Code:
+- `lib/luongDoiTraTon.ts` (mới); `lib/canhBaoTon.ts`: key `luongDoiTra7`/`luongDoiTra10`, `computeLuongDoiTraBuckets`,
+  `canhBaoTonImageRows` (dùng chung Telegram + xem trước Settings), lịch sử 2 cột mới, số "hôm nay" (đã kết thúc =
+  hết tồn; đã GT = có mail mới hôm nay). `getCanhBaoTonSnapshot`/`computeCanhBaoTonBuckets` nhận `Env`.
+- `migrations/0134`: `canh_bao_ton_daily_log.luong_doi_tra_7_ngay/_10_ngay` (NULL = chưa có số).
+- API đối tác `canh-bao-ceo`: thêm nhóm `luong_doi_tra_tu_10_ngay` (PARTNER_API_GUIDE §11).
+- UI: thẻ Cảnh báo tồn 5 ô/cấp; cột "Trạng thái KN" (Luồng đổi trả), "Luồng đổi trả" (bảng tiến trình KN).
+- Hạn chế: cột "Tuổi tồn" trong danh sách bấm từ ô luồng vẫn là tuổi CA, không phải tuổi luồng; snapshot hôm nay
+  (chốt trước khi deploy) được điền 2 ô luồng ở lần cron giờ kế tiếp.

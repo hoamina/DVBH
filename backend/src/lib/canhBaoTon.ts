@@ -32,6 +32,8 @@ import { getVnDateStr } from "./reportCache";
 import { nowVN } from "./vnTime";
 import { renderCanhBaoTonImage } from "./reportImage";
 import { sendTelegramPhoto, TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID } from "./telegram";
+import type { Env } from "../types";
+import { computeLuongDoiTraTon, ngayVNCuaIso } from "./luongDoiTraTon";
 
 const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 
@@ -44,11 +46,17 @@ export const NEED_LOC_TONG_5_NGAY = `c.nhom_san_pham = 'Lọc tổng' AND ${AGE_
 
 const TRANH_CHAP_DONG_PLACEHOLDERS = TRANH_CHAP_TRANG_THAI_DONG.map(() => "?").join(", ");
 
-export type CanhBaoTonMetricKey = "ton14" | "vipSvip5" | "locTong3" | "tranhChap3" | "ton20" | "vipSvip7" | "locTong5" | "tranhChap5";
+// luongDoiTra7/luongDoiTra10 (CHOT 2026-10-12): luong doi tra (he theodoidoimay) ton >=7 ngay (Cap 1) / >=10 ngay
+// (Cap 2) - xem lib/luongDoiTraTon.ts. Nguon NGOAI D1 nen bucket co the mang "loi" khi khong goi duoc he kia luc
+// chot -> cron moi gio thu lai (retryLuongDoiTraSnapshot).
+export type CanhBaoTonMetricKey =
+  | "ton14" | "vipSvip5" | "locTong3" | "tranhChap3" | "luongDoiTra7"
+  | "ton20" | "vipSvip7" | "locTong5" | "tranhChap5" | "luongDoiTra10";
+const LUONG_KEYS: readonly CanhBaoTonMetricKey[] = ["luongDoiTra7", "luongDoiTra10"];
 export type CanhBaoTonBuckets = Record<CanhBaoTonMetricKey, SnapshotBucket>;
 export type CanhBaoTonKhuVucRow = Record<CanhBaoTonMetricKey, number>;
 
-const EMPTY_ROW: CanhBaoTonKhuVucRow = { ton14: 0, vipSvip5: 0, locTong3: 0, tranhChap3: 0, ton20: 0, vipSvip7: 0, locTong5: 0, tranhChap5: 0 };
+const EMPTY_ROW: CanhBaoTonKhuVucRow = { ton14: 0, vipSvip5: 0, locTong3: 0, tranhChap3: 0, luongDoiTra7: 0, ton20: 0, vipSvip7: 0, locTong5: 0, tranhChap5: 0, luongDoiTra10: 0 };
 
 const toBucket = (rows: { id: string }[]): SnapshotBucket => ({ ids: rows.map((r) => r.id), count: rows.length });
 
@@ -76,10 +84,54 @@ function tranhChapIdQuery(db: D1Database, minAge: number) {
     .all<{ id: string }>();
 }
 
+/** 2 bucket luong doi tra (>=7 / >=10 ngay) + so dem theo khu_vuc. Chi tinh luong co ca goc TON TAI trong
+ * DVBH (case_hieu_luc, bo khu vuc an khoi bao cao) - id tra ve la id chuan trong D1 (he kia co the luu khac
+ * hoa/thuong). ok=false (bucket rong + "loi") khi khong goi duoc he theodoidoimay. */
+export async function computeLuongDoiTraBuckets(
+  db: D1Database,
+  env: Env,
+  fresh = false,
+): Promise<{ ok: boolean; b7: SnapshotBucket; b10: SnapshotBucket; byKhuVuc: Record<string, { l7: number; l10: number }> }> {
+  const ton = await computeLuongDoiTraTon(env, fresh);
+  if (!ton.ok) {
+    const loi = ton.error ?? "LOI";
+    return { ok: false, b7: { ids: [], count: 0, loi }, b10: { ids: [], count: 0, loi }, byKhuVuc: {} };
+  }
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const raw = ton.rows.map((r) => r.case_id);
+  const caseMap = new Map<string, { id: string; khu_vuc: string | null }>();
+  if (raw.length) {
+    const { results } = await db
+      .prepare(`SELECT CAST(c.id AS TEXT) AS id, c.khu_vuc FROM case_hieu_luc c WHERE c.id IN (SELECT value FROM json_each(?))${exclusion.sql}`)
+      .bind(JSON.stringify([...raw, ...raw.map((x) => x.toLowerCase()), ...raw.map((x) => x.toUpperCase())]), ...exclusion.binds)
+      .all<{ id: string; khu_vuc: string | null }>();
+    for (const r of results) caseMap.set(r.id.toUpperCase(), r);
+  }
+  const ids7: string[] = [];
+  const ids10: string[] = [];
+  const byKhuVuc: Record<string, { l7: number; l10: number }> = {};
+  const seen = new Set<string>();
+  for (const r of ton.rows) {
+    const c = caseMap.get(r.case_id.toUpperCase());
+    if (!c || seen.has(c.id) || r.tuoi < 7) continue;
+    seen.add(c.id);
+    const kv = c.khu_vuc ? (byKhuVuc[c.khu_vuc] ??= { l7: 0, l10: 0 }) : null;
+    ids7.push(c.id);
+    if (kv) kv.l7++;
+    if (r.tuoi >= 10) {
+      ids10.push(c.id);
+      if (kv) kv.l10++;
+    }
+  }
+  return { ok: true, b7: { ids: ids7, count: ids7.length }, b10: { ids: ids10, count: ids10.length }, byKhuVuc };
+}
+
 /** Buckets toan he thong (khong loc khu_vuc) voi danh sach id day du - dung lam payload dong bang
  * cho card "hom nay" (click-through) + tong so gui anh Telegram. */
-export async function computeCanhBaoTonBuckets(db: D1Database): Promise<CanhBaoTonBuckets> {
-  const [ton14, ton20, vipSvip5, vipSvip7, locTong3, locTong5, tranhChap3, tranhChap5] = await Promise.all([
+export async function computeCanhBaoTonBuckets(env: Env): Promise<CanhBaoTonBuckets> {
+  const db = env.DB;
+  const [luong, ton14, ton20, vipSvip5, vipSvip7, locTong3, locTong5, tranhChap3, tranhChap5] = await Promise.all([
+    computeLuongDoiTraBuckets(db, env, true),
     needIdQuery(db, NEED_TON_14_NGAY),
     needIdQuery(db, NEED_TON_20_NGAY),
     needIdQuery(db, NEED_VIP_SVIP_5_NGAY),
@@ -98,6 +150,8 @@ export async function computeCanhBaoTonBuckets(db: D1Database): Promise<CanhBaoT
     locTong5: toBucket(locTong5.results),
     tranhChap3: toBucket(tranhChap3.results),
     tranhChap5: toBucket(tranhChap5.results),
+    luongDoiTra7: luong.b7,
+    luongDoiTra10: luong.b10,
   };
 }
 
@@ -160,15 +214,38 @@ export async function computeCanhBaoTonByKhuVuc(db: D1Database): Promise<Record<
 
 const SNAPSHOT_SCOPE_KEY = "canh_bao_ton|all";
 
+/** 2 nhom dong cho anh PNG "Canh bao ton" (Telegram 08:00 + xem truoc o Settings) - dung thu tu hien thi UI. */
+export function canhBaoTonImageRows(buckets: CanhBaoTonBuckets) {
+  const luongLabel = (b: SnapshotBucket | undefined, nguong: string) =>
+    b?.loi ? `Luồng đổi trả ${nguong} ngày (chưa lấy được)` : `Luồng đổi trả ${nguong} ngày`;
+  return {
+    cap1: [
+      { label: "Tồn ≥14 ngày", count: buckets.ton14.count },
+      { label: "VIP/S.VIP tồn ≥5 ngày", count: buckets.vipSvip5.count },
+      { label: "Lọc tổng tồn ≥3 ngày", count: buckets.locTong3.count },
+      { label: "Tranh chấp/KN ≥3 ngày", count: buckets.tranhChap3.count },
+      { label: luongLabel(buckets.luongDoiTra7, "≥7"), count: buckets.luongDoiTra7?.count ?? 0 },
+    ],
+    cap2: [
+      { label: "Tồn >20 ngày", count: buckets.ton20.count },
+      { label: "VIP/S.VIP tồn ≥7 ngày", count: buckets.vipSvip7.count },
+      { label: "Lọc tổng tồn ≥5 ngày", count: buckets.locTong5.count },
+      { label: "Tranh chấp/KN ≥5 ngày", count: buckets.tranhChap5.count },
+      { label: luongLabel(buckets.luongDoiTra10, "≥10"), count: buckets.luongDoiTra10?.count ?? 0 },
+    ],
+  };
+}
+
 /** Chay o cron 08:00 VN (index.ts DAILY_SNAPSHOT_CRON) - dong bang buckets vao daily_snapshot (tai
  * dung bang co san, scope_key rieng), ghi 1 dong/khu_vuc vao canh_bao_ton_daily_log (lich su vinh
  * vien, ON CONFLICT DO NOTHING giong chotGiaiTrinhDailyLog), roi gui anh PNG tom tat qua Telegram.
  * Loi gui anh KHONG chan phan luu DB (bocc try/catch rieng, giong chotGiaiTrinhDailyLog). */
-export async function generateCanhBaoTonSnapshot(db: D1Database, generatedBy: string): Promise<void> {
+export async function generateCanhBaoTonSnapshot(env: Env, generatedBy: string): Promise<void> {
+  const db = env.DB;
   const ngay = getVnDateStr();
   const generatedAt = nowVN();
 
-  const [buckets, byKhuVuc] = await Promise.all([computeCanhBaoTonBuckets(db), computeCanhBaoTonByKhuVuc(db)]);
+  const [buckets, byKhuVuc] = await Promise.all([computeCanhBaoTonBuckets(env), computeCanhBaoTonByKhuVuc(db)]);
 
   await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, generatedBy, buckets);
 
@@ -187,22 +264,18 @@ export async function generateCanhBaoTonSnapshot(db: D1Database, generatedBy: st
       console.error(`generateCanhBaoTonSnapshot: loi khi ghi khu vuc ${khuVuc}`, err);
     }
   }
+  if (!buckets.luongDoiTra7.loi) {
+    try {
+      await upsertLuongDoiTraDailyLog(db, ngay, await luongByKhuVucFromBuckets(db, buckets));
+    } catch (err) {
+      console.error("generateCanhBaoTonSnapshot: loi ghi luong doi tra daily log", err);
+    }
+  }
 
   try {
     const dateParts = ngay.split("-");
     const ngayFormatted = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
-    const cap1 = [
-      { label: "Tồn ≥14 ngày", count: buckets.ton14.count },
-      { label: "VIP/S.VIP tồn ≥5 ngày", count: buckets.vipSvip5.count },
-      { label: "Lọc tổng tồn ≥3 ngày", count: buckets.locTong3.count },
-      { label: "Tranh chấp/KN ≥3 ngày", count: buckets.tranhChap3.count },
-    ];
-    const cap2 = [
-      { label: "Tồn >20 ngày", count: buckets.ton20.count },
-      { label: "VIP/S.VIP tồn ≥7 ngày", count: buckets.vipSvip7.count },
-      { label: "Lọc tổng tồn ≥5 ngày", count: buckets.locTong5.count },
-      { label: "Tranh chấp/KN ≥5 ngày", count: buckets.tranhChap5.count },
-    ];
+    const { cap1, cap2 } = canhBaoTonImageRows(buckets);
     const png = await renderCanhBaoTonImage(cap1, cap2, ngayFormatted);
     await sendTelegramPhoto(TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID, png);
   } catch (err) {
@@ -258,9 +331,10 @@ const TRANH_CHAP_METRIC_KEYS: readonly CanhBaoTonMetricKey[] = ["tranhChap3", "t
  *   khong doi trang thai) duoc tao hom nay - dung y nghia "co dong xu ly hom nay du chua ket thuc".
  * "Hien tai con" = tong bucket - da GT hom nay - da ket thuc (2 nhom tren da duoc thiet ke LOAI TRU
  * lan nhau - 1 case chi roi vao dung 1 trong 2, hoac khong roi vao nhom nao ca). */
-export async function computeCanhBaoTonProgressToday(db: D1Database, buckets: CanhBaoTonBuckets): Promise<CanhBaoTonProgress> {
+export async function computeCanhBaoTonProgressToday(env: Env, buckets: CanhBaoTonBuckets): Promise<CanhBaoTonProgress> {
+  const db = env.DB;
   const todayVN = getVnDateStr();
-  const normalKeys = (Object.keys(buckets) as CanhBaoTonMetricKey[]).filter((k) => !TRANH_CHAP_METRIC_KEYS.includes(k));
+  const normalKeys = (Object.keys(buckets) as CanhBaoTonMetricKey[]).filter((k) => !TRANH_CHAP_METRIC_KEYS.includes(k) && !LUONG_KEYS.includes(k));
   const normalIds = Array.from(new Set(normalKeys.flatMap((k) => buckets[k].ids)));
   const tranhChapIds = Array.from(new Set(TRANH_CHAP_METRIC_KEYS.flatMap((k) => buckets[k].ids)));
 
@@ -322,8 +396,35 @@ export async function computeCanhBaoTonProgressToday(db: D1Database, buckets: Ca
     for (const r of logConRows) if (!ketThucTcSet.has(r.case_id)) gtTcSet.add(r.case_id);
   }
 
+  // Luong doi tra: "Da ket thuc" = luong khong con "ton" (da ket thuc / da doi tra thanh cong), "Da GT hom nay"
+  // = con ton nhung co mail moi hom nay (last_at). Doc live he theodoidoimay (cache isolate 5 phut).
+  const luongIds = Array.from(new Set(LUONG_KEYS.flatMap((k) => buckets[k]?.ids ?? [])));
+  const ketThucLuongSet = new Set<string>();
+  const gtLuongSet = new Set<string>();
+  if (luongIds.length > 0) {
+    const ton = await computeLuongDoiTraTon(env);
+    if (ton.ok) {
+      const tonByUpper = new Map(ton.rows.map((r) => [r.case_id.toUpperCase(), r]));
+      for (const id of luongIds) {
+        const r = tonByUpper.get(id.toUpperCase());
+        if (!r) ketThucLuongSet.add(id);
+        else if (ngayVNCuaIso(r.last_at) === todayVN) gtLuongSet.add(id);
+      }
+    }
+  }
+
   const result = {} as CanhBaoTonProgress;
   for (const key of Object.keys(buckets) as CanhBaoTonMetricKey[]) {
+    if (LUONG_KEYS.includes(key)) {
+      let daGtHomNay = 0;
+      let daKetThuc = 0;
+      for (const id of buckets[key].ids) {
+        if (ketThucLuongSet.has(id)) daKetThuc++;
+        else if (gtLuongSet.has(id)) daGtHomNay++;
+      }
+      result[key] = { daGtHomNay, daKetThuc, hienTaiCon: buckets[key].count - daGtHomNay - daKetThuc };
+      continue;
+    }
     const isTranhChap = (TRANH_CHAP_METRIC_KEYS as readonly string[]).includes(key);
     const ketThucSet = isTranhChap ? ketThucTcSet : ketThucNormalSet;
     const gtSet = isTranhChap ? gtTcSet : gtNormalSet;
@@ -360,6 +461,8 @@ const TREND_COLS: Record<CanhBaoTonMetricKey, string> = {
   vipSvip7: "vip_svip_7_ngay",
   locTong5: "loc_tong_5_ngay",
   tranhChap5: "tranh_chap_5_ngay",
+  luongDoiTra7: "luong_doi_tra_7_ngay",
+  luongDoiTra10: "luong_doi_tra_10_ngay",
 };
 
 /** "YYYY-MM-DD" theo gio VN, lui N ngay - dung pattern voi getVnDateStr() (+7h roi cat chuoi ngay). */
@@ -386,7 +489,8 @@ export async function getCanhBaoTonTrendDeltas(db: D1Database, khuVucFilter?: st
          SUM(ton_14_ngay) as ton_14_ngay, SUM(vip_svip_5_ngay) as vip_svip_5_ngay,
          SUM(loc_tong_3_ngay) as loc_tong_3_ngay, SUM(tranh_chap_3_ngay) as tranh_chap_3_ngay,
          SUM(ton_20_ngay) as ton_20_ngay, SUM(vip_svip_7_ngay) as vip_svip_7_ngay,
-         SUM(loc_tong_5_ngay) as loc_tong_5_ngay, SUM(tranh_chap_5_ngay) as tranh_chap_5_ngay
+         SUM(loc_tong_5_ngay) as loc_tong_5_ngay, SUM(tranh_chap_5_ngay) as tranh_chap_5_ngay,
+         SUM(luong_doi_tra_7_ngay) as luong_doi_tra_7_ngay, SUM(luong_doi_tra_10_ngay) as luong_doi_tra_10_ngay
        FROM canh_bao_ton_daily_log
        WHERE ngay IN (?, ?, ?)${khuVucClause.sql}
        GROUP BY ngay`,
@@ -401,10 +505,11 @@ export async function getCanhBaoTonTrendDeltas(db: D1Database, khuVucFilter?: st
 
   const build = (key: CanhBaoTonMetricKey): CanhBaoTonTrendPoint => {
     const col = TREND_COLS[key];
+    // NULL (vd cot luong_doi_tra_* truoc ngay co chi tieu, migration 0134) = chua co du lieu, khong phai 0.
     return {
-      yesterday: y ? (y[col] ?? 0) : null,
-      weekAgo: w ? (w[col] ?? 0) : null,
-      monthAgo: m ? (m[col] ?? 0) : null,
+      yesterday: y && y[col] != null ? y[col] : null,
+      weekAgo: w && w[col] != null ? w[col] : null,
+      monthAgo: m && m[col] != null ? m[col] : null,
     };
   };
 
@@ -417,13 +522,16 @@ export async function getCanhBaoTonTrendDeltas(db: D1Database, khuVucFilter?: st
     vipSvip7: build("vipSvip7"),
     locTong5: build("locTong5"),
     tranhChap5: build("tranhChap5"),
+    luongDoiTra7: build("luongDoiTra7"),
+    luongDoiTra10: build("luongDoiTra10"),
   };
 }
 
 /** Doc snapshot dong bang cua hom nay, tu-heal (tinh + luu ngay tai cho) neu chua co - giong
  * getSnapshotForUser trong dailySnapshot.ts nhung khong co bien the theo vai_tro/khu_vuc (bao cao
  * nay tinh toan he thong, ai xem cung thay CHUNG 1 bo so). */
-export async function getCanhBaoTonSnapshot(db: D1Database): Promise<CanhBaoTonSnapshot> {
+export async function getCanhBaoTonSnapshot(env: Env): Promise<CanhBaoTonSnapshot> {
+  const db = env.DB;
   const ngay = getVnDateStr();
   let row = await db
     .prepare("SELECT generated_at, generated_by, payload FROM daily_snapshot WHERE ngay = ? AND scope_key = ?")
@@ -432,10 +540,74 @@ export async function getCanhBaoTonSnapshot(db: D1Database): Promise<CanhBaoTonS
 
   if (!row) {
     const generatedAt = nowVN();
-    const buckets = await computeCanhBaoTonBuckets(db);
+    const buckets = await computeCanhBaoTonBuckets(env);
     await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, "auto", buckets);
     row = { generated_at: generatedAt, generated_by: "auto", payload: JSON.stringify(buckets) };
   }
 
-  return { generatedAt: row.generated_at, generatedBy: row.generated_by, buckets: JSON.parse(row.payload) };
+  const buckets = JSON.parse(row.payload) as CanhBaoTonBuckets;
+  // Snapshot chot truoc khi co chi tieu luong doi tra (hoac chua tinh xong) -> bucket rong kem "loi" thay vi
+  // thieu key; cron moi gio (retryLuongDoiTraSnapshot) se dien vao.
+  for (const k of LUONG_KEYS) buckets[k] ??= { ids: [], count: 0, loi: "CHUA_CHOT" };
+  return { generatedAt: row.generated_at, generatedBy: row.generated_by, buckets };
+}
+
+/** So luong doi tra ton theo khu_vuc cho tap id da chot (de ghi lich su). */
+async function luongByKhuVucFromBuckets(db: D1Database, buckets: CanhBaoTonBuckets): Promise<Record<string, { l7: number; l10: number }>> {
+  const ids7 = buckets.luongDoiTra7?.ids ?? [];
+  if (ids7.length === 0) return {};
+  const ids10 = new Set(buckets.luongDoiTra10?.ids ?? []);
+  const { results } = await db
+    .prepare("SELECT CAST(id AS TEXT) AS id, khu_vuc FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify(ids7))
+    .all<{ id: string; khu_vuc: string | null }>();
+  const out: Record<string, { l7: number; l10: number }> = {};
+  for (const r of results) {
+    if (!r.khu_vuc) continue;
+    const acc = (out[r.khu_vuc] ??= { l7: 0, l10: 0 });
+    acc.l7++;
+    if (ids10.has(r.id)) acc.l10++;
+  }
+  return out;
+}
+
+/** Ghi 2 cot luong_doi_tra_* (migration 0134) vao canh_bao_ton_daily_log cua ngay chot - upsert rieng 2 cot
+ * (dong khu_vuc co the da duoc ghi boi phan chi tieu D1, hoac chua co neu khu_vuc chi co luong ton). Khu vuc
+ * co dong nhung khong co luong ton -> 0 (da lay duoc so lieu). */
+async function upsertLuongDoiTraDailyLog(db: D1Database, ngay: string, byKhuVuc: Record<string, { l7: number; l10: number }>): Promise<void> {
+  const stmts = [
+    db.prepare("UPDATE canh_bao_ton_daily_log SET luong_doi_tra_7_ngay = 0, luong_doi_tra_10_ngay = 0 WHERE ngay = ?").bind(ngay),
+    ...Object.entries(byKhuVuc).map(([kv, v]) =>
+      db
+        .prepare(
+          `INSERT INTO canh_bao_ton_daily_log
+             (ngay, khu_vuc, ton_14_ngay, vip_svip_5_ngay, loc_tong_3_ngay, tranh_chap_3_ngay, ton_20_ngay, vip_svip_7_ngay, loc_tong_5_ngay, tranh_chap_5_ngay, luong_doi_tra_7_ngay, luong_doi_tra_10_ngay)
+           VALUES (?, ?, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?)
+           ON CONFLICT(ngay, khu_vuc) DO UPDATE SET luong_doi_tra_7_ngay = excluded.luong_doi_tra_7_ngay, luong_doi_tra_10_ngay = excluded.luong_doi_tra_10_ngay`,
+        )
+        .bind(ngay, kv, v.l7, v.l10),
+    ),
+  ];
+  await db.batch(stmts);
+}
+
+/** Cron moi gio (8h-18h VN, index.ts DAILY_SNAPSHOT_CRON): neu snapshot hom nay chua co / loi 2 bucket luong
+ * doi tra (he theodoidoimay khong goi duoc luc 08:00, hoac snapshot chot truoc khi deploy chi tieu nay) ->
+ * tinh lai RIENG 2 bucket do va va vao payload, giu nguyen cac bucket D1 da chot. */
+export async function retryLuongDoiTraSnapshot(env: Env): Promise<void> {
+  const db = env.DB;
+  const ngay = getVnDateStr();
+  const row = await db
+    .prepare("SELECT payload FROM daily_snapshot WHERE ngay = ? AND scope_key = ?")
+    .bind(ngay, SNAPSHOT_SCOPE_KEY)
+    .first<{ payload: string }>();
+  if (!row) return;
+  const buckets = JSON.parse(row.payload) as Partial<CanhBaoTonBuckets>;
+  if (buckets.luongDoiTra7 && !buckets.luongDoiTra7.loi) return;
+  const luong = await computeLuongDoiTraBuckets(db, env, true);
+  if (!luong.ok) return;
+  buckets.luongDoiTra7 = luong.b7;
+  buckets.luongDoiTra10 = luong.b10;
+  await db.prepare("UPDATE daily_snapshot SET payload = ? WHERE ngay = ? AND scope_key = ?").bind(JSON.stringify(buckets), ngay, SNAPSHOT_SCOPE_KEY).run();
+  await upsertLuongDoiTraDailyLog(db, ngay, luong.byKhuVuc);
 }

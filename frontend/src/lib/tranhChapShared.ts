@@ -28,6 +28,9 @@ export interface GiamSatInfo {
 export interface TienTrinhRow {
   id: string;
   case_id: string;
+  // Trang thai luong doi tra cua ca (he theodoidoimay, 2026-10-12): "ket_thuc" / "thanh_cong" / ma buoc
+  // (TRANG_THAI_LUONG); null = ca khong co luong doi tra.
+  luong_doi_tra?: { trang_thai: string; at: string | null } | null;
   phan_loai_tranh_chap: string;
   muc_do: string;
   ngay_tao: string;

@@ -38,7 +38,7 @@ import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefres
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
-import { generateCanhBaoTonSnapshot } from "./lib/canhBaoTon";
+import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
@@ -203,6 +203,15 @@ export default {
       } catch (err) {
         console.error("[cron-ton-kho-lk] loi khong mong doi:", err instanceof Error ? err.message : String(err));
       }
+      // Chi tieu "Luong doi tra" cua the Canh bao ton doc tu he theodoidoimay - neu luc 08:00 khong goi duoc
+      // (hoac snapshot chot truoc khi co chi tieu) thi moi lan fire 9h-18h VN thu lai (lib/canhBaoTon.ts).
+      if (new Date(event.scheduledTime).getUTCHours() !== 1) {
+        try {
+          await retryLuongDoiTraSnapshot(env);
+        } catch (err) {
+          console.error("[cron-luong-doi-tra] retry loi:", err instanceof Error ? err.message : String(err));
+        }
+      }
       // Cac viec chot 08:00 VN - KHONG chay o cac lan fire 9h-18h VN them vao 2026-10-08.
       if (new Date(event.scheduledTime).getUTCHours() !== 1) return;
       try {
@@ -218,7 +227,7 @@ export default {
       // "Canh bao ton danh cho QL" - chot cung moc 08:00 (xem lib/canhBaoTon.ts
       // generateCanhBaoTonSnapshot), doc lap voi 2 buoc tren.
       try {
-        await generateCanhBaoTonSnapshot(env.DB, "auto");
+        await generateCanhBaoTonSnapshot(env, "auto");
       } catch (err) {
         console.error("[cron-daily-snapshot] generateCanhBaoTonSnapshot loi:", err instanceof Error ? err.message : String(err));
       }

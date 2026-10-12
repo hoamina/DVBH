@@ -396,7 +396,7 @@ partnerApi.get("/danh-sach-ton", async (c) => {
   if (!(loai in DANH_SACH_TON_LOAI)) {
     return c.json({ error: "INVALID_LOAI", message: "loai phai la 1 trong: " + Object.keys(DANH_SACH_TON_LOAI).join(", "), loai_hop_le: DANH_SACH_TON_LOAI }, 400);
   }
-  return c.json(await buildDanhSachTon(c.env.DB, loai as DanhSachTonLoai));
+  return c.json(await buildDanhSachTon(c.env, loai as DanhSachTonLoai));
 });
 
 // Dung chung cho ca 2 route sync ben duoi - gioi han so dong 1 lan goi (khop dung

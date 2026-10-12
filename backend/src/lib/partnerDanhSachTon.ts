@@ -20,6 +20,7 @@ import { ageExpr } from "./ageCalc";
 import { getCanhBaoTonSnapshot, type CanhBaoTonMetricKey } from "./canhBaoTon";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TUOI_TIEN_TRINH_EXPR } from "./tranhChapTienTrinh";
 import { nowVN } from "./vnTime";
+import type { Env } from "../types";
 
 export const DANH_SACH_TON_LOAI = {
   "canh-bao-ceo": "Cảnh báo tồn cấp 2 (CEO) — chốt 08:00 hằng ngày",
@@ -34,6 +35,7 @@ const NHOM_CEO: { key: CanhBaoTonMetricKey; ma: string; ten: string }[] = [
   { key: "vipSvip7", ma: "vip_svip_tu_7_ngay", ten: "VIP/S.VIP tồn ≥7 ngày" },
   { key: "locTong5", ma: "loc_tong_tu_5_ngay", ten: "Lọc tổng tồn ≥5 ngày" },
   { key: "tranhChap5", ma: "tranh_chap_tu_5_ngay", ten: "Tranh chấp/KN ≥5 ngày" },
+  { key: "luongDoiTra10", ma: "luong_doi_tra_tu_10_ngay", ten: "Luồng đổi trả tồn ≥10 ngày" },
 ];
 
 const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
@@ -108,11 +110,12 @@ function shapeCase(r: CaseRowRaw, extras: Awaited<ReturnType<typeof loadExtras>>
   };
 }
 
-export async function buildDanhSachTon(db: D1Database, loai: DanhSachTonLoai) {
+export async function buildDanhSachTon(env: Env, loai: DanhSachTonLoai) {
+  const db = env.DB;
   const thoiDiemLay = nowVN();
 
   if (loai === "canh-bao-ceo") {
-    const snap = await getCanhBaoTonSnapshot(db);
+    const snap = await getCanhBaoTonSnapshot(env);
     const nhomByCase = new Map<string, string[]>();
     for (const n of NHOM_CEO) {
       for (const id of snap.buckets[n.key]?.ids ?? []) {

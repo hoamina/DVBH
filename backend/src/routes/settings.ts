@@ -16,7 +16,7 @@ import { generatePartnerApiKey, maskPartnerApiKey, hashApiKey } from "../lib/par
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { computeTonDailyEntries } from "../lib/dailySnapshot";
 import { buildBaocaoTonRows, renderBaocaoTonImage, renderCanhBaoTonImage } from "../lib/reportImage";
-import { computeCanhBaoTonBuckets } from "../lib/canhBaoTon";
+import { computeCanhBaoTonBuckets, canhBaoTonImageRows } from "../lib/canhBaoTon";
 import { getVnDateStr } from "../lib/reportCache";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
 import { syncGiaiTrinhTonB2B } from "../lib/etxGiaiTrinhSync";
@@ -1452,23 +1452,12 @@ settings.get("/telegram-report-preview", adminOnly, async (c) => {
 // gui vao Telegram luc 08h00 (xem lib/canhBaoTon.ts generateCanhBaoTonSnapshot), khong ghi DB / khong
 // gui Telegram that - chi tinh lai buckets song va tra ve PNG truc tiep.
 settings.get("/canh-bao-ton-report-preview", adminOnly, async (c) => {
-  const buckets = await computeCanhBaoTonBuckets(c.env.DB);
+  const buckets = await computeCanhBaoTonBuckets(c.env);
   const ngay = getVnDateStr();
   const dateParts = ngay.split("-");
   const ngayFormatted = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
 
-  const cap1 = [
-    { label: "Tồn ≥14 ngày", count: buckets.ton14.count },
-    { label: "VIP/S.VIP tồn ≥5 ngày", count: buckets.vipSvip5.count },
-    { label: "Lọc tổng tồn ≥3 ngày", count: buckets.locTong3.count },
-    { label: "Tranh chấp/KN ≥3 ngày", count: buckets.tranhChap3.count },
-  ];
-  const cap2 = [
-    { label: "Tồn >20 ngày", count: buckets.ton20.count },
-    { label: "VIP/S.VIP tồn ≥7 ngày", count: buckets.vipSvip7.count },
-    { label: "Lọc tổng tồn ≥5 ngày", count: buckets.locTong5.count },
-    { label: "Tranh chấp/KN ≥5 ngày", count: buckets.tranhChap5.count },
-  ];
+  const { cap1, cap2 } = canhBaoTonImageRows(buckets);
 
   const png = await renderCanhBaoTonImage(cap1, cap2, ngayFormatted);
   return new Response(png as unknown as ArrayBuffer, { headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
