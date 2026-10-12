@@ -117,7 +117,9 @@ export interface PartnerApiKeyRow {
   active: number;
 }
 
-const DAILY_LIMIT = 30;
+// /cases: 30 -> 1000 lan/ngay/key (2026-10-11). Dem "hom nay" bang khoang called_at >= 'YYYY-MM-DD'
+// (sargable, di index (api_key_id, called_at)) thay vi date(called_at) = ... (quet het lich su key).
+export const DAILY_LIMIT = 1000;
 const MIN_INTERVAL_MS = 60_000;
 
 export async function hashApiKey(key: string): Promise<string> {
@@ -165,7 +167,7 @@ export async function checkRateLimit(db: D1Database, apiKeyId: number): Promise<
 
   const todayCount = await db
     .prepare(
-      "SELECT COUNT(*) as cnt FROM partner_api_call_log WHERE api_key_id = ? AND date(called_at) = date('now', '+7 hours')",
+      "SELECT COUNT(*) as cnt FROM partner_api_call_log WHERE api_key_id = ? AND called_at >= date('now', '+7 hours')",
     )
     .bind(apiKeyId)
     .first<{ cnt: number }>();

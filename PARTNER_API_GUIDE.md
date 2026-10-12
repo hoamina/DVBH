@@ -588,7 +588,7 @@ Ghi chú riêng cho file Excel (khác cách JSON của `case-lookup` trả về)
 Endpoint này thiết kế cho **quét định kỳ**, không phải tra cứu thời gian thực, nên giới hạn chặt
 hơn nhiều và tính khác `case-lookup` (mục 5):
 
-- Tối đa **30 lần gọi/ngày** (theo ngày lịch Việt Nam) cho mỗi API key.
+- Tối đa **1000 lần gọi/ngày** (theo ngày lịch Việt Nam) cho mỗi API key.
 - Tối thiểu **60 giây** giữa 2 lần gọi liên tiếp (cùng key).
 - Tối đa **31 ngày** trong 1 khoảng `tu_ngay`–`den_ngay`.
 - Tối đa **20.000 dòng** kết quả cho 1 lần gọi (vượt quá → lỗi, xem mục 10.5) — nếu khoảng ngày cần
@@ -602,7 +602,7 @@ hơn nhiều và tính khác `case-lookup` (mục 5):
 | 400 | `INVALID_DATE_RANGE` | Thiếu/sai định dạng `tu_ngay`/`den_ngay`, hoặc `tu_ngay` sau `den_ngay` |
 | 400 | `RANGE_TOO_LARGE` | Khoảng ngày vượt quá 31 ngày |
 | 400 | `TOO_MANY_ROWS` | Kết quả vượt quá 20.000 dòng — chia nhỏ khoảng ngày rồi gọi lại |
-| 429 | `DAILY_LIMIT_EXCEEDED` | Đã gọi 30 lần trong ngày (giờ VN) cho key này |
+| 429 | `DAILY_LIMIT_EXCEEDED` | Đã gọi 1000 lần trong ngày (giờ VN) cho key này |
 | 429 | `MIN_INTERVAL_NOT_MET` | Gọi lại trước khi đủ 60 giây từ lần gọi thành công gần nhất |
 
 Ngoài ra vẫn áp dụng `MISSING_API_KEY`/`INVALID_API_KEY`/`TOO_MANY_REQUESTS_IP` như mục 4 (lỗi xác

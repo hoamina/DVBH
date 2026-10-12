@@ -4,6 +4,7 @@ import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
 import {
   findActivePartnerKey,
   checkRateLimit,
+  DAILY_LIMIT,
   logPartnerApiCall,
   isIpBadAuthBlocked,
   recordBadAuth,
@@ -172,8 +173,8 @@ partnerApi.get("/cases", async (c) => {
     SELECT ?1, ?2, ?3
     WHERE (
       SELECT COUNT(*) FROM partner_api_call_log
-      WHERE api_key_id = ?1 AND date(called_at) = date('now', '+7 hours')
-    ) < 30
+      WHERE api_key_id = ?1 AND called_at >= date('now', '+7 hours')
+    ) < ?4
     AND (
       NOT EXISTS (SELECT 1 FROM partner_api_call_log WHERE api_key_id = ?1)
       OR
@@ -185,17 +186,17 @@ partnerApi.get("/cases", async (c) => {
       ) >= 60
     )
   `)
-    .bind(keyRow.id, mode, totalCount)
+    .bind(keyRow.id, mode, totalCount, DAILY_LIMIT)
     .run();
 
   if ((insertLog.meta.changes ?? 0) === 0) {
     // Nếu chèn thất bại tức là đã vượt qua giới hạn rate limit. Kiểm tra xem lỗi nào để phản hồi đúng
     const todayCount = await c.env.DB.prepare(
-      "SELECT COUNT(*) as cnt FROM partner_api_call_log WHERE api_key_id = ? AND date(called_at) = date('now', '+7 hours')"
+      "SELECT COUNT(*) as cnt FROM partner_api_call_log WHERE api_key_id = ? AND called_at >= date('now', '+7 hours')"
     )
       .bind(keyRow.id)
       .first<{ cnt: number }>();
-    if ((todayCount?.cnt ?? 0) >= 30) {
+    if ((todayCount?.cnt ?? 0) >= DAILY_LIMIT) {
       return c.json({ error: "DAILY_LIMIT_EXCEEDED" }, 429);
     }
     return c.json({ error: "MIN_INTERVAL_NOT_MET" }, 429);
@@ -252,7 +253,7 @@ type CaseLookupRow = Record<(typeof CASE_LOOKUP_COLUMNS)[number], string | numbe
 // "Luồng tạo đơn mua hàng/CLAUDE.md" muc "Nguồn gốc tách hệ thống"). Day la diem noi DUY NHAT giua 2
 // he: he moi CHI goi endpoint nay (tra cuu theo ID, khong ghi gi ca). Tra ve tap field CASE_LOOKUP_
 // COLUMNS o tren - dung khoa xac thuc rieng (X-API-Key thay vi session) vi ben goi la 1 he thong
-// khac, khong co nguoi dang nhap. KHONG ap dung rate-limit 30/ngay+60s cua "/cases" o tren (thiet
+// khac, khong co nguoi dang nhap. KHONG ap dung rate-limit 1000/ngay+60s cua "/cases" o tren (thiet
 // ke cho export hang loat dinh ky) - endpoint nay phuc vu tra cuu TUNG BAN GHI theo thoi gian thuc
 // (nguoi dung go ID, debounce 500ms). Rate-limit rieng theo tung API key (200 req/phut) qua Cache API
 // (khong ghi D1 - tranh ton quota rows_written cho luu luong tra cuu tan suat cao) de gioi han thiet
