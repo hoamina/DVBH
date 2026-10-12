@@ -68,7 +68,7 @@ trường hợp không tìm thấy).
 ### 3.1. Không tìm thấy case
 
 ```json
-{ "found": false, "preview": null, "giaiTrinh": [] }
+{ "found": false, "preview": null, "giaiTrinh": [], "khaoSat": [], "viPham": [] }
 ```
 
 Xảy ra khi: `id` rỗng/thiếu, hoặc không có case nào khớp `id` trong hệ thống. Hai trường hợp này
@@ -83,6 +83,20 @@ không nên cố phân biệt 2 case này.
   "giaiTrinh": [
     { "case_id": "1324863", "ly_do_cham": "Thieu linh kien", "noi_dung": "Cho hang ve",
       "ngay_giai_trinh": "2026-08-21 09:00:00" }
+  ],
+  "khaoSat": [
+    { "id": "CG-000005", "loai_khao_sat": ["Hen qua 24h"], "doi_tuong_lien_he": "Khach hang",
+      "ket_qua_cuoc_goi": "Da lien he", "dien_giai": "...", "ghi_chu": null, "ly_do_that_bai": null,
+      "can_goi_lai": false, "da_hen_kh": "Da hen KH", "nguoi_thuc_hien": "cskh@...", "ngay_gio_thuc_hien": "2026-08-22 10:30:00" }
+  ],
+  "viPham": [
+    { "id": "L-000003", "ket_qua_goi_id": "CG-000005", "loai_loi": "Hen qua 24h", "loai_loi_chi_tiet": null,
+      "ket_qua_cap_1": "Loi khong lien he", "ghi_chu": null, "nguoi_ghi_nhan": "cskh@...", "ngay_ghi_nhan": "2026-08-22 10:31:00",
+      "chot_bo_cap_2": 1, "nguoi_chot": "qc@...", "ngay_chot": "2026-08-23 09:00:00", "trang_thai": "Xac nhan loi",
+      "giai_trinh": [
+        { "nguon": "ktv_qua_api", "nguoi_giai_trinh": "Nguyen Van A", "ngay_giai_trinh": "2026-08-22 15:00:00",
+          "noi_dung_giai_trinh": "...", "ghi_chu": null, "anh_urls": ["https://..."] }
+      ] }
   ],
   "preview": {
     "ky_thuat_vien": "Nguyen Van A",
@@ -137,6 +151,40 @@ Mảng lịch sử giải trình chậm trễ của case (bảng `giai_trinh` n�
 | `ly_do_cham` | string | Lý do chậm trễ đã chọn |
 | `noi_dung` | string, có thể null | Nội dung giải trình chi tiết |
 | `ngay_giai_trinh` | string | Thời điểm giải trình, giờ VN dạng `YYYY-MM-DD HH:MM:SS` (cùng quy ước với các field thời gian khác — xem lưu ý cuối mục 3.3.1) |
+
+### 3.3.2. Trường `khaoSat` và `viPham` (thêm 2026-10-12)
+
+Luôn là mảng (rỗng `[]` nếu không có / không tìm thấy case), sắp xếp mới nhất trước.
+
+**`khaoSat`** — các cuộc gọi khảo sát CSKH của case (bảng `ket_qua_goi`):
+
+| Field | Kiểu | Ý nghĩa |
+|---|---|---|
+| `id` | string | Mã cuộc gọi (vd `CG-000005`) |
+| `loai_khao_sat` | string[] | Các nội dung khảo sát của cuộc gọi (vd `["Hen qua 24h"]`) |
+| `doi_tuong_lien_he` | string, null | Đối tượng được gọi |
+| `ket_qua_cuoc_goi` | string, null | Kết quả cuộc gọi |
+| `dien_giai` / `ghi_chu` | string, null | Diễn giải / ghi chú của CSKH |
+| `ly_do_that_bai` | string, null | Lý do gọi không thành công |
+| `can_goi_lai` | boolean, null | Cần gọi lại |
+| `da_hen_kh` | string, null | `Da hen KH` / `Chua hen KH` / `Khong xac dinh` |
+| `nguoi_thuc_hien` | string | Email CSKH thực hiện |
+| `ngay_gio_thuc_hien` | string | Thời điểm gọi, giờ VN |
+
+**`viPham`** — các vi phạm ghi nhận trên case (bảng `vi_pham`), kèm giải trình vi phạm:
+
+| Field | Kiểu | Ý nghĩa |
+|---|---|---|
+| `id` | string | Mã vi phạm |
+| `ket_qua_goi_id` | string, null | Cuộc gọi khảo sát phát sinh vi phạm (khớp `khaoSat[].id`); null nếu tạo thủ công/import |
+| `loai_loi` / `loai_loi_chi_tiet` | string / string, null | Nhóm lỗi (`Loi 120 phut`, `Hen qua 24h`, `Loi lo ke hoach`, `KH hen lai`, `Khac`, `KSNB`) / chi tiết |
+| `ket_qua_cap_1` | string, null | Kết quả đánh giá cấp 1 (tên lỗi; `Khong loi` = không có lỗi) |
+| `ghi_chu` | string, null | Ghi chú |
+| `nguoi_ghi_nhan` / `ngay_ghi_nhan` | string | Email + thời điểm ghi nhận |
+| `chot_bo_cap_2` | number, null | QC chốt: `1` xác nhận lỗi, `0` bỏ lỗi, `null` chưa chốt |
+| `nguoi_chot` / `ngay_chot` | string, null | Email QC + thời điểm chốt |
+| `trang_thai` | string | Tính sẵn: `Chua danh gia cap 1` / `Cho QC` / `Xac nhan loi` / `Bo loi` |
+| `giai_trinh` | mảng | Giải trình vi phạm: `nguon` (`ktv_qua_api` / `giam_sat_nhap_tay`), `nguoi_giai_trinh`, `ngay_giai_trinh`, `noi_dung_giai_trinh`, `ghi_chu`, `anh_urls` (string[]) |
 
 ### 3.3.1. Danh sách field trong `preview`
 
@@ -380,7 +428,7 @@ gộp, không chờ debounce), phân biệt qua field `nguon_cap_nhat`:
 | Field | Kiểu | Ý nghĩa |
 |---|---|---|
 | `chot_bo_cap_2` | boolean | `true` = QC xác nhận đúng là vi phạm, `false` = QC kết luận không vi phạm (bỏ) |
-| `ket_qua_cap_1` | string | **Thêm 2026-09-16.** Giá trị loại lỗi CUỐI CÙNG tại thời điểm chốt — QC có thể sửa lại khác với giá trị CSKH chọn ban đầu (ví dụ CSKH chọn tạm "Loi khac", QC đánh giá kỹ hơn sửa thành 1 loại lỗi cụ thể trong danh mục "Loại lỗi vi phạm") trước khi chốt/bỏ. Đây là **giá trị duy nhất nên dùng để hiển thị/tính toán loại lỗi từ thời điểm này** — nếu hệ vipham đã lưu `ket_qua_cap_1` từ lần báo `nghi_ngo_moi` (mục 9.1.1), cần **ghi đè** bằng giá trị ở đây khi nhận được sự kiện này, vì `case-lookup` (mục 1–7) không trả về được dữ liệu `vi_pham`/`ket_qua_cap_1` nên đây là đường duy nhất hệ vipham nhận được giá trị đã sửa |
+| `ket_qua_cap_1` | string | **Thêm 2026-09-16.** Giá trị loại lỗi CUỐI CÙNG tại thời điểm chốt — QC có thể sửa lại khác với giá trị CSKH chọn ban đầu (ví dụ CSKH chọn tạm "Loi khac", QC đánh giá kỹ hơn sửa thành 1 loại lỗi cụ thể trong danh mục "Loại lỗi vi phạm") trước khi chốt/bỏ. Đây là **giá trị duy nhất nên dùng để hiển thị/tính toán loại lỗi từ thời điểm này** — nếu hệ vipham đã lưu `ket_qua_cap_1` từ lần báo `nghi_ngo_moi` (mục 9.1.1), cần **ghi đè** bằng giá trị ở đây khi nhận được sự kiện này, (từ 2026-10-12 `case-lookup` cũng trả `viPham[].ket_qua_cap_1`, xem mục 3.3.2 — có thể dùng để đối soát) |
 | `nguoi_chot` | string | Email QC vừa chốt/bỏ |
 | `ngay_chot` | string | Giờ VN địa phương, cùng định dạng/quy ước với `ngay_ghi_nhan` ở mục 9.1.1 |
 

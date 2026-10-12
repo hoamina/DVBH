@@ -4482,3 +4482,13 @@ khỏi danh sách làm người giải trình rối (thấy số còn mà không
   hôm nay tính vào "Đã kết thúc".
 - `lib/partnerDanhSachTon.ts` (API `canh-bao-ceo`): đọc bảng gốc, thêm cờ `da_huy` (PARTNER_API_GUIDE §11).
 - `BacklogModule.tsx`: nhãn "🚫 Đã hủy" cạnh ID trong Danh sách chi tiết.
+
+## 2026-10-12 — API tra cứu theo ID (`case-lookup`): thêm khảo sát + vi phạm (v1.449)
+Yêu cầu: bổ sung dữ liệu khảo sát + vi phạm theo từng case khi đối tác gọi API theo ID.
+- `GET /api/partner/case-lookup?id=` trả thêm `khaoSat` (bảng `ket_qua_goi`, `loai_khao_sat` parse thành
+  mảng) và `viPham` (bảng `vi_pham` + `trang_thai` tính sẵn Chưa đánh giá cấp 1/Chờ QC/Xác nhận lỗi/Bỏ lỗi
+  + mảng `giai_trinh` từ `vi_pham_giai_trinh`). Chỉ thêm field, không đổi field cũ.
+- 4 câu (giải trình, khảo sát, vi phạm, giải trình vi phạm) gom 1 `db.batch`, chỉ chạy khi case tồn tại;
+  cả 3 bảng mới đều có index theo `case_id` → chỉ đọc đúng số dòng của case.
+- Tài liệu: PARTNER_API_GUIDE.md §3.2, §3.3.2.
+- Không đổi `GET /api/partner/cases` (xuất Excel hàng loạt) và `danh-sach-ton`.

@@ -279,30 +279,79 @@ partnerApi.get("/case-lookup", async (c) => {
   if (!okLookup) return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
 
   const id = c.req.query("id")?.trim();
-  if (!id) return c.json({ found: false, preview: null, giaiTrinh: [] });
+  const notFound = { found: false, preview: null, giaiTrinh: [], khaoSat: [], viPham: [] };
+  if (!id) return c.json(notFound);
 
   const caseRow = await c.env.DB.prepare(
     `SELECT ${CASE_LOOKUP_COLUMNS.join(", ")} FROM case_dvbh WHERE id = ?`,
   )
     .bind(id)
     .first<CaseLookupRow>();
-  if (!caseRow) return c.json({ found: false, preview: null, giaiTrinh: [] });
+  if (!caseRow) return c.json(notFound);
 
   // Lich su giai_trinh cua case nay - them 2026-09-07 cho doi tac "App Khieu Nai" (can du lieu
   // nay de dien cot "Thong tin giai trinh DVBH"). Chi query khi da biet case ton tai (query truoc
   // o tren) - tranh ton D1 read cho cac luot go nham ID (xem CLAUDE.md muc "D1 read-budget
-  // discipline"). Dung lai GiaiTrinhHistoryRow/cung tap cot voi endpoint export hang loat /cases o
-  // tren de khong nhan doi type. idx_giai_trinh_case_ngay (migration 0106) phuc vu truc tiep query
-  // nay, khong can them index moi.
-  const { results: giaiTrinh } = await c.env.DB.prepare(
-    `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh, nguoi_giai_trinh FROM giai_trinh
-     WHERE case_id = ? ORDER BY ngay_giai_trinh DESC`,
-  )
-    .bind(id)
-    .all<GiaiTrinhHistoryRow>();
+  // discipline"). idx_giai_trinh_case_ngay (migration 0106) phuc vu truc tiep query nay.
+  // Them 2026-10-12: khao sat (ket_qua_goi) + vi pham (vi_pham + vi_pham_giai_trinh) cua case - ca 3
+  // bang deu co index theo case_id (idx_ket_qua_goi_case / idx_vi_pham_case / idx_vi_pham_giai_trinh_case)
+  // nen chi doc dung so dong cua case nay; gom 1 db.batch (1 round-trip).
+  const [gtRes, ksRes, vpRes, vpGtRes] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT case_id, ly_do_cham, noi_dung, ngay_giai_trinh, nguoi_giai_trinh FROM giai_trinh
+       WHERE case_id = ? ORDER BY ngay_giai_trinh DESC`,
+    ).bind(id),
+    c.env.DB.prepare(
+      `SELECT id, loai_khao_sat, doi_tuong_lien_he, ket_qua_cuoc_goi, dien_giai, ghi_chu, ly_do_that_bai,
+              can_goi_lai, da_hen_kh, nguoi_thuc_hien, ngay_gio_thuc_hien
+       FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC`,
+    ).bind(id),
+    c.env.DB.prepare(
+      `SELECT id, ket_qua_goi_id, loai_loi, loai_loi_chi_tiet, ket_qua_cap_1, ghi_chu, nguoi_ghi_nhan, ngay_ghi_nhan,
+              chot_bo_cap_2, nguoi_chot, ngay_chot
+       FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC`,
+    ).bind(id),
+    c.env.DB.prepare(
+      `SELECT vi_pham_id, nguon, nguoi_giai_trinh, ngay_giai_trinh, noi_dung_giai_trinh, ghi_chu, anh_urls
+       FROM vi_pham_giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC`,
+    ).bind(id),
+  ]);
+  const giaiTrinh = gtRes.results as unknown as GiaiTrinhHistoryRow[];
+  type KhaoSatRow = { can_goi_lai: number | null } & Record<string, string | number | null>;
+  // loai_khao_sat luu chuoi JSON mang (vd '["Hen qua 24h"]') -> tra mang; gia tri cu khong phai JSON -> [chuoi].
+  const parseLoaiKhaoSat = (v: string | number | null): string[] => {
+    if (typeof v !== "string" || !v) return [];
+    try {
+      const p = JSON.parse(v);
+      return Array.isArray(p) ? p.map(String) : [v];
+    } catch {
+      return [v];
+    }
+  };
+  const khaoSat = (ksRes.results as KhaoSatRow[]).map((r) => ({
+    ...r,
+    loai_khao_sat: parseLoaiKhaoSat(r.loai_khao_sat),
+    can_goi_lai: r.can_goi_lai == null ? null : r.can_goi_lai === 1,
+  }));
+  type VpGtRow = { vi_pham_id: string; anh_urls: string | null } & Record<string, string | number | null>;
+  const vpGtByViPham = new Map<string, Omit<VpGtRow, "vi_pham_id" | "anh_urls">[]>();
+  for (const r of vpGtRes.results as VpGtRow[]) {
+    const { vi_pham_id, anh_urls, ...rest } = r;
+    if (!vpGtByViPham.has(vi_pham_id)) vpGtByViPham.set(vi_pham_id, []);
+    vpGtByViPham.get(vi_pham_id)!.push({ ...rest, anh_urls: parseHinhAnhUrls(anh_urls) } as never);
+  }
+  type ViPhamRow = { id: string; ket_qua_cap_1: string | null; chot_bo_cap_2: number | null } & Record<string, string | number | null>;
+  // trang_thai: "Chua danh gia cap 1" (ket_qua_cap_1 NULL) / "Cho QC" (co cap 1, QC chua chot cap 2) /
+  // "Xac nhan loi" / "Bo loi" (chot_bo_cap_2 = 1 / 0 - cung nghia XAC_NHAN_EXPR o routes/viPham.ts).
+  const viPham = (vpRes.results as ViPhamRow[]).map((r) => ({
+    ...r,
+    trang_thai:
+      r.chot_bo_cap_2 === 1 ? "Xac nhan loi" : r.chot_bo_cap_2 === 0 ? "Bo loi" : r.ket_qua_cap_1 == null ? "Chua danh gia cap 1" : "Cho QC",
+    giai_trinh: vpGtByViPham.get(r.id) ?? [],
+  }));
 
   const preview = { ...caseRow, link_hinh_anh: parseHinhAnhUrls(caseRow.link_hinh_anh) };
-  return c.json({ found: true, preview, giaiTrinh });
+  return c.json({ found: true, preview, giaiTrinh, khaoSat, viPham });
 });
 
 // GET /api/partner/danh-sach-ton?loai=canh-bao-ceo|nskx-ton-3-ngay - 2 danh sach ca ton rieng cho doi
