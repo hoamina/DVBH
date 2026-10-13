@@ -183,6 +183,20 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   `ky_thuat_vien`. Computed in the auto qs pipeline (`ocrm/transform_odoo.py ktv_trien_khai()`), sent only with
   `ODOO_SEND_KTV_TRIEN_KHAI=true`. Read it as `COALESCE(ktv_trien_khai, ky_thuat_vien)`; reports still group by
   `ky_thuat_vien` until the owner decides otherwise.
+- **"Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (`lib/phamVi.ts`, migration 0136, 2026-10-13)**: TopBar toggle that
+  only affects VIEWING reports/lists. The frontend `api/client.ts` appends `?pv=nskx|khong_nskx` to every GET (except
+  `/notifications`, `/auth`); `phamViMiddleware` then swaps `c.env.DB` for a wrapper that **rewrites table names in
+  every SQL statement**: `case_hieu_luc` → view `case_hieu_luc_<pv>`, `case_dvbh [alias] INDEXED BY idx` → filtered
+  view/subquery, and the snapshot/cache tables (`precomputed_cache`, `daily_snapshot`, `giai_trinh_daily_log`,
+  `backlog_age_daily`, `backlog_age_month_manifest`, `ton_ktv_daily`, `canh_bao_ton_daily_log`) → `<table>_<pv>`
+  copies. So all report/snapshot/self-heal code runs unchanged but reads and writes the scope's own data, and can never
+  overwrite the "Tất cả" numbers. NSKX = `doi_tac IN ('NSKX','[NSKX]')` (`[NSKX]` = old CRM label, pre-07/2026).
+  Rules: (1) a **new snapshot/cache table** fed from case reads must get `_nskx`/`_khong_nskx` copies + be added to
+  `BANG_THEO_PHAM_VI`, else NSKX mode silently shows/writes "Tất cả" data; (2) code reachable from a GET that writes
+  **shared** derived data (e.g. `refreshCaLapPrecompute`) must use `dbGoc(db)`; (3) anything sent outside (Telegram)
+  must check `phamViCua(db) === "tat_ca"`; (4) cron/refresh-reports chot both scopes via `lib/phamViChot.ts` (history
+  starts 2026-10-13). R2 data (closed-case chunks, lũy kế) is filtered client-side (`frontend/src/lib/phamVi.ts`;
+  lũy kế NSKX = column "KH VIPs" containing NSKX/NSXK, auto months write "NSKX"). The old "Báo cáo NSKX" module was removed.
 - **Cancelled cases (`huy_bo_at`) are excluded everywhere via VIEW `case_hieu_luc`** (migration 0133,
   2026-10-11): every report/list/dropdown READ query uses `case_hieu_luc`, not `case_dvbh`. Keep `case_dvbh`
   only for writes, single-case lookups by id (Admin can still open a cancelled case), and queries with
@@ -324,7 +338,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0135`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0136`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

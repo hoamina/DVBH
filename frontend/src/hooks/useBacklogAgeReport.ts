@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { hauToPhamVi, usePhamVi } from "../lib/phamVi";
 import { api, buildQuery } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
 
@@ -38,6 +39,8 @@ interface MonthCacheEntry {
 }
 
 export function useBacklogAgeReport(thang: string, enabled = true) {
+  // "Phạm vi báo cáo" (lib/phamVi.ts): server tra so chot rieng tung pham vi -> khoa cache + tai lai theo pham vi.
+  const pv = usePhamVi();
   const [rows, setRows] = useState<BacklogAgeRow[]>([]);
   const [months, setMonths] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +66,7 @@ export function useBacklogAgeReport(thang: string, enabled = true) {
         return;
       }
 
-      const cached = await getCachedEntry<MonthCacheEntry>(`${CACHE_PREFIX}${thang}`);
+      const cached = await getCachedEntry<MonthCacheEntry>(`${CACHE_PREFIX}${thang}${hauToPhamVi(pv)}`);
       if (cached && cached.data.hash === serverHash) {
         setRows(cached.data.rows);
         return;
@@ -71,14 +74,14 @@ export function useBacklogAgeReport(thang: string, enabled = true) {
 
       const res = await api.get<DataResponse>(`/backlog-age-report/data${buildQuery({ thang })}`);
       if (mySeq !== syncSeq.current) return;
-      await setCachedEntry(`${CACHE_PREFIX}${thang}`, { hash: serverHash, rows: res.rows });
+      await setCachedEntry(`${CACHE_PREFIX}${thang}${hauToPhamVi(pv)}`, { hash: serverHash, rows: res.rows });
       setRows(res.rows);
     } catch {
       if (mySeq === syncSeq.current) setIsError(true);
     } finally {
       if (mySeq === syncSeq.current) setIsLoading(false);
     }
-  }, [thang, enabled]);
+  }, [thang, enabled, pv]);
 
   useEffect(() => {
     sync();

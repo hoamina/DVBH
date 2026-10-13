@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { laNskxKhVip, locTheoPhamVi, usePhamVi } from "../lib/phamVi";
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
 
@@ -106,5 +107,10 @@ export function useLuyKeChunked(enabled = true) {
     sync();
   }, [sync]);
 
-  return { rows, months, isLoading, isError, refetch: sync };
+  // "Phạm vi báo cáo" (lib/phamVi.ts): nhom KH NSKX = cot "KH VIPs" chua "NSKX"/"NSXK" (thang nhap Excel tay); thang
+  // he thong tu tinh ghi "NSKX" cho ca doi_tac = NSKX (backend luyKeCompute.ts).
+  const pv = usePhamVi();
+  const rowsPhamVi = useMemo(() => locTheoPhamVi(rows, (r) => laNskxKhVip(r.kh_vip), pv), [rows, pv]);
+
+  return { rows: rowsPhamVi, soDongTatCa: rows.length, months, isLoading, isError, refetch: sync };
 }

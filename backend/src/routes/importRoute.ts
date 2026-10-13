@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { chotSoLieuPhamVi } from "../lib/phamViChot";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -182,6 +183,8 @@ importRoute.post("/refresh-reports", async (c) => {
   } catch (err) {
     console.error("refresh-reports: loi khi generateTonKtvSnapshot", err);
   }
+  // Cung bo so tren cho 2 pham vi NSKX / Khong NSKX (lib/phamViChot.ts).
+  await chotSoLieuPhamVi(c.env, c.get("user").email, { canhBaoTon: false });
   return c.json({ ok: true });
 });
 

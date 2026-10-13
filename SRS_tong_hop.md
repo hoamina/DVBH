@@ -256,3 +256,15 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
   mới). Bấm 1 dòng tỉnh để xem danh sách → lọc qua `dg_loc`. Cột Tỉnh / Quận-Huyện trong Danh sách chi tiết Quản lý tồn đổi
   theo chế độ; chi tiết ca cũ hiện thêm "tỉnh mới (quy đổi)". Dữ liệu cache/snapshot cũ chỉ có tỉnh cũ vẫn đọc được (client tự
   quy đổi).
+
+## 11. Phạm vi báo cáo: Tất cả / NSKX / Không NSKX (chốt 2026-10-13)
+
+- Nút 3 lựa chọn trên thanh đầu trang, mọi vai trò đều chọn được, lưu trên máy người dùng.
+- CHỈ ảnh hưởng việc xem: mọi báo cáo và danh sách (kể cả danh sách làm việc) lọc theo tập ca của phạm vi. Logic từng báo
+  cáo giữ nguyên. Không đổi: nghiệp vụ (giải trình, khảo sát, duyệt…), badge số trên menu, ảnh Telegram, API đối tác.
+- NSKX = đối tác `NSKX` (gồm cách ghi CRM cũ `[NSKX]`). Không NSKX = mọi ca còn lại (kể cả ca chưa có đối tác).
+- Báo cáo cố định (số chốt 08:00, tỷ lệ giải trình 17:30, tuổi tồn, tồn theo KTV, Cảnh báo tồn) có số riêng từng phạm vi
+  từ 13/10/2026; trước ngày này chỉ có số "Tất cả".
+- Báo cáo lũy kế: nhóm NSKX = cột "KH VIPs" chứa "NSKX" (kể cả ghi nhầm "NSXK", vd "NSXK - hết 1 năm"); tháng hệ thống tự
+  tính ghi "NSKX" cho ca NSKX. Tab Tốc độ theo miền: RTAT và tốc độ cuối tuần không phân chia theo NSKX (có ghi chú).
+- Module "Báo cáo NSKX" riêng đã gỡ.

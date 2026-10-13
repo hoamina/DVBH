@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { PHAM_VI_LABEL, usePhamVi } from "../lib/phamVi";
 import { useMutation } from "@tanstack/react-query";
 import type { ChartOptions } from "chart.js";
 import { Card } from "../components/ui/Card";
@@ -256,7 +257,8 @@ export function LuyKeModule() {
   const auth = useAuth();
   const canImport = auth.status === "authenticated" && (auth.user.vai_tro === "Admin" || auth.user.vai_tro === "TBP DVBH");
   const [tab, setTab] = useLocalStorageState<"dashboard" | "toc-do-mien" | "import">("luy-ke:tab", "dashboard");
-  const { rows: rawRows, months, isLoading, isError, refetch } = useLuyKeChunked();
+  const { rows: rawRows, soDongTatCa, months, isLoading, isError, refetch } = useLuyKeChunked();
+  const pv = usePhamVi();
   // An khoi bao cao - khop KHU_VUC_AN_KHOI_BAO_CAO da CHOT o he thong khac (xem constants.ts): du
   // lieu doc thang tu R2 KHONG qua endpoint co loc san nen phai tu loc o client, giong BacklogModule.tsx
   // tab "Ca da dong". Loc TRUOC moi tinh toan khac (filter option, chart, bang, tong) de khu_vuc nay
@@ -429,7 +431,13 @@ export function LuyKeModule() {
             <LoadingCard label="Đang tải dữ liệu báo cáo lũy kế…" />
           ) : rows.length === 0 ? (
             <Card className="p-8 text-center text-sm text-[var(--ink-400)]">
-              Chưa có dữ liệu báo cáo lũy kế. {canImport && "Vào tab \"Nhập dữ liệu\" để import file Excel đầu tiên."}
+              {soDongTatCa > 0 && pv !== "tat_ca" ? (
+                <>
+                  Không có dòng lũy kế nào thuộc phạm vi <b>{PHAM_VI_LABEL[pv]}</b> (nhóm NSKX = cột "KH VIPs" chứa NSKX).
+                </>
+              ) : (
+                <>Chưa có dữ liệu báo cáo lũy kế. {canImport && "Vào tab \"Nhập dữ liệu\" để import file Excel đầu tiên."}</>
+              )}
             </Card>
           ) : (
             <>

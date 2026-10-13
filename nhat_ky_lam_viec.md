@@ -4545,3 +4545,24 @@ khoản TRẠM; trạm nhiều người thì ca do 1 KTV khác trong trạm xử
   khai" (dòng ↳ khi khác trạm); nhãn xuất Excel `ky_thuat_vien` → "Trạm triển khai", thêm "KTV triển khai".
 - CHƯA đổi: mọi báo cáo/bộ lọc theo KTV vẫn nhóm theo `ky_thuat_vien` (trạm) — chờ chủ hệ thống chốt.
 - Thử: chạy `python -m ocrm.pipeline --xlsx` trên file Odoo 04/10 chèn thêm 2 cột → 763/2291 ca có KTV triển khai đúng.
+
+## 2026-10-13 — Phạm vi báo cáo: Tất cả / NSKX / Không NSKX (v1.454, migration 0136)
+
+Chốt với chủ hệ thống (PA1): nút trên thanh đầu trang, ai cũng chọn được, CHỈ ảnh hưởng việc xem báo cáo/danh sách (lọc
+hết danh sách, kể cả danh sách làm việc); logic báo cáo giữ nguyên, chỉ khác tập ca; nghiệp vụ, badge menu, Telegram,
+API đối tác không đổi. Báo cáo cố định có số tách phạm vi từ ngày triển khai. Gỡ module "Báo cáo NSKX" riêng.
+- Cách làm (backend `lib/phamVi.ts`): GET có `?pv=` → D1 được bọc, đổi tên trong SQL: `case_hieu_luc` → view
+  `case_hieu_luc_nskx|_khong_nskx`; `case_dvbh INDEXED BY` → view (NSKX, đi theo idx_case_doi_tac) / subquery giữ INDEXED BY
+  (Không NSKX); 7 bảng số chốt + cache → bản sao `_<pv>`. Mọi logic tính/chốt/tự ghi bù chạy nguyên văn trên dữ liệu
+  của phạm vi, không thể ghi đè số "Tất cả". Cron 08:00 / 17:30 / thử lại luồng đổi trả / nút "Làm mới báo cáo" chốt
+  thêm 2 phạm vi (`lib/phamViChot.ts`), không gửi Telegram.
+- Câu 9 (giảm đọc): NSKX đọc theo chỉ mục đối tác (vài trăm ca). Không NSKX hiện truy vấn trực tiếp (cùng chi phí như Tất
+  cả mỗi lần bộ đệm hết hạn) — phương án "Tất cả − NSKX" chưa làm vì phải sửa riêng từng báo cáo.
+- NSKX = `doi_tac IN ('NSKX','[NSKX]')`: `[NSKX]` là cách ghi CRM cũ (import trước 07/2026), giống `partnerDanhSachTon.ts`
+  — cần chủ hệ thống xác nhận (đã chốt "doi_tac = 'NSKX'" khi chưa biết có dạng cũ).
+- Trình duyệt: ca đã đóng (R2) + thiếu LK đã đóng lọc tại chỗ; lũy kế: nhóm NSKX = cột "KH VIPs" chứa NSKX/NSXK (tháng
+  tự tính nay ghi "NSKX" cho ca NSKX); tab Tốc độ theo miền ghi chú RTAT/cuối tuần không phân chia NSKX; khóa IndexedDB
+  Ca lặp / Tuổi tồn gắn phạm vi.
+- Thử local: Tổng quát tổng 42 = 34 + 8, tồn 1426 = 1378 + 48; Cảnh báo tồn 1415 = 1367 + 48; Quản lý tồn NSKX 48 theo
+  MN1/2/3; về "Tất cả" số giữ nguyên.
+- Còn lại: thẻ "NSKX ≥2 ngày" (quy tắc nghiệp vụ cũ `NEED_NSKX_2_NGAY`) chỉ đếm `doi_tac = 'NSKX'`, không gồm `[NSKX]`.

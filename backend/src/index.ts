@@ -10,7 +10,6 @@ import viPhamRoutes from "./routes/viPham";
 import viPhamKtvRoutes from "./routes/viPhamKtv";
 import importViPhamRoutes from "./routes/importViPham";
 import baoCaoViPhamRoutes from "./routes/baoCaoViPham";
-import baoCaoNskxRoutes from "./routes/baoCaoNskx";
 import importRoutes from "./routes/importRoute";
 import importGiaiTrinhRoutes from "./routes/importGiaiTrinh";
 import importGiaiTrinhLapRoutes from "./routes/importGiaiTrinhLap";
@@ -39,6 +38,8 @@ import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
+import { phamViMiddleware } from "./lib/phamVi";
+import { chotSoLieuPhamVi, chotGiaiTrinhPhamVi, retryLuongDoiTraPhamVi } from "./lib/phamViChot";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
@@ -47,6 +48,8 @@ import tonKhoLkRoutes from "./routes/tonKhoLk";
 import diaGioiRoutes from "./routes/diaGioi";
 
 const app = new Hono<{ Bindings: Env }>();
+// "Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (lib/phamVi.ts) - GET co ?pv= doc/ghi bo du lieu rieng cua pham vi.
+app.use("/api/*", phamViMiddleware);
 
 app.route("/api/auth", authRoutes);
 app.route("/api/cases", casesRoutes);
@@ -59,7 +62,6 @@ app.route("/api/survey", surveyRoutes);
 app.route("/api/vi-pham", viPhamRoutes);
 app.route("/api/vi-pham-ktv", viPhamKtvRoutes);
 app.route("/api/bao-cao-vi-pham", baoCaoViPhamRoutes);
-app.route("/api/bao-cao-nskx", baoCaoNskxRoutes);
 // "/api/import/vi-pham" PHAI mount TRUOC "/api/import": importRoutes co use("*", requireRole("Admin",
 // "TBP DVBH")) - middleware "*" cua router mount o "/api/import" khop CA moi duong dan con, nen neu mount
 // sau thi CSKH/TN CSKH/TBP CSKH/QC bi 403 o moi endpoint import vi pham (bug 2026-09-30: chon file
@@ -211,6 +213,7 @@ export default {
         } catch (err) {
           console.error("[cron-luong-doi-tra] retry loi:", err instanceof Error ? err.message : String(err));
         }
+        await retryLuongDoiTraPhamVi(env);
       }
       // Cac viec chot 08:00 VN - KHONG chay o cac lan fire 9h-18h VN them vao 2026-10-08.
       if (new Date(event.scheduledTime).getUTCHours() !== 1) return;
@@ -244,6 +247,8 @@ export default {
       } catch (err) {
         console.error("[cron-daily-snapshot] generateTonKtvSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
+      // Cung bo so chot tren cho 2 pham vi NSKX / Khong NSKX (lib/phamViChot.ts) - sau khi "Tất cả" da xong.
+      await chotSoLieuPhamVi(env, "auto", { canhBaoTon: true });
       // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
       // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem
       // shouldSkipCronRefresh o caLapRefresh.ts).
@@ -295,6 +300,7 @@ export default {
       } catch (err) {
         console.error("[cron-daily-log-1730] chotGiaiTrinhDailyLog loi:", err instanceof Error ? err.message : String(err));
       }
+      await chotGiaiTrinhPhamVi(env);
       return;
     }
 

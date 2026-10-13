@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { hauToPhamVi } from "../lib/phamVi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -190,6 +191,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   // hash /ca-lap/version, chi doi khi import/blacklist kich hoat tinh lai) + "status" DONG (giai_trinh_lap,
   // luon tai moi vi nho va thay doi thuong xuyen hon). Loc trang thai + phan trang + KPI gop lam o FE
   // ben duoi thay vi goi lai server moi lan doi tab/trang - xem "phuong an toi uu nhat" da thong nhat.
+  // + pham vi (lib/phamVi.ts): danh sach lap da loc NSKX / Khong NSKX o server, hash /ca-lap/version thi dung chung.
   const listCacheKey = `ca-lap-list-${thang}-${khuVucFilter || "all"}`;
   const {
     data: listData,
@@ -200,7 +202,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     queryKey: ["ca-lap-list", khuVucFilter, thang],
     queryFn: () =>
       fetchWithHashCache<{ rows: CaLapStableRow[] }>(
-        listCacheKey,
+        `${listCacheKey}${hauToPhamVi()}`, // doc luc goi (khong chup theo render) - doi pham vi chi resetQueries
         "/ca-lap/version",
         `/ca-lap/danh-sach/list${buildQuery({ khu_vuc: khuVucFilter, thang })}`,
       ),

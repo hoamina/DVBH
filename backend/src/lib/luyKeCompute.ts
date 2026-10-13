@@ -230,10 +230,13 @@ export async function computeLuyKeMonthWithTocDo(db: D1Database, thang: string):
     const vaiTro = maKtv ? vaiTroByMaKtv.get(maKtv) : undefined;
     const doi_tuong = vaiTro === "KTV" ? "KTV" : "CTV/Trạm";
 
-    const key = [khu_vuc, phan_loai, c.dung_han, toc_do, tren_96h, hang, doi_tuong, nganh, nguon_crm].join("");
+    // "KH VIPs": he thong khong co nguon VIP -> "KH thường", rieng ca doi tac NSKX ghi "NSKX" (2026-10-13) de nut
+    // "Phạm vi báo cáo" (frontend lib/phamVi.ts laNskxKhVip) tach duoc nhom NSKX giong cac thang nhap Excel tay.
+    const kh_vip = c.doi_tac === "NSKX" || c.doi_tac === "[NSKX]" ? "NSKX" : "KH thường";
+    const key = [khu_vuc, phan_loai, c.dung_han, toc_do, tren_96h, hang, doi_tuong, nganh, nguon_crm, kh_vip].join("");
     const existing = groups.get(key);
     if (existing) existing.sl += 1;
-    else groups.set(key, { khu_vuc, phan_loai, dung_han: c.dung_han, toc_do, thang, tren_96h, nam, hang, doi_tuong, nganh, nguon_crm, kh_vip: "KH thường", sl: 1 });
+    else groups.set(key, { khu_vuc, phan_loai, dung_han: c.dung_han, toc_do, thang, tren_96h, nam, hang, doi_tuong, nganh, nguon_crm, kh_vip, sl: 1 });
   }
 
   return { rows: [...groups.values()], tocDo: summarizeTocDoMien(cases) };

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { dbGoc } from "../lib/phamVi";
 import type { Env } from "../types";
 import { CA_LAP_LOAI_KEYS, HINH_THUC_XU_LY_KEYS } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -31,7 +32,8 @@ caLap.get("/version", async (c) => {
     .first<{ hash: string }>();
   if (existing) return c.json({ hash: existing.hash });
 
-  const { hash } = await refreshCaLapPrecompute(c.env.DB);
+  // dbGoc: refresh ghi cot ca_lap_* dung chung cho MOI pham vi - khong duoc chay tren D1 da boc pham vi (lib/phamVi.ts).
+  const { hash } = await refreshCaLapPrecompute(dbGoc(c.env.DB));
   return c.json({ hash });
 });
 

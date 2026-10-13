@@ -18,6 +18,7 @@
  *   khac mac dinh van tinh song qua reportCache nhu truoc (khong dong bang truoc duoc MOI to hop
  *   filter co the co, se bung no chi phi).
  */
+import { phamViCua } from "./phamVi";
 import type { AppUser } from "../types";
 import { RECENT_OR_OPEN_CONDITION } from "../routes/survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "../routes/caLap";
@@ -1150,6 +1151,8 @@ export async function chotGiaiTrinhDailyLog(db: D1Database): Promise<void> {
   }
 
   // GUI ANH TOM TAT QUA TELEGRAM SAU KHI CHOT XONG (CHOT 2026-08-06 - xem lib/reportImage.ts)
+  // Pham vi NSKX / Khong NSKX (lib/phamVi.ts): chi chot so, KHONG gui Telegram.
+  if (phamViCua(db) !== "tat_ca") return;
   try {
     const { mb, mn, kddv } = buildBaocaoTonRows(entries, resolvedList);
     const dateParts = ngay.split("-");

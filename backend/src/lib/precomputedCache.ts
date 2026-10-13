@@ -1,3 +1,4 @@
+import { PHAM_VI_LOC, bocPhamVi, phamViCua } from "./phamVi";
 /**
  * Cache JSON tinh san cho cac endpoint doc NHIEU nhung du lieu nguon CHI doi khi import ghi
  * case_dvbh (xem KE_HOACH_TOI_UU_D1.md Giai doan 2 - R2: /dashboard/filters, /dashboard/months).
@@ -62,7 +63,15 @@ export async function getOrCompute<T>(db: D1Database, key: string, compute: () =
 export async function recompute<T>(db: D1Database, key: string, compute: () => Promise<T>): Promise<T> {
   const value = await compute();
   await writeCache(db, key, value);
+  await xoaBanPhamVi(db, "DELETE FROM precomputed_cache WHERE key = ?", key);
   return value;
+}
+
+/** Ban cache cua 2 pham vi NSKX / Khong NSKX (bang precomputed_cache_<pv>, lib/phamVi.ts) khong co duong recompute rieng
+ * -> khi "Tất cả" bi tinh lai / xoa (biet chac nguon vua doi) thi xoa luon dong tuong ung, lan xem sau tu tinh lai. */
+async function xoaBanPhamVi(db: D1Database, sql: string, bind: string): Promise<void> {
+  if (phamViCua(db) !== "tat_ca") return;
+  await db.batch(PHAM_VI_LOC.map((pv) => bocPhamVi(db, pv).prepare(sql).bind(bind)));
 }
 
 /**
@@ -76,4 +85,5 @@ export async function invalidateScopedDashboardFilters(db: D1Database): Promise<
   // "dashboard-filters:" (co dau ':') khong bao gio trung DASHBOARD_FILTERS_CACHE_KEY ("dashboard-filters",
   // khong dau ':') nen khong can dieu kien loai tru rieng.
   await db.prepare("DELETE FROM precomputed_cache WHERE key LIKE ?").bind(`${DASHBOARD_FILTERS_SCOPED_PREFIX}%`).run();
+  await xoaBanPhamVi(db, "DELETE FROM precomputed_cache WHERE key LIKE ?", `${DASHBOARD_FILTERS_SCOPED_PREFIX}%`);
 }

@@ -1,4 +1,15 @@
+import { phamViHienTai } from "../lib/phamVi";
+
 const BASE = "/api";
+
+// "Phạm vi báo cáo" (lib/phamVi.ts): gan ?pv= vao MOI request GET (xem bao cao/danh sach) - tru badge menu (luon Tất cả).
+const KHONG_GAN_PHAM_VI = /^\/(notifications|auth)(\/|\?|$)/;
+function ganPhamVi(path: string, init?: RequestInit): string {
+  if (init?.method && init.method !== "GET") return path;
+  const pv = phamViHienTai();
+  if (pv === "tat_ca" || KHONG_GAN_PHAM_VI.test(path)) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}pv=${pv}`;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -14,7 +25,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormBody = init?.body instanceof FormData;
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${BASE}${ganPhamVi(path, init)}`, {
     credentials: "include",
     ...init,
     headers: isFormBody ? init?.headers : { "Content-Type": "application/json", ...init?.headers },

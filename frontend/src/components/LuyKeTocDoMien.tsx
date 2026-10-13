@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { PHAM_VI_LABEL, usePhamVi } from "../lib/phamVi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "./ui/Card";
 import { Btn } from "./ui/Btn";
@@ -89,6 +90,7 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
     queryFn: () => api.get<{ rows: TocDoMienDb[]; autoTuThang: string }>("/luy-ke/toc-do-mien"),
   });
   const autoTuThang = data?.autoTuThang ?? "2026-10";
+  const pv = usePhamVi();
   const [editing, setEditing] = useState<ReportRow | null>(null);
 
   const reportRows = useMemo<ReportRow[]>(() => {
@@ -200,6 +202,12 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
 
   return (
     <Card className="p-3">
+      {pv !== "tat_ca" && (
+        <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs">
+          <b>Đang xem phạm vi {PHAM_VI_LABEL[pv]}:</b> số ca / đúng hạn / dưới 24h đã lọc theo phạm vi. Riêng các cột <b>RTAT</b> và{" "}
+          <b>tốc độ cuối tuần</b> (số chốt theo miền, gồm các tháng nhập tay) <b>không phân chia theo NSKX</b> — luôn là số toàn hệ thống.
+        </div>
+      )}
       <div className="flex items-start justify-between gap-2 flex-wrap mb-2">
         <div>
           <div className="font-display font-bold text-sm">Tốc độ xử lý theo tháng của DVBH theo miền</div>
