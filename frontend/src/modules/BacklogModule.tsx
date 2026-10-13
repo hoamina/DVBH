@@ -1556,7 +1556,21 @@ export function BacklogModule({
         </>
       ),
     },
-    { key: "ky_thuat_vien", header: "Kỹ thuật viên", sortKey: "ky_thuat_vien", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
+    {
+      key: "ky_thuat_vien",
+      header: "Trạm / KTV triển khai",
+      sortKey: "ky_thuat_vien",
+      render: (c) => (
+        <span className="text-xs">
+          {c.ky_thuat_vien ?? "—"}
+          {c.ktv_trien_khai && c.ktv_trien_khai !== c.ky_thuat_vien && (
+            <span className="block text-[var(--ocean-600)]" title="KTV triển khai (khác tài khoản trạm)">
+              ↳ {c.ktv_trien_khai}
+            </span>
+          )}
+        </span>
+      ),
+    },
     { key: "tiep_nhan", header: "Tiếp nhận", sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
     { key: "du_kien", header: "Dự kiến HT", sortKey: "last_ngay_du_kien_hoan_thanh", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
     {

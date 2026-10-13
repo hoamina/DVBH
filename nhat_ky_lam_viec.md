@@ -4530,3 +4530,18 @@ Code:
 - UI: thẻ Cảnh báo tồn 5 ô/cấp; cột "Trạng thái KN" (Luồng đổi trả), "Luồng đổi trả" (bảng tiến trình KN).
 - Hạn chế: cột "Tuổi tồn" trong danh sách bấm từ ô luồng vẫn là tuổi CA, không phải tuổi luồng; snapshot hôm nay
   (chốt trước khi deploy) được điền 2 ô luồng ở lần cron giờ kế tiếp.
+
+## 2026-10-13 — KTV triển khai / Trạm triển khai (ca Odoo, v1.453)
+
+Yêu cầu: Odoo bổ sung 2 cột "Kỹ thuật viên phụ trách/Đăng nhập" + "Kỹ thuật viên phụ trách". "Đội ngũ/Trạm" là tài
+khoản TRẠM; trạm nhiều người thì ca do 1 KTV khác trong trạm xử lý → tính đơn theo KTV đó.
+- Logic (pipeline auto qs `ocrm/transform_odoo.py ktv_trien_khai()`): Đăng nhập rỗng HOẶC trùng tài khoản trong "(...)" của
+  "Đội ngũ/Trạm" (không phân biệt hoa/thường) → KTV triển khai = chính trạm (gửi rỗng, dvbh lưu NULL); ngược lại = "Kỹ thuật
+  viên phụ trách" nếu đã chứa "(tk)", không thì ghép "(<Đăng nhập>) <Kỹ thuật viên phụ trách>".
+- "Trạm triển khai" luôn = "Đội ngũ/Trạm" = cột `ky_thuat_vien` sẵn có → không lưu thêm cột.
+- dvbh: migration 0135 `case_dvbh.ktv_trien_khai` (OPTIONAL_FIELDS — chỉ ghi khi dòng import có key, vào crm_hash khi có giá
+  trị). Pipeline gửi qua cờ `ODOO_SEND_KTV_TRIEN_KHAI` (workflow export.yml) — chỉ đổi hash/gửi lại các ca Odoo có KTV khác trạm.
+- UI: Chi tiết ca hiện "Trạm triển khai" + "KTV triển khai" (= Trạm triển khai khi NULL); Quản lý tồn cột "Trạm / KTV triển
+  khai" (dòng ↳ khi khác trạm); nhãn xuất Excel `ky_thuat_vien` → "Trạm triển khai", thêm "KTV triển khai".
+- CHƯA đổi: mọi báo cáo/bộ lọc theo KTV vẫn nhóm theo `ky_thuat_vien` (trạm) — chờ chủ hệ thống chốt.
+- Thử: chạy `python -m ocrm.pipeline --xlsx` trên file Odoo 04/10 chèn thêm 2 cột → 763/2291 ca có KTV triển khai đúng.

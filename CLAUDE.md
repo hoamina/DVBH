@@ -178,6 +178,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   (`Giam sat`) that should see Revenue but *not* get unrestricted region scope, so it's appended as a
   separate `requireRole(...ROLES_XEM_TOAN_BO, "Giam sat")` arg instead of being added to the constant
   — the pattern to follow if another role needs Revenue access without full region visibility.
+- **"KTV triển khai" (`case_dvbh.ktv_trien_khai`, migration 0135, Odoo only)**: the account that actually handled the case
+  when the "Đội ngũ/Trạm" station account (`ky_thuat_vien` = "Trạm triển khai") has several people; NULL = same as
+  `ky_thuat_vien`. Computed in the auto qs pipeline (`ocrm/transform_odoo.py ktv_trien_khai()`), sent only with
+  `ODOO_SEND_KTV_TRIEN_KHAI=true`. Read it as `COALESCE(ktv_trien_khai, ky_thuat_vien)`; reports still group by
+  `ky_thuat_vien` until the owner decides otherwise.
 - **Cancelled cases (`huy_bo_at`) are excluded everywhere via VIEW `case_hieu_luc`** (migration 0133,
   2026-10-11): every report/list/dropdown READ query uses `case_hieu_luc`, not `case_dvbh`. Keep `case_dvbh`
   only for writes, single-case lookups by id (Admin can still open a cancelled case), and queries with
@@ -319,7 +324,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0134`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0135`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

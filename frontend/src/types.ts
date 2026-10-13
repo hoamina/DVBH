@@ -40,6 +40,9 @@ export interface CaseRow {
   tinh_moi?: string | null;
   // Migration 0126 - "Mức độ" (Độ ưu tiên CRM/Odoo): Cao / Gấp / Rất gấp.
   muc_do?: string | null;
+  // Migration 0135 - "KTV triển khai" (chi ca Odoo, tram nhieu nguoi): KTV that su xu ly ca. NULL = chinh
+  // ky_thuat_vien ("Đội ngũ/Trạm" = "Trạm triển khai"). Dung ktvTrienKhai(c) de doc.
+  ktv_trien_khai?: string | null;
   xa_moi?: string | null;
   tinh_cu?: string | null;
   huyen_cu?: string | null;

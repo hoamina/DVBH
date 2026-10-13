@@ -370,7 +370,17 @@ function renderCaseFieldsGrid(
         </>
       )}
       <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />
-      <Field label="Kỹ thuật viên" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />
+      <Field label="Trạm triển khai" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />
+      <Field
+        label="KTV triển khai"
+        value={
+          c.ktv_trien_khai && c.ktv_trien_khai !== c.ky_thuat_vien ? (
+            <KtvNameWithPhone kyThuatVien={c.ktv_trien_khai} canEdit={!!canEditKtvPhone} />
+          ) : (
+            <span className="text-[var(--ink-500)]">= Trạm triển khai</span>
+          )
+        }
+      />
       <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />
       <Field label="Hẹn xử lý" value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />
       <Field label="Thời gian hoàn thành" value={fmtDateTime(c.thoi_gian_hoan_thanh)} />
