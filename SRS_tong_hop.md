@@ -257,6 +257,10 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
   theo chế độ; chi tiết ca cũ hiện thêm "tỉnh mới (quy đổi)". Dữ liệu cache/snapshot cũ chỉ có tỉnh cũ vẫn đọc được (client tự
   quy đổi).
 
+- Xuất Excel (2026-10-14): bảng báo cáo gộp theo tỉnh xuất đúng như màn hình; file danh sách ca có thêm 2 cột theo chế độ
+  đang chọn (Cũ: "Tỉnh cũ" + "Quận/Huyện"; Mới: "Tỉnh mới" + "Xã/Phường mới", đã chuẩn hóa + quy đổi), cột địa chỉ thô giữ
+  lại với tên "(gốc)" / "(Odoo)".
+
 ## 11. Phạm vi báo cáo: Tất cả / NSKX / Không NSKX (chốt 2026-10-13)
 
 - Nút 3 lựa chọn trên thanh đầu trang, mọi vai trò đều chọn được, lưu trên máy người dùng.

@@ -4566,3 +4566,13 @@ API đối tác không đổi. Báo cáo cố định có số tách phạm vi t
 - Thử local: Tổng quát tổng 42 = 34 + 8, tồn 1426 = 1378 + 48; Cảnh báo tồn 1415 = 1367 + 48; Quản lý tồn NSKX 48 theo
   MN1/2/3; về "Tất cả" số giữ nguyên.
 - Còn lại: thẻ "NSKX ≥2 ngày" (quy tắc nghiệp vụ cũ `NEED_NSKX_2_NGAY`) chỉ đếm `doi_tac = 'NSKX'`, không gồm `[NSKX]`.
+
+## 2026-10-14 — Xuất Excel danh sách ca theo nút Địa giới Cũ / Mới (v1.455)
+
+- Trước: bảng báo cáo gộp theo tỉnh đã xuất theo chế độ Cũ/Mới, nhưng file danh sách ca chỉ có cột thô (Tỉnh/Quận cũ
+  nguyên văn nguồn; tinh_moi/xa_moi… tên kỹ thuật, ca QuickSight không quy đổi).
+- Nay (`frontend/src/lib/exportExcel.ts themCotDiaGioi`, 1 điểm chung cho mọi file có dòng ca `id+tinh+quan_huyen`): thêm 2
+  cột ngay trước địa chỉ gốc — Cũ: "Tỉnh cũ" + "Quận/Huyện"; Mới: "Tỉnh mới" + "Xã/Phường mới" — chuẩn hóa tên + quy đổi
+  theo bảng "Quy đổi tỉnh" giống bảng báo cáo. Cột thô giữ lại, đổi tên: "Tỉnh (gốc)", "Quận/Huyện (gốc)", "Tỉnh mới (Odoo)",
+  "Xã mới (Odoo)", "Tỉnh cũ (Odoo)", "Huyện cũ (Odoo)", "Xã cũ (Odoo)".
+- Thử local 200 ca: Cũ "Hồ Chí Minh" → "Thành phố Hồ Chí Minh"; Mới "Bạc Liêu" → "Tỉnh Cà Mau", "Quảng Bình" → "Tỉnh Quảng Trị".

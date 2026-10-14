@@ -36,6 +36,10 @@ function subscribe(cb: () => void) {
     window.removeEventListener("storage", onStorage);
   };
 }
+/** Che do hien tai (doc ngoai React, vd luc xuat Excel). */
+export function diaGioiModeHienTai(): DiaGioiMode {
+  return readMode();
+}
 export function setDiaGioiMode(m: DiaGioiMode) {
   localStorage.setItem(MODE_KEY, m);
   listeners.forEach((l) => l());
