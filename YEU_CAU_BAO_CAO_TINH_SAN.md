@@ -61,7 +61,7 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 | GET /dashboard/kpis | dashboard.ts | cases, vi_pham, giai_trinh (+ xem CHỐT 2026-08-01 dưới) |
 | GET /dashboard/pivot | dashboard.ts | cases (+ xem CHỐT 2026-08-01 dưới) |
 | GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases (+users cho giam-sat) (+ xem CHỐT 2026-08-01 dưới) |
-| GET /survey/counts, /by-khu-vuc | survey.ts | cases, vi_pham, ket_qua_goi |
+| GET /survey/counts, /by-khu-vuc | survey.ts | cases, vi_pham, ket_qua_goi — phần "da-xu-ly" đọc từ key chung `survey/da-xu-ly-theo-kv-v1` (cases, vi_pham), không theo scope (2026-10-15) |
 | GET /survey/bao-cao-khu-vuc (thêm 2026-07-30) | survey.ts | cases, vi_pham, ket_qua_goi |
 | GET /survey (field `totalCases`, thêm 2026-09-15) | survey.ts | cases, vi_pham (+ `vi_pham_giai_trinh` khi filter `co_giai_trinh=true`) |
 | GET /vi-pham/funnel (thêm ket_qua_goi 2026-08-22 — 8 chỉ số mới đọc luôn ket_qua_cuoc_goi) | viPham.ts | cases, vi_pham, ket_qua_goi |

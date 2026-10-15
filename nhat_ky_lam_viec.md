@@ -4576,3 +4576,17 @@ API đối tác không đổi. Báo cáo cố định có số tách phạm vi t
   theo bảng "Quy đổi tỉnh" giống bảng báo cáo. Cột thô giữ lại, đổi tên: "Tỉnh (gốc)", "Quận/Huyện (gốc)", "Tỉnh mới (Odoo)",
   "Xã mới (Odoo)", "Tỉnh cũ (Odoo)", "Huyện cũ (Odoo)", "Xã cũ (Odoo)".
 - Thử local 200 ca: Cũ "Hồ Chí Minh" → "Thành phố Hồ Chí Minh"; Mới "Bạc Liêu" → "Tỉnh Cà Mau", "Quảng Bình" → "Tỉnh Quảng Trị".
+
+## 2026-10-15 — Rà soát lượt đọc D1 toàn tài khoản 7 ngày + giảm đọc khảo sát/vi phạm (v1.456, migration 0137)
+
+- Đo (`wrangler d1 insights --time-period 7d`, 9 DB): ~2,66 tỷ rows_read/tuần — khieu-nai-db 986M (1 câu báo cáo
+  "Tốc độ xử lý" 972M: correlated subquery dùng nhầm index `hanh_dong`, sửa ở repo App Khiếu nại migration 0023),
+  dvbh 966M, dat-mua-linh-kien 367M (đếm badge pipeline không cache), ccdc 337M (cảnh báo dashboard `v_ton_kho`).
+- dvbh: các câu `COUNT(DISTINCT v.case_id)` khảo sát ~600M/tuần — đã có cachedReport nhưng mỗi cuộc gọi khảo sát bump
+  `vi_pham` → hỏng cache MỌI scope khu vực. Sửa:
+  - Migration 0137: index `vi_pham_push_log(case_id, loai_su_kien)` (mở chi tiết ca quét cả bảng, ~9k lần/tuần);
+    partial `vi_pham(case_id)` cho "Chờ QC thật" (khác 'Khong loi') và "chot_bo_cap_2 = 1" (52 dòng, trước quét 37k).
+  - "da-xu-ly" (khớp 36k/38k dòng, index không giúp): tính 1 lần theo khu vực, key chung `survey/da-xu-ly-theo-kv-v1`,
+    mỗi scope cộng trong JS (`khuVucKhop` = bản JS của scope + loại trừ + lọc khu vực ad-hoc). Dùng ở /counts (khi không
+    lọc tuổi), /by-khu-vuc, totalCases tab da-xu-ly (khi chỉ lọc khu vực).
+- Còn mở: /survey/candidates đọc sống (~140M/tuần), đếm tranh chấp (~110M), badge linh-kien-app, cảnh báo CCDC.
