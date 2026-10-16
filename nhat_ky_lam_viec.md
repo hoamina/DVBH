@@ -4598,3 +4598,17 @@ API đối tác không đổi. Báo cáo cố định có số tách phạm vi t
   ma_lk / tuoi_tu-tuoi_den / id. Dùng chung định nghĩa với menu (export `baseJoin` của missingParts.ts) + tên linh kiện
   thiếu (LEFT JOIN linh_kien). 30 request/phút/key, không ghi partner_api_log, không ẩn khu vực ẩn báo cáo (quy ước API đối tác).
 - Thử local bằng key test (đã thu hồi): total khớp menu, key sai 401.
+
+## 2026-10-16 — Import giải trình lặp nhanh (v1.458)
+
+- Nút "⬆ Import giải trình lặp" ở tab Ca lặp > Danh sách ca lặp (Giám sát / QC / Admin), mở hộp thoại có hướng dẫn +
+  `ImportUploader` (xem trước → xác nhận). Route mới `routes/importGiaiTrinhLapNhanh.ts` (`/api/import/giai-trinh-lap-nhanh`),
+  khác import backfill cũ `importGiaiTrinhLap.ts` (Admin/TBP DVBH, file tự ghi người/ngày).
+- Mỗi dòng = bấm nút chốt tay: Giám sát → `/gs` (chot_danh_gia_lap + dien_giai_lap, kiểm tra khu vực phụ trách); QC → `/qc`
+  (qc_chot + qc_ghi_chu); Admin chọn vai. Người/ngày = người import, lúc import. Hình thức xử lý để trống = giữ nguyên.
+  Chỉ nhận ca lặp thật (`ca_lap_prior_ht IS NOT NULL`, chưa hủy); ID trùng trong file lấy dòng cuối; xem trước báo số ca bị ghi đè.
+- File mẫu .xlsx 3 sheet (`lib/excelTemplate.ts excelWorkbookResponse`): "Mẫu" (sheet dữ liệu, phải đứng đầu), "Danh sách
+  lựa chọn" (6 kết luận lặp + 6 hình thức xử lý), "Hướng dẫn". Nhãn hiển thị ở `lib/caLapLabels.ts` (khớp CA_LAP_META /
+  HINH_THUC_XU_LY_META frontend), so khớp không phân biệt dấu/hoa thường.
+- Thử local: mẫu tải đúng 3 sheet; xem trước + ghi cả 2 vai đúng (ghi đè, ca không phải ca lặp, ca không tồn tại, giá trị
+  sai, trùng ID, dòng trống); hộp thoại đọc đúng sheet "Mẫu".

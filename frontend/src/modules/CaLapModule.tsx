@@ -33,6 +33,7 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useAuth, type VaiTro } from "../auth/AuthContext";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { ImportUploader } from "../components/ImportUploader";
+import { ImportGiaiTrinhLapModal, VAI_TRO_IMPORT_GIAI_TRINH_LAP } from "../components/ImportGiaiTrinhLapModal";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
@@ -138,6 +139,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const [trangThai, setTrangThai] = useLocalStorageState("filters:ca-lap-trang-thai", role === "Giam sat" ? "can-danh-gia" : role === "QC" ? "cho-qc" : "");
   const [page, setPage] = useState(1);
   const [addBlacklistOpen, setAddBlacklistOpen] = useState(false);
+  const [importGtlOpen, setImportGtlOpen] = useState(false);
+  const canImportGtl = role !== null && VAI_TRO_IMPORT_GIAI_TRINH_LAP.includes(role);
   const [newSerial, setNewSerial] = useState("");
   const [deleteConfirmRow, setDeleteConfirmRow] = useState<BlacklistSerialRow | null>(null);
   const [sortBy, setSortBy] = useState("thoi_gian_hoan_thanh");
@@ -727,9 +730,16 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
 
           <div className="flex items-center justify-between mb-1">
             <div />
-            <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
-              {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
-            </Btn>
+            <div className="flex items-center gap-2">
+              {canImportGtl && (
+                <Btn variant="ghost" size="sm" onClick={() => setImportGtlOpen(true)}>
+                  ⬆ Import giải trình lặp
+                </Btn>
+              )}
+              <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
+                {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
+              </Btn>
+            </div>
           </div>
           <Tabs
             active={trangThai}
@@ -819,6 +829,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
         </div>
       )}
 
+      {canImportGtl && <ImportGiaiTrinhLapModal open={importGtlOpen} onClose={() => setImportGtlOpen(false)} role={role} />}
       <Modal open={addBlacklistOpen} onClose={() => setAddBlacklistOpen(false)} title="Thêm serial vào blacklist">
         <div className="space-y-3">
           <div>

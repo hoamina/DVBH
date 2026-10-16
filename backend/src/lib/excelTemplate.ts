@@ -16,3 +16,26 @@ export function excelTemplateResponse(c: Context, rows: (string | number)[][], f
     "Content-Disposition": `attachment; filename=${filename}`,
   });
 }
+
+/**
+ * Ban nhieu sheet cua excelTemplateResponse - sheet DAU TIEN phai la sheet du lieu (ImportUploader /
+ * parseSpreadsheet doc sheet dau tien khi khong co sheet "DATA"); cac sheet sau (danh sach lua chon,
+ * huong dan...) chi de nguoi dien tham khao, khong duoc doc khi import.
+ */
+export function excelWorkbookResponse(
+  c: Context,
+  sheets: { name: string; rows: (string | number)[][]; colWidths?: number[] }[],
+  filename: string,
+) {
+  const workbook = XLSX.utils.book_new();
+  for (const s of sheets) {
+    const worksheet = XLSX.utils.aoa_to_sheet(s.rows);
+    if (s.colWidths) worksheet["!cols"] = s.colWidths.map((wch) => ({ wch }));
+    XLSX.utils.book_append_sheet(workbook, worksheet, s.name);
+  }
+  const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as Uint8Array;
+  return c.body(buffer as unknown as ArrayBuffer, 200, {
+    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "Content-Disposition": `attachment; filename=${filename}`,
+  });
+}
