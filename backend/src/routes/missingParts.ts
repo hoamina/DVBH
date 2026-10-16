@@ -18,7 +18,9 @@ missingParts.use("*", verifySessionMiddleware, loadUser);
 // needGiaiTrinh.ts (MAX() + JOIN nguoc lai se nhan doi dong khi co >=2 ban ghi giai_trinh trung
 // gio). caseFilterSql gioi han subquery vao dung tap case dang xet - xem giai thich an toan
 // (superset) o latestGiaiTrinhJoin() trong needGiaiTrinh.ts, ap dung y het cho ham nay.
-function baseJoin(caseFilterSql: string): string {
+// export: dung chung voi API doi tac GET /api/partner/thieu-linh-kien (routes/partnerApi.ts) - cung 1 dinh nghia
+// "ca thieu linh kien" voi menu.
+export function baseJoin(caseFilterSql: string): string {
   return `
   INNER JOIN (
     SELECT case_id, ly_do_cham, linh_kien_thieu, ngay_yeu_cau_co_hang, ngay_du_kien_hoan_thanh FROM (

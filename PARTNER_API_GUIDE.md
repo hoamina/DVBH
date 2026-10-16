@@ -742,3 +742,70 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
 | 429 | `TOO_MANY_REQUESTS_KEY` | Quá **30 request/phút/key** |
 
 Không giới hạn số lần/ngày. Khuyến nghị: `canh-bao-ceo` kéo 1 lần sau 08:05 mỗi ngày; `nskx-ton-3-ngay` 15–60 phút/lần.
+
+## 12. Danh sách ca thiếu linh kiện đang tồn (`GET /api/partner/thieu-linh-kien`) — thêm 2026-10-16
+
+Trả JSON đúng danh sách **"Ca thiếu linh kiện › Danh sách chi tiết" (đang tồn)** trên DVBH: ca chưa hoàn thành có **giải
+trình gần nhất** thuộc nhóm lý do "thiếu linh kiện" (cài đặt Lý do tồn, cột "Thuộc thiếu linh kiện"). Tính **tại thời điểm
+gọi**. Ca đã đóng không có trong API này. Khác menu: API **không ẩn** các khu vực bị ẩn khỏi báo cáo nội bộ (quy ước chung
+của API đối tác, xem đầu tài liệu).
+
+### 12.1. Request
+
+| Tham số | Bắt buộc | Ý nghĩa |
+|---|---|---|
+| `page` | không | Trang, mặc định 1 |
+| `pageSize` | không | Số dòng/trang, mặc định 500, tối đa 1000 |
+| `khu_vuc` | không | Lọc khu vực (giá trị đúng như cột `khu_vuc`, nhiều giá trị cách nhau dấu phẩy) |
+| `doi_tac` | không | Lọc đối tác (đúng giá trị cột `doi_tac`) |
+| `ma_lk` | không | Chỉ ca đang báo thiếu đúng mã linh kiện này |
+| `tuoi_tu` / `tuoi_den` | không | Khoảng tuổi tồn (ngày) |
+| `id` | không | Tìm theo một phần ID ca hoặc serial |
+
+```bash
+curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/thieu-linh-kien?pageSize=1000" -H "X-API-Key: <api_key_cua_doi_tac>"
+curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/thieu-linh-kien?ma_lk=040-079" -H "X-API-Key: <api_key_cua_doi_tac>"
+```
+
+### 12.2. Response (200)
+
+```json
+{
+  "generated_at": "2026-10-16 09:30:00",
+  "page": 1,
+  "pageSize": 500,
+  "total": 312,
+  "rows": [
+    {
+      "id": "1290001", "khach_hang": "...", "seri_san_pham": "...", "khu_vuc": "...",
+      "tinh": "...", "quan_huyen": "...", "tinh_moi": null, "xa_moi": null,
+      "ky_thuat_vien": "(abc.mn) Trạm ...", "ktv_trien_khai": null,
+      "doi_tac": "...", "nhom_kh": "...", "hang": "...", "nhom_san_pham": "...", "san_pham_bao_hanh": "...",
+      "nhom_yeu_cau": "...", "loai_yeu_cau": "...", "tien_do_hoan_thanh": "...",
+      "thoi_gian_cskh_tiep_nhan": "2026-09-01 10:00:00", "thoi_gian_hen_xu_ly": "...", "link_crm": "https://...",
+      "tuoi_ton": 45,
+      "ly_do_cham": "Thiếu linh kiện do công ty",
+      "ma_linh_kien_thieu": "040-079",
+      "ten_linh_kien_thieu": "LK-BT-12 Bo hiển thị điều khiển 389i (040-079)",
+      "ngay_yeu_cau_co_hang": null,
+      "ngay_du_kien_hoan_thanh": "2026-10-20"
+    }
+  ]
+}
+```
+
+- Sắp xếp: ca KH VIP/S.VIP trước, rồi tuổi tồn giảm dần (giống menu). `total` = tổng số ca khớp bộ lọc → lặp `page` đến hết.
+- `ly_do_cham`, `ma_linh_kien_thieu`, `ngay_yeu_cau_co_hang`, `ngay_du_kien_hoan_thanh` lấy từ **giải trình gần nhất**.
+  `ten_linh_kien_thieu` = `null` nếu mã không có trong danh mục linh kiện.
+- Địa chỉ: `tinh`/`quan_huyen` = địa chỉ cũ; `tinh_moi`/`xa_moi` = địa chỉ mới (chỉ ca Odoo). `ktv_trien_khai` = KTV thực
+  tế xử lý khi trạm có nhiều người (null = chính `ky_thuat_vien`).
+- Không trả các cột doanh thu (`dt_*`).
+
+### 12.3. Mã lỗi & rate limit
+
+| HTTP | `error` | Ý nghĩa |
+|---|---|---|
+| 401 | `MISSING_API_KEY` / `INVALID_API_KEY` | như mục 4 |
+| 429 | `TOO_MANY_REQUESTS_KEY` | Quá **30 request/phút/key** |
+
+Không giới hạn số lần/ngày. Khuyến nghị kéo 15–60 phút/lần.

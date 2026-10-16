@@ -143,6 +143,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     hundred rows/day vs. 4-5 pipeline runs/day) but pull self-heals and adds no risk to external-import.
     Neither endpoint calls `logPartnerApiCall` (would write 1 D1 row per 15-min poll). `LoiLinhKienPanel`
     shows the `sc_*` status as a second badge.
+  - `partnerApi.ts` `GET /thieu-linh-kien` (2026-10-16, PARTNER_API_GUIDE §12) — open "Ca thiếu linh kiện" list as JSON,
+    same definition as the menu (reuses `missingParts.ts` exported `baseJoin`), live, paginated (≤1000), 30 req/min/key,
+    no `logPartnerApiCall`, does NOT hide `KHU_VUC_AN_KHOI_BAO_CAO` (partner-API convention).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the

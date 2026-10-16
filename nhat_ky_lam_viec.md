@@ -4590,3 +4590,11 @@ API đối tác không đổi. Báo cáo cố định có số tách phạm vi t
     mỗi scope cộng trong JS (`khuVucKhop` = bản JS của scope + loại trừ + lọc khu vực ad-hoc). Dùng ở /counts (khi không
     lọc tuổi), /by-khu-vuc, totalCases tab da-xu-ly (khi chỉ lọc khu vực).
 - Còn mở: /survey/candidates đọc sống (~140M/tuần), đếm tranh chấp (~110M), badge linh-kien-app, cảnh báo CCDC.
+
+## 2026-10-16 — API đối tác: danh sách ca thiếu linh kiện (v1.457)
+
+- `GET /api/partner/thieu-linh-kien` (routes/partnerApi.ts, PARTNER_API_GUIDE §12): danh sách "Ca thiếu linh kiện › Danh
+  sách chi tiết" đang tồn, JSON, tính tại thời điểm gọi, phân trang (mặc định 500, tối đa 1000), lọc khu_vuc / doi_tac /
+  ma_lk / tuoi_tu-tuoi_den / id. Dùng chung định nghĩa với menu (export `baseJoin` của missingParts.ts) + tên linh kiện
+  thiếu (LEFT JOIN linh_kien). 30 request/phút/key, không ghi partner_api_log, không ẩn khu vực ẩn báo cáo (quy ước API đối tác).
+- Thử local bằng key test (đã thu hồi): total khớp menu, key sai 401.

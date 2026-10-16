@@ -27,6 +27,9 @@ import { nowVN } from "../lib/vnTime";
 import { parseHinhAnhUrls } from "../lib/hinhAnhUrls";
 import { buildDanhSachTon, DANH_SACH_TON_LOAI, type DanhSachTonLoai } from "../lib/partnerDanhSachTon";
 import { allInChunks } from "../lib/d1InChunks";
+import { baseJoin as thieuLinhKienJoin } from "./missingParts";
+import { ageExpr, ageFilterClause } from "../lib/ageCalc";
+import { khuVucAdHocClause, dimAdHocClause } from "../lib/filterParams";
 
 /**
  * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
@@ -397,6 +400,63 @@ partnerApi.get("/danh-sach-ton", async (c) => {
     return c.json({ error: "INVALID_LOAI", message: "loai phai la 1 trong: " + Object.keys(DANH_SACH_TON_LOAI).join(", "), loai_hop_le: DANH_SACH_TON_LOAI }, 400);
   }
   return c.json(await buildDanhSachTon(c.env, loai as DanhSachTonLoai));
+});
+
+// GET /api/partner/thieu-linh-kien (2026-10-16) - danh sach "Ca thieu linh kien" DANG TON, dung dinh nghia cua menu
+// (routes/missingParts.ts GET "/" - "Danh sach chi tiet"): ca dang ton co giai trinh MOI NHAT thuoc nhom ly do "thieu
+// linh kien" (settings_ly_do.thuoc_thieu_linh_kien = 1). Tinh song, JSON, phan trang. Loc: khu_vuc, doi_tac, ma_lk,
+// tuoi_tu/tuoi_den, id (ID/serial). Theo quy uoc file nay KHONG an KHU_VUC_AN_KHOI_BAO_CAO (xem chu thich dau file).
+// Khong ghi partner_api_log (doi tac quet dinh ky - 1 dong D1/lan goi la thua), gioi han theo key bang Cache API.
+const THIEU_LK_KEY_LIMIT_PER_MIN = 30;
+const THIEU_LK_MAX_PAGE_SIZE = 1000;
+const THIEU_LK_AGE = ageExpr("c.thoi_gian_cskh_tiep_nhan");
+
+partnerApi.get("/thieu-linh-kien", async (c) => {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    await rejectInvalidKey(c, apiKey);
+    return c.json({ error: "INVALID_API_KEY" }, 401);
+  }
+  const ok = await checkPerKeyRateLimit("partner-thieu-lk-key-limit", keyRow.id, THIEU_LK_KEY_LIMIT_PER_MIN, (p) => c.executionCtx.waitUntil(p));
+  if (!ok) return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+
+  const page = Math.max(1, Math.floor(Number(c.req.query("page") ?? 1)) || 1);
+  const pageSize = Math.min(THIEU_LK_MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(c.req.query("pageSize") ?? 500)) || 500));
+  const id = (c.req.query("id") ?? "").trim();
+  const maLk = (c.req.query("ma_lk") ?? "").trim();
+  const loc = [
+    ageFilterClause("c.thoi_gian_cskh_tiep_nhan", c.req.query("tuoi_tu"), c.req.query("tuoi_den")),
+    khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc")),
+    dimAdHocClause("c.doi_tac", "doi_tac", c.req.query("doi_tac")),
+    maLk ? { sql: " AND lg.linh_kien_thieu = ?", binds: [maLk] } : { sql: "", binds: [] },
+    id ? { sql: " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)", binds: [`%${id}%`, `%${id}%`] } : { sql: "", binds: [] },
+  ];
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.id, c.khach_hang, c.seri_san_pham, c.khu_vuc, c.tinh, c.quan_huyen, c.tinh_moi, c.xa_moi,
+            c.ky_thuat_vien, c.ktv_trien_khai, c.doi_tac, c.nhom_kh, c.hang, c.nhom_san_pham, c.san_pham_bao_hanh,
+            c.nhom_yeu_cau, c.loai_yeu_cau, c.tien_do_hoan_thanh, c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hen_xu_ly, c.link_crm,
+            ${THIEU_LK_AGE} AS tuoi_ton,
+            lg.ly_do_cham, lg.linh_kien_thieu AS ma_linh_kien_thieu, lk.ten_linh_kien AS ten_linh_kien_thieu,
+            lg.ngay_yeu_cau_co_hang, lg.ngay_du_kien_hoan_thanh,
+            COUNT(*) OVER() AS total_count
+     FROM case_hieu_luc c
+     ${thieuLinhKienJoin(CASE_FILTER_TON)}
+     LEFT JOIN linh_kien lk ON lk.ma_linh_kien = lg.linh_kien_thieu
+     WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${loc.map((l) => l.sql).join("")}
+     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), tuoi_ton DESC, c.id DESC
+     LIMIT ? OFFSET ?`,
+  )
+    .bind(...loc.flatMap((l) => l.binds), pageSize, (page - 1) * pageSize)
+    .all<Record<string, unknown> & { total_count: number }>();
+  const total = results.length ? Number(results[0].total_count) : 0;
+  return c.json({
+    generated_at: nowVN(),
+    page,
+    pageSize,
+    total,
+    rows: results.map(({ total_count: _t, ...r }) => r),
+  });
 });
 
 // Dung chung cho ca 2 route sync ben duoi - gioi han so dong 1 lan goi (khop dung
