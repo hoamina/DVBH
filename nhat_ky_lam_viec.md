@@ -4612,3 +4612,20 @@ API đối tác không đổi. Báo cáo cố định có số tách phạm vi t
   HINH_THUC_XU_LY_META frontend), so khớp không phân biệt dấu/hoa thường.
 - Thử local: mẫu tải đúng 3 sheet; xem trước + ghi cả 2 vai đúng (ghi đè, ca không phải ca lặp, ca không tồn tại, giá trị
   sai, trùng ID, dòng trống); hộp thoại đọc đúng sheet "Mẫu".
+
+## 2026-10-17 — Tab "Theo dõi KTV loại trừ" (Quản lý khảo sát, v1.459)
+
+- Bối cảnh (số production 17/10): danh sách loại trừ hiện có 1 đợt, 181 KTV, chỉ "Lỗi 120 phút", 11/10–31/10; 181 KTV này
+  nhận ~78% số ca. Trong kỳ loại trừ, ca không còn được gọi nên KHÔNG có vi phạm xác nhận để so → so TỶ LỆ NGHI NGỜ (cờ
+  loi_* trên ca, luôn có). Chủ hệ thống chốt mục tiêu: quản lý thấy nhanh KTV loại trừ nào đột biến tăng nghi ngờ so với
+  trước khi loại trừ, thuộc khu vực nào → quyết định tháng sau còn giữ trong danh sách không.
+- Backend `GET /survey/loai-tru/theo-doi` (survey.ts): mỗi dòng loại trừ (KTV + loại lỗi + kỳ) → tiếp nhận / nghi ngờ đúng
+  loại lỗi đó, chia 2 kỳ: "trong" = tu_ngay → min(den_ngay, hôm nay), "trước" = 90 ngày ngay trước tu_ngay; nhóm theo khu
+  vực. 1 lần quét ca qua idx_case_thoi_gian_tiep_nhan, nối khao_sat_loai_tru qua idx (loai_loi, ma_ktv) bằng mã KTV trích
+  từ "(ma)". Chỉ dòng còn hiệu lực hoặc hết hạn ≤120 ngày. Đếm cả ca đã lưu trữ (view case_hieu_luc không lọc archived).
+  cachedReport key chung `survey/loai-tru-theo-doi-v1`, domain ["cases", "khao_sat_loai_tru"] — domain mới, POST/DELETE
+  /loai-tru bump thêm (trước chỉ bump ket_qua_goi, đổi mỗi cuộc gọi). Lọc scope + khu vực ad-hoc trong JS (`khuVucKhop`).
+- Frontend `components/KhaoSatTheoDoiLoaiTru.tsx`: xem theo KTV / Khu vực; lọc loại lỗi, đang hiệu lực / tất cả; ngưỡng
+  "Đột biến khi tăng ≥ X điểm %" (mặc định 5) + "Mỗi kỳ tối thiểu N ca" (mặc định 10, dưới ngưỡng = "Ít dữ liệu") tính ở
+  client; KTV đột biến lên đầu, tô màu; khu vực chính của KTV = khu vực nhiều ca nhất; bấm khu vực → danh sách KTV; xuất Excel.
+- Thử local (seed tạm 12 dòng loại trừ, đã xóa): số đếm khớp truy vấn độc lập (minhtrang.mn: trước 7/167, trong 0/5).

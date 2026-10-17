@@ -67,6 +67,7 @@ import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 import { TinhHuyenFilterControl } from "../components/TinhHuyenFilterControl";
 import { useDiaGioiLoc, useOnDiaGioiModeChange, gomTheoDiaGioi, soSanhTen, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 import { KhaoSatLoaiTruTab } from "../components/KhaoSatLoaiTru";
+import { KhaoSatTheoDoiLoaiTruTab } from "../components/KhaoSatTheoDoiLoaiTru";
 
 interface FunnelData {
   tongCaMo: number;
@@ -340,6 +341,7 @@ const VIEWS = [
   { key: "danh-sach", label: "Danh sách chi tiết" },
   { key: "nhap-excel", label: "Nhập Excel" },
   { key: "loai-tru", label: "Danh sách loại trừ" },
+  { key: "theo-doi-loai-tru", label: "Theo dõi KTV loại trừ" },
 ];
 
 interface ImportViPhamSummary {
@@ -1993,6 +1995,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               );
             })()}
         </div>
+      ) : effectiveView === "theo-doi-loai-tru" ? (
+        <KhaoSatTheoDoiLoaiTruTab khuVucFilter={khuVucFilter} />
       ) : effectiveView === "loai-tru" ? (
         <KhaoSatLoaiTruTab kyThuatVienOptions={khuVucOptions?.kyThuatVien ?? []} />
       ) : (

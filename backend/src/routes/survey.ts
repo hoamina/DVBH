@@ -1451,7 +1451,7 @@ survey.post("/loai-tru", requireRole(...LOAI_TRU_ROLES), async (c) => {
   )
     .bind(minTu, maxDen, before?.m ?? 0)
     .run();
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["ket_qua_goi"]));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["ket_qua_goi", "khao_sat_loai_tru"]));
   return c.json({ added: rows.length, caCapNhat: upd.meta.changes ?? 0 }, 201);
 });
 
@@ -1472,8 +1472,72 @@ survey.delete("/loai-tru/:id", requireRole(...LOAI_TRU_ROLES), async (c) => {
   )
     .bind(row.tu_ngay, row.den_ngay, row.ma_ktv.length + 2, `(${row.ma_ktv})`)
     .run();
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["ket_qua_goi"]));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["ket_qua_goi", "khao_sat_loai_tru"]));
   return c.json({ ok: true, caCapNhat: upd.meta.changes ?? 0 });
+});
+
+// GET /api/survey/loai-tru/theo-doi (2026-10-17, yeu cau chu he thong) - "Theo doi KTV loai tru": voi MOI dong
+// danh sach loai tru (KTV + loai loi + [tu_ngay, den_ngay]) so TY LE NGHI NGO loai loi do (co loi_* tren ca / so ca
+// tiep nhan) TRONG ky loai tru (tu_ngay -> min(den_ngay, hom nay)) voi 90 NGAY NGAY TRUOC tu_ngay. Muc dich: quan ly
+// nhin nhanh KTV nao dot bien tang nghi ngo sau khi duoc mien goi -> quyet dinh thang sau co giu trong danh sach.
+// So TY LE (khong so luong tho) vi 2 ky dai khac nhau; nguong "dot bien" do frontend tu dat (doi khong can goi lai API).
+// Chi tinh NGHI NGO (co tren ca, luon co cho moi ca) - KHONG tinh vi pham xac nhan: trong ky loai tru ca khong con
+// duoc goi nen khong co so vi pham that de so.
+// Chi phi: 1 lan quet ca tiep nhan trong [min(tu_ngay)-90 ngay, hom nay] qua idx thoi_gian_cskh_tiep_nhan, moi ca tra
+// khao_sat_loai_tru qua idx (loai_loi, ma_ktv). Cache CHUNG moi nguoi (khong theo scope), loc khu vuc trong JS. Chi lay
+// dong loai tru con hieu luc hoac het han trong 120 ngay gan nhat (tranh quet rong theo dong cu).
+const THEO_DOI_NGAY_TRUOC = 90;
+const LOAI_TRU_CO_LOI: Record<string, string> = {
+  "Loi 120 phut": "c.loi_120p",
+  "Hen qua 24h": "c.loi_qua_han_24h",
+  "Loi lo ke hoach": "c.loi_lo_ke_hoach",
+  "KH hen lai": "c.loi_kh_hen_lai",
+};
+interface TheoDoiLoaiTruDong {
+  id: number;
+  ma_ktv: string;
+  ten_ktv: string | null;
+  loai_loi: string;
+  tu_ngay: string;
+  den_ngay: string;
+  khu_vuc: string;
+  ky: "truoc" | "trong";
+  tiep_nhan: number;
+  nghi_ngo: number;
+}
+survey.get("/loai-tru/theo-doi", async (c) => {
+  const homNay = nowVN().slice(0, 10);
+  const rows = await cachedReport(c.env.DB, "survey/loai-tru-theo-doi-v1", ["cases", "khao_sat_loai_tru"], async () => {
+    const pham = await c.env.DB.prepare(
+      `SELECT date(MIN(tu_ngay), '-${THEO_DOI_NGAY_TRUOC} days') AS bd, MIN(MAX(den_ngay), ?) AS kt
+       FROM khao_sat_loai_tru WHERE den_ngay >= date(?, '-120 days') AND tu_ngay <= ?`,
+    )
+      .bind(homNay, homNay, homNay)
+      .first<{ bd: string | null; kt: string | null }>();
+    if (!pham?.bd || !pham.kt) return [] as TheoDoiLoaiTruDong[];
+    const coLoi = `CASE x.loai_loi ${Object.entries(LOAI_TRU_CO_LOI).map(([k, col]) => `WHEN '${k}' THEN ${col}`).join(" ")} END`;
+    const ngay = "substr(c.thoi_gian_cskh_tiep_nhan, 1, 10)";
+    const { results } = await c.env.DB.prepare(
+      `SELECT x.id, x.ma_ktv, x.ten_ktv, x.loai_loi, x.tu_ngay, x.den_ngay, c.khu_vuc,
+         CASE WHEN ${ngay} >= x.tu_ngay THEN 'trong' ELSE 'truoc' END AS ky,
+         COUNT(*) AS tiep_nhan, SUM(CASE WHEN ${coLoi} = 1 THEN 1 ELSE 0 END) AS nghi_ngo
+       FROM case_hieu_luc c
+       JOIN khao_sat_loai_tru x
+         ON x.loai_loi IN (${Object.keys(LOAI_TRU_CO_LOI).map((k) => `'${k}'`).join(", ")})
+        AND x.ma_ktv = substr(c.ky_thuat_vien, 2, instr(c.ky_thuat_vien, ')') - 2)
+       WHERE c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < date(?, '+1 day')
+         AND c.ky_thuat_vien LIKE '(%' AND c.khu_vuc IS NOT NULL
+         AND x.den_ngay >= date(?, '-120 days') AND x.tu_ngay <= ?
+         AND ${ngay} >= date(x.tu_ngay, '-${THEO_DOI_NGAY_TRUOC} days') AND ${ngay} <= MIN(x.den_ngay, ?)
+       GROUP BY x.id, c.khu_vuc, ky`,
+    )
+      .bind(pham.bd, pham.kt, homNay, homNay, homNay)
+      .all<TheoDoiLoaiTruDong>();
+    return results;
+  });
+  const scope = scopeByKhuVuc(c);
+  const khuVuc = c.req.query("khu_vuc");
+  return c.json({ homNay, soNgayTruoc: THEO_DOI_NGAY_TRUOC, rows: rows.filter((r) => khuVucKhop(r.khu_vuc, scope, khuVuc)) });
 });
 
 export default survey;
