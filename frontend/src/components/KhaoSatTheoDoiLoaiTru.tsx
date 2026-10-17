@@ -7,6 +7,7 @@ import { Card } from "./ui/Card";
 import { Select } from "./ui/Select";
 import { StatCard } from "./ui/StatCard";
 import { PaginatedTable, type Column } from "./ui/PaginatedTable";
+import { ThInfo } from "./ui/ThInfo";
 import { LOAI_LOI_META, fmtDate, type LoaiLoi } from "../types";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -157,17 +158,33 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
   const tongDotBien = dongLoc.filter((d) => d.danhGia === "dot_bien").length;
   const soKvDotBien = dongKhuVuc.filter((k) => k.soDotBien > 0).length;
 
+  // Chu thich cach tinh tung cot (hien qua dau "(?)" o tieu de) - nguoi xem tu hieu, khong phai hoi lai.
+  const INFO = {
+    khuVuc: "Khu vực có nhiều ca tiếp nhận nhất của KTV, tính gộp cả 2 kỳ (trước và trong kỳ loại trừ).",
+    ky: "Khoảng ngày khai báo trong Danh sách loại trừ, so với ngày CSKH tiếp nhận ca. \"Hết hạn\" = đã qua ngày kết thúc.",
+    truoc: `Tỷ lệ nghi ngờ = số ca bị hệ thống gắn cờ đúng loại lỗi được loại trừ ÷ số ca tiếp nhận của KTV, trong ${soNgayTruoc} ngày ngay trước ngày bắt đầu loại trừ. Trong ngoặc: (số ca nghi ngờ / số ca tiếp nhận).`,
+    trong: "Cùng cách tính như cột \"Trước\", từ ngày bắt đầu loại trừ đến hôm nay (hoặc đến ngày kết thúc nếu kỳ đã hết hạn). Đây là tỷ lệ nghi ngờ, không phải vi phạm xác nhận - trong kỳ loại trừ các ca này không được gọi khảo sát.",
+    chenh: `= Tỷ lệ trong kỳ − tỷ lệ trước, đơn vị điểm % (vd 20% lên 30% là +10). (×n) = tỷ lệ trong kỳ ÷ tỷ lệ trước. Đỏ = tăng từ ${nguongDiem} điểm trở lên (ngưỡng đột biến), xanh = giảm.`,
+    danhGia: `Đột biến – xem lại: chênh lệch ≥ ${nguongDiem} điểm % VÀ mỗi kỳ có ít nhất ${soCaToiThieu} ca tiếp nhận. Ít dữ liệu: 1 trong 2 kỳ có dưới ${soCaToiThieu} ca nên tỷ lệ chưa đáng tin. Ổn định: các trường hợp còn lại. Đổi ngưỡng ở ô phía trên.`,
+    soMuc: "Số dòng trong Danh sách loại trừ (1 dòng = 1 KTV × 1 loại lỗi × 1 kỳ) có khu vực chính là khu vực này, theo bộ lọc loại lỗi và kỳ đang chọn.",
+    soDotBien: "Số dòng loại trừ của khu vực được đánh giá \"Đột biến – xem lại\" theo ngưỡng đang chọn.",
+    soItDuLieu: `Số dòng loại trừ của khu vực có 1 trong 2 kỳ dưới ${soCaToiThieu} ca tiếp nhận (chưa đủ để đánh giá).`,
+    kvTruoc: `Cộng dồn mọi KTV loại trừ của khu vực: tổng ca nghi ngờ ÷ tổng ca tiếp nhận trong ${soNgayTruoc} ngày trước kỳ loại trừ của từng KTV.`,
+    kvTrong: "Cộng dồn mọi KTV loại trừ của khu vực: tổng ca nghi ngờ ÷ tổng ca tiếp nhận trong kỳ loại trừ.",
+    kvChenh: "= Tỷ lệ trong kỳ − tỷ lệ trước của cả khu vực, đơn vị điểm %.",
+  };
+
   const ktvLabel = (d: DongKtv) => (d.ten_ktv && d.ten_ktv !== d.ma_ktv ? `${d.ma_ktv} — ${d.ten_ktv}` : d.ma_ktv);
   const kyLabel = (d: DongKtv) => `${fmtDate(d.tu_ngay)} – ${fmtDate(d.den_ngay)}`;
 
   const cotKtv: Column<DongKtv>[] = [
     { key: "ktv", header: "KTV", render: (d) => <span className="text-xs font-semibold">{ktvLabel(d)}</span> },
-    { key: "khu_vuc", header: "Khu vực", render: (d) => <span className="text-xs">{shortKhuVuc(d.khu_vuc)}</span> },
+    { key: "khu_vuc", header: <ThInfo label="Khu vực" info={INFO.khuVuc} />, render: (d) => <span className="text-xs">{shortKhuVuc(d.khu_vuc)}</span> },
     { key: "loai_loi", header: "Loại lỗi", render: (d) => <span className="text-xs">{LOAI_LOI_META[d.loai_loi]?.label ?? d.loai_loi}</span> },
-    { key: "ky", header: "Kỳ loại trừ", render: (d) => <span className="text-xs whitespace-nowrap">{kyLabel(d)}{!d.dangHieuLuc && <span className="text-[var(--ink-400)]"> (hết hạn)</span>}</span> },
+    { key: "ky", header: <ThInfo label="Kỳ loại trừ" info={INFO.ky} />, render: (d) => <span className="text-xs whitespace-nowrap">{kyLabel(d)}{!d.dangHieuLuc && <span className="text-[var(--ink-400)]"> (hết hạn)</span>}</span> },
     {
       key: "truoc",
-      header: `Trước (${soNgayTruoc} ngày)`,
+      header: <ThInfo label={`Trước (${soNgayTruoc} ngày)`} info={INFO.truoc} />,
       render: (d) => (
         <span className="font-mono text-xs whitespace-nowrap">
           {fmtPct(d.tlTruoc)} <span className="text-[var(--ink-400)]">({d.nnTruoc}/{d.tnTruoc})</span>
@@ -176,7 +193,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
     },
     {
       key: "trong",
-      header: "Trong kỳ loại trừ",
+      header: <ThInfo label="Trong kỳ loại trừ" info={INFO.trong} />,
       render: (d) => (
         <span className="font-mono text-xs whitespace-nowrap">
           {fmtPct(d.tlTrong)} <span className="text-[var(--ink-400)]">({d.nnTrong}/{d.tnTrong})</span>
@@ -185,7 +202,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
     },
     {
       key: "chenh",
-      header: "Chênh lệch (điểm %)",
+      header: <ThInfo label="Chênh lệch (điểm %)" info={INFO.chenh} />,
       render: (d) => (
         <span className={`font-mono text-xs font-semibold ${d.chenh !== null && d.chenh >= nguongDiem ? "text-[var(--coral-500)]" : d.chenh !== null && d.chenh < 0 ? "text-[var(--teal-500)]" : ""}`}>
           {fmtChenh(d.chenh)}
@@ -193,7 +210,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
         </span>
       ),
     },
-    { key: "danh_gia", header: "Đánh giá", render: (d) => <Badge tone={DANH_GIA_META[d.danhGia].tone}>{DANH_GIA_META[d.danhGia].label}</Badge> },
+    { key: "danh_gia", header: <ThInfo label="Đánh giá" info={INFO.danhGia} />, render: (d) => <Badge tone={DANH_GIA_META[d.danhGia].tone}>{DANH_GIA_META[d.danhGia].label}</Badge> },
   ];
 
   const xuatExcel = () =>
@@ -331,12 +348,12 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
                 </button>
               ),
             },
-            { key: "so_muc", header: "Số mục loại trừ", render: (k) => <span className="font-mono text-xs">{k.soMuc}</span> },
-            { key: "dot_bien", header: "KTV đột biến", render: (k) => (k.soDotBien > 0 ? <Badge tone="coral">{k.soDotBien}</Badge> : <span className="font-mono text-xs">0</span>) },
-            { key: "it", header: "Ít dữ liệu", render: (k) => <span className="font-mono text-xs text-[var(--ink-400)]">{k.soItDuLieu}</span> },
-            { key: "truoc", header: `Tỷ lệ nghi ngờ trước (${soNgayTruoc} ngày)`, render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTruoc)} <span className="text-[var(--ink-400)]">({k.nnTruoc}/{k.tnTruoc})</span></span> },
-            { key: "trong", header: "Trong kỳ loại trừ", render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTrong)} <span className="text-[var(--ink-400)]">({k.nnTrong}/{k.tnTrong})</span></span> },
-            { key: "chenh", header: "Chênh lệch (điểm %)", render: (k) => <span className="font-mono text-xs font-semibold">{fmtChenh(k.chenh)}</span> },
+            { key: "so_muc", header: <ThInfo label="Số mục loại trừ" info={INFO.soMuc} />, render: (k) => <span className="font-mono text-xs">{k.soMuc}</span> },
+            { key: "dot_bien", header: <ThInfo label="KTV đột biến" info={INFO.soDotBien} />, render: (k) => (k.soDotBien > 0 ? <Badge tone="coral">{k.soDotBien}</Badge> : <span className="font-mono text-xs">0</span>) },
+            { key: "it", header: <ThInfo label="Ít dữ liệu" info={INFO.soItDuLieu} />, render: (k) => <span className="font-mono text-xs text-[var(--ink-400)]">{k.soItDuLieu}</span> },
+            { key: "truoc", header: <ThInfo label={`Tỷ lệ nghi ngờ trước (${soNgayTruoc} ngày)`} info={INFO.kvTruoc} />, render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTruoc)} <span className="text-[var(--ink-400)]">({k.nnTruoc}/{k.tnTruoc})</span></span> },
+            { key: "trong", header: <ThInfo label="Trong kỳ loại trừ" info={INFO.kvTrong} />, render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTrong)} <span className="text-[var(--ink-400)]">({k.nnTrong}/{k.tnTrong})</span></span> },
+            { key: "chenh", header: <ThInfo label="Chênh lệch (điểm %)" info={INFO.kvChenh} />, render: (k) => <span className="font-mono text-xs font-semibold">{fmtChenh(k.chenh)}</span> },
           ]}
           rows={dongKhuVuc}
           isLoading={isLoading}

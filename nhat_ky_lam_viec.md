@@ -4629,3 +4629,6 @@ API đối tác không đổi. Báo cáo cố định có số tách phạm vi t
   "Đột biến khi tăng ≥ X điểm %" (mặc định 5) + "Mỗi kỳ tối thiểu N ca" (mặc định 10, dưới ngưỡng = "Ít dữ liệu") tính ở
   client; KTV đột biến lên đầu, tô màu; khu vực chính của KTV = khu vực nhiều ca nhất; bấm khu vực → danh sách KTV; xuất Excel.
 - Thử local (seed tạm 12 dòng loại trừ, đã xóa): số đếm khớp truy vấn độc lập (minhtrang.mn: trước 7/167, trong 0/5).
+- (v1.460) Thêm dấu "(?)" sau tiêu đề mọi cột tính toán của tab (cả xem theo KTV và theo khu vực): rê chuột hiện cách tính;
+  chú thích cột "Đánh giá"/"Chênh lệch"/"Ít dữ liệu" hiện đúng ngưỡng đang chọn. Tách `ThInfo` ra `components/ui/ThInfo.tsx`
+  dùng chung với "Báo cáo khảo sát theo khu vực".

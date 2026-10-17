@@ -8,6 +8,7 @@ import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { StatCard } from "../components/ui/StatCard";
 import { ImportUploader } from "../components/ImportUploader";
+import { ThInfo } from "../components/ui/ThInfo";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
@@ -296,16 +297,6 @@ function renderViPhamTd(count: number, tyLe: number, key?: string) {
   );
 }
 
-// Nhan tieu de cot + dau "(?)" hover hien chu thich cach tinh (title native, khong can Tooltip
-// component rieng) - dung cho bang "Bao cao khao sat theo khu vuc" theo yeu cau hien thi giai thich
-// cong thuc ngay tren UI thay vi phai hoi lai.
-function ThInfo({ label, info }: { label: string; info: string }) {
-  return (
-    <>
-      {label} <span className="cursor-help text-[var(--ink-300)] normal-case" title={info}>(?)</span>
-    </>
-  );
-}
 
 export const FLAG_TO_LOAI: Record<string, LoaiLoi> = {
   need_loi_120p: "Loi 120 phut",
