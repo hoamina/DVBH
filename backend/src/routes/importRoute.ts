@@ -1,3 +1,4 @@
+import { autoLogCaKetThucTrongNgay } from "../lib/autoLogCaKetThuc";
 import { Hono } from "hono";
 import { chotSoLieuPhamVi } from "../lib/phamViChot";
 import type { Context } from "hono";
@@ -142,6 +143,8 @@ export function scheduleCaLapRefreshIfChanged(
     // memory r2-json-write-trigger-rule.md) - chi tinh lai DUNG nhung ngay trong affectedDates,
     // khong dung cron/compute-on-miss nao khac.
     c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "snapshot R2 ca da dong", recomputeDaDongDayChunks(c.env, summary.affectedDates)));
+    // Ca "can giai trinh" chot 08:00 vua ket thuc trong ngay -> tu ghi log "Case da duoc ket thuc" (lib/autoLogCaKetThuc.ts).
+    c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "tu ghi log ca ket thuc", autoLogCaKetThucTrongNgay(c.env.DB)));
   }
   // Don rac "rpt:%" chay moi lan import (khong dieu kien GHI_MOI/GHI_DE, xem cleanupOldReportCache).
   c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "don rac rpt cache", cleanupOldReportCache(c.env.DB)));

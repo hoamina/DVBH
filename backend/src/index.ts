@@ -39,6 +39,7 @@ import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
+import { autoLogCaKetThucTrongNgay } from "./lib/autoLogCaKetThuc";
 import { phamViMiddleware } from "./lib/phamVi";
 import { chotSoLieuPhamVi, chotGiaiTrinhPhamVi, retryLuongDoiTraPhamVi } from "./lib/phamViChot";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
@@ -216,6 +217,12 @@ export default {
           console.error("[cron-luong-doi-tra] retry loi:", err instanceof Error ? err.message : String(err));
         }
         await retryLuongDoiTraPhamVi(env);
+        // Luoi an toan: ca "can giai trinh" (chot 08:00) da ket thuc trong ngay -> tu ghi log (lib/autoLogCaKetThuc.ts).
+        try {
+          await autoLogCaKetThucTrongNgay(env.DB);
+        } catch (err) {
+          console.error("[cron-auto-log-ket-thuc] loi:", err instanceof Error ? err.message : String(err));
+        }
       }
       // Cac viec chot 08:00 VN - KHONG chay o cac lan fire 9h-18h VN them vao 2026-10-08.
       if (new Date(event.scheduledTime).getUTCHours() !== 1) return;

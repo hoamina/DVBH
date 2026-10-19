@@ -4632,3 +4632,19 @@ API đối tác không đổi. Báo cáo cố định có số tách phạm vi t
 - (v1.460) Thêm dấu "(?)" sau tiêu đề mọi cột tính toán của tab (cả xem theo KTV và theo khu vực): rê chuột hiện cách tính;
   chú thích cột "Đánh giá"/"Chênh lệch"/"Ít dữ liệu" hiện đúng ngưỡng đang chọn. Tách `ThInfo` ra `components/ui/ThInfo.tsx`
   dùng chung với "Báo cáo khảo sát theo khu vực".
+
+## 2026-10-19 — Tự ghi log "Case đã được kết thúc" cho ca cần giải trình đóng trong ngày (v1.461, migration 0138)
+Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng trong ngày được đóng Hoàn thành/Thất bại → tự
+động thêm log để không phải giải trình nữa.
+- Cách làm: ghi THẬT 1 dòng `giai_trinh` (lý do "Case đã được kết thúc", người ghi = user hệ thống
+  `he-thong-tu-dong@dvbh.internal`) thay vì sửa công thức đếm — mọi nơi đếm "đã giải trình trong ngày" (ô số Báo cáo
+  08:00, danh sách chi tiết, log 17h30, theo khu vực, phạm vi NSKX) đều dùng chung tiêu chí "có giai_trinh sau mốc
+  chốt", nên tự đồng bộ. Cùng khuôn log tự động ETX (migration 0110).
+- `lib/autoLogCaKetThuc.ts`: tập ca = id trong các bucket cần giải trình của mọi snapshot 08:00 hôm nay
+  (tonCanGiaiTrinh, thieuLinhKien, B2B, NSKX, Lọc tổng BCN, VIP 24h; không gồm tổng tồn, không gồm thẻ Cảnh báo
+  tồn), `thoi_gian_hoan_thanh` rơi vào hôm nay, chưa có giải trình nào sau mốc chốt. Idempotent.
+- Chạy: sau mỗi import có GHI_MOI/GHI_DE (CRM tay + pipeline tự động, `scheduleCaLapRefreshIfChanged`) + cron mỗi
+  giờ 9h–18h (lưới an toàn).
+- `migrations/0138`: lý do `bat_tat = 0` (không hiện trong dropdown nhập tay, vẫn hợp lệ cho FK).
+- Hạn chế: ca đóng hôm nay nhưng dữ liệu đóng về sau 18h (sau lần cron cuối) chỉ được ghi ở lần import kế tiếp
+  trong ngày; nếu sang ngày mới mới về thì số hôm đó đã chốt, không ghi bù.
