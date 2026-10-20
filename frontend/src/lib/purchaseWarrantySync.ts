@@ -30,8 +30,9 @@ export function parseRawRow(row: SheetRow): Record<string, string> {
 // dung tu dong bi "mo côi" (khong con key nao tro toi) thay vi phai cho het TTL 2 gio hoac bat nguoi
 // dung tu bam "Dong bo lai" - xem parseRawRow() them "_rawJson" o tren, bug thuc te gap 2026-08-15
 // (modal "Xem day du" rong vi cache cu tu truoc khi co "_rawJson").
-// "v3" (2026-10-20): tap "po-dat-hang" gop them nguon app EO Mua hang (lib/poDatHangEo.ts).
-const CACHE_PREFIX = "google-sheet-v3:";
+// "v4" (2026-10-20): cache "po-dat-hang" chi con chua phan Google Sheet; phan app EO cache rieng theo version
+// (lib/poDatHangEo.ts). Doi prefix de bo cache v3 da gop (co the dang rong phan EO).
+const CACHE_PREFIX = "google-sheet-v4:";
 export const SYNC_TTL_MS = 2 * 60 * 60 * 1000;
 
 interface SourceSheet {
@@ -198,14 +199,7 @@ async function fetchSheet(url: string): Promise<Record<string, string>[]> {
 async function fetchAndMergeDataset(dataset: PurchaseWarrantyDataset, force = false): Promise<SheetRow[]> {
   // "po-dat-hang": Google Sheet cu + app EO Mua hang, chay song song (~1 thang, chot 2026-10-20) - sheet
   // loi thi van dung du lieu app EO va nguoc lai.
-  if (dataset === "po-dat-hang") {
-    const [sheet, app] = await Promise.all([
-      fetchSheetsOnly(dataset).catch(() => [] as SheetRow[]),
-      fetchPoEoRows(force),
-    ]);
-    if (sheet.length === 0 && app.length === 0) throw new Error("Không tải được PO từ Google Sheet lẫn app EO");
-    return mergePoRows(sheet, app);
-  }
+  void force;
   return fetchSheetsOnly(dataset);
 }
 
@@ -233,6 +227,21 @@ export function isStale(cachedAt: string | undefined): boolean {
  * Google roi ghi de cache. Loi mang van tra ve cache cu (neu co) thay vi nem loi, de UI khong bi vo -
  * chi that su bao loi khi CHUA TUNG co cache VA fetch that bai. */
 export async function getDataset(dataset: PurchaseWarrantyDataset, opts?: { force?: boolean }): Promise<{ rows: SheetRow[]; cachedAt: string }> {
+  // "po-dat-hang" = Google Sheet cu (cache TTL 2h nhu cac tap khac) + app EO Mua hang (KHONG theo TTL - moi lan
+  // goi deu hoi version /api/po-dat-hang?v=, khong doi chi ton 1 dong doc). Fix 2026-10-20: truoc day gop chung
+  // 1 cache 2h -> ai mo DVBH truoc khi app EO day lan dau bi ket danh sach khong co EO suot 2 gio.
+  if (dataset === "po-dat-hang") {
+    const [sheet, app] = await Promise.all([
+      getSheetDataset(dataset, opts).catch(() => ({ rows: [] as SheetRow[], cachedAt: "" })),
+      fetchPoEoRows(!!opts?.force),
+    ]);
+    if (sheet.rows.length === 0 && app.length === 0) throw new Error("Không tải được PO từ Google Sheet lẫn app EO");
+    return { rows: mergePoRows(sheet.rows, app), cachedAt: new Date().toISOString() };
+  }
+  return getSheetDataset(dataset, opts);
+}
+
+async function getSheetDataset(dataset: PurchaseWarrantyDataset, opts?: { force?: boolean }): Promise<{ rows: SheetRow[]; cachedAt: string }> {
   const key = cacheKey(dataset);
   const cached = await getCachedEntry<SheetRow[]>(key);
   // Cache RONG (0 dong) luon coi la het han (fix 2026-10-03): 1 lan tai hong/rong (vd sheet dang

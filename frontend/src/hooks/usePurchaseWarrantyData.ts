@@ -7,11 +7,15 @@ import { getDataset, type PurchaseWarrantyDataset } from "../lib/purchaseWarrant
 const STALE_TIME = 2 * 60 * 60 * 1000; // 2 gio, khop TTL cache IndexedDB o purchaseWarrantySync.ts
 const DATASETS: PurchaseWarrantyDataset[] = ["mua-hang", "bao-hanh", "thieu-hang", "qc-thuc-te", "po-dat-hang"];
 
+// "po-dat-hang" co phan du lieu app EO Mua hang cap nhat lien tuc - hoi lai moi 5 phut (chi so version, re);
+// phan Google Sheet ben trong van giu cache 2h (purchaseWarrantySync.ts getDataset).
+const PO_STALE_TIME = 5 * 60 * 1000;
+
 function useDatasetQuery(dataset: PurchaseWarrantyDataset) {
   return useQuery({
     queryKey: ["purchase-warranty", dataset],
     queryFn: () => getDataset(dataset),
-    staleTime: STALE_TIME,
+    staleTime: dataset === "po-dat-hang" ? PO_STALE_TIME : STALE_TIME,
     gcTime: Infinity,
     refetchOnWindowFocus: false,
   });

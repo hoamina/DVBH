@@ -4658,3 +4658,4 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   trạng thái EO, kế hoạch hàng về từng đợt, mã gốc khi thay mã tương đương, link "Mở EO"; khớp theo `maLinhKienGoc` nữa.
 - Việc sau khi tắt sheet: bỏ nguồn sheet trong `purchaseWarrantySync.ts` (SOURCES["po-dat-hang"]).
 
+- v1.463: sửa — phần app EO của tập "PO đặt hàng" không còn dính cache 2h của Google Sheet (hỏi version mỗi 5 phút, cache sheet riêng, prefix v4). Trước đó ai mở DVBH trước lần đẩy đầu của app EO bị kẹt danh sách không có EO.
