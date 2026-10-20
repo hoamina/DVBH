@@ -4663,3 +4663,4 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   Chi tiết ca, Linh kiện thiếu, Hồ sơ LK; sửa luôn "PO mới nhất" ở Linh kiện thiếu (trước so chuỗi dd/mm/yyyy → chọn nhầm).
   (2) Ô "Tra tồn LK (mã/tên)" cạnh ô Tra cứu ID/Serial (TopBar): `GET /api/ton-kho-lk/tim`, hiện Tồn MB/MN/KTV, bấm → Hồ sơ
   linh kiện; chỉ hiện với người có module "Ca thiếu linh kiện".
+- v1.465: ô "Tra tồn LK" tìm **không dấu** (bơm = bom, nhiều từ phải khớp đủ) — chỉ mục bỏ dấu giữ trong bộ nhớ Worker, dựng lại khi version ton_kho/settings đổi hoặc quá 10 phút (lib/tonKhoTim.ts).
