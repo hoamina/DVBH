@@ -96,6 +96,36 @@ tonKhoLk.put("/kho/:ma", async (c) => {
   return c.json({ ok: true });
 });
 
+// GET /tim?q= - o "Tra tồn LK" canh o tim ID tong (TopBar): tim theo MA hoac TEN linh kien (LIKE, khong phan biet
+// hoa thuong a-z), tra ton MB/MN/KTV theo ma (cung cach tinh /tong-hop) + ma co trong danh muc linh_kien nhung KHONG
+// co dong ton nao (= het hang). LIKE '%q%' quet ~8.7k dong ton_kho_lk / lan tim - chi chay khi nguoi dung go >= 2 ky tu
+// (FE debounce), chap nhan duoc.
+tonKhoLk.get("/tim", async (c) => {
+  const q = (c.req.query("q") ?? "").trim();
+  if (q.length < 2) return c.json({ rows: [] });
+  const like = `%${q.replace(/[%_!]/g, (m) => "!" + m)}%`; // "!" lam ky tu ESCAPE (tranh "\\" trong template literal)
+  const { results } = await c.env.DB.prepare(
+    `WITH ton AS (
+       SELECT t.ma_hang, MAX(t.ten_hang) AS ten_hang, MAX(t.dvt) AS dvt,
+              SUM(CASE WHEN n.nhom = 'MB' THEN t.cuoi_ky ELSE 0 END) AS ton_mb,
+              SUM(CASE WHEN n.nhom = 'MN' THEN t.cuoi_ky ELSE 0 END) AS ton_mn,
+              SUM(CASE WHEN t.nguon = 'ktv' THEN t.cuoi_ky ELSE 0 END) AS ton_ktv
+       FROM ton_kho_lk t LEFT JOIN ton_kho_nhom_kho n ON n.ma_kho = t.ma_kho
+       WHERE t.ma_hang LIKE ? ESCAPE '!' OR t.ten_hang LIKE ? ESCAPE '!'
+       GROUP BY t.ma_hang)
+     SELECT * FROM (
+     SELECT ma_hang, ten_hang, dvt, ton_mb, ton_mn, ton_ktv, 1 AS co_du_lieu_ton FROM ton
+     UNION ALL
+     SELECT lk.ma_linh_kien, lk.ten_linh_kien, NULL, 0, 0, 0, 0 FROM linh_kien lk
+     WHERE (lk.ma_linh_kien LIKE ? ESCAPE '!' OR lk.ten_linh_kien LIKE ? ESCAPE '!')
+       AND lk.ma_linh_kien NOT IN (SELECT ma_hang FROM ton))
+     ORDER BY (UPPER(ma_hang) = UPPER(?)) DESC, (ton_mb + ton_mn) DESC, ma_hang
+     LIMIT 40`,
+  ).bind(like, like, like, like, q).all();
+  const meta = await getTonKhoLkMeta(c.env.DB);
+  return c.json({ rows: results, phien_ban: meta?.phien_ban ?? null });
+});
+
 // GET /ma/:ma - ton cua 1 ma hang o TUNG kho (kho cong ty + kho KTV) kem nhom MB/MN - "Ho so linh kien" (GD2).
 // idx_ton_kho_lk_ma_hang -> chi doc dung so dong cua ma do.
 tonKhoLk.get("/ma/:ma", async (c) => {

@@ -178,6 +178,8 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     sum into "Tồn kho MB"/"Tồn kho MN" (tab "Cấu hình kho", Admin/TBP DVBH edit). UI: `components/TonKhoLk.tsx`.
     GĐ2 "Hồ sơ linh kiện" (`components/HoSoLinhKien.tsx`): per-part stock `GET /ma/:ma`, order history + shortage
     tickets proxied on demand from linh-kien-app `GET /ma/:ma/lich-su` (not stored), cases via `/api/missing-parts?ma_lk=`.
+    TopBar box "Tra tồn LK" (`components/TonKhoSearch.tsx`, 2026-10-20): `GET /tim?q=` searches code OR name (LIKE,
+    ESCAPE '!'), returns MB/MN/KTV totals + catalog-only codes (stock 0), click → Hồ sơ linh kiện.
 - `middleware/` — `session.ts` verifies the `dvbh_session` JWT cookie and sets `email`; a route then
   loads the full `AppUser` (role, `khu_vuc_phu_trach` assigned regions, approval status) via
   `loadUser.ts` and sets `user`; `requireRole.ts` gates by role; `scopeByKhuVuc.ts` builds the

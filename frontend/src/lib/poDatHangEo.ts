@@ -134,8 +134,21 @@ export async function fetchPoEoRows(force = false): Promise<SheetRow[]> {
   }
 }
 
-/** Gop: dong app EO thay dong sheet cung "ID ĐẶT LK"; dong chi co tren sheet giu nguyen (gan _nguon). */
+/** 'dd/mm/yyyy[ HH:MM[:SS]]' -> 'yyyy-mm-dd HH:MM:SS' de so sanh chuoi (rong -> ''). */
+export function poSortKey(v: string | undefined): string {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(v ?? "");
+  if (!m) return "";
+  const p = (x: string | undefined) => (x ?? "0").padStart(2, "0");
+  return `${m[3]}-${p(m[2])}-${p(m[1])} ${p(m[4])}:${p(m[5])}:${p(m[6])}`;
+}
+
+/** Gop: dong app EO thay dong sheet cung "ID ĐẶT LK"; dong chi co tren sheet giu nguyen (gan _nguon).
+ * Sap xep MOI NHAT LEN TREN theo "Ngày tạo" (2026-10-20) - moi danh sach PO (Chi tiet ca, Linh kien thieu,
+ * Ho so linh kien) dung chung thu tu nay. */
 export function mergePoRows(sheetRows: SheetRow[], appRows: SheetRow[]): SheetRow[] {
   const appIds = new Set(appRows.map((r) => r.id).filter(Boolean));
-  return [...appRows, ...sheetRows.filter((r) => !r.id || !appIds.has(r.id)).map((r) => ({ ...r, _nguon: "sheet" }))];
+  const all: SheetRow[] = [...appRows, ...sheetRows.filter((r) => !r.id || !appIds.has(r.id)).map((r) => ({ ...r, _nguon: "sheet" }))];
+  const keyed = all.map((r) => ({ r, k: poSortKey(r.ngayTao) }));
+  keyed.sort((a, b) => (a.k < b.k ? 1 : a.k > b.k ? -1 : 0));
+  return keyed.map((x) => x.r);
 }

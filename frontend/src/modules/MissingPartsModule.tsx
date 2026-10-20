@@ -14,6 +14,7 @@ import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { useMissingPartsDaDongChunked, type MissingPartClosedCase } from "../hooks/useMissingPartsDaDongChunked";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchPoDatHangByLinhKien } from "../lib/purchaseWarrantyMatch";
+import { poSortKey } from "../lib/poDatHangEo";
 import type { SheetRow } from "../lib/purchaseWarrantySync";
 import { api, buildQuery } from "../api/client";
 import { fmtDate, fmtDateTime, type Paged } from "../types";
@@ -251,7 +252,8 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
       rows.map((r) => {
         const po = matchPoDatHangByLinhKien(r.ma_lk, poDatHang);
         // Uu tien PO cap nhat/tao gan nhat de hien tom tat 1 dong o bang danh sach - xem het trong modal chi tiet.
-        const latestPo = [...po].sort((a, b) => (b.ngayCapNhat || b.ngayTao || "").localeCompare(a.ngayCapNhat || a.ngayTao || ""))[0] as SheetRow | undefined;
+        // So theo khoa yyyy-mm-dd (fix 2026-10-20: truoc so chuoi "dd/mm/yyyy" -> 05/10 bi coi cu hon 28/09).
+        const latestPo = [...po].sort((a, b) => poSortKey(b.ngayCapNhat || b.ngayTao).localeCompare(poSortKey(a.ngayCapNhat || a.ngayTao)))[0] as SheetRow | undefined;
         const t = tonKho?.get(r.ma_lk);
         const tonMb = t?.ton_mb ?? 0;
         const tonMn = t?.ton_mn ?? 0;

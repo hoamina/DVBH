@@ -4659,3 +4659,7 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
 - Việc sau khi tắt sheet: bỏ nguồn sheet trong `purchaseWarrantySync.ts` (SOURCES["po-dat-hang"]).
 
 - v1.463: sửa — phần app EO của tập "PO đặt hàng" không còn dính cache 2h của Google Sheet (hỏi version mỗi 5 phút, cache sheet riêng, prefix v4). Trước đó ai mở DVBH trước lần đẩy đầu của app EO bị kẹt danh sách không có EO.
+- v1.464: (1) danh sách PO đặt hàng (gộp Google Sheet + app EO) sắp xếp mới nhất lên trên theo "Ngày tạo" — dùng chung cho
+  Chi tiết ca, Linh kiện thiếu, Hồ sơ LK; sửa luôn "PO mới nhất" ở Linh kiện thiếu (trước so chuỗi dd/mm/yyyy → chọn nhầm).
+  (2) Ô "Tra tồn LK (mã/tên)" cạnh ô Tra cứu ID/Serial (TopBar): `GET /api/ton-kho-lk/tim`, hiện Tồn MB/MN/KTV, bấm → Hồ sơ
+  linh kiện; chỉ hiện với người có module "Ca thiếu linh kiện".

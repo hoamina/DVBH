@@ -301,7 +301,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
           />
           <StatCard label="Ca đang thiếu" value={cases.length} tone="coral" muted={cases.length === 0} sub={tuoiMax !== null ? `lâu nhất ${tuoiMax} ngày` : "trong phạm vi bạn xem"} />
           <StatCard label="Ticket thiếu hàng mở" value={ticketMo.length} tone="amber" muted={ticketMo.length === 0} sub={`${thieuLk.length} ticket tổng`} />
-          <StatCard label="PO liên quan" value={po.length} tone="gray" muted={po.length === 0} sub="Google Sheet PO" />
+          <StatCard label="PO liên quan" value={po.length} tone="gray" muted={po.length === 0} sub="Google Sheet + App EO" />
         </div>
         {nhanDinh && nd && (
           <div className="rounded-xl px-4 py-3 flex items-start gap-3" style={{ background: nd.tint, borderLeft: `5px solid ${nd.solid}` }}>

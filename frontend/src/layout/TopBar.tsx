@@ -11,6 +11,7 @@ import { SearchResultsPopup, type SearchMatchRow } from "../components/SearchRes
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { DiaGioiToggle } from "../components/DiaGioiToggle";
 import { PhamViToggle } from "../components/PhamViToggle";
+import { TonKhoSearch } from "../components/TonKhoSearch";
 
 interface DeltaBucket {
   baseline: number;
@@ -208,6 +209,7 @@ export function TopBar({
         🔍
       </button>
       <GlobalSearch onFound={onSearch} className="hidden md:block w-40 lg:w-52" />
+      <TonKhoSearch className="hidden md:block w-40 lg:w-52" />
       <Greeting />
       <div className="ml-auto flex items-center gap-3">
         <PhamViToggle className="flex" />
