@@ -49,13 +49,15 @@ export function matchQcThucTe(caseId: string, qcThucTeRows: SheetRow[]): SheetRo
  * CHINH ca dang xem (da co san tu GET /cases/:id, khong can fetch them). */
 export function matchPoDatHang(caseId: string, giaiTrinhList: { linh_kien_thieu?: string | null }[], poDatHangRows: SheetRow[]): SheetRow[] {
   const linhKienThieuCodes = new Set(giaiTrinhList.map((g) => g.linh_kien_thieu).filter((v): v is string => !!v));
-  return poDatHangRows.filter((r) => r.idCrm === caseId || (r.maLinhKienDeXuat && linhKienThieuCodes.has(r.maLinhKienDeXuat)));
+  // maLinhKienGoc: dong app EO da "thay ma tuong duong" - ca thieu ma goc van thay PO
+  return poDatHangRows.filter((r) => r.idCrm === caseId || (r.maLinhKienDeXuat && linhKienThieuCodes.has(r.maLinhKienDeXuat))
+    || (!!r.maLinhKienGoc && linhKienThieuCodes.has(r.maLinhKienGoc)));
 }
 
 /** Doi chieu THEO MA LINH KIEN (khong can case id) - dung cho tab "Linh kien thieu" (gom nhieu ca lai
  * theo 1 ma), khac 3 ham matchXxx() o tren la doi chieu THEO 1 CA dang xem. */
 export function matchPoDatHangByLinhKien(maLk: string, poDatHangRows: SheetRow[]): SheetRow[] {
-  return poDatHangRows.filter((r) => r.maLinhKienDeXuat === maLk);
+  return poDatHangRows.filter((r) => r.maLinhKienDeXuat === maLk || (!!r.maLinhKienGoc && r.maLinhKienGoc === maLk));
 }
 
 export function matchMuaHangByLinhKien(maLk: string, muaHangRows: SheetRow[]): SheetRow[] {

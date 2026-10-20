@@ -4648,3 +4648,13 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
 - `migrations/0138`: lý do `bat_tat = 0` (không hiện trong dropdown nhập tay, vẫn hợp lệ cho FK).
 - Hạn chế: ca đóng hôm nay nhưng dữ liệu đóng về sau 18h (sau lần cron cuối) chỉ được ghi ở lần import kế tiếp
   trong ngày; nếu sang ngày mới mới về thì số hôm đó đã chốt, không ghi bù.
+
+## 2026-10-20 — PO đặt hàng từ app EO Mua hàng (v1.462)
+
+- App "EO Mua hàng" (muahang) đẩy thông tin PO sang DVBH qua `POST /api/partner/sync/po-dat-hang` (migration 0139 `po_dat_hang_eo`,
+  domain `po_dat_hang`, PARTNER_API_GUIDE §13). Chỉ gửi dòng thay đổi; DVBH bỏ qua ghi khi `row_hash` không đổi.
+- Tập "PO đặt hàng" ở frontend gộp **2 nguồn chạy song song** (chốt với chủ hệ thống: ~1 tháng tới khi tắt Google Sheet): Google
+  Sheet cũ + app EO (`GET /api/po-dat-hang?v=`), trùng "ID ĐẶT LK" lấy bản app EO. Thẻ PO ở Chi tiết ca có nhãn nguồn, mã 3TDO,
+  trạng thái EO, kế hoạch hàng về từng đợt, mã gốc khi thay mã tương đương, link "Mở EO"; khớp theo `maLinhKienGoc` nữa.
+- Việc sau khi tắt sheet: bỏ nguồn sheet trong `purchaseWarrantySync.ts` (SOURCES["po-dat-hang"]).
+

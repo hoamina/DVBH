@@ -809,3 +809,27 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/thieu-linh-kien?ma_lk=040
 | 429 | `TOO_MANY_REQUESTS_KEY` | Quá **30 request/phút/key** |
 
 Không giới hạn số lần/ngày. Khuyến nghị kéo 15–60 phút/lần.
+
+
+## 13. Nhận PO đặt hàng từ app "EO Mua hàng" (`POST /api/partner/sync/po-dat-hang`) — thêm 2026-10-20
+
+Chiều **ghi** (giống mục 8). Bên gọi: Worker `muahang` (app EO Mua hàng) qua Service Binding, key riêng trong
+`partner_api_keys` (tên đối tác `muahang`). App đó tự gửi sau mỗi thay đổi ảnh hưởng PO, chỉ các dòng có thay đổi
+(`che_do: "delta"`), Admin bên đó có nút gửi lại toàn bộ (`"full"`).
+
+```
+POST /api/partner/sync/po-dat-hang
+X-API-Key: <key>
+{ "nguon": "muahang", "che_do": "delta" | "full", "thoi_diem": "2026-10-20 10:15:00", "rows": [ PoRow, ... ] }   // tối đa 2000 dòng
+→ 200 { "received": n, "changed": m }   |  400 INVALID_BODY / TOO_MANY_ROWS / MISSING_ID_DAT_LK  |  401  |  429 (20 req/phút/key)
+```
+
+`PoRow` (1 dòng linh kiện trên EO; khóa `id_dat_lk` = `LK-…` dòng cũ hoặc `EOI-<id>` dòng tạo trên app mới): `eo_item_id`,
+`eo_id`, `eo_code`, `ma_phe_duyet`, `link`, `trang_thai_eo`, `nguoi_duyet_cuoi`, `ngay_ban_hanh`, `loai_hinh`, `ly_do_ps`,
+`phan_loai`, `id_crm` (mã ca, tuỳ chọn), `id_dat_hang`, `ghi_chu`, `kho`, `doi_tac`, `ma_lk`, `ma_lk_goc` (mã trước khi thay
+mã tương đương), `ten_lk`, `sl_dat`, `sl_nhap_amis`, `sl_doi_chieu_sai_thua`, `sl_con_thieu`, `trang_thai` (cột "Tất cả"),
+`trang_thai_gon` (Đang xử lý / Kết thúc), `canh_bao`, `toc_do_hang_ve`, `thoi_gian_xu_ly`, `so_lan_doi_ngay`,
+`ngay_du_kien_lan_dau`, `ngay_du_kien_gan_nhat`, `ngay_ve_theo_eo`, `ngay_ve_dung_kho`, `ngay_ve_toan_quoc` (YYYY-MM-DD),
+`ngay_tao`, `ngay_cap_nhat` (giờ VN), `ke_hoach[]` `{loai NGAY|TUAN, ngay, tuan, sl, ngay_nm_cam_ket, ghi_chu}`,
+`phieu_nhap[]` `{so_ct, ngay, kho, sl}`. Lưu nguyên JSON (`po_dat_hang_eo.payload`), upsert theo `id_dat_lk`, dòng không
+đổi nội dung thì không ghi.

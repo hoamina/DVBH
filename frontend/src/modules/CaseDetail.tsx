@@ -2514,7 +2514,12 @@ export function CaseDetail({
               <span className="font-semibold text-sm">{r.tenLinhKien || "(chưa rõ linh kiện)"}</span>
               {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
             </div>
-            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2 flex items-center gap-1.5 flex-wrap">
+              <span>{r.id}</span>
+              {r._nguon === "app" ? <Badge tone="ocean">App EO</Badge> : r._nguon === "sheet" ? <Badge tone="gray">Google Sheet</Badge> : null}
+              {r.maPheDuyet && <span>· {r.maPheDuyet}</span>}
+              {r.trangThaiEo && <span>· EO {r.trangThaiEo}</span>}
+            </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
               <Field label="Mã linh kiện đề xuất" value={r.maLinhKienDeXuat ? <MaLinhKienLink ma={r.maLinhKienDeXuat} /> : "—"} />
               <Field label="Đối tác" value={r.doiTac || "—"} />
@@ -2526,8 +2531,13 @@ export function CaseDetail({
               <Field label="Ngày tạo" value={r.ngayTao || "—"} />
               {r.canhBao && <Field label="Cảnh báo" value={r.canhBao} />}
               {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+              {r.maLinhKienGoc && <Field label="Thay từ mã" value={r.maLinhKienGoc} />}
+              {r.keHoachHangVe && <Field label="Kế hoạch hàng về" value={r.keHoachHangVe} />}
             </div>
-            <div className="flex justify-end mt-2">
+            <div className="flex justify-end gap-1.5 mt-2">
+              {r.linkEo && (
+                <a href={r.linkEo} target="_blank" rel="noopener noreferrer" className="text-xs underline self-center text-[var(--ink-500)]">Mở EO ↗</a>
+              )}
               <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `PO đặt hàng ${r.id}`, raw: parseRawRow(r) })}>
                 🔍 Xem đầy đủ
               </Btn>

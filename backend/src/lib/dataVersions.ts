@@ -31,9 +31,11 @@
 // POST /don-bao-hanh-odoo) - chi CaseDetail doc (CASE_DETAIL_DOMAINS), khong bao cao nao.
 // "khao_sat_loai_tru" (2026-10-17): danh sach loai tru khao sat (survey.ts POST/DELETE /loai-tru) - chi bao cao
 // GET /survey/loai-tru/theo-doi doc. KHONG dung "ket_qua_goi" (bump moi cuoc goi) de bao cao do khong tinh lai lien tuc.
+// "po_dat_hang" (2026-10-20): PO day tu app EO Mua hang (partnerApi.ts POST /sync/po-dat-hang) - chi
+// GET /api/po-dat-hang doc (client so version de khong tai lai 8k dong khi chua doi).
 // "ton_kho" (2026-10-08): ton kho linh kien keo tu linh-kien-app (lib/tonKhoLk.ts syncTonKhoLk) + cau hinh nhom
 // kho MB/MN (routes/tonKhoLk.ts PUT /kho/:ma) - chi cac endpoint /api/ton-kho-lk doc.
-const ALL_DOMAINS = ["blacklist", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "khao_sat_loai_tru", "nap_gas_danh_gia", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
+const ALL_DOMAINS = ["blacklist", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "khao_sat_loai_tru", "nap_gas_danh_gia", "po_dat_hang", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay

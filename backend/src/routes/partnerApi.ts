@@ -9,6 +9,7 @@ import {
   isIpBadAuthBlocked,
   recordBadAuth,
   checkPerKeyRateLimit,
+  hashApiKey,
 } from "../lib/partnerApiAuth";
 import {
   buildPartnerExcel,
@@ -505,6 +506,59 @@ partnerApi.post("/sync/ktv", async (c) => {
   const summary = await processKtvImportRows(c.env.DB, body.rows, `sync:${keyRow.ten_doi_tac}`, true);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["settings"]));
   return c.json({ upserted: summary.thanhCong, errors: summary.errors });
+});
+
+// POST /api/partner/sync/po-dat-hang - { nguon, che_do: "delta"|"full", rows: PoDatHangRow[] } - app "EO Mua
+// hang" (Worker muahang) day thong tin PO (moi dong linh kien tren EO) sang sau moi thay doi (chi dong co
+// hash khac lan truoc; "full" = Admin ben do bam dong bo lai toan bo). Upsert theo id_dat_lk vao
+// po_dat_hang_eo, BO QUA ghi khi row_hash khong doi (tiet kiem rows_written). Dung song song voi Google
+// Sheet "po-dat-hang" (frontend lib/purchaseWarrantySync.ts gop 2 nguon). Khong logPartnerApiCall (goi
+// thuong xuyen, giong /sync/sua-chua-trang-thai). Moi request toi da 2000 dong; ben gui chia lo 1000.
+const PO_SYNC_MAX_ROWS = 2000;
+partnerApi.post("/sync/po-dat-hang", async (c) => {
+  const keyRow = await requirePartnerKey(c);
+  if (keyRow === "RATE_LIMITED") return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+  if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
+
+  const body = await c.req.json<{ nguon?: string; rows?: Record<string, unknown>[] }>().catch(() => null);
+  if (!body || !Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  if (body.rows.length > PO_SYNC_MAX_ROWS) return c.json({ error: "TOO_MANY_ROWS", max: PO_SYNC_MAX_ROWS }, 400);
+  const str = (v: unknown) => (v == null || v === "" ? null : String(v));
+  const bad = body.rows.findIndex((r) => !r || typeof r.id_dat_lk !== "string" || !r.id_dat_lk);
+  if (bad >= 0) return c.json({ error: "MISSING_ID_DAT_LK", index: bad }, 400);
+
+  const nguon = str(body.nguon) ?? keyRow.ten_doi_tac;
+  const tuples: unknown[][] = [];
+  for (const r of body.rows) {
+    const payload = JSON.stringify(r);
+    const hash = await hashApiKey(payload); // sha256 hex - dung lai ham bam san co
+    tuples.push([
+      r.id_dat_lk, r.eo_item_id ?? null, r.eo_id ?? null, str(r.ma_phe_duyet), str(r.ma_lk), str(r.ma_lk_goc),
+      str(r.id_crm), str(r.trang_thai), str(r.ngay_cap_nhat), payload, hash,
+    ]);
+  }
+  // json_each(?) 1 tham so / lo 200 dong (gioi han 100 bien/statement + ~2MB/chuoi cua D1)
+  const stmts = [];
+  for (let i = 0; i < tuples.length; i += 200) {
+    stmts.push(c.env.DB.prepare(
+      `INSERT INTO po_dat_hang_eo (id_dat_lk, eo_item_id, eo_id, ma_phe_duyet, ma_lk, ma_lk_goc, id_crm, trang_thai,
+         ngay_cap_nhat_nguon, payload, row_hash, nguon, synced_at)
+       SELECT json_extract(value,'$[0]'), json_extract(value,'$[1]'), json_extract(value,'$[2]'), json_extract(value,'$[3]'),
+              json_extract(value,'$[4]'), json_extract(value,'$[5]'), json_extract(value,'$[6]'), json_extract(value,'$[7]'),
+              json_extract(value,'$[8]'), json_extract(value,'$[9]'), json_extract(value,'$[10]'), ?, ?
+       FROM json_each(?) WHERE 1
+       ON CONFLICT(id_dat_lk) DO UPDATE SET
+         eo_item_id = excluded.eo_item_id, eo_id = excluded.eo_id, ma_phe_duyet = excluded.ma_phe_duyet,
+         ma_lk = excluded.ma_lk, ma_lk_goc = excluded.ma_lk_goc, id_crm = excluded.id_crm, trang_thai = excluded.trang_thai,
+         ngay_cap_nhat_nguon = excluded.ngay_cap_nhat_nguon, payload = excluded.payload, row_hash = excluded.row_hash,
+         nguon = excluded.nguon, synced_at = excluded.synced_at
+       WHERE po_dat_hang_eo.row_hash <> excluded.row_hash`,
+    ).bind(nguon, nowVN(), JSON.stringify(tuples.slice(i, i + 200))));
+  }
+  const res = stmts.length ? await c.env.DB.batch(stmts) : [];
+  const changed = res.reduce((s, r) => s + (r.meta?.changes ?? 0), 0);
+  if (changed > 0) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["po_dat_hang"]));
+  return c.json({ received: body.rows.length, changed });
 });
 
 interface LinhKienSyncRow {

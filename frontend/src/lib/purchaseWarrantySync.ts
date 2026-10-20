@@ -6,6 +6,7 @@
 // TTL, luon tai moi.
 import { parseTsv } from "./tsvParser";
 import { getCachedEntry, setCachedEntry } from "./closedDataCache";
+import { fetchPoEoRows, mergePoRows } from "./poDatHangEo";
 
 export type PurchaseWarrantyDataset = "mua-hang" | "bao-hanh" | "thieu-hang" | "qc-thuc-te" | "po-dat-hang";
 
@@ -29,7 +30,8 @@ export function parseRawRow(row: SheetRow): Record<string, string> {
 // dung tu dong bi "mo côi" (khong con key nao tro toi) thay vi phai cho het TTL 2 gio hoac bat nguoi
 // dung tu bam "Dong bo lai" - xem parseRawRow() them "_rawJson" o tren, bug thuc te gap 2026-08-15
 // (modal "Xem day du" rong vi cache cu tu truoc khi co "_rawJson").
-const CACHE_PREFIX = "google-sheet-v2:";
+// "v3" (2026-10-20): tap "po-dat-hang" gop them nguon app EO Mua hang (lib/poDatHangEo.ts).
+const CACHE_PREFIX = "google-sheet-v3:";
 export const SYNC_TTL_MS = 2 * 60 * 60 * 1000;
 
 interface SourceSheet {
@@ -193,7 +195,21 @@ async function fetchSheet(url: string): Promise<Record<string, string>[]> {
   return parseTsv(text).rows;
 }
 
-async function fetchAndMergeDataset(dataset: PurchaseWarrantyDataset): Promise<SheetRow[]> {
+async function fetchAndMergeDataset(dataset: PurchaseWarrantyDataset, force = false): Promise<SheetRow[]> {
+  // "po-dat-hang": Google Sheet cu + app EO Mua hang, chay song song (~1 thang, chot 2026-10-20) - sheet
+  // loi thi van dung du lieu app EO va nguoc lai.
+  if (dataset === "po-dat-hang") {
+    const [sheet, app] = await Promise.all([
+      fetchSheetsOnly(dataset).catch(() => [] as SheetRow[]),
+      fetchPoEoRows(force),
+    ]);
+    if (sheet.length === 0 && app.length === 0) throw new Error("Không tải được PO từ Google Sheet lẫn app EO");
+    return mergePoRows(sheet, app);
+  }
+  return fetchSheetsOnly(dataset);
+}
+
+async function fetchSheetsOnly(dataset: PurchaseWarrantyDataset): Promise<SheetRow[]> {
   const sources = SOURCES[dataset];
   const perSource = await Promise.all(
     sources.map(async (s) => {
@@ -226,7 +242,7 @@ export async function getDataset(dataset: PurchaseWarrantyDataset, opts?: { forc
     return { rows: cached.data, cachedAt: cached.cachedAt };
   }
   try {
-    const rows = await fetchAndMergeDataset(dataset);
+    const rows = await fetchAndMergeDataset(dataset, !!opts?.force);
     // Khong de 1 lan tai tra ve rong ghi de cache dang co du lieu.
     if (rows.length === 0 && cached && cached.data.length > 0) return { rows: cached.data, cachedAt: cached.cachedAt };
     const entry = await setCachedEntry(key, rows);

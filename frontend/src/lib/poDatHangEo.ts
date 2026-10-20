@@ -1,0 +1,141 @@
+// PO dat hang tu app "EO Mua hang" (GET /api/po-dat-hang, bang po_dat_hang_eo - app do day sang qua
+// POST /api/partner/sync/po-dat-hang). Chot 2026-10-20: dung SONG SONG voi Google Sheet "po-dat-hang"
+// ~1 thang - purchaseWarrantySync.ts gop 2 nguon, dong trung "ID ĐẶT LK" lay ban app EO.
+// Chieu ve DUNG ten field SheetRow cua tap "po-dat-hang" (FIELD_ALIASES) + dinh dang ngay kieu sheet
+// (dd/mm/yyyy, dd/mm/yyyy HH:MM:SS) de CaseDetail / Linh kien thieu / Ho so linh kien dung nguyen.
+import { api } from "../api/client";
+import { getCachedEntry, setCachedEntry } from "./closedDataCache";
+import type { SheetRow } from "./purchaseWarrantySync";
+
+export interface PoEoPayload {
+  id_dat_lk: string;
+  eo_item_id?: number; eo_id?: number; eo_code?: string; ma_phe_duyet?: string | null; link?: string;
+  trang_thai_eo?: string; nguoi_duyet_cuoi?: string | null; ngay_ban_hanh?: string | null;
+  loai_hinh?: string | null; ly_do_ps?: string | null; phan_loai?: string;
+  id_crm?: string | null; id_dat_hang?: string | null; ghi_chu?: string | null;
+  kho?: string; doi_tac?: string | null; ma_lk?: string; ma_lk_goc?: string | null; ten_lk?: string;
+  sl_dat?: number; sl_nhap_amis?: number; sl_doi_chieu_sai_thua?: number; sl_con_thieu?: number;
+  trang_thai?: string; trang_thai_gon?: string; canh_bao?: string | null; toc_do_hang_ve?: string | null;
+  thoi_gian_xu_ly?: number | null; so_lan_doi_ngay?: number;
+  ngay_du_kien_lan_dau?: string | null; ngay_du_kien_gan_nhat?: string | null;
+  ngay_ve_theo_eo?: string | null; ngay_ve_dung_kho?: string | null; ngay_ve_toan_quoc?: string | null;
+  ngay_tao?: string; ngay_cap_nhat?: string;
+  ke_hoach?: { loai: string; ngay: string; tuan: string | null; sl: number; ngay_nm_cam_ket: string | null; ghi_chu: string | null }[];
+  phieu_nhap?: { so_ct: string; ngay: string; kho: string; sl: number }[];
+}
+
+const CACHE_KEY = "po-dat-hang-eo-v1";
+
+/** 'YYYY-MM-DD[ HH:MM:SS]' -> 'dd/mm/yyyy[ HH:MM:SS]' (dinh dang sheet). */
+function fmt(s: string | null | undefined, withTime = false): string {
+  if (!s) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?/.exec(s);
+  if (!m) return s;
+  const d = `${m[3]}/${m[2]}/${m[1]}`;
+  return withTime && m[4] ? `${d} ${m[4].length === 5 ? m[4] + ":00" : m[4]}` : d;
+}
+const num = (v: unknown) => (v == null || v === "" ? "" : String(v));
+const TRANG_THAI_EO: Record<string, string> = {
+  DRAFT: "Nháp", IN_REVIEW: "Đang thẩm định", WAITING_FINAL_APPROVAL: "Chờ duyệt cuối",
+  ISSUED: "Đã ban hành", REJECTED: "Từ chối", CANCELLED: "Đã hủy",
+};
+
+export function mapPoEoRow(p: PoEoPayload): SheetRow {
+  const keHoach = (p.ke_hoach ?? [])
+    .map((k) => `${k.loai === "TUAN" ? `Tuần ${k.tuan}` : fmt(k.ngay)}: ${k.sl}${k.ngay_nm_cam_ket ? ` (NM cam kết ${fmt(k.ngay_nm_cam_ket)})` : ""}${k.ghi_chu ? ` - ${k.ghi_chu}` : ""}`)
+    .join("; ");
+  const phieuNhap = (p.phieu_nhap ?? []).map((r) => `${r.so_ct} ${fmt(r.ngay)} ${r.kho}: ${r.sl}`).join("; ");
+  // "Xem day du": nhan tieng Viet giong cot sheet + cac thong tin chi app EO co
+  const raw: Record<string, string> = {
+    "Nguồn": "App EO Mua hàng",
+    "ID ĐẶT LK": p.id_dat_lk,
+    "Mã EO": p.eo_code ?? "",
+    "Mã phê duyệt": p.ma_phe_duyet ?? "",
+    "Trạng thái EO": TRANG_THAI_EO[p.trang_thai_eo ?? ""] ?? p.trang_thai_eo ?? "",
+    "Tất cả": p.trang_thai ?? "",
+    "Trạng thái": p.trang_thai_gon ?? "",
+    "Cảnh báo": p.canh_bao ?? "",
+    "Tốc độ hàng về": p.toc_do_hang_ve ?? "",
+    "Phân loại": p.phan_loai ?? "",
+    "Loại hình cấp 1": p.loai_hinh ?? "",
+    "Lý do PS khi đặt LK": p.ly_do_ps ?? "",
+    "ID CRM": p.id_crm ?? "",
+    "ID đặt hàng": p.id_dat_hang ?? "",
+    "Ghi chú": p.ghi_chu ?? "",
+    "Kho cần đặt hàng": p.kho ?? "",
+    "Đối tác": p.doi_tac ?? "",
+    "Mã linh kiện đề xuất": p.ma_lk ?? "",
+    "Mã linh kiện gốc (trước khi thay mã)": p.ma_lk_goc ?? "",
+    "Tên linh kiện": p.ten_lk ?? "",
+    "Số lượng đặt": num(p.sl_dat),
+    "SL nhập theo Amis": num(p.sl_nhap_amis),
+    "Đối chiếu sai thừa": num(p.sl_doi_chieu_sai_thua),
+    "Số lượng còn thiếu": num(p.sl_con_thieu),
+    "Thời gian xử lý": num(p.thoi_gian_xu_ly),
+    "Số lần thay đổi ngày dự kiến hàng về": num(p.so_lan_doi_ngay),
+    "Ngày dự kiến lần đầu": fmt(p.ngay_du_kien_lan_dau),
+    "Ngày dự kiến gần nhất": fmt(p.ngay_du_kien_gan_nhat),
+    "Kế hoạch hàng về": keHoach,
+    "Ngày về theo mã EO": fmt(p.ngay_ve_theo_eo),
+    "Ngày về đúng kho gần nhất": fmt(p.ngay_ve_dung_kho),
+    "Ngày về gần nhất toàn quốc": fmt(p.ngay_ve_toan_quoc),
+    "Phiếu nhập AMIS": phieuNhap,
+    "Người duyệt cuối": p.nguoi_duyet_cuoi ?? "",
+    "Ngày ban hành": fmt(p.ngay_ban_hanh, true),
+    "Ngày tạo": fmt(p.ngay_tao, true),
+    "Ngày cập nhật": fmt(p.ngay_cap_nhat, true),
+    "Link EO": p.link ?? "",
+  };
+  return {
+    _region: "",
+    _nguon: "app",
+    _rawJson: JSON.stringify(raw),
+    id: p.id_dat_lk,
+    idCrm: p.id_crm ?? "",
+    maLinhKienDeXuat: p.ma_lk ?? "",
+    maLinhKienGoc: p.ma_lk_goc ?? "",
+    tenLinhKien: p.ten_lk ?? "",
+    doiTac: p.doi_tac ?? "",
+    khoCanDat: p.kho ?? "",
+    soLuongDat: num(p.sl_dat),
+    slNhapTheoAmis: num(p.sl_nhap_amis),
+    soLuongConThieu: num(p.sl_con_thieu),
+    trangThai: p.trang_thai_gon ?? "",
+    tocDoHangVe: p.toc_do_hang_ve ?? "",
+    canhBao: p.canh_bao ?? "",
+    ngayDuKienGanNhat: fmt(p.ngay_du_kien_gan_nhat),
+    ngayVeGanNhatToanQuoc: fmt(p.ngay_ve_toan_quoc),
+    ngayTao: fmt(p.ngay_tao, true),
+    ngayCapNhat: fmt(p.ngay_cap_nhat, true),
+    ghiChu: p.ghi_chu ?? "",
+    tatCa: p.trang_thai ?? "",
+    maPheDuyet: p.ma_phe_duyet ?? "",
+    trangThaiEo: TRANG_THAI_EO[p.trang_thai_eo ?? ""] ?? "",
+    keHoachHangVe: keHoach,
+    linkEo: p.link ?? "",
+  };
+}
+
+/** Tai PO tu app EO (co cache theo version domain "po_dat_hang" ben backend). Loi -> tra cache cu / rong. */
+export async function fetchPoEoRows(force = false): Promise<SheetRow[]> {
+  const cached = await getCachedEntry<{ v: string; rows: PoEoPayload[] }>(CACHE_KEY);
+  try {
+    const v = !force && cached?.data?.v ? `?v=${encodeURIComponent(cached.data.v)}` : "";
+    const r = await api.get<{ v: string; unchanged?: boolean; rows?: PoEoPayload[] }>(`/po-dat-hang${v}`);
+    let rows: PoEoPayload[];
+    if (r.unchanged && cached) rows = cached.data.rows;
+    else {
+      rows = r.rows ?? [];
+      await setCachedEntry(CACHE_KEY, { v: r.v, rows });
+    }
+    return rows.map(mapPoEoRow);
+  } catch {
+    return (cached?.data?.rows ?? []).map(mapPoEoRow);
+  }
+}
+
+/** Gop: dong app EO thay dong sheet cung "ID ĐẶT LK"; dong chi co tren sheet giu nguyen (gan _nguon). */
+export function mergePoRows(sheetRows: SheetRow[], appRows: SheetRow[]): SheetRow[] {
+  const appIds = new Set(appRows.map((r) => r.id).filter(Boolean));
+  return [...appRows, ...sheetRows.filter((r) => !r.id || !appIds.has(r.id)).map((r) => ({ ...r, _nguon: "sheet" }))];
+}
