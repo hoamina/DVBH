@@ -471,7 +471,7 @@ cases.get("/", async (c) => {
   // theo khu_vuc (perKhuVuc) thi no DA gioi han dung khu_vuc luc 08:00 -> bo loc khu_vuc/scope/
   // exclusion theo gia tri hien tai, chi kiem tra quyen xem khu_vuc duoc chon (giong /backlog-daily).
   const frozenPerKhuVuc = tab !== "canh-bao-ton" && !!snapshotResult && "perKhuVuc" in snapshotResult && snapshotResult.perKhuVuc;
-  if (frozenPerKhuVuc && khuVucFilter !== QLDVBH_FILTER_VALUE && scope !== null && !scope.includes(khuVucFilter!)) {
+  if (frozenPerKhuVuc && khuVucFilter !== QLDVBH_FILTER_VALUE && !khuVucFilter!.includes(",") && scope !== null && !scope.includes(khuVucFilter!)) {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
   const noClause = { sql: "", binds: [] as unknown[] };
@@ -832,6 +832,15 @@ cases.get("/backlog-daily", async (c) => {
       return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
     }
     const data = await getBacklogDailyForKhuVuc(c.env.DB, khuVucParam);
+    return c.json(data);
+  }
+  // CHOT 2026-10-20 (huong 1): chon NHIEU khu vuc le cung doc dong bang 08:00 - cong snapshot rieng tung khu vuc (giong
+  // nhom "Tat ca DVBH" o tren), thay vi roi ve so song (truoc day 2 nguoi cung pham vi thay 2 so khac nhau tuy cach chon).
+  // Khu vuc ngoai pham vi xem cua nguoi dung bi bo qua (khong 403), giong nhanh nhom QLDVBH.
+  if (khuVucParam && khuVucParam.includes(",")) {
+    const scope = scopeByKhuVuc(c);
+    const list = [...new Set(khuVucParam.split(",").map((v) => v.trim()).filter(Boolean))].filter((kv) => scope === null || scope.includes(kv));
+    const data = await getBacklogDailyForKhuVucGroup(c.env.DB, list);
     return c.json(data);
   }
   const data = await getBacklogDailyWithDelta(c.env.DB, c.get("user"));

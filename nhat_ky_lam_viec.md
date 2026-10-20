@@ -4685,3 +4685,11 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
 - Thử local: snapshot khac/qc 1426 → 1427 (+1 ca tranh chấp ≥5 ngày đã đóng), MB3 276 → 277, tổng = số id = theo khu vực;
   ghi log con tranh chấp → tự ghi giải trình đúng người → backlog-daily resolved 0 → 1.
 - Giới hạn: chế độ số trực tiếp (chọn nhiều khu vực lẻ) vẫn tính live, chưa gồm ca cấp 2. Áp dụng từ bản chốt 08:00 ngày 21/10.
+
+## 2026-10-20 — Quản lý tồn: chọn nhiều khu vực lẻ cũng dùng số chốt 08:00 (v1.467)
+
+- Trước: chỉ "không lọc" / 1 khu vực / nhóm "Tất cả DVBH" đọc số chốt 08:00; chọn nhiều khu vực lẻ rơi về số trực tiếp → 2 người
+  cùng phạm vi thấy 2 số khác nhau (vd 282 vs 257 ngày 16/10), và số trực tiếp không gồm ca Cảnh báo tồn cấp 2.
+- Nay: `GET /cases/backlog-daily?khu_vuc=a,b` cộng snapshot riêng từng khu vực (`getBacklogDailyForKhuVucGroup`, bỏ khu vực
+  ngoài phạm vi xem); `getBacklogSnapshotIds` cùng cách cho danh sách drill-down (perKhuVuc, since theo từng khu vực); frontend
+  `isMultiKhuVuc` vào `isFrozenEligible`. Thử local: MB2 (262) + MB3 (277) = 539 cần giải trình, còn 538 = danh sách drill-down.

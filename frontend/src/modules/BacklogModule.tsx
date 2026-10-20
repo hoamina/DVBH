@@ -1147,7 +1147,11 @@ export function BacklogModule({
   // QLDVBH_FILTER_VALUE van doc dong bang duoc - backend cong don san cac snapshot rieng cua TUNG
   // khu_vuc thuc te co chua "qldvbh" (xem getBacklogDailyForKhuVucGroup), khong can tinh song.
   const isQldvbhGroup = khuVucFilter === QLDVBH_FILTER_VALUE;
-  const isFrozenEligible = isDefaultBacklogFilter || isSingleKhuVucOnly || isQldvbhGroup;
+  // CHOT 2026-10-20 (huong 1): chon NHIEU khu vuc le cung doc dong bang - backend cong snapshot rieng tung khu vuc
+  // (GET /cases/backlog-daily?khu_vuc=a,b). Truoc day roi ve so song nen 2 nguoi cung pham vi (vd "Tat ca DVBH" vs bam
+  // chon 6 khu vuc MB/MN) thay 2 so khac nhau.
+  const isMultiKhuVuc = !!khuVucFilter && khuVucFilter !== QLDVBH_FILTER_VALUE && khuVucFilter.includes(",");
+  const isFrozenEligible = isDefaultBacklogFilter || isSingleKhuVucOnly || isQldvbhGroup || isMultiKhuVuc;
   // Bo qua khi dang xem bang dong bang (nhom Khu vuc + du dieu kien dong bang) - da co du lieu tu
   // backlogDaily.khuVucRows, khong can doc song them qua route nay (do rows_read).
   const { data: khuVucStats } = useQuery({
@@ -1157,8 +1161,8 @@ export function BacklogModule({
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
   const { data: backlogDaily } = useQuery({
-    queryKey: ["backlog-daily", isSingleKhuVucOnly || isQldvbhGroup ? khuVucFilter : null],
-    queryFn: () => api.get<BacklogDailyPayload | null>(`/cases/backlog-daily${isSingleKhuVucOnly || isQldvbhGroup ? buildQuery({ khu_vuc: khuVucFilter }) : ""}`),
+    queryKey: ["backlog-daily", khuVucFilter || null],
+    queryFn: () => api.get<BacklogDailyPayload | null>(`/cases/backlog-daily${khuVucFilter ? buildQuery({ khu_vuc: khuVucFilter }) : ""}`),
     enabled: isFrozenEligible,
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
