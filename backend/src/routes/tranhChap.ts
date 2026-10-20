@@ -9,6 +9,7 @@ import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nextSequentialId, reserveSequentialIds } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
+import { autoLogGiaiTrinhQuaTranhChap } from "../lib/canhBaoCap2GiaiTrinh";
 import { AGE_ANCHOR } from "../lib/ageCalc";
 import { runBatched } from "../lib/backfillImportProcessor";
 import { csvTemplateResponse } from "../lib/csvTemplate";
@@ -891,6 +892,8 @@ tranhChap.post("/:caseId/tiep-nhan", async (c) => {
   await c.env.DB.batch(statements);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  // Ca Canh bao ton cap 2: log tranh chap trong ngay tinh la da giai trinh (lib/canhBaoCap2GiaiTrinh.ts).
+  c.executionCtx.waitUntil(autoLogGiaiTrinhQuaTranhChap(c.env.DB).catch((err) => console.error("autoLogGiaiTrinhQuaTranhChap loi:", err)));
   return c.json({ id }, 201);
 });
 
@@ -1326,6 +1329,8 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
   ]);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  // Ca Canh bao ton cap 2: log tranh chap trong ngay tinh la da giai trinh (lib/canhBaoCap2GiaiTrinh.ts).
+  c.executionCtx.waitUntil(autoLogGiaiTrinhQuaTranhChap(c.env.DB).catch((err) => console.error("autoLogGiaiTrinhQuaTranhChap loi:", err)));
   return c.json({ ok: true }, 201);
 });
 
@@ -1376,6 +1381,8 @@ tranhChap.post("/log/:logId/log-con", async (c) => {
     .run();
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["tranh_chap"]));
+  // Ca Canh bao ton cap 2: log tranh chap trong ngay tinh la da giai trinh (lib/canhBaoCap2GiaiTrinh.ts).
+  c.executionCtx.waitUntil(autoLogGiaiTrinhQuaTranhChap(c.env.DB).catch((err) => console.error("autoLogGiaiTrinhQuaTranhChap loi:", err)));
   return c.json({ ok: true }, 201);
 });
 

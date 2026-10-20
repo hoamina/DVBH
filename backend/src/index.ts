@@ -41,6 +41,7 @@ import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
 import { autoLogCaKetThucTrongNgay } from "./lib/autoLogCaKetThuc";
+import { autoLogGiaiTrinhQuaTranhChap } from "./lib/canhBaoCap2GiaiTrinh";
 import { phamViMiddleware } from "./lib/phamVi";
 import { chotSoLieuPhamVi, chotGiaiTrinhPhamVi, retryLuongDoiTraPhamVi } from "./lib/phamViChot";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
@@ -225,6 +226,12 @@ export default {
         } catch (err) {
           console.error("[cron-auto-log-ket-thuc] loi:", err instanceof Error ? err.message : String(err));
         }
+        // Luoi an toan: ca Canh bao ton cap 2 co log tranh chap trong ngay -> tu ghi giai trinh (lib/canhBaoCap2GiaiTrinh.ts).
+        try {
+          await autoLogGiaiTrinhQuaTranhChap(env.DB);
+        } catch (err) {
+          console.error("[cron-auto-log-tranh-chap-cap2] loi:", err instanceof Error ? err.message : String(err));
+        }
       }
       // Cac viec chot 08:00 VN - KHONG chay o cac lan fire 9h-18h VN them vao 2026-10-08.
       if (new Date(event.scheduledTime).getUTCHours() !== 1) return;
@@ -306,6 +313,12 @@ export default {
     }
 
     if (event.cron === DAILY_LOG_1730_CRON) {
+      // Bat log tranh chap cap 2 ghi sau lan cron gio gan nhat, truoc khi chot so 17h30.
+      try {
+        await autoLogGiaiTrinhQuaTranhChap(env.DB);
+      } catch (err) {
+        console.error("[cron-daily-log-1730] autoLogGiaiTrinhQuaTranhChap loi:", err instanceof Error ? err.message : String(err));
+      }
       try {
         await chotGiaiTrinhDailyLog(env.DB);
       } catch (err) {

@@ -21,6 +21,7 @@
  * pipeline tu dong) + cron moi gio 9h-18h VN (luoi an toan, index.ts DAILY_SNAPSHOT_CRON).
  */
 import { bumpVersions } from "./dataVersions";
+import { CAP2_KHONG_THEO_TON_KEYS } from "./canhBaoCap2GiaiTrinh";
 import { dbGoc } from "./phamVi";
 import { getVnDateStr } from "./reportCache";
 import { nowVN } from "./vnTime";
@@ -32,9 +33,12 @@ const BUCKET_CAN_GIAI_TRINH = ["tonCanGiaiTrinh", "thieuLinhKien", "backlogB2b",
 export async function autoLogCaKetThucTrongNgay(dbIn: D1Database): Promise<number> {
   const db = dbGoc(dbIn);
   const ngay = getVnDateStr();
-  const snapIds = BUCKET_CAN_GIAI_TRINH.map(
-    (b) => `SELECT j.value AS id FROM daily_snapshot s, json_each(s.payload, '$.${b}.ids') j WHERE s.ngay = ?1 AND s.scope_key NOT LIKE 'canh_bao_ton%'`,
-  ).join(" UNION ");
+  // 1 SELECT duy nhat qua json_each(payload) loc theo ten bucket - KHONG dung UNION: D1 gioi han 5 nhanh / cau ghep
+  // (SQLITE_LIMIT_COMPOUND_SELECT), ban 6 nhanh UNION truoc day loi "too many terms in compound SELECT" moi lan chay
+  // (phat hien 2026-10-20) nen chua tung tu ghi duoc log nao.
+  const dsBucket = (keys: readonly string[]) => keys.map((k) => `'${k}'`).join(", ");
+  const snapIds = `SELECT DISTINCT j.value AS id FROM daily_snapshot s, json_each(s.payload) b, json_each(b.value, '$.ids') j
+    WHERE s.ngay = ?1 AND s.scope_key NOT LIKE 'canh_bao_ton%' AND b.key IN (${dsBucket(BUCKET_CAN_GIAI_TRINH)})`;
   // Moc chot som nhat hom nay - dong giai_trinh sau moc nay da tinh "da giai trinh" o moi snapshot.
   const { results } = await db
     .prepare(
@@ -44,6 +48,10 @@ export async function autoLogCaKetThucTrongNgay(dbIn: D1Database): Promise<numbe
        FROM case_dvbh c JOIN snap ON snap.id = c.id, moc
        WHERE moc.since IS NOT NULL
          AND c.thoi_gian_hoan_thanh >= ?1
+         -- Ca cap 2 vi tranh chap / luong doi tra con treo (lib/canhBaoCap2GiaiTrinh.ts): dong ca khong co nghia la het
+         -- can giai trinh -> khong tu ghi log "Case đã được kết thúc".
+         AND c.id NOT IN (SELECT j.value FROM daily_snapshot s, json_each(s.payload) b, json_each(b.value, '$.ids') j
+           WHERE s.ngay = ?1 AND s.scope_key = 'canh_bao_ton|all' AND b.key IN (${dsBucket(CAP2_KHONG_THEO_TON_KEYS)}))
          AND NOT EXISTS (SELECT 1 FROM giai_trinh g WHERE g.case_id = c.id AND g.ngay_giai_trinh > moc.since)`,
     )
     .bind(ngay)

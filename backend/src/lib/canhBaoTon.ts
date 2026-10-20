@@ -35,6 +35,7 @@ import { renderCanhBaoTonImage } from "./reportImage";
 import { sendTelegramPhoto, TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID } from "./telegram";
 import type { Env } from "../types";
 import { computeLuongDoiTraTon, ngayVNCuaIso } from "./luongDoiTraTon";
+import { boSungCap2VaoSnapshotHomNay } from "./canhBaoCap2GiaiTrinh";
 
 const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 
@@ -241,6 +242,16 @@ export function canhBaoTonImageRows(buckets: CanhBaoTonBuckets) {
  * dung bang co san, scope_key rieng), ghi 1 dong/khu_vuc vao canh_bao_ton_daily_log (lich su vinh
  * vien, ON CONFLICT DO NOTHING giong chotGiaiTrinhDailyLog), roi gui anh PNG tom tat qua Telegram.
  * Loi gui anh KHONG chan phan luu DB (bocc try/catch rieng, giong chotGiaiTrinhDailyLog). */
+// CHOT 2026-10-20: moi lan snapshot Canh bao ton hom nay duoc tao / cap nhat -> bo sung ca cap 2 vao "Tong can giai trinh"
+// cua cac snapshot bao cao 08:00 da co (lib/canhBaoCap2GiaiTrinh.ts). Loi khong duoc chan luong chot Canh bao ton.
+async function boSungCap2(db: D1Database): Promise<void> {
+  try {
+    await boSungCap2VaoSnapshotHomNay(db);
+  } catch (err) {
+    console.error("boSungCap2VaoSnapshotHomNay loi:", err instanceof Error ? err.message : String(err));
+  }
+}
+
 export async function generateCanhBaoTonSnapshot(env: Env, generatedBy: string): Promise<void> {
   const db = env.DB;
   const ngay = getVnDateStr();
@@ -249,6 +260,7 @@ export async function generateCanhBaoTonSnapshot(env: Env, generatedBy: string):
   const [buckets, byKhuVuc] = await Promise.all([computeCanhBaoTonBuckets(env), computeCanhBaoTonByKhuVuc(db)]);
 
   await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, generatedBy, buckets);
+  await boSungCap2(db);
 
   for (const [khuVuc, row] of Object.entries(byKhuVuc)) {
     try {
@@ -545,6 +557,7 @@ export async function getCanhBaoTonSnapshot(env: Env): Promise<CanhBaoTonSnapsho
     const generatedAt = nowVN();
     const buckets = await computeCanhBaoTonBuckets(env);
     await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, "auto", buckets);
+    await boSungCap2(db);
     row = { generated_at: generatedAt, generated_by: "auto", payload: JSON.stringify(buckets) };
   }
 
@@ -612,5 +625,6 @@ export async function retryLuongDoiTraSnapshot(env: Env): Promise<void> {
   buckets.luongDoiTra7 = luong.b7;
   buckets.luongDoiTra10 = luong.b10;
   await db.prepare("UPDATE daily_snapshot SET payload = ? WHERE ngay = ? AND scope_key = ?").bind(JSON.stringify(buckets), ngay, SNAPSHOT_SCOPE_KEY).run();
+  await boSungCap2(db);
   await upsertLuongDoiTraDailyLog(db, ngay, luong.byKhuVuc);
 }

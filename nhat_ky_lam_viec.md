@@ -4664,3 +4664,24 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   (2) Ô "Tra tồn LK (mã/tên)" cạnh ô Tra cứu ID/Serial (TopBar): `GET /api/ton-kho-lk/tim`, hiện Tồn MB/MN/KTV, bấm → Hồ sơ
   linh kiện; chỉ hiện với người có module "Ca thiếu linh kiện".
 - v1.465: ô "Tra tồn LK" tìm **không dấu** (bơm = bom, nhiều từ phải khớp đủ) — chỉ mục bỏ dấu giữ trong bộ nhớ Worker, dựng lại khi version ton_kho/settings đổi hoặc quá 10 phút (lib/tonKhoTim.ts).
+
+## 2026-10-20 — Cảnh báo tồn cấp 2 (CEO) cộng vào "Tổng cần giải trình" của Giám sát (v1.466, migration 0140)
+
+- Chủ hệ thống chốt: cả 5 chỉ tiêu cấp 2 (tồn >20 ngày, VIP/S.VIP ≥7, Lọc tổng ≥5, tranh chấp chưa xong ≥5, luồng đổi trả
+  ≥10) cộng vào "Tổng cần giải trình"; ca cấp 2 phải giải trình MỖI NGÀY; chấp nhận log giải trình tồn HOẶC log tranh chấp;
+  áp dụng cho thẻ 08:00, chốt 17:30 + lịch sử, ảnh Telegram, badge menu. Số 20/10: 98 ca cấp 2, 63 ca chưa nằm trong tổng 503
+  (44 ca tranh chấp / luồng đổi trả của ca đã đóng).
+- `lib/canhBaoCap2GiaiTrinh.ts`: `layCap2` (id cấp 2 của snapshot canh_bao_ton|all hôm nay, bỏ bucket lỗi, chỉ ca trong
+  case_hieu_luc chưa archived) → `hopCap2VaoBuckets` gộp vào tonCanGiaiTrinh(+ByKhuVuc) theo khu vực của scope. Cron 08:00 chốt
+  báo cáo TRƯỚC Cảnh báo tồn nên `boSungCap2VaoSnapshotHomNay` chạy sau mỗi lần chốt / tự-heal / thử lại luồng đổi trả của Cảnh
+  báo tồn: chỉ BỔ SUNG id vào snapshot đã có (giữ generated_at - tính lại giữa ngày sẽ mất ca vừa giải trình), bump giai_trinh
+  cho badge. computeBacklogBuckets cũng gộp cho snapshot tự-heal sinh sau 08:00.
+- Log tranh chấp = đã giải trình: `autoLogGiaiTrinhQuaTranhChap` tự ghi giai_trinh lý do "Giải trình qua tranh chấp" (migration
+  0140, bat_tat=0), người ghi = người viết log tranh chấp, khi ca cấp 2 có tranh_chap_log (created_at UTC, so với mốc −7h) hoặc
+  tranh_chap_log_con sau mốc chốt. Gọi sau POST tiep-nhan / tien-trinh/:id/log / log-con, cron mỗi giờ và trước chốt 17:30.
+- `autoLogCaKetThuc`: không tự ghi "Case đã được kết thúc" cho ca cấp 2 tranh chấp / luồng đổi trả (đóng ca ≠ hết cần giải trình).
+- BUG CÓ SẴN đã sửa: query của autoLogCaKetThuc dùng 6 nhánh UNION → D1 giới hạn 5 → "too many terms in compound SELECT" mỗi
+  lần chạy từ 19/10, production chưa từng ghi được log "Case đã được kết thúc" nào. Viết lại 1 SELECT qua json_each(payload).
+- Thử local: snapshot khac/qc 1426 → 1427 (+1 ca tranh chấp ≥5 ngày đã đóng), MB3 276 → 277, tổng = số id = theo khu vực;
+  ghi log con tranh chấp → tự ghi giải trình đúng người → backlog-daily resolved 0 → 1.
+- Giới hạn: chế độ số trực tiếp (chọn nhiều khu vực lẻ) vẫn tính live, chưa gồm ca cấp 2. Áp dụng từ bản chốt 08:00 ngày 21/10.

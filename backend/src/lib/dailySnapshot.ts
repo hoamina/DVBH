@@ -18,6 +18,7 @@
  *   khac mac dinh van tinh song qua reportCache nhu truoc (khong dong bang truoc duoc MOI to hop
  *   filter co the co, se bung no chi phi).
  */
+import { layCap2, hopCap2VaoBuckets } from "./canhBaoCap2GiaiTrinh";
 import { phamViCua } from "./phamVi";
 import type { AppUser } from "../types";
 import { RECENT_OR_OPEN_CONDITION } from "../routes/survey";
@@ -312,8 +313,14 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
     };
   }
 
+  // CHOT 2026-10-20: gop ca "Canh bao ton cap 2 (CEO)" da chot hom nay vao "Tong can giai trinh" (xem
+  // lib/canhBaoCap2GiaiTrinh.ts). Luc cron 08:00 chay, snapshot Canh bao ton chua co -> 0 ca, se duoc bo sung sau qua
+  // boSungCap2VaoSnapshotHomNay(); nhanh nay cho snapshot tu-heal sinh sau 08:00.
+  const tonCanGiaiTrinh = toBucket(tonRows.results);
+  hopCap2VaoBuckets({ tonCanGiaiTrinh, tonCanGiaiTrinhByKhuVuc }, await layCap2(db, getVnDateStr()), khuVucList.length > 0 ? khuVucList : null);
+
   return {
-    tonCanGiaiTrinh: toBucket(tonRows.results),
+    tonCanGiaiTrinh,
     tonCanGiaiTrinhByKhuVuc,
     backlogTongTon: toBucket(backlogTongTonRows.results),
     backlogTren3: backlogTrenRow?.tren_3 ?? 0,
