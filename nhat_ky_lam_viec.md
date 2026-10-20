@@ -4693,3 +4693,13 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
 - Nay: `GET /cases/backlog-daily?khu_vuc=a,b` cộng snapshot riêng từng khu vực (`getBacklogDailyForKhuVucGroup`, bỏ khu vực
   ngoài phạm vi xem); `getBacklogSnapshotIds` cùng cách cho danh sách drill-down (perKhuVuc, since theo từng khu vực); frontend
   `isMultiKhuVuc` vào `isFrozenEligible`. Thử local: MB2 (262) + MB3 (277) = 539 cần giải trình, còn 538 = danh sách drill-down.
+
+## 2026-10-20 — Ca lặp: danh sách trống khi chọn nhiều khu vực (v1.468)
+
+- Hiện tượng: chọn chip MN1+MN2+MN3 ở "Danh sách ca lặp" ra trống, một lúc sau lại có. Không tái hiện được ở local; API và
+  SQL production đều trả đúng (MN1 402 ca, 3 khu vực 1366 ca tháng 10).
+- Nguyên nhân: `refreshCaLapPrecompute` (chạy sau mỗi import) xóa cột ca_lap_* rồi mới ghi lại bằng 2 câu lệnh RIÊNG - request
+  đọc /ca-lap/danh-sach/list rơi vào khoảng giữa thấy 0 ca, frontend lưu bản rỗng vào IndexedDB kèm hash /ca-lap/version; tính
+  lại xong mà tập ca lặp không đổi thì hash giữ nguyên → tổ hợp bộ lọc đó hiện rỗng tới lần import đổi dữ liệu.
+- Sửa: xóa + ghi lại trong 1 `db.batch` (transaction) ở cả nhánh theo serial lẫn tính lại toàn bộ; đổi khóa cache client
+  `ca-lap-list-v2-…` để bỏ các bản rỗng đã lưu. Thử local: tính lại toàn bộ chạy được, 546 ca lặp trước/sau.

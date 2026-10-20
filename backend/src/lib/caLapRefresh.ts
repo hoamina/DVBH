@@ -152,16 +152,15 @@ export async function refreshCaLapPrecompute(
       // han dung 1 - loi that da gap tren production (2026-07-29, "too many SQL variables") khi 1
       // lo du 100 serial (import lon bat thuong). "now" la chuoi server tu sinh (nowVN()), khong
       // phai input nguoi dung, an toan de noi truc tiep.
-      const clearResult = await db
+      // Xoa + ghi lai trong CUNG 1 db.batch (1 transaction) - xem chu thich o nhanh tinh lai toan bo ben duoi.
+      const clearStmt = db
         .prepare(
           `UPDATE case_dvbh SET ca_lap_prior_id = NULL, ca_lap_prior_ht = NULL, ca_lap_computed_at = '${now}'
            WHERE ca_lap_prior_ht IS NOT NULL AND seri_san_pham IN (${placeholders})`,
         )
-        .bind(...chunk)
-        .run();
-      cleared += clearResult.meta.changes ?? 0;
+        .bind(...chunk);
 
-      const updateResult = await db
+      const updateStmt = db
         .prepare(
           `${buildRankedCte(`\n        AND c.seri_san_pham IN (${placeholders})`)}
            UPDATE case_dvbh
@@ -169,29 +168,33 @@ export async function refreshCaLapPrecompute(
            FROM ranked
            WHERE case_dvbh.id = ranked.id AND ranked.prior_ht IS NOT NULL`,
         )
-        .bind(...chunk)
-        .run();
+        .bind(...chunk);
+      const [clearResult, updateResult] = await db.batch([clearStmt, updateStmt]);
+      cleared += clearResult.meta.changes ?? 0;
       updated += updateResult.meta.changes ?? 0;
     }
   } else {
-    const clearResult = await db
-      .prepare(
-        `UPDATE case_dvbh SET ca_lap_prior_id = NULL, ca_lap_prior_ht = NULL, ca_lap_computed_at = ?
-         WHERE ca_lap_prior_ht IS NOT NULL`,
-      )
-      .bind(now)
-      .run();
-    cleared = clearResult.meta.changes ?? 0;
-
-    const updateResult = await db
-      .prepare(
+    // BUG 2026-10-20 ("chon MN1+MN2+MN3 o Ca lap thi danh sach trong, luc sau lai ra"): truoc day xoa + ghi lai la 2 cau
+    // lenh RIENG - request doc danh sach roi dung vao khoang giua thay KHONG CO ca lap nao, frontend luu ket qua rong do vao
+    // IndexedDB kem hash /ca-lap/version; neu lan tinh lai khong doi tap ca lap thi hash giu nguyen -> to hop bo loc do
+    // hien rong mai cho toi lan import doi du lieu. Gop vao 1 db.batch (D1 chay batch nhu 1 transaction) de nguoi doc
+    // khong bao gio thay trang thai trung gian.
+    const [clearResult, updateResult] = await db.batch([
+      db
+        .prepare(
+          `UPDATE case_dvbh SET ca_lap_prior_id = NULL, ca_lap_prior_ht = NULL, ca_lap_computed_at = ?
+           WHERE ca_lap_prior_ht IS NOT NULL`,
+        )
+        .bind(now),
+      db.prepare(
         `${buildRankedCte("")}
          UPDATE case_dvbh
          SET ca_lap_prior_id = ranked.prior_id, ca_lap_prior_ht = ranked.prior_ht, ca_lap_computed_at = '${now}'
          FROM ranked
          WHERE case_dvbh.id = ranked.id AND ranked.prior_ht IS NOT NULL`,
-      )
-      .run();
+      ),
+    ]);
+    cleared = clearResult.meta.changes ?? 0;
     updated = updateResult.meta.changes ?? 0;
   }
 

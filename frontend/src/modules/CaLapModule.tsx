@@ -195,7 +195,9 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   // luon tai moi vi nho va thay doi thuong xuyen hon). Loc trang thai + phan trang + KPI gop lam o FE
   // ben duoi thay vi goi lai server moi lan doi tab/trang - xem "phuong an toi uu nhat" da thong nhat.
   // + pham vi (lib/phamVi.ts): danh sach lap da loc NSKX / Khong NSKX o server, hash /ca-lap/version thi dung chung.
-  const listCacheKey = `ca-lap-list-${thang}-${khuVucFilter || "all"}`;
+  // "v2" (2026-10-20): bo cac ban cache cu co the da luu danh sach RONG (luc doc trung khoang giua xoa/ghi lai ca lap,
+  // xem backend lib/caLapRefresh.ts) - doi ten khoa de moi trinh duyet tai lai 1 lan.
+  const listCacheKey = `ca-lap-list-v2-${thang}-${khuVucFilter || "all"}`;
   const {
     data: listData,
     isLoading: listLoading,
