@@ -50,6 +50,11 @@ export const KSNB_WATCH_STATUSES = ["Giam sat chuyen CSKH", "CSKH dang xu ly"] a
  * can" con lai KHONG bat buoc, giong quy tac cu cua "Da huy bo tranh chap"). */
 export const TRANG_THAI_CAN_KET_QUA = ["Giam sat dong hoan thanh", "CSKH xu ly xong"] as const;
 
+/** CHOT 2026-10-21: Giam sat khu vuc duoc DONG tranh chap ca khi tien trinh da sang giai doan CSKH, bang 2 trang
+ * thai dong cua Giam sat (chu he thong chon dung trang thai GS de thay ro ai dong) - ngoai le duy nhat cua quy tac
+ * "khong quay lai giai doan Giam sat" (phaseOfStatus). Giai trinh (log con) da mo cho GS tu 2026-08-21. */
+export const GIAM_SAT_DONG_STATUSES = ["Giam sat dong hoan thanh", "Giam sat dong that bai"] as const;
+
 /** Giai doan hien tai cua 1 tien trinh, tinh tu trang thai log MOI NHAT (null = tien trinh moi chua
  * co log nao) - dung de gioi han dropdown chon trang thai o log TIEP THEO chi trong dung giai doan
  * (chot 2026-07-31: khong cho quay lai giai doan Giam sat sau khi da chuyen CSKH). */

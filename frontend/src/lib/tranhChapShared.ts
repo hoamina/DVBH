@@ -177,6 +177,9 @@ export const GIAM_SAT_STATUS_OPTIONS = GIAM_SAT_STATUS_VALUES.map((value) => ({ 
 export const CSKH_STATUS_OPTIONS = CSKH_STATUS_VALUES.map((value) => ({ value, label: TRANG_THAI_LABELS[value] }));
 export const TRANG_THAI_LOG_OPTIONS = [...GIAM_SAT_STATUS_OPTIONS, ...CSKH_STATUS_OPTIONS];
 export const TRANG_THAI_DONG = ["Giam sat dong hoan thanh", "Giam sat dong that bai", "CSKH khong can xu ly", "CSKH xu ly xong"];
+// CHOT 2026-10-21: Giam sat khu vuc duoc dong tranh chap o giai doan CSKH bang 2 trang thai nay - khop
+// GIAM_SAT_DONG_STATUSES backend (lib/tranhChapTienTrinh.ts).
+export const GIAM_SAT_DONG_STATUSES = ["Giam sat dong hoan thanh", "Giam sat dong that bai"];
 // 2 trang thai KSNB (la_ksnb_doi_tac) can theo doi - diem ban giao Giam sat -> CSKH (chot 2026-07-31
 // diem 4) - khop KSNB_WATCH_STATUSES backend.
 export const KSNB_WATCH_STATUSES = ["Giam sat chuyen CSKH", "CSKH dang xu ly"];

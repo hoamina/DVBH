@@ -4724,3 +4724,13 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   chấp + 1 lần trước chốt 17h30. `boSungCap2VaoSnapshotHomNay` không thoát sớm khi không có ca CEO (vẫn ghi bucket rỗng 1 lần,
   tránh bổ sung lặp mỗi lần đọc).
 - v1.466: thẻ PO (nguồn app EO) hiện nhãn **Cấp CEO** (lý do khi rê chuột) / số lỗi theo dõi; "Xem đầy đủ" thêm tình trạng theo dõi, số lần lùi ngày DK, số lỗi — từ "Theo dõi linh kiện đặt" bên app EO (payload `theo_doi`).
+
+## 2026-10-21 — Tranh chấp: Giám sát khu vực được đóng tranh chấp ở giai đoạn CSKH (v1.472)
+Yêu cầu: cho Giám sát khu vực được giải trình hoặc đóng tranh chấp. Chốt với chủ hệ thống: ở giai đoạn CSKH, GS
+được giải trình + đóng; đóng bằng trạng thái của GS ("Giám sát đóng hoàn thành" / "Giám sát đóng thất bại").
+- Giải trình (log con "Ghi chú tiến độ") đã mở cho GS khu vực ở mọi giai đoạn chưa đóng từ 2026-08-21 — giữ nguyên.
+- `GIAM_SAT_DONG_STATUSES` (backend `lib/tranhChapTienTrinh.ts` + frontend `lib/tranhChapShared.ts`): POST
+  `/tien-trinh/:id/log` cho GS của khu vực ca ghi 2 trạng thái này khi tiến trình đang ở giai đoạn CSKH (ngoại lệ của
+  quy tắc không quay lại giai đoạn GS). "Đóng hoàn thành" vẫn bắt buộc Kết quả xử lý + Mức hài lòng.
+- `TienTrinhPanel.tsx`: GS khu vực thấy "+ Thêm log" ở giai đoạn CSKH, dropdown chỉ 2 trạng thái đóng (nếu đang được
+  chỉ định "Đang chờ người xử lý" thì giữ thêm các trạng thái CSKH như trước).

@@ -24,6 +24,7 @@ import {
   KSNB_WATCH_STATUSES,
   MUC_DO_VALUES,
   HAI_LONG_VALUES,
+  GIAM_SAT_DONG_STATUSES,
   CASE_TRANH_CHAP_STATUS_EXPR,
   TUOI_TIEN_TRINH_EXPR,
   latestLogStatusOfTienTrinh,
@@ -1265,7 +1266,14 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
   // Them 2026-08-20: giai doan CSKH la trach nhiem cua KSNB Doi tac/TBP DVBH/Admin - Giam sat khu vuc
   // (canWriteTranhChap da cho qua o tren, chi kiem tra khu_vuc) KHONG duoc ghi them log khi tien trinh
   // dang o giai doan nay nua (fix: truoc day Giam sat van co the ghi ca trang thai rieng cua CSKH).
-  if (currentPhase === "cskh" && !canWriteCskhPhase(c) && !isAssignedToMe) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // CHOT 2026-10-21: ngoai le - Giam sat CUA KHU VUC ca (canWriteTranhChap da kiem tra khu_vuc) duoc DONG tien
+  // trinh o giai doan CSKH bang 2 trang thai dong cua Giam sat (GIAM_SAT_DONG_STATUSES).
+  const isGsDongGiaiDoanCskh =
+    currentPhase === "cskh" &&
+    user.vai_tro === "Giam sat" &&
+    canWriteTranhChap(c, tt.khu_vuc) &&
+    (GIAM_SAT_DONG_STATUSES as readonly string[]).includes(body.trang_thai_xu_ly);
+  if (currentPhase === "cskh" && !canWriteCskhPhase(c) && !isAssignedToMe && !isGsDongGiaiDoanCskh) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const allowedForPhase = currentPhase === "cskh" ? CSKH_STATUSES : GIAM_SAT_STATUSES;
   // CHOT 2026-08-20: "Chuyen lai giam sat xu ly" (CSKH day nguoc tien trinh ve giai doan Giam sat) BAT
   // BUOC phai chi dinh "dang_cho_nguoi_xu_ly" - truoc day chi la goi y tu dong dien (co the bi bo
@@ -1274,7 +1282,7 @@ tranhChap.post("/tien-trinh/:id/log", async (c) => {
   const isChuyenLaiGiamSat = currentPhase === "cskh" && body.trang_thai_xu_ly === "Giam sat chua xu ly";
   if (!(allowedForPhase as readonly string[]).includes(body.trang_thai_xu_ly)) {
     const isKsnbOrAdminSpecial = (!!user.la_ksnb_doi_tac || user.vai_tro === "Admin") && isChuyenLaiGiamSat;
-    if (!isKsnbOrAdminSpecial) {
+    if (!isKsnbOrAdminSpecial && !isGsDongGiaiDoanCskh) {
       return c.json({ error: "INVALID_PHASE_TRANSITION" }, 400);
     }
   }

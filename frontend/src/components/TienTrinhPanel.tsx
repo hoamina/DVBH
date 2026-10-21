@@ -25,6 +25,7 @@ import {
   canWriteTranhChap,
   canEditTienTrinhMeta,
   canWriteCskhPhase,
+  GIAM_SAT_DONG_STATUSES,
   phanLoaiTone,
   describeTranhChapError,
   deriveGiamSatSuggestion,
@@ -323,8 +324,11 @@ export function TienTrinhPanel({
   // can giai trinh duoc ngay ca khi khong thuoc nhom vai tro binh thuong. Khop dung backend (POST
   // /tien-trinh/:id/log, POST /log/:logId/log-con).
   const isAssignedToMe = !!currentUser && !!latestLog?.dang_cho_nguoi_xu_ly && latestLog.dang_cho_nguoi_xu_ly === currentUser.email;
+  // CHOT 2026-10-21: Giam sat khu vuc van thay "+ Them log" o giai doan CSKH - chi de DONG bang trang thai cua
+  // Giam sat (dropdown gioi han o LogForm, khop backend GIAM_SAT_DONG_STATUSES).
+  const isGsKhuVucCskh = !!currentUser && currentUser.vai_tro === "Giam sat" && currentPhase === "cskh" && canWriteTranhChap(currentUser, tt.khu_vuc ?? null);
   const canWrite = currentUser
-    ? (canWriteTranhChap(currentUser, tt.khu_vuc ?? null) && (currentPhase !== "cskh" || canWriteCskhPhase(currentUser))) || isAssignedToMe
+    ? (canWriteTranhChap(currentUser, tt.khu_vuc ?? null) && (currentPhase !== "cskh" || canWriteCskhPhase(currentUser))) || isAssignedToMe || isGsKhuVucCskh
     : false;
   // CHOT 2026-08-21: "log con" (ghi chu giai trinh, KHONG doi trang thai) noi long hon log CHINH -
   // chi can canWriteTranhChap (khong doi hoi them canWriteCskhPhase khi dang o giai doan CSKH) - tat
@@ -652,6 +656,14 @@ function LogFormModal({
   let phaseOptions: { value: string; label: string }[] = currentPhase === "cskh"
     ? CSKH_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))
     : GIAM_SAT_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }));
+
+  // CHOT 2026-10-21: Giam sat o giai doan CSKH chi duoc DONG (2 trang thai dong cua GS); neu dang duoc chi dinh
+  // "Dang cho nguoi xu ly" thi giu them cac trang thai CSKH nhu truoc.
+  if (user?.vai_tro === "Giam sat" && currentPhase === "cskh") {
+    const dangDuocGan = !!initial.dang_cho_nguoi_xu_ly && initial.dang_cho_nguoi_xu_ly === user.email;
+    const dongGs = GIAM_SAT_STATUS_OPTIONS.filter((opt) => GIAM_SAT_DONG_STATUSES.includes(opt.value)).map((opt) => ({ value: opt.value, label: opt.label }));
+    phaseOptions = [...(dangDuocGan ? phaseOptions : []), ...dongGs];
+  }
 
   const isKsnbOrAdmin = !!user?.la_ksnb_doi_tac || user?.vai_tro === "Admin";
   if (isKsnbOrAdmin && currentPhase === "cskh") {
