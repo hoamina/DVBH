@@ -4718,3 +4718,8 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   snapshot hôm nay thiếu `canhBaoCap2` mà đã có snapshot Cảnh báo tồn → bổ sung ngay (1 lần, cho mọi snapshot) rồi đọc lại.
   `boSungCap2VaoSnapshotHomNay` ghi cả snapshot thiếu bucket dù scope không có ca CEO nào (tránh bổ sung lặp mỗi lần đọc).
   Thử local: xóa bucket ở 15 snapshot → 1 lần đọc → 15/15 có lại, thẻ 1416.
+- (v1.471) Rà chi phí đọc/ghi theo yêu cầu chủ hệ thống ("chỉ đếm 1 lần lúc chốt 08:00"): bỏ 2 việc chạy MỖI GIỜ trong cron
+  (bổ sung bucket CEO ×3 phạm vi, tự ghi giải trình qua tranh chấp) - thừa vì bucket đã gộp 1 lần sau chốt Cảnh báo tồn (+1 lần
+  nếu luồng đổi trả thử lại thành công) và tự bổ sung khi đọc nếu thiếu; tự ghi qua tranh chấp đã chạy ngay sau mỗi log tranh
+  chấp + 1 lần trước chốt 17h30. `boSungCap2VaoSnapshotHomNay` không thoát sớm khi không có ca CEO (vẫn ghi bucket rỗng 1 lần,
+  tránh bổ sung lặp mỗi lần đọc).

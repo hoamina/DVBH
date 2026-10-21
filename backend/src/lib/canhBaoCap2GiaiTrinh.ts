@@ -104,8 +104,9 @@ function khuVucCuaScopeKey(scopeKey: string): string[] | null | undefined {
 /** Bo sung ca cap 2 vao MOI snapshot bao cao 08:00 hom nay da co (giu nguyen generated_at = moc "since"). */
 export async function boSungCap2VaoSnapshotHomNay(db: D1Database): Promise<number> {
   const ngay = getVnDateStr();
+  // Khong thoat som khi cap2 rong: snapshot thieu bucket van phai duoc ghi bucket rong 1 lan, neu khong moi lan doc
+  // (damBaoBucketCeo o dailySnapshot.ts) se bo sung lai -> doc thua lap lai.
   const cap2 = await layCap2(db, ngay);
-  if (cap2.length === 0) return 0;
   const { results } = await db
     .prepare("SELECT scope_key, payload FROM daily_snapshot WHERE ngay = ? AND scope_key NOT LIKE 'canh_bao_ton%'")
     .bind(ngay)
