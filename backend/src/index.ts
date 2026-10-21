@@ -41,8 +41,8 @@ import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
 import { autoLogCaKetThucTrongNgay } from "./lib/autoLogCaKetThuc";
-import { autoLogGiaiTrinhQuaTranhChap } from "./lib/canhBaoCap2GiaiTrinh";
-import { phamViMiddleware } from "./lib/phamVi";
+import { autoLogGiaiTrinhQuaTranhChap, boSungCap2VaoSnapshotHomNay } from "./lib/canhBaoCap2GiaiTrinh";
+import { phamViMiddleware, PHAM_VI_LOC, envPhamVi } from "./lib/phamVi";
 import { chotSoLieuPhamVi, chotGiaiTrinhPhamVi, retryLuongDoiTraPhamVi } from "./lib/phamViChot";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
@@ -225,6 +225,14 @@ export default {
           await autoLogCaKetThucTrongNgay(env.DB);
         } catch (err) {
           console.error("[cron-auto-log-ket-thuc] loi:", err instanceof Error ? err.message : String(err));
+        }
+        // Bo sung ca Canh bao ton cap 2 vao snapshot bao cao hom nay (idempotent - chi ghi khi thieu id), ca 3 pham vi.
+        for (const e of [env, ...PHAM_VI_LOC.map((pv) => envPhamVi(env, pv))]) {
+          try {
+            await boSungCap2VaoSnapshotHomNay(e.DB);
+          } catch (err) {
+            console.error("[cron-bo-sung-cap2] loi:", err instanceof Error ? err.message : String(err));
+          }
         }
         // Luoi an toan: ca Canh bao ton cap 2 co log tranh chap trong ngay -> tu ghi giai trinh (lib/canhBaoCap2GiaiTrinh.ts).
         try {

@@ -98,6 +98,9 @@ export interface BacklogBuckets {
   // Cung tap id voi tonCanGiaiTrinh (NEED_TONG), gom theo khu_vuc - dung cho 3 cot "...trong ngay"
   // cua bang "Bao cao ton theo khu vuc" (Quan ly ton) va cho chotGiaiTrinhDailyLog() (log 17h30).
   tonCanGiaiTrinhByKhuVuc: Record<string, SnapshotBucket>;
+  // CHOT 2026-10-21: ca Canh bao ton cap 2 (CEO) trong pham vi snapshot - tap con cua tonCanGiaiTrinh (xem
+  // lib/canhBaoCap2GiaiTrinh.ts), cho the "CEO cần giải trình". Optional: snapshot cu chua co -> coi nhu rong.
+  canhBaoCap2?: SnapshotBucket;
   backlogTongTon: SnapshotBucket;
   backlogTren3: number;
   backlogTren5: number;
@@ -317,11 +320,13 @@ async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Prom
   // lib/canhBaoCap2GiaiTrinh.ts). Luc cron 08:00 chay, snapshot Canh bao ton chua co -> 0 ca, se duoc bo sung sau qua
   // boSungCap2VaoSnapshotHomNay(); nhanh nay cho snapshot tu-heal sinh sau 08:00.
   const tonCanGiaiTrinh = toBucket(tonRows.results);
-  hopCap2VaoBuckets({ tonCanGiaiTrinh, tonCanGiaiTrinhByKhuVuc }, await layCap2(db, getVnDateStr()), khuVucList.length > 0 ? khuVucList : null);
+  const canhBaoCap2: SnapshotBucket = { ids: [], count: 0 };
+  hopCap2VaoBuckets({ tonCanGiaiTrinh, tonCanGiaiTrinhByKhuVuc, canhBaoCap2 }, await layCap2(db, getVnDateStr()), khuVucList.length > 0 ? khuVucList : null);
 
   return {
     tonCanGiaiTrinh,
     tonCanGiaiTrinhByKhuVuc,
+    canhBaoCap2,
     backlogTongTon: toBucket(backlogTongTonRows.results),
     backlogTren3: backlogTrenRow?.tren_3 ?? 0,
     backlogTren5: backlogTrenRow?.tren_5 ?? 0,
@@ -671,6 +676,8 @@ export interface BacklogDailyPayload {
     // cong vao "tong" o tren (xem NEED_TONG), van dong bang/co delta rieng nhu cac nhanh khac de
     // hien duoc StatCard rieng + click-drill-down dung tap id da chot.
     vip24h: DailyReportBucketResult;
+    // CHOT 2026-10-21: "CEO cần giải trình" - ca Canh bao ton cap 2 (da gop vao "tong"), giai trinh moi ngay.
+    ceo: DailyReportBucketResult;
   };
   byKhuVuc: Record<string, DailyReportBucketResult>;
   // Cot tinh (khong delta) cho bang "Bao cao ton theo khu vuc" khi nhom theo Khu vuc - xem
@@ -739,6 +746,7 @@ async function computeBacklogDeltaPayload(
     nskxResolved,
     locTongBcnResolved,
     vip24hResolved,
+    ceoResolved,
     khuVucResolvedList,
   ] = await Promise.all([
     resolvedOf(s.backlogTongTon),
@@ -756,6 +764,7 @@ async function computeBacklogDeltaPayload(
     resolvedOf(s.backlogNskx),
     resolvedOf(s.backlogLocTongBcn),
     resolvedOf(s.backlogVip24h),
+    resolvedOf(s.canhBaoCap2 ?? { ids: [], count: 0 }),
     Promise.all(khuVucEntries.map(([, bucket]) => resolvedOf(bucket))),
   ]);
 
@@ -833,6 +842,7 @@ async function computeBacklogDeltaPayload(
       nskx: toResult(s.backlogNskx, nskxResolved),
       locTongBcn: toResult(s.backlogLocTongBcn, locTongBcnResolved),
       vip24h: toResult(s.backlogVip24h, vip24hResolved),
+      ceo: toResult(s.canhBaoCap2 ?? { ids: [], count: 0 }, ceoResolved),
     },
     byKhuVuc,
     khuVucRows: s.khuVucReportRows,
@@ -964,6 +974,7 @@ export async function getBacklogSnapshotIds(
       nskx: b.backlogNskx,
       loc_tong_bcn: b.backlogLocTongBcn,
       vip_24h: b.backlogVip24h,
+      ceo: b.canhBaoCap2 ?? { ids: [], count: 0 },
     };
     const bucket = buckets[category];
     if (bucket && bucket.ids) {
@@ -1089,6 +1100,7 @@ function mergeBacklogDailyPayloads(payloads: BacklogDailyPayload[]): BacklogDail
       nskx: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.nskx)),
       locTongBcn: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.locTongBcn)),
       vip24h: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.vip24h)),
+      ceo: sumDailyReportBucket(payloads.map((p) => p.canGiaiTrinh.ceo)),
     },
     byKhuVuc,
     khuVucRows,

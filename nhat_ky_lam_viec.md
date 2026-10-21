@@ -4703,3 +4703,13 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   lại xong mà tập ca lặp không đổi thì hash giữ nguyên → tổ hợp bộ lọc đó hiện rỗng tới lần import đổi dữ liệu.
 - Sửa: xóa + ghi lại trong 1 `db.batch` (transaction) ở cả nhánh theo serial lẫn tính lại toàn bộ; đổi khóa cache client
   `ca-lap-list-v2-…` để bỏ các bản rỗng đã lưu. Thử local: tính lại toàn bộ chạy được, 546 ca lặp trước/sau.
+
+## 2026-10-21 — Quản lý tồn: thẻ "CEO cần giải trình (cảnh báo cấp 2)" (v1.469)
+
+- Giám sát chỉ giải trình ca ở thẻ này → cần thẻ riêng (trước đó ca cấp 2 chỉ được gộp vào "Tổng cần giải trình").
+- Snapshot 08:00 thêm bucket `canhBaoCap2` (ca cấp 2 trong phạm vi snapshot, kể cả ca vốn đã có trong tổng) - `hopCap2VaoBuckets`
+  ghi cùng lúc với gộp vào tonCanGiaiTrinh; `BacklogDailyPayload.canGiaiTrinh.ceo` (baseline / đã giải trình / còn lại, cộng
+  được khi chọn nhiều khu vực); drill-down `category=ceo` (chỉ ở chế độ chốt 08:00). Frontend: thẻ spotlight ngay sau "Tổng cần
+  giải trình" + mục "— CEO cần giải trình" trong ô chọn nhóm của Danh sách chi tiết.
+- Snapshot đã chốt trước bản này (sáng 21/10) chưa có bucket → cron mỗi giờ 9h–18h gọi `boSungCap2VaoSnapshotHomNay` cho cả 3
+  phạm vi (idempotent) để bổ sung. Thử local: thẻ 1416 = drill-down 1416; MB3 276 = 276.

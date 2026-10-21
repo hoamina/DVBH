@@ -37,6 +37,8 @@ interface BucketLike {
 interface BacklogLike {
   tonCanGiaiTrinh: BucketLike;
   tonCanGiaiTrinhByKhuVuc: Record<string, BucketLike>;
+  // Tap ca cap 2 trong pham vi snapshot (ke ca ca von da co trong tonCanGiaiTrinh) - the "CEO cần giải trình" (2026-10-21).
+  canhBaoCap2?: BucketLike;
 }
 
 /** Ca cap 2 cua snapshot Canh bao ton ngay "ngay" (bo bucket dang loi - luong doi tra chua chot duoc) kem khu_vuc hien tai. */
@@ -64,12 +66,20 @@ export async function layCap2(db: D1Database, ngay: string): Promise<{ id: strin
   return results.filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc));
 }
 
-/** Gop ca cap 2 vao tonCanGiaiTrinh (+ByKhuVuc) cua 1 bucket set - khuVucList null = toan he thong. Tra ve so id them moi. */
+/** Gop ca cap 2 vao tonCanGiaiTrinh (+ByKhuVuc) va bucket rieng canhBaoCap2 cua 1 bucket set - khuVucList null = toan he
+ * thong. Tra ve so id them moi (vao tonCanGiaiTrinh HOAC canhBaoCap2) - 0 = khong can ghi lai. */
 export function hopCap2VaoBuckets(b: BacklogLike, cap2: { id: string; khu_vuc: string }[], khuVucList: string[] | null): number {
   const daCo = new Set(b.tonCanGiaiTrinh.ids.map(String));
+  const ceo = (b.canhBaoCap2 ??= { ids: [], count: 0 });
+  const daCoCeo = new Set(ceo.ids.map(String));
   let them = 0;
   for (const r of cap2) {
     if (khuVucList !== null && !khuVucList.includes(r.khu_vuc)) continue;
+    if (!daCoCeo.has(r.id)) {
+      daCoCeo.add(r.id);
+      ceo.ids.push(r.id);
+      them++;
+    }
     if (daCo.has(r.id)) continue;
     daCo.add(r.id);
     b.tonCanGiaiTrinh.ids.push(r.id);
@@ -79,6 +89,7 @@ export function hopCap2VaoBuckets(b: BacklogLike, cap2: { id: string; khu_vuc: s
     them++;
   }
   b.tonCanGiaiTrinh.count = b.tonCanGiaiTrinh.ids.length;
+  ceo.count = ceo.ids.length;
   return them;
 }
 

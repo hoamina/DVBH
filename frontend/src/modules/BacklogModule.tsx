@@ -425,6 +425,8 @@ interface BacklogDailyPayload {
     nskx: DeltaBucket;
     locTongBcn: DeltaBucket;
     vip24h: DeltaBucket;
+    // 2026-10-21: ca Canh bao ton cap 2 (CEO) - da gop vao "tong", giai trinh moi ngay (backend lib/canhBaoCap2GiaiTrinh.ts).
+    ceo?: DeltaBucket;
   };
   byKhuVuc: Record<string, DeltaBucket>;
   khuVucRows: Record<string, KhuVucReportRow>;
@@ -595,6 +597,7 @@ const VIEWS = [
 const NHOM_OPTIONS = [
   { value: "ton-hien-tai", label: "Tổng tồn hiện tại" },
   { value: "can-giai-trinh:tong", label: "Cần giải trình (tổng)" },
+  { value: "can-giai-trinh:ceo", label: "— CEO cần giải trình (cảnh báo cấp 2)" },
   { value: "can-giai-trinh:lo_ke_hoach", label: "— Lỡ kế hoạch" },
   { value: "can-giai-trinh:tai_giai_trinh", label: "— Cần tái giải trình" },
   { value: "can-giai-trinh:dmx_3_ngay", label: "— Chưa giải trình >3 (ĐMX)" },
@@ -1861,6 +1864,20 @@ export function BacklogModule({
                 tone="coral"
                 onClick={() => goToDanhSach("can-giai-trinh:tong")}
               />
+              {/* 2026-10-21: "CEO cần giải trình" - ca Canh bao ton cap 2, Giam sat giai trinh MOI NGAY (log giai trinh ton
+               * hoac log tranh chap trong ngay deu tinh). Da gom trong "Tong can giai trinh" ben canh. */}
+              {backlogDaily.canGiaiTrinh.ceo && (
+                <StatCard
+                  size="sm"
+                  spotlight
+                  label="CEO cần giải trình (cảnh báo cấp 2)"
+                  value={backlogDaily.canGiaiTrinh.ceo.remaining}
+                  sub={deltaSub(backlogDaily.canGiaiTrinh.ceo)}
+                  tone="coral"
+                  muted={backlogDaily.canGiaiTrinh.ceo.remaining === 0}
+                  onClick={() => goToDanhSach("can-giai-trinh:ceo")}
+                />
+              )}
               {/* CHOT 2026-08-20: VIP/DMX/Loc tong dua len dau (ngay sau "Tong"), style "spotlight" -
                * dap vao mat truoc theo yeu cau, xem StatCard.tsx prop spotlight + DmxBreakdownCard. */}
               <StatCard

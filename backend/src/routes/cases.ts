@@ -433,7 +433,9 @@ cases.get("/", async (c) => {
     tabFilter = "1=1";
   } else if (tab === "can-giai-trinh") {
     const category = c.req.query("category") ?? "tong";
-    tabFilter = NEED_GIAI_TRINH_CATEGORIES[category] ?? null;
+    // "ceo" (2026-10-21, the "CEO cần giải trình") chi co trong snapshot 08:00 (bucket canhBaoCap2, xem
+    // lib/canhBaoCap2GiaiTrinh.ts) - "1=1" chi de qua kiem tra, loc that qua snapshotIdClause ben duoi.
+    tabFilter = category === "ceo" && snapshot0800 ? "1=1" : (NEED_GIAI_TRINH_CATEGORIES[category] ?? null);
   } else if (tab === "canh-bao-ton") {
     // Loc thuc su qua snapshotIdClause (id IN json_each(?)) ben duoi - "1=1" chi la placeholder de
     // qua kiem tra INVALID_TAB, khong tu tinh dieu kien NEED_* song (bucket da dong bang tu 08:00).
