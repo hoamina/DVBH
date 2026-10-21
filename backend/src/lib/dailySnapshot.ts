@@ -18,7 +18,7 @@
  *   khac mac dinh van tinh song qua reportCache nhu truoc (khong dong bang truoc duoc MOI to hop
  *   filter co the co, se bung no chi phi).
  */
-import { layCap2, hopCap2VaoBuckets } from "./canhBaoCap2GiaiTrinh";
+import { layCap2, hopCap2VaoBuckets, boSungCap2VaoSnapshotHomNay } from "./canhBaoCap2GiaiTrinh";
 import { phamViCua } from "./phamVi";
 import type { AppUser } from "../types";
 import { RECENT_OR_OPEN_CONDITION } from "../routes/survey";
@@ -176,6 +176,27 @@ const toBucket = (rows: { id: string }[]): SnapshotBucket => ({ ids: rows.map((r
  * trong file nay, o day KHONG gan dieu kien gioi han voi "roleVariant" (isGiamSat) nua, de dung LAI
  * duoc cho snapshot loc theo 1 khu_vuc bat ky (khong chi khu_vuc_phu_trach cua Giam sat) - xem
  * generateKhuVucBacklogSnapshots(). */
+/** Snapshot hom nay chua co bucket "canhBaoCap2" (the "CEO cần giải trình") - vd chot TRUOC khi Canh bao ton chot xong, hoac
+ * truoc ban 2026-10-21 - thi bo sung ngay luc doc (boSungCap2VaoSnapshotHomNay ghi cho moi snapshot hom nay, chi 1 lan)
+ * roi doc lai, thay vi cho cron gio. Chi chay khi da co snapshot Canh bao ton hom nay. */
+async function damBaoBucketCeo<R extends { payload: string }>(db: D1Database, ngay: string, scopeKey: string, row: R | null): Promise<R | null> {
+  if (!row || (JSON.parse(row.payload) as Partial<BacklogBuckets>).canhBaoCap2) return row;
+  const coCanhBao = await db.prepare("SELECT 1 AS c FROM daily_snapshot WHERE ngay = ? AND scope_key = 'canh_bao_ton|all'").bind(ngay).first();
+  if (!coCanhBao) return row;
+  try {
+    await boSungCap2VaoSnapshotHomNay(db);
+  } catch (err) {
+    console.error("damBaoBucketCeo: bo sung loi", err);
+    return row;
+  }
+  return (
+    (await db
+      .prepare("SELECT generated_at, generated_by, payload FROM daily_snapshot WHERE ngay = ? AND scope_key = ?")
+      .bind(ngay, scopeKey)
+      .first<R>()) ?? row
+  );
+}
+
 async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Promise<BacklogBuckets> {
   const exclusionClause = khuVucReportExclusionClause("c.khu_vuc");
   const khuVucClause = (khuVucList.length > 0 ? ` AND c.khu_vuc IN (${khuVucList.map(() => "?").join(", ")})` : "") + exclusionClause.sql;
@@ -514,6 +535,7 @@ export async function getSnapshotForUser(db: D1Database, user: AppUser): Promise
     .prepare("SELECT generated_at, generated_by, payload FROM daily_snapshot WHERE ngay = ? AND scope_key = ?")
     .bind(ngay, scopeKey)
     .first<{ generated_at: string; generated_by: string; payload: string }>();
+  row = await damBaoBucketCeo(db, ngay, scopeKey, row);
 
   // "backlogVip24h" la field moi nhat duoc them (the "VIP/S.VIP chua GT >=24h", 2026-08-16) - dung
   // lam co hieu "payload du field hien tai chua". Chi can kiem tra field MOI NHAT vi payload luon
@@ -876,6 +898,7 @@ export async function getBacklogBucketsForKhuVuc(db: D1Database, khuVuc: string)
     .prepare("SELECT generated_at, generated_by, payload FROM daily_snapshot WHERE ngay = ? AND scope_key = ?")
     .bind(ngay, scopeKey)
     .first<{ generated_at: string; generated_by: string; payload: string }>();
+  row = await damBaoBucketCeo(db, ngay, scopeKey, row);
 
   // "backlogVip24h" - field MOI NHAT cua BacklogBuckets, xem chu thich day du o getSnapshotForUser().
   if (row && !(JSON.parse(row.payload) as Partial<BacklogBuckets>).backlogVip24h) {
@@ -1029,6 +1052,7 @@ export async function getBacklogDailyForKhuVuc(db: D1Database, khuVuc: string): 
     .prepare("SELECT generated_at, generated_by, payload FROM daily_snapshot WHERE ngay = ? AND scope_key = ?")
     .bind(ngay, scopeKey)
     .first<{ generated_at: string; generated_by: string; payload: string }>();
+  row = await damBaoBucketCeo(db, ngay, scopeKey, row);
 
   // "backlogVip24h" - field MOI NHAT cua BacklogBuckets, xem chu thich day du o getSnapshotForUser().
   if (row && !(JSON.parse(row.payload) as Partial<BacklogBuckets>).backlogVip24h) {

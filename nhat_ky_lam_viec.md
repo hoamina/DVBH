@@ -4713,3 +4713,8 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   giải trình" + mục "— CEO cần giải trình" trong ô chọn nhóm của Danh sách chi tiết.
 - Snapshot đã chốt trước bản này (sáng 21/10) chưa có bucket → cron mỗi giờ 9h–18h gọi `boSungCap2VaoSnapshotHomNay` cho cả 3
   phạm vi (idempotent) để bổ sung. Thử local: thẻ 1416 = drill-down 1416; MB3 276 = 276.
+- (v1.470) Thẻ CEO hiện 0 trên production vì snapshot 08:00 ngày 21/10 chốt trước bản v1.469 (chưa có bucket) và cron giờ chưa
+  chạy. Thêm `damBaoBucketCeo` ở 3 điểm đọc snapshot (getSnapshotForUser / getBacklogBucketsForKhuVuc / getBacklogDailyForKhuVuc):
+  snapshot hôm nay thiếu `canhBaoCap2` mà đã có snapshot Cảnh báo tồn → bổ sung ngay (1 lần, cho mọi snapshot) rồi đọc lại.
+  `boSungCap2VaoSnapshotHomNay` ghi cả snapshot thiếu bucket dù scope không có ca CEO nào (tránh bổ sung lặp mỗi lần đọc).
+  Thử local: xóa bucket ở 15 snapshot → 1 lần đọc → 15/15 có lại, thẻ 1416.

@@ -117,8 +117,9 @@ export async function boSungCap2VaoSnapshotHomNay(db: D1Database): Promise<numbe
     if (khuVucList === undefined) continue;
     const payload = JSON.parse(r.payload) as Partial<BacklogLike>;
     if (!payload.tonCanGiaiTrinh || !payload.tonCanGiaiTrinhByKhuVuc) continue;
+    const thieuBucketCeo = !payload.canhBaoCap2; // snapshot chot truoc 2026-10-21 - ghi ca khi scope khong co ca CEO nao
     const them = hopCap2VaoBuckets(payload as BacklogLike, cap2, khuVucList);
-    if (them === 0) continue;
+    if (them === 0 && !thieuBucketCeo) continue;
     tong += them;
     stmts.push(db.prepare("UPDATE daily_snapshot SET payload = ? WHERE ngay = ? AND scope_key = ?").bind(JSON.stringify(payload), ngay, r.scope_key));
   }
