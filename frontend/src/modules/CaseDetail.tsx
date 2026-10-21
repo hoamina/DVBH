@@ -2519,6 +2519,8 @@ export function CaseDetail({
               {r._nguon === "app" ? <Badge tone="ocean">App EO</Badge> : r._nguon === "sheet" ? <Badge tone="gray">Google Sheet</Badge> : null}
               {r.maPheDuyet && <span>· {r.maPheDuyet}</span>}
               {r.trangThaiEo && <span>· EO {r.trangThaiEo}</span>}
+              {r.capCeo && <span title={r.capCeo}><Badge tone="coral">Cấp CEO</Badge></span>}
+              {r.soLoiTheoDoi && !r.capCeo && <span className="text-[var(--coral-500)]">· {r.soLoiTheoDoi} lỗi theo dõi</span>}
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
               <Field label="Mã linh kiện đề xuất" value={r.maLinhKienDeXuat ? <MaLinhKienLink ma={r.maLinhKienDeXuat} /> : "—"} />

@@ -4723,3 +4723,4 @@ Yêu cầu: ca nằm trong danh sách cần giải trình (chốt 08:00) nhưng 
   nếu luồng đổi trả thử lại thành công) và tự bổ sung khi đọc nếu thiếu; tự ghi qua tranh chấp đã chạy ngay sau mỗi log tranh
   chấp + 1 lần trước chốt 17h30. `boSungCap2VaoSnapshotHomNay` không thoát sớm khi không có ca CEO (vẫn ghi bucket rỗng 1 lần,
   tránh bổ sung lặp mỗi lần đọc).
+- v1.466: thẻ PO (nguồn app EO) hiện nhãn **Cấp CEO** (lý do khi rê chuột) / số lỗi theo dõi; "Xem đầy đủ" thêm tình trạng theo dõi, số lần lùi ngày DK, số lỗi — từ "Theo dõi linh kiện đặt" bên app EO (payload `theo_doi`).

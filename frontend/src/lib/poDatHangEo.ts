@@ -22,6 +22,9 @@ export interface PoEoPayload {
   ngay_tao?: string; ngay_cap_nhat?: string;
   ke_hoach?: { loai: string; ngay: string; tuan: string | null; sl: number; ngay_nm_cam_ket: string | null; ghi_chu: string | null }[];
   phieu_nhap?: { so_ct: string; ngay: string; kho: string; sl: number }[];
+  // "Theo dõi linh kiện đặt" ben app EO (2026-10-21): han ngay du kien 24h, so loi, cap CEO
+  theo_doi?: { ap_dung: boolean; tinh_trang: string; han_ngay_du_kien: string | null; han_cap_nhat_lai: string | null;
+    so_lan_lui: number; so_loi: number; so_loi_cho_giai_trinh: number; cap_ceo: boolean; ceo_ly_do: string[] } | null;
 }
 
 const CACHE_KEY = "po-dat-hang-eo-v1";
@@ -35,6 +38,9 @@ function fmt(s: string | null | undefined, withTime = false): string {
   return withTime && m[4] ? `${d} ${m[4].length === 5 ? m[4] + ":00" : m[4]}` : d;
 }
 const num = (v: unknown) => (v == null || v === "" ? "" : String(v));
+const TT_THEO_DOI: Record<string, string> = {
+  CHO_NDK: "Chờ ngày dự kiến", TRE_NDK: "Trễ 24h chưa có ngày dự kiến", QUA_HAN_NDK: "Quá ngày dự kiến", CHO_HANG: "Chờ hàng", DONG: "Đã đóng",
+};
 const TRANG_THAI_EO: Record<string, string> = {
   DRAFT: "Nháp", IN_REVIEW: "Đang thẩm định", WAITING_FINAL_APPROVAL: "Chờ duyệt cuối",
   ISSUED: "Đã ban hành", REJECTED: "Từ chối", CANCELLED: "Đã hủy",
@@ -85,6 +91,10 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     "Ngày tạo": fmt(p.ngay_tao, true),
     "Ngày cập nhật": fmt(p.ngay_cap_nhat, true),
     "Link EO": p.link ?? "",
+    "Theo dõi: tình trạng": TT_THEO_DOI[p.theo_doi?.tinh_trang ?? ""] ?? "",
+    "Theo dõi: số lần lùi ngày DK": num(p.theo_doi?.so_lan_lui),
+    "Theo dõi: số lỗi (chờ giải trình)": p.theo_doi ? `${p.theo_doi.so_loi} (${p.theo_doi.so_loi_cho_giai_trinh})` : "",
+    "Cấp CEO": p.theo_doi?.cap_ceo ? p.theo_doi.ceo_ly_do.join("; ") : "",
   };
   return {
     _region: "",
@@ -113,6 +123,8 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     trangThaiEo: TRANG_THAI_EO[p.trang_thai_eo ?? ""] ?? "",
     keHoachHangVe: keHoach,
     linkEo: p.link ?? "",
+    capCeo: p.theo_doi?.cap_ceo ? p.theo_doi.ceo_ly_do.join("; ") : "",
+    soLoiTheoDoi: p.theo_doi?.so_loi ? String(p.theo_doi.so_loi) : "",
   };
 }
 
