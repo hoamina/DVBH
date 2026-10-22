@@ -716,9 +716,11 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
       "link_crm": "https://...",
       "tuoi_ton": 184,
       "con_ton": true,
+      "ca_con_ton": true,
       "da_huy": false,
       "giai_trinh_gan_nhat": { "ly_do_cham": "...", "noi_dung": "...", "nguoi_giai_trinh": "...", "ngay_giai_trinh": "..." },
       "tranh_chap": { "trang_thai": "CSKH dang xu ly", "ngay_tao": "...", "tuoi_ngay": 6 },
+      "luong_doi_tra": null,
       "nhom": ["ton_tren_20_ngay", "loc_tong_tu_5_ngay"]
     }
   ]
@@ -728,8 +730,16 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
 - 1 ca có thể thuộc nhiều nhóm → xuất hiện **1 lần** trong `cases`, mảng `nhom` liệt kê các nhóm. Vì vậy
   `so_ca` (số ca không trùng) có thể nhỏ hơn tổng `tong_hop[].so_ca`. Field `nhom` chỉ có ở `canh-bao-ceo`.
 - `giai_trinh_gan_nhat` / `tranh_chap` = `null` nếu ca chưa có. `cases` sắp xếp theo `tuoi_ton` giảm dần.
-- `con_ton` = ca còn tồn tại thời điểm gọi (chưa hoàn thành, chưa huỷ, chưa lưu trữ). `da_huy` = ca đã bị
-  Admin huỷ bỏ. Với `canh-bao-ceo`, ca đã đóng hoặc bị huỷ **sau 08:00** vẫn giữ trong `cases` (`con_ton: false`,
+- `con_ton` = ca **còn cần xử lý** tại thời điểm gọi, tính theo nhóm ca thuộc về (sửa 2026-10-22): ca gốc còn mở,
+  HOẶC (nhóm `tranh_chap_tu_5_ngay`) tranh chấp chưa đóng, HOẶC (nhóm `luong_doi_tra_tu_10_ngay`) luồng đổi trả còn
+  tồn. Hai nhóm này là ca **đã hoàn thành** (tranh chấp / đổi máy phát sinh sau khi đóng ca) — trước đây `con_ton`
+  chỉ xét ca gốc nên luôn `false`, lọc theo `con_ton` sẽ mất cả 2 nhóm. `ca_con_ton` = nghĩa cũ (ca gốc chưa hoàn
+  thành, chưa huỷ, chưa lưu trữ).
+- `luong_doi_tra` (chỉ ca thuộc nhóm `luong_doi_tra_tu_10_ngay`, còn lại `null`): `con_ton` (true / false = đã kết thúc
+  hoặc ca đổi đã hoàn thành sau 08:00 / null = không lấy được hệ Theo dõi đổi máy, kèm `loi`), `trang_thai` (bước hiện
+  tại: `phat_sinh` / `tiep_nhan` / `cho_duyet` / `da_duyet` / `giao_xu_ly` / `da_len_so` / `da_len_do`), `tuoi_ngay`
+  (ngày từ lúc phát sinh mail), `phat_sinh_luc`, `mail_gan_nhat` (ISO UTC).
+- `da_huy` = ca đã bị Admin huỷ bỏ. Với `canh-bao-ceo`, ca đã đóng hoặc bị huỷ **sau 08:00** vẫn giữ trong `cases` (`con_ton: false`,
   ca huỷ thì `da_huy: true`) để `so_ca` luôn khớp số đã chốt ở `tong_hop`.
 - Không trả các cột doanh thu (`dt_*`).
 

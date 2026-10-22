@@ -51,6 +51,8 @@ export interface LuongTonRow {
   case_id: string;
   tuoi: number;
   last_at: string | null;
+  trang_thai: string;
+  origin_at: string | null;
 }
 
 /** Cac luong dang "ton" (dinh nghia o dau file) kem tuoi. ok=false khi khong goi duoc he theodoidoimay. */
@@ -65,7 +67,7 @@ export async function computeLuongDoiTraTon(env: Env, fresh = false): Promise<{ 
     if (cm?.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do ?? "")) continue;
     const tuoi = tuoiLuongNgay(r.origin_at ?? r.created_at);
     if (tuoi === null) continue;
-    rows.push({ case_id: r.case_id, tuoi, last_at: r.last_at });
+    rows.push({ case_id: r.case_id, tuoi, last_at: r.last_at, trang_thai: r.trang_thai, origin_at: r.origin_at ?? r.created_at });
   }
   return { ok: true, error: null, rows };
 }

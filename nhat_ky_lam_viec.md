@@ -4778,3 +4778,13 @@ Yêu cầu: cột JSON `linh_kien_loi` khi tải về tự tách thành các c�
 - Ca mới: `lib/khuVucTheoKtv.ts laKtvVeKrfBanLe` (mã "(kdloctong.krf)"/"(TEST.ER)" hoặc 2 tên cũ, không phân biệt hoa thường /
   dấu cách quanh "-") áp trong `processImport` trước khi tính crm_hash. Thử local: ca mới (TEST.ER) gửi MB1 → KRF bán lẻ; KTV
   khác giữ MB1. Bản chốt 08:00 hôm nay còn tính các ca này, từ 23/10 hết.
+
+## 2026-10-22 — API canh-bao-ceo: nhóm Tranh chấp/KN + Luồng đổi trả không hiện bên đối tác (v1.478)
+Phản hồi: đối tác không thấy danh sách ca tranh chấp/KN và luồng đổi trả (mail). Kiểm tra production: snapshot
+08:00 đủ (tranh chấp ≥5 ngày 14 ca, luồng ≥10 ngày 8 ca), API nạp đủ 22 ca — nhưng cả 22 có `con_ton = false` vì
+`con_ton` chỉ xét ca GỐC, mà 2 nhóm này bản chất là ca đã hoàn thành (tranh chấp / đổi máy phát sinh sau khi đóng ca)
+→ đối tác lọc "còn tồn" là mất cả 2 nhóm.
+- `lib/partnerDanhSachTon.ts`: `con_ton` = còn cần xử lý theo nhóm (ca gốc mở, HOẶC tranh chấp chưa đóng với nhóm
+  tranh chấp, HOẶC luồng còn tồn với nhóm luồng); thêm `ca_con_ton` (nghĩa cũ) + `luong_doi_tra` (con_ton, bước, tuổi,
+  phát sinh, mail gần nhất — đọc hệ theodoidoimay, cache isolate 5 phút; lỗi → con_ton null + loi, vẫn coi là tồn).
+- `lib/luongDoiTraTon.ts`: `LuongTonRow` thêm `trang_thai`, `origin_at`. PARTNER_API_GUIDE §11.2 cập nhật.

@@ -18,7 +18,8 @@
  */
 import { ageExpr } from "./ageCalc";
 import { getCanhBaoTonSnapshot, type CanhBaoTonMetricKey } from "./canhBaoTon";
-import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TUOI_TIEN_TRINH_EXPR } from "./tranhChapTienTrinh";
+import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, TUOI_TIEN_TRINH_EXPR } from "./tranhChapTienTrinh";
+import { computeLuongDoiTraTon } from "./luongDoiTraTon";
 import { nowVN } from "./vnTime";
 import type { Env } from "../types";
 
@@ -125,8 +126,39 @@ export async function buildDanhSachTon(env: Env, loai: DanhSachTonLoai) {
     }
     const ids = [...nhomByCase.keys()];
     const [rows, extras] = await Promise.all([loadCasesByIds(db, ids), loadExtras(db, ids)]);
+    // SUA 2026-10-22 (doi tac bao khong hien nhom Tranh chap/KN + Luong doi tra): 2 nhom nay ban chat la ca DA
+    // hoan thanh (tranh chap / luong doi may phat sinh SAU khi dong ca) nen "con_ton" tinh theo ca goc luon = false
+    // -> doi tac loc "con ton" la mat ca 2 nhom. Gio "con_ton" = con can xu ly THEO NHOM ca thuoc ve: ca goc con mo,
+    // HOAC (nhom tranh chap) tranh chap chua dong, HOAC (nhom luong) luong con ton. "ca_con_ton" giu nghia cu.
+    const luongIds = new Set(snap.buckets.luongDoiTra10?.ids ?? []);
+    const luong = luongIds.size ? await computeLuongDoiTraTon(env) : null;
+    const luongByUpper = new Map((luong?.rows ?? []).map((l) => [l.case_id.toUpperCase(), l]));
+    const tcDong = TRANH_CHAP_TRANG_THAI_DONG as readonly string[];
     const cases = rows
-      .map((r) => ({ ...shapeCase(r, extras), nhom: nhomByCase.get(r.id) ?? [] }))
+      .map((r) => {
+        const base = shapeCase(r, extras);
+        const nhom = nhomByCase.get(r.id) ?? [];
+        const tcConMo = nhom.includes("tranh_chap_tu_5_ngay") && !!base.tranh_chap && !tcDong.includes(base.tranh_chap.trang_thai);
+        let luongDoiTra: { con_ton: boolean | null; trang_thai?: string; tuoi_ngay?: number; phat_sinh_luc?: string | null; mail_gan_nhat?: string | null; loi?: string | null } | null = null;
+        if (luongIds.has(r.id)) {
+          if (!luong?.ok) luongDoiTra = { con_ton: null, loi: luong?.error ?? "LOI" };
+          else {
+            const l = luongByUpper.get(String(r.id).toUpperCase());
+            luongDoiTra = l
+              ? { con_ton: true, trang_thai: l.trang_thai, tuoi_ngay: l.tuoi, phat_sinh_luc: l.origin_at, mail_gan_nhat: l.last_at }
+              : { con_ton: false };
+          }
+        }
+        // Khong lay duoc he theodoidoimay -> giu ca luong la "con ton" (dung voi luc chot 08:00).
+        const luongConTon = !!luongDoiTra && luongDoiTra.con_ton !== false;
+        return {
+          ...base,
+          ca_con_ton: base.con_ton,
+          con_ton: base.con_ton || tcConMo || luongConTon,
+          luong_doi_tra: luongDoiTra,
+          nhom,
+        };
+      })
       .sort((a, b) => b.tuoi_ton - a.tuoi_ton);
     return {
       loai,
