@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, statusTone, type BadgeTone, type AnyBadgeTone } from "../components/ui/Badge";
 import { mucDoBadge } from "../components/ui/MucDoBadge";
 import { Field } from "../components/ui/Field";
+import { CaseInfoFieldSettings, readAnTruong, writeAnTruong } from "../components/CaseInfoFieldSettings";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { ChoiceSelect } from "../components/ui/ChoiceSelect";
@@ -172,24 +173,31 @@ type XuLyTabs = {
   countBaoHanh: number;
   panels: Record<string, ReactNode>;
   cardRef: RefObject<HTMLDivElement>;
+  // Truong nguoi dung chon AN (nut ⚙, components/CaseInfoFieldSettings.tsx) - khoa = nhan truong.
+  an: Set<string>;
+  onAnChange: (an: Set<string>) => void;
 };
 // Ca cu (chi co dia chi cu, vd QuickSight): hien them tinh MOI quy doi theo bang "Quy đổi tỉnh" (2026-10-10, lib/diaGioi.ts).
-function DiaChiCaCu({ c }: { c: CaseRow }) {
+function DiaChiCaCu({ c, hienMoi = true, hienCu = true }: { c: CaseRow; hienMoi?: boolean; hienCu?: boolean }) {
   const { idx } = useDiaGioiIndex();
   const tinhMoi = c.tinh ? idx.tinhMoi(c.tinh, null) : "";
   return (
     <div className="space-y-1">
-      <div className="flex items-start gap-2">
-        <Badge tone="teal">Mới</Badge>
-        <span>
-          {tinhMoi || "—"}
-          {tinhMoi && <span className="ml-1 text-[11px] text-[var(--ink-400)]">(quy đổi từ tỉnh cũ)</span>}
-        </span>
-      </div>
-      <div className="flex items-start gap-2 text-[var(--ink-600)]">
-        <Badge tone="gray">Cũ</Badge>
-        <span>{[c.quan_huyen, c.tinh ? idx.tinhCu(c.tinh) : null].filter(Boolean).join(", ") || "—"}</span>
-      </div>
+      {hienMoi && (
+        <div className="flex items-start gap-2">
+          <Badge tone="teal">Mới</Badge>
+          <span>
+            {tinhMoi || "—"}
+            {tinhMoi && <span className="ml-1 text-[11px] text-[var(--ink-400)]">(quy đổi từ tỉnh cũ)</span>}
+          </span>
+        </div>
+      )}
+      {hienCu && (
+        <div className="flex items-start gap-2 text-[var(--ink-600)]">
+          <Badge tone="gray">Cũ</Badge>
+          <span>{[c.quan_huyen, c.tinh ? idx.tinhCu(c.tinh) : null].filter(Boolean).join(", ") || "—"}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -310,10 +318,15 @@ function renderCaseFieldsGrid(
   onSerialClick?: () => void,
   xuLyTabs?: XuLyTabs,
 ) {
+  // Truong bi an qua nut ⚙ (chi the co xuLyTabs - ca goc + ca doi chieu); khoa = nhan hien thi.
+  const an = xuLyTabs?.an;
+  const hien = (nhan: string) => !an?.has(nhan);
+  const hienMoi = hien("Địa chỉ mới");
+  const hienCu = hien("Địa chỉ cũ");
   const topFields = (
     <>
-      <Field label="Khách hàng" value={c.khach_hang ?? "—"} />
-      <Field
+      {hien("Khách hàng") && <Field label="Khách hàng" value={c.khach_hang ?? "—"} />}
+      {hien("Serial") && <Field
         label="Serial"
         value={
           <span className="flex items-center gap-2">
@@ -334,7 +347,7 @@ function renderCaseFieldsGrid(
             {serialExtra}
           </span>
         }
-      />
+      />}
     </>
   );
   const coBanFields = (
@@ -342,36 +355,44 @@ function renderCaseFieldsGrid(
       {/* Ca Odoo (ma SC...) luon hien 2 dong Mới/Cũ: Odoo khong nhap dia chi cu thi ghi ro, tranh hieu nham la chua dong bo */}
       {c.tinh_moi || c.xa_moi || c.tinh_cu || c.huyen_cu || c.xa_cu || /^SC\d/.test(String(c.id)) ? (
         <>
-          <KhuVucField c={c} />
-          <div className="col-span-2">
-            <Field
-              label="Địa chỉ"
-              value={
-                <div className="space-y-1">
-                  <div className="flex items-start gap-2">
-                    <Badge tone="teal">Mới</Badge>
-                    <span>{[c.xa_moi, c.tinh_moi].filter(Boolean).join(", ") || "—"}</span>
+          {hien("Khu vực") && <KhuVucField c={c} />}
+          {(hienMoi || hienCu) && (
+            <div className="col-span-2">
+              <Field
+                label="Địa chỉ"
+                value={
+                  <div className="space-y-1">
+                    {hienMoi && (
+                      <div className="flex items-start gap-2">
+                        <Badge tone="teal">Mới</Badge>
+                        <span>{[c.xa_moi, c.tinh_moi].filter(Boolean).join(", ") || "—"}</span>
+                      </div>
+                    )}
+                    {hienCu && (
+                      <div className="flex items-start gap-2 text-[var(--ink-600)]">
+                        <Badge tone="gray">Cũ</Badge>
+                        <span>{[c.xa_cu, c.huyen_cu ?? c.quan_huyen, c.tinh_cu ?? c.tinh].filter(Boolean).join(", ") || "— (Odoo không nhập)"}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-start gap-2 text-[var(--ink-600)]">
-                    <Badge tone="gray">Cũ</Badge>
-                    <span>{[c.xa_cu, c.huyen_cu ?? c.quan_huyen, c.tinh_cu ?? c.tinh].filter(Boolean).join(", ") || "— (Odoo không nhập)"}</span>
-                  </div>
-                </div>
-              }
-            />
-          </div>
+                }
+              />
+            </div>
+          )}
         </>
       ) : (
         <>
-          <KhuVucField c={c} />
-          <div className="col-span-2">
-            <Field label="Địa chỉ" value={<DiaChiCaCu c={c} />} />
-          </div>
+          {hien("Khu vực") && <KhuVucField c={c} />}
+          {(hienMoi || hienCu) && (
+            <div className="col-span-2">
+              <Field label="Địa chỉ" value={<DiaChiCaCu c={c} hienMoi={hienMoi} hienCu={hienCu} />} />
+            </div>
+          )}
         </>
       )}
-      <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />
-      <Field label="Trạm triển khai" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />
-      <Field
+      {hien("Hãng / Nhóm SP") && <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />}
+      {hien("Trạm triển khai") && <Field label="Trạm triển khai" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />}
+      {hien("KTV triển khai") && <Field
         label="KTV triển khai"
         value={
           c.ktv_trien_khai && c.ktv_trien_khai !== c.ky_thuat_vien ? (
@@ -380,35 +401,41 @@ function renderCaseFieldsGrid(
             <span className="text-[var(--ink-500)]">= Trạm triển khai</span>
           )
         }
-      />
-      <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />
-      <Field label="Hẹn xử lý" value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />
-      <Field label="Thời gian hoàn thành" value={fmtDateTime(c.thoi_gian_hoan_thanh)} />
-      <Field label="Dự kiến hoàn thành (giải trình gần nhất)" value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />
-      <Field label="Ngày import" value={fmtDateTime(c.ngay_import)} />
-      <Field label="Cập nhật gần nhất" value={fmtDateTime(c.ngay_cap_nhat_gan_nhat)} />
-      <Field label="Đúng hạn / Xử lý 24h" value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />
+      />}
+      {hien("Tiếp nhận CSKH") && <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />}
+      {hien("Hẹn xử lý") && <Field label="Hẹn xử lý" value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />}
+      {hien("Thời gian hoàn thành") && <Field label="Thời gian hoàn thành" value={fmtDateTime(c.thoi_gian_hoan_thanh)} />}
+      {hien("Dự kiến hoàn thành (giải trình gần nhất)") && <Field label="Dự kiến hoàn thành (giải trình gần nhất)" value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />}
+      {hien("Ngày import") && <Field label="Ngày import" value={fmtDateTime(c.ngay_import)} />}
+      {hien("Cập nhật gần nhất") && <Field label="Cập nhật gần nhất" value={fmtDateTime(c.ngay_cap_nhat_gan_nhat)} />}
+      {hien("Đúng hạn / Xử lý 24h") && <Field label="Đúng hạn / Xử lý 24h" value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />}
     </>
   );
   const xuLyGrid = (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-      <Field label="Nhóm / Loại yêu cầu" value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />
-      <Field label="Mức độ" value={mucDoBadge(c.muc_do) ?? "—"} />
-      <Field label="Cách thức xử lý" value={c.cach_thuc_xu_ly ?? "—"} />
-      <Field label="Sản phẩm bảo hành" value={c.san_pham_bao_hanh ?? "—"} />
-      <Field label="Hình thức bảo hành" value={c.hinh_thuc_bao_hanh ?? "—"} />
-      <Field label="Tiến độ hoàn thành" value={c.tien_do_hoan_thanh ?? "—"} />
-      <Field label="Lý do hủy" value={c.ly_do_huy ?? "—"} />
-      <Field label="Lý do quá hạn" value={c.ly_do_qua_han ?? "—"} />
-      <div className="col-span-2">
-        <Field label="Mô tả lỗi" value={c.mo_ta_loi ?? "—"} />
-      </div>
-      <div className="col-span-2">
-        <Field label="Lưu ý lỗi linh kiện" value={c.luu_y_loi_linh_kien ?? "—"} />
-      </div>
-      <div className="col-span-2">
-        <Field label="Nội dung xử lý chi tiết" value={c.noi_dung_xu_ly ?? "—"} />
-      </div>
+      {hien("Nhóm / Loại yêu cầu") && <Field label="Nhóm / Loại yêu cầu" value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />}
+      {hien("Mức độ") && <Field label="Mức độ" value={mucDoBadge(c.muc_do) ?? "—"} />}
+      {hien("Cách thức xử lý") && <Field label="Cách thức xử lý" value={c.cach_thuc_xu_ly ?? "—"} />}
+      {hien("Sản phẩm bảo hành") && <Field label="Sản phẩm bảo hành" value={c.san_pham_bao_hanh ?? "—"} />}
+      {hien("Hình thức bảo hành") && <Field label="Hình thức bảo hành" value={c.hinh_thuc_bao_hanh ?? "—"} />}
+      {hien("Tiến độ hoàn thành") && <Field label="Tiến độ hoàn thành" value={c.tien_do_hoan_thanh ?? "—"} />}
+      {hien("Lý do hủy") && <Field label="Lý do hủy" value={c.ly_do_huy ?? "—"} />}
+      {hien("Lý do quá hạn") && <Field label="Lý do quá hạn" value={c.ly_do_qua_han ?? "—"} />}
+      {hien("Mô tả lỗi") && (
+        <div className="col-span-2">
+          <Field label="Mô tả lỗi" value={c.mo_ta_loi ?? "—"} />
+        </div>
+      )}
+      {hien("Lưu ý lỗi linh kiện") && (
+        <div className="col-span-2">
+          <Field label="Lưu ý lỗi linh kiện" value={c.luu_y_loi_linh_kien ?? "—"} />
+        </div>
+      )}
+      {hien("Nội dung xử lý chi tiết") && (
+        <div className="col-span-2">
+          <Field label="Nội dung xử lý chi tiết" value={c.noi_dung_xu_ly ?? "—"} />
+        </div>
+      )}
     </div>
   );
   const hinhAnhSection = (
@@ -474,11 +501,14 @@ function renderCaseFieldsGrid(
         {coBanFields}
       </div>
     );
+    const boSungParts = [
+      hien("Hình ảnh báo cáo công việc") && <div key="anh">{hinhAnhSection}</div>,
+      hien("Doanh thu") && <div key="dt">{doanhThuSection}</div>,
+      hien("Phân loại & nguồn gốc") && <div key="pl">{phanLoaiSection}</div>,
+    ].filter(Boolean);
     const boSung = (
-      <div className="space-y-4">
-        <div>{hinhAnhSection}</div>
-        <div className="border-t border-[var(--line)] pt-4">{doanhThuSection}</div>
-        <div className="border-t border-[var(--line)] pt-4">{phanLoaiSection}</div>
+      <div className="space-y-4 [&>*+*]:border-t [&>*+*]:border-[var(--line)] [&>*+*]:pt-4">
+        {boSungParts.length > 0 ? boSungParts : <div className="text-sm text-[var(--ink-400)]">Đã ẩn toàn bộ mục bổ sung (nút ⚙).</div>}
       </div>
     );
     // Kieu 2/3 xep doc nhieu phan, ngan bang duong ke - KHONG hien tieu de trung gian (chot 2026-10-08); data-sec de
@@ -513,6 +543,7 @@ function renderCaseFieldsGrid(
                   </button>
                 ))}
               </div>
+              <CaseInfoFieldSettings an={xuLyTabs.an} onChange={xuLyTabs.onAnChange} />
             </div>
             {active === "co-ban" && coBanGrid}
             {active === "xu-ly" && xuLyGrid}
@@ -674,6 +705,12 @@ export function CaseDetail({
   const [compareXuLyTab, setCompareXuLyTab] = useState("co-ban");
   const compareCardRef = useRef<HTMLDivElement>(null);
   const [caseInfoLayout, setCaseInfoLayout] = useState<CaseInfoLayout>(readCaseInfoLayout);
+  // Truong an/hien (nut ⚙) - luu localStorage, dung chung ca goc + ca doi chieu.
+  const [anTruong, setAnTruong] = useState<Set<string>>(readAnTruong);
+  function changeAnTruong(an: Set<string>) {
+    setAnTruong(an);
+    writeAnTruong(an);
+  }
   function changeCaseInfoLayout(l: CaseInfoLayout) {
     setCaseInfoLayout(l);
     try {
@@ -2398,6 +2435,8 @@ export function CaseDetail({
               onChange: setCompareXuLyTab,
               layout: caseInfoLayout,
               onLayoutChange: changeCaseInfoLayout,
+              an: anTruong,
+              onAnChange: changeAnTruong,
               cardRef: compareCardRef,
               countLoi: compareLoiList.length,
               countBaoHanh: compareBaoHanhMatched.length + compareOrders.length,
@@ -2446,6 +2485,8 @@ export function CaseDetail({
           onChange: setXuLyTab,
           layout: caseInfoLayout,
           onLayoutChange: changeCaseInfoLayout,
+          an: anTruong,
+          onAnChange: changeAnTruong,
           cardRef: xuLyCardRef,
           countLoi: linhKienLoiList.length,
           countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length,

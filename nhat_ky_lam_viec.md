@@ -4741,3 +4741,12 @@ Yêu cầu: cho Giám sát khu vực được giải trình hoặc đóng tranh 
   canh-bao-ton được bật; nhóm "ceo" chỉ có trong snapshot 08:00 nên backend trả INVALID_TAB.
 - Sửa (BacklogModule.tsx): ô chọn bật snapshot cho "can-giai-trinh:ceo"; tham số danh sách luôn gửi snapshot_0800 khi nhóm là
   ceo. Thử local: tải lại với nhóm ceo đã lưu → 1416 dòng; chọn tổng → 1426, chọn lại CEO → 1416, không lỗi.
+
+## 2026-10-22 — Chi tiết ca: nút ⚙ chọn thông tin hiển thị (v1.474)
+
+- Nút ⚙ cạnh "Kiểu 1/2/3" ở thẻ Thông tin case: popup tick ẩn/hiện từng trường theo 3 nhóm Cơ bản (gồm "Địa chỉ mới" /
+  "Địa chỉ cũ" tách riêng) / Xử lý / Bổ sung (Hình ảnh, Doanh thu, Phân loại), tick nhóm để ẩn/hiện cả nhóm, "Hiện tất cả";
+  nút hiện "⚙ Ẩn N" khi đang ẩn. Lưu localStorage `dvbh_case_info_an_truong` (khóa = nhãn trường), không gọi server, không
+  đọc/ghi D1. Áp cho ca gốc + ca đối chiếu (cùng thẻ). Code: `components/CaseInfoFieldSettings.tsx`, `CaseDetail.tsx
+  renderCaseFieldsGrid` (`hien(nhan)`) - đổi nhãn trường thì đổi cả 2 nơi.
+- Thử local: ẩn "Địa chỉ cũ" + "Hãng / Nhóm SP" → mất đúng 2 dòng, "Mới" vẫn hiện, giữ sau tải lại; "Hiện tất cả" khôi phục.
