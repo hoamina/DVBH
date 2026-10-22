@@ -4750,3 +4750,10 @@ Yêu cầu: cho Giám sát khu vực được giải trình hoặc đóng tranh 
   đọc/ghi D1. Áp cho ca gốc + ca đối chiếu (cùng thẻ). Code: `components/CaseInfoFieldSettings.tsx`, `CaseDetail.tsx
   renderCaseFieldsGrid` (`hien(nhan)`) - đổi nhãn trường thì đổi cả 2 nơi.
 - Thử local: ẩn "Địa chỉ cũ" + "Hãng / Nhóm SP" → mất đúng 2 dòng, "Mới" vẫn hiện, giữ sau tải lại; "Hiện tất cả" khôi phục.
+
+## 2026-10-22 — Xuất Excel: tách cột "linh_kien_loi" thành các cột đọc được (v1.475)
+Yêu cầu: cột JSON `linh_kien_loi` khi tải về tự tách thành các cột ở cuối file, mỗi linh kiện lỗi một bộ cột.
+- `frontend/src/lib/exportExcel.ts` `tachLinhKienLoi` (trong `exportRowsToExcel` — áp cho mọi file xuất có cột này):
+  mỗi linh kiện 12 cột "LK lỗi N - <trường>" (mã, tên, nhóm LK, nguồn gốc lỗi, hiện tượng, mô tả hiện tượng, nhóm
+  lỗi, nguyên nhân, mô tả nguyên nhân, cách thức xử lý, mô tả cách xử lý, ghi chú), N = số linh kiện nhiều nhất trong
+  file; ca ít linh kiện hơn để trống. Cột JSON gốc đổi thành "Số linh kiện lỗi". Xử lý hoàn toàn trên máy người dùng.
