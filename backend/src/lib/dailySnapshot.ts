@@ -139,6 +139,9 @@ export interface DailySnapshotPayload extends BacklogBuckets {
   doanhThuThang: number;
   kpis: DashboardKpisPayload;
   pivotByDim: Record<string, TrendRow[]>;
+  // true = pivotByDim.ky_thuat_vien da nhom theo KTV trien khai (2026-10-22). Snapshot cu (thieu) -> route /pivot tinh song
+  // rieng dim KTV, tranh hien so theo tram cu toi het ngay.
+  pivotKtvTrienKhai?: boolean;
   revenueByKhuVuc: { totals: unknown; byDim: unknown[] };
   revenueByHang: { totals: unknown; byDim: unknown[] };
   revenueByKtv: { totals: unknown; byDim: unknown[] };
@@ -448,6 +451,7 @@ export async function computeSnapshotPayload(db: D1Database, roleVariant: RoleVa
     doanhThuThang: doanhThuRow?.tong ?? 0,
     kpis,
     pivotByDim,
+    pivotKtvTrienKhai: true,
     revenueByKhuVuc,
     revenueByHang,
     revenueByKtv,

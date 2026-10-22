@@ -177,6 +177,8 @@ export async function computeDashboardKpis(db: D1Database, params: DashboardFilt
   };
 }
 
+export const PIVOT_KTV_TRIEN_KHAI_EXPR = "COALESCE(ktv_trien_khai, ky_thuat_vien)";
+
 export const PIVOT_DIMS: Record<string, string> = {
   khu_vuc: "khu_vuc",
   tinh: "tinh",
@@ -194,7 +196,12 @@ export async function computeDashboardPivot(
   scope: string[] | null,
 ): Promise<{ rows: TrendRow[] }> {
   // "tinh" -> cap tho (tinh, tinh_moi), frontend gom theo che do "Dia gioi cu / moi" (filterParams.ts dimGroupExpr).
-  const dim = dimGroupExpr(PIVOT_DIMS[params.dimKey ?? "khu_vuc"] ?? "khu_vuc", "");
+  // "ky_thuat_vien" (CHOT 2026-10-22, chu he thong): nhom theo KTV TRIEN KHAI - tram nhieu nguoi (vd "(bhptdv.mn) Tram Ho Chi
+  // Minh") tach ra tung KTV thuc su xu ly (case_dvbh.ktv_trien_khai, migration 0135, chi ca Odoo); ca khong co thi giu tram.
+  const dim =
+    params.dimKey === "ky_thuat_vien"
+      ? PIVOT_KTV_TRIEN_KHAI_EXPR
+      : dimGroupExpr(PIVOT_DIMS[params.dimKey ?? "khu_vuc"] ?? "khu_vuc", "");
   const { from, sql, binds } = buildDashboardFilterClause(params, scope);
 
   const { results } = await db.prepare(

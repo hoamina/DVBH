@@ -4757,3 +4757,12 @@ Yêu cầu: cột JSON `linh_kien_loi` khi tải về tự tách thành các c�
   mỗi linh kiện 12 cột "LK lỗi N - <trường>" (mã, tên, nhóm LK, nguồn gốc lỗi, hiện tượng, mô tả hiện tượng, nhóm
   lỗi, nguyên nhân, mô tả nguyên nhân, cách thức xử lý, mô tả cách xử lý, ghi chú), N = số linh kiện nhiều nhất trong
   file; ca ít linh kiện hơn để trống. Cột JSON gốc đổi thành "Số linh kiện lỗi". Xử lý hoàn toàn trên máy người dùng.
+
+## 2026-10-22 — Tổng quát: pivot theo KTV tách trạm nhiều người thành KTV triển khai (v1.476)
+
+- Chủ hệ thống: trạm "(bhptdv.mn) Trạm Hồ Chí Minh - BH PTDV Miền Nam" hiện 1 dòng gộp, muốn thấy từng KTV trong trạm.
+- `computeDashboardPivot` dim ky_thuat_vien → `COALESCE(ktv_trien_khai, ky_thuat_vien)` (ca không có KTV triển khai giữ tên
+  trạm). Snapshot 08:00 thêm cờ `pivotKtvTrienKhai`; snapshot cũ thiếu cờ → route /pivot tính sống riêng dim KTV (không tái
+  chốt giữa ngày). Cache key `dashboard/pivot-v2`. Chỉ đổi pivot Tổng quát - các báo cáo KTV khác vẫn theo ky_thuat_vien.
+- Số tháng 10 production: trạm tách thành Lò Văn Thanh 366, Điện máy KP 69, Trương Xuân Hiếu 68, Hoàng Văn Phương 2, còn 2
+  ca đứng tên trạm (không có KTV triển khai).

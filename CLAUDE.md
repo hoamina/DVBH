@@ -196,7 +196,8 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   when the "Đội ngũ/Trạm" station account (`ky_thuat_vien` = "Trạm triển khai") has several people; NULL = same as
   `ky_thuat_vien`. Computed in the auto qs pipeline (`ocrm/transform_odoo.py ktv_trien_khai()`), sent only with
   `ODOO_SEND_KTV_TRIEN_KHAI=true`. Read it as `COALESCE(ktv_trien_khai, ky_thuat_vien)`; reports still group by
-  `ky_thuat_vien` until the owner decides otherwise.
+  `ky_thuat_vien` until the owner decides otherwise — exception (owner, 2026-10-22): Tổng quát pivot dim KTV
+  (`dashboardCompute.ts PIVOT_KTV_TRIEN_KHAI_EXPR`, snapshot flag `pivotKtvTrienKhai`, cache key `dashboard/pivot-v2`).
 - **"Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (`lib/phamVi.ts`, migration 0136, 2026-10-13)**: TopBar toggle that
   only affects VIEWING reports/lists. The frontend `api/client.ts` appends `?pv=nskx|khong_nskx` to every GET (except
   `/notifications`, `/auth`); `phamViMiddleware` then swaps `c.env.DB` for a wrapper that **rewrites table names in

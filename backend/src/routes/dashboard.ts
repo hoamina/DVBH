@@ -192,9 +192,10 @@ dashboard.get("/pivot", async (c) => {
   };
   if (isDefaultReportParams(params)) {
     const snap = await getSnapshotForUser(c.env.DB, c.get("user"));
-    if (snap) return c.json({ rows: snap.payload.pivotByDim[dimKey] ?? [] });
+    if (snap && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return c.json({ rows: snap.payload.pivotByDim[dimKey] ?? [] });
   }
-  const key = buildReportKey("dashboard/pivot", params, scope);
+  // "v2" (2026-10-22): dim KTV doi sang KTV trien khai - bo envelope cache cu nhom theo tram.
+  const key = buildReportKey("dashboard/pivot-v2", params, scope);
   const payload = await cachedReport(c.env.DB, key, ["cases"], () => computeDashboardPivot(c.env.DB, params, scope));
   return c.json(payload);
 });
