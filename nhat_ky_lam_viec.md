@@ -4766,3 +4766,15 @@ Yêu cầu: cột JSON `linh_kien_loi` khi tải về tự tách thành các c�
   chốt giữa ngày). Cache key `dashboard/pivot-v2`. Chỉ đổi pivot Tổng quát - các báo cáo KTV khác vẫn theo ky_thuat_vien.
 - Số tháng 10 production: trạm tách thành Lò Văn Thanh 366, Điện máy KP 69, Trương Xuân Hiếu 68, Hoàng Văn Phương 2, còn 2
   ca đứng tên trạm (không có KTV triển khai).
+
+## 2026-10-22 — Tài khoản KD KRF lọc tổng / dữ liệu TEST → "Kinh doanh bán lẻ KRF", không tính báo cáo (v1.477, migration 0141)
+
+- Phát hiện: "(kdloctong.krf) KD KRF Lọc tổng" + "(TEST.ER) Trạm Hưng Yên- Dữ liệu TEST" (ca Odoo) rơi vào "(cxk.ktv3t) Chưa xác
+  định khu vực"; tên cũ không mã "KD KRF Lọc tổng" ở MB2, "Trạm Hưng Yên- Dữ liệu TEST" ở MB3 → đều đang tính vào báo cáo.
+- Chủ hệ thống chốt: chuyển hết về "(teamkdbl.krf) Kinh doanh bán lẻ KRF" (có sẵn trong KHU_VUC_AN_KHOI_BAO_CAO).
+- Migration 0141: 76 ca (32 Chưa xác định / 21 MB2 / 23 MB3, gồm ca đã hủy) → KRF bán lẻ, đánh dấu như sửa tay (khu_vuc_sua_by =
+  "Quy tắc hệ thống…", khu_vuc_crm giữ giá trị cũ) để import sau không ghi đè; đổi updated_at để self-heal tạo lại chunk R2
+  "đã đóng"; bump domain cases.
+- Ca mới: `lib/khuVucTheoKtv.ts laKtvVeKrfBanLe` (mã "(kdloctong.krf)"/"(TEST.ER)" hoặc 2 tên cũ, không phân biệt hoa thường /
+  dấu cách quanh "-") áp trong `processImport` trước khi tính crm_hash. Thử local: ca mới (TEST.ER) gửi MB1 → KRF bán lẻ; KTV
+  khác giữ MB1. Bản chốt 08:00 hôm nay còn tính các ca này, từ 23/10 hết.

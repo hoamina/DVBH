@@ -1,3 +1,4 @@
+import { laKtvVeKrfBanLe, KHU_VUC_KRF_BAN_LE } from "./khuVucTheoKtv";
 import {
   BUSINESS_FIELDS,
   OPTIONAL_FIELDS,
@@ -269,6 +270,8 @@ export async function processImport(
   const canKhaoSatIds = new Set<string>();
 
   for (const incoming of valid) {
+    // Quy tac khu vuc theo tai khoan KTV (lib/khuVucTheoKtv.ts) - TRUOC khi tinh crm_hash de hash on dinh qua cac lan import.
+    if (laKtvVeKrfBanLe(incoming.ky_thuat_vien)) incoming.khu_vuc = KHU_VUC_KRF_BAN_LE;
     const existing = existingById.get(incoming.id);
     const normalizedFlags = Object.fromEntries(
       VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f])]),
