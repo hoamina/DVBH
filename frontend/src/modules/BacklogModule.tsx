@@ -1418,7 +1418,10 @@ export function BacklogModule({
     pageSize,
     sortBy,
     sortDir,
-    snapshot_0800: listFromSnapshot0800 && (dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton") ? true : undefined,
+    // Nhom CEO luon doc snapshot (ke ca khi nhomKey duoc khoi phuc tu localStorage sau khi tai lai trang, luc
+    // listFromSnapshot0800 con mac dinh false).
+    snapshot_0800:
+      (listFromSnapshot0800 || nhomKey === "can-giai-trinh:ceo") && (dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton") ? true : undefined,
     ...sharedFilterParams,
     ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
     nhom_kh: dsTab !== "da-dong" ? nhomKhFilter || undefined : undefined,
@@ -2453,7 +2456,9 @@ export function BacklogModule({
                 setNhomKey(v);
                 // "canh-bao-ton:" chi co du lieu dong bang (khong co nhanh tinh song) - bat buoc
                 // snapshot_0800 du chon thu cong tu dropdown hay bam StatCard (xem goToDanhSach).
-                setListFromSnapshot0800(v.startsWith("canh-bao-ton:"));
+                // "can-giai-trinh:ceo" (2026-10-22) cung vay - bucket canhBaoCap2 chi co trong snapshot 08:00, chon tu
+                // dropdown ma khong bat snapshot thi backend tra INVALID_TAB ("Khong tai duoc du lieu").
+                setListFromSnapshot0800(v.startsWith("canh-bao-ton:") || v === "can-giai-trinh:ceo");
                 setDsTuoiTu("");
                 setPage(1);
               }}

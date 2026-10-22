@@ -4734,3 +4734,10 @@ Yêu cầu: cho Giám sát khu vực được giải trình hoặc đóng tranh 
   quy tắc không quay lại giai đoạn GS). "Đóng hoàn thành" vẫn bắt buộc Kết quả xử lý + Mức hài lòng.
 - `TienTrinhPanel.tsx`: GS khu vực thấy "+ Thêm log" ở giai đoạn CSKH, dropdown chỉ 2 trạng thái đóng (nếu đang được
   chỉ định "Đang chờ người xử lý" thì giữ thêm các trạng thái CSKH như trước).
+
+## 2026-10-22 — Sửa: Danh sách chi tiết chọn nhóm "CEO cần giải trình" báo "Không tải được dữ liệu" (v1.473)
+
+- Nguyên nhân: chọn nhóm từ ô chọn (hoặc khôi phục nhóm đã lưu sau khi tải lại trang) không bật snapshot_0800 - chỉ nhóm
+  canh-bao-ton được bật; nhóm "ceo" chỉ có trong snapshot 08:00 nên backend trả INVALID_TAB.
+- Sửa (BacklogModule.tsx): ô chọn bật snapshot cho "can-giai-trinh:ceo"; tham số danh sách luôn gửi snapshot_0800 khi nhóm là
+  ceo. Thử local: tải lại với nhóm ceo đã lưu → 1416 dòng; chọn tổng → 1426, chọn lại CEO → 1416, không lỗi.
