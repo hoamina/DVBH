@@ -47,6 +47,53 @@ interface EtxErrorBody {
   loi?: { ma?: string; thong_diep?: string };
 }
 
+// CHOT 2026-10-23: API ETX/Lada KHONG co truong ma linh kien rieng - nhan vien Lada go tay ma vao ghi_chu, 2 kieu da
+// gap: "[3004030378 - Vi mạch DK-S18]" va "... DK-S86-V1 [3004030209]". Tach chuoi trong ngoac vuong (truoc " - " hoac
+// "]"), CHI nhan neu dung la ma co trong danh muc linh_kien (FK giai_trinh.linh_kien_thieu + click xem Hồ sơ linh kiện)
+// -> ghi vao cot linh_kien_thieu giong giai trinh nhap tren DVBH (tai ve theo cot "LK thiếu", vao "Ca thiếu linh kiện").
+const MA_LK_TRONG_NGOAC = /\[\s*([A-Za-z0-9._]{5,})\s*(?:[-–]|\])/g;
+
+function maLinhKienUngVien(text: string | null | undefined): string[] {
+  if (!text) return [];
+  return Array.from(text.matchAll(MA_LK_TRONG_NGOAC), (m) => m[1]);
+}
+
+/** Ma ung vien nao THAT SU ton tai trong danh muc linh_kien (1 truy van, json_each - khong gioi han 100 tham so). */
+async function maLinhKienHopLe(db: D1Database, ungVien: string[]): Promise<Set<string>> {
+  const uniq = [...new Set(ungVien)];
+  if (!uniq.length) return new Set();
+  const { results } = await db
+    .prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify(uniq))
+    .all<{ ma_linh_kien: string }>();
+  return new Set(results.map((r) => r.ma_linh_kien));
+}
+
+function chonMaLinhKien(text: string | null | undefined, hopLe: Set<string>): string {
+  return maLinhKienUngVien(text).find((m) => hopLe.has(m)) ?? "";
+}
+
+/** Dien bu linh_kien_thieu cho cac dong ETX da ghi TRUOC khi co tinh nang tach ma (hoac truoc khi ma duoc them vao
+ * danh muc). PHAI chay truoc buoc INSERT moi lan dong bo: khoa chong trung (UNIQUE gom ca linh_kien_thieu) chi khop
+ * neu dong cu va dong tinh lai co CUNG gia tri - neu khong, cua so LOOKBACK_DAYS se ghi trung 1 dong nua. */
+async function dienBuMaLinhKienEtx(db: D1Database): Promise<number> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, noi_dung FROM giai_trinh
+       WHERE nguoi_giai_trinh = ? AND COALESCE(linh_kien_thieu, '') = '' AND noi_dung LIKE '%[%'`,
+    )
+    .bind(ETX_ACTOR_EMAIL)
+    .all<{ id: string; noi_dung: string | null }>();
+  if (!results.length) return 0;
+  const hopLe = await maLinhKienHopLe(db, results.flatMap((r) => maLinhKienUngVien(r.noi_dung)));
+  const stmts = results
+    .map((r) => ({ id: r.id, ma: chonMaLinhKien(r.noi_dung, hopLe) }))
+    .filter((r) => r.ma)
+    .map((r) => db.prepare("UPDATE giai_trinh SET linh_kien_thieu = ? WHERE id = ?").bind(r.ma, r.id));
+  for (let i = 0; i < stmts.length; i += CHUNK_SIZE_BATCH) await db.batch(stmts.slice(i, i + CHUNK_SIZE_BATCH));
+  return stmts.length;
+}
+
 function vnDateStr(offsetDays = 0): string {
   const ms = Date.now() + 7 * 60 * 60 * 1000 + offsetDays * 24 * 60 * 60 * 1000;
   return new Date(ms).toISOString().slice(0, 10);
@@ -170,6 +217,7 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
   }
 
   const activeLyDo = await loadActiveLyDoNames(db);
+  const soDongDienBuLk = await dienBuMaLinhKienEtx(db);
   const caseIdsCapNhat = new Set<string>();
   let soLichSuMoi = 0;
   let soLichSuTrung = 0;
@@ -187,6 +235,7 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
 
     const caseIds = dongRes.dong.map((d) => d.id_truy_xuat).filter(Boolean);
     const existingCaseIds = await findExistingCaseIds(db, caseIds);
+    const maLkHopLe = await maLinhKienHopLe(db, dongRes.dong.flatMap((d) => maLinhKienUngVien(d.ghi_chu)));
 
     const entries = dongRes.dong
       .filter((d) => d.id_truy_xuat && existingCaseIds.has(d.id_truy_xuat))
@@ -206,7 +255,7 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
           .prepare(
             `INSERT INTO giai_trinh (id, case_id, ly_do_cham, noi_dung, linh_kien_thieu, ngay_du_kien_hoan_thanh,
                ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan, nguoi_giai_trinh, ngay_giai_trinh)
-             VALUES (?, ?, ?, ?, '', ?, '', ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?)
              ON CONFLICT(case_id, ly_do_cham, nguoi_giai_trinh, ngay_giai_trinh, noi_dung, linh_kien_thieu,
                ngay_du_kien_hoan_thanh, ngay_yeu_cau_co_hang, ma_xuat_hang_lien_quan) DO NOTHING`,
           )
@@ -215,6 +264,7 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
             d.id_truy_xuat,
             lyDoCham,
             noiDungParts.join(" - "),
+            chonMaLinhKien(ghiChu, maLkHopLe),
             d.du_kien_xong || "",
             d.id_dat_linh_kien || "",
             ETX_ACTOR_EMAIL,
@@ -241,7 +291,7 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
     }
   }
 
-  if (soLichSuMoi > 0) await bumpVersions(db, ["giai_trinh"]);
+  if (soLichSuMoi > 0 || soDongDienBuLk > 0) await bumpVersions(db, ["giai_trinh"]);
 
   const ok = loiTungDoiTac.length === 0;
   await writeSummaryLog(db, {

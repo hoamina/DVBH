@@ -4788,3 +4788,13 @@ Phản hồi: đối tác không thấy danh sách ca tranh chấp/KN và luồn
   tranh chấp, HOẶC luồng còn tồn với nhóm luồng); thêm `ca_con_ton` (nghĩa cũ) + `luong_doi_tra` (con_ton, bước, tuổi,
   phát sinh, mail gần nhất — đọc hệ theodoidoimay, cache isolate 5 phút; lỗi → con_ton null + loi, vẫn coi là tồn).
 - `lib/luongDoiTraTon.ts`: `LuongTonRow` thêm `trang_thai`, `origin_at`. PARTNER_API_GUIDE §11.2 cập nhật.
+
+## 2026-10-23 — Giải trình tự động ETX/Lada: tách mã linh kiện thiếu ra cột riêng (v1.479)
+Yêu cầu: giải trình thiếu linh kiện kéo từ Lada có mã linh kiện riêng không — muốn tách ra như giải trình trên DVBH
+(tải về theo cột LK thiếu, bấm xem thông tin linh kiện).
+- Kiểm tra: API ETX/Lada (API_B2B_giaitrinh v2.md) KHÔNG có trường mã linh kiện; nhân viên Lada gõ tay mã vào
+  `ghi_chu` (~10/229 dòng thiếu linh kiện có mã), 2 kiểu: `[3004030378 - Vi mạch DK-S18]`, `… [3004030209]`.
+- `lib/etxGiaiTrinhSync.ts`: tách chuỗi trong ngoặc vuông, chỉ nhận nếu là mã có trong `linh_kien` → ghi
+  `giai_trinh.linh_kien_thieu` (dòng mới) + `dienBuMaLinhKienEtx` điền bù các dòng ETX cũ, chạy TRƯỚC bước INSERT mỗi
+  lần đồng bộ (khóa chống trùng gồm cả linh_kien_thieu — không điền bù thì cửa sổ 3 ngày sẽ ghi trùng).
+- Hạn chế: chỉ tách được khi Lada có ghi mã; muốn đầy đủ cần Lada bổ sung trường mã linh kiện vào API.
