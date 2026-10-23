@@ -4805,3 +4805,15 @@ Yêu cầu: giải trình thiếu linh kiện kéo từ Lada có mã linh kiện
 - `GET /api/dashboard/pivot` nhận `dg_loc` → `computeDashboardPivot` áp `diaGioiLoc` (filterParams.ts). Có lọc tỉnh thì
   bỏ qua số chốt 08:00, tính sống qua `cachedReport` (key gồm dg_loc, domain cases). Chỉ áp cho bảng pivot, không đổi
   KPI / biểu đồ KTV.
+
+## 2026-10-23 — Quản lý khảo sát: cột "KTV đang loại trừ" trong báo cáo (v1.481)
+Yêu cầu: (1) theo kỳ báo cáo (vd tháng 10 → ngày cuối 31/10) xác định KTV nằm trong danh sách loại trừ — thêm cột
+trạng thái; lọc theo khu vực/tỉnh thì đếm số đang loại trừ. (2) Kiểm tra file tải về đã có cột tổng ca mới mở / đã đóng.
+- `routes/survey.ts computeSurveyKhuVucReport`: mốc = ngày cuối kỳ (tháng hoặc ngày cuối khoảng ngày gọi); KTV đang loại
+  trừ = có dòng `khao_sat_loai_tru` với tu_ngay ≤ mốc ≤ den_ngay (khớp tiền tố "(mã)"). Mỗi dòng trả `ktv_loai_tru` (tên),
+  `so_ktv_loai_tru`; nhóm KTV thêm `loai_tru` ("Đang loại trừ: 120 phút (đến dd/mm/yyyy)"). Nhóm khu vực/tỉnh: KTV thuộc
+  nhóm = có ca mở trong kỳ ở nhóm. Cache key v9 + domain `khao_sat_loai_tru`. Trả thêm `moc_loai_tru`.
+- `SurveyModule.tsx`: cột "Loại trừ"/"KTV đang loại trừ" sau "Ca CRM đã đóng"; dòng Tổng cộng và gộp theo tỉnh HỢP danh
+  sách KTV (không cộng trùng); file Excel thêm 3 cột (số, trạng thái, danh sách KTV).
+- (2) File Excel đã có sẵn "Ca CRM mở mới" (`tong_tiep_nhan`) + "Ca CRM đã đóng" (`tong_hoan_thanh`) — không cần sửa.
+- Deploy từ git worktree sạch (thư mục làm việc đang có code chưa commit của phiên khác — ratchet.ts/migration 0142).

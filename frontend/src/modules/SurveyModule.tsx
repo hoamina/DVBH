@@ -119,6 +119,11 @@ export interface CanKhaoSatRow {
 
 interface SurveyBaoCaoRow {
   nhom: string;
+  // KTV dang bi "Danh sach loai tru" tai ngay cuoi ky bao cao (backend computeSurveyKhuVucReport, 2026-10-23) - ten KTV de
+  // gop dong (Tinh/Tong cong) khong dem trung; "loai_tru" = mo ta trang thai (chi khi nhom theo KTV).
+  ktv_loai_tru?: string[];
+  so_ktv_loai_tru?: number;
+  loai_tru?: string;
   tong_tiep_nhan: number;
   tong_hoan_thanh: number;
   nghi_ngo_120p: number;
@@ -188,6 +193,9 @@ const SURVEY_BAO_CAO_EXPORT_LABELS: Record<string, string> = {
   nhom: "Nhóm",
   tong_tiep_nhan: "Ca CRM mở mới",
   tong_hoan_thanh: "Ca CRM đã đóng",
+  so_ktv_loai_tru: "Số KTV đang loại trừ",
+  loai_tru: "Trạng thái loại trừ",
+  ktv_loai_tru: "KTV đang loại trừ",
   tong_nghi_ngo: "Tổng nghi ngờ",
   tong_vi_pham: "Tổng vi phạm",
   giai_trinh_ktv: "KTV giải trình",
@@ -544,7 +552,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const { data: baoCaoKhuVuc, refetch: refetchBaoCaoKhuVuc } = useQuery({
     queryKey: ["survey-bao-cao-khu-vuc", reportDim, khuVucFilter, dgParam, ktvFilter, nguoiKhaoSatFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
     queryFn: () =>
-      api.get<{ rows: SurveyBaoCaoRow[]; thang: string }>(
+      api.get<{ rows: SurveyBaoCaoRow[]; thang: string; moc_loai_tru?: string }>(
         `/survey/bao-cao-khu-vuc${buildQuery({
           dim: reportDim,
           khu_vuc: khuVucFilter,
@@ -607,8 +615,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     const khao_sat_that_bai = sum("khao_sat_that_bai");
     const cho_khao_sat_lai = sum("cho_khao_sat_lai");
     const bo_qua_khong_khao_sat = sum("bo_qua_khong_khao_sat");
+    // KTV dang loai tru: HOP (khong cong) - 1 KTV lam o nhieu nhom chi dem 1 lan o dong gop.
+    const ktv_loai_tru = [...new Set(rows.flatMap((r) => r.ktv_loai_tru ?? []))];
     const row: SurveyBaoCaoRow = {
       nhom,
+      ktv_loai_tru,
+      so_ktv_loai_tru: ktv_loai_tru.length,
       tong_tiep_nhan,
       tong_hoan_thanh,
       nghi_ngo_120p,
@@ -1115,7 +1127,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 size="sm"
                 onClick={() =>
                   exportRowsToExcel(
-                    reportDim === "khu_vuc" ? sortedBaoCaoRows.map((r) => ({ ...r, nhom: shortKhuVuc(r.nhom) })) : sortedBaoCaoRows,
+                    sortedBaoCaoRows.map((r) => ({
+                      ...r,
+                      nhom: reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom,
+                      so_ktv_loai_tru: r.so_ktv_loai_tru ?? 0,
+                      loai_tru: r.loai_tru ?? "",
+                      ktv_loai_tru: (r.ktv_loai_tru ?? []).join("\n"),
+                    })),
                     "bao_cao_khao_sat_khu_vuc.xlsx",
                     "Data",
                     SURVEY_BAO_CAO_EXPORT_LABELS,
@@ -1219,7 +1237,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th rowSpan={3} className="py-2 pr-3 align-bottom">{nhanDimBaoCao(reportDim)}</th>
-                    <th colSpan={33} className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-50)] text-[var(--ocean-600)]" title="Loc va nhom theo thoi_gian_cskh_tiep_nhan (ngay ca duoc mo)">
+                    <th colSpan={34} className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-50)] text-[var(--ocean-600)]" title="Loc va nhom theo thoi_gian_cskh_tiep_nhan (ngay ca duoc mo)">
                       Tính toán theo thời gian mở ca
                     </th>
                     <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)] bg-slate-100" title="Loc va nhom theo ngay_gio_thuc_hien (ngay CSKH thuc hien cuoc goi)">
@@ -1232,6 +1250,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
                       <ThInfo label="Ca CRM đã đóng" info="Số ca có 'Thời gian hoàn thành' nằm trong kỳ lọc - khác mốc thời gian với cột 'Ca CRM mở mới' bên cạnh." />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo
+                        label={reportDim === "ky_thuat_vien" ? "Loại trừ" : "KTV đang loại trừ"}
+                        info={`KTV nằm trong "Danh sách loại trừ" tại ngày cuối kỳ báo cáo${baoCaoKhuVuc?.moc_loai_tru ? ` (${baoCaoKhuVuc.moc_loai_tru.split("-").reverse().join("/")})` : ""}. Nhóm theo KTV: trạng thái + loại lỗi được loại trừ. Nhóm theo khu vực/tỉnh: số KTV đang loại trừ trong số KTV có ca mở trong kỳ ở nhóm đó (mỗi KTV đếm 1 lần ở dòng Tổng cộng).`}
+                      />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
                       <ThInfo label="% KTV chủ động 120'" info="(Ca CRM mở mới − Nghi ngờ 120 phút) / Ca CRM mở mới × 100 - tỷ lệ ca KHÔNG bị nghi ngờ lỗi 120 phút." />
@@ -1317,6 +1341,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3">Tổng cộng</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_tiep_nhan}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_hoan_thanh}</td>
+                      <td className="py-2 pr-3 font-mono">{baoCaoTotal.so_ktv_loai_tru || ""}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_ktv_chu_dong_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono bg-[var(--amber-100)] text-[var(--amber-700)]">{baoCaoTotal.cho_khao_sat}</td>
@@ -1362,6 +1387,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       <td className="py-2 pr-3 font-semibold">{reportDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
                       <td className="py-2 pr-3 font-mono">{r.tong_tiep_nhan}</td>
                       <td className="py-2 pr-3 font-mono">{r.tong_hoan_thanh}</td>
+                      <td className="py-2 pr-3 text-xs" title={(r.ktv_loai_tru ?? []).join("\n")}>
+                        {reportDim === "ky_thuat_vien" ? (
+                          r.loai_tru ? <span className="text-[var(--amber-700)] font-semibold">{r.loai_tru}</span> : ""
+                        ) : (
+                          <span className="font-mono">{r.so_ktv_loai_tru || ""}</span>
+                        )}
+                      </td>
                       <td className="py-2 pr-3 font-mono">{r.ty_le_ktv_chu_dong_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono">{r.ty_le_da_goi_hen_lai_toan_he_thong}%</td>
                       <td className="py-2 pr-3 font-mono font-semibold bg-[var(--amber-100)] text-[var(--amber-700)]">

@@ -1,3 +1,4 @@
+import { extractMaKtv } from "../lib/ktvCode";
 import { Hono } from "hono";
 import type { Env, LoaiLoi } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -598,6 +599,11 @@ export interface SurveyKhuVucParams {
 
 interface SurveyKhuVucRow {
   nhom: string;
+  // "Danh sach loai tru" (2026-10-23): KTV dang bi loai tru tai NGAY CUOI ky bao cao - ten KTV (de frontend gop dong
+  // Tinh/Tong khong dem trung) + so luong; voi dim KTV them "loai_tru" = mo ta trang thai.
+  ktv_loai_tru?: string[];
+  so_ktv_loai_tru?: number;
+  loai_tru?: string;
   tong_tiep_nhan: number;
   tong_hoan_thanh: number;
   nghi_ngo_120p: number;
@@ -1053,7 +1059,59 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
     row.ty_le_goi_thanh_cong = pct(row.goi_thanh_cong, row.tong_cuoc_goi);
   }
 
-  return { rows: Array.from(map.values()).sort((a, b) => b.tong_tiep_nhan - a.tong_tiep_nhan), thang };
+  // "Danh sach loai tru" (CHOT 2026-10-23): moc = NGAY CUOI cua ky bao cao (thang 10 -> 31/10; loc theo ngay goi -> ngay
+  // cuoi khoang). KTV "dang loai trừ" = co >= 1 dong khao_sat_loai_tru voi tu_ngay <= moc <= den_ngay (khop ma KTV la
+  // tien to "(ma)" cua ky_thuat_vien - giong loaiTruExistsSql). Nhom khu vuc/tinh: KTV thuoc nhom = co ca MO trong ky o
+  // nhom do (cung tap ca voi cot "Ca CRM mo moi").
+  const mocLoaiTru = new Date(Date.parse(`${end.slice(0, 10)}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const { results: ltRows } = await db
+    .prepare("SELECT ma_ktv, loai_loi, den_ngay FROM khao_sat_loai_tru WHERE tu_ngay <= ? AND den_ngay >= ?")
+    .bind(mocLoaiTru, mocLoaiTru)
+    .all<{ ma_ktv: string; loai_loi: string; den_ngay: string }>();
+  if (ltRows.length) {
+    const NHAN_LOI: Record<string, string> = { "Loi 120 phut": "120 phút", "Hen qua 24h": "Quá 24h", "Loi lo ke hoach": "Lỡ kế hoạch", "KH hen lai": "Hẹn lại" };
+    const ltByMa = new Map<string, { loi: Set<string>; den: string }>();
+    for (const r of ltRows) {
+      const e = ltByMa.get(r.ma_ktv) ?? { loi: new Set<string>(), den: r.den_ngay };
+      e.loi.add(NHAN_LOI[r.loai_loi] ?? r.loai_loi);
+      if (r.den_ngay > e.den) e.den = r.den_ngay;
+      ltByMa.set(r.ma_ktv, e);
+    }
+    const laKtvDim = dimColRaw === "ky_thuat_vien";
+    const ktvTheoNhom = new Map<string, string[]>();
+    if (!laKtvDim) {
+      const { results } = await db
+        .prepare(
+          `SELECT ${dimCol} as nhom, c.ky_thuat_vien as ktv
+           FROM case_hieu_luc c
+           WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?
+             AND ${dimCol} IS NOT NULL AND c.ky_thuat_vien IS NOT NULL${commonFilterSql}
+           GROUP BY ${dimCol}, c.ky_thuat_vien`,
+        )
+        .bind(start, end, ...commonFilterBinds)
+        .all<{ nhom: string; ktv: string }>();
+      for (const r of results) {
+        const ma = extractMaKtv(r.ktv);
+        if (!ma || !ltByMa.has(ma)) continue;
+        const arr = ktvTheoNhom.get(r.nhom) ?? [];
+        arr.push(r.ktv);
+        ktvTheoNhom.set(r.nhom, arr);
+      }
+    }
+    const fmt = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+    for (const row of map.values()) {
+      if (laKtvDim) {
+        const e = ltByMa.get(extractMaKtv(row.nhom) ?? "");
+        row.ktv_loai_tru = e ? [row.nhom] : [];
+        row.loai_tru = e ? `Đang loại trừ: ${[...e.loi].join(", ")} (đến ${fmt(e.den)})` : "";
+      } else {
+        row.ktv_loai_tru = ktvTheoNhom.get(row.nhom) ?? [];
+      }
+      row.so_ktv_loai_tru = row.ktv_loai_tru.length;
+    }
+  }
+
+  return { rows: Array.from(map.values()).sort((a, b) => b.tong_tiep_nhan - a.tong_tiep_nhan), thang, moc_loai_tru: mocLoaiTru };
 }
 
 // GET /api/survey/bao-cao-khu-vuc?dim=&thang=&khu_vuc=&tinh=&quan_huyen=&ky_thuat_vien=&nguoi_khao_sat=&nguon_crm=&doi_tac=&hang=&nhom_san_pham=&nhom_kh=&nganh=
@@ -1081,8 +1139,9 @@ survey.get("/bao-cao-khu-vuc", async (c) => {
   }
   // "bao-cao-khu-vuc-v7" (2026-09-27): them "da_goi_120p_hen_thanh_cong" + sua JOIN vi_pham (chi lay
   // dong moi nhat/case+loai_loi, tranh dem trung) - doi hau to key nhu lan "-v6" truoc.
-  const key = buildReportKey("survey/bao-cao-khu-vuc-v8", params, scope);
-  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
+  // "-v9" (2026-10-23): them cot KTV dang loai tru (doc khao_sat_loai_tru -> them domain khao_sat_loai_tru).
+  const key = buildReportKey("survey/bao-cao-khu-vuc-v9", params, scope);
+  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS, "khao_sat_loai_tru"], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
   return c.json(payload);
 });
 
