@@ -51,6 +51,10 @@ interface DaChieuRow {
   soGsGiaiTrinh: number;
   soChoGiaiTrinh: number;
   tyLeGiaiTrinh: number;
+  // 2026-10-24: ca dong trong thang (Hoàn thành + Không hoàn thành XLSC) + ty le chot loi = SL da chot / ca dong.
+  // null khi phan tich theo "Kết quả cấp 1" (thuoc tinh cua vi pham, khong gan voi ca dong).
+  soCaDong: number | null;
+  tyLeChotLoi: number | null;
 }
 
 interface DiemTheRow {
@@ -435,8 +439,14 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
               variant="ghost"
               size="sm"
               onClick={() =>
-                exportRowsToExcel(daChieu?.rows ?? [], `bao_cao_vi_pham_${nhom}.xlsx`, "Data", {
+                exportRowsToExcel(
+                  (daChieu?.rows ?? []).map((r) => ({ ...r, soCaDong: r.soCaDong ?? "", tyLeChotLoi: r.tyLeChotLoi ?? "" })),
+                  `bao_cao_vi_pham_${nhom}.xlsx`,
+                  "Data",
+                  {
                   nhom: nhomLabel,
+                  soCaDong: "Ca đóng trong tháng",
+                  tyLeChotLoi: "% Tỷ lệ chốt lỗi",
                   soGhiNhan: "SL ghi nhận",
                   soDaChot: "SL đã chốt",
                   soDaBo: "SL đã bỏ",
@@ -446,7 +456,8 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
                   soGsGiaiTrinh: "Ca GS đã giải trình",
                   soChoGiaiTrinh: "Ca chờ giải trình",
                   tyLeGiaiTrinh: "% Tỷ lệ giải trình",
-                })
+                  },
+                )
               }
             >
               ⬇ Xuất Excel
@@ -456,10 +467,14 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
             <thead>
               <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                 <th className="py-2 pr-3">{nhomLabel}</th>
+                <th className="py-2 pr-3" title="Số ca có thời gian hoàn thành trong tháng - gồm ca Hoàn thành và ca Không hoàn thành (hủy) XLSC. Không áp dụng khi phân tích theo Kết quả cấp 1.">
+                  Ca đóng trong tháng
+                </th>
                 <th className="py-2 pr-3">SL ghi nhận</th>
                 <th className="py-2 pr-3">SL đã chốt</th>
                 <th className="py-2 pr-3">SL đã bỏ</th>
                 <th className="py-2 pr-3">% Đã chốt</th>
+                <th className="py-2 pr-3" title="SL vi phạm đã chốt / Ca đóng trong tháng × 100">Tỷ lệ chốt lỗi</th>
                 <th className="py-2 pr-3">Tổng điểm thẻ</th>
                 <th className="py-2 pr-3">Ca KTV đã giải trình</th>
                 <th className="py-2 pr-3">Ca GS đã giải trình</th>
@@ -471,12 +486,14 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
               {(daChieu?.rows ?? []).map((r) => (
                 <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
                   <td className="py-2 pr-3 font-semibold">{nhom === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
+                  <td className="py-2 pr-3 font-mono">{r.soCaDong ?? "—"}</td>
                   <td className="py-2 pr-3 font-mono">{r.soGhiNhan}</td>
                   <td className="py-2 pr-3 font-mono">{r.soDaChot}</td>
                   <td className="py-2 pr-3 font-mono">{r.soDaBo}</td>
                   <td className="py-2 pr-3 font-mono" style={{ backgroundColor: heatBg(r.tyLeDaChot) }}>
                     {r.tyLeDaChot}%
                   </td>
+                  <td className="py-2 pr-3 font-mono">{r.tyLeChotLoi == null ? "—" : `${r.tyLeChotLoi}%`}</td>
                   <td className="py-2 pr-3 font-mono">{r.tongDiemThe}</td>
                   <td className="py-2 pr-3 font-mono">{r.soKtvGiaiTrinh}</td>
                   <td className="py-2 pr-3 font-mono">{r.soGsGiaiTrinh}</td>
@@ -488,7 +505,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
               ))}
               {(daChieu?.rows ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                  <td colSpan={12} className="py-8 text-center text-[var(--ink-400)] text-sm">
                     Không có dữ liệu.
                   </td>
                 </tr>

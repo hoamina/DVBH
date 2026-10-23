@@ -210,6 +210,11 @@ export interface ViPhamBaoCaoDaChieuRow {
   soGsGiaiTrinh: number;
   soChoGiaiTrinh: number;
   tyLeGiaiTrinh: number;
+  // Them 2026-10-24: so ca DONG trong thang (thoi_gian_hoan_thanh trong thang: "Hoàn thành XLSC" + "Không hoàn thành
+  // XLSC" = ca huy CRM; ca Admin "huy bo" van loai qua view case_hieu_luc) + "Ty le chot loi" = soDaChot / soCaDong.
+  // null o chieu "ket_qua_cap_1" (thuoc tinh cua vi pham, khong gan duoc voi ca dong).
+  soCaDong: number | null;
+  tyLeChotLoi: number | null;
 }
 
 // Cac chieu nhom hop le cho GET /bao-cao-vi-pham/da-chieu?nhom=... - whitelist chong SQL injection
@@ -273,9 +278,33 @@ export async function computeViPhamBaoCaoDaChieu(
       so_cho_giai_trinh: number;
     }>();
 
+  // So ca dong trong thang theo CUNG chieu nhom + cung bo loc ca (khu vuc/KTV/nhom KH/nguon CRM/scope), khong ap loc
+  // ket_qua_cap_1 (loc cua vi pham). Nhom chi co ca dong ma khong co vi pham van hien (ty le chot loi 0%).
+  const coCaDong = params.nhom !== "ket_qua_cap_1";
+  const caDongByNhom = new Map<string, number>();
+  if (coCaDong) {
+    const { results: dong } = await db
+      .prepare(
+        `SELECT ${dimExpr} as nhom, COUNT(*) as n
+         FROM case_hieu_luc c
+         WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${dimExpr} IS NOT NULL${caseFilter.sql}
+         GROUP BY ${dimExpr}`,
+      )
+      .bind(start, end, ...caseFilter.binds)
+      .all<{ nhom: string; n: number }>();
+    for (const r of dong) caDongByNhom.set(r.nhom, r.n);
+  }
+  const daCo = new Set(results.map((r) => r.nhom));
+  const chiCoCaDong = [...caDongByNhom.keys()]
+    .filter((k) => !daCo.has(k))
+    .map((nhom) => ({ nhom, so_ghi_nhan: 0, so_da_chot: 0, so_da_bo: 0, tong_diem_the: 0, so_ktv_giai_trinh: 0, so_gs_giai_trinh: 0, so_cho_giai_trinh: 0 }));
+  const pct1 = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+
   return {
-    rows: results.map((r) => ({
+    rows: [...results, ...chiCoCaDong].map((r) => ({
       nhom: r.nhom,
+      soCaDong: coCaDong ? (caDongByNhom.get(r.nhom) ?? 0) : null,
+      tyLeChotLoi: coCaDong ? pct1(r.so_da_chot, caDongByNhom.get(r.nhom) ?? 0) : null,
       soGhiNhan: r.so_ghi_nhan,
       soDaChot: r.so_da_chot,
       soDaBo: r.so_da_bo,

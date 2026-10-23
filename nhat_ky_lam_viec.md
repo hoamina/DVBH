@@ -4840,3 +4840,11 @@ máy cá nhân (không ảnh hưởng server); áp cho mọi nút tải file, ri
   mẫu); cột định danh theo tiêu đề cuối; cột mới chưa có trong mẫu nối cuối, mặc định bật.
 - Không áp cho file mẫu import danh sách loại trừ (ghi XLSX riêng, cần giữ cấu trúc).
 - Kèm deploy commit lịch hẹn Odoo của phiên khác (177f621) + áp migration 0142 (ADD COLUMN lich_hen) trước deploy.
+
+## 2026-10-24 — Báo cáo vi phạm, tab Đa chiều: cột "Ca đóng trong tháng" + "Tỷ lệ chốt lỗi" (v1.485)
+- `lib/viPhamBaoCao.ts computeViPhamBaoCaoDaChieu`: `soCaDong` = số ca có `thoi_gian_hoan_thanh` trong tháng (gồm
+  "Hoàn thành XLSC" + "Không hoàn thành XLSC" = ca hủy CRM; ca Admin "hủy bỏ" vẫn loại qua `case_hieu_luc`), cùng chiều
+  nhóm + bộ lọc ca (khu vực/KTV/nhóm KH/nguồn CRM/scope); `tyLeChotLoi` = SL đã chốt (chot_bo_cap_2 = 1) / ca đóng.
+  Nhóm chỉ có ca đóng (chưa có vi phạm) vẫn hiện, tỷ lệ 0%. Chiều "Kết quả cấp 1" → null ("—"). Cache key da-chieu-v3.
+- `BaoCaoViPhamModule.tsx`: 2 cột trên bảng + file Excel.
+- Ghi chú số liệu 10/2026: 356 vi phạm có lỗi, 329 còn chờ QC, mới chốt 1 → tỷ lệ chốt lỗi gần 0 cho tới khi QC chốt.

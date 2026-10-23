@@ -46,7 +46,8 @@ baoCaoViPham.get("/tong-quan", async (c) => {
 baoCaoViPham.get("/da-chieu", async (c) => {
   const scope = scopeByKhuVuc(c);
   const params = { ...readParams(c), nhom: c.req.query("nhom") };
-  const key = buildReportKey("bao-cao-vi-pham/da-chieu-v2", params, scope);
+  // "-v3" (2026-10-24): them so ca dong trong thang + ty le chot loi.
+  const key = buildReportKey("bao-cao-vi-pham/da-chieu-v3", params, scope);
   const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "vi_pham_giai_trinh", "settings"], () => computeViPhamBaoCaoDaChieu(c.env.DB, params, scope));
   return c.json(payload);
 });
