@@ -51,6 +51,9 @@ export interface CaseRow {
   // Migration 0142 - chi ca Odoo: toan bo lich su lich hen ky thuat (chuoi JSON LichHenItem[]).
   // "thoi_gian_hen_xu_ly" o tren van la lan hen GAN NHAT, khong doi.
   lich_hen?: string | null;
+  // Migration 0143 - chi ca Odoo: dem anh/video theo 5 nhom that cua Odoo (chuoi JSON SoLuongAnh).
+  // CHI so luong, khong phai link anh (link goc can dang nhap Odoo, link cong khai chi song ~15 phut).
+  so_luong_anh?: string | null;
   ngay_import: string;
   ngay_cap_nhat_gan_nhat: string;
   assigned_to: string | null;
@@ -667,6 +670,17 @@ export interface LichHenItem {
   ghi_chu: string | null;
   ngay_tao: string | null; // gio VN
   anh_bang_chung: { media_id: number; url: string; loai_file: string }[];
+}
+
+// So luong anh/video theo 5 nhom that cua Odoo (case_dvbh.so_luong_anh, migration 0143) - xem
+// components/CaseImageGallery.tsx parseSoLuongAnh(). CHI dem so luong, khong co link anh (xem types.ts
+// o tren).
+export interface SoLuongAnh {
+  ben_trong: number;
+  ben_ngoai: number;
+  bao_cao: number;
+  tem_serial: number;
+  bang_chung_huy: number;
 }
 
 // Don bao hanh linh kien tu Odoo (bang don_bao_hanh_odoo, migration 0122).

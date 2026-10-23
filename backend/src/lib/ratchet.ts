@@ -34,7 +34,10 @@ export const BUSINESS_FIELDS = [
 // "ktv_trien_khai" (2026-10-13, migration 0135): KTV that su xu ly ca (Odoo, tram nhieu nguoi) - "Trạm triển khai" = ky_thuat_vien.
 // "lich_hen" (2026-10-23, migration 0142): toan bo lich su lich hen ky thuat (JSON array, 1 phieu co the hen nhieu lan) -
 // "thoi_gian_hen_xu_ly" (BUSINESS_FIELDS) van la lan hen GAN NHAT, cot nay chi bo sung de UI hien thi lich su.
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen"] as const;
+// "so_luong_anh" (2026-10-23, migration 0143): object JSON dem anh/video theo 5 nhom that cua Odoo
+// (ben_trong/ben_ngoai/bao_cao/tem_serial/bang_chung_huy) - CHI dem so luong, khong phai link anh
+// (link goc can dang nhap Odoo, link cong khai chi song ~15 phut).
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh"] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
@@ -239,6 +242,7 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
   if (field === "link_hinh_anh") return parseLinkHinhAnh(incoming[field]);
   if (field === "linh_kien_loi") return normalizeLinhKienLoi(incoming[field]);
   if (field === "lich_hen") return normalizeLichHen(incoming[field]);
+  if (field === "so_luong_anh") return normalizeSoLuongAnh(incoming[field]);
   if ((OPTIONAL_FIELDS as readonly string[]).includes(field) && incoming[field] === "") return null;
   return incoming[field] ?? null;
 }
@@ -271,6 +275,33 @@ export function normalizeLichHen(rawValue: unknown): string | null {
     }
   }
   return Array.isArray(arr) && arr.length > 0 ? JSON.stringify(arr) : null;
+}
+
+const SO_LUONG_ANH_KEYS = ["ben_trong", "ben_ngoai", "bao_cao", "tem_serial", "bang_chung_huy"] as const;
+
+// "so_luong_anh": API gui 1 object dem (hoac chuoi JSON) {ben_trong, ben_ngoai, bao_cao, tem_serial,
+// bang_chung_huy} -> luu chuoi JSON; object rong/toan 0/khong hop le -> NULL. Khac normalizeLinhKienLoi/
+// normalizeLichHen o cho day la OBJECT (dem theo nhom), khong phai ARRAY (danh sach ban ghi).
+export function normalizeSoLuongAnh(rawValue: unknown): string | null {
+  let obj: unknown = rawValue;
+  if (typeof rawValue === "string") {
+    if (!rawValue.trim()) return null;
+    try {
+      obj = JSON.parse(rawValue);
+    } catch {
+      return null;
+    }
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  const rec = obj as Record<string, unknown>;
+  const out: Record<string, number> = {};
+  let total = 0;
+  for (const k of SO_LUONG_ANH_KEYS) {
+    const n = Number(rec[k]) || 0;
+    out[k] = n;
+    total += n;
+  }
+  return total > 0 ? JSON.stringify(out) : null;
 }
 
 // Phan hash cua OPTIONAL_FIELDS - chi cot CO GIA TRI moi duoc noi them (xem OPTIONAL_FIELDS).

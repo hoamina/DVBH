@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { SoLuongAnh } from "../types";
 
 // Loc trung URL ngay tai day (nguon dung chung cho ca tieu de dem so anh lan gallery ben duoi) -
 // du lieu CRM doi luc chua cung 1 URL lap lai nhieu lan trong 1 ca, giu nguyen thu tu xuat hien dau tien.
@@ -80,6 +81,28 @@ function authMediaUrl(url: string): string {
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 6;
 const ZOOM_DBLCLICK = 2.5;
+
+// "Số lượng ảnh" (case_dvbh.so_luong_anh, migration 0143) - dem anh/video theo 5 nhom that cua Odoo
+// (nguon Odoo CHUA co link anh xem duoc lau dai, xem types.ts) -> chi hien badge tom tat tong so, xem
+// CaseDetail.tsx. Tra null khi khong co/khong hop le/tong = 0 (an badge).
+export function parseSoLuongAnh(raw: string | null | undefined): SoLuongAnh | null {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw);
+    if (!o || typeof o !== "object") return null;
+    const out: SoLuongAnh = {
+      ben_trong: Number(o.ben_trong) || 0,
+      ben_ngoai: Number(o.ben_ngoai) || 0,
+      bao_cao: Number(o.bao_cao) || 0,
+      tem_serial: Number(o.tem_serial) || 0,
+      bang_chung_huy: Number(o.bang_chung_huy) || 0,
+    };
+    const total = out.ben_trong + out.ben_ngoai + out.bao_cao + out.tem_serial + out.bang_chung_huy;
+    return total > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
 
 export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null | undefined }) {
   const urls = parseLinkHinhAnh(linkHinhAnh);

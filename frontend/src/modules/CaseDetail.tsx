@@ -12,7 +12,7 @@ import { Tabs, type TabItem } from "../components/ui/Tabs";
 import { Modal } from "../components/ui/Modal";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { CacheBanner } from "../components/ui/CacheBanner";
-import { CaseImageGallery, parseLinkHinhAnh } from "../components/CaseImageGallery";
+import { CaseImageGallery, parseLinkHinhAnh, parseSoLuongAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
@@ -135,6 +135,21 @@ function caseStatusBadge(c: CaseRow) {
   if (!c.thoi_gian_hoan_thanh) return <Badge tone="amber">Đang tồn đọng</Badge>;
   if (c.tien_do_hoan_thanh === "Không hoàn thành XLSC") return <Badge tone="coral">Thất bại</Badge>;
   return <Badge tone="teal">Đã hoàn thành</Badge>;
+}
+
+// Badge tom tat "Số lượng ảnh" (case_dvbh.so_luong_anh, migration 0143, chi nguon Odoo) - anh CHUA
+// xem duoc tu dvbh (link goc can dang nhap Odoo, link cong khai chi song ~15 phut, xem types.ts) nen
+// chi hien SO LUONG de nguoi doc xac dinh nhanh case co anh gi, title la breakdown theo 5 nhom.
+function soLuongAnhBadge(c: CaseRow) {
+  const sl = parseSoLuongAnh(c.so_luong_anh);
+  if (!sl) return null;
+  const total = sl.ben_trong + sl.ben_ngoai + sl.bao_cao + sl.tem_serial + sl.bang_chung_huy;
+  const title = `Bên trong ${sl.ben_trong} · Bên ngoài ${sl.ben_ngoai} · Báo cáo ${sl.bao_cao} · Tem serial ${sl.tem_serial} · Bằng chứng hủy ${sl.bang_chung_huy} (nguồn Odoo, xem ảnh trực tiếp trên Odoo)`;
+  return (
+    <span title={title}>
+      <Badge tone="ocean">📷 {total} ảnh (Odoo)</Badge>
+    </span>
+  );
 }
 
 function parseFlexibleDbDate(v: string) {
@@ -2406,6 +2421,7 @@ export function CaseDetail({
           <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">Ca đối chiếu: {compareId}</div>
           {compareC && caseStatusBadge(compareC)}
           {compareC && mucDoBadge(compareC.muc_do)}
+          {compareC && soLuongAnhBadge(compareC)}
           {compareC &&
             computeCaseTickers(compareC, compareData?.giaiTrinh ?? [], compareData?.viPham ?? [], activeLyDo, compareData?.caLap).map((t, i) => (
               <Badge key={i} tone={t.tone}>
@@ -2790,6 +2806,7 @@ export function CaseDetail({
         <h3 className="font-display font-bold text-[var(--ink-900)] truncate">Chi tiết ca {caseId}</h3>
         {c && caseStatusBadge(c)}
         {c && mucDoBadge(c.muc_do)}
+        {c && soLuongAnhBadge(c)}
         {c?.huy_bo_at && (
           <Badge tone="gray" solid>
             🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
