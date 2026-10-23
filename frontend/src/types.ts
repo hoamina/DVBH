@@ -48,6 +48,9 @@ export interface CaseRow {
   huyen_cu?: string | null;
   xa_cu?: string | null;
   linh_kien_loi?: string | null;
+  // Migration 0142 - chi ca Odoo: toan bo lich su lich hen ky thuat (chuoi JSON LichHenItem[]).
+  // "thoi_gian_hen_xu_ly" o tren van la lan hen GAN NHAT, khong doi.
+  lich_hen?: string | null;
   ngay_import: string;
   ngay_cap_nhat_gan_nhat: string;
   assigned_to: string | null;
@@ -652,6 +655,18 @@ export interface LinhKienLoiItem {
   cach_thuc_xu_ly: string;
   mo_ta_cach_xu_ly?: string; // "Mô tả cách thức xử lý" (tu 2026-10-05)
   ghi_chu: string;
+}
+
+// 1 lan hen ky thuat cua ca (nguon Odoo, case_dvbh.lich_hen, migration 0142) - xem
+// components/LichHenPanel.tsx. "nguoi_hen_lich": "technician" | "customer".
+export interface LichHenItem {
+  stt: number;
+  thoi_gian_hen: string | null; // gio VN
+  nguoi_hen_lich: "technician" | "customer" | null;
+  trang_thai: "active" | "moved" | "cancelled" | null;
+  ghi_chu: string | null;
+  ngay_tao: string | null; // gio VN
+  anh_bang_chung: { media_id: number; url: string; loai_file: string }[];
 }
 
 // Don bao hanh linh kien tu Odoo (bang don_bao_hanh_odoo, migration 0122).

@@ -32,7 +32,9 @@ export const BUSINESS_FIELDS = [
 // "id_khach_hang" (them 2026-10-08, migration 0127): cot "ID khách hàng" cua QuickSight CRM (Odoo chua co) -
 // khoa DUY NHAT de noi ca moi (doi may cho KH) voi ca goc trong bao cao doi tra (he theodoidoimay). KHONG tra theo SDT.
 // "ktv_trien_khai" (2026-10-13, migration 0135): KTV that su xu ly ca (Odoo, tram nhieu nguoi) - "Trạm triển khai" = ky_thuat_vien.
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai"] as const;
+// "lich_hen" (2026-10-23, migration 0142): toan bo lich su lich hen ky thuat (JSON array, 1 phieu co the hen nhieu lan) -
+// "thoi_gian_hen_xu_ly" (BUSINESS_FIELDS) van la lan hen GAN NHAT, cot nay chi bo sung de UI hien thi lich su.
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen"] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
@@ -236,6 +238,7 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
   if (field === "tinh_vao_kpi") return normalizeTinhVaoKpi(incoming[field]) ? 1 : 0;
   if (field === "link_hinh_anh") return parseLinkHinhAnh(incoming[field]);
   if (field === "linh_kien_loi") return normalizeLinhKienLoi(incoming[field]);
+  if (field === "lich_hen") return normalizeLichHen(incoming[field]);
   if ((OPTIONAL_FIELDS as readonly string[]).includes(field) && incoming[field] === "") return null;
   return incoming[field] ?? null;
 }
@@ -243,6 +246,21 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
 // "linh_kien_loi": API gui mang object (hoac chuoi JSON tu file Excel) -> luu chuoi JSON; mang rong/
 // khong hop le -> NULL.
 export function normalizeLinhKienLoi(rawValue: unknown): string | null {
+  let arr: unknown = rawValue;
+  if (typeof rawValue === "string") {
+    if (!rawValue.trim()) return null;
+    try {
+      arr = JSON.parse(rawValue);
+    } catch {
+      return null;
+    }
+  }
+  return Array.isArray(arr) && arr.length > 0 ? JSON.stringify(arr) : null;
+}
+
+// "lich_hen": API gui mang object (1 phan tu/lan hen) hoac chuoi JSON -> luu chuoi JSON; mang rong/
+// khong hop le -> NULL. Giong normalizeLinhKienLoi.
+export function normalizeLichHen(rawValue: unknown): string | null {
   let arr: unknown = rawValue;
   if (typeof rawValue === "string") {
     if (!rawValue.trim()) return null;
