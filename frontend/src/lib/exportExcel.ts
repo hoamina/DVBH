@@ -1,5 +1,7 @@
 import { api } from "../api/client";
 import type { LinhKienLoiItem } from "../types";
+import { pickExportColumns } from "../components/ExportColumnPicker";
+import { exportTemplateKey } from "./exportTemplate";
 import { DiaGioiIndex, NHAN_CAP_1, NHAN_CAP_2, coTienTo, diaGioiModeHienTai, khoaTen, type QuyDoiRow } from "./diaGioi";
 
 /**
@@ -24,7 +26,7 @@ export async function exportRowsToExcel<T extends object>(
   filename: string,
   sheetName = "Data",
   headerLabels?: Record<string, string>,
-  options?: { includeFields?: string[] },
+  options?: { includeFields?: string[]; skipColumnPicker?: boolean },
 ) {
   const XLSX = await import("xlsx");
   let cleanedRows = rows.map((row) => omitExcludedFields(row, options?.includeFields ?? []));
@@ -42,7 +44,21 @@ export async function exportRowsToExcel<T extends object>(
     labels = { ...(labels ?? {}), ...lk.labels };
   }
   const exportRows = labels ? cleanedRows.map((row) => remapKeys(row, labels!)) : cleanedRows;
-  const worksheet = XLSX.utils.json_to_sheet(exportRows);
+  // "Mau tai file" ca nhan (2026-10-23): hien bang chon cot (bat/tat, keo doi vi tri, luu localStorage) truoc khi tai -
+  // components/ExportColumnPicker.tsx + lib/exportTemplate.ts. Cot = hop tieu de theo thu tu xuat hien (nhu json_to_sheet).
+  const allCols: string[] = [];
+  const seen = new Set<string>();
+  for (const r of exportRows) for (const k of Object.keys(r)) if (!seen.has(k)) (seen.add(k), allCols.push(k));
+  let header = allCols;
+  if (allCols.length > 0 && !options?.skipColumnPicker) {
+    const picked = await pickExportColumns(filename, allCols, exportTemplateKey(filename));
+    if (!picked) return; // nguoi dung huy - khong tai
+    header = picked;
+  }
+  const worksheet = XLSX.utils.json_to_sheet(
+    exportRows.map((r) => Object.fromEntries(header.map((k) => [k, (r as Record<string, unknown>)[k] ?? ""]))),
+    { header },
+  );
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   XLSX.writeFile(workbook, filename);

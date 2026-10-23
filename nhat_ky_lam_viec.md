@@ -4829,3 +4829,14 @@ trạng thái; lọc theo khu vực/tỉnh thì đếm số đang loại trừ. 
 - `lib/poDatHangEo.ts`: thêm ngayBanHanh (ngày ban hành EO = "ngày tạo PO" theo chủ hệ thống), ngayVeThucTe (+ phieuNhap để rê
   chuột), nmCamKet (đợt kế hoạch cuối có nhập); đổi nhãn "Xem đầy đủ" cho đúng nghĩa. Bảng PO ở Hồ sơ linh kiện + thẻ PO ở Chi
   tiết ca hiện thêm các cột. Chỉ frontend, không thêm đọc/ghi D1.
+
+## 2026-10-23 — Mẫu tải file cá nhân: chọn/ẩn/kéo đổi vị trí cột trước khi tải Excel (v1.483)
+Yêu cầu: khi bấm tải hiện các cột dự kiến; người dùng tải mặc định hoặc bật/tắt, kéo đổi vị trí cột; lưu lựa chọn trên
+máy cá nhân (không ảnh hưởng server); áp cho mọi nút tải file, riêng từng người.
+- `components/ExportColumnPicker.tsx` (`pickExportColumns`): bảng chọn cột mở từ `lib/exportExcel.ts exportRowsToExcel`
+  (mọi nút tải đi qua đây) qua React root riêng — tìm cột, chọn/bỏ hết, kéo thả + ↑↓, "Ghi nhớ cho lần tải sau",
+  "Khôi phục mặc định", "Tải mặc định" / "Tải theo lựa chọn" / Hủy (không tải). `options.skipColumnPicker` để bỏ qua.
+- `lib/exportTemplate.ts`: localStorage `export-tpl:v1:<khóa>`, khóa = tên file bỏ đuôi + cụm số (các tháng dùng chung
+  mẫu); cột định danh theo tiêu đề cuối; cột mới chưa có trong mẫu nối cuối, mặc định bật.
+- Không áp cho file mẫu import danh sách loại trừ (ghi XLSX riêng, cần giữ cấu trúc).
+- Kèm deploy commit lịch hẹn Odoo của phiên khác (177f621) + áp migration 0142 (ADD COLUMN lich_hen) trước deploy.
