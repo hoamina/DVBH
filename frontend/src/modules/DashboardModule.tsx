@@ -13,7 +13,8 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
-import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen } from "../lib/diaGioi";
+import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen, useDiaGioiLoc, useOnDiaGioiModeChange, NHAN_CAP_1 } from "../lib/diaGioi";
+import { MultiSelectFilter } from "../components/MultiSelectFilter";
 
 interface DailyReportBucket {
   baseline: number;
@@ -71,6 +72,12 @@ const ALL_MODEL = "Tất cả Model";
 export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) => void } = {}) {
   const [filters, setFilters] = useLocalStorageState<DashboardFilters>("filters:dashboard", { khu_vuc: ALL_KHU_VUC, hang: ALL_HANG, thang: CURRENT_MONTH_VALUE });
   const [pivotDim, setPivotDim] = useLocalStorageState("filters:dashboard-pivot-dim", "khu_vuc");
+  // Loc phu "Tinh" (chon nhieu, "|") cho bang pivot - CHI khi nhom theo KTV (2026-10-23): xem KTV dang xu ly ca o tinh
+  // can kiem tra. Gia tri theo che do Dia gioi cu/moi -> doi che do thi xoa loc (gia tri cu khong con nghia).
+  const [pivotTinh, setPivotTinh] = useLocalStorageState("filters:dashboard-pivot-tinh", "");
+  const diaGioiLoc = useDiaGioiLoc();
+  useOnDiaGioiModeChange(() => setPivotTinh(""));
+  const pivotDgLoc = pivotDim === "ky_thuat_vien" && pivotTinh ? (diaGioiLoc.buildDgLoc(pivotTinh.split("|")) ?? undefined) : undefined;
   const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
   // CHOT 2026-08-12: bo loc "Model" rieng cho the "Tong quan" (khong dua vao FilterBar/DashboardFilters
   // dung chung voi RevenueModule - tranh hien Select thua o Bao cao doanh thu, noi khong ai yeu cau) -
@@ -96,8 +103,8 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
 
   const { data: kpi } = useQuery({ queryKey: ["dashboard-kpis", query], queryFn: () => api.get<Kpis>(`/dashboard/kpis${query}`) });
   const { data: pivot } = useQuery({
-    queryKey: ["dashboard-pivot", pivotDim, query],
-    queryFn: () => api.get<{ rows: PivotRow[] }>(`/dashboard/pivot${buildQuery({ ...filterParams, dim: pivotDim })}`),
+    queryKey: ["dashboard-pivot", pivotDim, query, pivotDgLoc],
+    queryFn: () => api.get<{ rows: PivotRow[] }>(`/dashboard/pivot${buildQuery({ ...filterParams, dim: pivotDim, dg_loc: pivotDgLoc })}`),
   });
   const { data: pivotKtv } = useQuery({
     queryKey: ["dashboard-pivot", "ky_thuat_vien", query],
@@ -239,6 +246,9 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                 { value: "ky_thuat_vien", label: "KTV" },
               ]}
             />
+            {pivotDim === "ky_thuat_vien" && (
+              <MultiSelectFilter label={NHAN_CAP_1[diaGioiLoc.mode]} value={pivotTinh} onChange={setPivotTinh} options={diaGioiLoc.tinhOptions} />
+            )}
             <Btn
               variant="ghost"
               size="sm"

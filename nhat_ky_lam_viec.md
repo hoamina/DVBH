@@ -4798,3 +4798,10 @@ Yêu cầu: giải trình thiếu linh kiện kéo từ Lada có mã linh kiện
   `giai_trinh.linh_kien_thieu` (dòng mới) + `dienBuMaLinhKienEtx` điền bù các dòng ETX cũ, chạy TRƯỚC bước INSERT mỗi
   lần đồng bộ (khóa chống trùng gồm cả linh_kien_thieu — không điền bù thì cửa sổ 3 ngày sẽ ghi trùng).
 - Hạn chế: chỉ tách được khi Lada có ghi mã; muốn đầy đủ cần Lada bổ sung trường mã linh kiện vào API.
+
+## 2026-10-23 — Tổng quát: bảng pivot nhóm theo KTV có lọc phụ Tỉnh (chọn nhiều) (v1.480)
+- `DashboardModule.tsx`: khi "Nhóm theo: KTV" hiện thêm ô chọn nhiều Tỉnh (nhãn + danh sách theo nút Địa giới cũ/mới,
+  `useDiaGioiLoc`), lưu localStorage `filters:dashboard-pivot-tinh`, đổi chế độ địa giới thì xóa lọc.
+- `GET /api/dashboard/pivot` nhận `dg_loc` → `computeDashboardPivot` áp `diaGioiLoc` (filterParams.ts). Có lọc tỉnh thì
+  bỏ qua số chốt 08:00, tính sống qua `cachedReport` (key gồm dg_loc, domain cases). Chỉ áp cho bảng pivot, không đổi
+  KPI / biểu đồ KTV.

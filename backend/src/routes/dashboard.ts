@@ -189,8 +189,11 @@ dashboard.get("/pivot", async (c) => {
     hang: c.req.query("hang"),
     thang: c.req.query("thang"),
     nhom_san_pham: c.req.query("nhom_san_pham"),
+    // Loc phu "Tinh" (chon nhieu) cua bang pivot khi nhom theo KTV (2026-10-23) - JSON gia tri tho theo che do Dia gioi
+    // cu/moi (frontend lib/diaGioi.ts buildDgLoc), ap qua filterParams.ts diaGioiLoc. Co loc -> tinh song (cache theo key).
+    dg_loc: c.req.query("dg_loc") || undefined,
   };
-  if (isDefaultReportParams(params)) {
+  if (isDefaultReportParams(params) && !params.dg_loc) {
     const snap = await getSnapshotForUser(c.env.DB, c.get("user"));
     if (snap && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return c.json({ rows: snap.payload.pivotByDim[dimKey] ?? [] });
   }
