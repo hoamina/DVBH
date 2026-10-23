@@ -2571,6 +2571,9 @@ export function CaseDetail({
               <Field label="Tốc độ hàng về" value={r.tocDoHangVe || "—"} />
               <Field label="Ngày dự kiến gần nhất" value={r.ngayDuKienGanNhat || "—"} />
               <Field label="Ngày về gần nhất toàn quốc" value={r.ngayVeGanNhatToanQuoc || "—"} />
+              <Field label="Ngày ban hành PO" value={r.ngayBanHanh || "—"} />
+              <Field label="Hàng về thực tế (PO)" value={r.ngayVeThucTe ? <span title={r.phieuNhap ? `Phiếu nhập: ${r.phieuNhap}` : undefined}>{r.ngayVeThucTe}</span> : "—"} />
+              <Field label="NM cam kết" value={r.nmCamKet || "—"} />
               <Field label="Ngày tạo" value={r.ngayTao || "—"} />
               {r.canhBao && <Field label="Cảnh báo" value={r.canhBao} />}
               {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}

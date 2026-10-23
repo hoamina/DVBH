@@ -4817,3 +4817,15 @@ trạng thái; lọc theo khu vực/tỉnh thì đếm số đang loại trừ. 
   sách KTV (không cộng trùng); file Excel thêm 3 cột (số, trạng thái, danh sách KTV).
 - (2) File Excel đã có sẵn "Ca CRM mở mới" (`tong_tiep_nhan`) + "Ca CRM đã đóng" (`tong_hoan_thanh`) — không cần sửa.
 - Deploy từ git worktree sạch (thư mục làm việc đang có code chưa commit của phiên khác — ratchet.ts/migration 0142).
+
+## 2026-10-23 — PO đặt hàng (app EO): thêm ngày ban hành / hàng về thực tế / NM cam kết / ghi chú (v1.482)
+
+- Đối chiếu app EO Mua hàng (`EO MUA HANG/eomua` `routes/reports.ts computeTienDo01` + `lib/dvbhSync.ts`): đã gửi đủ trong payload,
+  dvbh chưa hiện. Số liệu 8.491 dòng: ngày tạo/ban hành 100%, phiếu nhập AMIS khớp PO 77%, ghi chú 22%, ngày NM cam kết 1,7%
+  (bên mua hàng ít nhập - chủ hệ thống chốt KHÔNG bắt buộc).
+- Lưu ý nghĩa: `ngay_ve_theo_eo` = phiếu nhập AMIS khớp ĐÚNG dòng EO (ngày về thực tế của PO); `ngay_ve_dung_kho` = mã LK về kho
+  đó từ BẤT KỲ PO nào (không phải của PO này - vd LK-26041703674 về 15-29/04 nhưng trường này 22/10); `ngay_ve_toan_quoc` = mã về
+  bất kỳ kho nào.
+- `lib/poDatHangEo.ts`: thêm ngayBanHanh (ngày ban hành EO = "ngày tạo PO" theo chủ hệ thống), ngayVeThucTe (+ phieuNhap để rê
+  chuột), nmCamKet (đợt kế hoạch cuối có nhập); đổi nhãn "Xem đầy đủ" cho đúng nghĩa. Bảng PO ở Hồ sơ linh kiện + thẻ PO ở Chi
+  tiết ca hiện thêm các cột. Chỉ frontend, không thêm đọc/ghi D1.

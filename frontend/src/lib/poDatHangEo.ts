@@ -51,6 +51,8 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     .map((k) => `${k.loai === "TUAN" ? `Tuần ${k.tuan}` : fmt(k.ngay)}: ${k.sl}${k.ngay_nm_cam_ket ? ` (NM cam kết ${fmt(k.ngay_nm_cam_ket)})` : ""}${k.ghi_chu ? ` - ${k.ghi_chu}` : ""}`)
     .join("; ");
   const phieuNhap = (p.phieu_nhap ?? []).map((r) => `${r.so_ct} ${fmt(r.ngay)} ${r.kho}: ${r.sl}`).join("; ");
+  // Ngay NM cam ket (2026-10-23): lay dot ke hoach CUOI CUNG co nhap ngay cam ket (ben EO it khi nhap - de trong la binh thuong).
+  const nmCamKet = [...(p.ke_hoach ?? [])].reverse().find((k) => k.ngay_nm_cam_ket)?.ngay_nm_cam_ket ?? null;
   // "Xem day du": nhan tieng Viet giong cot sheet + cac thong tin chi app EO co
   const raw: Record<string, string> = {
     "Nguồn": "App EO Mua hàng",
@@ -82,8 +84,10 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     "Ngày dự kiến lần đầu": fmt(p.ngay_du_kien_lan_dau),
     "Ngày dự kiến gần nhất": fmt(p.ngay_du_kien_gan_nhat),
     "Kế hoạch hàng về": keHoach,
-    "Ngày về theo mã EO": fmt(p.ngay_ve_theo_eo),
-    "Ngày về đúng kho gần nhất": fmt(p.ngay_ve_dung_kho),
+    // 2026-10-23: dat lai nhan cho dung nghia (ngay_ve_dung_kho = ma LK ve kho do tu BAT KY PO nao, khong rieng PO nay).
+    "Ngày hàng về thực tế (theo PO)": fmt(p.ngay_ve_theo_eo),
+    "Ngày NM cam kết": fmt(nmCamKet),
+    "Mã LK về kho gần nhất (mọi PO)": fmt(p.ngay_ve_dung_kho),
     "Ngày về gần nhất toàn quốc": fmt(p.ngay_ve_toan_quoc),
     "Phiếu nhập AMIS": phieuNhap,
     "Người duyệt cuối": p.nguoi_duyet_cuoi ?? "",
@@ -118,6 +122,12 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     ngayTao: fmt(p.ngay_tao, true),
     ngayCapNhat: fmt(p.ngay_cap_nhat, true),
     ghiChu: p.ghi_chu ?? "",
+    // 2026-10-23 (chu he thong): ngay ban hanh EO = "ngay tao PO"; ngay hang ve THUC TE cua chinh PO (phieu nhap AMIS khop
+    // dong EO nay, phieu gan nhat) + danh sach phieu nhap; ngay NM cam ket (dot ke hoach cuoi co nhap).
+    ngayBanHanh: fmt(p.ngay_ban_hanh),
+    ngayVeThucTe: fmt(p.ngay_ve_theo_eo),
+    phieuNhap,
+    nmCamKet: fmt(nmCamKet),
     tatCa: p.trang_thai ?? "",
     maPheDuyet: p.ma_phe_duyet ?? "",
     trangThaiEo: TRANG_THAI_EO[p.trang_thai_eo ?? ""] ?? "",

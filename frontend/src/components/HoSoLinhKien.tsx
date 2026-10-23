@@ -158,8 +158,10 @@ function TuoiBadge({ ngay }: { ngay: number | null }) {
   return <Badge tone={tone}>{ngay} ngày</Badge>;
 }
 
-const PO_DAT_HANG_COLS: { key: string; label: string }[] = [
+// 2026-10-23: them Ngay ban hanh PO / Ngay hang ve thuc te (PO, re chuot xem phieu nhap) / NM cam ket / Ghi chu.
+const PO_DAT_HANG_COLS: { key: string; label: string; titleKey?: string }[] = [
   { key: "id", label: "ID đặt LK" },
+  { key: "ngayBanHanh", label: "Ngày ban hành PO" },
   { key: "doiTac", label: "Đối tác" },
   { key: "khoCanDat", label: "Kho cần đặt" },
   { key: "soLuongDat", label: "SL đặt" },
@@ -169,7 +171,10 @@ const PO_DAT_HANG_COLS: { key: string; label: string }[] = [
   { key: "tocDoHangVe", label: "Tốc độ về" },
   { key: "canhBao", label: "Cảnh báo" },
   { key: "ngayDuKienGanNhat", label: "Ngày dự kiến hàng về" },
+  { key: "nmCamKet", label: "NM cam kết" },
+  { key: "ngayVeThucTe", label: "Hàng về thực tế (PO)", titleKey: "phieuNhap" },
   { key: "ngayVeGanNhatToanQuoc", label: "Ngày về gần nhất toàn quốc" },
+  { key: "ghiChu", label: "Ghi chú" },
   { key: "ngayCapNhat", label: "Cập nhật" },
 ];
 
@@ -195,7 +200,7 @@ const BAO_HANH_COLS: { key: string; label: string }[] = [
   { key: "nguoiSua", label: "Người sửa" },
 ];
 
-function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: string; label: string }[] }) {
+function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: string; label: string; titleKey?: string }[] }) {
   if (rows.length === 0) return <Empty text="Không có dữ liệu liên quan." />;
   return (
     <div className="overflow-auto max-h-72">
@@ -213,7 +218,11 @@ function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: s
           {rows.map((r, i) => (
             <tr key={i} className="border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60">
               {columns.map((c) => (
-                <td key={c.key} className="py-1.5 px-2">
+                <td
+                  key={c.key}
+                  className={`py-1.5 px-2 ${c.titleKey && r[c.titleKey] ? "cursor-help underline decoration-dotted underline-offset-2" : ""}`}
+                  title={c.titleKey && r[c.titleKey] ? `Phiếu nhập: ${r[c.titleKey]}` : undefined}
+                >
                   {r[c.key] || "—"}
                 </td>
               ))}

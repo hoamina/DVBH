@@ -166,6 +166,9 @@ const FIELD_ALIASES: Record<PurchaseWarrantyDataset, Record<string, string[]>> =
     ngayTao: ["Ngày tạo"],
     ngayCapNhat: ["Ngày cập nhật"],
     ghiChu: ["Ghi chú"],
+    // 2026-10-23: cot moi cua bang PO (nguon sheet cu neu co cot cung ten; nguon app EO map truc tiep o poDatHangEo.ts).
+    ngayBanHanh: ["Ngày ban hành"],
+    ngayVeThucTe: ["Ngày về theo mã EO"],
     // Them 2026-08-22 cho timeline "Tien trinh chung" - cot "Tất cả" la ten that tren sheet (da xac
     // nhan qua curl), dung lam "trang thai" cho moc PO vi sheet nay khong co 1 cot trang thai gon.
     tatCa: ["Tất cả"],
