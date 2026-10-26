@@ -72,10 +72,12 @@ app.route("/api/bao-cao-vi-pham", baoCaoViPhamRoutes);
 // sau thi CSKH/TN CSKH/TBP CSKH/QC bi 403 o moi endpoint import vi pham (bug 2026-09-30: chon file
 // khong co phan hoi vi /column-map bi 403). Mount truoc -> handler vi pham tra response, ket thuc chuoi.
 // Cac router import con con lai dung CUNG bo vai tro voi importRoutes nen khong bi anh huong.
+// "/api/import/giai-trinh-lap-nhanh" (Giam sat/QC/Admin) cung PHAI mount truoc - bug 2026-10-26: mount sau "/api/import"
+// nen Giam sat/QC bi 403 o ca /template lan /preview /commit (chi Admin dung duoc).
 app.route("/api/import/vi-pham", importViPhamRoutes);
+app.route("/api/import/giai-trinh-lap-nhanh", importGiaiTrinhLapNhanhRoutes);
 app.route("/api/import", importRoutes);
 app.route("/api/import/giai-trinh", importGiaiTrinhRoutes);
-app.route("/api/import/giai-trinh-lap-nhanh", importGiaiTrinhLapNhanhRoutes);
 app.route("/api/import/giai-trinh-lap", importGiaiTrinhLapRoutes);
 app.route("/api/import/khao-sat", importKhaoSatRoutes);
 app.route("/api/import/nap-gas", importNapGasRoutes);

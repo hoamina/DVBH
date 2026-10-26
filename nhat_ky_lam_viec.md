@@ -4869,3 +4869,11 @@ Phản hồi: bấm chạy lại nhưng bảng nhật ký đồng bộ không c�
   đợt đầu. Cron gọi không opts = 1 lượt đầy đủ như cũ.
 - `POST /settings/etx-giai-trinh-sync-log/chay-ngay` nhận `{tu_doi_tac, tich_luy}`, hanMs 50s. `SettingsModule.tsx`:
   nút tự gọi lặp tới khi xong, hiện "Đang chạy… đối tác x/y".
+
+## 2026-10-26 — Sửa: Giám sát/QC không tải được mẫu "Import giải trình lặp nhanh" (v1.488)
+
+- Nguyên nhân: router `/api/import/giai-trinh-lap-nhanh` (Giám sát/QC/Admin) mount SAU `/api/import` - router này có
+  `use("*", requireRole("Admin","TBP DVBH"))` khớp mọi đường dẫn con → Giám sát/QC 403 ở cả /template, /preview, /commit; Admin
+  qua được (lỗi từ v1.458, lúc thử chỉ dùng Admin). Cùng lỗi import vi phạm 2026-09-30.
+- Sửa: mount trước `/api/import` (index.ts). Thử local theo vai trò: GS/QC tải mẫu 200 + xem trước vào được; CSKH xem trước 403
+  (đúng thiết kế); import CRM vẫn chỉ Admin/TBP DVBH.
