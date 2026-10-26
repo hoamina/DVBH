@@ -47,7 +47,11 @@ export async function autoLogCaKetThucTrongNgay(dbIn: D1Database): Promise<numbe
        SELECT CAST(c.id AS TEXT) AS id, c.tien_do_hoan_thanh, c.thoi_gian_hoan_thanh
        FROM case_dvbh c JOIN snap ON snap.id = c.id, moc
        WHERE moc.since IS NOT NULL
-         AND c.thoi_gian_hoan_thanh >= ?1
+         -- SUA 2026-10-26: truoc day chi "thoi_gian_hoan_thanh >= hom nay" - bo sot ca DONG TU HOM TRUOC nhung du lieu dong
+         -- ve DVBH muon (sau moc chot 08:00 hom nay) nen van nam trong danh sach can giai trinh hom nay (vd ca Odoo dong 22/10,
+         -- dong bo ve 24/10). Ca o trong danh sach chot 08:00 = luc chot DVBH con coi la ton; gio da co gio dong -> het can
+         -- giai trinh, bat ke gio dong la hom nay hay truoc do.
+         AND c.thoi_gian_hoan_thanh IS NOT NULL
          -- Ca cap 2 vi tranh chap / luong doi tra con treo (lib/canhBaoCap2GiaiTrinh.ts): dong ca khong co nghia la het
          -- can giai trinh -> khong tu ghi log "Case đã được kết thúc".
          AND c.id NOT IN (SELECT j.value FROM daily_snapshot s, json_each(s.payload) b, json_each(b.value, '$.ids') j
@@ -73,7 +77,7 @@ export async function autoLogCaKetThucTrongNgay(dbIn: D1Database): Promise<numbe
         crypto.randomUUID(),
         r.id,
         LY_DO_CA_KET_THUC,
-        `Hệ thống tự ghi: ca đã kết thúc trong ngày (${r.tien_do_hoan_thanh ?? "đã đóng"} lúc ${r.thoi_gian_hoan_thanh}) - không cần giải trình.`,
+        `Hệ thống tự ghi: case tồn đã được đóng (${r.tien_do_hoan_thanh ?? "đã đóng"} lúc ${r.thoi_gian_hoan_thanh}) - không cần giải trình.`,
         NGUOI_HE_THONG,
         now,
       ),

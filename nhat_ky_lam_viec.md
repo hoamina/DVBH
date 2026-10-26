@@ -4848,3 +4848,13 @@ máy cá nhân (không ảnh hưởng server); áp cho mọi nút tải file, ri
   Nhóm chỉ có ca đóng (chưa có vi phạm) vẫn hiện, tỷ lệ 0%. Chiều "Kết quả cấp 1" → null ("—"). Cache key da-chieu-v3.
 - `BaoCaoViPhamModule.tsx`: 2 cột trên bảng + file Excel.
 - Ghi chú số liệu 10/2026: 356 vi phạm có lỗi, 329 còn chờ QC, mới chốt 1 → tỷ lệ chốt lỗi gần 0 cho tới khi QC chốt.
+
+## 2026-10-26 — Tự ghi log "Case đã được kết thúc": bắt cả ca đóng từ hôm trước nhưng dữ liệu về muộn (v1.486)
+Yêu cầu (nhắc lại): ca đóng trong ngày nằm trong danh sách giải trình tồn → tự thêm log để tính đã giải trình.
+- Kiểm tra production: tính năng (v1.461, sửa lỗi UNION ở v1.466) đang chạy — tự ghi 83 log 21–25/10. Khe hở chính
+  KHÔNG phải ở logic: ngày 22/10 có 195 ca trong danh sách đóng trong ngày, 131 không có giải trình vì dữ liệu đóng ca
+  về DVBH muộn (49 ca lúc 07h 23/10, 80 ca Odoo lúc 00h 24/10) — trong ngày 22/10 DVBH chưa biết ca đã đóng.
+- Khe hở logic (nhỏ, 1–3 ca/ngày): chỉ bắt `thoi_gian_hoan_thanh >= hôm nay` → bỏ sót ca đóng từ hôm trước nhưng dữ liệu
+  về trong hôm nay. Sửa `lib/autoLogCaKetThuc.ts`: ca trong danh sách chốt 08:00 hôm nay + nay đã có giờ đóng (bất kỳ)
+  → tự ghi. Nội dung log: "Hệ thống tự ghi: case tồn đã được đóng (<tiến độ> lúc <giờ>) - không cần giải trình."
+- Muốn giảm thêm: cần pipeline đẩy dữ liệu đóng ca (đặc biệt Odoo) về sớm hơn trong ngày.
