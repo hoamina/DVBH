@@ -146,6 +146,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   - `partnerApi.ts` `GET /thieu-linh-kien` (2026-10-16, PARTNER_API_GUIDE §12) — open "Ca thiếu linh kiện" list as JSON,
     same definition as the menu (reuses `missingParts.ts` exported `baseJoin`), live, paginated (≤1000), 30 req/min/key,
     no `logPartnerApiCall`, does NOT hide `KHU_VUC_AN_KHOI_BAO_CAO` (partner-API convention).
+  - `partnerApi.ts` `GET /thong-ke-ktv` (2026-10-26, PARTNER_API_GUIDE §14, `lib/thongKeKtv.ts`) — per-KTV monthly work
+    counts for the vipham Worker's "Báo cáo nhanh" (it reuses its case-lookup key). Same KPI definitions as the dashboard
+    (KPI month = completion date; `tong_ca_tiep_nhan` = CSKH-received date), KTV = `(ma)` prefix of `ky_thuat_vien`. All KTVs
+    of a month computed once via `cachedReport` key `partner/thong-ke-ktv/<thang>`, domain `cases` only (reads `vi_pham`
+    but deliberately not declared — that domain bumps on every survey result). 30 req/min/key, no `logPartnerApiCall`.
   - `partnerApi.ts` `POST /sync/po-dat-hang` + `routes/poDatHang.ts` `GET /api/po-dat-hang` (2026-10-20, migration 0139,
     PARTNER_API_GUIDE §13) — the "EO Mua hàng" Worker (`muahang`, repo `../EO MUA HANG/eomua`) PUSHES every EO line
     (PO) it changed, upserted into `po_dat_hang_eo` by `id_dat_lk` (`LK-…` legacy / `EOI-<id>` new), skipping

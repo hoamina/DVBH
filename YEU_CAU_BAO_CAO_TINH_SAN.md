@@ -75,6 +75,7 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 | GET /bao-cao-nskx/da-chieu (thêm 2026-09-21) | baoCaoNskx.ts | cases (gọi thẳng computeDashboardPivot với doi_tac=NSKX) |
 | GET /bao-cao-nskx/aging (thêm 2026-09-21) | baoCaoNskx.ts | cases |
 | GET /bao-cao-nskx/xu-huong (thêm 2026-09-21) | baoCaoNskx.ts | cases (đọc lại bảng `daily_snapshot` đã có, không tính sống từ case_dvbh) |
+| GET /partner/thong-ke-ktv (thêm 2026-10-26 — API đối tác cho vipham, key `partner/thong-ke-ktv/<thang>` dùng chung mọi KTV, lọc `ma_ktv` trong JS) | partnerApi.ts (lib/thongKeKtv.ts) | cases (đọc thêm vi_pham nhưng CỐ Ý không khai báo — domain đó bump mỗi lượt khảo sát/chốt, chấp nhận chậm tới lần import kế tiếp) |
 | GET /ca-lap/tong-quan | caLap.ts | cases, giai_trinh_lap, blacklist, settings (Block A doc settings_loai_yeu_cau_bo_qua_lap qua eligibleClause(), them 2026-08-29) |
 
 Lưu ý sla-trend/trend có param days/months — đưa vào key. KHÔNG bọc phần DANH SÁCH (rows) của /survey, /ca-lap/danh-sach* (đã rẻ nhờ index 816 dòng) — luôn đọc sống để đảm bảo dữ liệu mới nhất. CHỐT 2026-09-15: riêng field `totalCases` (COUNT(DISTINCT) đi kèm rows của GET /survey) ĐÃ bọc `cachedReport` — production đo được đây là nguồn rows_read lớn nhất toàn hệ thống (~340M rows/7 ngày qua `wrangler d1 insights`) vì chạy sống mỗi lần đổi tab/bộ lọc, trùng lặp hoàn toàn phép đếm đã có sẵn trong /survey/counts. Rows (danh sách 200/5000 dòng) vẫn đọc sống như cũ, không đổi.

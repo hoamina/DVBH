@@ -31,6 +31,7 @@ import { allInChunks } from "../lib/d1InChunks";
 import { baseJoin as thieuLinhKienJoin } from "./missingParts";
 import { ageExpr, ageFilterClause } from "../lib/ageCalc";
 import { khuVucAdHocClause, dimAdHocClause } from "../lib/filterParams";
+import { getThongKeKtv } from "../lib/thongKeKtv";
 
 /**
  * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
@@ -458,6 +459,31 @@ partnerApi.get("/thieu-linh-kien", async (c) => {
     total,
     rows: results.map(({ total_count: _t, ...r }) => r),
   });
+});
+
+// GET /api/partner/thong-ke-ktv?thang=YYYY-MM[&ma_ktv=] (2026-10-26, PARTNER_API_GUIDE.md muc 14) - so lieu cong viec
+// theo KTV cho he "Giai trinh vi pham" (vipham) hien tab "Bao cao nhanh". Chi tra SO DEM (khong co du lieu khach hang).
+// Tinh 1 lan cho ca thang roi cache (lib/thongKeKtv.ts, domain "cases"), "ma_ktv" chi loc tren ket qua da cache. Khong
+// ghi partner_api_log; 30 req/phut/key bang Cache API (vipham tu cache 1h phia no, thuc te vai chuc lan/ngay).
+const THONG_KE_KTV_KEY_LIMIT_PER_MIN = 30;
+const THANG_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+partnerApi.get("/thong-ke-ktv", async (c) => {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    await rejectInvalidKey(c, apiKey);
+    return c.json({ error: "INVALID_API_KEY" }, 401);
+  }
+  const ok = await checkPerKeyRateLimit("partner-thong-ke-ktv-key-limit", keyRow.id, THONG_KE_KTV_KEY_LIMIT_PER_MIN, (p) => c.executionCtx.waitUntil(p));
+  if (!ok) return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+
+  const thang = (c.req.query("thang") ?? "").trim();
+  if (!THANG_RE.test(thang)) return c.json({ error: "INVALID_THANG", message: "thang phai co dang YYYY-MM" }, 400);
+  const maKtv = (c.req.query("ma_ktv") ?? "").trim();
+
+  const data = await getThongKeKtv(c.env.DB, thang);
+  return c.json(maKtv ? { ...data, rows: data.rows.filter((r) => r.ma_ktv === maKtv) } : data);
 });
 
 // Dung chung cho ca 2 route sync ben duoi - gioi han so dong 1 lan goi (khop dung

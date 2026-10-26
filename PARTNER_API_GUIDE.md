@@ -843,3 +843,35 @@ mã tương đương), `ten_lk`, `sl_dat`, `sl_nhap_amis`, `sl_doi_chieu_sai_thu
 `ngay_tao`, `ngay_cap_nhat` (giờ VN), `ke_hoach[]` `{loai NGAY|TUAN, ngay, tuan, sl, ngay_nm_cam_ket, ghi_chu}`,
 `phieu_nhap[]` `{so_ct, ngay, kho, sl}`. Lưu nguyên JSON (`po_dat_hang_eo.payload`), upsert theo `id_dat_lk`, dòng không
 đổi nội dung thì không ghi.
+
+## 14. Thống kê công việc theo KTV (`GET /api/partner/thong-ke-ktv`) — thêm 2026-10-26
+
+Bên gọi: hệ "Giải trình vi phạm" (`vipham`) qua Service Binding, dùng lại key `case-lookup` đã cấp. Trả **số đếm đã tổng
+hợp theo tháng cho từng KTV** (không có dữ liệu khách hàng), dùng cho tab "Báo cáo nhanh" của KTV bên vipham.
+
+```
+GET /api/partner/thong-ke-ktv?thang=2026-10[&ma_ktv=anhln.dvkh]
+X-API-Key: <key>
+→ 200 { "thang", "tinh_luc", "rows": [ Row, ... ] }   |  400 INVALID_THANG  |  401  |  429 (30 req/phút/key)
+```
+
+`ma_ktv` bỏ trống = tất cả KTV có số liệu trong tháng; không khớp KTV nào → `rows: []`. KTV = mã trong tiền tố `(mã) Tên`
+của `ky_thuat_vien` (cùng cột DVBH gửi sang vipham khi báo nghi ngờ, mục 9.1); ca không có tiền tố bị bỏ qua.
+
+Định nghĩa **giống dashboard Tổng quát** (số 2 hệ khớp nhau). Ca hủy không tính. Tháng KPI theo **ngày hoàn thành**,
+riêng 2 field tiếp nhận theo **ngày CSKH tiếp nhận**:
+
+| Field | Ý nghĩa |
+|---|---|
+| `tong_ca_tiep_nhan` / `ca_tiep_nhan_con_ton` | Ca CSKH tiếp nhận trong tháng / trong số đó còn chưa hoàn thành |
+| `ca_dong` | Ca đóng trong tháng (`Hoàn thành XLSC` + `Không hoàn thành XLSC`) |
+| `ca_hoan_thanh` / `ca_khong_hoan_thanh` | `Hoàn thành XLSC` tính KPI / `Không hoàn thành XLSC` |
+| `ca_dung_han` / `ca_tinh_sla` | SLA: `dung_han = 'Đúng hạn'` / có `dung_han` (chỉ ca tính KPI) |
+| `ca_duoi_24h` / `ca_tinh_24h` | `xu_ly_24h_bucket = '0. Dưới 24h'` / có bucket (chỉ ca tính KPI) |
+| `phan_bo_24h` | `{ "<nhóm xu_ly_24h_bucket>": số ca }` đúng nhãn DVBH |
+| `thoi_gian_xu_ly_tb_gio` | Trung bình `so_gio_xu_ly` (giờ) trên ca tính KPI, bỏ giá trị ngoài [0, 8760); `null` nếu không có |
+| `nghi_ngo` | `{ loi_120p, hen_qua_24h, lo_ke_hoach, kh_hen_lai, tong }` — tổng các cờ nghi ngờ trên ca đóng trong tháng |
+| `vi_pham_da_khao_sat` / `vi_pham_xac_nhan` | Lượt nghi ngờ đã có kết quả gọi / đã xác nhận lỗi (giống `daKhaoSat`/`xacNhan` dashboard) |
+
+Tính 1 lần cho cả tháng rồi cache (`lib/thongKeKtv.ts`, domain `cases`): số mới sau mỗi đợt import CRM; riêng 2 field
+`vi_pham_*` có thể chậm tới đợt import kế tiếp. Bên gọi nên tự cache (vipham cache 1 giờ).
