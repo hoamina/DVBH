@@ -1147,13 +1147,16 @@ settings.get("/etx-giai-trinh-sync-log", adminOnly, async (c) => {
 // POST /api/settings/etx-giai-trinh-sync-log/chay-ngay - cho Admin chu dong chay lai ngay (vd sau
 // khi sua ETX_GIAI_TRINH_API_KEY, hoac muon lay ngay khong doi den 17h15) - khong doi hasSucceededToday()
 // (nguoi bam tay muon chay THAT, khac 2 dot cron retry tu dong).
+// SUA 2026-10-26: chay theo DOT (~50s/request, duoi nguong 100s cua Cloudflare) - body {tu_doi_tac, tich_luy} tu dot truoc,
+// tra done=false + next_doi_tac thi giao dien goi tiep (xem syncGiaiTrinhTonB2B EtxSyncOpts).
 settings.post("/etx-giai-trinh-sync-log/chay-ngay", adminOnly, async (c) => {
-  const result = await syncGiaiTrinhTonB2B(c.env);
+  const body = await c.req.json<{ tu_doi_tac?: number; tich_luy?: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[] } }>().catch(() => ({}) as Record<string, never>);
+  const result = await syncGiaiTrinhTonB2B(c.env, { tuDoiTac: body.tu_doi_tac ?? 0, hanMs: 50_000, tichLuy: body.tich_luy });
   if (!result.ok) {
     if (result.reason === "MISSING_API_KEY") return c.json({ error: "MISSING_API_KEY" }, 400);
     return c.json({ error: "DOI_TAC_LIST_FAILED", message: result.message }, 502);
   }
-  return c.json({ ok: true, soCaseCapNhat: result.soCaseCapNhat, soLichSuMoi: result.soLichSuMoi, soLichSuTrung: result.soLichSuTrung });
+  return c.json(result);
 });
 
 // ---------- SDT ky thuat vien (xem migration 0049_ktv_lien_he.sql) ----------

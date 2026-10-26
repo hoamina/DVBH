@@ -4858,3 +4858,14 @@ Yêu cầu (nhắc lại): ca đóng trong ngày nằm trong danh sách giải t
   về trong hôm nay. Sửa `lib/autoLogCaKetThuc.ts`: ca trong danh sách chốt 08:00 hôm nay + nay đã có giờ đóng (bất kỳ)
   → tự ghi. Nội dung log: "Hệ thống tự ghi: case tồn đã được đóng (<tiến độ> lúc <giờ>) - không cần giải trình."
 - Muốn giảm thêm: cần pipeline đẩy dữ liệu đóng ca (đặc biệt Odoo) về sớm hơn trong ngày.
+
+## 2026-10-26 — Đồng bộ giải trình ETX/Lada: nút "Chạy ngay" chạy theo đợt (v1.487)
+Phản hồi: bấm chạy lại nhưng bảng nhật ký đồng bộ không có dòng mới.
+- Nguyên nhân: 1 lượt đầy đủ mất 2–3,5 phút (cron 17:15 ghi log lúc 17:17–17:18; gọi API ETX từng đối tác, có lúc bị
+  429 bắt chờ). Nút web bị Cloudflare cắt ở 100s → Worker dừng giữa chừng, log tổng kết (ghi ở CUỐI lượt) không được
+  ghi. Cron không bị giới hạn này nên vẫn chạy đều.
+- `lib/etxGiaiTrinhSync.ts`: `syncGiaiTrinhTonB2B(env, {tuDoiTac, hanMs, tichLuy})` — dừng trước đối tác kế tiếp khi
+  hết `hanMs`, trả `done/nextDoiTac/tongDoiTac` + số tích lũy; đợt cuối ghi 1 dòng log tổng kết; điền bù mã linh kiện chỉ
+  đợt đầu. Cron gọi không opts = 1 lượt đầy đủ như cũ.
+- `POST /settings/etx-giai-trinh-sync-log/chay-ngay` nhận `{tu_doi_tac, tich_luy}`, hanMs 50s. `SettingsModule.tsx`:
+  nút tự gọi lặp tới khi xong, hiện "Đang chạy… đối tác x/y".

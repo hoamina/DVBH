@@ -186,7 +186,18 @@ async function cleanupOldLogs(db: D1Database): Promise<void> {
 }
 
 export type EtxSyncResult =
-  | { ok: true; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number }
+  | {
+      ok: true;
+      soCaseCapNhat: number;
+      soLichSuMoi: number;
+      soLichSuTrung: number;
+      // Chay theo DOT (nut "Chay ngay"): done=false -> goi tiep voi tuDoiTac = nextDoiTac (xem EtxSyncOpts).
+      done: boolean;
+      nextDoiTac: number;
+      tongDoiTac: number;
+      // Loi tung doi tac tich luy (chi khi chua xong - giao dien gui lai qua tich_luy).
+      loi?: string[];
+    }
   | { ok: false; reason: "MISSING_API_KEY" }
   | { ok: false; reason: "DOI_TAC_LIST_FAILED"; message: string };
 
@@ -195,7 +206,20 @@ export type EtxSyncResult =
  * luot chay (chot voi chu he thong 2026-09-14 - truoc do 1 dong/doi tac qua chi tiet, kho doc).
  * Goi tu cron (index.ts) hoac route thu cong (Admin, settings.ts POST
  * /etx-giai-trinh-sync-log/chay-ngay). */
-export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
+/** SUA 2026-10-26: 1 luot day du mat 2-3,5 phut (log cron 17:15 ghi luc 17:17-17:18 - goi API ETX tung doi tac, co luc
+ * bi 429 bat cho) -> nut "Chay ngay" tren web bi Cloudflare cat o 100s, Worker dung giua chung, KHONG ghi log tong ket.
+ * Gio nut chay theo DOT: moi request xu ly doi tac tu chi so "tuDoiTac" toi khi het "hanMs" (~50s) roi tra ve
+ * done=false + nextDoiTac, giao dien tu goi tiep; "tichLuy" = tong cac dot truoc (de dot cuoi ghi 1 dong log tong ket
+ * dung). Buoc dien bu ma linh kien chi chay o dot dau. Cron goi khong opts = chay 1 luot day du nhu cu. */
+export interface EtxSyncOpts {
+  tuDoiTac?: number;
+  hanMs?: number;
+  tichLuy?: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[] };
+}
+
+export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Promise<EtxSyncResult> {
+  const batDau = Date.now();
+  const tuDoiTac = Math.max(0, opts.tuDoiTac ?? 0);
   const db = env.DB;
   const apiKey = env.ETX_GIAI_TRINH_API_KEY;
   if (!apiKey) return { ok: false, reason: "MISSING_API_KEY" };
@@ -217,13 +241,21 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
   }
 
   const activeLyDo = await loadActiveLyDoNames(db);
-  const soDongDienBuLk = await dienBuMaLinhKienEtx(db);
+  const soDongDienBuLk = tuDoiTac === 0 ? await dienBuMaLinhKienEtx(db) : 0;
   const caseIdsCapNhat = new Set<string>();
   let soLichSuMoi = 0;
   let soLichSuTrung = 0;
   const loiTungDoiTac: string[] = [];
+  const dsDoiTac = doiTacRes.data.doi_tac;
+  let nextDoiTac = dsDoiTac.length;
 
-  for (const doiTac of doiTacRes.data.doi_tac) {
+  for (let iDt = tuDoiTac; iDt < dsDoiTac.length; iDt++) {
+    // Het thoi gian cua dot (chi khi chay theo dot) -> dung TRUOC doi tac nay, tra ve de giao dien goi tiep.
+    if (opts.hanMs && iDt > tuDoiTac && Date.now() - batDau > opts.hanMs) {
+      nextDoiTac = iDt;
+      break;
+    }
+    const doiTac = dsDoiTac[iDt];
     if (!doiTac.so_dong) continue; // doi tac chua co dong nao - bo qua, tiet kiem 1 luot goi API
 
     const dongRes = await fetchAllDongForDoiTac(apiKey, doiTac.ma, tu, den);
@@ -293,15 +325,20 @@ export async function syncGiaiTrinhTonB2B(env: Env): Promise<EtxSyncResult> {
 
   if (soLichSuMoi > 0 || soDongDienBuLk > 0) await bumpVersions(db, ["giai_trinh"]);
 
-  const ok = loiTungDoiTac.length === 0;
-  await writeSummaryLog(db, {
-    ok,
-    soCaseCapNhat: caseIdsCapNhat.size,
-    soLichSuMoi,
-    soLichSuTrung,
-    error: ok ? null : loiTungDoiTac.join("; ").slice(0, MAX_ERROR_LEN),
-  });
-  await cleanupOldLogs(db);
-
-  return { ok: true, soCaseCapNhat: caseIdsCapNhat.size, soLichSuMoi, soLichSuTrung };
+  const tl = opts.tichLuy ?? { soCaseCapNhat: 0, soLichSuMoi: 0, soLichSuTrung: 0, loi: [] };
+  const tong = {
+    soCaseCapNhat: tl.soCaseCapNhat + caseIdsCapNhat.size,
+    soLichSuMoi: tl.soLichSuMoi + soLichSuMoi,
+    soLichSuTrung: tl.soLichSuTrung + soLichSuTrung,
+  };
+  const done = nextDoiTac >= dsDoiTac.length;
+  if (done) {
+    const loi = [...tl.loi, ...loiTungDoiTac];
+    const ok = loi.length === 0;
+    await writeSummaryLog(db, { ok, ...tong, error: ok ? null : loi.join("; ").slice(0, MAX_ERROR_LEN) });
+    await cleanupOldLogs(db);
+    return { ok: true, ...tong, done, nextDoiTac, tongDoiTac: dsDoiTac.length };
+  }
+  // Chua xong: tra loi cua dot nay qua soLichSu... (tich luy) - loi tung doi tac gui kem qua tichLuy o route.
+  return { ok: true, ...tong, done, nextDoiTac, tongDoiTac: dsDoiTac.length, loi: [...tl.loi, ...loiTungDoiTac] };
 }

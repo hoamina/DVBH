@@ -608,9 +608,27 @@ export function SettingsModule() {
     },
   });
 
+  // SUA 2026-10-26: 1 luot dong bo day du mat 2-3,5 phut, vuot nguong 100s cua 1 request web (Cloudflare cat, Worker dung
+  // giua chung, khong ghi log) -> chay theo DOT (~50s/dot): goi lap lai voi tu_doi_tac/tich_luy toi khi done.
+  const [etxTienDo, setEtxTienDo] = useState<string | null>(null);
   const runEtxSyncNowMutation = useMutation({
-    mutationFn: () =>
-      api.post<{ ok: true; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number }>("/settings/etx-giai-trinh-sync-log/chay-ngay", {}),
+    mutationFn: async () => {
+      type Res = { ok: true; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; done: boolean; nextDoiTac: number; tongDoiTac: number; loi?: string[] };
+      let tuDoiTac = 0;
+      let tichLuy: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[] } | undefined;
+      try {
+        for (let dot = 0; dot < 30; dot++) {
+          const res = await api.post<Res>("/settings/etx-giai-trinh-sync-log/chay-ngay", { tu_doi_tac: tuDoiTac, tich_luy: tichLuy });
+          if (res.done) return res;
+          tuDoiTac = res.nextDoiTac;
+          tichLuy = { soCaseCapNhat: res.soCaseCapNhat, soLichSuMoi: res.soLichSuMoi, soLichSuTrung: res.soLichSuTrung, loi: res.loi ?? [] };
+          setEtxTienDo(`Đang chạy… đối tác ${tuDoiTac}/${res.tongDoiTac}`);
+        }
+        throw new Error("QUA_NHIEU_DOT");
+      } finally {
+        setEtxTienDo(null);
+      }
+    },
     onSuccess: (res) => {
       addToast(`Đã chạy xong: ${res.soCaseCapNhat} case cập nhật, ${res.soLichSuMoi} lịch sử mới, ${res.soLichSuTrung} trùng`);
       qc.invalidateQueries({ queryKey: ["settings-etx-giai-trinh-sync-log"] });
@@ -1512,7 +1530,7 @@ export function SettingsModule() {
               dòng. Chỉ giữ 30 ngày gần nhất, tự xóa dòng cũ hơn.
             </div>
             <Btn size="sm" onClick={() => runEtxSyncNowMutation.mutate()} disabled={runEtxSyncNowMutation.isPending}>
-              {runEtxSyncNowMutation.isPending ? "Đang chạy…" : "Chạy ngay"}
+              {runEtxSyncNowMutation.isPending ? (etxTienDo ?? "Đang chạy…") : "Chạy ngay"}
             </Btn>
           </div>
           <PaginatedTable
