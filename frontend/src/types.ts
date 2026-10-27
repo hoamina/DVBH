@@ -54,6 +54,7 @@ export interface CaseRow {
   // Migration 0143 - chi ca Odoo: dem anh/video theo 5 nhom that cua Odoo (chuoi JSON SoLuongAnh).
   // CHI so luong, khong phai link anh (link goc can dang nhap Odoo, link cong khai chi song ~15 phut).
   so_luong_anh?: string | null;
+  ngay_san_xuat?: string | null; // Odoo manufacturing_date (migration 0145), QuickSight NULL
   // Migration 0144 - chi ca Odoo: trang thai xin huy HIEN TAI (chuoi JSON CancelRequestItem[], 1 phan
   // tu - Odoo khong luu lich su nhieu lan, xin lai thi ghi de).
   yeu_cau_huy?: string | null;

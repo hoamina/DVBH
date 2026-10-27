@@ -40,6 +40,7 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   dung_han: "Đúng hạn",
   xu_ly_24h_bucket: "Nhóm xử lý 24h",
   ngay_mua: "Ngày mua",
+  ngay_san_xuat: "Ngày sản xuất",
   nhom_kh: "Nhóm KH",
   link_hinh_anh: "Link hình ảnh",
   ngay_import: "Ngày import",

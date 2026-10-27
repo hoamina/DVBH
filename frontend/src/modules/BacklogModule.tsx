@@ -1716,6 +1716,7 @@ export function BacklogModule({
     moneyCol("dt_linh_kien", CASE_FIELD_LABELS.dt_linh_kien),
     moneyCol("dt_dich_vu", CASE_FIELD_LABELS.dt_dich_vu),
     dateCol("ngay_mua", CASE_FIELD_LABELS.ngay_mua),
+    dateCol("ngay_san_xuat", CASE_FIELD_LABELS.ngay_san_xuat),
     dateCol("last_ngay_giai_trinh", CASE_FIELD_LABELS.last_ngay_giai_trinh),
     textCol("last_noi_dung_giai_trinh", CASE_FIELD_LABELS.last_noi_dung_giai_trinh),
     {

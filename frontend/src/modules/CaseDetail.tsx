@@ -482,6 +482,7 @@ function renderCaseFieldsGrid(
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
         <Field label="Đối tác" value={c.doi_tac ?? "—"} />
         <Field label="Ngày mua" value={fmtDate(c.ngay_mua)} />
+        <Field label="Ngày sản xuất" value={fmtDate(c.ngay_san_xuat)} />
         <Field label="Nhóm khách hàng" value={c.nhom_kh ?? "—"} />
         <Field label="Ngành / Loại ngành" value={`${c.nganh ?? "—"} — ${c.loai_nganh ?? "—"}`} />
         <Field

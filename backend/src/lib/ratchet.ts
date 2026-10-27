@@ -39,7 +39,8 @@ export const BUSINESS_FIELDS = [
 // (link goc can dang nhap Odoo, link cong khai chi song ~15 phut).
 // "yeu_cau_huy" (2026-10-26, migration 0144): trang thai xin huy HIEN TAI (Odoo khong luu lich su
 // nhieu lan, xin lai thi ghi de) - JSON array 1 phan tu, giong co che lich_hen ve mat luu tru.
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy"] as const;
+// "ngay_san_xuat" (2026-10-27, migration 0145): Ngày sản xuất tu Odoo (YYYY-MM-DD), QuickSight de NULL.
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat"] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
