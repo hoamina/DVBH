@@ -37,7 +37,9 @@ export const BUSINESS_FIELDS = [
 // "so_luong_anh" (2026-10-23, migration 0143): object JSON dem anh/video theo 5 nhom that cua Odoo
 // (ben_trong/ben_ngoai/bao_cao/tem_serial/bang_chung_huy) - CHI dem so luong, khong phai link anh
 // (link goc can dang nhap Odoo, link cong khai chi song ~15 phut).
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh"] as const;
+// "yeu_cau_huy" (2026-10-26, migration 0144): trang thai xin huy HIEN TAI (Odoo khong luu lich su
+// nhieu lan, xin lai thi ghi de) - JSON array 1 phan tu, giong co che lich_hen ve mat luu tru.
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy"] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
@@ -243,6 +245,7 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
   if (field === "linh_kien_loi") return normalizeLinhKienLoi(incoming[field]);
   if (field === "lich_hen") return normalizeLichHen(incoming[field]);
   if (field === "so_luong_anh") return normalizeSoLuongAnh(incoming[field]);
+  if (field === "yeu_cau_huy") return normalizeLichHen(incoming[field]); // cung dang mang JSON, dung chung ham
   if ((OPTIONAL_FIELDS as readonly string[]).includes(field) && incoming[field] === "") return null;
   return incoming[field] ?? null;
 }

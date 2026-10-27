@@ -16,6 +16,7 @@ import { CaseImageGallery, parseLinkHinhAnh, parseSoLuongAnh } from "../componen
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
+import { CancelRequestPanel, parseCancelRequest } from "../components/CancelRequestPanel";
 import { LuongMailPanel, useMailTimeline, NHAT_KY_LABEL } from "../components/LuongMailPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
@@ -176,8 +177,8 @@ function readCaseInfoLayout(): CaseInfoLayout {
   }
 }
 const CASE_INFO_LAYOUT_HINT: Record<CaseInfoLayout, string> = {
-  1: "Kiểu 1: 6 tab — Cơ bản / Xử lý / Bổ sung / Lỗi / Gửi BH / Lịch hẹn",
-  2: "Kiểu 2: 4 tab — Nội dung / Lỗi / Gửi BH / Lịch hẹn",
+  1: "Kiểu 1: 7 tab — Cơ bản / Xử lý / Bổ sung / Lỗi / Gửi BH / Lịch hẹn / Xin hủy",
+  2: "Kiểu 2: 5 tab — Nội dung / Lỗi / Gửi BH / Lịch hẹn / Xin hủy",
   3: "Kiểu 3: 1 tab — gộp tất cả thông tin case",
 };
 type XuLyTabs = {
@@ -188,6 +189,7 @@ type XuLyTabs = {
   countLoi: number;
   countBaoHanh: number;
   countLichHen: number;
+  countYeuCauHuy: number;
   panels: Record<string, ReactNode>;
   cardRef: RefObject<HTMLDivElement>;
   // Truong nguoi dung chon AN (nut ⚙, components/CaseInfoFieldSettings.tsx) - khoa = nhan truong.
@@ -503,12 +505,13 @@ function renderCaseFieldsGrid(
     const loiTab: TabItem = { key: "loi-linh-kien", label: "Lỗi", count: xuLyTabs.countLoi };
     const bhTab: TabItem = { key: "bao-hanh", label: "Gửi BH", count: xuLyTabs.countBaoHanh };
     const lichHenTab: TabItem = { key: "lich-hen", label: "Lịch hẹn", count: xuLyTabs.countLichHen };
+    const yeuCauHuyTab: TabItem = { key: "yeu-cau-huy", label: "Xin hủy", count: xuLyTabs.countYeuCauHuy };
     const tabs: TabItem[] =
       layout === 3
         ? [{ key: "tat-ca", label: "Thông tin case" }]
         : layout === 2
-          ? [{ key: "noi-dung", label: "Nội dung" }, loiTab, bhTab, lichHenTab]
-          : [{ key: "co-ban", label: "Cơ bản" }, { key: "xu-ly", label: "Xử lý" }, { key: "bo-sung", label: "Bổ sung" }, loiTab, bhTab, lichHenTab];
+          ? [{ key: "noi-dung", label: "Nội dung" }, loiTab, bhTab, lichHenTab, yeuCauHuyTab]
+          : [{ key: "co-ban", label: "Cơ bản" }, { key: "xu-ly", label: "Xử lý" }, { key: "bo-sung", label: "Bổ sung" }, loiTab, bhTab, lichHenTab, yeuCauHuyTab];
     // Tab dang chon co the thuoc kieu khac (vd doi Kieu 1 -> 2 khi dang o "xu-ly") -> quy ve tab tuong ung.
     let active = xuLyTabs.active;
     if (!tabs.some((t) => t.key === active)) active = layout === 2 && ["co-ban", "xu-ly", "bo-sung"].includes(active) ? "noi-dung" : tabs[0].key;
@@ -573,8 +576,10 @@ function renderCaseFieldsGrid(
                 sec("loi-linh-kien", xuLyTabs.panels["loi-linh-kien"]),
                 sec("bao-hanh", xuLyTabs.panels["bao-hanh"]),
                 sec("lich-hen", xuLyTabs.panels["lich-hen"]),
+                sec("yeu-cau-huy", xuLyTabs.panels["yeu-cau-huy"]),
               ])}
-            {(active === "loi-linh-kien" || active === "bao-hanh" || active === "lich-hen") && xuLyTabs.panels[active]}
+            {(active === "loi-linh-kien" || active === "bao-hanh" || active === "lich-hen" || active === "yeu-cau-huy") &&
+              xuLyTabs.panels[active]}
           </Card>
         </div>
       </>
@@ -915,6 +920,7 @@ export function CaseDetail({
   const donBaoHanhOdooList = useMemo(() => data?.donBaoHanhOdoo ?? [], [data]);
   const linhKienLoiList = useMemo(() => parseLinhKienLoi(data?.case.linh_kien_loi), [data]);
   const lichHenList = useMemo(() => parseLichHen(data?.case.lich_hen), [data]);
+  const yeuCauHuyList = useMemo(() => parseCancelRequest(data?.case.yeu_cau_huy), [data]);
   const [bienBanHopNoiDung, setBienBanHopNoiDung] = useState("");
   // CHOT 2026-08-16: an cac tab "rong" (count === 0) de giam roi mat thanh tab - chu he thong phan
   // hoi so tab qua nhieu kho quet nhanh. Khong luu qua localStorage (moi ca 1 trang thai rieng la hop
@@ -1120,6 +1126,7 @@ export function CaseDetail({
   const compareBaoHanhMatched = useMemo(() => (compareC ? matchBaoHanh(compareC.id, baoHanh) : []), [compareC, baoHanh]);
   const compareLoiList = useMemo(() => parseLinhKienLoi(compareC?.linh_kien_loi), [compareC]);
   const compareLichHenList = useMemo(() => parseLichHen(compareC?.lich_hen), [compareC]);
+  const compareYeuCauHuyList = useMemo(() => parseCancelRequest(compareC?.yeu_cau_huy), [compareC]);
   const compareOrders = useMemo(() => compareData?.donBaoHanhOdoo ?? [], [compareData]);
   const thieuHangMatched = useMemo(() => matchThieuHang(muaHangMatched, baoHanhMatched, thieuHang), [muaHangMatched, baoHanhMatched, thieuHang]);
   const qcThucTeMatched = useMemo(() => (c ? matchQcThucTe(c.id, qcThucTe) : []), [c, qcThucTe]);
@@ -2358,6 +2365,7 @@ export function CaseDetail({
 
   const loiLinhKienContent = <LoiLinhKienPanel parts={linhKienLoiList} orders={donBaoHanhOdooList} />;
   const lichHenContent = <LichHenPanel items={lichHenList} />;
+  const yeuCauHuyContent = <CancelRequestPanel items={yeuCauHuyList} />;
 
   // Dung chung cho ca goc + cot ca doi chieu (2026-10-08) - moi ben truyen du lieu cua chinh ca do.
   function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched) {
@@ -2464,10 +2472,12 @@ export function CaseDetail({
               countLoi: compareLoiList.length,
               countBaoHanh: compareBaoHanhMatched.length + compareOrders.length,
               countLichHen: compareLichHenList.length,
+              countYeuCauHuy: compareYeuCauHuyList.length,
               panels: {
                 "loi-linh-kien": <LoiLinhKienPanel parts={compareLoiList} orders={compareOrders} />,
                 "bao-hanh": renderBaoHanh(compareLoiList, compareOrders, compareBaoHanhMatched),
                 "lich-hen": <LichHenPanel items={compareLichHenList} />,
+                "yeu-cau-huy": <CancelRequestPanel items={compareYeuCauHuyList} />,
               },
             },
           )}
@@ -2516,16 +2526,23 @@ export function CaseDetail({
           countLoi: linhKienLoiList.length,
           countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length,
           countLichHen: lichHenList.length,
-          panels: { "loi-linh-kien": loiLinhKienContent, "bao-hanh": baoHanhContent, "lich-hen": lichHenContent },
+          countYeuCauHuy: yeuCauHuyList.length,
+          panels: {
+            "loi-linh-kien": loiLinhKienContent,
+            "bao-hanh": baoHanhContent,
+            "lich-hen": lichHenContent,
+            "yeu-cau-huy": yeuCauHuyContent,
+          },
         },
       )}
     </>
   );
 
-  // Tiến trinh chung tro toi "loi-linh-kien"/"bao-hanh"/"lich-hen" (nay la tab con trong the Thong tin
-  // xu ly): mo dung tab con + cuon toi the; compact phai chuyen ve tab "info" truoc vi the nam trong do.
+  // Tiến trinh chung tro toi "loi-linh-kien"/"bao-hanh"/"lich-hen"/"yeu-cau-huy" (nay la tab con trong
+  // the Thong tin xu ly): mo dung tab con + cuon toi the; compact phai chuyen ve tab "info" truoc vi
+  // the nam trong do.
   function jumpToTab(key: string) {
-    if (key === "loi-linh-kien" || key === "bao-hanh" || key === "lich-hen") {
+    if (key === "loi-linh-kien" || key === "bao-hanh" || key === "lich-hen" || key === "yeu-cau-huy") {
       setXuLyTab(key);
       if (viewMode === "compact") onTabChange("info");
       // Kieu 3 xep doc -> cuon toi dung phan (data-sec); Kieu 1/2 -> cuon toi dau the.

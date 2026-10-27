@@ -54,6 +54,9 @@ export interface CaseRow {
   // Migration 0143 - chi ca Odoo: dem anh/video theo 5 nhom that cua Odoo (chuoi JSON SoLuongAnh).
   // CHI so luong, khong phai link anh (link goc can dang nhap Odoo, link cong khai chi song ~15 phut).
   so_luong_anh?: string | null;
+  // Migration 0144 - chi ca Odoo: trang thai xin huy HIEN TAI (chuoi JSON CancelRequestItem[], 1 phan
+  // tu - Odoo khong luu lich su nhieu lan, xin lai thi ghi de).
+  yeu_cau_huy?: string | null;
   ngay_import: string;
   ngay_cap_nhat_gan_nhat: string;
   assigned_to: string | null;
@@ -670,6 +673,21 @@ export interface LichHenItem {
   ghi_chu: string | null;
   ngay_tao: string | null; // gio VN
   anh_bang_chung: { media_id: number; url: string; loai_file: string }[];
+}
+
+// Trang thai xin huy HIEN TAI cua ca (nguon Odoo, case_dvbh.yeu_cau_huy, migration 0144) - JSON array
+// 1 phan tu (Odoo khong luu lich su nhieu lan) - xem components/CancelRequestPanel.tsx.
+export interface CancelRequestItem {
+  dang_cho_duyet: boolean;
+  nguoi_xin_huy: string | null;
+  thoi_diem_xin_huy: string | null; // gio VN
+  ly_do_xin_huy: string | null;
+  ghi_chu_xin_huy: string | null;
+  ly_do_quyet_dinh_cskh: string | null;
+  ghi_chu_quyet_dinh_cskh: string | null;
+  ghi_chu_ktv_xin_huy: string | null;
+  ly_do_huy_cuoi: string | null;
+  ghi_chu_huy_cuoi: string | null;
 }
 
 // So luong anh/video theo 5 nhom that cua Odoo (case_dvbh.so_luong_anh, migration 0143) - xem
