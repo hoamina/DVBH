@@ -4877,3 +4877,20 @@ Phản hồi: bấm chạy lại nhưng bảng nhật ký đồng bộ không c�
   qua được (lỗi từ v1.458, lúc thử chỉ dùng Admin). Cùng lỗi import vi phạm 2026-09-30.
 - Sửa: mount trước `/api/import` (index.ts). Thử local theo vai trò: GS/QC tải mẫu 200 + xem trước vào được; CSKH xem trước 403
   (đúng thiết kế); import CRM vẫn chỉ Admin/TBP DVBH.
+
+## 2026-10-28 — Ngôn ngữ giao diện VI/EN/ID — Đợt 1: khung chung (v1.492, migration 0146)
+Yêu cầu: thêm lựa chọn ngôn ngữ tiếng Việt / Anh / Indonesia cho toàn bộ web. Chốt với chủ hệ thống:
+- Chỉ dịch giao diện; dữ liệu nghiệp vụ (khu vực, trạng thái CRM/Odoo, lý do, tên KTV, ghi chú), file Excel xuất ra, ảnh
+  Telegram, thông báo lỗi từ server giữ tiếng Việt.
+- Lưu theo tài khoản: cột `users.ngon_ngu` ('vi'|'en'|'id', mặc định 'vi'), `PATCH /api/auth/me {ngon_ngu}` (giá trị lạ → 400),
+  `GET /api/auth/me` trả kèm. Màn đăng nhập chọn được (lưu localStorage), đăng nhập xong tự ghi vào tài khoản.
+- Làm theo đợt: Đợt 1 = khung chung — sidebar (nhóm + tên module), TopBar (tra cứu, thông báo, báo cáo 08:00, đăng xuất,
+  Phạm vi, Địa giới, Tra tồn LK), tiêu đề module, màn đăng nhập/chờ duyệt, cài app, bảng phân trang (tùy chỉnh cột, trống,
+  lỗi, số dòng), ô chọn có tìm kiếm, banner cache, nút dòng trước/sau, toast báo cáo nhanh. Các đợt sau theo mức dùng:
+  Tổng quát → Quản lý tồn → Chi tiết ca → các module còn lại.
+- Kỹ thuật: i18next + react-i18next, `frontend/src/i18n/` (index.ts + locales vi/en/id.json), nút `NgonNguSwitcher`.
+- Thuật ngữ thống nhất: ca = case/kasus, tồn = backlog/tunggakan, giải trình = explanation/penjelasan, KTV = technician/
+  teknisi, khảo sát = survey/survei, vi phạm = violation/pelanggaran, ca lặp = repeat case/kasus berulang, tranh chấp =
+  dispute/sengketa, linh kiện = spare part/suku cadang, nạp gas = gas refill/isi ulang gas.
+- Chưa dịch: câu chào TopBar (server/AI sinh), câu "đang tải" vui (lib/loadingPhrases), nội dung các module.
+

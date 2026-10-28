@@ -1,15 +1,16 @@
+import { useTranslation } from "react-i18next";
+import { NgonNguSwitcher } from "../components/NgonNguSwitcher";
+
 export function LoginScreen({ variant = "login" }: { variant?: "login" | "pending" | "rejected" | "disabled" }) {
-  const messages: Record<string, { title: string; sub: string }> = {
-    login: { title: "Dịch Vụ 3T - DVBH", sub: "Hệ thống quản lý giải trình tồn & SLA nội bộ" },
-    pending: { title: "Đang chờ duyệt", sub: "Tài khoản của bạn đã được ghi nhận, vui lòng chờ Admin phê duyệt và gán vai trò." },
-    rejected: { title: "Tài khoản bị từ chối", sub: "Liên hệ Admin nếu bạn cho rằng đây là nhầm lẫn." },
-    disabled: { title: "Tài khoản đã bị khóa", sub: "Liên hệ Admin để được mở khóa lại." },
-  };
-  const { title, sub } = messages[variant];
+  const { t } = useTranslation();
+  const title = t(`login.${variant}Title`);
+  const sub = t(`login.${variant}Sub`);
 
   return (
     <div className="min-h-screen ripple-bg flex items-center justify-center" style={{ background: "linear-gradient(160deg, var(--ocean-950), var(--ocean-800))" }}>
-      <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-sm text-center anim-in">
+      <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-sm text-center anim-in relative">
+        {/* Chua co phien -> chi luu localStorage; sau khi dang nhap, ngon ngu theo tai khoan (users.ngon_ngu). */}
+        <NgonNguSwitcher luuTaiKhoan={false} className="absolute top-4 right-4" />
         <img src="/icon-192.png" alt="DVBH 3T" width={52} height={52} className="mx-auto mb-3 rounded-xl" />
         <div className="font-display font-extrabold text-xl mb-1">{title}</div>
         <div className="text-sm text-[var(--ink-400)] mb-7">{sub}</div>
@@ -24,11 +25,11 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
               <path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.6 26.7 37.5 24 37.5c-5.3 0-9.7-3.6-11.3-8.4l-6.5 5C9.5 40.6 16.2 45 24 45z" />
               <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.9 2.6-2.5 4.8-4.7 6.3l6.2 5.2C40.5 36.2 44 30.6 44 24c0-1.3-.1-2.7-.4-3.5z" />
             </svg>
-            Đăng nhập bằng Google
+            {t("login.google")}
           </a>
         )}
         {variant === "login" && (
-          <div className="text-xs text-[var(--ink-400)] mt-5">Chỉ tài khoản đã được Admin phê duyệt mới truy cập được hệ thống.</div>
+          <div className="text-xs text-[var(--ink-400)] mt-5">{t("login.onlyApproved")}</div>
         )}
         {/* import.meta.env.DEV chi true khi chay "vite dev" (local) - luon false trong build production
             (npm run build), nen nut nay khong bao gio xuat hien tren he thong that du co quen xoa. Lop
@@ -39,7 +40,7 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
             href="/api/auth/dev-login"
             className="focus-ring w-full flex items-center justify-center gap-2 mt-2.5 border border-dashed border-[var(--amber-500)] text-[var(--amber-700)] rounded-xl py-2 font-semibold text-xs hover:bg-[var(--amber-100)] transition-colors"
           >
-            🔧 Đăng nhập DEV (bỏ qua Google, chỉ local)
+            {t("login.dev")}
           </a>
         )}
       </div>

@@ -1,0 +1,132 @@
+{
+  "lang": { "label": "Language", "saveError": "Could not save the language to your account (still applied on this device)." },
+  "common": {
+    "noData": "No data.",
+    "loadError": "Could not load data.",
+    "retry": "Retry",
+    "rows": "{{count}} rows",
+    "typeToSearch": "Type to search…",
+    "notFound": "No results.",
+    "prevRow": "Previous row",
+    "nextRow": "Next row",
+    "syncing": "Syncing…",
+    "resync": "🔄 Sync again",
+    "cacheBanner": "📦 Completed data is cached on your device — last updated:",
+    "searching": "Searching…"
+  },
+  "table": {
+    "customize": "Customize columns",
+    "customizeTitle": "Show / hide columns, change widths, drag to reorder columns",
+    "dragHelp": "↔ Drag the line between 2 headers to resize · Drag a header to move the column",
+    "visibleCols": "Visible columns (untick to hide)",
+    "resizeTitle": "Drag to resize the column"
+  },
+  "navGroup": { "tong-quan": "Overview", "van-hanh": "Operations", "he-thong": "System", "ca-nhan": "Personal" },
+  "nav": {
+    "dashboard": "Overview",
+    "revenue": "Revenue report",
+    "luy-ke": "Cumulative report",
+    "backlog": "Backlog",
+    "missing-parts": "Missing-part cases",
+    "tranh-chap": "Disputes & complaints",
+    "nap-gas": "Gas refill review",
+    "survey": "Survey management",
+    "bao-cao-vi-pham": "Violation report",
+    "ca-lap": "Repeat cases",
+    "danh-sach-tong": "Master list",
+    "dat-mua-lk": "Spare part orders",
+    "tra-hang": "Return orders",
+    "danh-muc-lk": "Spare part catalog",
+    "import": "Import data",
+    "settings": "Settings",
+    "users": "User management",
+    "giao-dien": "Personal settings"
+  },
+  "sidebar": {
+    "subtitle": "Backlog explanation & SLA",
+    "collapse": "« Collapse",
+    "internal": "Internal system — do not share in any form.",
+    "version": "Version v{{version}}"
+  },
+  "topbar": {
+    "deltaSub": "Start of day {{baseline}} · handled {{resolved}}",
+    "searchPlaceholder": "Look up ID/Serial…",
+    "searchLabel": "Look up ID/Serial",
+    "closeSearch": "Close search",
+    "theme": "Change theme",
+    "notifications": "Notifications",
+    "syncTitle": "Time of the latest CRM export loaded into the system",
+    "syncedTo": "Synced up to:",
+    "todo": "To do",
+    "choQc": "Cases awaiting QC level-2 decision",
+    "report0800": "📊 08:00 report",
+    "updatedAt": "Updated at {{time}}",
+    "canGiaiTrinh": "Needs explanation",
+    "thieuLk": "Pending missing-part cases",
+    "caLap": "Repeat cases to handle",
+    "canKhaoSat": "Needs survey",
+    "doanhThu": "Revenue this month",
+    "khuVuc": "Region: {{list}}",
+    "logout": "Sign out"
+  },
+  "tonKho": {
+    "placeholder": "Part stock (code/name)…",
+    "title": "Look up spare part stock by code or name",
+    "error": "Could not look up stock.",
+    "noMatch": "No spare part matches \"{{q}}\".",
+    "colMa": "Part code",
+    "colTen": "Part name",
+    "colMb": "North stock",
+    "colMn": "South stock",
+    "hint": "Click a row to see stock per warehouse, purchase orders and missing-part cases.",
+    "updated": " Stock updated {{v}}.",
+    "first40": " Showing the first 40 results — type something more specific."
+  },
+  "phamVi": {
+    "groupTitle": "Data scope of every report / list (does not affect business operations)",
+    "label": "Scope",
+    "viewing": "Viewing",
+    "aria": "Report scope",
+    "tat_ca": "All",
+    "nskx": "NSKX",
+    "khong_nskx": "Non-NSKX",
+    "tat_caTitle": "View the whole system",
+    "nskxTitle": "Only NSKX partner cases",
+    "khong_nskxTitle": "Whole system EXCEPT NSKX partner cases"
+  },
+  "diaGioi": {
+    "groupTitle": "How provinces are grouped/filtered in every report",
+    "label": "Boundaries",
+    "cu": "Old",
+    "moi": "New",
+    "cuTitle": "OLD boundaries: 63 provinces + districts (cases without an old province → blank)",
+    "moiTitle": "NEW boundaries: 34 provinces + new communes/wards (old cases without a new province → converted via the province mapping table)"
+  },
+  "login": {
+    "loginTitle": "3T Service - DVBH",
+    "loginSub": "Internal backlog explanation & SLA management system",
+    "pendingTitle": "Awaiting approval",
+    "pendingSub": "Your account has been registered. Please wait for an Admin to approve it and assign a role.",
+    "rejectedTitle": "Account rejected",
+    "rejectedSub": "Contact an Admin if you think this is a mistake.",
+    "disabledTitle": "Account locked",
+    "disabledSub": "Contact an Admin to have it unlocked.",
+    "google": "Sign in with Google",
+    "onlyApproved": "Only accounts approved by an Admin can access the system.",
+    "dev": "🔧 DEV sign-in (skip Google, local only)"
+  },
+  "install": {
+    "button": "Install on home screen",
+    "title": "📲 Install DVBH 3T on your home screen",
+    "intro": "This browser does not support automatic installation. Follow these manual steps:",
+    "ios1": "1. Tap the Share button ⬆️ in the browser bar.",
+    "ios2": "2. Choose \"Add to Home Screen\".",
+    "android1": "1. Tap the ⋮ menu in the top-right corner.",
+    "android2": "2. Choose \"Install app\" or \"Add to Home screen\"."
+  },
+  "app": {
+    "caseNotFound": "No case found with this ID / Serial",
+    "dailyToast": "📊 Today's quick report: {{ton}} cases backlogged >3 days need explanation · {{thieu}} missing parts · {{lap}} repeat cases to handle · {{khaoSat}} need survey{{dt}}",
+    "dailyToastDt": " · Month revenue: {{dt}}"
+  }
+}

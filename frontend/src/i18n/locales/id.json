@@ -1,0 +1,132 @@
+{
+  "lang": { "label": "Bahasa", "saveError": "Bahasa tidak dapat disimpan ke akun Anda (tetap diterapkan di perangkat ini)." },
+  "common": {
+    "noData": "Tidak ada data.",
+    "loadError": "Gagal memuat data.",
+    "retry": "Coba lagi",
+    "rows": "{{count}} baris",
+    "typeToSearch": "Ketik untuk mencari…",
+    "notFound": "Tidak ditemukan.",
+    "prevRow": "Baris sebelumnya",
+    "nextRow": "Baris berikutnya",
+    "syncing": "Menyinkronkan…",
+    "resync": "🔄 Sinkronkan ulang",
+    "cacheBanner": "📦 Data yang sudah selesai disimpan di cache perangkat Anda — terakhir diperbarui:",
+    "searching": "Mencari…"
+  },
+  "table": {
+    "customize": "Atur kolom",
+    "customizeTitle": "Tampilkan / sembunyikan kolom, ubah lebar, seret untuk mengurutkan kolom",
+    "dragHelp": "↔ Seret garis di antara 2 judul untuk mengubah lebar · Seret judul untuk memindahkan kolom",
+    "visibleCols": "Kolom yang ditampilkan (hapus centang untuk menyembunyikan)",
+    "resizeTitle": "Seret untuk mengubah lebar kolom"
+  },
+  "navGroup": { "tong-quan": "Ringkasan", "van-hanh": "Operasional", "he-thong": "Sistem", "ca-nhan": "Pribadi" },
+  "nav": {
+    "dashboard": "Ringkasan",
+    "revenue": "Laporan pendapatan",
+    "luy-ke": "Laporan kumulatif",
+    "backlog": "Tunggakan",
+    "missing-parts": "Kurang suku cadang",
+    "tranh-chap": "Sengketa & keluhan",
+    "nap-gas": "Penilaian isi ulang gas",
+    "survey": "Manajemen survei",
+    "bao-cao-vi-pham": "Laporan pelanggaran",
+    "ca-lap": "Kasus berulang",
+    "danh-sach-tong": "Daftar induk",
+    "dat-mua-lk": "Pesan suku cadang",
+    "tra-hang": "Pesanan retur",
+    "danh-muc-lk": "Katalog suku cadang",
+    "import": "Impor data",
+    "settings": "Pengaturan",
+    "users": "Manajemen pengguna",
+    "giao-dien": "Pengaturan pribadi"
+  },
+  "sidebar": {
+    "subtitle": "Penjelasan tunggakan & SLA",
+    "collapse": "« Ciutkan",
+    "internal": "Sistem internal — dilarang dibagikan dalam bentuk apa pun.",
+    "version": "Versi v{{version}}"
+  },
+  "topbar": {
+    "deltaSub": "Awal hari {{baseline}} · ditangani {{resolved}}",
+    "searchPlaceholder": "Cari ID/Serial…",
+    "searchLabel": "Cari ID/Serial",
+    "closeSearch": "Tutup pencarian",
+    "theme": "Ganti tampilan",
+    "notifications": "Notifikasi",
+    "syncTitle": "Waktu ekspor data CRM terbaru yang dimuat ke sistem",
+    "syncedTo": "Tersinkron hingga:",
+    "todo": "Perlu ditangani",
+    "choQc": "Kasus menunggu keputusan QC level 2",
+    "report0800": "📊 Laporan pukul 08:00",
+    "updatedAt": "Diperbarui pukul {{time}}",
+    "canGiaiTrinh": "Perlu penjelasan",
+    "thieuLk": "Kasus kurang suku cadang tertunda",
+    "caLap": "Kasus berulang perlu ditangani",
+    "canKhaoSat": "Perlu survei",
+    "doanhThu": "Pendapatan bulan ini",
+    "khuVuc": "Wilayah: {{list}}",
+    "logout": "Keluar"
+  },
+  "tonKho": {
+    "placeholder": "Stok suku cadang (kode/nama)…",
+    "title": "Cari stok suku cadang berdasarkan kode atau nama",
+    "error": "Gagal mencari stok.",
+    "noMatch": "Tidak ada suku cadang yang cocok dengan \"{{q}}\".",
+    "colMa": "Kode",
+    "colTen": "Nama suku cadang",
+    "colMb": "Stok Utara",
+    "colMn": "Stok Selatan",
+    "hint": "Klik satu baris untuk melihat stok per gudang, PO pemesanan, dan kasus kekurangan.",
+    "updated": " Stok diperbarui {{v}}.",
+    "first40": " Menampilkan 40 hasil pertama — ketik lebih spesifik."
+  },
+  "phamVi": {
+    "groupTitle": "Cakupan data semua laporan / daftar (tidak memengaruhi operasional)",
+    "label": "Cakupan",
+    "viewing": "Melihat",
+    "aria": "Cakupan laporan",
+    "tat_ca": "Semua",
+    "nskx": "NSKX",
+    "khong_nskx": "Non-NSKX",
+    "tat_caTitle": "Lihat seluruh sistem",
+    "nskxTitle": "Hanya kasus mitra NSKX",
+    "khong_nskxTitle": "Seluruh sistem KECUALI kasus mitra NSKX"
+  },
+  "diaGioi": {
+    "groupTitle": "Cara mengelompokkan/menyaring provinsi di semua laporan",
+    "label": "Batas wilayah",
+    "cu": "Lama",
+    "moi": "Baru",
+    "cuTitle": "Batas LAMA: 63 provinsi + kabupaten (kasus tanpa provinsi lama → kosong)",
+    "moiTitle": "Batas BARU: 34 provinsi + kelurahan/desa baru (kasus lama tanpa provinsi baru → dikonversi lewat tabel konversi provinsi)"
+  },
+  "login": {
+    "loginTitle": "Layanan 3T - DVBH",
+    "loginSub": "Sistem internal manajemen penjelasan tunggakan & SLA",
+    "pendingTitle": "Menunggu persetujuan",
+    "pendingSub": "Akun Anda sudah tercatat. Silakan tunggu Admin menyetujui dan menetapkan peran.",
+    "rejectedTitle": "Akun ditolak",
+    "rejectedSub": "Hubungi Admin jika menurut Anda ini sebuah kekeliruan.",
+    "disabledTitle": "Akun dikunci",
+    "disabledSub": "Hubungi Admin untuk membuka kunci.",
+    "google": "Masuk dengan Google",
+    "onlyApproved": "Hanya akun yang disetujui Admin yang dapat mengakses sistem.",
+    "dev": "🔧 Masuk DEV (lewati Google, hanya lokal)"
+  },
+  "install": {
+    "button": "Pasang di layar utama",
+    "title": "📲 Pasang DVBH 3T di layar utama",
+    "intro": "Browser ini tidak mendukung pemasangan otomatis. Ikuti langkah manual berikut:",
+    "ios1": "1. Ketuk tombol Bagikan ⬆️ di bilah browser.",
+    "ios2": "2. Pilih \"Tambah ke Layar Utama\" (Add to Home Screen).",
+    "android1": "1. Ketuk menu ⋮ di pojok kanan atas.",
+    "android2": "2. Pilih \"Instal aplikasi\" atau \"Tambahkan ke Layar utama\"."
+  },
+  "app": {
+    "caseNotFound": "Tidak ada kasus dengan ID / Serial ini",
+    "dailyToast": "📊 Laporan singkat hari ini: {{ton}} kasus tertunda >3 hari perlu penjelasan · {{thieu}} kurang suku cadang · {{lap}} kasus berulang perlu ditangani · {{khaoSat}} perlu survei{{dt}}",
+    "dailyToastDt": " · Pendapatan bulan: {{dt}}"
+  }
+}

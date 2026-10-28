@@ -4,6 +4,7 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
 import { api } from "../api/client";
 import { InstallAppButton } from "./InstallAppButton";
+import { useTranslation } from "react-i18next";
 
 // datMuaLk la object breakdown-theo-loai-viec (xem DatMuaLkBreakdown o backend/src/routes/notifications.ts)
 // tu 2026-08-15 - sidebar chi can ".total" de hien 1 con so gon, breakdown chi tiet hien trong
@@ -47,6 +48,7 @@ export function Sidebar({
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
   // Cung queryKey voi TopBar.tsx ("notifications-count") de dung chung 1 cache/fetch, khong goi API
   // 2 lan cho cung 1 du lieu - refetchInterval PHAI khop voi TopBar.tsx, neu khong observer nao co
@@ -67,7 +69,7 @@ export function Sidebar({
         {(!collapsed || isMobile) && (
           <div className="leading-tight">
             <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">DỊCH VỤ 3T - DVBH</div>
-            <div className="text-[10px] text-[var(--sidebar-ink-dim)] font-medium">Giải trình tồn &amp; SLA</div>
+            <div className="text-[10px] text-[var(--sidebar-ink-dim)] font-medium">{t("sidebar.subtitle")}</div>
           </div>
         )}
       </div>
@@ -76,8 +78,8 @@ export function Sidebar({
           const items = g.items.filter((i) => allowedModules.includes(i.key));
           if (items.length === 0) return null;
           return (
-            <div key={g.label} className="mb-4">
-              {(!collapsed || isMobile) && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-ink-dim)] px-2.5 mb-1.5">{g.label}</div>}
+            <div key={g.key} className="mb-4">
+              {(!collapsed || isMobile) && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-ink-dim)] px-2.5 mb-1.5">{t(`navGroup.${g.key}`, { defaultValue: g.label })}</div>}
               {items.map((it) => {
                 const count = !it.countKey || !counts ? 0 : it.countKey === "datMuaLk" ? counts.datMuaLk.total : counts[COUNT_FIELD[it.countKey]];
                 return (
@@ -99,7 +101,7 @@ export function Sidebar({
                         {/* "truncate" chi ap dung cho ten module - so dem (x123) tach rieng "shrink-0"
                             de KHONG BAO GIO bi cat mat du ten module dai den dau (fix loi cu: so dem
                             nam chung 1 span voi ten nen bi an theo khi truncate kich hoat). */}
-                        <span className="truncate flex-1 text-left min-w-0">{it.label}</span>
+                        <span className="truncate flex-1 text-left min-w-0">{t(`nav.${it.key}`, { defaultValue: it.label })}</span>
                         {count > 0 && <span className="shrink-0 text-xs text-[var(--sidebar-ink-dim)] font-medium">({count})</span>}
                       </>
                     )}
@@ -120,14 +122,14 @@ export function Sidebar({
           onClick={() => setCollapsed(!collapsed)}
           className="focus-ring m-2.5 py-2 rounded-xl text-[var(--sidebar-ink-dim)] hover:bg-[var(--sidebar-highlight)] hover:text-[var(--sidebar-ink)] text-xs font-semibold"
         >
-          {collapsed ? "»" : "« Thu gọn"}
+          {collapsed ? "»" : t("sidebar.collapse")}
         </button>
       )}
       {(!collapsed || isMobile) && (
         <div className="px-3.5 pb-3 pt-1 text-[9px] leading-snug text-[var(--sidebar-ink-dim)] shrink-0">
-          Hệ thống nội bộ không chia sẻ dưới mọi hình thức.
+          {t("sidebar.internal")}
           <br />
-          Phiên bản v{APP_VERSION}
+          {t("sidebar.version", { version: APP_VERSION })}
         </div>
       )}
     </aside>

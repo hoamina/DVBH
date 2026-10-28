@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import type { Env } from "../types";
+import { type Env, NGON_NGU_VALUES } from "../types";
 import { signSession } from "../lib/jwt";
 import { verifySessionMiddleware, SESSION_COOKIE, SESSION_TTL_SECONDS } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -191,7 +191,7 @@ auth.get("/nguoi-directory", verifySessionMiddleware, loadUser, async (c) => {
 // khong can thiet, chi con "Thong tin ca nhan" (ten_goi, gioi_tinh) dung route nay.
 auth.patch("/me", verifySessionMiddleware, loadUser, async (c) => {
   const user = c.get("user");
-  const body = await c.req.json<{ ten_goi?: string | null; gioi_tinh?: string | null }>();
+  const body = await c.req.json<{ ten_goi?: string | null; gioi_tinh?: string | null; ngon_ngu?: string }>();
 
   const sets: string[] = [];
   const binds: unknown[] = [];
@@ -209,6 +209,13 @@ auth.patch("/me", verifySessionMiddleware, loadUser, async (c) => {
     }
     sets.push("gioi_tinh = ?");
     binds.push(body.gioi_tinh);
+  }
+
+  // Ngon ngu giao dien (migration 0146) - moi user tu doi cua minh.
+  if (body.ngon_ngu !== undefined) {
+    if (!(NGON_NGU_VALUES as readonly string[]).includes(body.ngon_ngu)) return c.json({ error: "INVALID_NGON_NGU" }, 400);
+    sets.push("ngon_ngu = ?");
+    binds.push(body.ngon_ngu);
   }
 
   if (sets.length === 0) return c.json({ ok: true });

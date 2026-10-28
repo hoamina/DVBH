@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -12,14 +13,15 @@ const n = (v: number | null | undefined) => (v ? Math.round(v * 100) / 100 : 0).
 
 export function TonKhoSearch({ className = "w-44 lg:w-56" }: { className?: string }) {
   const mo = useMoHoSoLinhKien();
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(q.trim()), 350);
-    return () => clearTimeout(t);
+    const tm = setTimeout(() => setDebounced(q.trim()), 350);
+    return () => clearTimeout(tm);
   }, [q]);
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -58,27 +60,27 @@ export function TonKhoSearch({ className = "w-44 lg:w-56" }: { className?: strin
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-          placeholder="Tra tồn LK (mã/tên)…"
-          title="Tra tồn kho linh kiện theo mã hoặc tên"
+          placeholder={t("tonKho.placeholder")}
+          title={t("tonKho.title")}
           className="focus-ring w-full pl-9 pr-3 py-2 rounded-xl bg-slate-100 border border-transparent focus:bg-white focus:border-[var(--ocean-400)] text-sm"
         />
       </form>
       {open && debounced.length >= 2 && (
         <div className="absolute left-0 mt-1.5 w-[560px] max-w-[90vw] max-h-[60vh] overflow-auto bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg z-40 anim-in">
           {res.isLoading ? (
-            <div className="px-3 py-3 text-sm text-[var(--ink-400)]">Đang tìm…</div>
+            <div className="px-3 py-3 text-sm text-[var(--ink-400)]">{t("common.searching")}</div>
           ) : res.isError ? (
-            <div className="px-3 py-3 text-sm text-[var(--coral-500)]">Không tra được tồn kho.</div>
+            <div className="px-3 py-3 text-sm text-[var(--coral-500)]">{t("tonKho.error")}</div>
           ) : rows.length === 0 ? (
-            <div className="px-3 py-3 text-sm text-[var(--ink-400)]">Không thấy linh kiện khớp "{debounced}".</div>
+            <div className="px-3 py-3 text-sm text-[var(--ink-400)]">{t("tonKho.noMatch", { q: debounced })}</div>
           ) : (
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[var(--surface)] text-[var(--ink-400)]">
                 <tr className="border-b border-[var(--line)]">
-                  <th className="text-left py-1.5 px-2.5">Mã LK</th>
-                  <th className="text-left py-1.5 px-2">Tên linh kiện</th>
-                  <th className="text-right py-1.5 px-2">Tồn MB</th>
-                  <th className="text-right py-1.5 px-2">Tồn MN</th>
+                  <th className="text-left py-1.5 px-2.5">{t("tonKho.colMa")}</th>
+                  <th className="text-left py-1.5 px-2">{t("tonKho.colTen")}</th>
+                  <th className="text-right py-1.5 px-2">{t("tonKho.colMb")}</th>
+                  <th className="text-right py-1.5 px-2">{t("tonKho.colMn")}</th>
                   <th className="text-right py-1.5 px-2.5">KTV</th>
                 </tr>
               </thead>
@@ -100,8 +102,8 @@ export function TonKhoSearch({ className = "w-44 lg:w-56" }: { className?: strin
           )}
           {rows.length > 0 && (
             <div className="px-3 py-1.5 text-[11px] text-[var(--ink-400)] border-t border-[var(--line)]">
-              Bấm 1 dòng để xem tồn từng kho, PO đặt hàng, ca thiếu.{res.data?.phien_ban ? ` Tồn kho cập nhật ${res.data.phien_ban}.` : ""}
-              {rows.length >= 40 ? " Hiển thị 40 kết quả đầu — gõ cụ thể hơn." : ""}
+              {t("tonKho.hint")}{res.data?.phien_ban ? t("tonKho.updated", { v: res.data.phien_ban }) : ""}
+              {rows.length >= 40 ? t("tonKho.first40") : ""}
             </div>
           )}
         </div>

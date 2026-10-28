@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth/AuthContext";
 import { api } from "./api/client";
 import { fmtVND } from "./types";
+import i18n from "./i18n";
+import { useTranslation } from "react-i18next";
 import { LoginScreen } from "./login/LoginScreen";
 import { Sidebar } from "./layout/Sidebar";
 import { TopBar } from "./layout/TopBar";
@@ -63,6 +65,8 @@ function MainApp({
   user: Extract<ReturnType<typeof useAuth>, { status: "authenticated" }>["user"];
   showDailyReport: boolean;
 }) {
+  // Dang ky theo doi doi ngon ngu (tieu de module/toast dung i18n.t).
+  useTranslation();
   const role = user.vai_tro;
   // Tai khoan "chi Dat mua linh kien" - vai_tro=NULL CO CHU DICH (KTV/CTV/Tram/Ve tinh/Kho/Ke toan
   // thuan tuy, khong tham gia phan he DVBH con lai - chot 2026-08-14). Khac "chua duyet" (do la
@@ -128,10 +132,8 @@ function MainApp({
     (async () => {
       try {
         const r = await api.get<{ tonTren3Ngay: number; thieuLinhKien: number; nghiNgoViPham: number; caLap: number; doanhThuThang: number | null }>("/dashboard/daily-report");
-        const dtSuffix = r.doanhThuThang !== null ? ` · DT tháng: ${fmtVND(r.doanhThuThang)}` : "";
-        addToast(
-          `📊 Báo cáo nhanh hôm nay: ${r.tonTren3Ngay} ca tồn >3 ngày cần giải trình · ${r.thieuLinhKien} thiếu linh kiện · ${r.caLap} ca lặp cần xử lý · ${r.nghiNgoViPham} cần khảo sát${dtSuffix}`,
-        );
+        const dt = r.doanhThuThang !== null ? i18n.t("app.dailyToastDt", { dt: fmtVND(r.doanhThuThang) }) : "";
+        addToast(i18n.t("app.dailyToast", { ton: r.tonTren3Ngay, thieu: r.thieuLinhKien, lap: r.caLap, khaoSat: r.nghiNgoViPham, dt }));
       } catch {
         /* khong chan trai nghiem neu bao cao loi - im lang bo qua */
       }
@@ -223,7 +225,7 @@ function MainApp({
 
   function handleSearch(id: string | null) {
     if (id) openCase(id);
-    else addToast("Không tìm thấy ca với ID / Serial này");
+    else addToast(i18n.t("app.caseNotFound"));
   }
 
   return (
@@ -266,7 +268,7 @@ function MainApp({
                   DUNG vi tri nay qua headerExtraEl (xem DatMuaLinhKienModule.tsx titleButtonEl). Moi
                   module khac (ke ca forceView="tra-hang", 1 active key rieng) khong doi. */}
               {active !== "dat-mua-lk" && (
-                <h1 className="font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)]">{MODULE_TITLES[active]}</h1>
+                <h1 className="font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)]">{i18n.t(`nav.${active}`, { defaultValue: MODULE_TITLES[active] })}</h1>
               )}
               <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
             </div>

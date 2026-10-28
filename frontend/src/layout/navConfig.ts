@@ -8,12 +8,15 @@ export interface NavItem {
   countKey?: "backlog" | "missingParts" | "survey" | "caLap" | "napGas" | "tranhChap" | "datMuaLk";
 }
 export interface NavGroup {
+  /** Khoa dich i18n "navGroup.<key>" (label tieng Viet giu lam mac dinh). */
+  key: string;
   label: string;
   items: NavItem[];
 }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
+    key: "tong-quan",
     label: "Tổng quan",
     items: [
       { key: "dashboard", label: "Tổng quát", icon: "◧" },
@@ -22,6 +25,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: "van-hanh",
     label: "Vận hành",
     items: [
       { key: "backlog", label: "Quản lý tồn", icon: "◫", countKey: "backlog" },
@@ -43,6 +47,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: "he-thong",
     label: "Hệ thống",
     items: [
       { key: "import", label: "Import data", icon: "⇩" },
@@ -51,6 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: "ca-nhan",
     label: "Cá nhân",
     items: [{ key: "giao-dien", label: "Cài đặt cá nhân", icon: "👤" }],
   },

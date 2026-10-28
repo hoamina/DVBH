@@ -1,0 +1,132 @@
+{
+  "lang": { "label": "Ngôn ngữ", "saveError": "Không lưu được ngôn ngữ vào tài khoản (vẫn áp dụng trên máy này)." },
+  "common": {
+    "noData": "Không có dữ liệu.",
+    "loadError": "Không tải được dữ liệu.",
+    "retry": "Thử lại",
+    "rows": "{{count}} dòng",
+    "typeToSearch": "Gõ để tìm…",
+    "notFound": "Không tìm thấy.",
+    "prevRow": "Dòng trước",
+    "nextRow": "Dòng sau",
+    "syncing": "Đang đồng bộ…",
+    "resync": "🔄 Đồng bộ lại",
+    "cacheBanner": "📦 Dữ liệu đã hoàn thành, đang được lưu cache trên máy bạn — cập nhật lần cuối:",
+    "searching": "Đang tìm…"
+  },
+  "table": {
+    "customize": "Tùy chỉnh cột",
+    "customizeTitle": "Chọn cột hiển thị / ẩn bớt, đổi độ rộng, kéo thả sắp xếp cột",
+    "dragHelp": "↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột",
+    "visibleCols": "Cột hiển thị (bỏ tick để ẩn bớt)",
+    "resizeTitle": "Kéo để đổi độ rộng cột"
+  },
+  "navGroup": { "tong-quan": "Tổng quan", "van-hanh": "Vận hành", "he-thong": "Hệ thống", "ca-nhan": "Cá nhân" },
+  "nav": {
+    "dashboard": "Tổng quát",
+    "revenue": "Báo cáo doanh thu",
+    "luy-ke": "Báo cáo lũy kế",
+    "backlog": "Quản lý tồn",
+    "missing-parts": "Ca thiếu linh kiện",
+    "tranh-chap": "Tranh chấp, KN",
+    "nap-gas": "Đánh giá nạp gas",
+    "survey": "Quản lý khảo sát",
+    "bao-cao-vi-pham": "Báo cáo vi phạm",
+    "ca-lap": "Ca lặp",
+    "danh-sach-tong": "Danh sách tổng",
+    "dat-mua-lk": "Đặt mua linh kiện",
+    "tra-hang": "Đơn trả hàng",
+    "danh-muc-lk": "Danh mục linh kiện",
+    "import": "Import data",
+    "settings": "Settings",
+    "users": "Quản lý User",
+    "giao-dien": "Cài đặt cá nhân"
+  },
+  "sidebar": {
+    "subtitle": "Giải trình tồn & SLA",
+    "collapse": "« Thu gọn",
+    "internal": "Hệ thống nội bộ không chia sẻ dưới mọi hình thức.",
+    "version": "Phiên bản v{{version}}"
+  },
+  "topbar": {
+    "deltaSub": "Đầu ngày {{baseline}} · đã xử lý {{resolved}}",
+    "searchPlaceholder": "Tra cứu ID/Serial…",
+    "searchLabel": "Tra cứu ID/Serial",
+    "closeSearch": "Đóng tìm kiếm",
+    "theme": "Đổi giao diện",
+    "notifications": "Thông báo",
+    "syncTitle": "Thời điểm xuất dữ liệu CRM mới nhất được cập nhật vào hệ thống",
+    "syncedTo": "Đồng bộ đến:",
+    "todo": "Việc cần xử lý",
+    "choQc": "Ca chờ QC chốt cấp 2",
+    "report0800": "📊 Báo cáo lúc 08:00",
+    "updatedAt": "Cập nhật lúc {{time}}",
+    "canGiaiTrinh": "Cần giải trình",
+    "thieuLk": "Ca thiếu linh kiện tồn đọng",
+    "caLap": "Ca lặp cần xử lý",
+    "canKhaoSat": "Cần khảo sát",
+    "doanhThu": "Doanh thu tháng này",
+    "khuVuc": "Khu vực: {{list}}",
+    "logout": "Đăng xuất"
+  },
+  "tonKho": {
+    "placeholder": "Tra tồn LK (mã/tên)…",
+    "title": "Tra tồn kho linh kiện theo mã hoặc tên",
+    "error": "Không tra được tồn kho.",
+    "noMatch": "Không thấy linh kiện khớp \"{{q}}\".",
+    "colMa": "Mã LK",
+    "colTen": "Tên linh kiện",
+    "colMb": "Tồn MB",
+    "colMn": "Tồn MN",
+    "hint": "Bấm 1 dòng để xem tồn từng kho, PO đặt hàng, ca thiếu.",
+    "updated": " Tồn kho cập nhật {{v}}.",
+    "first40": " Hiển thị 40 kết quả đầu — gõ cụ thể hơn."
+  },
+  "phamVi": {
+    "groupTitle": "Phạm vi dữ liệu của mọi báo cáo / danh sách (không ảnh hưởng nghiệp vụ)",
+    "label": "Phạm vi",
+    "viewing": "Đang xem",
+    "aria": "Phạm vi báo cáo",
+    "tat_ca": "Tất cả",
+    "nskx": "NSKX",
+    "khong_nskx": "Không NSKX",
+    "tat_caTitle": "Xem toàn bộ hệ thống",
+    "nskxTitle": "Chỉ xem ca đối tác NSKX",
+    "khong_nskxTitle": "Xem toàn hệ thống TRỪ ca đối tác NSKX"
+  },
+  "diaGioi": {
+    "groupTitle": "Chọn cách nhóm/lọc tỉnh trong mọi báo cáo",
+    "label": "Địa giới",
+    "cu": "Cũ",
+    "moi": "Mới",
+    "cuTitle": "Địa giới CŨ: 63 tỉnh + quận/huyện (ca chưa có tỉnh cũ → để trống)",
+    "moiTitle": "Địa giới MỚI: 34 tỉnh + xã/phường mới (ca cũ chưa có tỉnh mới → tự quy đổi theo bảng Quy đổi tỉnh)"
+  },
+  "login": {
+    "loginTitle": "Dịch Vụ 3T - DVBH",
+    "loginSub": "Hệ thống quản lý giải trình tồn & SLA nội bộ",
+    "pendingTitle": "Đang chờ duyệt",
+    "pendingSub": "Tài khoản của bạn đã được ghi nhận, vui lòng chờ Admin phê duyệt và gán vai trò.",
+    "rejectedTitle": "Tài khoản bị từ chối",
+    "rejectedSub": "Liên hệ Admin nếu bạn cho rằng đây là nhầm lẫn.",
+    "disabledTitle": "Tài khoản đã bị khóa",
+    "disabledSub": "Liên hệ Admin để được mở khóa lại.",
+    "google": "Đăng nhập bằng Google",
+    "onlyApproved": "Chỉ tài khoản đã được Admin phê duyệt mới truy cập được hệ thống.",
+    "dev": "🔧 Đăng nhập DEV (bỏ qua Google, chỉ local)"
+  },
+  "install": {
+    "button": "Cài đặt vào màn hình chính",
+    "title": "📲 Cài đặt DVBH 3T vào màn hình chính",
+    "intro": "Trình duyệt này không hỗ trợ cài đặt tự động. Làm theo hướng dẫn thủ công:",
+    "ios1": "1. Bấm nút Chia sẻ ⬆️ ở thanh trình duyệt.",
+    "ios2": "2. Chọn \"Thêm vào Màn hình chính\" (Add to Home Screen).",
+    "android1": "1. Bấm menu ⋮ ở góc trên bên phải.",
+    "android2": "2. Chọn \"Cài đặt ứng dụng\" hoặc \"Thêm vào Màn hình chính\"."
+  },
+  "app": {
+    "caseNotFound": "Không tìm thấy ca với ID / Serial này",
+    "dailyToast": "📊 Báo cáo nhanh hôm nay: {{ton}} ca tồn >3 ngày cần giải trình · {{thieu}} thiếu linh kiện · {{lap}} ca lặp cần xử lý · {{khaoSat}} cần khảo sát{{dt}}",
+    "dailyToastDt": " · DT tháng: {{dt}}"
+  }
+}

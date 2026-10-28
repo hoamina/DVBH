@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, type ReactNode } from "react";
 
 // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Doi Detail Modal sang Drawer"): component RIENG
@@ -61,13 +62,14 @@ export function Drawer({
 // PxkDetailModal) - disabled khi khong con dong truoc/sau trong TRANG DANG XEM (khong tu dong sang
 // trang ke, giu don gian vi danh sach da phan trang server-side, xem comment goi noi dung).
 export function DrawerNavButtons({ hasPrev, hasNext, onPrev, onNext }: { hasPrev: boolean; hasNext: boolean; onPrev: () => void; onNext: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-1 shrink-0">
       <button
         type="button"
         onClick={onPrev}
         disabled={!hasPrev}
-        title="Dòng trước"
+        title={t("common.prevRow")}
         className="focus-ring w-7 h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
       >
         ‹
@@ -76,7 +78,7 @@ export function DrawerNavButtons({ hasPrev, hasNext, onPrev, onNext }: { hasPrev
         type="button"
         onClick={onNext}
         disabled={!hasNext}
-        title="Dòng sau"
+        title={t("common.nextRow")}
         className="focus-ring w-7 h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
       >
         ›

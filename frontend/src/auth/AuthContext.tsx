@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { apDungNgonNgu, chuanHoaNgonNgu, layNgonNguChoDongBo, type NgonNgu } from "../i18n";
 
 export type VaiTro = "Admin" | "Viewer" | "QC" | "Giam sat" | "TBP DVBH" | "CSKH" | "TN CSKH" | "TBP CSKH" | "KSNB Doi tac";
 export type GioiTinh = "nam" | "nu";
@@ -42,6 +43,8 @@ export interface AppUser {
   // tram_cha = email minh. Thay the heuristic cu `la_ktv_dvbh && !tram_cha` (GD4, phan hoi Codex
   // #16/#17, module Dat mua linh kien) - heuristic do sai voi KTV thuong khong quan ly Ve tinh nao.
   la_tram: boolean;
+  // Ngon ngu giao dien luu theo tai khoan - migration 0146 (xem i18n/index.ts).
+  ngon_ngu: NgonNgu;
 }
 
 type AuthState =
@@ -65,6 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         if (res.ok) {
           const { user, showDailyReport } = (await res.json()) as { user: AppUser; showDailyReport: boolean };
+          const chonLucDangNhap = layNgonNguChoDongBo();
+          if (chonLucDangNhap && chonLucDangNhap !== user.ngon_ngu) {
+            user.ngon_ngu = chonLucDangNhap;
+            void fetch("/api/auth/me", {
+              method: "PATCH",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ngon_ngu: chonLucDangNhap }),
+            }).catch(() => undefined);
+          }
+          apDungNgonNgu(chuanHoaNgonNgu(user.ngon_ngu));
           setState({ status: "authenticated", user, showDailyReport });
           return;
         }

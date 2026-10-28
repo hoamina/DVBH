@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Card } from "./Card";
@@ -119,7 +120,7 @@ export function PaginatedTable<T>({
   total,
   onPageChange,
   onRowClick,
-  emptyText = "Không có dữ liệu.",
+  emptyText,
   rowKey,
   rowClassName,
   sortBy,
@@ -128,6 +129,7 @@ export function PaginatedTable<T>({
   storageKey,
   columnSettingsContainer,
 }: PaginatedTableProps<T>) {
+  const { t } = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColWidths(storageKey));
   const [colConfig, setColConfig] = useState<ColConfig>(() => loadColumnConfig(storageKey));
@@ -264,19 +266,19 @@ export function PaginatedTable<T>({
         type="button"
         onClick={() => setSettingsOpen((v) => !v)}
         className="focus-ring inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--ocean-400)] bg-[var(--ocean-100)] text-[var(--ocean-700)] hover:bg-[var(--ocean-400)] hover:text-white normal-case font-semibold transition-colors"
-        title="Chọn cột hiển thị / ẩn bớt, đổi độ rộng, kéo thả sắp xếp cột"
+        title={t("table.customizeTitle")}
       >
         <span className="text-sm leading-none">⚙</span>
-        <span className="hidden sm:inline whitespace-nowrap">Tùy chỉnh cột</span>
+        <span className="hidden sm:inline whitespace-nowrap">{t("table.customize")}</span>
       </button>
       {settingsOpen && (
         <div
           className={`absolute ${columnSettingsContainer ? "right-0" : "left-0"} top-full mt-2 w-64 max-h-96 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 z-20 anim-in normal-case font-normal`}
         >
           <div className="px-3 py-1.5 text-xs text-[var(--ink-600)] border-b border-[var(--line)] mb-1">
-            ↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột
+            {t("table.dragHelp")}
           </div>
-          <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Cột hiển thị (bỏ tick để ẩn bớt)</div>
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">{t("table.visibleCols")}</div>
           {toggleableColumns.map((tc) => (
             <label key={tc.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
               <input type="checkbox" checked={resolvedOrder.includes(tc.key)} onChange={() => toggleColumn(tc.key)} className="w-3.5 h-3.5" />
@@ -349,7 +351,7 @@ export function PaginatedTable<T>({
                         onClick={(e) => e.stopPropagation()}
                         draggable={false}
                         className="group absolute top-0 right-0 h-full w-2.5 cursor-col-resize select-none flex items-center justify-center hover:bg-[var(--ocean-100)]"
-                        title="Kéo để đổi độ rộng cột"
+                        title={t("table.resizeTitle")}
                       >
                         <span className="w-px h-3/5 bg-[var(--ink-400)] group-hover:bg-[var(--ocean-500)]" />
                       </span>
@@ -381,10 +383,10 @@ export function PaginatedTable<T>({
             {!isLoading && isError && (
               <tr>
                 <td colSpan={effectiveColumns.length} className="py-8 text-center">
-                  <div className="text-sm text-[var(--coral-500)] font-semibold mb-2">Không tải được dữ liệu.</div>
+                  <div className="text-sm text-[var(--coral-500)] font-semibold mb-2">{t("common.loadError")}</div>
                   {onRetry && (
                     <Btn size="sm" variant="ghost" onClick={onRetry}>
-                      Thử lại
+                      {t("common.retry")}
                     </Btn>
                   )}
                 </td>
@@ -394,7 +396,7 @@ export function PaginatedTable<T>({
             {!isLoading && !isError && rows.length === 0 && (
               <tr>
                 <td colSpan={effectiveColumns.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                  {emptyText}
+                  {emptyText ?? t("common.noData")}
                 </td>
               </tr>
             )}
@@ -425,7 +427,7 @@ export function PaginatedTable<T>({
         </table>
       </div>
       <div className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--line)] text-xs text-[var(--ink-400)]">
-        <span>{total} dòng</span>
+        <span>{t("common.rows", { count: total })}</span>
         <div className="flex gap-1">
           <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
             ‹

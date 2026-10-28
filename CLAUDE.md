@@ -358,7 +358,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0141`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0146`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
@@ -387,6 +387,14 @@ TABLE`, fails with "already exists") — confirmed by hitting exactly this in pr
 - `theme/` — user-customizable theme (colors/fonts), separate from role-based module access.
 - `lib/closedDataCache.ts` — client-side IndexedDB cache paired with the R2 day-chunk system above;
   compares content hash from the manifest before re-fetching a day's chunk from R2.
+- `i18n/` — UI language VI/EN/ID (i18next + react-i18next, 2026-10-28). Stored per account in
+  `users.ngon_ngu` (migration 0146, `PATCH /api/auth/me {ngon_ngu}`), mirrored in localStorage
+  `dvbh_ngon_ngu` for the login screen/boot; switcher `components/NgonNguSwitcher.tsx` (TopBar + login).
+  **Only UI chrome is translated** — business data (khu vực, CRM/Odoo statuses, reasons, KTV names,
+  notes), Excel exports, Telegram images and server error messages stay Vietnamese (owner decision).
+  Rolled out in phases: frame (sidebar/topbar/login/shared table+select) done in v1.492; modules not yet
+  converted still show Vietnamese. New UI strings in converted files must go through `t()` with keys in
+  all 3 `i18n/locales/*.json`; nav labels use `nav.<moduleKey>` with the `navConfig.ts` label as default.
 - `lib/loaiDeXuatCache.ts` — IndexedDB cache for `loai_de_xuat` options (spare-part proposal types),
   incremental sync pattern identical to the linh kien cache. `getOptionsForUser()` filters by the
   user's role flags (`la_ktv_dvbh`, `la_ve_tinh`, `vai_tro:…`) stored in `vai_tro_json` per entry,

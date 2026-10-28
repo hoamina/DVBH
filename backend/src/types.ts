@@ -63,7 +63,12 @@ export interface AppUser {
   xem_danh_muc_lk: boolean;
   tram_cha: string | null;     // email Tram cha (chi khi la_ve_tinh=true)
   giam_sat_quan_ly: string | null; // email GS phu trach 1-1
+  // Ngon ngu giao dien (migration 0146, 2026-10-28) - chi frontend dung; server van tra thong bao/xuat file tieng Viet.
+  ngon_ngu: NgonNgu;
 }
+
+export const NGON_NGU_VALUES = ["vi", "en", "id"] as const;
+export type NgonNgu = (typeof NGON_NGU_VALUES)[number];
 
 export interface Env {
   DB: D1Database;

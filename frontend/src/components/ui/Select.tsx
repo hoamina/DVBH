@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
 
 export type SelectOption = string | { value: string; label: string };
@@ -68,6 +69,7 @@ function SearchableSelect({
   className: string;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,13 +105,13 @@ function SearchableSelect({
           setQuery("");
         }}
         disabled={disabled}
-        placeholder="Gõ để tìm…"
+        placeholder={t("common.typeToSearch")}
         className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
       />
       {open && (
         <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg py-1">
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
+            <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">{t("common.notFound")}</div>
           ) : (
             filtered.map((o) => {
               const v = optValue(o);

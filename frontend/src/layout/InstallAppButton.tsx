@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "../components/ui/Modal";
@@ -11,6 +12,7 @@ export function InstallAppButton({
 }: {
   onNavigateAway?: () => void;
 }) {
+  const { t } = useTranslation();
   const { available, promptInstall } = usePwaInstall();
   const [showGuide, setShowGuide] = useState(false);
 
@@ -33,7 +35,7 @@ export function InstallAppButton({
         className="focus-ring w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-semibold text-[var(--sidebar-ink-mid)] hover:bg-[var(--sidebar-highlight)] hover:text-[var(--sidebar-ink)] transition-colors"
       >
         <span className="w-6 text-center text-base">📲</span>
-        <span>Cài đặt vào màn hình chính</span>
+        <span>{t("install.button")}</span>
       </button>
       {/* Portal ra body: Sidebar mobile nam trong div co transform (translate-x) nen "fixed" cua Modal
           se bi gioi han trong khung sidebar 256px neu render tai cho. */}
@@ -41,34 +43,24 @@ export function InstallAppButton({
         createPortal(
           <Modal
             open
-            title="📲 Cài đặt DVBH 3T vào màn hình chính"
+            title={t("install.title")}
             onClose={() => setShowGuide(false)}
           >
             <div className="space-y-3 text-sm text-[var(--ink-600)]">
-              <p>
-                Trình duyệt này không hỗ trợ cài đặt tự động. Làm theo hướng dẫn
-                thủ công:
-              </p>
+              <p>{t("install.intro")}</p>
               <div className="space-y-1.5 bg-[var(--surface-100)] rounded-lg p-3">
                 <div className="font-semibold text-[var(--ocean-600)]">
                   iPhone/iPad (Safari)
                 </div>
-                <div>
-                  1. Bấm nút Chia sẻ <span className="font-mono">⬆️</span> ở
-                  thanh trình duyệt.
-                </div>
-                <div>
-                  2. Chọn "Thêm vào Màn hình chính" (Add to Home Screen).
-                </div>
+                <div>{t("install.ios1")}</div>
+                <div>{t("install.ios2")}</div>
               </div>
               <div className="space-y-1.5 bg-[var(--surface-100)] rounded-lg p-3">
                 <div className="font-semibold text-[var(--ocean-600)]">
                   Android (Chrome)
                 </div>
-                <div>1. Bấm menu ⋮ ở góc trên bên phải.</div>
-                <div>
-                  2. Chọn "Cài đặt ứng dụng" hoặc "Thêm vào Màn hình chính".
-                </div>
+                <div>{t("install.android1")}</div>
+                <div>{t("install.android2")}</div>
               </div>
             </div>
           </Modal>,
