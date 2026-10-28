@@ -12,8 +12,8 @@ import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
-import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY } from "../lib/precomputedCache";
-import { computeDashboardFilters, computeDashboardMonths } from "./dashboard";
+import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_FILTERS_BY_KV_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY } from "../lib/precomputedCache";
+import { computeDashboardFiltersByKhuVuc, deriveDashboardFilters, computeDashboardMonths } from "./dashboard";
 import type { SyncStatusPayload } from "./dashboard";
 import { bumpVersions } from "../lib/dataVersions";
 import { warmDefaultReports } from "../lib/reportWarmup";
@@ -30,7 +30,10 @@ import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 // xem comment invalidateScopedDashboardFilters ve ly do khong recompute() truc tiep duoc cac bien the nay.
 async function recomputeDashboardCaches(db: D1Database): Promise<void> {
   await Promise.all([
-    recompute(db, DASHBOARD_FILTERS_CACHE_KEY, () => computeDashboardFilters(db, null)),
+    // Bang theo khu_vuc tinh 1 lan (9 cau quet) -> danh sach toan he thong ghep tu do (khong quet them).
+    recompute(db, DASHBOARD_FILTERS_BY_KV_CACHE_KEY, () => computeDashboardFiltersByKhuVuc(db)).then((idx) =>
+      recompute(db, DASHBOARD_FILTERS_CACHE_KEY, async () => deriveDashboardFilters(idx, null)),
+    ),
     recompute(db, DASHBOARD_MONTHS_CACHE_KEY, () => computeDashboardMonths(db)),
     // "/dashboard/sync-status" (TopBar poll 5 phut/lan) - ghi TRUC TIEP thoi diem import nay (nowVN()),
     // KHONG con quet MAX(thoi_gian_tai_du_lieu_crm) qua case_dvbh nua (rao soat lag 2026-08-20, buoc

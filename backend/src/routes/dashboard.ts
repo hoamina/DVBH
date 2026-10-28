@@ -5,7 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { getDailyReportWithDelta, getSnapshotForUser, isDefaultReportParams } from "../lib/dailySnapshot";
 import { type DashboardFilterParams, computeDashboardKpis, PIVOT_DIMS, computeDashboardPivot } from "../lib/dashboardCompute";
-import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY, scopedFiltersCacheKey } from "../lib/precomputedCache";
+import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_FILTERS_BY_KV_CACHE_KEY } from "../lib/precomputedCache";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../lib/filterParams";
 
@@ -26,51 +26,73 @@ export interface DashboardFiltersPayload {
   tinhHuyen: Record<string, string[]>;
 }
 
-// Tinh that su 8 SELECT DISTINCT (ton kem - moi cau quet toan bo case_dvbh vi hau het cot khong
-// index, xem KE_HOACH_TOI_UU_D1.md Giai doan 2). Tach rieng ham nay (khong goi truc tiep tu route)
-// de dung chung cho ca compute-on-miss (route /filters ben duoi) va recompute sau import (importRoute.ts).
-export async function computeDashboardFilters(db: D1Database, scope: string[] | null): Promise<DashboardFiltersPayload> {
-  const scopeClause = khuVucWhereClause(scope, "khu_vuc");
+// TOI UU 2026-10-28 (web cham - d1 insights: "SELECT DISTINCT nganh ... khu_vuc IN (?, ?)" 4,9s/lan, 141k dong): truoc day
+// MOI to hop khu_vuc_phu_trach (moi Giam sat) co 1 dong cache rieng, bi xoa sau MOI lan import -> nguoi dau tien cua tung
+// pham vi kich hoat 9 cau SELECT DISTINCT quet toan bang (~5s) -> trang treo. Gio tinh 1 LAN "gia tri theo khu_vuc" cho ca he
+// thong (9 cau GROUP BY khu_vuc, col - cung so lan quet nhu ban cu, chay ngay sau import o importRoute.ts), roi ghep danh
+// sach toan he thong / theo pham vi TRONG BO NHO tu do - khong quet D1 lan nao nua cho tung pham vi.
+const FILTER_COLS = ["khu_vuc", "hang", "tinh", "doi_tac", "nhom_san_pham", "nhom_kh", "nganh", "ky_thuat_vien"] as const;
+type FilterCol = (typeof FILTER_COLS)[number];
+const KV_NULL = ""; // khoa cho dong khu_vuc NULL
 
-  const distinctOf = (col: string) =>
+export interface DashboardFiltersByKhuVuc {
+  cols: Record<FilterCol, Record<string, string[]>>;
+  tinhHuyen: Record<string, [string, string][]>;
+}
+
+export async function computeDashboardFiltersByKhuVuc(db: D1Database): Promise<DashboardFiltersByKhuVuc> {
+  const byKv = (col: string) =>
     db
-      .prepare(`SELECT DISTINCT ${col} FROM case_hieu_luc WHERE ${col} IS NOT NULL${scopeClause.sql} ORDER BY ${col}`)
-      .bind(...scopeClause.binds)
-      .all<Record<string, string>>();
-
+      .prepare(`SELECT COALESCE(khu_vuc, '') AS kv, ${col} AS v FROM case_hieu_luc WHERE ${col} IS NOT NULL GROUP BY khu_vuc, ${col}`)
+      .all<{ kv: string; v: string }>();
   const tinhHuyenRes = db
-    .prepare(`SELECT DISTINCT tinh, quan_huyen FROM case_hieu_luc WHERE tinh IS NOT NULL AND quan_huyen IS NOT NULL${scopeClause.sql} ORDER BY tinh, quan_huyen`)
-    .bind(...scopeClause.binds)
-    .all<{ tinh: string; quan_huyen: string }>();
-
-  const [khuVucRes, hangRes, tinhRes, doiTacRes, nhomSanPhamRes, nhomKhRes, nganhRes, kyThuatVienRes, tinhHuyenRows] = await Promise.all([
-    distinctOf("khu_vuc"),
-    distinctOf("hang"),
-    distinctOf("tinh"),
-    distinctOf("doi_tac"),
-    distinctOf("nhom_san_pham"),
-    distinctOf("nhom_kh"),
-    distinctOf("nganh"),
-    distinctOf("ky_thuat_vien"),
-    tinhHuyenRes,
-  ]);
-
-  const tinhHuyen: Record<string, string[]> = {};
-  for (const r of tinhHuyenRows.results) {
-    (tinhHuyen[r.tinh] ??= []).push(r.quan_huyen);
+    .prepare(`SELECT COALESCE(khu_vuc, '') AS kv, tinh, quan_huyen FROM case_hieu_luc WHERE tinh IS NOT NULL AND quan_huyen IS NOT NULL GROUP BY khu_vuc, tinh, quan_huyen`)
+    .all<{ kv: string; tinh: string; quan_huyen: string }>();
+  const results = await Promise.all([...FILTER_COLS.map(byKv), tinhHuyenRes]);
+  const cols = {} as DashboardFiltersByKhuVuc["cols"];
+  FILTER_COLS.forEach((col, i) => {
+    const m: Record<string, string[]> = {};
+    for (const r of (results[i] as D1Result<{ kv: string; v: string }>).results) (m[r.kv] ??= []).push(r.v);
+    cols[col] = m;
+  });
+  const tinhHuyen: Record<string, [string, string][]> = {};
+  for (const r of (results[FILTER_COLS.length] as D1Result<{ kv: string; tinh: string; quan_huyen: string }>).results) {
+    (tinhHuyen[r.kv] ??= []).push([r.tinh, r.quan_huyen]);
   }
+  return { cols, tinhHuyen };
+}
 
+/** Ghep danh sach dropdown tu bang theo khu_vuc - scope null = toan he thong (gom ca dong khu_vuc NULL), mang = chi cac khu
+ * vuc do (giong ban cu "khu_vuc IN (...)" - khu_vuc NULL khong thuoc pham vi nao). Sap xep giong ORDER BY (so sanh chuoi). */
+export function deriveDashboardFilters(idx: DashboardFiltersByKhuVuc, scope: string[] | null): DashboardFiltersPayload {
+  const kvs = (m: Record<string, unknown>) => (scope === null ? Object.keys(m) : scope.filter((k) => k in m));
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  const uniq = (col: FilterCol) => {
+    const m = idx.cols[col] ?? {};
+    const set = new Set<string>();
+    for (const k of kvs(m)) for (const v of m[k]) set.add(v);
+    return [...set].sort(cmp);
+  };
+  const pairs = new Map<string, Set<string>>();
+  for (const k of kvs(idx.tinhHuyen)) for (const [t, h] of idx.tinhHuyen[k]) (pairs.get(t) ?? pairs.set(t, new Set()).get(t)!).add(h);
+  const tinhHuyen: Record<string, string[]> = {};
+  for (const t of [...pairs.keys()].sort(cmp)) tinhHuyen[t] = [...pairs.get(t)!].sort(cmp);
   return {
-    khuVuc: khuVucRes.results.map((r) => r.khu_vuc),
-    hang: hangRes.results.map((r) => r.hang),
-    tinh: tinhRes.results.map((r) => r.tinh),
-    doiTac: doiTacRes.results.map((r) => r.doi_tac),
-    nhomSanPham: nhomSanPhamRes.results.map((r) => r.nhom_san_pham),
-    nhomKh: nhomKhRes.results.map((r) => r.nhom_kh),
-    nganh: nganhRes.results.map((r) => r.nganh),
-    kyThuatVien: kyThuatVienRes.results.map((r) => r.ky_thuat_vien),
+    khuVuc: uniq("khu_vuc"),
+    hang: uniq("hang"),
+    tinh: uniq("tinh"),
+    doiTac: uniq("doi_tac"),
+    nhomSanPham: uniq("nhom_san_pham"),
+    nhomKh: uniq("nhom_kh"),
+    nganh: uniq("nganh"),
+    kyThuatVien: uniq("ky_thuat_vien"),
     tinhHuyen,
   };
+}
+
+export async function computeDashboardFilters(db: D1Database, scope: string[] | null): Promise<DashboardFiltersPayload> {
+  const idx = await getOrCompute(db, DASHBOARD_FILTERS_BY_KV_CACHE_KEY, () => computeDashboardFiltersByKhuVuc(db));
+  return deriveDashboardFilters(idx, scope);
 }
 
 // GET /api/dashboard/filters - danh sach gia tri duy nhat cua tung dim (cho dropdown loc), theo pham
@@ -80,8 +102,11 @@ export async function computeDashboardFilters(db: D1Database, scope: string[] | 
 // bi gioi han co key rieng, xem scopedFiltersCacheKey) de khong lo du lieu giua cac pham vi khac nhau.
 dashboard.get("/filters", async (c) => {
   const scope = scopeByKhuVuc(c);
-  const key = scopedFiltersCacheKey(scope);
-  const payload = await getOrCompute(c.env.DB, key, () => computeDashboardFilters(c.env.DB, scope));
+  // Toan he thong: 1 dong cache san. Theo pham vi: ghep trong bo nho tu bang theo khu_vuc (khong quet D1, khong cache rieng).
+  const payload =
+    scope === null
+      ? await getOrCompute(c.env.DB, DASHBOARD_FILTERS_CACHE_KEY, () => computeDashboardFilters(c.env.DB, null))
+      : await computeDashboardFilters(c.env.DB, scope);
   // CHOT 2026-08-01: dropdown loc khu_vuc dung CHUNG cho MOI module (Tong quat/Doanh thu/Quan ly
   // ton/Ca lap/Nap gas/Khao sat/Tranh chap/Thieu linh kien) khong duoc hien 2 khu_vuc "an khoi bao
   // cao" - CHI "Danh sach tong" (route /cases/tong-hop, khong ap dung khuVucReportExclusionClause)

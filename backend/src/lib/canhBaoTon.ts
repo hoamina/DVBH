@@ -74,13 +74,15 @@ function needIdQuery(db: D1Database, needExpr: string) {
     .all<{ id: string }>();
 }
 
+// TOI UU 2026-10-28: "c.id IN (SELECT case_id FROM tranh_chap_tien_trinh)" - JOIN tien trinh moi nhat da bat buoc ca CO tien trinh;
+// gioi han san tap ~1,4k ca thay vi duyet toan bo ca + subquery tung dong (d1 insights: 5,4s/lan, 710k dong). Ket qua khong doi.
 function tranhChapIdQuery(db: D1Database, minAge: number) {
   const exclusion = khuVucReportExclusionClause("c.khu_vuc");
   return db
     .prepare(
       `SELECT c.id as id FROM case_hieu_luc c
        JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
-       WHERE ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${TRANH_CHAP_DONG_PLACEHOLDERS}) AND ${TUOI_TIEN_TRINH_EXPR} >= ?${exclusion.sql}`,
+       WHERE c.id IN (SELECT case_id FROM tranh_chap_tien_trinh) AND ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${TRANH_CHAP_DONG_PLACEHOLDERS}) AND ${TUOI_TIEN_TRINH_EXPR} >= ?${exclusion.sql}`,
     )
     .bind(...TRANH_CHAP_TRANG_THAI_DONG, minAge, ...exclusion.binds)
     .all<{ id: string }>();
@@ -186,7 +188,7 @@ export async function computeCanhBaoTonByKhuVuc(db: D1Database): Promise<Record<
            SUM(CASE WHEN ${TUOI_TIEN_TRINH_EXPR} >= 5 THEN 1 ELSE 0 END) as tranhChap5
          FROM case_hieu_luc c
          JOIN tranh_chap_tien_trinh tt ON tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE}
-         WHERE ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${TRANH_CHAP_DONG_PLACEHOLDERS}) AND c.khu_vuc IS NOT NULL${exclusion.sql}
+         WHERE c.id IN (SELECT case_id FROM tranh_chap_tien_trinh) AND ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN (${TRANH_CHAP_DONG_PLACEHOLDERS}) AND c.khu_vuc IS NOT NULL${exclusion.sql}
          GROUP BY c.khu_vuc`,
       )
       .bind(...TRANH_CHAP_TRANG_THAI_DONG, ...exclusion.binds)

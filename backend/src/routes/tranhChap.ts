@@ -177,6 +177,11 @@ tranhChap.get("/tai-khoan-ton", async (c) => {
 // nguoi xac nhan (bam "Dung la tranh chap" o tab Cho xac nhan AI) hoac DA co tien trinh van giu nguyen.
 const TRANH_CHAP_LY_DO_QUA_HAN_HOP_LE = ["Chưa thống nhất phương án xử lý", "Khách hàng chưa đồng ý với báo giá"];
 const TRANH_CHAP_ELIGIBLE = `c.nghi_ngo_tranh_chap = 1 AND c.tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC') AND (c.nghi_ngo_tranh_chap_xac_nhan_boi IS NOT NULL OR TRIM(c.ly_do_qua_han) IN (${TRANH_CHAP_LY_DO_QUA_HAN_HOP_LE.map((s) => `'${s}'`).join(", ")}))`;
+// TOI UU 2026-10-28 (web cham - d1 insights: dem tranh chap 0,85-2,2s/lan, quet 58-140k dong): "(ELIGIBLE) OR EXISTS tien trinh"
+// khong dung duoc index nen D1 duyet moi ca + chay subquery tung dong. Tap ca CO THE thoa dieu kien do chi la: nghi_ngo_tranh_chap = 1
+// (partial index idx_case_nghi_ngo_tranh_chap, ~4k ca - ELIGIBLE bat buoc dieu nay) HOP ca da co tien trinh (~1,4k) -> them
+// "c.id IN (...)" de D1 di thang theo khoa chinh tren ~5,5k ca; ket qua KHONG doi (dieu kien goc van giu nguyen).
+const TRANH_CHAP_UNG_VIEN = `c.id IN (SELECT id FROM case_dvbh WHERE nghi_ngo_tranh_chap = 1 UNION SELECT case_id FROM tranh_chap_tien_trinh)`;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap = 2" = AI phat hien, DANG CHO xac nhan thu cong (khac "= 1" la
 // DA XAC NHAN, hoac tu CRM that hoac sau khi qua buoc xac nhan nay) - xem ratchetNghiNgoTranhChap()
@@ -725,7 +730,7 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
         ${CASE_TRANH_CHAP_STATUS_EXPR} as status,
         ${IS_GQKN_DAY_LAI_GS_EXPR} as is_gqkn_day_lai_gs
       FROM case_hieu_luc c
-      WHERE ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))
+      WHERE ${TRANH_CHAP_UNG_VIEN} AND ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))
         ${scopeClause.sql}
         ${monthClauseSql}
     )
@@ -1541,7 +1546,7 @@ export async function computeTranhChapCount(db: D1Database, scope: string[] | nu
   const row = await db
     .prepare(
       `SELECT COUNT(*) as n FROM case_hieu_luc c
-       WHERE ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))${scopeClause.sql}
+       WHERE ${TRANH_CHAP_UNG_VIEN} AND ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))${scopeClause.sql}
          AND c.thoi_gian_hoan_thanh >= ?
          AND ${CASE_TRANH_CHAP_STATUS_EXPR} ${cond} (${statusList.map(() => "?").join(", ")})`,
     )

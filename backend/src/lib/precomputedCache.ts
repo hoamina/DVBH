@@ -16,6 +16,9 @@ import { PHAM_VI_LOC, bocPhamVi, phamViCua } from "./phamVi";
 // xem scopeByKhuVuc()) va GET /api/dashboard/months - dung chung giua routes/dashboard.ts (doc)
 // va routes/importRoute.ts (recompute sau import, xem ham recomputeDashboardCaches ben duoi).
 export const DASHBOARD_FILTERS_CACHE_KEY = "dashboard-filters";
+// Bang "gia tri dropdown theo khu_vuc" (2026-10-28) - nguon cua ca DASHBOARD_FILTERS_CACHE_KEY lan danh sach theo pham vi
+// (routes/dashboard.ts deriveDashboardFilters). Ten khong bat dau "dashboard-filters:" -> khong bi invalidateScopedDashboardFilters xoa.
+export const DASHBOARD_FILTERS_BY_KV_CACHE_KEY = "dashboard-filters-by-kv";
 export const DASHBOARD_MONTHS_CACHE_KEY = "dashboard-months";
 // Key cho GET /api/dashboard/sync-status (TopBar poll 5 phut/lan, moi phien dang nhap) - xem
 // routes/dashboard.ts computeSyncStatus() + routes/importRoute.ts recomputeDashboardCaches().

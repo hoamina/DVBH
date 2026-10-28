@@ -4894,3 +4894,16 @@ Yêu cầu: thêm lựa chọn ngôn ngữ tiếng Việt / Anh / Indonesia cho 
   dispute/sengketa, linh kiện = spare part/suku cadang, nạp gas = gas refill/isi ulang gas.
 - Chưa dịch: câu chào TopBar (server/AI sinh), câu "đang tải" vui (lib/loadingPhrases), nội dung các module.
 
+
+## 2026-10-28 — Web chậm: tối ưu 3 nhóm truy vấn quét toàn bảng (v1.493)
+Kiểm tra: tải trang/API ở edge nhanh (0,1–0,4s), bundle JS 1,27 MB tải 0,28s → chậm nằm ở D1. `wrangler d1 insights` 24h:
+- Dropdown lọc theo phạm vi Giám sát (`SELECT DISTINCT nganh … khu_vuc IN (?, ?)`) 4,9s/lần, 141k dòng: mỗi tổ hợp khu vực
+  có cache riêng, xóa sau mỗi import → người đầu tiên của từng phạm vi kích 9 câu quét toàn bảng. Sửa `routes/dashboard.ts`:
+  bảng "giá trị theo khu vực" `computeDashboardFiltersByKhuVuc` (9 câu GROUP BY khu_vuc, col) tính 1 lần sau import
+  (`importRoute.ts recomputeDashboardCaches`, key `dashboard-filters-by-kv`), danh sách toàn hệ thống + theo phạm vi ghép
+  trong bộ nhớ (`deriveDashboardFilters`) — không quét D1 theo từng phạm vi nữa.
+- Đếm tranh chấp (badge menu `computeTranhChapCount` + báo cáo theo khu vực) 0,85–2,2s: thêm `TRANH_CHAP_UNG_VIEN`
+  (`c.id IN (nghi_ngo_tranh_chap = 1 ∪ ca có tiến trình)`, partial index) — đo production: cùng kết quả 195, 74k → 21,7k dòng.
+- Cảnh báo tồn – ca tranh chấp (`canhBaoTon.ts`) 5,4s/710k dòng: giới hạn `c.id IN (SELECT case_id FROM tranh_chap_tien_trinh)`
+  — đo: cùng kết quả, 1.293ms → 16ms, 570k → 11k dòng.
+- Deploy từ worktree sạch (phiên khác đang dở i18n frontend chưa commit).
