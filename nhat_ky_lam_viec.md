@@ -4932,3 +4932,10 @@ Tiếp phần dở của phiên sáng (tài khoản khác, chưa commit):
   `ExportColumnPicker` thêm hàng "Mẫu cố định:" (chỉ hiện khi xuất danh sách CA — dòng có id/tinh/quan_huyen), bấm là
   tải ngay file `<tên>_mau_tinh_luong.xlsx`, đọc từ dòng thô trước khi đổi nhãn/thêm cột địa giới.
 - Thử local (Danh sách tổng → Ca đang tồn, 1.531 ca): đủ 34 cột đúng thứ tự, kênh tách đúng, đường tải thường không đổi.
+
+## 2026-10-29 — Gắn thú cưng "3T Pet" vào giao diện (v1.496)
+- Thêm 1 thẻ `<script async>` vào `frontend/index.html` nạp widget từ Worker riêng `3t-pet` (https://3t-pet.dichvu3t.workers.dev,
+  repo meomeo3101/3t-pet, ảnh sprite trên R2 bucket `3t-pet-assets`). Không đụng backend/D1/R2 của DVBH.
+- Widget chạy trong Shadow DOM (không ảnh hưởng CSS/DOM của app), mèo đứng trên các dòng chữ đang hiển thị; trước khi người dùng
+  bấm/kéo bé ra thì không hiện thông báo hay bong bóng thoại. Dữ liệu bé lưu localStorage của trình duyệt.
+- Gỡ bỏ: xóa thẻ script đó rồi deploy lại.
