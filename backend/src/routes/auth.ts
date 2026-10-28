@@ -5,6 +5,7 @@ import { signSession } from "../lib/jwt";
 import { verifySessionMiddleware, SESSION_COOKIE, SESSION_TTL_SECONDS } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
+import { requireRole } from "../middleware/requireRole";
 
 const STATE_COOKIE = "dvbh_oauth_state";
 
@@ -161,10 +162,15 @@ auth.get("/me", verifySessionMiddleware, loadUser, async (c) => {
   // "la KTV va KHONG phai Ve tinh cua ai") - dung SAI cho KTV thuong khong quan ly Ve tinh nao (ho
   // cung khong co tram_cha, nen bi nham la Tram, mac dinh sai vao bucket "Cho Tram duyet" luon rong
   // voi ho). Tra them field nay de FE dung truc tiep, khong tu suy dien nua.
-  const laTramRow = await c.env.DB.prepare("SELECT 1 as x FROM users WHERE tram_cha = ? LIMIT 1").bind(user.email).first();
+  // Co he thong bat/tat 3T Pet (migration 0147) tra kem o day de khong ton them request (1 dong doc theo khoa chinh).
+  const [laTramRow, petRow] = await Promise.all([
+    c.env.DB.prepare("SELECT 1 as x FROM users WHERE tram_cha = ? LIMIT 1").bind(user.email).first(),
+    c.env.DB.prepare("SELECT gia_tri FROM cai_dat_he_thong WHERE khoa = 'bat_pet_3t'").first<{ gia_tri: string }>(),
+  ]);
   const la_tram = !!laTramRow;
+  const pet_3t_he_thong = petRow?.gia_tri !== "0";
 
-  return c.json({ user: { ...user, la_tram }, showDailyReport });
+  return c.json({ user: { ...user, la_tram, pet_3t_he_thong }, showDailyReport });
 });
 
 // GET /api/auth/nguoi-directory - danh ba email -> ten HIEN THI, dung CHUNG toan he thong (moi
@@ -191,7 +197,7 @@ auth.get("/nguoi-directory", verifySessionMiddleware, loadUser, async (c) => {
 // khong can thiet, chi con "Thong tin ca nhan" (ten_goi, gioi_tinh) dung route nay.
 auth.patch("/me", verifySessionMiddleware, loadUser, async (c) => {
   const user = c.get("user");
-  const body = await c.req.json<{ ten_goi?: string | null; gioi_tinh?: string | null; ngon_ngu?: string }>();
+  const body = await c.req.json<{ ten_goi?: string | null; gioi_tinh?: string | null; ngon_ngu?: string; bat_pet_3t?: boolean }>();
 
   const sets: string[] = [];
   const binds: unknown[] = [];
@@ -218,10 +224,31 @@ auth.patch("/me", verifySessionMiddleware, loadUser, async (c) => {
     binds.push(body.ngon_ngu);
   }
 
+  // Bat/tat thu cung 3T Pet cho chinh minh (migration 0147).
+  if (body.bat_pet_3t !== undefined) {
+    if (typeof body.bat_pet_3t !== "boolean") return c.json({ error: "INVALID_BAT_PET_3T" }, 400);
+    sets.push("bat_pet_3t = ?");
+    binds.push(body.bat_pet_3t ? 1 : 0);
+  }
+
   if (sets.length === 0) return c.json({ ok: true });
 
   await c.env.DB.prepare(`UPDATE users SET ${sets.join(", ")} WHERE email = ?`)
     .bind(...binds, user.email)
+    .run();
+  return c.json({ ok: true });
+});
+
+// PATCH /api/auth/pet-3t-he-thong { bat } - Admin bat/tat thu cung 3T Pet cho TOAN HE THONG (migration 0147).
+// Tat = khong ai tai widget nua (bat ke users.bat_pet_3t); tab dang mo cua nguoi khac het game o lan tai trang sau.
+auth.patch("/pet-3t-he-thong", verifySessionMiddleware, loadUser, requireRole("Admin"), async (c) => {
+  const body = await c.req.json<{ bat?: unknown }>().catch(() => ({}) as { bat?: unknown });
+  if (typeof body.bat !== "boolean") return c.json({ error: "INVALID_BAT" }, 400);
+  await c.env.DB.prepare(
+    `INSERT INTO cai_dat_he_thong (khoa, gia_tri, updated_at, updated_by) VALUES ('bat_pet_3t', ?, ?, ?)
+     ON CONFLICT(khoa) DO UPDATE SET gia_tri = excluded.gia_tri, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+  )
+    .bind(body.bat ? "1" : "0", nowVN(), c.get("user").email)
     .run();
   return c.json({ ok: true });
 });

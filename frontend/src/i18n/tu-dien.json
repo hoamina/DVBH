@@ -12018,5 +12018,45 @@
  "Tải ngay theo đúng cột, thứ tự, tiêu đề file mẫu tính lương": [
   "Download now with the exact columns, order and headers of the payroll template file",
   "Unduh sekarang dengan kolom, urutan, dan judul persis seperti file templat penggajian"
+ ],
+ "Thú cưng 3T Pet": [
+  "3T Pet companion",
+  "Hewan peliharaan 3T Pet"
+ ],
+ "Tắt thì game không tải và không chạy trên máy bạn. Lưu theo tài khoản.": [
+  "When off, the game is not loaded and does not run on your device. Saved per account.",
+  "Jika dimatikan, game tidak dimuat dan tidak berjalan di perangkat Anda. Disimpan per akun."
+ ],
+ "Hiện thú cưng 3T Pet cho tôi": [
+  "Show the 3T Pet for me",
+  "Tampilkan 3T Pet untuk saya"
+ ],
+ "Admin đã tắt": [
+  "Turned off by Admin",
+  "Dimatikan oleh Admin"
+ ],
+ "Bật 3T Pet cho toàn hệ thống (Admin)": [
+  "Enable 3T Pet system-wide (Admin)",
+  "Aktifkan 3T Pet untuk seluruh sistem (Admin)"
+ ],
+ "Tắt thì game tắt với tất cả mọi người, bất kể cài đặt cá nhân (áp dụng từ lần tải trang sau của họ).": [
+  "When off, the game is off for everyone regardless of personal settings (takes effect on their next page load).",
+  "Jika dimatikan, game mati untuk semua orang terlepas dari pengaturan pribadi (berlaku saat halaman dimuat ulang berikutnya)."
+ ],
+ "Đã bật thú cưng 3T Pet": [
+  "3T Pet turned on",
+  "3T Pet diaktifkan"
+ ],
+ "Đã tắt thú cưng 3T Pet": [
+  "3T Pet turned off",
+  "3T Pet dimatikan"
+ ],
+ "Đã bật 3T Pet cho toàn hệ thống": [
+  "3T Pet enabled system-wide",
+  "3T Pet diaktifkan untuk seluruh sistem"
+ ],
+ "Đã tắt 3T Pet cho toàn hệ thống": [
+  "3T Pet disabled system-wide",
+  "3T Pet dimatikan untuk seluruh sistem"
  ]
 }

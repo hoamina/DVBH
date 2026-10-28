@@ -160,6 +160,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     "ID ĐẶT LK") — both sources run in parallel ~1 month until the owner switches the sheet off; then drop the
     sheet source. Mapped to the sheet's field names/date format so CaseDetail / Linh kiện thiếu / Hồ sơ LK are
     unchanged; `maLinhKienGoc` (equivalent-part swap) also matches.
+  - `auth.ts` 3T Pet toggles (2026-10-29, migration 0147) — the "3T Pet" widget (Worker `3t-pet`) is NOT in `index.html`;
+    `frontend/src/lib/pet3t.ts` injects its script only when system flag (`cai_dat_he_thong` key `bat_pet_3t`, returned as
+    `pet_3t_he_thong` by `GET /api/auth/me`, Admin sets via `PATCH /api/auth/pet-3t-he-thong`) AND personal `users.bat_pet_3t`
+    (`PATCH /api/auth/me`) are on. UI: `components/PetSettingsPanel.tsx` in Cài đặt cá nhân. `cai_dat_he_thong` is a generic
+    key/value table for future system flags (no FK to `users` on purpose).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -358,7 +363,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0146`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0147`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

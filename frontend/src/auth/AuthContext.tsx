@@ -46,6 +46,9 @@ export interface AppUser {
   la_tram: boolean;
   // Ngon ngu giao dien luu theo tai khoan - migration 0146 (xem i18n/index.ts).
   ngon_ngu: NgonNgu;
+  // Thu cung 3T Pet (migration 0147): bat_pet_3t = cai dat ca nhan; pet_3t_he_thong = co Admin (tinh o GET /auth/me).
+  bat_pet_3t: boolean;
+  pet_3t_he_thong: boolean;
 }
 
 type AuthState =

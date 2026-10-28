@@ -33,6 +33,7 @@ import { ThemeProvider } from "./theme/ThemeProvider";
 import { usePurchaseWarrantyData } from "./hooks/usePurchaseWarrantyData";
 import { GreetingPopup } from "./components/GreetingPopup";
 import { TranhChapMentionPopup } from "./components/TranhChapMentionPopup";
+import { apDungPet3T, petDuocBat } from "./lib/pet3t";
 
 const ACTIVE_MODULE_KEY = "dvbh_active_module";
 
@@ -143,6 +144,11 @@ function MainApp({
   useEffect(() => {
     localStorage.setItem(ACTIVE_MODULE_KEY, active);
   }, [active]);
+
+  // Thu cung 3T Pet: chi nap widget khi Admin + ca nhan deu bat (doi cong tac sau do -> PetSettingsPanel tu goi apDungPet3T).
+  useEffect(() => {
+    if (petDuocBat(user)) apDungPet3T(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!role && !laTaiKhoanMuaHangThuanTuy) {
     return <LoginScreen variant="pending" />;

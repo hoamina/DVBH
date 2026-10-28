@@ -5,6 +5,7 @@ import { parseModulesColumn } from "../lib/moduleAccess";
 
 interface UserRow {
   ngon_ngu: string | null;
+  bat_pet_3t: number | null;
   email: string;
   ten: string | null;
   ten_goi: string | null;
@@ -31,7 +32,7 @@ interface UserRow {
 
 // Chot 2026-08-13: bo "theme_config" khoi danh sach cot doc - giao dien da chuyen han sang
 // localStorage phia client (xem frontend/src/theme/localThemeConfig.ts), khong con dung server.
-const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, khu_vuc_duoc_xem, trang_thai_duyet, la_ksnb_doi_tac, modules, bi_khoa, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, ngon_ngu";
+const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach, khu_vuc_duoc_xem, trang_thai_duyet, la_ksnb_doi_tac, modules, bi_khoa, co_the_import_tranh_chap, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, ngon_ngu, bat_pet_3t";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -86,6 +87,7 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     tram_cha: row.tram_cha ?? null,
     giam_sat_quan_ly: row.giam_sat_quan_ly ?? null,
     ngon_ngu: row.ngon_ngu === "en" || row.ngon_ngu === "id" ? row.ngon_ngu : "vi",
+    bat_pet_3t: row.bat_pet_3t !== 0,
   };
   c.set("user", user);
   await next();

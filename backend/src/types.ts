@@ -65,6 +65,8 @@ export interface AppUser {
   giam_sat_quan_ly: string | null; // email GS phu trach 1-1
   // Ngon ngu giao dien (migration 0146, 2026-10-28) - chi frontend dung; server van tra thong bao/xuat file tieng Viet.
   ngon_ngu: NgonNgu;
+  // Bat/tat thu cung 3T Pet cho chinh minh (migration 0147); co he thong rieng o cai_dat_he_thong.
+  bat_pet_3t: boolean;
 }
 
 export const NGON_NGU_VALUES = ["vi", "en", "id"] as const;

@@ -4939,3 +4939,15 @@ Tiếp phần dở của phiên sáng (tài khoản khác, chưa commit):
 - Widget chạy trong Shadow DOM (không ảnh hưởng CSS/DOM của app), mèo đứng trên các dòng chữ đang hiển thị; trước khi người dùng
   bấm/kéo bé ra thì không hiện thông báo hay bong bóng thoại. Dữ liệu bé lưu localStorage của trình duyệt.
 - Gỡ bỏ: xóa thẻ script đó rồi deploy lại.
+
+## 2026-10-29 — Bật/tắt 3T Pet 2 cấp: cá nhân + toàn hệ thống (v1.497)
+- Bỏ thẻ script cứng trong `frontend/index.html`; `frontend/src/lib/pet3t.ts` tự chèn script sau khi đăng nhập, CHỈ khi
+  Admin (toàn hệ thống) VÀ người dùng (cá nhân) đều bật → tắt thì widget không tải, không timer/animation, không gọi Worker 3t-pet.
+- Migration 0147: `users.bat_pet_3t` (mặc định 1) + bảng khóa/giá trị mới `cai_dat_he_thong` (khóa `bat_pet_3t`, không FK sang users).
+  `GET /api/auth/me` trả kèm `pet_3t_he_thong` (1 dòng đọc theo khóa chính, không thêm request); cá nhân đổi qua
+  `PATCH /api/auth/me { bat_pet_3t }`, Admin đổi qua `PATCH /api/auth/pet-3t-he-thong { bat }`.
+- UI: khối "Thú cưng 3T Pet" trong Cài đặt cá nhân (`components/PetSettingsPanel.tsx`); Admin thấy thêm công tắc toàn hệ thống
+  (chủ hệ thống chọn đặt ở đây). Admin tắt → công tắc cá nhân bị khóa, ghi "Admin đã tắt". Tắt khi widget đang chạy → tải lại
+  trang (widget không có hàm hủy); bật → chèn script ngay. Tab đang mở của người khác hết game ở lần tải trang sau.
+- Thử local (dev-login Admin): cá nhân tắt → không script/host/ThreeTPet; Admin tắt + cá nhân bật → không tải, công tắc khóa;
+  Admin bật lại → widget nạp ngay không cần tải lại.
