@@ -3,6 +3,8 @@ import { veTiengViet } from "../i18n/tr";
 import type { LinhKienLoiItem } from "../types";
 import { pickExportColumns } from "../components/ExportColumnPicker";
 import { exportTemplateKey } from "./exportTemplate";
+import { taoSheetMauTinhLuong } from "./exportMauTinhLuong";
+import { tr } from "../i18n/tr";
 import { DiaGioiIndex, NHAN_CAP_1, NHAN_CAP_2, coTienTo, diaGioiModeHienTai, khoaTen, type QuyDoiRow } from "./diaGioi";
 
 /**
@@ -30,11 +32,13 @@ export async function exportRowsToExcel<T extends object>(
   options?: { includeFields?: string[]; skipColumnPicker?: boolean },
 ) {
   const XLSX = await import("xlsx");
+  // "Mẫu tính lương" (2026-10-28) doc tu dong THO (truoc khi loai cot/doi nhan) - chi danh sach CA moi co.
+  const laDanhSachCa = laDongCa(rows[0] as Record<string, unknown> | undefined);
   let cleanedRows = rows.map((row) => omitExcludedFields(row, options?.includeFields ?? []));
   let labels = headerLabels;
   // Danh sach CA (dong co id + tinh + quan_huyen): them 2 cot dia gioi theo nut Cũ/Mới (lib/diaGioi.ts), dat ten
   // tieng Viet cho cac cot dia chi tho - 1 diem chung cho moi file xuat danh sach ca.
-  if (laDongCa(cleanedRows[0])) {
+  if (laDanhSachCa) {
     const dg = await themCotDiaGioi(cleanedRows);
     cleanedRows = dg.rows;
     labels = { ...(headerLabels ?? {}), ...dg.labels };
@@ -54,9 +58,16 @@ export async function exportRowsToExcel<T extends object>(
   for (const r of exportRows) for (const k of Object.keys(r)) if (!seen.has(k)) (seen.add(k), allCols.push(k));
   let header = allCols;
   if (allCols.length > 0 && !options?.skipColumnPicker) {
-    const picked = await pickExportColumns(filename, allCols, exportTemplateKey(filename));
+    const presets = laDanhSachCa ? [{ key: "tinh-luong", label: tr("Mẫu tính lương"), moTa: tr("Tải ngay theo đúng cột, thứ tự, tiêu đề file mẫu tính lương") }] : [];
+    const picked = await pickExportColumns(filename, allCols, exportTemplateKey(filename), presets);
     if (!picked) return; // nguoi dung huy - khong tai
-    header = picked;
+    if ("preset" in picked) {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, taoSheetMauTinhLuong(XLSX, rows as Record<string, unknown>[]), "Sheet1");
+      XLSX.writeFile(wb, filename.replace(/(\.xlsx)?$/i, "_mau_tinh_luong.xlsx"));
+      return;
+    }
+    header = picked.cols;
   }
   const worksheet = XLSX.utils.json_to_sheet(
     exportRows.map((r) => Object.fromEntries(header.map((k) => [k, (r as Record<string, unknown>)[k] ?? ""]))),

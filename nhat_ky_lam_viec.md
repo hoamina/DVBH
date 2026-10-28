@@ -4919,3 +4919,16 @@ Tiếp phần dở của phiên sáng (tài khoản khác, chưa commit):
   "Còn hiệu lực/Tất cả" ở Loại trừ khảo sát, dòng "Đang lọc thêm" ở Khảo sát, "(Chưa có KTV)" ở Tồn theo KTV (Excel giữ tiếng
   Việt), nhãn "Giá trị"; tách 11 dòng import bị codemod dính bằng ký tự CR đơn. Từ điển đủ 100% (2.995 câu).
 - Thử local: EN (Tổng quát) và ID (Quản lý tồn) hiển thị đúng, không lỗi console.
+
+## 2026-10-28 — Tải Excel danh sách ca: mẫu cố định "Mẫu tính lương" (v1.495)
+- Phân tích file mẫu `Mẫu tải file tính lương.xlsx`: 1 sheet "Sheet1", 32 cột = tiêu đề file xuất CRM, ngày giờ là số
+  serial Excel. 26 cột map thẳng `case_dvbh`; chủ hệ thống chốt các cột còn lại:
+  - "Kênh tiếp nhận" = tiền tố [..] thứ 2 của Khách hàng (`[KH] [Hotline] …` → Hotline; ngoặc lồng `[[B2B] ORRO HOME]` giữ nguyên).
+  - "Nhân viên CSKH tiếp nhận", "KQ CS sơ bộ", "Link video": app không lưu → để trống; "report_photo_url" giữ cột, để trống.
+  - Tỉnh / Quận-huyện / Phường-xã = địa giới CŨ (`tinh_cu|tinh`, `huyen_cu|quan_huyen`, `xa_cu`), không có thì trống;
+    thêm "Tỉnh mới" + "Phường / xã mới" (`tinh_moi`/`xa_moi`, Odoo) ở cuối → file 34 cột.
+  - "Độ ưu tiên" = `muc_do`; "Thời gian gốc của ca mở lại" = `thoi_gian_goc_dong_ca`; doanh thu = `dt_*` (số).
+- Code: `lib/exportMauTinhLuong.ts` (định nghĩa cột + tạo sheet, ngày ghi thành ô ngày thật dd/mm/yyyy[ hh:mm:ss]);
+  `ExportColumnPicker` thêm hàng "Mẫu cố định:" (chỉ hiện khi xuất danh sách CA — dòng có id/tinh/quan_huyen), bấm là
+  tải ngay file `<tên>_mau_tinh_luong.xlsx`, đọc từ dòng thô trước khi đổi nhãn/thêm cột địa giới.
+- Thử local (Danh sách tổng → Ca đang tồn, 1.531 ca): đủ 34 cột đúng thứ tự, kênh tách đúng, đường tải thường không đổi.

@@ -9,17 +9,22 @@ import { tr } from "../i18n/tr";
 // may nguoi dung: mau luu localStorage (lib/exportTemplate.ts), khong goi server.
 
 type Item = { col: string; on: boolean };
+/** Mau CO DINH (vd "Mẫu tính lương" - lib/exportMauTinhLuong.ts): bam la tai ngay theo mau, bo qua lua chon cot. */
+export type ExportPreset = { key: string; label: string; moTa: string };
+export type ExportPick = { cols: string[] } | { preset: string } | null;
 
 function ExportColumnPicker({
   filename,
   columns,
   tplKey,
+  presets,
   onDone,
 }: {
   filename: string;
   columns: string[];
   tplKey: string;
-  onDone: (cols: string[] | null) => void;
+  presets: ExportPreset[];
+  onDone: (pick: ExportPick) => void;
 }) {
   const coMau = useMemo(() => !!loadExportTemplate(tplKey), [tplKey]);
   const [items, setItems] = useState<Item[]>(() => applyExportTemplate(columns, loadExportTemplate(tplKey)));
@@ -43,7 +48,7 @@ function ExportColumnPicker({
 
   const taiTheoLuaChon = () => {
     if (ghiNho) saveExportTemplate(tplKey, { order: items.map((i) => i.col), hidden: items.filter((i) => !i.on).map((i) => i.col) });
-    onDone(items.filter((i) => i.on).map((i) => i.col));
+    onDone({ cols: items.filter((i) => i.on).map((i) => i.col) });
   };
 
   return (
@@ -66,6 +71,22 @@ function ExportColumnPicker({
             <button type="button" className="text-xs font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => datTatCa(false)}>
               {tr("Bỏ hết")}</button>
           </div>
+          {presets.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-[var(--ink-600)]">{tr("Mẫu cố định:")}</span>
+              {presets.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  title={p.moTa}
+                  onClick={() => onDone({ preset: p.key })}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-md border border-[var(--ocean-600)] text-[var(--ocean-600)] hover:bg-[var(--surface-100)]"
+                >
+                  ⬇ {p.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="text-[11px] text-[var(--ink-400)] mt-1">{tr("Kéo thả (≡) hoặc bấm ↑ ↓ để đổi vị trí cột.")}</div>
         </div>
 
@@ -121,7 +142,7 @@ function ExportColumnPicker({
           <div className="flex items-center justify-end gap-2">
             <Btn variant="ghost" size="sm" onClick={() => onDone(null)}>
               {tr("Hủy")}</Btn>
-            <Btn variant="subtle" size="sm" onClick={() => onDone(columns)}>
+            <Btn variant="subtle" size="sm" onClick={() => onDone({ cols: columns })}>
               {tr("Tải mặc định")}</Btn>
             <Btn size="sm" disabled={soBat === 0} onClick={taiTheoLuaChon}>
               {tr("Tải theo lựa chọn")}</Btn>
@@ -132,17 +153,17 @@ function ExportColumnPicker({
   );
 }
 
-/** Mo bang chon cot, tra ve danh sach cot (dung thu tu) can xuat, hoac null neu nguoi dung huy. */
-export function pickExportColumns(filename: string, columns: string[], tplKey: string): Promise<string[] | null> {
+/** Mo bang chon cot, tra ve danh sach cot (dung thu tu) can xuat, mau co dinh duoc chon, hoac null neu nguoi dung huy. */
+export function pickExportColumns(filename: string, columns: string[], tplKey: string, presets: ExportPreset[] = []): Promise<ExportPick> {
   return new Promise((resolve) => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    const done = (cols: string[] | null) => {
+    const done = (pick: ExportPick) => {
       root.unmount();
       host.remove();
-      resolve(cols);
+      resolve(pick);
     };
-    root.render(<ExportColumnPicker filename={filename} columns={columns} tplKey={tplKey} onDone={done} />);
+    root.render(<ExportColumnPicker filename={filename} columns={columns} tplKey={tplKey} presets={presets} onDone={done} />);
   });
 }

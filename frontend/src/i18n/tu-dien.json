@@ -12006,5 +12006,17 @@
  "Σ Tổng cộng": [
   "Σ Total",
   "Σ Total"
+ ],
+ "Mẫu cố định:": [
+  "Fixed templates:",
+  "Templat tetap:"
+ ],
+ "Mẫu tính lương": [
+  "Payroll template",
+  "Templat penggajian"
+ ],
+ "Tải ngay theo đúng cột, thứ tự, tiêu đề file mẫu tính lương": [
+  "Download now with the exact columns, order and headers of the payroll template file",
+  "Unduh sekarang dengan kolom, urutan, dan judul persis seperti file templat penggajian"
  ]
 }
