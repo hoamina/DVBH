@@ -5,6 +5,7 @@ import { Card } from "./ui/Card";
 import { Btn } from "./ui/Btn";
 import { useToast } from "./ui/Toast";
 import { DiaGioiIndex, khoaTen, soSanhTen, useTinhQuyDoi, type QuyDoiRow } from "../lib/diaGioi";
+import { tr } from "../i18n/tr";
 
 // Cai dat -> "Quy đổi tỉnh" (2026-10-10): bang tinh cu (63) -> tinh moi (34) dung cho che do "Địa giới mới" voi ca
 // chua co tinh moi (moi ca QuickSight cu). Sua tinh moi cua 1 dong, them ten bien the (vd "Hà Tây"), xoa dong.
@@ -42,7 +43,7 @@ export function TinhQuyDoiSettings() {
     mutationFn: (body: { tinh_cu: string; tinh_moi: string }) => api.put("/dia-gioi/quy-doi", body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dia-gioi-quy-doi"] });
-      toast("Đã lưu quy đổi");
+      toast(tr("Đã lưu quy đổi"));
     },
     onError: (e: Error) => toast(e.message),
   });
@@ -59,28 +60,23 @@ export function TinhQuyDoiSettings() {
   return (
     <div className="mt-4 grid gap-4 max-w-5xl">
       <Card className="p-4">
-        <div className="font-display font-bold text-sm">Quy đổi tỉnh cũ → tỉnh mới</div>
+        <div className="font-display font-bold text-sm">{tr("Quy đổi tỉnh cũ → tỉnh mới")}</div>
         <div className="text-xs text-[var(--ink-500)] mt-1 leading-relaxed">
-          Dùng khi chọn <b>Địa giới: Mới</b> (nút trên thanh đầu trang): ca chưa có tỉnh mới (toàn bộ ca cũ từ QuickSight) được quy
-          đổi theo bảng này. Ca Odoo đã có tỉnh mới thì dùng thẳng. Tên được so khớp không phân biệt tiền tố/dấu ("Hà Nội" =
-          "Thành phố Hà Nội", "Hoà Bình" = "Hòa Bình"). {rows.length} dòng · {tinhMoiList.length} tỉnh mới.
-        </div>
+          {tr("Dùng khi chọn")} <b>{tr("Địa giới: Mới")}</b>  {tr("(nút trên thanh đầu trang): ca chưa có tỉnh mới (toàn bộ ca cũ từ QuickSight) được quy đổi theo bảng này. Ca Odoo đã có tỉnh mới thì dùng thẳng. Tên được so khớp không phân biệt tiền tố/dấu (\"Hà Nội\" = \"Thành phố Hà Nội\", \"Hoà Bình\" = \"Hòa Bình\").")} {rows.length}  {tr("dòng ·")} {tinhMoiList.length}  {tr("tỉnh mới.")}</div>
         {chuaQuyDoi.length > 0 && (
           <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs">
-            <b>⚠️ Tên tỉnh trong dữ liệu chưa có quy đổi:</b> {chuaQuyDoi.join(", ")} — các ca này hiện ở nhóm "… (chưa quy đổi)"
-            khi xem địa giới mới. Thêm dòng bên dưới để gộp.
-          </div>
+            <b>{tr("⚠️ Tên tỉnh trong dữ liệu chưa có quy đổi:")}</b> {chuaQuyDoi.join(", ")}  {tr("— các ca này hiện ở nhóm \"… (chưa quy đổi)\" khi xem địa giới mới. Thêm dòng bên dưới để gộp.")}</div>
         )}
         {canEdit && (
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <label className="text-xs">
-              <div className="text-[var(--ink-500)] mb-1">Tỉnh cũ / tên biến thể</div>
+              <div className="text-[var(--ink-500)] mb-1">{tr("Tỉnh cũ / tên biến thể")}</div>
               <input
                 list="dg-tinh-cu-list"
                 value={moiCu}
                 onChange={(e) => setMoiCu(e.target.value)}
                 className="border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-56 bg-[var(--surface)]"
-                placeholder="vd Hà Tây"
+                placeholder={tr("vd Hà Tây")}
               />
               <datalist id="dg-tinh-cu-list">
                 {chuaQuyDoi.map((t) => (
@@ -89,13 +85,13 @@ export function TinhQuyDoiSettings() {
               </datalist>
             </label>
             <label className="text-xs">
-              <div className="text-[var(--ink-500)] mb-1">→ Tỉnh mới</div>
+              <div className="text-[var(--ink-500)] mb-1">{tr("→ Tỉnh mới")}</div>
               <select
                 value={moiMoi}
                 onChange={(e) => setMoiMoi(e.target.value)}
                 className="border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-56 bg-[var(--surface)]"
               >
-                <option value="">-- Chọn tỉnh mới --</option>
+                <option value="">{tr("-- Chọn tỉnh mới --")}</option>
                 {tinhMoiList.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -108,10 +104,9 @@ export function TinhQuyDoiSettings() {
               disabled={!moiCu.trim() || !moiMoi || save.isPending}
               onClick={() => save.mutate({ tinh_cu: moiCu.trim(), tinh_moi: moiMoi }, { onSuccess: () => setMoiCu("") })}
             >
-              + Thêm / cập nhật
-            </Btn>
+              {tr("+ Thêm / cập nhật")}</Btn>
             {moiCu.trim() && idx.tinhCu(moiCu) !== moiCu.trim() && (
-              <span className="text-[11px] text-[var(--ink-400)]">Khớp sẵn với "{idx.tinhCu(moiCu)}" — lưu sẽ thêm dòng riêng.</span>
+              <span className="text-[11px] text-[var(--ink-400)]">{tr("Khớp sẵn với \"")}{idx.tinhCu(moiCu)}{tr("\" — lưu sẽ thêm dòng riêng.")}</span>
             )}
           </div>
         )}
@@ -121,8 +116,8 @@ export function TinhQuyDoiSettings() {
         <table className="dense w-full text-sm">
           <thead className="bg-slate-50">
             <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-              <th className="py-2 px-3 w-64">Tỉnh mới</th>
-              <th className="py-2 px-3">Tỉnh cũ gộp vào</th>
+              <th className="py-2 px-3 w-64">{tr("Tỉnh mới")}</th>
+              <th className="py-2 px-3">{tr("Tỉnh cũ gộp vào")}</th>
             </tr>
           </thead>
           <tbody>
@@ -130,7 +125,7 @@ export function TinhQuyDoiSettings() {
               <tr key={moi} className="border-b border-[var(--line)] last:border-0 align-top">
                 <td className="py-2 px-3 font-semibold">
                   {moi}
-                  <div className="text-[11px] font-normal text-[var(--ink-400)]">{list.length} tỉnh cũ</div>
+                  <div className="text-[11px] font-normal text-[var(--ink-400)]">{list.length}  {tr("tỉnh cũ")}</div>
                 </td>
                 <td className="py-2 px-3">
                   <div className="flex flex-wrap gap-1.5">
@@ -138,17 +133,17 @@ export function TinhQuyDoiSettings() {
                       <span
                         key={r.tinh_cu}
                         className="inline-flex items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 py-0.5 text-xs"
-                        title={r.nguoi_sua ? `Sửa bởi ${r.nguoi_sua} lúc ${r.ngay_sua}` : "Mặc định theo nghị quyết sáp nhập"}
+                        title={r.nguoi_sua ? tr("Sửa bởi {0} lúc {1}", r.nguoi_sua, r.ngay_sua) : tr("Mặc định theo nghị quyết sáp nhập")}
                       >
                         {r.tinh_cu}
                         {canEdit && (
                           <>
                             <select
-                              aria-label={`Đổi tỉnh mới của ${r.tinh_cu}`}
+                              aria-label={tr("Đổi tỉnh mới của {0}", r.tinh_cu)}
                               value={r.tinh_moi}
                               onChange={(e) => save.mutate({ tinh_cu: r.tinh_cu, tinh_moi: e.target.value })}
                               className="ml-1 bg-transparent text-[11px] text-[var(--ink-500)] max-w-[1.4rem] cursor-pointer"
-                              title="Chuyển sang tỉnh mới khác"
+                              title={tr("Chuyển sang tỉnh mới khác")}
                             >
                               {tinhMoiList.map((t) => (
                                 <option key={t} value={t}>
@@ -158,9 +153,9 @@ export function TinhQuyDoiSettings() {
                             </select>
                             <button
                               className="text-[var(--coral-500)] hover:underline"
-                              title="Xóa dòng quy đổi"
+                              title={tr("Xóa dòng quy đổi")}
                               onClick={() => {
-                                if (confirm(`Xóa quy đổi "${r.tinh_cu}" → "${r.tinh_moi}"?`)) remove.mutate(r.tinh_cu);
+                                if (confirm(tr("Xóa quy đổi \"{0}\" → \"{1}\"?", r.tinh_cu, r.tinh_moi))) remove.mutate(r.tinh_cu);
                               }}
                             >
                               ×

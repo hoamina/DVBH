@@ -18,6 +18,7 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
+import { tr } from "../i18n/tr";
 
 const PAGE_SIZE = 20;
 
@@ -36,8 +37,8 @@ function formatThangLabel(thang: string): string {
 // chi can cho phep chon BAT KY thang nao (khong con gioi han co dinh "thang hien tai + 2 thang
 // truoc") la du thay the "Ca luu tru" hoan toan, khong mat kha nang xem/xuat du lieu cu.
 const TABS = [
-  { key: "thang", label: "Theo tháng" },
-  { key: "dang-ton", label: "Ca đang tồn" },
+  { key: "thang", label: tr("Theo tháng") },
+  { key: "dang-ton", label: tr("Ca đang tồn") },
 ];
 
 export function DanhSachTongModule({ openCase }: { openCase: (id: string) => void }) {
@@ -69,10 +70,10 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
   const currentMonth = currentMonthValue();
   const monthOptions = (monthsData?.months ?? []).map((m) => ({
     value: m,
-    label: `Tháng ${formatThangLabel(m)}${m === currentMonth ? " (hiện tại)" : ""}`,
+    label: tr("Tháng {0}{1}", formatThangLabel(m), m === currentMonth ? " " + tr("(hiện tại)") : ""),
   }));
   if (!monthOptions.some((o) => o.value === currentMonth)) {
-    monthOptions.unshift({ value: currentMonth, label: `Tháng ${formatThangLabel(currentMonth)} (hiện tại)` });
+    monthOptions.unshift({ value: currentMonth, label: tr("Tháng {0} (hiện tại)", formatThangLabel(currentMonth)) });
   }
 
   // Snapshot R2 tung ngay (xem hooks/useDaDongChunked.ts + backend/src/lib/daDongDayChunks.ts) -
@@ -140,35 +141,33 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
 
   const columns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
-    { key: "hang", header: "Hãng", render: (r) => r.hang ?? "—" },
+    { key: "khach_hang", header: tr("Khách hàng"), render: (r) => r.khach_hang ?? "—" },
+    { key: "hang", header: tr("Hãng"), render: (r) => r.hang ?? "—" },
     { key: "nhom_san_pham", header: "Model", render: (r) => r.nhom_san_pham ?? "—" },
     { key: "ky_thuat_vien", header: "KTV", render: (r) => <KtvNameWithPhone kyThuatVien={r.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /> },
     {
       key: "trang_thai",
-      header: "Trạng thái",
+      header: tr("Trạng thái"),
       render: (r) => (
         <div className="flex flex-wrap gap-1">
-          <Badge tone={r.thoi_gian_hoan_thanh ? "teal" : "amber"}>{r.thoi_gian_hoan_thanh ? "Đã hoàn thành" : "Đang tồn"}</Badge>
-          {r.huy_bo_at && <Badge tone="gray">🚫 Đã hủy</Badge>}
+          <Badge tone={r.thoi_gian_hoan_thanh ? "teal" : "amber"}>{r.thoi_gian_hoan_thanh ? tr("Đã hoàn thành") : tr("Đang tồn")}</Badge>
+          {r.huy_bo_at && <Badge tone="gray">{tr("🚫 Đã hủy")}</Badge>}
         </div>
       ),
     },
-    { key: "thoi_gian_hoan_thanh", header: "Thời gian hoàn thành", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
+    { key: "thoi_gian_hoan_thanh", header: tr("Thời gian hoàn thành"), render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
     {
       key: "dt_tong",
-      header: "DT tổng",
+      header: tr("DT tổng"),
       render: (r) => <span className="font-mono">{fmtVND((r.dt_san_pham ?? 0) + (r.dt_linh_kien ?? 0) + (r.dt_dich_vu ?? 0))}</span>,
     },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (r) => shortKhuVuc(r.khu_vuc) },
   ];
 
   return (
     <div className="anim-in">
       <div className="text-sm text-[var(--ink-600)] mb-4">
-        Danh sách ca đã đóng theo từng tháng bất kỳ (kể cả tháng cũ đã lưu trữ) và ca đang tồn đọng — chọn tháng ở bộ lọc bên dưới, mỗi lượt xem là 1 tệp riêng, dùng để đối
-        chiếu hoặc làm báo cáo.
-      </div>
+        {tr("Danh sách ca đã đóng theo từng tháng bất kỳ (kể cả tháng cũ đã lưu trữ) và ca đang tồn đọng — chọn tháng ở bộ lọc bên dưới, mỗi lượt xem là 1 tệp riêng, dùng để đối chiếu hoặc làm báo cáo.")}</div>
       <div className="flex items-center gap-2 flex-wrap mb-1">
         <KhuVucFilterControl
           value={khuVucFilter}
@@ -177,8 +176,8 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
             setPage(1);
           }}
           options={[
-            { value: "", label: "Tất cả khu vực" },
-            { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+            { value: "", label: tr("Tất cả khu vực") },
+            { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
             ...(filterOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
           myAreas={myAreas}
@@ -189,7 +188,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
             setHangFilter(v);
             setPage(1);
           }}
-          options={[{ value: "", label: "Tất cả hãng" }, ...(filterOptions?.hang.map((h) => ({ value: h, label: h })) ?? [])]}
+          options={[{ value: "", label: tr("Tất cả hãng") }, ...(filterOptions?.hang.map((h) => ({ value: h, label: h })) ?? [])]}
         />
         {tab === "thang" && (
           <Select
@@ -219,13 +218,12 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
       />
       <div className="flex justify-end mb-2 mt-4">
         <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
-          {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
+          {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
         </Btn>
       </div>
       {tab === "thang" && monthThrottled.length > 0 && (
         <div className="text-xs text-[var(--ink-400)] italic mb-2">
-          {monthThrottled.length} ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.
-        </div>
+          {monthThrottled.length}  {tr("ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.")}</div>
       )}
       {tab === "dang-ton" ? (
         <PaginatedTable
@@ -240,7 +238,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           onPageChange={setPage}
           onRowClick={(r) => openCase(r.id)}
           rowKey={(r) => r.id}
-          emptyText="Không có ca đang tồn."
+          emptyText={tr("Không có ca đang tồn.")}
           storageKey="danh-sach-tong"
         />
       ) : (
@@ -256,7 +254,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           onPageChange={setPage}
           onRowClick={(r) => openCase(r.id)}
           rowKey={(r) => r.id}
-          emptyText="Không có ca nào trong tháng này."
+          emptyText={tr("Không có ca nào trong tháng này.")}
           storageKey="danh-sach-tong-thang"
         />
       )}

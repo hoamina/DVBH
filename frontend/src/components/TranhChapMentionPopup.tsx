@@ -2,6 +2,7 @@ import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "./ui/Btn";
+import { tr } from "../i18n/tr";
 
 const SESSION_KEY = "tranh-chap-mention-popup-shown";
 
@@ -53,8 +54,7 @@ function TranhChapMentionPopupInner({
       <div className="p-4 text-center space-y-3">
         <div className="text-3xl">👀</div>
         <div className="font-display font-bold text-base text-[var(--ink-800)]">
-          Eh! có người đang nhắc đến bạn!!! Hãy vào thẻ "Tranh chấp, khiếu nại" và phản hồi người ta đi nhé! Có {count} vấn đề đang cần bạn xử lý đấy!
-        </div>
+          {tr("Eh! có người đang nhắc đến bạn!!! Hãy vào thẻ \"Tranh chấp, khiếu nại\" và phản hồi người ta đi nhé! Có")} {count}  {tr("vấn đề đang cần bạn xử lý đấy!")}</div>
         <div className="flex flex-col gap-2 pt-1">
           <Btn
             onClick={() => {
@@ -62,11 +62,9 @@ function TranhChapMentionPopupInner({
               onNavigateToTranhChap();
             }}
           >
-            Để ta xem đó là kẻ nào!
-          </Btn>
+            {tr("Để ta xem đó là kẻ nào!")}</Btn>
           <Btn variant="ghost" onClick={dismiss}>
-            Đang bận để tý nữa!
-          </Btn>
+            {tr("Đang bận để tý nữa!")}</Btn>
         </div>
       </div>
     </div>

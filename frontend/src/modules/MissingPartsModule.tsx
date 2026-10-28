@@ -30,6 +30,8 @@ import { useToast } from "../components/ui/Toast";
 import { TonKhoSyncBar, TonKhoCauHinhTab, useTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 import { useMoHoSoLinhKien, MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { useDiaGioiIndex, useDiaGioiLoc, gomTheoDiaGioi, congDong, soSanhTen, DG_TRONG } from "../lib/diaGioi";
+import { tr } from "../i18n/tr";
+
 
 // Tab "Da dong" cua man Thieu linh kien: chon 1 thang, dung useMissingPartsDaDongChunked (chunk R2
 // theo ngay dung chung voi cases.ts) roi loc khu_vuc/dim + phan trang thuan phia client - thay the
@@ -88,13 +90,13 @@ function MissingPartsDaDongList({
 
   const monthOptions = (monthsData?.months ?? []).map((m) => ({ value: m, label: m }));
   if (!monthOptions.some((o) => o.value === currentMonth)) {
-    monthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
+    monthOptions.unshift({ value: currentMonth, label: tr("{0} (hiện tại)", currentMonth) });
   }
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="text-xs font-semibold text-[var(--ink-400)]">Tháng:</span>
+        <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tháng:")}</span>
         <Select
           value={thang}
           onChange={(v) => {
@@ -113,8 +115,7 @@ function MissingPartsDaDongList({
       </div>
       {throttled.length > 0 && (
         <div className="text-xs text-[var(--ink-400)] italic mb-2">
-          {throttled.length} ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.
-        </div>
+          {throttled.length}  {tr("ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.")}</div>
       )}
       <PaginatedTable
         columns={columns}
@@ -128,7 +129,7 @@ function MissingPartsDaDongList({
         onPageChange={setPage}
         onRowClick={onRowClick}
         rowKey={(c) => c.id}
-        emptyText="Không có ca thiếu linh kiện đã đóng trong tháng này."
+        emptyText={tr("Không có ca thiếu linh kiện đã đóng trong tháng này.")}
         storageKey="missing-parts-closed"
       />
     </div>
@@ -163,20 +164,20 @@ interface KhuVucRow {
 }
 
 const REPORT_DIM_OPTIONS = [
-  { value: "khu_vuc", label: "Khu vực" },
-  { value: "tinh", label: "Tỉnh" },
-  { value: "doi_tac", label: "Đối tác" },
-  { value: "hang", label: "Hãng" },
+  { value: "khu_vuc", label: tr("Khu vực") },
+  { value: "tinh", label: tr("Tỉnh") },
+  { value: "doi_tac", label: tr("Đối tác") },
+  { value: "hang", label: tr("Hãng") },
   { value: "nhom_san_pham", label: "Model" },
-  { value: "nhom_kh", label: "Nhóm KH" },
-  { value: "nganh", label: "Ngành" },
+  { value: "nhom_kh", label: tr("Nhóm KH") },
+  { value: "nganh", label: tr("Ngành") },
 ];
 
 const VIEWS = [
-  { key: "bao-cao", label: "Báo cáo" },
-  { key: "danh-sach", label: "Danh sách chi tiết" },
-  { key: "linh-kien-thieu", label: "Linh kiện thiếu" },
-  { key: "cau-hinh-kho", label: "Cấu hình kho" },
+  { key: "bao-cao", label: tr("Báo cáo") },
+  { key: "danh-sach", label: tr("Danh sách chi tiết") },
+  { key: "linh-kien-thieu", label: tr("Linh kiện thiếu") },
+  { key: "cau-hinh-kho", label: tr("Cấu hình kho") },
 ];
 
 interface LinhKienThieuRow {
@@ -203,11 +204,11 @@ function TonKhoCell({ value, loaded }: { value: number | undefined; loaded: bool
 // tien xu ly) + 1 co doc lap "lech mien". Ton = ton cuoi ky MISA keo tu linh-kien-app (MB/MN theo tab Cấu hình kho).
 type TinhTrangLk = "co-hang-kho" | "chi-ktv" | "het-chua-po" | "het-po-tre" | "het-cho-po";
 const TINH_TRANG_LK: Record<TinhTrangLk, { label: string; mo_ta: string; tone: "teal" | "amber" | "coral" | "orange" | "gray" }> = {
-  "co-hang-kho": { label: "Kho có hàng", mo_ta: "Tồn MB/MN > 0 mà ca vẫn báo thiếu → điều chuyển ngay", tone: "teal" },
-  "chi-ktv": { label: "Chỉ KTV đang giữ", mo_ta: "Kho MB/MN hết, KTV còn hàng → điều phối KTV", tone: "amber" },
-  "het-chua-po": { label: "Hết hàng, chưa có PO", mo_ta: "Kho + KTV đều 0 và chưa có PO → cần đặt hàng", tone: "coral" },
-  "het-po-tre": { label: "Hết hàng, PO trễ", mo_ta: "Có PO nhưng đã quá ngày dự kiến hàng về", tone: "orange" },
-  "het-cho-po": { label: "Hết hàng, chờ PO", mo_ta: "Có PO, chưa tới ngày dự kiến (hoặc PO chưa ghi ngày)", tone: "gray" },
+  "co-hang-kho": { label: tr("Kho có hàng"), mo_ta: tr("Tồn MB/MN > 0 mà ca vẫn báo thiếu → điều chuyển ngay"), tone: "teal" },
+  "chi-ktv": { label: tr("Chỉ KTV đang giữ"), mo_ta: tr("Kho MB/MN hết, KTV còn hàng → điều phối KTV"), tone: "amber" },
+  "het-chua-po": { label: tr("Hết hàng, chưa có PO"), mo_ta: tr("Kho + KTV đều 0 và chưa có PO → cần đặt hàng"), tone: "coral" },
+  "het-po-tre": { label: tr("Hết hàng, PO trễ"), mo_ta: tr("Có PO nhưng đã quá ngày dự kiến hàng về"), tone: "orange" },
+  "het-cho-po": { label: tr("Hết hàng, chờ PO"), mo_ta: tr("Có PO, chưa tới ngày dự kiến (hoặc PO chưa ghi ngày)"), tone: "gray" },
 };
 
 // "dd/mm/yyyy[ hh:mm]" hoac "yyyy-mm-dd..." -> "yyyy-mm-dd" (so sanh chuoi voi hom nay); khong doc duoc -> null.
@@ -236,9 +237,9 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
     setSyncingPo(true);
     try {
       await refreshAll();
-      addToast("Đã đồng bộ lại dữ liệu PO / mua hàng / bảo hành từ Google Sheet.");
+      addToast(tr("Đã đồng bộ lại dữ liệu PO / mua hàng / bảo hành từ Google Sheet."));
     } catch (err) {
-      addToast(`Không đồng bộ được: ${err instanceof Error ? err.message : String(err)}`);
+      addToast(tr("Không đồng bộ được: {0}", err instanceof Error ? err.message : String(err)));
     } finally {
       setSyncingPo(false);
     }
@@ -350,42 +351,40 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
     <Card className="p-3 mt-3">
       <div className="mb-2 flex items-start justify-between gap-2 flex-wrap">
         <div>
-          <div className="font-display font-bold text-sm">Danh sách linh kiện đang thiếu</div>
+          <div className="font-display font-bold text-sm">{tr("Danh sách linh kiện đang thiếu")}</div>
           <div className="text-xs text-[var(--ink-400)] mt-0.5">
-            Bấm vào 1 dòng để mở Hồ sơ linh kiện: tồn từng kho / KTV đang giữ, ca đang thiếu, ticket thiếu hàng, lịch sử đặt hàng, PO.
-          </div>
+            {tr("Bấm vào 1 dòng để mở Hồ sơ linh kiện: tồn từng kho / KTV đang giữ, ca đang thiếu, ticket thiếu hàng, lịch sử đặt hàng, PO.")}</div>
           <div className="mt-1">
             <TonKhoSyncBar />
           </div>
           <div className="text-xs mt-0.5">
             {isSyncing || syncingPo ? (
-              <span className="text-[var(--ink-400)]">Đang đồng bộ PO…</span>
+              <span className="text-[var(--ink-400)]">{tr("Đang đồng bộ PO…")}</span>
             ) : poError && poDatHang.length === 0 ? (
-              <span className="text-[var(--coral-500)] font-semibold">Không tải được dữ liệu PO ({poError}) — bấm "Đồng bộ PO" để thử lại.</span>
+              <span className="text-[var(--coral-500)] font-semibold">{tr("Không tải được dữ liệu PO (")}{poError}{tr(") — bấm \"Đồng bộ PO\" để thử lại.")}</span>
             ) : (
               <span className={poDatHang.length === 0 ? "text-[var(--coral-500)] font-semibold" : "text-[var(--ink-400)]"}>
-                PO: {poDatHang.length.toLocaleString("vi-VN")} dòng{poSyncedAt ? ` · đồng bộ lúc ${fmtDateTime(poSyncedAt)}` : ""}
+                PO: {poDatHang.length.toLocaleString("vi-VN")}  {tr("dòng")}{poSyncedAt ? " " + tr("· đồng bộ lúc {0}", fmtDateTime(poSyncedAt)) : ""}
               </span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Btn size="sm" variant="ghost" onClick={dongBoPo} disabled={syncingPo || isSyncing}>
-            {syncingPo ? "⏳ Đang đồng bộ…" : "🔄 Đồng bộ PO"}
+            {syncingPo ? tr("⏳ Đang đồng bộ…") : tr("🔄 Đồng bộ PO")}
           </Btn>
-          <IdSerialSearchInput value={search} onChange={setSearch} placeholder="Tìm theo mã/tên linh kiện…" />
+          <IdSerialSearchInput value={search} onChange={setSearch} placeholder={tr("Tìm theo mã/tên linh kiện…")} />
           <Select
             value={sapXep}
             onChange={setSapXep}
             options={[
-              { value: "so-ca", label: "Sắp xếp: nhiều ca nhất" },
-              { value: "uu-tien", label: "Sắp xếp: ưu tiên (tổng ngày chờ)" },
-              { value: "lau-nhat", label: "Sắp xếp: ca chờ lâu nhất" },
+              { value: "so-ca", label: tr("Sắp xếp: nhiều ca nhất") },
+              { value: "uu-tien", label: tr("Sắp xếp: ưu tiên (tổng ngày chờ)") },
+              { value: "lau-nhat", label: tr("Sắp xếp: ca chờ lâu nhất") },
             ]}
           />
           <Btn size="sm" variant="ghost" onClick={xuatExcel}>
-            ⬇ Xuất Excel
-          </Btn>
+            {tr("⬇ Xuất Excel")}</Btn>
         </div>
       </div>
       {tonKho && (
@@ -396,7 +395,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
                 size="sm"
                 label={TINH_TRANG_LK[k].label}
                 value={demTinhTrang[k]?.ma ?? 0}
-                sub={`${demTinhTrang[k]?.ca ?? 0} ca đang chờ`}
+                sub={tr("{0} ca đang chờ", demTinhTrang[k]?.ca ?? 0)}
                 tone={TINH_TRANG_LK[k].tone}
                 muted={!demTinhTrang[k]}
                 active={locTinhTrang === k}
@@ -404,12 +403,12 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
               />
             </div>
           ))}
-          <div title="Ca thiếu ở miền này nhưng kho miền này hết, kho miền kia còn → điều chuyển liên miền">
+          <div title={tr("Ca thiếu ở miền này nhưng kho miền này hết, kho miền kia còn → điều chuyển liên miền")}>
             <StatCard
               size="sm"
-              label="Lệch tồn giữa miền"
+              label={tr("Lệch tồn giữa miền")}
               value={demTinhTrang["lech-mien"]?.ma ?? 0}
-              sub={`${demTinhTrang["lech-mien"]?.ca ?? 0} ca đang chờ`}
+              sub={tr("{0} ca đang chờ", demTinhTrang["lech-mien"]?.ca ?? 0)}
               tone="ocean"
               muted={!demTinhTrang["lech-mien"]}
               active={locTinhTrang === "lech-mien"}
@@ -422,18 +421,18 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
         <table className="dense w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-              <th className="py-2 pr-3">Mã LK</th>
-              <th className="py-2 pr-3">Tên linh kiện</th>
-              <th className="py-2 pr-3">Số ca đang báo thiếu</th>
-              <th className="py-2 pr-3 text-right">Ca lâu nhất</th>
-              <th className="py-2 pr-3 text-right">Tồn kho MB</th>
-              <th className="py-2 pr-3 text-right">Tồn kho MN</th>
-              <th className="py-2 pr-3 text-right">Tồn KTV</th>
-              <th className="py-2 pr-3">Tình trạng</th>
-              <th className="py-2 pr-3">Kho cần đặt hàng</th>
-              <th className="py-2 pr-3">Ngày dự kiến hàng về</th>
-              <th className="py-2 pr-3">Ngày về gần nhất toàn quốc</th>
-              <th className="py-2 pr-3">SL hàng về dự kiến</th>
+              <th className="py-2 pr-3">{tr("Mã LK")}</th>
+              <th className="py-2 pr-3">{tr("Tên linh kiện")}</th>
+              <th className="py-2 pr-3">{tr("Số ca đang báo thiếu")}</th>
+              <th className="py-2 pr-3 text-right">{tr("Ca lâu nhất")}</th>
+              <th className="py-2 pr-3 text-right">{tr("Tồn kho MB")}</th>
+              <th className="py-2 pr-3 text-right">{tr("Tồn kho MN")}</th>
+              <th className="py-2 pr-3 text-right">{tr("Tồn KTV")}</th>
+              <th className="py-2 pr-3">{tr("Tình trạng")}</th>
+              <th className="py-2 pr-3">{tr("Kho cần đặt hàng")}</th>
+              <th className="py-2 pr-3">{tr("Ngày dự kiến hàng về")}</th>
+              <th className="py-2 pr-3">{tr("Ngày về gần nhất toàn quốc")}</th>
+              <th className="py-2 pr-3">{tr("SL hàng về dự kiến")}</th>
               <th className="py-2 pr-3"></th>
             </tr>
           </thead>
@@ -445,7 +444,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
                 onClick={() => moHoSo?.(r.ma_lk, r.ten_lk)}
               >
                 <td className="py-2 pr-3 font-mono font-semibold text-[var(--ocean-600)]">{r.ma_lk}</td>
-                <td className="py-2 pr-3">{r.ten_lk ?? <span className="text-[var(--ink-400)] italic text-xs">Không rõ (mã ngoài danh mục)</span>}</td>
+                <td className="py-2 pr-3">{r.ten_lk ?? <span className="text-[var(--ink-400)] italic text-xs">{tr("Không rõ (mã ngoài danh mục)")}</span>}</td>
                 <td className="py-2 pr-3">
                   <Pill tone="coral">{r.so_ca}</Pill>
                   {r.so_ca_mb || r.so_ca_mn ? (
@@ -454,7 +453,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
                     </span>
                   ) : null}
                 </td>
-                <td className="py-2 pr-3 text-right text-xs">{r.tuoi_max != null ? `${r.tuoi_max} ngày` : "—"}</td>
+                <td className="py-2 pr-3 text-right text-xs">{r.tuoi_max != null ? tr("{0} ngày", r.tuoi_max) : "—"}</td>
                 <TonKhoCell value={r.tonMb} loaded={!!tonKho} />
                 <TonKhoCell value={r.tonMn} loaded={!!tonKho} />
                 <TonKhoCell value={r.tonKtv} loaded={!!tonKho} />
@@ -462,7 +461,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
                   {r.tinhTrang && <Badge tone={TINH_TRANG_LK[r.tinhTrang].tone}>{TINH_TRANG_LK[r.tinhTrang].label}</Badge>}
                   {r.lechMien && (
                     <span className="ml-1">
-                      <Badge tone="ocean">Lệch miền</Badge>
+                      <Badge tone="ocean">{tr("Lệch miền")}</Badge>
                     </span>
                   )}
                 </td>
@@ -472,7 +471,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
                 <td className="py-2 pr-3 text-xs">{r.latestPo?.soLuongDat || "—"}</td>
                 <td className="py-2 pr-3 text-xs font-semibold">
                   {r.po.length === 0 ? (
-                    <span className="text-[var(--ink-400)] italic font-normal">Chưa có PO</span>
+                    <span className="text-[var(--ink-400)] italic font-normal">{tr("Chưa có PO")}</span>
                   ) : (
                     <span className="text-[var(--ocean-500)]">{r.po.length > 1 ? `+${r.po.length} PO →` : "Xem →"}</span>
                   )}
@@ -482,7 +481,7 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
             {!isLoading && filtered.length === 0 && (
               <tr>
                 <td colSpan={13} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                  {enriched.length === 0 ? "Không có linh kiện nào đang thiếu." : "Không tìm thấy linh kiện phù hợp."}
+                  {enriched.length === 0 ? tr("Không có linh kiện nào đang thiếu.") : tr("Không tìm thấy linh kiện phù hợp.")}
                 </td>
               </tr>
             )}
@@ -495,19 +494,19 @@ function LinhKienThieuTab({ rows, isLoading }: { rows: LinhKienThieuRow[]; isLoa
 }
 
 const AGE_BUCKETS: { key: string; label: string; tuoiTu?: string; tuoiDen?: string }[] = [
-  { key: "", label: "Tất cả tuổi tồn" },
-  { key: "gt-1", label: "Tồn trên 1 ngày", tuoiTu: "1" },
-  { key: "gt-3", label: "Tồn trên 3 ngày", tuoiTu: "3" },
-  { key: "gt-5", label: "Tồn trên 5 ngày", tuoiTu: "5" },
-  { key: "gt-7", label: "Tồn trên 7 ngày", tuoiTu: "7" },
-  { key: "custom", label: "Tùy chỉnh…" },
+  { key: "", label: tr("Tất cả tuổi tồn") },
+  { key: "gt-1", label: tr("Tồn trên 1 ngày"), tuoiTu: "1" },
+  { key: "gt-3", label: tr("Tồn trên 3 ngày"), tuoiTu: "3" },
+  { key: "gt-5", label: tr("Tồn trên 5 ngày"), tuoiTu: "5" },
+  { key: "gt-7", label: tr("Tồn trên 7 ngày"), tuoiTu: "7" },
+  { key: "custom", label: tr("Tùy chỉnh…") },
 ];
 
 const KHU_VUC_BUCKET_COLS: { key: keyof KhuVucRow; label: string; tuoiTu?: string }[] = [
-  { key: "tren_3", label: "Trên 3 ngày", tuoiTu: "3" },
-  { key: "tren_5", label: "Trên 5 ngày", tuoiTu: "5" },
-  { key: "tren_7", label: "Trên 7 ngày", tuoiTu: "7" },
-  { key: "tren_14", label: "Trên 14 ngày", tuoiTu: "14" },
+  { key: "tren_3", label: tr("Trên 3 ngày"), tuoiTu: "3" },
+  { key: "tren_5", label: tr("Trên 5 ngày"), tuoiTu: "5" },
+  { key: "tren_7", label: tr("Trên 7 ngày"), tuoiTu: "7" },
+  { key: "tren_14", label: tr("Trên 14 ngày"), tuoiTu: "14" },
 ];
 
 export function MissingPartsModule({
@@ -723,7 +722,7 @@ export function MissingPartsModule({
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (c) => (
         <>
           {isVipKh(c.nhom_kh) && <VipBadge />}
@@ -731,18 +730,18 @@ export function MissingPartsModule({
         </>
       ),
     },
-    { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
+    { key: "ky_thuat_vien", header: tr("Kỹ thuật viên"), render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     {
       key: "linh_kien",
-      header: "Linh kiện thiếu",
-      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>),
+      header: tr("Linh kiện thiếu"),
+      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa chọn")}</span>),
     },
-    { key: "ngay_yeu_cau", header: "Ngày yêu cầu có hàng", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_yeu_cau_co_hang)}</span> },
-    { key: "ngay_du_kien", header: "Ngày dự kiến HT", render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_du_kien_hoan_thanh)}</span> },
-    { key: "last_ly_do_cham", header: "Lý do tồn gần nhất", render: (c) => <span className="text-xs">{c.last_ly_do_cham ?? "—"}</span> },
+    { key: "ngay_yeu_cau", header: tr("Ngày yêu cầu có hàng"), render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_yeu_cau_co_hang)}</span> },
+    { key: "ngay_du_kien", header: tr("Ngày dự kiến HT"), render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_du_kien_hoan_thanh)}</span> },
+    { key: "last_ly_do_cham", header: tr("Lý do tồn gần nhất"), render: (c) => <span className="text-xs">{c.last_ly_do_cham ?? "—"}</span> },
     {
       key: "tuoi_ton",
-      header: "Tuổi tồn",
+      header: tr("Tuổi tồn"),
       render: (c) =>
         c.tuoi_ton == null ? (
           <span className="font-mono text-xs text-[var(--ink-400)]">—</span>
@@ -750,28 +749,27 @@ export function MissingPartsModule({
           <Pill tone={c.tuoi_ton > 7 ? "coral" : c.tuoi_ton > 3 ? "amber" : "gray"}>{c.tuoi_ton}</Pill>
         ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
   const closedColumns: Column<MissingPartClosedCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
+    { key: "khach_hang", header: tr("Khách hàng"), render: (c) => c.khach_hang ?? "—" },
     {
       key: "linh_kien",
-      header: "Linh kiện thiếu",
-      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa chọn</span>),
+      header: tr("Linh kiện thiếu"),
+      render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa chọn")}</span>),
     },
-    { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
   return (
     <div className="anim-in">
       <div className="text-xs text-[var(--ink-400)] mb-2">
-        Ca có lý do <b>“thuộc nhóm thiếu linh kiện”</b> — theo dõi tách riêng để kiểm soát tồn kho / cấp hàng.
-      </div>
+        {tr("Ca có lý do")} <b>{tr("“thuộc nhóm thiếu linh kiện”")}</b>  {tr("— theo dõi tách riêng để kiểm soát tồn kho / cấp hàng.")}</div>
 
       {(() => {
         const allFilters = (
@@ -783,8 +781,8 @@ export function MissingPartsModule({
                 setPage(1);
               }}
               options={[
-                { value: "", label: "Tất cả khu vực" },
-                { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+                { value: "", label: tr("Tất cả khu vực") },
+                { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
                 ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
               ]}
               myAreas={myAreas}
@@ -797,7 +795,7 @@ export function MissingPartsModule({
                 setPage(1);
               }}
               options={[
-                { value: "", label: "Tất cả Model" },
+                { value: "", label: tr("Tất cả Model") },
                 ...(khuVucOptions?.nhomSanPham.filter((v): v is string => !!v).map((v) => ({ value: v, label: v })) ?? []),
               ]}
             />
@@ -808,7 +806,7 @@ export function MissingPartsModule({
                 setPage(1);
               }}
               options={[
-                { value: "", label: "Tất cả đối tác" },
+                { value: "", label: tr("Tất cả đối tác") },
                 ...(khuVucOptions?.doiTac.filter((v): v is string => !!v).map((v) => ({ value: v, label: v })) ?? []),
               ]}
             />
@@ -829,7 +827,7 @@ export function MissingPartsModule({
                       min={0}
                       value={tuoiTuCustom}
                       onChange={(e) => setTuoiTuCustom(e.target.value)}
-                      placeholder="Từ (ngày)"
+                      placeholder={tr("Từ (ngày)")}
                       className="focus-ring w-24 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                     />
                     <input
@@ -837,7 +835,7 @@ export function MissingPartsModule({
                       min={0}
                       value={tuoiDenCustom}
                       onChange={(e) => setTuoiDenCustom(e.target.value)}
-                      placeholder="Đến (ngày)"
+                      placeholder={tr("Đến (ngày)")}
                       className="focus-ring w-24 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                     />
                   </>
@@ -870,8 +868,8 @@ export function MissingPartsModule({
         <Card className="p-3 mt-3">
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div>
-              <div className="font-display font-bold text-sm">Báo cáo linh kiện tồn theo {REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label.toLowerCase()}</div>
-              <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.</div>
+              <div className="font-display font-bold text-sm">{tr("Báo cáo linh kiện tồn theo")} {REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label.toLowerCase()}</div>
+              <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.")}</div>
             </div>
             <div className="flex items-center gap-2">
               <Select value={reportDim} onChange={setReportDim} options={REPORT_DIM_OPTIONS} />
@@ -887,8 +885,7 @@ export function MissingPartsModule({
                   )
                 }
               >
-                ⬇ Xuất Excel
-              </Btn>
+                {tr("⬇ Xuất Excel")}</Btn>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -896,26 +893,26 @@ export function MissingPartsModule({
               <thead>
                 <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                   <th className="py-2 pr-3">{REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label}</th>
-                  <th className="py-2 pr-3">Tổng tồn</th>
+                  <th className="py-2 pr-3">{tr("Tổng tồn")}</th>
                   {KHU_VUC_BUCKET_COLS.map((col) => (
                     <th key={col.key} className="py-2 pr-3">
                       {col.label}
                     </th>
                   ))}
-                  <th className="py-2 pr-3">Số mã linh kiện</th>
-                  <th className="py-2 pr-3">Lỡ kế hoạch</th>
+                  <th className="py-2 pr-3">{tr("Số mã linh kiện")}</th>
+                  <th className="py-2 pr-3">{tr("Lỡ kế hoạch")}</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedKhuVucRows.length > 0 && (
                   <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                    <td className="py-2 pr-3">Tổng cộng</td>
+                    <td className="py-2 pr-3">{tr("Tổng cộng")}</td>
                     <td className="py-2 pr-3 font-mono">{khuVucTotal.tong_ton}</td>
                     <td className="py-2 pr-3 font-mono">{khuVucTotal.tren_3}</td>
                     <td className="py-2 pr-3 font-mono">{khuVucTotal.tren_5}</td>
                     <td className="py-2 pr-3 font-mono">{khuVucTotal.tren_7}</td>
                     <td className="py-2 pr-3 font-mono">{khuVucTotal.tren_14}</td>
-                    <td className="py-2 pr-3 font-mono text-[var(--ink-400)]" title="Không cộng được (đếm mã linh kiện khác nhau, có thể trùng giữa các nhóm)">
+                    <td className="py-2 pr-3 font-mono text-[var(--ink-400)]" title={tr("Không cộng được (đếm mã linh kiện khác nhau, có thể trùng giữa các nhóm)")}>
                       —
                     </td>
                     <td className="py-2 pr-3 font-mono">{khuVucTotal.lo_ke_hoach}</td>
@@ -936,7 +933,7 @@ export function MissingPartsModule({
                         </Pill>
                       </td>
                     ))}
-                    <td className="py-2 pr-3 font-mono" title={r.so_ma_linh_kien === null ? "Không cộng được khi gộp nhiều tên tỉnh (đếm mã linh kiện khác nhau)" : undefined}>
+                    <td className="py-2 pr-3 font-mono" title={r.so_ma_linh_kien === null ? tr("Không cộng được khi gộp nhiều tên tỉnh (đếm mã linh kiện khác nhau)") : undefined}>
                       {r.so_ma_linh_kien ?? "—"}
                     </td>
                     <td className="py-2 pr-3 font-mono">{r.lo_ke_hoach}</td>
@@ -945,8 +942,7 @@ export function MissingPartsModule({
                 {sortedKhuVucRows.length === 0 && (
                   <tr>
                     <td colSpan={4 + KHU_VUC_BUCKET_COLS.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                      Không có dữ liệu.
-                    </td>
+                      {tr("Không có dữ liệu.")}</td>
                   </tr>
                 )}
               </tbody>
@@ -957,9 +953,9 @@ export function MissingPartsModule({
         <div className="mt-3">
           {trangThai === "dang-ton" && (
             <div className="flex flex-wrap items-start gap-2 mb-2">
-              <StatCard size="sm" label="Chờ linh kiện" value={data?.total ?? 0} tone="amber" />
+              <StatCard size="sm" label={tr("Chờ linh kiện")} value={data?.total ?? 0} tone="amber" />
               <HeroStat
-                label="Tồn >7 ngày"
+                label={tr("Tồn >7 ngày")}
                 value={khuVucTotal.tren_7}
                 tone="coral"
                 onClick={() => {
@@ -967,7 +963,7 @@ export function MissingPartsModule({
                   setPage(1);
                 }}
               />
-              <StatCard size="sm" label="Mã LK thiếu" value={linhKienThieuQuery.data?.rows.length ?? 0} tone="coral" onClick={() => setView("linh-kien-thieu")} />
+              <StatCard size="sm" label={tr("Mã LK thiếu")} value={linhKienThieuQuery.data?.rows.length ?? 0} tone="coral" onClick={() => setView("linh-kien-thieu")} />
               <StatCard
                 size="sm"
                 label="SL KH VIP"
@@ -984,7 +980,7 @@ export function MissingPartsModule({
                   (Select don gia tri) khong the giu ca 2 cung luc nen tach rieng 1 cong tac boolean. */}
               <StatCard
                 size="sm"
-                label="Lọc tổng"
+                label={tr("Lọc tổng")}
                 value={locTongBcnCount}
                 tone="amber"
                 muted={!locTongBcnCount}
@@ -996,8 +992,7 @@ export function MissingPartsModule({
                 }}
               />
               <Btn variant="ghost" size="sm" className="ml-auto" onClick={handleExport}>
-                ⬇ Xuất Excel
-              </Btn>
+                {tr("⬇ Xuất Excel")}</Btn>
             </div>
           )}
           <Tabs
@@ -1007,8 +1002,8 @@ export function MissingPartsModule({
               setPage(1);
             }}
             tabs={[
-              { key: "dang-ton", label: "Đang tồn" },
-              { key: "da-dong", label: "Đã đóng" },
+              { key: "dang-ton", label: tr("Đang tồn") },
+              { key: "da-dong", label: tr("Đã đóng") },
             ]}
           />
           {trangThai === "da-dong" ? (
@@ -1027,7 +1022,7 @@ export function MissingPartsModule({
               onRowClick={(c) => openCase(c.id, "giai-trinh")}
               rowKey={(c) => c.id}
               rowClassName={(c) => (isVipKh(c.nhom_kh) ? vipRowClassName(c.nhom_kh) : (c.tuoi_ton ?? 0) > 7 ? "bg-[var(--coral-100)]" : "")}
-              emptyText="Không có ca thiếu linh kiện."
+              emptyText={tr("Không có ca thiếu linh kiện.")}
               storageKey="missing-parts-list"
             />
           )}

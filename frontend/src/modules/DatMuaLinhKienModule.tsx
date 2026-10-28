@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import type { LuongQuyTrinhStep, JumpTarget } from "./datMuaLinhKien/types";
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
+import { tr } from "../i18n/tr";
 
 // Module "Dat mua linh kien" (Phase 2) - thay the quy trinh dat hang linh kien tren Google
 // Sheets/AppSheet, xem plan "Module Dat Mua Linh Kien". Tabs hien theo co vai tro (la_ktv_dvbh/
@@ -27,7 +28,7 @@ const TraHangTab = lazy(() => import("./datMuaLinhKien/TraHangTab").then((m) => 
 const BaoCaoTab = lazy(() => import("./datMuaLinhKien/BaoCaoTab").then((m) => ({ default: m.BaoCaoTab })));
 
 function TabFallback() {
-  return <div className="text-sm text-[var(--ink-500)] py-6 text-center mt-4">Đang tải...</div>;
+  return <div className="text-sm text-[var(--ink-500)] py-6 text-center mt-4">{tr("Đang tải...")}</div>;
 }
 
 export function DatMuaLinhKienModule({
@@ -86,14 +87,14 @@ export function DatMuaLinhKienModule({
   // khac o xemLoaiDon (nang len module, xem duoi) - giu view that lam 1 khai niem duy nhat de khong
   // phai sua lai hang chuc onJump({tab:"don-cua-toi",...}) da co san trong PipelineFlow/BaoCaoTab.
   const tabs = [
-    { key: "don-cua-toi", label: "Đơn của tôi / Danh sách" },
+    { key: "don-cua-toi", label: tr("Đơn của tôi / Danh sách") },
     // Giam sat them vao tab duoi - CHI de theo doi (khong co canTacNghiep/canKho/canKeToan rieng nen
     // khong nut hanh dong nao hien ra, xem PxkDetailModal).
-    ...(canTacNghiep || canKho || canKeToan || isGiamSat ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho" }] : []),
-    { key: "thieu-lk", label: "Thiếu linh kiện" },
+    ...(canTacNghiep || canKho || canKeToan || isGiamSat ? [{ key: "phieu-xuat-kho", label: tr("Phiếu xuất kho") }] : []),
+    { key: "thieu-lk", label: tr("Thiếu linh kiện") },
     // Tab rieng cho 12 chi so tong quan (phan hoi UX muc 6, nang cap 2026-08-15) - luon hien, noi
     // dung tu doi theo vai tro qua API (KTV/Ve tinh: the tong hop; GS/TN/Kho/Ke toan: bang theo KTV).
-    { key: "bao-cao", label: "Báo cáo" },
+    { key: "bao-cao", label: tr("Báo cáo") },
   ];
   // "Đơn trả hàng" KHONG con la tab rieng tren thanh menu (CHOT vong 7: "thừa" - thanh luong quy trinh
   // da co san 3 buoc bam thang vao dung day: Trả hàng KT/Kho/QC). Van GIU render/activeView cho key
@@ -131,9 +132,9 @@ export function DatMuaLinhKienModule({
   // (badge tron mau do co san trong Tabs.tsx, dung "nhu thong bao tin nhan" dung y yeu cau). Cac muc
   // con lai (phieu-xuat-kho/thieu-lk/bao-cao) giu nguyen key that.
   const displayTabs = [
-    { key: "don-cua-toi:mua", label: "Mua hàng", count: loaiDonCounts.mua },
-    { key: "don-cua-toi:cong_no", label: "Công nợ", count: loaiDonCounts.cong_no },
-    { key: "don-cua-toi:tra_hang", label: "Trả hàng", count: loaiDonCounts.tra_hang },
+    { key: "don-cua-toi:mua", label: tr("Mua hàng"), count: loaiDonCounts.mua },
+    { key: "don-cua-toi:cong_no", label: tr("Công nợ"), count: loaiDonCounts.cong_no },
+    { key: "don-cua-toi:tra_hang", label: tr("Trả hàng"), count: loaiDonCounts.tra_hang },
     ...tabs.slice(1),
   ];
   const displayActive = activeView === "don-cua-toi" ? `don-cua-toi:${xemLoaiDon}` : activeView;
@@ -225,10 +226,10 @@ export function DatMuaLinhKienModule({
       type="button"
       onClick={() => tongViecCuaToi > 0 && setShowWorkloadDetail((v) => !v)}
       disabled={tongViecCuaToi === 0}
-      title={tongViecCuaToi === 0 ? undefined : showWorkloadDetail ? "Ẩn chi tiết việc cần làm" : "Xem chi tiết việc cần làm theo từng bước"}
+      title={tongViecCuaToi === 0 ? undefined : showWorkloadDetail ? tr("Ẩn chi tiết việc cần làm") : tr("Xem chi tiết việc cần làm theo từng bước")}
       className="focus-ring font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)] enabled:hover:text-[var(--ocean-600)] transition-colors whitespace-nowrap disabled:cursor-default"
     >
-      Việc của tôi: {tongViecCuaToi}
+      {tr("Việc của tôi:")} {tongViecCuaToi}
     </button>
   ) : null;
   const headerContentEl = (

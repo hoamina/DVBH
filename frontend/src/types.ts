@@ -1,3 +1,4 @@
+import { tr } from "./i18n/tr";
 export interface CaseRow {
   id: string;
   khach_hang: string | null;
@@ -219,12 +220,12 @@ export interface KetQuaGoiRow {
 export type LoaiLoi = "Loi 120 phut" | "Hen qua 24h" | "Loi lo ke hoach" | "KH hen lai" | "Khac" | "KSNB";
 
 export const LOAI_LOI_META: Record<LoaiLoi, { label: string; short: string }> = {
-  "Loi 120 phut": { label: "Lỗi 120 phút", short: "120'" },
-  "Hen qua 24h": { label: "Hẹn quá 24h", short: "24h hẹn" },
-  "Loi lo ke hoach": { label: "Lỡ kế hoạch", short: "Lỡ KH" },
-  "KH hen lai": { label: "KH hẹn lại", short: "KH hẹn lại" },
-  Khac: { label: "Vi phạm ghi nhận trực tiếp", short: "Trực tiếp" },
-  KSNB: { label: "Vi phạm ghi nhận từ KSNB", short: "KSNB" },
+  "Loi 120 phut": { label: tr("Lỗi 120 phút"), short: "120'" },
+  "Hen qua 24h": { label: tr("Hẹn quá 24h"), short: tr("24h hẹn") },
+  "Loi lo ke hoach": { label: tr("Lỡ kế hoạch"), short: tr("Lỡ KH") },
+  "KH hen lai": { label: tr("KH hẹn lại"), short: tr("KH hẹn lại") },
+  Khac: { label: tr("Vi phạm ghi nhận trực tiếp"), short: tr("Trực tiếp") },
+  KSNB: { label: tr("Vi phạm ghi nhận từ KSNB"), short: "KSNB" },
 };
 export const LOAI_LOI_KEYS: LoaiLoi[] = ["Loi 120 phut", "Hen qua 24h", "Loi lo ke hoach", "KH hen lai"];
 
@@ -321,12 +322,12 @@ export type CaLapLoai =
   | "Lap do trung su vu";
 
 export const CA_LAP_META: Record<CaLapLoai, { label: string }> = {
-  "Bo qua": { label: "Bỏ qua" },
-  "Lap do nghiep vu KTV": { label: "Lặp do nghiệp vụ kỹ thuật viên" },
-  "Lap do tay nghe KTV": { label: "Lặp do tay nghề kỹ thuật viên" },
-  "Lap do chat luong linh kien": { label: "Lặp do chất lượng linh kiện" },
-  "Lap do sai bao cao": { label: "Lặp do sai báo cáo" },
-  "Lap do trung su vu": { label: "Lặp do trùng sự vụ" },
+  "Bo qua": { label: tr("Bỏ qua") },
+  "Lap do nghiep vu KTV": { label: tr("Lặp do nghiệp vụ kỹ thuật viên") },
+  "Lap do tay nghe KTV": { label: tr("Lặp do tay nghề kỹ thuật viên") },
+  "Lap do chat luong linh kien": { label: tr("Lặp do chất lượng linh kiện") },
+  "Lap do sai bao cao": { label: tr("Lặp do sai báo cáo") },
+  "Lap do trung su vu": { label: tr("Lặp do trùng sự vụ") },
 };
 export const CA_LAP_KEYS: CaLapLoai[] = [
   "Bo qua",
@@ -346,12 +347,12 @@ export type HinhThucXuLy =
   | "Tinh luong kiem tra loi bao cao";
 
 export const HINH_THUC_XU_LY_META: Record<HinhThucXuLy, { label: string }> = {
-  "Khong tinh lap khong tinh luong": { label: "KHÔNG TÍNH LẶP, KHÔNG TÍNH LƯƠNG" },
-  "Tinh lap khong tinh luong": { label: "TÍNH LẶP, KHÔNG TÍNH LƯƠNG" },
-  "Tinh luong": { label: "TÍNH LƯƠNG" },
-  "Tinh luong loi bao cao": { label: "TÍNH LƯƠNG, LỖI BÁO CÁO" },
-  "Khong tinh luong loi bao cao": { label: "KHÔNG TÍNH LƯƠNG, LỖI BÁO CÁO" },
-  "Tinh luong kiem tra loi bao cao": { label: "TÍNH LƯƠNG KIỂM TRA, LỖI BÁO CÁO" },
+  "Khong tinh lap khong tinh luong": { label: tr("KHÔNG TÍNH LẶP, KHÔNG TÍNH LƯƠNG") },
+  "Tinh lap khong tinh luong": { label: tr("TÍNH LẶP, KHÔNG TÍNH LƯƠNG") },
+  "Tinh luong": { label: tr("TÍNH LƯƠNG") },
+  "Tinh luong loi bao cao": { label: tr("TÍNH LƯƠNG, LỖI BÁO CÁO") },
+  "Khong tinh luong loi bao cao": { label: tr("KHÔNG TÍNH LƯƠNG, LỖI BÁO CÁO") },
+  "Tinh luong kiem tra loi bao cao": { label: tr("TÍNH LƯƠNG KIỂM TRA, LỖI BÁO CÁO") },
 };
 export const HINH_THUC_XU_LY_KEYS: HinhThucXuLy[] = [
   "Khong tinh lap khong tinh luong",
@@ -365,12 +366,12 @@ export const HINH_THUC_XU_LY_KEYS: HinhThucXuLy[] = [
 export type NapGasDanhGiaLoai = "Tu nap gas" | "Khong nap gas" | "Gui ve Hang nap gas" | "Tu nap gas thay Block" | "Sua chua khac" | "Kiem tra";
 
 export const NAP_GAS_DANH_GIA_META: Record<NapGasDanhGiaLoai, { label: string }> = {
-  "Tu nap gas": { label: "Tự nạp gas" },
-  "Khong nap gas": { label: "Không nạp gas" },
-  "Gui ve Hang nap gas": { label: "Gửi về Hãng nạp gas" },
-  "Tu nap gas thay Block": { label: "Tự nạp gas + thay Block" },
-  "Sua chua khac": { label: "Sửa chữa khác" },
-  "Kiem tra": { label: "Kiểm tra" },
+  "Tu nap gas": { label: tr("Tự nạp gas") },
+  "Khong nap gas": { label: tr("Không nạp gas") },
+  "Gui ve Hang nap gas": { label: tr("Gửi về Hãng nạp gas") },
+  "Tu nap gas thay Block": { label: tr("Tự nạp gas + thay Block") },
+  "Sua chua khac": { label: tr("Sửa chữa khác") },
+  "Kiem tra": { label: tr("Kiểm tra") },
 };
 export const NAP_GAS_DANH_GIA_KEYS: NapGasDanhGiaLoai[] = [
   "Tu nap gas",
@@ -384,10 +385,10 @@ export const NAP_GAS_DANH_GIA_KEYS: NapGasDanhGiaLoai[] = [
 export type NapGasPhiDichVuLoai = "Khong thu phi DV" | "Khong nap gas" | "Da thu phi DV" | "Loi khong thu phi DV";
 
 export const NAP_GAS_PHI_DICH_VU_META: Record<NapGasPhiDichVuLoai, { label: string }> = {
-  "Khong thu phi DV": { label: "Không thu phí DV" },
-  "Khong nap gas": { label: "Không nạp gas" },
-  "Da thu phi DV": { label: "Đã thu phí DV" },
-  "Loi khong thu phi DV": { label: "Lỗi không thu phí DV" },
+  "Khong thu phi DV": { label: tr("Không thu phí DV") },
+  "Khong nap gas": { label: tr("Không nạp gas") },
+  "Da thu phi DV": { label: tr("Đã thu phí DV") },
+  "Loi khong thu phi DV": { label: tr("Lỗi không thu phí DV") },
 };
 export const NAP_GAS_PHI_DICH_VU_KEYS: NapGasPhiDichVuLoai[] = ["Khong thu phi DV", "Khong nap gas", "Da thu phi DV", "Loi khong thu phi DV"];
 

@@ -13,6 +13,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { useDiaGioiIndex, nhanTinh, soSanhTen, NHAN_CAP_1, DIA_GIOI_LABEL } from "../lib/diaGioi";
+import { tr } from "../i18n/tr";
 
 interface RevenueKtvTinhRow {
   nhom: string;
@@ -158,22 +159,22 @@ export function RevenueModule() {
     <div className="anim-in">
       <FilterBar filters={filters} setFilters={setFilters} />
       <div className="flex flex-wrap gap-3 mb-4">
-        <StatCard label="Tổng doanh thu" value={fmtVND(totals?.tong)} tone="ocean" />
-        <StatCard label="DT sản phẩm" value={fmtVND(totals?.dt_san_pham)} tone="teal" />
-        <StatCard label="DT linh kiện" value={fmtVND(totals?.dt_linh_kien)} tone="amber" />
-        <StatCard label="DT dịch vụ" value={fmtVND(totals?.dt_dich_vu)} tone="coral" />
+        <StatCard label={tr("Tổng doanh thu")} value={fmtVND(totals?.tong)} tone="ocean" />
+        <StatCard label={tr("DT sản phẩm")} value={fmtVND(totals?.dt_san_pham)} tone="teal" />
+        <StatCard label={tr("DT linh kiện")} value={fmtVND(totals?.dt_linh_kien)} tone="amber" />
+        <StatCard label={tr("DT dịch vụ")} value={fmtVND(totals?.dt_dich_vu)} tone="coral" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <Card className="p-4">
-          <div className="font-display font-bold text-sm mb-3">Doanh thu theo khu vực</div>
+          <div className="font-display font-bold text-sm mb-3">{tr("Doanh thu theo khu vực")}</div>
           <ChartCanvas
             type="bar"
             data={{ labels: (byKhuVuc?.byDim ?? []).map((x) => shortKhuVuc(x.nhom)), datasets: [{ label: "Doanh thu", data: (byKhuVuc?.byDim ?? []).map((x) => x.doanh_thu), backgroundColor: "#1591C9", borderRadius: 6 }] }}
           />
         </Card>
         <Card className="p-4">
-          <div className="font-display font-bold text-sm mb-3">Doanh thu theo hãng</div>
+          <div className="font-display font-bold text-sm mb-3">{tr("Doanh thu theo hãng")}</div>
           <ChartCanvas
             type="bar"
             data={{ labels: (byHang?.byDim ?? []).map((x) => x.nhom), datasets: [{ label: "Doanh thu", data: (byHang?.byDim ?? []).map((x) => x.doanh_thu), backgroundColor: "#159C93", borderRadius: 6 }] }}
@@ -184,9 +185,9 @@ export function RevenueModule() {
         <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <div>
             <div className="font-display font-bold text-sm">
-              Doanh thu theo tỉnh <span className="text-xs font-semibold text-[var(--ocean-600)]">· {DIA_GIOI_LABEL[dgMode]}</span>
+              {tr("Doanh thu theo tỉnh")} <span className="text-xs font-semibold text-[var(--ocean-600)]">· {DIA_GIOI_LABEL[dgMode]}</span>
             </div>
-            <div className="text-xs text-[var(--ink-400)] mt-0.5">Tất cả ca tính KPI (kể cả chưa gán KTV), sắp theo doanh thu · bấm 1 tỉnh để lọc bảng KTV bên dưới</div>
+            <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Tất cả ca tính KPI (kể cả chưa gán KTV), sắp theo doanh thu · bấm 1 tỉnh để lọc bảng KTV bên dưới")}</div>
           </div>
           <Btn
             variant="ghost"
@@ -206,8 +207,7 @@ export function RevenueModule() {
               )
             }
           >
-            ⬇ Xuất Excel
-          </Btn>
+            {tr("⬇ Xuất Excel")}</Btn>
         </div>
         <div className="overflow-auto max-h-[420px]">
           <table className="dense w-full text-sm">
@@ -215,20 +215,20 @@ export function RevenueModule() {
               <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                 <th className="py-2 pr-3 w-10">#</th>
                 <th className="py-2 pr-3">{NHAN_CAP_1[dgMode]}</th>
-                <th className="py-2 pr-3 text-right">Số ca HT XLSC</th>
-                <th className="py-2 pr-3 text-right">Ca phát sinh DT</th>
+                <th className="py-2 pr-3 text-right">{tr("Số ca HT XLSC")}</th>
+                <th className="py-2 pr-3 text-right">{tr("Ca phát sinh DT")}</th>
                 <th className="py-2 pr-3 text-right">% Upsale</th>
                 <th className="py-2 pr-3 text-right">Doanh thu</th>
-                <th className="py-2 pr-3 text-right">DT trung bình / ca</th>
-                <th className="py-2 pr-3 text-right">Giá trị TB đơn</th>
-                <th className="py-2 pr-3 w-[22%]">Tỷ trọng</th>
+                <th className="py-2 pr-3 text-right">{tr("DT trung bình / ca")}</th>
+                <th className="py-2 pr-3 text-right">{tr("Giá trị TB đơn")}</th>
+                <th className="py-2 pr-3 w-[22%]">{tr("Tỷ trọng")}</th>
               </tr>
             </thead>
             <tbody>
               {tinhRows.length > 0 && (
                 <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
                   <td className="py-2 pr-3" />
-                  <td className="py-2 pr-3">Tổng cộng ({tinhRows.length} tỉnh)</td>
+                  <td className="py-2 pr-3">{tr("Tổng cộng (")}{tinhRows.length}  {tr("tỉnh)")}</td>
                   <td className="py-2 pr-3 font-mono text-right">{tinhTong.so_ca}</td>
                   <td className="py-2 pr-3 font-mono text-right">{tinhTong.so_ca_co_dt}</td>
                   <td className="py-2 pr-3 font-mono text-right">{pctUpsale(tinhTong)}</td>
@@ -245,7 +245,7 @@ export function RevenueModule() {
                   <tr
                     key={r.tinh}
                     onClick={() => toggleTinh(r.tinh)}
-                    title={dangLoc ? "Bỏ tỉnh này khỏi bộ lọc bảng KTV" : "Lọc bảng KTV theo tỉnh này"}
+                    title={dangLoc ? tr("Bỏ tỉnh này khỏi bộ lọc bảng KTV") : tr("Lọc bảng KTV theo tỉnh này")}
                     className={`border-b border-[var(--line)] last:border-0 cursor-pointer ${dangLoc ? "bg-[var(--ocean-100)]" : "hover:bg-slate-50"}`}
                   >
                     <td className="py-2 pr-3 text-xs text-[var(--ink-400)]">{i + 1}</td>
@@ -273,8 +273,7 @@ export function RevenueModule() {
               {tinhRows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                    Không có dữ liệu.
-                  </td>
+                    {tr("Không có dữ liệu.")}</td>
                 </tr>
               )}
             </tbody>
@@ -285,8 +284,7 @@ export function RevenueModule() {
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="font-display font-bold text-sm">
-            Doanh thu theo kỹ thuật viên
-            {tinhChon.size > 0 && <span className="ml-2 text-xs font-semibold text-[var(--ocean-600)]">· {[...tinhChon].join(", ")}</span>}
+            {tr("Doanh thu theo kỹ thuật viên")}{tinhChon.size > 0 && <span className="ml-2 text-xs font-semibold text-[var(--ocean-600)]">· {[...tinhChon].join(", ")}</span>}
           </div>
           <div className="flex items-center gap-2">
             <MultiSelectFilter label={NHAN_CAP_1[dgMode]} value={tinhFilter} onChange={setTinhFilter} options={tinhOptions} />
@@ -308,26 +306,25 @@ export function RevenueModule() {
                 )
               }
             >
-              ⬇ Xuất Excel
-            </Btn>
+              {tr("⬇ Xuất Excel")}</Btn>
           </div>
         </div>
         <table className="dense w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-              <th className="py-2 pr-3">Kỹ thuật viên</th>
-              <th className="py-2 pr-3 text-right">Số ca HT XLSC</th>
-              <th className="py-2 pr-3 text-right">Ca phát sinh DT</th>
+              <th className="py-2 pr-3">{tr("Kỹ thuật viên")}</th>
+              <th className="py-2 pr-3 text-right">{tr("Số ca HT XLSC")}</th>
+              <th className="py-2 pr-3 text-right">{tr("Ca phát sinh DT")}</th>
               <th className="py-2 pr-3 text-right">% Upsale</th>
               <th className="py-2 pr-3 text-right">Doanh thu</th>
-              <th className="py-2 pr-3 text-right">DT trung bình / ca</th>
-              <th className="py-2 pr-3 text-right">Giá trị TB đơn</th>
+              <th className="py-2 pr-3 text-right">{tr("DT trung bình / ca")}</th>
+              <th className="py-2 pr-3 text-right">{tr("Giá trị TB đơn")}</th>
             </tr>
           </thead>
           <tbody>
             {sortedKtvRows.length > 0 && (
               <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                <td className="py-2 pr-3">Tổng cộng</td>
+                <td className="py-2 pr-3">{tr("Tổng cộng")}</td>
                 <td className="py-2 pr-3 font-mono text-right">{ktvTotal.so_ca}</td>
                 <td className="py-2 pr-3 font-mono text-right">{ktvTotal.so_ca_co_dt}</td>
                 <td className="py-2 pr-3 font-mono text-right">{pctUpsale(ktvTotal)}</td>
@@ -350,8 +347,7 @@ export function RevenueModule() {
             {sortedKtvRows.length === 0 && (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                  Không có dữ liệu.
-                </td>
+                  {tr("Không có dữ liệu.")}</td>
               </tr>
             )}
           </tbody>

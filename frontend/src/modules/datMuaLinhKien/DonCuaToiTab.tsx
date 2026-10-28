@@ -24,6 +24,7 @@ import {
 import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, MaYcscCell } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal, DANH_MUC_LOCKED } from "./LinhKienPicker";
+import { tr } from "../../i18n/tr";
 
 export function DonHangDetailModal({
   id,
@@ -93,10 +94,10 @@ export function DonHangDetailModal({
       if (variables.hanh_dong === "duyet" && onNavigate && navNextId) {
         onNavigate(navNextId);
       } else {
-        addToast("Đã cập nhật trạng thái dòng đơn hàng");
+        addToast(tr("Đã cập nhật trạng thái dòng đơn hàng"));
       }
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   // "Lý do chậm" khi dòng còn "Cho TN duyệt" quá hạn (phản hồi: "danh sách chờ TN duyệt đang không có
@@ -109,9 +110,9 @@ export function DonHangDetailModal({
       setLyDoChamDraft("");
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail", id] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
-      addToast("Đã lưu lý do chậm");
+      addToast(tr("Đã lưu lý do chậm"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   function confirmTuChoi() {
@@ -212,9 +213,9 @@ export function DonHangDetailModal({
       setEditDraft(null);
       setEditDraftSnapshot(null);
       invalidate();
-      addToast("Đã lưu thay đổi đơn hàng");
+      addToast(tr("Đã lưu thay đổi đơn hàng"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   function saveEdit() {
@@ -244,85 +245,84 @@ export function DonHangDetailModal({
     !isLoading && d ? (
       isEditMode ? (
         <div className="flex items-center justify-end gap-2">
-          {confirmCancelPending && <span className="text-[11px] text-[var(--coral-600)] font-medium">Bấm lần nữa để huỷ thay đổi</span>}
+          {confirmCancelPending && <span className="text-[11px] text-[var(--coral-600)] font-medium">{tr("Bấm lần nữa để huỷ thay đổi")}</span>}
           <Btn variant={confirmCancelPending ? "danger" : "ghost"} size="sm" onClick={cancelEdit} disabled={editMutation.isPending}>
-            {confirmCancelPending ? "Xác nhận huỷ" : "Huỷ sửa"}
+            {confirmCancelPending ? tr("Xác nhận huỷ") : tr("Huỷ sửa")}
           </Btn>
-          <Btn size="sm" onClick={saveEdit} disabled={!editCanSave || editMutation.isPending}>Lưu thay đổi</Btn>
+          <Btn size="sm" onClick={saveEdit} disabled={!editCanSave || editMutation.isPending}>{tr("Lưu thay đổi")}</Btn>
         </div>
       ) : actionTarget === "tu_choi" && d.trang_thai === "Cho TBP xac nhan" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Từ chối dòng {d.id}</div>
+          <div className="font-semibold text-xs">{tr("Từ chối dòng")} {d.id}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Ghi chú (tuỳ chọn)"
+              placeholder={tr("Ghi chú (tuỳ chọn)")}
               className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>Hủy</Btn>
-            <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={logMutation.isPending}>Xác nhận từ chối</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>{tr("Hủy")}</Btn>
+            <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={logMutation.isPending}>{tr("Xác nhận từ chối")}</Btn>
           </div>
         </div>
       ) : actionTarget === "tu_choi" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Từ chối dòng {d.id} — chọn lý do chậm</div>
+          <div className="font-semibold text-xs">{tr("Từ chối dòng")} {d.id}  {tr("— chọn lý do chậm")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <Select
               value={lyDoChamId}
               onChange={setLyDoChamId}
-              options={[{ value: "", label: "-- Chọn lý do --" }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+              options={[{ value: "", label: tr("-- Chọn lý do --") }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
             />
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Ghi chú thêm (tuỳ chọn)"
+              placeholder={tr("Ghi chú thêm (tuỳ chọn)")}
               className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>Hủy</Btn>
-            <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={!lyDoChamId || logMutation.isPending}>Xác nhận từ chối</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>{tr("Hủy")}</Btn>
+            <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={!lyDoChamId || logMutation.isPending}>{tr("Xác nhận từ chối")}</Btn>
           </div>
         </div>
       ) : actionTarget === "cho_hang" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Chuyển dòng {d.id} sang chờ hàng — chọn lý do</div>
+          <div className="font-semibold text-xs">{tr("Chuyển dòng")} {d.id}  {tr("sang chờ hàng — chọn lý do")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <Select
               value={lyDoChamId}
               onChange={setLyDoChamId}
-              options={[{ value: "", label: "-- Chọn lý do --" }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+              options={[{ value: "", label: tr("-- Chọn lý do --") }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
             />
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Ghi chú thêm (tuỳ chọn)"
+              placeholder={tr("Ghi chú thêm (tuỳ chọn)")}
               className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>Hủy</Btn>
-            <Btn size="sm" onClick={confirmTuChoi} disabled={!lyDoChamId || logMutation.isPending}>Xác nhận chờ hàng</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>{tr("Hủy")}</Btn>
+            <Btn size="sm" onClick={confirmTuChoi} disabled={!lyDoChamId || logMutation.isPending}>{tr("Xác nhận chờ hàng")}</Btn>
           </div>
         </div>
       ) : actionTarget === "huy" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Hủy dòng {d.id} — nhập lý do hủy</div>
+          <div className="font-semibold text-xs">{tr("Hủy dòng")} {d.id}  {tr("— nhập lý do hủy")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do hủy (bắt buộc)"
+              placeholder={tr("Lý do hủy (bắt buộc)")}
               className="focus-ring flex-1 min-w-[200px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>Đóng</Btn>
-            <Btn size="sm" variant="danger" onClick={confirmHuy} disabled={!ghiChu.trim() || logMutation.isPending}>Xác nhận hủy</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>{tr("Đóng")}</Btn>
+            <Btn size="sm" variant="danger" onClick={confirmHuy} disabled={!ghiChu.trim() || logMutation.isPending}>{tr("Xác nhận hủy")}</Btn>
           </div>
         </div>
       ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy ? (
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {actions.duyet && <Btn size="sm" onClick={() => logMutation.mutate({ hanh_dong: "duyet" })} disabled={logMutation.isPending} loading={logMutation.isPending}>Duyệt</Btn>}
+          {actions.duyet && <Btn size="sm" onClick={() => logMutation.mutate({ hanh_dong: "duyet" })} disabled={logMutation.isPending} loading={logMutation.isPending}>{tr("Duyệt")}</Btn>}
           {actions.choHang && (
             <Btn size="sm" variant="ghost" onClick={() => setActionTarget("cho_hang")} disabled={logMutation.isPending}>
-              Chờ hàng
-            </Btn>
+              {tr("Chờ hàng")}</Btn>
           )}
           {actions.tuChoi && (
             <Btn
@@ -331,10 +331,9 @@ export function DonHangDetailModal({
               onClick={() => (d.trang_thai === "Cho Tram duyet" ? logMutation.mutate({ hanh_dong: "tu_choi" }) : setActionTarget("tu_choi"))}
               disabled={logMutation.isPending}
             >
-              Từ chối
-            </Btn>
+              {tr("Từ chối")}</Btn>
           )}
-          {actions.huy && <Btn size="sm" variant="ghost" onClick={() => setActionTarget("huy")} disabled={logMutation.isPending}>Hủy</Btn>}
+          {actions.huy && <Btn size="sm" variant="ghost" onClick={() => setActionTarget("huy")} disabled={logMutation.isPending}>{tr("Hủy")}</Btn>}
         </div>
       ) : null
     ) : null;
@@ -357,7 +356,7 @@ export function DonHangDetailModal({
   return (
     <Drawer
       open
-      title={`Đơn hàng ${id}`}
+      title={tr("Đơn hàng {0}", id)}
       onClose={onClose}
       width="max-w-2xl"
       footer={footer}
@@ -375,32 +374,32 @@ export function DonHangDetailModal({
             />
           )}
           {(canEditFull || canEditTn) && !isEditMode ? (
-            <Btn size="sm" variant="ghost" onClick={startEdit}>✎ Sửa</Btn>
+            <Btn size="sm" variant="ghost" onClick={startEdit}>{tr("✎ Sửa")}</Btn>
           ) : undefined}
         </>
       }
     >
       {isLoading ? (
-        <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
+        <div className="text-sm text-[var(--ink-500)] py-4 text-center">{tr("Đang tải...")}</div>
       ) : !d ? null : (
         <div className="space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-3 bg-[var(--surface-100)] rounded-xl p-3">
             <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Người tạo</div>
+              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Người tạo")}</div>
               <div className="font-semibold text-[var(--ink-900)]">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</div>
             </div>
             {d.nguoi_nhan_hang && d.nguoi_nhan_hang !== d.nguoi_tao && (
               <div>
-                <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Người nhận hàng</div>
+                <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Người nhận hàng")}</div>
                 <div className="font-semibold text-[var(--ink-900)]">{formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap)}</div>
               </div>
             )}
             <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Ngày tạo</div>
+              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Ngày tạo")}</div>
               <div className="text-[var(--ink-900)]">{fmtDateTime(d.ngay_tao)}</div>
             </div>
             <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Tổng tiền đề xuất</div>
+              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Tổng tiền đề xuất")}</div>
               <div className="font-bold text-[var(--ocean-700)]">{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</div>
             </div>
           </div>
@@ -409,25 +408,25 @@ export function DonHangDetailModal({
             {tone && <Badge tone={tone.tone}>{tone.label}</Badge>}
             <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} />
             {d.loai_don === "tra_hang" && (
-              <span className="text-[var(--ink-400)] text-xs">(xử lý ở luồng quy trình phía trên)</span>
+              <span className="text-[var(--ink-400)] text-xs">{tr("(xử lý ở luồng quy trình phía trên)")}</span>
             )}
-            {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do chậm</Badge>}
+            {d.qua_han_ly_do_cham && <Badge tone="coral">{tr("Quá hạn - cần lý do chậm")}</Badge>}
             {/* SUA (phan hoi 2026-08-19): amber trung mau voi loai_don "Cong no" gay nham lan "vien
                 vang" - doi ca Badge nay lan ring/bg cua dong bang sang cam THAT (token --orange-*
                 rieng, khac amber), dong bo voi TaoDonTab. */}
-            {d.uu_tien === 1 && <Badge tone="orange">⭐ Ưu tiên</Badge>}
+            {d.uu_tien === 1 && <Badge tone="orange">{tr("⭐ Ưu tiên")}</Badge>}
           </div>
 
           {d.ly_do_cham ? (
             <div className="text-xs text-[var(--ink-600)]">
-              <span className="font-semibold">Lý do chậm:</span> {d.ly_do_cham}
+              <span className="font-semibold">{tr("Lý do chậm:")}</span> {d.ly_do_cham}
             </div>
           ) : canTacNghiep && d.trang_thai === "Cho TN duyet" ? (
             <div className="flex items-center gap-1.5 flex-wrap">
               <input
                 value={lyDoChamDraft}
                 onChange={(e) => setLyDoChamDraft(e.target.value)}
-                placeholder="Nhập lý do chậm xử lý dòng này…"
+                placeholder={tr("Nhập lý do chậm xử lý dòng này…")}
                 className="focus-ring flex-1 min-w-[200px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
               />
               <Btn
@@ -436,8 +435,7 @@ export function DonHangDetailModal({
                 onClick={() => lyDoChamMutation.mutate(lyDoChamDraft.trim())}
                 disabled={!lyDoChamDraft.trim() || lyDoChamMutation.isPending}
               >
-                Lưu
-              </Btn>
+                {tr("Lưu")}</Btn>
             </div>
           ) : null}
 
@@ -445,17 +443,16 @@ export function DonHangDetailModal({
             <div className="space-y-3 bg-[var(--surface-100)] rounded-xl p-3">
               {!canEditFull && (
                 <div className="text-[11px] text-[var(--ink-500)]">
-                  Bạn chỉ có thể sửa các trường phụ bên dưới (Mã yêu cầu sự cố / Yêu cầu hóa đơn / TT khách hàng / TT mail duyệt) — các trường còn lại đã khoá.
-                </div>
+                  {tr("Bạn chỉ có thể sửa các trường phụ bên dưới (Mã yêu cầu sự cố / Yêu cầu hóa đơn / TT khách hàng / TT mail duyệt) — các trường còn lại đã khoá.")}</div>
               )}
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Mã linh kiện</label>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Mã linh kiện")}</label>
                 <LinhKienPicker value={editDraft.ma_lk} onChange={(v) => updateEditDraft({ ma_lk: v })} options={danhMuc} disabled={!canEditFull} />
               </div>
               {/* Loai de xuat + So luong GOP 1 HANG (tai dung dung layout da chot o TaoDonTab 2.0 -
                   ca 2 noi cung dung DonHangDraft/updateDraft nen chi phi dong bo thap). */}
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Loại đề xuất · Số lượng *</label>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Loại đề xuất · Số lượng *")}</label>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex gap-1 flex-wrap flex-1 min-w-[160px]">
                     {(["MUA HÀNG", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
@@ -468,8 +465,7 @@ export function DonHangDetailModal({
                       );
                     })}
                     <Btn size="sm" variant={otherLdeOpen ? "primary" : "ghost"} disabled={!canEditFull} onClick={() => setOtherLdeOpen(true)}>
-                      khác…
-                    </Btn>
+                      {tr("khác…")}</Btn>
                   </div>
                   <div className="flex items-center border border-[var(--line)] rounded-lg overflow-hidden shrink-0">
                     <button
@@ -502,7 +498,7 @@ export function DonHangDetailModal({
                   <Select
                     value={editDraft.loai_de_xuat}
                     onChange={(v) => updateEditDraft({ loai_de_xuat: v })}
-                    options={[{ value: "", label: "-- Chọn --" }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
+                    options={[{ value: "", label: tr("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
                     disabled={!canEditFull}
                     className="w-full mt-1"
                   />
@@ -511,7 +507,7 @@ export function DonHangDetailModal({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">
-                    Mã yêu cầu sự cố liên quan{canNoRequired(editDraft.loai_de_xuat) ? " *" : ""}
+                    {tr("Mã yêu cầu sự cố liên quan")}{canNoRequired(editDraft.loai_de_xuat) ? " *" : ""}
                   </label>
                   <input
                     value={editDraft.ma_yeu_cau_su_co}
@@ -522,18 +518,18 @@ export function DonHangDetailModal({
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">
-                    Chính sách{canNoRequired(editDraft.loai_de_xuat) ? " *" : ""}
+                    {tr("Chính sách")}{canNoRequired(editDraft.loai_de_xuat) ? " *" : ""}
                   </label>
                   <Select
                     value={editDraft.chinh_sach}
                     onChange={(v) => updateEditDraft({ chinh_sach: v })}
-                    options={[{ value: "", label: "-- Không chọn --" }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
+                    options={[{ value: "", label: tr("-- Không chọn --") }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
                     disabled={!canEditFull}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Yêu cầu hóa đơn</label>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Yêu cầu hóa đơn")}</label>
                 <div className="flex gap-1 flex-wrap">
                   {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
                     <Btn key={o} size="sm" variant={editDraft.yeu_cau_hoa_don === o ? "primary" : "ghost"} onClick={() => updateEditDraft({ yeu_cau_hoa_don: o })}>
@@ -544,7 +540,7 @@ export function DonHangDetailModal({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT+Mail duyệt</label>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("TT+Mail duyệt")}</label>
                   <input
                     value={editDraft.tt_mail_duyet}
                     onChange={(e) => updateEditDraft({ tt_mail_duyet: e.target.value })}
@@ -552,7 +548,7 @@ export function DonHangDetailModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT khách hàng</label>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("TT khách hàng")}</label>
                   <input
                     value={editDraft.tt_khach_hang}
                     onChange={(e) => updateEditDraft({ tt_khach_hang: e.target.value })}
@@ -562,10 +558,9 @@ export function DonHangDetailModal({
               </div>
               <label className={`flex items-center gap-2 text-xs font-semibold text-[var(--amber-700)] ${!canEditFull ? "opacity-40" : ""}`}>
                 <input type="checkbox" checked={editDraft.uu_tien} disabled={!canEditFull} onChange={(e) => updateEditDraft({ uu_tien: e.target.checked })} />
-                ⭐ Đơn ưu tiên
-              </label>
+                {tr("⭐ Đơn ưu tiên")}</label>
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Ghi chú (tuỳ chọn)</label>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Ghi chú (tuỳ chọn)")}</label>
                 <input
                   value={editDraft.ghi_chu}
                   disabled={!canEditFull}
@@ -581,30 +576,30 @@ export function DonHangDetailModal({
                 <div className={`font-semibold text-base ${DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? ""}`}>
                   {d.ten_lk_snapshot ?? d.ma_lk}
                   {!!d.dac_thu && (
-                    <span className="ml-2 align-middle"><Badge tone="amber">🔒 Đặc thù</Badge></span>
+                    <span className="ml-2 align-middle"><Badge tone="amber">{tr("🔒 Đặc thù")}</Badge></span>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">SL đề xuất</div>
+                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("SL đề xuất")}</div>
                   <div>{d.so_luong_de_xuat}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Giá đề xuất</div>
+                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Giá đề xuất")}</div>
                   <div>{d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Giá chốt</div>
+                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Giá chốt")}</div>
                   <div>{d.gia_chot != null ? fmtVND(d.gia_chot) : "—"}</div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Mã yêu cầu sự cố</div>
+                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Mã yêu cầu sự cố")}</div>
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                 </div>
                 <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Mã xuất kho</div>
+                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">{tr("Mã xuất kho")}</div>
                   <div>{d.ma_xuat_kho ?? "—"}</div>
                 </div>
               </div>
@@ -623,7 +618,7 @@ export function DonHangDetailModal({
               thao tac trong app nay dien ra tren dien thoai KTV ngoai hien truong). */}
           {d.cases && d.cases.length > 0 && (
             <div>
-              <div className="font-semibold mb-1">Ca liên kết</div>
+              <div className="font-semibold mb-1">{tr("Ca liên kết")}</div>
               <div className="flex gap-1.5 flex-wrap">
                 {d.cases.map((cRow) => (
                   <span
@@ -644,7 +639,7 @@ export function DonHangDetailModal({
               canh tranh voi StatusBadge chinh o dau modal (van la diem neo cho trang thai HIEN TAI). */}
           {(d.logs?.length ?? 0) > 0 && (
             <div>
-              <div className="font-semibold mb-1">Lịch sử xử lý</div>
+              <div className="font-semibold mb-1">{tr("Lịch sử xử lý")}</div>
               <ul className="text-xs space-y-1.5 text-[var(--ink-500)]">
                 {d.logs!.map((l) => (
                   <li key={l.id} className="flex items-start gap-1.5">
@@ -820,10 +815,10 @@ export function DonCuaToiTab({
       // la retry DUNG cac dong that bai, khong phai do tim lai tay trong danh sach.
       setSelected(new Set(failed.map(([lineId]) => lineId)));
       if (failed.length === 0) {
-        addToast(`Đã xử lý thành công ${entries.length} dòng`);
+        addToast(tr("Đã xử lý thành công {0} dòng", entries.length));
       } else {
         const detail = failed.map(([lineId, code]) => `${lineId}: ${BULK_LOG_ERROR_MESSAGES[code] ?? code}`).join("; ");
-        addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. Thất bại: ${detail} — đã giữ lại các dòng lỗi, bấm lại để thử lại`);
+        addToast(tr("Thành công {0}/{1} dòng. Thất bại: {2} — đã giữ lại các dòng lỗi, bấm lại để thử lại", entries.length - failed.length, entries.length, detail));
       }
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       invalidatePipelineCounts(qc);
@@ -893,12 +888,12 @@ export function DonCuaToiTab({
           tich khi chua can dung den. */}
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
-          {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
+          {showFilters ? tr("▲ Ẩn bộ lọc") : tr("☰ Bộ lọc{0} ▾", activeFilterCount > 0 ? ` (${activeFilterCount})` : "")}
         </Btn>
         <input
           value={filterQ}
           onChange={(e) => setFilterQ(e.target.value)}
-          placeholder="Tìm theo mã LK, tên LK, mã đơn, người tạo, người nhận, mã YCSC..."
+          placeholder={tr("Tìm theo mã LK, tên LK, mã đơn, người tạo, người nhận, mã YCSC...")}
           className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
         />
       </div>
@@ -914,24 +909,24 @@ export function DonCuaToiTab({
               {canBulkTram && (
                 <div
                   className="flex items-center gap-2 flex-wrap"
-                  title="Lọc theo Vệ tinh + khoảng ngày tạo đơn (dành cho Trạm xem đơn của Vệ tinh mình quản lý)"
+                  title={tr("Lọc theo Vệ tinh + khoảng ngày tạo đơn (dành cho Trạm xem đơn của Vệ tinh mình quản lý)")}
                 >
                   <Select
                     value={filterNguoiTao}
                     onChange={setFilterNguoiTao}
                     options={[
-                      { value: "", label: "Tất cả người tạo" },
+                      { value: "", label: tr("Tất cả người tạo") },
                       ...(veTinhData?.rows ?? []).map((v) => ({ value: v.email, label: v.ten || v.email })),
                     ]}
                   />
-                  <span className="text-xs text-[var(--ink-500)]">Từ ngày</span>
+                  <span className="text-xs text-[var(--ink-500)]">{tr("Từ ngày")}</span>
                   <input
                     type="date"
                     value={filterTuNgay}
                     onChange={(e) => setFilterTuNgay(e.target.value)}
                     className="focus-ring bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                   />
-                  <span className="text-xs text-[var(--ink-500)]">Đến ngày</span>
+                  <span className="text-xs text-[var(--ink-500)]">{tr("Đến ngày")}</span>
                   <input
                     type="date"
                     value={filterDenNgay}
@@ -945,7 +940,7 @@ export function DonCuaToiTab({
                   value={filterNguoiNhanHang}
                   onChange={setFilterNguoiNhanHang}
                   options={[
-                    { value: "", label: "Tất cả người nhận hàng" },
+                    { value: "", label: tr("Tất cả người nhận hàng") },
                     ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) })),
                   ]}
                 />
@@ -960,11 +955,11 @@ export function DonCuaToiTab({
           nen GIU nguyen. */}
       <ActiveFiltersBar
         chips={[
-          ...(filterNguoiTao ? [{ label: "Người tạo đã lọc", onClear: () => setFilterNguoiTao("") }] : []),
-          ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),
-          ...(filterTuNgay ? [{ label: `Từ ngày ${filterTuNgay}`, onClear: () => setFilterTuNgay("") }] : []),
-          ...(filterDenNgay ? [{ label: `Đến ngày ${filterDenNgay}`, onClear: () => setFilterDenNgay("") }] : []),
-          ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
+          ...(filterNguoiTao ? [{ label: tr("Người tạo đã lọc"), onClear: () => setFilterNguoiTao("") }] : []),
+          ...(filterNguoiNhanHang ? [{ label: tr("Người nhận hàng đã lọc"), onClear: () => setFilterNguoiNhanHang("") }] : []),
+          ...(filterTuNgay ? [{ label: tr("Từ ngày {0}", filterTuNgay), onClear: () => setFilterTuNgay("") }] : []),
+          ...(filterDenNgay ? [{ label: tr("Đến ngày {0}", filterDenNgay), onClear: () => setFilterDenNgay("") }] : []),
+          ...(filterQ ? [{ label: tr("Tìm: \"{0}\"", filterQ), onClear: () => setFilterQ("") }] : []),
         ]}
       />
       {/* CHOT #17: doi cau chu ro pham vi ap dung - truoc day "...tren trang nay" de hieu nham la chi
@@ -976,16 +971,16 @@ export function DonCuaToiTab({
           {/* Phan hoi 2026-08-19: mo rong bulk cho dong "Cho TN duyet" - danh sach chon co the gom
               CA dong Tram lan TN (vd Admin xem duoc ca 2) nen doi cau chu chung, khong con gia dinh
               chi co "cho Tram duyet". */}
-          <span className="text-[var(--ink-500)]">Chọn tất cả {rowsCoTheChon.length} dòng có thể xử lý (trên mọi nhóm KTV ở trang này)</span>
+          <span className="text-[var(--ink-500)]">{tr("Chọn tất cả")} {rowsCoTheChon.length}  {tr("dòng có thể xử lý (trên mọi nhóm KTV ở trang này)")}</span>
         </div>
       )}
       {(canActAsTram || canTacNghiep) && selected.size > 0 && (
         <div className="flex flex-col gap-2 mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-3 py-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm">Đã chọn {selected.size} dòng{tongTienDaChon > 0 ? ` · ${fmtVND(tongTienDaChon)}` : ""}</span>
+            <span className="text-sm">{tr("Đã chọn")} {selected.size}  {tr("dòng")}{tongTienDaChon > 0 ? ` · ${fmtVND(tongTienDaChon)}` : ""}</span>
             <BulkConfirmButton
-              label="Duyệt tất cả"
-              confirmLabel={`Xác nhận duyệt ${selected.size} dòng?`}
+              label={tr("Duyệt tất cả")}
+              confirmLabel={tr("Xác nhận duyệt {0} dòng?", selected.size)}
               count={selected.size}
               onConfirm={() => bulkMutation.mutate({ ids: [...selected], hanh_dong: "duyet" })}
               disabled={bulkMutation.isPending}
@@ -993,12 +988,11 @@ export function DonCuaToiTab({
             />
             {canTacNghiep ? (
               <Btn size="sm" variant="danger" onClick={() => setActionTarget({ id: "bulk", action: "tu_choi" })} disabled={bulkMutation.isPending}>
-                Từ chối tất cả
-              </Btn>
+                {tr("Từ chối tất cả")}</Btn>
             ) : (
               <BulkConfirmButton
-                label="Từ chối tất cả"
-                confirmLabel={`Xác nhận từ chối ${selected.size} dòng?`}
+                label={tr("Từ chối tất cả")}
+                confirmLabel={tr("Xác nhận từ chối {0} dòng?", selected.size)}
                 count={selected.size}
                 variant="danger"
                 onConfirm={() => bulkMutation.mutate({ ids: [...selected], hanh_dong: "tu_choi" })}
@@ -1015,23 +1009,21 @@ export function DonCuaToiTab({
       <Modal
         open={actionTarget?.id === "bulk" && actionTarget.action === "tu_choi"}
         onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }}
-        title={`Từ chối ${selected.size} dòng đã chọn — chọn lý do chậm`}
+        title={tr("Từ chối {0} dòng đã chọn — chọn lý do chậm", selected.size)}
       >
         <div className="space-y-3">
           <Select
             value={bulkLyDoChamId}
             onChange={setBulkLyDoChamId}
-            options={[{ value: "", label: "-- Chọn lý do --" }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+            options={[{ value: "", label: tr("-- Chọn lý do --") }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
             className="w-full"
           />
           <div className="text-xs text-[var(--ink-500)]">
-            Lý do chậm chỉ ảnh hưởng tới các dòng đang chờ tác nghiệp (TN) xử lý trong lựa chọn — dòng đang chờ Trạm duyệt sẽ bỏ qua lý do này.
-          </div>
+            {tr("Lý do chậm chỉ ảnh hưởng tới các dòng đang chờ tác nghiệp (TN) xử lý trong lựa chọn — dòng đang chờ Trạm duyệt sẽ bỏ qua lý do này.")}</div>
           <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Huỷ</Btn>
+            <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>{tr("Huỷ")}</Btn>
             <Btn variant="danger" onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>
-              Xác nhận từ chối
-            </Btn>
+              {tr("Xác nhận từ chối")}</Btn>
           </div>
         </div>
       </Modal>
@@ -1163,11 +1155,11 @@ export function DonHangGroupedList({
   const [detailLk, setDetailLk] = useState<string | null>(null);
   function openLkDetail(maLk: string) {
     if (danhMuc.some((m) => m.ma_linh_kien === maLk)) setDetailLk(maLk);
-    else addToast("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)");
+    else addToast(tr("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)"));
   }
-  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center">Đang tải...</div>;
-  if (isError) return <div className="text-sm text-[var(--coral-500)] py-6 text-center">Lỗi tải dữ liệu.</div>;
-  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center">Không có dữ liệu.</div>;
+  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center">{tr("Đang tải...")}</div>;
+  if (isError) return <div className="text-sm text-[var(--coral-500)] py-6 text-center">{tr("Lỗi tải dữ liệu.")}</div>;
+  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center">{tr("Không có dữ liệu.")}</div>;
 
   const groups = new Map<string, DonHangRow[]>();
   for (const d of rows) {
@@ -1189,14 +1181,14 @@ export function DonHangGroupedList({
             <div className="flex items-center justify-between gap-3 flex-wrap bg-[var(--surface-100)] px-3 py-2">
               <div className="flex items-center gap-3 flex-wrap text-sm">
                 <span className="font-bold text-[var(--ink-900)]">{formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}</span>
-                <span className="text-[var(--ink-400)] text-xs">{dongCon.length} dòng</span>
+                <span className="text-[var(--ink-400)] text-xs">{dongCon.length}  {tr("dòng")}</span>
                 <span className="font-semibold text-[var(--ocean-700)]">{fmtVND(tongTien)}</span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
-                {choDuyet > 0 && <Badge tone="amber">{choDuyet} chờ duyệt</Badge>}
-                {dongY > 0 && <Badge tone="teal">{dongY} đồng ý</Badge>}
-                {tuChoi > 0 && <Badge tone="coral">{tuChoi} từ chối</Badge>}
-                {choHang > 0 && <Badge tone="amber">{choHang} chờ hàng</Badge>}
+                {choDuyet > 0 && <Badge tone="amber">{choDuyet}  {tr("chờ duyệt")}</Badge>}
+                {dongY > 0 && <Badge tone="teal">{dongY}  {tr("đồng ý")}</Badge>}
+                {tuChoi > 0 && <Badge tone="coral">{tuChoi}  {tr("từ chối")}</Badge>}
+                {choHang > 0 && <Badge tone="amber">{choHang}  {tr("chờ hàng")}</Badge>}
               </div>
             </div>
             {/* CHOT #6 (ra soat module "Dat Mua Linh Kien 2.0"): bang ngang van giu cho tablet/desktop
@@ -1236,13 +1228,13 @@ export function DonHangGroupedList({
                       <thead>
                         <tr className="bg-white text-[var(--ink-500)]">
                           {showCheckbox && <th className="pl-3 pr-1 py-1.5"></th>}
-                          <th className="pl-5 pr-3 py-1.5 text-left font-semibold">Linh kiện</th>
-                          <th className="px-3 py-1.5 text-left font-semibold">Loại</th>
+                          <th className="pl-5 pr-3 py-1.5 text-left font-semibold">{tr("Linh kiện")}</th>
+                          <th className="px-3 py-1.5 text-left font-semibold">{tr("Loại")}</th>
                           <th className="px-3 py-1.5 text-right font-semibold">SL</th>
-                          <th className="px-3 py-1.5 text-right font-semibold">Giá đề xuất</th>
-                          <th className="px-3 py-1.5 text-left font-semibold">Mã yêu cầu sự cố</th>
-                          <th className="px-3 py-1.5 text-left font-semibold">Trạng thái</th>
-                          <th className="px-3 py-1.5 text-left font-semibold">Hành động</th>
+                          <th className="px-3 py-1.5 text-right font-semibold">{tr("Giá đề xuất")}</th>
+                          <th className="px-3 py-1.5 text-left font-semibold">{tr("Mã yêu cầu sự cố")}</th>
+                          <th className="px-3 py-1.5 text-left font-semibold">{tr("Trạng thái")}</th>
+                          <th className="px-3 py-1.5 text-left font-semibold">{tr("Hành động")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1278,12 +1270,12 @@ export function DonHangGroupedList({
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
-                                title="Xem chi tiết linh kiện"
+                                title={tr("Xem chi tiết linh kiện")}
                                 className={`block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
                               >
-                                {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                                {d.uu_tien === 1 && <span title={tr("Ưu tiên")}>⭐ </span>}
                                 {d.ten_lk_snapshot ?? d.ma_lk}
-                                {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+                                {!!d.dac_thu && <span title={tr("Linh kiện đặc thù")}> 🔒</span>}
                               </button>
                             </td>
                             <td className="px-3 py-1.5"><Badge tone={tone.tone}>{tone.label}</Badge></td>
@@ -1295,18 +1287,18 @@ export function DonHangGroupedList({
                             <td className="px-3 py-1.5">
                               <div className="flex flex-col gap-0.5 items-start">
                                 <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} />
-                                {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do</Badge>}
+                                {d.qua_han_ly_do_cham && <Badge tone="coral">{tr("Quá hạn - cần lý do")}</Badge>}
                               </div>
                             </td>
                             <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
                               <div className="flex gap-1 flex-wrap">
                                 {actions.duyet && (
-                                  <Btn size="sm" variant="ghost" className="px-2" title="Duyệt" aria-label="Duyệt" onClick={() => bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })} disabled={bulkMutation.isPending}>
+                                  <Btn size="sm" variant="ghost" className="px-2" title={tr("Duyệt")} aria-label={tr("Duyệt")} onClick={() => bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })} disabled={bulkMutation.isPending}>
                                     ✓
                                   </Btn>
                                 )}
                                 {actions.choHang && (
-                                  <Btn size="sm" variant="ghost" className="px-2" title="Chờ hàng" aria-label="Chờ hàng" onClick={() => setActionTarget({ id: d.id, action: "cho_hang" })} disabled={bulkMutation.isPending}>
+                                  <Btn size="sm" variant="ghost" className="px-2" title={tr("Chờ hàng")} aria-label={tr("Chờ hàng")} onClick={() => setActionTarget({ id: d.id, action: "cho_hang" })} disabled={bulkMutation.isPending}>
                                     ⏳
                                   </Btn>
                                 )}
@@ -1315,8 +1307,8 @@ export function DonHangGroupedList({
                                     size="sm"
                                     variant="danger"
                                     className="px-2"
-                                    title="Từ chối"
-                                    aria-label="Từ chối"
+                                    title={tr("Từ chối")}
+                                    aria-label={tr("Từ chối")}
                                     onClick={() => (d.trang_thai === "Cho Tram duyet" ? bulkMutation.mutate({ ids: [d.id], hanh_dong: "tu_choi" }) : setActionTarget({ id: d.id, action: "tu_choi" }))}
                                     disabled={bulkMutation.isPending}
                                   >
@@ -1324,7 +1316,7 @@ export function DonHangGroupedList({
                                   </Btn>
                                 )}
                                 {actions.huy && (
-                                  <Btn size="sm" variant="ghost" className="px-2" title="Hủy" aria-label="Hủy" onClick={() => setActionTarget({ id: d.id, action: "huy" })} disabled={bulkMutation.isPending}>
+                                  <Btn size="sm" variant="ghost" className="px-2" title={tr("Hủy")} aria-label={tr("Hủy")} onClick={() => setActionTarget({ id: d.id, action: "huy" })} disabled={bulkMutation.isPending}>
                                     🚫
                                   </Btn>
                                 )}
@@ -1361,17 +1353,17 @@ export function DonHangGroupedList({
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
-                              title="Xem chi tiết linh kiện"
+                              title={tr("Xem chi tiết linh kiện")}
                               className={`block w-full truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
                             >
-                              {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                              {d.uu_tien === 1 && <span title={tr("Ưu tiên")}>⭐ </span>}
                               {d.ten_lk_snapshot ?? d.ma_lk}
-                              {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+                              {!!d.dac_thu && <span title={tr("Linh kiện đặc thù")}> 🔒</span>}
                             </button>
                             <div className="flex items-center gap-1.5 flex-wrap mt-1">
                               <Badge tone={tone.tone}>{tone.label}</Badge>
                               <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} />
-                              {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do</Badge>}
+                              {d.qua_han_ly_do_cham && <Badge tone="coral">{tr("Quá hạn - cần lý do")}</Badge>}
                             </div>
                             <div className="text-xs text-[var(--ink-500)] mt-1">
                               SL {d.so_luong_de_xuat} · {d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"}
@@ -1383,12 +1375,12 @@ export function DonHangGroupedList({
                             )}
                             <div className="flex gap-1 flex-wrap mt-1.5" onClick={(e) => e.stopPropagation()}>
                               {actions.duyet && (
-                                <Btn size="sm" variant="ghost" className="px-2" title="Duyệt" aria-label="Duyệt" onClick={() => bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })} disabled={bulkMutation.isPending}>
+                                <Btn size="sm" variant="ghost" className="px-2" title={tr("Duyệt")} aria-label={tr("Duyệt")} onClick={() => bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })} disabled={bulkMutation.isPending}>
                                   ✓
                                 </Btn>
                               )}
                               {actions.choHang && (
-                                <Btn size="sm" variant="ghost" className="px-2" title="Chờ hàng" aria-label="Chờ hàng" onClick={() => setActionTarget({ id: d.id, action: "cho_hang" })} disabled={bulkMutation.isPending}>
+                                <Btn size="sm" variant="ghost" className="px-2" title={tr("Chờ hàng")} aria-label={tr("Chờ hàng")} onClick={() => setActionTarget({ id: d.id, action: "cho_hang" })} disabled={bulkMutation.isPending}>
                                   ⏳
                                 </Btn>
                               )}
@@ -1397,8 +1389,8 @@ export function DonHangGroupedList({
                                   size="sm"
                                   variant="danger"
                                   className="px-2"
-                                  title="Từ chối"
-                                  aria-label="Từ chối"
+                                  title={tr("Từ chối")}
+                                  aria-label={tr("Từ chối")}
                                   onClick={() => (d.trang_thai === "Cho Tram duyet" ? bulkMutation.mutate({ ids: [d.id], hanh_dong: "tu_choi" }) : setActionTarget({ id: d.id, action: "tu_choi" }))}
                                   disabled={bulkMutation.isPending}
                                 >
@@ -1406,7 +1398,7 @@ export function DonHangGroupedList({
                                 </Btn>
                               )}
                               {actions.huy && (
-                                <Btn size="sm" variant="ghost" className="px-2" title="Hủy" aria-label="Hủy" onClick={() => setActionTarget({ id: d.id, action: "huy" })} disabled={bulkMutation.isPending}>
+                                <Btn size="sm" variant="ghost" className="px-2" title={tr("Hủy")} aria-label={tr("Hủy")} onClick={() => setActionTarget({ id: d.id, action: "huy" })} disabled={bulkMutation.isPending}>
                                   🚫
                                 </Btn>
                               )}
@@ -1440,66 +1432,66 @@ export function DonHangGroupedList({
         const isChoHang = !!targetId && actionTarget?.action === "cho_hang";
         return (
           <>
-            <Modal open={isTuChoiTBP} onClose={() => { setActionTarget(null); setActionGhiChu(""); }} title={`Từ chối dòng ${targetId} — ghi chú (không bắt buộc)`}>
+            <Modal open={isTuChoiTBP} onClose={() => { setActionTarget(null); setActionGhiChu(""); }} title={tr("Từ chối dòng {0} — ghi chú (không bắt buộc)", targetId)}>
               <div className="space-y-3">
                 <input
                   value={actionGhiChu}
                   onChange={(e) => setActionGhiChu(e.target.value)}
-                  placeholder="Ghi chú (tuỳ chọn)"
+                  placeholder={tr("Ghi chú (tuỳ chọn)")}
                   className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
                 <div className="flex justify-end gap-2">
-                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setActionGhiChu(""); }}>Hủy</Btn>
-                  <Btn variant="danger" onClick={confirmTuChoiChe} disabled={bulkMutation.isPending}>Xác nhận</Btn>
+                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setActionGhiChu(""); }}>{tr("Hủy")}</Btn>
+                  <Btn variant="danger" onClick={confirmTuChoiChe} disabled={bulkMutation.isPending}>{tr("Xác nhận")}</Btn>
                 </div>
               </div>
             </Modal>
-            <Modal open={isTuChoiTN} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={`Từ chối dòng ${targetId} — chọn lý do chậm`}>
+            <Modal open={isTuChoiTN} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={tr("Từ chối dòng {0} — chọn lý do chậm", targetId)}>
               <div className="space-y-3">
                 <Select
                   value={bulkLyDoChamId}
                   onChange={setBulkLyDoChamId}
-                  options={[{ value: "", label: "-- Chọn lý do --" }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  options={[{ value: "", label: tr("-- Chọn lý do --") }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
                   className="w-full"
                 />
                 <div className="flex justify-end gap-2">
-                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Hủy</Btn>
-                  <Btn variant="danger" onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>Xác nhận</Btn>
+                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>{tr("Hủy")}</Btn>
+                  <Btn variant="danger" onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>{tr("Xác nhận")}</Btn>
                 </div>
               </div>
             </Modal>
-            <Modal open={isChoHang} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={`Chuyển dòng ${targetId} sang chờ hàng — chọn lý do`}>
+            <Modal open={isChoHang} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={tr("Chuyển dòng {0} sang chờ hàng — chọn lý do", targetId)}>
               <div className="space-y-3">
                 <Select
                   value={bulkLyDoChamId}
                   onChange={setBulkLyDoChamId}
-                  options={[{ value: "", label: "-- Chọn lý do --" }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  options={[{ value: "", label: tr("-- Chọn lý do --") }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
                   className="w-full"
                 />
                 <div className="flex justify-end gap-2">
-                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Hủy</Btn>
-                  <Btn onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>Xác nhận chờ hàng</Btn>
+                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>{tr("Hủy")}</Btn>
+                  <Btn onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>{tr("Xác nhận chờ hàng")}</Btn>
                 </div>
               </div>
             </Modal>
             {targetId && actionTarget?.action === "huy" && (
               <div className="sticky bottom-2 z-10 flex items-center gap-2 flex-wrap border border-[var(--line)] bg-[var(--surface)] shadow-lg rounded-xl px-3 py-2.5">
-                <span className="text-xs font-semibold">Hủy dòng {targetId} — nhập lý do</span>
+                <span className="text-xs font-semibold">{tr("Hủy dòng")} {targetId}  {tr("— nhập lý do")}</span>
                 <input
                   value={actionGhiChu}
                   onChange={(e) => setActionGhiChu(e.target.value)}
-                  placeholder="Lý do hủy (bắt buộc)"
+                  placeholder={tr("Lý do hủy (bắt buộc)")}
                   className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
                 />
-                <Btn size="sm" variant="danger" onClick={confirmHuyChe} disabled={!actionGhiChu.trim() || bulkMutation.isPending}>Xác nhận hủy</Btn>
-                <Btn size="sm" variant="ghost" onClick={() => { setActionTarget(null); setActionGhiChu(""); }}>Đóng</Btn>
+                <Btn size="sm" variant="danger" onClick={confirmHuyChe} disabled={!actionGhiChu.trim() || bulkMutation.isPending}>{tr("Xác nhận hủy")}</Btn>
+                <Btn size="sm" variant="ghost" onClick={() => { setActionTarget(null); setActionGhiChu(""); }}>{tr("Đóng")}</Btn>
               </div>
             )}
           </>
         );
       })()}
       <div className="flex items-center justify-end gap-2 text-sm text-[var(--ink-500)]">
-        <Btn size="sm" variant="ghost" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1}>‹ Trước</Btn>
+        <Btn size="sm" variant="ghost" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1}>{tr("‹ Trước")}</Btn>
         <span>Trang {page}</span>
         <Btn size="sm" variant="ghost" onClick={() => onPageChange(page + 1)} disabled={page * pageSize >= total}>Sau ›</Btn>
       </div>

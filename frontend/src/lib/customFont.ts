@@ -1,4 +1,5 @@
 import { getCachedEntry, setCachedEntry } from "./closedDataCache";
+import { tr } from "../i18n/tr";
 
 /**
  * Font tuy chinh nguoi dung tu tai tu may (.ttf/.otf/.woff/.woff2) - CHI luu cache noi bo tren
@@ -23,7 +24,7 @@ export function isSupportedFontFile(file: File): boolean {
 }
 
 export async function saveCustomFont(file: File): Promise<void> {
-  if (file.size > MAX_FONT_BYTES) throw new Error("File font quá lớn (tối đa 8MB).");
+  if (file.size > MAX_FONT_BYTES) throw new Error(tr("File font quá lớn (tối đa 8MB)."));
   const data = await file.arrayBuffer();
   // Thu load truoc khi luu cache - phat hien som file hong/sai dinh dang thay vi luu rac vao cache.
   const face = new FontFace(CUSTOM_FONT_FAMILY, data);

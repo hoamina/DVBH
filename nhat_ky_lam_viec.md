@@ -4907,3 +4907,15 @@ Kiểm tra: tải trang/API ở edge nhanh (0,1–0,4s), bundle JS 1,27 MB tải
 - Cảnh báo tồn – ca tranh chấp (`canhBaoTon.ts`) 5,4s/710k dòng: giới hạn `c.id IN (SELECT case_id FROM tranh_chap_tien_trinh)`
   — đo: cùng kết quả, 1.293ms → 16ms, 570k → 11k dòng.
 - Deploy từ worktree sạch (phiên khác đang dở i18n frontend chưa commit).
+
+## 2026-10-28 — Ngôn ngữ giao diện VI/EN/ID — Đợt 2: dịch toàn bộ module (v1.494)
+Tiếp phần dở của phiên sáng (tài khoản khác, chưa commit):
+- Cơ chế `tr("<câu tiếng Việt>")` (`frontend/src/i18n/tr.ts`) + từ điển `i18n/tu-dien.json` (~3.000 câu, EN + ID). Câu tiếng
+  Việt là khóa, thiếu bản dịch thì giữ tiếng Việt → người dùng tiếng Việt không đổi hành vi. Đổi ngôn ngữ = tải lại trang;
+  từ điển nạp trước khi import app (`main.tsx` → `bootstrap.tsx`). Excel: tiêu đề cột đổi ngược về tiếng Việt (`veTiengViet`).
+- Công cụ: `frontend/scripts/i18n-boc.mjs` (codemod bọc chuỗi hiển thị) và `i18n-kiem-tra.mjs` (câu chưa dịch / chuỗi chưa bọc).
+- Phiên này rà 683 chuỗi còn chưa bọc: phần lớn cố ý giữ (tiêu đề Excel, giá trị so sánh/gửi server như "Liên hệ thành công",
+  tên trường sheet PO). Sửa thêm: bảng ⚙ "Thông tin hiển thị" ở Chi tiết ca (codemod bọc nhầm `key` thay vì nhãn), nút
+  "Còn hiệu lực/Tất cả" ở Loại trừ khảo sát, dòng "Đang lọc thêm" ở Khảo sát, "(Chưa có KTV)" ở Tồn theo KTV (Excel giữ tiếng
+  Việt), nhãn "Giá trị"; tách 11 dòng import bị codemod dính bằng ký tự CR đơn. Từ điển đủ 100% (2.995 câu).
+- Thử local: EN (Tổng quát) và ID (Quản lý tồn) hiển thị đúng, không lỗi console.

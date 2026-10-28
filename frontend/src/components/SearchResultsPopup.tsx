@@ -5,6 +5,7 @@ import { CachThucXuLyLine } from "./CachThucXuLyLine";
 import { fmtDateTime } from "../types";
 import type { CaseRow } from "../types";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { tr } from "../i18n/tr";
 
 export type SearchMatchRow = Pick<
   CaseRow,
@@ -37,7 +38,7 @@ export function SearchResultsPopup({
   onClose: () => void;
 }) {
   return (
-    <Modal open onClose={onClose} title={`${matches.length} ca cùng serial "${query}"`} width="max-w-md">
+    <Modal open onClose={onClose} title={tr("{0} ca cùng serial \"{1}\"", matches.length, query)} width="max-w-md">
       <div className="space-y-2">
         {matches.map((m) => (
           <div
@@ -54,9 +55,9 @@ export function SearchResultsPopup({
                   {m.thoi_gian_hoan_thanh ? (
                     <span className="text-xs font-semibold">{fmtDateTime(m.thoi_gian_hoan_thanh)}</span>
                   ) : (
-                    <Badge tone="amber">Đang tồn đọng</Badge>
+                    <Badge tone="amber">{tr("Đang tồn đọng")}</Badge>
                   )}
-                  {!!m.can_giai_trinh_lap && <Badge tone="coral">⚠ Cần đánh giá lặp</Badge>}
+                  {!!m.can_giai_trinh_lap && <Badge tone="coral">{tr("⚠ Cần đánh giá lặp")}</Badge>}
                 </div>
                 {m.link_crm && (
                   <a href={m.link_crm} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>

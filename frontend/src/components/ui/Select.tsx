@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from "react";
+import { tr } from "../../i18n/tr";
 
 export type SelectOption = string | { value: string; label: string };
 
@@ -13,8 +14,10 @@ const SEARCHABLE_THRESHOLD = 10;
 function optValue(o: SelectOption): string {
   return typeof o === "string" ? o : o.value;
 }
+// Lua chon dang chuoi tron (gia tri = nhan): dich nhan khi hien thi (vd "Tất cả khu vực") - gia tri giu nguyen; du lieu
+// nghiep vu (ten khu vuc, KTV...) khong co trong tu dien nen tr() tra ve nguyen van.
 function optLabel(o: SelectOption): string {
-  return typeof o === "string" ? o : o.label;
+  return typeof o === "string" ? tr(o) : o.label;
 }
 
 export function Select({
@@ -44,7 +47,7 @@ export function Select({
       {options.map((o) =>
         typeof o === "string" ? (
           <option key={o} value={o}>
-            {o}
+            {tr(o)}
           </option>
         ) : (
           <option key={o.value} value={o.value}>

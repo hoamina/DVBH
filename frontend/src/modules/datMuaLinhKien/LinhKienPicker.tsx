@@ -10,6 +10,7 @@ import { useToast } from "../../components/ui/Toast";
 import { useAuth } from "../../auth/AuthContext";
 import type { LkDanhMucRow } from "./types";
 import { describeApiError, useLinhKienRankMap, formatLkLabel } from "./helpers";
+import { tr } from "../../i18n/tr";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
@@ -41,11 +42,11 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
       return api.patch(`/lk-settings/nhom-thay-the/${nhomId}`, { ma_lk_list: maLkList });
     },
     onSuccess: () => {
-      addToast(`Đã thêm ${maLk} vào nhóm thay thế`);
+      addToast(tr("Đã thêm {0} vào nhóm thay thế", maLk));
       qc.invalidateQueries({ queryKey: ["lk-nhom-thay-the"] });
       qc.invalidateQueries({ queryKey: ["lk-thay-the", maLk] });
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   const rows = data?.rows ?? [];
@@ -54,7 +55,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
     <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
       {rows.length > 0 && (
         <span className="text-[var(--ink-500)]">
-          Có thể thay thế bằng: {rows.map((r) => `${r.ma_linh_kien} - ${r.ten_linh_kien}`).join(", ")}
+          {tr("Có thể thay thế bằng:")} {rows.map((r) => `${r.ma_linh_kien} - ${r.ten_linh_kien}`).join(", ")}
         </span>
       )}
       {canQuanLy && (nhomData?.rows.length ?? 0) > 0 && (
@@ -62,7 +63,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
           value=""
           onChange={(v) => v && themVaoNhom.mutate(Number(v))}
           options={[
-            { value: "", label: "+ Thêm vào nhóm thay thế" },
+            { value: "", label: tr("+ Thêm vào nhóm thay thế") },
             ...(nhomData?.rows ?? []).map((n) => ({ value: String(n.id), label: n.ten_nhom })),
           ]}
         />
@@ -127,7 +128,7 @@ export function LinhKienPickerRow({
         {/* SUA (phan hoi 2026-08-19): bo tien to "mã - " lap - nhieu ten_linh_kien da tu chua san ma
             dang "[ma]" trong chuoi, ghep them tien to se hien ma 2 lan. Xem formatLkLabel (helpers.ts). */}
         <span className="block truncate font-medium text-[var(--ink-900)]">{formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)}</span>
-        {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">🔥 #{rank} hay đặt (30 ngày)</span>}
+        {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">🔥 #{rank}  {tr("hay đặt (30 ngày)")}</span>}
       </span>
       {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--ink-500)] font-mono">{fmtVND(o.gia_ban)}</span>}
     </button>
@@ -251,13 +252,13 @@ export function LinhKienPicker({
           // preventDefault() nen bam chon bang chuot van an toan, khong bi blur cuop truoc.
           onBlur={() => setOpen(false)}
           onKeyDown={handleKeyDown}
-          placeholder="Gõ để tìm…"
+          placeholder={tr("Gõ để tìm…")}
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
         />
         {open && (
           <div className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg py-1">
             {ranked.length === 0 && unranked.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
+              <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">{tr("Không tìm thấy.")}</div>
             ) : (
               <>
                 {ranked.map((o, i) => (
@@ -271,7 +272,7 @@ export function LinhKienPicker({
                   />
                 ))}
                 {ranked.length > 0 && unranked.length > 0 && (
-                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)] text-center">── Linh kiện khác ──</div>
+                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)] text-center">{tr("── Linh kiện khác ──")}</div>
                 )}
                 {unranked.map((o, i) => (
                   <LinhKienPickerRow
@@ -285,8 +286,7 @@ export function LinhKienPicker({
                 ))}
                 {truncatedCount > 0 && (
                   <div className="px-3 py-1.5 text-[10px] text-[var(--ink-400)] text-center border-t border-[var(--line)] mt-1">
-                    Còn {truncatedCount} kết quả khác — gõ thêm để thu hẹp
-                  </div>
+                    {tr("Còn")} {truncatedCount}  {tr("kết quả khác — gõ thêm để thu hẹp")}</div>
                 )}
               </>
             )}
@@ -300,7 +300,7 @@ export function LinhKienPicker({
           type="button"
           tabIndex={-1}
           onClick={() => setShowDetail(true)}
-          title="Xem chi tiết linh kiện"
+          title={tr("Xem chi tiết linh kiện")}
           className="focus-ring shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[var(--ink-500)] hover:text-[var(--ocean-600)] hover:border-[var(--ocean-400)]"
         >
           ℹ️
@@ -345,7 +345,7 @@ export function LinhKienHeroImage({ url, alt }: { url: string | null; alt: strin
       {status === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-[var(--ink-400)]">
           <span className="text-3xl">🖼️</span>
-          <span className="text-xs font-medium">{url ? "Không tải được ảnh" : "Chưa có ảnh minh hoạ"}</span>
+          <span className="text-xs font-medium">{url ? tr("Không tải được ảnh") : tr("Chưa có ảnh minh hoạ")}</span>
         </div>
       )}
     </div>
@@ -399,48 +399,48 @@ export function LinhKienDetailModal({
         ghi_chu: draft.ghi_chu.trim() || null,
       }),
     onSuccess: () => {
-      addToast("Đã cập nhật thông tin linh kiện");
+      addToast(tr("Đã cập nhật thông tin linh kiện"));
       setIsEdit(false);
       // Cache rieng cua module "Dat mua linh kien" (linhKienCache.ts, IndexedDB) tu cap nhat o lan
       // dong bo incremental ke tiep (useLkAndLdeCache doc theo ngay_cap_nhat) - khong force refetch
       // toan bo danh muc o day de tranh 1 lan doc lai ~vai nghin dong chi vi sua 1 linh kien.
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   return (
-    <Modal open title="🔍 Chi tiết linh kiện" onClose={onClose} width="max-w-md">
+    <Modal open title={tr("🔍 Chi tiết linh kiện")} onClose={onClose} width="max-w-md">
       <div className="space-y-4 text-sm">
         <LinhKienHeroImage url={part.anh_demo ?? null} alt={part.ten_linh_kien} />
         <div className="min-w-0">
           <div className="font-mono text-xs font-semibold text-[var(--ocean-600)]">{part.ma_linh_kien}</div>
           <div className="font-display font-bold text-base text-[var(--ink-900)] leading-snug">{part.ten_linh_kien}</div>
         </div>
-        {rank != null && <Badge tone="amber">🔥 Hạng #{rank} trong 30 ngày gần nhất</Badge>}
+        {rank != null && <Badge tone="amber">{tr("🔥 Hạng #")}{rank}  {tr("trong 30 ngày gần nhất")}</Badge>}
 
         {isEdit ? (
           <div className="space-y-3">
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Tên linh kiện</label>
+              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Tên linh kiện")}</label>
               <input value={draft.ten_linh_kien} onChange={(e) => setDraft((d) => ({ ...d, ten_linh_kien: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Giá bán</label>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Giá bán")}</label>
                 <input type="number" value={draft.gia_ban} onChange={(e) => setDraft((d) => ({ ...d, gia_ban: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Giá tham chiếu</label>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Giá tham chiếu")}</label>
                 <input type="number" value={draft.gia_tham_chieu} onChange={(e) => setDraft((d) => ({ ...d, gia_tham_chieu: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Đơn vị</label>
+              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Đơn vị")}</label>
               <input value={draft.don_vi} onChange={(e) => setDraft((d) => ({ ...d, don_vi: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Ghi chú</label>
+              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Ghi chú")}</label>
               <input value={draft.ghi_chu} onChange={(e) => setDraft((d) => ({ ...d, ghi_chu: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
           </div>
@@ -448,21 +448,21 @@ export function LinhKienDetailModal({
           <>
             <div className="rounded-xl border border-[var(--line)] divide-y divide-[var(--line)] overflow-hidden">
               <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="text-[var(--ink-500)]">Giá bán</span>
+                <span className="text-[var(--ink-500)]">{tr("Giá bán")}</span>
                 <span className="font-semibold font-mono">{fmtVND(part.gia_ban)}</span>
               </div>
               <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="text-[var(--ink-500)]">Giá tham chiếu</span>
+                <span className="text-[var(--ink-500)]">{tr("Giá tham chiếu")}</span>
                 <span className="font-semibold font-mono">{fmtVND(part.gia_tham_chieu ?? null)}</span>
               </div>
               <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="text-[var(--ink-500)]">Đơn vị</span>
+                <span className="text-[var(--ink-500)]">{tr("Đơn vị")}</span>
                 <span className="font-semibold">{part.don_vi ?? "—"}</span>
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">Ghi chú</div>
-              <div className="text-[var(--ink-700)] whitespace-pre-wrap">{part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">Không có ghi chú.</span>}</div>
+              <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">{tr("Ghi chú")}</div>
+              <div className="text-[var(--ink-700)] whitespace-pre-wrap">{part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">{tr("Không có ghi chú.")}</span>}</div>
             </div>
           </>
         )}
@@ -470,13 +470,13 @@ export function LinhKienDetailModal({
       <div className="flex justify-end gap-2 mt-5">
         {isEdit ? (
           <>
-            <Btn variant="ghost" size="sm" onClick={() => setIsEdit(false)} disabled={saveMutation.isPending}>Huỷ</Btn>
-            <Btn size="sm" onClick={() => saveMutation.mutate()} disabled={!draft.ten_linh_kien.trim() || saveMutation.isPending}>Lưu</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => setIsEdit(false)} disabled={saveMutation.isPending}>{tr("Huỷ")}</Btn>
+            <Btn size="sm" onClick={() => saveMutation.mutate()} disabled={!draft.ten_linh_kien.trim() || saveMutation.isPending}>{tr("Lưu")}</Btn>
           </>
         ) : (
           <>
-            <Btn variant="ghost" size="sm" onClick={onClose}>Đóng</Btn>
-            {canEdit && <Btn size="sm" onClick={() => setIsEdit(true)}>✎ Sửa thông tin</Btn>}
+            <Btn variant="ghost" size="sm" onClick={onClose}>{tr("Đóng")}</Btn>
+            {canEdit && <Btn size="sm" onClick={() => setIsEdit(true)}>{tr("✎ Sửa thông tin")}</Btn>}
           </>
         )}
       </div>

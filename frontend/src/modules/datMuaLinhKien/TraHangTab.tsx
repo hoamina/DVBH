@@ -12,6 +12,7 @@ import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_GIAI_DOAN_2, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel } from "./helpers";
 import { ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton } from "./SharedUi";
+import { tr } from "../../i18n/tr";
 
 // ---------- Tab "Don tra hang" (tach hoan toan khoi mua/cong no - buoc 3 ke hoach) ----------
 
@@ -78,11 +79,11 @@ export function TraHangTab({
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
-      addToast("Đã cập nhật trạng thái đơn trả hàng");
+      addToast(tr("Đã cập nhật trạng thái đơn trả hàng"));
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      addToast(code === "MISSING_GHI_CHU" ? "Cần nhập lý do khi từ chối bước TN duyệt tổng" : "Lỗi: " + describeApiError(err));
+      addToast(code === "MISSING_GHI_CHU" ? tr("Cần nhập lý do khi từ chối bước TN duyệt tổng") : tr("Lỗi:") + " " + describeApiError(err));
     },
   });
 
@@ -93,9 +94,9 @@ export function TraHangTab({
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
-      addToast("Đã đẩy lùi 1 bước");
+      addToast(tr("Đã đẩy lùi 1 bước"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   function canXuLy(trangThai: string): boolean {
@@ -134,12 +135,12 @@ export function TraHangTab({
       // Phase 4 (bulk retry): giu lai dung cac dong loi trong `selected` khi that bai 1 phan, xem
       // comment day du o DonCuaToiTab.tsx (cung pattern).
       setSelected(new Set(failed.map(([id]) => id)));
-      if (failed.length === 0) addToast(`Đã xử lý thành công ${entries.length} dòng`);
-      else addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. Thất bại: ${failed.map(([id, code]) => `${id}: ${TRA_HANG_BULK_ERROR_MESSAGES[code] ?? code}`).join("; ")} — đã giữ lại các dòng lỗi, bấm lại để thử lại`);
+      if (failed.length === 0) addToast(tr("Đã xử lý thành công {0} dòng", entries.length));
+      else addToast(tr("Thành công {0}/{1} dòng. Thất bại: {2} — đã giữ lại các dòng lỗi, bấm lại để thử lại", entries.length - failed.length, entries.length, failed.map(([id, code]) => `${id}: ${TRA_HANG_BULK_ERROR_MESSAGES[code] ?? code}`).join("; ")));
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   const cols: Column<TraHangRow>[] = [
@@ -148,14 +149,14 @@ export function TraHangTab({
       header: <input type="checkbox" checked={rowsCoTheChon.length > 0 && selected.size === rowsCoTheChon.length} onChange={toggleSelectAll} />,
       render: (r: TraHangRow) => (canXuLy(r.trang_thai_tra_hang) ? <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelectOne(r.id)} /> : null),
     },
-    { key: "id", header: "Mã đơn hàng", render: (r) => <span className="font-mono text-xs">{r.id}</span> },
-    { key: "ma_lk", header: "Mã LK", render: (r) => r.ma_lk },
-    { key: "ten_lk_snapshot", header: "Tên LK", render: (r) => r.ten_lk_snapshot ?? r.ma_lk },
+    { key: "id", header: tr("Mã đơn hàng"), render: (r) => <span className="font-mono text-xs">{r.id}</span> },
+    { key: "ma_lk", header: tr("Mã LK"), render: (r) => r.ma_lk },
+    { key: "ten_lk_snapshot", header: tr("Tên LK"), render: (r) => r.ten_lk_snapshot ?? r.ma_lk },
     { key: "so_luong_de_xuat", header: "SL", render: (r) => r.so_luong_de_xuat },
-    { key: "nguoi_tao", header: "Người tạo", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
-    { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
+    { key: "nguoi_tao", header: tr("Người tạo"), render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
+    { key: "ngay_tao", header: tr("Ngày tạo"), render: (r) => fmtDateTime(r.ngay_tao) },
     {
-      key: "trang_thai_tra_hang", header: "Trạng thái",
+      key: "trang_thai_tra_hang", header: tr("Trạng thái"),
       render: (r) => (
         <Badge tone={TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "gray"} solid={TRA_HANG_GIAI_DOAN_2.has(r.trang_thai_tra_hang)}>
           {r.trang_thai_tra_hang}
@@ -170,7 +171,7 @@ export function TraHangTab({
           <div className="flex gap-1">
             {canXuLy(r.trang_thai_tra_hang) && (
               <>
-                <Btn size="sm" disabled={logMutation.isPending} loading={logMutation.isPending} onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}>Duyệt</Btn>
+                <Btn size="sm" disabled={logMutation.isPending} loading={logMutation.isPending} onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}>{tr("Duyệt")}</Btn>
                 <Btn
                   size="sm"
                   variant="danger"
@@ -184,12 +185,11 @@ export function TraHangTab({
                     }
                   }}
                 >
-                  Từ chối
-                </Btn>
+                  {tr("Từ chối")}</Btn>
               </>
             )}
             {(canKeToan || canKho) && CO_THE_DAY_LUI.includes(r.trang_thai_tra_hang) && (
-              <Btn size="sm" variant="ghost" onClick={() => { setLayLuiId(r.id); setGhiChu(""); }}>Đẩy lùi</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => { setLayLuiId(r.id); setGhiChu(""); }}>{tr("Đẩy lùi")}</Btn>
             )}
           </div>
         );
@@ -207,7 +207,7 @@ export function TraHangTab({
           <Select
             value={filterNguoiTao}
             onChange={(v) => { setFilterNguoiTao(v); setPage(1); }}
-            options={[{ value: "", label: "Tất cả người tạo" }, ...nguoiTaoOptions.map((email) => ({ value: email, label: formatNguoiDisplay(email, ktvDisplayMap) }))]}
+            options={[{ value: "", label: tr("Tất cả người tạo") }, ...nguoiTaoOptions.map((email) => ({ value: email, label: formatNguoiDisplay(email, ktvDisplayMap) }))]}
           />
         </div>
       )}
@@ -215,23 +215,23 @@ export function TraHangTab({
           TrangThaiChipFilter ngay ben tren. */}
       <ActiveFiltersBar
         chips={[
-          ...(filterNguoiTao ? [{ label: "Người tạo đã lọc", onClear: () => setFilterNguoiTao("") }] : []),
+          ...(filterNguoiTao ? [{ label: tr("Người tạo đã lọc"), onClear: () => setFilterNguoiTao("") }] : []),
         ]}
       />
       {selected.size > 0 && (
         <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-3 py-2">
-          <span className="text-sm">Đã chọn {selected.size} dòng</span>
+          <span className="text-sm">{tr("Đã chọn")} {selected.size}  {tr("dòng")}</span>
           <BulkConfirmButton
-            label="Duyệt tất cả"
-            confirmLabel={`Xác nhận duyệt ${selected.size} dòng?`}
+            label={tr("Duyệt tất cả")}
+            confirmLabel={tr("Xác nhận duyệt {0} dòng?", selected.size)}
             count={selected.size}
             onConfirm={() => bulkMutation.mutate("duyet")}
             disabled={bulkMutation.isPending}
             loading={bulkMutation.isPending}
           />
           <BulkConfirmButton
-            label="Từ chối tất cả"
-            confirmLabel={`Xác nhận từ chối ${selected.size} dòng?`}
+            label={tr("Từ chối tất cả")}
+            confirmLabel={tr("Xác nhận từ chối {0} dòng?", selected.size)}
             count={selected.size}
             variant="danger"
             onConfirm={() => bulkMutation.mutate("tu_choi")}
@@ -242,7 +242,7 @@ export function TraHangTab({
       )}
       <PaginatedTable columns={cols} rows={data?.rows ?? []} isLoading={isLoading} isError={isError} page={page} pageSize={20} total={data?.total ?? 0} onPageChange={setPage} rowKey={(r) => r.id} storageKey="dmlk-tra-hang-list" />
       {layLuiId && (
-        <Modal open title="Đẩy lùi 1 bước" onClose={() => setLayLuiId(null)}>
+        <Modal open title={tr("Đẩy lùi 1 bước")} onClose={() => setLayLuiId(null)}>
           <div className="space-y-3 text-sm">
             <input
               value={ghiChu}
@@ -251,35 +251,34 @@ export function TraHangTab({
               // dang tuy ca cu the - chuan hoa cung se khong phu het, ep chon "Khac" thuong xuyen thi
               // vo nghia) - chi doi placeholder rong thanh vi du cu the de goi y muc do chi tiet can
               // viet.
-              placeholder="VD: xác nhận sai số lượng, cần Kho kiểm lại"
+              placeholder={tr("VD: xác nhận sai số lượng, cần Kho kiểm lại")}
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" size="sm" onClick={() => setLayLuiId(null)}>Hủy</Btn>
-              <Btn size="sm" onClick={() => layLuiMutation.mutate()} disabled={layLuiMutation.isPending || !ghiChu.trim()}>Xác nhận</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => setLayLuiId(null)}>{tr("Hủy")}</Btn>
+              <Btn size="sm" onClick={() => layLuiMutation.mutate()} disabled={layLuiMutation.isPending || !ghiChu.trim()}>{tr("Xác nhận")}</Btn>
             </div>
           </div>
         </Modal>
       )}
       {tuChoiTnId && (
-        <Modal open title={`Từ chối dòng ${tuChoiTnId} — TN duyệt tổng`} onClose={() => setTuChoiTnId(null)}>
+        <Modal open title={tr("Từ chối dòng {0} — TN duyệt tổng", tuChoiTnId)} onClose={() => setTuChoiTnId(null)}>
           <div className="space-y-3 text-sm">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do từ chối (bắt buộc)"
+              placeholder={tr("Lý do từ chối (bắt buộc)")}
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" size="sm" onClick={() => setTuChoiTnId(null)}>Hủy</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => setTuChoiTnId(null)}>{tr("Hủy")}</Btn>
               <Btn
                 size="sm"
                 variant="danger"
                 onClick={() => logMutation.mutate({ id: tuChoiTnId, hanhDong: "tu_choi", ghiChu })}
                 disabled={logMutation.isPending || !ghiChu.trim()}
               >
-                Xác nhận từ chối
-              </Btn>
+                {tr("Xác nhận từ chối")}</Btn>
             </div>
           </div>
         </Modal>

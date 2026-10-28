@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api, buildQuery } from "../../api/client";
 import { shortKhuVuc } from "../../lib/khuVucShortLabel";
 import type { MaYeuCauSuCoPreview } from "./types";
+import { tr } from "../../i18n/tr";
 
 // Canh bao mem khi nhap "Ma yeu cau su co lien quan" (tieu chi UX phan hoi 2026-08-15, muc 5) - debounce
 // 500ms sau khi ngung go, goi GET /dat-mua-lk/kiem-tra-ma-yeu-cau (KHONG dung GET /api/cases/:id vi
@@ -34,8 +35,7 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
   if (!result.found) {
     return (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">
-        ⚠ Mã sự cố không chính xác hoặc chưa đồng bộ lên server — hãy chắc chắn thông tin chính xác.
-      </div>
+        {tr("⚠ Mã sự cố không chính xác hoặc chưa đồng bộ lên server — hãy chắc chắn thông tin chính xác.")}</div>
     );
   }
 
@@ -50,14 +50,14 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
   return (
     <div className={`mt-1.5 rounded-lg border ${toneCls.border} ${toneCls.bg} px-2.5 py-2`}>
       <div className={`text-[11px] font-bold mb-1.5 ${toneCls.head}`}>
-        {result.khopKtv === true && "✓ Đúng KTV xử lý — đối chiếu ca dưới đây trước khi gửi"}
-        {result.khopKtv === false && "⚠ Mã này không do bạn/KTV này xử lý — kiểm tra lại"}
-        {result.khopKtv === null && "Đã tìm thấy ca — đối chiếu thông tin dưới đây"}
+        {result.khopKtv === true && tr("✓ Đúng KTV xử lý — đối chiếu ca dưới đây trước khi gửi")}
+        {result.khopKtv === false && tr("⚠ Mã này không do bạn/KTV này xử lý — kiểm tra lại")}
+        {result.khopKtv === null && tr("Đã tìm thấy ca — đối chiếu thông tin dưới đây")}
       </div>
       {p && (
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-[var(--ink-700)]">
           <div className="col-span-2">
-            <span className="text-[var(--ink-500)]">Khách hàng: </span>
+            <span className="text-[var(--ink-500)]">{tr("Khách hàng:")} </span>
             <span className="font-semibold">{p.khach_hang ?? "—"}</span>
           </div>
           <div>
@@ -65,22 +65,22 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
             <span className="font-mono">{p.seri_san_pham ?? "—"}</span>
           </div>
           <div>
-            <span className="text-[var(--ink-500)]">Hãng: </span>
+            <span className="text-[var(--ink-500)]">{tr("Hãng:")} </span>
             {p.hang ?? "—"}
             {p.san_pham_bao_hanh ? ` · ${p.san_pham_bao_hanh}` : ""}
           </div>
           <div>
-            <span className="text-[var(--ink-500)]">Khu vực: </span>
+            <span className="text-[var(--ink-500)]">{tr("Khu vực:")} </span>
             {shortKhuVuc(p.khu_vuc)}
             {p.tinh ? ` · ${p.tinh}` : ""}
             {p.quan_huyen ? ` · ${p.quan_huyen}` : ""}
           </div>
           <div>
-            <span className="text-[var(--ink-500)]">Tiến độ: </span>
+            <span className="text-[var(--ink-500)]">{tr("Tiến độ:")} </span>
             {p.tien_do_hoan_thanh ?? "—"}
           </div>
           <div className="col-span-2">
-            <span className="text-[var(--ink-500)]">KTV xử lý: </span>
+            <span className="text-[var(--ink-500)]">{tr("KTV xử lý:")} </span>
             {p.ky_thuat_vien ?? "—"}
           </div>
         </div>

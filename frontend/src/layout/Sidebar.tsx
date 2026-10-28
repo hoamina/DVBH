@@ -5,6 +5,8 @@ import { APP_VERSION } from "../version";
 import { api } from "../api/client";
 import { InstallAppButton } from "./InstallAppButton";
 import { useTranslation } from "react-i18next";
+import { tr } from "../i18n/tr";
+
 
 // datMuaLk la object breakdown-theo-loai-viec (xem DatMuaLkBreakdown o backend/src/routes/notifications.ts)
 // tu 2026-08-15 - sidebar chi can ".total" de hien 1 con so gon, breakdown chi tiet hien trong
@@ -68,7 +70,7 @@ export function Sidebar({
         <img src="/icon-192.png" alt="DVBH 3T" width={30} height={30} className="shrink-0 rounded-md" />
         {(!collapsed || isMobile) && (
           <div className="leading-tight">
-            <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">DỊCH VỤ 3T - DVBH</div>
+            <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">{tr("DỊCH VỤ 3T - DVBH")}</div>
             <div className="text-[10px] text-[var(--sidebar-ink-dim)] font-medium">{t("sidebar.subtitle")}</div>
           </div>
         )}

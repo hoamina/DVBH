@@ -1,4 +1,6 @@
 import type { VaiTro } from "../auth/AuthContext";
+import { tr } from "../i18n/tr";
+
 
 export interface NavItem {
   key: string;
@@ -17,48 +19,48 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: "tong-quan",
-    label: "Tổng quan",
+    label: tr("Tổng quan"),
     items: [
-      { key: "dashboard", label: "Tổng quát", icon: "◧" },
-      { key: "revenue", label: "Báo cáo doanh thu", icon: "◨" },
-      { key: "luy-ke", label: "Báo cáo lũy kế", icon: "📈" },
+      { key: "dashboard", label: tr("Tổng quát"), icon: "◧" },
+      { key: "revenue", label: tr("Báo cáo doanh thu"), icon: "◨" },
+      { key: "luy-ke", label: tr("Báo cáo lũy kế"), icon: "📈" },
     ],
   },
   {
     key: "van-hanh",
-    label: "Vận hành",
+    label: tr("Vận hành"),
     items: [
-      { key: "backlog", label: "Quản lý tồn", icon: "◫", countKey: "backlog" },
-      { key: "missing-parts", label: "Ca thiếu linh kiện", icon: "⬒", countKey: "missingParts" },
-      { key: "tranh-chap", label: "Tranh chấp, KN", icon: "⚖", countKey: "tranhChap" },
-      { key: "nap-gas", label: "Đánh giá nạp gas", icon: "🛢", countKey: "napGas" },
-      { key: "survey", label: "Quản lý khảo sát", icon: "◐", countKey: "survey" },
-      { key: "bao-cao-vi-pham", label: "Báo cáo vi phạm", icon: "🛡" },
-      { key: "ca-lap", label: "Ca lặp", icon: "🔁", countKey: "caLap" },
-      { key: "danh-sach-tong", label: "Danh sách tổng", icon: "📋" },
+      { key: "backlog", label: tr("Quản lý tồn"), icon: "◫", countKey: "backlog" },
+      { key: "missing-parts", label: tr("Ca thiếu linh kiện"), icon: "⬒", countKey: "missingParts" },
+      { key: "tranh-chap", label: tr("Tranh chấp, KN"), icon: "⚖", countKey: "tranhChap" },
+      { key: "nap-gas", label: tr("Đánh giá nạp gas"), icon: "🛢", countKey: "napGas" },
+      { key: "survey", label: tr("Quản lý khảo sát"), icon: "◐", countKey: "survey" },
+      { key: "bao-cao-vi-pham", label: tr("Báo cáo vi phạm"), icon: "🛡" },
+      { key: "ca-lap", label: tr("Ca lặp"), icon: "🔁", countKey: "caLap" },
+      { key: "danh-sach-tong", label: tr("Danh sách tổng"), icon: "📋" },
       // "tra-hang" la 1 tab CON cua module dat-mua-lk (App.tsx render lai DatMuaLinhKienModule voi
       // forceView) - datMuaLk badge da GOM CA bucket tra hang, chi gan countKey o "dat-mua-lk" de
       // tranh hien trung 1 con so o 2 dong sidebar gay hieu nham cong don.
-      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "◈", countKey: "datMuaLk" },
-      { key: "tra-hang", label: "Đơn trả hàng", icon: "↩" },
+      { key: "dat-mua-lk", label: tr("Đặt mua linh kiện"), icon: "◈", countKey: "datMuaLk" },
+      { key: "tra-hang", label: tr("Đơn trả hàng"), icon: "↩" },
       // CHOT 2026-08-17 (migration 0082): tach khoi tab Settings (Admin-only) thanh module rieng -
       // hien theo flag quan_ly_danh_muc_lk (xem App.tsx), khong theo vai_tro mac dinh nao.
-      { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "🔧" },
+      { key: "danh-muc-lk", label: tr("Danh mục linh kiện"), icon: "🔧" },
     ],
   },
   {
     key: "he-thong",
-    label: "Hệ thống",
+    label: tr("Hệ thống"),
     items: [
       { key: "import", label: "Import data", icon: "⇩" },
       { key: "settings", label: "Settings", icon: "⚙" },
-      { key: "users", label: "Quản lý User", icon: "⚉" },
+      { key: "users", label: tr("Quản lý User"), icon: "⚉" },
     ],
   },
   {
     key: "ca-nhan",
-    label: "Cá nhân",
-    items: [{ key: "giao-dien", label: "Cài đặt cá nhân", icon: "👤" }],
+    label: tr("Cá nhân"),
+    items: [{ key: "giao-dien", label: tr("Cài đặt cá nhân"), icon: "👤" }],
   },
 ];
 
@@ -85,22 +87,22 @@ export const ROLE_MODULES: Record<VaiTro, string[]> = {
 };
 
 export const MODULE_TITLES: Record<string, string> = {
-  dashboard: "Tổng quát",
-  revenue: "Báo cáo doanh thu",
-  "luy-ke": "Báo cáo lũy kế",
-  backlog: "Quản lý tồn",
-  "missing-parts": "Ca thiếu linh kiện",
-  "tranh-chap": "Tranh chấp, KN",
-  "nap-gas": "Đánh giá nạp gas",
-  survey: "Quản lý khảo sát",
-  "bao-cao-vi-pham": "Báo cáo vi phạm",
-  "ca-lap": "Ca lặp",
-  "danh-sach-tong": "Danh sách tổng",
+  dashboard: tr("Tổng quát"),
+  revenue: tr("Báo cáo doanh thu"),
+  "luy-ke": tr("Báo cáo lũy kế"),
+  backlog: tr("Quản lý tồn"),
+  "missing-parts": tr("Ca thiếu linh kiện"),
+  "tranh-chap": tr("Tranh chấp, KN"),
+  "nap-gas": tr("Đánh giá nạp gas"),
+  survey: tr("Quản lý khảo sát"),
+  "bao-cao-vi-pham": tr("Báo cáo vi phạm"),
+  "ca-lap": tr("Ca lặp"),
+  "danh-sach-tong": tr("Danh sách tổng"),
   import: "Import data",
   settings: "Settings",
-  users: "Quản lý User",
-  "giao-dien": "Cài đặt cá nhân",
-  "dat-mua-lk": "Đặt mua linh kiện",
-  "tra-hang": "Đơn trả hàng",
-  "danh-muc-lk": "Danh mục linh kiện",
+  users: tr("Quản lý User"),
+  "giao-dien": tr("Cài đặt cá nhân"),
+  "dat-mua-lk": tr("Đặt mua linh kiện"),
+  "tra-hang": tr("Đơn trả hàng"),
+  "danh-muc-lk": tr("Danh mục linh kiện"),
 };

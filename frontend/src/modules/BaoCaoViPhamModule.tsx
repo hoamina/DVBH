@@ -16,6 +16,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE, CURRENT_MONTH_VALUE } from "../constants";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { tr } from "../i18n/tr";
 
 const ALL_KHU_VUC = "Tất cả khu vực";
 const ALL_KTV = "Tất cả KTV";
@@ -93,11 +94,11 @@ interface DanhSachRow {
 // CSKH ket luan khong loi KHONG duoc tinh la vi pham, loai het khoi danh sach nay tu goc (xem chu
 // thich computeViPhamDanhSach trong backend/src/lib/viPhamBaoCao.ts).
 const TRANG_THAI_OPTIONS = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "cho_giai_trinh", label: "Chờ KTV/GS giải trình" },
-  { value: "cho_qc_chot", label: "Chờ QC chốt" },
-  { value: "da_chot", label: "QC đã chốt" },
-  { value: "da_bo", label: "QC đã bỏ" },
+  { value: "", label: tr("Tất cả trạng thái") },
+  { value: "cho_giai_trinh", label: tr("Chờ KTV/GS giải trình") },
+  { value: "cho_qc_chot", label: tr("Chờ QC chốt") },
+  { value: "da_chot", label: tr("QC đã chốt") },
+  { value: "da_bo", label: tr("QC đã bỏ") },
 ];
 
 // Ca 500 dong tren man hinh vua khop LIMIT server (xem computeViPhamDanhSach) - dau hieu HEURISTIC
@@ -135,11 +136,11 @@ const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
 };
 
 const NHOM_OPTIONS = [
-  { value: "khu_vuc", label: "Khu vực" },
-  { value: "ky_thuat_vien", label: "Kỹ thuật viên" },
-  { value: "ket_qua_cap_1", label: "Loại lỗi" },
-  { value: "nhom_kh", label: "Nhóm KH" },
-  { value: "nguon_crm", label: "Nguồn CRM" },
+  { value: "khu_vuc", label: tr("Khu vực") },
+  { value: "ky_thuat_vien", label: tr("Kỹ thuật viên") },
+  { value: "ket_qua_cap_1", label: tr("Loại lỗi") },
+  { value: "nhom_kh", label: tr("Nhóm KH") },
+  { value: "nguon_crm", label: tr("Nguồn CRM") },
 ];
 
 // Tach ma KTV khoi chuoi tho dang "(ma_ktv) Ten hien thi" (quy uoc du lieu CRM, xem
@@ -168,12 +169,12 @@ function tinhThe(diem: number): { do: number; vang: number; hong: number } {
 function TheBadge({ diem }: { diem: number }) {
   const the = tinhThe(diem);
   if (the.do === 0 && the.vang === 0 && the.hong === 0) {
-    return <span className="text-xs text-[var(--ink-400)] italic">Chưa có thẻ</span>;
+    return <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có thẻ")}</span>;
   }
   const parts: { label: string; cls: string }[] = [];
-  if (the.do > 0) parts.push({ label: `${the.do} thẻ đỏ`, cls: "bg-[var(--coral-100)] text-[var(--coral-600)]" });
-  if (the.vang > 0) parts.push({ label: `${the.vang} thẻ vàng`, cls: "bg-[var(--amber-100)] text-[var(--amber-600)]" });
-  if (the.hong > 0) parts.push({ label: `${the.hong} thẻ hồng`, cls: "bg-pink-100 text-pink-700" });
+  if (the.do > 0) parts.push({ label: tr("{0} thẻ đỏ", the.do), cls: "bg-[var(--coral-100)] text-[var(--coral-600)]" });
+  if (the.vang > 0) parts.push({ label: tr("{0} thẻ vàng", the.vang), cls: "bg-[var(--amber-100)] text-[var(--amber-600)]" });
+  if (the.hong > 0) parts.push({ label: tr("{0} thẻ hồng", the.hong), cls: "bg-pink-100 text-pink-700" });
   return (
     <div className="flex flex-wrap gap-1">
       {parts.map((p) => (
@@ -197,7 +198,7 @@ function heatBg(pct: number): string {
 // giaiTrinhCol() cua SurveyModule.tsx (tab cho-qc/da-xu-ly/vi-pham-da-chot) de nhat quan cach hien
 // thi giua 2 noi cung doc du lieu tu vi_pham_giai_trinh.
 function renderGiaiTrinh(noiDung: string | null, ngay: string | null) {
-  if (!noiDung) return <span className="text-xs text-[var(--ink-300)] italic">Chưa có</span>;
+  if (!noiDung) return <span className="text-xs text-[var(--ink-300)] italic">{tr("Chưa có")}</span>;
   const rutGon = noiDung.length > 40 ? `${noiDung.slice(0, 40)}…` : noiDung;
   return (
     <div className="text-xs max-w-[200px] truncate" title={noiDung}>
@@ -213,48 +214,46 @@ function danhSachColumns(isQC: boolean, chotMutation: { isPending: boolean; muta
   const cols: Column<DanhSachRow>[] = [
     {
       key: "id",
-      header: "Mã VP",
+      header: tr("Mã VP"),
       render: (r) => (
         <span className="font-mono text-xs">
           {r.id}
-          {r.source === "ktv" && <span className="ml-1 text-[10px] text-[var(--ink-400)]" title="Vi phạm import trực tiếp KTV, không gắn ID case">(KTV)</span>}
+          {r.source === "ktv" && <span className="ml-1 text-[10px] text-[var(--ink-400)]" title={tr("Vi phạm import trực tiếp KTV, không gắn ID case")}>(KTV)</span>}
         </span>
       ),
     },
     { key: "caseId", header: "ID case", render: (r) => <span className="font-mono text-xs">{r.caseId ?? "—"}</span> },
-    { key: "khuVuc", header: "Khu vực", render: (r) => (r.khuVuc ? shortKhuVuc(r.khuVuc) : "—") },
+    { key: "khuVuc", header: tr("Khu vực"), render: (r) => (r.khuVuc ? shortKhuVuc(r.khuVuc) : "—") },
     { key: "kyThuatVien", header: "KTV", render: (r) => r.kyThuatVien ?? "—" },
-    { key: "loaiLoi", header: "Loại lỗi", render: (r) => r.loaiLoi },
-    { key: "ketQuaCap1", header: "Kết quả cấp 1", render: (r) => r.ketQuaCap1 ?? "—" },
-    { key: "trangThai", header: "Trạng thái", render: (r) => r.trangThai },
-    { key: "giaiTrinhKtv", header: "Giải trình của KTV", render: (r) => renderGiaiTrinh(r.giaiTrinhKtvNoiDung, r.giaiTrinhKtvNgay) },
-    { key: "giaiTrinhGs", header: "Giải trình của GS", render: (r) => renderGiaiTrinh(r.giaiTrinhGsNoiDung, r.giaiTrinhGsNgay) },
+    { key: "loaiLoi", header: tr("Loại lỗi"), render: (r) => r.loaiLoi },
+    { key: "ketQuaCap1", header: tr("Kết quả cấp 1"), render: (r) => r.ketQuaCap1 ?? "—" },
+    { key: "trangThai", header: tr("Trạng thái"), render: (r) => r.trangThai },
+    { key: "giaiTrinhKtv", header: tr("Giải trình của KTV"), render: (r) => renderGiaiTrinh(r.giaiTrinhKtvNoiDung, r.giaiTrinhKtvNgay) },
+    { key: "giaiTrinhGs", header: tr("Giải trình của GS"), render: (r) => renderGiaiTrinh(r.giaiTrinhGsNoiDung, r.giaiTrinhGsNgay) },
     {
       key: "ketQuaChotQc",
-      header: "Kết quả chốt QC",
+      header: tr("Kết quả chốt QC"),
       render: (r) => (
-        <Badge tone={statusTone(r.chotBoCap2 !== null ? (r.chotBoCap2 ? "đã xác nhận" : "Không vi phạm") : "chờ QC")}>
-          {r.chotBoCap2 !== null ? (r.chotBoCap2 ? "Đã xác nhận" : "Không vi phạm") : "Chờ QC"}
+        <Badge tone={statusTone(r.chotBoCap2 !== null ? (r.chotBoCap2 ? tr("đã xác nhận") : tr("Không vi phạm")) : tr("chờ QC"))}>
+          {r.chotBoCap2 !== null ? (r.chotBoCap2 ? tr("Đã xác nhận") : tr("Không vi phạm")) : tr("Chờ QC")}
         </Badge>
       ),
     },
-    { key: "diemThe", header: "Điểm thẻ", render: (r) => <span className="font-mono">{r.diemThe || "—"}</span> },
-    { key: "ngayGhiNhan", header: "Ngày ghi nhận", render: (r) => <span className="text-xs">{r.ngayGhiNhan}</span> },
-    { key: "ghiChu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghiChu ?? ""}</span> },
+    { key: "diemThe", header: tr("Điểm thẻ"), render: (r) => <span className="font-mono">{r.diemThe || "—"}</span> },
+    { key: "ngayGhiNhan", header: tr("Ngày ghi nhận"), render: (r) => <span className="text-xs">{r.ngayGhiNhan}</span> },
+    { key: "ghiChu", header: tr("Ghi chú"), render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghiChu ?? ""}</span> },
   ];
   if (isQC) {
     cols.push({
       key: "thaoTac",
-      header: "Thao tác",
+      header: tr("Thao tác"),
       render: (r) =>
         r.chotBoCap2 === null ? (
           <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
             <Btn size="sm" variant="success" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: true })}>
-              Chốt
-            </Btn>
+              {tr("Chốt")}</Btn>
             <Btn size="sm" variant="danger" disabled={chotMutation.isPending} onClick={() => chotMutation.mutate({ row: r, chot: false })}>
-              Bỏ
-            </Btn>
+              {tr("Bỏ")}</Btn>
           </div>
         ) : (
           <span className="text-xs text-[var(--ink-400)]">—</span>
@@ -307,10 +306,10 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
 
   const khuVucOptions = [
     ALL_KHU_VUC,
-    { value: QLDVBH_FILTER_VALUE, label: "Tất cả QLDVBH (MB/MN...)" },
+    { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả QLDVBH (MB/MN...)") },
     ...(filterOptions?.khuVuc ?? []).map((k) => ({ value: k, label: k })),
   ];
-  const thangOptions = [{ value: CURRENT_MONTH_VALUE, label: "Tháng hiện tại" }, ...(monthOptions?.months ?? [])];
+  const thangOptions = [{ value: CURRENT_MONTH_VALUE, label: tr("Tháng hiện tại") }, ...(monthOptions?.months ?? [])];
   const ktvOptions = [ALL_KTV, ...(filterOptions?.kyThuatVien ?? [])];
   const nhomKhOptions = [ALL_NHOM_KH, ...(filterOptions?.nhomKh ?? []).filter((n): n is string => !!n)];
 
@@ -355,7 +354,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
     const res = await api.get<{ rows: DanhSachRow[] }>(`/bao-cao-vi-pham/danh-sach${buildQuery({ ...apiParams, trang_thai: trangThai || undefined, export: "true" })}`);
     const rows = res.rows.map((r) => ({
       id: r.id,
-      nguon: r.source === "ktv" ? "Import KTV (không gắn case)" : "Case",
+      nguon: r.source === "ktv" ? tr("Import KTV (không gắn case)") : "Case",
       caseId: r.caseId ?? "",
       khuVuc: r.khuVuc ? shortKhuVuc(r.khuVuc) : "",
       kyThuatVien: r.kyThuatVien ?? "",
@@ -367,7 +366,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
       giaiTrinhKtvNgay: r.giaiTrinhKtvNgay ?? "",
       giaiTrinhGsNoiDung: r.giaiTrinhGsNoiDung ?? "",
       giaiTrinhGsNgay: r.giaiTrinhGsNgay ?? "",
-      ketQuaChotQc: r.chotBoCap2 !== null ? (r.chotBoCap2 ? "Đã xác nhận" : "Không vi phạm") : "Chờ QC",
+      ketQuaChotQc: r.chotBoCap2 !== null ? (r.chotBoCap2 ? tr("Đã xác nhận") : tr("Không vi phạm")) : tr("Chờ QC"),
       ghiChu: r.ghiChu ?? "",
       diemThe: r.diemThe,
       nguoiGhiNhan: r.nguoiGhiNhan,
@@ -390,7 +389,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
       qcClient.invalidateQueries({ queryKey: ["bao-cao-vi-pham-diem-the"] });
       qcClient.invalidateQueries({ queryKey: ["bao-cao-vi-pham-da-chieu"] });
     },
-    onError: () => addToast("Không chốt/bỏ được - thử lại sau"),
+    onError: () => addToast(tr("Không chốt/bỏ được - thử lại sau")),
   });
 
   const nhomLabel = NHOM_OPTIONS.find((o) => o.value === nhom)?.label ?? "Nhóm";
@@ -407,10 +406,10 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
 
       <Tabs
         tabs={[
-          { key: "tong-quan", label: "Tổng quan" },
-          { key: "da-chieu", label: "Đa chiều" },
-          { key: "diem-the", label: "Điểm thẻ" },
-          { key: "danh-sach", label: "Tất cả vi phạm" },
+          { key: "tong-quan", label: tr("Tổng quan") },
+          { key: "da-chieu", label: tr("Đa chiều") },
+          { key: "diem-the", label: tr("Điểm thẻ") },
+          { key: "danh-sach", label: tr("Tất cả vi phạm") },
         ]}
         active={tab}
         onChange={(k) => setTab(k as typeof tab)}
@@ -418,13 +417,13 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
 
       {tab === "tong-quan" && (
         <div className="flex flex-wrap gap-3">
-          <StatCard label="SL ghi nhận" value={tongQuan?.slGhiNhan ?? 0} tone="ocean" />
-          <StatCard label="SL KTV đã giải trình" value={tongQuan?.slKtvGiaiTrinh ?? 0} tone="teal" />
-          <StatCard label="SL GS giải trình hộ" value={tongQuan?.slGsGiaiTrinh ?? 0} tone="teal" />
-          <StatCard label="SL chờ KTV/GS giải trình" value={tongQuan?.slChoKtvGiaiTrinh ?? 0} tone="orange" muted={!tongQuan?.slChoKtvGiaiTrinh} />
-          <StatCard label="SL chờ QC chốt" value={tongQuan?.slChoQcChot ?? 0} tone="amber" muted={!tongQuan?.slChoQcChot} />
-          <StatCard label="SL QC đã chốt" value={tongQuan?.slQcDaChot ?? 0} tone="coral" />
-          <StatCard label="SL QC đã bỏ" value={tongQuan?.slQcDaBo ?? 0} tone="gray" />
+          <StatCard label={tr("SL ghi nhận")} value={tongQuan?.slGhiNhan ?? 0} tone="ocean" />
+          <StatCard label={tr("SL KTV đã giải trình")} value={tongQuan?.slKtvGiaiTrinh ?? 0} tone="teal" />
+          <StatCard label={tr("SL GS giải trình hộ")} value={tongQuan?.slGsGiaiTrinh ?? 0} tone="teal" />
+          <StatCard label={tr("SL chờ KTV/GS giải trình")} value={tongQuan?.slChoKtvGiaiTrinh ?? 0} tone="orange" muted={!tongQuan?.slChoKtvGiaiTrinh} />
+          <StatCard label={tr("SL chờ QC chốt")} value={tongQuan?.slChoQcChot ?? 0} tone="amber" muted={!tongQuan?.slChoQcChot} />
+          <StatCard label={tr("SL QC đã chốt")} value={tongQuan?.slQcDaChot ?? 0} tone="coral" />
+          <StatCard label={tr("SL QC đã bỏ")} value={tongQuan?.slQcDaBo ?? 0} tone="gray" />
         </div>
       )}
 
@@ -432,7 +431,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <div className="font-display font-bold text-sm">Phân tích theo</div>
+              <div className="font-display font-bold text-sm">{tr("Phân tích theo")}</div>
               <Select value={nhom} onChange={setNhom} options={NHOM_OPTIONS} />
             </div>
             <Btn
@@ -460,26 +459,24 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
                 )
               }
             >
-              ⬇ Xuất Excel
-            </Btn>
+              {tr("⬇ Xuất Excel")}</Btn>
           </div>
           <table className="dense w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                 <th className="py-2 pr-3">{nhomLabel}</th>
-                <th className="py-2 pr-3" title="Số ca có thời gian hoàn thành trong tháng - gồm ca Hoàn thành và ca Không hoàn thành (hủy) XLSC. Không áp dụng khi phân tích theo Kết quả cấp 1.">
-                  Ca đóng trong tháng
-                </th>
-                <th className="py-2 pr-3">SL ghi nhận</th>
-                <th className="py-2 pr-3">SL đã chốt</th>
-                <th className="py-2 pr-3">SL đã bỏ</th>
-                <th className="py-2 pr-3">% Đã chốt</th>
-                <th className="py-2 pr-3" title="SL vi phạm đã chốt / Ca đóng trong tháng × 100">Tỷ lệ chốt lỗi</th>
-                <th className="py-2 pr-3">Tổng điểm thẻ</th>
-                <th className="py-2 pr-3">Ca KTV đã giải trình</th>
-                <th className="py-2 pr-3">Ca GS đã giải trình</th>
-                <th className="py-2 pr-3">Ca chờ giải trình</th>
-                <th className="py-2 pr-3">Tỷ lệ giải trình</th>
+                <th className="py-2 pr-3" title={tr("Số ca có thời gian hoàn thành trong tháng - gồm ca Hoàn thành và ca Không hoàn thành (hủy) XLSC. Không áp dụng khi phân tích theo Kết quả cấp 1.")}>
+                  {tr("Ca đóng trong tháng")}</th>
+                <th className="py-2 pr-3">{tr("SL ghi nhận")}</th>
+                <th className="py-2 pr-3">{tr("SL đã chốt")}</th>
+                <th className="py-2 pr-3">{tr("SL đã bỏ")}</th>
+                <th className="py-2 pr-3">{tr("% Đã chốt")}</th>
+                <th className="py-2 pr-3" title={tr("SL vi phạm đã chốt / Ca đóng trong tháng × 100")}>{tr("Tỷ lệ chốt lỗi")}</th>
+                <th className="py-2 pr-3">{tr("Tổng điểm thẻ")}</th>
+                <th className="py-2 pr-3">{tr("Ca KTV đã giải trình")}</th>
+                <th className="py-2 pr-3">{tr("Ca GS đã giải trình")}</th>
+                <th className="py-2 pr-3">{tr("Ca chờ giải trình")}</th>
+                <th className="py-2 pr-3">{tr("Tỷ lệ giải trình")}</th>
               </tr>
             </thead>
             <tbody>
@@ -506,8 +503,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
               {(daChieu?.rows ?? []).length === 0 && (
                 <tr>
                   <td colSpan={12} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                    Không có dữ liệu.
-                  </td>
+                    {tr("Không có dữ liệu.")}</td>
                 </tr>
               )}
             </tbody>
@@ -518,7 +514,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
       {tab === "diem-the" && (
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="font-display font-bold text-sm">Bảng xếp hạng điểm thẻ theo KTV</div>
+            <div className="font-display font-bold text-sm">{tr("Bảng xếp hạng điểm thẻ theo KTV")}</div>
             <Btn
               variant="ghost"
               size="sm"
@@ -534,18 +530,17 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
                 )
               }
             >
-              ⬇ Xuất Excel
-            </Btn>
+              {tr("⬇ Xuất Excel")}</Btn>
           </div>
           <table className="dense w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                <th className="py-2 pr-3">Tên KTV</th>
+                <th className="py-2 pr-3">{tr("Tên KTV")}</th>
                 <th className="py-2 pr-3">ID KTV</th>
-                <th className="py-2 pr-3">Khu vực</th>
-                <th className="py-2 pr-3">Số vi phạm</th>
-                <th className="py-2 pr-3">Tổng điểm</th>
-                <th className="py-2 pr-3">Thẻ hiện tại</th>
+                <th className="py-2 pr-3">{tr("Khu vực")}</th>
+                <th className="py-2 pr-3">{tr("Số vi phạm")}</th>
+                <th className="py-2 pr-3">{tr("Tổng điểm")}</th>
+                <th className="py-2 pr-3">{tr("Thẻ hiện tại")}</th>
               </tr>
             </thead>
             <tbody>
@@ -568,8 +563,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
               {(diemThe?.rows ?? []).length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                    Không có dữ liệu.
-                  </td>
+                    {tr("Không có dữ liệu.")}</td>
                 </tr>
               )}
             </tbody>
@@ -581,20 +575,19 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-[var(--ink-600)]">Trạng thái:</span>
+              <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Trạng thái:")}</span>
               <Select value={trangThai} onChange={setTrangThai} options={TRANG_THAI_OPTIONS} />
             </div>
             <div className="flex items-center gap-2">
               <div ref={setColSettingsSlot} />
               <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExportDanhSach)} disabled={exportRunner.busy}>
-                {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
+                {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
               </Btn>
             </div>
           </div>
           {(danhSach?.rows.length ?? 0) >= DANH_SACH_SCREEN_LIMIT && (
             <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-50)] border border-[var(--amber-200)] rounded-lg px-3 py-1.5 mb-2">
-              Đang hiển thị {DANH_SACH_SCREEN_LIMIT} dòng gần nhất — có thể còn nhiều dòng khớp bộ lọc hơn. Bấm <b>⬇ Xuất Excel</b> để tải đầy đủ (tối đa 5000 dòng).
-            </div>
+              {tr("Đang hiển thị")} {DANH_SACH_SCREEN_LIMIT}  {tr("dòng gần nhất — có thể còn nhiều dòng khớp bộ lọc hơn. Bấm")} <b>{tr("⬇ Xuất Excel")}</b>  {tr("để tải đầy đủ (tối đa 5000 dòng).")}</div>
           )}
           <PaginatedTable<DanhSachRow>
             columns={danhSachColumns(isQC, chotMutation)}
@@ -605,9 +598,9 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
             pageSize={DANH_SACH_PAGE_SIZE}
             total={danhSach?.rows.length ?? 0}
             onPageChange={setDanhSachPage}
-            onRowClick={(r) => (r.caseId ? openCase(r.caseId, "vi-pham") : addToast("Vi phạm này không gắn ID case (import trực tiếp KTV)"))}
+            onRowClick={(r) => (r.caseId ? openCase(r.caseId, "vi-pham") : addToast(tr("Vi phạm này không gắn ID case (import trực tiếp KTV)")))}
             rowKey={(r) => r.id}
-            emptyText="Không có dữ liệu."
+            emptyText={tr("Không có dữ liệu.")}
             storageKey="bao-cao-vi-pham-danh-sach"
             columnSettingsContainer={colSettingsSlot}
           />

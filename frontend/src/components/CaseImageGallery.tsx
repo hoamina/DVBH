@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SoLuongAnh } from "../types";
+import { tr } from "../i18n/tr";
+
 
 // Loc trung URL ngay tai day (nguon dung chung cho ca tieu de dem so anh lan gallery ben duoi) -
 // du lieu CRM doi luc chua cung 1 URL lap lai nhieu lan trong 1 ca, giu nguyen thu tu xuat hien dau tien.
@@ -191,8 +193,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
     return (
       <div className="flex flex-col items-center justify-center gap-1.5 py-6 text-[var(--ink-400)] text-sm text-center">
         <span className="text-2xl">🖼️</span>
-        Rất tiếc! báo cáo này hiện chưa có bất kỳ ảnh nào
-      </div>
+        {tr("Rất tiếc! báo cáo này hiện chưa có bất kỳ ảnh nào")}</div>
     );
   }
 
@@ -206,18 +207,17 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               type="button"
               onClick={() => setLightboxIndex(i)}
               className="focus-ring aspect-square rounded-lg border border-[var(--line)] bg-slate-50 flex flex-col items-center justify-center text-[var(--ink-400)] text-[10px] gap-0.5 p-1 text-center hover:opacity-80 transition-opacity"
-              title={`Ảnh ${i + 1}/${urls.length} — bấm để xem qua CRM Media`}
+              title={tr("Ảnh {0}/{1} — bấm để xem qua CRM Media", i + 1, urls.length)}
             >
               <span className="text-lg">🖼️</span>
-              Bấm để xem
-            </button>
+              {tr("Bấm để xem")}</button>
           ) : (
             <button
               key={i}
               type="button"
               onClick={() => setLightboxIndex(i)}
               className="focus-ring relative aspect-square rounded-lg border border-[var(--line)] overflow-hidden hover:opacity-80 transition-opacity"
-              title={`${isVideoUrl(url) ? "Video" : "Ảnh"} ${i + 1}/${urls.length}`}
+              title={`${isVideoUrl(url) ? "Video" : tr("Ảnh")} ${i + 1}/${urls.length}`}
             >
               {isVideoUrl(url) ? (
                 <>
@@ -236,7 +236,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               ) : (
                 <img
                   src={url}
-                  alt={`Ảnh báo cáo ${i + 1}`}
+                  alt={tr("Ảnh báo cáo {0}", i + 1)}
                   loading="lazy"
                   className="w-full h-full object-cover"
                   onError={() => setBrokenUrls((prev) => new Set(prev).add(url))}
@@ -288,13 +288,13 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               key={urls[lightboxIndex]}
               src={authMediaUrl(urls[lightboxIndex])}
               onClick={(e) => e.stopPropagation()}
-              title={`Ảnh báo cáo ${lightboxIndex + 1} (qua CRM Media)`}
+              title={tr("Ảnh báo cáo {0} (qua CRM Media)", lightboxIndex + 1)}
               className="w-[90vw] h-[85vh] rounded-lg shadow-2xl bg-white"
             />
           ) : (
             <img
               src={urls[lightboxIndex]}
-              alt={`Ảnh báo cáo ${lightboxIndex + 1}`}
+              alt={tr("Ảnh báo cáo {0}", lightboxIndex + 1)}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={onImageMouseDown}
               onDoubleClick={toggleDoubleClickZoom}
@@ -333,7 +333,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               <>
                 <button
                   type="button"
-                  title="Thu nhỏ"
+                  title={tr("Thu nhỏ")}
                   disabled={zoom <= ZOOM_MIN}
                   onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.4))}
                   className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-sm leading-none"
@@ -343,7 +343,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
                 <span className="tabular-nums w-9 text-center">{Math.round(zoom * 100)}%</span>
                 <button
                   type="button"
-                  title="Phóng to"
+                  title={tr("Phóng to")}
                   disabled={zoom >= ZOOM_MAX}
                   onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.4))}
                   className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent text-sm leading-none"
@@ -351,14 +351,14 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
                   +
                 </button>
                 {zoom > ZOOM_MIN && (
-                  <button type="button" title="Về kích thước gốc" onClick={() => setZoom(ZOOM_MIN)} className="underline hover:no-underline">
+                  <button type="button" title={tr("Về kích thước gốc")} onClick={() => setZoom(ZOOM_MIN)} className="underline hover:no-underline">
                     100%
                   </button>
                 )}
                 <span className="w-px h-3 bg-white/25" />
                 <button
                   type="button"
-                  title="Xoay trái"
+                  title={tr("Xoay trái")}
                   onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
                   className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 text-sm leading-none"
                 >
@@ -366,7 +366,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
                 </button>
                 <button
                   type="button"
-                  title="Xoay phải"
+                  title={tr("Xoay phải")}
                   onClick={() => setRotation((r) => (r + 90) % 360)}
                   className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/20 text-sm leading-none"
                 >
@@ -384,7 +384,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               rel="noreferrer"
               className="underline font-semibold"
             >
-              {isVideoUrl(urls[lightboxIndex]) ? "Mở video gốc" : brokenUrls.has(urls[lightboxIndex]) ? "Mở qua CRM Media" : "Mở ảnh gốc"}
+              {isVideoUrl(urls[lightboxIndex]) ? tr("Mở video gốc") : brokenUrls.has(urls[lightboxIndex]) ? tr("Mở qua CRM Media") : tr("Mở ảnh gốc")}
             </a>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useToast } from "./ui/Toast";
 
 // Nut chon ngon ngu giao dien VI/EN/ID (2026-10-28). "luuTaiKhoan" = ghi vao users.ngon_ngu (PATCH
 // /auth/me, migration 0146) - tat o man dang nhap (chua co phien), luc do chi luu localStorage.
+// Doi ngon ngu -> TAI LAI TRANG (tu dien tr() co dinh trong 1 lan tai, xem i18n/tr.ts).
 export function NgonNguSwitcher({ className = "", luuTaiKhoan = true }: { className?: string; luuTaiKhoan?: boolean }) {
   const { t, i18n } = useTranslation();
   const toast = useToast();
@@ -13,15 +14,15 @@ export function NgonNguSwitcher({ className = "", luuTaiKhoan = true }: { classN
   async function chon(lng: NgonNgu) {
     if (lng === hienTai) return;
     apDungNgonNgu(lng);
-    if (!luuTaiKhoan) {
-      danhDauChoDongBo();
-      return;
-    }
-    try {
-      await api.patch("/auth/me", { ngon_ngu: lng });
-    } catch {
-      toast(t("lang.saveError"));
-    }
+    if (luuTaiKhoan) {
+      try {
+        await api.patch("/auth/me", { ngon_ngu: lng });
+      } catch {
+        toast(t("lang.saveError"));
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    } else danhDauChoDongBo();
+    window.location.reload();
   }
 
   return (

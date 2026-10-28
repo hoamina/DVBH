@@ -14,6 +14,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { ROLE_MODULES, MODULE_TITLES } from "../layout/navConfig";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { useAuth, type VaiTro } from "../auth/AuthContext";
+import { tr } from "../i18n/tr";
 
 const PAGE_SIZE = 20;
 
@@ -113,7 +114,7 @@ export function UsersModule() {
   const decide = useMutation({
     mutationFn: ({ email, ok }: { email: string; ok: boolean }) => api.patch(`/users/${encodeURIComponent(email)}`, { trang_thai_duyet: ok ? "Da duyet" : "Tu choi" }),
     onSuccess: (_d, vars) => {
-      addToast(vars.ok ? "Đã duyệt tài khoản" : "Đã từ chối tài khoản");
+      addToast(vars.ok ? tr("Đã duyệt tài khoản") : tr("Đã từ chối tài khoản"));
       qc.invalidateQueries({ queryKey: ["users"] });
     },
   });
@@ -121,7 +122,7 @@ export function UsersModule() {
   const toggleLock = useMutation({
     mutationFn: ({ email, bi_khoa }: { email: string; bi_khoa: boolean }) => api.patch(`/users/${encodeURIComponent(email)}`, { bi_khoa }),
     onSuccess: (_d, vars) => {
-      addToast(vars.bi_khoa ? "Đã khóa tài khoản" : "Đã mở khóa tài khoản");
+      addToast(vars.bi_khoa ? tr("Đã khóa tài khoản") : tr("Đã mở khóa tài khoản"));
       qc.invalidateQueries({ queryKey: ["users"] });
     },
   });
@@ -183,7 +184,7 @@ export function UsersModule() {
         giam_sat_quan_ly: giam_sat_quan_ly || null,
       }),
     onSuccess: () => {
-      addToast("Đã cập nhật phân quyền");
+      addToast(tr("Đã cập nhật phân quyền"));
       setEditUser(null);
       qc.invalidateQueries({ queryKey: ["users"] });
     },
@@ -192,25 +193,25 @@ export function UsersModule() {
   const columns: Column<UserRow>[] = [
     {
       key: "user",
-      header: "Người dùng",
+      header: tr("Người dùng"),
       render: (u) => (
         <>
-          <div className="font-semibold">{u.ten ?? "(chưa cập nhật tên)"}</div>
+          <div className="font-semibold">{u.ten ?? tr("(chưa cập nhật tên)")}</div>
           <div className="text-xs text-[var(--ink-400)] font-mono">{u.email}</div>
         </>
       ),
     },
     {
       key: "vai_tro",
-      header: "Vai trò",
+      header: tr("Vai trò"),
       render: (u) => {
         const systems = getUserSystems(u);
         return (
           <div className="flex flex-wrap gap-1 items-center">
-            {u.vai_tro ? <Badge tone="ocean">{u.vai_tro}</Badge> : <span className="text-xs text-[var(--ink-400)] italic">Chưa gán</span>}
-            {!!u.la_ksnb_doi_tac && <Badge tone="amber">KSNB Đối tác</Badge>}
-            {!!u.co_the_import_tranh_chap && <Badge tone="gray">Được import tranh chấp</Badge>}
-            {u.modules !== null && <Badge tone="teal">Module tùy chỉnh ({u.modules.length})</Badge>}
+            {u.vai_tro ? <Badge tone="ocean">{u.vai_tro}</Badge> : <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa gán")}</span>}
+            {!!u.la_ksnb_doi_tac && <Badge tone="amber">{tr("KSNB Đối tác")}</Badge>}
+            {!!u.co_the_import_tranh_chap && <Badge tone="gray">{tr("Được import tranh chấp")}</Badge>}
+            {u.modules !== null && <Badge tone="teal">{tr("Module tùy chỉnh (")}{u.modules.length})</Badge>}
             {systems.includes("BC") && <Badge tone="ocean">BC</Badge>}
             {systems.includes("MH") && <Badge tone="coral">MH</Badge>}
           </div>
@@ -219,7 +220,7 @@ export function UsersModule() {
     },
     {
       key: "khu_vuc_phu_trach",
-      header: "Khu vực phụ trách",
+      header: tr("Khu vực phụ trách"),
       render: (u) =>
         u.khu_vuc_phu_trach.length || u.khu_vuc_duoc_xem.length ? (
           <div className="flex flex-wrap gap-1 max-w-xs">
@@ -229,7 +230,7 @@ export function UsersModule() {
               </span>
             ))}
             {u.khu_vuc_duoc_xem.map((kv) => (
-              <span key={kv} title={`${kv} (chỉ xem, không tính vào báo cáo)`}>
+              <span key={kv} title={tr("{0} (chỉ xem, không tính vào báo cáo)", kv)}>
                 <Badge tone="amber">{shortKhuVuc(kv)} (xem)</Badge>
               </span>
             ))}
@@ -242,17 +243,17 @@ export function UsersModule() {
       ? ([
           {
             key: "he_thong_flags",
-            header: "Vai trò hệ thống",
+            header: tr("Vai trò hệ thống"),
             render: (u: UserRow) => (
               <div className="flex flex-wrap gap-1">
                 {!!u.la_ktv_dvbh && <Badge tone="ocean">KTV DVBH</Badge>}
-                {!!u.la_ve_tinh && <Badge tone="teal">Vệ tinh</Badge>}
+                {!!u.la_ve_tinh && <Badge tone="teal">{tr("Vệ tinh")}</Badge>}
                 {!!u.la_kho && <Badge tone="amber">Kho</Badge>}
-                {!!u.la_ke_toan && <Badge tone="coral">Kế toán</Badge>}
-                {!!u.la_tac_nghiep && <Badge tone="ocean">Tác nghiệp</Badge>}
+                {!!u.la_ke_toan && <Badge tone="coral">{tr("Kế toán")}</Badge>}
+                {!!u.la_tac_nghiep && <Badge tone="ocean">{tr("Tác nghiệp")}</Badge>}
                 {!!u.la_tp_dvbh && <Badge tone="amber">TP DVBH</Badge>}
-                {!!u.quan_ly_danh_muc_lk && <Badge tone="gray">Danh mục LK (sửa)</Badge>}
-                {u.tram_cha && <span className="text-xs text-[var(--ink-400)]">Trạm: {u.tram_cha}</span>}
+                {!!u.quan_ly_danh_muc_lk && <Badge tone="gray">{tr("Danh mục LK (sửa)")}</Badge>}
+                {u.tram_cha && <span className="text-xs text-[var(--ink-400)]">{tr("Trạm:")} {u.tram_cha}</span>}
               </div>
             ),
           },
@@ -260,11 +261,11 @@ export function UsersModule() {
       : []),
     {
       key: "trang_thai_duyet",
-      header: "Trạng thái",
+      header: tr("Trạng thái"),
       render: (u) => (
         <div className="flex flex-wrap gap-1 items-center">
           <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : u.trang_thai_duyet === "Cho duyet" ? "amber" : "coral"}>{u.trang_thai_duyet}</Badge>
-          {!!u.bi_khoa && <Badge tone="coral">Đã khóa</Badge>}
+          {!!u.bi_khoa && <Badge tone="coral">{tr("Đã khóa")}</Badge>}
         </div>
       ),
     },
@@ -276,25 +277,22 @@ export function UsersModule() {
         u.trang_thai_duyet === "Cho duyet" ? (
           <div className="flex gap-1.5 justify-end">
             <Btn size="sm" variant="success" onClick={() => decide.mutate({ email: u.email, ok: true })}>
-              Duyệt
-            </Btn>
+              {tr("Duyệt")}</Btn>
             <Btn size="sm" variant="danger" onClick={() => decide.mutate({ email: u.email, ok: false })}>
-              Từ chối
-            </Btn>
+              {tr("Từ chối")}</Btn>
           </div>
         ) : (
           <div className="flex gap-1.5 justify-end">
             <Btn size="sm" variant="ghost" onClick={() => setEditUser(u)}>
-              Phân quyền
-            </Btn>
+              {tr("Phân quyền")}</Btn>
             <Btn
               size="sm"
               variant={u.bi_khoa ? "success" : "danger"}
               disabled={u.email === currentEmail}
-              title={u.email === currentEmail ? "Không thể tự khóa tài khoản đang đăng nhập" : undefined}
+              title={u.email === currentEmail ? tr("Không thể tự khóa tài khoản đang đăng nhập") : undefined}
               onClick={() => toggleLock.mutate({ email: u.email, bi_khoa: !u.bi_khoa })}
             >
-              {u.bi_khoa ? "Mở khóa" : "Khóa"}
+              {u.bi_khoa ? tr("Mở khóa") : tr("Khóa")}
             </Btn>
           </div>
         ),
@@ -303,9 +301,9 @@ export function UsersModule() {
 
   const loginLogColumns: Column<LoginLogRow>[] = [
     { key: "email", header: "Email", render: (r) => <span className="font-mono text-sm">{r.email}</span> },
-    { key: "thoi_gian", header: "Thời gian đăng nhập", render: (r) => fmtDateTime(r.thoi_gian) },
-    { key: "ip", header: "Địa chỉ IP", render: (r) => <span className="font-mono text-xs">{r.ip ?? "—"}</span> },
-    { key: "user_agent", header: "Trình duyệt / thiết bị", render: (r) => <span className="text-xs text-[var(--ink-400)] break-all">{r.user_agent ?? "—"}</span> },
+    { key: "thoi_gian", header: tr("Thời gian đăng nhập"), render: (r) => fmtDateTime(r.thoi_gian) },
+    { key: "ip", header: tr("Địa chỉ IP"), render: (r) => <span className="font-mono text-xs">{r.ip ?? "—"}</span> },
+    { key: "user_agent", header: tr("Trình duyệt / thiết bị"), render: (r) => <span className="text-xs text-[var(--ink-400)] break-all">{r.user_agent ?? "—"}</span> },
   ];
 
   return (
@@ -314,8 +312,7 @@ export function UsersModule() {
         <div />
         {tab !== "login-log" && (
           <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(visibleRows, "quan_ly_user.xlsx", "Data", USER_EXPORT_LABELS)}>
-            ⬇ Xuất Excel
-          </Btn>
+            {tr("⬇ Xuất Excel")}</Btn>
         )}
       </div>
       {tab !== "login-log" && (
@@ -326,7 +323,7 @@ export function UsersModule() {
               setSearchText(e.target.value);
               setPage(1);
             }}
-            placeholder="Tìm theo email hoặc tên…"
+            placeholder={tr("Tìm theo email hoặc tên…")}
             className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
           />
           <Select
@@ -335,7 +332,7 @@ export function UsersModule() {
               setFilterVaiTro(v);
               setPage(1);
             }}
-            options={[{ value: "", label: "Tất cả vai trò" }, ...ROLES.map((r) => ({ value: r, label: r }))]}
+            options={[{ value: "", label: tr("Tất cả vai trò") }, ...ROLES.map((r) => ({ value: r, label: r }))]}
           />
           <Select
             value={filterModule}
@@ -343,7 +340,7 @@ export function UsersModule() {
               setFilterModule(v);
               setPage(1);
             }}
-            options={[{ value: "", label: "Tất cả màn hình" }, ...Object.entries(MODULE_TITLES).map(([k, v]) => ({ value: k, label: v }))]}
+            options={[{ value: "", label: tr("Tất cả màn hình") }, ...Object.entries(MODULE_TITLES).map(([k, v]) => ({ value: k, label: v }))]}
           />
         </div>
       )}
@@ -357,11 +354,11 @@ export function UsersModule() {
           setFilterModule("");
         }}
         tabs={[
-          { key: "cho-duyet", label: "Chờ duyệt" },
-          { key: "da-duyet", label: "Đã duyệt / khác" },
-          { key: "da-duyet-chua-vai-tro", label: "Đã duyệt chưa vai trò" },
-          { key: "mua-hang", label: "Hệ thống mua hàng" },
-          { key: "login-log", label: "Lịch sử đăng nhập" },
+          { key: "cho-duyet", label: tr("Chờ duyệt") },
+          { key: "da-duyet", label: tr("Đã duyệt / khác") },
+          { key: "da-duyet-chua-vai-tro", label: tr("Đã duyệt chưa vai trò") },
+          { key: "mua-hang", label: tr("Hệ thống mua hàng") },
+          { key: "login-log", label: tr("Lịch sử đăng nhập") },
         ]}
       />
       {tab === "login-log" ? (
@@ -373,7 +370,7 @@ export function UsersModule() {
                 setLogEmailFilter(e.target.value);
                 setPage(1);
               }}
-              placeholder="Lọc theo email…"
+              placeholder={tr("Lọc theo email…")}
               className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
             />
           </div>
@@ -387,7 +384,7 @@ export function UsersModule() {
             total={loginLog?.total ?? 0}
             onPageChange={setPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có lượt đăng nhập nào."
+            emptyText={tr("Chưa có lượt đăng nhập nào.")}
             storageKey="users-login-log"
           />
         </>
@@ -402,7 +399,7 @@ export function UsersModule() {
           total={visibleRows.length}
           onPageChange={setPage}
           rowKey={(u) => u.email}
-          emptyText="Không có người dùng nào."
+          emptyText={tr("Không có người dùng nào.")}
           storageKey="users-list"
         />
       )}
@@ -498,8 +495,8 @@ function EditUserModal({
   }
   const savePhuTrachGs = useMutation({
     mutationFn: () => api.put("/dat-mua-lk/phu-trach-gs", { nguoi_phu_trach: user.email, giam_sat_emails: [...phuTrachGs] }),
-    onSuccess: () => addToast("Đã lưu khu vực phụ trách"),
-    onError: (err) => addToast("Lỗi: " + (err instanceof Error ? err.message : String(err))),
+    onSuccess: () => addToast(tr("Đã lưu khu vực phụ trách")),
+    onError: (err) => addToast(tr("Lỗi:") + " " + (err instanceof Error ? err.message : String(err))),
   });
   // Khoi tao 1 LAN tu du lieu hien co (user.modules neu da tuy chinh, khong thi mac dinh theo
   // vai_tro hien tai cua user) - KHONG tu dong reset lai khi doi Vai tro trong modal (tranh mat du
@@ -536,20 +533,20 @@ function EditUserModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={`Phân quyền — ${user.ten ?? user.email}`}>
+    <Modal open onClose={onClose} title={tr("Phân quyền — {0}", user.ten ?? user.email)}>
       <div className="space-y-4">
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Vai trò</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Vai trò")}</label>
           <Select
             value={role}
             onChange={setRole}
-            options={[{ value: "", label: "(Chưa gán — chỉ Đặt mua linh kiện)" }, ...ROLES]}
+            options={[{ value: "", label: tr("(Chưa gán — chỉ Đặt mua linh kiện)") }, ...ROLES]}
             className="w-full mt-1"
           />
         </div>
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">
-            {role === "Giam sat" ? "Khu vực phụ trách báo cáo (Giám sát)" : "Khu vực được xem / quản lý"}
+            {role === "Giam sat" ? tr("Khu vực phụ trách báo cáo (Giám sát)") : tr("Khu vực được xem / quản lý")}
           </label>
           <div className="flex flex-wrap gap-1.5">
             {khuVucOptions.map((k) => (
@@ -562,17 +559,16 @@ function EditUserModal({
                 {shortKhuVuc(k)}
               </button>
             ))}
-            {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">Chưa có dữ liệu khu vực (chưa import case nào).</span>}
+            {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có dữ liệu khu vực (chưa import case nào).")}</span>}
           </div>
           {role === "Giam sat" && (
             <div className="text-xs text-[var(--ink-400)] mt-1">
-              Quyết định phạm vi xem VÀ được tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này.
-            </div>
+              {tr("Quyết định phạm vi xem VÀ được tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này.")}</div>
           )}
         </div>
         {role === "Giam sat" && (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">Khu vực được nhìn thấy (chỉ xem)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">{tr("Khu vực được nhìn thấy (chỉ xem)")}</label>
             <div className="flex flex-wrap gap-1.5">
               {khuVucOptions.map((k) => (
                 <button
@@ -584,74 +580,72 @@ function EditUserModal({
                   {shortKhuVuc(k)}
                 </button>
               ))}
-              {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">Chưa có dữ liệu khu vực (chưa import case nào).</span>}
+              {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có dữ liệu khu vực (chưa import case nào).")}</span>}
             </div>
             <div className="text-xs text-[var(--ink-400)] mt-1">
-              Mở rộng quyền xem danh sách/ca ở các khu vực này, nhưng KHÔNG tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này (chỉ khu vực phụ trách báo cáo ở trên mới được tính).
-            </div>
+              {tr("Mở rộng quyền xem danh sách/ca ở các khu vực này, nhưng KHÔNG tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này (chỉ khu vực phụ trách báo cáo ở trên mới được tính).")}</div>
           </div>
         )}
         <div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={laKsnb} onChange={(e) => setLaKsnb(e.target.checked)} className="w-4 h-4" />
-            <span className="font-semibold">Là KSNB Đối tác</span>
+            <span className="font-semibold">{tr("Là KSNB Đối tác")}</span>
           </label>
           <div className="text-xs text-[var(--ink-400)] mt-1">
-            Được xem toàn bộ + ghi log xử lý tranh chấp (module "Tranh chấp, KN"), độc lập với vai trò ở trên.
-          </div>
+            {tr("Được xem toàn bộ + ghi log xử lý tranh chấp (module \"Tranh chấp, KN\"), độc lập với vai trò ở trên.")}</div>
         </div>
         <div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={coTheImportTranhChap} onChange={(e) => setCoTheImportTranhChap(e.target.checked)} className="w-4 h-4" />
-            <span className="font-semibold">Được import tranh chấp theo ID</span>
+            <span className="font-semibold">{tr("Được import tranh chấp theo ID")}</span>
           </label>
-          <div className="text-xs text-[var(--ink-400)] mt-1">Cho phép tải file Excel/CSV để tạo hàng loạt tiến trình tranh chấp (module "Tranh chấp, KN"), thay vì tạo tay từng ca.</div>
+          <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Cho phép tải file Excel/CSV để tạo hàng loạt tiến trình tranh chấp (module \"Tranh chấp, KN\"), thay vì tạo tay từng ca.")}</div>
         </div>
         <div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={xemDanhMucLk} onChange={(e) => setXemDanhMucLk(e.target.checked)} className="w-4 h-4" />
-            <span className="font-semibold">Được xem module Danh mục linh kiện</span>
+            <span className="font-semibold">{tr("Được xem module Danh mục linh kiện")}</span>
           </label>
-          <div className="text-xs text-[var(--ink-400)] mt-1">Mặc định bật cho mọi tài khoản, trừ CSKH/TN CSKH/TBP CSKH. Độc lập với vai trò ở trên.</div>
+          <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Mặc định bật cho mọi tài khoản, trừ CSKH/TN CSKH/TBP CSKH. Độc lập với vai trò ở trên.")}</div>
         </div>
         <div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={quanLyDanhMucLk} onChange={(e) => setQuanLyDanhMucLk(e.target.checked)} className="w-4 h-4" />
-            <span className="font-semibold">Được quản lý (thêm/sửa) Danh mục linh kiện</span>
+            <span className="font-semibold">{tr("Được quản lý (thêm/sửa) Danh mục linh kiện")}</span>
           </label>
-          <div className="text-xs text-[var(--ink-400)] mt-1">Thêm/sửa linh kiện, đồng bộ Google Sheet (dùng chung cho giải trình thiếu linh kiện và đặt mua linh kiện). Tự động kèm quyền xem dù không tick ô trên.</div>
+          <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Thêm/sửa linh kiện, đồng bộ Google Sheet (dùng chung cho giải trình thiếu linh kiện và đặt mua linh kiện). Tự động kèm quyền xem dù không tick ô trên.")}</div>
         </div>
         <div className="border-t border-[var(--line)] pt-3">
-          <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">Module đặt mua linh kiện</div>
+          <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">{tr("Module đặt mua linh kiện")}</div>
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={laKtvDvbh} onChange={(e) => setLaKtvDvbh(e.target.checked)} className="w-4 h-4" />
-              <span>Là KTV DVBH (tạo phiếu đặt)</span>
+              <span>{tr("Là KTV DVBH (tạo phiếu đặt)")}</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={laVeTinh} onChange={(e) => setLaVeTinh(e.target.checked)} className="w-4 h-4" />
-              <span>Là Vệ tinh (tạo phiếu đặt, thuộc trạm cha)</span>
+              <span>{tr("Là Vệ tinh (tạo phiếu đặt, thuộc trạm cha)")}</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={laKho} onChange={(e) => setLaKho(e.target.checked)} className="w-4 h-4" />
-              <span>Là Kho (xử lý phiếu xuất kho, thiếu LK)</span>
+              <span>{tr("Là Kho (xử lý phiếu xuất kho, thiếu LK)")}</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={laKeToan} onChange={(e) => setLaKeToan(e.target.checked)} className="w-4 h-4" />
-              <span>Là Kế toán (xử lý phiếu số tiền)</span>
+              <span>{tr("Là Kế toán (xử lý phiếu số tiền)")}</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={laTacNghiep} onChange={(e) => setLaTacNghiep(e.target.checked)} className="w-4 h-4" />
-              <span>Là Tác nghiệp (duyệt phiếu đặt, PXK, trả hàng — "TN")</span>
+              <span>{tr("Là Tác nghiệp (duyệt phiếu đặt, PXK, trả hàng — \"TN\")")}</span>
             </label>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={laTpDvbh} onChange={(e) => setLaTpDvbh(e.target.checked)} className="w-4 h-4" />
-              <span>Là TP DVBH (xác nhận linh kiện đặc thù, trước Tác nghiệp)</span>
+              <span>{tr("Là TP DVBH (xác nhận linh kiện đặc thù, trước Tác nghiệp)")}</span>
             </label>
           </div>
           <div className="mt-3 space-y-2">
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-400)] mb-1">Trạm cha (email — dành cho Vệ tinh)</label>
+              <label className="block text-xs font-semibold text-[var(--ink-400)] mb-1">{tr("Trạm cha (email — dành cho Vệ tinh)")}</label>
               <input
                 value={tramCha}
                 onChange={(e) => setTramCha(e.target.value)}
@@ -660,7 +654,7 @@ function EditUserModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-400)] mb-1">Giám sát quản lý (email)</label>
+              <label className="block text-xs font-semibold text-[var(--ink-400)] mb-1">{tr("Giám sát quản lý (email)")}</label>
               <input
                 value={giamSatQuanLy}
                 onChange={(e) => setGiamSatQuanLy(e.target.value)}
@@ -675,8 +669,7 @@ function EditUserModal({
           {showPhuTrachGs && (
             <div className="mt-3 border-t border-[var(--line)] pt-3">
               <label className="block text-xs font-semibold text-[var(--ink-400)] mb-1">
-                Khu vực phụ trách (Giám sát) — chỉ tính đơn của các Giám sát này vào "cần xử lý"
-              </label>
+                {tr("Khu vực phụ trách (Giám sát) — chỉ tính đơn của các Giám sát này vào \"cần xử lý\"")}</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {(giamSatListData?.rows ?? []).map((g) => (
                   <button
@@ -688,22 +681,20 @@ function EditUserModal({
                     {g.ten || g.email}
                   </button>
                 ))}
-                {(giamSatListData?.rows ?? []).length === 0 && <span className="text-xs text-[var(--ink-400)] italic">Chưa có tài khoản vai trò Giám sát.</span>}
+                {(giamSatListData?.rows ?? []).length === 0 && <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có tài khoản vai trò Giám sát.")}</span>}
               </div>
               <div className="text-xs text-[var(--ink-400)] mb-2">
-                Bỏ trống = không giới hạn (xem toàn bộ hàng đợi, hành vi mặc định). Chọn Giám sát để chỉ tính đơn thuộc các Giám sát đó vào badge/thẻ báo cáo "cần xử lý".
-              </div>
+                {tr("Bỏ trống = không giới hạn (xem toàn bộ hàng đợi, hành vi mặc định). Chọn Giám sát để chỉ tính đơn thuộc các Giám sát đó vào badge/thẻ báo cáo \"cần xử lý\".")}</div>
               <Btn size="sm" variant="ghost" onClick={() => savePhuTrachGs.mutate()} disabled={savePhuTrachGs.isPending}>
-                Lưu khu vực phụ trách
-              </Btn>
+                {tr("Lưu khu vực phụ trách")}</Btn>
             </div>
           )}
         </div>
         {role === "Admin" ? (
-          <div className="text-xs text-[var(--ink-400)] italic">Vai trò Admin luôn xem được toàn bộ module - không cần tùy chỉnh riêng.</div>
+          <div className="text-xs text-[var(--ink-400)] italic">{tr("Vai trò Admin luôn xem được toàn bộ module - không cần tùy chỉnh riêng.")}</div>
         ) : (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">Module được xem (thẻ trong sidebar)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">{tr("Module được xem (thẻ trong sidebar)")}</label>
             <div className="flex flex-wrap gap-1.5">
               {CUSTOMIZABLE_MODULE_KEYS.map((m) => (
                 <button
@@ -716,14 +707,12 @@ function EditUserModal({
               ))}
             </div>
             <div className="text-xs text-[var(--ink-400)] mt-1">
-              "Import data"/"Settings"/"Quản lý User" luôn chỉ dành cho Admin, không tùy chỉnh được ở đây. "Cài đặt cá nhân" luôn có sẵn cho mọi tài khoản.
-            </div>
+              {tr("\"Import data\"/\"Settings\"/\"Quản lý User\" luôn chỉ dành cho Admin, không tùy chỉnh được ở đây. \"Cài đặt cá nhân\" luôn có sẵn cho mọi tài khoản.")}</div>
           </div>
         )}
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>
-            Hủy
-          </Btn>
+            {tr("Hủy")}</Btn>
           <Btn
             onClick={() =>
               onSave(
@@ -746,8 +735,7 @@ function EditUserModal({
               )
             }
           >
-            Lưu
-          </Btn>
+            {tr("Lưu")}</Btn>
         </div>
       </div>
     </Modal>

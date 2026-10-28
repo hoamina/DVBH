@@ -11,6 +11,7 @@ import { useToast } from "./ui/Toast";
 import { setCachedEntry } from "../lib/closedDataCache";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import { fmtDateTime, CA_LAP_META, CA_LAP_KEYS, HINH_THUC_XU_LY_META, HINH_THUC_XU_LY_KEYS, type CaLapDetection, type CaLapLoai, type HinhThucXuLy } from "../types";
+import { tr } from "../i18n/tr";
 
 interface DetectionResponse {
   detection: CaLapDetection["detection"];
@@ -103,10 +104,10 @@ export function CaLapEvalModal({
         chot_hinh_thuc_xu_ly: effectiveHinhThuc,
       }),
     onSuccess: async () => {
-      addToast("Đã chốt lặp (Giám sát)");
+      addToast(tr("Đã chốt lặp (Giám sát)"));
       await refreshAfterSave();
     },
-    onError: () => addToast("Không thể chốt lặp, thử lại sau."),
+    onError: () => addToast(tr("Không thể chốt lặp, thử lại sau.")),
   });
 
   const saveQcLap = useMutation({
@@ -117,34 +118,33 @@ export function CaLapEvalModal({
         chot_hinh_thuc_xu_ly: effectiveQcHinhThuc,
       }),
     onSuccess: async () => {
-      addToast("Đã chốt lặp (QC)");
+      addToast(tr("Đã chốt lặp (QC)"));
       await refreshAfterSave();
     },
-    onError: () => addToast("Không thể chốt lặp, thử lại sau."),
+    onError: () => addToast(tr("Không thể chốt lặp, thử lại sau.")),
   });
 
   if (isLoading) {
     return (
-      <Modal open onClose={onClose} title={`Giải trình / Chốt lặp — Ca ${caseId}`} width="max-w-xl">
+      <Modal open onClose={onClose} title={tr("Giải trình / Chốt lặp — Ca {0}", caseId)} width="max-w-xl">
         <LoadingInline className="text-sm font-semibold text-[var(--ink-600)]" />
       </Modal>
     );
   }
 
   return (
-    <Modal open onClose={onClose} title={`Giải trình / Chốt lặp — Ca ${caseId}`} width="max-w-xl">
+    <Modal open onClose={onClose} title={tr("Giải trình / Chốt lặp — Ca {0}", caseId)} width="max-w-xl">
       <div className="space-y-3">
         {!detection && (
           <div className="bg-slate-50 border border-[var(--line)] rounded-lg p-2.5 text-xs text-[var(--ink-500)] italic">
-            💡 Lưu ý: Ca này không (còn) thuộc diện ca lặp (cách ca liền trước quá 45 ngày, hoặc không có ca liền trước cùng serial) nhưng bạn vẫn có thể thực hiện đánh giá.
-          </div>
+            {tr("💡 Lưu ý: Ca này không (còn) thuộc diện ca lặp (cách ca liền trước quá 45 ngày, hoặc không có ca liền trước cùng serial) nhưng bạn vẫn có thể thực hiện đánh giá.")}</div>
         )}
         <Card className="p-3 divide-y divide-[var(--line)]">
           <div className="pb-2.5">
-          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">Giám sát (lần 1)</div>
+          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">{tr("Giám sát (lần 1)")}</div>
           {canGsLap ? (
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Hình thức xử lý</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Hình thức xử lý")}</label>
               <ChoiceSelect
                 value={effectiveHinhThuc}
                 onChange={(v) => {
@@ -154,7 +154,7 @@ export function CaLapEvalModal({
                 className="w-full"
                 options={HINH_THUC_XU_LY_KEYS.map((k) => ({ value: k, label: HINH_THUC_XU_LY_META[k].label }))}
               />
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá lặp</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Đánh giá lặp")}</label>
               <ChoiceSelect
                 value={effectiveChotDanhGiaLap}
                 onChange={(v) => {
@@ -170,18 +170,18 @@ export function CaLapEvalModal({
                   }
                 }}
                 className="w-full"
-                options={[{ value: "", label: "— Chọn đánh giá —" }, ...CA_LAP_KEYS.map((k) => ({ value: k, label: CA_LAP_META[k].label }))]}
+                options={[{ value: "", label: tr("— Chọn đánh giá —") }, ...CA_LAP_KEYS.map((k) => ({ value: k, label: CA_LAP_META[k].label }))]}
               />
               <textarea
                 value={effectiveDienGiaiLap}
                 onChange={(e) => setGsLapForm({ ...gsLapForm, dien_giai_lap: e.target.value })}
                 rows={2}
-                placeholder="Mô tả nguyên nhân, bối cảnh…"
+                placeholder={tr("Mô tả nguyên nhân, bối cảnh…")}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
               />
               <div className="flex items-center gap-2 flex-wrap">
                 <Btn size="sm" onClick={() => saveGsLap.mutate()} disabled={!effectiveChotDanhGiaLap || saveGsLap.isPending}>
-                  {saveGsLap.isPending ? "Đang lưu…" : "🔒 Chốt lặp"}
+                  {saveGsLap.isPending ? tr("Đang lưu…") : tr("🔒 Chốt lặp")}
                 </Btn>
                 {giaiTrinhLap?.nguoi_giai_trinh && (
                   <span className="text-xs text-[var(--ink-400)]">
@@ -195,7 +195,7 @@ export function CaLapEvalModal({
               {giaiTrinhLap?.chot_danh_gia_lap ? (
                 <>
                   <Badge tone="ocean">{CA_LAP_META[giaiTrinhLap.chot_danh_gia_lap].label}</Badge>
-                  <span className="text-[var(--ink-400)]">Hình thức: {giaiTrinhLap.chot_hinh_thuc_xu_ly ? HINH_THUC_XU_LY_META[giaiTrinhLap.chot_hinh_thuc_xu_ly].label : "—"}</span>
+                  <span className="text-[var(--ink-400)]">{tr("Hình thức:")} {giaiTrinhLap.chot_hinh_thuc_xu_ly ? HINH_THUC_XU_LY_META[giaiTrinhLap.chot_hinh_thuc_xu_ly].label : "—"}</span>
                   {giaiTrinhLap.nguoi_giai_trinh && (
                     <span className="text-[var(--ink-400)]">
                       · {formatPersonDisplay(giaiTrinhLap.nguoi_giai_trinh, personDir)} · {fmtDateTime(giaiTrinhLap.ngay_giai_trinh)}
@@ -203,14 +203,14 @@ export function CaLapEvalModal({
                   )}
                 </>
               ) : (
-                <span className="text-[var(--ink-400)] italic">Chưa có giải trình.</span>
+                <span className="text-[var(--ink-400)] italic">{tr("Chưa có giải trình.")}</span>
               )}
             </div>
           )}
         </div>
 
         <div className="pt-2.5">
-          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">QC chốt (lần 2)</div>
+          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">{tr("QC chốt (lần 2)")}</div>
           {canQcLap ? (
             <div className="space-y-1.5">
               <ChoiceSelect
@@ -229,9 +229,9 @@ export function CaLapEvalModal({
                   }
                 }}
                 className="w-full"
-                options={[{ value: "", label: "— Chọn đánh giá —" }, ...CA_LAP_KEYS.map((k) => ({ value: k, label: CA_LAP_META[k].label }))]}
+                options={[{ value: "", label: tr("— Chọn đánh giá —") }, ...CA_LAP_KEYS.map((k) => ({ value: k, label: CA_LAP_META[k].label }))]}
               />
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Hình thức xử lý</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Hình thức xử lý")}</label>
               <ChoiceSelect
                 value={effectiveQcHinhThuc}
                 onChange={(v) => {
@@ -245,12 +245,12 @@ export function CaLapEvalModal({
                 value={effectiveQcGhiChu}
                 onChange={(e) => setQcLapForm({ ...qcLapForm, qc_ghi_chu: e.target.value })}
                 rows={2}
-                placeholder="Ghi chú kiểm tra, đối chiếu…"
+                placeholder={tr("Ghi chú kiểm tra, đối chiếu…")}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
               />
               <div className="flex items-center gap-2 flex-wrap">
                 <Btn size="sm" onClick={() => saveQcLap.mutate()} disabled={!effectiveQcChot || saveQcLap.isPending}>
-                  {saveQcLap.isPending ? "Đang lưu…" : "🔒 Chốt lặp"}
+                  {saveQcLap.isPending ? tr("Đang lưu…") : tr("🔒 Chốt lặp")}
                 </Btn>
                 {giaiTrinhLap?.nguoi_qc && (
                   <span className="text-xs text-[var(--ink-400)]">
@@ -271,7 +271,7 @@ export function CaLapEvalModal({
                   )}
                 </>
               ) : (
-                <span className="text-[var(--ink-400)] italic">Chưa có chốt từ QC.</span>
+                <span className="text-[var(--ink-400)] italic">{tr("Chưa có chốt từ QC.")}</span>
               )}
             </div>
           )}

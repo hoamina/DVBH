@@ -7,6 +7,7 @@ import { useToast } from "./ui/Toast";
 import { extractMaKtv, useKtvPhoneMap, KTV_PHONE_QUERY_KEY } from "../lib/ktvPhone";
 import type { VaiTro } from "../auth/AuthContext";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { tr } from "../i18n/tr";
 
 /** Vai tro duoc them/sua/xoa SDT KTV qua bam ten (CHOT 2026-08-06) - khop dung nhom ktvWriteRoles o
  * backend/src/routes/settings.ts, giu 2 noi nay dong bo neu doi quyen. */
@@ -28,9 +29,9 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
     if (!entry?.sdt) return;
     try {
       await navigator.clipboard.writeText(entry.sdt);
-      addToast("Đã sao chép số điện thoại");
+      addToast(tr("Đã sao chép số điện thoại"));
     } catch {
-      addToast("Không thể sao chép, thử lại sau.");
+      addToast(tr("Không thể sao chép, thử lại sau."));
     }
   }
 
@@ -56,7 +57,7 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
           <button
             type="button"
             onClick={copyPhone}
-            title="Bấm để sao chép số điện thoại"
+            title={tr("Bấm để sao chép số điện thoại")}
             className="focus-ring shrink-0 inline-flex items-center gap-0.5 text-[var(--ocean-600)] hover:text-[var(--ocean-700)]"
           >
             📞 {entry.sdt}
@@ -69,7 +70,7 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
             e.stopPropagation();
             setOpen(true);
           }}
-          title="Xem / sửa thông tin kỹ thuật viên"
+          title={tr("Xem / sửa thông tin kỹ thuật viên")}
           className="focus-ring shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] leading-none text-[var(--ink-400)] hover:text-[var(--ocean-600)] hover:bg-slate-100"
         >
           ⓘ
@@ -105,75 +106,75 @@ function KtvPhoneModal({ maKtv, kyThuatVien, canEdit, onClose }: { maKtv: string
   const save = useMutation({
     mutationFn: () => api.post("/settings/ktv-lien-he", { ma_ktv: maKtv, ten_hien_thi: tenHienThi || undefined, sdt, ghi_chu: ghiChu || undefined }),
     onSuccess: async () => {
-      addToast("Đã lưu số điện thoại KTV");
+      addToast(tr("Đã lưu số điện thoại KTV"));
       await invalidate();
       onClose();
     },
-    onError: () => addToast("Không thể lưu, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu, thử lại sau.")),
   });
 
   const remove = useMutation({
     mutationFn: () => api.delete(`/settings/ktv-lien-he/${encodeURIComponent(maKtv)}`),
     onSuccess: async () => {
-      addToast("Đã xóa số điện thoại KTV");
+      addToast(tr("Đã xóa số điện thoại KTV"));
       await invalidate();
       onClose();
     },
-    onError: () => addToast("Không thể xóa, thử lại sau."),
+    onError: () => addToast(tr("Không thể xóa, thử lại sau.")),
   });
 
   return (
-    <Modal open onClose={onClose} title="Số điện thoại kỹ thuật viên" width="max-w-sm">
+    <Modal open onClose={onClose} title={tr("Số điện thoại kỹ thuật viên")} width="max-w-sm">
       <div className="space-y-3 text-sm">
         <div>
-          <div className="text-xs font-semibold text-[var(--ink-400)] mb-1">Mã KTV</div>
+          <div className="text-xs font-semibold text-[var(--ink-400)] mb-1">{tr("Mã KTV")}</div>
           <div className="font-mono text-xs text-[var(--ink-600)]">{maKtv}</div>
         </div>
         {canEdit ? (
           <>
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-400)]">Tên hiển thị</label>
+              <label className="block text-xs font-semibold text-[var(--ink-400)]">{tr("Tên hiển thị")}</label>
               <input value={tenHienThi} onChange={(e) => setTenHienThi(e.target.value)} className="focus-ring block w-full min-w-0 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-400)]">Số điện thoại</label>
+              <label className="block text-xs font-semibold text-[var(--ink-400)]">{tr("Số điện thoại")}</label>
               <input value={sdt} onChange={(e) => setSdt(e.target.value)} placeholder="09xxxxxxxx" className="focus-ring block w-full min-w-0 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+              <label className="block text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
               <textarea value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} rows={2} className="focus-ring block w-full min-w-0 resize-none border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div className="flex items-center gap-2 pt-1">
               <Btn size="sm" onClick={() => save.mutate()} disabled={!sdt.trim() || save.isPending}>
-                {save.isPending ? "Đang lưu…" : "Lưu"}
+                {save.isPending ? tr("Đang lưu…") : tr("Lưu")}
               </Btn>
               {entry && (
                 <Btn size="sm" variant="danger" onClick={() => remove.mutate()} disabled={remove.isPending}>
-                  {remove.isPending ? "Đang xóa…" : "Xóa"}
+                  {remove.isPending ? tr("Đang xóa…") : tr("Xóa")}
                 </Btn>
               )}
             </div>
             {entry?.nguoi_cap_nhat && (
               <div className="text-xs text-[var(--ink-400)]">
-                Cập nhật gần nhất: {formatPersonDisplay(entry.nguoi_cap_nhat, personDir)} · {entry.ngay_cap_nhat}
+                {tr("Cập nhật gần nhất:")} {formatPersonDisplay(entry.nguoi_cap_nhat, personDir)} · {entry.ngay_cap_nhat}
               </div>
             )}
           </>
         ) : entry ? (
           <>
             <div>
-              <div className="text-xs font-semibold text-[var(--ink-400)] mb-1">Số điện thoại</div>
-              <div className="text-[var(--ocean-600)] font-semibold">📞 {entry.sdt ?? "Chưa có SĐT"}</div>
+              <div className="text-xs font-semibold text-[var(--ink-400)] mb-1">{tr("Số điện thoại")}</div>
+              <div className="text-[var(--ocean-600)] font-semibold">📞 {entry.sdt ?? tr("Chưa có SĐT")}</div>
             </div>
             {entry.ghi_chu && (
               <div>
-                <div className="text-xs font-semibold text-[var(--ink-400)] mb-1">Ghi chú</div>
+                <div className="text-xs font-semibold text-[var(--ink-400)] mb-1">{tr("Ghi chú")}</div>
                 <div>{entry.ghi_chu}</div>
               </div>
             )}
           </>
         ) : (
-          <div className="text-[var(--ink-400)] italic">Chưa có số điện thoại được ghi nhận.</div>
+          <div className="text-[var(--ink-400)] italic">{tr("Chưa có số điện thoại được ghi nhận.")}</div>
         )}
       </div>
     </Modal>

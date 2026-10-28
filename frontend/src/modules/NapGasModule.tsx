@@ -19,6 +19,7 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import { useDiaGioiLoc, gopBangTheoTinh, soSanhTen } from "../lib/diaGioi";
+import { tr } from "../i18n/tr";
 
 interface NapGasCase {
   id: string;
@@ -47,19 +48,19 @@ interface KhuVucRow {
 }
 
 const REPORT_DIM_OPTIONS = [
-  { value: "khu_vuc", label: "Khu vực" },
-  { value: "tinh", label: "Tỉnh" },
-  { value: "doi_tac", label: "Đối tác" },
-  { value: "hang", label: "Hãng" },
+  { value: "khu_vuc", label: tr("Khu vực") },
+  { value: "tinh", label: tr("Tỉnh") },
+  { value: "doi_tac", label: tr("Đối tác") },
+  { value: "hang", label: tr("Hãng") },
   { value: "nhom_san_pham", label: "Model" },
-  { value: "nhom_kh", label: "Nhóm KH" },
-  { value: "nganh", label: "Ngành" },
+  { value: "nhom_kh", label: tr("Nhóm KH") },
+  { value: "nganh", label: tr("Ngành") },
 ];
 
 const TRANG_THAI_OPTIONS = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "da-danh-gia", label: "Đã đánh giá" },
-  { value: "chua-danh-gia", label: "Chưa đánh giá" },
+  { value: "", label: tr("Tất cả trạng thái") },
+  { value: "da-danh-gia", label: tr("Đã đánh giá") },
+  { value: "chua-danh-gia", label: tr("Chưa đánh giá") },
 ];
 
 // Cot phan loai danh gia nap gas trong bang bao cao theo khu vuc - moi phan tu 1 cot rieng, khop
@@ -74,8 +75,8 @@ const DANH_GIA_BREAKDOWN_COLS: { key: keyof KhuVucRow; loai: NapGasDanhGiaLoai }
 ];
 
 const VIEWS = [
-  { key: "tong-quan", label: "Tổng quan" },
-  { key: "danh-sach", label: "Danh sách chi tiết" },
+  { key: "tong-quan", label: tr("Tổng quan") },
+  { key: "danh-sach", label: tr("Danh sách chi tiết") },
 ];
 
 export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string) => void }) {
@@ -194,18 +195,18 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
 
   const columns: Column<NapGasCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
+    { key: "khach_hang", header: tr("Khách hàng"), render: (c) => c.khach_hang ?? "—" },
+    { key: "ky_thuat_vien", header: tr("Kỹ thuật viên"), render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     {
       key: "danh_gia_nap_gas",
-      header: "Đánh giá nạp gas",
-      render: (c) => (c.danh_gia_nap_gas ? <Badge tone="ocean">{NAP_GAS_DANH_GIA_META[c.danh_gia_nap_gas].label}</Badge> : <Badge tone="coral">Chưa đánh giá</Badge>),
+      header: tr("Đánh giá nạp gas"),
+      render: (c) => (c.danh_gia_nap_gas ? <Badge tone="ocean">{NAP_GAS_DANH_GIA_META[c.danh_gia_nap_gas].label}</Badge> : <Badge tone="coral">{tr("Chưa đánh giá")}</Badge>),
     },
-    { key: "phi_dich_vu", header: "Phí dịch vụ", render: (c) => (c.phi_dich_vu ? NAP_GAS_PHI_DICH_VU_META[c.phi_dich_vu].label : "—") },
-    { key: "nguoi_chot", header: "Người chốt", render: (c) => (c.nguoi_chot ? formatPersonDisplay(c.nguoi_chot, personDir) : "—") },
-    { key: "ngay_chot", header: "Ngày chốt", render: (c) => <span className="text-xs">{fmtDateTime(c.ngay_chot)}</span> },
-    { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "phi_dich_vu", header: tr("Phí dịch vụ"), render: (c) => (c.phi_dich_vu ? NAP_GAS_PHI_DICH_VU_META[c.phi_dich_vu].label : "—") },
+    { key: "nguoi_chot", header: tr("Người chốt"), render: (c) => (c.nguoi_chot ? formatPersonDisplay(c.nguoi_chot, personDir) : "—") },
+    { key: "ngay_chot", header: tr("Ngày chốt"), render: (c) => <span className="text-xs">{fmtDateTime(c.ngay_chot)}</span> },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
@@ -217,8 +218,8 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
         setPage(1);
       }}
       options={[
-        { value: "", label: "Tất cả khu vực" },
-        { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+        { value: "", label: tr("Tất cả khu vực") },
+        { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
         ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
       ]}
       myAreas={myAreas}
@@ -248,11 +249,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
   return (
     <div className="anim-in">
       <div className="text-sm text-[var(--ink-600)] mb-4">
-        Danh sách ca được import đánh dấu <b>"Nghi ngờ nạp gas"</b> — cố định theo lần import gần nhất (không tự đổi
-        cho đến khi có import mới). Chỉ tính ca đã <b>"Hoàn thành XLSC"</b> (nguồn dữ liệu này chỉ được điền khi CRM
-        đóng ca) — quản lý theo khu vực + tháng đóng, giống module Ca lặp. Đánh giá nạp gas được chốt trong popup chi
-        tiết ca (tab "Đánh giá nạp gas").
-      </div>
+        {tr("Danh sách ca được import đánh dấu")} <b>{tr("\"Nghi ngờ nạp gas\"")}</b>  {tr("— cố định theo lần import gần nhất (không tự đổi cho đến khi có import mới). Chỉ tính ca đã")} <b>{tr("\"Hoàn thành XLSC\"")}</b>  {tr("(nguồn dữ liệu này chỉ được điền khi CRM đóng ca) — quản lý theo khu vực + tháng đóng, giống module Ca lặp. Đánh giá nạp gas được chốt trong popup chi tiết ca (tab \"Đánh giá nạp gas\").")}</div>
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
 
@@ -264,16 +261,16 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Tổng ca nghi ngờ nạp gas" value={tongQuanKpi.tong} tone="amber" sub="Hoàn thành XLSC trong tháng đã chọn" />
-            <StatCard label="Đã đánh giá" value={tongQuanKpi.daDanhGia} tone="teal" />
-            <StatCard label="Chưa đánh giá" value={tongQuanKpi.chuaDanhGia} tone="coral" sub="Bấm để xem danh sách" onClick={goToChuaDanhGia} />
+            <StatCard label={tr("Tổng ca nghi ngờ nạp gas")} value={tongQuanKpi.tong} tone="amber" sub={tr("Hoàn thành XLSC trong tháng đã chọn")} />
+            <StatCard label={tr("Đã đánh giá")} value={tongQuanKpi.daDanhGia} tone="teal" />
+            <StatCard label={tr("Chưa đánh giá")} value={tongQuanKpi.chuaDanhGia} tone="coral" sub={tr("Bấm để xem danh sách")} onClick={goToChuaDanhGia} />
           </div>
 
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
-                <div className="font-display font-bold text-sm">Báo cáo nghi ngờ nạp gas theo {REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label.toLowerCase()}</div>
-                <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.</div>
+                <div className="font-display font-bold text-sm">{tr("Báo cáo nghi ngờ nạp gas theo")} {REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label.toLowerCase()}</div>
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.")}</div>
               </div>
               <div className="flex items-center gap-2">
                 <Select value={reportDim} onChange={setReportDim} options={REPORT_DIM_OPTIONS} />
@@ -289,8 +286,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
                     )
                   }
                 >
-                  ⬇ Xuất Excel
-                </Btn>
+                  {tr("⬇ Xuất Excel")}</Btn>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -298,9 +294,9 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th className="py-2 pr-3">{REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label}</th>
-                    <th className="py-2 pr-3">Tổng ca</th>
-                    <th className="py-2 pr-3">Đã đánh giá</th>
-                    <th className="py-2 pr-3">Chưa đánh giá</th>
+                    <th className="py-2 pr-3">{tr("Tổng ca")}</th>
+                    <th className="py-2 pr-3">{tr("Đã đánh giá")}</th>
+                    <th className="py-2 pr-3">{tr("Chưa đánh giá")}</th>
                     {DANH_GIA_BREAKDOWN_COLS.map((col) => (
                       <th key={col.key} className="py-2 pr-3 whitespace-nowrap">
                         {NAP_GAS_DANH_GIA_META[col.loai].label}
@@ -311,7 +307,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
                 <tbody>
                   {sortedKhuVucRows.length > 0 && (
                     <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                      <td className="py-2 pr-3">Tổng cộng</td>
+                      <td className="py-2 pr-3">{tr("Tổng cộng")}</td>
                       <td className="py-2 pr-3 font-mono">{tongQuanKpi.tong}</td>
                       <td className="py-2 pr-3 font-mono">{tongQuanKpi.daDanhGia}</td>
                       <td className="py-2 pr-3 font-mono">{tongQuanKpi.chuaDanhGia}</td>
@@ -350,8 +346,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
                   {sortedKhuVucRows.length === 0 && (
                     <tr>
                       <td colSpan={4 + DANH_GIA_BREAKDOWN_COLS.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                        Không có dữ liệu.
-                      </td>
+                        {tr("Không có dữ liệu.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -377,13 +372,12 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
           <div className="flex items-center justify-between mb-1">
             <div />
             <Btn variant="ghost" size="sm" onClick={handleExport}>
-              ⬇ Xuất Excel
-            </Btn>
+              {tr("⬇ Xuất Excel")}</Btn>
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Ca nghi ngờ nạp gas trong tháng" value={data?.total ?? 0} tone="amber" />
-            <StatCard label="Chưa đánh giá" value={data?.chuaDanhGia ?? 0} tone="coral" onClick={goToChuaDanhGia} />
+            <StatCard label={tr("Ca nghi ngờ nạp gas trong tháng")} value={data?.total ?? 0} tone="amber" />
+            <StatCard label={tr("Chưa đánh giá")} value={data?.chuaDanhGia ?? 0} tone="coral" onClick={goToChuaDanhGia} />
           </div>
 
           <PaginatedTable
@@ -398,7 +392,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
             onPageChange={setPage}
             onRowClick={(c) => openCase(c.id, "nap-gas")}
             rowKey={(c) => c.id}
-            emptyText="Không có ca nghi ngờ nạp gas trong tháng này."
+            emptyText={tr("Không có ca nghi ngờ nạp gas trong tháng này.")}
             storageKey="nap-gas-list"
           />
         </div>

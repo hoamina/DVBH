@@ -12,6 +12,8 @@ import { LOAI_LOI_META, fmtDate, type LoaiLoi } from "../types";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { LOAI_TRU_LOAI_LOI } from "./KhaoSatLoaiTru";
+import { tr } from "../i18n/tr";
+
 
 // Tab "Theo dõi KTV loại trừ" - Quản lý khảo sát (2026-10-17, backend GET /survey/loai-tru/theo-doi). Mỗi dòng danh sách
 // loại trừ: so TỶ LỆ NGHI NGỜ loại lỗi đó trong kỳ loại trừ với N ngày ngay trước kỳ -> quản lý thấy nhanh KTV nào đột
@@ -58,9 +60,9 @@ const fmtPct = (v: number | null) => (v === null ? "—" : `${v.toFixed(1)}%`);
 const fmtChenh = (v: number | null) => (v === null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}`);
 
 const DANH_GIA_META: Record<DanhGia, { label: string; tone: "coral" | "gray" | "teal" }> = {
-  dot_bien: { label: "Đột biến – xem lại", tone: "coral" },
-  it_du_lieu: { label: "Ít dữ liệu", tone: "gray" },
-  on_dinh: { label: "Ổn định", tone: "teal" },
+  dot_bien: { label: tr("Đột biến – xem lại"), tone: "coral" },
+  it_du_lieu: { label: tr("Ít dữ liệu"), tone: "gray" },
+  on_dinh: { label: tr("Ổn định"), tone: "teal" },
 };
 
 const THU_TU_DANH_GIA: Record<DanhGia, number> = { dot_bien: 0, on_dinh: 1, it_du_lieu: 2 };
@@ -160,18 +162,18 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
 
   // Chu thich cach tinh tung cot (hien qua dau "(?)" o tieu de) - nguoi xem tu hieu, khong phai hoi lai.
   const INFO = {
-    khuVuc: "Khu vực có nhiều ca tiếp nhận nhất của KTV, tính gộp cả 2 kỳ (trước và trong kỳ loại trừ).",
-    ky: "Khoảng ngày khai báo trong Danh sách loại trừ, so với ngày CSKH tiếp nhận ca. \"Hết hạn\" = đã qua ngày kết thúc.",
-    truoc: `Tỷ lệ nghi ngờ = số ca bị hệ thống gắn cờ đúng loại lỗi được loại trừ ÷ số ca tiếp nhận của KTV, trong ${soNgayTruoc} ngày ngay trước ngày bắt đầu loại trừ. Trong ngoặc: (số ca nghi ngờ / số ca tiếp nhận).`,
-    trong: "Cùng cách tính như cột \"Trước\", từ ngày bắt đầu loại trừ đến hôm nay (hoặc đến ngày kết thúc nếu kỳ đã hết hạn). Đây là tỷ lệ nghi ngờ, không phải vi phạm xác nhận - trong kỳ loại trừ các ca này không được gọi khảo sát.",
-    chenh: `= Tỷ lệ trong kỳ − tỷ lệ trước, đơn vị điểm % (vd 20% lên 30% là +10). (×n) = tỷ lệ trong kỳ ÷ tỷ lệ trước. Đỏ = tăng từ ${nguongDiem} điểm trở lên (ngưỡng đột biến), xanh = giảm.`,
-    danhGia: `Đột biến – xem lại: chênh lệch ≥ ${nguongDiem} điểm % VÀ mỗi kỳ có ít nhất ${soCaToiThieu} ca tiếp nhận. Ít dữ liệu: 1 trong 2 kỳ có dưới ${soCaToiThieu} ca nên tỷ lệ chưa đáng tin. Ổn định: các trường hợp còn lại. Đổi ngưỡng ở ô phía trên.`,
-    soMuc: "Số dòng trong Danh sách loại trừ (1 dòng = 1 KTV × 1 loại lỗi × 1 kỳ) có khu vực chính là khu vực này, theo bộ lọc loại lỗi và kỳ đang chọn.",
-    soDotBien: "Số dòng loại trừ của khu vực được đánh giá \"Đột biến – xem lại\" theo ngưỡng đang chọn.",
-    soItDuLieu: `Số dòng loại trừ của khu vực có 1 trong 2 kỳ dưới ${soCaToiThieu} ca tiếp nhận (chưa đủ để đánh giá).`,
-    kvTruoc: `Cộng dồn mọi KTV loại trừ của khu vực: tổng ca nghi ngờ ÷ tổng ca tiếp nhận trong ${soNgayTruoc} ngày trước kỳ loại trừ của từng KTV.`,
-    kvTrong: "Cộng dồn mọi KTV loại trừ của khu vực: tổng ca nghi ngờ ÷ tổng ca tiếp nhận trong kỳ loại trừ.",
-    kvChenh: "= Tỷ lệ trong kỳ − tỷ lệ trước của cả khu vực, đơn vị điểm %.",
+    khuVuc: tr("Khu vực có nhiều ca tiếp nhận nhất của KTV, tính gộp cả 2 kỳ (trước và trong kỳ loại trừ)."),
+    ky: tr("Khoảng ngày khai báo trong Danh sách loại trừ, so với ngày CSKH tiếp nhận ca. \"Hết hạn\" = đã qua ngày kết thúc."),
+    truoc: tr("Tỷ lệ nghi ngờ = số ca bị hệ thống gắn cờ đúng loại lỗi được loại trừ ÷ số ca tiếp nhận của KTV, trong {0} ngày ngay trước ngày bắt đầu loại trừ. Trong ngoặc: (số ca nghi ngờ / số ca tiếp nhận).", soNgayTruoc),
+    trong: tr("Cùng cách tính như cột \"Trước\", từ ngày bắt đầu loại trừ đến hôm nay (hoặc đến ngày kết thúc nếu kỳ đã hết hạn). Đây là tỷ lệ nghi ngờ, không phải vi phạm xác nhận - trong kỳ loại trừ các ca này không được gọi khảo sát."),
+    chenh: tr("= Tỷ lệ trong kỳ − tỷ lệ trước, đơn vị điểm % (vd 20% lên 30% là +10). (×n) = tỷ lệ trong kỳ ÷ tỷ lệ trước. Đỏ = tăng từ {0} điểm trở lên (ngưỡng đột biến), xanh = giảm.", nguongDiem),
+    danhGia: tr("Đột biến – xem lại: chênh lệch ≥ {0} điểm % VÀ mỗi kỳ có ít nhất {1} ca tiếp nhận. Ít dữ liệu: 1 trong 2 kỳ có dưới {2} ca nên tỷ lệ chưa đáng tin. Ổn định: các trường hợp còn lại. Đổi ngưỡng ở ô phía trên.", nguongDiem, soCaToiThieu, soCaToiThieu),
+    soMuc: tr("Số dòng trong Danh sách loại trừ (1 dòng = 1 KTV × 1 loại lỗi × 1 kỳ) có khu vực chính là khu vực này, theo bộ lọc loại lỗi và kỳ đang chọn."),
+    soDotBien: tr("Số dòng loại trừ của khu vực được đánh giá \"Đột biến – xem lại\" theo ngưỡng đang chọn."),
+    soItDuLieu: tr("Số dòng loại trừ của khu vực có 1 trong 2 kỳ dưới {0} ca tiếp nhận (chưa đủ để đánh giá).", soCaToiThieu),
+    kvTruoc: tr("Cộng dồn mọi KTV loại trừ của khu vực: tổng ca nghi ngờ ÷ tổng ca tiếp nhận trong {0} ngày trước kỳ loại trừ của từng KTV.", soNgayTruoc),
+    kvTrong: tr("Cộng dồn mọi KTV loại trừ của khu vực: tổng ca nghi ngờ ÷ tổng ca tiếp nhận trong kỳ loại trừ."),
+    kvChenh: tr("= Tỷ lệ trong kỳ − tỷ lệ trước của cả khu vực, đơn vị điểm %."),
   };
 
   const ktvLabel = (d: DongKtv) => (d.ten_ktv && d.ten_ktv !== d.ma_ktv ? `${d.ma_ktv} — ${d.ten_ktv}` : d.ma_ktv);
@@ -179,12 +181,12 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
 
   const cotKtv: Column<DongKtv>[] = [
     { key: "ktv", header: "KTV", render: (d) => <span className="text-xs font-semibold">{ktvLabel(d)}</span> },
-    { key: "khu_vuc", header: <ThInfo label="Khu vực" info={INFO.khuVuc} />, render: (d) => <span className="text-xs">{shortKhuVuc(d.khu_vuc)}</span> },
-    { key: "loai_loi", header: "Loại lỗi", render: (d) => <span className="text-xs">{LOAI_LOI_META[d.loai_loi]?.label ?? d.loai_loi}</span> },
-    { key: "ky", header: <ThInfo label="Kỳ loại trừ" info={INFO.ky} />, render: (d) => <span className="text-xs whitespace-nowrap">{kyLabel(d)}{!d.dangHieuLuc && <span className="text-[var(--ink-400)]"> (hết hạn)</span>}</span> },
+    { key: "khu_vuc", header: <ThInfo label={tr("Khu vực")} info={INFO.khuVuc} />, render: (d) => <span className="text-xs">{shortKhuVuc(d.khu_vuc)}</span> },
+    { key: "loai_loi", header: tr("Loại lỗi"), render: (d) => <span className="text-xs">{LOAI_LOI_META[d.loai_loi]?.label ?? d.loai_loi}</span> },
+    { key: "ky", header: <ThInfo label={tr("Kỳ loại trừ")} info={INFO.ky} />, render: (d) => <span className="text-xs whitespace-nowrap">{kyLabel(d)}{!d.dangHieuLuc && <span className="text-[var(--ink-400)]">  {tr("(hết hạn)")}</span>}</span> },
     {
       key: "truoc",
-      header: <ThInfo label={`Trước (${soNgayTruoc} ngày)`} info={INFO.truoc} />,
+      header: <ThInfo label={tr("Trước ({0} ngày)", soNgayTruoc)} info={INFO.truoc} />,
       render: (d) => (
         <span className="font-mono text-xs whitespace-nowrap">
           {fmtPct(d.tlTruoc)} <span className="text-[var(--ink-400)]">({d.nnTruoc}/{d.tnTruoc})</span>
@@ -193,7 +195,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
     },
     {
       key: "trong",
-      header: <ThInfo label="Trong kỳ loại trừ" info={INFO.trong} />,
+      header: <ThInfo label={tr("Trong kỳ loại trừ")} info={INFO.trong} />,
       render: (d) => (
         <span className="font-mono text-xs whitespace-nowrap">
           {fmtPct(d.tlTrong)} <span className="text-[var(--ink-400)]">({d.nnTrong}/{d.tnTrong})</span>
@@ -202,7 +204,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
     },
     {
       key: "chenh",
-      header: <ThInfo label="Chênh lệch (điểm %)" info={INFO.chenh} />,
+      header: <ThInfo label={tr("Chênh lệch (điểm %)")} info={INFO.chenh} />,
       render: (d) => (
         <span className={`font-mono text-xs font-semibold ${d.chenh !== null && d.chenh >= nguongDiem ? "text-[var(--coral-500)]" : d.chenh !== null && d.chenh < 0 ? "text-[var(--teal-500)]" : ""}`}>
           {fmtChenh(d.chenh)}
@@ -210,7 +212,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
         </span>
       ),
     },
-    { key: "danh_gia", header: <ThInfo label="Đánh giá" info={INFO.danhGia} />, render: (d) => <Badge tone={DANH_GIA_META[d.danhGia].tone}>{DANH_GIA_META[d.danhGia].label}</Badge> },
+    { key: "danh_gia", header: <ThInfo label={tr("Đánh giá")} info={INFO.danhGia} />, render: (d) => <Badge tone={DANH_GIA_META[d.danhGia].tone}>{DANH_GIA_META[d.danhGia].label}</Badge> },
   ];
 
   const xuatExcel = () =>
@@ -240,7 +242,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
         loai_loi: "Loại lỗi",
         tu_ngay: "Loại trừ từ",
         den_ngay: "Loại trừ đến",
-        tiep_nhan_truoc: `Tiếp nhận ${soNgayTruoc} ngày trước`,
+        tiep_nhan_truoc: tr("Tiếp nhận {0} ngày trước", soNgayTruoc),
         nghi_ngo_truoc: "Nghi ngờ trước",
         ty_le_truoc: "Tỷ lệ nghi ngờ trước (%)",
         tiep_nhan_trong: "Tiếp nhận trong kỳ",
@@ -256,67 +258,59 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
   return (
     <div className="mt-4">
       <div className="text-sm text-[var(--ink-600)] mb-3">
-        So sánh <b>tỷ lệ nghi ngờ</b> (số ca bị hệ thống gắn cờ lỗi / số ca tiếp nhận) của từng KTV trong danh sách loại trừ: <b>trong kỳ loại trừ</b> so
-        với <b>{soNgayTruoc} ngày ngay trước khi loại trừ</b>, đúng loại lỗi được loại trừ, theo ngày CSKH tiếp nhận ca. So tỷ lệ chứ không so số lượng
-        vì 2 kỳ dài khác nhau. Không so vi phạm xác nhận vì ca của KTV được loại trừ không còn được gọi khảo sát.
-      </div>
+        {tr("So sánh")} <b>{tr("tỷ lệ nghi ngờ")}</b>  {tr("(số ca bị hệ thống gắn cờ lỗi / số ca tiếp nhận) của từng KTV trong danh sách loại trừ:")} <b>{tr("trong kỳ loại trừ")}</b>  {tr("so với")} <b>{soNgayTruoc}  {tr("ngày ngay trước khi loại trừ")}</b>{tr(", đúng loại lỗi được loại trừ, theo ngày CSKH tiếp nhận ca. So tỷ lệ chứ không so số lượng vì 2 kỳ dài khác nhau. Không so vi phạm xác nhận vì ca của KTV được loại trừ không còn được gọi khảo sát.")}</div>
 
       <Card className="p-4 mb-4">
         <div className="flex flex-wrap items-end gap-3 text-sm">
           <div>
             <div className="text-xs text-[var(--ink-400)] mb-1">Xem theo</div>
-            <Select value={xemTheo} onChange={(v) => { setXemTheo(v as "ktv" | "khu_vuc"); setPage(1); }} options={[{ value: "ktv", label: "KTV" }, { value: "khu_vuc", label: "Khu vực" }]} />
+            <Select value={xemTheo} onChange={(v) => { setXemTheo(v as "ktv" | "khu_vuc"); setPage(1); }} options={[{ value: "ktv", label: "KTV" }, { value: "khu_vuc", label: tr("Khu vực") }]} />
           </div>
           <div>
-            <div className="text-xs text-[var(--ink-400)] mb-1">Loại lỗi</div>
+            <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Loại lỗi")}</div>
             <Select
               value={loaiLoi}
               onChange={(v) => { setLoaiLoi(v); setPage(1); }}
-              options={[{ value: "", label: "Tất cả loại lỗi" }, ...LOAI_TRU_LOAI_LOI.map((l) => ({ value: l, label: LOAI_LOI_META[l].label }))]}
+              options={[{ value: "", label: tr("Tất cả loại lỗi") }, ...LOAI_TRU_LOAI_LOI.map((l) => ({ value: l, label: LOAI_LOI_META[l].label }))]}
             />
           </div>
           <div>
-            <div className="text-xs text-[var(--ink-400)] mb-1">Kỳ loại trừ</div>
+            <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Kỳ loại trừ")}</div>
             <Select
               value={hieuLuc}
               onChange={(v) => { setHieuLuc(v as "dang" | "tat_ca"); setPage(1); }}
-              options={[{ value: "dang", label: "Đang hiệu lực" }, { value: "tat_ca", label: "Tất cả (gồm đã hết hạn ≤120 ngày)" }]}
+              options={[{ value: "dang", label: tr("Đang hiệu lực") }, { value: "tat_ca", label: tr("Tất cả (gồm đã hết hạn ≤120 ngày)") }]}
             />
           </div>
           <label className="text-xs text-[var(--ink-400)]">
-            Đột biến khi tăng ≥
-            <input type="number" min={0} step={1} value={nguongDiem} onChange={(e) => { setNguongDiem(Number(e.target.value) || 0); setPage(1); }} className="focus-ring ml-1 w-16 border border-[var(--line)] rounded-lg px-2 py-1 text-sm" />
-            <span className="ml-1">điểm %</span>
+            {tr("Đột biến khi tăng ≥")}<input type="number" min={0} step={1} value={nguongDiem} onChange={(e) => { setNguongDiem(Number(e.target.value) || 0); setPage(1); }} className="focus-ring ml-1 w-16 border border-[var(--line)] rounded-lg px-2 py-1 text-sm" />
+            <span className="ml-1">{tr("điểm %")}</span>
           </label>
           <label className="text-xs text-[var(--ink-400)]">
-            Mỗi kỳ tối thiểu
-            <input type="number" min={1} step={1} value={soCaToiThieu} onChange={(e) => { setSoCaToiThieu(Math.max(1, Number(e.target.value) || 1)); setPage(1); }} className="focus-ring ml-1 w-16 border border-[var(--line)] rounded-lg px-2 py-1 text-sm" />
+            {tr("Mỗi kỳ tối thiểu")}<input type="number" min={1} step={1} value={soCaToiThieu} onChange={(e) => { setSoCaToiThieu(Math.max(1, Number(e.target.value) || 1)); setPage(1); }} className="focus-ring ml-1 w-16 border border-[var(--line)] rounded-lg px-2 py-1 text-sm" />
             <span className="ml-1">ca</span>
           </label>
           <label className="text-xs inline-flex items-center gap-1 cursor-pointer">
             <input type="checkbox" checked={chiDotBien} onChange={(e) => { setChiDotBien(e.target.checked); setPage(1); }} />
-            Chỉ hiện đột biến
-          </label>
+            {tr("Chỉ hiện đột biến")}</label>
           <div className="ml-auto">
             <Btn variant="ghost" size="sm" onClick={xuatExcel} disabled={dongLoc.length === 0}>
-              ⬇ Xuất Excel
-            </Btn>
+              {tr("⬇ Xuất Excel")}</Btn>
           </div>
         </div>
       </Card>
 
       <div className="flex flex-wrap gap-3 mb-4">
-        <StatCard label="Mục loại trừ đang xem" value={dongLoc.length} tone="ocean" />
-        <StatCard label="KTV đột biến – cần xem lại" value={tongDotBien} tone="coral" onClick={() => { setXemTheo("ktv"); setChiDotBien(true); setPage(1); }} />
-        <StatCard label="Khu vực có KTV đột biến" value={soKvDotBien} tone="amber" onClick={() => setXemTheo("khu_vuc")} />
+        <StatCard label={tr("Mục loại trừ đang xem")} value={dongLoc.length} tone="ocean" />
+        <StatCard label={tr("KTV đột biến – cần xem lại")} value={tongDotBien} tone="coral" onClick={() => { setXemTheo("ktv"); setChiDotBien(true); setPage(1); }} />
+        <StatCard label={tr("Khu vực có KTV đột biến")} value={soKvDotBien} tone="amber" onClick={() => setXemTheo("khu_vuc")} />
       </div>
 
       {khuVucChon && xemTheo === "ktv" && (
         <div className="mb-2 text-xs">
-          Đang lọc khu vực <b>{shortKhuVuc(khuVucChon)}</b>{" "}
+          {tr("Đang lọc khu vực")} <b>{shortKhuVuc(khuVucChon)}</b>{" "}
           <button className="text-[var(--ocean-600)] hover:underline" onClick={() => setKhuVucChon("")}>
-            ✕ Bỏ lọc
-          </button>
+            {tr("✕ Bỏ lọc")}</button>
         </div>
       )}
 
@@ -333,7 +327,7 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
           onPageChange={setPage}
           rowKey={(d) => d.id}
           rowClassName={(d) => (d.danhGia === "dot_bien" ? "bg-[var(--coral-100)]" : "")}
-          emptyText="Không có KTV nào trong danh sách loại trừ khớp bộ lọc."
+          emptyText={tr("Không có KTV nào trong danh sách loại trừ khớp bộ lọc.")}
           storageKey="survey-loai-tru-theo-doi"
         />
       ) : (
@@ -341,19 +335,19 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
           columns={[
             {
               key: "khu_vuc",
-              header: "Khu vực",
+              header: tr("Khu vực"),
               render: (k) => (
                 <button className="text-[var(--ocean-600)] hover:underline text-left text-xs font-semibold" onClick={() => { setKhuVucChon(k.khu_vuc); setXemTheo("ktv"); setPage(1); }}>
                   {shortKhuVuc(k.khu_vuc)}
                 </button>
               ),
             },
-            { key: "so_muc", header: <ThInfo label="Số mục loại trừ" info={INFO.soMuc} />, render: (k) => <span className="font-mono text-xs">{k.soMuc}</span> },
-            { key: "dot_bien", header: <ThInfo label="KTV đột biến" info={INFO.soDotBien} />, render: (k) => (k.soDotBien > 0 ? <Badge tone="coral">{k.soDotBien}</Badge> : <span className="font-mono text-xs">0</span>) },
-            { key: "it", header: <ThInfo label="Ít dữ liệu" info={INFO.soItDuLieu} />, render: (k) => <span className="font-mono text-xs text-[var(--ink-400)]">{k.soItDuLieu}</span> },
-            { key: "truoc", header: <ThInfo label={`Tỷ lệ nghi ngờ trước (${soNgayTruoc} ngày)`} info={INFO.kvTruoc} />, render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTruoc)} <span className="text-[var(--ink-400)]">({k.nnTruoc}/{k.tnTruoc})</span></span> },
-            { key: "trong", header: <ThInfo label="Trong kỳ loại trừ" info={INFO.kvTrong} />, render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTrong)} <span className="text-[var(--ink-400)]">({k.nnTrong}/{k.tnTrong})</span></span> },
-            { key: "chenh", header: <ThInfo label="Chênh lệch (điểm %)" info={INFO.kvChenh} />, render: (k) => <span className="font-mono text-xs font-semibold">{fmtChenh(k.chenh)}</span> },
+            { key: "so_muc", header: <ThInfo label={tr("Số mục loại trừ")} info={INFO.soMuc} />, render: (k) => <span className="font-mono text-xs">{k.soMuc}</span> },
+            { key: "dot_bien", header: <ThInfo label={tr("KTV đột biến")} info={INFO.soDotBien} />, render: (k) => (k.soDotBien > 0 ? <Badge tone="coral">{k.soDotBien}</Badge> : <span className="font-mono text-xs">0</span>) },
+            { key: "it", header: <ThInfo label={tr("Ít dữ liệu")} info={INFO.soItDuLieu} />, render: (k) => <span className="font-mono text-xs text-[var(--ink-400)]">{k.soItDuLieu}</span> },
+            { key: "truoc", header: <ThInfo label={tr("Tỷ lệ nghi ngờ trước ({0} ngày)", soNgayTruoc)} info={INFO.kvTruoc} />, render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTruoc)} <span className="text-[var(--ink-400)]">({k.nnTruoc}/{k.tnTruoc})</span></span> },
+            { key: "trong", header: <ThInfo label={tr("Trong kỳ loại trừ")} info={INFO.kvTrong} />, render: (k) => <span className="font-mono text-xs">{fmtPct(k.tlTrong)} <span className="text-[var(--ink-400)]">({k.nnTrong}/{k.tnTrong})</span></span> },
+            { key: "chenh", header: <ThInfo label={tr("Chênh lệch (điểm %)")} info={INFO.kvChenh} />, render: (k) => <span className="font-mono text-xs font-semibold">{fmtChenh(k.chenh)}</span> },
           ]}
           rows={dongKhuVuc}
           isLoading={isLoading}
@@ -364,14 +358,12 @@ export function KhaoSatTheoDoiLoaiTruTab({ khuVucFilter }: { khuVucFilter: strin
           total={dongKhuVuc.length}
           onPageChange={() => {}}
           rowKey={(k) => k.khu_vuc}
-          emptyText="Không có dữ liệu."
+          emptyText={tr("Không có dữ liệu.")}
           storageKey="survey-loai-tru-theo-doi-kv"
         />
       )}
       <div className="text-xs text-[var(--ink-400)] mt-2">
-        Khu vực của KTV = khu vực có nhiều ca nhất của KTV trong 2 kỳ. "Ít dữ liệu" = một trong 2 kỳ có ít hơn {soCaToiThieu} ca tiếp nhận (tỷ lệ chưa đáng tin).
-        Bấm tên khu vực để xem danh sách KTV của khu vực đó.
-      </div>
+        {tr("Khu vực của KTV = khu vực có nhiều ca nhất của KTV trong 2 kỳ. \"Ít dữ liệu\" = một trong 2 kỳ có ít hơn")} {soCaToiThieu}  {tr("ca tiếp nhận (tỷ lệ chưa đáng tin). Bấm tên khu vực để xem danh sách KTV của khu vực đó.")}</div>
     </div>
   );
 }

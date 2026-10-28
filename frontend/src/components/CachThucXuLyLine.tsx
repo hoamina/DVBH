@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { tr } from "../i18n/tr";
 
 /**
  * "Cach thuc xu ly" trong "Chuoi lich su theo serial" (tab Ca lap cua CaseDetail, va popup ket qua
@@ -32,7 +33,7 @@ export function CachThucXuLyLine({ text }: { text: string }) {
       <span className={expanded ? "whitespace-pre-wrap" : "truncate block"} title={expanded ? undefined : summary}>
         🛠 {expanded ? text : summary || text}
       </span>
-      {hasMore && <span className="text-[var(--ocean-500)] font-semibold">{expanded ? " Thu gọn ↑" : " Xem đầy đủ ↓"}</span>}
+      {hasMore && <span className="text-[var(--ocean-500)] font-semibold">{expanded ? " " + tr("Thu gọn ↑") : " " + tr("Xem đầy đủ ↓")}</span>}
     </div>
   );
 }

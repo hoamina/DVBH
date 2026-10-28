@@ -10,6 +10,7 @@ import type { ThieuLkRow, LyDoChamRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel } from "./helpers";
 import { StatusBadge, TrangThaiChipFilter, BulkConfirmButton } from "./SharedUi";
+import { tr } from "../../i18n/tr";
 
 // ---------- Tab "Thieu linh kien" ----------
 
@@ -75,9 +76,9 @@ export function ThieuLkTab({
       setNgayDuKien("");
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
       invalidatePipelineCounts(qc);
-      addToast("Đã cập nhật trạng thái thiếu LK");
+      addToast(tr("Đã cập nhật trạng thái thiếu LK"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   // "Da ket thuc" la cua TN (khop cot "Admin xu ly" trong Excel goc), con lai la Kho. "Da huy bo"
@@ -134,13 +135,13 @@ export function ThieuLkTab({
       setSelected(new Set(failed.map(([lineId]) => lineId)));
       addToast(
         failed.length === 0
-          ? `Đã xử lý thành công ${entries.length} dòng`
-          : `Thành công ${entries.length - failed.length}/${entries.length} dòng — đã giữ lại các dòng lỗi, bấm lại để thử lại`,
+          ? tr("Đã xử lý thành công {0} dòng", entries.length)
+          : tr("Thành công {0}/{1} dòng — đã giữ lại các dòng lỗi, bấm lại để thử lại", entries.length - failed.length, entries.length),
       );
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
       invalidatePipelineCounts(qc);
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "rut gon cot mac dinh"): dat_don_hang_id/ten_ly_do
@@ -152,9 +153,9 @@ export function ThieuLkTab({
       header: <input type="checkbox" checked={rowsCoTheChon.length > 0 && selected.size === rowsCoTheChon.length} onChange={toggleSelectAll} />,
       render: (r: ThieuLkRow) => (eligibleBulkStates(r).length > 0 ? <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelectOne(r.id)} /> : null),
     },
-    { key: "id", header: "Mã TLK", render: (r) => <span className="font-mono text-xs">{r.id}</span> },
+    { key: "id", header: tr("Mã TLK"), render: (r) => <span className="font-mono text-xs">{r.id}</span> },
     {
-      key: "linh_kien", header: "Linh kiện",
+      key: "linh_kien", header: tr("Linh kiện"),
       render: (r) =>
         r.ma_lk ? (
           <>
@@ -165,10 +166,10 @@ export function ThieuLkTab({
           <span className="text-[var(--ink-400)]">—</span>
         ),
     },
-    { key: "nguoi_tao", header: "TN báo", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
-    { key: "ngay_tao", header: "Ngày báo", render: (r) => fmtDateTime(r.ngay_tao) },
-    { key: "ngay_du_kien_co_hang", header: "Ngày dự kiến có hàng", render: (r) => r.ngay_du_kien_co_hang ?? "—" },
-    { key: "trang_thai", header: "Trạng thái", render: (r) => <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} /> },
+    { key: "nguoi_tao", header: tr("TN báo"), render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
+    { key: "ngay_tao", header: tr("Ngày báo"), render: (r) => fmtDateTime(r.ngay_tao) },
+    { key: "ngay_du_kien_co_hang", header: tr("Ngày dự kiến có hàng"), render: (r) => r.ngay_du_kien_co_hang ?? "—" },
+    { key: "trang_thai", header: tr("Trạng thái"), render: (r) => <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} /> },
     {
       key: "actions", header: "",
       render: (r) => {
@@ -201,13 +202,13 @@ export function ThieuLkTab({
     },
   ];
   const optionalCols: Column<ThieuLkRow>[] = [
-    { key: "dat_don_hang_id", header: "Đơn hàng", render: (r) => <span className="font-mono text-xs">{r.dat_don_hang_id}</span> },
+    { key: "dat_don_hang_id", header: tr("Đơn hàng"), render: (r) => <span className="font-mono text-xs">{r.dat_don_hang_id}</span> },
     // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #20, sua lai gia dinh sai o vong ra soat truoc):
     // day la LY DO TN CHON LUC TU CHOI/BAO CHO HANG (tu dong sinh ticket khi ly do co co
     // quan_ly_don_thieu_linh_kien=1, xem migration 0065 + applyDonHangLog) - KHONG PHAI "tu PXK" nhu
     // gia dinh ban dau. Doi nhan cho dung nguon goc, tranh nham voi hanh dong "Kho da tiep nhan"
     // giai trinh THUC TE ngay ben canh (2 khai niem "ly do" khac nhau dung canh nhau).
-    { key: "ten_ly_do", header: "Lý do TN báo", render: (r) => r.ten_ly_do ?? "—" },
+    { key: "ten_ly_do", header: tr("Lý do TN báo"), render: (r) => r.ten_ly_do ?? "—" },
   ];
 
   return (
@@ -220,15 +221,15 @@ export function ThieuLkTab({
           tab nay nen ca thanh nay tro thanh khong-lam-gi vinh vien neu giu lai. */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-3 py-2">
-          <span className="text-sm">Đã chọn {selected.size} dòng</span>
+          <span className="text-sm">{tr("Đã chọn")} {selected.size}  {tr("dòng")}</span>
           {commonBulkStates.length === 0 ? (
-            <span className="text-xs text-[var(--ink-500)]">Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái</span>
+            <span className="text-xs text-[var(--ink-500)]">{tr("Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái")}</span>
           ) : (
             commonBulkStates.map((s) => (
               <BulkConfirmButton
                 key={s}
                 label={s}
-                confirmLabel={`Xác nhận chuyển ${selected.size} dòng sang "${trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, s)}"?`}
+                confirmLabel={tr("Xác nhận chuyển {0} dòng sang \"{1}\"?", selected.size, trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, s))}
                 count={selected.size}
                 onConfirm={() => bulkMutation.mutate(s)}
                 disabled={bulkMutation.isPending}
@@ -243,11 +244,11 @@ export function ThieuLkTab({
           dong cuoi hang. */}
       <PaginatedTable columns={cols} optionalColumns={optionalCols} rows={data?.rows ?? []} isLoading={isLoading} isError={isError} page={page} pageSize={20} total={data?.total ?? 0} onPageChange={setPage} rowKey={(r) => r.id} storageKey="dmlk-thieu-lk-list" />
       {actionId && (
-        <Modal open title={`Chuyển sang: ${actionTrangThai}`} onClose={() => setActionId(null)}>
+        <Modal open title={tr("Chuyển sang: {0}", actionTrangThai)} onClose={() => setActionId(null)}>
           <div className="space-y-3 text-sm">
             {isGiaiTrinh && (
               <div>
-                <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Ngày dự kiến có hàng</label>
+                <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">{tr("Ngày dự kiến có hàng")}</label>
                 <input
                   type="date"
                   value={ngayDuKien}
@@ -257,11 +258,11 @@ export function ThieuLkTab({
               </div>
             )}
             <div>
-              {isGiaiTrinh && <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Giải thích lý do thiếu hàng *</label>}
+              {isGiaiTrinh && <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">{tr("Giải thích lý do thiếu hàng *")}</label>}
               <input
                 value={ghiChu}
                 onChange={(e) => setGhiChu(e.target.value)}
-                placeholder={isGiaiTrinh ? "Bắt buộc - giải thích thực tế vì sao thiếu hàng" : "Ghi chú (tuỳ chọn)"}
+                placeholder={isGiaiTrinh ? tr("Bắt buộc - giải thích thực tế vì sao thiếu hàng") : tr("Ghi chú (tuỳ chọn)")}
                 className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
               {isGiaiTrinh && (giaiTrinhGoiYData?.rows.length ?? 0) > 0 && (
@@ -280,14 +281,13 @@ export function ThieuLkTab({
               )}
             </div>
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" size="sm" onClick={() => setActionId(null)}>Hủy</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => setActionId(null)}>{tr("Hủy")}</Btn>
               <Btn
                 size="sm"
                 onClick={() => actionId && logMutation.mutate({ id: actionId, trangThai: actionTrangThai, ghiChu, ngayDuKien: isGiaiTrinh ? ngayDuKien : undefined })}
                 disabled={logMutation.isPending || (isGiaiTrinh && !ghiChu.trim())}
               >
-                Xác nhận
-              </Btn>
+                {tr("Xác nhận")}</Btn>
             </div>
           </div>
         </Modal>

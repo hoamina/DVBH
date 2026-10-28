@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { tr } from "../i18n/tr";
 
 // "|" thay vi "," de tach cac gia tri da chon - mot so dim (vd "Nhom KH") co GIA TRI GOC da chua san
 // dau phay trong chinh no (vd "01. KH le, 03. KH DMX" la 1 gia tri DUY NHAT tren CRM, khong phai 2
@@ -12,7 +13,7 @@ function optValue(o: MultiSelectOption): string {
   return typeof o === "string" ? o : o.value;
 }
 function optLabel(o: MultiSelectOption): string {
-  return typeof o === "string" ? o : o.label;
+  return typeof o === "string" ? tr(o) : o.label;
 }
 
 /**
@@ -37,7 +38,7 @@ export function MultiSelectFilter({ label, value, onChange, options }: { label: 
   }
 
   const selectedOption = selected.length === 1 ? options.find((o) => optValue(o) === selected[0]) : undefined;
-  const buttonLabel = selected.length === 0 ? `Tất cả ${label.toLowerCase()}` : selected.length === 1 ? (selectedOption ? optLabel(selectedOption) : selected[0]) : `${label}: ${selected.length} đã chọn`;
+  const buttonLabel = selected.length === 0 ? tr("Tất cả {0}", label.toLowerCase()) : selected.length === 1 ? (selectedOption ? optLabel(selectedOption) : selected[0]) : tr("{0}: {1} đã chọn", label, selected.length);
 
   return (
     <div className="relative inline-block">
@@ -67,16 +68,15 @@ export function MultiSelectFilter({ label, value, onChange, options }: { label: 
                 autoFocus
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={`Tìm ${label.toLowerCase()}…`}
+                placeholder={tr("Tìm {0}…", label.toLowerCase())}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2 py-1 text-xs"
               />
             </div>
             {selected.length > 0 && (
               <button type="button" onClick={() => onChange("")} className="w-full text-left px-3 py-1.5 text-xs text-[var(--ocean-600)] hover:bg-slate-50 border-b border-[var(--line)] mb-1">
-                Bỏ chọn tất cả
-              </button>
+                {tr("Bỏ chọn tất cả")}</button>
             )}
-            {filteredOptions.length === 0 && <div className="px-3 py-1.5 text-xs text-[var(--ink-400)] italic">Không có kết quả</div>}
+            {filteredOptions.length === 0 && <div className="px-3 py-1.5 text-xs text-[var(--ink-400)] italic">{tr("Không có kết quả")}</div>}
             {filteredOptions.map((opt) => (
               <label key={optValue(opt)} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
                 <input type="checkbox" checked={selected.includes(optValue(opt))} onChange={() => toggle(optValue(opt))} className="w-3.5 h-3.5" />

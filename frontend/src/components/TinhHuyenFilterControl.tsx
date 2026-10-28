@@ -1,5 +1,6 @@
 import { Select } from "./ui/Select";
 import { useDiaGioiLoc, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
+import { tr } from "../i18n/tr";
 
 /**
  * Bo loc long nhau Tinh -> cap 2 theo che do "Địa giới cũ / mới" chung (lib/diaGioi.ts, 2026-10-10): cu = Tinh cu ->
@@ -30,13 +31,13 @@ export function TinhHuyenFilterControl({
           onTinhChange(v);
           onQuanHuyenChange("");
         }}
-        options={[{ value: "", label: `Tất cả ${NHAN_CAP_1[mode].toLowerCase()}` }, ...tinhOptions]}
+        options={[{ value: "", label: tr("Tất cả {0}", NHAN_CAP_1[mode].toLowerCase()) }, ...tinhOptions]}
       />
       {tinh && cap2.length > 0 && (
         <Select
           value={quanHuyen}
           onChange={onQuanHuyenChange}
-          options={[{ value: "", label: `Tất cả ${NHAN_CAP_2[mode].toLowerCase()}` }, ...cap2]}
+          options={[{ value: "", label: tr("Tất cả {0}", NHAN_CAP_2[mode].toLowerCase()) }, ...cap2]}
         />
       )}
     </div>

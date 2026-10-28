@@ -34,13 +34,15 @@ import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
 import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen, tachNhomDiaGioi, nhanTinh, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
+import { tr } from "../i18n/tr";
+
 
 function pct(a: number, b: number) {
   return b ? Math.round((a / b) * 1000) / 10 : 0;
 }
 
 function deltaSub(bucket: DeltaBucket): string {
-  return `Đầu ngày: ${bucket.baseline} · Đã xử lý: ${bucket.resolved} (${pct(bucket.resolved, bucket.baseline)}%)`;
+  return tr("Đầu ngày: {0} · Đã xử lý: {1} ({2}%)", bucket.baseline, bucket.resolved, pct(bucket.resolved, bucket.baseline));
 }
 
 // Tab "Ca da dong" trong Backlog: chon 1 thang, dung useDaDongChunked (snapshot R2 tung ngay, xem
@@ -101,13 +103,13 @@ function DaDongMonthList({
 
   const monthOptions = (monthsData?.months ?? []).map((m) => ({ value: m, label: m }));
   if (!monthOptions.some((o) => o.value === currentMonth)) {
-    monthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
+    monthOptions.unshift({ value: currentMonth, label: tr("{0} (hiện tại)", currentMonth) });
   }
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="text-xs font-semibold text-[var(--ink-400)]">Tháng:</span>
+        <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tháng:")}</span>
         <Select
           value={thang}
           onChange={(v) => {
@@ -126,8 +128,7 @@ function DaDongMonthList({
       </div>
       {throttled.length > 0 && (
         <div className="text-xs text-[var(--ink-400)] italic mb-2">
-          {throttled.length} ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.
-        </div>
+          {throttled.length}  {tr("ngày đang chờ đồng bộ (đã đạt giới hạn tải, tự thử lại sau ít phút) — vẫn hiển thị dữ liệu đã lưu gần nhất.")}</div>
       )}
       <PaginatedTable
         columns={columns}
@@ -141,7 +142,7 @@ function DaDongMonthList({
         onPageChange={setPage}
         onRowClick={onRowClick}
         rowKey={(c) => c.id}
-        emptyText="Không có ca nào trong tháng này."
+        emptyText={tr("Không có ca nào trong tháng này.")}
         storageKey="backlog-closed"
       />
     </div>
@@ -155,12 +156,12 @@ function DaDongMonthList({
 // thong) = tong tong_tuoi cua TAT CA ngay trong thang / tong so_ca cung ky - trung binh CONG DON
 // (weighted), khong phai trung binh cua cac trung binh ngay.
 const AGE_REPORT_DIM_OPTIONS = [
-  { value: "khu_vuc", label: "Khu vực" },
-  { value: "nhom_kh", label: "Nhóm KH" },
+  { value: "khu_vuc", label: tr("Khu vực") },
+  { value: "nhom_kh", label: tr("Nhóm KH") },
   { value: "ky_thuat_vien", label: "KTV" },
-  { value: "hang", label: "Hãng" },
-  { value: "tinh", label: "Tỉnh" },
-  { value: "doi_tac", label: "Đối tác" },
+  { value: "hang", label: tr("Hãng") },
+  { value: "tinh", label: tr("Tỉnh") },
+  { value: "doi_tac", label: tr("Đối tác") },
 ];
 
 interface AgeReportAggRow {
@@ -237,7 +238,7 @@ function BacklogAgeReportTab() {
   }, [rows, dim, sortBy, sortDir, dgMode, dgIdx]);
 
   const pagedRows = aggRows.slice((page - 1) * pageSize, page * pageSize);
-  const dimLabel = AGE_REPORT_DIM_OPTIONS.find((o) => o.value === dim)?.label ?? "Giá trị";
+  const dimLabel = AGE_REPORT_DIM_OPTIONS.find((o) => o.value === dim)?.label ?? tr("Giá trị");
 
   const columns: Column<AgeReportAggRow>[] = [
     {
@@ -248,21 +249,21 @@ function BacklogAgeReportTab() {
     },
     {
       key: "so_ca",
-      header: "Số ca (lượt/ngày)",
+      header: tr("Số ca (lượt/ngày)"),
       sortKey: "so_ca",
       className: "text-right",
       render: (r) => r.so_ca.toLocaleString("vi-VN"),
     },
     {
       key: "tong_tuoi",
-      header: "Tổng tuổi tồn (ngày)",
+      header: tr("Tổng tuổi tồn (ngày)"),
       sortKey: "tong_tuoi",
       className: "text-right",
       render: (r) => r.tong_tuoi.toLocaleString("vi-VN"),
     },
     {
       key: "avg",
-      header: "TB tuổi tồn (ngày)",
+      header: tr("TB tuổi tồn (ngày)"),
       sortKey: "avg",
       className: "text-right font-semibold",
       render: (r) => avgTuoiTon(r).toFixed(1),
@@ -271,28 +272,28 @@ function BacklogAgeReportTab() {
 
   const monthOptions = months.map((m) => ({ value: m, label: m }));
   if (!monthOptions.some((o) => o.value === currentMonth)) {
-    monthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
+    monthOptions.unshift({ value: currentMonth, label: tr("{0} (hiện tại)", currentMonth) });
   }
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="text-xs font-semibold text-[var(--ink-400)]">Tháng:</span>
+        <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tháng:")}</span>
         <Select value={thang} onChange={setThang} options={monthOptions} />
         <span className="text-xs font-semibold text-[var(--ink-400)] ml-2">Xem theo:</span>
         <Select value={dim} onChange={setDim} options={AGE_REPORT_DIM_OPTIONS} />
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <StatCard
-          label="Tất cả (TB lũy kế tháng)"
-          value={`${avgTuoiTon(tongCard).toFixed(1)} ngày`}
-          sub={`${tongCard.so_ca.toLocaleString("vi-VN")} lượt ca-ngày`}
+          label={tr("Tất cả (TB lũy kế tháng)")}
+          value={tr("{0} ngày", avgTuoiTon(tongCard).toFixed(1))}
+          sub={tr("{0} lượt ca-ngày", tongCard.so_ca.toLocaleString("vi-VN"))}
           tone="ocean"
         />
         <StatCard
-          label="Nhóm DVBH (QLDVBH)"
-          value={`${avgTuoiTon(qldvbhCard).toFixed(1)} ngày`}
-          sub={`${qldvbhCard.so_ca.toLocaleString("vi-VN")} lượt ca-ngày`}
+          label={tr("Nhóm DVBH (QLDVBH)")}
+          value={tr("{0} ngày", avgTuoiTon(qldvbhCard).toFixed(1))}
+          sub={tr("{0} lượt ca-ngày", qldvbhCard.so_ca.toLocaleString("vi-VN"))}
           tone="teal"
         />
       </div>
@@ -307,7 +308,7 @@ function BacklogAgeReportTab() {
         total={aggRows.length}
         onPageChange={setPage}
         rowKey={(r) => r.gia_tri}
-        emptyText="Chưa có dữ liệu cho tháng này."
+        emptyText={tr("Chưa có dữ liệu cho tháng này.")}
         sortBy={sortBy}
         sortDir={sortDir}
         onSortChange={(k, d) => {
@@ -456,16 +457,16 @@ type CanhBaoTonMetricKey =
   | "ton14" | "vipSvip5" | "locTong3" | "tranhChap3" | "luongDoiTra7"
   | "ton20" | "vipSvip7" | "locTong5" | "tranhChap5" | "luongDoiTra10";
 const CANH_BAO_TON_METRICS: { cap: 1 | 2; key: CanhBaoTonMetricKey; label: string; trendCol: string }[] = [
-  { cap: 1, key: "ton14", label: "Tồn ≥14 ngày", trendCol: "ton_14_ngay" },
-  { cap: 1, key: "vipSvip5", label: "VIP/S.VIP tồn ≥5 ngày", trendCol: "vip_svip_5_ngay" },
-  { cap: 1, key: "locTong3", label: "Lọc tổng tồn ≥3 ngày", trendCol: "loc_tong_3_ngay" },
-  { cap: 1, key: "tranhChap3", label: "Tranh chấp/KN ≥3 ngày", trendCol: "tranh_chap_3_ngay" },
-  { cap: 1, key: "luongDoiTra7", label: "Luồng đổi trả ≥7 ngày", trendCol: "luong_doi_tra_7_ngay" },
-  { cap: 2, key: "ton20", label: "Tồn >20 ngày", trendCol: "ton_20_ngay" },
-  { cap: 2, key: "vipSvip7", label: "VIP/S.VIP tồn ≥7 ngày", trendCol: "vip_svip_7_ngay" },
-  { cap: 2, key: "locTong5", label: "Lọc tổng tồn ≥5 ngày", trendCol: "loc_tong_5_ngay" },
-  { cap: 2, key: "tranhChap5", label: "Tranh chấp/KN ≥5 ngày", trendCol: "tranh_chap_5_ngay" },
-  { cap: 2, key: "luongDoiTra10", label: "Luồng đổi trả ≥10 ngày", trendCol: "luong_doi_tra_10_ngay" },
+  { cap: 1, key: "ton14", label: tr("Tồn ≥14 ngày"), trendCol: "ton_14_ngay" },
+  { cap: 1, key: "vipSvip5", label: tr("VIP/S.VIP tồn ≥5 ngày"), trendCol: "vip_svip_5_ngay" },
+  { cap: 1, key: "locTong3", label: tr("Lọc tổng tồn ≥3 ngày"), trendCol: "loc_tong_3_ngay" },
+  { cap: 1, key: "tranhChap3", label: tr("Tranh chấp/KN ≥3 ngày"), trendCol: "tranh_chap_3_ngay" },
+  { cap: 1, key: "luongDoiTra7", label: tr("Luồng đổi trả ≥7 ngày"), trendCol: "luong_doi_tra_7_ngay" },
+  { cap: 2, key: "ton20", label: tr("Tồn >20 ngày"), trendCol: "ton_20_ngay" },
+  { cap: 2, key: "vipSvip7", label: tr("VIP/S.VIP tồn ≥7 ngày"), trendCol: "vip_svip_7_ngay" },
+  { cap: 2, key: "locTong5", label: tr("Lọc tổng tồn ≥5 ngày"), trendCol: "loc_tong_5_ngay" },
+  { cap: 2, key: "tranhChap5", label: tr("Tranh chấp/KN ≥5 ngày"), trendCol: "tranh_chap_5_ngay" },
+  { cap: 2, key: "luongDoiTra10", label: tr("Luồng đổi trả ≥10 ngày"), trendCol: "luong_doi_tra_10_ngay" },
 ];
 interface CanhBaoTonTrendPoint {
   yesterday: number | null;
@@ -490,29 +491,29 @@ const CANH_BAO_TON_METRIC_KEY = "backlog.canhBaoTon.selectedMetric";
 // Dong chu "so sanh nhanh" duoi 1 StatCard - CHI so voi hom qua (Q2 da chot voi nguoi dung), mau
 // coral khi TANG (xau di, can chu y) / teal khi GIAM (tot len) / ink khi khong doi hoac chua co du lieu.
 function canhBaoTonYesterdaySub(current: number, yesterday: number | null): { text: string; className: string } {
-  if (yesterday === null) return { text: "chưa có dữ liệu hôm qua", className: "text-[var(--ink-400)]" };
+  if (yesterday === null) return { text: tr("chưa có dữ liệu hôm qua"), className: "text-[var(--ink-400)]" };
   const diff = current - yesterday;
-  if (diff === 0) return { text: "không đổi so hôm qua", className: "text-[var(--ink-400)]" };
+  if (diff === 0) return { text: tr("không đổi so hôm qua"), className: "text-[var(--ink-400)]" };
   return diff > 0
-    ? { text: `▲ +${diff} so hôm qua`, className: "text-[var(--coral-500)] font-semibold" }
-    : { text: `▼ ${diff} so hôm qua`, className: "text-[var(--teal-500)] font-semibold" };
+    ? { text: tr("▲ +{0} so hôm qua", diff), className: "text-[var(--coral-500)] font-semibold" }
+    : { text: tr("▼ {0} so hôm qua", diff), className: "text-[var(--teal-500)] font-semibold" };
 }
 
 // Dong tom tat 3 moc so sanh (hom qua/7 ngay/30 ngay truoc) cho khu vuc chon trong bo loc gop - CHOT
 // 2026-08-16 thay the hoan toan 8 bang khu_vuc x 14 ngay liet ke day du (phan hoi "90% thua thai").
 function canhBaoTonTrendParts(current: number, trend: CanhBaoTonTrendPoint): { text: string; className: string }[] {
   const parts: [string, number | null][] = [
-    ["hôm qua", trend.yesterday],
-    ["tuần trước", trend.weekAgo],
-    ["tháng trước", trend.monthAgo],
+    [tr("hôm qua"), trend.yesterday],
+    [tr("tuần trước"), trend.weekAgo],
+    [tr("tháng trước"), trend.monthAgo],
   ];
   return parts.map(([label, prior]) => {
-    if (prior === null) return { text: `${label}: chưa có dữ liệu`, className: "text-[var(--ink-400)]" };
+    if (prior === null) return { text: tr("{0}: chưa có dữ liệu", label), className: "text-[var(--ink-400)]" };
     const diff = current - prior;
-    if (diff === 0) return { text: `${label}: không đổi`, className: "text-[var(--ink-400)]" };
+    if (diff === 0) return { text: tr("{0}: không đổi", label), className: "text-[var(--ink-400)]" };
     return diff > 0
-      ? { text: `${label}: tăng ${diff}`, className: "text-[var(--coral-500)] font-semibold" }
-      : { text: `${label}: giảm ${Math.abs(diff)}`, className: "text-[var(--teal-500)] font-semibold" };
+      ? { text: tr("{0}: tăng {1}", label, diff), className: "text-[var(--coral-500)] font-semibold" }
+      : { text: tr("{0}: giảm {1}", label, Math.abs(diff)), className: "text-[var(--teal-500)] font-semibold" };
   });
 }
 interface CanhBaoTonTrendDay {
@@ -561,79 +562,79 @@ interface FiltersData {
 // Nhan hien thi ngan gon cho badge "Nhom ton" trong Danh sach chi tiet - khop dung 7 cot need_*
 // server tra ve (xem backend/src/routes/cases.ts GET / + lib/needGiaiTrinh.ts).
 const NHOM_TON_BADGES: { key: keyof CaseRow; label: string }[] = [
-  { key: "need_lo_ke_hoach", label: "Lỡ kế hoạch" },
-  { key: "need_tai_giai_trinh", label: "Tái giải trình" },
-  { key: "need_chua_gt_3_ngay", label: "Chưa GT >3 ngày" },
-  { key: "need_chua_gt_5_ngay", label: "Chưa GT >5 ngày" },
-  { key: "need_dieu_hoa", label: "Điều hòa" },
+  { key: "need_lo_ke_hoach", label: tr("Lỡ kế hoạch") },
+  { key: "need_tai_giai_trinh", label: tr("Tái giải trình") },
+  { key: "need_chua_gt_3_ngay", label: tr("Chưa GT >3 ngày") },
+  { key: "need_chua_gt_5_ngay", label: tr("Chưa GT >5 ngày") },
+  { key: "need_dieu_hoa", label: tr("Điều hòa") },
   { key: "need_b2b", label: "B2B" },
   { key: "need_nskx", label: "NSKX" },
-  { key: "need_loc_tong_bcn", label: "Lọc tổng" },
+  { key: "need_loc_tong_bcn", label: tr("Lọc tổng") },
   { key: "need_vip_24h", label: "VIP/SVIP >=24h" },
 ];
 
 const REPORT_DIM_OPTIONS = [
-  { value: "khu_vuc", label: "Khu vực" },
-  { value: "tinh", label: "Tỉnh" },
-  { value: "doi_tac", label: "Đối tác" },
-  { value: "hang", label: "Hãng" },
+  { value: "khu_vuc", label: tr("Khu vực") },
+  { value: "tinh", label: tr("Tỉnh") },
+  { value: "doi_tac", label: tr("Đối tác") },
+  { value: "hang", label: tr("Hãng") },
   { value: "nhom_san_pham", label: "Model" },
-  { value: "nhom_kh", label: "Nhóm KH" },
-  { value: "nganh", label: "Ngành" },
+  { value: "nhom_kh", label: tr("Nhóm KH") },
+  { value: "nganh", label: tr("Ngành") },
 ];
 
 // CHOT 2026-08-16: tach "Bao cao ton cho QL" thanh 2 tab rieng (Cap 1 / Cap 2) thay vi 1 tab gop 2
 // dong - theo phan hoi khong muon 2 cap "lan" vao chung 1 man hinh.
 const VIEWS = [
-  { key: "bao-cao", label: "Báo cáo" },
-  { key: "tuoi-ton-tb", label: "Tuổi tồn TB" },
-  { key: "canh-bao-ton-cap1", label: "Cảnh báo tồn · Cấp 1 (TP DVBH)" },
-  { key: "canh-bao-ton-cap2", label: "Cảnh báo tồn · Cấp 2 (CEO)" },
-  { key: "danh-sach", label: "Danh sách chi tiết" },
+  { key: "bao-cao", label: tr("Báo cáo") },
+  { key: "tuoi-ton-tb", label: tr("Tuổi tồn TB") },
+  { key: "canh-bao-ton-cap1", label: tr("Cảnh báo tồn · Cấp 1 (TP DVBH)") },
+  { key: "canh-bao-ton-cap2", label: tr("Cảnh báo tồn · Cấp 2 (CEO)") },
+  { key: "danh-sach", label: tr("Danh sách chi tiết") },
 ];
 
 // "Nhom" thay the ca TABS (tab don) lan AGE_BUCKETS (loc tuoi) truoc day - 1 dieu khien duy nhat
 // cho danh sach chi tiet, dung chung dinh nghia voi cac tile bao cao (needGiaiTrinh.ts o backend).
 const NHOM_OPTIONS = [
-  { value: "ton-hien-tai", label: "Tổng tồn hiện tại" },
-  { value: "can-giai-trinh:tong", label: "Cần giải trình (tổng)" },
-  { value: "can-giai-trinh:ceo", label: "— CEO cần giải trình (cảnh báo cấp 2)" },
-  { value: "can-giai-trinh:lo_ke_hoach", label: "— Lỡ kế hoạch" },
-  { value: "can-giai-trinh:tai_giai_trinh", label: "— Cần tái giải trình" },
-  { value: "can-giai-trinh:dmx_3_ngay", label: "— Chưa giải trình >3 (ĐMX)" },
-  { value: "can-giai-trinh:dmx_chua_gt_3_ngay", label: "—— Chưa GT >3 ngày (ĐMX)" },
-  { value: "can-giai-trinh:dmx_tai_giai_trinh", label: "—— Tái giải trình (ĐMX)" },
-  { value: "can-giai-trinh:dmx_lo_ke_hoach", label: "—— Lỡ kế hoạch (ĐMX)" },
-  { value: "can-giai-trinh:chua_gt_5_ngay", label: "— Chưa giải trình >5 ngày (ưu tiên xử lý)" },
-  { value: "can-giai-trinh:dieu_hoa", label: "— Điều hòa >1 ngày" },
-  { value: "can-giai-trinh:b2b", label: "— B2B >1 ngày" },
-  { value: "can-giai-trinh:nskx", label: "— NSKX >=2 ngày" },
-  { value: "can-giai-trinh:loc_tong_bcn", label: "— Lọc tổng >1 ngày" },
-  { value: "can-giai-trinh:vip_24h", label: "— VIP/S.VIP chưa GT >=24h" },
-  { value: "can-giai-trinh:lo_ke_hoach_dmx_5", label: "—— Lỡ kế hoạch, ĐMX >5 ngày" },
-  { value: "can-giai-trinh:lo_ke_hoach_14", label: "—— Lỡ kế hoạch >14 ngày" },
-  { value: "can-giai-trinh:tai_giai_trinh_dmx_5", label: "—— Tái giải trình, ĐMX >5 ngày" },
-  { value: "can-giai-trinh:tai_giai_trinh_14", label: "—— Tái giải trình >14 ngày" },
-  { value: "da-giai-trinh", label: "Đã giải trình" },
-  { value: "da-giai-trinh-trong-ngay", label: "Đã giải trình trong ngày" },
-  { value: "da-dong", label: "Ca đã đóng" },
-  { value: "canh-bao-ton:ton14", label: "Cảnh báo tồn — Cấp 1: Tồn ≥14 ngày" },
-  { value: "canh-bao-ton:vipSvip5", label: "Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥5 ngày" },
-  { value: "canh-bao-ton:locTong3", label: "Cảnh báo tồn — Cấp 1: Lọc tổng tồn ≥3 ngày" },
-  { value: "canh-bao-ton:tranhChap3", label: "Cảnh báo tồn — Cấp 1: Tranh chấp/KN ≥3 ngày" },
-  { value: "canh-bao-ton:ton20", label: "Cảnh báo tồn — Cấp 2: Tồn >20 ngày" },
-  { value: "canh-bao-ton:vipSvip7", label: "Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥7 ngày" },
-  { value: "canh-bao-ton:locTong5", label: "Cảnh báo tồn — Cấp 2: Lọc tổng tồn ≥5 ngày" },
-  { value: "canh-bao-ton:tranhChap5", label: "Cảnh báo tồn — Cấp 2: Tranh chấp/KN ≥5 ngày" },
+  { value: "ton-hien-tai", label: tr("Tổng tồn hiện tại") },
+  { value: "can-giai-trinh:tong", label: tr("Cần giải trình (tổng)") },
+  { value: "can-giai-trinh:ceo", label: tr("— CEO cần giải trình (cảnh báo cấp 2)") },
+  { value: "can-giai-trinh:lo_ke_hoach", label: tr("— Lỡ kế hoạch") },
+  { value: "can-giai-trinh:tai_giai_trinh", label: tr("— Cần tái giải trình") },
+  { value: "can-giai-trinh:dmx_3_ngay", label: tr("— Chưa giải trình >3 (ĐMX)") },
+  { value: "can-giai-trinh:dmx_chua_gt_3_ngay", label: tr("—— Chưa GT >3 ngày (ĐMX)") },
+  { value: "can-giai-trinh:dmx_tai_giai_trinh", label: tr("—— Tái giải trình (ĐMX)") },
+  { value: "can-giai-trinh:dmx_lo_ke_hoach", label: tr("—— Lỡ kế hoạch (ĐMX)") },
+  { value: "can-giai-trinh:chua_gt_5_ngay", label: tr("— Chưa giải trình >5 ngày (ưu tiên xử lý)") },
+  { value: "can-giai-trinh:dieu_hoa", label: tr("— Điều hòa >1 ngày") },
+  { value: "can-giai-trinh:b2b", label: tr("— B2B >1 ngày") },
+  { value: "can-giai-trinh:nskx", label: tr("— NSKX >=2 ngày") },
+  { value: "can-giai-trinh:loc_tong_bcn", label: tr("— Lọc tổng >1 ngày") },
+  { value: "can-giai-trinh:vip_24h", label: tr("— VIP/S.VIP chưa GT >=24h") },
+  { value: "can-giai-trinh:lo_ke_hoach_dmx_5", label: tr("—— Lỡ kế hoạch, ĐMX >5 ngày") },
+  { value: "can-giai-trinh:lo_ke_hoach_14", label: tr("—— Lỡ kế hoạch >14 ngày") },
+  { value: "can-giai-trinh:tai_giai_trinh_dmx_5", label: tr("—— Tái giải trình, ĐMX >5 ngày") },
+  { value: "can-giai-trinh:tai_giai_trinh_14", label: tr("—— Tái giải trình >14 ngày") },
+  { value: "da-giai-trinh", label: tr("Đã giải trình") },
+  { value: "da-giai-trinh-trong-ngay", label: tr("Đã giải trình trong ngày") },
+  { value: "da-dong", label: tr("Ca đã đóng") },
+  { value: "canh-bao-ton:ton14", label: tr("Cảnh báo tồn — Cấp 1: Tồn ≥14 ngày") },
+  { value: "canh-bao-ton:vipSvip5", label: tr("Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥5 ngày") },
+  { value: "canh-bao-ton:locTong3", label: tr("Cảnh báo tồn — Cấp 1: Lọc tổng tồn ≥3 ngày") },
+  { value: "canh-bao-ton:tranhChap3", label: tr("Cảnh báo tồn — Cấp 1: Tranh chấp/KN ≥3 ngày") },
+  { value: "canh-bao-ton:ton20", label: tr("Cảnh báo tồn — Cấp 2: Tồn >20 ngày") },
+  { value: "canh-bao-ton:vipSvip7", label: tr("Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥7 ngày") },
+  { value: "canh-bao-ton:locTong5", label: tr("Cảnh báo tồn — Cấp 2: Lọc tổng tồn ≥5 ngày") },
+  { value: "canh-bao-ton:tranhChap5", label: tr("Cảnh báo tồn — Cấp 2: Tranh chấp/KN ≥5 ngày") },
 ];
 
 const TON_TUOI_OPTIONS = [
-  { value: "", label: "Tất cả tuổi tồn" },
-  { value: "1", label: "Trên 1 ngày" },
-  { value: "3", label: "Trên 3 ngày" },
-  { value: "5", label: "Trên 5 ngày" },
-  { value: "7", label: "Trên 7 ngày" },
-  { value: "14", label: "Trên 14 ngày" },
+  { value: "", label: tr("Tất cả tuổi tồn") },
+  { value: "1", label: tr("Trên 1 ngày") },
+  { value: "3", label: tr("Trên 3 ngày") },
+  { value: "5", label: tr("Trên 5 ngày") },
+  { value: "7", label: tr("Trên 7 ngày") },
+  { value: "14", label: tr("Trên 14 ngày") },
 ];
 
 // CHOT 2026-07-31: thay the StatCard don "Chua giai trinh >3 ngay (canh bao som)" - so ĐMX gio la
@@ -661,9 +662,9 @@ function DmxBreakdownCard({
   onClickLoKeHoach: () => void;
 }) {
   const rows = [
-    { label: "— Chưa GT >3 ngày", value: chuaGt3, onClick: onClickChuaGt3 },
-    { label: "— Tái giải trình", value: taiGiaiTrinh, onClick: onClickTaiGiaiTrinh },
-    { label: "— Lỡ kế hoạch", value: loKeHoach, onClick: onClickLoKeHoach },
+    { label: tr("— Chưa GT >3 ngày"), value: chuaGt3, onClick: onClickChuaGt3 },
+    { label: tr("— Tái giải trình"), value: taiGiaiTrinh, onClick: onClickTaiGiaiTrinh },
+    { label: tr("— Lỡ kế hoạch"), value: loKeHoach, onClick: onClickLoKeHoach },
   ];
   // "Long lanh, sac so" (2026-08-20, dua len dau danh sach cung VIP/Loc tong) - cung 1 gradient +
   // vien phat sang nhu StatCard spotlight (xem StatCard.tsx) de dong bo mau sac giua 2 the "dap vao
@@ -677,7 +678,7 @@ function DmxBreakdownCard({
       }}
     >
       <div className="flex items-start justify-between gap-1">
-        <span className="text-[10px] font-semibold text-[var(--indigo-700)] uppercase tracking-wide leading-tight">✦ Chưa giải trình &gt;3 (ĐMX)</span>
+        <span className="text-[10px] font-semibold text-[var(--indigo-700)] uppercase tracking-wide leading-tight">{tr("✦ Chưa giải trình >3 (ĐMX)")}</span>
         <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5" style={{ background: total > 0 ? "var(--violet-600)" : "var(--ink-400)" }}></span>
       </div>
       <button
@@ -761,7 +762,7 @@ function DeltaBreakdownCard({
                 <span className={rowMuted ? "text-[var(--ink-400)]" : ""}>{r.label}</span>
                 <span className={`font-mono font-semibold ${rowMuted ? "text-[var(--ink-400)]" : `px-1.5 rounded ${chipBg}`}`}>
                   {r.bucket.remaining}
-                  <span className={rowMuted ? "font-normal" : "font-normal opacity-80"}> (đã GT {r.bucket.resolved}/{r.bucket.baseline})</span>
+                  <span className={rowMuted ? "font-normal" : "font-normal opacity-80"}>  {tr("(đã GT")} {r.bucket.resolved}/{r.bucket.baseline})</span>
                 </span>
               </button>
             );
@@ -872,7 +873,7 @@ function DailyCountTrendTable({ title, metricCol, rows, trendDays }: { title: st
         <table className="dense w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-              <th className="py-2 pr-3 sticky left-0 bg-[var(--surface)] z-10">Khu vực</th>
+              <th className="py-2 pr-3 sticky left-0 bg-[var(--surface)] z-10">{tr("Khu vực")}</th>
               {trendDays.map((day) => (
                 <th key={day} className="py-2 px-2 text-center">
                   {fmtDayShort(day)}
@@ -883,7 +884,7 @@ function DailyCountTrendTable({ title, metricCol, rows, trendDays }: { title: st
           <tbody>
             {sorted.length > 0 && (
               <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                <td className="py-2 pr-3 sticky left-0 bg-slate-50 z-10">Tổng cộng</td>
+                <td className="py-2 pr-3 sticky left-0 bg-slate-50 z-10">{tr("Tổng cộng")}</td>
                 {trendDays.map((day) => (
                   <td key={day} className="py-2 px-2 text-center font-mono">
                     {totalByDay[day] || <span className="text-[var(--ink-400)] font-normal">—</span>}
@@ -907,8 +908,7 @@ function DailyCountTrendTable({ title, metricCol, rows, trendDays }: { title: st
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={1 + trendDays.length} className="py-6 text-center text-[var(--ink-400)] text-sm">
-                  Chưa có dữ liệu lịch sử (bắt đầu ghi nhận từ khi tính năng này triển khai).
-                </td>
+                  {tr("Chưa có dữ liệu lịch sử (bắt đầu ghi nhận từ khi tính năng này triển khai).")}</td>
               </tr>
             )}
           </tbody>
@@ -963,11 +963,11 @@ function CanhBaoTonStatCard({
       {progress && (
         <div
           className={`absolute top-2 right-2.5 text-right text-[10px] leading-tight font-semibold ${active ? "text-white/80" : "text-[var(--ink-400)]"}`}
-          title={`Đã GT hôm nay: ${progress.daGtHomNay} · Đã kết thúc: ${progress.daKetThuc} · Hiện tại còn: ${progress.hienTaiCon}`}
+          title={tr("Đã GT hôm nay: {0} · Đã kết thúc: {1} · Hiện tại còn: {2}", progress.daGtHomNay, progress.daKetThuc, progress.hienTaiCon)}
         >
           <div>GT: {progress.daGtHomNay}</div>
           <div>KT: {progress.daKetThuc}</div>
-          <div>Còn: {progress.hienTaiCon}</div>
+          <div>{tr("Còn:")} {progress.hienTaiCon}</div>
         </div>
       )}
       <div className={`text-xs font-semibold uppercase tracking-wide mb-1.5 sm:mb-2 pr-11 ${active ? "text-white/85" : "text-[var(--ink-400)]"}`}>{label}</div>
@@ -1006,20 +1006,20 @@ function CanhBaoTonCapView({
     <>
       <div
         className="mb-2 mt-2 flex items-center gap-2 flex-wrap"
-        title="Số liệu đông băng theo mốc 8h sáng — bấm vào 1 ô số để xem đúng danh sách ca tồn đã lưu tại mốc đó (không phải danh sách 'cần giải trình' tính sống)"
+        title={tr("Số liệu đông băng theo mốc 8h sáng — bấm vào 1 ô số để xem đúng danh sách ca tồn đã lưu tại mốc đó (không phải danh sách 'cần giải trình' tính sống)")}
       >
         <span
           className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded ${cap === 1 ? "bg-[var(--amber-100)] text-[var(--amber-700)]" : "bg-[var(--coral-100)] text-[var(--coral-600)]"}`}
         >
-          {cap === 1 ? "🔶" : "🔴"} Cấp {cap} · {cap === 1 ? "TP DVBH" : "CEO"}
+          {cap === 1 ? "🔶" : "🔴"}  {tr("Cấp")} {cap} · {cap === 1 ? "TP DVBH" : "CEO"}
         </span>
-        {canhBaoTon && <span className="text-[11px] text-[var(--ink-400)]">chốt {fmtGeneratedAt(canhBaoTon.generatedAt)}</span>}
+        {canhBaoTon && <span className="text-[11px] text-[var(--ink-400)]">{tr("chốt")} {fmtGeneratedAt(canhBaoTon.generatedAt)}</span>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
         {metrics.map((m) => {
           const v = canhBaoTon?.counts[m.key] ?? 0;
           const sub = canhBaoTon?.loi?.[m.key]
-            ? { text: "Chưa lấy được số liệu — tự thử lại mỗi giờ", className: "text-[var(--ink-400)]" }
+            ? { text: tr("Chưa lấy được số liệu — tự thử lại mỗi giờ"), className: "text-[var(--ink-400)]" }
             : canhBaoTon && canhBaoTon.trend[m.key]
               ? canhBaoTonYesterdaySub(v, canhBaoTon.trend[m.key].yesterday)
               : undefined;
@@ -1039,13 +1039,13 @@ function CanhBaoTonCapView({
 
       <Card className="p-3 mt-2">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-          <div className="font-display font-bold text-sm">Cảnh báo tồn theo ngày</div>
+          <div className="font-display font-bold text-sm">{tr("Cảnh báo tồn theo ngày")}</div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[var(--ink-400)]">Chỉ tiêu:</span>
+            <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Chỉ tiêu:")}</span>
             <Select value={selected.key} onChange={(v) => setMetric(v as CanhBaoTonMetricKey)} options={metrics.map((m) => ({ value: m.key, label: m.label }))} />
           </div>
         </div>
-        <div className="text-xs text-[var(--ink-400)] mb-2">Chốt lúc 8h00 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
+        <div className="text-xs text-[var(--ink-400)] mb-2">{tr("Chốt lúc 8h00 mỗi ngày, theo khu vực — 14 ngày gần nhất.")}</div>
         <div className="flex items-center gap-3 flex-wrap mb-2 text-xs">
           {trendParts.map((p, i) => (
             <span key={i} className={p.className}>
@@ -1185,9 +1185,9 @@ export function BacklogModule({
   // KhuVucFilterControl (xem options o render duoi) de nguoi dung khong nham "bang nay dang xem
   // pham vi nao" khi bam qua lai giua nhieu khu_vuc.
   const tonTrendFilterLabel = !khuVucFilter
-    ? "Tất cả khu vực"
+    ? tr("Tất cả khu vực")
     : khuVucFilter === QLDVBH_FILTER_VALUE
-      ? "Tất cả DVBH (MB/MN...)"
+      ? tr("Tất cả DVBH (MB/MN...)")
       : khuVucFilter
           .split(",")
           .map((v) => v.trim())
@@ -1548,8 +1548,8 @@ export function BacklogModule({
         <span className="inline-flex items-center gap-1.5">
           <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span>
           {c.huy_bo_at && (
-            <span title={c.huy_bo_ly_do ? `Đã hủy: ${c.huy_bo_ly_do}` : "Ca đã hủy bỏ sau giờ chốt 08:00"}>
-              <Badge tone="gray">🚫 Đã hủy</Badge>
+            <span title={c.huy_bo_ly_do ? tr("Đã hủy: {0}", c.huy_bo_ly_do) : tr("Ca đã hủy bỏ sau giờ chốt 08:00")}>
+              <Badge tone="gray">{tr("🚫 Đã hủy")}</Badge>
             </span>
           )}
         </span>
@@ -1557,7 +1557,7 @@ export function BacklogModule({
     },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       sortKey: "khach_hang",
       render: (c) => (
         <>
@@ -1568,30 +1568,30 @@ export function BacklogModule({
     },
     {
       key: "ky_thuat_vien",
-      header: "Trạm / KTV triển khai",
+      header: tr("Trạm / KTV triển khai"),
       sortKey: "ky_thuat_vien",
       render: (c) => (
         <span className="text-xs">
           {c.ky_thuat_vien ?? "—"}
           {c.ktv_trien_khai && c.ktv_trien_khai !== c.ky_thuat_vien && (
-            <span className="block text-[var(--ocean-600)]" title="KTV triển khai (khác tài khoản trạm)">
+            <span className="block text-[var(--ocean-600)]" title={tr("KTV triển khai (khác tài khoản trạm)")}>
               ↳ {c.ktv_trien_khai}
             </span>
           )}
         </span>
       ),
     },
-    { key: "tiep_nhan", header: "Tiếp nhận", sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
-    { key: "du_kien", header: "Dự kiến HT", sortKey: "last_ngay_du_kien_hoan_thanh", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
+    { key: "tiep_nhan", header: tr("Tiếp nhận"), sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
+    { key: "du_kien", header: tr("Dự kiến HT"), sortKey: "last_ngay_du_kien_hoan_thanh", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
     {
       key: "ly_do",
-      header: "Lý do tồn gần nhất",
+      header: tr("Lý do tồn gần nhất"),
       sortKey: "last_ly_do_cham",
-      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>),
+      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa giải trình")}</span>),
     },
     {
       key: "last_tranh_chap_trang_thai",
-      header: "Tiến độ TC",
+      header: tr("Tiến độ TC"),
       sortKey: "last_tranh_chap_trang_thai",
       render: (c) =>
         c.last_tranh_chap_trang_thai && c.last_tranh_chap_trang_thai !== "Chua xu ly" ? (
@@ -1600,23 +1600,23 @@ export function BacklogModule({
             <Badge tone={TRANG_THAI_TONE[c.last_tranh_chap_trang_thai] ?? "gray"}>{TRANG_THAI_LABELS[c.last_tranh_chap_trang_thai] ?? c.last_tranh_chap_trang_thai}</Badge>
           </div>
         ) : (
-          <span className="text-[var(--ink-400)] text-xs italic">Không tranh chấp</span>
+          <span className="text-[var(--ink-400)] text-xs italic">{tr("Không tranh chấp")}</span>
         ),
     },
     {
       key: "tranh_chap_so_ngay_ton",
-      header: "Tuổi TC",
+      header: tr("Tuổi TC"),
       sortKey: "tranh_chap_so_ngay_ton",
       render: (c) =>
         c.tranh_chap_so_ngay_ton != null ? (
-          <Pill tone={c.tranh_chap_so_ngay_ton > 5 ? "coral" : c.tranh_chap_so_ngay_ton > 3 ? "amber" : "gray"}>{c.tranh_chap_so_ngay_ton} ngày</Pill>
+          <Pill tone={c.tranh_chap_so_ngay_ton > 5 ? "coral" : c.tranh_chap_so_ngay_ton > 3 ? "amber" : "gray"}>{c.tranh_chap_so_ngay_ton}  {tr("ngày")}</Pill>
         ) : (
           <span className="text-[var(--ink-400)] text-xs">—</span>
         ),
     },
     {
       key: "nhom_ton",
-      header: "Nhóm tồn",
+      header: tr("Nhóm tồn"),
       render: (c) => {
         const active = NHOM_TON_BADGES.filter((b) => c[b.key]);
         return active.length > 0 ? (
@@ -1634,17 +1634,17 @@ export function BacklogModule({
     },
     {
       key: "tuoi_ton",
-      header: "Tuổi tồn",
+      header: tr("Tuổi tồn"),
       sortKey: "tuoi_ton",
       render: (c) =>
         c.tuoi_ton != null ? (
-          <Pill tone={c.tuoi_ton > 14 ? "coral" : c.tuoi_ton > 3 ? "amber" : "gray"}>{c.tuoi_ton} ngày</Pill>
+          <Pill tone={c.tuoi_ton > 14 ? "coral" : c.tuoi_ton > 3 ? "amber" : "gray"}>{c.tuoi_ton}  {tr("ngày")}</Pill>
         ) : (
           <span className="text-[var(--ink-400)] text-xs">—</span>
         ),
     },
-    { key: "khu_vuc", header: "Khu vực", sortKey: "khu_vuc", render: (c) => shortKhuVuc(c.khu_vuc) },
-    { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem / giải trình →</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), sortKey: "khu_vuc", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">{tr("Xem / giải trình →")}</span> },
   ];
 
   // Cot bo sung cho bang "Danh sach chi tiet" - AN mac dinh, nguoi dung tu bat qua nut "⚙" canh cot
@@ -1679,13 +1679,13 @@ export function BacklogModule({
   // Moc duoi cua moi dai la ">=" (khop quy uoc "Cho >=X ngay" da dung o TranhChapModule.tsx), moc
   // tren la "<" - vd tuoi_ton = 3 roi vao dai "3-5 ngay", khong phai "1-3 ngay".
   const KHOANG_TON_BUCKETS: { label: string; min: number; max: number | null }[] = [
-    { label: "Dưới 1 ngày", min: 0, max: 1 },
-    { label: "1-3 ngày", min: 1, max: 3 },
-    { label: "3-5 ngày", min: 3, max: 5 },
-    { label: "5-7 ngày", min: 5, max: 7 },
-    { label: "7-10 ngày", min: 7, max: 10 },
-    { label: "10-14 ngày", min: 10, max: 14 },
-    { label: "Trên 14 ngày", min: 14, max: null },
+    { label: tr("Dưới 1 ngày"), min: 0, max: 1 },
+    { label: tr("1-3 ngày"), min: 1, max: 3 },
+    { label: tr("3-5 ngày"), min: 3, max: 5 },
+    { label: tr("5-7 ngày"), min: 5, max: 7 },
+    { label: tr("7-10 ngày"), min: 7, max: 10 },
+    { label: tr("10-14 ngày"), min: 10, max: 14 },
+    { label: tr("Trên 14 ngày"), min: 14, max: null },
   ];
   function khoangTon(c: CaseRow): string {
     if (c.tuoi_ton == null) return "—";
@@ -1721,7 +1721,7 @@ export function BacklogModule({
     textCol("last_noi_dung_giai_trinh", CASE_FIELD_LABELS.last_noi_dung_giai_trinh),
     {
       key: "khoang_ton",
-      header: "Khoảng tồn",
+      header: tr("Khoảng tồn"),
       render: (c) => <span className="text-xs">{khoangTon(c)}</span>,
     },
     {
@@ -1738,7 +1738,7 @@ export function BacklogModule({
       // "Ten linh kien" khong co san tren CaseRow (chi co ma) - tra cuu qua danh muc linh_kien da
       // cache o linhKienTenMap (settings-linh-kien), thuan frontend, khong goi them API rieng.
       key: "last_ten_linh_kien_thieu",
-      header: "Tên linh kiện thiếu gần nhất",
+      header: tr("Tên linh kiện thiếu gần nhất"),
       render: (c) => <span className="text-xs">{c.last_ma_linh_kien_thieu ? (linhKienTenMap.get(c.last_ma_linh_kien_thieu) ?? c.last_ma_linh_kien_thieu) : "—"}</span>,
     },
     {
@@ -1750,12 +1750,12 @@ export function BacklogModule({
       // tu lg.* co san) chu khong co ca lich su, nen SL don mua o day la UOC LUONG (co the thap hon
       // so voi xem chi tiet 1 ca neu ma xuat hang gan voi 1 lan giai trinh CU hon lan gan nhat).
       key: "sl_don_mua",
-      header: "SL đơn mua",
+      header: tr("SL đơn mua"),
       render: (c) => <span className="text-xs font-mono">{slDonMua(c)}</span>,
     },
     {
       key: "sl_don_bao_hanh",
-      header: "SL đơn bảo hành",
+      header: tr("SL đơn bảo hành"),
       render: (c) => <span className="text-xs font-mono">{slDonBaoHanh(c)}</span>,
     },
     {
@@ -1764,8 +1764,7 @@ export function BacklogModule({
       render: (c) =>
         c.link_crm ? (
           <a href={c.link_crm} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline text-xs" onClick={(e) => e.stopPropagation()}>
-            Mở CRM
-          </a>
+            {tr("Mở CRM")}</a>
         ) : (
           <span className="text-[var(--ink-400)] text-xs">—</span>
         ),
@@ -1774,14 +1773,14 @@ export function BacklogModule({
 
   const closedColumns: Column<CaseRow>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
-    { key: "khach_hang", header: "Khách hàng", render: (c) => c.khach_hang ?? "—" },
-    { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "khach_hang", header: tr("Khách hàng"), render: (c) => c.khach_hang ?? "—" },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     {
       key: "ly_do",
-      header: "Lý do tồn gần nhất",
-      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">Chưa giải trình</span>),
+      header: tr("Lý do tồn gần nhất"),
+      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa giải trình")}</span>),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },
   ];
 
@@ -1795,8 +1794,8 @@ export function BacklogModule({
             value={khuVucFilter}
             onChange={setKhuVucFilter}
             options={[
-              { value: "", label: "Tất cả khu vực" },
-              { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+              { value: "", label: tr("Tất cả khu vực") },
+              { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
               ...(filtersData?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
             ]}
             myAreas={myAreas}
@@ -1816,53 +1815,52 @@ export function BacklogModule({
       ) : view === "bao-cao" ? (
         <>
           <div className="mb-1 mt-2 flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Tồn hiện tại</span>
+            <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">{tr("Tồn hiện tại")}</span>
             {isFrozenEligible && backlogDaily && (
               <span className="text-[11px] text-[var(--ink-400)]">
-                · chốt {fmtGeneratedAt(backlogDaily.generatedAt)} ({backlogDaily.generatedBy === "auto" ? "tự động" : backlogDaily.generatedBy})
+                {tr("· chốt")} {fmtGeneratedAt(backlogDaily.generatedAt)} ({backlogDaily.generatedBy === "auto" ? tr("tự động") : backlogDaily.generatedBy})
               </span>
             )}
           </div>
           {isFrozenEligible && backlogDaily ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-2">
               <DeltaBreakdownCard
-                label="Tổng tồn hiện tại"
+                label={tr("Tổng tồn hiện tại")}
                 tone="ocean"
                 primaryValue={backlogDaily.tongTon.baseline}
                 onClickPrimary={() => goToDanhSach("ton-hien-tai")}
-                rows={[{ label: "Đã giải trình hôm nay", bucket: backlogDaily.tongTon, onClick: () => goToDanhSach("da-giai-trinh-trong-ngay") }]}
+                rows={[{ label: tr("Đã giải trình hôm nay"), bucket: backlogDaily.tongTon, onClick: () => goToDanhSach("da-giai-trinh-trong-ngay") }]}
               />
-              <StatCard size="sm" label="Tồn trên 3 ngày" value={backlogDaily.tren3} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
-              <StatCard size="sm" label="Tồn trên 5 ngày" value={backlogDaily.tren5} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
-              <StatCard size="sm" label="Tồn trên 7 ngày" value={backlogDaily.tren7} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
-              <HeroStat label="Tồn trên 14 ngày" value={backlogDaily.tren14} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
-              <StatCard size="sm" label="KH VIP tồn" value={tongTon?.vipTon ?? 0} tone="amber" muted={!tongTon?.vipTon} onClick={() => goToDanhSach("ton-hien-tai")} />
+              <StatCard size="sm" label={tr("Tồn trên 3 ngày")} value={backlogDaily.tren3} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
+              <StatCard size="sm" label={tr("Tồn trên 5 ngày")} value={backlogDaily.tren5} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
+              <StatCard size="sm" label={tr("Tồn trên 7 ngày")} value={backlogDaily.tren7} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
+              <HeroStat label={tr("Tồn trên 14 ngày")} value={backlogDaily.tren14} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
+              <StatCard size="sm" label={tr("KH VIP tồn")} value={tongTon?.vipTon ?? 0} tone="amber" muted={!tongTon?.vipTon} onClick={() => goToDanhSach("ton-hien-tai")} />
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-2 mb-2">
-              <StatCard size="sm" label="Tổng tồn hiện tại" value={tongTon?.tong ?? 0} tone="ocean" onClick={() => goToDanhSach("ton-hien-tai")} />
-              <StatCard size="sm" label="Tồn trên 1 ngày" value={tongTon?.tren1 ?? 0} tone="teal" onClick={() => goToDanhSach("ton-hien-tai", "1")} />
-              <StatCard size="sm" label="Tồn trên 3 ngày" value={tongTon?.tren3 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
-              <StatCard size="sm" label="Tồn >=5 ngày" value={tongTon?.tren5 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
-              <StatCard size="sm" label="Tồn trên 7 ngày" value={tongTon?.tren7 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
-              <HeroStat label="Tồn trên 14 ngày" value={tongTon?.tren14 ?? 0} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
-              <StatCard size="sm" label="Đã giải trình" value={tongTon?.daGiaiTrinh ?? 0} tone="teal" onClick={() => goToDanhSach("da-giai-trinh")} />
-              <StatCard size="sm" label="KH VIP tồn" value={tongTon?.vipTon ?? 0} tone="amber" muted={!tongTon?.vipTon} onClick={() => goToDanhSach("ton-hien-tai")} />
+              <StatCard size="sm" label={tr("Tổng tồn hiện tại")} value={tongTon?.tong ?? 0} tone="ocean" onClick={() => goToDanhSach("ton-hien-tai")} />
+              <StatCard size="sm" label={tr("Tồn trên 1 ngày")} value={tongTon?.tren1 ?? 0} tone="teal" onClick={() => goToDanhSach("ton-hien-tai", "1")} />
+              <StatCard size="sm" label={tr("Tồn trên 3 ngày")} value={tongTon?.tren3 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "3")} />
+              <StatCard size="sm" label={tr("Tồn >=5 ngày")} value={tongTon?.tren5 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "5")} />
+              <StatCard size="sm" label={tr("Tồn trên 7 ngày")} value={tongTon?.tren7 ?? 0} tone="amber" onClick={() => goToDanhSach("ton-hien-tai", "7")} />
+              <HeroStat label={tr("Tồn trên 14 ngày")} value={tongTon?.tren14 ?? 0} tone="coral" onClick={() => goToDanhSach("ton-hien-tai", "14")} />
+              <StatCard size="sm" label={tr("Đã giải trình")} value={tongTon?.daGiaiTrinh ?? 0} tone="teal" onClick={() => goToDanhSach("da-giai-trinh")} />
+              <StatCard size="sm" label={tr("KH VIP tồn")} value={tongTon?.vipTon ?? 0} tone="amber" muted={!tongTon?.vipTon} onClick={() => goToDanhSach("ton-hien-tai")} />
             </div>
           )}
 
           <div className="mb-1 text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide flex items-center gap-2 flex-wrap">
-            <span>Cần giải trình</span>
+            <span>{tr("Cần giải trình")}</span>
             {!isFrozenEligible && (
-              <span className="normal-case font-normal text-[var(--amber-600)]" title="Nhiều bộ lọc phụ (tỉnh/đối tác/hãng/model/nhóm KH/ngành/KTV) hoặc nhiều khu vực đang bật">
-                — số liệu trực tiếp (nhiều bộ lọc đang bật, không đóng băng 08:00)
-              </span>
+              <span className="normal-case font-normal text-[var(--amber-600)]" title={tr("Nhiều bộ lọc phụ (tỉnh/đối tác/hãng/model/nhóm KH/ngành/KTV) hoặc nhiều khu vực đang bật")}>
+                {tr("— số liệu trực tiếp (nhiều bộ lọc đang bật, không đóng băng 08:00)")}</span>
             )}
           </div>
           {isFrozenEligible && backlogDaily ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
               <HeroStat
-                label="Tổng cần giải trình"
+                label={tr("Tổng cần giải trình")}
                 value={backlogDaily.canGiaiTrinh.tong.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.tong)}
                 tone="coral"
@@ -1874,7 +1872,7 @@ export function BacklogModule({
                 <StatCard
                   size="sm"
                   spotlight
-                  label="CEO cần giải trình (cảnh báo cấp 2)"
+                  label={tr("CEO cần giải trình (cảnh báo cấp 2)")}
                   value={backlogDaily.canGiaiTrinh.ceo.remaining}
                   sub={deltaSub(backlogDaily.canGiaiTrinh.ceo)}
                   tone="coral"
@@ -1887,7 +1885,7 @@ export function BacklogModule({
               <StatCard
                 size="sm"
                 spotlight
-                label="VIP/S.VIP chưa GT >=24h"
+                label={tr("VIP/S.VIP chưa GT >=24h")}
                 value={backlogDaily.canGiaiTrinh.vip24h.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.vip24h)}
                 tone="coral"
@@ -1907,7 +1905,7 @@ export function BacklogModule({
               <StatCard
                 size="sm"
                 spotlight
-                label="Lọc tổng >1 ngày"
+                label={tr("Lọc tổng >1 ngày")}
                 value={backlogDaily.canGiaiTrinh.locTongBcn.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.locTongBcn)}
                 tone="amber"
@@ -1915,32 +1913,32 @@ export function BacklogModule({
                 onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
               />
               <DeltaBreakdownCard
-                label="Lỡ kế hoạch"
+                label={tr("Lỡ kế hoạch")}
                 tone="coral"
                 mutable
                 primaryValue={backlogDaily.canGiaiTrinh.loKeHoach.remaining}
                 primarySub={deltaSub(backlogDaily.canGiaiTrinh.loKeHoach)}
                 onClickPrimary={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")}
                 rows={[
-                  { label: "ĐMX >5 ngày", bucket: backlogDaily.canGiaiTrinh.loKeHoachDmx5, onClick: () => goToDanhSach("can-giai-trinh:lo_ke_hoach_dmx_5") },
-                  { label: ">14 ngày", bucket: backlogDaily.canGiaiTrinh.loKeHoach14, onClick: () => goToDanhSach("can-giai-trinh:lo_ke_hoach_14") },
+                  { label: tr("ĐMX >5 ngày"), bucket: backlogDaily.canGiaiTrinh.loKeHoachDmx5, onClick: () => goToDanhSach("can-giai-trinh:lo_ke_hoach_dmx_5") },
+                  { label: tr(">14 ngày"), bucket: backlogDaily.canGiaiTrinh.loKeHoach14, onClick: () => goToDanhSach("can-giai-trinh:lo_ke_hoach_14") },
                 ]}
               />
               <DeltaBreakdownCard
-                label="Cần tái giải trình"
+                label={tr("Cần tái giải trình")}
                 tone="amber"
                 mutable
                 primaryValue={backlogDaily.canGiaiTrinh.taiGiaiTrinh.remaining}
                 primarySub={deltaSub(backlogDaily.canGiaiTrinh.taiGiaiTrinh)}
                 onClickPrimary={() => goToDanhSach("can-giai-trinh:tai_giai_trinh")}
                 rows={[
-                  { label: "ĐMX >5 ngày", bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinhDmx5, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_dmx_5") },
-                  { label: ">14 ngày", bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinh14, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_14") },
+                  { label: tr("ĐMX >5 ngày"), bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinhDmx5, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_dmx_5") },
+                  { label: tr(">14 ngày"), bucket: backlogDaily.canGiaiTrinh.taiGiaiTrinh14, onClick: () => goToDanhSach("can-giai-trinh:tai_giai_trinh_14") },
                 ]}
               />
               <StatCard
                 size="sm"
-                label="Chưa giải trình >5 ngày"
+                label={tr("Chưa giải trình >5 ngày")}
                 value={backlogDaily.canGiaiTrinh.chuaGt5Ngay.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.chuaGt5Ngay)}
                 tone="coral"
@@ -1949,7 +1947,7 @@ export function BacklogModule({
               />
               <StatCard
                 size="sm"
-                label="Điều hòa >1 ngày"
+                label={tr("Điều hòa >1 ngày")}
                 value={backlogDaily.canGiaiTrinh.dieuHoa.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.dieuHoa)}
                 tone="ocean"
@@ -1958,7 +1956,7 @@ export function BacklogModule({
               />
               <StatCard
                 size="sm"
-                label="B2B >1 ngày"
+                label={tr("B2B >1 ngày")}
                 value={backlogDaily.canGiaiTrinh.b2b.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.b2b)}
                 tone="ocean"
@@ -1967,7 +1965,7 @@ export function BacklogModule({
               />
               <StatCard
                 size="sm"
-                label="NSKX >=2 ngày"
+                label={tr("NSKX >=2 ngày")}
                 value={backlogDaily.canGiaiTrinh.nskx.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.nskx)}
                 tone="coral"
@@ -1978,7 +1976,7 @@ export function BacklogModule({
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
               <HeroStat
-                label="Tổng cần giải trình"
+                label={tr("Tổng cần giải trình")}
                 value={counts?.can_giai_trinh_tong ?? 0}
                 tone="coral"
                 onClick={() => goToDanhSach("can-giai-trinh:tong")}
@@ -1987,7 +1985,7 @@ export function BacklogModule({
               <StatCard
                 size="sm"
                 spotlight
-                label="VIP/S.VIP chưa GT >=24h"
+                label={tr("VIP/S.VIP chưa GT >=24h")}
                 value={counts?.vip_24h ?? 0}
                 tone="coral"
                 muted={!counts?.vip_24h}
@@ -2006,16 +2004,16 @@ export function BacklogModule({
               <StatCard
                 size="sm"
                 spotlight
-                label="Lọc tổng, BCN >1 ngày"
+                label={tr("Lọc tổng, BCN >1 ngày")}
                 value={counts?.loc_tong_bcn ?? 0}
                 tone="amber"
                 muted={!counts?.loc_tong_bcn}
                 onClick={() => goToDanhSach("can-giai-trinh:loc_tong_bcn")}
               />
-              <StatCard size="sm" label="Lỡ kế hoạch" value={counts?.lo_ke_hoach ?? 0} tone="coral" muted={!counts?.lo_ke_hoach} onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
+              <StatCard size="sm" label={tr("Lỡ kế hoạch")} value={counts?.lo_ke_hoach ?? 0} tone="coral" muted={!counts?.lo_ke_hoach} onClick={() => goToDanhSach("can-giai-trinh:lo_ke_hoach")} />
               <StatCard
                 size="sm"
-                label="Cần tái giải trình"
+                label={tr("Cần tái giải trình")}
                 value={counts?.tai_giai_trinh ?? 0}
                 tone="amber"
                 muted={!counts?.tai_giai_trinh}
@@ -2023,29 +2021,28 @@ export function BacklogModule({
               />
               <StatCard
                 size="sm"
-                label="Chưa giải trình >5 ngày"
+                label={tr("Chưa giải trình >5 ngày")}
                 value={counts?.chua_gt_5_ngay ?? 0}
                 tone="coral"
                 muted={!counts?.chua_gt_5_ngay}
                 onClick={() => goToDanhSach("can-giai-trinh:chua_gt_5_ngay")}
               />
-              <StatCard size="sm" label="Điều hòa >1 ngày" value={counts?.dieu_hoa ?? 0} tone="ocean" muted={!counts?.dieu_hoa} onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
-              <StatCard size="sm" label="B2B >1 ngày" value={counts?.b2b ?? 0} tone="ocean" muted={!counts?.b2b} onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
-              <StatCard size="sm" label="NSKX >=2 ngày" value={counts?.nskx ?? 0} tone="coral" muted={!counts?.nskx} onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
+              <StatCard size="sm" label={tr("Điều hòa >1 ngày")} value={counts?.dieu_hoa ?? 0} tone="ocean" muted={!counts?.dieu_hoa} onClick={() => goToDanhSach("can-giai-trinh:dieu_hoa")} />
+              <StatCard size="sm" label={tr("B2B >1 ngày")} value={counts?.b2b ?? 0} tone="ocean" muted={!counts?.b2b} onClick={() => goToDanhSach("can-giai-trinh:b2b")} />
+              <StatCard size="sm" label={tr("NSKX >=2 ngày")} value={counts?.nskx ?? 0} tone="coral" muted={!counts?.nskx} onClick={() => goToDanhSach("can-giai-trinh:nskx")} />
             </div>
           )}
 
           <Card className="p-3">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
               <div>
-                <div className="font-display font-bold text-sm">Báo cáo tồn theo {REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label.toLowerCase()}</div>
-                <div className="text-xs text-[var(--ink-400)] mt-0.5">Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.</div>
+                <div className="font-display font-bold text-sm">{tr("Báo cáo tồn theo")} {REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label.toLowerCase()}</div>
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Bấm vào 1 ô số để lọc thẳng xuống danh sách chi tiết.")}</div>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Select value={reportDim} onChange={setReportDim} options={REPORT_DIM_OPTIONS} />
                 <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(exportKhuVucRows, "bao_cao_ton.xlsx", "Data", pivotExportLabels())}>
-                  ⬇ Xuất Excel
-                </Btn>
+                  {tr("⬇ Xuất Excel")}</Btn>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -2053,35 +2050,35 @@ export function BacklogModule({
                 <thead>
                   <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th className="py-2 px-2 sticky left-0 bg-[var(--surface)] z-10 text-left">{REPORT_DIM_OPTIONS.find((d) => d.value === reportDim)?.label}</th>
-                    <th className="py-2 px-2 text-center text-[var(--indigo-600)] font-semibold">Tổng tồn</th>
-                    <th className="py-2 px-2 text-center">Trên 3n</th>
-                    <th className="py-2 px-2 text-center">Trên 5n</th>
-                    <th className="py-2 px-2 text-center">Trên 7n</th>
-                    <th className="py-2 px-2 text-center">Trên 14n</th>
-                    <th className="py-2 px-2 border-l border-[var(--line)] text-center">{showDailyCols ? "Đã GT (tháng)" : "Đã GT"}</th>
-                    <th className="py-2 px-2 border-l border-[var(--line)] font-bold text-center">{showDailyCols ? "Cần GT (lũy kế)" : "Cần GT (tổng)"}</th>
+                    <th className="py-2 px-2 text-center text-[var(--indigo-600)] font-semibold">{tr("Tổng tồn")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Trên 3n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Trên 5n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Trên 7n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Trên 14n")}</th>
+                    <th className="py-2 px-2 border-l border-[var(--line)] text-center">{showDailyCols ? tr("Đã GT (tháng)") : tr("Đã GT")}</th>
+                    <th className="py-2 px-2 border-l border-[var(--line)] font-bold text-center">{showDailyCols ? tr("Cần GT (lũy kế)") : tr("Cần GT (tổng)")}</th>
                     {showDailyCols && (
                       <>
-                        <th className="py-2 px-2 text-center">Tỷ lệ GT tháng</th>
-                        <th className="py-2 px-2 border-l border-[var(--line)] bg-amber-50 text-amber-700 font-bold text-center">Cần GT (ngày)</th>
-                        <th className="py-2 px-2 text-center">Đã GT (ngày)</th>
-                        <th className="py-2 px-2 text-center">Tỷ lệ GT ngày</th>
+                        <th className="py-2 px-2 text-center">{tr("Tỷ lệ GT tháng")}</th>
+                        <th className="py-2 px-2 border-l border-[var(--line)] bg-amber-50 text-amber-700 font-bold text-center">{tr("Cần GT (ngày)")}</th>
+                        <th className="py-2 px-2 text-center">{tr("Đã GT (ngày)")}</th>
+                        <th className="py-2 px-2 text-center">{tr("Tỷ lệ GT ngày")}</th>
                       </>
                     )}
-                    <th className="py-2 px-2 text-center">Lỡ KH</th>
-                    <th className="py-2 px-2 text-center">Tái GT</th>
-                    <th className="py-2 px-2 text-center">ĐMX chưa GT &gt;3n</th>
-                    <th className="py-2 px-2 text-center">Chưa GT &gt;5n</th>
-                    <th className="py-2 px-2 text-center">Điều hòa &gt;1n</th>
-                    <th className="py-2 px-2 text-center">B2B &gt;1n</th>
-                    <th className="py-2 px-2 text-center">NSKX &gt;=2n</th>
-                    <th className="py-2 px-2 text-center">Thiếu LK</th>
+                    <th className="py-2 px-2 text-center">{tr("Lỡ KH")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Tái GT")}</th>
+                    <th className="py-2 px-2 text-center">{tr("ĐMX chưa GT >3n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Chưa GT >5n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Điều hòa >1n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("B2B >1n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("NSKX >=2n")}</th>
+                    <th className="py-2 px-2 text-center">{tr("Thiếu LK")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displayKhuVucRows.length > 0 && (
                     <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                      <td className="py-2 px-2 sticky left-0 bg-slate-50 z-10 text-left">Tổng cộng</td>
+                      <td className="py-2 px-2 sticky left-0 bg-slate-50 z-10 text-left">{tr("Tổng cộng")}</td>
                       <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tong_ton}</td>
                       <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_3}</td>
                       <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_5}</td>
@@ -2206,8 +2203,7 @@ export function BacklogModule({
                   {displayKhuVucRows.length === 0 && (
                     <tr>
                       <td colSpan={showDailyCols ? 20 : 16} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                        Không có dữ liệu.
-                      </td>
+                        {tr("Không có dữ liệu.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -2217,11 +2213,10 @@ export function BacklogModule({
 
           <Card className="p-3 mt-3">
             <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-              <div className="font-display font-bold text-sm">Tỷ lệ giải trình theo ngày</div>
+              <div className="font-display font-bold text-sm">{tr("Tỷ lệ giải trình theo ngày")}</div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(trendExportRows, "ty_le_giai_trinh_theo_ngay.xlsx")}>
-                  ⬇ Xuất Excel
-                </Btn>
+                  {tr("⬇ Xuất Excel")}</Btn>
                 <input
                   type="month"
                   value={trendMonth}
@@ -2229,16 +2224,15 @@ export function BacklogModule({
                   className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
                 <Btn variant="ghost" size="sm" onClick={downloadTrendMonth} loading={trendMonthDownloading}>
-                  ⬇ Tải cả tháng
-                </Btn>
+                  {tr("⬇ Tải cả tháng")}</Btn>
               </div>
             </div>
-            <div className="text-xs text-[var(--ink-400)] mb-2">Chốt lúc 17h30 mỗi ngày, theo khu vực — 14 ngày gần nhất.</div>
+            <div className="text-xs text-[var(--ink-400)] mb-2">{tr("Chốt lúc 17h30 mỗi ngày, theo khu vực — 14 ngày gần nhất.")}</div>
             <div className="overflow-x-auto">
               <table className="dense w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th className="py-2 pr-3 sticky left-0 bg-[var(--surface)] z-10">Khu vực</th>
+                    <th className="py-2 pr-3 sticky left-0 bg-[var(--surface)] z-10">{tr("Khu vực")}</th>
                     {trendDays.map((day) => (
                       <th key={day} className="py-2 px-2 text-center">
                         {fmtDayShort(day)}
@@ -2249,13 +2243,13 @@ export function BacklogModule({
                 <tbody>
                   {sortedTrendRows.length > 0 && (
                     <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                      <td className="py-2 pr-3 sticky left-0 bg-slate-50 z-10">Tổng cộng</td>
+                      <td className="py-2 pr-3 sticky left-0 bg-slate-50 z-10">{tr("Tổng cộng")}</td>
                       {trendDays.map((day) => {
                         const t = trendTotalByDay[day];
                         const status = trendDayExclusionStatus[day];
                         const cellBg = status === "partial" ? "bg-[var(--coral-100)]" : status === "full" ? "bg-[var(--amber-100)]" : "";
                         return (
-                          <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? "1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực" : status === "full" ? "Ngày loại trừ" : undefined}>
+                          <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
                             {t && t.can > 0 ? (
                               <div>
                                 <div className="font-mono">{pct(t.da, t.can)}%</div>
@@ -2278,7 +2272,7 @@ export function BacklogModule({
                         const found = row.days.find((d) => d.ngay === day);
                         const excluded = found && isNgayExcluded(day, row.khu_vuc);
                         return (
-                          <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : ""}`} title={excluded ? "Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng" : undefined}>
+                          <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
                             {found ? (
                               <div>
                                 <div className="font-mono font-semibold">{pct(found.da_giai_trinh, found.can_giai_trinh)}%</div>
@@ -2297,8 +2291,7 @@ export function BacklogModule({
                   {sortedTrendRows.length === 0 && (
                     <tr>
                       <td colSpan={1 + trendDays.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                        Chưa có dữ liệu lịch sử (bắt đầu ghi nhận từ khi tính năng này triển khai).
-                      </td>
+                        {tr("Chưa có dữ liệu lịch sử (bắt đầu ghi nhận từ khi tính năng này triển khai).")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -2308,7 +2301,7 @@ export function BacklogModule({
 
           <Card className="p-3 mt-3">
             <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-              <div className="font-display font-bold text-sm">Số ca tồn theo mốc thời gian</div>
+              <div className="font-display font-bold text-sm">{tr("Số ca tồn theo mốc thời gian")}</div>
               <Btn
                 variant="ghost"
                 size="sm"
@@ -2328,17 +2321,15 @@ export function BacklogModule({
                   )
                 }
               >
-                ⬇ Xuất Excel
-              </Btn>
+                {tr("⬇ Xuất Excel")}</Btn>
             </div>
             <div className="text-xs text-[var(--ink-400)] mb-2">
-              Chốt lúc 08:00 mỗi ngày — chọn khoảng ngày để lọc. Đang hiển thị:{" "}
+              {tr("Chốt lúc 08:00 mỗi ngày — chọn khoảng ngày để lọc. Đang hiển thị:")}{" "}
               <span className="font-semibold text-[var(--indigo-700)]">{tonTrendFilterLabel}</span>.
             </div>
             <div className="flex items-center gap-2 flex-wrap mb-2">
               <label className="text-xs text-[var(--ink-400)] flex items-center gap-1.5">
-                Từ ngày
-                <input
+                {tr("Từ ngày")}<input
                   type="date"
                   value={tonTrendFrom}
                   max={tonTrendTo}
@@ -2347,8 +2338,7 @@ export function BacklogModule({
                 />
               </label>
               <label className="text-xs text-[var(--ink-400)] flex items-center gap-1.5">
-                Đến ngày
-                <input
+                {tr("Đến ngày")}<input
                   type="date"
                   value={tonTrendTo}
                   min={tonTrendFrom}
@@ -2366,8 +2356,7 @@ export function BacklogModule({
                     setTonTrendTo(vnDateOffsetStr(0));
                   }}
                 >
-                  7 ngày
-                </Btn>
+                  {tr("7 ngày")}</Btn>
                 <Btn
                   variant="ghost"
                   size="sm"
@@ -2376,8 +2365,7 @@ export function BacklogModule({
                     setTonTrendTo(vnDateOffsetStr(0));
                   }}
                 >
-                  14 ngày
-                </Btn>
+                  {tr("14 ngày")}</Btn>
                 <Btn
                   variant="ghost"
                   size="sm"
@@ -2386,20 +2374,19 @@ export function BacklogModule({
                     setTonTrendTo(vnDateOffsetStr(0));
                   }}
                 >
-                  90 ngày
-                </Btn>
+                  {tr("90 ngày")}</Btn>
               </div>
             </div>
             <div className="overflow-x-auto">
               <table className="dense w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th className="py-2 pr-3">Ngày (chốt 08:00)</th>
-                    <th className="py-2 px-2 text-right">Tổng tồn</th>
-                    <th className="py-2 px-2 text-right">Tồn &gt;3 ngày</th>
-                    <th className="py-2 px-3 text-right text-[var(--indigo-700)] bg-[var(--indigo-100)] rounded-lg">Tồn ≥5 ngày</th>
-                    <th className="py-2 px-2 text-right">Tồn &gt;7 ngày</th>
-                    <th className="py-2 px-2 text-right">Tồn &gt;14 ngày</th>
+                    <th className="py-2 pr-3">{tr("Ngày (chốt 08:00)")}</th>
+                    <th className="py-2 px-2 text-right">{tr("Tổng tồn")}</th>
+                    <th className="py-2 px-2 text-right">{tr("Tồn >3 ngày")}</th>
+                    <th className="py-2 px-3 text-right text-[var(--indigo-700)] bg-[var(--indigo-100)] rounded-lg">{tr("Tồn ≥5 ngày")}</th>
+                    <th className="py-2 px-2 text-right">{tr("Tồn >7 ngày")}</th>
+                    <th className="py-2 px-2 text-right">{tr("Tồn >14 ngày")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2416,8 +2403,7 @@ export function BacklogModule({
                   {(tonTrend?.rows ?? []).length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                        Chưa có dữ liệu lịch sử trong khoảng ngày đã chọn.
-                      </td>
+                        {tr("Chưa có dữ liệu lịch sử trong khoảng ngày đã chọn.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -2450,7 +2436,7 @@ export function BacklogModule({
       ) : (
         <div className="mt-2">
           <div className="flex items-center gap-2 flex-wrap bg-[var(--surface)] border border-[var(--line)] rounded-xl px-3 py-2 mb-2">
-            <span className="text-xs font-semibold text-[var(--ink-400)]">Nhóm:</span>
+            <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Nhóm:")}</span>
             <Select
               value={nhomKey}
               onChange={(v) => {
@@ -2482,12 +2468,12 @@ export function BacklogModule({
                   setKtvFilter(v);
                   setPage(1);
                 }}
-                options={[{ value: "", label: "Tất cả KTV" }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
+                options={[{ value: "", label: tr("Tất cả KTV") }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
               />
             )}
             {dsTab !== "da-dong" && (
               <MultiSelectFilter
-                label="Nhóm KH"
+                label={tr("Nhóm KH")}
                 value={nhomKhFilter}
                 onChange={(v) => {
                   setNhomKhFilter(v);
@@ -2504,14 +2490,14 @@ export function BacklogModule({
                   setIdSearch(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Tìm theo ID/Serial…"
+                placeholder={tr("Tìm theo ID/Serial…")}
                 className="focus-ring w-40 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
             )}
             {dsTab !== "da-dong" && (
               <div className="ml-auto">
                 <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
-                  {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
+                  {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
                 </Btn>
               </div>
             )}
@@ -2532,7 +2518,7 @@ export function BacklogModule({
               onRowClick={(c) => openCase(c.id, preferredCaseTab(c))}
               rowKey={(c) => c.id}
               rowClassName={(c) => vipRowClassName(c.nhom_kh)}
-              emptyText="Không có ca nào trong nhóm này."
+              emptyText={tr("Không có ca nào trong nhóm này.")}
               sortBy={sortBy}
               sortDir={sortDir}
               onSortChange={(newSortBy, newSortDir) => {

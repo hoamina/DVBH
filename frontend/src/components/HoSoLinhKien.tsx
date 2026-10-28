@@ -11,6 +11,8 @@ import { fmtSl, TonKhoCapNhatLine } from "./TonKhoLk";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
 import type { SheetRow } from "../lib/purchaseWarrantySync";
+import { tr } from "../i18n/tr";
+
 
 // "Ho so linh kien" (GD2 ton kho linh kien, 2026-10-08) - bam 1 ma LK o tab "Linh kiện thiếu": tra loi nhanh
 // "dang ton o kho nao, SL bao nhieu, KTV nao dang giu, ca nao dang cho, kho xu ly thieu hang chua, don/PO the nao".
@@ -66,12 +68,12 @@ interface LichSuThieuLk {
 }
 
 const THIEU_LK_TRANG_THAI: Record<string, { label: string; tone: BadgeTone; mo: boolean }> = {
-  "Cho kho xu ly": { label: "Chờ kho xử lý", tone: "coral", mo: true },
-  "Kho da tiep nhan": { label: "Kho đã tiếp nhận", tone: "amber", mo: true },
-  "Kho xac nhan hang da ve": { label: "Kho xác nhận hàng đã về", tone: "teal", mo: false },
-  "Kho tu choi sai TT": { label: "Kho từ chối (sai thông tin)", tone: "gray", mo: false },
-  "Da huy bo": { label: "Đã hủy bỏ", tone: "gray", mo: false },
-  "Da ket thuc": { label: "Đã kết thúc", tone: "gray", mo: false },
+  "Cho kho xu ly": { label: tr("Chờ kho xử lý"), tone: "coral", mo: true },
+  "Kho da tiep nhan": { label: tr("Kho đã tiếp nhận"), tone: "amber", mo: true },
+  "Kho xac nhan hang da ve": { label: tr("Kho xác nhận hàng đã về"), tone: "teal", mo: false },
+  "Kho tu choi sai TT": { label: tr("Kho từ chối (sai thông tin)"), tone: "gray", mo: false },
+  "Da huy bo": { label: tr("Đã hủy bỏ"), tone: "gray", mo: false },
+  "Da ket thuc": { label: tr("Đã kết thúc"), tone: "gray", mo: false },
 };
 
 // Bo cuc 2026-10-09 (phan hoi "khong co diem nhan va phan tach"): moi phan la 1 the co vach mau ben trai + so dem,
@@ -155,53 +157,53 @@ function Empty({ text }: { text: string }) {
 function TuoiBadge({ ngay }: { ngay: number | null }) {
   if (ngay === null || ngay === undefined) return <span className="text-[var(--ink-400)]">—</span>;
   const tone: BadgeTone = ngay >= 15 ? "coral" : ngay >= 7 ? "amber" : "gray";
-  return <Badge tone={tone}>{ngay} ngày</Badge>;
+  return <Badge tone={tone}>{ngay}  {tr("ngày")}</Badge>;
 }
 
 // 2026-10-23: them Ngay ban hanh PO / Ngay hang ve thuc te (PO, re chuot xem phieu nhap) / NM cam ket / Ghi chu.
 const PO_DAT_HANG_COLS: { key: string; label: string; titleKey?: string }[] = [
-  { key: "id", label: "ID đặt LK" },
-  { key: "ngayBanHanh", label: "Ngày ban hành PO" },
-  { key: "doiTac", label: "Đối tác" },
-  { key: "khoCanDat", label: "Kho cần đặt" },
-  { key: "soLuongDat", label: "SL đặt" },
-  { key: "slNhapTheoAmis", label: "SL nhập Amis" },
-  { key: "soLuongConThieu", label: "SL còn thiếu" },
-  { key: "trangThai", label: "Trạng thái" },
-  { key: "tocDoHangVe", label: "Tốc độ về" },
-  { key: "canhBao", label: "Cảnh báo" },
-  { key: "ngayDuKienGanNhat", label: "Ngày dự kiến hàng về" },
-  { key: "nmCamKet", label: "NM cam kết" },
-  { key: "ngayVeThucTe", label: "Hàng về thực tế (PO)", titleKey: "phieuNhap" },
-  { key: "ngayVeGanNhatToanQuoc", label: "Ngày về gần nhất toàn quốc" },
-  { key: "ghiChu", label: "Ghi chú" },
-  { key: "ngayCapNhat", label: "Cập nhật" },
+  { key: "id", label: tr("ID đặt LK") },
+  { key: "ngayBanHanh", label: tr("Ngày ban hành PO") },
+  { key: "doiTac", label: tr("Đối tác") },
+  { key: "khoCanDat", label: tr("Kho cần đặt") },
+  { key: "soLuongDat", label: tr("SL đặt") },
+  { key: "slNhapTheoAmis", label: tr("SL nhập Amis") },
+  { key: "soLuongConThieu", label: tr("SL còn thiếu") },
+  { key: "trangThai", label: tr("Trạng thái") },
+  { key: "tocDoHangVe", label: tr("Tốc độ về") },
+  { key: "canhBao", label: tr("Cảnh báo") },
+  { key: "ngayDuKienGanNhat", label: tr("Ngày dự kiến hàng về") },
+  { key: "nmCamKet", label: tr("NM cam kết") },
+  { key: "ngayVeThucTe", label: tr("Hàng về thực tế (PO)"), titleKey: "phieuNhap" },
+  { key: "ngayVeGanNhatToanQuoc", label: tr("Ngày về gần nhất toàn quốc") },
+  { key: "ghiChu", label: tr("Ghi chú") },
+  { key: "ngayCapNhat", label: tr("Cập nhật") },
 ];
 
 const MUA_HANG_COLS: { key: string; label: string }[] = [
   { key: "id", label: "ID" },
-  { key: "loaiDeXuat", label: "Loại đề xuất" },
-  { key: "soLuongDeXuat", label: "SL đề xuất" },
-  { key: "trangThaiDuyet", label: "Trạng thái duyệt" },
-  { key: "soLuongThucXuat", label: "SL thực xuất" },
-  { key: "trangThaiGuiHang", label: "Trạng thái gửi hàng" },
-  { key: "ngayKtvNhanHang", label: "Ngày KTV nhận" },
-  { key: "giaDeXuat", label: "Giá đề xuất" },
+  { key: "loaiDeXuat", label: tr("Loại đề xuất") },
+  { key: "soLuongDeXuat", label: tr("SL đề xuất") },
+  { key: "trangThaiDuyet", label: tr("Trạng thái duyệt") },
+  { key: "soLuongThucXuat", label: tr("SL thực xuất") },
+  { key: "trangThaiGuiHang", label: tr("Trạng thái gửi hàng") },
+  { key: "ngayKtvNhanHang", label: tr("Ngày KTV nhận") },
+  { key: "giaDeXuat", label: tr("Giá đề xuất") },
 ];
 
 const BAO_HANH_COLS: { key: string; label: string }[] = [
   { key: "id", label: "ID" },
-  { key: "trangThai", label: "Trạng thái" },
+  { key: "trangThai", label: tr("Trạng thái") },
   { key: "modelSanPham", label: "Model" },
   { key: "serial", label: "Serial" },
-  { key: "phuongAnXuLy", label: "Phương án xử lý" },
-  { key: "ngayGui", label: "Ngày gửi" },
-  { key: "ngayGioTraXong", label: "Ngày trả xong" },
-  { key: "nguoiSua", label: "Người sửa" },
+  { key: "phuongAnXuLy", label: tr("Phương án xử lý") },
+  { key: "ngayGui", label: tr("Ngày gửi") },
+  { key: "ngayGioTraXong", label: tr("Ngày trả xong") },
+  { key: "nguoiSua", label: tr("Người sửa") },
 ];
 
 function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: string; label: string; titleKey?: string }[] }) {
-  if (rows.length === 0) return <Empty text="Không có dữ liệu liên quan." />;
+  if (rows.length === 0) return <Empty text={tr("Không có dữ liệu liên quan.")} />;
   return (
     <div className="overflow-auto max-h-72">
       <table className="dense w-full text-xs">
@@ -221,7 +223,7 @@ function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: s
                 <td
                   key={c.key}
                   className={`py-1.5 px-2 ${c.titleKey && r[c.titleKey] ? "cursor-help underline decoration-dotted underline-offset-2" : ""}`}
-                  title={c.titleKey && r[c.titleKey] ? `Phiếu nhập: ${r[c.titleKey]}` : undefined}
+                  title={c.titleKey && r[c.titleKey] ? tr("Phiếu nhập: {0}", r[c.titleKey]) : undefined}
                 >
                   {r[c.key] || "—"}
                 </td>
@@ -280,18 +282,18 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
   );
   const homNay = new Date().toISOString().slice(0, 10);
   const orders = lsQ.data?.orders ?? [];
-  const lsLoi = lsQ.isError ? "Không tải được dữ liệu từ hệ Đặt mua linh kiện." : null;
+  const lsLoi = lsQ.isError ? tr("Không tải được dữ liệu từ hệ Đặt mua linh kiện.") : null;
 
   // Nhan dinh nhanh - thu tu uu tien xu ly: kho MB/MN co hang -> KTV cung khu vuc -> KTV noi khac -> het.
   const nhanDinh: { tone: BadgeTone; icon: string; title: string; text: string } | null = tonQ.isLoading
     ? null
     : tonMb + tonMn > 0
-      ? { tone: "teal", icon: "✅", title: "Có thể xử lý ngay", text: `Kho đang có hàng (MB ${fmtSl(tonMb)} · MN ${fmtSl(tonMn)}) — điều chuyển cho ca đang thiếu.` }
+      ? { tone: "teal", icon: "✅", title: tr("Có thể xử lý ngay"), text: tr("Kho đang có hàng (MB {0} · MN {1}) — điều chuyển cho ca đang thiếu.", fmtSl(tonMb), fmtSl(tonMn)) }
       : ktvCungKv.length > 0
-        ? { tone: "teal", icon: "🔁", title: "Điều chuyển từ KTV", text: `Kho MB/MN hết, nhưng ${ktvCungKv.length} KTV cùng khu vực với ca thiếu đang giữ hàng (${fmtSl(sum(ktvCungKv))}).` }
+        ? { tone: "teal", icon: "🔁", title: tr("Điều chuyển từ KTV"), text: tr("Kho MB/MN hết, nhưng {0} KTV cùng khu vực với ca thiếu đang giữ hàng ({1}).", ktvCungKv.length, fmtSl(sum(ktvCungKv))) }
         : ktv.length > 0
-          ? { tone: "amber", icon: "⚠️", title: "Chỉ còn ở KTV khu vực khác", text: `Kho MB/MN hết; ${ktv.length} KTV khu vực khác đang giữ (${fmtSl(tonKtv)}).` }
-          : { tone: "coral", icon: "⛔", title: "Hết hàng toàn hệ thống", text: "Kho + KTV đều hết — cần đặt PO / theo dõi hàng về." };
+          ? { tone: "amber", icon: "⚠️", title: tr("Chỉ còn ở KTV khu vực khác"), text: tr("Kho MB/MN hết; {0} KTV khu vực khác đang giữ ({1}).", ktv.length, fmtSl(tonKtv)) }
+          : { tone: "coral", icon: "⛔", title: tr("Hết hàng toàn hệ thống"), text: tr("Kho + KTV đều hết — cần đặt PO / theo dõi hàng về.") };
   const nd = nhanDinh ? TONE_VAR[nhanDinh.tone] : null;
 
   return (
@@ -299,18 +301,18 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
       {/* Diem nhan: the so lieu chinh + nhan dinh */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-3">
-          <StatCard label="Tồn kho MB" value={fmtSl(tonMb)} tone="ocean" muted={tonMb <= 0} sub="kho tính vào MB" />
-          <StatCard label="Tồn kho MN" value={fmtSl(tonMn)} tone="ocean" muted={tonMn <= 0} sub="kho tính vào MN" />
+          <StatCard label={tr("Tồn kho MB")} value={fmtSl(tonMb)} tone="ocean" muted={tonMb <= 0} sub={tr("kho tính vào MB")} />
+          <StatCard label={tr("Tồn kho MN")} value={fmtSl(tonMn)} tone="ocean" muted={tonMn <= 0} sub={tr("kho tính vào MN")} />
           <StatCard
-            label="KTV đang giữ"
+            label={tr("KTV đang giữ")}
             value={fmtSl(tonKtv)}
             tone="teal"
             muted={tonKtv <= 0}
-            sub={`${ktv.length} người${ktvCungKv.length ? ` · ${ktvCungKv.length} cùng KV ca thiếu` : ""}`}
+            sub={tr("{0} người{1}", ktv.length, ktvCungKv.length ? " " + tr("· {0} cùng KV ca thiếu", ktvCungKv.length) : "")}
           />
-          <StatCard label="Ca đang thiếu" value={cases.length} tone="coral" muted={cases.length === 0} sub={tuoiMax !== null ? `lâu nhất ${tuoiMax} ngày` : "trong phạm vi bạn xem"} />
-          <StatCard label="Ticket thiếu hàng mở" value={ticketMo.length} tone="amber" muted={ticketMo.length === 0} sub={`${thieuLk.length} ticket tổng`} />
-          <StatCard label="PO liên quan" value={po.length} tone="gray" muted={po.length === 0} sub="Google Sheet + App EO" />
+          <StatCard label={tr("Ca đang thiếu")} value={cases.length} tone="coral" muted={cases.length === 0} sub={tuoiMax !== null ? tr("lâu nhất {0} ngày", tuoiMax) : tr("trong phạm vi bạn xem")} />
+          <StatCard label={tr("Ticket thiếu hàng mở")} value={ticketMo.length} tone="amber" muted={ticketMo.length === 0} sub={tr("{0} ticket tổng", thieuLk.length)} />
+          <StatCard label={tr("PO liên quan")} value={po.length} tone="gray" muted={po.length === 0} sub="Google Sheet + App EO" />
         </div>
         {nhanDinh && nd && (
           <div className="rounded-xl px-4 py-3 flex items-start gap-3" style={{ background: nd.tint, borderLeft: `5px solid ${nd.solid}` }}>
@@ -325,13 +327,13 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
         )}
       </div>
 
-      <Zone n={1} title="Nhu cầu" hint="ca đang chờ linh kiện này, lâu nhất trên đầu">
+      <Zone n={1} title={tr("Nhu cầu")} hint={tr("ca đang chờ linh kiện này, lâu nhất trên đầu")}>
         <Section
-          title="Ca đang báo thiếu"
+          title={tr("Ca đang báo thiếu")}
           icon="🧾"
           tone="coral"
           count={caQ.isLoading ? undefined : cases.length}
-          emptyText={!caQ.isLoading && cases.length === 0 ? "Không có ca nào trong phạm vi bạn xem." : null}
+          emptyText={!caQ.isLoading && cases.length === 0 ? tr("Không có ca nào trong phạm vi bạn xem.") : null}
         >
           {caQ.isLoading ? (
             <LoadingInline />
@@ -340,12 +342,12 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
               <table className="dense w-full text-xs">
                 <thead className={THEAD}>
                   <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
-                    <th className={TH}>Mã ca</th>
-                    <th className={TH}>Khu vực</th>
+                    <th className={TH}>{tr("Mã ca")}</th>
+                    <th className={TH}>{tr("Khu vực")}</th>
                     <th className={TH}>KTV</th>
-                    <th className={TH}>Khách hàng</th>
-                    <th className={`${TH} text-right`}>Tuổi tồn</th>
-                    <th className={TH}>Ngày cần hàng</th>
+                    <th className={TH}>{tr("Khách hàng")}</th>
+                    <th className={`${TH} text-right`}>{tr("Tuổi tồn")}</th>
+                    <th className={TH}>{tr("Ngày cần hàng")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -364,7 +366,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                         </td>
                         <td className={`${TH} ${treHen ? "text-[var(--coral-600)] font-semibold" : ""}`}>
                           {c.last_ngay_yeu_cau_co_hang ? fmtDate(c.last_ngay_yeu_cau_co_hang) : "—"}
-                          {treHen && " · quá hẹn"}
+                          {treHen && " " + tr("· quá hẹn")}
                         </td>
                       </tr>
                     );
@@ -376,14 +378,14 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
         </Section>
       </Zone>
 
-      <Zone n={2} title="Nguồn hàng hiện có" hint="tồn MISA cuối kỳ" right={<TonKhoCapNhatLine />}>
+      <Zone n={2} title={tr("Nguồn hàng hiện có")} hint={tr("tồn MISA cuối kỳ")} right={<TonKhoCapNhatLine />}>
         <div className="grid md:grid-cols-2 gap-3 [&>*]:min-w-0">
           <Section
-            title="Tồn theo kho công ty"
+            title={tr("Tồn theo kho công ty")}
             icon="🏬"
             tone="ocean"
             count={tonQ.isLoading ? undefined : kho.filter((r) => (r.cuoi_ky ?? 0) > 0).length}
-            emptyText={!tonQ.isLoading && kho.length === 0 ? "Không kho công ty nào có mã này." : null}
+            emptyText={!tonQ.isLoading && kho.length === 0 ? tr("Không kho công ty nào có mã này.") : null}
           >
             {tonQ.isLoading ? (
               <LoadingInline />
@@ -393,8 +395,8 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                   <thead className={THEAD}>
                     <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
                       <th className={TH}>Kho</th>
-                      <th className={TH}>Tính vào</th>
-                      <th className={`${TH} text-right`}>SL tồn</th>
+                      <th className={TH}>{tr("Tính vào")}</th>
+                      <th className={`${TH} text-right`}>{tr("SL tồn")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -406,7 +408,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                             <span className="font-mono font-semibold">{r.ma_kho}</span>
                             {r.ten_kho && <span className="text-[var(--ink-400)]"> · {r.ten_kho}</span>}
                           </td>
-                          <td className={TH}>{r.nhom ? <Badge tone="ocean">{r.nhom}</Badge> : <span className="text-[var(--ink-400)]">Không tính</span>}</td>
+                          <td className={TH}>{r.nhom ? <Badge tone="ocean">{r.nhom}</Badge> : <span className="text-[var(--ink-400)]">{tr("Không tính")}</span>}</td>
                           <td className={`${TH} text-right font-bold tabular-nums text-sm ${coHang ? "text-[var(--teal-600)]" : ""}`}>{fmtSl(r.cuoi_ky)}</td>
                         </tr>
                       );
@@ -418,12 +420,12 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
           </Section>
 
           <Section
-            title="KTV đang giữ hàng"
+            title={tr("KTV đang giữ hàng")}
             icon="🧰"
             tone="teal"
             count={tonQ.isLoading ? undefined : ktv.length}
-            emptyText={!tonQ.isLoading && ktvSorted.length === 0 ? "Không KTV nào đang giữ mã này." : null}
-            right={ktvCungKv.length > 0 ? <Badge tone="teal">{ktvCungKv.length} cùng KV ca thiếu</Badge> : undefined}
+            emptyText={!tonQ.isLoading && ktvSorted.length === 0 ? tr("Không KTV nào đang giữ mã này.") : null}
+            right={ktvCungKv.length > 0 ? <Badge tone="teal">{ktvCungKv.length}  {tr("cùng KV ca thiếu")}</Badge> : undefined}
           >
             {tonQ.isLoading ? (
               <LoadingInline />
@@ -433,7 +435,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                   <thead className={THEAD}>
                     <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
                       <th className={TH}>KTV / kho</th>
-                      <th className={TH}>Khu vực</th>
+                      <th className={TH}>{tr("Khu vực")}</th>
                       <th className={`${TH} text-right`}>SL</th>
                     </tr>
                   </thead>
@@ -445,11 +447,11 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                           <td className={TH}>
                             <span className={cungKv ? "font-semibold" : ""}>{r.ten_ktv ?? r.ten_kho ?? r.ma_kho}</span>
                             <span className="text-[var(--ink-400)] font-mono"> · {r.ma_kho}</span>
-                            {!r.ma_ktv && <span className="text-[var(--amber-600)]"> (chưa khớp KTV)</span>}
+                            {!r.ma_ktv && <span className="text-[var(--amber-600)]">  {tr("(chưa khớp KTV)")}</span>}
                           </td>
                           <td className={TH}>
                             {r.khu_vuc_ma ?? "—"}
-                            {cungKv && <span className="ml-1 text-[var(--teal-600)] font-semibold">● cùng KV</span>}
+                            {cungKv && <span className="ml-1 text-[var(--teal-600)] font-semibold">{tr("● cùng KV")}</span>}
                           </td>
                           <td className={`${TH} text-right font-bold tabular-nums text-sm`}>{fmtSl(r.cuoi_ky)}</td>
                         </tr>
@@ -463,14 +465,14 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
         </div>
       </Zone>
 
-      <Zone n={3} title="Xử lý & cung ứng" hint="kho xử lý thiếu hàng, đơn đặt, PO">
+      <Zone n={3} title={tr("Xử lý & cung ứng")} hint={tr("kho xử lý thiếu hàng, đơn đặt, PO")}>
         <Section
-          title="Ticket thiếu hàng — kho xử lý"
+          title={tr("Ticket thiếu hàng — kho xử lý")}
           icon="📦"
           tone="amber"
           count={lsQ.isLoading || lsQ.isError ? undefined : ticketMo.length}
-          right={!lsQ.isLoading && !lsQ.isError && thieuLk.length > 0 ? <span className="text-[var(--ink-400)]">{thieuLk.length - ticketMo.length} đã đóng</span> : undefined}
-          emptyText={lsQ.isLoading ? null : lsLoi ?? (thieuLk.length === 0 ? "Chưa có ticket thiếu hàng nào cho mã này." : null)}
+          right={!lsQ.isLoading && !lsQ.isError && thieuLk.length > 0 ? <span className="text-[var(--ink-400)]">{thieuLk.length - ticketMo.length}  {tr("đã đóng")}</span> : undefined}
+          emptyText={lsQ.isLoading ? null : lsLoi ?? (thieuLk.length === 0 ? tr("Chưa có ticket thiếu hàng nào cho mã này.") : null)}
         >
           {lsQ.isLoading ? (
             <LoadingInline />
@@ -480,11 +482,11 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                 <thead className={THEAD}>
                   <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
                     <th className={TH}>Ticket</th>
-                    <th className={TH}>Trạng thái</th>
-                    <th className={TH}>Lý do</th>
-                    <th className={TH}>Tạo lúc</th>
-                    <th className={TH}>Dự kiến có hàng</th>
-                    <th className={TH}>Hàng về thực tế</th>
+                    <th className={TH}>{tr("Trạng thái")}</th>
+                    <th className={TH}>{tr("Lý do")}</th>
+                    <th className={TH}>{tr("Tạo lúc")}</th>
+                    <th className={TH}>{tr("Dự kiến có hàng")}</th>
+                    <th className={TH}>{tr("Hàng về thực tế")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -511,12 +513,12 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
         </Section>
 
         <Section
-          title="Lịch sử đặt hàng — hệ Đặt mua linh kiện"
+          title={tr("Lịch sử đặt hàng — hệ Đặt mua linh kiện")}
           icon="🛒"
           tone="ocean"
           count={lsQ.isLoading || lsQ.isError ? undefined : orders.length}
-          right={orders.length > 0 ? <span className="text-[var(--ink-400)]">đơn gần nhất</span> : undefined}
-          emptyText={lsQ.isLoading ? null : lsLoi ?? (orders.length === 0 ? "Chưa có đơn đặt hàng nào cho mã này." : null)}
+          right={orders.length > 0 ? <span className="text-[var(--ink-400)]">{tr("đơn gần nhất")}</span> : undefined}
+          emptyText={lsQ.isLoading ? null : lsLoi ?? (orders.length === 0 ? tr("Chưa có đơn đặt hàng nào cho mã này.") : null)}
         >
           {lsQ.isLoading ? (
             <LoadingInline />
@@ -525,13 +527,13 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
               <table className="dense w-full text-xs">
                 <thead className={THEAD}>
                   <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
-                    <th className={TH}>Đơn</th>
-                    <th className={TH}>Loại</th>
-                    <th className={TH}>Trạng thái</th>
-                    <th className={`${TH} text-right`}>SL đề xuất / thực xuất</th>
-                    <th className={TH}>Người nhận</th>
+                    <th className={TH}>{tr("Đơn")}</th>
+                    <th className={TH}>{tr("Loại")}</th>
+                    <th className={TH}>{tr("Trạng thái")}</th>
+                    <th className={`${TH} text-right`}>{tr("SL đề xuất / thực xuất")}</th>
+                    <th className={TH}>{tr("Người nhận")}</th>
                     <th className={TH}>KV</th>
-                    <th className={TH}>Ngày tạo</th>
+                    <th className={TH}>{tr("Ngày tạo")}</th>
                     <th className={TH}>Ca</th>
                   </tr>
                 </thead>
@@ -569,17 +571,17 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
           )}
         </Section>
 
-        <Section title="PO đặt hàng liên quan" icon="📑" tone="orange" count={po.length} emptyText={po.length === 0 ? "Không có PO liên quan." : null}>
+        <Section title={tr("PO đặt hàng liên quan")} icon="📑" tone="orange" count={po.length} emptyText={po.length === 0 ? tr("Không có PO liên quan.") : null}>
           <SheetRowsTable rows={po} columns={PO_DAT_HANG_COLS} />
         </Section>
       </Zone>
 
-      <Zone n={4} title="Tham khảo" hint="dữ liệu AppSheet / Google Sheet">
+      <Zone n={4} title={tr("Tham khảo")} hint={tr("dữ liệu AppSheet / Google Sheet")}>
         <div className="grid xl:grid-cols-2 gap-3 [&>*]:min-w-0">
-          <Section title="Đơn mua hàng — Google Sheet" icon="🧮" tone="gray" count={muaHangRows.length} emptyText={muaHangRows.length === 0 ? "Không có." : null}>
+          <Section title={tr("Đơn mua hàng — Google Sheet")} icon="🧮" tone="gray" count={muaHangRows.length} emptyText={muaHangRows.length === 0 ? tr("Không có.") : null}>
             <SheetRowsTable rows={muaHangRows} columns={MUA_HANG_COLS} />
           </Section>
-          <Section title="Bảo hành liên quan" icon="🛠️" tone="gray" count={baoHanhRows.length} emptyText={baoHanhRows.length === 0 ? "Không có." : null}>
+          <Section title={tr("Bảo hành liên quan")} icon="🛠️" tone="gray" count={baoHanhRows.length} emptyText={baoHanhRows.length === 0 ? tr("Không có.") : null}>
             <SheetRowsTable rows={baoHanhRows} columns={BAO_HANH_COLS} />
           </Section>
         </div>

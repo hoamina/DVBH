@@ -15,6 +15,7 @@ import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen, useDiaGioiLoc, useOnDiaGioiModeChange, NHAN_CAP_1 } from "../lib/diaGioi";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
+import { tr } from "../i18n/tr";
 
 interface DailyReportBucket {
   baseline: number;
@@ -152,48 +153,47 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
         <Card className="p-4 mb-4 border-[var(--coral-500)]/40 bg-gradient-to-br from-[var(--coral-100)]/50 to-transparent">
           <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
             <div className="font-display font-bold text-sm flex items-center gap-2">
-              📊 Báo cáo nhanh vấn đề trong ngày
-              {dailyReport.scope === "khu_vuc" && dailyReport.khuVucList.length > 0 && (
+              {tr("📊 Báo cáo nhanh vấn đề trong ngày")}{dailyReport.scope === "khu_vuc" && dailyReport.khuVucList.length > 0 && (
                 <span className="text-xs font-normal text-[var(--ink-400)]">— {dailyReport.khuVucList.map(shortKhuVuc).join(", ")}</span>
               )}
             </div>
           </div>
           <div className="text-xs text-[var(--ink-400)] mb-3">
-            Báo cáo được cập nhật lúc: {fmtGeneratedAt(dailyReport.generatedAt)} bởi{" "}
-            {dailyReport.generatedBy === "auto" ? "tự động" : dailyReport.generatedBy}
+            {tr("Báo cáo được cập nhật lúc:")} {fmtGeneratedAt(dailyReport.generatedAt)}  {tr("bởi")}{" "}
+            {dailyReport.generatedBy === "auto" ? tr("tự động") : dailyReport.generatedBy}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <button onClick={() => onNavigate?.("backlog")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--coral-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">Tồn &gt;3 ngày cần giải trình</div>
+              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Tồn >3 ngày cần giải trình")}</div>
               <div className="text-xl font-bold text-[var(--coral-500)]">{dailyReport.tonCanGiaiTrinh.remaining}</div>
               <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                Đầu ngày: {dailyReport.tonCanGiaiTrinh.baseline} · Đã xử lý: {dailyReport.tonCanGiaiTrinh.resolved}
+                {tr("Đầu ngày:")} {dailyReport.tonCanGiaiTrinh.baseline}  {tr("· Đã xử lý:")} {dailyReport.tonCanGiaiTrinh.resolved}
               </div>
             </button>
             <button onClick={() => onNavigate?.("missing-parts")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--amber-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">Ca thiếu linh kiện tồn đọng</div>
+              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Ca thiếu linh kiện tồn đọng")}</div>
               <div className="text-xl font-bold text-[var(--amber-500)]">{dailyReport.thieuLinhKien.remaining}</div>
               <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                Đầu ngày: {dailyReport.thieuLinhKien.baseline} · Đã xử lý: {dailyReport.thieuLinhKien.resolved}
+                {tr("Đầu ngày:")} {dailyReport.thieuLinhKien.baseline}  {tr("· Đã xử lý:")} {dailyReport.thieuLinhKien.resolved}
               </div>
             </button>
             <button onClick={() => onNavigate?.("ca-lap")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--coral-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">Ca lặp cần xử lý</div>
+              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Ca lặp cần xử lý")}</div>
               <div className="text-xl font-bold text-[var(--coral-500)]">{dailyReport.caLap.remaining}</div>
               <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                Đầu ngày: {dailyReport.caLap.baseline} · Đã xử lý: {dailyReport.caLap.resolved}
+                {tr("Đầu ngày:")} {dailyReport.caLap.baseline}  {tr("· Đã xử lý:")} {dailyReport.caLap.resolved}
               </div>
             </button>
             <button onClick={() => onNavigate?.("survey")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--coral-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">Ca cần khảo sát</div>
+              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Ca cần khảo sát")}</div>
               <div className="text-xl font-bold text-[var(--coral-500)]">{dailyReport.canKhaoSat.remaining}</div>
               <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                Đầu ngày: {dailyReport.canKhaoSat.baseline} · Đã xử lý: {dailyReport.canKhaoSat.resolved}
+                {tr("Đầu ngày:")} {dailyReport.canKhaoSat.baseline}  {tr("· Đã xử lý:")} {dailyReport.canKhaoSat.resolved}
               </div>
             </button>
             {dailyReport.doanhThuThang !== null && (
               <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
-                <div className="text-xs text-[var(--ink-400)] mb-1">Doanh thu tháng này</div>
+                <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Doanh thu tháng này")}</div>
                 <div className="text-xl font-bold text-[var(--teal-500)]">{fmtVND(dailyReport.doanhThuThang)}</div>
               </div>
             )}
@@ -210,21 +210,21 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
         />
       </div>
       <div className="flex flex-wrap gap-3 mb-4">
-        <StatCard label="Tổng số ca" value={kpi?.total ?? 0} tone="ocean" sub={`${kpi?.hoanThanh ?? 0} đã hoàn thành`} />
-        <StatCard label="Tỷ lệ đạt SLA" value={`${kpi?.tySla ?? 0}%`} tone="teal" sub="Hẹn xử lý đúng hạn" />
-        <StatCard label="Tỷ lệ xử lý ≤24h" value={`${kpi?.ty24h ?? 0}%`} tone="ocean" sub="Từ lúc tiếp nhận" />
-        <StatCard label="Ca tồn đọng" value={kpi?.ton ?? 0} tone="amber" sub={`${kpi?.tyGiaiTrinh ?? 0}% đã giải trình`} />
-        <StatCard label="Nghi ngờ vi phạm" value={kpi?.nghiNgo ?? 0} tone="coral" sub={`Vi phạm ${kpi?.tyViPham ?? 0}% · Đã khảo sát ${kpi?.tyDaKhaoSat ?? 0}%`} />
+        <StatCard label={tr("Tổng số ca")} value={kpi?.total ?? 0} tone="ocean" sub={tr("{0} đã hoàn thành", kpi?.hoanThanh ?? 0)} />
+        <StatCard label={tr("Tỷ lệ đạt SLA")} value={`${kpi?.tySla ?? 0}%`} tone="teal" sub={tr("Hẹn xử lý đúng hạn")} />
+        <StatCard label={tr("Tỷ lệ xử lý ≤24h")} value={`${kpi?.ty24h ?? 0}%`} tone="ocean" sub={tr("Từ lúc tiếp nhận")} />
+        <StatCard label={tr("Ca tồn đọng")} value={kpi?.ton ?? 0} tone="amber" sub={tr("{0}% đã giải trình", kpi?.tyGiaiTrinh ?? 0)} />
+        <StatCard label={tr("Nghi ngờ vi phạm")} value={kpi?.nghiNgo ?? 0} tone="coral" sub={tr("Vi phạm {0}% · Đã khảo sát {1}%", kpi?.tyViPham ?? 0, kpi?.tyDaKhaoSat ?? 0)} />
       </div>
 
       <Card className="p-4 mb-4">
-        <div className="font-display font-bold text-sm mb-1">10 KTV có tỷ lệ SLA thấp nhất</div>
-        <div className="text-xs text-[var(--ink-400)] mb-3">Chỉ xét KTV có từ 5 ca trở lên trong kỳ lọc hiện tại</div>
+        <div className="font-display font-bold text-sm mb-1">{tr("10 KTV có tỷ lệ SLA thấp nhất")}</div>
+        <div className="text-xs text-[var(--ink-400)] mb-3">{tr("Chỉ xét KTV có từ 5 ca trở lên trong kỳ lọc hiện tại")}</div>
         <ChartCanvas
           type="bar"
           data={{
             labels: ktvRanked.map((r) => r.nhom),
-            datasets: [{ label: "Tỷ lệ SLA (%)", data: ktvRanked.map((r) => pct(r.sla_ok, r.dung_han_tinh)), backgroundColor: "#D84C4C", borderRadius: 6 }],
+            datasets: [{ label: tr("Tỷ lệ SLA (%)"), data: ktvRanked.map((r) => pct(r.sla_ok, r.dung_han_tinh)), backgroundColor: "#D84C4C", borderRadius: 6 }],
           }}
           options={{ indexAxis: "y" as const }}
         />
@@ -232,17 +232,17 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
 
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div className="font-display font-bold text-sm">Bảng pivot phân tích đa chiều</div>
+          <div className="font-display font-bold text-sm">{tr("Bảng pivot phân tích đa chiều")}</div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-[var(--ink-400)] text-xs font-semibold">Nhóm theo:</span>
+            <span className="text-[var(--ink-400)] text-xs font-semibold">{tr("Nhóm theo:")}</span>
             <Select
               value={pivotDim}
               onChange={setPivotDim}
               options={[
-                { value: "khu_vuc", label: "Khu vực" },
-                { value: "tinh", label: "Tỉnh" },
-                { value: "doi_tac", label: "Đối tác" },
-                { value: "hang", label: "Hãng" },
+                { value: "khu_vuc", label: tr("Khu vực") },
+                { value: "tinh", label: tr("Tỉnh") },
+                { value: "doi_tac", label: tr("Đối tác") },
+                { value: "hang", label: tr("Hãng") },
                 { value: "ky_thuat_vien", label: "KTV" },
               ]}
             />
@@ -297,22 +297,21 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                 )
               }
             >
-              ⬇ Xuất Excel
-            </Btn>
+              {tr("⬇ Xuất Excel")}</Btn>
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="dense w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                <th className="py-2 pr-3">Nhóm</th>
-                <th className="py-2 pr-3">Tỷ lệ SLA</th>
-                <th className="py-2 pr-3">Tỷ lệ ≤24h</th>
-                <th className="py-2 pr-3">Tỷ lệ nghi ngờ VP</th>
-                <th className="py-2 pr-3 border-l border-[var(--line)] pl-3">Số ca đã đóng</th>
-                <th className="py-2 pr-3">Số ca HT tính KPIS</th>
-                <th className="py-2 pr-3">Đạt SLA</th>
-                <th className="py-2 pr-3">Đạt ≤24h</th>
+                <th className="py-2 pr-3">{tr("Nhóm")}</th>
+                <th className="py-2 pr-3">{tr("Tỷ lệ SLA")}</th>
+                <th className="py-2 pr-3">{tr("Tỷ lệ ≤24h")}</th>
+                <th className="py-2 pr-3">{tr("Tỷ lệ nghi ngờ VP")}</th>
+                <th className="py-2 pr-3 border-l border-[var(--line)] pl-3">{tr("Số ca đã đóng")}</th>
+                <th className="py-2 pr-3">{tr("Số ca HT tính KPIS")}</th>
+                <th className="py-2 pr-3">{tr("Đạt SLA")}</th>
+                <th className="py-2 pr-3">{tr("Đạt ≤24h")}</th>
                 {LOAI_LOI_KEYS.map((k) => (
                   <th key={k} className="py-2 pr-3">
                     {LOAI_LOI_META[k].short}
@@ -323,7 +322,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
             <tbody>
               {sortedPivotRows.length > 0 && (
                 <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                  <td className="py-2 pr-3">Tổng cộng</td>
+                  <td className="py-2 pr-3">{tr("Tổng cộng")}</td>
                   <td className="py-2 pr-3 font-mono">{pct(pivotTotal.sla_ok, pivotTotal.dung_han_tinh)}%</td>
                   <td className="py-2 pr-3 font-mono">{pct(pivotTotal.duoi_24h_count, pivotTotal.co_tinh_24h)}%</td>
                   <td className="py-2 pr-3 font-mono">{pct(pivotTotal.nghi_ngo, pivotTotal.total)}%</td>
@@ -356,8 +355,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
               {sortedPivotRows.length === 0 && (
                 <tr>
                   <td colSpan={8 + LOAI_LOI_KEYS.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                    Không có dữ liệu.
-                  </td>
+                    {tr("Không có dữ liệu.")}</td>
                 </tr>
               )}
             </tbody>

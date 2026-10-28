@@ -12,6 +12,7 @@ import { useExportRunner } from "../hooks/useExportRunner";
 import { ImportUploader, describeError } from "../components/ImportUploader";
 import { Select } from "../components/ui/Select";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { tr } from "../i18n/tr";
 
 interface CrmSummary {
   GHI_MOI: number;
@@ -58,13 +59,13 @@ interface UpdateColumnSummary {
 }
 
 const TABS = [
-  { key: "crm", label: "Import CRM hàng ngày" },
-  { key: "giai-trinh", label: "Import giải trình cũ" },
-  { key: "giai-trinh-lap", label: "Import giải trình lặp cũ" },
-  { key: "khao-sat", label: "Import khảo sát cũ" },
-  { key: "nap-gas", label: "Import đánh giá nạp gas cũ" },
-  { key: "huy-ca", label: "Hủy ca hàng loạt" },
-  { key: "update-column", label: "Cập nhật 1 cột theo ID" },
+  { key: "crm", label: tr("Import CRM hàng ngày") },
+  { key: "giai-trinh", label: tr("Import giải trình cũ") },
+  { key: "giai-trinh-lap", label: tr("Import giải trình lặp cũ") },
+  { key: "khao-sat", label: tr("Import khảo sát cũ") },
+  { key: "nap-gas", label: tr("Import đánh giá nạp gas cũ") },
+  { key: "huy-ca", label: tr("Hủy ca hàng loạt") },
+  { key: "update-column", label: tr("Cập nhật 1 cột theo ID") },
 ];
 
 // "Lich su import" rieng cho tung loai (loc theo "loai" - xem migration 0027) - dung chung cho CA 5
@@ -82,7 +83,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="font-display font-bold text-sm">Lịch sử import</div>
+        <div className="font-display font-bold text-sm">{tr("Lịch sử import")}</div>
         <Btn
           variant="ghost"
           size="sm"
@@ -102,7 +103,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
             });
           })}
         >
-          {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
+          {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
         </Btn>
       </div>
       <div className="overflow-x-auto">
@@ -110,13 +111,13 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
           <thead>
             <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
               <th className="py-2 pr-3">File</th>
-              <th className="py-2 pr-3">Người import</th>
-              <th className="py-2 pr-3">Thời gian</th>
-              <th className="py-2 pr-3">Ghi mới / Thành công</th>
-              <th className="py-2 pr-3">Ghi đè</th>
-              <th className="py-2 pr-3">Bỏ qua</th>
-              <th className="py-2 pr-3">Lỗi</th>
-              <th className="py-2 pr-3">Ghi chú / Lỗi chi tiết</th>
+              <th className="py-2 pr-3">{tr("Người import")}</th>
+              <th className="py-2 pr-3">{tr("Thời gian")}</th>
+              <th className="py-2 pr-3">{tr("Ghi mới / Thành công")}</th>
+              <th className="py-2 pr-3">{tr("Ghi đè")}</th>
+              <th className="py-2 pr-3">{tr("Bỏ qua")}</th>
+              <th className="py-2 pr-3">{tr("Lỗi")}</th>
+              <th className="py-2 pr-3">{tr("Ghi chú / Lỗi chi tiết")}</th>
             </tr>
           </thead>
           <tbody>
@@ -138,8 +139,7 @@ function ImportHistoryCard({ loai, exportFileName }: { loai: string; exportFileN
             {(history?.rows ?? []).length === 0 && (
               <tr>
                 <td colSpan={8} className="py-6 text-center text-[var(--ink-400)] text-sm">
-                  Chưa có lịch sử import.
-                </td>
+                  {tr("Chưa có lịch sử import.")}</td>
               </tr>
             )}
           </tbody>
@@ -173,34 +173,33 @@ function HuyBoListCard({ openCase }: { openCase?: (id: string) => void }) {
   return (
     <Card className="p-4 mt-5">
       <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
-        <div className="font-display font-bold text-sm">Ca đã hủy bỏ {data ? `(${rows.length}${rows.length >= 2000 ? "+" : ""})` : ""}</div>
+        <div className="font-display font-bold text-sm">{tr("Ca đã hủy bỏ")} {data ? `(${rows.length}${rows.length >= 2000 ? "+" : ""})` : ""}</div>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo ID / serial…"
+          placeholder={tr("Tìm theo ID / serial…")}
           className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-48"
         />
       </div>
       <div className="text-xs text-[var(--ink-600)] mb-2">
-        Các ca này không được tính trong bất kỳ báo cáo, danh sách hay bộ lọc nào. Bấm vào 1 dòng để mở chi tiết ca và "Bỏ hủy ca" nếu cần.
-      </div>
+        {tr("Các ca này không được tính trong bất kỳ báo cáo, danh sách hay bộ lọc nào. Bấm vào 1 dòng để mở chi tiết ca và \"Bỏ hủy ca\" nếu cần.")}</div>
       {isLoading ? (
-        <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
+        <div className="text-sm text-[var(--ink-400)]">{tr("Đang tải…")}</div>
       ) : rows.length === 0 ? (
-        <div className="text-sm text-[var(--ink-400)]">Không có ca nào.</div>
+        <div className="text-sm text-[var(--ink-400)]">{tr("Không có ca nào.")}</div>
       ) : (
         <div className="overflow-auto max-h-[480px]">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[var(--surface-0,white)]">
               <tr className="text-left text-[var(--ink-400)]">
                 <th className="py-1.5 pr-3">ID</th>
-                <th className="py-1.5 pr-3">Khách hàng</th>
-                <th className="py-1.5 pr-3">Khu vực</th>
+                <th className="py-1.5 pr-3">{tr("Khách hàng")}</th>
+                <th className="py-1.5 pr-3">{tr("Khu vực")}</th>
                 <th className="py-1.5 pr-3">KTV</th>
-                <th className="py-1.5 pr-3">Tiến độ</th>
-                <th className="py-1.5 pr-3">Hủy lúc</th>
-                <th className="py-1.5 pr-3">Người hủy</th>
-                <th className="py-1.5">Lý do</th>
+                <th className="py-1.5 pr-3">{tr("Tiến độ")}</th>
+                <th className="py-1.5 pr-3">{tr("Hủy lúc")}</th>
+                <th className="py-1.5 pr-3">{tr("Người hủy")}</th>
+                <th className="py-1.5">{tr("Lý do")}</th>
               </tr>
             </thead>
             <tbody>
@@ -266,8 +265,8 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
   const syncSheetMutation = useMutation({
     mutationFn: () => api.post<CrmSummary>("/import/sync-sheet"),
     onSuccess: (res) => {
-      addToast(`Đồng bộ xong: ${res.GHI_MOI} ca mới, ${res.GHI_DE} ghi đè, ${res.BO_QUA} không đổi${res.LOI ? `, ${res.LOI} lỗi` : ""}`);
-      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ CRM hàng ngày", errors: res.errors } : null);
+      addToast(tr("Đồng bộ xong: {0} ca mới, {1} ghi đè, {2} không đổi{3}", res.GHI_MOI, res.GHI_DE, res.BO_QUA, res.LOI ? tr(", {0} lỗi", res.LOI) : ""));
+      setSyncErrors(res.errors.length > 0 ? { title: tr("Đồng bộ CRM hàng ngày"), errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
       // "backlog" khong khop query key thuc te (da tach "backlog-list"/"backlog-stats"/
       // "backlog-by-khu-vuc" - xem giai thich chi tiet o CaseDetail.tsx cung sua).
@@ -277,55 +276,55 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
       qc.invalidateQueries({ queryKey: ["backlog-counts"] });
       qc.invalidateQueries({ queryKey: ["dashboard-kpis"] });
     },
-    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Đồng bộ Google Sheet thất bại: {0}", describeError(err))),
   });
 
   const syncGiaiTrinhMutation = useMutation({
     mutationFn: () => api.post<BackfillSummary>("/import/giai-trinh/sync-sheet"),
     onSuccess: (res) => {
-      addToast(`Đồng bộ xong: ${res.thanhCong} dòng giải trình${res.loi ? `, ${res.loi} lỗi` : ""}`);
-      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ giải trình cũ", errors: res.errors } : null);
+      addToast(tr("Đồng bộ xong: {0} dòng giải trình{1}", res.thanhCong, res.loi ? tr(", {0} lỗi", res.loi) : ""));
+      setSyncErrors(res.errors.length > 0 ? { title: tr("Đồng bộ giải trình cũ"), errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
     },
-    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Đồng bộ Google Sheet thất bại: {0}", describeError(err))),
   });
 
   const syncGiaiTrinhLapMutation = useMutation({
     mutationFn: () => api.post<BackfillSummary>("/import/giai-trinh-lap/sync-sheet"),
     onSuccess: (res) => {
-      addToast(`Đồng bộ xong: ${res.thanhCong} dòng giải trình lặp${res.loi ? `, ${res.loi} lỗi` : ""}`);
-      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ giải trình lặp cũ", errors: res.errors } : null);
+      addToast(tr("Đồng bộ xong: {0} dòng giải trình lặp{1}", res.thanhCong, res.loi ? tr(", {0} lỗi", res.loi) : ""));
+      setSyncErrors(res.errors.length > 0 ? { title: tr("Đồng bộ giải trình lặp cũ"), errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
     },
-    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Đồng bộ Google Sheet thất bại: {0}", describeError(err))),
   });
 
   const syncNapGasMutation = useMutation({
     mutationFn: () => api.post<BackfillSummary>("/import/nap-gas/sync-sheet"),
     onSuccess: (res) => {
-      addToast(`Đồng bộ xong: ${res.thanhCong} dòng đánh giá nạp gas${res.loi ? `, ${res.loi} lỗi` : ""}`);
-      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ đánh giá nạp gas cũ", errors: res.errors } : null);
+      addToast(tr("Đồng bộ xong: {0} dòng đánh giá nạp gas{1}", res.thanhCong, res.loi ? tr(", {0} lỗi", res.loi) : ""));
+      setSyncErrors(res.errors.length > 0 ? { title: tr("Đồng bộ đánh giá nạp gas cũ"), errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
       qc.invalidateQueries({ queryKey: ["nap-gas"] });
       qc.invalidateQueries({ queryKey: ["nap-gas-by-khu-vuc"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
     },
-    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Đồng bộ Google Sheet thất bại: {0}", describeError(err))),
   });
 
   const syncKhaoSatMutation = useMutation({
     mutationFn: () => api.post<BackfillSummary>("/import/khao-sat/sync-sheet"),
     onSuccess: (res) => {
-      addToast(`Đồng bộ xong: ${res.thanhCong} lượt khảo sát${res.loi ? `, ${res.loi} lỗi` : ""}`);
-      setSyncErrors(res.errors.length > 0 ? { title: "Đồng bộ khảo sát cũ", errors: res.errors } : null);
+      addToast(tr("Đồng bộ xong: {0} lượt khảo sát{1}", res.thanhCong, res.loi ? tr(", {0} lỗi", res.loi) : ""));
+      setSyncErrors(res.errors.length > 0 ? { title: tr("Đồng bộ khảo sát cũ"), errors: res.errors } : null);
       qc.invalidateQueries({ queryKey: ["import-history"] });
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
     },
-    onError: (err) => addToast(`Đồng bộ Google Sheet thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Đồng bộ Google Sheet thất bại: {0}", describeError(err))),
   });
 
   // Ep tinh lai cache bao cao dashboard NGAY, khong doi import moi - dung khi cache bi "dong cung"
@@ -334,10 +333,10 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
   const refreshReportsMutation = useMutation({
     mutationFn: () => api.post("/import/refresh-reports"),
     onSuccess: () => {
-      addToast("Đã làm mới xong toàn bộ báo cáo dashboard.");
+      addToast(tr("Đã làm mới xong toàn bộ báo cáo dashboard."));
       qc.invalidateQueries({ queryKey: ["daily-report"] });
     },
-    onError: (err) => addToast(`Làm mới báo cáo thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Làm mới báo cáo thất bại: {0}", describeError(err))),
   });
 
   return (
@@ -345,14 +344,12 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
       {isAdmin && (
         <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
           <div>
-            <div className="font-display font-bold text-sm">Làm mới báo cáo dashboard</div>
+            <div className="font-display font-bold text-sm">{tr("Làm mới báo cáo dashboard")}</div>
             <div className="text-xs text-[var(--ink-600)] mt-0.5">
-              Ép tính lại toàn bộ số liệu dashboard (KPI, xu hướng SLA, doanh thu, ca lặp...) ngay lập tức — dùng khi thấy số liệu có vẻ "đứng im" sai dù dữ
-              liệu thật đã đổi. Đồng thời tính lại luôn "Báo cáo ngày 08:00" (banner Tổng quát) thay vì đợi đến 08:00 sáng hôm sau. Không cần đợi import mới.
-            </div>
+              {tr("Ép tính lại toàn bộ số liệu dashboard (KPI, xu hướng SLA, doanh thu, ca lặp...) ngay lập tức — dùng khi thấy số liệu có vẻ \"đứng im\" sai dù dữ liệu thật đã đổi. Đồng thời tính lại luôn \"Báo cáo ngày 08:00\" (banner Tổng quát) thay vì đợi đến 08:00 sáng hôm sau. Không cần đợi import mới.")}</div>
           </div>
           <Btn variant="ghost" size="sm" onClick={() => refreshReportsMutation.mutate()} disabled={refreshReportsMutation.isPending}>
-            {refreshReportsMutation.isPending ? "Đang làm mới…" : "🔄 Làm mới báo cáo"}
+            {refreshReportsMutation.isPending ? tr("Đang làm mới…") : tr("🔄 Làm mới báo cáo")}
           </Btn>
         </Card>
       )}
@@ -362,11 +359,9 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
         <Card className="p-4 mb-5 border-[var(--coral-300)]">
           <div className="flex items-center justify-between mb-2">
             <div className="font-display font-bold text-sm text-[var(--coral-600)]">
-              {syncErrors.title} — {syncErrors.errors.length} lỗi
-            </div>
+              {syncErrors.title} — {syncErrors.errors.length}  {tr("lỗi")}</div>
             <Btn variant="ghost" size="sm" onClick={() => setSyncErrors(null)}>
-              Đóng
-            </Btn>
+              {tr("Đóng")}</Btn>
           </div>
           <div className="text-xs text-[var(--coral-500)] max-h-48 overflow-y-auto space-y-0.5">
             {syncErrors.errors.map((e, i) => (
@@ -381,22 +376,19 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           {isAdmin && (
             <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="font-display font-bold text-sm">Đồng bộ ca mới từ Google Sheet</div>
+                <div className="font-display font-bold text-sm">{tr("Đồng bộ ca mới từ Google Sheet")}</div>
                 <div className="text-xs text-[var(--ink-600)] mt-0.5">
-                  Tự động tải và ghi ca mới từ sheet nội bộ (link "publish to web"), dùng chung logic so khớp/ghi đè như import thủ công ở dưới. Chỉ Admin.
-                </div>
+                  {tr("Tự động tải và ghi ca mới từ sheet nội bộ (link \"publish to web\"), dùng chung logic so khớp/ghi đè như import thủ công ở dưới. Chỉ Admin.")}</div>
               </div>
               <Btn variant="ghost" size="sm" onClick={() => syncSheetMutation.mutate()} disabled={syncSheetMutation.isPending}>
-                {syncSheetMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ ngay"}
+                {syncSheetMutation.isPending ? tr("Đang đồng bộ…") : tr("🔄 Đồng bộ ngay")}
               </Btn>
             </Card>
           )}
           <ImportUploader<CrmSummary>
             description={
               <>
-                Hệ thống so khớp theo cột <b className="font-mono">ID</b>: ID mới → ghi mới · ID đã có &amp; không đổi (đã hoàn thành) → bỏ qua · ID đã có &amp; chưa hoàn
-                thành → cập nhật "Ngày cập nhật gần nhất" · ID đã có &amp; có thay đổi → ghi đè.
-              </>
+                {tr("Hệ thống so khớp theo cột")} <b className="font-mono">ID</b>{tr(": ID mới → ghi mới · ID đã có & không đổi (đã hoàn thành) → bỏ qua · ID đã có & chưa hoàn thành → cập nhật \"Ngày cập nhật gần nhất\" · ID đã có & có thay đổi → ghi đè.")}</>
             }
             templateUrl="/api/import/template"
             previewUrl="/import/preview"
@@ -405,14 +397,14 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
             buildBody={(rows, filename) => ({ filename, rows })}
             renderSummary={(s) => (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
-                <StatCard label="Ghi mới" value={s.GHI_MOI} tone="teal" />
-                <StatCard label="Ghi đè" value={s.GHI_DE} tone="ocean" />
-                <StatCard label="Bỏ qua" value={s.BO_QUA} tone="gray" />
-                <StatCard label="Lỗi định dạng" value={s.LOI} tone={s.LOI > 0 ? "coral" : "gray"} />
+                <StatCard label={tr("Ghi mới")} value={s.GHI_MOI} tone="teal" />
+                <StatCard label={tr("Ghi đè")} value={s.GHI_DE} tone="ocean" />
+                <StatCard label={tr("Bỏ qua")} value={s.BO_QUA} tone="gray" />
+                <StatCard label={tr("Lỗi định dạng")} value={s.LOI} tone={s.LOI > 0 ? "coral" : "gray"} />
               </div>
             )}
             getErrors={(s) => s.errors}
-            successMessage={(s) => `Import thành công: ${s.GHI_MOI} ca mới, ${s.GHI_DE} ghi đè`}
+            successMessage={(s) => tr("Import thành công: {0} ca mới, {1} ghi đè", s.GHI_MOI, s.GHI_DE)}
             invalidateKeys={[
               ["import-history"],
               ["backlog-list"],
@@ -431,22 +423,20 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           {isAdmin && hasSheetUrl("giai_trinh_cu") && (
             <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="font-display font-bold text-sm">Đồng bộ giải trình cũ từ Google Sheet</div>
+                <div className="font-display font-bold text-sm">{tr("Đồng bộ giải trình cũ từ Google Sheet")}</div>
                 <div className="text-xs text-[var(--ink-600)] mt-0.5">
-                  Tự động tải và ghi các dòng giải trình cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.
-                </div>
+                  {tr("Tự động tải và ghi các dòng giải trình cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.")}</div>
               </div>
               <Btn variant="ghost" size="sm" onClick={() => syncGiaiTrinhMutation.mutate()} disabled={syncGiaiTrinhMutation.isPending}>
-                {syncGiaiTrinhMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ ngay"}
+                {syncGiaiTrinhMutation.isPending ? tr("Đang đồng bộ…") : tr("🔄 Đồng bộ ngay")}
               </Btn>
             </Card>
           )}
           <ImportUploader<BackfillSummary>
           description={
             <>
-              Nhập lại nội dung giải trình cho các ca đã từng được xử lý trước khi hệ thống này ra đời. Mỗi dòng ghi 1 lượt giải trình vào ca đã có sẵn (theo{" "}
-              <b className="font-mono">case_id</b>), không thay đổi trạng thái ca.
-            </>
+              {tr("Nhập lại nội dung giải trình cho các ca đã từng được xử lý trước khi hệ thống này ra đời. Mỗi dòng ghi 1 lượt giải trình vào ca đã có sẵn (theo")}{" "}
+              <b className="font-mono">case_id</b>{tr("), không thay đổi trạng thái ca.")}</>
           }
           templateUrl="/api/import/giai-trinh/template"
           previewUrl="/import/giai-trinh/preview"
@@ -454,12 +444,12 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           buildBody={(rows, filename) => ({ rows, filename })}
           renderSummary={(s) => (
             <div className="grid grid-cols-2 gap-3 mb-2">
-              <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
-              <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+              <StatCard label={tr("Hợp lệ, sẵn sàng ghi")} value={s.thanhCong} tone="teal" />
+              <StatCard label={tr("Lỗi định dạng")} value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
             </div>
           )}
           getErrors={(s) => s.errors}
-          successMessage={(s) => `Import thành công: ${s.thanhCong} dòng giải trình`}
+          successMessage={(s) => tr("Import thành công: {0} dòng giải trình", s.thanhCong)}
           invalidateKeys={[["import-history"]]}
           />
           <ImportHistoryCard loai="giai_trinh_cu" exportFileName="lich_su_import_giai_trinh_cu.xlsx" />
@@ -471,23 +461,20 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           {isAdmin && hasSheetUrl("giai_trinh_lap_cu") && (
             <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="font-display font-bold text-sm">Đồng bộ giải trình lặp cũ từ Google Sheet</div>
+                <div className="font-display font-bold text-sm">{tr("Đồng bộ giải trình lặp cũ từ Google Sheet")}</div>
                 <div className="text-xs text-[var(--ink-600)] mt-0.5">
-                  Tự động tải và ghi các dòng chốt đánh giá lặp cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.
-                </div>
+                  {tr("Tự động tải và ghi các dòng chốt đánh giá lặp cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.")}</div>
               </div>
               <Btn variant="ghost" size="sm" onClick={() => syncGiaiTrinhLapMutation.mutate()} disabled={syncGiaiTrinhLapMutation.isPending}>
-                {syncGiaiTrinhLapMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ ngay"}
+                {syncGiaiTrinhLapMutation.isPending ? tr("Đang đồng bộ…") : tr("🔄 Đồng bộ ngay")}
               </Btn>
             </Card>
           )}
           <ImportUploader<BackfillSummary>
             description={
               <>
-                Nhập lại chốt đánh giá lặp (Giám sát/QC) cho các ca lặp đã từng xử lý trước khi tính năng Ca lặp ra đời. Mỗi dòng ghi vào 1 ca đã có sẵn (theo{" "}
-                <b className="font-mono">case_id</b>) — cần ít nhất 1 trong 2 cột <b className="font-mono">chot_danh_gia_lap</b>/<b className="font-mono">qc_chot</b>, kèm đúng ngày
-                tương ứng.
-              </>
+                {tr("Nhập lại chốt đánh giá lặp (Giám sát/QC) cho các ca lặp đã từng xử lý trước khi tính năng Ca lặp ra đời. Mỗi dòng ghi vào 1 ca đã có sẵn (theo")}{" "}
+                <b className="font-mono">case_id</b>{tr(") — cần ít nhất 1 trong 2 cột")} <b className="font-mono">chot_danh_gia_lap</b>/<b className="font-mono">qc_chot</b>{tr(", kèm đúng ngày tương ứng.")}</>
             }
             templateUrl="/api/import/giai-trinh-lap/template"
             previewUrl="/import/giai-trinh-lap/preview"
@@ -495,12 +482,12 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
             buildBody={(rows, filename) => ({ rows, filename })}
             renderSummary={(s) => (
               <div className="grid grid-cols-2 gap-3 mb-2">
-                <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
-                <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+                <StatCard label={tr("Hợp lệ, sẵn sàng ghi")} value={s.thanhCong} tone="teal" />
+                <StatCard label={tr("Lỗi định dạng")} value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
               </div>
             )}
             getErrors={(s) => s.errors}
-            successMessage={(s) => `Import thành công: ${s.thanhCong} dòng giải trình lặp`}
+            successMessage={(s) => tr("Import thành công: {0} dòng giải trình lặp", s.thanhCong)}
             invalidateKeys={[["import-history"], ["ca-lap-status"], ["ca-lap-tong-quan"], ["notifications-count"]]}
           />
           <ImportHistoryCard loai="giai_trinh_lap_cu" exportFileName="lich_su_import_giai_trinh_lap_cu.xlsx" />
@@ -512,21 +499,19 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           {isAdmin && hasSheetUrl("khao_sat_cu") && (
             <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="font-display font-bold text-sm">Đồng bộ khảo sát cũ từ Google Sheet</div>
+                <div className="font-display font-bold text-sm">{tr("Đồng bộ khảo sát cũ từ Google Sheet")}</div>
                 <div className="text-xs text-[var(--ink-600)] mt-0.5">
-                  Tự động tải và ghi các lượt khảo sát/gọi điện cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.
-                </div>
+                  {tr("Tự động tải và ghi các lượt khảo sát/gọi điện cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.")}</div>
               </div>
               <Btn variant="ghost" size="sm" onClick={() => syncKhaoSatMutation.mutate()} disabled={syncKhaoSatMutation.isPending}>
-                {syncKhaoSatMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ ngay"}
+                {syncKhaoSatMutation.isPending ? tr("Đang đồng bộ…") : tr("🔄 Đồng bộ ngay")}
               </Btn>
             </Card>
           )}
           <ImportUploader<BackfillSummary>
           description={
             <>
-              Nhập lại kết quả khảo sát/gọi điện cũ. Mỗi dòng = 1 lượt gọi (theo <b className="font-mono">case_id</b>), có thể kèm kết quả vi phạm cấp 1/cấp 2 nếu đã có.
-            </>
+              {tr("Nhập lại kết quả khảo sát/gọi điện cũ. Mỗi dòng = 1 lượt gọi (theo")} <b className="font-mono">case_id</b>{tr("), có thể kèm kết quả vi phạm cấp 1/cấp 2 nếu đã có.")}</>
           }
           templateUrl="/api/import/khao-sat/template"
           previewUrl="/import/khao-sat/preview"
@@ -534,12 +519,12 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           buildBody={(rows, filename) => ({ rows, filename })}
           renderSummary={(s) => (
             <div className="grid grid-cols-2 gap-3 mb-2">
-              <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
-              <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+              <StatCard label={tr("Hợp lệ, sẵn sàng ghi")} value={s.thanhCong} tone="teal" />
+              <StatCard label={tr("Lỗi định dạng")} value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
             </div>
           )}
           getErrors={(s) => s.errors}
-          successMessage={(s) => `Import thành công: ${s.thanhCong} lượt khảo sát`}
+          successMessage={(s) => tr("Import thành công: {0} lượt khảo sát", s.thanhCong)}
           invalidateKeys={[["import-history"], ["survey"], ["survey-counts"]]}
           />
           <ImportHistoryCard loai="khao_sat_cu" exportFileName="lich_su_import_khao_sat_cu.xlsx" />
@@ -551,22 +536,21 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           {isAdmin && hasSheetUrl("nap_gas_danh_gia_cu") && (
             <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="font-display font-bold text-sm">Đồng bộ đánh giá nạp gas cũ từ Google Sheet</div>
+                <div className="font-display font-bold text-sm">{tr("Đồng bộ đánh giá nạp gas cũ từ Google Sheet")}</div>
                 <div className="text-xs text-[var(--ink-600)] mt-0.5">
-                  Tự động tải và ghi các dòng đánh giá nạp gas cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.
-                </div>
+                  {tr("Tự động tải và ghi các dòng đánh giá nạp gas cũ từ sheet đã cấu hình (Cài đặt → Link đồng bộ Google Sheet). Chỉ Admin.")}</div>
               </div>
               <Btn variant="ghost" size="sm" onClick={() => syncNapGasMutation.mutate()} disabled={syncNapGasMutation.isPending}>
-                {syncNapGasMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ ngay"}
+                {syncNapGasMutation.isPending ? tr("Đang đồng bộ…") : tr("🔄 Đồng bộ ngay")}
               </Btn>
             </Card>
           )}
           <ImportUploader<BackfillSummary>
             description={
               <>
-                Nhập lại chốt đánh giá nạp gas (Đánh giá nạp gas + Phí dịch vụ) cho các ca đã từng xử lý trước khi tính năng này ra đời. Mỗi dòng ghi vào 1 ca đã có sẵn (theo{" "}
-                <b className="font-mono">case_id</b>) — cần đủ cả <b className="font-mono">danh_gia_nap_gas</b>, <b className="font-mono">phi_dich_vu</b>,{" "}
-                <b className="font-mono">nguoi_chot</b> và <b className="font-mono">ngay_chot</b>.
+                {tr("Nhập lại chốt đánh giá nạp gas (Đánh giá nạp gas + Phí dịch vụ) cho các ca đã từng xử lý trước khi tính năng này ra đời. Mỗi dòng ghi vào 1 ca đã có sẵn (theo")}{" "}
+                <b className="font-mono">case_id</b>{tr(") — cần đủ cả")} <b className="font-mono">danh_gia_nap_gas</b>, <b className="font-mono">phi_dich_vu</b>,{" "}
+                <b className="font-mono">nguoi_chot</b>  {tr("và")} <b className="font-mono">ngay_chot</b>.
               </>
             }
             templateUrl="/api/import/nap-gas/template"
@@ -576,12 +560,12 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
             buildBody={(rows, filename) => ({ rows, filename })}
             renderSummary={(s) => (
               <div className="grid grid-cols-2 gap-3 mb-2">
-                <StatCard label="Hợp lệ, sẵn sàng ghi" value={s.thanhCong} tone="teal" />
-                <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+                <StatCard label={tr("Hợp lệ, sẵn sàng ghi")} value={s.thanhCong} tone="teal" />
+                <StatCard label={tr("Lỗi định dạng")} value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
               </div>
             )}
             getErrors={(s) => s.errors}
-            successMessage={(s) => `Import thành công: ${s.thanhCong} dòng đánh giá nạp gas`}
+            successMessage={(s) => tr("Import thành công: {0} dòng đánh giá nạp gas", s.thanhCong)}
             invalidateKeys={[["import-history"], ["nap-gas"], ["nap-gas-by-khu-vuc"], ["notifications-count"]]}
           />
           <ImportHistoryCard loai="nap_gas_danh_gia_cu" exportFileName="lich_su_import_nap_gas_cu.xlsx" />
@@ -593,10 +577,8 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
           <ImportUploader<BackfillSummary>
             description={
               <>
-                Đánh dấu hàng loạt các ca "hủy bỏ" (không cần xử lý) theo danh sách <b className="font-mono">id</b> — mỗi dòng 1 ca, cột{" "}
-                <b className="font-mono">ly_do</b> tùy chọn. Ca hủy sẽ ẩn khỏi mọi hàng đợi cần xử lý (giải trình, khảo sát, ca lặp, thiếu linh
-                kiện, nạp gas) và không tính vào KPI — có thể bỏ hủy lại từng ca trong trang chi tiết ca.
-              </>
+                {tr("Đánh dấu hàng loạt các ca \"hủy bỏ\" (không cần xử lý) theo danh sách")} <b className="font-mono">id</b>  {tr("— mỗi dòng 1 ca, cột")}{" "}
+                <b className="font-mono">ly_do</b>  {tr("tùy chọn. Ca hủy sẽ ẩn khỏi mọi hàng đợi cần xử lý (giải trình, khảo sát, ca lặp, thiếu linh kiện, nạp gas) và không tính vào KPI — có thể bỏ hủy lại từng ca trong trang chi tiết ca.")}</>
             }
             templateUrl="/api/cases/huy-bulk/template"
             previewUrl="/cases/huy-bulk/preview"
@@ -604,12 +586,12 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
             buildBody={(rows, filename) => ({ rows, filename })}
             renderSummary={(s) => (
               <div className="grid grid-cols-2 gap-3 mb-2">
-                <StatCard label="Hợp lệ, sẽ hủy" value={s.thanhCong} tone="teal" />
-                <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+                <StatCard label={tr("Hợp lệ, sẽ hủy")} value={s.thanhCong} tone="teal" />
+                <StatCard label={tr("Lỗi định dạng")} value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
               </div>
             )}
             getErrors={(s) => s.errors}
-            successMessage={(s) => `Đã hủy ${s.thanhCong} ca`}
+            successMessage={(s) => tr("Đã hủy {0} ca", s.thanhCong)}
             invalidateKeys={[
               ["import-history"],
               ["notifications-count"],
@@ -636,19 +618,15 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
       {tab === "update-column" && (
         <>
           <Card className="p-4 mb-5">
-            <div className="font-display font-bold text-sm mb-1">Cập nhật riêng 1 cột theo ID</div>
+            <div className="font-display font-bold text-sm mb-1">{tr("Cập nhật riêng 1 cột theo ID")}</div>
             <div className="text-xs text-[var(--ink-600)] mb-3">
-              Dùng khi cần bổ sung/sửa dữ liệu của <b>đúng 1 cột</b> cho các ca đã có sẵn (ví dụ thiếu Link hình ảnh), mà không muốn đụng tới các cột khác của
-              ca. File chỉ cần 2 cột: <b className="font-mono">ID</b> và cột đã chọn bên dưới. ID không tồn tại trong hệ thống sẽ bị bỏ qua và báo lỗi, không
-              chặn các dòng còn lại. Lưu ý: nếu lần đồng bộ CRM thật tiếp theo vẫn mang dữ liệu khác cho đúng cột này, giá trị vừa cập nhật tay có thể bị ghi
-              đè lại — không có cách nào tránh hoàn toàn vì so khớp import luôn dựa vào dữ liệu CRM gốc.
-            </div>
-            <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Chọn cột cần cập nhật</label>
+              {tr("Dùng khi cần bổ sung/sửa dữ liệu của")} <b>{tr("đúng 1 cột")}</b>  {tr("cho các ca đã có sẵn (ví dụ thiếu Link hình ảnh), mà không muốn đụng tới các cột khác của ca. File chỉ cần 2 cột:")} <b className="font-mono">ID</b>  {tr("và cột đã chọn bên dưới. ID không tồn tại trong hệ thống sẽ bị bỏ qua và báo lỗi, không chặn các dòng còn lại. Lưu ý: nếu lần đồng bộ CRM thật tiếp theo vẫn mang dữ liệu khác cho đúng cột này, giá trị vừa cập nhật tay có thể bị ghi đè lại — không có cách nào tránh hoàn toàn vì so khớp import luôn dựa vào dữ liệu CRM gốc.")}</div>
+            <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">{tr("Chọn cột cần cập nhật")}</label>
             <Select
               className="max-w-sm"
               value={updateColumnField}
               onChange={setUpdateColumnField}
-              options={[{ value: "", label: "— Chọn cột —" }, ...updateColumnOptions.map((o) => ({ value: o.field, label: o.label }))]}
+              options={[{ value: "", label: tr("— Chọn cột —") }, ...updateColumnOptions.map((o) => ({ value: o.field, label: o.label }))]}
             />
           </Card>
 
@@ -657,9 +635,7 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
               key={updateColumnField}
               description={
                 <>
-                  Cập nhật cột <b>{updateColumnOptions.find((o) => o.field === updateColumnField)?.label}</b> theo <b className="font-mono">ID</b> — các cột
-                  khác của ca giữ nguyên không đổi.
-                </>
+                  {tr("Cập nhật cột")} <b>{updateColumnOptions.find((o) => o.field === updateColumnField)?.label}</b> theo <b className="font-mono">ID</b>  {tr("— các cột khác của ca giữ nguyên không đổi.")}</>
               }
               templateUrl={`/api/import/update-column/template?column=${updateColumnField}`}
               previewUrl="/import/update-column/preview"
@@ -672,13 +648,13 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
               buildBody={(rows, filename) => ({ column: updateColumnField, rows, filename })}
               renderSummary={(s) => (
                 <div className="grid grid-cols-3 gap-3 mb-2">
-                  <StatCard label="Sẽ cập nhật" value={s.capNhat} tone="teal" />
-                  <StatCard label="ID không tồn tại" value={s.khongTonTai} tone={s.khongTonTai > 0 ? "coral" : "gray"} />
-                  <StatCard label="Thiếu ID" value={s.thieuId} tone={s.thieuId > 0 ? "coral" : "gray"} />
+                  <StatCard label={tr("Sẽ cập nhật")} value={s.capNhat} tone="teal" />
+                  <StatCard label={tr("ID không tồn tại")} value={s.khongTonTai} tone={s.khongTonTai > 0 ? "coral" : "gray"} />
+                  <StatCard label={tr("Thiếu ID")} value={s.thieuId} tone={s.thieuId > 0 ? "coral" : "gray"} />
                 </div>
               )}
-              getErrors={(s) => s.khongTonTaiList.map((id) => `ID không tồn tại trong hệ thống: ${id}`)}
-              successMessage={(s) => `Đã cập nhật ${s.capNhat} ca${s.khongTonTai ? `, ${s.khongTonTai} ID không tồn tại (bỏ qua)` : ""}`}
+              getErrors={(s) => s.khongTonTaiList.map((id) => tr("ID không tồn tại trong hệ thống: {0}", id))}
+              successMessage={(s) => tr("Đã cập nhật {0} ca{1}", s.capNhat, s.khongTonTai ? tr(", {0} ID không tồn tại (bỏ qua)", s.khongTonTai) : "")}
               invalidateKeys={[["import-history"]]}
             />
           )}

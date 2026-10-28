@@ -4,6 +4,7 @@ import { Card } from "./ui/Card";
 import { MaLinhKienLink } from "./HoSoLinhKienProvider";
 import { Modal } from "./ui/Modal";
 import { fmtDateTime, fmtVND, type DonBaoHanhOdooRow, type LinhKienLoiItem } from "../types";
+import { tr } from "../i18n/tr";
 
 // Tab "Loi linh kien" (CaseDetail) - nguon Odoo OCRM. Logic Odoo: don bao hanh linh kien
 // (technical.service.warranty) la CON cua 1 linh kien bao loi (technical.service.broken.detail) cung
@@ -24,31 +25,31 @@ export function parseLinhKienLoi(raw: string | null | undefined): LinhKienLoiIte
 }
 
 export const DON_BH_TRANG_THAI: Record<string, { label: string; tone: BadgeTone }> = {
-  new: { label: "Chưa tiếp nhận", tone: "gray" },
-  repairing: { label: "Đang sửa chữa", tone: "amber" },
-  repaired: { label: "Đã sửa xong", tone: "ocean" },
-  done: { label: "Hoàn thành", tone: "teal" },
-  cancelled: { label: "Hủy đơn bảo hành", tone: "coral" },
-  rejected: { label: "Từ chối bảo hành", tone: "coral" },
+  new: { label: tr("Chưa tiếp nhận"), tone: "gray" },
+  repairing: { label: tr("Đang sửa chữa"), tone: "amber" },
+  repaired: { label: tr("Đã sửa xong"), tone: "ocean" },
+  done: { label: tr("Hoàn thành"), tone: "teal" },
+  cancelled: { label: tr("Hủy đơn bảo hành"), tone: "coral" },
+  rejected: { label: tr("Từ chối bảo hành"), tone: "coral" },
 };
 const FLOW = ["new", "repairing", "repaired", "done"] as const;
 
 // Trang thai gui sua ben he "Sua chua bao hanh" (suachua day ve qua /api/partner/sync/sua-chua-trang-thai).
 const SC_TRANG_THAI: Record<string, { label: string; tone: BadgeTone }> = {
-  cho_gui: { label: "Sửa chữa: KTV đã đóng thùng", tone: "gray" },
-  dang_gui: { label: "Sửa chữa: đang gửi về kho", tone: "amber" },
-  kho_da_nhan: { label: "Sửa chữa: kho đã nhận", tone: "ocean" },
-  dang_xu_ly: { label: "Sửa chữa: đang xử lý", tone: "ocean" },
-  cho_tra: { label: "Sửa chữa: chờ trả KTV", tone: "orange" },
-  dang_tra: { label: "Sửa chữa: đang trả KTV", tone: "orange" },
-  hoan_tat: { label: "Sửa chữa: KTV đã nhận lại", tone: "teal" },
-  tu_choi: { label: "Sửa chữa: từ chối/huỷ", tone: "coral" },
+  cho_gui: { label: tr("Sửa chữa: KTV đã đóng thùng"), tone: "gray" },
+  dang_gui: { label: tr("Sửa chữa: đang gửi về kho"), tone: "amber" },
+  kho_da_nhan: { label: tr("Sửa chữa: kho đã nhận"), tone: "ocean" },
+  dang_xu_ly: { label: tr("Sửa chữa: đang xử lý"), tone: "ocean" },
+  cho_tra: { label: tr("Sửa chữa: chờ trả KTV"), tone: "orange" },
+  dang_tra: { label: tr("Sửa chữa: đang trả KTV"), tone: "orange" },
+  hoan_tat: { label: tr("Sửa chữa: KTV đã nhận lại"), tone: "teal" },
+  tu_choi: { label: tr("Sửa chữa: từ chối/huỷ"), tone: "coral" },
   // KTV xac nhan don Odoo tao nham, khong can gui bao hanh (suachua v1.014, 09/10/2026) - mo lai -> null.
-  khong_gui: { label: "Sửa chữa: KTV hủy đơn lỗi", tone: "gray" },
+  khong_gui: { label: tr("Sửa chữa: KTV hủy đơn lỗi"), tone: "gray" },
 };
 export function scTrangThai(code: string | null | undefined) {
   if (!code) return null;
-  return SC_TRANG_THAI[code] ?? { label: `Sửa chữa: ${code}`, tone: "gray" as BadgeTone };
+  return SC_TRANG_THAI[code] ?? { label: tr("Sửa chữa: {0}", code), tone: "gray" as BadgeTone };
 }
 
 export function donBhTrangThai(code: string | null) {
@@ -114,20 +115,20 @@ export function DonBaoHanhOdooItem({ o, onOpen, parentLabel }: { o: DonBaoHanhOd
           <span className="font-mono text-xs font-bold text-[var(--ink-900)]">{o.ma_don ?? `#${o.odoo_id}`}</span>
           <Badge tone={st.tone}>{st.label}</Badge>
           {scTrangThai(o.sc_trang_thai) && <Badge tone={scTrangThai(o.sc_trang_thai)!.tone}>{scTrangThai(o.sc_trang_thai)!.label}</Badge>}
-          {o.con_hieu_luc === 0 && <Badge tone="gray">Đã lưu trữ</Badge>}
+          {o.con_hieu_luc === 0 && <Badge tone="gray">{tr("Đã lưu trữ")}</Badge>}
         </div>
         <span className="text-xs text-[var(--ink-500)]">
           SL {o.so_luong ?? "—"}
           {o.thanh_tien ? ` · ${fmtVND(o.thanh_tien)}` : ""}
-          {onOpen && <span className="ml-2 text-[var(--ocean-600)] font-semibold">Chi tiết ›</span>}
+          {onOpen && <span className="ml-2 text-[var(--ocean-600)] font-semibold">{tr("Chi tiết ›")}</span>}
         </span>
       </div>
       {parentLabel && <div className="text-xs text-[var(--ink-600)] mt-1">{parentLabel}</div>}
-      {o.tinh_trang_loi && <div className="text-xs text-[var(--ink-700)] mt-1">Tình trạng lỗi: {o.tinh_trang_loi}</div>}
+      {o.tinh_trang_loi && <div className="text-xs text-[var(--ink-700)] mt-1">{tr("Tình trạng lỗi:")} {o.tinh_trang_loi}</div>}
       <div className="text-[11px] text-[var(--ink-400)] mt-1">
-        Tạo {fmtDateTime(o.ngay_tao)}
-        {o.nguoi_tao ? ` bởi ${o.nguoi_tao}` : ""}
-        {o.ngay_hoan_thanh ? ` · Hoàn thành ${fmtDateTime(o.ngay_hoan_thanh)}` : ""}
+        {tr("Tạo")} {fmtDateTime(o.ngay_tao)}
+        {o.nguoi_tao ? " " + tr("bởi {0}", o.nguoi_tao) : ""}
+        {o.ngay_hoan_thanh ? " " + tr("· Hoàn thành {0}", fmtDateTime(o.ngay_hoan_thanh)) : ""}
       </div>
     </button>
   );
@@ -201,7 +202,7 @@ export function DonBaoHanhOdooModal({
     <Modal
       open
       onClose={onClose}
-      title={`Đơn bảo hành ${o.ma_don ?? `#${o.odoo_id}`}`}
+      title={tr("Đơn bảo hành {0}", o.ma_don ?? `#${o.odoo_id}`)}
       width="max-w-2xl"
       headerExtra={
         <a
@@ -210,8 +211,7 @@ export function DonBaoHanhOdooModal({
           rel="noreferrer"
           className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline px-2 py-1 rounded"
         >
-          Mở trên Odoo ↗
-        </a>
+          {tr("Mở trên Odoo ↗")}</a>
       }
     >
       <div className="space-y-4">
@@ -220,7 +220,7 @@ export function DonBaoHanhOdooModal({
             <Badge tone={donBhTrangThai(o.trang_thai).tone} solid>
               {donBhTrangThai(o.trang_thai).label}
             </Badge>
-            {o.con_hieu_luc === 0 && <Badge tone="gray">Đã lưu trữ trên Odoo</Badge>}
+            {o.con_hieu_luc === 0 && <Badge tone="gray">{tr("Đã lưu trữ trên Odoo")}</Badge>}
             <span className="text-xs text-[var(--ink-400)]">Ca {o.case_id ?? "—"}</span>
           </div>
           {scTrangThai(o.sc_trang_thai) && (
@@ -228,40 +228,40 @@ export function DonBaoHanhOdooModal({
               <Badge tone={scTrangThai(o.sc_trang_thai)!.tone}>{scTrangThai(o.sc_trang_thai)!.label}</Badge>
               {o.sc_ma_phieu && <span className="font-mono">{o.sc_ma_phieu}</span>}
               {o.sc_chi_tiet && <span>· {o.sc_chi_tiet}</span>}
-              {o.sc_cap_nhat && <span>· cập nhật {fmtDateTime(o.sc_cap_nhat)}</span>}
+              {o.sc_cap_nhat && <span>{tr("· cập nhật")} {fmtDateTime(o.sc_cap_nhat)}</span>}
             </div>
           )}
           <StatusFlow code={o.trang_thai} />
         </div>
 
         <Card className="p-4">
-          <div className="font-display font-bold text-sm mb-2">Thông tin bảo hành</div>
+          <div className="font-display font-bold text-sm mb-2">{tr("Thông tin bảo hành")}</div>
           <InfoRow
-            label="Linh kiện"
+            label={tr("Linh kiện")}
             value={
               <span>
                 {o.ten_linh_kien ?? "—"} {o.ma_linh_kien && <span className="font-mono text-xs text-[var(--ink-400)]">(<MaLinhKienLink ma={o.ma_linh_kien} ten={o.ten_linh_kien} />)</span>}
               </span>
             }
           />
-          <InfoRow label="Số lượng" value={o.so_luong ?? "—"} />
-          <InfoRow label="Đơn giá" value={o.don_gia ? fmtVND(o.don_gia) : "—"} />
-          <InfoRow label="Thành tiền" value={o.thanh_tien ? fmtVND(o.thanh_tien) : "—"} />
-          <InfoRow label="Tình trạng lỗi" value={o.tinh_trang_loi} />
-          <InfoRow label="Ghi chú" value={o.ghi_chu} />
+          <InfoRow label={tr("Số lượng")} value={o.so_luong ?? "—"} />
+          <InfoRow label={tr("Đơn giá")} value={o.don_gia ? fmtVND(o.don_gia) : "—"} />
+          <InfoRow label={tr("Thành tiền")} value={o.thanh_tien ? fmtVND(o.thanh_tien) : "—"} />
+          <InfoRow label={tr("Tình trạng lỗi")} value={o.tinh_trang_loi} />
+          <InfoRow label={tr("Ghi chú")} value={o.ghi_chu} />
         </Card>
 
         <Card className="p-4">
-          <div className="font-display font-bold text-sm mb-2">Thông tin cập nhật</div>
-          <InfoRow label="Người tạo" value={o.nguoi_tao} />
-          <InfoRow label="Ngày tạo" value={fmtDateTime(o.ngay_tao)} />
-          <InfoRow label="Ngày hoàn thành" value={fmtDateTime(o.ngay_hoan_thanh)} />
-          <InfoRow label="Cập nhật trên Odoo" value={fmtDateTime(o.ngay_cap_nhat_odoo)} />
-          <InfoRow label="Đồng bộ về dvbh" value={fmtDateTime(o.ngay_dong_bo)} />
+          <div className="font-display font-bold text-sm mb-2">{tr("Thông tin cập nhật")}</div>
+          <InfoRow label={tr("Người tạo")} value={o.nguoi_tao} />
+          <InfoRow label={tr("Ngày tạo")} value={fmtDateTime(o.ngay_tao)} />
+          <InfoRow label={tr("Ngày hoàn thành")} value={fmtDateTime(o.ngay_hoan_thanh)} />
+          <InfoRow label={tr("Cập nhật trên Odoo")} value={fmtDateTime(o.ngay_cap_nhat_odoo)} />
+          <InfoRow label={tr("Đồng bộ về dvbh")} value={fmtDateTime(o.ngay_dong_bo)} />
         </Card>
 
         <Card className="p-4">
-          <div className="font-display font-bold text-sm mb-2">Linh kiện báo lỗi (cha)</div>
+          <div className="font-display font-bold text-sm mb-2">{tr("Linh kiện báo lỗi (cha)")}</div>
           {parent ? (
             <>
               <div className="flex items-center gap-2 mb-2">
@@ -269,22 +269,21 @@ export function DonBaoHanhOdooModal({
                 <span className="font-semibold text-sm">{parent.ten_linh_kien}</span>
                 {parent.nguon_goc_loi && <Badge tone={nguonGocTone(parent.nguon_goc_loi)}>{parent.nguon_goc_loi}</Badge>}
               </div>
-              <InfoRow label="Hiện tượng lỗi" value={[parent.hien_tuong_loi, parent.mo_ta_hien_tuong].filter(Boolean).join(" — ")} />
-              <InfoRow label="Nhóm lỗi — Nguyên nhân" value={[parent.nhom_loi, parent.nguyen_nhan_loi, parent.mo_ta_nguyen_nhan].filter(Boolean).join(" — ")} />
-              {parent.nhom_linh_kien && <InfoRow label="Nhóm linh kiện" value={parent.nhom_linh_kien} />}
-              <InfoRow label="Cách thức xử lý" value={[parent.cach_thuc_xu_ly, parent.mo_ta_cach_xu_ly].filter(Boolean).join(" — ")} />
-              {parent.ghi_chu && <InfoRow label="Ghi chú" value={parent.ghi_chu} />}
+              <InfoRow label={tr("Hiện tượng lỗi")} value={[parent.hien_tuong_loi, parent.mo_ta_hien_tuong].filter(Boolean).join(" — ")} />
+              <InfoRow label={tr("Nhóm lỗi — Nguyên nhân")} value={[parent.nhom_loi, parent.nguyen_nhan_loi, parent.mo_ta_nguyen_nhan].filter(Boolean).join(" — ")} />
+              {parent.nhom_linh_kien && <InfoRow label={tr("Nhóm linh kiện")} value={parent.nhom_linh_kien} />}
+              <InfoRow label={tr("Cách thức xử lý")} value={[parent.cach_thuc_xu_ly, parent.mo_ta_cach_xu_ly].filter(Boolean).join(" — ")} />
+              {parent.ghi_chu && <InfoRow label={tr("Ghi chú")} value={parent.ghi_chu} />}
             </>
           ) : (
             <div className="text-sm italic text-[var(--ink-400)]">
-              Không tìm thấy linh kiện báo lỗi cùng mã trong ca này (đơn tạo cho linh kiện chưa được khai báo lỗi).
-            </div>
+              {tr("Không tìm thấy linh kiện báo lỗi cùng mã trong ca này (đơn tạo cho linh kiện chưa được khai báo lỗi).")}</div>
           )}
         </Card>
 
         {siblings.length > 0 && (
           <div>
-            <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">Đơn bảo hành khác của cùng linh kiện ({siblings.length})</div>
+            <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Đơn bảo hành khác của cùng linh kiện (")}{siblings.length})</div>
             <div className="space-y-1.5">
               {siblings.map((s) => (
                 <DonBaoHanhOdooItem key={s.odoo_id} o={s} onOpen={() => onOpenOrder(s)} />
@@ -307,8 +306,8 @@ export function DonBaoHanhOdooList({ parts, orders }: { parts: LinhKienLoiItem[]
         {orders.map((o) => {
           const p = parentOf.get(o.odoo_id);
           const label = p
-            ? `Thuộc linh kiện lỗi (${p.stt}) ${p.ten_linh_kien}`
-            : `${o.ten_linh_kien ?? "(chưa rõ linh kiện)"} — không khớp linh kiện báo lỗi`;
+            ? tr("Thuộc linh kiện lỗi ({0}) {1}", p.stt, p.ten_linh_kien)
+            : tr("{0} — không khớp linh kiện báo lỗi", o.ten_linh_kien ?? tr("(chưa rõ linh kiện)"));
           return <DonBaoHanhOdooItem key={o.odoo_id} o={o} parentLabel={label} onOpen={() => setOpen(o)} />;
         })}
       </div>
@@ -343,31 +342,31 @@ function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHan
             {p.stt}
           </span>
           <div className="min-w-0">
-            <div className="font-semibold text-sm text-[var(--ink-900)] leading-snug">{p.ten_linh_kien || "(chưa rõ tên linh kiện)"}</div>
+            <div className="font-semibold text-sm text-[var(--ink-900)] leading-snug">{p.ten_linh_kien || tr("(chưa rõ tên linh kiện)")}</div>
             {(p.ma_linh_kien || p.nhom_linh_kien) && (
               <div className="text-xs text-[var(--ink-400)]">
                 {p.ma_linh_kien && <MaLinhKienLink ma={p.ma_linh_kien} ten={p.ten_linh_kien} className="font-mono" />}
                 {p.ma_linh_kien && p.nhom_linh_kien && " · "}
-                {p.nhom_linh_kien && <span>Nhóm LK: {p.nhom_linh_kien}</span>}
+                {p.nhom_linh_kien && <span>{tr("Nhóm LK:")} {p.nhom_linh_kien}</span>}
               </div>
             )}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {coDon ? <Badge tone="teal">✓ Đã tạo đơn BH ({orders.length})</Badge> : <Badge tone="gray">Không tạo đơn BH</Badge>}
+          {coDon ? <Badge tone="teal">{tr("✓ Đã tạo đơn BH (")}{orders.length})</Badge> : <Badge tone="gray">{tr("Không tạo đơn BH")}</Badge>}
           {p.nguon_goc_loi && <Badge tone={nguonGocTone(p.nguon_goc_loi)}>{p.nguon_goc_loi}</Badge>}
         </div>
       </div>
 
       <div className="space-y-2.5 border-l-2 border-[var(--line)] ml-3 pl-2">
-        <Step label="Hiện tượng lỗi" main={p.hien_tuong_loi} desc={p.mo_ta_hien_tuong} tone="bg-[var(--coral-500)]" />
-        <Step label="Nhóm lỗi — Nguyên nhân" main={nguyenNhan} desc={p.mo_ta_nguyen_nhan} tone="bg-[var(--amber-500)]" />
-        <Step label="Cách thức xử lý" main={p.cach_thuc_xu_ly} desc={p.mo_ta_cach_xu_ly} tone="bg-[var(--teal-500)]" />
+        <Step label={tr("Hiện tượng lỗi")} main={p.hien_tuong_loi} desc={p.mo_ta_hien_tuong} tone="bg-[var(--coral-500)]" />
+        <Step label={tr("Nhóm lỗi — Nguyên nhân")} main={nguyenNhan} desc={p.mo_ta_nguyen_nhan} tone="bg-[var(--amber-500)]" />
+        <Step label={tr("Cách thức xử lý")} main={p.cach_thuc_xu_ly} desc={p.mo_ta_cach_xu_ly} tone="bg-[var(--teal-500)]" />
       </div>
-      {p.ghi_chu && <div className="text-xs text-[var(--ink-500)] mt-2 ml-3">Ghi chú: {p.ghi_chu}</div>}
+      {p.ghi_chu && <div className="text-xs text-[var(--ink-500)] mt-2 ml-3">{tr("Ghi chú:")} {p.ghi_chu}</div>}
 
       <div className="mt-3 pt-3 border-t border-[var(--line)]">
-        <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">Đơn bảo hành linh kiện ({orders.length})</div>
+        <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Đơn bảo hành linh kiện (")}{orders.length})</div>
         {coDon ? (
           // Cay con: duong noi doc + nhanh ngang toi tung don
           <div className="ml-2 border-l-2 border-[var(--teal-500)]/40 space-y-1.5">
@@ -379,7 +378,7 @@ function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHan
             ))}
           </div>
         ) : (
-          <div className="text-xs italic text-[var(--ink-400)]">Linh kiện này không tạo đơn bảo hành.</div>
+          <div className="text-xs italic text-[var(--ink-400)]">{tr("Linh kiện này không tạo đơn bảo hành.")}</div>
         )}
       </div>
     </Card>
@@ -399,7 +398,7 @@ export function LoiLinhKienPanel({ parts, orders }: { parts: LinhKienLoiItem[]; 
     filter === "all" ? parts : filter === "co-don" ? coDon : filter === "khong-don" ? khongDon : parts.filter((p) => p.stt === filter);
 
   if (parts.length === 0 && orders.length === 0) {
-    return <div className="text-sm text-[var(--ink-400)] italic">Ca này chưa có linh kiện lỗi được báo (nguồn Odoo).</div>;
+    return <div className="text-sm text-[var(--ink-400)] italic">{tr("Ca này chưa có linh kiện lỗi được báo (nguồn Odoo).")}</div>;
   }
 
   const chip = (key: Filter, content: ReactNode, title?: string) => {
@@ -427,9 +426,9 @@ export function LoiLinhKienPanel({ parts, orders }: { parts: LinhKienLoiItem[]; 
           trung chuc nang voi hang chip nay. */}
       {parts.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {chip("all", `Tất cả (${parts.length})`)}
-          {chip("co-don", <>✓ Đã tạo đơn ({coDon.length})</>)}
-          {chip("khong-don", <>○ Không tạo đơn ({khongDon.length})</>)}
+          {chip("all", tr("Tất cả ({0})", parts.length))}
+          {chip("co-don", <>{tr("✓ Đã tạo đơn (")}{coDon.length})</>)}
+          {chip("khong-don", <>{tr("○ Không tạo đơn (")}{khongDon.length})</>)}
           {parts.length > 1 && <span className="w-px bg-[var(--line)] mx-1" />}
           {parts.length > 1 &&
             parts.map((p) =>
@@ -443,7 +442,7 @@ export function LoiLinhKienPanel({ parts, orders }: { parts: LinhKienLoiItem[]; 
                     }`}
                   />
                 </>,
-                `${p.ten_linh_kien} — ${ordersOf(p).length > 0 ? `${ordersOf(p).length} đơn bảo hành` : "không tạo đơn bảo hành"}`,
+                `${p.ten_linh_kien} — ${ordersOf(p).length > 0 ? tr("{0} đơn bảo hành", ordersOf(p).length) : tr("không tạo đơn bảo hành")}`,
               ),
             )}
         </div>
@@ -453,20 +452,20 @@ export function LoiLinhKienPanel({ parts, orders }: { parts: LinhKienLoiItem[]; 
         {shown.map((p) => (
           <PartCard key={p.stt} p={p} orders={ordersOf(p)} onOpen={setOpen} />
         ))}
-        {shown.length === 0 && <div className="text-sm italic text-[var(--ink-400)]">Không có linh kiện nào trong nhóm này.</div>}
+        {shown.length === 0 && <div className="text-sm italic text-[var(--ink-400)]">{tr("Không có linh kiện nào trong nhóm này.")}</div>}
       </div>
 
       {unmatched.length > 0 && filter === "all" && (
         <div className="mt-4">
           <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">
-            Đơn bảo hành không khớp linh kiện báo lỗi ({unmatched.length})
+            {tr("Đơn bảo hành không khớp linh kiện báo lỗi (")}{unmatched.length})
           </div>
           <div className="space-y-1.5">
             {unmatched.map((o) => (
               <DonBaoHanhOdooItem
                 key={o.odoo_id}
                 o={o}
-                parentLabel={`${o.ten_linh_kien ?? "(chưa rõ linh kiện)"}${o.ma_linh_kien ? ` · ${o.ma_linh_kien}` : ""}`}
+                parentLabel={`${o.ten_linh_kien ?? tr("(chưa rõ linh kiện)")}${o.ma_linh_kien ? ` · ${o.ma_linh_kien}` : ""}`}
                 onOpen={() => setOpen(o)}
               />
             ))}

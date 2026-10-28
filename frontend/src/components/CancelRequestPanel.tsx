@@ -1,6 +1,7 @@
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { fmtDateTime, type CancelRequestItem } from "../types";
+import { tr } from "../i18n/tr";
 
 // "Yêu cầu hủy" (CaseDetail) - nguon Odoo OCRM. Khac Lịch hẹn: Odoo CHI luu 1 trang thai xin huy HIEN
 // TAI (xin lai thi ghi de, khong co lich su nhieu lan) nen day la 1 the trang thai, khong phai timeline
@@ -30,7 +31,7 @@ function Row({ label, value }: { label: string; value: string | null }) {
 export function CancelRequestPanel({ items }: { items: CancelRequestItem[] }) {
   const item = items[0];
   if (!item) {
-    return <div className="text-sm text-[var(--ink-400)] italic">Ca này chưa từng có yêu cầu xin hủy (nguồn Odoo).</div>;
+    return <div className="text-sm text-[var(--ink-400)] italic">{tr("Ca này chưa từng có yêu cầu xin hủy (nguồn Odoo).")}</div>;
   }
   const coQuyetDinh = item.ly_do_huy_cuoi || item.ghi_chu_huy_cuoi || item.ly_do_quyet_dinh_cskh || item.ghi_chu_quyet_dinh_cskh;
   return (
@@ -39,27 +40,26 @@ export function CancelRequestPanel({ items }: { items: CancelRequestItem[] }) {
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           {item.dang_cho_duyet ? (
             <Badge tone="amber" solid>
-              Đang chờ duyệt hủy
-            </Badge>
+              {tr("Đang chờ duyệt hủy")}</Badge>
           ) : (
-            <Badge tone="gray">Đã xử lý / không còn chờ duyệt</Badge>
+            <Badge tone="gray">{tr("Đã xử lý / không còn chờ duyệt")}</Badge>
           )}
         </div>
-        <div className="text-xs font-semibold text-[var(--ink-500)] mb-1">Yêu cầu từ KTV/CTV</div>
-        <Row label="Người xin hủy" value={item.nguoi_xin_huy} />
-        <Row label="Thời điểm xin hủy" value={item.thoi_diem_xin_huy ? fmtDateTime(item.thoi_diem_xin_huy) : null} />
-        <Row label="Lý do xin hủy" value={item.ly_do_xin_huy} />
-        <Row label="Ghi chú xin hủy" value={item.ghi_chu_xin_huy} />
+        <div className="text-xs font-semibold text-[var(--ink-500)] mb-1">{tr("Yêu cầu từ KTV/CTV")}</div>
+        <Row label={tr("Người xin hủy")} value={item.nguoi_xin_huy} />
+        <Row label={tr("Thời điểm xin hủy")} value={item.thoi_diem_xin_huy ? fmtDateTime(item.thoi_diem_xin_huy) : null} />
+        <Row label={tr("Lý do xin hủy")} value={item.ly_do_xin_huy} />
+        <Row label={tr("Ghi chú xin hủy")} value={item.ghi_chu_xin_huy} />
       </Card>
 
       {coQuyetDinh && (
         <Card className="p-4">
-          <div className="text-xs font-semibold text-[var(--ink-500)] mb-1">Quyết định của CSKH</div>
-          <Row label="Lý do quyết định" value={item.ly_do_quyet_dinh_cskh} />
-          <Row label="Ghi chú CSKH" value={item.ghi_chu_quyet_dinh_cskh} />
-          <Row label="Ghi chú KTV" value={item.ghi_chu_ktv_xin_huy} />
-          <Row label="Lý do hủy cuối" value={item.ly_do_huy_cuoi} />
-          <Row label="Ghi chú hủy cuối" value={item.ghi_chu_huy_cuoi} />
+          <div className="text-xs font-semibold text-[var(--ink-500)] mb-1">{tr("Quyết định của CSKH")}</div>
+          <Row label={tr("Lý do quyết định")} value={item.ly_do_quyet_dinh_cskh} />
+          <Row label={tr("Ghi chú CSKH")} value={item.ghi_chu_quyet_dinh_cskh} />
+          <Row label={tr("Ghi chú KTV")} value={item.ghi_chu_ktv_xin_huy} />
+          <Row label={tr("Lý do hủy cuối")} value={item.ly_do_huy_cuoi} />
+          <Row label={tr("Ghi chú hủy cuối")} value={item.ghi_chu_huy_cuoi} />
         </Card>
       )}
     </div>

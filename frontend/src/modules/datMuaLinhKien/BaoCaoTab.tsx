@@ -4,6 +4,7 @@ import { api } from "../../api/client";
 import { fmtVND } from "../../types";
 import { StatCard } from "../../components/ui/StatCard";
 import type { BaoCaoRow, JumpTarget } from "./types";
+import { tr } from "../../i18n/tr";
 
 // Tab "Bao cao" (nang cap 2026-08-15 thanh tab rieng + bang theo KTV cho GS/TN/Kho/Ke toan, click 1
 // con so nhay sang danh sach chi tiet kem san filter). rows.length<=1 (KTV/Ve tinh tu xem minh) ->
@@ -17,38 +18,38 @@ export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) =
   const [search, setSearch] = useState("");
 
   const rows = data?.rows ?? [];
-  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center mt-4">Đang tải...</div>;
-  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center mt-4">Chưa có dữ liệu.</div>;
+  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center mt-4">{tr("Đang tải...")}</div>;
+  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center mt-4">{tr("Chưa có dữ liệu.")}</div>;
 
   if (!isManagerView) {
     const r = rows[0];
     return (
       <div className="mt-4 space-y-4">
         <div>
-          <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">Đơn hàng</div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">{tr("Đơn hàng")}</div>
           <div className="flex gap-2 sm:gap-3 flex-wrap">
-            <StatCard label="SL đơn" value={r.slDon} tone="ocean" onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} />
-            <StatCard label="SL đề xuất/đã đặt" value={r.slDeXuat} tone="ocean" onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} />
-            <StatCard label="SL bị từ chối" value={r.slTuChoi} tone="coral" muted={r.slTuChoi === 0} onClick={() => onJump({ tab: "don-cua-toi", filter: "TN tu choi", nguoiNhanHang: r.email })} />
-            <StatCard label="SL được duyệt" value={r.slDuyet} tone="teal" onClick={() => onJump({ tab: "don-cua-toi", filter: "TN da duyet", nguoiNhanHang: r.email })} />
-            <StatCard label="SL thực duyệt" value={r.slThucDuyet} tone="teal" onClick={() => onJump({ tab: "don-cua-toi", filter: "TN da duyet", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL đơn")} value={r.slDon} tone="ocean" onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL đề xuất/đã đặt")} value={r.slDeXuat} tone="ocean" onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL bị từ chối")} value={r.slTuChoi} tone="coral" muted={r.slTuChoi === 0} onClick={() => onJump({ tab: "don-cua-toi", filter: "TN tu choi", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL được duyệt")} value={r.slDuyet} tone="teal" onClick={() => onJump({ tab: "don-cua-toi", filter: "TN da duyet", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL thực duyệt")} value={r.slThucDuyet} tone="teal" onClick={() => onJump({ tab: "don-cua-toi", filter: "TN da duyet", nguoiNhanHang: r.email })} />
           </div>
         </div>
         <div>
-          <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">Tiền</div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">{tr("Tiền")}</div>
           <div className="flex gap-2 sm:gap-3 flex-wrap">
-            <StatCard label="Tổng tiền thực tế" value={fmtVND(r.tongTienThucTe)} tone="teal" onClick={() => onJump({ tab: "don-cua-toi", filter: "TN da duyet", nguoiNhanHang: r.email })} />
-            <StatCard label="Tổng chờ chuyển" value={fmtVND(r.tongChoChuyen)} tone="amber" muted={r.tongChoChuyen === 0} onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "", nguoiNhanHang: r.email })} />
-            <StatCard label="Tổng tiền đặt mua" value={fmtVND(r.tongTienDatMua)} tone="ocean" onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("Tổng tiền thực tế")} value={fmtVND(r.tongTienThucTe)} tone="teal" onClick={() => onJump({ tab: "don-cua-toi", filter: "TN da duyet", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("Tổng chờ chuyển")} value={fmtVND(r.tongChoChuyen)} tone="amber" muted={r.tongChoChuyen === 0} onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("Tổng tiền đặt mua")} value={fmtVND(r.tongTienDatMua)} tone="ocean" onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} />
           </div>
         </div>
         <div>
-          <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">Xuất kho</div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">{tr("Xuất kho")}</div>
           <div className="flex gap-2 sm:gap-3 flex-wrap">
-            <StatCard label="SL đang chờ kế toán" value={r.slChoKeToan} tone="amber" muted={r.slChoKeToan === 0} onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "Cho ke toan", nguoiNhanHang: r.email })} />
-            <StatCard label="SL đang chờ kho gửi" value={r.slChoKhoGui} tone="amber" muted={r.slChoKhoGui === 0} onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", nguoiNhanHang: r.email })} />
-            <StatCard label="SL đã gửi" value={r.slDaGui} tone="ocean" onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "Dang gui KTV", nguoiNhanHang: r.email })} />
-            <StatCard label="SL đã xác nhận" value={r.slDaXacNhan} tone="teal" onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "KTV da nhan", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL đang chờ kế toán")} value={r.slChoKeToan} tone="amber" muted={r.slChoKeToan === 0} onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "Cho ke toan", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL đang chờ kho gửi")} value={r.slChoKhoGui} tone="amber" muted={r.slChoKhoGui === 0} onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL đã gửi")} value={r.slDaGui} tone="ocean" onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "Dang gui KTV", nguoiNhanHang: r.email })} />
+            <StatCard label={tr("SL đã xác nhận")} value={r.slDaXacNhan} tone="teal" onClick={() => onJump({ tab: "phieu-xuat-kho", filter: "KTV da nhan", nguoiNhanHang: r.email })} />
           </div>
         </div>
       </div>
@@ -101,7 +102,7 @@ export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) =
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Tìm theo tên/email KTV..."
+        placeholder={tr("Tìm theo tên/email KTV...")}
         className="focus-ring w-full sm:w-72 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
       />
       <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
@@ -112,26 +113,26 @@ export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) =
                   hoa TIEU CHI sap xep bang nhan, khong bien tonDong() thanh 1 cot so lieu nghiep vu
                   moi (no von chi la tieu chi noi bo cua giao dien). Sticky de khong mat dau "dong cua
                   ai" khi cuon ngang sang nhom cot Xuat kho o cuoi bang. */}
-              <th className="sticky left-0 z-10 bg-[var(--surface-100)] px-3 py-2 text-left" rowSpan={2} title="Sắp xếp theo mức tồn đọng (đơn chưa xong + đang qua PXK), giảm dần">
-                KTV <span className="text-[var(--ink-400)] font-normal">▼ tồn đọng</span>
+              <th className="sticky left-0 z-10 bg-[var(--surface-100)] px-3 py-2 text-left" rowSpan={2} title={tr("Sắp xếp theo mức tồn đọng (đơn chưa xong + đang qua PXK), giảm dần")}>
+                KTV <span className="text-[var(--ink-400)] font-normal">{tr("▼ tồn đọng")}</span>
               </th>
-              <th className="px-3 py-1 text-center border-l border-[var(--line)]" colSpan={5}>Đơn hàng</th>
-              <th className="px-3 py-1 text-center border-l border-[var(--line)]" colSpan={3}>Tiền</th>
-              <th className="px-3 py-1 text-center border-l border-[var(--line)]" colSpan={4}>Xuất kho</th>
+              <th className="px-3 py-1 text-center border-l border-[var(--line)]" colSpan={5}>{tr("Đơn hàng")}</th>
+              <th className="px-3 py-1 text-center border-l border-[var(--line)]" colSpan={3}>{tr("Tiền")}</th>
+              <th className="px-3 py-1 text-center border-l border-[var(--line)]" colSpan={4}>{tr("Xuất kho")}</th>
             </tr>
             <tr className="bg-[var(--surface-100)] text-[var(--ink-600)]">
-              <th className="px-2 py-1.5 text-right border-l border-[var(--line)]">SL đơn</th>
-              <th className="px-2 py-1.5 text-right">SL đề xuất</th>
-              <th className="px-2 py-1.5 text-right">Từ chối</th>
-              <th className="px-2 py-1.5 text-right" title="Số dòng TN đã bấm Duyệt (kể cả dòng sau đó còn đổi giá/số lượng lúc chốt PXK)">Duyệt</th>
-              <th className="px-2 py-1.5 text-right" title="Số dòng đã Duyệt VÀ đã ra tới Phiếu xuất kho thực tế (con số sát với hàng thật sẽ giao)">Thực duyệt</th>
-              <th className="px-2 py-1.5 text-right border-l border-[var(--line)]">Tiền thực tế</th>
-              <th className="px-2 py-1.5 text-right" title="Tổng tiền của các Phiếu xuất kho có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong">Chờ chuyển</th>
-              <th className="px-2 py-1.5 text-right">Tiền đặt mua</th>
-              <th className="px-2 py-1.5 text-right border-l border-[var(--line)]" title="Phiếu xuất kho đang chờ Kế toán chốt đơn xuất">Chờ kế toán</th>
-              <th className="px-2 py-1.5 text-right" title="Phiếu xuất kho đã chốt xong, đang chờ Kho gửi hàng">Chờ kho gửi</th>
-              <th className="px-2 py-1.5 text-right" title="Phiếu xuất kho đã gửi, đang chờ KTV xác nhận đã nhận">Đã gửi</th>
-              <th className="px-2 py-1.5 text-right">Đã xác nhận</th>
+              <th className="px-2 py-1.5 text-right border-l border-[var(--line)]">{tr("SL đơn")}</th>
+              <th className="px-2 py-1.5 text-right">{tr("SL đề xuất")}</th>
+              <th className="px-2 py-1.5 text-right">{tr("Từ chối")}</th>
+              <th className="px-2 py-1.5 text-right" title={tr("Số dòng TN đã bấm Duyệt (kể cả dòng sau đó còn đổi giá/số lượng lúc chốt PXK)")}>{tr("Duyệt")}</th>
+              <th className="px-2 py-1.5 text-right" title={tr("Số dòng đã Duyệt VÀ đã ra tới Phiếu xuất kho thực tế (con số sát với hàng thật sẽ giao)")}>{tr("Thực duyệt")}</th>
+              <th className="px-2 py-1.5 text-right border-l border-[var(--line)]">{tr("Tiền thực tế")}</th>
+              <th className="px-2 py-1.5 text-right" title={tr("Tổng tiền của các Phiếu xuất kho có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong")}>{tr("Chờ chuyển")}</th>
+              <th className="px-2 py-1.5 text-right">{tr("Tiền đặt mua")}</th>
+              <th className="px-2 py-1.5 text-right border-l border-[var(--line)]" title={tr("Phiếu xuất kho đang chờ Kế toán chốt đơn xuất")}>{tr("Chờ kế toán")}</th>
+              <th className="px-2 py-1.5 text-right" title={tr("Phiếu xuất kho đã chốt xong, đang chờ Kho gửi hàng")}>{tr("Chờ kho gửi")}</th>
+              <th className="px-2 py-1.5 text-right" title={tr("Phiếu xuất kho đã gửi, đang chờ KTV xác nhận đã nhận")}>{tr("Đã gửi")}</th>
+              <th className="px-2 py-1.5 text-right">{tr("Đã xác nhận")}</th>
             </tr>
           </thead>
           <tbody>
@@ -155,7 +156,7 @@ export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) =
             {/* CHOT #22: hang Tong cong tach biet bang MAU NEN dam hon + ky hieu Σ thay vi tang co
                 chu - tang co chu se lech canh cot voi tabular-nums cua cac hang phia tren. */}
             <tr className="border-t-2 border-[var(--line)] bg-[var(--ocean-100)] font-semibold">
-              <td className="sticky left-0 z-10 bg-[var(--ocean-100)] px-3 py-1.5">Σ Tổng cộng</td>
+              <td className="sticky left-0 z-10 bg-[var(--ocean-100)] px-3 py-1.5">{tr("Σ Tổng cộng")}</td>
               <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDon} onClick={() => onJump({ tab: "don-cua-toi", filter: "" })} /></td>
               <td className="px-2 py-1.5 text-right"><Num value={tong.slDeXuat} onClick={() => onJump({ tab: "don-cua-toi", filter: "" })} /></td>
               <td className="px-2 py-1.5 text-right"><Num value={tong.slTuChoi} alert={tong.slTuChoi > 0} onClick={() => onJump({ tab: "don-cua-toi", filter: "TN tu choi" })} /></td>

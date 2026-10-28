@@ -4,6 +4,7 @@ import { Card } from "./ui/Card";
 import { Btn } from "./ui/Btn";
 import { api, ApiError } from "../api/client";
 import { useToast } from "./ui/Toast";
+import { tr } from "../i18n/tr";
 
 /** Rut ra thong diep loi cu the tu ApiError (ma loi backend tra ve, hoac HTTP status neu backend
  * khong tra ma) thay vi luon hien 1 cau chung chung - truoc day moi loi (400/500/mat mang...) deu
@@ -50,7 +51,7 @@ export async function parseSpreadsheet(
           const headerSet = new Set(headerRow.map((h) => String(h ?? "").trim()));
           const missing = Object.keys(columnMap).filter((h) => !headerSet.has(h));
           if (missing.length > 0) {
-            reject(new Error(`Không tìm thấy cột "${missing.join('", "')}" trong file — kiểm tra lại tên cột (phải khớp chính xác với file mẫu, kể cả dấu).`));
+            reject(new Error(tr("Không tìm thấy cột \"{0}\" trong file — kiểm tra lại tên cột (phải khớp chính xác với file mẫu, kể cả dấu).", missing.join('", "'))));
             return;
           }
         }
@@ -128,7 +129,7 @@ export function ImportUploader<TSummary>({
       setPreview(summary);
       setStep("preview");
     },
-    onError: (err) => addToast(`Không đọc được file: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Không đọc được file: {0}", describeError(err))),
   });
 
   const commitMutation = useMutation({
@@ -139,7 +140,7 @@ export function ImportUploader<TSummary>({
       setPreview(null);
       for (const key of invalidateKeys) qc.invalidateQueries({ queryKey: key });
     },
-    onError: (err) => addToast(`Import thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Import thất bại: {0}", describeError(err))),
   });
 
   async function handleFileChosen(file: File) {
@@ -147,8 +148,8 @@ export function ImportUploader<TSummary>({
     if (columnMapUrl && !columnMap && !columnMapData) {
       addToast(
         columnMapError
-          ? `Không tải được cấu hình cột import: ${describeError(columnMapError)}`
-          : "Đang tải cấu hình cột import, vui lòng chọn lại file sau vài giây.",
+          ? tr("Không tải được cấu hình cột import: {0}", describeError(columnMapError))
+          : tr("Đang tải cấu hình cột import, vui lòng chọn lại file sau vài giây."),
       );
       return;
     }
@@ -158,7 +159,7 @@ export function ImportUploader<TSummary>({
       setParsedRows(rows);
       previewMutation.mutate(rows);
     } catch (err) {
-      addToast(`Không đọc được file: ${err instanceof Error ? err.message : String(err)}`);
+      addToast(tr("Không đọc được file: {0}", err instanceof Error ? err.message : String(err)));
     }
   }
 
@@ -169,8 +170,7 @@ export function ImportUploader<TSummary>({
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <div className="text-sm text-[var(--ink-600)] flex-1 min-w-[240px]">{description}</div>
         <a href={templateUrl} className="text-xs font-semibold text-[var(--ocean-600)] hover:underline whitespace-nowrap">
-          ⬇ Tải file mẫu
-        </a>
+          {tr("⬇ Tải file mẫu")}</a>
       </div>
       {step === "idle" && (
         <div
@@ -178,8 +178,8 @@ export function ImportUploader<TSummary>({
           className="mt-4 cursor-pointer border-2 border-dashed border-[var(--ocean-100)] rounded-2xl p-10 text-center hover:border-[var(--ocean-400)] hover:bg-[var(--ocean-100)]/20 transition-colors"
         >
           <div className="text-3xl mb-2">⇩</div>
-          <div className="font-semibold text-[var(--ink-900)]">{previewMutation.isPending ? "Đang phân tích file…" : "Kéo thả hoặc bấm để chọn file Excel/CSV"}</div>
-          <div className="text-xs text-[var(--ink-400)] mt-1">Định dạng .xlsx/.xls/.csv</div>
+          <div className="font-semibold text-[var(--ink-900)]">{previewMutation.isPending ? tr("Đang phân tích file…") : tr("Kéo thả hoặc bấm để chọn file Excel/CSV")}</div>
+          <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Định dạng .xlsx/.xls/.csv")}</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -199,7 +199,7 @@ export function ImportUploader<TSummary>({
             <span className="text-xl">📄</span>
             <div className="flex-1">
               <div className="font-semibold text-sm">{filename}</div>
-              <div className="text-xs text-[var(--ink-400)]">Đã phân tích xong — sẵn sàng import</div>
+              <div className="text-xs text-[var(--ink-400)]">{tr("Đã phân tích xong — sẵn sàng import")}</div>
             </div>
           </div>
           {renderSummary(preview)}
@@ -212,7 +212,7 @@ export function ImportUploader<TSummary>({
           )}
           <div className="flex gap-2 mt-4">
             <Btn onClick={() => commitMutation.mutate()} disabled={commitMutation.isPending}>
-              {commitMutation.isPending ? "Đang import…" : "Xác nhận import"}
+              {commitMutation.isPending ? tr("Đang import…") : tr("Xác nhận import")}
             </Btn>
             <Btn
               variant="ghost"
@@ -221,8 +221,7 @@ export function ImportUploader<TSummary>({
                 setPreview(null);
               }}
             >
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
           </div>
         </div>
       )}

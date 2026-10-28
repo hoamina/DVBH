@@ -48,6 +48,7 @@ import {
   type TheoDoiDoiTraRow,
   type TheoDoiDoiTraDaXacNhanRow,
 } from "../lib/tranhChapShared";
+import { tr } from "../i18n/tr";
 
 // Gia tri ao cho o chon "thang" dung chung ca module (header) - phai KHOP CHINH XAC voi
 // TRANH_CHAP_CON_TON_FILTER_VALUE ben backend/src/routes/tranhChap.ts (xem chu thich o do ve cach
@@ -71,12 +72,12 @@ interface TranhChapImportSummary {
 }
 
 const VIEWS = [
-  { key: "cho-xu-ly", label: "Chờ xử lý" },
-  { key: "doi-may", label: "KN đổi máy" },
-  { key: "cho-xac-nhan-ai", label: "Chờ xác nhận AI" },
-  { key: "theo-doi-doi-tra", label: "Theo dõi đổi trả" },
-  { key: "luong-doi-tra", label: "Luồng duyệt đổi trả" },
-  { key: "tien-trinh", label: "Quản lý tiến trình" },
+  { key: "cho-xu-ly", label: tr("Chờ xử lý") },
+  { key: "doi-may", label: tr("KN đổi máy") },
+  { key: "cho-xac-nhan-ai", label: tr("Chờ xác nhận AI") },
+  { key: "theo-doi-doi-tra", label: tr("Theo dõi đổi trả") },
+  { key: "luong-doi-tra", label: tr("Luồng duyệt đổi trả") },
+  { key: "tien-trinh", label: tr("Quản lý tiến trình") },
 ];
 
 // CHOT 2026-08-21: gia tri settings_phan_loai_tranh_chap.ten_phan_loai dung de loc tab "Đòi đổi máy"
@@ -109,15 +110,15 @@ interface LuongDoiTraListRow {
 
 // Badge trang thai KN dung chung cho bang Luong doi tra; 'Chua xu ly' (chua tung tao tien trinh) hien "Chưa có KN".
 function knTrangThaiBadge(s: string | null) {
-  if (!s || s === "Chua xu ly") return <span className="text-xs text-[var(--ink-400)]">Chưa có KN</span>;
+  if (!s || s === "Chua xu ly") return <span className="text-xs text-[var(--ink-400)]">{tr("Chưa có KN")}</span>;
   return <Badge tone={TRANG_THAI_TONE[s] ?? "gray"}>{TRANG_THAI_LABELS[s] ?? s}</Badge>;
 }
 
 // Badge trang thai luong doi tra (cot moi o bang tien trinh KN, 2026-10-12).
 function luongDoiTraStatusBadge(l: { trang_thai: string } | null | undefined) {
   if (!l) return <span className="text-xs text-[var(--ink-400)]">—</span>;
-  if (l.trang_thai === "ket_thuc") return <Badge tone="gray">Đã kết thúc</Badge>;
-  if (l.trang_thai === "thanh_cong") return <Badge tone="teal">Đổi trả thành công</Badge>;
+  if (l.trang_thai === "ket_thuc") return <Badge tone="gray">{tr("Đã kết thúc")}</Badge>;
+  if (l.trang_thai === "thanh_cong") return <Badge tone="teal">{tr("Đổi trả thành công")}</Badge>;
   return <Badge tone={TRANG_THAI_LUONG[l.trang_thai]?.tone ?? "gray"}>{TRANG_THAI_LUONG[l.trang_thai]?.label ?? l.trang_thai}</Badge>;
 }
 
@@ -153,7 +154,7 @@ function DaXacNhanDoiTraMonthTable({
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (c) => (
         <>
           {isVipKh(c.nhom_kh) && <VipBadge />}
@@ -161,21 +162,21 @@ function DaXacNhanDoiTraMonthTable({
         </>
       ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
-    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
-    { key: "xac_nhan_luc", header: "Xác nhận lúc", render: (c) => <span className="text-xs">{fmtDateTime(c.theo_doi_doi_tra_xac_nhan_luc)}</span> },
-    { key: "xac_nhan_boi", header: "Người xác nhận", render: (c) => <span className="text-xs">{c.theo_doi_doi_tra_xac_nhan_boi ?? "—"}</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
+    { key: "xac_nhan_luc", header: tr("Xác nhận lúc"), render: (c) => <span className="text-xs">{fmtDateTime(c.theo_doi_doi_tra_xac_nhan_luc)}</span> },
+    { key: "xac_nhan_boi", header: tr("Người xác nhận"), render: (c) => <span className="text-xs">{c.theo_doi_doi_tra_xac_nhan_boi ?? "—"}</span> },
     {
       key: "tien_trinh",
-      header: "Tiến trình",
-      render: (c) => (c.co_tien_trinh ? <Badge tone="teal">Đã tiếp nhận</Badge> : <Badge tone="amber">Chưa tiếp nhận</Badge>),
+      header: tr("Tiến trình"),
+      render: (c) => (c.co_tien_trinh ? <Badge tone="teal">{tr("Đã tiếp nhận")}</Badge> : <Badge tone="amber">{tr("Chưa tiếp nhận")}</Badge>),
     },
   ];
 
   return (
     <div className="mb-6">
       <div className="text-sm font-semibold text-[var(--ink-700)] mb-2">
-        Tháng {thang} <span className="text-[var(--ink-400)] font-normal">({data?.total ?? 0} ca)</span>
+        {tr("Tháng")} {thang} <span className="text-[var(--ink-400)] font-normal">({data?.total ?? 0} ca)</span>
       </div>
       <PaginatedTable
         columns={columns}
@@ -190,7 +191,7 @@ function DaXacNhanDoiTraMonthTable({
         onRowClick={(r) => openCase(r.id, "tranh-chap")}
         rowKey={(r) => r.id}
         rowClassName={(r) => vipRowClassName(r.nhom_kh)}
-        emptyText="Không có ca nào."
+        emptyText={tr("Không có ca nào.")}
         storageKey={`tranh-chap-theo-doi-doi-tra-da-xac-nhan-${thang}`}
       />
     </div>
@@ -305,7 +306,7 @@ export function TranhChapModule({
     { key: "id", header: "ID", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (r) => (
         <>
           {isVipKh(r.nhom_kh) && <VipBadge />}
@@ -313,24 +314,24 @@ export function TranhChapModule({
         </>
       ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
-    { key: "san_pham", header: "Sản phẩm", render: (r) => <span className="text-xs">{r.san_pham_bao_hanh ?? "—"}</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (r) => shortKhuVuc(r.khu_vuc) },
+    { key: "san_pham", header: tr("Sản phẩm"), render: (r) => <span className="text-xs">{r.san_pham_bao_hanh ?? "—"}</span> },
     {
       key: "trang_thai",
-      header: "Trạng thái luồng",
+      header: tr("Trạng thái luồng"),
       render: (r) =>
         r.ket_thuc_at ? (
-          <Badge tone="gray">Đã kết thúc</Badge>
+          <Badge tone="gray">{tr("Đã kết thúc")}</Badge>
         ) : (
           <Badge tone={TRANG_THAI_LUONG[r.trang_thai]?.tone ?? "gray"}>{TRANG_THAI_LUONG[r.trang_thai]?.label ?? r.trang_thai}</Badge>
         ),
     },
-    { key: "kn_trang_thai", header: "Trạng thái KN", render: (r) => knTrangThaiBadge(r.kn_trang_thai) },
-    { key: "de_xuat", header: "Đề xuất", render: (r) => <span className="text-xs">{fmtVn(r.de_xuat_at)}</span> },
-    { key: "duyet", header: "Duyệt", render: (r) => <span className="text-xs">{fmtVn(r.duyet_at)}</span> },
+    { key: "kn_trang_thai", header: tr("Trạng thái KN"), render: (r) => knTrangThaiBadge(r.kn_trang_thai) },
+    { key: "de_xuat", header: tr("Đề xuất"), render: (r) => <span className="text-xs">{fmtVn(r.de_xuat_at)}</span> },
+    { key: "duyet", header: tr("Duyệt"), render: (r) => <span className="text-xs">{fmtVn(r.duyet_at)}</span> },
     {
       key: "ca_moi",
-      header: "Ca đổi",
+      header: tr("Ca đổi"),
       render: (r) =>
         r.ca_moi_id ? (
           <span className="text-xs">
@@ -338,24 +339,24 @@ export function TranhChapModule({
             {r.ca_moi_tien_do ? <span className="text-[var(--ink-500)]"> · {r.ca_moi_tien_do}</span> : null}
           </span>
         ) : r.ca_moi_gan && r.ca_moi_gan !== "chua_co" ? (
-          <Badge tone={CA_MOI_GAN[r.ca_moi_gan]?.tone ?? "gray"}>{r.ca_moi_gan === "xac_nhan" ? "Không có ca mới" : (CA_MOI_GAN[r.ca_moi_gan]?.label ?? r.ca_moi_gan)}</Badge>
+          <Badge tone={CA_MOI_GAN[r.ca_moi_gan]?.tone ?? "gray"}>{r.ca_moi_gan === "xac_nhan" ? tr("Không có ca mới") : (CA_MOI_GAN[r.ca_moi_gan]?.label ?? r.ca_moi_gan)}</Badge>
         ) : (
           <span className="text-xs text-[var(--ink-400)]">—</span>
         ),
     },
     {
       key: "last_at",
-      header: "Mail gần nhất",
+      header: tr("Mail gần nhất"),
       render: (r) => (
         <span className="text-xs">
           {fmtVn(r.last_at)}
-          {r.msg_count ? ` (${r.msg_count} thư)` : ""}
+          {r.msg_count ? " " + tr("({0} thư)", r.msg_count) : ""}
         </span>
       ),
     },
     {
       key: "ket_thuc",
-      header: "Kết thúc",
+      header: tr("Kết thúc"),
       render: (r) =>
         r.ket_thuc_at ? (
           <span className="text-xs">
@@ -388,14 +389,14 @@ export function TranhChapModule({
   const xacNhanAi = useMutation({
     mutationFn: ({ id, ketQua }: { id: string; ketQua: "dung" | "khong_phai" }) => api.post(`/tranh-chap/${encodeURIComponent(id)}/xac-nhan-ai`, { ket_qua: ketQua }),
     onSuccess: (_data, variables) => {
-      addToast(variables.ketQua === "dung" ? "Đã xác nhận: Đúng là tranh chấp — ca sẽ chuyển sang \"Chờ xử lý\"." : "Đã xác nhận: Không phải tranh chấp.");
+      addToast(variables.ketQua === "dung" ? tr("Đã xác nhận: Đúng là tranh chấp — ca sẽ chuyển sang \"Chờ xử lý\".") : tr("Đã xác nhận: Không phải tranh chấp."));
       setConfirmingAiCase(null);
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
     },
     onError: (err) => {
-      addToast(describeTranhChapError(err, "Không thể xác nhận, thử lại sau."));
+      addToast(describeTranhChapError(err, tr("Không thể xác nhận, thử lại sau.")));
       setConfirmingAiCase(null);
     },
   });
@@ -404,7 +405,7 @@ export function TranhChapModule({
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (c) => (
         <>
           {isVipKh(c.nhom_kh) && <VipBadge />}
@@ -412,11 +413,11 @@ export function TranhChapModule({
         </>
       ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
-    { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     {
       key: "so_ngay_cho",
-      header: "Số ngày chờ",
+      header: tr("Số ngày chờ"),
       render: (c) => soNgayChoPill(c.so_ngay_cho),
     },
     {
@@ -434,8 +435,7 @@ export function TranhChapModule({
                 setConfirmingAiCase({ id: c.id, ketQua: "dung" });
               }}
             >
-              Đúng là tranh chấp
-            </Btn>
+              {tr("Đúng là tranh chấp")}</Btn>
             <Btn
               size="sm"
               variant="ghost"
@@ -444,11 +444,10 @@ export function TranhChapModule({
                 setConfirmingAiCase({ id: c.id, ketQua: "khong_phai" });
               }}
             >
-              Không phải tranh chấp
-            </Btn>
+              {tr("Không phải tranh chấp")}</Btn>
           </div>
         ) : (
-          <span className="text-xs text-[var(--ink-400)] italic">Không có quyền</span>
+          <span className="text-xs text-[var(--ink-400)] italic">{tr("Không có quyền")}</span>
         ),
     },
   ];
@@ -480,7 +479,7 @@ export function TranhChapModule({
   const xacNhanDoiTra = useMutation({
     mutationFn: ({ id, ketQua }: { id: string; ketQua: "dung" | "khong_phai" }) => api.post(`/tranh-chap/${encodeURIComponent(id)}/xac-nhan-doi-tra`, { ket_qua: ketQua }),
     onSuccess: (_data, variables) => {
-      addToast(variables.ketQua === "dung" ? "Đã xác nhận: Đúng là đổi trả — ca sẽ chuyển sang \"Chờ xử lý\"." : "Đã bỏ qua ca này.");
+      addToast(variables.ketQua === "dung" ? tr("Đã xác nhận: Đúng là đổi trả — ca sẽ chuyển sang \"Chờ xử lý\".") : tr("Đã bỏ qua ca này."));
       setConfirmingDoiTraCase(null);
       qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-cho-danh-gia"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-theo-doi-doi-tra-count"] });
@@ -490,7 +489,7 @@ export function TranhChapModule({
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly-badge"] });
     },
     onError: (err) => {
-      addToast(describeTranhChapError(err, "Không thể xác nhận, thử lại sau."));
+      addToast(describeTranhChapError(err, tr("Không thể xác nhận, thử lại sau.")));
       setConfirmingDoiTraCase(null);
     },
   });
@@ -499,7 +498,7 @@ export function TranhChapModule({
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (c) => (
         <>
           {isVipKh(c.nhom_kh) && <VipBadge />}
@@ -507,10 +506,10 @@ export function TranhChapModule({
         </>
       ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
-    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
-    { key: "luu_y_loi_linh_kien", header: "Lưu ý lỗi linh kiện", render: (c) => <span className="text-xs">{c.luu_y_loi_linh_kien ?? "—"}</span> },
-    { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
+    { key: "luu_y_loi_linh_kien", header: tr("Lưu ý lỗi linh kiện"), render: (c) => <span className="text-xs">{c.luu_y_loi_linh_kien ?? "—"}</span> },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     {
       key: "action",
       header: "",
@@ -526,8 +525,7 @@ export function TranhChapModule({
                 setConfirmingDoiTraCase({ id: c.id, ketQua: "dung" });
               }}
             >
-              Xác nhận đổi trả
-            </Btn>
+              {tr("Xác nhận đổi trả")}</Btn>
             <Btn
               size="sm"
               variant="ghost"
@@ -536,11 +534,10 @@ export function TranhChapModule({
                 setConfirmingDoiTraCase({ id: c.id, ketQua: "khong_phai" });
               }}
             >
-              Bỏ qua
-            </Btn>
+              {tr("Bỏ qua")}</Btn>
           </div>
         ) : (
-          <span className="text-xs text-[var(--ink-400)] italic">Không có quyền</span>
+          <span className="text-xs text-[var(--ink-400)] italic">{tr("Không có quyền")}</span>
         ),
     },
   ];
@@ -575,9 +572,9 @@ export function TranhChapModule({
       }));
 
       await exportRowsToExcel(mappedRows, "danh_sach_cho_xu_ly_tranh_chap.xlsx", "ChoXuLy", headerLabels);
-      addToast("Xuất Excel thành công!");
+      addToast(tr("Xuất Excel thành công!"));
     } catch (err) {
-      addToast("Xuất Excel thất bại: " + (err instanceof Error ? err.message : String(err)));
+      addToast(tr("Xuất Excel thất bại:") + " " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsExporting(false);
     }
@@ -651,13 +648,13 @@ export function TranhChapModule({
   };
 
   const khuVucSelectOptions = [
-    { value: "", label: "Tất cả khu vực" },
-    { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+    { value: "", label: tr("Tất cả khu vực") },
+    { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
     ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
   ];
 
   const monthSelectOptions = [
-    { value: TRANH_CHAP_CON_TON_FILTER_VALUE, label: "Các ca tranh chấp, KN còn tồn" },
+    { value: TRANH_CHAP_CON_TON_FILTER_VALUE, label: tr("Các ca tranh chấp, KN còn tồn") },
     ...(monthData?.months.map((m) => ({ value: m, label: m })) ?? []),
   ];
 
@@ -668,8 +665,8 @@ export function TranhChapModule({
   // "bao-cao-khu-vuc" gom ca ca DA xu ly nen khi chon "con ton" se HOP them thang moi nhat (xem backend
   // TRANH_CHAP_CON_TON_FILTER_VALUE); "tai-khoan-ton" von da CHI gom tien trinh dang mo nen chi can bo
   // han che thang, khong can hop them gi - 2 the bao cao dung 2 dong nhan khac nhau cho dung ban chat.
-  const thangFilterLabelBaoCao = isConTonFilter ? "Tháng mới nhất + các ca còn tồn" : thangFilter ? `Tháng ${thangFilter}` : "Tất cả thời gian";
-  const thangFilterLabelTaiKhoan = isConTonFilter ? "Các ca còn tồn (mọi thời gian)" : thangFilter ? `Tháng ${thangFilter}` : "Tất cả thời gian";
+  const thangFilterLabelBaoCao = isConTonFilter ? tr("Tháng mới nhất + các ca còn tồn") : thangFilter ? tr("Tháng {0}", thangFilter) : tr("Tất cả thời gian");
+  const thangFilterLabelTaiKhoan = isConTonFilter ? tr("Các ca còn tồn (mọi thời gian)") : thangFilter ? tr("Tháng {0}", thangFilter) : tr("Tất cả thời gian");
 
   const handleThangFilterChange = (v: string) => {
     setThangFilter(v);
@@ -766,7 +763,7 @@ export function TranhChapModule({
       ly_do_ton_tranh_chap?: string;
     }) => api.post(`/tranh-chap/${encodeURIComponent(tiepNhanCase?.id ?? "")}/tiep-nhan`, body),
     onSuccess: () => {
-      addToast("Đã tiếp nhận xử lý tranh chấp");
+      addToast(tr("Đã tiếp nhận xử lý tranh chấp"));
       setTiepNhanCase(null);
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh"] });
@@ -776,7 +773,7 @@ export function TranhChapModule({
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
       setView("tien-trinh");
     },
-    onError: (err) => addToast(describeTranhChapError(err, "Không thể tiếp nhận, thử lại sau.")),
+    onError: (err) => addToast(describeTranhChapError(err, tr("Không thể tiếp nhận, thử lại sau."))),
   });
 
   type ChoXuLyRow = ChoXuLyCase & { thoi_gian_hoan_thanh: string | null; last_ly_do_cham: string | null; so_ngay_cho: number };
@@ -797,7 +794,7 @@ export function TranhChapModule({
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (c) => (
         <>
           {isVipKh(c.nhom_kh) && <VipBadge />}
@@ -805,23 +802,23 @@ export function TranhChapModule({
         </>
       ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
     {
       key: "ly_do",
-      header: "Lý do quá hạn",
+      header: tr("Lý do quá hạn"),
       render: (c) =>
         c.is_gqkn_day_lai_gs ? (
-          <Badge tone="amber">GQKN đẩy lại GS</Badge>
+          <Badge tone="amber">{tr("GQKN đẩy lại GS")}</Badge>
         ) : c.last_ly_do_cham ? (
           <Badge tone="coral">{c.last_ly_do_cham}</Badge>
         ) : (
           <span className="text-[var(--ink-400)] text-xs italic">—</span>
         ),
     },
-    { key: "hoan_thanh", header: "Hoàn thành", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     {
       key: "so_ngay_cho",
-      header: "Số ngày chờ",
+      header: tr("Số ngày chờ"),
       render: (c) => soNgayChoPill(c.so_ngay_cho),
     },
     {
@@ -839,8 +836,7 @@ export function TranhChapModule({
               setView("tien-trinh");
             }}
           >
-            Xem tiến trình
-          </Btn>
+            {tr("Xem tiến trình")}</Btn>
         ) : !user || canWriteTranhChap(user, c.khu_vuc) ? (
           <Btn
             size="sm"
@@ -849,10 +845,9 @@ export function TranhChapModule({
               setTiepNhanCase(c);
             }}
           >
-            Tiếp nhận xử lý
-          </Btn>
+            {tr("Tiếp nhận xử lý")}</Btn>
         ) : (
-          <span className="text-xs text-[var(--ink-400)] italic">Không có quyền</span>
+          <span className="text-xs text-[var(--ink-400)] italic">{tr("Không có quyền")}</span>
         ),
     },
   ];
@@ -895,11 +890,11 @@ export function TranhChapModule({
   }
 
   const tienTrinhColumns: Column<TienTrinhRow>[] = [
-    { key: "id", header: "Tiến trình", render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
-    { key: "case_id", header: "Ca sự vụ", render: (r) => <span className="font-mono text-xs text-[var(--ocean-600)]">{r.case_id}</span> },
+    { key: "id", header: tr("Tiến trình"), render: (r) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{r.id}</span> },
+    { key: "case_id", header: tr("Ca sự vụ"), render: (r) => <span className="font-mono text-xs text-[var(--ocean-600)]">{r.case_id}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (r) => (
         <>
           {isVipKh(r.nhom_kh) && <VipBadge />}
@@ -907,10 +902,10 @@ export function TranhChapModule({
         </>
       ),
     },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (r) => shortKhuVuc(r.khu_vuc) },
     {
       key: "giam_sat_phu_trach",
-      header: "Giám sát phụ trách",
+      header: tr("Giám sát phụ trách"),
       render: (r) => (
         <>
           {r.giam_sat_phu_trach.length ? (
@@ -920,29 +915,29 @@ export function TranhChapModule({
           )}
           {r.trang_thai_xu_ly === "Giam sat chua xu ly" && r.gs_tung_xu_ly.length > 0 && (
             <div className="text-[11px] text-[var(--amber-600)] mt-0.5">
-              Từng xử lý: {r.gs_tung_xu_ly.map((g) => g.ten ?? g.email).join(", ")}
+              {tr("Từng xử lý:")} {r.gs_tung_xu_ly.map((g) => g.ten ?? g.email).join(", ")}
             </div>
           )}
         </>
       ),
     },
-    { key: "phan_loai", header: "Phân loại", render: (r) => <Badge tone={phanLoaiTone(r.phan_loai_tranh_chap)}>{r.phan_loai_tranh_chap}</Badge> },
-    { key: "muc_do", header: "Mức độ", render: (r) => <Badge tone={MUC_DO_TONE[r.muc_do] ?? "gray"}>{MUC_DO_LABELS[r.muc_do] ?? r.muc_do}</Badge> },
+    { key: "phan_loai", header: tr("Phân loại"), render: (r) => <Badge tone={phanLoaiTone(r.phan_loai_tranh_chap)}>{r.phan_loai_tranh_chap}</Badge> },
+    { key: "muc_do", header: tr("Mức độ"), render: (r) => <Badge tone={MUC_DO_TONE[r.muc_do] ?? "gray"}>{MUC_DO_LABELS[r.muc_do] ?? r.muc_do}</Badge> },
     {
       key: "trang_thai",
-      header: "Trạng thái",
+      header: tr("Trạng thái"),
       render: (r) => (r.trang_thai_xu_ly ? <Badge tone={TRANG_THAI_TONE[r.trang_thai_xu_ly] ?? "gray"}>{TRANG_THAI_LABELS[r.trang_thai_xu_ly] ?? r.trang_thai_xu_ly}</Badge> : "—"),
     },
-    { key: "luong_doi_tra", header: "Luồng đổi trả", render: (r) => luongDoiTraStatusBadge(r.luong_doi_tra) },
-    { key: "nguoi_xu_ly", header: "Người xử lý gần nhất", render: (r) => (r.nguoi_xu_ly ? formatPersonDisplay(r.nguoi_xu_ly, personDir) : "—") },
+    { key: "luong_doi_tra", header: tr("Luồng đổi trả"), render: (r) => luongDoiTraStatusBadge(r.luong_doi_tra) },
+    { key: "nguoi_xu_ly", header: tr("Người xử lý gần nhất"), render: (r) => (r.nguoi_xu_ly ? formatPersonDisplay(r.nguoi_xu_ly, personDir) : "—") },
     {
       key: "ly_do_ton_tranh_chap_gan_nhat",
-      header: "Lý do tồn tranh chấp gần nhất",
+      header: tr("Lý do tồn tranh chấp gần nhất"),
       render: (r) => (r.ly_do_ton_tranh_chap_gan_nhat ? <span className="text-xs">{r.ly_do_ton_tranh_chap_gan_nhat}</span> : <span className="text-[var(--ink-400)] text-xs italic">—</span>),
     },
     {
       key: "dang_cho_nguoi_xu_ly",
-      header: "Đang chờ ai?",
+      header: tr("Đang chờ ai?"),
       render: (r) => {
         if (!r.dang_cho_nguoi_xu_ly) return <span className="text-[var(--ink-400)] text-xs italic">—</span>;
         const u = handlingUsers.find((user) => user.email === r.dang_cho_nguoi_xu_ly);
@@ -951,7 +946,7 @@ export function TranhChapModule({
     },
     {
       key: "han",
-      header: "Ngày dự kiến xong",
+      header: tr("Ngày dự kiến xong"),
       render: (r) => {
         if (!r.thoi_gian_du_kien_xong) return <span className="text-[var(--ink-400)] text-xs italic">—</span>;
         const isDong = r.trang_thai_xu_ly ? TRANG_THAI_DONG.includes(r.trang_thai_xu_ly) : false;
@@ -959,10 +954,10 @@ export function TranhChapModule({
         return <span className={`text-xs font-semibold ${quaHan ? "text-[var(--coral-500)]" : ""}`}>{r.thoi_gian_du_kien_xong}</span>;
       },
     },
-    { key: "so_ngay_ton", header: "Số ngày tồn", render: (r) => <span className="font-mono">{r.so_ngay_ton}</span> },
+    { key: "so_ngay_ton", header: tr("Số ngày tồn"), render: (r) => <span className="font-mono">{r.so_ngay_ton}</span> },
     {
       key: "canh_bao_cap_nhat",
-      header: "Cảnh báo",
+      header: tr("Cảnh báo"),
       render: (r) => {
         const isDong = r.trang_thai_xu_ly ? TRANG_THAI_DONG.includes(r.trang_thai_xu_ly) : false;
         if (isDong || !r.log_created_at) return <span className="text-[var(--ink-400)] text-xs italic">—</span>;
@@ -975,7 +970,7 @@ export function TranhChapModule({
         const nguoiPhuTrach = r.dang_cho_nguoi_xu_ly || r.nguoi_xu_ly;
         return (
           <div>
-            <Badge tone="coral">⚠ Chờ cập nhật {soNgayQuaHanCapNhat}d</Badge>
+            <Badge tone="coral">{tr("⚠ Chờ cập nhật")} {soNgayQuaHanCapNhat}d</Badge>
             {nguoiPhuTrach && <div className="text-[10px] text-[var(--ink-400)] mt-0.5">{formatPersonDisplay(nguoiPhuTrach, personDir)}</div>}
           </div>
         );
@@ -1070,12 +1065,11 @@ export function TranhChapModule({
       {view === "cho-xu-ly" ? (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Ca có <b>"Nghi ngờ tranh chấp"</b> (điền bởi CRM khi đóng ca) hoặc <b>đã xác nhận thuộc diện "Theo dõi đổi trả"</b>, nhưng <b>chưa từng tạo tiến trình xử lý</b>. Sắp theo số ngày chờ giảm dần — ưu tiên xử lý ca chờ lâu nhất.
-          </div>
+            {tr("Ca có")} <b>{tr("\"Nghi ngờ tranh chấp\"")}</b>  {tr("(điền bởi CRM khi đóng ca) hoặc")} <b>{tr("đã xác nhận thuộc diện \"Theo dõi đổi trả\"")}</b>{tr(", nhưng")} <b>{tr("chưa từng tạo tiến trình xử lý")}</b>{tr(". Sắp theo số ngày chờ giảm dần — ưu tiên xử lý ca chờ lâu nhất.")}</div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={khuVucFilter} onChange={(v) => { setKhuVucFilter(v); setPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
             <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={tinhFilter} onChange={(v) => { setTinhFilter(v); setPage(1); }} options={tinhSelectOptions} />
-            <MultiSelectFilter label="Nhóm KH" value={nhomKhFilter} onChange={(v) => { setNhomKhFilter(v); setPage(1); }} options={nhomKhSelectOptions} />
+            <MultiSelectFilter label={tr("Nhóm KH")} value={nhomKhFilter} onChange={(v) => { setNhomKhFilter(v); setPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput
               value={idSearch}
               onChange={(v) => {
@@ -1085,11 +1079,11 @@ export function TranhChapModule({
             />
             {canImportTranhChap && (
               <Btn variant="ghost" size="sm" onClick={() => setShowImport((v) => !v)}>
-                {showImport ? "Đóng import" : "📥 Import tranh chấp theo ID"}
+                {showImport ? tr("Đóng import") : tr("📥 Import tranh chấp theo ID")}
               </Btn>
             )}
             <Btn variant="subtle" size="sm" onClick={handleExport} disabled={isExporting} className={canImportTranhChap ? "" : "ml-auto"}>
-              {isExporting ? "📥 Đang tải..." : "📥 Tải danh sách chi tiết"}
+              {isExporting ? tr("📥 Đang tải...") : tr("📥 Tải danh sách chi tiết")}
             </Btn>
           </div>
           {/* CHOT 2026-08-12: import hang loat tranh chap theo ID - chi hien voi tai khoan duoc cap
@@ -1099,9 +1093,8 @@ export function TranhChapModule({
             <ImportUploader<TranhChapImportSummary>
               description={
                 <>
-                  Nhập hàng loạt ca vào hàng đợi tranh chấp từ file Excel/CSV (3 cột <b className="font-mono">id</b>, <b className="font-mono">phan_loai_tranh_chap</b>,{" "}
-                  <b className="font-mono">muc_do</b>). Mỗi ca tạo 1 tiến trình mới ở trạng thái "Giám sát chưa xử lý" — ca đã có tiến trình đang mở sẽ bị bỏ qua.
-                </>
+                  {tr("Nhập hàng loạt ca vào hàng đợi tranh chấp từ file Excel/CSV (3 cột")} <b className="font-mono">id</b>, <b className="font-mono">phan_loai_tranh_chap</b>,{" "}
+                  <b className="font-mono">muc_do</b>{tr("). Mỗi ca tạo 1 tiến trình mới ở trạng thái \"Giám sát chưa xử lý\" — ca đã có tiến trình đang mở sẽ bị bỏ qua.")}</>
               }
               templateUrl="/api/tranh-chap/import/template"
               previewUrl="/tranh-chap/import/preview"
@@ -1109,12 +1102,12 @@ export function TranhChapModule({
               buildBody={(rows) => ({ rows })}
               renderSummary={(s) => (
                 <div className="grid grid-cols-2 gap-3 mb-2">
-                  <StatCard label="Sẵn sàng tạo tiến trình" value={s.thanhCong} tone="teal" />
-                  <StatCard label="Bỏ qua" value={s.boQua} tone={s.boQua > 0 ? "amber" : "gray"} />
+                  <StatCard label={tr("Sẵn sàng tạo tiến trình")} value={s.thanhCong} tone="teal" />
+                  <StatCard label={tr("Bỏ qua")} value={s.boQua} tone={s.boQua > 0 ? "amber" : "gray"} />
                 </div>
               )}
               getErrors={(s) => s.errors}
-              successMessage={(s) => `Import thành công: ${s.thanhCong} tiến trình tranh chấp mới`}
+              successMessage={(s) => tr("Import thành công: {0} tiến trình tranh chấp mới", s.thanhCong)}
               invalidateKeys={[
                 ["tranh-chap-cho-xu-ly"],
                 ["tranh-chap-tien-trinh"],
@@ -1129,7 +1122,7 @@ export function TranhChapModule({
               rieng nhu truoc (khong dong bo voi tab "Quan ly tien trinh" ben duoi). */}
           <div className="flex flex-wrap gap-3 mb-4">
             <StatCard
-              label="Tổng ca chờ xử lý"
+              label={tr("Tổng ca chờ xử lý")}
               value={choXuLy?.unfilteredTotal ?? choXuLy?.total ?? 0}
               tone="ocean"
               active={minDaysFilter === null}
@@ -1139,7 +1132,7 @@ export function TranhChapModule({
               }}
             />
             <StatCard
-              label="Chờ ≥3 ngày"
+              label={tr("Chờ ≥3 ngày")}
               value={choXuLy?.choTuNgay3 ?? 0}
               tone="amber"
               active={minDaysFilter === 3}
@@ -1149,7 +1142,7 @@ export function TranhChapModule({
               }}
             />
             <StatCard
-              label="Chờ ≥7 ngày"
+              label={tr("Chờ ≥7 ngày")}
               value={choXuLy?.choTuNgay7 ?? 0}
               tone="coral"
               active={minDaysFilter === 7}
@@ -1159,7 +1152,7 @@ export function TranhChapModule({
               }}
             />
             <StatCard
-              label="Chờ ≥10 ngày"
+              label={tr("Chờ ≥10 ngày")}
               value={choXuLy?.choTuNgay10 ?? 0}
               tone="coral"
               active={minDaysFilter === 10}
@@ -1169,7 +1162,7 @@ export function TranhChapModule({
               }}
             />
             <StatCard
-              label="Chờ ≥14 ngày"
+              label={tr("Chờ ≥14 ngày")}
               value={choXuLy?.choTuNgay14 ?? 0}
               tone="coral"
               active={minDaysFilter === 14}
@@ -1188,35 +1181,35 @@ export function TranhChapModule({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <Card className="p-4">
               <div className="mb-3">
-                <div className="font-display font-bold text-sm">Báo cáo tranh chấp, khiếu nại theo khu vực</div>
+                <div className="font-display font-bold text-sm">{tr("Báo cáo tranh chấp, khiếu nại theo khu vực")}</div>
                 <div className="text-xs text-[var(--ink-400)] mt-0.5">{thangFilterLabelBaoCao}</div>
               </div>
               {reportLoading ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải báo cáo...</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">{tr("Đang tải báo cáo...")}</div>
               ) : !reportData?.rows?.length ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có dữ liệu báo cáo.</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">{tr("Không có dữ liệu báo cáo.")}</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="dense w-full text-sm">
                     <thead>
                       <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                        <th className="py-2 px-2 text-left">Khu vực</th>
-                        <th className="py-2 px-2 text-center">Nghi ngờ tranh chấp</th>
-                        <th className="py-2 px-2 text-center">KN phát sinh ngoài</th>
-                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Chưa xử lý</th>
-                        <th className="py-2 px-2 text-center text-[var(--amber-600)]">GQKN đẩy lại GS</th>
-                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Đã xử lý</th>
-                        <th className="py-2 px-2 text-center">GS đã XL</th>
-                        <th className="py-2 px-2 text-center">GS đang XL</th>
-                        <th className="py-2 px-2 text-center">GS kết thúc</th>
-                        <th className="py-2 px-2 text-center">Chuyển QGKN</th>
-                        <th className="py-2 px-2 text-center">QGKN đang XL</th>
-                        <th className="py-2 px-2 text-center">QGKN đã đóng</th>
+                        <th className="py-2 px-2 text-left">{tr("Khu vực")}</th>
+                        <th className="py-2 px-2 text-center">{tr("Nghi ngờ tranh chấp")}</th>
+                        <th className="py-2 px-2 text-center">{tr("KN phát sinh ngoài")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">{tr("Chưa xử lý")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--amber-600)]">{tr("GQKN đẩy lại GS")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">{tr("Đã xử lý")}</th>
+                        <th className="py-2 px-2 text-center">{tr("GS đã XL")}</th>
+                        <th className="py-2 px-2 text-center">{tr("GS đang XL")}</th>
+                        <th className="py-2 px-2 text-center">{tr("GS kết thúc")}</th>
+                        <th className="py-2 px-2 text-center">{tr("Chuyển QGKN")}</th>
+                        <th className="py-2 px-2 text-center">{tr("QGKN đang XL")}</th>
+                        <th className="py-2 px-2 text-center">{tr("QGKN đã đóng")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                        <td className="py-2 px-2 text-left">Tổng cộng</td>
+                        <td className="py-2 px-2 text-left">{tr("Tổng cộng")}</td>
                         <td className="py-2 px-2 text-center font-mono">{totals.nghi_ngo}</td>
                         <td className="py-2 px-2 text-center font-mono">{totals.phat_sinh_ngoai}</td>
                         <td className="py-2 px-2 text-center font-mono text-[var(--coral-500)]">{totals.chua_xu_ly}</td>
@@ -1245,7 +1238,7 @@ export function TranhChapModule({
                             }}
                             className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
                           >
-                          <td className="py-2 px-2 font-semibold text-left" style={cellStyle}>{r.khu_vuc ? shortKhuVuc(r.khu_vuc) : "Chưa rõ"}</td>
+                          <td className="py-2 px-2 font-semibold text-left" style={cellStyle}>{r.khu_vuc ? shortKhuVuc(r.khu_vuc) : tr("Chưa rõ")}</td>
                           <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_nghi_ngo}</td>
                           <td className="py-2 px-2 text-center font-mono text-[var(--ink-600)]" style={cellStyle}>{r.count_phat_sinh_ngoai}</td>
                           <td className="py-2 px-2 text-center font-mono font-semibold text-[var(--coral-500)]" style={cellStyle}>{r.count_chua_xu_ly}</td>
@@ -1268,21 +1261,21 @@ export function TranhChapModule({
 
             <Card className="p-4">
               <div className="mb-3">
-                <div className="font-display font-bold text-sm">Thống kê tồn đọng theo nhân sự</div>
+                <div className="font-display font-bold text-sm">{tr("Thống kê tồn đọng theo nhân sự")}</div>
                 <div className="text-xs text-[var(--ink-400)] mt-0.5">{thangFilterLabelTaiKhoan}</div>
               </div>
               {taiKhoanTonLoading ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải thống kê...</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">{tr("Đang tải thống kê...")}</div>
               ) : !taiKhoanTonRows.length ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có ca tồn theo nhân sự.</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">{tr("Không có ca tồn theo nhân sự.")}</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="dense w-full text-sm">
                     <thead>
                       <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                        <th className="py-2 px-2 text-left">Nhân sự</th>
-                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Xử lý chưa xong</th>
-                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Được nhắc tên xử lý</th>
+                        <th className="py-2 px-2 text-left">{tr("Nhân sự")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">{tr("Xử lý chưa xong")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">{tr("Được nhắc tên xử lý")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1338,58 +1331,57 @@ export function TranhChapModule({
             onRowClick={(c) => openCase(c.id, "tranh-chap")}
             rowKey={(c) => c.id}
             rowClassName={(c) => vipRowClassName(c.nhom_kh)}
-            emptyText="Không có ca nào đang chờ xử lý tranh chấp."
+            emptyText={tr("Không có ca nào đang chờ xử lý tranh chấp.")}
             storageKey="tranh-chap-cho-xu-ly"
           />
         </div>
       ) : view === "doi-may" ? (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Tất cả tiến trình tranh chấp có phân loại <b>"{DOI_MAY_PHAN_LOAI}"</b> — nhóm rủi ro cao cần theo dõi sát (chi phí đổi máy, ảnh hưởng tồn kho).
-          </div>
+            {tr("Tất cả tiến trình tranh chấp có phân loại")} <b>"{DOI_MAY_PHAN_LOAI}"</b>  {tr("— nhóm rủi ro cao cần theo dõi sát (chi phí đổi máy, ảnh hưởng tồn kho).")}</div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={dmKhuVuc} onChange={(v) => { setDmKhuVuc(v); setDmPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
             <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={dmTinh} onChange={(v) => { setDmTinh(v); setDmPage(1); }} options={tinhSelectOptions} />
-            <MultiSelectFilter label="Nhóm KH" value={dmNhomKh} onChange={(v) => { setDmNhomKh(v); setDmPage(1); }} options={nhomKhSelectOptions} />
+            <MultiSelectFilter label={tr("Nhóm KH")} value={dmNhomKh} onChange={(v) => { setDmNhomKh(v); setDmPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput value={dmIdSearch} onChange={(v) => { setDmIdSearch(v); setDmPage(1); }} />
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Đang mở" value={dmStats?.dangMo ?? 0} tone="ocean" active={dmTrangThai === "" && dmHan === ""} onClick={() => resetDmFilterTo({})} />
+            <StatCard label={tr("Đang mở")} value={dmStats?.dangMo ?? 0} tone="ocean" active={dmTrangThai === "" && dmHan === ""} onClick={() => resetDmFilterTo({})} />
             <StatCard
-              label="Giám sát chưa xử lý"
+              label={tr("Giám sát chưa xử lý")}
               value={dmStats?.giamSatChuaXuLy ?? 0}
               tone="gray"
               active={dmTrangThai === "Giam sat chua xu ly"}
               onClick={() => resetDmFilterTo({ trangThai: "Giam sat chua xu ly" })}
             />
             <StatCard
-              label="Sắp đến hạn (≤1 ngày)"
+              label={tr("Sắp đến hạn (≤1 ngày)")}
               value={dmStats?.sapDenHan ?? 0}
               tone="amber"
               active={dmHan === "sap-den-han"}
               onClick={() => resetDmFilterTo({ han: "sap-den-han" })}
             />
-            <StatCard label="Quá hạn chưa đóng" value={dmStats?.quaHan ?? 0} tone="coral" active={dmHan === "qua-han"} onClick={() => resetDmFilterTo({ han: "qua-han" })} />
+            <StatCard label={tr("Quá hạn chưa đóng")} value={dmStats?.quaHan ?? 0} tone="coral" active={dmHan === "qua-han"} onClick={() => resetDmFilterTo({ han: "qua-han" })} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <Card className="p-4">
               <div className="mb-3">
-                <div className="font-display font-bold text-sm">Đòi đổi máy theo khu vực</div>
+                <div className="font-display font-bold text-sm">{tr("Đòi đổi máy theo khu vực")}</div>
               </div>
               {dmKhuVucReportLoading ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải báo cáo...</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">{tr("Đang tải báo cáo...")}</div>
               ) : !dmKhuVucReport?.rows?.length ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có dữ liệu báo cáo.</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">{tr("Không có dữ liệu báo cáo.")}</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="dense w-full text-sm">
                     <thead>
                       <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                        <th className="py-2 px-2 text-left">Khu vực</th>
-                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Đang mở</th>
-                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Quá hạn</th>
+                        <th className="py-2 px-2 text-left">{tr("Khu vực")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">{tr("Đang mở")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">{tr("Quá hạn")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1406,7 +1398,7 @@ export function TranhChapModule({
                             }}
                             className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
                           >
-                            <td className="py-2 px-2 font-semibold text-left" style={cellStyle}>{r.khu_vuc ? shortKhuVuc(r.khu_vuc) : "Chưa rõ"}</td>
+                            <td className="py-2 px-2 font-semibold text-left" style={cellStyle}>{r.khu_vuc ? shortKhuVuc(r.khu_vuc) : tr("Chưa rõ")}</td>
                             <td className="py-2 px-2 text-center font-mono font-semibold text-[var(--ocean-600)]" style={cellStyle}>{r.dang_mo}</td>
                             <td className="py-2 px-2 text-center font-mono font-semibold text-[var(--coral-500)]" style={cellStyle}>{r.qua_han}</td>
                           </tr>
@@ -1420,20 +1412,20 @@ export function TranhChapModule({
 
             <Card className="p-4">
               <div className="mb-3">
-                <div className="font-display font-bold text-sm">Tồn đọng theo nhân sự</div>
+                <div className="font-display font-bold text-sm">{tr("Tồn đọng theo nhân sự")}</div>
               </div>
               {dmTaiKhoanTonLoading ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)]">Đang tải thống kê...</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)]">{tr("Đang tải thống kê...")}</div>
               ) : !dmTaiKhoanTonRows.length ? (
-                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">Không có ca tồn theo nhân sự.</div>
+                <div className="text-center py-4 text-xs text-[var(--ink-400)] italic">{tr("Không có ca tồn theo nhân sự.")}</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="dense w-full text-sm">
                     <thead>
                       <tr className="text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                        <th className="py-2 px-2 text-left">Nhân sự</th>
-                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">Xử lý chưa xong</th>
-                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">Được nhắc tên xử lý</th>
+                        <th className="py-2 px-2 text-left">{tr("Nhân sự")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--coral-500)] font-bold">{tr("Xử lý chưa xong")}</th>
+                        <th className="py-2 px-2 text-center text-[var(--ocean-600)] font-bold">{tr("Được nhắc tên xử lý")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1489,20 +1481,19 @@ export function TranhChapModule({
             onRowClick={(r) => openCase(r.case_id, "tranh-chap")}
             rowKey={(r) => r.id}
             rowClassName={(r) => vipRowClassName(r.nhom_kh)}
-            emptyText="Không có tiến trình 'đòi đổi máy' nào khớp bộ lọc."
+            emptyText={tr("Không có tiến trình 'đòi đổi máy' nào khớp bộ lọc.")}
             storageKey="tranh-chap-doi-may"
           />
         </div>
       ) : view === "cho-xac-nhan-ai" ? (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Ca do <b>AI phát hiện</b> có khả năng là tranh chấp (<code className="font-mono text-xs">nghi_ngo_tranh_chap = 2</code>) nhưng <b>chưa được con người xác nhận</b>. Bấm{" "}
-            <b>"Đúng là tranh chấp"</b> để chuyển ca sang danh sách "Chờ xử lý" như bình thường, hoặc <b>"Không phải tranh chấp"</b> để loại bỏ vĩnh viễn (ca sẽ không hiện lại ở đây kể cả khi AI phát hiện lại).
-          </div>
+            Ca do <b>{tr("AI phát hiện")}</b>  {tr("có khả năng là tranh chấp (")}<code className="font-mono text-xs">nghi_ngo_tranh_chap = 2</code>{tr(") nhưng")} <b>{tr("chưa được con người xác nhận")}</b>{tr(". Bấm")}{" "}
+            <b>{tr("\"Đúng là tranh chấp\"")}</b>  {tr("để chuyển ca sang danh sách \"Chờ xử lý\" như bình thường, hoặc")} <b>{tr("\"Không phải tranh chấp\"")}</b>  {tr("để loại bỏ vĩnh viễn (ca sẽ không hiện lại ở đây kể cả khi AI phát hiện lại).")}</div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={aiKhuVuc} onChange={(v) => { setAiKhuVuc(v); setAiPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
             <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={aiTinh} onChange={(v) => { setAiTinh(v); setAiPage(1); }} options={tinhSelectOptions} />
-            <MultiSelectFilter label="Nhóm KH" value={aiNhomKh} onChange={(v) => { setAiNhomKh(v); setAiPage(1); }} options={nhomKhSelectOptions} />
+            <MultiSelectFilter label={tr("Nhóm KH")} value={aiNhomKh} onChange={(v) => { setAiNhomKh(v); setAiPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput
               value={aiIdSearch}
               onChange={(v) => {
@@ -1524,32 +1515,31 @@ export function TranhChapModule({
             onRowClick={(c) => openCase(c.id, "tranh-chap")}
             rowKey={(c) => c.id}
             rowClassName={(c) => vipRowClassName(c.nhom_kh)}
-            emptyText="Không có ca nào đang chờ xác nhận AI phát hiện."
+            emptyText={tr("Không có ca nào đang chờ xác nhận AI phát hiện.")}
             storageKey="tranh-chap-cho-xac-nhan-ai"
           />
           <Modal
             open={!!confirmingAiCase}
             onClose={() => setConfirmingAiCase(null)}
-            title={confirmingAiCase?.ketQua === "dung" ? "Xác nhận: Đúng là tranh chấp?" : "Xác nhận: Không phải tranh chấp?"}
+            title={confirmingAiCase?.ketQua === "dung" ? tr("Xác nhận: Đúng là tranh chấp?") : tr("Xác nhận: Không phải tranh chấp?")}
             width="max-w-md"
           >
             {confirmingAiCase && (
               <div className="space-y-4">
                 <div className="text-sm text-[var(--ink-700)]">
                   {confirmingAiCase.ketQua === "dung"
-                    ? `Ca ${confirmingAiCase.id} sẽ được xác nhận là tranh chấp thật và chuyển sang danh sách "Chờ xử lý".`
-                    : `Ca ${confirmingAiCase.id} sẽ bị loại vĩnh viễn khỏi danh sách chờ xác nhận AI — không thể hoàn tác, kể cả khi AI phát hiện lại sau này.`}
+                    ? tr("Ca {0} sẽ được xác nhận là tranh chấp thật và chuyển sang danh sách \"Chờ xử lý\".", confirmingAiCase.id)
+                    : tr("Ca {0} sẽ bị loại vĩnh viễn khỏi danh sách chờ xác nhận AI — không thể hoàn tác, kể cả khi AI phát hiện lại sau này.", confirmingAiCase.id)}
                 </div>
                 <div className="flex justify-end gap-2">
                   <Btn variant="ghost" onClick={() => setConfirmingAiCase(null)}>
-                    Hủy
-                  </Btn>
+                    {tr("Hủy")}</Btn>
                   <Btn
                     variant={confirmingAiCase.ketQua === "dung" ? "success" : "danger"}
                     disabled={xacNhanAi.isPending}
                     onClick={() => xacNhanAi.mutate(confirmingAiCase)}
                   >
-                    {xacNhanAi.isPending ? "Đang lưu…" : confirmingAiCase.ketQua === "dung" ? "Đúng là tranh chấp" : "Không phải tranh chấp"}
+                    {xacNhanAi.isPending ? tr("Đang lưu…") : confirmingAiCase.ketQua === "dung" ? tr("Đúng là tranh chấp") : tr("Không phải tranh chấp")}
                   </Btn>
                 </div>
               </div>
@@ -1559,20 +1549,18 @@ export function TranhChapModule({
       ) : view === "theo-doi-doi-tra" ? (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Ca có <b>"Loại yêu cầu"</b> và <b>"Lưu ý lỗi linh kiện"</b> khớp danh mục đổi trả/đổi máy trong Cài đặt (tự động tính khi import). Bấm <b>"Xác nhận đổi trả"</b> để chuyển ca sang <b>"Chờ xử lý"</b> xử lý như 1 khiếu nại bình thường, hoặc <b>"Bỏ qua"</b> để loại bỏ vĩnh viễn.
-          </div>
+            {tr("Ca có")} <b>{tr("\"Loại yêu cầu\"")}</b>  {tr("và")} <b>{tr("\"Lưu ý lỗi linh kiện\"")}</b>  {tr("khớp danh mục đổi trả/đổi máy trong Cài đặt (tự động tính khi import). Bấm")} <b>{tr("\"Xác nhận đổi trả\"")}</b>  {tr("để chuyển ca sang")} <b>{tr("\"Chờ xử lý\"")}</b>  {tr("xử lý như 1 khiếu nại bình thường, hoặc")} <b>{tr("\"Bỏ qua\"")}</b>  {tr("để loại bỏ vĩnh viễn.")}</div>
           <div className="flex items-center gap-2 mb-4">
             <Btn size="sm" variant={ddSubView === "cho-danh-gia" ? "primary" : "ghost"} onClick={() => setDdSubView("cho-danh-gia")}>
-              Chưa đánh giá {theoDoiDoiTraCountData?.count !== undefined ? `(${theoDoiDoiTraCountData.count})` : ""}
+              {tr("Chưa đánh giá")} {theoDoiDoiTraCountData?.count !== undefined ? `(${theoDoiDoiTraCountData.count})` : ""}
             </Btn>
             <Btn size="sm" variant={ddSubView === "da-xac-nhan" ? "primary" : "ghost"} onClick={() => setDdSubView("da-xac-nhan")}>
-              Đã xác nhận
-            </Btn>
+              {tr("Đã xác nhận")}</Btn>
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={ddKhuVuc} onChange={(v) => { setDdKhuVuc(v); setDdPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
             <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={ddTinh} onChange={(v) => { setDdTinh(v); setDdPage(1); }} options={tinhSelectOptions} />
-            <MultiSelectFilter label="Nhóm KH" value={ddNhomKh} onChange={(v) => { setDdNhomKh(v); setDdPage(1); }} options={nhomKhSelectOptions} />
+            <MultiSelectFilter label={tr("Nhóm KH")} value={ddNhomKh} onChange={(v) => { setDdNhomKh(v); setDdPage(1); }} options={nhomKhSelectOptions} />
             <IdSerialSearchInput
               value={ddIdSearch}
               onChange={(v) => {
@@ -1596,32 +1584,31 @@ export function TranhChapModule({
                 onRowClick={(c) => openCase(c.id, "tranh-chap")}
                 rowKey={(c) => c.id}
                 rowClassName={(c) => vipRowClassName(c.nhom_kh)}
-                emptyText="Không có ca nào đang chờ đánh giá theo dõi đổi trả."
+                emptyText={tr("Không có ca nào đang chờ đánh giá theo dõi đổi trả.")}
                 storageKey="tranh-chap-theo-doi-doi-tra-cho-danh-gia"
               />
               <Modal
                 open={!!confirmingDoiTraCase}
                 onClose={() => setConfirmingDoiTraCase(null)}
-                title={confirmingDoiTraCase?.ketQua === "dung" ? "Xác nhận: Đúng là đổi trả?" : "Bỏ qua ca này?"}
+                title={confirmingDoiTraCase?.ketQua === "dung" ? tr("Xác nhận: Đúng là đổi trả?") : tr("Bỏ qua ca này?")}
                 width="max-w-md"
               >
                 {confirmingDoiTraCase && (
                   <div className="space-y-4">
                     <div className="text-sm text-[var(--ink-700)]">
                       {confirmingDoiTraCase.ketQua === "dung"
-                        ? `Ca ${confirmingDoiTraCase.id} sẽ được xác nhận thuộc diện theo dõi đổi trả, hiện trong bảng "Đã xác nhận" của tab này, và chuyển sang danh sách "Chờ xử lý" để xử lý như 1 khiếu nại bình thường.`
-                        : `Ca ${confirmingDoiTraCase.id} sẽ bị loại vĩnh viễn khỏi danh sách chờ đánh giá — không thể hoàn tác.`}
+                        ? tr("Ca {0} sẽ được xác nhận thuộc diện theo dõi đổi trả, hiện trong bảng \"Đã xác nhận\" của tab này, và chuyển sang danh sách \"Chờ xử lý\" để xử lý như 1 khiếu nại bình thường.", confirmingDoiTraCase.id)
+                        : tr("Ca {0} sẽ bị loại vĩnh viễn khỏi danh sách chờ đánh giá — không thể hoàn tác.", confirmingDoiTraCase.id)}
                     </div>
                     <div className="flex justify-end gap-2">
                       <Btn variant="ghost" onClick={() => setConfirmingDoiTraCase(null)}>
-                        Hủy
-                      </Btn>
+                        {tr("Hủy")}</Btn>
                       <Btn
                         variant={confirmingDoiTraCase.ketQua === "dung" ? "success" : "danger"}
                         disabled={xacNhanDoiTra.isPending}
                         onClick={() => xacNhanDoiTra.mutate(confirmingDoiTraCase)}
                       >
-                        {xacNhanDoiTra.isPending ? "Đang lưu…" : confirmingDoiTraCase.ketQua === "dung" ? "Xác nhận đổi trả" : "Bỏ qua"}
+                        {xacNhanDoiTra.isPending ? tr("Đang lưu…") : confirmingDoiTraCase.ketQua === "dung" ? tr("Xác nhận đổi trả") : tr("Bỏ qua")}
                       </Btn>
                     </div>
                   </div>
@@ -1629,7 +1616,7 @@ export function TranhChapModule({
               </Modal>
             </>
           ) : (ddThangList?.rows ?? []).length === 0 ? (
-            <div className="text-sm text-[var(--ink-400)] italic py-6 text-center">Chưa có ca nào được xác nhận.</div>
+            <div className="text-sm text-[var(--ink-400)] italic py-6 text-center">{tr("Chưa có ca nào được xác nhận.")}</div>
           ) : (
             (ddThangList?.rows ?? []).map((thang) => (
               <DaXacNhanDoiTraMonthTable key={thang} thang={thang} khuVuc={ddKhuVuc} tinh={ddTinh} nhomKh={ddNhomKh} idSearch={ddIdSearch} openCase={openCase} />
@@ -1639,25 +1626,24 @@ export function TranhChapModule({
       ) : view === "luong-doi-tra" ? (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Các ca có <b>luồng mail đổi trả</b> (CC <span className="font-mono">theodoidoimay@gmail.com</span>): Phát sinh → Karofi tiếp nhận → Đề xuất đổi → Duyệt → Giao xử lý → SO/DO → Mở ca đổi → Đổi trả thành công. Bấm 1 dòng để mở ca ở tab <b>"Đổi trả"</b> (kết thúc luồng, gán ca đổi thủ công).
-          </div>
+            {tr("Các ca có")} <b>{tr("luồng mail đổi trả")}</b> (CC <span className="font-mono">theodoidoimay@gmail.com</span>{tr("): Phát sinh → Karofi tiếp nhận → Đề xuất đổi → Duyệt → Giao xử lý → SO/DO → Mở ca đổi → Đổi trả thành công. Bấm 1 dòng để mở ca ở tab")} <b>{tr("\"Đổi trả\"")}</b>  {tr("(kết thúc luồng, gán ca đổi thủ công).")}</div>
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={ldKhuVuc} onChange={(v) => { setLdKhuVuc(v); setLdPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
             <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={ldTinh} onChange={(v) => { setLdTinh(v); setLdPage(1); }} options={tinhSelectOptions} />
-            <MultiSelectFilter label="Nhóm KH" value={ldNhomKh} onChange={(v) => { setLdNhomKh(v); setLdPage(1); }} options={nhomKhSelectOptions} />
+            <MultiSelectFilter label={tr("Nhóm KH")} value={ldNhomKh} onChange={(v) => { setLdNhomKh(v); setLdPage(1); }} options={nhomKhSelectOptions} />
             <Select
               value={ldTrangThai}
               onChange={(v) => { setLdTrangThai(v); setLdPage(1); }}
               options={[
-                { value: "dang_mo", label: "Đang mở" },
-                { value: "ket_thuc", label: "Đã kết thúc" },
-                { value: "", label: "Tất cả" },
+                { value: "dang_mo", label: tr("Đang mở") },
+                { value: "ket_thuc", label: tr("Đã kết thúc") },
+                { value: "", label: tr("Tất cả") },
               ]}
             />
             <Select
               value={ldBuoc}
               onChange={(v) => { setLdBuoc(v); setLdPage(1); }}
-              options={[{ value: "", label: "Tất cả bước" }, ...Object.entries(TRANG_THAI_LUONG).map(([value, x]) => ({ value, label: x.label }))]}
+              options={[{ value: "", label: tr("Tất cả bước") }, ...Object.entries(TRANG_THAI_LUONG).map(([value, x]) => ({ value, label: x.label }))]}
             />
             <IdSerialSearchInput
               value={ldIdSearch}
@@ -1667,7 +1653,7 @@ export function TranhChapModule({
               }}
             />
           </div>
-          {ldData?.error && <div className="text-xs text-red-600 italic mb-2">Không tải được dữ liệu từ hệ Theo dõi đổi máy ({ldData.error}).</div>}
+          {ldData?.error && <div className="text-xs text-red-600 italic mb-2">{tr("Không tải được dữ liệu từ hệ Theo dõi đổi máy (")}{ldData.error}).</div>}
           <PaginatedTable
             columns={luongDoiTraColumns}
             rows={ldData?.rows ?? []}
@@ -1681,7 +1667,7 @@ export function TranhChapModule({
             onRowClick={(r) => openCase(r.id, "luong-mail")}
             rowKey={(r) => r.id}
             rowClassName={(r) => vipRowClassName(r.nhom_kh)}
-            emptyText="Không có luồng đổi trả nào."
+            emptyText={tr("Không có luồng đổi trả nào.")}
             storageKey="tranh-chap-luong-doi-tra"
           />
         </div>
@@ -1690,25 +1676,25 @@ export function TranhChapModule({
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <KhuVucFilterControl value={ttKhuVuc} onChange={(v) => { setTtKhuVuc(v); setTtPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
             <MultiSelectFilter label={NHAN_CAP_1[diaGioi.mode]} value={ttTinh} onChange={(v) => { setTtTinh(v); setTtPage(1); }} options={tinhSelectOptions} />
-            <MultiSelectFilter label="Nhóm KH" value={ttNhomKh} onChange={(v) => { setTtNhomKh(v); setTtPage(1); }} options={nhomKhSelectOptions} />
+            <MultiSelectFilter label={tr("Nhóm KH")} value={ttNhomKh} onChange={(v) => { setTtNhomKh(v); setTtPage(1); }} options={nhomKhSelectOptions} />
             <Select
               value={ttPhanLoai}
               onChange={(v) => { setTtPhanLoai(v); setTtPage(1); }}
-              options={[{ value: "", label: "Tất cả phân loại" }, ...(phanLoaiOptions?.rows.map((r) => ({ value: r.ten_phan_loai, label: r.ten_phan_loai })) ?? [])]}
+              options={[{ value: "", label: tr("Tất cả phân loại") }, ...(phanLoaiOptions?.rows.map((r) => ({ value: r.ten_phan_loai, label: r.ten_phan_loai })) ?? [])]}
             />
             <Select
               value={ttMucDo}
               onChange={(v) => { setTtMucDo(v); setTtPage(1); }}
-              options={[{ value: "", label: "Tất cả mức độ" }, ...MUC_DO_OPTIONS]}
+              options={[{ value: "", label: tr("Tất cả mức độ") }, ...MUC_DO_OPTIONS]}
             />
             <Select
               value={ttTrangThai}
               onChange={(v) => { setTtTrangThai(v); setTtPage(1); }}
               options={[
-                { value: "", label: "Đang mở (mặc định)" },
-                { value: KSNB_WATCH_STATUSES.join(","), label: "🔎 Cần GQKN theo dõi (Chuyển CSKH / CSKH đang xử lý)" },
+                { value: "", label: tr("Đang mở (mặc định)") },
+                { value: KSNB_WATCH_STATUSES.join(","), label: tr("🔎 Cần GQKN theo dõi (Chuyển CSKH / CSKH đang xử lý)") },
                 ...TRANG_THAI_LOG_OPTIONS,
-                { value: Object.keys(TRANG_THAI_LABELS).join(","), label: "Tất cả (gồm đã đóng)" },
+                { value: Object.keys(TRANG_THAI_LABELS).join(","), label: tr("Tất cả (gồm đã đóng)") },
               ]}
             />
             <Select value={ttHan} onChange={(v) => { setTtHan(v); setTtPage(1); }} options={HAN_OPTIONS} />
@@ -1721,7 +1707,7 @@ export function TranhChapModule({
               }}
               options={(() => {
                 const opts = [
-                  { value: "", label: "Tất cả người đang xử lý" },
+                  { value: "", label: tr("Tất cả người đang xử lý") },
                   ...filterUsers.map((u) => ({ value: u.email, label: `${u.ten} (${u.vai_tro})` })),
                 ];
                 if (ttNguoiDangXuLy && !filterUsers.some((u) => u.email === ttNguoiDangXuLy)) {
@@ -1738,9 +1724,9 @@ export function TranhChapModule({
                 value={ttLoaiDangXuLy}
                 onChange={(v) => { setTtLoaiDangXuLy(v); setTtPage(1); }}
                 options={[
-                  { value: "", label: "Tất cả (Chưa xong + Được nhắc)" },
-                  { value: "chua-xong", label: "Xử lý chưa xong" },
-                  { value: "duoc-nhac-ten", label: "Được nhắc tên xử lý" },
+                  { value: "", label: tr("Tất cả (Chưa xong + Được nhắc)") },
+                  { value: "chua-xong", label: tr("Xử lý chưa xong") },
+                  { value: "duoc-nhac-ten", label: tr("Được nhắc tên xử lý") },
                 ]}
               />
             )}
@@ -1752,8 +1738,7 @@ export function TranhChapModule({
                 setTtPage(1);
               }}
             >
-              Của tôi
-            </Btn>
+              {tr("Của tôi")}</Btn>
             <IdSerialSearchInput
               value={ttIdSearch}
               onChange={(v) => {
@@ -1766,35 +1751,35 @@ export function TranhChapModule({
           {/* CHOT 2026-08-06: them "active" (dong bo voi tab "Cho xu ly" o tren) - truoc bam vao 1 the
               o day khong co phan hoi thi giac nao cho biet dang loc theo tieu chi nao. */}
           <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Đang mở" value={ttStats?.dangMo ?? 0} tone="ocean" active={ttTrangThai === "" && ttHan === ""} onClick={() => resetTtFilterTo({})} />
+            <StatCard label={tr("Đang mở")} value={ttStats?.dangMo ?? 0} tone="ocean" active={ttTrangThai === "" && ttHan === ""} onClick={() => resetTtFilterTo({})} />
             <StatCard
-              label="Giám sát chưa xử lý"
+              label={tr("Giám sát chưa xử lý")}
               value={ttStats?.giamSatChuaXuLy ?? 0}
               tone="gray"
               active={ttTrangThai === "Giam sat chua xu ly"}
               onClick={() => resetTtFilterTo({ trangThai: "Giam sat chua xu ly" })}
             />
             <StatCard
-              label="🔎 Cần GQKN theo dõi"
+              label={tr("🔎 Cần GQKN theo dõi")}
               value={(ttStats?.giamSatChuyenCskh ?? 0) + (ttStats?.cskhDangXuLy ?? 0)}
               tone="teal"
               active={ttTrangThai === KSNB_WATCH_STATUSES.join(",")}
               onClick={() => resetTtFilterTo({ trangThai: KSNB_WATCH_STATUSES.join(",") })}
             />
             <StatCard
-              label="Sắp đến hạn (≤1 ngày)"
+              label={tr("Sắp đến hạn (≤1 ngày)")}
               value={ttStats?.sapDenHan ?? 0}
               tone="amber"
               active={ttHan === "sap-den-han"}
               onClick={() => resetTtFilterTo({ han: "sap-den-han" })}
             />
-            <StatCard label="Quá hạn chưa đóng" value={ttStats?.quaHan ?? 0} tone="coral" active={ttHan === "qua-han"} onClick={() => resetTtFilterTo({ han: "qua-han" })} />
+            <StatCard label={tr("Quá hạn chưa đóng")} value={ttStats?.quaHan ?? 0} tone="coral" active={ttHan === "qua-han"} onClick={() => resetTtFilterTo({ han: "qua-han" })} />
             {/* CHOT 2026-08-22: "Qua han cap nhat" - ca dang MO nhung >=3 ngay chua co log moi (khac
                 "Qua han chua dong" la han thoi_gian_du_kien_xong tu chon). Khong co onClick/active vi
                 KHONG co bo loc server-side tuong ung (chi so lieu tong tu /tien-trinh/stats - xem cot
                 canh bao rieng tung dong trong bang ben duoi de xem chi tiet ca nao). */}
             <StatCard
-              label="⚠ Quá hạn cập nhật (≥3 ngày)"
+              label={tr("⚠ Quá hạn cập nhật (≥3 ngày)")}
               value={ttStats?.quaHanCapNhat ?? 0}
               tone="coral"
               active={ttHan === "qua-han-cap-nhat"}
@@ -1815,7 +1800,7 @@ export function TranhChapModule({
             onRowClick={(r) => openCase(r.case_id, "tranh-chap")}
             rowKey={(r) => r.id}
             rowClassName={(r) => vipRowClassName(r.nhom_kh)}
-            emptyText="Không có tiến trình nào khớp bộ lọc."
+            emptyText={tr("Không có tiến trình nào khớp bộ lọc.")}
             storageKey="tranh-chap-tien-trinh"
           />
         </div>

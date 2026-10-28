@@ -2,6 +2,7 @@ import type { BadgeTone } from "../components/ui/Badge";
 import { ApiError } from "../api/client";
 import type { AppUser } from "../auth/AuthContext";
 import type { PersonDirectory } from "./personDisplay";
+import { tr } from "../i18n/tr";
 
 /**
  * Type/hang so/ham dung CHUNG giua TranhChapModule.tsx (module "Tranh chap, khieu nai") va
@@ -152,15 +153,15 @@ export const GIAM_SAT_STATUS_VALUES = [
 export const CSKH_STATUS_VALUES = ["CSKH chua tiep nhan", "CSKH dang xu ly", "CSKH khong can xu ly", "CSKH xu ly xong"] as const;
 
 export const TRANG_THAI_LABELS: Record<string, string> = {
-  "Giam sat chua xu ly": "Giám sát chưa xử lý",
-  "Giam sat dang xu ly": "Giám sát đang xử lý",
-  "Giam sat dong hoan thanh": "Giám sát đóng hoàn thành",
-  "Giam sat dong that bai": "Giám sát đóng thất bại",
-  "Giam sat chuyen CSKH": "Giám sát chuyển CSKH",
-  "CSKH chua tiep nhan": "CSKH chưa tiếp nhận",
-  "CSKH dang xu ly": "CSKH đang xử lý",
-  "CSKH khong can xu ly": "CSKH không cần xử lý",
-  "CSKH xu ly xong": "CSKH xử lý xong",
+  "Giam sat chua xu ly": tr("Giám sát chưa xử lý"),
+  "Giam sat dang xu ly": tr("Giám sát đang xử lý"),
+  "Giam sat dong hoan thanh": tr("Giám sát đóng hoàn thành"),
+  "Giam sat dong that bai": tr("Giám sát đóng thất bại"),
+  "Giam sat chuyen CSKH": tr("Giám sát chuyển CSKH"),
+  "CSKH chua tiep nhan": tr("CSKH chưa tiếp nhận"),
+  "CSKH dang xu ly": tr("CSKH đang xử lý"),
+  "CSKH khong can xu ly": tr("CSKH không cần xử lý"),
+  "CSKH xu ly xong": tr("CSKH xử lý xong"),
 };
 export const TRANG_THAI_TONE: Record<string, BadgeTone> = {
   "Giam sat chua xu ly": "gray",
@@ -218,26 +219,26 @@ export function phaseOfStatus(status: string | null): "giam-sat" | "cskh" {
 }
 
 export const MUC_DO_OPTIONS = [
-  { value: "Binh thuong", label: "Bình thường" },
+  { value: "Binh thuong", label: tr("Bình thường") },
   { value: "Cao", label: "Cao" },
-  { value: "Rat nghiem trong", label: "Rất nghiêm trọng" },
+  { value: "Rat nghiem trong", label: tr("Rất nghiêm trọng") },
 ];
 export const MUC_DO_TONE: Record<string, BadgeTone> = { "Binh thuong": "gray", Cao: "amber", "Rat nghiem trong": "coral" };
 export const MUC_DO_LABELS: Record<string, string> = Object.fromEntries(MUC_DO_OPTIONS.map((o) => [o.value, o.label]));
 
 export const HAI_LONG_OPTIONS = [
-  { value: "Khong xac dinh", label: "Không xác định" },
-  { value: "Khong hai long", label: "Không hài lòng" },
-  { value: "Binh thuong", label: "Bình thường" },
-  { value: "Hai long", label: "Hài lòng" },
-  { value: "Rat hai long", label: "Rất hài lòng" },
+  { value: "Khong xac dinh", label: tr("Không xác định") },
+  { value: "Khong hai long", label: tr("Không hài lòng") },
+  { value: "Binh thuong", label: tr("Bình thường") },
+  { value: "Hai long", label: tr("Hài lòng") },
+  { value: "Rat hai long", label: tr("Rất hài lòng") },
 ];
 
 export const HAN_OPTIONS = [
-  { value: "", label: "Tất cả hạn xử lý" },
-  { value: "qua-han", label: "Quá hạn" },
-  { value: "sap-den-han", label: "Sắp đến hạn (≤1 ngày)" },
-  { value: "qua-han-cap-nhat", label: "Quá hạn cập nhật (≥3 ngày)" },
+  { value: "", label: tr("Tất cả hạn xử lý") },
+  { value: "qua-han", label: tr("Quá hạn") },
+  { value: "sap-den-han", label: tr("Sắp đến hạn (≤1 ngày)") },
+  { value: "qua-han-cap-nhat", label: tr("Quá hạn cập nhật (≥3 ngày)") },
 ];
 
 /** Khop voi canWriteTranhChap() trong backend/src/lib/tranhChapTienTrinh.ts - chi dung de AN/HIEN
@@ -286,20 +287,20 @@ export function phanLoaiTone(phanLoai: string): BadgeTone {
 
 export function describeTranhChapError(err: unknown, fallback: string): string {
   if (err instanceof ApiError) {
-    if (err.code === "FORBIDDEN_ROLE") return "Bạn không có quyền thao tác trên ca/khu vực này.";
-    if (err.code === "TIEN_TRINH_DANG_MO") return "Ca này đang có 1 tiến trình chưa đóng — không thể tạo tiến trình mới.";
-    if (err.code === "TIEN_TRINH_DA_DONG") return "Tiến trình đã đóng — không thể sửa phân loại/mức độ nữa.";
-    if (err.code === "NOT_LATEST_LOG") return "Đã có log mới hơn được thêm — không thể sửa log này nữa.";
-    if (err.code === "EDIT_WINDOW_EXPIRED") return "Đã quá 24h kể từ lúc tạo log — không thể sửa nữa.";
-    if (err.code === "FORBIDDEN_NOT_AUTHOR") return "Chỉ người tạo log mới được sửa.";
-    if (err.code === "MISSING_KET_QUA_XU_LY") return "Cần chọn Kết quả xử lý khi đóng tranh chấp.";
-    if (err.code === "MISSING_HAI_LONG") return "Cần chọn Hài lòng sau tranh chấp khi đóng tranh chấp.";
-    if (err.code === "MISSING_DANG_CHO_NGUOI_XU_LY") return "Cần chọn Đang chờ người xử lý khi Chuyển lại giám sát xử lý.";
-    if (err.code === "MISSING_LY_DO_TON") return "Cần chọn Lý do tồn tranh chấp (bắt buộc khi tiến trình chưa đóng).";
-    if (err.code === "KHONG_PHAI_CHO_XAC_NHAN") return "Ca này không còn ở trạng thái chờ xác nhận AI (có thể đã được xác nhận hoặc đã tạo tiến trình).";
-    if (err.code === "KHONG_PHAI_CHO_DANH_GIA") return "Ca này không còn ở trạng thái chờ đánh giá theo dõi đổi trả (có thể đã được xác nhận/bỏ qua).";
-    if (err.code === "ALREADY_CONFIRMED") return "Ca này vừa được người khác xác nhận — vui lòng tải lại danh sách.";
-    if (err.code === "INVALID_KET_QUA") return "Kết quả xác nhận không hợp lệ.";
+    if (err.code === "FORBIDDEN_ROLE") return tr("Bạn không có quyền thao tác trên ca/khu vực này.");
+    if (err.code === "TIEN_TRINH_DANG_MO") return tr("Ca này đang có 1 tiến trình chưa đóng — không thể tạo tiến trình mới.");
+    if (err.code === "TIEN_TRINH_DA_DONG") return tr("Tiến trình đã đóng — không thể sửa phân loại/mức độ nữa.");
+    if (err.code === "NOT_LATEST_LOG") return tr("Đã có log mới hơn được thêm — không thể sửa log này nữa.");
+    if (err.code === "EDIT_WINDOW_EXPIRED") return tr("Đã quá 24h kể từ lúc tạo log — không thể sửa nữa.");
+    if (err.code === "FORBIDDEN_NOT_AUTHOR") return tr("Chỉ người tạo log mới được sửa.");
+    if (err.code === "MISSING_KET_QUA_XU_LY") return tr("Cần chọn Kết quả xử lý khi đóng tranh chấp.");
+    if (err.code === "MISSING_HAI_LONG") return tr("Cần chọn Hài lòng sau tranh chấp khi đóng tranh chấp.");
+    if (err.code === "MISSING_DANG_CHO_NGUOI_XU_LY") return tr("Cần chọn Đang chờ người xử lý khi Chuyển lại giám sát xử lý.");
+    if (err.code === "MISSING_LY_DO_TON") return tr("Cần chọn Lý do tồn tranh chấp (bắt buộc khi tiến trình chưa đóng).");
+    if (err.code === "KHONG_PHAI_CHO_XAC_NHAN") return tr("Ca này không còn ở trạng thái chờ xác nhận AI (có thể đã được xác nhận hoặc đã tạo tiến trình).");
+    if (err.code === "KHONG_PHAI_CHO_DANH_GIA") return tr("Ca này không còn ở trạng thái chờ đánh giá theo dõi đổi trả (có thể đã được xác nhận/bỏ qua).");
+    if (err.code === "ALREADY_CONFIRMED") return tr("Ca này vừa được người khác xác nhận — vui lòng tải lại danh sách.");
+    if (err.code === "INVALID_KET_QUA") return tr("Kết quả xác nhận không hợp lệ.");
   }
   return fallback;
 }

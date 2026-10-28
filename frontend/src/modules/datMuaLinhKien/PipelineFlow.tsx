@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { LuongQuyTrinhStep, JumpTarget } from "./types";
 import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PIPELINE_SEG_WIDTH, PXK_TRANG_THAI_TONE, PXK_MINI_STEPS, PXK_MINI_LABEL, PXK_MINI_NHANH_RE, PXK_MINI_SEG_WIDTH } from "./constants";
+import { tr } from "../../i18n/tr";
 
 // "Luong quy trinh" pipeline UI (thanh chevron so dem theo buoc) dung chung boi DatMuaLinhKienModule
 // (tab tong quan) va PhieuXuatKhoTab (mini-pipeline PXK) - tach tu DatMuaLinhKienModule.tsx (UI
@@ -25,7 +26,7 @@ export function MyWorkloadStrip({
   // thong bao tin nhan") - tiet kiem dien tich doc dang ke so voi luoi the cu.
   return (
     <div className="mb-2 flex items-center gap-2 flex-wrap">
-      <span className="text-[11px] font-semibold text-[var(--ink-500)] uppercase tracking-wide shrink-0">Việc của tôi</span>
+      <span className="text-[11px] font-semibold text-[var(--ink-500)] uppercase tracking-wide shrink-0">{tr("Việc của tôi")}</span>
       {mine.map((s) => (
         <button
           key={s.key}
@@ -145,9 +146,9 @@ export function PipelineFlow({
                   color: "white",
                 }}
                 className="focus-ring flex h-full flex-col items-center justify-center py-2 text-center transition-all hover:brightness-95"
-                title="Tạo đơn đặt linh kiện mới"
+                title={tr("Tạo đơn đặt linh kiện mới")}
               >
-                <span className="text-[10px] font-semibold leading-tight">＋ Tạo đơn</span>
+                <span className="text-[10px] font-semibold leading-tight">{tr("＋ Tạo đơn")}</span>
               </button>
             </div>
           )}
@@ -202,7 +203,7 @@ export function PipelineFlow({
               }}
               className="flex shrink-0 flex-col items-center justify-center bg-[var(--surface-100)] py-2 text-center text-[var(--ink-400)]"
             >
-              <span className="text-[10px] font-semibold leading-tight">🏁 Kết thúc</span>
+              <span className="text-[10px] font-semibold leading-tight">{tr("🏁 Kết thúc")}</span>
             </div>
           )}
         </div>
@@ -221,7 +222,7 @@ export function PipelineFlow({
           onClick={onToggleCollapsed}
           className="focus-ring shrink-0 whitespace-nowrap text-xs font-semibold text-[var(--ink-500)] underline decoration-dotted underline-offset-2 hover:text-[var(--ink-700)]"
         >
-          {collapsed ? `Xem toàn bộ quy trình (${steps.length}) ▾` : "Thu gọn quy trình ▴"}
+          {collapsed ? tr("Xem toàn bộ quy trình ({0}) ▾", steps.length) : tr("Thu gọn quy trình ▴")}
         </button>
       )}
     </div>
@@ -274,7 +275,7 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
               }}
               className="flex h-full items-center justify-center py-1.5 text-center text-white"
             >
-              <span className="text-[9.5px] font-semibold leading-tight">{trangThai === "Ke toan huy" ? "KT huỷ" : trangThai === "Hang tru kho" ? "Trừ kho" : "Kết thúc"}</span>
+              <span className="text-[9.5px] font-semibold leading-tight">{trangThai === "Ke toan huy" ? tr("KT huỷ") : trangThai === "Hang tru kho" ? tr("Trừ kho") : tr("Kết thúc")}</span>
             </div>
           </div>
         )}

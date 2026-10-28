@@ -17,6 +17,7 @@ import {
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
+import { tr } from "../../i18n/tr";
 
 // ---------- Tab "Phieu xuat kho" (TN/Ke toan/Kho) ----------
 // "Chuyen tien" (thay phieu_so_tien cu) la dieu kien chan rieng tren chinh PXK, khong con tab/bang
@@ -151,7 +152,7 @@ export function PhieuXuatKhoTab({
         loai_don: chonLoaiDon,
       }),
     onSuccess: (res) => {
-      addToast(`Đã tạo phiếu xuất kho ${res.id}`);
+      addToast(tr("Đã tạo phiếu xuất kho {0}", res.id));
       setShowCreate(false);
       setCreateData({ ghi_chu: "", so_tien_can_chuyen: "" });
       setSelectedDonHang(new Set());
@@ -162,7 +163,7 @@ export function PhieuXuatKhoTab({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
       invalidatePipelineCounts(qc);
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #19): bang danh sach chi de XEM (khong thao tac
@@ -171,13 +172,13 @@ export function PhieuXuatKhoTab({
   // phai vao modal chi tiet moi thuc hien duoc.
   function pxkViecCanLamTiep(r: PhieuXuatKhoRow): string | null {
     if (r.trang_thai === "Dang tao phieu") {
-      if (!r.ma_xuat_kho_xac_nhan) return "Cần nhập Mã đơn hàng";
-      if (r.so_tien_can_chuyen != null && r.trang_thai_chuyen_tien !== "TN da duyet") return "Chờ xác nhận chuyển tiền";
-      return "Sẵn sàng gửi Kế toán";
+      if (!r.ma_xuat_kho_xac_nhan) return tr("Cần nhập Mã đơn hàng");
+      if (r.so_tien_can_chuyen != null && r.trang_thai_chuyen_tien !== "TN da duyet") return tr("Chờ xác nhận chuyển tiền");
+      return tr("Sẵn sàng gửi Kế toán");
     }
-    if (r.trang_thai === "Cho ke toan") return r.ma_misa ? "Sẵn sàng chốt xong" : "Cần nhập Mã MISA";
-    if (r.trang_thai === "Da chot xong don xuat") return "Chờ Kho gửi hàng";
-    if (r.trang_thai === "Dang gui KTV") return "Chờ KTV xác nhận đã nhận";
+    if (r.trang_thai === "Cho ke toan") return r.ma_misa ? tr("Sẵn sàng chốt xong") : tr("Cần nhập Mã MISA");
+    if (r.trang_thai === "Da chot xong don xuat") return tr("Chờ Kho gửi hàng");
+    if (r.trang_thai === "Dang gui KTV") return tr("Chờ KTV xác nhận đã nhận");
     return null;
   }
 
@@ -190,42 +191,42 @@ export function PhieuXuatKhoTab({
   const cols: Column<PhieuXuatKhoRow>[] = [
     {
       key: "id",
-      header: "Mã PXK",
+      header: tr("Mã PXK"),
       render: (r) => (
         <span className="font-mono text-xs">
           {/* !! bat buoc - D1 tra EXISTS(...) ve 0/1 (khong phai boolean that), "0 && <X/>" trong
               JSX se render ra chu "0" thay vi an di neu khong ep kieu truoc. */}
-          {!!r.co_don_uu_tien && <span title="Có dòng ưu tiên bên trong">⭐ </span>}
+          {!!r.co_don_uu_tien && <span title={tr("Có dòng ưu tiên bên trong")}>⭐ </span>}
           {r.id}
         </span>
       ),
     },
     {
       key: "ma_xuat_kho",
-      header: "Mã đơn hàng",
-      render: (r) => (r.ma_xuat_kho_xac_nhan ? r.ma_xuat_kho : <span className="text-[var(--ink-400)] italic">Chưa có (đang chờ KTV chuyển tiền)</span>),
+      header: tr("Mã đơn hàng"),
+      render: (r) => (r.ma_xuat_kho_xac_nhan ? r.ma_xuat_kho : <span className="text-[var(--ink-400)] italic">{tr("Chưa có (đang chờ KTV chuyển tiền)")}</span>),
     },
-    { key: "nguoi_tao", header: "Người tạo", render: (r) => labelKtv(r.nguoi_tao) },
-    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? labelKtv(r.nguoi_nhan_hang) : <span className="text-[var(--ink-400)]">—</span>) },
-    { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
+    { key: "nguoi_tao", header: tr("Người tạo"), render: (r) => labelKtv(r.nguoi_tao) },
+    { key: "nguoi_nhan_hang", header: tr("Người nhận hàng"), render: (r) => (r.nguoi_nhan_hang ? labelKtv(r.nguoi_nhan_hang) : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "ngay_tao", header: tr("Ngày tạo"), render: (r) => fmtDateTime(r.ngay_tao) },
     {
-      key: "chuyen_tien", header: "Chuyển tiền",
-      render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} /> : <span className="text-[var(--ink-400)] text-xs">Không cần</span>),
+      key: "chuyen_tien", header: tr("Chuyển tiền"),
+      render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} /> : <span className="text-[var(--ink-400)] text-xs">{tr("Không cần")}</span>),
     },
-    { key: "trang_thai", header: "Trạng thái", render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} /> },
+    { key: "trang_thai", header: tr("Trạng thái"), render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} /> },
     {
-      key: "viec_can_lam", header: "Việc cần làm tiếp",
+      key: "viec_can_lam", header: tr("Việc cần làm tiếp"),
       render: (r) => {
         const viec = pxkViecCanLamTiep(r);
         return viec ? <span className="text-xs text-[var(--amber-700)] font-medium">{viec}</span> : <span className="text-[var(--ink-400)]">—</span>;
       },
     },
-    { key: "actions", header: "", render: (r) => <Btn size="sm" variant="ghost" onClick={() => setDetailId(r.id)}>Chi tiết</Btn> },
+    { key: "actions", header: "", render: (r) => <Btn size="sm" variant="ghost" onClick={() => setDetailId(r.id)}>{tr("Chi tiết")}</Btn> },
   ];
   const optionalCols: Column<PhieuXuatKhoRow>[] = [
-    { key: "loai_don", header: "Loại", render: (r) => (r.loai_don ? <Badge tone={LOAI_DON_TONE[r.loai_don].tone}>{LOAI_DON_TONE[r.loai_don].label}</Badge> : <span className="text-[var(--ink-400)]">—</span>) },
-    { key: "ma_van_don", header: "Mã vận đơn", render: (r) => r.ma_van_don ?? <span className="text-[var(--ink-400)]">—</span> },
-    { key: "so_dong", header: "Số dòng", render: (r) => r.so_dong },
+    { key: "loai_don", header: tr("Loại"), render: (r) => (r.loai_don ? <Badge tone={LOAI_DON_TONE[r.loai_don].tone}>{LOAI_DON_TONE[r.loai_don].label}</Badge> : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "ma_van_don", header: tr("Mã vận đơn"), render: (r) => r.ma_van_don ?? <span className="text-[var(--ink-400)]">—</span> },
+    { key: "so_dong", header: tr("Số dòng"), render: (r) => r.so_dong },
   ];
 
   return (
@@ -267,16 +268,16 @@ export function PhieuXuatKhoTab({
           <Select
             value={filterNguoiNhanHang}
             onChange={setFilterNguoiNhanHang}
-            options={[{ value: "", label: "Tất cả người nhận hàng" }, ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) }))]}
+            options={[{ value: "", label: tr("Tất cả người nhận hàng") }, ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) }))]}
           />
         )}
-        {canTacNghiep && <Btn size="sm" onClick={() => setShowCreate(true)}>+ Tạo phiếu xuất kho</Btn>}
+        {canTacNghiep && <Btn size="sm" onClick={() => setShowCreate(true)}>{tr("+ Tạo phiếu xuất kho")}</Btn>}
       </div>
       {/* SUA (ra soat #3): bo chip "Trạng thái: ..." - da hien TRUNG voi chip dang to sang trong
           TrangThaiChipFilter ngay ben tren. */}
       <ActiveFiltersBar
         chips={[
-          ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),
+          ...(filterNguoiNhanHang ? [{ label: tr("Người nhận hàng đã lọc"), onClear: () => setFilterNguoiNhanHang("") }] : []),
         ]}
       />
       {/* SUA (phan hoi 2026-08-18 muc 2): onRowClick mo thang modal chi tiet (bam CA HANG, khong chi
@@ -302,7 +303,7 @@ export function PhieuXuatKhoTab({
       {showCreate && (
         <Modal
           open
-          title="Tạo phiếu xuất kho"
+          title={tr("Tạo phiếu xuất kho")}
           onClose={() => {
             setShowCreate(false);
             setSelectedDonHang(new Set());
@@ -313,7 +314,7 @@ export function PhieuXuatKhoTab({
         >
           <div className="space-y-3 text-sm">
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Loại phiếu *</label>
+              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">{tr("Loại phiếu *")}</label>
               <div className="flex gap-1">
                 {(["mua", "cong_no"] as const).map((l) => (
                   <Btn
@@ -330,11 +331,11 @@ export function PhieuXuatKhoTab({
             <div>
               {/* Chot nghiep vu 2026-08-15: 1 PXK CHI gan cho 1 KTV - bat buoc chon KTV TRUOC, danh
                   sach dong ben duoi chi hien dong cua dung KTV do (khong con tron nhieu KTV). */}
-              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Chọn KTV nhận hàng *</label>
+              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">{tr("Chọn KTV nhận hàng *")}</label>
               <Select
                 value={chonKtv}
                 onChange={(v) => { setChonKtv(v); setSelectedDonHang(new Set()); }}
-                options={[{ value: "", label: "-- Chọn KTV --" }, ...ktvKhaDung.map((email) => ({ value: email, label: labelKtv(email) }))]}
+                options={[{ value: "", label: tr("-- Chọn KTV --") }, ...ktvKhaDung.map((email) => ({ value: email, label: labelKtv(email) }))]}
                 className="w-full"
               />
             </div>
@@ -344,12 +345,12 @@ export function PhieuXuatKhoTab({
                 phai chi 1 o tim kiem bi disabled le loi. */}
             <div className={!chonKtv ? "opacity-50 pointer-events-none" : ""}>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-[var(--ink-600)]">Chọn dòng đơn hàng đã "TN đã duyệt" (*)</label>
+                <label className="block text-xs font-semibold text-[var(--ink-600)]">{tr("Chọn dòng đơn hàng đã \"TN đã duyệt\" (*)")}</label>
                 {/* CHOT #10 (ra soat module "Dat Mua Linh Kien 2.0"): them tong tien cua cac dong DA
                     CHON de doi chieu voi o "So tien can KTV chuyen" ngay ben duoi - truoc day chi
                     hien so luong dong, khong biet tong gia tri de doi chieu. */}
                 <span className="text-xs text-[var(--ink-500)]">
-                  Đã chọn {selectedDonHang.size}
+                  {tr("Đã chọn")} {selectedDonHang.size}
                   {selectedDonHang.size > 0 && (
                     <>
                       {" · "}
@@ -367,24 +368,24 @@ export function PhieuXuatKhoTab({
               <input
                 value={timKiemDonHang}
                 onChange={(e) => setTimKiemDonHang(e.target.value)}
-                placeholder="Tìm theo mã LK, tên LK..."
+                placeholder={tr("Tìm theo mã LK, tên LK...")}
                 disabled={!chonKtv}
                 className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mb-1.5 disabled:bg-[var(--surface-200)]"
               />
               <div className="border border-[var(--line)] rounded-lg max-h-64 overflow-y-auto">
                 {!chonKtv ? (
-                  <div className="text-xs text-[var(--ink-400)] text-center py-4">Chọn KTV nhận hàng ở trên trước.</div>
+                  <div className="text-xs text-[var(--ink-400)] text-center py-4">{tr("Chọn KTV nhận hàng ở trên trước.")}</div>
                 ) : khaDungLoading ? (
-                  <div className="text-xs text-[var(--ink-500)] text-center py-4">Đang tải...</div>
+                  <div className="text-xs text-[var(--ink-500)] text-center py-4">{tr("Đang tải...")}</div>
                 ) : donHangLoc.length === 0 ? (
                   <div className="text-xs text-[var(--ink-400)] text-center py-4">
-                    {(khaDungData?.rows.length ?? 0) === 0 ? "Không có dòng nào đang chờ tạo phiếu xuất kho." : "Không khớp tìm kiếm."}
+                    {(khaDungData?.rows.length ?? 0) === 0 ? tr("Không có dòng nào đang chờ tạo phiếu xuất kho.") : tr("Không khớp tìm kiếm.")}
                   </div>
                 ) : (
                   <>
                     <label className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[var(--line)] bg-[var(--surface-100)] text-xs font-semibold cursor-pointer">
                       <input type="checkbox" checked={donHangLoc.length > 0 && donHangLoc.every((r) => selectedDonHang.has(r.id))} onChange={toggleChonTatCaLoc} />
-                      Chọn tất cả ({donHangLoc.length})
+                      {tr("Chọn tất cả (")}{donHangLoc.length})
                     </label>
                     {donHangLoc.map((r) => (
                       <label key={r.id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-100)] cursor-pointer text-xs">
@@ -399,7 +400,7 @@ export function PhieuXuatKhoTab({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Số tiền cần KTV chuyển (bỏ trống nếu không cần)</label>
+              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">{tr("Số tiền cần KTV chuyển (bỏ trống nếu không cần)")}</label>
               <input
                 type="number"
                 value={createData.so_tien_can_chuyen}
@@ -408,7 +409,7 @@ export function PhieuXuatKhoTab({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Ghi chú</label>
+              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">{tr("Ghi chú")}</label>
               <input
                 value={createData.ghi_chu}
                 onChange={(e) => setCreateData((p) => ({ ...p, ghi_chu: e.target.value }))}
@@ -427,9 +428,8 @@ export function PhieuXuatKhoTab({
                   setChonLoaiDon("mua");
                 }}
               >
-                Hủy
-              </Btn>
-              <Btn size="sm" onClick={() => createMutation.mutate()} disabled={!chonKtv || selectedDonHang.size === 0 || createMutation.isPending} loading={createMutation.isPending}>Tạo</Btn>
+                {tr("Hủy")}</Btn>
+              <Btn size="sm" onClick={() => createMutation.mutate()} disabled={!chonKtv || selectedDonHang.size === 0 || createMutation.isPending} loading={createMutation.isPending}>{tr("Tạo")}</Btn>
             </div>
           </div>
         </Modal>
@@ -519,31 +519,31 @@ export function PxkDetailModal({
         ghi_chu: ghiChu.trim() || undefined,
         ma_van_don: trang_thai === "Dang gui KTV" ? maVanDonInput.trim() || undefined : undefined,
       }),
-    onSuccess: () => { invalidate(); addToast("Đã cập nhật trạng thái"); },
+    onSuccess: () => { invalidate(); addToast(tr("Đã cập nhật trạng thái")); },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
       if (code === "THIEU_LY_DO_CHAM") {
-        addToast("Còn dòng chưa nhập Lý do chậm (quá 24h) - điền ở bảng dòng đơn hàng bên dưới trước khi gửi kế toán");
+        addToast(tr("Còn dòng chưa nhập Lý do chậm (quá 24h) - điền ở bảng dòng đơn hàng bên dưới trước khi gửi kế toán"));
       } else if (code === "MA_XUAT_KHO_CHUA_XAC_NHAN") {
-        addToast("Cần nhập Mã đơn hàng trước khi gửi kế toán");
+        addToast(tr("Cần nhập Mã đơn hàng trước khi gửi kế toán"));
       } else if (code === "MISSING_MA_MISA") {
-        addToast("Cần nhập Mã MISA trước khi chốt xong đơn xuất");
+        addToast(tr("Cần nhập Mã MISA trước khi chốt xong đơn xuất"));
       } else {
-        addToast("Lỗi: " + describeApiError(err));
+        addToast(tr("Lỗi:") + " " + describeApiError(err));
       }
     },
   });
 
   const maXuatKhoMutation = useMutation({
     mutationFn: () => api.patch(`/phieu-xuat-kho/${id}/ma-xuat-kho`, { ma_xuat_kho: maXuatKhoDraft.trim() }),
-    onSuccess: () => { setMaXuatKhoDraft(""); qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); invalidatePipelineCounts(qc); addToast("Đã lưu mã đơn hàng"); },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onSuccess: () => { setMaXuatKhoDraft(""); qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); invalidatePipelineCounts(qc); addToast(tr("Đã lưu mã đơn hàng")); },
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   const maMisaMutation = useMutation({
     mutationFn: () => api.patch(`/phieu-xuat-kho/${id}/ma-misa`, { ma_misa: maMisaDraft.trim() }),
-    onSuccess: () => { setMaMisaDraft(""); qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); invalidatePipelineCounts(qc); addToast("Đã lưu mã MISA"); },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onSuccess: () => { setMaMisaDraft(""); qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); invalidatePipelineCounts(qc); addToast(tr("Đã lưu mã MISA")); },
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   async function handleUploadAnhBienBan(file: File) {
@@ -552,9 +552,9 @@ export function PxkDetailModal({
       const bytes = await file.arrayBuffer();
       await api.postBinary(`/phieu-xuat-kho/${id}/anh-bien-ban`, bytes, file.type || "image/jpeg");
       qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
-      addToast("Đã tải ảnh biên bản");
+      addToast(tr("Đã tải ảnh biên bản"));
     } catch (err) {
-      addToast("Lỗi tải ảnh: " + describeApiError(err));
+      addToast(tr("Lỗi tải ảnh:") + " " + describeApiError(err));
     } finally {
       setUploadingAnh(false);
     }
@@ -566,9 +566,9 @@ export function PxkDetailModal({
       const bytes = await file.arrayBuffer();
       const res = await api.postBinary<{ ok: true; url: string }>(`/phieu-xuat-kho/${id}/bang-chung-chuyen-tien`, bytes, file.type || "image/jpeg");
       setBangChungUrl(res.url);
-      addToast("Đã tải ảnh chuyển tiền - bấm \"Đã chuyển\" để xác nhận");
+      addToast(tr("Đã tải ảnh chuyển tiền - bấm \"Đã chuyển\" để xác nhận"));
     } catch (err) {
-      addToast("Lỗi tải ảnh: " + describeApiError(err));
+      addToast(tr("Lỗi tải ảnh:") + " " + describeApiError(err));
     } finally {
       setUploadingBangChung(false);
     }
@@ -580,21 +580,21 @@ export function PxkDetailModal({
     onSuccess: (_res, { donHangId }) => {
       setLyDoChamDraft((p) => { const n = { ...p }; delete n[donHangId]; return n; });
       qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
-      addToast("Đã lưu lý do chậm");
+      addToast(tr("Đã lưu lý do chậm"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   const yeuCauChuyenTienMutation = useMutation({
     mutationFn: () => api.post(`/phieu-xuat-kho/${id}/chuyen-tien`, { so_tien: Number(soTienMoi) }),
-    onSuccess: () => { invalidate(); addToast("Đã yêu cầu chuyển tiền"); },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onSuccess: () => { invalidate(); addToast(tr("Đã yêu cầu chuyển tiền")); },
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   const chuyenTienMutation = useMutation({
     mutationFn: (body: { trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }) => api.patch(`/phieu-xuat-kho/${id}/chuyen-tien`, body),
-    onSuccess: () => { invalidate(); addToast("Đã cập nhật chuyển tiền"); },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onSuccess: () => { invalidate(); addToast(tr("Đã cập nhật chuyển tiền")); },
+    onError: (err) => addToast(tr("Lỗi:") + " " + describeApiError(err)),
   });
 
   const pxk = data?.phieuXuatKho;
@@ -623,7 +623,7 @@ export function PxkDetailModal({
     // moi vua mo rong; bang "Dong don hang" va lich su van giu FULL WIDTH vi can nhieu cot ngang.
     <Drawer
       open
-      title={`Phiếu xuất kho ${id}`}
+      title={tr("Phiếu xuất kho {0}", id)}
       onClose={onClose}
       width="max-w-2xl"
       headerExtra={
@@ -638,7 +638,7 @@ export function PxkDetailModal({
       }
     >
       {isLoading ? (
-        <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
+        <div className="text-sm text-[var(--ink-500)] py-4 text-center">{tr("Đang tải...")}</div>
       ) : !data || !pxk ? null : (
         <div className="space-y-4 text-sm">
           {/* CHOT (ra soat module "Dat Mua Linh Kien 2.0" #19): mini pipeline dau modal - truoc day
@@ -649,17 +649,17 @@ export function PxkDetailModal({
             {pxk.ma_xuat_kho_xac_nhan ? (
               <span className="font-mono font-bold">{pxk.ma_xuat_kho}</span>
             ) : (
-              <span className="text-[var(--ink-400)] italic text-xs">Chưa có mã đơn hàng (đang chờ KTV chuyển tiền)</span>
+              <span className="text-[var(--ink-400)] italic text-xs">{tr("Chưa có mã đơn hàng (đang chờ KTV chuyển tiền)")}</span>
             )}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} />
             {pxk.nguoi_nhan_hang && (
               <span className="text-[var(--ink-500)] text-xs">{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</span>
             )}
             <span className="text-[var(--ink-500)] text-xs">{fmtDateTime(pxk.ngay_tao)}</span>
-            {pxk.ma_misa && <span className="text-xs text-[var(--ink-500)]">Mã MISA: <span className="font-mono">{pxk.ma_misa}</span></span>}
-            {pxk.ma_van_don && <span className="text-xs text-[var(--ink-500)]">Mã vận đơn: <span className="font-mono">{pxk.ma_van_don}</span></span>}
+            {pxk.ma_misa && <span className="text-xs text-[var(--ink-500)]">{tr("Mã MISA:")} <span className="font-mono">{pxk.ma_misa}</span></span>}
+            {pxk.ma_van_don && <span className="text-xs text-[var(--ink-500)]">{tr("Mã vận đơn:")} <span className="font-mono">{pxk.ma_van_don}</span></span>}
             {pxk.anh_bien_ban_url && (
-              <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--accent)] underline text-xs">Xem ảnh biên bản</a>
+              <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--accent)] underline text-xs">{tr("Xem ảnh biên bản")}</a>
             )}
           </div>
 
@@ -670,15 +670,15 @@ export function PxkDetailModal({
               chi hien luc con "Dang tao phieu", bat buoc truoc khi duoc gui ke toan (chan o backend). */}
           {canTacNghiep && trangThai === "Dang tao phieu" && (
             <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-xs">Mã đơn hàng {!pxk.ma_xuat_kho_xac_nhan && <span className="text-[var(--coral-600)]">*</span>}</div>
+              <div className="font-semibold text-xs">{tr("Mã đơn hàng")} {!pxk.ma_xuat_kho_xac_nhan && <span className="text-[var(--coral-600)]">*</span>}</div>
               <div className="flex gap-2 items-end">
                 <input
                   value={maXuatKhoDraft}
                   onChange={(e) => setMaXuatKhoDraft(e.target.value)}
-                  placeholder={pxk.ma_xuat_kho_xac_nhan ? pxk.ma_xuat_kho : "Nhập mã đơn hàng sau khi KTV đã chuyển tiền"}
+                  placeholder={pxk.ma_xuat_kho_xac_nhan ? pxk.ma_xuat_kho : tr("Nhập mã đơn hàng sau khi KTV đã chuyển tiền")}
                   className="focus-ring flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
-                <Btn size="sm" onClick={() => maXuatKhoMutation.mutate()} disabled={!maXuatKhoDraft.trim() || maXuatKhoMutation.isPending}>Lưu</Btn>
+                <Btn size="sm" onClick={() => maXuatKhoMutation.mutate()} disabled={!maXuatKhoDraft.trim() || maXuatKhoMutation.isPending}>{tr("Lưu")}</Btn>
               </div>
             </div>
           )}
@@ -686,15 +686,15 @@ export function PxkDetailModal({
           {/* Muc D (Dot 2): Ke toan dien "Ma MISA" tren chinh PXK, bat buoc truoc khi chot xong don xuat. */}
           {canKeToan && trangThai === "Cho ke toan" && (
             <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-xs">Mã MISA {!pxk.ma_misa && <span className="text-[var(--coral-600)]">*</span>}</div>
+              <div className="font-semibold text-xs">{tr("Mã MISA")} {!pxk.ma_misa && <span className="text-[var(--coral-600)]">*</span>}</div>
               <div className="flex gap-2 items-end">
                 <input
                   value={maMisaDraft}
                   onChange={(e) => setMaMisaDraft(e.target.value)}
-                  placeholder={pxk.ma_misa ?? "Nhập mã MISA"}
+                  placeholder={pxk.ma_misa ?? tr("Nhập mã MISA")}
                   className="focus-ring flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
-                <Btn size="sm" onClick={() => maMisaMutation.mutate()} disabled={!maMisaDraft.trim() || maMisaMutation.isPending}>Lưu</Btn>
+                <Btn size="sm" onClick={() => maMisaMutation.mutate()} disabled={!maMisaDraft.trim() || maMisaMutation.isPending}>{tr("Lưu")}</Btn>
               </div>
             </div>
           )}
@@ -702,7 +702,7 @@ export function PxkDetailModal({
           {/* Muc F (Dot 2): CHI dung nguoi nhan hang duoc tai anh bien ban + xac nhan da nhan. */}
           {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && (
             <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-xs">Ảnh biên bản tiếp nhận (không bắt buộc)</div>
+              <div className="font-semibold text-xs">{tr("Ảnh biên bản tiếp nhận (không bắt buộc)")}</div>
               <input
                 type="file"
                 accept="image/*"
@@ -711,12 +711,12 @@ export function PxkDetailModal({
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUploadAnhBienBan(f); }}
                 className="text-xs"
               />
-              {uploadingAnh && <div className="text-xs text-[var(--ink-500)]">Đang tải ảnh...</div>}
+              {uploadingAnh && <div className="text-xs text-[var(--ink-500)]">{tr("Đang tải ảnh...")}</div>}
             </div>
           )}
 
           <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-            <div className="font-semibold text-xs">Chuyển tiền</div>
+            <div className="font-semibold text-xs">{tr("Chuyển tiền")}</div>
             {pxk.so_tien_can_chuyen == null ? (
               canTacNghiep && trangThai === "Dang tao phieu" ? (
                 <div className="flex gap-2 items-end">
@@ -724,13 +724,13 @@ export function PxkDetailModal({
                     type="number"
                     value={soTienMoi}
                     onChange={(e) => setSoTienMoi(e.target.value)}
-                    placeholder="Số tiền cần chuyển"
+                    placeholder={tr("Số tiền cần chuyển")}
                     className="focus-ring flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                   />
-                  <Btn size="sm" onClick={() => yeuCauChuyenTienMutation.mutate()} disabled={!soTienMoi || yeuCauChuyenTienMutation.isPending}>Yêu cầu chuyển</Btn>
+                  <Btn size="sm" onClick={() => yeuCauChuyenTienMutation.mutate()} disabled={!soTienMoi || yeuCauChuyenTienMutation.isPending}>{tr("Yêu cầu chuyển")}</Btn>
                 </div>
               ) : (
-                <span className="text-[var(--ink-400)] text-xs">Không cần chuyển tiền</span>
+                <span className="text-[var(--ink-400)] text-xs">{tr("Không cần chuyển tiền")}</span>
               )
             ) : (
               <>
@@ -738,11 +738,11 @@ export function PxkDetailModal({
                   <span className="font-semibold">{fmtVND(pxk.so_tien_can_chuyen)}</span>
                   <StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} />
                   {pxk.bang_chung_chuyen_tien_url && (
-                    <a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--accent)] underline text-xs">Xem bằng chứng</a>
+                    <a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--accent)] underline text-xs">{tr("Xem bằng chứng")}</a>
                   )}
                   {pxk.bang_chung_chuyen_tien_ghi_chu && (
                     <span className="text-xs text-[var(--ink-600)]">
-                      <span className="font-semibold">Ghi chú:</span> {pxk.bang_chung_chuyen_tien_ghi_chu}
+                      <span className="font-semibold">{tr("Ghi chú:")}</span> {pxk.bang_chung_chuyen_tien_ghi_chu}
                     </span>
                   )}
                 </div>
@@ -761,21 +761,21 @@ export function PxkDetailModal({
                         onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUploadBangChungChuyenTien(f); }}
                         className="text-xs"
                       />
-                      {uploadingBangChung && <span className="text-xs text-[var(--ink-500)]">Đang tải ảnh...</span>}
-                      {bangChungUrl && !uploadingBangChung && <span className="text-xs text-[var(--teal-600)]">✓ Đã tải ảnh, sẵn sàng xác nhận</span>}
+                      {uploadingBangChung && <span className="text-xs text-[var(--ink-500)]">{tr("Đang tải ảnh...")}</span>}
+                      {bangChungUrl && !uploadingBangChung && <span className="text-xs text-[var(--teal-600)]">{tr("✓ Đã tải ảnh, sẵn sàng xác nhận")}</span>}
                     </div>
                     <div className="flex gap-2 items-center flex-wrap">
                       <input
                         value={bangChungGhiChuDraft}
                         onChange={(e) => setBangChungGhiChuDraft(e.target.value)}
-                        placeholder="Hoặc ghi chú thông tin chuyển khoản (vd: đã chuyển qua Momo, mã GD...)"
+                        placeholder={tr("Hoặc ghi chú thông tin chuyển khoản (vd: đã chuyển qua Momo, mã GD...)")}
                         className="focus-ring flex-1 min-w-[200px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                       />
                       {(lyDoChamGoiYData?.rows.length ?? 0) > 0 && (
                         <Select
                           value=""
                           onChange={(v) => v && setBangChungGhiChuDraft(v)}
-                          options={[{ value: "", label: "+ Chọn nhanh lý do" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                          options={[{ value: "", label: tr("+ Chọn nhanh lý do") }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
                           className="text-xs"
                         />
                       )}
@@ -785,12 +785,11 @@ export function PxkDetailModal({
                       onClick={() => chuyenTienMutation.mutate({ trang_thai: "KTV da chuyen", bang_chung_chuyen_tien_url: bangChungUrl || undefined, bang_chung_chuyen_tien_ghi_chu: bangChungGhiChuDraft || undefined })}
                       disabled={(!bangChungUrl.trim() && !bangChungGhiChuDraft.trim()) || chuyenTienMutation.isPending}
                     >
-                      Đã chuyển
-                    </Btn>
+                      {tr("Đã chuyển")}</Btn>
                   </div>
                 )}
                 {canTacNghiep && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
-                  <Btn size="sm" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>Duyệt bằng chứng</Btn>
+                  <Btn size="sm" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>{tr("Duyệt bằng chứng")}</Btn>
                 )}
               </>
             )}
@@ -798,15 +797,15 @@ export function PxkDetailModal({
           </div>
 
           <div>
-            <div className="font-semibold text-xs mb-1">Dòng đơn hàng</div>
+            <div className="font-semibold text-xs mb-1">{tr("Dòng đơn hàng")}</div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-[var(--surface-2)]">
-                    <th className="px-2 py-1 text-left border border-[var(--line)]">Mã</th>
-                    <th className="px-2 py-1 text-left border border-[var(--line)]">Tên LK</th>
+                    <th className="px-2 py-1 text-left border border-[var(--line)]">{tr("Mã")}</th>
+                    <th className="px-2 py-1 text-left border border-[var(--line)]">{tr("Tên LK")}</th>
                     <th className="px-2 py-1 text-right border border-[var(--line)]">SL</th>
-                    <th className="px-2 py-1 text-left border border-[var(--line)]">Lý do chậm</th>
+                    <th className="px-2 py-1 text-left border border-[var(--line)]">{tr("Lý do chậm")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -814,7 +813,7 @@ export function PxkDetailModal({
                     <tr key={d.id} className={`hover:brightness-95 ${d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : "hover:bg-[var(--surface-2)]"}`}>
                       <td className="px-2 py-1 border border-[var(--line)] font-mono">{d.ma_lk}</td>
                       <td className="px-2 py-1 border border-[var(--line)]">
-                        {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                        {d.uu_tien === 1 && <span title={tr("Ưu tiên")}>⭐ </span>}
                         {d.ten_lk_snapshot ?? d.ma_lk}
                       </td>
                       <td className="px-2 py-1 border border-[var(--line)] text-right">{d.so_luong_de_xuat}</td>
@@ -824,11 +823,11 @@ export function PxkDetailModal({
                         ) : canTacNghiep && trangThai === "Dang tao phieu" ? (
                           <div className="flex flex-col gap-1">
                             <div className="flex gap-1 items-center">
-                              {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn</Badge>}
+                              {d.qua_han_ly_do_cham && <Badge tone="coral">{tr("Quá hạn")}</Badge>}
                               <input
                                 value={lyDoChamDraft[d.id] ?? ""}
                                 onChange={(e) => setLyDoChamDraft((p) => ({ ...p, [d.id]: e.target.value }))}
-                                placeholder="Nhập lý do chậm"
+                                placeholder={tr("Nhập lý do chậm")}
                                 className="focus-ring flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs"
                               />
                               <Btn
@@ -837,14 +836,13 @@ export function PxkDetailModal({
                                 onClick={() => lyDoChamMutation.mutate({ donHangId: d.id, ly_do_cham: lyDoChamDraft[d.id] ?? "" })}
                                 disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}
                               >
-                                Lưu
-                              </Btn>
+                                {tr("Lưu")}</Btn>
                             </div>
                             {(lyDoChamGoiYData?.rows.length ?? 0) > 0 && (
                               <Select
                                 value=""
                                 onChange={(v) => v && setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
-                                options={[{ value: "", label: "+ Chọn nhanh lý do có sẵn" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                                options={[{ value: "", label: tr("+ Chọn nhanh lý do có sẵn") }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
                                 className="text-[11px]"
                               />
                             )}
@@ -877,14 +875,14 @@ export function PxkDetailModal({
                 <input
                   value={maVanDonInput}
                   onChange={(e) => setMaVanDonInput(e.target.value)}
-                  placeholder="Mã vận đơn (tuỳ chọn, áp dụng khi bấm Đang gửi KTV)"
+                  placeholder={tr("Mã vận đơn (tuỳ chọn, áp dụng khi bấm Đang gửi KTV)")}
                   className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
               )}
               <input
                 value={ghiChu}
                 onChange={(e) => setGhiChu(e.target.value)}
-                placeholder="Ghi chú (tuỳ chọn)"
+                placeholder={tr("Ghi chú (tuỳ chọn)")}
                 className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
               {/* Icon hoa (phan hoi 2026-08-19: "PXK được tạo ra đang bị tràn vùng xem... dựa theo
@@ -899,14 +897,14 @@ export function PxkDetailModal({
                     className="px-2"
                     onClick={() => logMutation.mutate("Cho ke toan")}
                     disabled={logMutation.isPending || !chuyenTienOk || !pxk.ma_xuat_kho_xac_nhan}
-                    title={!chuyenTienOk ? "Cần TN duyệt bằng chứng chuyển tiền trước" : !pxk.ma_xuat_kho_xac_nhan ? "Cần nhập Mã đơn hàng trước" : "Gửi kế toán"}
-                    aria-label="Gửi kế toán"
+                    title={!chuyenTienOk ? tr("Cần TN duyệt bằng chứng chuyển tiền trước") : !pxk.ma_xuat_kho_xac_nhan ? tr("Cần nhập Mã đơn hàng trước") : tr("Gửi kế toán")}
+                    aria-label={tr("Gửi kế toán")}
                   >
                     📤
                   </Btn>
                 )}
                 {(canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai) && (
-                  <Btn size="sm" variant="danger" className="px-2" onClick={() => logMutation.mutate("Ke toan huy")} disabled={logMutation.isPending} title="Kế toán huỷ" aria-label="Kế toán huỷ">
+                  <Btn size="sm" variant="danger" className="px-2" onClick={() => logMutation.mutate("Ke toan huy")} disabled={logMutation.isPending} title={tr("Kế toán huỷ")} aria-label={tr("Kế toán huỷ")}>
                     🚫
                   </Btn>
                 )}
@@ -917,18 +915,18 @@ export function PxkDetailModal({
                     onClick={() => logMutation.mutate("Da chot xong don xuat")}
                     disabled={logMutation.isPending || !pxk.ma_misa}
                     loading={logMutation.isPending}
-                    title={!pxk.ma_misa ? "Cần nhập Mã MISA trước" : "Đã chốt xong đơn xuất"}
-                    aria-label="Đã chốt xong đơn xuất"
+                    title={!pxk.ma_misa ? tr("Cần nhập Mã MISA trước") : tr("Đã chốt xong đơn xuất")}
+                    aria-label={tr("Đã chốt xong đơn xuất")}
                   >
                     ✅
                   </Btn>
                 )}
                 {canKho && trangThai === "Da chot xong don xuat" && (
                   <>
-                    <Btn size="sm" className="px-2" onClick={() => logMutation.mutate("Dang gui KTV")} disabled={logMutation.isPending} loading={logMutation.isPending} title="Đang gửi KTV" aria-label="Đang gửi KTV">
+                    <Btn size="sm" className="px-2" onClick={() => logMutation.mutate("Dang gui KTV")} disabled={logMutation.isPending} loading={logMutation.isPending} title={tr("Đang gửi KTV")} aria-label={tr("Đang gửi KTV")}>
                       🚚
                     </Btn>
-                    <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("Hang tru kho")} disabled={logMutation.isPending} title="Hàng trừ kho" aria-label="Hàng trừ kho">
+                    <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("Hang tru kho")} disabled={logMutation.isPending} title={tr("Hàng trừ kho")} aria-label={tr("Hàng trừ kho")}>
                       📦
                     </Btn>
                   </>
@@ -936,17 +934,17 @@ export function PxkDetailModal({
                 {/* Muc F (Dot 2): CHOT bat buoc DUNG nguoi nhan hang xac nhan - an nut voi moi nguoi
                     khac (ke ca Admin/TN xem, du backend van cho Admin bam duoc de xu ly su co). */}
                 {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && (
-                  <Btn size="sm" className="px-2" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} loading={logMutation.isPending} title="KTV đã nhận" aria-label="KTV đã nhận">
+                  <Btn size="sm" className="px-2" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} loading={logMutation.isPending} title={tr("KTV đã nhận")} aria-label={tr("KTV đã nhận")}>
                     📥
                   </Btn>
                 )}
                 {trangThai === "Dang gui KTV" && currentEmail !== pxk.nguoi_nhan_hang && isAdmin && (
-                  <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} title="KTV đã nhận (Admin xác nhận thay - trường hợp đặc biệt)" aria-label="KTV đã nhận (Admin xác nhận thay)">
+                  <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} title={tr("KTV đã nhận (Admin xác nhận thay - trường hợp đặc biệt)")} aria-label={tr("KTV đã nhận (Admin xác nhận thay)")}>
                     🛡️📥
                   </Btn>
                 )}
                 {canKho && trangThai === "Dang gui KTV" && (
-                  <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("Kho da ket thuc")} disabled={logMutation.isPending} title="Kho đã kết thúc (KTV không phản hồi)" aria-label="Kho đã kết thúc (KTV không phản hồi)">
+                  <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("Kho da ket thuc")} disabled={logMutation.isPending} title={tr("Kho đã kết thúc (KTV không phản hồi)")} aria-label={tr("Kho đã kết thúc (KTV không phản hồi)")}>
                     ⏹️
                   </Btn>
                 )}

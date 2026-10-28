@@ -1,4 +1,5 @@
 import type { BadgeTone } from "../components/ui/Badge";
+import { tr } from "../i18n/tr";
 
 // Phai khop CHINH XAC voi NGUONG_NGAY_LAP (backend/src/routes/caLap.ts) - dung lai o FE de tinh
 // KPI/loc trang thai tren du lieu da gop tu /danh-sach/list + /danh-sach/status (xem CaLapModule.tsx),
@@ -19,8 +20,8 @@ export function trangThaiKeyOf(r: CaLapStatusRow): "qua-han-lap" | "da-chot" | "
  * de badge/label luon nhat quan giua 2 noi hien thi cung 1 du lieu. */
 export function trangThaiLapOf(r: CaLapStatusRow): { label: string; tone: BadgeTone } {
   const key = trangThaiKeyOf(r);
-  if (key === "qua-han-lap") return { label: "Quá hạn lặp", tone: "gray" };
-  if (key === "da-chot") return { label: "Đã chốt", tone: "teal" };
-  if (key === "cho-qc") return { label: "Chờ QC", tone: "amber" };
-  return { label: "Cần đánh giá", tone: "coral" };
+  if (key === "qua-han-lap") return { label: tr("Quá hạn lặp"), tone: "gray" };
+  if (key === "da-chot") return { label: tr("Đã chốt"), tone: "teal" };
+  if (key === "cho-qc") return { label: tr("Chờ QC"), tone: "amber" };
+  return { label: tr("Cần đánh giá"), tone: "coral" };
 }

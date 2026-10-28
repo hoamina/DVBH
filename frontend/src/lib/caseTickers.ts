@@ -1,6 +1,7 @@
 import type { BadgeTone } from "../components/ui/Badge";
 import { parseDbDateTime, type CaseRow, type GiaiTrinhRow, type ViPhamRow, type LyDoRow, type LoaiLoi, type CaLapDetection } from "../types";
 import { trangThaiLapOf } from "./caLapStatus";
+import { tr } from "../i18n/tr";
 
 export interface CaseTicker {
   label: string;
@@ -33,17 +34,17 @@ export function computeCaseTickers(
   const isOpen = !c.thoi_gian_hoan_thanh;
 
   if (isOpen && giaiTrinhList.length === 0) {
-    tickers.push({ label: "Tồn chưa giải trình", tone: "coral" });
+    tickers.push({ label: tr("Tồn chưa giải trình"), tone: "coral" });
   }
   if (isOpen && c.thoi_gian_hen_xu_ly && parseDbDateTime(c.thoi_gian_hen_xu_ly).getTime() < Date.now()) {
-    tickers.push({ label: "Lỡ kế hoạch", tone: "amber" });
+    tickers.push({ label: tr("Lỡ kế hoạch"), tone: "amber" });
   }
   if (isOpen && giaiTrinhList.length > 0) {
     const daysSinceLast = (Date.now() - parseDbDateTime(giaiTrinhList[0].ngay_giai_trinh).getTime()) / 86400000;
-    if (daysSinceLast >= 3) tickers.push({ label: "Quá hạn chu kỳ giải trình", tone: "coral" });
+    if (daysSinceLast >= 3) tickers.push({ label: tr("Quá hạn chu kỳ giải trình"), tone: "coral" });
 
     const latestLyDo = activeLyDo.find((l) => l.ten_ly_do === giaiTrinhList[0].ly_do_cham);
-    if (latestLyDo?.thuoc_thieu_linh_kien === 1) tickers.push({ label: "Thiếu linh kiện", tone: "amber" });
+    if (latestLyDo?.thuoc_thieu_linh_kien === 1) tickers.push({ label: tr("Thiếu linh kiện"), tone: "amber" });
   }
 
   if (caLap?.detection && caLap.detection.gapDays <= 45) {
@@ -53,7 +54,7 @@ export function computeCaseTickers(
       qc_chot: caLap.giaiTrinhLap?.qc_chot ?? null,
     });
     if (status.label === "Cần đánh giá" || status.label === "Chờ QC") {
-      tickers.push({ label: `Ca lặp: ${status.label}`, tone: status.tone });
+      tickers.push({ label: tr("Ca lặp: {0}", status.label), tone: status.tone });
     }
   }
 
@@ -61,15 +62,15 @@ export function computeCaseTickers(
   const recentOrOpen = isOpen || (!!c.thoi_gian_hoan_thanh && (Date.now() - parseDbDateTime(c.thoi_gian_hoan_thanh).getTime()) / 86400000 <= 3);
   if (recentOrOpen) {
     const needSurvey = NEED_SURVEY_FLAGS.some(([field, loai]) => c[field] === 1 && !viPhamList.some((v) => v.loai_loi === loai));
-    if (needSurvey) tickers.push({ label: "Vi phạm chờ khảo sát", tone: "coral" });
+    if (needSurvey) tickers.push({ label: tr("Vi phạm chờ khảo sát"), tone: "coral" });
   }
 
   if (viPhamList.some((v) => v.ket_qua_cap_1 !== null && v.chot_bo_cap_2 === null)) {
-    tickers.push({ label: "Vi phạm chờ QC", tone: "amber" });
+    tickers.push({ label: tr("Vi phạm chờ QC"), tone: "amber" });
   }
 
   if (c.tien_do_hoan_thanh === "Không hoàn thành XLSC") {
-    tickers.push({ label: "Ca thất bại", tone: "coral" });
+    tickers.push({ label: tr("Ca thất bại"), tone: "coral" });
   }
 
   return tickers;

@@ -13,12 +13,13 @@ import { fmtVND, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { tr } from "../i18n/tr";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
-  { value: "", label: "Tất cả" },
-  { value: "true", label: "Có" },
-  { value: "false", label: "Không" },
+  { value: "", label: tr("Tất cả") },
+  { value: "true", label: tr("Có") },
+  { value: "false", label: tr("Không") },
 ];
 
 // KHOA CHINH SUA (2026-09-04): danh muc linh_kien chuyen sang dong bo tu he "linh-kien-app" doc lap
@@ -109,7 +110,7 @@ function AnhThumbnail({ url, cacheBust, size = 40, onClick }: { url: string | nu
       onClick={onClick}
       className="relative block rounded-lg border border-[var(--line)] overflow-hidden shrink-0 focus-ring"
       style={{ width: size, height: size }}
-      title="Xem chi tiết"
+      title={tr("Xem chi tiết")}
     >
       {status === "loading" && <div className="img-skeleton absolute inset-0 bg-[var(--surface-200)]" />}
       {status === "error" ? (
@@ -143,7 +144,7 @@ function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
       <button onClick={onClose} className="focus-ring absolute top-4 right-4 w-9 h-9 rounded-lg bg-white/10 text-white hover:bg-white/20 text-lg">
         ✕
       </button>
-      <img src={url} alt="Ảnh linh kiện phóng to" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+      <img src={url} alt={tr("Ảnh linh kiện phóng to")} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
       <a
         href={url}
         target="_blank"
@@ -151,8 +152,7 @@ function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
         className="absolute bottom-5 text-xs text-white/70 hover:text-white hover:underline"
       >
-        Mở ảnh gốc trên Google Drive ↗
-      </a>
+        {tr("Mở ảnh gốc trên Google Drive ↗")}</a>
     </div>
   );
 }
@@ -181,7 +181,7 @@ function PartHeroImage({ url, alt, onZoom }: { url: string | null; alt: string; 
       {status === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-[var(--ink-400)]">
           <IconImageOff className="w-7 h-7" />
-          <span className="text-xs font-medium">{url ? "Không tải được ảnh" : "Chưa có ảnh minh hoạ"}</span>
+          <span className="text-xs font-medium">{url ? tr("Không tải được ảnh") : tr("Chưa có ảnh minh hoạ")}</span>
         </div>
       )}
       {status === "loaded" && (
@@ -210,9 +210,9 @@ function PartDetailDrawer({ part, onClose, onEdit }: { part: LinhKienRow | null;
   if (!part) return null;
 
   const specs: { label: string; value: ReactNode }[] = [
-    { label: "Giá bán", value: <span className="font-mono">{fmtVND(part.gia_ban)}</span> },
-    { label: "Giá tham chiếu", value: <span className="font-mono">{fmtVND(part.gia_tham_chieu)}</span> },
-    { label: "Đơn vị", value: part.don_vi ?? "—" },
+    { label: tr("Giá bán"), value: <span className="font-mono">{fmtVND(part.gia_ban)}</span> },
+    { label: tr("Giá tham chiếu"), value: <span className="font-mono">{fmtVND(part.gia_tham_chieu)}</span> },
+    { label: tr("Đơn vị"), value: part.don_vi ?? "—" },
   ];
 
   return (
@@ -233,10 +233,10 @@ function PartDetailDrawer({ part, onClose, onEdit }: { part: LinhKienRow | null;
           <PartHeroImage url={part.anh_demo} alt={part.ten_linh_kien} onZoom={() => setLightboxOpen(true)} />
 
           <div className="flex flex-wrap gap-1.5">
-            {!!part.bat_tat === false && <Badge tone="gray">Đang ẩn</Badge>}
-            {!!part.dac_thu && <Badge tone="amber">Đặc thù — cần TP DVBH xác nhận</Badge>}
-            {!!part.chi_sua_chua && <Badge tone="coral">Only sửa chữa</Badge>}
-            {!part.dac_thu && !part.chi_sua_chua && !!part.bat_tat && <Badge tone="teal">Đang hiển thị bình thường</Badge>}
+            {!!part.bat_tat === false && <Badge tone="gray">{tr("Đang ẩn")}</Badge>}
+            {!!part.dac_thu && <Badge tone="amber">{tr("Đặc thù — cần TP DVBH xác nhận")}</Badge>}
+            {!!part.chi_sua_chua && <Badge tone="coral">{tr("Only sửa chữa")}</Badge>}
+            {!part.dac_thu && !part.chi_sua_chua && !!part.bat_tat && <Badge tone="teal">{tr("Đang hiển thị bình thường")}</Badge>}
           </div>
 
           <div className="rounded-xl border border-[var(--line)] divide-y divide-[var(--line)] overflow-hidden">
@@ -249,22 +249,21 @@ function PartDetailDrawer({ part, onClose, onEdit }: { part: LinhKienRow | null;
           </div>
 
           <div>
-            <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">Ghi chú</div>
+            <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">{tr("Ghi chú")}</div>
             <div className="text-sm text-[var(--ink-700)] whitespace-pre-wrap rounded-xl bg-[var(--surface-100)] px-3.5 py-2.5 min-h-[2.5rem]">
-              {part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">Không có ghi chú.</span>}
+              {part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">{tr("Không có ghi chú.")}</span>}
             </div>
           </div>
 
           <div className="text-xs text-[var(--ink-400)] pt-1">
-            Cập nhật lần cuối bởi <span className="font-medium text-[var(--ink-500)]">{part.nguoi_cap_nhat ? formatPersonDisplay(part.nguoi_cap_nhat, personDir) : "—"}</span> lúc {part.ngay_cap_nhat}
+            {tr("Cập nhật lần cuối bởi")} <span className="font-medium text-[var(--ink-500)]">{part.nguoi_cap_nhat ? formatPersonDisplay(part.nguoi_cap_nhat, personDir) : "—"}</span>  {tr("lúc")} {part.ngay_cap_nhat}
           </div>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-[var(--line)] shrink-0">
           <Btn variant="ghost" onClick={onClose}>
-            Đóng
-          </Btn>
-          {!DANH_MUC_LOCKED && <Btn onClick={onEdit}>Sửa thông tin</Btn>}
+            {tr("Đóng")}</Btn>
+          {!DANH_MUC_LOCKED && <Btn onClick={onEdit}>{tr("Sửa thông tin")}</Btn>}
         </div>
       </div>
       {lightboxOpen && part.anh_demo && <ImageLightbox url={part.anh_demo} onClose={() => setLightboxOpen(false)} />}
@@ -339,7 +338,7 @@ export function DanhMucLinhKienModule() {
   const togglePart = useMutation({
     mutationFn: ({ ma, bat_tat }: { ma: string; bat_tat: boolean }) => api.patch(`/settings/linh-kien/${ma}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật danh mục linh kiện");
+      addToast(tr("Đã cập nhật danh mục linh kiện"));
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
   });
@@ -347,10 +346,10 @@ export function DanhMucLinhKienModule() {
   const syncSheetMutation = useMutation({
     mutationFn: () => api.post<{ moi: number; capNhat: number; boQua: number; loi: number }>("/settings/linh-kien/sync-sheet"),
     onSuccess: (res) => {
-      addToast(`Đồng bộ xong: ${res.moi} mã mới, ${res.capNhat} mã cập nhật, ${res.boQua} không đổi${res.loi ? `, ${res.loi} lỗi` : ""}`);
+      addToast(tr("Đồng bộ xong: {0} mã mới, {1} mã cập nhật, {2} không đổi{3}", res.moi, res.capNhat, res.boQua, res.loi ? tr(", {0} lỗi", res.loi) : ""));
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
-    onError: () => addToast("Đồng bộ Google Sheet thất bại, thử lại sau."),
+    onError: () => addToast(tr("Đồng bộ Google Sheet thất bại, thử lại sau.")),
   });
 
   const addMutation = useMutation({
@@ -366,12 +365,12 @@ export function DanhMucLinhKienModule() {
         chi_sua_chua: form.chi_sua_chua,
       }),
     onSuccess: () => {
-      addToast("Đã thêm linh kiện mới");
+      addToast(tr("Đã thêm linh kiện mới"));
       setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false });
       setAddOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
-    onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
+    onError: () => addToast(tr("Không thể thêm linh kiện (mã có thể đã tồn tại).")),
   });
 
   const editMutation = useMutation({
@@ -386,12 +385,12 @@ export function DanhMucLinhKienModule() {
         chi_sua_chua: form.chi_sua_chua,
       }),
     onSuccess: () => {
-      addToast("Đã cập nhật linh kiện");
+      addToast(tr("Đã cập nhật linh kiện"));
       setEditOpen(false);
       setEditingMa(null);
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
-    onError: () => addToast("Không thể cập nhật linh kiện."),
+    onError: () => addToast(tr("Không thể cập nhật linh kiện.")),
   });
 
   async function handleUploadAnh(file: File) {
@@ -400,11 +399,11 @@ export function DanhMucLinhKienModule() {
     try {
       const bytes = await file.arrayBuffer();
       await api.postBinary(`/settings/linh-kien/${editingMa}/anh`, bytes, file.type || "image/jpeg");
-      addToast("Đã tải ảnh linh kiện lên Google Drive");
+      addToast(tr("Đã tải ảnh linh kiện lên Google Drive"));
       setImgCacheBust((n) => n + 1);
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     } catch (err) {
-      addToast("Lỗi tải ảnh: " + (err instanceof Error ? err.message : String(err)));
+      addToast(tr("Lỗi tải ảnh:") + " " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setUploadingAnh(false);
     }
@@ -417,7 +416,7 @@ export function DanhMucLinhKienModule() {
     try {
       const rows = await parseBulkImportFile(file);
       if (rows.length === 0) {
-        addToast('Không đọc được dòng nào hợp lệ (kiểm tra lại tiêu đề cột "Mã linh kiện" / "ẢNH DEMO")');
+        addToast(tr("Không đọc được dòng nào hợp lệ (kiểm tra lại tiêu đề cột \"Mã linh kiện\" / \"ẢNH DEMO\")"));
         return;
       }
       setBulkImportTotal(rows.length);
@@ -438,36 +437,36 @@ export function DanhMucLinhKienModule() {
       setBulkImportSummary({ success, notFound, fetchFailed, error: errorCount });
       setBulkImportFailDetails(failDetails);
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
-      addToast(`Đã nhập xong: ${success} thành công / ${rows.length} dòng`);
+      addToast(tr("Đã nhập xong: {0} thành công / {1} dòng", success, rows.length));
     } catch (err) {
-      addToast("Lỗi nhập ảnh hàng loạt: " + (err instanceof Error ? err.message : String(err)));
+      addToast(tr("Lỗi nhập ảnh hàng loạt:") + " " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setBulkImportRunning(false);
     }
   }
 
   const columns: Column<LinhKienRow>[] = [
-    { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
-    { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-medium">{p.ten_linh_kien}</span> },
-    { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono">{fmtVND(p.gia_ban)}</span> },
-    { key: "don_vi", header: "Đơn vị", render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
-    { key: "anh_demo", header: "Ảnh minh hoạ", render: (p) => <AnhThumbnail url={p.anh_demo} /> },
-    { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
+    { key: "ma_linh_kien", header: tr("Mã"), render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
+    { key: "ten_linh_kien", header: tr("Tên linh kiện"), render: (p) => <span className="font-medium">{p.ten_linh_kien}</span> },
+    { key: "gia_ban", header: tr("Giá bán"), render: (p) => <span className="font-mono">{fmtVND(p.gia_ban)}</span> },
+    { key: "don_vi", header: tr("Đơn vị"), render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
+    { key: "anh_demo", header: tr("Ảnh minh hoạ"), render: (p) => <AnhThumbnail url={p.anh_demo} /> },
+    { key: "ghi_chu", header: tr("Ghi chú"), render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
     {
       key: "dac_thu",
-      header: "Đặc thù",
-      render: (p) => (!!p.dac_thu ? <span className="text-xs font-semibold text-[var(--amber-600)]">Đặc thù</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
+      header: tr("Đặc thù"),
+      render: (p) => (!!p.dac_thu ? <span className="text-xs font-semibold text-[var(--amber-600)]">{tr("Đặc thù")}</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
     },
     {
       key: "chi_sua_chua",
-      header: "Only sửa chữa",
-      render: (p) => (!!p.chi_sua_chua ? <span className="text-xs font-semibold text-[var(--coral-600)]">Only sửa chữa</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
+      header: tr("Only sửa chữa"),
+      render: (p) => (!!p.chi_sua_chua ? <span className="text-xs font-semibold text-[var(--coral-600)]">{tr("Only sửa chữa")}</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
     },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (p) => (p.nguoi_cap_nhat ? formatPersonDisplay(p.nguoi_cap_nhat, personDir) : p.nguoi_cap_nhat) },
-    { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (p) => <span className="text-xs">{p.ngay_cap_nhat}</span> },
+    { key: "nguoi_cap_nhat", header: tr("Người cập nhật"), render: (p) => (p.nguoi_cap_nhat ? formatPersonDisplay(p.nguoi_cap_nhat, personDir) : p.nguoi_cap_nhat) },
+    { key: "ngay_cap_nhat", header: tr("Ngày cập nhật"), render: (p) => <span className="text-xs">{p.ngay_cap_nhat}</span> },
     {
       key: "bat_tat",
-      header: "Hiển thị",
+      header: tr("Hiển thị"),
       // stopPropagation - cot nay nam trong dong da co onRowClick (bam dong mo xem chi tiet), khong
       // muon bam nham vao cong tac lai mo them drawer xem.
       render: (p) => (
@@ -484,8 +483,7 @@ export function DanhMucLinhKienModule() {
             header: "",
             render: (p: LinhKienRow) => (
               <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
-                Sửa
-              </button>
+                {tr("Sửa")}</button>
             ),
           } satisfies Column<LinhKienRow>,
         ]),
@@ -495,11 +493,9 @@ export function DanhMucLinhKienModule() {
     <div className="anim-in">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm text-[var(--ink-600)]">
-          Danh mục linh kiện dùng chung cho giải trình ca "thiếu linh kiện" và module "Đặt mua linh kiện". Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.
-          {DANH_MUC_LOCKED && (
+          {tr("Danh mục linh kiện dùng chung cho giải trình ca \"thiếu linh kiện\" và module \"Đặt mua linh kiện\". Đánh dấu \"Đặc thù\" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu \"Only sửa chữa\" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.")}{DANH_MUC_LOCKED && (
             <div className="mt-1.5 text-[var(--amber-600)] font-medium">
-              🔒 Đã khoá chỉnh sửa — danh mục nay được đồng bộ tự động (hàng giờ) từ hệ thống "Đặt mua linh kiện" độc lập. Chỉ xem/xuất Excel tại đây.
-            </div>
+              {tr("🔒 Đã khoá chỉnh sửa — danh mục nay được đồng bộ tự động (hàng giờ) từ hệ thống \"Đặt mua linh kiện\" độc lập. Chỉ xem/xuất Excel tại đây.")}</div>
           )}
         </div>
         <div className="flex gap-2 shrink-0">
@@ -522,11 +518,10 @@ export function DanhMucLinhKienModule() {
               })
             }
           >
-            ⬇ Xuất Excel
-          </Btn>
+            {tr("⬇ Xuất Excel")}</Btn>
           {!DANH_MUC_LOCKED && (
             <Btn variant="ghost" size="sm" onClick={() => syncSheetMutation.mutate()} disabled={syncSheetMutation.isPending}>
-              {syncSheetMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ từ Google Sheet"}
+              {syncSheetMutation.isPending ? tr("Đang đồng bộ…") : tr("🔄 Đồng bộ từ Google Sheet")}
             </Btn>
           )}
           {!DANH_MUC_LOCKED && (
@@ -541,8 +536,7 @@ export function DanhMucLinhKienModule() {
                 setBulkImportProcessed(0);
               }}
             >
-              📥 Nhập ảnh demo hàng loạt
-            </Btn>
+              {tr("📥 Nhập ảnh demo hàng loạt")}</Btn>
           )}
           {!DANH_MUC_LOCKED && (
           <Btn
@@ -552,8 +546,7 @@ export function DanhMucLinhKienModule() {
               setAddOpen(true);
             }}
           >
-            + Thêm linh kiện
-          </Btn>
+            {tr("+ Thêm linh kiện")}</Btn>
           )}
         </div>
       </div>
@@ -562,19 +555,19 @@ export function DanhMucLinhKienModule() {
         <input
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Tìm theo mã hoặc tên linh kiện..."
+          placeholder={tr("Tìm theo mã hoặc tên linh kiện...")}
           className="focus-ring w-64 bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
-          <span>Đặc thù:</span>
+          <span>{tr("Đặc thù:")}</span>
           <Select value={filterDacThu} onChange={(v) => { setFilterDacThu(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
         </div>
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
-          <span>Only sửa chữa:</span>
+          <span>{tr("Only sửa chữa:")}</span>
           <Select value={filterChiSuaChua} onChange={(v) => { setFilterChiSuaChua(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
         </div>
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
-          <span>Hiển thị:</span>
+          <span>{tr("Hiển thị:")}</span>
           <Select value={filterBatTat} onChange={(v) => { setFilterBatTat(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
         </div>
       </div>
@@ -590,82 +583,80 @@ export function DanhMucLinhKienModule() {
         onPageChange={setPage}
         onRowClick={(p) => setViewingMa(p.ma_linh_kien)}
         rowKey={(p) => p.ma_linh_kien}
-        emptyText="Không có linh kiện phù hợp."
+        emptyText={tr("Không có linh kiện phù hợp.")}
         storageKey="danh-muc-lk"
       />
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm linh kiện mới">
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title={tr("Thêm linh kiện mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã linh kiện</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Mã linh kiện")}</label>
             <input value={form.ma_linh_kien} onChange={(e) => setForm({ ...form, ma_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên linh kiện")}</label>
             <input value={form.ten_linh_kien} onChange={(e) => setForm({ ...form, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Giá bán")}</label>
               <input type="number" value={form.gia_ban} onChange={(e) => setForm({ ...form, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Giá tham chiếu")}</label>
               <input type="number" value={form.gia_tham_chieu} onChange={(e) => setForm({ ...form, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Đơn vị")}</label>
             <input value={form.don_vi} onChange={(e) => setForm({ ...form, don_vi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
             <textarea value={form.ghi_chu} onChange={(e) => setForm({ ...form, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
-          <div className="text-xs text-[var(--ink-400)]">Ảnh minh hoạ có thể tải lên sau khi lưu (mở lại "Sửa").</div>
+          <div className="text-xs text-[var(--ink-400)]">{tr("Ảnh minh hoạ có thể tải lên sau khi lưu (mở lại \"Sửa\").")}</div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={form.dac_thu} onChange={(e) => setForm({ ...form, dac_thu: e.target.checked })} className="w-4 h-4" />
-            <span className="font-semibold">Linh kiện đặc thù</span>
+            <span className="font-semibold">{tr("Linh kiện đặc thù")}</span>
           </label>
-          <div className="text-xs text-[var(--ink-400)] -mt-2">Khi tạo/duyệt phiếu đặt mua dùng mã này, hệ thống chèn thêm bước "Chờ TP DVBH xác nhận" trước khi Tác nghiệp (TN) duyệt.</div>
+          <div className="text-xs text-[var(--ink-400)] -mt-2">{tr("Khi tạo/duyệt phiếu đặt mua dùng mã này, hệ thống chèn thêm bước \"Chờ TP DVBH xác nhận\" trước khi Tác nghiệp (TN) duyệt.")}</div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={form.chi_sua_chua} onChange={(e) => setForm({ ...form, chi_sua_chua: e.target.checked })} className="w-4 h-4" />
-            <span className="font-semibold">Only sửa chữa</span>
+            <span className="font-semibold">{tr("Only sửa chữa")}</span>
           </label>
-          <div className="text-xs text-[var(--ink-400)] -mt-2">Mã này sẽ không hiện trong danh sách chọn khi tạo đơn mua hàng ở module "Đặt mua linh kiện".</div>
+          <div className="text-xs text-[var(--ink-400)] -mt-2">{tr("Mã này sẽ không hiện trong danh sách chọn khi tạo đơn mua hàng ở module \"Đặt mua linh kiện\".")}</div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addMutation.mutate()} disabled={!form.ma_linh_kien.trim() || !form.ten_linh_kien.trim() || addMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={editOpen} onClose={() => { setEditOpen(false); setEditingMa(null); }} title={`Sửa linh kiện ${editingMa ?? ""}`}>
+      <Modal open={editOpen} onClose={() => { setEditOpen(false); setEditingMa(null); }} title={tr("Sửa linh kiện {0}", editingMa ?? "")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên linh kiện")}</label>
             <input value={form.ten_linh_kien} onChange={(e) => setForm({ ...form, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Giá bán")}</label>
               <input type="number" value={form.gia_ban} onChange={(e) => setForm({ ...form, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Giá tham chiếu")}</label>
               <input type="number" value={form.gia_tham_chieu} onChange={(e) => setForm({ ...form, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đơn vị</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Đơn vị")}</label>
             <input value={form.don_vi} onChange={(e) => setForm({ ...form, don_vi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ảnh minh hoạ</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ảnh minh hoạ")}</label>
             <div className="flex items-center gap-3 mt-1">
               <AnhThumbnail url={editingRow?.anh_demo ?? null} cacheBust={imgCacheBust || undefined} size={64} />
               <div className="flex flex-col gap-1">
@@ -678,43 +669,39 @@ export function DanhMucLinhKienModule() {
                 />
                 {editingRow?.anh_demo && (
                   <button type="button" className="text-xs text-[var(--ocean-600)] hover:underline self-start" onClick={() => setImgCacheBust((n) => n + 1)}>
-                    🔄 Đồng bộ lại ảnh
-                  </button>
+                    {tr("🔄 Đồng bộ lại ảnh")}</button>
                 )}
-                {uploadingAnh && <div className="text-xs text-[var(--ink-500)]">Đang tải ảnh lên Google Drive...</div>}
+                {uploadingAnh && <div className="text-xs text-[var(--ink-500)]">{tr("Đang tải ảnh lên Google Drive...")}</div>}
               </div>
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
             <textarea value={form.ghi_chu} onChange={(e) => setForm({ ...form, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={form.dac_thu} onChange={(e) => setForm({ ...form, dac_thu: e.target.checked })} className="w-4 h-4" />
-            <span className="font-semibold">Linh kiện đặc thù</span>
+            <span className="font-semibold">{tr("Linh kiện đặc thù")}</span>
           </label>
-          <div className="text-xs text-[var(--ink-400)] -mt-2">Khi tạo/duyệt phiếu đặt mua dùng mã này, hệ thống chèn thêm bước "Chờ TP DVBH xác nhận" trước khi Tác nghiệp (TN) duyệt.</div>
+          <div className="text-xs text-[var(--ink-400)] -mt-2">{tr("Khi tạo/duyệt phiếu đặt mua dùng mã này, hệ thống chèn thêm bước \"Chờ TP DVBH xác nhận\" trước khi Tác nghiệp (TN) duyệt.")}</div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={form.chi_sua_chua} onChange={(e) => setForm({ ...form, chi_sua_chua: e.target.checked })} className="w-4 h-4" />
-            <span className="font-semibold">Only sửa chữa</span>
+            <span className="font-semibold">{tr("Only sửa chữa")}</span>
           </label>
-          <div className="text-xs text-[var(--ink-400)] -mt-2">Mã này sẽ không hiện trong danh sách chọn khi tạo đơn mua hàng ở module "Đặt mua linh kiện".</div>
+          <div className="text-xs text-[var(--ink-400)] -mt-2">{tr("Mã này sẽ không hiện trong danh sách chọn khi tạo đơn mua hàng ở module \"Đặt mua linh kiện\".")}</div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => { setEditOpen(false); setEditingMa(null); }}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => editMutation.mutate()} disabled={!form.ten_linh_kien.trim() || editMutation.isPending}>
-              Lưu
-            </Btn>
+              {tr("Lưu")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={bulkImportOpen} onClose={() => { if (!bulkImportRunning) setBulkImportOpen(false); }} title="Nhập ảnh demo hàng loạt">
+      <Modal open={bulkImportOpen} onClose={() => { if (!bulkImportRunning) setBulkImportOpen(false); }} title={tr("Nhập ảnh demo hàng loạt")}>
         <div className="space-y-3">
           <div className="text-xs text-[var(--ink-500)]">
-            Chọn file Excel có 2 cột <span className="font-mono">Mã linh kiện</span> và <span className="font-mono">ẢNH DEMO</span> (link ảnh nguồn). Hệ thống sẽ tải từng ảnh về và lưu lên Google Drive của hệ thống, khớp theo mã linh kiện đã có sẵn trong danh mục — mã chưa tồn tại sẽ bị bỏ qua.
-          </div>
+            {tr("Chọn file Excel có 2 cột")} <span className="font-mono">{tr("Mã linh kiện")}</span>  {tr("và")} <span className="font-mono">{tr("ẢNH DEMO")}</span>  {tr("(link ảnh nguồn). Hệ thống sẽ tải từng ảnh về và lưu lên Google Drive của hệ thống, khớp theo mã linh kiện đã có sẵn trong danh mục — mã chưa tồn tại sẽ bị bỏ qua.")}</div>
           {!bulkImportRunning && !bulkImportSummary && (
             <input
               type="file"
@@ -725,8 +712,7 @@ export function DanhMucLinhKienModule() {
           )}
           {bulkImportRunning && (
             <div className="text-sm">
-              Đang xử lý... {bulkImportProcessed}/{bulkImportTotal} dòng
-              <div className="w-full h-2 bg-[var(--surface-100)] rounded-full mt-1 overflow-hidden">
+              {tr("Đang xử lý...")} {bulkImportProcessed}/{bulkImportTotal}  {tr("dòng")}<div className="w-full h-2 bg-[var(--surface-100)] rounded-full mt-1 overflow-hidden">
                 <div
                   className="h-full bg-[var(--ocean-500)] transition-all"
                   style={{ width: `${bulkImportTotal ? Math.min(100, (bulkImportProcessed / bulkImportTotal) * 100) : 0}%` }}
@@ -737,7 +723,7 @@ export function DanhMucLinhKienModule() {
           {bulkImportSummary && (
             <div className="text-sm space-y-2">
               <div>
-                ✅ Thành công: <b>{bulkImportSummary.success}</b> · Không tìm thấy mã: <b>{bulkImportSummary.notFound}</b> · Lỗi tải ảnh nguồn: <b>{bulkImportSummary.fetchFailed}</b> · Lỗi khác: <b>{bulkImportSummary.error}</b>
+                {tr("✅ Thành công:")} <b>{bulkImportSummary.success}</b>  {tr("· Không tìm thấy mã:")} <b>{bulkImportSummary.notFound}</b>  {tr("· Lỗi tải ảnh nguồn:")} <b>{bulkImportSummary.fetchFailed}</b>  {tr("· Lỗi khác:")} <b>{bulkImportSummary.error}</b>
               </div>
               {bulkImportFailDetails.length > 0 && (
                 <div className="max-h-40 overflow-y-auto border border-[var(--line)] rounded-lg p-2 text-xs font-mono space-y-0.5">
@@ -750,7 +736,7 @@ export function DanhMucLinhKienModule() {
           )}
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setBulkImportOpen(false)} disabled={bulkImportRunning}>
-              {bulkImportSummary ? "Đóng" : "Hủy"}
+              {bulkImportSummary ? tr("Đóng") : tr("Hủy")}
             </Btn>
           </div>
         </div>

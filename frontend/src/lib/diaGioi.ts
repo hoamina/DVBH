@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { tr } from "../i18n/tr";
 
 /*
  * "Dia gioi cu / moi" (2026-10-10) - xu ly HOAN TOAN o client (server chi tra du lieu tho, xem backend
@@ -62,11 +63,11 @@ export function useOnDiaGioiModeChange(fn: () => void) {
   }, [mode]);
 }
 
-export const DIA_GIOI_LABEL: Record<DiaGioiMode, string> = { cu: "Địa giới cũ", moi: "Địa giới mới" };
-export const NHAN_CAP_1: Record<DiaGioiMode, string> = { cu: "Tỉnh cũ", moi: "Tỉnh mới" };
-export const NHAN_CAP_2: Record<DiaGioiMode, string> = { cu: "Quận/Huyện", moi: "Xã/Phường mới" };
-const NHAN_TRONG_1: Record<DiaGioiMode, string> = { cu: "(Chưa có tỉnh cũ)", moi: "(Không rõ tỉnh)" };
-const NHAN_TRONG_2: Record<DiaGioiMode, string> = { cu: "(Chưa có quận/huyện)", moi: "(Chưa có xã mới)" };
+export const DIA_GIOI_LABEL: Record<DiaGioiMode, string> = { cu: tr("Địa giới cũ"), moi: tr("Địa giới mới") };
+export const NHAN_CAP_1: Record<DiaGioiMode, string> = { cu: tr("Tỉnh cũ"), moi: tr("Tỉnh mới") };
+export const NHAN_CAP_2: Record<DiaGioiMode, string> = { cu: tr("Quận/Huyện"), moi: tr("Xã/Phường mới") };
+const NHAN_TRONG_1: Record<DiaGioiMode, string> = { cu: tr("(Chưa có tỉnh cũ)"), moi: tr("(Không rõ tỉnh)") };
+const NHAN_TRONG_2: Record<DiaGioiMode, string> = { cu: tr("(Chưa có quận/huyện)"), moi: tr("(Chưa có xã mới)") };
 
 // ---------- Chuan hoa ten ----------
 

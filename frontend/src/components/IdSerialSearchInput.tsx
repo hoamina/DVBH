@@ -1,3 +1,4 @@
+import { tr } from "../i18n/tr";
 // CHOT 2026-08-12: o tim kiem ID/Serial dung chung cho cac danh sach NOI BO tung the (Ca lap, Quan
 // ly ton, Ca thieu linh kien, Tranh chap, Danh gia nap gas, Quan ly khao sat, Danh sach tong) -
 // khac GlobalSearch cua TopBar (nhay thang vao 1 ca / hien popup chon), o nay chi LOC danh sach dang
@@ -8,7 +9,7 @@ export function IdSerialSearchInput({
   value,
   onChange,
   className = "w-48",
-  placeholder = "Tìm theo ID/Serial…",
+  placeholder = tr("Tìm theo ID/Serial…"),
 }: {
   value: string;
   onChange: (v: string) => void;

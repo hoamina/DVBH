@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { apDungNgonNgu, chuanHoaNgonNgu, layNgonNguChoDongBo, type NgonNgu } from "../i18n";
+import { NGON_NGU_TRANG } from "../i18n/tr";
 
 export type VaiTro = "Admin" | "Viewer" | "QC" | "Giam sat" | "TBP DVBH" | "CSKH" | "TN CSKH" | "TBP CSKH" | "KSNB Doi tac";
 export type GioiTinh = "nam" | "nu";
@@ -78,7 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               body: JSON.stringify({ ngon_ngu: chonLucDangNhap }),
             }).catch(() => undefined);
           }
-          apDungNgonNgu(chuanHoaNgonNgu(user.ngon_ngu));
+          const lng = chuanHoaNgonNgu(user.ngon_ngu);
+          apDungNgonNgu(lng);
+          // Trang dang tai bang ngon ngu khac ngon ngu cua tai khoan (may moi / doi o may khac) -> tai lai 1 lan de tu dien
+          // tr() dung ngon ngu (apDungNgonNgu da ghi localStorage nen lan tai sau khop, khong lap).
+          if (lng !== NGON_NGU_TRANG) {
+            window.location.reload();
+            return;
+          }
           setState({ status: "authenticated", user, showDailyReport });
           return;
         }

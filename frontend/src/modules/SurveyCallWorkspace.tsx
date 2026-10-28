@@ -15,6 +15,7 @@ import { QLDVBH_FILTER_VALUE } from "../constants";
 import { CanKhaoSatRow, neededLoaiLoi, loaiTruLoaiLoi, LOAI_TRU_CANH_BAO } from "./SurveyModule";
 import { useSurveyCandidates } from "../hooks/useSurveyCandidates";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { tr } from "../i18n/tr";
 
 type QueueSource = "qua-han" | "can-khao-sat" | "ad-hoc";
 interface QueueItem extends CanKhaoSatRow {
@@ -22,19 +23,19 @@ interface QueueItem extends CanKhaoSatRow {
 }
 
 const KET_QUA_GOI_OPTIONS = [
-  { value: "Liên hệ thành công", label: "✅ Liên hệ thành công" },
-  { value: "Không nghe máy", label: "📵 Không nghe máy" },
-  { value: "Số sai / không liên lạc được", label: "🚫 Số sai / không liên lạc được" },
-  { value: "Không cần khảo sát", label: "➖ Không cần khảo sát" },
+  { value: "Liên hệ thành công", label: tr("✅ Liên hệ thành công") },
+  { value: "Không nghe máy", label: tr("📵 Không nghe máy") },
+  { value: "Số sai / không liên lạc được", label: tr("🚫 Số sai / không liên lạc được") },
+  { value: "Không cần khảo sát", label: tr("➖ Không cần khảo sát") },
 ];
 
 const LY_DO_THAT_BAI_OPTIONS = ["Khách không nghe máy", "Thuê bao không liên lạc được", "Số điện thoại sai", "Khách hẹn gọi lại giờ khác", "Khác"];
 
 // "Da hen KH?" (CHOT 2026-09-27, migration 0117) - 3 gia tri khop DA_HEN_KH_VALUES o backend/src/routes/survey.ts.
 const DA_HEN_KH_OPTIONS: { value: string; label: string }[] = [
-  { value: "Da hen KH", label: "Đã hẹn KH" },
-  { value: "Chua hen KH", label: "Chưa hẹn KH" },
-  { value: "Khong xac dinh", label: "Không xác định" },
+  { value: "Da hen KH", label: tr("Đã hẹn KH") },
+  { value: "Chua hen KH", label: tr("Chưa hẹn KH") },
+  { value: "Khong xac dinh", label: tr("Không xác định") },
 ];
 
 // Toan bo loai_loi ma CASE co co (theo co gia tri goc c.loi_120p/... - KHONG loai tru theo "already
@@ -132,7 +133,7 @@ export function SurveyCallWorkspace({
   });
   const thangSelectOptions = (monthOptions?.months ?? []).map((m) => ({ value: m, label: m }));
   if (!thangSelectOptions.some((o) => o.value === thang)) {
-    thangSelectOptions.unshift({ value: thang, label: `${thang} (hiện tại)` });
+    thangSelectOptions.unshift({ value: thang, label: tr("{0} (hiện tại)", thang) });
   }
 
   // "Loai loi vi pham" (migration 0112, Settings tab "Loại lỗi vi phạm") - danh sach dong cho dropdown
@@ -314,7 +315,7 @@ export function SurveyCallWorkspace({
       const res = await api.get<{ matches: { id: string }[] }>(`/cases/search?q=${encodeURIComponent(q)}`);
       const foundId = res.matches[0]?.id ?? null;
       if (!foundId) {
-        addToast("Không tìm thấy ca với ID / Serial này.");
+        addToast(tr("Không tìm thấy ca với ID / Serial này."));
         return;
       }
       setAdHocId(foundId);
@@ -383,19 +384,19 @@ export function SurveyCallWorkspace({
     if (!activeRow) return;
     const chosen = needed.filter((k) => selected[k]);
     if (callResult === "Liên hệ thành công" && chosen.length === 0) {
-      addToast("Chọn kết luận cho ít nhất 1 loại lỗi trước khi lưu.");
+      addToast(tr("Chọn kết luận cho ít nhất 1 loại lỗi trước khi lưu."));
       return;
     }
     // Moi loai_loi ket luan "Loi" bat buoc phai chon Ket qua cap 1 (CHOT 2026-09-16 - danh sach gio
     // 14 lua chon tu Settings, khong con gia tri mac dinh doan truoc duoc).
     if (callResult === "Liên hệ thành công" && missingKetQuaCap1) {
-      addToast("Chọn Kết quả cấp 1 cho tất cả lỗi đã kết luận \"Lỗi\" trước khi lưu.");
+      addToast(tr("Chọn Kết quả cấp 1 cho tất cả lỗi đã kết luận \"Lỗi\" trước khi lưu."));
       return;
     }
     // "Da hen KH?" (CHOT 2026-09-27): bat buoc khi checkbox "Loi 120 phut" duoc tick, bat ke ket luan
     // Khong loi/Loi (xem missingDaHenKh).
     if (callResult === "Liên hệ thành công" && missingDaHenKh) {
-      addToast("Chọn \"Đã hẹn KH?\" cho lỗi 120 phút trước khi lưu.");
+      addToast(tr("Chọn \"Đã hẹn KH?\" cho lỗi 120 phút trước khi lưu."));
       return;
     }
     // Bat buoc ghi chu neu co loi thuoc dong bat_buoc_ghi_chu=1 (vd "Lỗi khác" - xem migration 0112,
@@ -403,7 +404,7 @@ export function SurveyCallWorkspace({
     // ghi nhan mo ho khong biet loi gi khi doi chieu sau nay (vi_pham nhan API cung day kem ghi chu
     // nay, xem routes/viPham.ts pushViPham...).
     if (callResult === "Liên hệ thành công" && ghiChuRequired && !ghiChu.trim()) {
-      addToast("Lỗi này bắt buộc phải nhập Ghi chú mô tả lỗi.");
+      addToast(tr("Lỗi này bắt buộc phải nhập Ghi chú mô tả lỗi."));
       return;
     }
     try {
@@ -436,7 +437,7 @@ export function SurveyCallWorkspace({
         // dung sang ca khac ngoai y muon - dung y "Chi luu cuoc goi" la de nhap THEM ban ghi cho CUNG
         // 1 ca, ke ca ca da "goi xong" theo server, nen KHONG duoc phep tu dong roi khoi ca hien tai.
         resetForm(activeRow, needed);
-        addToast(`Đã lưu thêm 1 kết quả cuộc gọi cho ca ${activeRow.id} — vẫn ở lại ca này.`);
+        addToast(tr("Đã lưu thêm 1 kết quả cuộc gọi cho ca {0} — vẫn ở lại ca này.", activeRow.id));
         return;
       }
       refetchCandidates();
@@ -458,19 +459,19 @@ export function SurveyCallWorkspace({
       if (adHocId) setAdHocId(null);
       if (remaining.length > 0) {
         const remainLabel = remaining.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ");
-        addToast(`Đã lưu kết quả cho ca ${activeRow.id}. Còn "${remainLabel}" chưa xử lý — ca sẽ quay lại cuối hàng đợi để hoàn tất.`);
+        addToast(tr("Đã lưu kết quả cho ca {0}. Còn \"{1}\" chưa xử lý — ca sẽ quay lại cuối hàng đợi để hoàn tất.", activeRow.id, remainLabel));
       } else if (data.boQua.length > 0) {
         const label = data.boQua.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ");
         addToast(
           data.daGhiNhan.length > 0
-            ? `Đã lưu ${data.daGhiNhan.length} lỗi cho ca ${activeRow.id}. "${label}" người khác đã ghi nhận trước — chuyển ca tiếp theo.`
-            : `Ca ${activeRow.id}: "${label}" đã được người khác ghi nhận trước, không có gì để lưu thêm — chuyển ca tiếp theo.`,
+            ? tr("Đã lưu {0} lỗi cho ca {1}. \"{2}\" người khác đã ghi nhận trước — chuyển ca tiếp theo.", data.daGhiNhan.length, activeRow.id, label)
+            : tr("Ca {0}: \"{1}\" đã được người khác ghi nhận trước, không có gì để lưu thêm — chuyển ca tiếp theo.", activeRow.id, label),
         );
       } else {
-        addToast(`Đã ghi nhận kết quả khảo sát ca ${activeRow.id} — chuyển ca tiếp theo.`);
+        addToast(tr("Đã ghi nhận kết quả khảo sát ca {0} — chuyển ca tiếp theo.", activeRow.id));
       }
     } catch {
-      addToast("Không thể lưu kết quả khảo sát, thử lại.");
+      addToast(tr("Không thể lưu kết quả khảo sát, thử lại."));
     }
   }
 
@@ -491,15 +492,15 @@ export function SurveyCallWorkspace({
       qc.invalidateQueries({ queryKey: ["survey-workspace-case", activeRow.id] });
       if (!advance) {
         resetForm(activeRow, needed);
-        addToast(`Đã lưu cuộc gọi chưa liên hệ được cho ca ${activeRow.id} — vẫn ở lại ca này.`);
+        addToast(tr("Đã lưu cuộc gọi chưa liên hệ được cho ca {0} — vẫn ở lại ca này.", activeRow.id));
         return;
       }
       bumpCounter.current += 1;
       setBumpOrder((prev) => new Map(prev).set(activeRow.id, bumpCounter.current));
       if (adHocId) setAdHocId(null);
-      addToast(`Đã lưu cuộc gọi chưa liên hệ được cho ca ${activeRow.id} — sẽ quay lại cuối hàng đợi.`);
+      addToast(tr("Đã lưu cuộc gọi chưa liên hệ được cho ca {0} — sẽ quay lại cuối hàng đợi.", activeRow.id));
     } catch {
-      addToast("Không thể lưu cuộc gọi, thử lại.");
+      addToast(tr("Không thể lưu cuộc gọi, thử lại."));
     }
   }
 
@@ -551,10 +552,10 @@ export function SurveyCallWorkspace({
   return (
     <div className="fixed inset-0 z-40 bg-slate-50 flex flex-col anim-in">
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--line)] bg-[var(--surface)] flex-nowrap overflow-x-auto">
-        <div className="font-display font-bold text-sm flex items-center gap-1 whitespace-nowrap shrink-0">🎧 Gọi khảo sát</div>
-        <Badge tone="ocean">{adHocId ? `Thủ công (${pool.length})` : pool.length > 0 ? `Ca ${currentIndex + 1}/${pool.length}` : "0 ca"}</Badge>
-        {sessionDone > 0 && <Badge tone="teal">Xử lý: {sessionDone}</Badge>}
-        {sessionRetry > 0 && <Badge tone="amber">Gọi lại: {sessionRetry}</Badge>}
+        <div className="font-display font-bold text-sm flex items-center gap-1 whitespace-nowrap shrink-0">{tr("🎧 Gọi khảo sát")}</div>
+        <Badge tone="ocean">{adHocId ? tr("Thủ công ({0})", pool.length) : pool.length > 0 ? `Ca ${currentIndex + 1}/${pool.length}` : "0 ca"}</Badge>
+        {sessionDone > 0 && <Badge tone="teal">{tr("Xử lý:")} {sessionDone}</Badge>}
+        {sessionRetry > 0 && <Badge tone="amber">{tr("Gọi lại:")} {sessionRetry}</Badge>}
         <div className="flex-1 min-w-2" />
         <label className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-600)] whitespace-nowrap shrink-0">
           <input
@@ -566,8 +567,7 @@ export function SurveyCallWorkspace({
               setIndex(0);
             }}
           />
-          Của tôi
-        </label>
+          {tr("Của tôi")}</label>
         <label className="flex items-center gap-1 text-xs font-semibold text-[var(--ink-600)] whitespace-nowrap shrink-0">
           <input
             type="checkbox"
@@ -577,8 +577,7 @@ export function SurveyCallWorkspace({
               setIndex(0);
             }}
           />
-          +Quá hạn
-        </label>
+          {tr("+Quá hạn")}</label>
         <Select
           value={thang}
           onChange={(v) => {
@@ -594,7 +593,7 @@ export function SurveyCallWorkspace({
             setKhuVucFilter(v);
             setIndex(0);
           }}
-          options={[{ value: "", label: "Tất cả khu vực" }, { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" }, ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? [])]}
+          options={[{ value: "", label: tr("Tất cả khu vực") }, { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }, ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? [])]}
           myAreas={myAreas}
         />
         <Select
@@ -604,8 +603,8 @@ export function SurveyCallWorkspace({
             setIndex(0);
           }}
           options={[
-            { value: "default", label: "⏱ Mặc định" },
-            { value: "ngay-tao", label: "📅 Ngày tạo" },
+            { value: "default", label: tr("⏱ Mặc định") },
+            { value: "ngay-tao", label: tr("📅 Ngày tạo") },
             { value: "ktv", label: "👤 Theo KTV" },
           ]}
           className="!py-1 shrink-0"
@@ -617,7 +616,7 @@ export function SurveyCallWorkspace({
             setIndex(0);
           }}
           options={[
-            { value: "", label: "Tất cả KTV" },
+            { value: "", label: tr("Tất cả KTV") },
             ...availableWorkspaceKtvs.map((k) => ({ value: k, label: `KTV: ${k}` })),
           ]}
           className="!py-1 shrink-0"
@@ -632,7 +631,7 @@ export function SurveyCallWorkspace({
           <input
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
-            placeholder="Tìm ID/Serial…"
+            placeholder={tr("Tìm ID/Serial…")}
             className="focus-ring border border-[var(--line)] rounded-lg px-2 py-1 text-xs w-28"
           />
           <Btn size="sm" variant="ghost" disabled={searching} type="submit">
@@ -647,12 +646,12 @@ export function SurveyCallWorkspace({
       <div className="flex-1 overflow-y-auto p-5">
         <div className="w-full max-w-7xl mx-auto">
           <div className="max-w-3xl mx-auto lg:max-w-none">
-            <div className="text-xs text-[var(--ink-400)] mb-3 text-right">Phím tắt: PageUp/PageDown chuyển ca · Ctrl+Enter lưu nhanh</div>
+            <div className="text-xs text-[var(--ink-400)] mb-3 text-right">{tr("Phím tắt: PageUp/PageDown chuyển ca · Ctrl+Enter lưu nhanh")}</div>
           </div>
 
           {(adHocId && adHocLoading) || (!adHocId && initialLoading) ? (
             <div className="max-w-3xl mx-auto">
-              <LoadingCard label={adHocId ? `Đang tải ca ${adHocId}…` : "Đang tải hàng đợi…"} />
+              <LoadingCard label={adHocId ? tr("Đang tải ca {0}…", adHocId) : tr("Đang tải hàng đợi…")} />
             </div>
           ) : null}
 
@@ -661,10 +660,10 @@ export function SurveyCallWorkspace({
               <Card className="p-8 text-center">
                 <div className="text-2xl mb-2">🎉</div>
                 <div className="font-display font-bold text-lg mb-1">
-                  {hasUnassignedAvailable ? "Hết ca đã giao cho bạn trong hàng đợi hiện tại!" : "Hết ca cần khảo sát trong hàng đợi hiện tại!"}
+                  {hasUnassignedAvailable ? tr("Hết ca đã giao cho bạn trong hàng đợi hiện tại!") : tr("Hết ca cần khảo sát trong hàng đợi hiện tại!")}
                 </div>
                 <div className="text-sm text-[var(--ink-400)] mb-4">
-                  {hasUnassignedAvailable ? "Vẫn còn ca chưa gán ai trong hệ thống — bạn có thể nhận thêm." : "Đổi bộ lọc, hoặc làm mới để kiểm tra ca mới phát sinh."}
+                  {hasUnassignedAvailable ? tr("Vẫn còn ca chưa gán ai trong hệ thống — bạn có thể nhận thêm.") : tr("Đổi bộ lọc, hoặc làm mới để kiểm tra ca mới phát sinh.")}
                 </div>
                 <div className="flex justify-center gap-2 flex-wrap">
                   {hasUnassignedAvailable && (
@@ -675,8 +674,7 @@ export function SurveyCallWorkspace({
                         setIndex(0);
                       }}
                     >
-                      🔓 Gọi thêm ca chưa gán
-                    </Btn>
+                      {tr("🔓 Gọi thêm ca chưa gán")}</Btn>
                   )}
                   <Btn
                     variant="ghost"
@@ -685,11 +683,9 @@ export function SurveyCallWorkspace({
                       refetchCandidates();
                     }}
                   >
-                    ↻ Làm mới hàng đợi
-                  </Btn>
+                    {tr("↻ Làm mới hàng đợi")}</Btn>
                   <Btn onClick={onExit} type="button">
-                    ✕ Thoát chế độ gọi
-                  </Btn>
+                    {tr("✕ Thoát chế độ gọi")}</Btn>
                 </div>
               </Card>
             </div>
@@ -703,9 +699,9 @@ export function SurveyCallWorkspace({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-lg font-bold text-[var(--ocean-600)]">{activeRow.id}</span>
-                      {adHocId && <Badge tone="amber">Tìm thủ công</Badge>}
-                      {activeRow.__source === "qua-han" && <Badge tone="coral">Quá hạn khảo sát</Badge>}
-                      {!adHocId && (activeRow.assigned_to === me ? <Badge tone="ocean">Của bạn</Badge> : <Badge tone="gray">Chưa gán ai</Badge>)}
+                      {adHocId && <Badge tone="amber">{tr("Tìm thủ công")}</Badge>}
+                      {activeRow.__source === "qua-han" && <Badge tone="coral">{tr("Quá hạn khảo sát")}</Badge>}
+                      {!adHocId && (activeRow.assigned_to === me ? <Badge tone="ocean">{tr("Của bạn")}</Badge> : <Badge tone="gray">{tr("Chưa gán ai")}</Badge>)}
                     </div>
                     <div className="text-xl font-display font-extrabold text-[var(--ink-900)] mt-0.5">{activeRow.khach_hang ?? "—"}</div>
                     <div className="text-sm text-[var(--ink-400)] mt-0.5">
@@ -718,13 +714,11 @@ export function SurveyCallWorkspace({
                     {activeRow.link_crm && (
                       <a href={activeRow.link_crm} target="_blank" rel="noreferrer">
                         <Btn size="sm" variant="subtle" type="button">
-                          📞 Mở CRM
-                        </Btn>
+                          {tr("📞 Mở CRM")}</Btn>
                       </a>
                     )}
                     <Btn size="sm" variant="ghost" type="button" onClick={() => openCase(activeRow.id, "vi-pham")}>
-                      Xem hồ sơ đầy đủ
-                    </Btn>
+                      {tr("Xem hồ sơ đầy đủ")}</Btn>
                   </div>
                 </div>
 
@@ -733,7 +727,7 @@ export function SurveyCallWorkspace({
                     {needed.map((loai) =>
                       loaiTru.has(loai) ? (
                         <span key={loai} title={LOAI_TRU_CANH_BAO} className="opacity-50 line-through">
-                          <Badge tone="gray">{LOAI_LOI_META[loai].label} · loại trừ</Badge>
+                          <Badge tone="gray">{LOAI_LOI_META[loai].label}  {tr("· loại trừ")}</Badge>
                         </span>
                       ) : (
                         <Badge key={loai} tone="ocean">
@@ -746,39 +740,39 @@ export function SurveyCallWorkspace({
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm mb-3 bg-slate-50 rounded-xl p-3">
                   <div>
-                    <span className="text-[var(--ink-400)]">Kỹ thuật viên: </span>
+                    <span className="text-[var(--ink-400)]">{tr("Kỹ thuật viên:")} </span>
                     <KtvNameWithPhone kyThuatVien={activeRow.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} />
                   </div>
                   <div>
-                    <span className="text-[var(--ink-400)]">Tiếp nhận CSKH: </span>
+                    <span className="text-[var(--ink-400)]">{tr("Tiếp nhận CSKH:")} </span>
                     {fmtDateTime(activeRow.thoi_gian_cskh_tiep_nhan)}
                   </div>
                   <div>
-                    <span className="text-[var(--ink-400)]">Hẹn xử lý: </span>
+                    <span className="text-[var(--ink-400)]">{tr("Hẹn xử lý:")} </span>
                     {fmtDateTime(activeRow.thoi_gian_hen_xu_ly)}
                   </div>
                   <div>
-                    <span className="text-[var(--ink-400)]">Hoàn thành: </span>
-                    {activeRow.thoi_gian_hoan_thanh ? fmtDateTime(activeRow.thoi_gian_hoan_thanh) : <span className="italic">Đang tồn đọng</span>}
+                    <span className="text-[var(--ink-400)]">{tr("Hoàn thành:")} </span>
+                    {activeRow.thoi_gian_hoan_thanh ? fmtDateTime(activeRow.thoi_gian_hoan_thanh) : <span className="italic">{tr("Đang tồn đọng")}</span>}
                   </div>
                 </div>
 
                 {activeRow.mo_ta_loi && (
                   <div className="text-sm mb-1.5">
-                    <span className="font-semibold">Mô tả lỗi: </span>
+                    <span className="font-semibold">{tr("Mô tả lỗi:")} </span>
                     {activeRow.mo_ta_loi}
                   </div>
                 )}
                 {activeRow.noi_dung_xu_ly && (
                   <div className="text-sm">
-                    <span className="font-semibold">Nội dung xử lý: </span>
+                    <span className="font-semibold">{tr("Nội dung xử lý:")} </span>
                     {activeRow.noi_dung_xu_ly}
                   </div>
                 )}
 
                 {callHistoryRows.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-[var(--line)]">
-                    <div className="text-xs font-semibold text-[var(--ink-400)] mb-1.5">Lịch sử gọi trước đó ({callHistoryRows.length})</div>
+                    <div className="text-xs font-semibold text-[var(--ink-400)] mb-1.5">{tr("Lịch sử gọi trước đó (")}{callHistoryRows.length})</div>
                     <div className="space-y-1.5 max-h-64 overflow-y-auto">
                       {callHistoryRows.map((h) => {
                         // Gan dung vi_pham (loi da chot) vao dung cuoc goi da tao ra no - CHOT
@@ -794,21 +788,21 @@ export function SurveyCallWorkspace({
                             </div>
                             <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                               <Badge tone={h.ket_qua_cuoc_goi === "Liên hệ thành công" ? "teal" : h.ket_qua_cuoc_goi === "Không cần khảo sát" ? "gray" : "amber"}>
-                                {h.ket_qua_cuoc_goi ?? "Chưa liên hệ được"}
+                                {h.ket_qua_cuoc_goi ?? tr("Chưa liên hệ được")}
                               </Badge>
-                              {h.can_goi_lai === 1 && <Badge tone="amber">Cần gọi lại</Badge>}
+                              {h.can_goi_lai === 1 && <Badge tone="amber">{tr("Cần gọi lại")}</Badge>}
                             </div>
-                            {h.ly_do_that_bai && <div className="mt-0.5 text-[var(--ink-400)]">Lý do: {h.ly_do_that_bai}</div>}
+                            {h.ly_do_that_bai && <div className="mt-0.5 text-[var(--ink-400)]">{tr("Lý do:")} {h.ly_do_that_bai}</div>}
                             {h.ghi_chu && <div className="mt-0.5 text-[var(--ink-600)]">{h.ghi_chu}</div>}
                             {viPhamCuaCuocGoiNay.length > 0 && (
                               <div className="mt-1 pt-1 border-t border-[var(--line)] flex flex-wrap gap-1">
                                 {viPhamCuaCuocGoiNay.map((v) => {
                                   // "Khong loi" (CHOT 2026-09-14, xem CaseDetail.tsx cung fix): da tinh
                                   // la "khong vi pham" mac dinh, khong con "cho QC".
-                                  const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : v.ket_qua_cap_1 === "Khong loi" ? "Không vi phạm" : "chờ QC";
+                                  const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? tr("đã xác nhận") : tr("Không vi phạm")) : v.ket_qua_cap_1 === "Khong loi" ? tr("Không vi phạm") : tr("chờ QC");
                                   return (
                                     <Badge key={v.id} tone={statusTone(trangThai)}>
-                                      {LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi} · {v.ket_qua_cap_1 === "Khong loi" ? "Không lỗi" : v.ket_qua_cap_1}
+                                      {LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi} · {v.ket_qua_cap_1 === "Khong loi" ? tr("Không lỗi") : v.ket_qua_cap_1}
                                     </Badge>
                                   );
                                 })}
@@ -826,11 +820,9 @@ export function SurveyCallWorkspace({
               <div>
               {needed.length === 0 ? (
                 <Card className="p-6 text-center text-sm text-[var(--ink-400)]">
-                  Ca này hiện không còn lỗi nào cần khảo sát (có thể đã được người khác ghi nhận).
-                  <div className="mt-3 flex justify-center gap-2">
+                  {tr("Ca này hiện không còn lỗi nào cần khảo sát (có thể đã được người khác ghi nhận).")}<div className="mt-3 flex justify-center gap-2">
                     <Btn size="sm" variant="ghost" type="button" onClick={() => openCase(activeRow.id, "vi-pham")}>
-                      Xem hồ sơ
-                    </Btn>
+                      {tr("Xem hồ sơ")}</Btn>
                     {adHocId && adHocDetail && allApplicableLoaiLoi(adHocDetail.case).length > 0 && (
                       <Btn
                         size="sm"
@@ -841,17 +833,14 @@ export function SurveyCallWorkspace({
                           resetForm(activeRow, allApplicableLoaiLoi(adHocDetail.case));
                         }}
                       >
-                        📞 Gọi bổ sung
-                      </Btn>
+                        {tr("📞 Gọi bổ sung")}</Btn>
                     )}
                     {adHocId ? (
                       <Btn size="sm" type="button" onClick={() => setAdHocId(null)}>
-                        Quay lại hàng đợi
-                      </Btn>
+                        {tr("Quay lại hàng đợi")}</Btn>
                     ) : (
                       <Btn size="sm" type="button" onClick={goNext}>
-                        Bỏ qua ⏭
-                      </Btn>
+                        {tr("Bỏ qua ⏭")}</Btn>
                     )}
                   </div>
                 </Card>
@@ -859,11 +848,11 @@ export function SurveyCallWorkspace({
                 <Card className="p-5">
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div>
-                      <label className="text-xs font-semibold text-[var(--ink-400)]">Đối tượng liên hệ</label>
+                      <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Đối tượng liên hệ")}</label>
                       <Select value={contactType} onChange={setContactType} options={["Khách hàng", "KTV", "Người thân KH"]} className="w-full mt-1" />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả cuộc gọi</label>
+                      <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Kết quả cuộc gọi")}</label>
                       <Select value={callResult} onChange={setCallResult} options={KET_QUA_GOI_OPTIONS} className="w-full mt-1" />
                     </div>
                   </div>
@@ -871,7 +860,7 @@ export function SurveyCallWorkspace({
                   {callResult === "Liên hệ thành công" ? (
                     <>
                       <div className="mb-3">
-                        <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">Chọn kết luận cho từng loại lỗi nghi ngờ</label>
+                        <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">{tr("Chọn kết luận cho từng loại lỗi nghi ngờ")}</label>
                         <div className="space-y-2.5">
                           {needed.map((loai) => (
                             <div key={loai} className={`border border-[var(--line)] rounded-xl p-3 flex flex-col gap-2 ${loaiTru.has(loai) ? "opacity-60 bg-slate-50" : ""}`}>
@@ -885,22 +874,20 @@ export function SurveyCallWorkspace({
                                 </label>
                                 <div className="flex gap-1">
                                   <button type="button" disabled={!selected[loai]} onClick={() => setKetLuan({ ...ketLuan, [loai]: "khong_loi" })} className={btnStyle(ketLuan[loai] === "khong_loi", "teal")}>
-                                    Không lỗi
-                                  </button>
+                                    {tr("Không lỗi")}</button>
                                   <button type="button" disabled={!selected[loai]} onClick={() => setKetLuan({ ...ketLuan, [loai]: "loi" })} className={btnStyle(ketLuan[loai] === "loi", "coral")}>
-                                    Lỗi
-                                  </button>
+                                    {tr("Lỗi")}</button>
                                 </div>
                               </div>
                               {/* Ket qua cap 1 RIENG cho tung loai_loi (CHOT 2026-09-16) - danh sach doc tu Settings
                                   "Loại lỗi vi phạm" (migration 0112), khong con dung chung 1 dropdown cho ca 4 loi. */}
                               {selected[loai] && ketLuan[loai] === "loi" && (
                                 <div>
-                                  <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả cấp 1</label>
+                                  <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Kết quả cấp 1")}</label>
                                   <Select
                                     value={ketQuaCap1[loai] ?? ""}
                                     onChange={(v) => setKetQuaCap1({ ...ketQuaCap1, [loai]: v })}
-                                    options={[{ value: "", label: "-- Chọn kết quả --" }, ...ketQuaCap1Options]}
+                                    options={[{ value: "", label: tr("-- Chọn kết quả --") }, ...ketQuaCap1Options]}
                                     className="w-full mt-1"
                                   />
                                 </div>
@@ -910,7 +897,7 @@ export function SurveyCallWorkspace({
                               {loai === "Loi 120 phut" && selected[loai] && (
                                 <div>
                                   <label className="text-xs font-semibold text-[var(--ink-400)]">
-                                    Đã gọi đặt hẹn với KH chưa? <span className="text-[var(--coral-500)]">* bắt buộc</span>
+                                    {tr("Đã gọi đặt hẹn với KH chưa?")} <span className="text-[var(--coral-500)]">{tr("* bắt buộc")}</span>
                                   </label>
                                   <div className="flex gap-1 mt-1">
                                     {DA_HEN_KH_OPTIONS.map((opt) => (
@@ -932,7 +919,7 @@ export function SurveyCallWorkspace({
                       </div>
                       <div className="mb-4">
                         <label className="text-xs font-semibold text-[var(--ink-400)]">
-                          Ghi chú{ghiChuRequired && <span className="text-[var(--coral-500)]"> * bắt buộc (lỗi cần mô tả)</span>}
+                          {tr("Ghi chú")}{ghiChuRequired && <span className="text-[var(--coral-500)]">  {tr("* bắt buộc (lỗi cần mô tả)")}</span>}
                         </label>
                         <textarea
                           rows={2}
@@ -946,11 +933,9 @@ export function SurveyCallWorkspace({
                       <div className="flex justify-between items-center gap-2 flex-wrap">
                         <div className="flex gap-2">
                           <Btn variant="ghost" type="button" onClick={goPrev}>
-                            ◀ Ca trước
-                          </Btn>
+                            {tr("◀ Ca trước")}</Btn>
                           <Btn variant="ghost" type="button" onClick={goNext}>
-                            Bỏ qua ⏭
-                          </Btn>
+                            {tr("Bỏ qua ⏭")}</Btn>
                         </div>
                         <div className="flex gap-2">
                           {/* "Chi luu cuoc goi" (CHOT 2026-09-27): luu nhung o lai ca nay - dung khi can
@@ -960,13 +945,13 @@ export function SurveyCallWorkspace({
                             onClick={() => submitSuccessCall(false)}
                             disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || missingKetQuaCap1 || missingDaHenKh || (ghiChuRequired && !ghiChu.trim())}
                           >
-                            {submitCall.isPending ? "Đang lưu…" : "💾 Chỉ lưu cuộc gọi"}
+                            {submitCall.isPending ? tr("Đang lưu…") : tr("💾 Chỉ lưu cuộc gọi")}
                           </Btn>
                           <Btn
                             onClick={() => submitSuccessCall(true)}
                             disabled={submitCall.isPending || !Object.keys(selected).some((k) => selected[k]) || missingKetQuaCap1 || missingDaHenKh || (ghiChuRequired && !ghiChu.trim())}
                           >
-                            {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
+                            {submitCall.isPending ? tr("Đang lưu…") : tr("💾 Lưu & gọi ca tiếp theo")}
                           </Btn>
                         </div>
                       </div>
@@ -974,23 +959,20 @@ export function SurveyCallWorkspace({
                   ) : callResult === "Không cần khảo sát" ? (
                     <>
                       <div className="bg-[var(--ocean-50)] text-[var(--ocean-700)] border border-[var(--ocean-100)] rounded-xl p-4 text-xs mb-4">
-                        ℹ️ <strong>Lưu ý:</strong> Ca này sẽ được ghi nhận là <strong>Không lỗi</strong> cho toàn bộ các loại lỗi nghi ngờ ({needed.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ")}). Hệ thống sẽ tự động hoàn thành khảo sát ca này và chuyển sang ca tiếp theo.
-                      </div>
+                        ℹ️ <strong>{tr("Lưu ý:")}</strong>  {tr("Ca này sẽ được ghi nhận là")} <strong>{tr("Không lỗi")}</strong>  {tr("cho toàn bộ các loại lỗi nghi ngờ (")}{needed.map((l) => LOAI_LOI_META[l]?.short ?? l).join(", ")}{tr("). Hệ thống sẽ tự động hoàn thành khảo sát ca này và chuyển sang ca tiếp theo.")}</div>
                       <div className="mb-4">
-                        <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú lý do không cần khảo sát</label>
-                        <textarea rows={2} value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} placeholder="Nhập lý do tại đây..." className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+                        <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú lý do không cần khảo sát")}</label>
+                        <textarea rows={2} value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} placeholder={tr("Nhập lý do tại đây...")} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
                       </div>
                       <div className="flex justify-between items-center gap-2 flex-wrap">
                         <div className="flex gap-2">
                           <Btn variant="ghost" type="button" onClick={goPrev}>
-                            ◀ Ca trước
-                          </Btn>
+                            {tr("◀ Ca trước")}</Btn>
                           <Btn variant="ghost" type="button" onClick={goNext}>
-                            Bỏ qua ⏭
-                          </Btn>
+                            {tr("Bỏ qua ⏭")}</Btn>
                         </div>
                         <Btn onClick={() => submitSuccessCall(true)} disabled={submitCall.isPending}>
-                          {submitCall.isPending ? "Đang lưu…" : "💾 Lưu & gọi ca tiếp theo"}
+                          {submitCall.isPending ? tr("Đang lưu…") : tr("💾 Lưu & gọi ca tiếp theo")}
                         </Btn>
                       </div>
                     </>
@@ -998,32 +980,29 @@ export function SurveyCallWorkspace({
                     <>
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
-                          <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do chưa liên hệ được</label>
+                          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Lý do chưa liên hệ được")}</label>
                           <Select value={lyDoThatBai} onChange={setLyDoThatBai} options={LY_DO_THAT_BAI_OPTIONS} className="w-full mt-1" />
                         </div>
                         <label className="flex items-center gap-2 text-sm font-semibold mt-6">
-                          <input type="checkbox" checked={canGoiLai} onChange={(e) => setCanGoiLai(e.target.checked)} /> Cần gọi lại sau
-                        </label>
+                          <input type="checkbox" checked={canGoiLai} onChange={(e) => setCanGoiLai(e.target.checked)} />  {tr("Cần gọi lại sau")}</label>
                       </div>
                       <div className="mb-4">
-                        <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+                        <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
                         <textarea rows={2} value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
                       </div>
                       <div className="flex justify-between items-center gap-2 flex-wrap">
                         <div className="flex gap-2">
                           <Btn variant="ghost" type="button" onClick={goPrev}>
-                            ◀ Ca trước
-                          </Btn>
+                            {tr("◀ Ca trước")}</Btn>
                           <Btn variant="ghost" type="button" onClick={goNext}>
-                            Bỏ qua ⏭
-                          </Btn>
+                            {tr("Bỏ qua ⏭")}</Btn>
                         </div>
                         <div className="flex gap-2">
                           <Btn variant="ghost" onClick={() => submitFailedCall(false)} disabled={submitCall.isPending}>
-                            {submitCall.isPending ? "Đang lưu…" : "📵 Chỉ lưu cuộc gọi"}
+                            {submitCall.isPending ? tr("Đang lưu…") : tr("📵 Chỉ lưu cuộc gọi")}
                           </Btn>
                           <Btn variant="success" onClick={() => submitFailedCall(true)} disabled={submitCall.isPending}>
-                          {submitCall.isPending ? "Đang lưu…" : "📵 Lưu cuộc gọi & tiếp theo"}
+                          {submitCall.isPending ? tr("Đang lưu…") : tr("📵 Lưu cuộc gọi & tiếp theo")}
                           </Btn>
                         </div>
                       </div>

@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+import { veTiengViet } from "../i18n/tr";
 import type { LinhKienLoiItem } from "../types";
 import { pickExportColumns } from "../components/ExportColumnPicker";
 import { exportTemplateKey } from "./exportTemplate";
@@ -43,6 +44,8 @@ export async function exportRowsToExcel<T extends object>(
     cleanedRows = lk.rows;
     labels = { ...(labels ?? {}), ...lk.labels };
   }
+  // Excel LUON tieng Viet (chot i18n 2026-10-28): nhan cot lay tu cot tren man hinh co the da duoc dich (tr()) -> doi nguoc.
+  if (labels) labels = Object.fromEntries(Object.entries(labels).map(([k, v]) => [k, veTiengViet(v)]));
   const exportRows = labels ? cleanedRows.map((row) => remapKeys(row, labels!)) : cleanedRows;
   // "Mau tai file" ca nhan (2026-10-23): hien bang chon cot (bat/tat, keo doi vi tri, luu localStorage) truoc khi tai -
   // components/ExportColumnPicker.tsx + lib/exportTemplate.ts. Cot = hop tieu de theo thu tu xuat hien (nhu json_to_sheet).

@@ -18,6 +18,7 @@ import {
 } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { tr } from "../../i18n/tr";
 
 export function TaoDonTab({
   addToast, qc, canQuanLy, onClose,
@@ -105,7 +106,7 @@ export function TaoDonTab({
         })),
       }),
     onSuccess: (res) => {
-      addToast(`Đã tạo đơn đặt hàng ${res.id}`);
+      addToast(tr("Đã tạo đơn đặt hàng {0}", res.id));
       setNguoiNhanHang("");
       setDrafts([emptyDraft()]);
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
@@ -113,7 +114,7 @@ export function TaoDonTab({
       invalidatePipelineCounts(qc);
       onClose();
     },
-    onError: (err) => addToast("Không thể tạo đơn: " + describeApiError(err)),
+    onError: (err) => addToast(tr("Không thể tạo đơn:") + " " + describeApiError(err)),
   });
 
   function updateDraft(idx: number, patch: Partial<DonHangDraft>) {
@@ -163,7 +164,7 @@ export function TaoDonTab({
   return (
     <Modal
       open
-      title="🧾 Tạo đơn đặt linh kiện"
+      title={tr("🧾 Tạo đơn đặt linh kiện")}
       onClose={onClose}
       width="max-w-4xl"
       // Thanh tong tien + nut hanh dong co dinh o day (khong nam trong vung cuon) - phan hoi UX
@@ -175,21 +176,20 @@ export function TaoDonTab({
         <div className="flex flex-col gap-1.5 -mx-5 -my-3 px-5 py-3 bg-[var(--ocean-100)]/35">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm">
-              <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>
+              <span className="text-[var(--ink-500)]">{drafts.length}  {tr("dòng ·")} {tongSoLuong}  {tr("cái")}</span>
               {tongGiaUocTinh > 0 && (
                 <>
                   <span className="text-[var(--ink-500)]"> · </span>
                   <span className="font-bold text-[var(--ocean-700)]">{fmtVND(tongGiaUocTinh)}</span>
-                  <span className="ml-1 text-[11px] text-[var(--ink-400)]">(*Giá tham khảo)</span>
+                  <span className="ml-1 text-[11px] text-[var(--ink-400)]">{tr("(*Giá tham khảo)")}</span>
                 </>
               )}
             </div>
             <div className="flex items-center gap-2">
               <Btn variant="ghost" size="sm" onClick={themDong}>
-                + Thêm dòng
-              </Btn>
+                {tr("+ Thêm dòng")}</Btn>
               <Btn size="md" onClick={() => create.mutate()} disabled={!canSubmit || create.isPending}>
-                {create.isPending ? "Đang tạo..." : drafts.length > 1 ? `Tạo ${drafts.length} đơn` : "Tạo đơn"}
+                {create.isPending ? tr("Đang tạo...") : drafts.length > 1 ? tr("Tạo {0} đơn", drafts.length) : tr("Tạo đơn")}
               </Btn>
             </div>
           </div>
@@ -198,8 +198,7 @@ export function TaoDonTab({
               mobile cham). */}
           {addBlockedHint && !isLineComplete(drafts[activeIdx]) && (
             <div className="text-[11px] text-[var(--coral-600)] text-right font-medium">
-              ⚠ Điền xong Mã linh kiện/Số lượng (dòng {activeIdx + 1}) trước khi thêm dòng mới
-            </div>
+              {tr("⚠ Điền xong Mã linh kiện/Số lượng (dòng")} {activeIdx + 1}{tr(") trước khi thêm dòng mới")}</div>
           )}
         </div>
       }
@@ -212,30 +211,30 @@ export function TaoDonTab({
         <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3">
           <div className="flex items-end gap-2 flex-wrap">
             <div className="flex-1 min-w-[220px]">
-              <label className="block text-[11px] font-bold uppercase tracking-wide text-[var(--ocean-700)] mb-1.5">👤 Người nhận hàng</label>
+              <label className="block text-[11px] font-bold uppercase tracking-wide text-[var(--ocean-700)] mb-1.5">{tr("👤 Người nhận hàng")}</label>
               <Select
                 value={nguoiNhanHang}
                 onChange={setNguoiNhanHang}
                 options={[
-                  { value: "", label: "-- Chính tôi --" },
+                  { value: "", label: tr("-- Chính tôi --") },
                   ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) })),
                 ]}
               />
             </div>
             <Btn variant="ghost" size="sm" onClick={() => setShowImport((v) => !v)}>
-              {showImport ? "▲ Ẩn Import" : "⇩ Import Excel"}
+              {showImport ? tr("▲ Ẩn Import") : "⇩ Import Excel"}
             </Btn>
           </div>
-          <div className="text-[11px] text-[var(--ink-500)] mt-1.5">Tạo hộ cho KTV/Trạm khác — bỏ trống nếu bạn tự nhận hàng.</div>
+          <div className="text-[11px] text-[var(--ink-500)] mt-1.5">{tr("Tạo hộ cho KTV/Trạm khác — bỏ trống nếu bạn tự nhận hàng.")}</div>
           {showImport && (
             <div className="mt-3 pt-3 border-t border-[var(--line)]">
               <ImportUploader<DatDonHangImportSummary>
                 description={
                   <>
-                    Nhập hàng loạt đơn mua linh kiện từ Excel/CSV — các dòng cùng 1 KTV (cột{" "}
-                    <b className="font-mono">nguoi_nhan_hang</b> = mã KTV) sẽ gộp thành 1 phiếu đặt. Bắt buộc:{" "}
+                    {tr("Nhập hàng loạt đơn mua linh kiện từ Excel/CSV — các dòng cùng 1 KTV (cột")}{" "}
+                    <b className="font-mono">nguoi_nhan_hang</b>  {tr("= mã KTV) sẽ gộp thành 1 phiếu đặt. Bắt buộc:")}{" "}
                     <b className="font-mono">nguoi_nhan_hang</b>, <b className="font-mono">ma_lk</b>,{" "}
-                    <b className="font-mono">loai_de_xuat</b>, <b className="font-mono">so_luong_de_xuat</b>. Tùy chọn:{" "}
+                    <b className="font-mono">loai_de_xuat</b>, <b className="font-mono">so_luong_de_xuat</b>{tr(". Tùy chọn:")}{" "}
                     <b className="font-mono">ghi_chu</b>, <b className="font-mono">yeu_cau_hoa_don</b>,{" "}
                     <b className="font-mono">tt_mail_duyet</b>, <b className="font-mono">tt_khach_hang</b>,{" "}
                     <b className="font-mono">chinh_sach</b>, <b className="font-mono">ma_yeu_cau_su_co</b>.
@@ -247,13 +246,13 @@ export function TaoDonTab({
                 buildBody={(rows) => ({ rows })}
                 renderSummary={(s) => (
                   <div className="grid grid-cols-3 gap-3 mb-2">
-                    <StatCard label="Dòng hợp lệ" value={s.thanhCong} tone="teal" />
-                    <StatCard label="Dòng lỗi" value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
-                    <StatCard label="Số phiếu sẽ tạo" value={s.soPhieu} tone="ocean" />
+                    <StatCard label={tr("Dòng hợp lệ")} value={s.thanhCong} tone="teal" />
+                    <StatCard label={tr("Dòng lỗi")} value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
+                    <StatCard label={tr("Số phiếu sẽ tạo")} value={s.soPhieu} tone="ocean" />
                   </div>
                 )}
                 getErrors={(s) => s.errors}
-                successMessage={(s) => `Đã tạo ${s.soPhieu} phiếu đặt cho ${s.ktvList.length} KTV (${s.thanhCong} dòng)`}
+                successMessage={(s) => tr("Đã tạo {0} phiếu đặt cho {1} KTV ({2} dòng)", s.soPhieu, s.ktvList.length, s.thanhCong)}
                 invalidateKeys={[["dat-mua-lk-don-hang"], ["dat-mua-lk-tom-tat"]]}
               />
             </div>
@@ -287,22 +286,22 @@ export function TaoDonTab({
                 // rieng, khac amber) de KHONG con trung mau voi border-l-4 loai don.
                 className={`focus-ring w-full text-left bg-white border border-[var(--line)] ${toneThu.border} border-l-4 rounded-xl overflow-hidden text-xs hover:shadow-sm transition-shadow flex items-center gap-2.5 px-3 py-2 ${d.uu_tien ? "ring-2 ring-[var(--orange-500)]" : ""}`}
               >
-                <span className="font-mono text-[10px] text-[var(--ink-400)] shrink-0">Dòng {idx + 1}</span>
+                <span className="font-mono text-[10px] text-[var(--ink-400)] shrink-0">{tr("Dòng")} {idx + 1}</span>
                 <span className="flex-1 min-w-0 flex items-center gap-1 font-semibold text-[var(--ink-900)]">
-                  {d.uu_tien && <span title="Ưu tiên">⭐</span>}
-                  <span className="truncate">{d.ma_lk ? `${d.ma_lk} · ${lkThu?.ten_linh_kien ?? d.ma_lk}` : "(Chưa chọn linh kiện)"}</span>
+                  {d.uu_tien && <span title={tr("Ưu tiên")}>⭐</span>}
+                  <span className="truncate">{d.ma_lk ? `${d.ma_lk} · ${lkThu?.ten_linh_kien ?? d.ma_lk}` : tr("(Chưa chọn linh kiện)")}</span>
                 </span>
                 <span className="shrink-0 hidden sm:inline text-[var(--ink-500)] font-mono">×{d.so_luong_de_xuat}</span>
                 {giaTongThu != null && <span className="text-[var(--ocean-700)] font-semibold shrink-0 hidden md:inline">{fmtVND(giaTongThu)}</span>}
                 {d.ma_yeu_cau_su_co.trim() && (
-                  <span className="shrink-0 hidden md:inline text-[10px] font-mono text-[var(--ink-500)] bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5" title={`Mã yêu cầu sự cố: ${d.ma_yeu_cau_su_co}`}>
+                  <span className="shrink-0 hidden md:inline text-[10px] font-mono text-[var(--ink-500)] bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5" title={tr("Mã yêu cầu sự cố: {0}", d.ma_yeu_cau_su_co)}>
                     🎫 {d.ma_yeu_cau_su_co}
                   </span>
                 )}
                 {d.yeu_cau_hoa_don.trim() !== YEU_CAU_HOA_DON_OPTIONS[0] && (
                   <span className="shrink-0" title={YEU_CAU_HOA_DON_SHORT_LABELS[d.yeu_cau_hoa_don] ?? d.yeu_cau_hoa_don}>🧾</span>
                 )}
-                <span className="shrink-0"><Badge tone={completeThu ? "teal" : "coral"}>{completeThu ? "✓" : "⚠ Chưa xong"}</Badge></span>
+                <span className="shrink-0"><Badge tone={completeThu ? "teal" : "coral"}>{completeThu ? "✓" : tr("⚠ Chưa xong")}</Badge></span>
               </button>
             );
           }
@@ -354,13 +353,13 @@ export function TaoDonTab({
                   hieu hien thi (mau cam, xem giai thich o className cua the ben tren). */}
               <div className={`flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--line)] ${d.uu_tien ? "bg-[var(--orange-100)]" : "bg-[var(--surface-100)]"}`}>
                 <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  <span className="font-mono text-[11px] text-[var(--ink-400)] shrink-0">Dòng {idx + 1}{drafts.length > 1 ? ` / ${drafts.length}` : ""}</span>
+                  <span className="font-mono text-[11px] text-[var(--ink-400)] shrink-0">{tr("Dòng")} {idx + 1}{drafts.length > 1 ? ` / ${drafts.length}` : ""}</span>
                   <Badge tone={tone.tone}>{tone.label}</Badge>
                   <label
                     className={`flex items-center gap-1.5 text-xs font-semibold rounded-full pl-1.5 pr-2.5 py-1 cursor-pointer transition-colors select-none ${
                       d.uu_tien ? "bg-[var(--orange-600)] text-white" : "bg-white border border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--orange-500)]/60"
                     }`}
-                    title="Đánh dấu dòng này là ưu tiên"
+                    title={tr("Đánh dấu dòng này là ưu tiên")}
                   >
                     <input
                       type="checkbox"
@@ -368,12 +367,10 @@ export function TaoDonTab({
                       onChange={(e) => updateDraft(idx, { uu_tien: e.target.checked })}
                       className="w-3.5 h-3.5 accent-[var(--orange-600)]"
                     />
-                    ⭐ Ưu tiên
-                  </label>
+                    {tr("⭐ Ưu tiên")}</label>
                 </div>
                 <Btn size="sm" variant="danger" onClick={() => deleteDraft(idx)} disabled={drafts.length === 1}>
-                  ✕ Xóa dòng
-                </Btn>
+                  {tr("✕ Xóa dòng")}</Btn>
               </div>
 
               <div className="p-3 flex flex-col gap-3">
@@ -382,14 +379,14 @@ export function TaoDonTab({
                     autoFocus CHI khi day la dong VUA duoc them (justAdded) va dang la dong active -
                     phan hoi 2026-08-19 #6: chuyen thang toi o nhap ma LK, khoi phai cuon tim. */}
                 <div>
-                  <label className={reqLabelClass(!d.ma_lk.trim())}>Mã linh kiện *</label>
+                  <label className={reqLabelClass(!d.ma_lk.trim())}>{tr("Mã linh kiện *")}</label>
                   <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(idx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} />
                 </div>
 
                 {/* 2+3+4) Loai de xuat + So luong + Gia uoc tinh GOP 1 HANG (phan hoi 2026-08-19: "sắp
                     xếp thành 1 dòng") - truoc day gia uoc tinh nam rieng 1 dong phu ben duoi. */}
                 <div>
-                  <label className={reqLabelClass(!d.loai_de_xuat.trim() || !(d.so_luong_de_xuat > 0))}>Loại đề xuất · Số lượng · Giá ước tính *</label>
+                  <label className={reqLabelClass(!d.loai_de_xuat.trim() || !(d.so_luong_de_xuat > 0))}>{tr("Loại đề xuất · Số lượng · Giá ước tính *")}</label>
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex gap-1 flex-wrap flex-1 min-w-[160px]">
                       {(["MUA HÀNG", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
@@ -424,8 +421,7 @@ export function TaoDonTab({
                         variant={showOtherSelect ? "primary" : "ghost"}
                         onClick={() => setOtherLdeIdx((s) => new Set(s).add(idx))}
                       >
-                        khác…
-                      </Btn>
+                        {tr("khác…")}</Btn>
                     </div>
                     {/* SUA (phan hoi 2026-08-18): nen chim bg-surface-100 (dong bo voi moi o nhap lieu
                         khac trong module) thay vi bg-white - card cha da la bg-white nen truoc day o
@@ -456,14 +452,14 @@ export function TaoDonTab({
                       </button>
                     </div>
                     <div className="text-[11px] text-[var(--ink-500)] shrink-0 whitespace-nowrap">
-                      {giaUocTinh != null ? <b className="text-[var(--ocean-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">Giá: —</span>}
+                      {giaUocTinh != null ? <b className="text-[var(--ocean-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">{tr("Giá: —")}</span>}
                     </div>
                   </div>
                   {showOtherSelect && (
                     <Select
                       value={d.loai_de_xuat}
                       onChange={(v) => updateDraft(idx, { loai_de_xuat: v })}
-                      options={[{ value: "", label: "-- Chọn --" }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
+                      options={[{ value: "", label: tr("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
                       className="w-full mt-1"
                     />
                   )}
@@ -482,13 +478,13 @@ export function TaoDonTab({
                   <>
                     <div className="flex items-center gap-2 -my-1">
                       <div className="h-px flex-1 bg-[var(--line)]" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">Thông tin bổ sung (tuỳ chọn)</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">{tr("Thông tin bổ sung (tuỳ chọn)")}</span>
                       <div className="h-px flex-1 bg-[var(--line)]" />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
-                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Yêu cầu hóa đơn</label>
+                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Yêu cầu hóa đơn")}</label>
                         <div className="flex gap-1 flex-wrap">
                           {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
                             <Btn
@@ -504,7 +500,7 @@ export function TaoDonTab({
                         </div>
                       </div>
                       <div>
-                        <label className={reqLabelClass(batBuoc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuoc ? " *" : ""}</label>
+                        <label className={reqLabelClass(batBuoc && !d.ma_yeu_cau_su_co.trim())}>{tr("Mã YCSC liên quan")}{batBuoc ? " *" : ""}</label>
                         <input
                           value={d.ma_yeu_cau_su_co}
                           onChange={(e) => updateDraft(idx, { ma_yeu_cau_su_co: e.target.value })}
@@ -513,11 +509,11 @@ export function TaoDonTab({
                         />
                       </div>
                       <div>
-                        <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>Chính sách{batBuoc ? " *" : ""}</label>
+                        <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>{tr("Chính sách")}{batBuoc ? " *" : ""}</label>
                         <Select
                           value={d.chinh_sach}
                           onChange={(v) => updateDraft(idx, { chinh_sach: v })}
-                          options={[{ value: "", label: "-- Không chọn --" }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
+                          options={[{ value: "", label: tr("-- Không chọn --") }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
                         />
                       </div>
                     </div>
@@ -525,20 +521,20 @@ export function TaoDonTab({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT khách hàng</label>
+                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("TT khách hàng")}</label>
                         <input
                           value={d.tt_khach_hang}
                           onChange={(e) => updateDraft(idx, { tt_khach_hang: e.target.value })}
-                          placeholder="Tên/SĐT/địa chỉ khách hàng liên quan"
+                          placeholder={tr("Tên/SĐT/địa chỉ khách hàng liên quan")}
                           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT+Mail duyệt</label>
+                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("TT+Mail duyệt")}</label>
                         <input
                           value={d.tt_mail_duyet}
                           onChange={(e) => updateDraft(idx, { tt_mail_duyet: e.target.value })}
-                          placeholder="Mã/nội dung email phê duyệt đặc biệt (nếu có)"
+                          placeholder={tr("Mã/nội dung email phê duyệt đặc biệt (nếu có)")}
                           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                         />
                       </div>
@@ -550,13 +546,12 @@ export function TaoDonTab({
                     onClick={() => setInfoExpandedIdx((s) => new Set(s).add(idx))}
                     className="focus-ring self-start text-xs font-semibold text-[var(--ink-500)] hover:text-[var(--ocean-600)]"
                   >
-                    + Thông tin bổ sung (Hóa đơn/Chính sách/TT khách hàng…) ▾
-                  </button>
+                    {tr("+ Thông tin bổ sung (Hóa đơn/Chính sách/TT khách hàng…) ▾")}</button>
                 )}
 
                 {/* Ghi chu - luon o CUOI CUNG cua card (phan hoi UX dot 2). */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Ghi chú (tuỳ chọn)</label>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{tr("Ghi chú (tuỳ chọn)")}</label>
                   <input
                     value={d.ghi_chu}
                     onChange={(e) => updateDraft(idx, { ghi_chu: e.target.value })}

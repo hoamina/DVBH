@@ -3,6 +3,7 @@ import { Badge, type BadgeTone } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { CaseImageGallery } from "./CaseImageGallery";
 import { fmtDateTime, type LichHenItem } from "../types";
+import { tr } from "../i18n/tr";
 
 // Tab "Lịch hẹn" (CaseDetail, trong card "Thông tin xử lý") - nguon Odoo OCRM (model
 // technical.service.appointment). 1 ca co the hen nhieu lan (hen lai/doi lich) - hien thi TOAN BO
@@ -20,14 +21,14 @@ export function parseLichHen(raw: string | null | undefined): LichHenItem[] {
 }
 
 const NGUOI_HEN_LABEL: Record<string, string> = {
-  technician: "KTV hẹn lịch",
-  customer: "Khách hàng hẹn lịch",
+  technician: tr("KTV hẹn lịch"),
+  customer: tr("Khách hàng hẹn lịch"),
 };
 
 const TRANG_THAI: Record<string, { label: string; tone: BadgeTone }> = {
-  active: { label: "Đang hoạt động", tone: "teal" },
-  moved: { label: "Đã chuyển", tone: "amber" },
-  cancelled: { label: "Đã hủy", tone: "coral" },
+  active: { label: tr("Đang hoạt động"), tone: "teal" },
+  moved: { label: tr("Đã chuyển"), tone: "amber" },
+  cancelled: { label: tr("Đã hủy"), tone: "coral" },
 };
 
 function trangThaiBadge(code: string | null) {
@@ -64,8 +65,7 @@ function LichHenItemCard({ item, isGanNhat }: { item: LichHenItem; isGanNhat: bo
         <div className="flex items-center gap-1.5 shrink-0">
           {isGanNhat && (
             <Badge tone="ocean" solid>
-              Hiện tại
-            </Badge>
+              {tr("Hiện tại")}</Badge>
           )}
           {tt && <Badge tone={tt.tone}>{tt.label}</Badge>}
         </div>
@@ -73,11 +73,11 @@ function LichHenItemCard({ item, isGanNhat }: { item: LichHenItem; isGanNhat: bo
       {item.ghi_chu && <div className="text-sm text-[var(--ink-700)] mt-2">{item.ghi_chu}</div>}
       {anh.length > 0 && (
         <div className="mt-3">
-          <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">Ảnh bằng chứng ({anh.length})</div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Ảnh bằng chứng (")}{anh.length})</div>
           <CaseImageGallery linkHinhAnh={JSON.stringify(anh.map((a) => a.url))} />
         </div>
       )}
-      {item.ngay_tao && <div className="text-[11px] text-[var(--ink-400)] mt-2">Tạo lúc {fmtDateTime(item.ngay_tao)}</div>}
+      {item.ngay_tao && <div className="text-[11px] text-[var(--ink-400)] mt-2">{tr("Tạo lúc")} {fmtDateTime(item.ngay_tao)}</div>}
     </Card>
   );
 }
@@ -85,7 +85,7 @@ function LichHenItemCard({ item, isGanNhat }: { item: LichHenItem; isGanNhat: bo
 export function LichHenPanel({ items }: { items: LichHenItem[] }) {
   const ganNhatSttVal = useMemo(() => ganNhatStt(items), [items]);
   if (items.length === 0) {
-    return <div className="text-sm text-[var(--ink-400)] italic">Ca này chưa có lịch hẹn kỹ thuật được ghi nhận (nguồn Odoo).</div>;
+    return <div className="text-sm text-[var(--ink-400)] italic">{tr("Ca này chưa có lịch hẹn kỹ thuật được ghi nhận (nguồn Odoo).")}</div>;
   }
   // Moi nhat len dau (theo thu tu tao, stt giam dan) de de thay lan hen gan nhat / hen lai gan day.
   const sorted = [...items].sort((a, b) => b.stt - a.stt);

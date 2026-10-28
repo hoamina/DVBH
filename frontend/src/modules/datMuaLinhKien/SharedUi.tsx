@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Btn, type BtnVariant } from "../../components/ui/Btn";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { tr } from "../../i18n/tr";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -17,7 +18,7 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
   if (chips.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5 mb-2">
-      <span className="text-xs text-[var(--ink-500)]">Đang lọc:</span>
+      <span className="text-xs text-[var(--ink-500)]">{tr("Đang lọc:")}</span>
       {chips.map((c, i) => (
         <button
           key={i}
@@ -34,8 +35,7 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
           onClick={() => chips.forEach((c) => c.onClear())}
           className="focus-ring text-xs text-[var(--ink-500)] underline decoration-dotted underline-offset-2 hover:text-[var(--ink-700)]"
         >
-          Xoá tất cả bộ lọc
-        </button>
+          {tr("Xoá tất cả bộ lọc")}</button>
       )}
     </div>
   );

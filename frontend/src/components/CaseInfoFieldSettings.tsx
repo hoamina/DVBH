@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { tr } from "../i18n/tr";
 
 // Nut ⚙ "Tuy chon hien thi" o the "Thong tin case" (CaseDetail, 2026-10-22): nguoi dung tu an/hien tung truong de tap trung
 // vao thong tin minh can. Luu localStorage tung may (khong goi server, khong doc/ghi D1). Khoa = nhan hien thi cua truong
@@ -7,7 +8,7 @@ export const CASE_INFO_AN_TRUONG_KEY = "dvbh_case_info_an_truong";
 
 export const NHOM_TRUONG_CASE_INFO: { nhom: string; truong: string[] }[] = [
   {
-    nhom: "Cơ bản",
+    nhom: tr("Cơ bản"),
     truong: [
       "Khách hàng",
       "Serial",
@@ -27,7 +28,7 @@ export const NHOM_TRUONG_CASE_INFO: { nhom: string; truong: string[] }[] = [
     ],
   },
   {
-    nhom: "Xử lý",
+    nhom: tr("Xử lý"),
     truong: [
       "Nhóm / Loại yêu cầu",
       "Mức độ",
@@ -42,7 +43,7 @@ export const NHOM_TRUONG_CASE_INFO: { nhom: string; truong: string[] }[] = [
       "Nội dung xử lý chi tiết",
     ],
   },
-  { nhom: "Bổ sung", truong: ["Hình ảnh báo cáo công việc", "Doanh thu", "Phân loại & nguồn gốc"] },
+  { nhom: tr("Bổ sung"), truong: ["Hình ảnh báo cáo công việc", "Doanh thu", "Phân loại & nguồn gốc"] },
 ];
 
 export function readAnTruong(): Set<string> {
@@ -94,27 +95,26 @@ export function CaseInfoFieldSettings({ an, onChange }: { an: Set<string>; onCha
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title="Chọn thông tin hiển thị (lưu trên máy này)"
+        title={tr("Chọn thông tin hiển thị (lưu trên máy này)")}
         className={`focus-ring rounded-lg border px-2 py-1 text-xs font-semibold ${
           an.size > 0 ? "border-[var(--ocean-500)] text-[var(--ocean-600)] bg-[var(--ocean-100)]" : "border-[var(--line)] text-[var(--ink-500)] hover:bg-slate-100"
         }`}
       >
-        ⚙{an.size > 0 ? ` Ẩn ${an.size}` : ""}
+        ⚙{an.size > 0 ? " " + tr("Ẩn {0}", an.size) : ""}
       </button>
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-[300px] max-h-[60vh] overflow-y-auto rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 shadow-xl text-sm">
           <div className="flex items-center justify-between mb-2">
-            <div className="font-display font-bold text-[var(--ink-900)]">Thông tin hiển thị</div>
+            <div className="font-display font-bold text-[var(--ink-900)]">{tr("Thông tin hiển thị")}</div>
             <button
               type="button"
               disabled={an.size === 0}
               onClick={() => onChange(new Set())}
               className="text-xs font-semibold text-[var(--ocean-600)] hover:underline disabled:opacity-40 disabled:no-underline"
             >
-              Hiện tất cả
-            </button>
+              {tr("Hiện tất cả")}</button>
           </div>
-          <div className="text-[11px] text-[var(--ink-400)] mb-2">Bỏ tick để ẩn. Chỉ lưu trên trình duyệt máy này.</div>
+          <div className="text-[11px] text-[var(--ink-400)] mb-2">{tr("Bỏ tick để ẩn. Chỉ lưu trên trình duyệt máy này.")}</div>
           {NHOM_TRUONG_CASE_INFO.map(({ nhom, truong }) => {
             const hienHet = truong.every((t) => !an.has(t));
             return (
@@ -127,7 +127,7 @@ export function CaseInfoFieldSettings({ an, onChange }: { an: Set<string>; onCha
                   {truong.map((t) => (
                     <label key={t} className="flex items-center gap-2 py-0.5 text-[var(--ink-600)] cursor-pointer">
                       <input type="checkbox" checked={!an.has(t)} onChange={(e) => doi(t, e.target.checked)} />
-                      {t}
+                      {tr(t)}
                     </label>
                   ))}
                 </div>

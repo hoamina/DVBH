@@ -69,6 +69,7 @@ import { TinhHuyenFilterControl } from "../components/TinhHuyenFilterControl";
 import { useDiaGioiLoc, useOnDiaGioiModeChange, gomTheoDiaGioi, soSanhTen, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 import { KhaoSatLoaiTruTab } from "../components/KhaoSatLoaiTru";
 import { KhaoSatTheoDoiLoaiTruTab } from "../components/KhaoSatTheoDoiLoaiTru";
+import { tr } from "../i18n/tr";
 
 interface FunnelData {
   tongCaMo: number;
@@ -184,8 +185,8 @@ interface SurveyBaoCaoRow {
 }
 
 const SURVEY_REPORT_DIM_OPTIONS = [
-  { value: "khu_vuc", label: "Khu vực" },
-  { value: "tinh", label: "Tỉnh" },
+  { value: "khu_vuc", label: tr("Khu vực") },
+  { value: "tinh", label: tr("Tỉnh") },
   { value: "ky_thuat_vien", label: "KTV" },
 ];
 
@@ -327,7 +328,7 @@ export function loaiTruLoaiLoi(row: CanKhaoSatRow): Set<LoaiLoi> {
       .map(([, loai]) => loai),
   );
 }
-export const LOAI_TRU_CANH_BAO = "KTV thuộc Danh sách loại trừ trong khoảng ngày này — nghi ngờ này không cần gọi";
+export const LOAI_TRU_CANH_BAO = tr("KTV thuộc Danh sách loại trừ trong khoảng ngày này — nghi ngờ này không cần gọi");
 
 export function neededLoaiLoi(row: CanKhaoSatRow): LoaiLoi[] {
   return Object.entries(FLAG_TO_LOAI)
@@ -336,11 +337,11 @@ export function neededLoaiLoi(row: CanKhaoSatRow): LoaiLoi[] {
 }
 
 const VIEWS = [
-  { key: "bao-cao", label: "Báo cáo" },
-  { key: "danh-sach", label: "Danh sách chi tiết" },
-  { key: "nhap-excel", label: "Nhập Excel" },
-  { key: "loai-tru", label: "Danh sách loại trừ" },
-  { key: "theo-doi-loai-tru", label: "Theo dõi KTV loại trừ" },
+  { key: "bao-cao", label: tr("Báo cáo") },
+  { key: "danh-sach", label: tr("Danh sách chi tiết") },
+  { key: "nhap-excel", label: tr("Nhập Excel") },
+  { key: "loai-tru", label: tr("Danh sách loại trừ") },
+  { key: "theo-doi-loai-tru", label: tr("Theo dõi KTV loại trừ") },
 ];
 
 interface ImportViPhamSummary {
@@ -485,7 +486,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   const currentMonth = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7);
   const danhSachMonthOptions = (monthOptions?.months ?? []).map((m) => ({ value: m, label: m }));
   if (!danhSachMonthOptions.some((o) => o.value === currentMonth)) {
-    danhSachMonthOptions.unshift({ value: currentMonth, label: `${currentMonth} (hiện tại)` });
+    danhSachMonthOptions.unshift({ value: currentMonth, label: tr("{0} (hiện tại)", currentMonth) });
   }
 
   // "Can khao sat"/"Qua han khao sat" - CHOT 2026-08-02: doc song tu D1, gioi han theo thang mo ca
@@ -952,7 +953,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     mutationFn: ({ id, chot, ket_qua_cap_1 }: { id: string; chot: boolean; ket_qua_cap_1?: string }) =>
       api.patch(`/vi-pham/${id}/cap2`, { chot, ket_qua_cap_1 }),
     onSuccess: (_d, vars) => {
-      addToast(`QC đã ${vars.chot ? "chốt" : "bỏ"} vi phạm cấp 2 cho ${vars.id}`);
+      addToast(vars.chot ? tr("QC đã chốt vi phạm cấp 2 cho {0}", vars.id) : tr("QC đã bỏ vi phạm cấp 2 cho {0}", vars.id));
       setQcKetQuaCap1Override((prev) => {
         const next = { ...prev };
         delete next[vars.id];
@@ -992,8 +993,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     <div className="anim-in">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <div className="text-sm text-[var(--ink-600)] max-w-2xl">
-          Các ca được hệ thống tự động gắn cờ <b>“nghi ngờ vi phạm – cần khảo sát”</b>. CSKH xác minh thực tế qua điện thoại trước khi kết luận có vi phạm hay không.
-        </div>
+          {tr("Các ca được hệ thống tự động gắn cờ")} <b>{tr("“nghi ngờ vi phạm – cần khảo sát”")}</b>{tr(". CSKH xác minh thực tế qua điện thoại trước khi kết luận có vi phạm hay không.")}</div>
       </div>
 
       <div className="flex items-center justify-between gap-2 flex-wrap mb-1 mt-2">
@@ -1004,16 +1004,15 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             setPage(1);
           }}
           options={[
-            { value: "", label: "Tất cả khu vực" },
-            { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+            { value: "", label: tr("Tất cả khu vực") },
+            { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
             ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
           myAreas={myAreas}
         />
         {canSurvey && (
           <Btn size="sm" onClick={() => setWorkspaceOpen(true)}>
-            🎧 Vào chế độ gọi khảo sát
-          </Btn>
+            {tr("🎧 Vào chế độ gọi khảo sát")}</Btn>
         )}
       </div>
 
@@ -1023,39 +1022,39 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
         <div className="mt-4">
           <div className="flex items-center gap-3 mb-4">
             <Btn size="sm" onClick={refreshReport} disabled={isRefreshingReport}>
-              {isRefreshingReport ? "⏳ Đang cập nhật..." : "🔄 Cập nhật báo cáo"}
+              {isRefreshingReport ? tr("⏳ Đang cập nhật...") : tr("🔄 Cập nhật báo cáo")}
             </Btn>
             <span className="text-xs text-[var(--ink-400)]">
               {reportLastUpdated
-                ? `Cập nhật lần cuối: ${reportLastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ${reportLastUpdated.toLocaleDateString("vi-VN")}`
-                : "Chưa tải báo cáo"}
+                ? tr("Cập nhật lần cuối: {0} {1}", reportLastUpdated.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }), reportLastUpdated.toLocaleDateString("vi-VN"))
+                : tr("Chưa tải báo cáo")}
             </span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <Card className="p-4">
               <div className="font-display font-bold text-sm mb-3">
-                Phễu xử lý vi phạm <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, theo thời gian mở ca)</span>
+                {tr("Phễu xử lý vi phạm")} <span className="font-normal text-xs text-[var(--ink-400)]">{tr("(tháng")} {thangReport}{tr(", theo thời gian mở ca)")}</span>
               </div>
-              <div className="text-xs text-[var(--ink-400)] mb-2">"Cần gọi" = "Chưa gọi lần nào" + "Chờ gọi lại" (cuộc gọi gần nhất tích "cần gọi lại") + "Còn lỗi chưa gọi" (đã gọi thành công 1 lỗi nhưng ca còn lỗi khác chưa từng gọi) — 3 nhóm loại trừ nhau, không cộng dồn thêm vào tổng phễu. Ca đã quá hạn 3 ngày không còn tính vào "Cần gọi" nữa.</div>
+              <div className="text-xs text-[var(--ink-400)] mb-2">{tr("\"Cần gọi\" = \"Chưa gọi lần nào\" + \"Chờ gọi lại\" (cuộc gọi gần nhất tích \"cần gọi lại\") + \"Còn lỗi chưa gọi\" (đã gọi thành công 1 lỗi nhưng ca còn lỗi khác chưa từng gọi) — 3 nhóm loại trừ nhau, không cộng dồn thêm vào tổng phễu. Ca đã quá hạn 3 ngày không còn tính vào \"Cần gọi\" nữa.")}</div>
               <ChartCanvas
                 type="bar"
                 data={{
                   labels: [
-                    "Tổng ca mở trong tháng",
-                    "Số ca nghi ngờ",
-                    "Ca đã gọi",
-                    "Số ca quá hạn chưa xử lý",
-                    "Ca không cần gọi",
-                    "Cần gọi",
-                    "Chờ gọi lại",
-                    "Còn lỗi chưa gọi",
-                    "Số ca vi phạm (cấp 1)",
-                    "Số ca QC đã chốt",
+                    tr("Tổng ca mở trong tháng"),
+                    tr("Số ca nghi ngờ"),
+                    tr("Ca đã gọi"),
+                    tr("Số ca quá hạn chưa xử lý"),
+                    tr("Ca không cần gọi"),
+                    tr("Cần gọi"),
+                    tr("Chờ gọi lại"),
+                    tr("Còn lỗi chưa gọi"),
+                    tr("Số ca vi phạm (cấp 1)"),
+                    tr("Số ca QC đã chốt"),
                   ],
                   datasets: [
                     {
-                      label: "Số ca",
+                      label: tr("Số ca"),
                       data: [
                         funnel?.tongCaMo ?? 0,
                         funnel?.nghiNgo ?? 0,
@@ -1078,13 +1077,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             </Card>
             <Card className="p-4">
               <div className="font-display font-bold text-sm mb-3">
-                Top 10 KTV nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, tỷ lệ trên tổng số ca của KTV trong tháng)</span>
+                {tr("Top 10 KTV nhiều vi phạm đã xác nhận nhất")} <span className="font-normal text-xs text-[var(--ink-400)]">{tr("(tháng")} {thangReport}{tr(", tỷ lệ trên tổng số ca của KTV trong tháng)")}</span>
               </div>
               <ChartCanvas
                 type="bar"
                 data={{
                   labels: (ktvBoard?.rows ?? []).map((r) => r.nhom ?? "—"),
-                  datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (ktvBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D84C4C", borderRadius: 6 }],
+                  datasets: [{ label: tr("Tỷ lệ vi phạm (%)"), data: (ktvBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D84C4C", borderRadius: 6 }],
                 }}
                 options={{
                   indexAxis: "y" as const,
@@ -1106,15 +1105,15 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           <Card className="p-4 mb-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex items-center gap-1.5">
-                <div className="font-display font-bold text-sm">Báo cáo khảo sát theo khu vực</div>
+                <div className="font-display font-bold text-sm">{tr("Báo cáo khảo sát theo khu vực")}</div>
                 <span
                   className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--surface-200)] text-[var(--ink-400)] text-[10px] font-bold cursor-help shrink-0"
                   title={[
-                    canViewDanhSach ? 'Bấm vào số "Nghi ngờ" để lọc thẳng xuống danh sách chi tiết.' : "",
-                    'Lưu ý: "Cần gọi" chỉ tính ca còn tồn đọng và chưa quá hạn 3 ngày (chưa có kết luận vi phạm, chưa đánh dấu "không cần gọi lại") nên luôn ≤ "Tổng nghi ngờ" (đếm mọi ca từng bị gắn cờ nghi ngờ, kể cả đã xử lý xong hoặc đã quá hạn) — khác định nghĩa, không phải lỗi tính toán. Ca đã quá hạn 3 ngày không còn tính trong "Cần gọi" ở đây — vẫn nằm trong tab "Quá hạn khảo sát" riêng ở Danh sách chi tiết.',
-                    '"Cần gọi" = ca chưa gọi lần nào + "Chờ gọi lại" (cuộc gọi gần nhất bị tích "cần gọi lại" — không bắt máy/sai số) + "Còn lỗi chưa gọi" (đã gọi thành công cho (các) lỗi khác nhưng ca vẫn còn 1 lỗi khác chưa từng gọi — ví dụ ca có 3 lỗi, đã gọi xong 2, lỗi thứ 3 chưa đụng tới).',
-                    '"Bỏ qua" = kết quả cuộc gọi "Không cần khảo sát" · "Đã gọi" = có kết luận và khác "Không cần khảo sát" · "Đã gọi thành công" = kết quả cuộc gọi "Liên hệ thành công" (áp dụng cho cả 4 nhóm: 120 phút / Quá 24h / Lỡ kế hoạch / Hẹn lại).',
-                    "% Nghi ngờ = nghi ngờ / tổng ca mở · % Đã gọi = đã gọi / nghi ngờ · % Vi phạm = vi phạm / đã gọi thành công (áp dụng cho cả 4 nhóm).",
+                    canViewDanhSach ? tr("Bấm vào số \"Nghi ngờ\" để lọc thẳng xuống danh sách chi tiết.") : "",
+                    tr("Lưu ý: \"Cần gọi\" chỉ tính ca còn tồn đọng và chưa quá hạn 3 ngày (chưa có kết luận vi phạm, chưa đánh dấu \"không cần gọi lại\") nên luôn ≤ \"Tổng nghi ngờ\" (đếm mọi ca từng bị gắn cờ nghi ngờ, kể cả đã xử lý xong hoặc đã quá hạn) — khác định nghĩa, không phải lỗi tính toán. Ca đã quá hạn 3 ngày không còn tính trong \"Cần gọi\" ở đây — vẫn nằm trong tab \"Quá hạn khảo sát\" riêng ở Danh sách chi tiết."),
+                    tr("\"Cần gọi\" = ca chưa gọi lần nào + \"Chờ gọi lại\" (cuộc gọi gần nhất bị tích \"cần gọi lại\" — không bắt máy/sai số) + \"Còn lỗi chưa gọi\" (đã gọi thành công cho (các) lỗi khác nhưng ca vẫn còn 1 lỗi khác chưa từng gọi — ví dụ ca có 3 lỗi, đã gọi xong 2, lỗi thứ 3 chưa đụng tới)."),
+                    tr("\"Bỏ qua\" = kết quả cuộc gọi \"Không cần khảo sát\" · \"Đã gọi\" = có kết luận và khác \"Không cần khảo sát\" · \"Đã gọi thành công\" = kết quả cuộc gọi \"Liên hệ thành công\" (áp dụng cho cả 4 nhóm: 120 phút / Quá 24h / Lỡ kế hoạch / Hẹn lại)."),
+                    tr("% Nghi ngờ = nghi ngờ / tổng ca mở · % Đã gọi = đã gọi / nghi ngờ · % Vi phạm = vi phạm / đã gọi thành công (áp dụng cho cả 4 nhóm)."),
                   ]
                     .filter(Boolean)
                     .join("\n\n")}
@@ -1140,8 +1139,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   )
                 }
               >
-                ⬇ Xuất Excel
-              </Btn>
+                {tr("⬇ Xuất Excel")}</Btn>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap mb-3">
@@ -1165,7 +1163,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               <Select
                 value={ktvFilter}
                 onChange={setKtvFilter}
-                options={[{ value: "", label: "Tất cả KTV" }, ...(khuVucOptions?.kyThuatVien ?? []).map((k) => ({ value: k, label: k }))]}
+                options={[{ value: "", label: tr("Tất cả KTV") }, ...(khuVucOptions?.kyThuatVien ?? []).map((k) => ({ value: k, label: k }))]}
               />
               <Select
                 value={nguonCrmFilter}
@@ -1174,7 +1172,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   setPage(1);
                 }}
                 options={[
-                  { value: "", label: "Nguồn CRM: Toàn bộ" },
+                  { value: "", label: tr("Nguồn CRM: Toàn bộ") },
                   { value: "crm_3t", label: "CRM 3T" },
                   { value: "crm_krf", label: "CRM KRF" },
                 ]}
@@ -1183,7 +1181,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 <Select
                   value={nguoiKhaoSatFilter}
                   onChange={setNguoiKhaoSatFilter}
-                  options={[{ value: "", label: "Tất cả CSKH khảo sát" }, ...(cskhList?.rows ?? []).map((u) => ({ value: u.email, label: u.ten ?? u.email }))]}
+                  options={[{ value: "", label: tr("Tất cả CSKH khảo sát") }, ...(cskhList?.rows ?? []).map((u) => ({ value: u.email, label: u.ten ?? u.email }))]}
                 />
               )}
               <input
@@ -1193,7 +1191,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
               <div className="flex items-center gap-1">
-                <span className="text-xs text-[var(--ink-400)]">Từ ngày</span>
+                <span className="text-xs text-[var(--ink-400)]">{tr("Từ ngày")}</span>
                 <input
                   type="date"
                   value={ngayGoiTuReport}
@@ -1202,9 +1200,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     setPage(1);
                   }}
                   className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                  title="Lọc theo khoảng ngày gọi - từ ngày"
+                  title={tr("Lọc theo khoảng ngày gọi - từ ngày")}
                 />
-                <span className="text-xs text-[var(--ink-400)]">đến</span>
+                <span className="text-xs text-[var(--ink-400)]">{tr("đến")}</span>
                 <input
                   type="date"
                   value={ngayGoiDenReport}
@@ -1213,7 +1211,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     setPage(1);
                   }}
                   className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                  title="Lọc theo khoảng ngày gọi - đến ngày"
+                  title={tr("Lọc theo khoảng ngày gọi - đến ngày")}
                 />
                 {(ngayGoiTuReport || ngayGoiDenReport) && (
                   <button
@@ -1224,10 +1222,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                       setPage(1);
                     }}
                     className="text-xs text-[var(--ink-400)] hover:text-[var(--ink-600)] whitespace-nowrap"
-                    title="Xóa lọc theo ngày"
+                    title={tr("Xóa lọc theo ngày")}
                   >
-                    ✖ Xóa lọc ngày
-                  </button>
+                    {tr("✖ Xóa lọc ngày")}</button>
                 )}
               </div>
             </div>
@@ -1238,98 +1235,96 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th rowSpan={3} className="py-2 pr-3 align-bottom">{nhanDimBaoCao(reportDim)}</th>
                     <th colSpan={34} className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-50)] text-[var(--ocean-600)]" title="Loc va nhom theo thoi_gian_cskh_tiep_nhan (ngay ca duoc mo)">
-                      Tính toán theo thời gian mở ca
-                    </th>
+                      {tr("Tính toán theo thời gian mở ca")}</th>
                     <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)] bg-slate-100" title="Loc va nhom theo ngay_gio_thuc_hien (ngay CSKH thuc hien cuoc goi)">
-                      Tính theo thời gian gọi
-                    </th>
+                      {tr("Tính theo thời gian gọi")}</th>
                   </tr>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">
-                      <ThInfo label="Ca CRM mở mới" info="Số ca có 'Thời gian CSKH tiếp nhận' (ngày mở ca) nằm trong kỳ lọc." />
+                      <ThInfo label={tr("Ca CRM mở mới")} info={tr("Số ca có 'Thời gian CSKH tiếp nhận' (ngày mở ca) nằm trong kỳ lọc.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Ca CRM đã đóng" info="Số ca có 'Thời gian hoàn thành' nằm trong kỳ lọc - khác mốc thời gian với cột 'Ca CRM mở mới' bên cạnh." />
+                      <ThInfo label={tr("Ca CRM đã đóng")} info={tr("Số ca có 'Thời gian hoàn thành' nằm trong kỳ lọc - khác mốc thời gian với cột 'Ca CRM mở mới' bên cạnh.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
                       <ThInfo
-                        label={reportDim === "ky_thuat_vien" ? "Loại trừ" : "KTV đang loại trừ"}
-                        info={`KTV nằm trong "Danh sách loại trừ" tại ngày cuối kỳ báo cáo${baoCaoKhuVuc?.moc_loai_tru ? ` (${baoCaoKhuVuc.moc_loai_tru.split("-").reverse().join("/")})` : ""}. Nhóm theo KTV: trạng thái + loại lỗi được loại trừ. Nhóm theo khu vực/tỉnh: số KTV đang loại trừ trong số KTV có ca mở trong kỳ ở nhóm đó (mỗi KTV đếm 1 lần ở dòng Tổng cộng).`}
+                        label={reportDim === "ky_thuat_vien" ? tr("Loại trừ") : tr("KTV đang loại trừ")}
+                        info={tr("KTV nằm trong \"Danh sách loại trừ\" tại ngày cuối kỳ báo cáo{0}. Nhóm theo KTV: trạng thái + loại lỗi được loại trừ. Nhóm theo khu vực/tỉnh: số KTV đang loại trừ trong số KTV có ca mở trong kỳ ở nhóm đó (mỗi KTV đếm 1 lần ở dòng Tổng cộng).", baoCaoKhuVuc?.moc_loai_tru ? ` (${baoCaoKhuVuc.moc_loai_tru.split("-").reverse().join("/")})` : "")}
                       />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="% KTV chủ động 120'" info="(Ca CRM mở mới − Nghi ngờ 120 phút) / Ca CRM mở mới × 100 - tỷ lệ ca KHÔNG bị nghi ngờ lỗi 120 phút." />
+                      <ThInfo label={tr("% KTV chủ động 120'")} info={tr("(Ca CRM mở mới − Nghi ngờ 120 phút) / Ca CRM mở mới × 100 - tỷ lệ ca KHÔNG bị nghi ngờ lỗi 120 phút.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
                       <ThInfo
-                        label="Tỷ lệ % đã gọi hẹn 120'"
-                        info="(Ca CRM mở mới − (Nghi ngờ 120 phút − Đã gọi hẹn thành công 120')) / Ca CRM mở mới × 100. 'Đã gọi hẹn thành công' = cuộc gọi kết quả 'Liên hệ thành công' VÀ đã chọn 'Đã hẹn KH'."
+                        label={tr("Tỷ lệ % đã gọi hẹn 120'")}
+                        info={tr("(Ca CRM mở mới − (Nghi ngờ 120 phút − Đã gọi hẹn thành công 120')) / Ca CRM mở mới × 100. 'Đã gọi hẹn thành công' = cuộc gọi kết quả 'Liên hệ thành công' VÀ đã chọn 'Đã hẹn KH'.")}
                       />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom bg-[var(--amber-100)] text-[var(--amber-700)]">
-                      <ThInfo label="Cần gọi" info="Số ca đang cần khảo sát, còn trong hạn xử lý (chưa quá hạn) = 'Chờ gọi lại' + 'Còn lỗi chưa gọi' + chưa gọi lần nào." />
+                      <ThInfo label={tr("Cần gọi")} info={tr("Số ca đang cần khảo sát, còn trong hạn xử lý (chưa quá hạn) = 'Chờ gọi lại' + 'Còn lỗi chưa gọi' + chưa gọi lần nào.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Chờ gọi lại" info="Trong số 'Cần gọi': ca có cuộc gọi GẦN NHẤT bị tích 'Cần gọi lại'." />
+                      <ThInfo label={tr("Chờ gọi lại")} info={tr("Trong số 'Cần gọi': ca có cuộc gọi GẦN NHẤT bị tích 'Cần gọi lại'.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Còn lỗi chưa gọi" info="Trong số 'Cần gọi': ca đã có ít nhất 1 cuộc gọi (cho loại lỗi khác) nhưng còn 1 loại lỗi khác hoàn toàn chưa từng gọi." />
+                      <ThInfo label={tr("Còn lỗi chưa gọi")} info={tr("Trong số 'Cần gọi': ca đã có ít nhất 1 cuộc gọi (cho loại lỗi khác) nhưng còn 1 loại lỗi khác hoàn toàn chưa từng gọi.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Tổng nghi ngờ" info="Tổng 4 cột 'Nghi ngờ' (120 phút + Quá 24h + Lỡ kế hoạch + Hẹn lại)." />
+                      <ThInfo label={tr("Tổng nghi ngờ")} info={tr("Tổng 4 cột 'Nghi ngờ' (120 phút + Quá 24h + Lỡ kế hoạch + Hẹn lại).")} />
                     </th>
-                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">120 phút</th>
-                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">Quá 24h</th>
-                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">Lỡ kế hoạch</th>
-                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">Hẹn lại</th>
+                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">{tr("120 phút")}</th>
+                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">{tr("Quá 24h")}</th>
+                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">{tr("Lỡ kế hoạch")}</th>
+                    <th colSpan={5} className="py-1 px-2 text-center border-l border-[var(--line)]">{tr("Hẹn lại")}</th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Tổng vi phạm" info="Tổng 4 cột 'Vi phạm' (120 phút + Quá 24h + Lỡ kế hoạch + Hẹn lại)." />
-                    </th>
-                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="KTV giải trình" info="Trong số vi phạm: có ít nhất 1 bản giải trình do KTV tự gửi qua hệ thống vipham (API)." />
+                      <ThInfo label={tr("Tổng vi phạm")} info={tr("Tổng 4 cột 'Vi phạm' (120 phút + Quá 24h + Lỡ kế hoạch + Hẹn lại).")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="GS giải trình" info="Trong số vi phạm: có ít nhất 1 bản giải trình do Giám sát nhập tay thay KTV." />
+                      <ThInfo label={tr("KTV giải trình")} info={tr("Trong số vi phạm: có ít nhất 1 bản giải trình do KTV tự gửi qua hệ thống vipham (API).")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="KSNB chốt lỗi" info="Số vi phạm đã được KSNB/QC chốt là lỗi thật." />
+                      <ThInfo label={tr("GS giải trình")} info={tr("Trong số vi phạm: có ít nhất 1 bản giải trình do Giám sát nhập tay thay KTV.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="KSNB bỏ lỗi" info="Số vi phạm đã được KSNB/QC chốt bỏ (không tính lỗi)." />
+                      <ThInfo label={tr("KSNB chốt lỗi")} info={tr("Số vi phạm đã được KSNB/QC chốt là lỗi thật.")} />
+                    </th>
+                    <th rowSpan={2} className="py-2 pr-3 align-bottom">
+                      <ThInfo label={tr("KSNB bỏ lỗi")} info={tr("Số vi phạm đã được KSNB/QC chốt bỏ (không tính lỗi).")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom border-l border-[var(--line)]">
-                      <ThInfo label="Đã khảo sát" info="Số ca PHÂN BIỆT có ít nhất 1 cuộc gọi trong kỳ - tính theo ngày THỰC HIỆN cuộc gọi, khác mốc 'mở ca' ở nhóm bên trái." />
+                      <ThInfo label={tr("Đã khảo sát")} info={tr("Số ca PHÂN BIỆT có ít nhất 1 cuộc gọi trong kỳ - tính theo ngày THỰC HIỆN cuộc gọi, khác mốc 'mở ca' ở nhóm bên trái.")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Khảo sát thành công" info="Số CUỘC GỌI (không phải số ca) có kết quả 'Liên hệ thành công', trên tổng số cuộc gọi trong kỳ (tỷ lệ % kèm theo)." />
+                      <ThInfo label={tr("Khảo sát thành công")} info={tr("Số CUỘC GỌI (không phải số ca) có kết quả 'Liên hệ thành công', trên tổng số cuộc gọi trong kỳ (tỷ lệ % kèm theo).")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Khảo sát thất bại" info="Số cuộc gọi không thuộc 3 nhóm còn lại: không phải 'Cần gọi lại', không phải 'Không cần khảo sát', không phải 'Liên hệ thành công' (vd Không nghe máy, Số sai...)." />
+                      <ThInfo label={tr("Khảo sát thất bại")} info={tr("Số cuộc gọi không thuộc 3 nhóm còn lại: không phải 'Cần gọi lại', không phải 'Không cần khảo sát', không phải 'Liên hệ thành công' (vd Không nghe máy, Số sai...).")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Đang chờ khảo sát lại" info="Số cuộc gọi bị CSKH tích 'Cần gọi lại' (chưa kết luận xong)." />
+                      <ThInfo label={tr("Đang chờ khảo sát lại")} info={tr("Số cuộc gọi bị CSKH tích 'Cần gọi lại' (chưa kết luận xong).")} />
                     </th>
                     <th rowSpan={2} className="py-2 pr-3 align-bottom">
-                      <ThInfo label="Bỏ qua không khảo sát" info="Số cuộc gọi có kết quả 'Không cần khảo sát'." />
+                      <ThInfo label={tr("Bỏ qua không khảo sát")} info={tr("Số cuộc gọi có kết quả 'Không cần khảo sát'.")} />
                     </th>
                   </tr>
                   <tr className="text-left text-[var(--ink-400)] text-[10px] uppercase border-b border-[var(--line)]">
                     {[0, 1, 2, 3].map((i) => (
                       <Fragment key={i}>
                         <th className="py-1 px-2 text-center border-l border-[var(--line)] bg-[var(--ocean-100)] text-[var(--ocean-600)]">
-                          <ThInfo label="Nghi ngờ" info="Số ca bị hệ thống gắn cờ nghi ngờ lỗi này. Tỷ lệ % kèm theo = trên tổng 'Ca CRM mở mới'." />
+                          <ThInfo label={tr("Nghi ngờ")} info={tr("Số ca bị hệ thống gắn cờ nghi ngờ lỗi này. Tỷ lệ % kèm theo = trên tổng 'Ca CRM mở mới'.")} />
                         </th>
                         <th className="py-1 px-2 text-center bg-slate-50 text-[var(--ink-400)]">
-                          <ThInfo label="Bỏ qua" info="Trong số nghi ngờ: đã gọi và CSKH kết luận 'Không cần khảo sát'." />
+                          <ThInfo label={tr("Bỏ qua")} info={tr("Trong số nghi ngờ: đã gọi và CSKH kết luận 'Không cần khảo sát'.")} />
                         </th>
                         <th className="py-1 px-2 text-center bg-slate-50">
-                          <ThInfo label="Đã gọi" info="Trong số nghi ngờ: đã gọi và có kết luận (khác 'Không cần khảo sát'). Tỷ lệ % kèm theo = trên tổng số nghi ngờ cùng loại." />
+                          <ThInfo label={tr("Đã gọi")} info={tr("Trong số nghi ngờ: đã gọi và có kết luận (khác 'Không cần khảo sát'). Tỷ lệ % kèm theo = trên tổng số nghi ngờ cùng loại.")} />
                         </th>
                         <th className="py-1 px-2 text-center bg-teal-50 text-teal-700">
-                          <ThInfo label="Đã gọi thành công" info="Trong số đã gọi: kết quả cuộc gọi = 'Liên hệ thành công'." />
+                          <ThInfo label={tr("Đã gọi thành công")} info={tr("Trong số đã gọi: kết quả cuộc gọi = 'Liên hệ thành công'.")} />
                         </th>
                         <th className="py-1 px-2 text-center bg-[var(--coral-100)] text-[var(--coral-600)]">
-                          <ThInfo label="Vi phạm" info="Trong số nghi ngờ: đã bị kết luận vi phạm (QC đã chốt lỗi, hoặc CSKH kết luận lỗi mà QC chưa xét). Tỷ lệ % kèm theo = trên số 'Đã gọi thành công' cùng loại." />
+                          <ThInfo label={tr("Vi phạm")} info={tr("Trong số nghi ngờ: đã bị kết luận vi phạm (QC đã chốt lỗi, hoặc CSKH kết luận lỗi mà QC chưa xét). Tỷ lệ % kèm theo = trên số 'Đã gọi thành công' cùng loại.")} />
                         </th>
                       </Fragment>
                     ))}
@@ -1338,7 +1333,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 <tbody>
                   {sortedBaoCaoRows.length > 0 && (
                     <tr className="border-b border-[var(--line)] bg-slate-50 font-bold align-top">
-                      <td className="py-2 pr-3">Tổng cộng</td>
+                      <td className="py-2 pr-3">{tr("Tổng cộng")}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_tiep_nhan}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.tong_hoan_thanh}</td>
                       <td className="py-2 pr-3 font-mono">{baoCaoTotal.so_ktv_loai_tru || ""}</td>
@@ -1445,8 +1440,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   {sortedBaoCaoRows.length === 0 && (
                     <tr>
                       <td colSpan={29} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                        Không có dữ liệu.
-                      </td>
+                        {tr("Không có dữ liệu.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -1456,13 +1450,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
           <Card className="p-4 mb-4">
             <div className="font-display font-bold text-sm mb-3">
-              Top 10 Giám sát nhiều vi phạm đã xác nhận nhất <span className="font-normal text-xs text-[var(--ink-400)]">(tháng {thangReport}, tỷ lệ trên tổng số ca khu vực phụ trách trong tháng)</span>
+              {tr("Top 10 Giám sát nhiều vi phạm đã xác nhận nhất")} <span className="font-normal text-xs text-[var(--ink-400)]">{tr("(tháng")} {thangReport}{tr(", tỷ lệ trên tổng số ca khu vực phụ trách trong tháng)")}</span>
             </div>
             <ChartCanvas
               type="bar"
               data={{
                 labels: (giamSatBoard?.rows ?? []).map((r) => r.giam_sat ?? r.giam_sat_email ?? "—"),
-                datasets: [{ label: "Tỷ lệ vi phạm (%)", data: (giamSatBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D98A1F", borderRadius: 6 }],
+                datasets: [{ label: tr("Tỷ lệ vi phạm (%)"), data: (giamSatBoard?.rows ?? []).map((r) => r.ty_le_vi_pham), backgroundColor: "#D98A1F", borderRadius: 6 }],
               }}
               options={{
                 indexAxis: "y" as const,
@@ -1484,8 +1478,8 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
         <div className="mt-4">
           {(tinhFilter || quanHuyenFilter || ktvFilter) && (
             <div className="text-xs text-[var(--ink-400)] mb-2">
-              Đang lọc thêm:{" "}
-              {[tinhFilter && `Tỉnh "${tinhFilter}"`, quanHuyenFilter && `Huyện/Xã "${diaGioi.nhanCap2Cua(tinhFilter, quanHuyenFilter)}"`, ktvFilter && `KTV "${ktvFilter}"`].filter(Boolean).join(", ")}{" "}
+              {tr("Đang lọc thêm:")}{" "}
+              {[tinhFilter && tr("Tỉnh \"{0}\"", tinhFilter), quanHuyenFilter && tr("Huyện/Xã \"{0}\"", diaGioi.nhanCap2Cua(tinhFilter, quanHuyenFilter)), ktvFilter && `KTV "${ktvFilter}"`].filter(Boolean).join(", ")}{" "}
               <button
                 className="text-[var(--ocean-600)] underline"
                 onClick={() => {
@@ -1495,8 +1489,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   setPage(1);
                 }}
               >
-                Xóa bộ lọc
-              </button>
+                {tr("Xóa bộ lọc")}</button>
             </div>
           )}
           <Tabs
@@ -1506,12 +1499,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               setPage(1);
             }}
             tabs={[
-              { key: "can-khao-sat", label: "Cần gọi", count: counts?.["can-khao-sat"] },
-              { key: "qua-han-khao-sat", label: "Quá hạn khảo sát", count: counts?.["qua-han-khao-sat"] },
-              { key: "cho-qc", label: "Chờ QC chốt cấp 2", count: counts?.["cho-qc"] },
-              { key: "vi-pham-da-chot", label: "Vi phạm đã chốt", count: counts?.["vi-pham-da-chot"] },
-              { key: "da-xu-ly", label: "Đã xử lý xong", count: counts?.["da-xu-ly"] },
-              { key: "lich-su-khao-sat", label: "Lịch sử khảo sát" },
+              { key: "can-khao-sat", label: tr("Cần gọi"), count: counts?.["can-khao-sat"] },
+              { key: "qua-han-khao-sat", label: tr("Quá hạn khảo sát"), count: counts?.["qua-han-khao-sat"] },
+              { key: "cho-qc", label: tr("Chờ QC chốt cấp 2"), count: counts?.["cho-qc"] },
+              { key: "vi-pham-da-chot", label: tr("Vi phạm đã chốt"), count: counts?.["vi-pham-da-chot"] },
+              { key: "da-xu-ly", label: tr("Đã xử lý xong"), count: counts?.["da-xu-ly"] },
+              { key: "lich-su-khao-sat", label: tr("Lịch sử khảo sát") },
             ]}
           />
 
@@ -1520,7 +1513,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           <div className="flex items-center gap-4 mb-3 flex-wrap bg-slate-50 p-2.5 rounded-lg border border-[var(--line)]">
             {(tab === "can-khao-sat" || tab === "qua-han-khao-sat" || tab === "lich-su-khao-sat") && (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-[var(--ink-600)]">Tháng:</span>
+                <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Tháng:")}</span>
                 <Select value={thangDanhSach} onChange={(v) => { setThangDanhSach(v); setPage(1); }} options={danhSachMonthOptions} />
               </div>
             )}
@@ -1530,11 +1523,11 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 {/* Nut "dat nhanh" ghi thang vao localNgayTuFilter/localNgayDenFilter (xem
                     applyThangViPham) - KHONG phai 1 filter rieng, van dung chung o vao/den ben duoi
                     nen nguoi dung van chinh tay them duoc sau khi chon thang. */}
-                <span className="text-xs font-semibold text-[var(--ink-600)]">Tháng:</span>
+                <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Tháng:")}</span>
                 <Select
                   value={localThangViPhamFilter}
                   onChange={applyThangViPham}
-                  options={[{ value: "", label: "Tất cả các tháng" }, ...danhSachMonthOptions]}
+                  options={[{ value: "", label: tr("Tất cả các tháng") }, ...danhSachMonthOptions]}
                 />
               </div>
             )}
@@ -1545,18 +1538,18 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 type="text"
                 value={localIdFilter}
                 onChange={(e) => { setLocalIdFilter(e.target.value); setPage(1); }}
-                placeholder="Nhập ID/Serial..."
+                placeholder={tr("Nhập ID/Serial...")}
                 className="px-2 py-1 text-xs border border-[var(--line)] rounded bg-white text-[var(--ink-800)] w-32 focus:outline-none focus:border-[var(--ocean-500)]"
               />
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-[var(--ink-600)]">KTV trong danh sách:</span>
+              <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("KTV trong danh sách:")}</span>
               <Select
                 value={localKtvFilter}
                 onChange={(v) => { setLocalKtvFilter(v); setPage(1); }}
                 options={[
-                  { value: "", label: "Tất cả KTV" },
+                  { value: "", label: tr("Tất cả KTV") },
                   ...availableKtvs.map((k) => ({ value: k, label: k }))
                 ]}
               />
@@ -1564,12 +1557,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
             {tab !== "lich-su-khao-sat" && (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-[var(--ink-600)]">Loại lỗi nghi ngờ:</span>
+                <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Loại lỗi nghi ngờ:")}</span>
                 <Select
                   value={localLoaiLoiFilter}
                   onChange={(v) => { setLocalLoaiLoiFilter(v); setPage(1); }}
                   options={[
-                    { value: "", label: "Tất cả lỗi" },
+                    { value: "", label: tr("Tất cả lỗi") },
                     ...LOAI_LOI_KEYS.map((k) => ({ value: k, label: LOAI_LOI_META[k].label }))
                   ]}
                 />
@@ -1583,21 +1576,20 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   checked={coGiaiTrinhFilter}
                   onChange={(e) => { setCoGiaiTrinhFilter(e.target.checked); setPage(1); }}
                 />
-                Danh sách đã có giải trình vi phạm
-              </label>
+                {tr("Danh sách đã có giải trình vi phạm")}</label>
             )}
 
             {(tab === "can-khao-sat" || tab === "qua-han-khao-sat") && (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-[var(--ink-600)]">Phân loại:</span>
+                <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Phân loại:")}</span>
                 <Select
                   value={localPhanLoaiFilter}
                   onChange={(v) => { setLocalPhanLoaiFilter(v); setPage(1); }}
                   options={[
-                    { value: "", label: "Tất cả" },
-                    { value: "chua_goi", label: "Chưa gọi lần nào" },
-                    { value: "cho_goi_lai", label: "Chờ gọi lại" },
-                    { value: "con_loi_chua_goi", label: "Còn lỗi chưa gọi" },
+                    { value: "", label: tr("Tất cả") },
+                    { value: "chua_goi", label: tr("Chưa gọi lần nào") },
+                    { value: "cho_goi_lai", label: tr("Chờ gọi lại") },
+                    { value: "con_loi_chua_goi", label: tr("Còn lỗi chưa gọi") },
                   ]}
                 />
               </div>
@@ -1605,12 +1597,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
             {tab === "lich-su-khao-sat" && (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-[var(--ink-600)]">Kết quả cuộc gọi:</span>
+                <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Kết quả cuộc gọi:")}</span>
                 <Select
                   value={localKetQuaFilter}
                   onChange={(v) => { setLocalKetQuaFilter(v); setPage(1); }}
                   options={[
-                    { value: "", label: "Tất cả kết quả" },
+                    { value: "", label: tr("Tất cả kết quả") },
                     ...KET_QUA_CUOC_GOI_OPTIONS.map((k) => ({ value: k, label: k }))
                   ]}
                 />
@@ -1619,12 +1611,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
             {tab === "lich-su-khao-sat" && (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-[var(--ink-600)]">Người gọi:</span>
+                <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Người gọi:")}</span>
                 <Select
                   value={localNguoiGoiFilter}
                   onChange={(v) => { setLocalNguoiGoiFilter(v); setPage(1); }}
                   options={[
-                    { value: "", label: "Tất cả người gọi" },
+                    { value: "", label: tr("Tất cả người gọi") },
                     ...availableNguoiGoi.map((k) => ({ value: k, label: k }))
                   ]}
                 />
@@ -1633,12 +1625,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
 
             {tab === "lich-su-khao-sat" && (
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-[var(--ink-600)]">Loại khảo sát:</span>
+                <span className="text-xs font-semibold text-[var(--ink-600)]">{tr("Loại khảo sát:")}</span>
                 <Select
                   value={localLoaiKhaoSatFilter}
                   onChange={(v) => { setLocalLoaiKhaoSatFilter(v); setPage(1); }}
                   options={[
-                    { value: "", label: "Tất cả loại" },
+                    { value: "", label: tr("Tất cả loại") },
                     ...LOAI_LOI_KEYS.map((k) => ({ value: k, label: LOAI_LOI_META[k].label }))
                   ]}
                 />
@@ -1651,15 +1643,15 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   "Qua han khao sat" chua co cuoc goi nao nen loc theo thoi_gian_cskh_tiep_nhan (ngay
                   mo ca), con cac tab con lai da co ket qua goi nen loc theo ngay goi thuc te - nhan
                   phai doi theo tab de dung y nghia, tranh nham la "ngay tao ca". */}
-              <span className="text-xs font-semibold text-[var(--ink-600)]">{tab === "can-khao-sat" || tab === "qua-han-khao-sat" ? "Ngày tạo nghi vấn:" : "Ngày gọi:"}</span>
-              <span className="text-xs text-[var(--ink-400)]">Từ</span>
+              <span className="text-xs font-semibold text-[var(--ink-600)]">{tab === "can-khao-sat" || tab === "qua-han-khao-sat" ? tr("Ngày tạo nghi vấn:") : tr("Ngày gọi:")}</span>
+              <span className="text-xs text-[var(--ink-400)]">{tr("Từ")}</span>
               <input
                 type="date"
                 value={localNgayTuFilter}
                 onChange={(e) => { setLocalNgayTuFilter(e.target.value); setPage(1); }}
                 className="px-2 py-1 text-xs border border-[var(--line)] rounded bg-white text-[var(--ink-800)] focus:outline-none focus:border-[var(--ocean-500)]"
               />
-              <span className="text-xs text-[var(--ink-400)]">đến</span>
+              <span className="text-xs text-[var(--ink-400)]">{tr("đến")}</span>
               <input
                 type="date"
                 value={localNgayDenFilter}
@@ -1686,23 +1678,21 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   setPage(1);
                 }}
               >
-                Xóa lọc nhanh
-              </button>
+                {tr("Xóa lọc nhanh")}</button>
             )}
 
             <div className="flex items-center gap-2 ml-auto">
               {tab === "can-khao-sat" && isLead && (
                 <Btn variant="ghost" size="sm" onClick={() => setBulkAssignOpen(true)}>
-                  ⇄ Gán CSKH hàng loạt
-                </Btn>
+                  {tr("⇄ Gán CSKH hàng loạt")}</Btn>
               )}
               <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
-                {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
+                {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
               </Btn>
             </div>
           </div>
           {tab === "qua-han-khao-sat" && (
-            <div className="text-xs text-[var(--ink-400)] mb-2">Ca đã hoàn thành quá 3 ngày mà chưa khảo sát — có thể gọi hoặc bỏ qua nếu đã quá muộn.</div>
+            <div className="text-xs text-[var(--ink-400)] mb-2">{tr("Ca đã hoàn thành quá 3 ngày mà chưa khảo sát — có thể gọi hoặc bỏ qua nếu đã quá muộn.")}</div>
           )}
 
           {(tab === "can-khao-sat" || tab === "qua-han-khao-sat") &&
@@ -1714,14 +1704,14 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     {row.id}
                   </span>
                 ) },
-                { key: "khach_hang", header: "Khách hàng", render: (row) => row.khach_hang },
-                { key: "ky_thuat_vien", header: "Kỹ thuật viên", render: (row) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={row.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span> },
-                { key: "loai_loi", header: "Loại lỗi nghi ngờ", render: (row) => (
+                { key: "khach_hang", header: tr("Khách hàng"), render: (row) => row.khach_hang },
+                { key: "ky_thuat_vien", header: tr("Kỹ thuật viên"), render: (row) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={row.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span> },
+                { key: "loai_loi", header: tr("Loại lỗi nghi ngờ"), render: (row) => (
                   <div className="flex flex-wrap gap-1">
                     {neededLoaiLoi(row).map((loai) =>
                       loaiTruLoaiLoi(row).has(loai) ? (
                         <span key={loai} title={LOAI_TRU_CANH_BAO} className="opacity-50 line-through">
-                          <Badge tone="gray">{LOAI_LOI_META[loai].short} · loại trừ</Badge>
+                          <Badge tone="gray">{LOAI_LOI_META[loai].short}  {tr("· loại trừ")}</Badge>
                         </span>
                       ) : (
                         <Badge key={loai} tone="ocean">
@@ -1731,13 +1721,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     )}
                   </div>
                 ) },
-                { key: "trang_thai_goi", header: "Trạng thái", render: (row) => (
-                  row.trang_thai_goi === "cho_goi_lai" ? <Badge tone="amber">Chờ gọi lại</Badge> :
-                  row.trang_thai_goi === "con_loi_chua_goi" ? <Badge tone="ocean">Còn lỗi chưa gọi</Badge> :
-                  <Badge tone="gray">Chưa gọi lần nào</Badge>
+                { key: "trang_thai_goi", header: tr("Trạng thái"), render: (row) => (
+                  row.trang_thai_goi === "cho_goi_lai" ? <Badge tone="amber">{tr("Chờ gọi lại")}</Badge> :
+                  row.trang_thai_goi === "con_loi_chua_goi" ? <Badge tone="ocean">{tr("Còn lỗi chưa gọi")}</Badge> :
+                  <Badge tone="gray">{tr("Chưa gọi lần nào")}</Badge>
                 ) },
-                { key: "assigned_to", header: "Phân công", render: (row) => <span className="text-xs">{row.assigned_to || <span className="italic text-[var(--ink-400)]">Chưa phân công</span>}</span> },
-                { key: "khu_vuc", header: "Khu vực", render: (row) => shortKhuVuc(row.khu_vuc) },
+                { key: "assigned_to", header: tr("Phân công"), render: (row) => <span className="text-xs">{row.assigned_to || <span className="italic text-[var(--ink-400)]">{tr("Chưa phân công")}</span>}</span> },
+                { key: "khu_vuc", header: tr("Khu vực"), render: (row) => shortKhuVuc(row.khu_vuc) },
                 {
                   key: "action",
                   header: "",
@@ -1756,13 +1746,11 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                               setWorkspaceOpen(true);
                             }}
                           >
-                            ☎ Báo cáo cuộc gọi
-                          </Btn>
+                            {tr("☎ Báo cáo cuộc gọi")}</Btn>
                         )}
                         {isLead && (
                           <Btn size="sm" variant="ghost" onClick={() => setAssignModal(row)}>
-                            Phân công
-                          </Btn>
+                            {tr("Phân công")}</Btn>
                         )}
                       </div>
                     );
@@ -1780,7 +1768,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   total={fullRows.length}
                   onPageChange={setPage}
                   rowKey={(row) => row.id}
-                  emptyText="Không có mục nào."
+                  emptyText={tr("Không có mục nào.")}
                   storageKey="survey-can-khao-sat"
                 />
               );
@@ -1797,13 +1785,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               const showKetQuaQcChotCol = tab === "cho-qc" || tab === "vi-pham-da-chot";
               const giaiTrinhCol = (field: "ktv" | "gs"): Column<(typeof groupedViPham)[number]> => ({
                 key: `giai_trinh_${field}`,
-                header: field === "ktv" ? "Giải trình của KTV" : "Giải trình của Giám sát",
+                header: field === "ktv" ? tr("Giải trình của KTV") : tr("Giải trình của Giám sát"),
                 render: ({ vs }) => (
                   <div className="flex flex-col gap-0.5 max-w-[220px]">
                     {vs.map((v) => {
                       const noiDung = field === "ktv" ? v.giai_trinh_ktv_noi_dung : v.giai_trinh_gs_noi_dung;
                       const ngay = field === "ktv" ? v.giai_trinh_ktv_ngay : v.giai_trinh_gs_ngay;
-                      if (!noiDung) return <span key={v.id} className="text-xs text-[var(--ink-300)] italic">Chưa có</span>;
+                      if (!noiDung) return <span key={v.id} className="text-xs text-[var(--ink-300)] italic">{tr("Chưa có")}</span>;
                       const rutGon = noiDung.length > 40 ? `${noiDung.slice(0, 40)}…` : noiDung;
                       return (
                         <div key={v.id} className="text-xs truncate" title={noiDung}>
@@ -1817,12 +1805,12 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               });
               const ketQuaQcChotCol: Column<(typeof groupedViPham)[number]> = {
                 key: "ket_qua_qc_chot",
-                header: "Kết quả QC chốt",
+                header: tr("Kết quả QC chốt"),
                 render: ({ vs }) => (
                   <div className="flex flex-wrap gap-1">
                     {vs.map((v) => (
-                      <Badge key={v.id} tone={statusTone(v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : "chờ QC")}>
-                        {v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "Đã xác nhận" : "Không vi phạm") : "Chờ QC"}
+                      <Badge key={v.id} tone={statusTone(v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? tr("đã xác nhận") : tr("Không vi phạm")) : tr("chờ QC"))}>
+                        {v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? tr("Đã xác nhận") : tr("Không vi phạm")) : tr("Chờ QC")}
                       </Badge>
                     ))}
                   </div>
@@ -1840,17 +1828,17 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 },
                 {
                   key: "khach_hang",
-                  header: "Khách hàng",
+                  header: tr("Khách hàng"),
                   render: ({ vs }) => vs[0].khach_hang,
                 },
                 {
                   key: "ky_thuat_vien",
-                  header: "Kỹ thuật viên",
+                  header: tr("Kỹ thuật viên"),
                   render: ({ vs }) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={vs[0].ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span>,
                 },
                 {
                   key: "ket_qua",
-                  header: "Kết quả khảo sát",
+                  header: tr("Kết quả khảo sát"),
                   render: ({ vs }) => (
                     <div className="flex flex-wrap gap-1.5">
                       {vs.map((v) => {
@@ -1858,7 +1846,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                         // "khong vi pham" mac dinh, khong con "cho QC" - cot nay xuat hien o CA tab
                         // "da-xu-ly" (backend cho phep ket_qua_cap_1='Khong loi' vao tab do), khac
                         // ketQuaQcChotCol o tren (chi cho-qc/vi-pham-da-chot, khong bao gio gap Khong loi).
-                        const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : v.ket_qua_cap_1 === "Khong loi" ? "Không vi phạm" : "chờ QC";
+                        const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? tr("đã xác nhận") : tr("Không vi phạm")) : v.ket_qua_cap_1 === "Khong loi" ? tr("Không vi phạm") : tr("chờ QC");
                         // Tab "cho-qc" (QC dang xu ly, chua chot/bo): cho sua lai loai loi thuc te
                         // truoc khi bam Chot/Bo (migration 0112, CHOT 2026-09-16) - xem CaseDetail.tsx
                         // cung tinh nang nay o popup chi tiet ca.
@@ -1890,7 +1878,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 },
                 {
                   key: "khu_vuc",
-                  header: "Khu vực",
+                  header: tr("Khu vực"),
                   render: ({ vs }) => shortKhuVuc(vs[0].khu_vuc),
                 },
                 ...(showGiaiTrinhCols ? [giaiTrinhCol("ktv"), giaiTrinhCol("gs")] : []),
@@ -1908,21 +1896,20 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                             return (
                               <span key={v.id} className="flex gap-1">
                                 <Btn size="sm" variant="success" onClick={() => qcDecide.mutate({ id: v.id, chot: true, ket_qua_cap_1: effectiveKetQuaCap1 })}>
-                                  Chốt {LOAI_LOI_META[v.loai_loi]?.short}
+                                  {tr("Chốt")} {LOAI_LOI_META[v.loai_loi]?.short}
                                 </Btn>
                                 <Btn size="sm" variant="danger" onClick={() => qcDecide.mutate({ id: v.id, chot: false, ket_qua_cap_1: effectiveKetQuaCap1 })}>
-                                  Bỏ {LOAI_LOI_META[v.loai_loi]?.short}
+                                  {tr("Bỏ")} {LOAI_LOI_META[v.loai_loi]?.short}
                                 </Btn>
                               </span>
                             );
                           })}
                         </div>
                       )}
-                      {tab === "cho-qc" && !isQC && <span className="text-xs text-[var(--ink-400)] italic">Chờ QC xử lý</span>}
+                      {tab === "cho-qc" && !isQC && <span className="text-xs text-[var(--ink-400)] italic">{tr("Chờ QC xử lý")}</span>}
                       {(tab === "da-xu-ly" || tab === "vi-pham-da-chot") && (
                         <Btn size="sm" variant="ghost" onClick={() => openCase(caseId, "vi-pham")}>
-                          Xem chi tiết
-                        </Btn>
+                          {tr("Xem chi tiết")}</Btn>
                       )}
                     </div>
                   ),
@@ -1932,7 +1919,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 <>
                   {viPhamListTruncated && (
                     <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-50)] border border-[var(--amber-200)] rounded-lg px-3 py-1.5 mb-2">
-                      Đang hiển thị {groupedViPham.length}/{viPhamTotalCases} ca khớp bộ lọc — danh sách chỉ hiển thị tối đa 200 ca gần nhất để tối ưu tốc độ tải. Bấm <b>⬇ Xuất Excel</b> để xem đầy đủ {viPhamTotalCases} ca.
+                      {tr("Đang hiển thị")} {groupedViPham.length}/{viPhamTotalCases}  {tr("ca khớp bộ lọc — danh sách chỉ hiển thị tối đa 200 ca gần nhất để tối ưu tốc độ tải. Bấm")} <b>{tr("⬇ Xuất Excel")}</b>  {tr("để xem đầy đủ")} {viPhamTotalCases} ca.
                     </div>
                   )}
                   <PaginatedTable
@@ -1945,7 +1932,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     total={filteredGroupedViPham.length}
                     onPageChange={setPage}
                     rowKey={({ caseId }) => caseId}
-                    emptyText="Không có mục nào."
+                    emptyText={tr("Không có mục nào.")}
                     storageKey="survey-cho-qc-da-xu-ly"
                   />
                 </>
@@ -1957,7 +1944,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               const columns: Column<KetQuaGoiRow>[] = [
                 {
                   key: "ngay_gio_thuc_hien",
-                  header: "Ngày giờ gọi",
+                  header: tr("Ngày giờ gọi"),
                   render: (r) => <span className="text-xs whitespace-nowrap">{r.ngay_gio_thuc_hien}</span>,
                 },
                 {
@@ -1969,15 +1956,15 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     </span>
                   ),
                 },
-                { key: "khach_hang", header: "Khách hàng", render: (r) => r.khach_hang ?? "—" },
+                { key: "khach_hang", header: tr("Khách hàng"), render: (r) => r.khach_hang ?? "—" },
                 {
                   key: "ky_thuat_vien",
-                  header: "Kỹ thuật viên",
+                  header: tr("Kỹ thuật viên"),
                   render: (r) => <span className="text-xs"><KtvNameWithPhone kyThuatVien={r.ky_thuat_vien} canEdit={!!role && KTV_PHONE_EDIT_ROLES.includes(role)} /></span>,
                 },
                 {
                   key: "loai_khao_sat",
-                  header: "Loại khảo sát",
+                  header: tr("Loại khảo sát"),
                   render: (r) => {
                     const loaiList = parseLoaiKhaoSat(r.loai_khao_sat);
                     return loaiList.length === 0 ? (
@@ -1993,13 +1980,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                     );
                   },
                 },
-                { key: "ket_qua_cuoc_goi", header: "Kết quả cuộc gọi", render: (r) => r.ket_qua_cuoc_goi ?? "—" },
+                { key: "ket_qua_cuoc_goi", header: tr("Kết quả cuộc gọi"), render: (r) => r.ket_qua_cuoc_goi ?? "—" },
                 {
                   key: "can_goi_lai",
-                  header: "Cần gọi lại",
-                  render: (r) => (r.can_goi_lai === null ? "—" : <Badge tone={r.can_goi_lai ? "amber" : "gray"}>{r.can_goi_lai ? "Có" : "Không"}</Badge>),
+                  header: tr("Cần gọi lại"),
+                  render: (r) => (r.can_goi_lai === null ? "—" : <Badge tone={r.can_goi_lai ? "amber" : "gray"}>{r.can_goi_lai ? tr("Có") : tr("Không")}</Badge>),
                 },
-                { key: "nguoi_thuc_hien", header: "Người thực hiện", render: (r) => <span className="text-xs">{formatPersonDisplay(r.nguoi_thuc_hien, personDir)}</span> },
+                { key: "nguoi_thuc_hien", header: tr("Người thực hiện"), render: (r) => <span className="text-xs">{formatPersonDisplay(r.nguoi_thuc_hien, personDir)}</span> },
               ];
               return (
                 <PaginatedTable
@@ -2012,7 +1999,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                   total={filteredCallHistory.length}
                   onPageChange={setPage}
                   rowKey={(r) => r.id}
-                  emptyText="Không có cuộc gọi nào trong tháng này."
+                  emptyText={tr("Không có cuộc gọi nào trong tháng này.")}
                   storageKey="survey-lich-su-khao-sat"
                 />
               );
@@ -2027,11 +2014,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           <ImportUploader<ImportViPhamSummary>
             description={
               <>
-                Ghi nhận vi phạm hàng loạt từ Excel. Mỗi dòng cần <b className="font-mono">ID case</b> HOẶC <b className="font-mono">ID KTV</b> (nếu không có ID case - gắn thẳng vào KTV theo
-                ngày, không qua case) + <b className="font-mono">Ngày ghi nhận</b> + <b className="font-mono">Kết quả cấp 1</b> (theo danh mục "Loại lỗi vi phạm" trong Settings). Cột <b className="font-mono">Loại lỗi</b> nhập tự do (vd "GQKN - Vi phạm có khiếu nại"), được lưu nguyên văn và hiển thị ở danh sách vi phạm. Vi phạm import
-                vẫn vào hàng chờ QC chốt cấp 2 như bình thường (xem tab "Tất cả vi phạm" của module Báo cáo vi phạm). Dòng có Kết quả cấp 1 = <b className="font-mono">Không có lỗi</b> vẫn
-                được ghi nhận nhưng tự động chốt QC bỏ lỗi, không gửi KTV giải trình.
-              </>
+                {tr("Ghi nhận vi phạm hàng loạt từ Excel. Mỗi dòng cần")} <b className="font-mono">ID case</b>  {tr("HOẶC")} <b className="font-mono">ID KTV</b>  {tr("(nếu không có ID case - gắn thẳng vào KTV theo ngày, không qua case) +")} <b className="font-mono">{tr("Ngày ghi nhận")}</b> + <b className="font-mono">{tr("Kết quả cấp 1")}</b>  {tr("(theo danh mục \"Loại lỗi vi phạm\" trong Settings). Cột")} <b className="font-mono">{tr("Loại lỗi")}</b>  {tr("nhập tự do (vd \"GQKN - Vi phạm có khiếu nại\"), được lưu nguyên văn và hiển thị ở danh sách vi phạm. Vi phạm import vẫn vào hàng chờ QC chốt cấp 2 như bình thường (xem tab \"Tất cả vi phạm\" của module Báo cáo vi phạm). Dòng có Kết quả cấp 1 =")} <b className="font-mono">{tr("Không có lỗi")}</b>  {tr("vẫn được ghi nhận nhưng tự động chốt QC bỏ lỗi, không gửi KTV giải trình.")}</>
             }
             templateUrl="/api/import/vi-pham/template"
             previewUrl="/import/vi-pham/preview"
@@ -2040,13 +2023,13 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
             buildBody={(rows, filename) => ({ rows, filename })}
             renderSummary={(s) => (
               <div className="grid grid-cols-3 gap-3 mb-2">
-                <StatCard label="Hợp lệ, sẽ ghi mới" value={s.thanhCong} tone="teal" />
-                <StatCard label="Đã có (sẽ bỏ qua)" value={s.boQuaTrung ?? 0} tone="gray" />
-                <StatCard label="Lỗi định dạng" value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
+                <StatCard label={tr("Hợp lệ, sẽ ghi mới")} value={s.thanhCong} tone="teal" />
+                <StatCard label={tr("Đã có (sẽ bỏ qua)")} value={s.boQuaTrung ?? 0} tone="gray" />
+                <StatCard label={tr("Lỗi định dạng")} value={s.loi} tone={s.loi > 0 ? "coral" : "gray"} />
               </div>
             )}
             getErrors={(s) => s.errors}
-            successMessage={(s) => `Import thành công: ${s.thanhCong} vi phạm mới${s.boQuaTrung ? ` · bỏ qua ${s.boQuaTrung} dòng đã có trước đó` : ""}`}
+            successMessage={(s) => tr("Import thành công: {0} vi phạm mới{1}", s.thanhCong, s.boQuaTrung ? " " + tr("· bỏ qua {0} dòng đã có trước đó", s.boQuaTrung) : "")}
             invalidateKeys={[
               ["survey"],
               ["survey-counts"],
@@ -2088,7 +2071,7 @@ function AssignModal({ row, onClose, onDataChanged }: { row: CanKhaoSatRow; onCl
   const submit = useMutation({
     mutationFn: () => api.post("/survey/assign", { case_id: row.id, assigned_to: openAll ? null : cskh || null }),
     onSuccess: () => {
-      addToast(`Đã phân công khảo sát ca ${row.id}`);
+      addToast(tr("Đã phân công khảo sát ca {0}", row.id));
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
       onDataChanged();
@@ -2097,29 +2080,26 @@ function AssignModal({ row, onClose, onDataChanged }: { row: CanKhaoSatRow; onCl
   });
 
   return (
-    <Modal open onClose={onClose} title={`Phân công khảo sát — Ca ${row.id}`}>
+    <Modal open onClose={onClose} title={tr("Phân công khảo sát — Ca {0}", row.id)}>
       <div className="space-y-3">
         <label className="flex items-center gap-2 text-sm font-semibold">
-          <input type="checkbox" checked={openAll} onChange={(e) => setOpenAll(e.target.checked)} /> Mở cho tất cả CSKH cùng nhận (ai gọi trước được tính năng suất)
-        </label>
+          <input type="checkbox" checked={openAll} onChange={(e) => setOpenAll(e.target.checked)} />  {tr("Mở cho tất cả CSKH cùng nhận (ai gọi trước được tính năng suất)")}</label>
         {!openAll && (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Phân công cho CSKH cụ thể</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Phân công cho CSKH cụ thể")}</label>
             <Select
               value={cskh}
               onChange={setCskh}
-              options={[{ value: "", label: "— Chọn CSKH —" }, ...(cskhList?.rows ?? []).map((u) => ({ value: u.email, label: u.ten ?? u.email }))]}
+              options={[{ value: "", label: tr("— Chọn CSKH —") }, ...(cskhList?.rows ?? []).map((u) => ({ value: u.email, label: u.ten ?? u.email }))]}
               className="w-full mt-1"
             />
           </div>
         )}
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>
-            Hủy
-          </Btn>
+            {tr("Hủy")}</Btn>
           <Btn onClick={() => submit.mutate()} disabled={submit.isPending || (!openAll && !cskh)}>
-            Xác nhận phân công
-          </Btn>
+            {tr("Xác nhận phân công")}</Btn>
         </div>
       </div>
     </Modal>
@@ -2158,19 +2138,19 @@ function BulkAssignModal({
       setPreview(summary);
       setStep("preview");
     },
-    onError: () => addToast("Không đọc được file, kiểm tra lại định dạng."),
+    onError: () => addToast(tr("Không đọc được file, kiểm tra lại định dạng.")),
   });
 
   const commitMutation = useMutation({
     mutationFn: () => api.post<BulkAssignSummary>("/survey/assign-bulk/commit", { rows }),
     onSuccess: (summary) => {
-      addToast(`Đã gán CSKH cho ${summary.capNhat} ca`);
+      addToast(tr("Đã gán CSKH cho {0} ca", summary.capNhat));
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
       onDataChanged();
       onClose();
     },
-    onError: () => addToast("Gán CSKH hàng loạt thất bại, thử lại sau."),
+    onError: () => addToast(tr("Gán CSKH hàng loạt thất bại, thử lại sau.")),
   });
 
   async function handleFileChosen(file: File) {
@@ -2188,14 +2168,11 @@ function BulkAssignModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Gán CSKH hàng loạt" width="max-w-xl">
+    <Modal open onClose={onClose} title={tr("Gán CSKH hàng loạt")} width="max-w-xl">
       <div className="text-sm text-[var(--ink-600)] mb-4">
-        1. Tải danh sách hiện tại (có cột <b className="font-mono">assigned_to</b>) → 2. Điền email CSKH phụ trách cho từng dòng trong Excel → 3. Tải file đã điền lên
-        đây để cập nhật hàng loạt.
-      </div>
+        {tr("1. Tải danh sách hiện tại (có cột")} <b className="font-mono">assigned_to</b>{tr(") → 2. Điền email CSKH phụ trách cho từng dòng trong Excel → 3. Tải file đã điền lên đây để cập nhật hàng loạt.")}</div>
       <Btn variant="ghost" size="sm" onClick={handleDownload} className="mb-4">
-        ⬇ Tải danh sách hiện tại
-      </Btn>
+        {tr("⬇ Tải danh sách hiện tại")}</Btn>
 
       {step === "idle" && (
         <div
@@ -2203,7 +2180,7 @@ function BulkAssignModal({
           className="cursor-pointer border-2 border-dashed border-[var(--ocean-100)] rounded-2xl p-8 text-center hover:border-[var(--ocean-400)] hover:bg-[var(--ocean-100)]/20 transition-colors"
         >
           <div className="text-2xl mb-2">⇩</div>
-          <div className="font-semibold text-sm text-[var(--ink-900)]">{previewMutation.isPending ? "Đang phân tích file…" : "Bấm để chọn file đã điền"}</div>
+          <div className="font-semibold text-sm text-[var(--ink-900)]">{previewMutation.isPending ? tr("Đang phân tích file…") : tr("Bấm để chọn file đã điền")}</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -2222,11 +2199,11 @@ function BulkAssignModal({
         <div className="anim-in">
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="rounded-xl bg-[var(--teal-500)]/10 p-3">
-              <div className="text-xs text-[var(--ink-400)]">Sẽ cập nhật</div>
+              <div className="text-xs text-[var(--ink-400)]">{tr("Sẽ cập nhật")}</div>
               <div className="text-xl font-bold text-[var(--teal-500)]">{preview.capNhat}</div>
             </div>
             <div className="rounded-xl bg-[var(--coral-500)]/10 p-3">
-              <div className="text-xs text-[var(--ink-400)]">Lỗi</div>
+              <div className="text-xs text-[var(--ink-400)]">{tr("Lỗi")}</div>
               <div className="text-xl font-bold text-[var(--coral-500)]">{preview.loi}</div>
             </div>
           </div>
@@ -2239,7 +2216,7 @@ function BulkAssignModal({
           )}
           <div className="flex gap-2">
             <Btn onClick={() => commitMutation.mutate()} disabled={commitMutation.isPending || preview.capNhat === 0}>
-              {commitMutation.isPending ? "Đang cập nhật…" : "Xác nhận gán CSKH"}
+              {commitMutation.isPending ? tr("Đang cập nhật…") : tr("Xác nhận gán CSKH")}
             </Btn>
             <Btn
               variant="ghost"
@@ -2248,8 +2225,7 @@ function BulkAssignModal({
                 setPreview(null);
               }}
             >
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
           </div>
         </div>
       )}

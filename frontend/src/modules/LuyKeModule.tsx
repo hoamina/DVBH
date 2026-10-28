@@ -20,6 +20,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../constants";
 import { LuyKeTocDoMien } from "../components/LuyKeTocDoMien";
+import { tr } from "../i18n/tr";
 
 // Anh xa dung tieu de cot file Excel mau (xem sheet "Sheet1" cua "Phân tích báo cáo lũy kế.xlsx")
 // sang field noi bo - dung truc tiep cho parseSpreadsheet(), khong qua columnMapUrl vi schema co
@@ -81,29 +82,29 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 const FILTER_DIMS: { key: keyof Filters; label: string; field: keyof LuyKeRow }[] = [
-  { key: "thang", label: "Tháng", field: "thang" },
-  { key: "khu_vuc", label: "Khu vực", field: "khu_vuc" },
-  { key: "phan_loai", label: "Phân loại", field: "phan_loai" },
-  { key: "dung_han", label: "Đúng hạn", field: "dung_han" },
-  { key: "toc_do", label: "Tốc độ", field: "toc_do" },
+  { key: "thang", label: tr("Tháng"), field: "thang" },
+  { key: "khu_vuc", label: tr("Khu vực"), field: "khu_vuc" },
+  { key: "phan_loai", label: tr("Phân loại"), field: "phan_loai" },
+  { key: "dung_han", label: tr("Đúng hạn"), field: "dung_han" },
+  { key: "toc_do", label: tr("Tốc độ"), field: "toc_do" },
   { key: "tren_96h", label: "96h", field: "tren_96h" },
-  { key: "hang", label: "Hãng", field: "hang" },
-  { key: "doi_tuong", label: "Đối tượng", field: "doi_tuong" },
-  { key: "nganh", label: "Ngành", field: "nganh" },
-  { key: "nguon_crm", label: "Nguồn CRM", field: "nguon_crm" },
+  { key: "hang", label: tr("Hãng"), field: "hang" },
+  { key: "doi_tuong", label: tr("Đối tượng"), field: "doi_tuong" },
+  { key: "nganh", label: tr("Ngành"), field: "nganh" },
+  { key: "nguon_crm", label: tr("Nguồn CRM"), field: "nguon_crm" },
   { key: "kh_vip", label: "KH VIP", field: "kh_vip" },
 ];
 
 const GROUP_OPTIONS: { value: keyof LuyKeRow; label: string }[] = [
-  { value: "khu_vuc", label: "Khu vực" },
-  { value: "hang", label: "Hãng" },
-  { value: "nganh", label: "Ngành" },
-  { value: "nam", label: "Năm" },
-  { value: "thang", label: "Tháng" },
-  { value: "phan_loai", label: "Phân loại" },
-  { value: "toc_do", label: "Tốc độ" },
-  { value: "nguon_crm", label: "Nguồn CRM" },
-  { value: "doi_tuong", label: "Đối tượng" },
+  { value: "khu_vuc", label: tr("Khu vực") },
+  { value: "hang", label: tr("Hãng") },
+  { value: "nganh", label: tr("Ngành") },
+  { value: "nam", label: tr("Năm") },
+  { value: "thang", label: tr("Tháng") },
+  { value: "phan_loai", label: tr("Phân loại") },
+  { value: "toc_do", label: tr("Tốc độ") },
+  { value: "nguon_crm", label: tr("Nguồn CRM") },
+  { value: "doi_tuong", label: tr("Đối tượng") },
   { value: "kh_vip", label: "KH VIP" },
 ];
 
@@ -136,18 +137,18 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
       setPreview(summary);
       setStep("preview");
     },
-    onError: (err) => addToast(`Không đọc được file: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Không đọc được file: {0}", describeError(err))),
   });
 
   const commitMutation = useMutation({
     mutationFn: () => api.post<ImportSummary>("/luy-ke/import/commit", { rows: parsedRows, filename }),
     onSuccess: (summary) => {
-      addToast(`Đã import ${summary.thanhCong} dòng cho ${summary.thangList.length} tháng (${summary.thangList.map((t) => t.thang).join(", ")}).`);
+      addToast(tr("Đã import {0} dòng cho {1} tháng ({2}).", summary.thanhCong, summary.thangList.length, summary.thangList.map((t) => t.thang).join(", ")));
       setStep("idle");
       setPreview(null);
       onImported();
     },
-    onError: (err) => addToast(`Import thất bại: ${describeError(err)}`),
+    onError: (err) => addToast(tr("Import thất bại: {0}", describeError(err))),
   });
 
   async function handleFileChosen(file: File) {
@@ -172,7 +173,7 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
       setParsedRows(rows);
       previewMutation.mutate(rows);
     } catch (err) {
-      addToast(`Không đọc được file: ${err instanceof Error ? err.message : String(err)}`);
+      addToast(tr("Không đọc được file: {0}", err instanceof Error ? err.message : String(err)));
     }
   }
 
@@ -180,12 +181,10 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
     <Card className="p-6 mb-5">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <div className="text-sm text-[var(--ink-600)] flex-1 min-w-[240px]">
-          Upload file Excel/CSV báo cáo lũy kế (đúng định dạng file phân tích CRM xuất ra). Mỗi lần import sẽ{" "}
-          <b>thay thế toàn bộ</b> dữ liệu của những tháng có trong file — không cộng dồn với dữ liệu tháng đó đã có sẵn.
-        </div>
+          {tr("Upload file Excel/CSV báo cáo lũy kế (đúng định dạng file phân tích CRM xuất ra). Mỗi lần import sẽ")}{" "}
+          <b>{tr("thay thế toàn bộ")}</b>  {tr("dữ liệu của những tháng có trong file — không cộng dồn với dữ liệu tháng đó đã có sẵn.")}</div>
         <a href="/api/luy-ke/template" className="text-xs font-semibold text-[var(--ocean-600)] hover:underline whitespace-nowrap">
-          ⬇ Tải file mẫu
-        </a>
+          {tr("⬇ Tải file mẫu")}</a>
       </div>
       {step === "idle" && (
         <div
@@ -193,8 +192,8 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
           className="mt-4 cursor-pointer border-2 border-dashed border-[var(--ocean-100)] rounded-2xl p-10 text-center hover:border-[var(--ocean-400)] hover:bg-[var(--ocean-100)]/20 transition-colors"
         >
           <div className="text-3xl mb-2">⇩</div>
-          <div className="font-semibold text-[var(--ink-900)]">{previewMutation.isPending ? "Đang phân tích file…" : "Kéo thả hoặc bấm để chọn file Excel/CSV"}</div>
-          <div className="text-xs text-[var(--ink-400)] mt-1">Định dạng .xlsx/.xls/.csv</div>
+          <div className="font-semibold text-[var(--ink-900)]">{previewMutation.isPending ? tr("Đang phân tích file…") : tr("Kéo thả hoặc bấm để chọn file Excel/CSV")}</div>
+          <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Định dạng .xlsx/.xls/.csv")}</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -214,16 +213,16 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
             <span className="text-xl">📄</span>
             <div className="flex-1">
               <div className="font-semibold text-sm">{filename}</div>
-              <div className="text-xs text-[var(--ink-400)]">Đã phân tích xong — sẵn sàng import</div>
+              <div className="text-xs text-[var(--ink-400)]">{tr("Đã phân tích xong — sẵn sàng import")}</div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mb-3">
-            <StatCard label="Dòng hợp lệ" value={preview.thanhCong} tone="teal" size="sm" />
-            <StatCard label="Dòng lỗi" value={preview.loi} tone="coral" muted={preview.loi === 0} size="sm" />
+            <StatCard label={tr("Dòng hợp lệ")} value={preview.thanhCong} tone="teal" size="sm" />
+            <StatCard label={tr("Dòng lỗi")} value={preview.loi} tone="coral" muted={preview.loi === 0} size="sm" />
           </div>
           {preview.thangList.length > 0 && (
             <div className="text-xs text-[var(--ink-600)] mb-3">
-              Sẽ thay thế dữ liệu: {preview.thangList.map((t) => `${t.thang} (${t.soDong} dòng)`).join(", ")}
+              {tr("Sẽ thay thế dữ liệu:")} {preview.thangList.map((t) => `${t.thang} (${t.soDong} dòng)`).join(", ")}
             </div>
           )}
           {preview.errors.length > 0 && (
@@ -235,7 +234,7 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
           )}
           <div className="flex gap-2 mt-4">
             <Btn onClick={() => commitMutation.mutate()} disabled={commitMutation.isPending || preview.thanhCong === 0}>
-              {commitMutation.isPending ? "Đang import…" : "Xác nhận import"}
+              {commitMutation.isPending ? tr("Đang import…") : tr("Xác nhận import")}
             </Btn>
             <Btn
               variant="ghost"
@@ -244,8 +243,7 @@ function LuyKeImportPanel({ onImported }: { onImported: () => void }) {
                 setPreview(null);
               }}
             >
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
           </div>
         </div>
       )}
@@ -408,9 +406,9 @@ export function LuyKeModule() {
     <div className="anim-in">
       <Tabs
         tabs={[
-          { key: "dashboard", label: "Tổng quan" },
-          { key: "toc-do-mien", label: "Tốc độ theo miền" },
-          ...(canImport ? [{ key: "import", label: "Nhập dữ liệu" }] : []),
+          { key: "dashboard", label: tr("Tổng quan") },
+          { key: "toc-do-mien", label: tr("Tốc độ theo miền") },
+          ...(canImport ? [{ key: "import", label: tr("Nhập dữ liệu") }] : []),
         ]}
         active={tab}
         onChange={(k) => setTab(k as "dashboard" | "toc-do-mien" | "import")}
@@ -418,25 +416,24 @@ export function LuyKeModule() {
 
       {tab === "import" && canImport && <LuyKeImportPanel onImported={refetch} />}
 
-      {tab === "toc-do-mien" && (isLoading && rows.length === 0 ? <LoadingCard label="Đang tải dữ liệu báo cáo lũy kế…" /> : <LuyKeTocDoMien rows={rows} canEdit={canImport} />)}
+      {tab === "toc-do-mien" && (isLoading && rows.length === 0 ? <LoadingCard label={tr("Đang tải dữ liệu báo cáo lũy kế…")} /> : <LuyKeTocDoMien rows={rows} canEdit={canImport} />)}
 
       {tab === "dashboard" && (
         <>
           {isError && (
             <Card className="p-4 mb-4 text-sm text-[var(--coral-500)]">
-              Không tải được dữ liệu báo cáo lũy kế. <Btn variant="ghost" size="sm" onClick={() => refetch()}>Thử lại</Btn>
+              {tr("Không tải được dữ liệu báo cáo lũy kế.")} <Btn variant="ghost" size="sm" onClick={() => refetch()}>{tr("Thử lại")}</Btn>
             </Card>
           )}
           {isLoading && rows.length === 0 ? (
-            <LoadingCard label="Đang tải dữ liệu báo cáo lũy kế…" />
+            <LoadingCard label={tr("Đang tải dữ liệu báo cáo lũy kế…")} />
           ) : rows.length === 0 ? (
             <Card className="p-8 text-center text-sm text-[var(--ink-400)]">
               {soDongTatCa > 0 && pv !== "tat_ca" ? (
                 <>
-                  Không có dòng lũy kế nào thuộc phạm vi <b>{PHAM_VI_LABEL[pv]}</b> (nhóm NSKX = cột "KH VIPs" chứa NSKX).
-                </>
+                  {tr("Không có dòng lũy kế nào thuộc phạm vi")} <b>{PHAM_VI_LABEL[pv]}</b>  {tr("(nhóm NSKX = cột \"KH VIPs\" chứa NSKX).")}</>
               ) : (
-                <>Chưa có dữ liệu báo cáo lũy kế. {canImport && "Vào tab \"Nhập dữ liệu\" để import file Excel đầu tiên."}</>
+                <>{tr("Chưa có dữ liệu báo cáo lũy kế.")} {canImport && tr("Vào tab \"Nhập dữ liệu\" để import file Excel đầu tiên.")}</>
               )}
             </Card>
           ) : (
@@ -450,34 +447,31 @@ export function LuyKeModule() {
                 })}
                 <div className="flex items-center gap-1.5 ml-1">
                   <Btn variant="ghost" size="sm" onClick={() => selectLastMonths(3)}>
-                    3 tháng gần nhất
-                  </Btn>
+                    {tr("3 tháng gần nhất")}</Btn>
                   <Btn variant="ghost" size="sm" onClick={selectSameCycle}>
-                    Cùng kỳ
-                  </Btn>
+                    {tr("Cùng kỳ")}</Btn>
                 </div>
                 <div className="ml-auto self-center">
                   <Btn variant="ghost" size="sm" onClick={() => setFilters(DEFAULT_FILTERS)}>
-                    Xóa lọc
-                  </Btn>
+                    {tr("Xóa lọc")}</Btn>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-3 mb-4">
-                <StatCard label="Tổng SL" value={totals.tong.toLocaleString("vi-VN")} tone="ocean" />
-                <StatCard label="Đúng hạn" value={pct(totals.dungHan, totals.tong)} sub={`${totals.dungHan.toLocaleString("vi-VN")} / ${totals.tong.toLocaleString("vi-VN")}`} tone="teal" />
-                <StatCard label="Quá hạn" value={pct(totals.quaHan, totals.tong)} sub={totals.quaHan.toLocaleString("vi-VN")} tone="coral" />
-                <StatCard label="Dưới 96h" value={pct(totals.duoi96, totals.tong)} sub={totals.duoi96.toLocaleString("vi-VN")} tone="amber" />
+                <StatCard label={tr("Tổng SL")} value={totals.tong.toLocaleString("vi-VN")} tone="ocean" />
+                <StatCard label={tr("Đúng hạn")} value={pct(totals.dungHan, totals.tong)} sub={`${totals.dungHan.toLocaleString("vi-VN")} / ${totals.tong.toLocaleString("vi-VN")}`} tone="teal" />
+                <StatCard label={tr("Quá hạn")} value={pct(totals.quaHan, totals.tong)} sub={totals.quaHan.toLocaleString("vi-VN")} tone="coral" />
+                <StatCard label={tr("Dưới 96h")} value={pct(totals.duoi96, totals.tong)} sub={totals.duoi96.toLocaleString("vi-VN")} tone="amber" />
               </div>
 
               <Card className="p-4 mb-4">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div className="font-display font-bold text-sm">Xu hướng theo tháng</div>
+                  <div className="font-display font-bold text-sm">{tr("Xu hướng theo tháng")}</div>
                   <div className="flex items-center gap-3 flex-wrap">
                     {CHART_SERIES_LABELS.map((label) => (
                       <label key={label} className="flex items-center gap-1.5 text-xs text-[var(--ink-600)] cursor-pointer">
                         <input type="checkbox" checked={!hiddenChartLabels.includes(label)} onChange={() => toggleChartLabel(label)} className="w-3.5 h-3.5" />
-                        {label}
+                        {tr(label)}
                       </label>
                     ))}
                   </div>
@@ -487,11 +481,11 @@ export function LuyKeModule() {
                   data={{
                     labels: byMonth.map((m) => m.thang),
                     datasets: [
-                      { type: "bar", label: "Đúng hạn", data: byMonth.map((m) => m.dungHan), backgroundColor: "#159C93", borderRadius: 6, stack: "s", yAxisID: "y" },
-                      { type: "bar", label: "Quá hạn", data: byMonth.map((m) => m.quaHan), backgroundColor: "#E8604C", borderRadius: 6, stack: "s", yAxisID: "y" },
+                      { type: "bar", label: tr("Đúng hạn"), data: byMonth.map((m) => m.dungHan), backgroundColor: "#159C93", borderRadius: 6, stack: "s", yAxisID: "y" },
+                      { type: "bar", label: tr("Quá hạn"), data: byMonth.map((m) => m.quaHan), backgroundColor: "#E8604C", borderRadius: 6, stack: "s", yAxisID: "y" },
                       {
                         type: "line",
-                        label: "% SLA (đúng hạn)",
+                        label: tr("% SLA (đúng hạn)"),
                         data: byMonth.map((m) => m.slaPct),
                         borderColor: "#0F3D5C",
                         backgroundColor: "#0F3D5C",
@@ -501,7 +495,7 @@ export function LuyKeModule() {
                       },
                       {
                         type: "line",
-                        label: "% Dưới 24h",
+                        label: tr("% Dưới 24h"),
                         data: byMonth.map((m) => m.duoi24hPct),
                         borderColor: "#B8860B",
                         backgroundColor: "#B8860B",
@@ -525,11 +519,11 @@ export function LuyKeModule() {
 
               <Card className="p-4 mb-4">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div className="font-display font-bold text-sm">So sánh sản lượng cùng kỳ theo năm</div>
+                  <div className="font-display font-bold text-sm">{tr("So sánh sản lượng cùng kỳ theo năm")}</div>
                   <div className="flex items-center gap-3 flex-wrap">
                     {[
-                      { key: "sla", label: "% SLA (đúng hạn)" },
-                      { key: "duoi24h", label: "% Dưới 24h" },
+                      { key: "sla", label: tr("% SLA (đúng hạn)") },
+                      { key: "duoi24h", label: tr("% Dưới 24h") },
                     ].map(({ key, label }) => (
                       <label key={key} className="flex items-center gap-1.5 text-xs text-[var(--ink-600)] cursor-pointer">
                         <input type="checkbox" checked={visibleYearChartLines.includes(key)} onChange={() => toggleYearChartLine(key)} className="w-3.5 h-3.5" />
@@ -563,7 +557,7 @@ export function LuyKeModule() {
                       })),
                       ...yearlyByMonth.map((y, i) => ({
                         type: "line" as const,
-                        label: `% Dưới 24h ${y.year}`,
+                        label: tr("% Dưới 24h {0}", y.year),
                         data: y.duoi24hPct,
                         borderColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
                         backgroundColor: YEAR_CHART_COLORS[i % YEAR_CHART_COLORS.length],
@@ -587,7 +581,7 @@ export function LuyKeModule() {
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-display font-bold text-sm">Bảng chi tiết — nhóm theo</span>
+                    <span className="font-display font-bold text-sm">{tr("Bảng chi tiết — nhóm theo")}</span>
                     <Select value={groupBy} onChange={(v) => setGroupBy(v as keyof LuyKeRow)} options={GROUP_OPTIONS.map((g) => ({ value: g.value, label: g.label }))} />
                   </div>
                   <Btn
@@ -610,19 +604,18 @@ export function LuyKeModule() {
                       )
                     }
                   >
-                    ⬇ Xuất Excel
-                  </Btn>
+                    {tr("⬇ Xuất Excel")}</Btn>
                 </div>
                 <table className="dense w-full text-sm">
                   <thead>
                     <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                       <th className="py-2 pr-3">{GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}</th>
-                      <th className="py-2 pr-3">Tổng SL</th>
-                      <th className="py-2 pr-3">Đúng hạn</th>
-                      <th className="py-2 pr-3">Quá hạn</th>
-                      <th className="py-2 pr-3">% Đúng hạn</th>
-                      <th className="py-2 pr-3">SL Dưới 24h</th>
-                      <th className="py-2 pr-3">% Dưới 24h</th>
+                      <th className="py-2 pr-3">{tr("Tổng SL")}</th>
+                      <th className="py-2 pr-3">{tr("Đúng hạn")}</th>
+                      <th className="py-2 pr-3">{tr("Quá hạn")}</th>
+                      <th className="py-2 pr-3">{tr("% Đúng hạn")}</th>
+                      <th className="py-2 pr-3">{tr("SL Dưới 24h")}</th>
+                      <th className="py-2 pr-3">{tr("% Dưới 24h")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -640,8 +633,7 @@ export function LuyKeModule() {
                     {groupRows.length === 0 && (
                       <tr>
                         <td colSpan={7} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                          Không có dữ liệu khớp bộ lọc.
-                        </td>
+                          {tr("Không có dữ liệu khớp bộ lọc.")}</td>
                       </tr>
                     )}
                   </tbody>

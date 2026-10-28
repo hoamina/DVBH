@@ -4,6 +4,7 @@
 // lib/purchaseWarrantySync.ts) van giu SONG SONG, 2 nguon phan biet qua nhan tren timeline.
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { tr } from "../i18n/tr";
 
 export interface LinhKienTimelineEvent {
   at: string; // ISO 8601 +07:00
@@ -63,39 +64,39 @@ export function useLinhKienTimeline(caseId: string | null | undefined) {
 // Enum su kien on dinh cua linh-kien-app (lib/partnerTimeline.ts ben repo do) -> nhan tieng Viet.
 // Ma chua biet (linh-kien-app them trang thai moi) hien nguyen ma, khong vo UI.
 const EVENT_LABELS: Record<string, string> = {
-  cho_tram_duyet: "Chờ Trạm duyệt",
-  cho_tbp_xac_nhan: "Chờ TBP xác nhận",
-  cho_tn_duyet: "Chờ TN duyệt",
-  tn_da_duyet: "TN đã duyệt",
-  tn_tu_choi: "TN từ chối",
-  cho_hang: "Chờ hàng",
-  da_huy: "Đã hủy",
-  thieu_lk_cho_kho_xu_ly: "Tạo yêu cầu – chờ Kho xử lý",
-  thieu_lk_kho_da_tiep_nhan: "Kho đã tiếp nhận",
-  thieu_lk_kho_da_cap_nhat: "Kho cập nhật thông tin",
-  thieu_lk_kho_xac_nhan_hang_ve: "Kho xác nhận hàng về",
-  thieu_lk_kho_tu_choi: "Kho từ chối (sai thông tin)",
-  thieu_lk_huy_bo: "Đã hủy bỏ",
-  thieu_lk_ket_thuc: "Kết thúc",
-  pxk_dang_tao_phieu: "Đang tạo phiếu xuất kho",
-  pxk_cho_ke_toan: "Chờ Kế toán duyệt",
-  pxk_da_chot_don_xuat: "Đã chốt đơn xuất",
-  pxk_dang_gui_ktv: "Đang gửi hàng cho KTV",
-  pxk_ktv_da_nhan: "KTV đã nhận hàng",
-  pxk_ke_toan_huy: "Kế toán hủy phiếu",
-  pxk_hang_tru_kho: "Hàng trừ kho",
-  pxk_kho_da_ket_thuc: "Kho đã kết thúc",
-  pxk_kho_da_nhan_hang_tra: "Kho đã nhận hàng trả",
-  pxk_chuyen_tien_yeu_cau: "Yêu cầu KTV chuyển tiền",
-  pxk_chuyen_tien_da_dinh_bang_chung: "KTV đính bằng chứng chuyển tiền",
-  pxk_chuyen_tien_ke_toan_duyet: "Kế toán duyệt chuyển tiền",
-  tra_hang_cho_ke_toan_duyet_mem: "Chờ Kế toán duyệt",
-  tra_hang_cho_kho_xac_nhan: "Chờ Kho xác nhận",
-  tra_hang_cho_qc_xac_nhan: "Chờ QC xác nhận",
-  tra_hang_cho_tn_duyet_tong: "Chờ TN duyệt tổng",
-  tra_hang_tn_da_duyet: "TN đã duyệt",
-  tra_hang_tu_choi: "Từ chối",
-  tra_hang_da_huy: "Đã hủy",
+  cho_tram_duyet: tr("Chờ Trạm duyệt"),
+  cho_tbp_xac_nhan: tr("Chờ TBP xác nhận"),
+  cho_tn_duyet: tr("Chờ TN duyệt"),
+  tn_da_duyet: tr("TN đã duyệt"),
+  tn_tu_choi: tr("TN từ chối"),
+  cho_hang: tr("Chờ hàng"),
+  da_huy: tr("Đã hủy"),
+  thieu_lk_cho_kho_xu_ly: tr("Tạo yêu cầu – chờ Kho xử lý"),
+  thieu_lk_kho_da_tiep_nhan: tr("Kho đã tiếp nhận"),
+  thieu_lk_kho_da_cap_nhat: tr("Kho cập nhật thông tin"),
+  thieu_lk_kho_xac_nhan_hang_ve: tr("Kho xác nhận hàng về"),
+  thieu_lk_kho_tu_choi: tr("Kho từ chối (sai thông tin)"),
+  thieu_lk_huy_bo: tr("Đã hủy bỏ"),
+  thieu_lk_ket_thuc: tr("Kết thúc"),
+  pxk_dang_tao_phieu: tr("Đang tạo phiếu xuất kho"),
+  pxk_cho_ke_toan: tr("Chờ Kế toán duyệt"),
+  pxk_da_chot_don_xuat: tr("Đã chốt đơn xuất"),
+  pxk_dang_gui_ktv: tr("Đang gửi hàng cho KTV"),
+  pxk_ktv_da_nhan: tr("KTV đã nhận hàng"),
+  pxk_ke_toan_huy: tr("Kế toán hủy phiếu"),
+  pxk_hang_tru_kho: tr("Hàng trừ kho"),
+  pxk_kho_da_ket_thuc: tr("Kho đã kết thúc"),
+  pxk_kho_da_nhan_hang_tra: tr("Kho đã nhận hàng trả"),
+  pxk_chuyen_tien_yeu_cau: tr("Yêu cầu KTV chuyển tiền"),
+  pxk_chuyen_tien_da_dinh_bang_chung: tr("KTV đính bằng chứng chuyển tiền"),
+  pxk_chuyen_tien_ke_toan_duyet: tr("Kế toán duyệt chuyển tiền"),
+  tra_hang_cho_ke_toan_duyet_mem: tr("Chờ Kế toán duyệt"),
+  tra_hang_cho_kho_xac_nhan: tr("Chờ Kho xác nhận"),
+  tra_hang_cho_qc_xac_nhan: tr("Chờ QC xác nhận"),
+  tra_hang_cho_tn_duyet_tong: tr("Chờ TN duyệt tổng"),
+  tra_hang_tn_da_duyet: tr("TN đã duyệt"),
+  tra_hang_tu_choi: tr("Từ chối"),
+  tra_hang_da_huy: tr("Đã hủy"),
 };
 
 export function linhKienEventLabel(event: string): string {
@@ -103,10 +104,10 @@ export function linhKienEventLabel(event: string): string {
 }
 
 const SOURCE_LABELS: Record<LinhKienTimelineEvent["source"], string> = {
-  mua_hang: "Đặt mua LK",
-  thieu_lk: "Thiếu LK",
-  phieu_xuat_kho: "Xuất kho LK",
-  tra_hang: "Trả hàng LK",
+  mua_hang: tr("Đặt mua LK"),
+  thieu_lk: tr("Thiếu LK"),
+  phieu_xuat_kho: tr("Xuất kho LK"),
+  tra_hang: tr("Trả hàng LK"),
 };
 
 export function linhKienSourceLabel(source: LinhKienTimelineEvent["source"], loaiDon: string): string {
@@ -114,7 +115,7 @@ export function linhKienSourceLabel(source: LinhKienTimelineEvent["source"], loa
   return SOURCE_LABELS[source] ?? source;
 }
 
-const LOAI_DON_LABELS: Record<string, string> = { mua: "Mua hàng", cong_no: "Công nợ", tra_hang: "Trả hàng" };
+const LOAI_DON_LABELS: Record<string, string> = { mua: tr("Mua hàng"), cong_no: tr("Công nợ"), tra_hang: tr("Trả hàng") };
 export function linhKienLoaiDonLabel(loaiDon: string): string {
   return LOAI_DON_LABELS[loaiDon] ?? loaiDon;
 }

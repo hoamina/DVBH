@@ -1,3 +1,4 @@
+import { tr } from "../i18n/tr";
 export type ThemePresetKey =
   | "ocean"
   | "emerald"
@@ -65,25 +66,25 @@ interface FontOptionDef {
 // cai hay khong. Nhom 2: font he thong pho bien (Windows/Mac deu co san) - khong tai them webfont
 // nao de tranh phinh bundle, chi dung font co san tren may nguoi dung qua CSS font-stack.
 export const FONT_OPTIONS: FontOptionDef[] = [
-  { key: "inter", label: "Mặc định (Inter)", stack: '"Inter", ui-sans-serif, system-ui, sans-serif' },
-  { key: "manrope", label: "Manrope (bo tròn)", stack: '"Manrope", ui-sans-serif, system-ui, sans-serif' },
-  { key: "mono", label: "Đơn cách (Mono)", stack: '"IBM Plex Mono", ui-monospace, "Courier New", monospace' },
-  { key: "serif", label: "Có chân (Serif)", stack: 'Georgia, "Times New Roman", serif' },
-  { key: "system", label: "Hệ thống (System UI)", stack: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' },
+  { key: "inter", label: tr("Mặc định (Inter)"), stack: '"Inter", ui-sans-serif, system-ui, sans-serif' },
+  { key: "manrope", label: tr("Manrope (bo tròn)"), stack: '"Manrope", ui-sans-serif, system-ui, sans-serif' },
+  { key: "mono", label: tr("Đơn cách (Mono)"), stack: '"IBM Plex Mono", ui-monospace, "Courier New", monospace' },
+  { key: "serif", label: tr("Có chân (Serif)"), stack: 'Georgia, "Times New Roman", serif' },
+  { key: "system", label: tr("Hệ thống (System UI)"), stack: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' },
   { key: "segoe", label: "Segoe UI (Windows)", stack: '"Segoe UI", Tahoma, sans-serif' },
-  { key: "arial", label: "Arial (phổ thông)", stack: 'Arial, Helvetica, sans-serif' },
+  { key: "arial", label: tr("Arial (phổ thông)"), stack: 'Arial, Helvetica, sans-serif' },
   { key: "verdana", label: "Verdana", stack: 'Verdana, Geneva, sans-serif' },
   { key: "tahoma", label: "Tahoma", stack: 'Tahoma, Geneva, sans-serif' },
   { key: "trebuchet", label: "Trebuchet MS", stack: '"Trebuchet MS", Helvetica, sans-serif' },
   { key: "calibri", label: "Calibri", stack: 'Calibri, Candara, sans-serif' },
-  { key: "century-gothic", label: "Century Gothic (tròn)", stack: '"Century Gothic", AppleGothic, sans-serif' },
-  { key: "times", label: "Times New Roman (cổ điển)", stack: '"Times New Roman", Times, serif' },
+  { key: "century-gothic", label: tr("Century Gothic (tròn)"), stack: '"Century Gothic", AppleGothic, sans-serif' },
+  { key: "times", label: tr("Times New Roman (cổ điển)"), stack: '"Times New Roman", Times, serif' },
   { key: "cambria", label: "Cambria", stack: 'Cambria, Georgia, serif' },
-  { key: "garamond", label: "Garamond (trang trọng)", stack: 'Garamond, Georgia, serif' },
+  { key: "garamond", label: tr("Garamond (trang trọng)"), stack: 'Garamond, Georgia, serif' },
   { key: "palatino", label: "Palatino", stack: '"Palatino Linotype", "Book Antiqua", Palatino, serif' },
-  { key: "consolas", label: "Consolas (lập trình)", stack: 'Consolas, "Courier New", monospace' },
-  { key: "impact", label: "Impact (đậm)", stack: 'Impact, Haettenschweiler, sans-serif' },
-  { key: "comic-sans", label: "Comic Sans MS (vui nhộn)", stack: '"Comic Sans MS", "Comic Sans", cursive' },
+  { key: "consolas", label: tr("Consolas (lập trình)"), stack: 'Consolas, "Courier New", monospace' },
+  { key: "impact", label: tr("Impact (đậm)"), stack: 'Impact, Haettenschweiler, sans-serif' },
+  { key: "comic-sans", label: tr("Comic Sans MS (vui nhộn)"), stack: '"Comic Sans MS", "Comic Sans", cursive' },
 ];
 export const DEFAULT_FONT: Exclude<FontKey, "random"> = "inter";
 
@@ -113,7 +114,7 @@ interface ThemePresetDef {
 export const THEME_PRESETS: ThemePresetDef[] = [
   {
     key: "ocean",
-    label: "Đại dương",
+    label: tr("Đại dương"),
     colors: {
       accent: "#1591c9", accentDark: "#1176a6", accentTint: "#ddf1fb", bg: "#f2f6f9", surface: "#ffffff", topbar: "#ffffff", line: "#e1eaf0", ink: "#0f2536",
       sidebarFrom: "#052033", sidebarTo: "#06304a",
@@ -121,7 +122,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "emerald",
-    label: "Ngọc lục bảo",
+    label: tr("Ngọc lục bảo"),
     colors: {
       accent: "#159c6b", accentDark: "#0e7a54", accentTint: "#daf5ea", bg: "#f1f8f4", surface: "#ffffff", topbar: "#ffffff", line: "#dcefe4", ink: "#0f2b22",
       sidebarFrom: "#04241a", sidebarTo: "#0b3d2c",
@@ -129,7 +130,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "sunset",
-    label: "Hoàng hôn",
+    label: tr("Hoàng hôn"),
     colors: {
       accent: "#e06b2e", accentDark: "#b8541a", accentTint: "#fbe8d9", bg: "#fbf6f1", surface: "#ffffff", topbar: "#ffffff", line: "#f0e0d3", ink: "#33210f",
       sidebarFrom: "#2b1608", sidebarTo: "#4a2712",
@@ -137,7 +138,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "violet",
-    label: "Tím than",
+    label: tr("Tím than"),
     colors: {
       accent: "#6d5bd0", accentDark: "#5544b0", accentTint: "#e8e4fa", bg: "#f6f4fc", surface: "#ffffff", topbar: "#ffffff", line: "#e4e0f5", ink: "#211b3d",
       sidebarFrom: "#17102e", sidebarTo: "#291f4d",
@@ -145,7 +146,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "graphite",
-    label: "Than chì",
+    label: tr("Than chì"),
     colors: {
       accent: "#475569", accentDark: "#334155", accentTint: "#e2e8f0", bg: "#f8fafc", surface: "#ffffff", topbar: "#ffffff", line: "#e2e8f0", ink: "#1e293b",
       sidebarFrom: "#0f172a", sidebarTo: "#1e293b",
@@ -153,7 +154,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "rose",
-    label: "Hồng đào",
+    label: tr("Hồng đào"),
     colors: {
       accent: "#d1477e", accentDark: "#a8305f", accentTint: "#fbe3ee", bg: "#fdf3f7", surface: "#ffffff", topbar: "#ffffff", line: "#f5dde6", ink: "#3a0f22",
       sidebarFrom: "#2b0a1a", sidebarTo: "#4a1530",
@@ -161,7 +162,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "indigo",
-    label: "Chàm",
+    label: tr("Chàm"),
     colors: {
       accent: "#4338ca", accentDark: "#332a99", accentTint: "#e2e0fb", bg: "#f4f4fd", surface: "#ffffff", topbar: "#ffffff", line: "#e2e2f5", ink: "#1e1b4b",
       sidebarFrom: "#0e0b2e", sidebarTo: "#1e1a4d",
@@ -169,7 +170,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "amber",
-    label: "Hổ phách",
+    label: tr("Hổ phách"),
     colors: {
       accent: "#c68a12", accentDark: "#9c6d0d", accentTint: "#faedd0", bg: "#fdf8ee", surface: "#ffffff", topbar: "#ffffff", line: "#f2e4c4", ink: "#3a2a09",
       sidebarFrom: "#2b1d05", sidebarTo: "#4a3208",
@@ -177,7 +178,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "crimson",
-    label: "Rượu vang",
+    label: tr("Rượu vang"),
     colors: {
       accent: "#a3223e", accentDark: "#7e1a30", accentTint: "#f6dde2", bg: "#fdf4f5", surface: "#ffffff", topbar: "#ffffff", line: "#f0d9dc", ink: "#380d15",
       sidebarFrom: "#250509", sidebarTo: "#3f0d14",
@@ -185,7 +186,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "teal",
-    label: "Ngọc lam",
+    label: tr("Ngọc lam"),
     colors: {
       accent: "#0d9488", accentDark: "#0a7268", accentTint: "#d3f3ef", bg: "#f0faf8", surface: "#ffffff", topbar: "#ffffff", line: "#d7ede9", ink: "#052e2b",
       sidebarFrom: "#042523", sidebarTo: "#0a3f3a",
@@ -193,7 +194,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "forest",
-    label: "Rừng sâu",
+    label: tr("Rừng sâu"),
     colors: {
       accent: "#2f6b3a", accentDark: "#23532c", accentTint: "#ddeee0", bg: "#f3f8f3", surface: "#ffffff", topbar: "#ffffff", line: "#dceadd", ink: "#12291a",
       sidebarFrom: "#0b1f10", sidebarTo: "#163a1e",
@@ -201,7 +202,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "steel",
-    label: "Xanh thép",
+    label: tr("Xanh thép"),
     colors: {
       accent: "#3b6b88", accentDark: "#2c516a", accentTint: "#dcebf1", bg: "#f2f7f9", surface: "#ffffff", topbar: "#ffffff", line: "#dde9ee", ink: "#16262e",
       sidebarFrom: "#0d1a20", sidebarTo: "#1c333d",
@@ -209,7 +210,7 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
   {
     key: "plum",
-    label: "Mận chín",
+    label: tr("Mận chín"),
     colors: {
       accent: "#8a3a9e", accentDark: "#6c2c7c", accentTint: "#f0dcf5", bg: "#faf4fb", surface: "#ffffff", topbar: "#ffffff", line: "#ecdcf0", ink: "#2c0f33",
       sidebarFrom: "#1f0a24", sidebarTo: "#35123d",

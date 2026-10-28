@@ -7,6 +7,7 @@ import { Card } from "./ui/Card";
 import { useToast } from "./ui/Toast";
 import { LOAI_LOI_META, fmtDate, fmtDateTime, type LoaiLoi } from "../types";
 import { extractMaKtv } from "../lib/ktvPhone";
+import { tr } from "../i18n/tr";
 
 // Tab "Danh sách loại trừ" - Quản lý khảo sát (2026-10-09, backend routes/survey.ts /loai-tru, migration 0128).
 // TN CSKH / TBP CSKH khai bao KTV + nhom loi + khoang ngay (theo NGAY CSKH TIEP NHAN ca) khong bat buoc khao sat.
@@ -34,9 +35,9 @@ function homNayVN(): string {
 }
 
 function hieuLuc(r: LoaiTruRow, today: string): { label: string; tone: "teal" | "ocean" | "gray" } {
-  if (r.den_ngay < today) return { label: "Hết hạn", tone: "gray" };
-  if (r.tu_ngay > today) return { label: "Sắp áp dụng", tone: "ocean" };
-  return { label: "Đang áp dụng", tone: "teal" };
+  if (r.den_ngay < today) return { label: tr("Hết hạn"), tone: "gray" };
+  if (r.tu_ngay > today) return { label: tr("Sắp áp dụng"), tone: "ocean" };
+  return { label: tr("Đang áp dụng"), tone: "teal" };
 }
 
 // Bo dau + thuong hoa de doi chieu chu nhap tay trong file Excel.
@@ -110,18 +111,18 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
   const addMut = useMutation({
     mutationFn: (p: { rows: NewRow[]; nguon: "thu_cong" | "import" }) => api.post<{ added: number; caCapNhat: number }>("/survey/loai-tru", p),
     onSuccess: (res) => {
-      addToast(`Đã thêm ${res.added} dòng loại trừ · ${res.caCapNhat} ca được cập nhật danh sách cần gọi`);
+      addToast(tr("Đã thêm {0} dòng loại trừ · {1} ca được cập nhật danh sách cần gọi", res.added, res.caCapNhat));
       invalidate();
     },
-    onError: (e) => addToast(`Không thêm được: ${e instanceof Error ? e.message : String(e)}`),
+    onError: (e) => addToast(tr("Không thêm được: {0}", e instanceof Error ? e.message : String(e))),
   });
   const delMut = useMutation({
     mutationFn: (id: number) => api.delete<{ caCapNhat: number }>(`/survey/loai-tru/${id}`),
     onSuccess: (res) => {
-      addToast(`Đã xóa · ${res.caCapNhat} ca được cập nhật lại danh sách cần gọi`);
+      addToast(tr("Đã xóa · {0} ca được cập nhật lại danh sách cần gọi", res.caCapNhat));
       invalidate();
     },
-    onError: (e) => addToast(`Không xóa được: ${e instanceof Error ? e.message : String(e)}`),
+    onError: (e) => addToast(tr("Không xóa được: {0}", e instanceof Error ? e.message : String(e))),
   });
 
   // ---- Form thu cong ----
@@ -132,7 +133,7 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
   const [ghiChu, setGhiChu] = useState("");
   const ktvMa = extractMaKtv(ktvInput) ?? (ktvByMa.has(ktvInput.trim().toLowerCase()) ? ktvInput.trim() : null);
   const ktvHopLe = !!ktvMa && ktvByMa.has(ktvMa.toLowerCase());
-  const formLoi = !ktvHopLe ? "Chọn KTV trong danh sách" : loaiChon.size === 0 ? "Chọn ít nhất 1 nhóm lỗi" : tuNgay > denNgay ? '"Từ ngày" sau "Đến ngày"' : null;
+  const formLoi = !ktvHopLe ? tr("Chọn KTV trong danh sách") : loaiChon.size === 0 ? tr("Chọn ít nhất 1 nhóm lỗi") : tuNgay > denNgay ? tr("\"Từ ngày\" sau \"Đến ngày\"") : null;
 
   function themThuCong() {
     if (formLoi || !ktvMa) return;
@@ -187,10 +188,10 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
       const loais = parseNhomLoi(String(get("nhom loi", "loai loi", "loi") ?? ""));
       const tu = parseNgay(get("tu ngay"));
       const den = parseNgay(get("den ngay"));
-      if (!ten) loi.push(`Dòng ${dong}: không tìm thấy KTV "${ktvRaw}"`);
-      else if (!loais) loi.push(`Dòng ${dong}: nhóm lỗi không hiểu "${String(get("nhom loi", "loai loi", "loi"))}"`);
-      else if (!tu || !den) loi.push(`Dòng ${dong}: ngày không hợp lệ`);
-      else if (tu > den) loi.push(`Dòng ${dong}: "Từ ngày" sau "Đến ngày"`);
+      if (!ten) loi.push(tr("Dòng {0}: không tìm thấy KTV \"{1}\"", dong, ktvRaw));
+      else if (!loais) loi.push(tr("Dòng {0}: nhóm lỗi không hiểu \"{1}\"", dong, String(get("nhom loi", "loai loi", "loi"))));
+      else if (!tu || !den) loi.push(tr("Dòng {0}: ngày không hợp lệ", dong));
+      else if (tu > den) loi.push(tr("Dòng {0}: \"Từ ngày\" sau \"Đến ngày\"", dong));
       else {
         const maThat = extractMaKtv(ten) ?? ma;
         for (const loai of loais) ok.push({ ma_ktv: maThat, ten_ktv: ten, loai_loi: loai, tu_ngay: tu, den_ngay: den, ghi_chu: String(get("ghi chu") ?? "").trim() || null });
@@ -211,22 +212,20 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
   return (
     <div className="mt-4 space-y-4">
       <div className="rounded-xl px-4 py-3 text-sm bg-[var(--ocean-100)] text-[var(--ink-700)]" style={{ borderLeft: "4px solid var(--ocean-500)" }}>
-        KTV + nhóm lỗi trong khoảng ngày (theo <b>ngày CSKH tiếp nhận ca</b>) sẽ <b>không bắt buộc gọi khảo sát</b>. Ca chỉ có lỗi
-        bị loại trừ → tự rời danh sách cần gọi; ca còn lỗi khác → vẫn cần gọi, lỗi bị loại trừ hiện mờ kèm cảnh báo.
-      </div>
+        {tr("KTV + nhóm lỗi trong khoảng ngày (theo")} <b>{tr("ngày CSKH tiếp nhận ca")}</b>{tr(") sẽ")} <b>{tr("không bắt buộc gọi khảo sát")}</b>{tr(". Ca chỉ có lỗi bị loại trừ → tự rời danh sách cần gọi; ca còn lỗi khác → vẫn cần gọi, lỗi bị loại trừ hiện mờ kèm cảnh báo.")}</div>
 
       {canEdit && (
         <div className="grid lg:grid-cols-2 gap-4">
           <Card className="p-4">
-            <div className="font-display font-bold text-sm mb-3">➕ Thêm thủ công</div>
+            <div className="font-display font-bold text-sm mb-3">{tr("➕ Thêm thủ công")}</div>
             <div className="space-y-3 text-sm">
               <div>
-                <label className="text-xs font-semibold text-[var(--ink-400)]">Kỹ thuật viên</label>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Kỹ thuật viên")}</label>
                 <input
                   list="loai-tru-ktv-list"
                   value={ktvInput}
                   onChange={(e) => setKtvInput(e.target.value)}
-                  placeholder="Gõ mã hoặc tên KTV…"
+                  placeholder={tr("Gõ mã hoặc tên KTV…")}
                   className="w-full mt-1 rounded-lg border border-[var(--line)] px-3 py-2 focus-ring"
                 />
                 <datalist id="loai-tru-ktv-list">
@@ -236,7 +235,7 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
                 </datalist>
               </div>
               <div>
-                <label className="text-xs font-semibold text-[var(--ink-400)]">Nhóm lỗi bỏ qua</label>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Nhóm lỗi bỏ qua")}</label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {LOAI_TRU_LOAI_LOI.map((l) => {
                     const on = loaiChon.has(l);
@@ -261,21 +260,21 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-[var(--ink-400)]">Từ ngày</label>
+                  <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Từ ngày")}</label>
                   <input type="date" value={tuNgay} onChange={(e) => setTuNgay(e.target.value)} className="w-full mt-1 rounded-lg border border-[var(--line)] px-3 py-2 focus-ring" />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[var(--ink-400)]">Đến ngày</label>
+                  <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Đến ngày")}</label>
                   <input type="date" value={denNgay} onChange={(e) => setDenNgay(e.target.value)} className="w-full mt-1 rounded-lg border border-[var(--line)] px-3 py-2 focus-ring" />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú (lý do)</label>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú (lý do)")}</label>
                 <input value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} className="w-full mt-1 rounded-lg border border-[var(--line)] px-3 py-2 focus-ring" />
               </div>
               <div className="flex items-center gap-3">
                 <Btn size="sm" onClick={themThuCong} disabled={!!formLoi || addMut.isPending}>
-                  {addMut.isPending ? "Đang lưu…" : `Thêm ${loaiChon.size > 1 ? `${loaiChon.size} dòng` : ""}`}
+                  {addMut.isPending ? tr("Đang lưu…") : tr("Thêm {0}", loaiChon.size > 1 ? tr("{0} dòng", loaiChon.size) : "")}
                 </Btn>
                 {formLoi && ktvInput && <span className="text-xs text-[var(--coral-600)]">{formLoi}</span>}
               </div>
@@ -283,18 +282,14 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
           </Card>
 
           <Card className="p-4">
-            <div className="font-display font-bold text-sm mb-1">📥 Import danh sách (Excel)</div>
+            <div className="font-display font-bold text-sm mb-1">{tr("📥 Import danh sách (Excel)")}</div>
             <div className="text-xs text-[var(--ink-400)] mb-3">
-              Cột: <b>KTV</b> (mã hoặc chuỗi "(mã) …" như trên CRM) · <b>Nhóm lỗi</b> (120 phút / 24h / Lỡ kế hoạch / Hẹn lại / Tất cả — nhiều nhóm cách nhau dấu phẩy)
-              · <b>Từ ngày</b> · <b>Đến ngày</b> (dd/mm/yyyy) · Ghi chú.
-            </div>
+              {tr("Cột:")} <b>KTV</b>  {tr("(mã hoặc chuỗi \"(mã) …\" như trên CRM) ·")} <b>{tr("Nhóm lỗi")}</b>  {tr("(120 phút / 24h / Lỡ kế hoạch / Hẹn lại / Tất cả — nhiều nhóm cách nhau dấu phẩy) ·")} <b>{tr("Từ ngày")}</b> · <b>{tr("Đến ngày")}</b>  {tr("(dd/mm/yyyy) · Ghi chú.")}</div>
             <div className="flex items-center gap-2 mb-3">
               <Btn size="sm" variant="ghost" onClick={taiMau}>
-                ⬇ Tải file mẫu
-              </Btn>
+                {tr("⬇ Tải file mẫu")}</Btn>
               <Btn size="sm" variant="subtle" onClick={() => fileRef.current?.click()}>
-                📂 Chọn file…
-              </Btn>
+                {tr("📂 Chọn file…")}</Btn>
               <input
                 ref={fileRef}
                 type="file"
@@ -302,7 +297,7 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) docFile(f).catch((err) => addToast(`Không đọc được file: ${err instanceof Error ? err.message : String(err)}`));
+                  if (f) docFile(f).catch((err) => addToast(tr("Không đọc được file: {0}", err instanceof Error ? err.message : String(err))));
                   e.target.value = "";
                 }}
               />
@@ -310,8 +305,8 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
             {preview && (
               <div className="rounded-lg border border-[var(--line)] p-3 text-xs space-y-2">
                 <div className="font-semibold">
-                  {preview.tenFile}: <span className="text-[var(--teal-600)]">{preview.ok.length} dòng hợp lệ</span>
-                  {preview.loi.length > 0 && <span className="text-[var(--coral-600)]"> · {preview.loi.length} dòng lỗi (bỏ qua)</span>}
+                  {preview.tenFile}: <span className="text-[var(--teal-600)]">{preview.ok.length}  {tr("dòng hợp lệ")}</span>
+                  {preview.loi.length > 0 && <span className="text-[var(--coral-600)]"> · {preview.loi.length}  {tr("dòng lỗi (bỏ qua)")}</span>}
                 </div>
                 {preview.loi.length > 0 && (
                   <ul className="max-h-28 overflow-auto text-[var(--coral-600)] list-disc pl-4">
@@ -326,11 +321,10 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
                     disabled={preview.ok.length === 0 || addMut.isPending}
                     onClick={() => addMut.mutate({ rows: preview.ok, nguon: "import" }, { onSuccess: () => setPreview(null) })}
                   >
-                    {addMut.isPending ? "Đang import…" : `Import ${preview.ok.length} dòng`}
+                    {addMut.isPending ? tr("Đang import…") : tr("Import {0} dòng", preview.ok.length)}
                   </Btn>
                   <Btn size="sm" variant="ghost" onClick={() => setPreview(null)}>
-                    Hủy
-                  </Btn>
+                    {tr("Hủy")}</Btn>
                 </div>
               </div>
             )}
@@ -341,10 +335,10 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
       <Card className="p-4">
         <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
           <div className="font-display font-bold text-sm">
-            Danh sách loại trừ <span className="text-[var(--ink-400)] font-normal">({hienThi.length})</span>
+            {tr("Danh sách loại trừ")} <span className="text-[var(--ink-400)] font-normal">({hienThi.length})</span>
           </div>
           <div className="flex items-center gap-2">
-            <input value={timKtv} onChange={(e) => setTimKtv(e.target.value)} placeholder="Tìm KTV…" className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-sm focus-ring" />
+            <input value={timKtv} onChange={(e) => setTimKtv(e.target.value)} placeholder={tr("Tìm KTV…")} className="rounded-lg border border-[var(--line)] px-3 py-1.5 text-sm focus-ring" />
             <div className="flex rounded-lg border border-[var(--line)] overflow-hidden text-xs font-semibold">
               {(
                 [
@@ -353,7 +347,7 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
                 ] as const
               ).map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setLocHieuLuc(k)} className={`px-2.5 py-1.5 ${locHieuLuc === k ? "bg-[var(--ocean-500)] text-white" : "text-[var(--ink-500)] hover:bg-slate-50"}`}>
-                  {label}
+                  {tr(label)}
                 </button>
               ))}
             </div>
@@ -363,13 +357,13 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
           <table className="dense w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                <th className="py-2 pr-3">Kỹ thuật viên</th>
-                <th className="py-2 pr-3">Nhóm lỗi</th>
-                <th className="py-2 pr-3">Từ ngày</th>
-                <th className="py-2 pr-3">Đến ngày</th>
-                <th className="py-2 pr-3">Hiệu lực</th>
-                <th className="py-2 pr-3">Ghi chú</th>
-                <th className="py-2 pr-3">Tạo bởi</th>
+                <th className="py-2 pr-3">{tr("Kỹ thuật viên")}</th>
+                <th className="py-2 pr-3">{tr("Nhóm lỗi")}</th>
+                <th className="py-2 pr-3">{tr("Từ ngày")}</th>
+                <th className="py-2 pr-3">{tr("Đến ngày")}</th>
+                <th className="py-2 pr-3">{tr("Hiệu lực")}</th>
+                <th className="py-2 pr-3">{tr("Ghi chú")}</th>
+                <th className="py-2 pr-3">{tr("Tạo bởi")}</th>
                 {canEdit && <th className="py-2 pr-3" />}
               </tr>
             </thead>
@@ -377,15 +371,13 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
               {isLoading && (
                 <tr>
                   <td colSpan={8} className="py-6 text-center text-[var(--ink-400)]">
-                    Đang tải…
-                  </td>
+                    {tr("Đang tải…")}</td>
                 </tr>
               )}
               {!isLoading && hienThi.length === 0 && (
                 <tr>
                   <td colSpan={8} className="py-6 text-center text-[var(--ink-400)]">
-                    Chưa có dòng loại trừ nào.
-                  </td>
+                    {tr("Chưa có dòng loại trừ nào.")}</td>
                 </tr>
               )}
               {hienThi.map((r) => {
@@ -405,7 +397,7 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
                     <td className="py-2 pr-3 text-xs text-[var(--ink-400)]">
                       {r.nguoi_tao}
                       <div>
-                        {fmtDateTime(r.ngay_tao)} · {r.nguon === "import" ? "Import" : "Thủ công"}
+                        {fmtDateTime(r.ngay_tao)} · {r.nguon === "import" ? "Import" : tr("Thủ công")}
                       </div>
                     </td>
                     {canEdit && (
@@ -415,11 +407,10 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
                           variant="ghost"
                           disabled={delMut.isPending}
                           onClick={() => {
-                            if (window.confirm(`Xóa loại trừ "${LOAI_LOI_META[r.loai_loi]?.label}" của ${r.ten_ktv ?? r.ma_ktv}?`)) delMut.mutate(r.id);
+                            if (window.confirm(tr("Xóa loại trừ \"{0}\" của {1}?", LOAI_LOI_META[r.loai_loi]?.label, r.ten_ktv ?? r.ma_ktv))) delMut.mutate(r.id);
                           }}
                         >
-                          🗑 Xóa
-                        </Btn>
+                          {tr("🗑 Xóa")}</Btn>
                       </td>
                     )}
                   </tr>

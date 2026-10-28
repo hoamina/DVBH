@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Select, type SelectOption } from "./ui/Select";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { tr } from "../i18n/tr";
 
 /**
  * Bo loc "khu vuc" dung chung cho moi module (FilterBar + 6 module co Select khu_vuc rieng le).
@@ -58,8 +59,7 @@ export function KhuVucFilterControl({
             onClick={() => setShowFullList(false)}
             className="text-xs text-[var(--ocean-600)] underline whitespace-nowrap"
           >
-            ← Khu vực của tôi
-          </button>
+            {tr("← Khu vực của tôi")}</button>
         )}
       </div>
     );
@@ -74,7 +74,7 @@ export function KhuVucFilterControl({
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="text-xs text-[var(--ink-400)]">Khu vực:</span>
+      <span className="text-xs text-[var(--ink-400)]">{tr("Khu vực:")}</span>
       {myAreas.map((area) => {
         const active = selected.includes(area);
         return (
@@ -82,7 +82,7 @@ export function KhuVucFilterControl({
             key={area}
             type="button"
             onClick={() => toggle(area)}
-            title={active ? "Bấm để bỏ chọn" : "Bấm để chọn"}
+            title={active ? tr("Bấm để bỏ chọn") : tr("Bấm để chọn")}
             className={`text-xs px-2 py-1 rounded-full border transition-colors ${
               active
                 ? "bg-[var(--ocean-500)] text-white border-[var(--ocean-500)]"
@@ -98,8 +98,7 @@ export function KhuVucFilterControl({
         onClick={() => setShowFullList(true)}
         className="text-xs text-[var(--ocean-600)] underline whitespace-nowrap"
       >
-        Xem tất cả khu vực hệ thống →
-      </button>
+        {tr("Xem tất cả khu vực hệ thống →")}</button>
     </div>
   );
 }

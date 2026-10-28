@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useToast } from "../components/ui/Toast";
+import { tr } from "../i18n/tr";
 
 /**
  * Boc 1 ham "Xuat Excel" (goi API export=true roi exportRowsToExcel): bat loi -> toast, khoa nut khi dang chay.
@@ -16,7 +17,7 @@ export function useExportRunner() {
     try {
       await fn();
     } catch (e) {
-      addToast(`Không xuất được file Excel: ${e instanceof Error ? e.message : String(e)}`);
+      addToast(tr("Không xuất được file Excel: {0}", e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
     }

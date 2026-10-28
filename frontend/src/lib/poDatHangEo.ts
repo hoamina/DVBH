@@ -6,6 +6,8 @@
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "./closedDataCache";
 import type { SheetRow } from "./purchaseWarrantySync";
+import { tr } from "../i18n/tr";
+
 
 export interface PoEoPayload {
   id_dat_lk: string;
@@ -39,11 +41,11 @@ function fmt(s: string | null | undefined, withTime = false): string {
 }
 const num = (v: unknown) => (v == null || v === "" ? "" : String(v));
 const TT_THEO_DOI: Record<string, string> = {
-  CHO_NDK: "Chờ ngày dự kiến", TRE_NDK: "Trễ 24h chưa có ngày dự kiến", QUA_HAN_NDK: "Quá ngày dự kiến", CHO_HANG: "Chờ hàng", DONG: "Đã đóng",
+  CHO_NDK: tr("Chờ ngày dự kiến"), TRE_NDK: tr("Trễ 24h chưa có ngày dự kiến"), QUA_HAN_NDK: tr("Quá ngày dự kiến"), CHO_HANG: tr("Chờ hàng"), DONG: tr("Đã đóng"),
 };
 const TRANG_THAI_EO: Record<string, string> = {
-  DRAFT: "Nháp", IN_REVIEW: "Đang thẩm định", WAITING_FINAL_APPROVAL: "Chờ duyệt cuối",
-  ISSUED: "Đã ban hành", REJECTED: "Từ chối", CANCELLED: "Đã hủy",
+  DRAFT: tr("Nháp"), IN_REVIEW: tr("Đang thẩm định"), WAITING_FINAL_APPROVAL: tr("Chờ duyệt cuối"),
+  ISSUED: tr("Đã ban hành"), REJECTED: tr("Từ chối"), CANCELLED: tr("Đã hủy"),
 };
 
 export function mapPoEoRow(p: PoEoPayload): SheetRow {

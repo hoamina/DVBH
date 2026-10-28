@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import { describeError } from "./ImportUploader";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import type { LuyKeRow } from "../hooks/useLuyKeChunked";
+import { tr } from "../i18n/tr";
 
 // Tab "Tốc độ theo miền" cua Bao cao luy ke (yeu cau chu he thong 2026-10-10, mau: sheet "7. TỐC ĐỘ XỬ
 // LÝ THEO THÁNG CỦA DVBH THEO MIỀN"). So ca / dung han / duoi 24h tinh tu chunk luy ke (bo "KHO ĐMX") -
@@ -137,7 +138,7 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
         monthRows.push({
           ...c,
           key: thang,
-          label: `Tháng ${thang.slice(2, 4)}${thang.slice(5, 7)}`,
+          label: tr("Tháng {0}{1}", thang.slice(2, 4), thang.slice(5, 7)),
           laNam: false,
           thang,
           rtatMb,
@@ -153,7 +154,7 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
       out.push({
         ...yc,
         key: `nam-${year}`,
-        label: `Năm ${year}`,
+        label: tr("Năm {0}", year),
         laNam: true,
         thang: null,
         rtatMb: coRtatMb ? yRtatMb : null,
@@ -170,28 +171,28 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
   }, [rows, data]);
 
   const COLS: { key: string; header: string; get: (r: ReportRow) => string; tone?: string }[] = [
-    { key: "tq", header: "Toàn quốc", get: (r) => fmtInt(r.tq) },
-    { key: "dhTq", header: "Đúng hạn toàn quốc", get: (r) => fmtInt(r.dhTq) },
-    { key: "h24Tq", header: "24h toàn quốc", get: (r) => fmtInt(r.h24Tq) },
-    { key: "slaTq", header: "% SLA toàn quốc", get: (r) => fmtPct(ratio(r.dhTq, r.tq)), tone: "bg-fuchsia-50" },
-    { key: "p24Tq", header: "% 24h toàn quốc", get: (r) => fmtPct(ratio(r.h24Tq, r.tq)), tone: "bg-fuchsia-50" },
-    { key: "mb", header: "Miền Bắc", get: (r) => fmtInt(r.mb) },
-    { key: "mn", header: "Miền Nam", get: (r) => fmtInt(r.mn) },
-    { key: "dhMb", header: "Đúng hạn MB", get: (r) => fmtInt(r.dhMb) },
-    { key: "dhMn", header: "Đúng hạn MN", get: (r) => fmtInt(r.dhMn) },
+    { key: "tq", header: tr("Toàn quốc"), get: (r) => fmtInt(r.tq) },
+    { key: "dhTq", header: tr("Đúng hạn toàn quốc"), get: (r) => fmtInt(r.dhTq) },
+    { key: "h24Tq", header: tr("24h toàn quốc"), get: (r) => fmtInt(r.h24Tq) },
+    { key: "slaTq", header: tr("% SLA toàn quốc"), get: (r) => fmtPct(ratio(r.dhTq, r.tq)), tone: "bg-fuchsia-50" },
+    { key: "p24Tq", header: tr("% 24h toàn quốc"), get: (r) => fmtPct(ratio(r.h24Tq, r.tq)), tone: "bg-fuchsia-50" },
+    { key: "mb", header: tr("Miền Bắc"), get: (r) => fmtInt(r.mb) },
+    { key: "mn", header: tr("Miền Nam"), get: (r) => fmtInt(r.mn) },
+    { key: "dhMb", header: tr("Đúng hạn MB"), get: (r) => fmtInt(r.dhMb) },
+    { key: "dhMn", header: tr("Đúng hạn MN"), get: (r) => fmtInt(r.dhMn) },
     { key: "h24Mb", header: "24h MB", get: (r) => fmtInt(r.h24Mb) },
     { key: "h24Mn", header: "24h MN", get: (r) => fmtInt(r.h24Mn) },
     { key: "slaMb", header: "% SLA MB", get: (r) => fmtPct(ratio(r.dhMb, r.mb)), tone: "bg-pink-50" },
     { key: "p24Mb", header: "% 24h MB", get: (r) => fmtPct(ratio(r.h24Mb, r.mb)), tone: "bg-pink-50" },
     { key: "slaMn", header: "% SLA MN", get: (r) => fmtPct(ratio(r.dhMn, r.mn)), tone: "bg-amber-50" },
     { key: "p24Mn", header: "% 24h MN", get: (r) => fmtPct(ratio(r.h24Mn, r.mn)), tone: "bg-amber-50" },
-    { key: "rtatMb", header: "Tổng RTAT MB (ngày)", get: (r) => fmtNum(r.rtatMb, 0), tone: "bg-green-50" },
-    { key: "rtatMn", header: "Tổng RTAT MN (ngày)", get: (r) => fmtNum(r.rtatMn, 0), tone: "bg-green-50" },
-    { key: "tbMb", header: "TB RTAT MB (giờ)", get: (r) => fmtNum(r.tbMb, 1), tone: "bg-violet-50" },
-    { key: "tbMn", header: "TB RTAT MN (giờ)", get: (r) => fmtNum(r.tbMn, 1), tone: "bg-violet-50" },
-    { key: "tbTq", header: "TB RTAT TQ (giờ)", get: (r) => fmtNum(r.tbTq, 2), tone: "bg-violet-50" },
-    { key: "ctSla", header: "Tốc độ SLA cuối tuần", get: (r) => fmtPct(r.ctSla), tone: "bg-purple-50" },
-    { key: "ct24h", header: "Tốc độ 24h cuối tuần", get: (r) => fmtPct(r.ct24h), tone: "bg-purple-50" },
+    { key: "rtatMb", header: tr("Tổng RTAT MB (ngày)"), get: (r) => fmtNum(r.rtatMb, 0), tone: "bg-green-50" },
+    { key: "rtatMn", header: tr("Tổng RTAT MN (ngày)"), get: (r) => fmtNum(r.rtatMn, 0), tone: "bg-green-50" },
+    { key: "tbMb", header: tr("TB RTAT MB (giờ)"), get: (r) => fmtNum(r.tbMb, 1), tone: "bg-violet-50" },
+    { key: "tbMn", header: tr("TB RTAT MN (giờ)"), get: (r) => fmtNum(r.tbMn, 1), tone: "bg-violet-50" },
+    { key: "tbTq", header: tr("TB RTAT TQ (giờ)"), get: (r) => fmtNum(r.tbTq, 2), tone: "bg-violet-50" },
+    { key: "ctSla", header: tr("Tốc độ SLA cuối tuần"), get: (r) => fmtPct(r.ctSla), tone: "bg-purple-50" },
+    { key: "ct24h", header: tr("Tốc độ 24h cuối tuần"), get: (r) => fmtPct(r.ct24h), tone: "bg-purple-50" },
   ];
 
   function exportExcel() {
@@ -204,27 +205,25 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
     <Card className="p-3">
       {pv !== "tat_ca" && (
         <div className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs">
-          <b>Đang xem phạm vi {PHAM_VI_LABEL[pv]}:</b> số ca / đúng hạn / dưới 24h đã lọc theo phạm vi. Riêng các cột <b>RTAT</b> và{" "}
-          <b>tốc độ cuối tuần</b> (số chốt theo miền, gồm các tháng nhập tay) <b>không phân chia theo NSKX</b> — luôn là số toàn hệ thống.
-        </div>
+          <b>{tr("Đang xem phạm vi")} {PHAM_VI_LABEL[pv]}:</b>  {tr("số ca / đúng hạn / dưới 24h đã lọc theo phạm vi. Riêng các cột")} <b>RTAT</b>  {tr("và")}{" "}
+          <b>{tr("tốc độ cuối tuần")}</b>  {tr("(số chốt theo miền, gồm các tháng nhập tay)")} <b>{tr("không phân chia theo NSKX")}</b>  {tr("— luôn là số toàn hệ thống.")}</div>
       )}
       <div className="flex items-start justify-between gap-2 flex-wrap mb-2">
         <div>
-          <div className="font-display font-bold text-sm">Tốc độ xử lý theo tháng của DVBH theo miền</div>
+          <div className="font-display font-bold text-sm">{tr("Tốc độ xử lý theo tháng của DVBH theo miền")}</div>
           <div className="text-xs text-[var(--ink-400)] mt-0.5">
-            Không tính kho ĐMX. Số ca / đúng hạn / 24h tính từ dữ liệu lũy kế. RTAT và tốc độ cuối tuần (ca CSKH tiếp nhận Thứ 7/Chủ nhật) tự tính lúc 08:00 hằng ngày từ{" "}
-            {`${autoTuThang.slice(5, 7)}/${autoTuThang.slice(0, 4)}`}; các tháng trước nhập tay{canEdit ? " (bấm ✎ ở cuối dòng)" : ""}.
+            {tr("Không tính kho ĐMX. Số ca / đúng hạn / 24h tính từ dữ liệu lũy kế. RTAT và tốc độ cuối tuần (ca CSKH tiếp nhận Thứ 7/Chủ nhật) tự tính lúc 08:00 hằng ngày từ")}{" "}
+            {`${autoTuThang.slice(5, 7)}/${autoTuThang.slice(0, 4)}`}{tr("; các tháng trước nhập tay")}{canEdit ? " " + tr("(bấm ✎ ở cuối dòng)") : ""}.
           </div>
         </div>
         <Btn size="sm" variant="ghost" onClick={exportExcel}>
-          ⬇ Xuất Excel
-        </Btn>
+          {tr("⬇ Xuất Excel")}</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="dense w-full text-xs whitespace-nowrap">
           <thead>
             <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
-              <th className="py-2 pr-3 sticky left-0 bg-[var(--surface-0,white)]">Không tính kho ĐMX</th>
+              <th className="py-2 pr-3 sticky left-0 bg-[var(--surface-0,white)]">{tr("Không tính kho ĐMX")}</th>
               {COLS.map((c) => (
                 <th key={c.key} className={`py-2 px-2 text-right whitespace-normal min-w-[64px] ${c.tone ?? ""}`}>
                   {c.header}
@@ -245,7 +244,7 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
                 {canEdit && (
                   <td className="py-1.5 px-2 text-center">
                     {r.thang && r.thang < autoTuThang && (
-                      <button type="button" className="text-[var(--ocean-500)] hover:underline" title="Nhập RTAT / tốc độ cuối tuần" onClick={() => setEditing(r)}>
+                      <button type="button" className="text-[var(--ocean-500)] hover:underline" title={tr("Nhập RTAT / tốc độ cuối tuần")} onClick={() => setEditing(r)}>
                         ✎
                       </button>
                     )}
@@ -256,8 +255,7 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
             {reportRows.length === 0 && (
               <tr>
                 <td colSpan={COLS.length + 2} className="py-8 text-center text-[var(--ink-400)]">
-                  Chưa có dữ liệu lũy kế.
-                </td>
+                  {tr("Chưa có dữ liệu lũy kế.")}</td>
               </tr>
             )}
           </tbody>
@@ -269,7 +267,7 @@ export function LuyKeTocDoMien({ rows, canEdit }: { rows: LuyKeRow[]; canEdit: b
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
-            addToast(`Đã lưu số liệu ${editing.label}.`);
+            addToast(tr("Đã lưu số liệu {0}.", editing.label));
             void qc.invalidateQueries({ queryKey: ["luy-ke-toc-do-mien"] });
           }}
         />
@@ -301,13 +299,13 @@ function EditTocDoMienModal({ row, onClose, onSaved }: { row: ReportRow; onClose
     onError: (err) => addToast(describeError(err)),
   });
   const fields: { key: keyof typeof form; label: string }[] = [
-    { key: "rtat_mb_ngay", label: "Tổng RTAT Miền Bắc (ngày)" },
-    { key: "rtat_mn_ngay", label: "Tổng RTAT Miền Nam (ngày)" },
-    { key: "cuoi_tuan_sla_pct", label: "Tốc độ SLA cuối tuần (%)" },
-    { key: "cuoi_tuan_24h_pct", label: "Tốc độ 24h cuối tuần (%)" },
+    { key: "rtat_mb_ngay", label: tr("Tổng RTAT Miền Bắc (ngày)") },
+    { key: "rtat_mn_ngay", label: tr("Tổng RTAT Miền Nam (ngày)") },
+    { key: "cuoi_tuan_sla_pct", label: tr("Tốc độ SLA cuối tuần (%)") },
+    { key: "cuoi_tuan_24h_pct", label: tr("Tốc độ 24h cuối tuần (%)") },
   ];
   return (
-    <Modal open onClose={onClose} title={`Nhập số liệu — ${row.label}`}>
+    <Modal open onClose={onClose} title={tr("Nhập số liệu — {0}", row.label)}>
       <form
         className="space-y-3"
         onSubmit={(e) => {
@@ -326,12 +324,11 @@ function EditTocDoMienModal({ row, onClose, onSaved }: { row: ReportRow; onClose
             />
           </div>
         ))}
-        <div className="text-[11px] text-[var(--ink-400)]">TB RTAT (giờ) tự tính = Tổng RTAT × 24 / số ca của miền trong tháng. Để trống = xoá giá trị.</div>
+        <div className="text-[11px] text-[var(--ink-400)]">{tr("TB RTAT (giờ) tự tính = Tổng RTAT × 24 / số ca của miền trong tháng. Để trống = xoá giá trị.")}</div>
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" type="button" onClick={onClose}>
-            Hủy
-          </Btn>
-          <Btn disabled={save.isPending}>{save.isPending ? "Đang lưu…" : "Lưu"}</Btn>
+            {tr("Hủy")}</Btn>
+          <Btn disabled={save.isPending}>{save.isPending ? tr("Đang lưu…") : tr("Lưu")}</Btn>
         </div>
       </form>
     </Modal>

@@ -6,6 +6,7 @@ import { getAllLdeFromCache, clearLdeCache, mergeLdeToCache, type LdeEntry } fro
 import type { BadgeTone } from "../../components/ui/Badge";
 import type { LkDanhMucRow, NguoiNhanHangKhaDungRow, DonHangDraft, DonHangRow, KtvDisplayMap, XepHangLinhKienRow } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, GENERIC_ERROR_MESSAGES } from "./constants";
+import { tr } from "../../i18n/tr";
 
 // Ham/hook thuan (khong JSX) dung chung nhieu tab, tach tu DatMuaLinhKienModule.tsx (UI redesign
 // Phase 3, phan hoi Codex 2026-08-19).
@@ -15,7 +16,7 @@ export function describeApiError(err: unknown): string {
     if (err.detail) return err.detail;
     const known = GENERIC_ERROR_MESSAGES[err.code ?? ""];
     if (known) return known;
-    return `không xác định (mã: ${err.code ?? err.status})`;
+    return tr("không xác định (mã: {0})", err.code ?? err.status);
   }
   return err instanceof Error ? err.message : String(err);
 }
@@ -87,9 +88,9 @@ export function deriveLoaiDon(v: string): "mua" | "cong_no" | "tra_hang" {
 // Mau/nhan theo loai don - dung lai 3 tone san co cua Badge.tsx (khong them token mau moi), giup
 // phan biet nhanh cac dong trong 1 phieu (phan hoi UX 2026-08-15 dot 2: giao diem qua nhat nhoa).
 export const LOAI_DON_TONE: Record<ReturnType<typeof deriveLoaiDon>, { tone: BadgeTone; label: string; border: string }> = {
-  mua: { tone: "ocean", label: "Mua hàng", border: "border-l-[var(--ocean-400)]" },
-  cong_no: { tone: "amber", label: "Công nợ", border: "border-l-[var(--amber-500)]" },
-  tra_hang: { tone: "coral", label: "Trả hàng", border: "border-l-[var(--coral-500)]" },
+  mua: { tone: "ocean", label: tr("Mua hàng"), border: "border-l-[var(--ocean-400)]" },
+  cong_no: { tone: "amber", label: tr("Công nợ"), border: "border-l-[var(--amber-500)]" },
+  tra_hang: { tone: "coral", label: tr("Trả hàng"), border: "border-l-[var(--coral-500)]" },
 };
 
 // Chinh sach + Ma yeu cau su co bat buoc khi Loai de xuat la cong no THAT (chua "CONG NO") nhung

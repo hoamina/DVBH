@@ -34,6 +34,7 @@ import { fetchWithHashCache } from "../lib/staticListCache";
 import { KTV_PHONE_QUERY_KEY } from "../lib/ktvPhone";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { tr } from "../i18n/tr";
 
 interface KtvImportSummary {
   thanhCong: number;
@@ -78,26 +79,26 @@ interface LdeOptionRow {
 
 const LDE_VAI_TRO_FLAGS = [
   { flag: "la_ktv_dvbh", label: "KTV DVBH" },
-  { flag: "la_ve_tinh", label: "Vệ tinh" },
+  { flag: "la_ve_tinh", label: tr("Vệ tinh") },
   { flag: "vai_tro:Admin", label: "Admin" },
   { flag: "vai_tro:Viewer", label: "Viewer" },
   { flag: "vai_tro:QC", label: "QC" },
-  { flag: "vai_tro:Giam sat", label: "Giám sát" },
+  { flag: "vai_tro:Giam sat", label: tr("Giám sát") },
   { flag: "vai_tro:TBP DVBH", label: "TBP DVBH" },
   { flag: "vai_tro:CSKH", label: "CSKH" },
   { flag: "vai_tro:TN CSKH", label: "TN CSKH" },
   { flag: "vai_tro:TBP CSKH", label: "TBP CSKH" },
-  { flag: "vai_tro:KSNB Doi tac", label: "KSNB Đối tác" },
+  { flag: "vai_tro:KSNB Doi tac", label: tr("KSNB Đối tác") },
 ];
 
 const LOAI_DONG_BO_LABELS: Record<string, string> = {
-  case: "Ca mới (import CRM hàng ngày)",
-  linh_kien: "Bảng giá linh kiện",
-  giai_trinh_cu: "Giải trình cũ",
-  giai_trinh_lap_cu: "Giải trình lặp cũ",
-  khao_sat_cu: "Khảo sát cũ",
-  nap_gas_danh_gia_cu: "Đánh giá nạp gas cũ",
-  vi_pham_ngoai: "Vi phạm QC tự ghi (Sheet ngoài, đồng bộ 03:00 hàng ngày)",
+  case: tr("Ca mới (import CRM hàng ngày)"),
+  linh_kien: tr("Bảng giá linh kiện"),
+  giai_trinh_cu: tr("Giải trình cũ"),
+  giai_trinh_lap_cu: tr("Giải trình lặp cũ"),
+  khao_sat_cu: tr("Khảo sát cũ"),
+  nap_gas_danh_gia_cu: tr("Đánh giá nạp gas cũ"),
+  vi_pham_ngoai: tr("Vi phạm QC tự ghi (Sheet ngoài, đồng bộ 03:00 hàng ngày)"),
 };
 
 export function SettingsModule() {
@@ -281,7 +282,7 @@ export function SettingsModule() {
     mutationFn: ({ id, field, value }: { id: number; field: "bat_tat" | "thuoc_thieu_linh_kien" | "thuoc_tranh_chap"; value: boolean }) =>
       api.patch(`/settings/ly-do/${id}`, { [field]: value }),
     onSuccess: () => {
-      addToast("Đã cập nhật cài đặt lý do chậm");
+      addToast(tr("Đã cập nhật cài đặt lý do chậm"));
       qc.invalidateQueries({ queryKey: ["settings-ly-do"] });
     },
   });
@@ -289,7 +290,7 @@ export function SettingsModule() {
   const addReasonMutation = useMutation({
     mutationFn: () => api.post("/settings/ly-do", { ten_ly_do: newReason.ten, thuoc_thieu_linh_kien: newReason.thieu, thuoc_tranh_chap: newReason.tranhChap }),
     onSuccess: () => {
-      addToast("Đã thêm lý do chậm mới");
+      addToast(tr("Đã thêm lý do chậm mới"));
       setNewReason({ ten: "", thieu: false, tranhChap: false });
       setAddOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-ly-do"] });
@@ -302,11 +303,11 @@ export function SettingsModule() {
     mutationFn: ({ id, field, value }: { id: number; field: "bat_tat" | "quan_ly_don_thieu_linh_kien"; value: boolean }) =>
       api.patch(`/settings/ly-do-cham/${id}`, { [field]: value }),
     onSuccess: () => {
-      addToast("Đã cập nhật lý do chậm");
+      addToast(tr("Đã cập nhật lý do chậm"));
       qc.invalidateQueries({ queryKey: ["settings-ly-do-cham"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-ly-do-cham"] });
     },
-    onError: () => addToast("Không thể cập nhật, thử lại sau."),
+    onError: () => addToast(tr("Không thể cập nhật, thử lại sau.")),
   });
 
   function openAddLyDoCham() {
@@ -340,13 +341,13 @@ export function SettingsModule() {
       return editingLyDoChamId ? api.patch(`/settings/ly-do-cham/${editingLyDoChamId}`, body) : api.post("/settings/ly-do-cham", body);
     },
     onSuccess: () => {
-      addToast(editingLyDoChamId ? "Đã cập nhật lý do chậm" : "Đã thêm lý do chậm mới");
+      addToast(editingLyDoChamId ? tr("Đã cập nhật lý do chậm") : tr("Đã thêm lý do chậm mới"));
       setLyDoChamOpen(false);
       setEditingLyDoChamId(null);
       qc.invalidateQueries({ queryKey: ["settings-ly-do-cham"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-ly-do-cham"] });
     },
-    onError: () => addToast("Không thể lưu, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu, thử lại sau.")),
   });
 
   // "Loại lỗi vi phạm" (migration 0112) - CSKH chon tu day khi ket luan cap 1 tung loi trong
@@ -355,10 +356,10 @@ export function SettingsModule() {
     mutationFn: ({ id, field, value }: { id: number; field: "bat_tat" | "bat_buoc_ghi_chu"; value: boolean }) =>
       api.patch(`/settings/loai-vi-pham/${id}`, { [field]: value }),
     onSuccess: () => {
-      addToast("Đã cập nhật loại lỗi vi phạm");
+      addToast(tr("Đã cập nhật loại lỗi vi phạm"));
       qc.invalidateQueries({ queryKey: ["settings-loai-vi-pham"] });
     },
-    onError: () => addToast("Không thể cập nhật, thử lại sau."),
+    onError: () => addToast(tr("Không thể cập nhật, thử lại sau.")),
   });
 
   function openAddLoaiViPham() {
@@ -392,27 +393,27 @@ export function SettingsModule() {
       return editingLoaiViPhamId ? api.patch(`/settings/loai-vi-pham/${editingLoaiViPhamId}`, body) : api.post("/settings/loai-vi-pham", body);
     },
     onSuccess: () => {
-      addToast(editingLoaiViPhamId ? "Đã cập nhật loại lỗi vi phạm" : "Đã thêm loại lỗi vi phạm mới");
+      addToast(editingLoaiViPhamId ? tr("Đã cập nhật loại lỗi vi phạm") : tr("Đã thêm loại lỗi vi phạm mới"));
       setLoaiViPhamOpen(false);
       setEditingLoaiViPhamId(null);
       qc.invalidateQueries({ queryKey: ["settings-loai-vi-pham"] });
     },
-    onError: () => addToast("Không thể lưu, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu, thử lại sau.")),
   });
 
   const saveUrlMutation = useMutation({
     mutationFn: ({ loai, url }: { loai: string; url: string }) => api.patch(`/settings/sheet-urls/${loai}`, { url: url || null }),
     onSuccess: () => {
-      addToast("Đã lưu link đồng bộ");
+      addToast(tr("Đã lưu link đồng bộ"));
       qc.invalidateQueries({ queryKey: ["settings-sheet-urls"] });
     },
-    onError: () => addToast("Không lưu được link, thử lại sau."),
+    onError: () => addToast(tr("Không lưu được link, thử lại sau.")),
   });
 
   const togglePhanLoai = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/phan-loai-tranh-chap/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật phân loại tranh chấp");
+      addToast(tr("Đã cập nhật phân loại tranh chấp"));
       qc.invalidateQueries({ queryKey: ["settings-phan-loai-tranh-chap"] });
     },
   });
@@ -420,18 +421,18 @@ export function SettingsModule() {
   const addPhanLoaiMutation = useMutation({
     mutationFn: () => api.post("/settings/phan-loai-tranh-chap", { ten_phan_loai: newPhanLoai }),
     onSuccess: () => {
-      addToast("Đã thêm phân loại tranh chấp mới");
+      addToast(tr("Đã thêm phân loại tranh chấp mới"));
       setNewPhanLoai("");
       setAddPhanLoaiOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-phan-loai-tranh-chap"] });
     },
-    onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
+    onError: () => addToast(tr("Không thể thêm (tên có thể đã tồn tại).")),
   });
 
   const toggleLyDoTon = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/ly-do-ton-tranh-chap/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật lý do tồn tranh chấp");
+      addToast(tr("Đã cập nhật lý do tồn tranh chấp"));
       qc.invalidateQueries({ queryKey: ["settings-ly-do-ton-tranh-chap"] });
     },
   });
@@ -439,18 +440,18 @@ export function SettingsModule() {
   const addLyDoTonMutation = useMutation({
     mutationFn: () => api.post("/settings/ly-do-ton-tranh-chap", { ten_ly_do: newLyDoTon }),
     onSuccess: () => {
-      addToast("Đã thêm lý do tồn tranh chấp mới");
+      addToast(tr("Đã thêm lý do tồn tranh chấp mới"));
       setNewLyDoTon("");
       setAddLyDoTonOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-ly-do-ton-tranh-chap"] });
     },
-    onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
+    onError: () => addToast(tr("Không thể thêm (tên có thể đã tồn tại).")),
   });
 
   const toggleKetQua = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/ket-qua-xu-ly-tranh-chap/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật kết quả xử lý tranh chấp");
+      addToast(tr("Đã cập nhật kết quả xử lý tranh chấp"));
       qc.invalidateQueries({ queryKey: ["settings-ket-qua-xu-ly-tranh-chap"] });
     },
   });
@@ -458,18 +459,18 @@ export function SettingsModule() {
   const addKetQuaMutation = useMutation({
     mutationFn: () => api.post("/settings/ket-qua-xu-ly-tranh-chap", { ten_ket_qua: newKetQua }),
     onSuccess: () => {
-      addToast("Đã thêm kết quả xử lý tranh chấp mới");
+      addToast(tr("Đã thêm kết quả xử lý tranh chấp mới"));
       setNewKetQua("");
       setAddKetQuaOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-ket-qua-xu-ly-tranh-chap"] });
     },
-    onError: () => addToast("Không thể thêm (tên có thể đã tồn tại)."),
+    onError: () => addToast(tr("Không thể thêm (tên có thể đã tồn tại).")),
   });
 
   const toggleLoaiYeuCauBoQuaLap = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/loai-yeu-cau-bo-qua-lap/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật danh sách bỏ qua đánh giá lặp");
+      addToast(tr("Đã cập nhật danh sách bỏ qua đánh giá lặp"));
       qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-bo-qua-lap"] });
     },
   });
@@ -477,18 +478,18 @@ export function SettingsModule() {
   const addLoaiYeuCauBoQuaLapMutation = useMutation({
     mutationFn: () => api.post("/settings/loai-yeu-cau-bo-qua-lap", { loai_yeu_cau: newLoaiYeuCauBoQuaLap }),
     onSuccess: () => {
-      addToast("Đã thêm loại yêu cầu bỏ qua đánh giá lặp");
+      addToast(tr("Đã thêm loại yêu cầu bỏ qua đánh giá lặp"));
       setNewLoaiYeuCauBoQuaLap("");
       setAddLoaiYeuCauBoQuaLapOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-bo-qua-lap"] });
     },
-    onError: () => addToast("Không thể thêm (loại yêu cầu này có thể đã có trong danh sách)."),
+    onError: () => addToast(tr("Không thể thêm (loại yêu cầu này có thể đã có trong danh sách).")),
   });
 
   const toggleLoaiYeuCauDoiTra = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/loai-yeu-cau-doi-tra/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật danh sách Loại yêu cầu (Theo dõi đổi trả)");
+      addToast(tr("Đã cập nhật danh sách Loại yêu cầu (Theo dõi đổi trả)"));
       qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-doi-tra"] });
     },
   });
@@ -496,18 +497,18 @@ export function SettingsModule() {
   const addLoaiYeuCauDoiTraMutation = useMutation({
     mutationFn: () => api.post("/settings/loai-yeu-cau-doi-tra", { loai_yeu_cau: newLoaiYeuCauDoiTra }),
     onSuccess: () => {
-      addToast("Đã thêm loại yêu cầu");
+      addToast(tr("Đã thêm loại yêu cầu"));
       setNewLoaiYeuCauDoiTra("");
       setAddLoaiYeuCauDoiTraOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-loai-yeu-cau-doi-tra"] });
     },
-    onError: () => addToast("Không thể thêm (loại yêu cầu này có thể đã có trong danh sách)."),
+    onError: () => addToast(tr("Không thể thêm (loại yêu cầu này có thể đã có trong danh sách).")),
   });
 
   const toggleLuuYLoiLinhKienDoiTra = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/luu-y-loi-linh-kien-doi-tra/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật danh sách Lưu ý lỗi linh kiện (Theo dõi đổi trả)");
+      addToast(tr("Đã cập nhật danh sách Lưu ý lỗi linh kiện (Theo dõi đổi trả)"));
       qc.invalidateQueries({ queryKey: ["settings-luu-y-loi-linh-kien-doi-tra"] });
     },
   });
@@ -515,18 +516,18 @@ export function SettingsModule() {
   const addLuuYLoiLinhKienDoiTraMutation = useMutation({
     mutationFn: () => api.post("/settings/luu-y-loi-linh-kien-doi-tra", { luu_y_loi_linh_kien: newLuuYLoiLinhKienDoiTra }),
     onSuccess: () => {
-      addToast("Đã thêm giá trị");
+      addToast(tr("Đã thêm giá trị"));
       setNewLuuYLoiLinhKienDoiTra("");
       setAddLuuYLoiLinhKienDoiTraOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-luu-y-loi-linh-kien-doi-tra"] });
     },
-    onError: () => addToast("Không thể thêm (giá trị này có thể đã có trong danh sách)."),
+    onError: () => addToast(tr("Không thể thêm (giá trị này có thể đã có trong danh sách).")),
   });
 
   const toggleGreetingGif = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/greeting-gif/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật GIF chào mừng");
+      addToast(tr("Đã cập nhật GIF chào mừng"));
       qc.invalidateQueries({ queryKey: ["settings-greeting-gif"] });
     },
   });
@@ -534,18 +535,18 @@ export function SettingsModule() {
   const addGreetingGifMutation = useMutation({
     mutationFn: () => api.post("/settings/greeting-gif", { gif_url: newGreetingGif }),
     onSuccess: () => {
-      addToast("Đã thêm GIF chào mừng mới");
+      addToast(tr("Đã thêm GIF chào mừng mới"));
       setNewGreetingGif("");
       setAddGreetingGifOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-greeting-gif"] });
     },
-    onError: () => addToast("Không thể thêm (link có thể đã tồn tại)."),
+    onError: () => addToast(tr("Không thể thêm (link có thể đã tồn tại).")),
   });
 
   const toggleGreetingMessage = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/greeting-message/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật lời chào");
+      addToast(tr("Đã cập nhật lời chào"));
       qc.invalidateQueries({ queryKey: ["settings-greeting-message"] });
     },
   });
@@ -553,12 +554,12 @@ export function SettingsModule() {
   const addGreetingMessageMutation = useMutation({
     mutationFn: () => api.post("/settings/greeting-message", { noi_dung: newGreetingMessage }),
     onSuccess: () => {
-      addToast("Đã thêm lời chào mới");
+      addToast(tr("Đã thêm lời chào mới"));
       setNewGreetingMessage("");
       setAddGreetingMessageOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-greeting-message"] });
     },
-    onError: () => addToast("Không thể thêm (nội dung có thể đã tồn tại)."),
+    onError: () => addToast(tr("Không thể thêm (nội dung có thể đã tồn tại).")),
   });
 
   const addExcludeNgayMutation = useMutation({
@@ -569,18 +570,18 @@ export function SettingsModule() {
         ghiChu: newExcludeNgay.ghiChu || undefined,
       }),
     onSuccess: () => {
-      addToast("Đã thêm ngày loại trừ");
+      addToast(tr("Đã thêm ngày loại trừ"));
       setNewExcludeNgay({ ngay: "", khuVucList: [], toanBo: false, ghiChu: "" });
       setAddExcludeNgayOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-giai-trinh-exclude-ngay"] });
     },
-    onError: () => addToast("Không thể thêm ngày loại trừ."),
+    onError: () => addToast(tr("Không thể thêm ngày loại trừ.")),
   });
 
   const deleteExcludeNgayMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/settings/giai-trinh-exclude-ngay/${id}`),
     onSuccess: () => {
-      addToast("Đã xóa ngày loại trừ");
+      addToast(tr("Đã xóa ngày loại trừ"));
       qc.invalidateQueries({ queryKey: ["settings-giai-trinh-exclude-ngay"] });
     },
   });
@@ -597,13 +598,13 @@ export function SettingsModule() {
       setAddPartnerKeyOpen(false);
       qc.invalidateQueries({ queryKey: ["settings-partner-keys"] });
     },
-    onError: () => addToast("Không thể tạo key (tên đối tác trống?)."),
+    onError: () => addToast(tr("Không thể tạo key (tên đối tác trống?).")),
   });
 
   const togglePartnerKeyMutation = useMutation({
     mutationFn: ({ id, active }: { id: number; active: boolean }) => api.patch(`/settings/partner-keys/${id}`, { active }),
     onSuccess: (_data, vars) => {
-      addToast(vars.active ? "Đã cấp lại key" : "Đã thu hồi key");
+      addToast(vars.active ? tr("Đã cấp lại key") : tr("Đã thu hồi key"));
       qc.invalidateQueries({ queryKey: ["settings-partner-keys"] });
     },
   });
@@ -622,7 +623,7 @@ export function SettingsModule() {
           if (res.done) return res;
           tuDoiTac = res.nextDoiTac;
           tichLuy = { soCaseCapNhat: res.soCaseCapNhat, soLichSuMoi: res.soLichSuMoi, soLichSuTrung: res.soLichSuTrung, loi: res.loi ?? [] };
-          setEtxTienDo(`Đang chạy… đối tác ${tuDoiTac}/${res.tongDoiTac}`);
+          setEtxTienDo(tr("Đang chạy… đối tác {0}/{1}", tuDoiTac, res.tongDoiTac));
         }
         throw new Error("QUA_NHIEU_DOT");
       } finally {
@@ -630,10 +631,10 @@ export function SettingsModule() {
       }
     },
     onSuccess: (res) => {
-      addToast(`Đã chạy xong: ${res.soCaseCapNhat} case cập nhật, ${res.soLichSuMoi} lịch sử mới, ${res.soLichSuTrung} trùng`);
+      addToast(tr("Đã chạy xong: {0} case cập nhật, {1} lịch sử mới, {2} trùng", res.soCaseCapNhat, res.soLichSuMoi, res.soLichSuTrung));
       qc.invalidateQueries({ queryKey: ["settings-etx-giai-trinh-sync-log"] });
     },
-    onError: () => addToast("Chạy thất bại — xem chi tiết trong bảng log bên dưới."),
+    onError: () => addToast(tr("Chạy thất bại — xem chi tiết trong bảng log bên dưới.")),
   });
 
   const saveNhomMutation = useMutation({
@@ -644,13 +645,13 @@ export function SettingsModule() {
         : api.post("/settings/loai-de-xuat/nhom", body);
     },
     onSuccess: () => {
-      addToast(editingNhomId ? "Đã cập nhật nhóm" : "Đã thêm nhóm mới");
+      addToast(editingNhomId ? tr("Đã cập nhật nhóm") : tr("Đã thêm nhóm mới"));
       setLdeNhomOpen(false);
       setEditingNhomId(null);
       setNhomForm({ ten_nhom: "", vai_tro_flags: [], bat_tat: true });
       qc.invalidateQueries({ queryKey: ["settings-lde-nhom"] });
     },
-    onError: () => addToast("Không thể lưu nhóm."),
+    onError: () => addToast(tr("Không thể lưu nhóm.")),
   });
 
   const saveOptionMutation = useMutation({
@@ -661,23 +662,23 @@ export function SettingsModule() {
         : api.post("/settings/loai-de-xuat", { nhom_id: optionNhomId, ...body });
     },
     onSuccess: () => {
-      addToast(editingOptionId ? "Đã cập nhật option" : "Đã thêm option mới");
+      addToast(editingOptionId ? tr("Đã cập nhật option") : tr("Đã thêm option mới"));
       setLdeOptionOpen(false);
       setEditingOptionId(null);
       setOptionNhomId(null);
       setOptionForm({ ten_option: "", stt: "0", bat_tat: true });
       qc.invalidateQueries({ queryKey: ["settings-lde-options"] });
     },
-    onError: () => addToast("Không thể lưu option."),
+    onError: () => addToast(tr("Không thể lưu option.")),
   });
 
   const deleteOptionMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/settings/loai-de-xuat/${id}`),
     onSuccess: () => {
-      addToast("Đã xóa option");
+      addToast(tr("Đã xóa option"));
       qc.invalidateQueries({ queryKey: ["settings-lde-options"] });
     },
-    onError: () => addToast("Không thể xóa option."),
+    onError: () => addToast(tr("Không thể xóa option.")),
   });
 
   const saveKtvMutation = useMutation({
@@ -700,13 +701,13 @@ export function SettingsModule() {
       });
     },
     onSuccess: () => {
-      addToast(editingKtvMa ? "Đã cập nhật KTV" : "Đã thêm KTV");
+      addToast(editingKtvMa ? tr("Đã cập nhật KTV") : tr("Đã thêm KTV"));
       setKtvModalOpen(false);
       setEditingKtvMa(null);
       setKtvForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", ghi_chu: "", gmail: "", vai_tro_ktv: "", giam_sat_quan_ly: "", email_dang_nhap: "" });
       qc.invalidateQueries({ queryKey: KTV_PHONE_QUERY_KEY });
     },
-    onError: () => addToast("Không thể lưu, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu, thử lại sau.")),
   });
 
   // Cap tai khoan placeholder cho KTV da ghep "Email đăng nhập" TU TRUOC nhung chua tung dang nhap
@@ -716,50 +717,50 @@ export function SettingsModule() {
   // import/commit) - nut nay chi bu du lieu cu, bam lai nhieu lan cung an toan (idempotent).
   const backfillUsersMutation = useMutation({
     mutationFn: () => api.post<{ ok: boolean; checked: number }>("/settings/ktv-lien-he/backfill-users", {}),
-    onSuccess: (res) => addToast(`Đã kiểm tra ${res.checked} KTV đã ghép email - tự động cấp tài khoản trước cho người chưa đăng nhập lần nào`),
-    onError: () => addToast("Không thể cấp tài khoản, thử lại sau."),
+    onSuccess: (res) => addToast(tr("Đã kiểm tra {0} KTV đã ghép email - tự động cấp tài khoản trước cho người chưa đăng nhập lần nào", res.checked)),
+    onError: () => addToast(tr("Không thể cấp tài khoản, thử lại sau.")),
   });
 
   const deleteKtvMutation = useMutation({
     mutationFn: (ma: string) => api.delete(`/settings/ktv-lien-he/${encodeURIComponent(ma)}`),
     onSuccess: () => {
-      addToast("Đã xóa số điện thoại KTV");
+      addToast(tr("Đã xóa số điện thoại KTV"));
       qc.invalidateQueries({ queryKey: KTV_PHONE_QUERY_KEY });
     },
-    onError: () => addToast("Không thể xóa, thử lại sau."),
+    onError: () => addToast(tr("Không thể xóa, thử lại sau.")),
   });
 
   const lyDoColumns: Column<LyDoRow>[] = [
-    { key: "ten_ly_do", header: "Tên lý do", render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
-    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleReason.mutate({ id: r.id, field: "bat_tat", value: !r.bat_tat })} /> },
+    { key: "ten_ly_do", header: tr("Tên lý do"), render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleReason.mutate({ id: r.id, field: "bat_tat", value: !r.bat_tat })} /> },
     {
       key: "thuoc_thieu_linh_kien",
-      header: "Thuộc thiếu linh kiện",
+      header: tr("Thuộc thiếu linh kiện"),
       render: (r) => <ToggleSwitch checked={!!r.thuoc_thieu_linh_kien} onChange={() => toggleReason.mutate({ id: r.id, field: "thuoc_thieu_linh_kien", value: !r.thuoc_thieu_linh_kien })} />,
     },
     {
       key: "thuoc_tranh_chap",
-      header: "Thuộc tranh chấp",
+      header: tr("Thuộc tranh chấp"),
       render: (r) => <ToggleSwitch checked={!!r.thuoc_tranh_chap} onChange={() => toggleReason.mutate({ id: r.id, field: "thuoc_tranh_chap", value: !r.thuoc_tranh_chap })} />,
     },
   ];
 
   const lyDoChamColumns: Column<LyDoChamMuaLkRow>[] = [
     { key: "stt", header: "STT", render: (r) => <span className="text-xs text-[var(--ink-500)]">{r.stt}</span> },
-    { key: "ten_ly_do", header: "Tên lý do", render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    { key: "ten_ly_do", header: tr("Tên lý do"), render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
     {
       key: "he_thong_su_dung",
-      header: "Hệ thống sử dụng",
+      header: tr("Hệ thống sử dụng"),
       render: (r) => (
         <div className="flex gap-1 flex-wrap">
-          {r.he_thong_su_dung.includes("Mua hàng") && <span className="text-xs bg-[var(--ocean-100)] text-[var(--ocean-700)] rounded px-1.5 py-0.5">Mua hàng</span>}
-          {r.he_thong_su_dung.includes("Bảo hành") && <span className="text-xs bg-[var(--teal-100)] text-[var(--teal-600)] rounded px-1.5 py-0.5">Bảo hành</span>}
+          {r.he_thong_su_dung.includes("Mua hàng") && <span className="text-xs bg-[var(--ocean-100)] text-[var(--ocean-700)] rounded px-1.5 py-0.5">{tr("Mua hàng")}</span>}
+          {r.he_thong_su_dung.includes("Bảo hành") && <span className="text-xs bg-[var(--teal-100)] text-[var(--teal-600)] rounded px-1.5 py-0.5">{tr("Bảo hành")}</span>}
         </div>
       ),
     },
     {
       key: "quan_ly_don_thieu_linh_kien",
-      header: "Tự tạo ticket Thiếu LK",
+      header: tr("Tự tạo ticket Thiếu LK"),
       render: (r) => (
         <ToggleSwitch
           checked={!!r.quan_ly_don_thieu_linh_kien}
@@ -769,7 +770,7 @@ export function SettingsModule() {
     },
     {
       key: "bat_tat",
-      header: "Bật / Tắt",
+      header: tr("Bật / Tắt"),
       render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLyDoChamMutation.mutate({ id: r.id, field: "bat_tat", value: !r.bat_tat })} />,
     },
     {
@@ -777,27 +778,26 @@ export function SettingsModule() {
       header: "",
       render: (r) => (
         <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={() => openEditLyDoCham(r)}>
-          Sửa
-        </button>
+          {tr("Sửa")}</button>
       ),
     },
   ];
 
   const loaiViPhamColumns: Column<LoaiViPhamRow>[] = [
     { key: "stt", header: "STT", render: (r) => <span className="text-xs text-[var(--ink-500)]">{r.stt}</span> },
-    { key: "ten_loi", header: "Lỗi", render: (r) => <span className="font-medium">{r.ten_loi}</span> },
-    { key: "nhom_loi", header: "Nhóm lỗi", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.nhom_loi}</span> },
-    { key: "diem_the", header: "Điểm thẻ", render: (r) => <span className="text-xs">{r.diem_the}</span> },
+    { key: "ten_loi", header: tr("Lỗi"), render: (r) => <span className="font-medium">{r.ten_loi}</span> },
+    { key: "nhom_loi", header: tr("Nhóm lỗi"), render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.nhom_loi}</span> },
+    { key: "diem_the", header: tr("Điểm thẻ"), render: (r) => <span className="text-xs">{r.diem_the}</span> },
     {
       key: "bat_buoc_ghi_chu",
-      header: "Bắt buộc ghi chú",
+      header: tr("Bắt buộc ghi chú"),
       render: (r) => (
         <ToggleSwitch checked={!!r.bat_buoc_ghi_chu} onChange={() => toggleLoaiViPhamMutation.mutate({ id: r.id, field: "bat_buoc_ghi_chu", value: !r.bat_buoc_ghi_chu })} />
       ),
     },
     {
       key: "bat_tat",
-      header: "Bật / Tắt",
+      header: tr("Bật / Tắt"),
       render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLoaiViPhamMutation.mutate({ id: r.id, field: "bat_tat", value: !r.bat_tat })} />,
     },
     {
@@ -805,57 +805,56 @@ export function SettingsModule() {
       header: "",
       render: (r) => (
         <button className="text-xs text-[var(--ocean-600)] hover:underline" onClick={() => openEditLoaiViPham(r)}>
-          Sửa
-        </button>
+          {tr("Sửa")}</button>
       ),
     },
   ];
 
   const phanLoaiColumns: Column<PhanLoaiTranhChapRow>[] = [
-    { key: "ten_phan_loai", header: "Tên phân loại", render: (r) => <span className="font-medium">{r.ten_phan_loai}</span> },
-    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => togglePhanLoai.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+    { key: "ten_phan_loai", header: tr("Tên phân loại"), render: (r) => <span className="font-medium">{r.ten_phan_loai}</span> },
+    { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => togglePhanLoai.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const lyDoTonColumns: Column<LyDoTonTranhChapRow>[] = [
-    { key: "ten_ly_do", header: "Lý do tồn tranh chấp", render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
-    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLyDoTon.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+    { key: "ten_ly_do", header: tr("Lý do tồn tranh chấp"), render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLyDoTon.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const ketQuaColumns: Column<KetQuaXuLyTranhChapRow>[] = [
-    { key: "ten_ket_qua", header: "Tên kết quả", render: (r) => <span className="font-medium">{r.ten_ket_qua}</span> },
-    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleKetQua.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+    { key: "ten_ket_qua", header: tr("Tên kết quả"), render: (r) => <span className="font-medium">{r.ten_ket_qua}</span> },
+    { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleKetQua.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const loaiYeuCauBoQuaLapColumns: Column<LoaiYeuCauBoQuaLapRow>[] = [
-    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
+    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
     {
       key: "bat_tat",
-      header: "Đang bỏ qua",
+      header: tr("Đang bỏ qua"),
       render: (r) => (
         <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLoaiYeuCauBoQuaLap.mutate({ id: r.id, bat_tat: !r.bat_tat })} />
       ),
     },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
+    { key: "nguoi_cap_nhat", header: tr("Người cập nhật"), render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
   ];
 
   const loaiYeuCauDoiTraColumns: Column<LoaiYeuCauDoiTraRow>[] = [
-    { key: "loai_yeu_cau", header: "Loại yêu cầu", render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
+    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
     {
       key: "bat_tat",
-      header: "Đang áp dụng",
+      header: tr("Đang áp dụng"),
       render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLoaiYeuCauDoiTra.mutate({ id: r.id, bat_tat: !r.bat_tat })} />,
     },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
+    { key: "nguoi_cap_nhat", header: tr("Người cập nhật"), render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
   ];
 
   const luuYLoiLinhKienDoiTraColumns: Column<LuuYLoiLinhKienDoiTraRow>[] = [
-    { key: "luu_y_loi_linh_kien", header: "Lưu ý lỗi linh kiện", render: (r) => <span className="font-medium">{r.luu_y_loi_linh_kien}</span> },
+    { key: "luu_y_loi_linh_kien", header: tr("Lưu ý lỗi linh kiện"), render: (r) => <span className="font-medium">{r.luu_y_loi_linh_kien}</span> },
     {
       key: "bat_tat",
-      header: "Đang áp dụng",
+      header: tr("Đang áp dụng"),
       render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLuuYLoiLinhKienDoiTra.mutate({ id: r.id, bat_tat: !r.bat_tat })} />,
     },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
+    { key: "nguoi_cap_nhat", header: tr("Người cập nhật"), render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
   ];
 
   const greetingGifColumns: Column<GreetingGifRow>[] = [
@@ -869,30 +868,29 @@ export function SettingsModule() {
         </a>
       ),
     },
-    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleGreetingGif.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+    { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleGreetingGif.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const greetingMessageColumns: Column<GreetingMessageRow>[] = [
-    { key: "noi_dung", header: "Nội dung", render: (r) => <span className="font-medium">{r.noi_dung}</span> },
-    { key: "bat_tat", header: "Bật / Tắt", render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleGreetingMessage.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
+    { key: "noi_dung", header: tr("Nội dung"), render: (r) => <span className="font-medium">{r.noi_dung}</span> },
+    { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleGreetingMessage.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const excludeNgayColumns: Column<GiaiTrinhExcludeNgayRow>[] = [
-    { key: "ngay", header: "Ngày", render: (r) => <span className="font-mono font-medium">{r.ngay}</span> },
+    { key: "ngay", header: tr("Ngày"), render: (r) => <span className="font-mono font-medium">{r.ngay}</span> },
     {
       key: "khu_vuc",
-      header: "Khu vực",
-      render: (r) => (r.khu_vuc === "__ALL__" ? <span className="font-semibold text-[var(--coral-500)]">Tất cả khu vực</span> : shortKhuVuc(r.khu_vuc)),
+      header: tr("Khu vực"),
+      render: (r) => (r.khu_vuc === "__ALL__" ? <span className="font-semibold text-[var(--coral-500)]">{tr("Tất cả khu vực")}</span> : shortKhuVuc(r.khu_vuc)),
     },
-    { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
-    { key: "nguoi_tao", header: "Người tạo", render: (r) => <span className="text-xs">{r.nguoi_tao ? formatPersonDisplay(r.nguoi_tao, personDir) : "—"}</span> },
+    { key: "ghi_chu", header: tr("Ghi chú"), render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
+    { key: "nguoi_tao", header: tr("Người tạo"), render: (r) => <span className="text-xs">{r.nguoi_tao ? formatPersonDisplay(r.nguoi_tao, personDir) : "—"}</span> },
     {
       key: "action",
       header: "",
       render: (r) => (
         <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteExcludeNgayMutation.mutate(r.id)}>
-          Xóa
-        </button>
+          {tr("Xóa")}</button>
       ),
     },
   ];
@@ -900,42 +898,42 @@ export function SettingsModule() {
   const etxSyncLogColumns: Column<EtxSyncLogRow>[] = [
     {
       key: "created_at",
-      header: "Thời điểm gọi",
+      header: tr("Thời điểm gọi"),
       render: (r) => <span className="text-xs text-[var(--ink-400)] whitespace-nowrap">{r.created_at}</span>,
     },
     {
       key: "ok",
-      header: "Kết quả",
+      header: tr("Kết quả"),
       render: (r) =>
-        r.ok ? <span className="text-[var(--teal-500)] font-semibold">Thành công</span> : <span className="text-[var(--coral-500)] font-semibold">Thất bại</span>,
+        r.ok ? <span className="text-[var(--teal-500)] font-semibold">{tr("Thành công")}</span> : <span className="text-[var(--coral-500)] font-semibold">{tr("Thất bại")}</span>,
     },
-    { key: "so_case_cap_nhat", header: "Số case cập nhật", render: (r) => <span>{r.so_case_cap_nhat}</span> },
-    { key: "so_lich_su_moi", header: "Lịch sử ghi nhận mới", render: (r) => <span>{r.so_lich_su_moi}</span> },
-    { key: "so_lich_su_trung", header: "Lịch sử trùng", render: (r) => <span>{r.so_lich_su_trung}</span> },
+    { key: "so_case_cap_nhat", header: tr("Số case cập nhật"), render: (r) => <span>{r.so_case_cap_nhat}</span> },
+    { key: "so_lich_su_moi", header: tr("Lịch sử ghi nhận mới"), render: (r) => <span>{r.so_lich_su_moi}</span> },
+    { key: "so_lich_su_trung", header: tr("Lịch sử trùng"), render: (r) => <span>{r.so_lich_su_trung}</span> },
     {
       key: "error",
-      header: "Chi tiết lỗi",
+      header: tr("Chi tiết lỗi"),
       render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.error ?? "—"}</span>,
     },
   ];
 
   const partnerKeyColumns: Column<PartnerApiKeyRow>[] = [
-    { key: "ten_doi_tac", header: "Đối tác", render: (r) => <span className="font-medium">{r.ten_doi_tac}</span> },
+    { key: "ten_doi_tac", header: tr("Đối tác"), render: (r) => <span className="font-medium">{r.ten_doi_tac}</span> },
     { key: "api_key", header: "API Key", render: (r) => <span className="font-mono text-xs">{r.api_key}</span> },
     {
       key: "active",
-      header: "Trạng thái",
+      header: tr("Trạng thái"),
       render: (r) =>
         r.active ? (
-          <span className="text-[var(--teal-500)] font-semibold">Đang hoạt động</span>
+          <span className="text-[var(--teal-500)] font-semibold">{tr("Đang hoạt động")}</span>
         ) : (
-          <span className="text-[var(--coral-500)] font-semibold">Đã thu hồi</span>
+          <span className="text-[var(--coral-500)] font-semibold">{tr("Đã thu hồi")}</span>
         ),
     },
-    { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
+    { key: "ghi_chu", header: tr("Ghi chú"), render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
     {
       key: "created_at",
-      header: "Ngày tạo",
+      header: tr("Ngày tạo"),
       render: (r) => (
         <span className="text-xs text-[var(--ink-400)]">
           {r.created_at}
@@ -951,7 +949,7 @@ export function SettingsModule() {
           className={r.active ? "text-xs text-[var(--coral-500)] hover:underline" : "text-xs text-[var(--ocean-600)] hover:underline"}
           onClick={() => togglePartnerKeyMutation.mutate({ id: r.id, active: !r.active })}
         >
-          {r.active ? "Thu hồi" : "Cấp lại"}
+          {r.active ? tr("Thu hồi") : tr("Cấp lại")}
         </button>
       ),
     },
@@ -959,20 +957,20 @@ export function SettingsModule() {
 
 
   const ktvColumns: Column<KtvLienHeRow>[] = [
-    { key: "ma_ktv", header: "Mã KTV", render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
-    { key: "ten_hien_thi", header: "Tên hiển thị", render: (r) => <span className="font-medium">{r.ten_hien_thi ?? "—"}</span> },
-    { key: "sdt", header: "Số điện thoại", render: (r) => <span className="font-mono">{r.sdt ?? "—"}</span> },
-    { key: "vai_tro_ktv", header: "Vai trò", render: (r) => <span className="text-xs">{r.vai_tro_ktv ?? "—"}</span> },
+    { key: "ma_ktv", header: tr("Mã KTV"), render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
+    { key: "ten_hien_thi", header: tr("Tên hiển thị"), render: (r) => <span className="font-medium">{r.ten_hien_thi ?? "—"}</span> },
+    { key: "sdt", header: tr("Số điện thoại"), render: (r) => <span className="font-mono">{r.sdt ?? "—"}</span> },
+    { key: "vai_tro_ktv", header: tr("Vai trò"), render: (r) => <span className="text-xs">{r.vai_tro_ktv ?? "—"}</span> },
     { key: "gmail", header: "Gmail", render: (r) => <span className="text-xs">{r.gmail ?? "—"}</span> },
-    { key: "giam_sat_quan_ly", header: "Giám sát", render: (r) => <span className="text-xs">{r.giam_sat_quan_ly ?? "—"}</span> },
+    { key: "giam_sat_quan_ly", header: tr("Giám sát"), render: (r) => <span className="text-xs">{r.giam_sat_quan_ly ?? "—"}</span> },
     {
       key: "email_dang_nhap",
-      header: "Tài khoản đăng nhập",
-      render: (r) => (r.email_dang_nhap ? <span className="text-xs">{r.email_dang_nhap}</span> : <span className="text-xs text-[var(--ink-400)] italic">Chưa ghép</span>),
+      header: tr("Tài khoản đăng nhập"),
+      render: (r) => (r.email_dang_nhap ? <span className="text-xs">{r.email_dang_nhap}</span> : <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa ghép")}</span>),
     },
-    { key: "ghi_chu", header: "Ghi chú", render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
-    { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
-    { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (r) => <span className="text-xs">{r.ngay_cap_nhat}</span> },
+    { key: "ghi_chu", header: tr("Ghi chú"), render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
+    { key: "nguoi_cap_nhat", header: tr("Người cập nhật"), render: (r) => <span className="text-xs">{r.nguoi_cap_nhat ? formatPersonDisplay(r.nguoi_cap_nhat, personDir) : "—"}</span> },
+    { key: "ngay_cap_nhat", header: tr("Ngày cập nhật"), render: (r) => <span className="text-xs">{r.ngay_cap_nhat}</span> },
     ...(KTV_LIST_LOCKED
       ? []
       : [
@@ -993,11 +991,9 @@ export function SettingsModule() {
                     setKtvModalOpen(true);
                   }}
                 >
-                  Sửa
-                </button>
+                  {tr("Sửa")}</button>
                 <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteKtvMutation.mutate(r.ma_ktv)}>
-                  Xóa
-                </button>
+                  {tr("Xóa")}</button>
               </div>
             ),
           } satisfies Column<KtvLienHeRow>,
@@ -1010,22 +1006,22 @@ export function SettingsModule() {
         active={tab}
         onChange={setTab}
         tabs={[
-          { key: "ly-do", label: "Lý do chậm" },
-          { key: "loai-vi-pham", label: "Loại lỗi vi phạm" },
-          { key: "ktv-lien-he", label: "Danh sách KTV" },
-          { key: "phan-loai-tranh-chap", label: "Phân loại tranh chấp" },
-          { key: "ket-qua-xu-ly-tranh-chap", label: "Kết quả xử lý tranh chấp" },
-          { key: "ly-do-ton-tranh-chap", label: "Lý do tồn tranh chấp" },
-          { key: "loai-yeu-cau-bo-qua-lap", label: "Bỏ qua đánh giá lặp" },
-          { key: "theo-doi-doi-tra", label: "Theo dõi đổi trả" },
-          { key: "loi-chao", label: "Lời chào" },
-          { key: "giai-trinh-exclude-ngay", label: "Ngày loại trừ giải trình" },
-          { key: "sheet-urls", label: "Link đồng bộ Google Sheet" },
-          { key: "partner-keys", label: "API đối tác" },
-          { key: "etx-giai-trinh-sync-log", label: "Đồng bộ giải trình B2B (ETX)" },
-          { key: "mua-hang", label: "Mua hàng" },
+          { key: "ly-do", label: tr("Lý do chậm") },
+          { key: "loai-vi-pham", label: tr("Loại lỗi vi phạm") },
+          { key: "ktv-lien-he", label: tr("Danh sách KTV") },
+          { key: "phan-loai-tranh-chap", label: tr("Phân loại tranh chấp") },
+          { key: "ket-qua-xu-ly-tranh-chap", label: tr("Kết quả xử lý tranh chấp") },
+          { key: "ly-do-ton-tranh-chap", label: tr("Lý do tồn tranh chấp") },
+          { key: "loai-yeu-cau-bo-qua-lap", label: tr("Bỏ qua đánh giá lặp") },
+          { key: "theo-doi-doi-tra", label: tr("Theo dõi đổi trả") },
+          { key: "loi-chao", label: tr("Lời chào") },
+          { key: "giai-trinh-exclude-ngay", label: tr("Ngày loại trừ giải trình") },
+          { key: "sheet-urls", label: tr("Link đồng bộ Google Sheet") },
+          { key: "partner-keys", label: tr("API đối tác") },
+          { key: "etx-giai-trinh-sync-log", label: tr("Đồng bộ giải trình B2B (ETX)") },
+          { key: "mua-hang", label: tr("Mua hàng") },
           { key: "google-drive", label: "Google Drive" },
-          { key: "quy-doi-tinh", label: "Quy đổi tỉnh" },
+          { key: "quy-doi-tinh", label: tr("Quy đổi tỉnh") },
         ]}
       />
       {tab === "quy-doi-tinh" && <TinhQuyDoiSettings />}
@@ -1033,27 +1029,23 @@ export function SettingsModule() {
         <div className="mt-4 max-w-xl">
           <Card>
             <div className="text-sm text-[var(--ink-600)] mb-3">
-              Tài khoản Google được dùng để lưu ảnh linh kiện lên Drive. Ảnh sẽ thuộc dung lượng lưu trữ của chính tài khoản này (không phải Service Account —
-              Service Account không có dung lượng lưu trữ riêng nên không thể tạo file).
-            </div>
+              {tr("Tài khoản Google được dùng để lưu ảnh linh kiện lên Drive. Ảnh sẽ thuộc dung lượng lưu trữ của chính tài khoản này (không phải Service Account — Service Account không có dung lượng lưu trữ riêng nên không thể tạo file).")}</div>
             {driveStatus?.connected ? (
               <div className="space-y-2">
                 <div className="text-sm">
-                  ✅ Đã kết nối: <b>{driveStatus.google_email}</b>
+                  {tr("✅ Đã kết nối:")} <b>{driveStatus.google_email}</b>
                 </div>
                 <div className="text-xs text-[var(--ink-500)]">
-                  Kết nối bởi {driveStatus.authorized_by} lúc {driveStatus.authorized_at}
+                  {tr("Kết nối bởi")} {driveStatus.authorized_by}  {tr("lúc")} {driveStatus.authorized_at}
                 </div>
                 <Btn variant="ghost" size="sm" onClick={() => { window.location.href = "/api/settings/google-drive/authorize"; }}>
-                  🔄 Kết nối lại (đổi tài khoản khác)
-                </Btn>
+                  {tr("🔄 Kết nối lại (đổi tài khoản khác)")}</Btn>
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="text-sm text-[var(--coral-600)]">⚠ Chưa kết nối — tải ảnh linh kiện sẽ báo lỗi cho đến khi kết nối.</div>
+                <div className="text-sm text-[var(--coral-600)]">{tr("⚠ Chưa kết nối — tải ảnh linh kiện sẽ báo lỗi cho đến khi kết nối.")}</div>
                 <Btn size="sm" onClick={() => { window.location.href = "/api/settings/google-drive/authorize"; }}>
-                  Kết nối tài khoản Google Drive
-                </Btn>
+                  {tr("Kết nối tài khoản Google Drive")}</Btn>
               </div>
             )}
           </Card>
@@ -1063,7 +1055,7 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Cấu hình danh sách lý do chậm dùng khi giải trình ca tồn. Đánh dấu "Thuộc thiếu linh kiện" để đẩy ca vào module <b>Ca thiếu linh kiện</b>.
+              {tr("Cấu hình danh sách lý do chậm dùng khi giải trình ca tồn. Đánh dấu \"Thuộc thiếu linh kiện\" để đẩy ca vào module")} <b>{tr("Ca thiếu linh kiện")}</b>.
             </div>
             <div className="flex gap-2 shrink-0">
               <Btn
@@ -1079,11 +1071,9 @@ export function SettingsModule() {
                   })
                 }
               >
-                ⬇ Xuất Excel
-              </Btn>
+                {tr("⬇ Xuất Excel")}</Btn>
               <Btn size="sm" onClick={() => setAddOpen(true)}>
-                + Thêm lý do
-              </Btn>
+                {tr("+ Thêm lý do")}</Btn>
             </div>
           </div>
           <PaginatedTable
@@ -1096,7 +1086,7 @@ export function SettingsModule() {
             total={(reasons?.rows ?? []).length}
             onPageChange={setLyDoPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có lý do chậm nào."
+            emptyText={tr("Chưa có lý do chậm nào.")}
             storageKey="settings-ly-do"
           />
         </div>
@@ -1105,11 +1095,9 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh mục "Loại lỗi vi phạm" — CSKH chọn từ đây khi kết luận cấp 1 cho từng lỗi trong màn hình gọi khảo sát. Tắt 1 dòng sẽ ẩn khỏi danh sách chọn nhưng KHÔNG đổi dữ liệu đã ghi trước đó.
-            </div>
+              {tr("Danh mục \"Loại lỗi vi phạm\" — CSKH chọn từ đây khi kết luận cấp 1 cho từng lỗi trong màn hình gọi khảo sát. Tắt 1 dòng sẽ ẩn khỏi danh sách chọn nhưng KHÔNG đổi dữ liệu đã ghi trước đó.")}</div>
             <Btn size="sm" onClick={openAddLoaiViPham}>
-              + Thêm loại lỗi
-            </Btn>
+              {tr("+ Thêm loại lỗi")}</Btn>
           </div>
           <PaginatedTable
             columns={loaiViPhamColumns}
@@ -1121,7 +1109,7 @@ export function SettingsModule() {
             total={(loaiViPhamRows?.rows ?? []).length}
             onPageChange={setLoaiViPhamPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có loại lỗi vi phạm nào."
+            emptyText={tr("Chưa có loại lỗi vi phạm nào.")}
             storageKey="settings-loai-vi-pham"
           />
         </div>
@@ -1130,11 +1118,9 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh sách KTV — số điện thoại hiển thị cạnh tên KTV ở các màn hình CSKH gọi khảo sát (CSKH vẫn tự thêm/sửa/xóa được bằng cách bấm vào tên KTV khi xem 1 ca). Vai trò/Gmail/Giám sát/Tài khoản đăng nhập chỉ dùng cho module "Đặt mua linh kiện".
-              {KTV_LIST_LOCKED && (
+              {tr("Danh sách KTV — số điện thoại hiển thị cạnh tên KTV ở các màn hình CSKH gọi khảo sát (CSKH vẫn tự thêm/sửa/xóa được bằng cách bấm vào tên KTV khi xem 1 ca). Vai trò/Gmail/Giám sát/Tài khoản đăng nhập chỉ dùng cho module \"Đặt mua linh kiện\".")}{KTV_LIST_LOCKED && (
                 <div className="mt-1.5 text-[var(--amber-600)] font-medium">
-                  🔒 Đã khoá thêm/sửa/xóa/nhập file tại đây — danh sách này được đồng bộ tự động (hàng giờ) từ hệ thống "Đặt mua linh kiện" độc lập. Chỉ xem/xuất Excel.
-                </div>
+                  {tr("🔒 Đã khoá thêm/sửa/xóa/nhập file tại đây — danh sách này được đồng bộ tự động (hàng giờ) từ hệ thống \"Đặt mua linh kiện\" độc lập. Chỉ xem/xuất Excel.")}</div>
               )}
             </div>
             <div className="flex gap-2 shrink-0">
@@ -1144,7 +1130,7 @@ export function SettingsModule() {
                 onClick={() =>
                   exportRowsToExcel(ktvLienHe?.rows ?? [], "sdt_ky_thuat_vien.xlsx", "Data", {
                     ma_ktv: "Mã KTV",
-                    ten_hien_thi: "Tên hiển thị",
+                    ten_hien_thi: tr("Tên hiển thị"),
                     sdt: "Số điện thoại",
                     ghi_chu: "Ghi chú",
                     gmail: "Gmail",
@@ -1156,16 +1142,15 @@ export function SettingsModule() {
                   })
                 }
               >
-                ⬇ Xuất Excel
-              </Btn>
+                {tr("⬇ Xuất Excel")}</Btn>
               <Btn
                 variant="ghost"
                 size="sm"
                 onClick={() => backfillUsersMutation.mutate()}
                 disabled={backfillUsersMutation.isPending}
-                title='Cấp tài khoản trước cho KTV đã ghép "Email đăng nhập" nhưng chưa từng đăng nhập Google lần nào - giúp họ hiện ra trong danh sách "Người nhận hàng" ngay cả khi chưa đăng nhập'
+                title={tr("Cấp tài khoản trước cho KTV đã ghép \"Email đăng nhập\" nhưng chưa từng đăng nhập Google lần nào - giúp họ hiện ra trong danh sách \"Người nhận hàng\" ngay cả khi chưa đăng nhập")}
               >
-                {backfillUsersMutation.isPending ? "Đang cấp..." : "🔑 Cấp tài khoản trước cho KTV chưa đăng nhập"}
+                {backfillUsersMutation.isPending ? tr("Đang cấp...") : tr("🔑 Cấp tài khoản trước cho KTV chưa đăng nhập")}
               </Btn>
               {!KTV_LIST_LOCKED && (
                 <Btn
@@ -1176,8 +1161,7 @@ export function SettingsModule() {
                     setKtvModalOpen(true);
                   }}
                 >
-                  + Thêm SĐT
-                </Btn>
+                  {tr("+ Thêm SĐT")}</Btn>
               )}
             </div>
           </div>
@@ -1185,8 +1169,7 @@ export function SettingsModule() {
             <ImportUploader<KtvImportSummary>
               description={
                 <>
-                  Nhập hàng loạt KTV từ file Excel/CSV. Bắt buộc: <b className="font-mono">ma_ktv</b>. Tùy chọn: <b className="font-mono">sdt</b>, <b className="font-mono">ten_hien_thi</b>, <b className="font-mono">ghi_chu</b>, <b className="font-mono">gmail</b>, <b className="font-mono">vai_tro_ktv</b> (KTV/CTV/Tram/Ve tinh), <b className="font-mono">giam_sat_quan_ly</b>, <b className="font-mono">email_dang_nhap</b>. Mã KTV đã có sẽ được cập nhật — 4 cột cuối chỉ ghi đè nếu ô có giá trị.
-                </>
+                  {tr("Nhập hàng loạt KTV từ file Excel/CSV. Bắt buộc:")} <b className="font-mono">ma_ktv</b>{tr(". Tùy chọn:")} <b className="font-mono">sdt</b>, <b className="font-mono">ten_hien_thi</b>, <b className="font-mono">ghi_chu</b>, <b className="font-mono">gmail</b>, <b className="font-mono">vai_tro_ktv</b> (KTV/CTV/Tram/Ve tinh), <b className="font-mono">giam_sat_quan_ly</b>, <b className="font-mono">email_dang_nhap</b>{tr(". Mã KTV đã có sẽ được cập nhật — 4 cột cuối chỉ ghi đè nếu ô có giá trị.")}</>
               }
               templateUrl="/api/settings/ktv-lien-he/template"
               previewUrl="/settings/ktv-lien-he/import/preview"
@@ -1194,12 +1177,12 @@ export function SettingsModule() {
               buildBody={(rows) => ({ rows })}
               renderSummary={(s) => (
                 <div className="grid grid-cols-2 gap-3 mb-2">
-                  <StatCard label="Sẵn sàng ghi" value={s.thanhCong} tone="teal" />
-                  <StatCard label="Dòng lỗi" value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
+                  <StatCard label={tr("Sẵn sàng ghi")} value={s.thanhCong} tone="teal" />
+                  <StatCard label={tr("Dòng lỗi")} value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
                 </div>
               )}
               getErrors={(s) => s.errors}
-              successMessage={(s) => `Import thành công: ${s.thanhCong} SĐT kỹ thuật viên`}
+              successMessage={(s) => tr("Import thành công: {0} SĐT kỹ thuật viên", s.thanhCong)}
               invalidateKeys={[KTV_PHONE_QUERY_KEY]}
             />
           )}
@@ -1213,7 +1196,7 @@ export function SettingsModule() {
             total={(ktvLienHe?.rows ?? []).length}
             onPageChange={setKtvPage}
             rowKey={(r) => r.ma_ktv}
-            emptyText="Chưa có số điện thoại KTV nào."
+            emptyText={tr("Chưa có số điện thoại KTV nào.")}
             storageKey="settings-ktv-lien-he"
           />
         </div>
@@ -1223,11 +1206,10 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh mục phân loại dùng khi KSNB Đối tác "Tiếp nhận" 1 ca tranh chấp (module <b>Tranh chấp, KN</b>).
+              {tr("Danh mục phân loại dùng khi KSNB Đối tác \"Tiếp nhận\" 1 ca tranh chấp (module")} <b>{tr("Tranh chấp, KN")}</b>).
             </div>
             <Btn size="sm" onClick={() => setAddPhanLoaiOpen(true)}>
-              + Thêm phân loại
-            </Btn>
+              {tr("+ Thêm phân loại")}</Btn>
           </div>
           <PaginatedTable
             columns={phanLoaiColumns}
@@ -1239,7 +1221,7 @@ export function SettingsModule() {
             total={(phanLoaiTranhChap?.rows ?? []).length}
             onPageChange={setPhanLoaiPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có phân loại tranh chấp nào."
+            emptyText={tr("Chưa có phân loại tranh chấp nào.")}
             storageKey="settings-phan-loai-tranh-chap"
           />
         </div>
@@ -1249,11 +1231,9 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh mục bắt buộc chọn khi ghi log xử lý trong <b>Tranh chấp, KN</b> (trừ khi log đóng tiến trình) — trả lời câu hỏi "vì sao ca vẫn còn tồn ở lần cập nhật này".
-            </div>
+              {tr("Danh mục bắt buộc chọn khi ghi log xử lý trong")} <b>{tr("Tranh chấp, KN")}</b>  {tr("(trừ khi log đóng tiến trình) — trả lời câu hỏi \"vì sao ca vẫn còn tồn ở lần cập nhật này\".")}</div>
             <Btn size="sm" onClick={() => setAddLyDoTonOpen(true)}>
-              + Thêm lý do
-            </Btn>
+              {tr("+ Thêm lý do")}</Btn>
           </div>
           <PaginatedTable
             columns={lyDoTonColumns}
@@ -1265,7 +1245,7 @@ export function SettingsModule() {
             total={(lyDoTonTranhChap?.rows ?? []).length}
             onPageChange={setLyDoTonPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có lý do tồn tranh chấp nào."
+            emptyText={tr("Chưa có lý do tồn tranh chấp nào.")}
             storageKey="settings-ly-do-ton-tranh-chap"
           />
         </div>
@@ -1275,11 +1255,10 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh mục "Kết quả xử lý" bắt buộc chọn khi đóng 1 tiến trình tranh chấp với trạng thái "Đã kết thúc tranh chấp" (module <b>Tranh chấp, KN</b>).
+              {tr("Danh mục \"Kết quả xử lý\" bắt buộc chọn khi đóng 1 tiến trình tranh chấp với trạng thái \"Đã kết thúc tranh chấp\" (module")} <b>{tr("Tranh chấp, KN")}</b>).
             </div>
             <Btn size="sm" onClick={() => setAddKetQuaOpen(true)}>
-              + Thêm kết quả
-            </Btn>
+              {tr("+ Thêm kết quả")}</Btn>
           </div>
           <PaginatedTable
             columns={ketQuaColumns}
@@ -1291,7 +1270,7 @@ export function SettingsModule() {
             total={(ketQuaXuLyTranhChap?.rows ?? []).length}
             onPageChange={setKetQuaPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có kết quả xử lý nào."
+            emptyText={tr("Chưa có kết quả xử lý nào.")}
             storageKey="settings-ket-qua-xu-ly-tranh-chap"
           />
         </div>
@@ -1301,11 +1280,9 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Case có "Loại yêu cầu" trong danh sách này (vd: Dán tem, poster siêu thị…) sẽ được loại hoàn toàn khỏi phạm vi xét <b>Ca lặp</b> — không tính vào "cần rà soát" và không tham gia ghép cặp lặp, giống điều kiện "Hình thức bảo hành ≠ Gọi điện tư vấn" có sẵn.
-            </div>
+              {tr("Case có \"Loại yêu cầu\" trong danh sách này (vd: Dán tem, poster siêu thị…) sẽ được loại hoàn toàn khỏi phạm vi xét")} <b>{tr("Ca lặp")}</b>  {tr("— không tính vào \"cần rà soát\" và không tham gia ghép cặp lặp, giống điều kiện \"Hình thức bảo hành ≠ Gọi điện tư vấn\" có sẵn.")}</div>
             <Btn size="sm" onClick={() => setAddLoaiYeuCauBoQuaLapOpen(true)}>
-              + Thêm loại yêu cầu
-            </Btn>
+              {tr("+ Thêm loại yêu cầu")}</Btn>
           </div>
           <PaginatedTable
             columns={loaiYeuCauBoQuaLapColumns}
@@ -1317,7 +1294,7 @@ export function SettingsModule() {
             total={(loaiYeuCauBoQuaLap?.rows ?? []).length}
             onPageChange={setLoaiYeuCauBoQuaLapPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có loại yêu cầu nào bị bỏ qua."
+            emptyText={tr("Chưa có loại yêu cầu nào bị bỏ qua.")}
             storageKey="settings-loai-yeu-cau-bo-qua-lap"
           />
         </div>
@@ -1326,22 +1303,18 @@ export function SettingsModule() {
       {tab === "theo-doi-doi-tra" && (
         <div className="mt-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Tab "Theo dõi đổi trả" (module Tranh chấp, KN) tự động phát hiện case đủ ĐỒNG THỜI 2 điều kiện dưới đây (AND) khi import — "Loại yêu cầu" thuộc danh sách 1 <b>và</b> "Lưu ý lỗi linh kiện" thuộc danh sách 2. Chỉ giá trị đang <b>bật</b> mới tính vào điều kiện.
-          </div>
+            {tr("Tab \"Theo dõi đổi trả\" (module Tranh chấp, KN) tự động phát hiện case đủ ĐỒNG THỜI 2 điều kiện dưới đây (AND) khi import — \"Loại yêu cầu\" thuộc danh sách 1")} <b>{tr("và")}</b>  {tr("\"Lưu ý lỗi linh kiện\" thuộc danh sách 2. Chỉ giá trị đang")} <b>{tr("bật")}</b>  {tr("mới tính vào điều kiện.")}</div>
           <div className="flex items-center gap-2 mb-4">
             <Btn size="sm" variant={ddSettingsSub === "loai-yeu-cau" ? "primary" : "ghost"} onClick={() => setDdSettingsSub("loai-yeu-cau")}>
-              Loại yêu cầu
-            </Btn>
+              {tr("Loại yêu cầu")}</Btn>
             <Btn size="sm" variant={ddSettingsSub === "luu-y-loi-linh-kien" ? "primary" : "ghost"} onClick={() => setDdSettingsSub("luu-y-loi-linh-kien")}>
-              Lưu ý lỗi linh kiện
-            </Btn>
+              {tr("Lưu ý lỗi linh kiện")}</Btn>
           </div>
           {ddSettingsSub === "loai-yeu-cau" ? (
             <>
               <div className="flex items-center justify-end mb-3">
                 <Btn size="sm" onClick={() => setAddLoaiYeuCauDoiTraOpen(true)}>
-                  + Thêm loại yêu cầu
-                </Btn>
+                  {tr("+ Thêm loại yêu cầu")}</Btn>
               </div>
               <PaginatedTable
                 columns={loaiYeuCauDoiTraColumns}
@@ -1353,7 +1326,7 @@ export function SettingsModule() {
                 total={(loaiYeuCauDoiTra?.rows ?? []).length}
                 onPageChange={setLoaiYeuCauDoiTraPage}
                 rowKey={(r) => r.id}
-                emptyText="Chưa có loại yêu cầu nào."
+                emptyText={tr("Chưa có loại yêu cầu nào.")}
                 storageKey="settings-loai-yeu-cau-doi-tra"
               />
             </>
@@ -1361,8 +1334,7 @@ export function SettingsModule() {
             <>
               <div className="flex items-center justify-end mb-3">
                 <Btn size="sm" onClick={() => setAddLuuYLoiLinhKienDoiTraOpen(true)}>
-                  + Thêm giá trị
-                </Btn>
+                  {tr("+ Thêm giá trị")}</Btn>
               </div>
               <PaginatedTable
                 columns={luuYLoiLinhKienDoiTraColumns}
@@ -1374,7 +1346,7 @@ export function SettingsModule() {
                 total={(luuYLoiLinhKienDoiTra?.rows ?? []).length}
                 onPageChange={setLuuYLoiLinhKienDoiTraPage}
                 rowKey={(r) => r.id}
-                emptyText="Chưa có giá trị nào."
+                emptyText={tr("Chưa có giá trị nào.")}
                 storageKey="settings-luu-y-loi-linh-kien-doi-tra"
               />
             </>
@@ -1385,14 +1357,12 @@ export function SettingsModule() {
       {tab === "loi-chao" && (
         <div className="mt-4 space-y-6">
           <div className="text-sm text-[var(--ink-600)]">
-            Popup chào mừng ngẫu nhiên hiện khi đăng nhập/mở lại web — mỗi lần hiện, hệ thống chọn ngẫu nhiên 1 GIF và 1 lời chào đang <b>bật</b> trong 2 danh sách dưới đây.
-          </div>
+            {tr("Popup chào mừng ngẫu nhiên hiện khi đăng nhập/mở lại web — mỗi lần hiện, hệ thống chọn ngẫu nhiên 1 GIF và 1 lời chào đang")} <b>{tr("bật")}</b>  {tr("trong 2 danh sách dưới đây.")}</div>
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold">Danh sách GIF</div>
+              <div className="text-sm font-semibold">{tr("Danh sách GIF")}</div>
               <Btn size="sm" onClick={() => setAddGreetingGifOpen(true)}>
-                + Thêm GIF
-              </Btn>
+                {tr("+ Thêm GIF")}</Btn>
             </div>
             <PaginatedTable
               columns={greetingGifColumns}
@@ -1404,16 +1374,15 @@ export function SettingsModule() {
               total={(greetingGifs?.rows ?? []).length}
               onPageChange={setGreetingGifPage}
               rowKey={(r) => r.id}
-              emptyText="Chưa có GIF nào."
+              emptyText={tr("Chưa có GIF nào.")}
               storageKey="settings-greeting-gif"
             />
           </div>
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold">Danh sách lời chào</div>
+              <div className="text-sm font-semibold">{tr("Danh sách lời chào")}</div>
               <Btn size="sm" onClick={() => setAddGreetingMessageOpen(true)}>
-                + Thêm lời chào
-              </Btn>
+                {tr("+ Thêm lời chào")}</Btn>
             </div>
             <PaginatedTable
               columns={greetingMessageColumns}
@@ -1425,7 +1394,7 @@ export function SettingsModule() {
               total={(greetingMessages?.rows ?? []).length}
               onPageChange={setGreetingMessagePage}
               rowKey={(r) => r.id}
-              emptyText="Chưa có lời chào nào."
+              emptyText={tr("Chưa có lời chào nào.")}
               storageKey="settings-greeting-message"
             />
           </div>
@@ -1436,12 +1405,9 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3 gap-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh sách ngày <b>không tính</b> vào lũy kế/tỷ lệ giải trình tháng của "Quản lý tồn" (bảng "Báo cáo tồn theo khu vực" và "Tỷ lệ giải trình theo ngày"). <b>Mọi Chủ nhật đã tự động bị loại trừ</b>, không
-              cần thêm ở đây — chỉ thêm các ngày khác (vd nghỉ lễ).
-            </div>
+              {tr("Danh sách ngày")} <b>{tr("không tính")}</b>  {tr("vào lũy kế/tỷ lệ giải trình tháng của \"Quản lý tồn\" (bảng \"Báo cáo tồn theo khu vực\" và \"Tỷ lệ giải trình theo ngày\").")} <b>{tr("Mọi Chủ nhật đã tự động bị loại trừ")}</b>{tr(", không cần thêm ở đây — chỉ thêm các ngày khác (vd nghỉ lễ).")}</div>
             <Btn size="sm" onClick={() => setAddExcludeNgayOpen(true)}>
-              + Thêm ngày loại trừ
-            </Btn>
+              {tr("+ Thêm ngày loại trừ")}</Btn>
           </div>
           <PaginatedTable
             columns={excludeNgayColumns}
@@ -1453,7 +1419,7 @@ export function SettingsModule() {
             total={(excludeNgayRows?.rows ?? []).length}
             onPageChange={() => {}}
             rowKey={(r) => r.id}
-            emptyText="Chưa có ngày loại trừ nào ngoài Chủ nhật."
+            emptyText={tr("Chưa có ngày loại trừ nào ngoài Chủ nhật.")}
             storageKey="settings-giai-trinh-exclude-ngay"
           />
         </div>
@@ -1462,9 +1428,7 @@ export function SettingsModule() {
       {tab === "sheet-urls" && (
         <Card className="p-4">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Cấu hình link Google Sheet (dạng "Xuất bản lên web" → TSV) dùng để đồng bộ tự động cho từng loại dữ liệu. Để trống nếu chưa cần dùng loại đồng bộ đó — nút "Đồng bộ" tương ứng
-            sẽ ẩn cho tới khi có link.
-          </div>
+            {tr("Cấu hình link Google Sheet (dạng \"Xuất bản lên web\" → TSV) dùng để đồng bộ tự động cho từng loại dữ liệu. Để trống nếu chưa cần dùng loại đồng bộ đó — nút \"Đồng bộ\" tương ứng sẽ ẩn cho tới khi có link.")}</div>
           <div className="space-y-3">
             {(sheetUrls?.rows ?? []).map((row) => {
               const currentValue = editingUrls[row.loai_dong_bo] ?? row.url ?? "";
@@ -1479,13 +1443,12 @@ export function SettingsModule() {
                       className="focus-ring flex-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs font-mono"
                     />
                     <Btn size="sm" onClick={() => saveUrlMutation.mutate({ loai: row.loai_dong_bo, url: currentValue.trim() })} disabled={saveUrlMutation.isPending}>
-                      Lưu
-                    </Btn>
+                      {tr("Lưu")}</Btn>
                   </div>
                   {row.url && (
                     <div className="text-xs text-[var(--ink-400)] mt-1.5">
-                      Cập nhật lần cuối: {row.updated_at}
-                      {row.updated_by ? ` bởi ${row.updated_by}` : ""}
+                      {tr("Cập nhật lần cuối:")} {row.updated_at}
+                      {row.updated_by ? " " + tr("bởi {0}", row.updated_by) : ""}
                     </div>
                   )}
                 </div>
@@ -1499,12 +1462,9 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3 gap-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Key cấp cho đối tác bên ngoài để tự động quét dữ liệu CRM qua <code>GET /api/partner/cases</code> (xem <b>PARTNER_API_GUIDE.md</b>). Mỗi key hiện đầy đủ
-              <b> đúng 1 lần</b> ngay sau khi tạo — sau đó chỉ còn xem được bản che.
-            </div>
+              {tr("Key cấp cho đối tác bên ngoài để tự động quét dữ liệu CRM qua")} <code>GET /api/partner/cases</code> (xem <b>PARTNER_API_GUIDE.md</b>{tr("). Mỗi key hiện đầy đủ")}<b>  {tr("đúng 1 lần")}</b>  {tr("ngay sau khi tạo — sau đó chỉ còn xem được bản che.")}</div>
             <Btn size="sm" onClick={() => setAddPartnerKeyOpen(true)}>
-              + Cấp key mới
-            </Btn>
+              {tr("+ Cấp key mới")}</Btn>
           </div>
           <PaginatedTable
             columns={partnerKeyColumns}
@@ -1516,7 +1476,7 @@ export function SettingsModule() {
             total={(partnerKeys?.rows ?? []).length}
             onPageChange={setPartnerKeyPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa cấp key nào cho đối tác."
+            emptyText={tr("Chưa cấp key nào cho đối tác.")}
             storageKey="settings-partner-keys"
           />
         </div>
@@ -1526,11 +1486,9 @@ export function SettingsModule() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3 gap-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Nhật ký mỗi lần hệ thống kéo "Giải trình tồn B2B" từ API đối tác ETX (tự động 17h15 hằng ngày, thử lại lúc 17h20/17h25 nếu chưa xong) — dùng để tra cứu khi nghi ngờ có đối tác bị lỗi/thiếu
-              dòng. Chỉ giữ 30 ngày gần nhất, tự xóa dòng cũ hơn.
-            </div>
+              {tr("Nhật ký mỗi lần hệ thống kéo \"Giải trình tồn B2B\" từ API đối tác ETX (tự động 17h15 hằng ngày, thử lại lúc 17h20/17h25 nếu chưa xong) — dùng để tra cứu khi nghi ngờ có đối tác bị lỗi/thiếu dòng. Chỉ giữ 30 ngày gần nhất, tự xóa dòng cũ hơn.")}</div>
             <Btn size="sm" onClick={() => runEtxSyncNowMutation.mutate()} disabled={runEtxSyncNowMutation.isPending}>
-              {runEtxSyncNowMutation.isPending ? (etxTienDo ?? "Đang chạy…") : "Chạy ngay"}
+              {runEtxSyncNowMutation.isPending ? (etxTienDo ?? tr("Đang chạy…")) : tr("Chạy ngay")}
             </Btn>
           </div>
           <PaginatedTable
@@ -1543,7 +1501,7 @@ export function SettingsModule() {
             total={(etxSyncLog?.rows ?? []).length}
             onPageChange={setEtxSyncLogPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có lượt đồng bộ nào."
+            emptyText={tr("Chưa có lượt đồng bộ nào.")}
             storageKey="settings-etx-giai-trinh-sync-log"
           />
         </div>
@@ -1554,8 +1512,8 @@ export function SettingsModule() {
           <div className="flex gap-1 border-b border-[var(--line)] mb-4">
             {(
               [
-                { key: "ly-do-cham", label: "Lý do chậm (Đặt mua LK)" },
-                { key: "loai-de-xuat", label: "Loại đề xuất" },
+                { key: "ly-do-cham", label: tr("Lý do chậm (Đặt mua LK)") },
+                { key: "loai-de-xuat", label: tr("Loại đề xuất") },
               ] as const
             ).map((s) => (
               <button
@@ -1573,13 +1531,11 @@ export function SettingsModule() {
             <div>
               <div className="flex items-center justify-between mb-3 gap-3">
                 <div className="text-sm text-[var(--ink-600)]">
-                  Danh sách lý do chậm dùng khi tác nghiệp (TN) bấm "Chờ hàng"/"Từ chối" trên 1 dòng đơn đặt mua linh kiện. "Hệ thống sử dụng" quyết định lý do có hiện ra
-                  hay không tuỳ luồng (hiện chỉ luồng Mua hàng đang dùng). Bật "Tự tạo ticket Thiếu LK" để chọn lý do đó tự động chuyển dòng sang trạng thái{" "}
-                  <b>Chờ hàng</b> + tạo phiếu bên module <b>Ca thiếu linh kiện</b>; tắt thì chọn lý do đó là từ chối thường (<b>TN từ chối</b>).
+                  {tr("Danh sách lý do chậm dùng khi tác nghiệp (TN) bấm \"Chờ hàng\"/\"Từ chối\" trên 1 dòng đơn đặt mua linh kiện. \"Hệ thống sử dụng\" quyết định lý do có hiện ra hay không tuỳ luồng (hiện chỉ luồng Mua hàng đang dùng). Bật \"Tự tạo ticket Thiếu LK\" để chọn lý do đó tự động chuyển dòng sang trạng thái")}{" "}
+                  <b>{tr("Chờ hàng")}</b>  {tr("+ tạo phiếu bên module")} <b>{tr("Ca thiếu linh kiện")}</b>{tr("; tắt thì chọn lý do đó là từ chối thường (")}<b>{tr("TN từ chối")}</b>).
                 </div>
                 <Btn size="sm" onClick={openAddLyDoCham}>
-                  + Thêm lý do
-                </Btn>
+                  {tr("+ Thêm lý do")}</Btn>
               </div>
               <PaginatedTable
                 columns={lyDoChamColumns}
@@ -1591,7 +1547,7 @@ export function SettingsModule() {
                 total={(lyDoChamRows?.rows ?? []).length}
                 onPageChange={setLyDoChamPage}
                 rowKey={(r) => r.id}
-                emptyText="Chưa có lý do chậm nào."
+                emptyText={tr("Chưa có lý do chậm nào.")}
                 storageKey="settings-ly-do-cham"
               />
             </div>
@@ -1600,11 +1556,9 @@ export function SettingsModule() {
             <div className="space-y-6">
           <div className="flex items-center justify-between mb-1 gap-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Danh sách loại đề xuất dùng khi tạo phiếu đặt mua linh kiện. Mỗi nhóm có thể gán cho nhiều vai trò/flag khác nhau.
-            </div>
+              {tr("Danh sách loại đề xuất dùng khi tạo phiếu đặt mua linh kiện. Mỗi nhóm có thể gán cho nhiều vai trò/flag khác nhau.")}</div>
             <Btn size="sm" onClick={() => { setEditingNhomId(null); setNhomForm({ ten_nhom: "", vai_tro_flags: [], bat_tat: true }); setLdeNhomOpen(true); }}>
-              + Thêm nhóm
-            </Btn>
+              {tr("+ Thêm nhóm")}</Btn>
           </div>
           {(ldeNhomData?.rows ?? []).map((nhom) => {
             const nhomOptions = (ldeOptionsData?.rows ?? []).filter((o) => o.nhom_id === nhom.id).sort((a, b) => a.stt - b.stt || a.id - b.id);
@@ -1616,7 +1570,7 @@ export function SettingsModule() {
                 <div className="flex items-center justify-between mb-3 gap-3">
                   <div>
                     <span className="font-semibold text-sm">{nhom.ten_nhom}</span>
-                    {!nhom.bat_tat && <span className="ml-2 text-xs text-[var(--coral-500)] font-semibold">[Đã tắt]</span>}
+                    {!nhom.bat_tat && <span className="ml-2 text-xs text-[var(--coral-500)] font-semibold">{tr("[Đã tắt]")}</span>}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {flagLabels.map((l) => (
                         <span key={l} className="inline-block text-xs bg-[var(--ocean-50)] text-[var(--ocean-600)] border border-[var(--ocean-200)] rounded px-1.5 py-0.5">{l}</span>
@@ -1628,7 +1582,7 @@ export function SettingsModule() {
                       setEditingNhomId(nhom.id);
                       setNhomForm({ ten_nhom: nhom.ten_nhom, vai_tro_flags: flags, bat_tat: !!nhom.bat_tat });
                       setLdeNhomOpen(true);
-                    }}>Sửa nhóm</Btn>
+                    }}>{tr("Sửa nhóm")}</Btn>
                     <Btn size="sm" onClick={() => {
                       setEditingOptionId(null);
                       setOptionNhomId(nhom.id);
@@ -1638,15 +1592,15 @@ export function SettingsModule() {
                   </div>
                 </div>
                 {nhomOptions.length === 0 ? (
-                  <div className="text-xs text-[var(--ink-400)] italic">Chưa có option nào trong nhóm này.</div>
+                  <div className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có option nào trong nhóm này.")}</div>
                 ) : (
                   <div className="border border-[var(--line)] rounded-xl overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-[var(--surface-2)] text-xs text-[var(--ink-500)]">
                         <tr>
-                          <th className="text-left px-3 py-2 font-semibold">Tên option</th>
+                          <th className="text-left px-3 py-2 font-semibold">{tr("Tên option")}</th>
                           <th className="text-center px-3 py-2 font-semibold w-16">STT</th>
-                          <th className="text-center px-3 py-2 font-semibold w-20">Bật/Tắt</th>
+                          <th className="text-center px-3 py-2 font-semibold w-20">{tr("Bật/Tắt")}</th>
                           <th className="px-3 py-2 w-20"></th>
                         </tr>
                       </thead>
@@ -1662,7 +1616,7 @@ export function SettingsModule() {
                                 checked={!!opt.bat_tat}
                                 onChange={() =>
                                   api.patch(`/settings/loai-de-xuat/${opt.id}`, { bat_tat: !opt.bat_tat }).then(() => {
-                                    addToast(opt.bat_tat ? "Đã tắt option" : "Đã bật option");
+                                    addToast(opt.bat_tat ? tr("Đã tắt option") : tr("Đã bật option"));
                                     qc.invalidateQueries({ queryKey: ["settings-lde-options"] });
                                   })
                                 }
@@ -1675,8 +1629,8 @@ export function SettingsModule() {
                                   setOptionNhomId(opt.nhom_id);
                                   setOptionForm({ ten_option: opt.ten_option, stt: String(opt.stt), bat_tat: !!opt.bat_tat });
                                   setLdeOptionOpen(true);
-                                }}>Sửa</button>
-                                <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteOptionMutation.mutate(opt.id)}>Xóa</button>
+                                }}>{tr("Sửa")}</button>
+                                <button className="text-xs text-[var(--coral-500)] hover:underline" onClick={() => deleteOptionMutation.mutate(opt.id)}>{tr("Xóa")}</button>
                               </div>
                             </td>
                           </tr>
@@ -1689,98 +1643,88 @@ export function SettingsModule() {
             );
           })}
           {(ldeNhomData?.rows ?? []).length === 0 && (
-            <div className="text-sm text-[var(--ink-400)] italic">Chưa có nhóm loại đề xuất nào. Nhấn "+ Thêm nhóm" để bắt đầu.</div>
+            <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có nhóm loại đề xuất nào. Nhấn \"+ Thêm nhóm\" để bắt đầu.")}</div>
           )}
             </div>
           )}
         </div>
       )}
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Thêm lý do chậm mới">
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title={tr("Thêm lý do chậm mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên lý do</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên lý do")}</label>
             <input value={newReason.ten} onChange={(e) => setNewReason({ ...newReason, ten: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={newReason.thieu} onChange={(e) => setNewReason({ ...newReason, thieu: e.target.checked })} /> Thuộc nhóm thiếu linh kiện
-          </label>
+            <input type="checkbox" checked={newReason.thieu} onChange={(e) => setNewReason({ ...newReason, thieu: e.target.checked })} />  {tr("Thuộc nhóm thiếu linh kiện")}</label>
           <label className="flex items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={newReason.tranhChap} onChange={(e) => setNewReason({ ...newReason, tranhChap: e.target.checked })} /> Thuộc nhóm tranh chấp
-          </label>
+            <input type="checkbox" checked={newReason.tranhChap} onChange={(e) => setNewReason({ ...newReason, tranhChap: e.target.checked })} />  {tr("Thuộc nhóm tranh chấp")}</label>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addReasonMutation.mutate()} disabled={!newReason.ten.trim() || addReasonMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={addPhanLoaiOpen} onClose={() => setAddPhanLoaiOpen(false)} title="Thêm phân loại tranh chấp mới">
+      <Modal open={addPhanLoaiOpen} onClose={() => setAddPhanLoaiOpen(false)} title={tr("Thêm phân loại tranh chấp mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên phân loại</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên phân loại")}</label>
             <input
               value={newPhanLoai}
               onChange={(e) => setNewPhanLoai(e.target.value)}
-              placeholder="Vd: Đổi trả, Khiếu nại…"
+              placeholder={tr("Vd: Đổi trả, Khiếu nại…")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddPhanLoaiOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addPhanLoaiMutation.mutate()} disabled={!newPhanLoai.trim() || addPhanLoaiMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={addLyDoTonOpen} onClose={() => setAddLyDoTonOpen(false)} title="Thêm lý do tồn tranh chấp mới">
+      <Modal open={addLyDoTonOpen} onClose={() => setAddLyDoTonOpen(false)} title={tr("Thêm lý do tồn tranh chấp mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do tồn tranh chấp</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Lý do tồn tranh chấp")}</label>
             <input
               value={newLyDoTon}
               onChange={(e) => setNewLyDoTon(e.target.value)}
-              placeholder="Vd: Do KTV cần bổ sung thông tin…"
+              placeholder={tr("Vd: Do KTV cần bổ sung thông tin…")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddLyDoTonOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addLyDoTonMutation.mutate()} disabled={!newLyDoTon.trim() || addLyDoTonMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={addKetQuaOpen} onClose={() => setAddKetQuaOpen(false)} title="Thêm kết quả xử lý tranh chấp mới">
+      <Modal open={addKetQuaOpen} onClose={() => setAddKetQuaOpen(false)} title={tr("Thêm kết quả xử lý tranh chấp mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên kết quả</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên kết quả")}</label>
             <input
               value={newKetQua}
               onChange={(e) => setNewKetQua(e.target.value)}
-              placeholder="Vd: Đã xử lý dứt điểm, Đã tư vấn…"
+              placeholder={tr("Vd: Đã xử lý dứt điểm, Đã tư vấn…")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddKetQuaOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addKetQuaMutation.mutate()} disabled={!newKetQua.trim() || addKetQuaMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
@@ -1791,25 +1735,25 @@ export function SettingsModule() {
           setAddLoaiYeuCauBoQuaLapOpen(false);
           setNewLoaiYeuCauBoQuaLap("");
         }}
-        title="Thêm loại yêu cầu bỏ qua đánh giá lặp"
+        title={tr("Thêm loại yêu cầu bỏ qua đánh giá lặp")}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Loại yêu cầu</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Loại yêu cầu")}</label>
             <div className="mt-1">
               <Select
                 value={newLoaiYeuCauBoQuaLap}
                 onChange={setNewLoaiYeuCauBoQuaLap}
                 className="w-full"
                 options={[
-                  { value: "", label: "-- Chọn loại yêu cầu --" },
+                  { value: "", label: tr("-- Chọn loại yêu cầu --") },
                   ...(loaiYeuCauGoiY?.rows ?? [])
                     .filter((lyc) => !(loaiYeuCauBoQuaLap?.rows ?? []).some((r) => r.loai_yeu_cau === lyc))
                     .map((lyc) => ({ value: lyc, label: lyc })),
                 ]}
               />
             </div>
-            <div className="text-xs text-[var(--ink-400)] mt-1">Danh sách lấy từ các giá trị "Loại yêu cầu" đã từng xuất hiện trong dữ liệu import.</div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Danh sách lấy từ các giá trị \"Loại yêu cầu\" đã từng xuất hiện trong dữ liệu import.")}</div>
           </div>
           <div className="flex justify-end gap-2">
             <Btn
@@ -1819,11 +1763,9 @@ export function SettingsModule() {
                 setNewLoaiYeuCauBoQuaLap("");
               }}
             >
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addLoaiYeuCauBoQuaLapMutation.mutate()} disabled={!newLoaiYeuCauBoQuaLap.trim() || addLoaiYeuCauBoQuaLapMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
@@ -1834,25 +1776,25 @@ export function SettingsModule() {
           setAddLoaiYeuCauDoiTraOpen(false);
           setNewLoaiYeuCauDoiTra("");
         }}
-        title="Thêm loại yêu cầu (Theo dõi đổi trả)"
+        title={tr("Thêm loại yêu cầu (Theo dõi đổi trả)")}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Loại yêu cầu</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Loại yêu cầu")}</label>
             <div className="mt-1">
               <Select
                 value={newLoaiYeuCauDoiTra}
                 onChange={setNewLoaiYeuCauDoiTra}
                 className="w-full"
                 options={[
-                  { value: "", label: "-- Chọn loại yêu cầu --" },
+                  { value: "", label: tr("-- Chọn loại yêu cầu --") },
                   ...(loaiYeuCauDoiTraGoiY?.rows ?? [])
                     .filter((lyc) => !(loaiYeuCauDoiTra?.rows ?? []).some((r) => r.loai_yeu_cau === lyc))
                     .map((lyc) => ({ value: lyc, label: lyc })),
                 ]}
               />
             </div>
-            <div className="text-xs text-[var(--ink-400)] mt-1">Danh sách lấy từ các giá trị "Loại yêu cầu" đã từng xuất hiện trong dữ liệu import.</div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Danh sách lấy từ các giá trị \"Loại yêu cầu\" đã từng xuất hiện trong dữ liệu import.")}</div>
           </div>
           <div className="flex justify-end gap-2">
             <Btn
@@ -1862,11 +1804,9 @@ export function SettingsModule() {
                 setNewLoaiYeuCauDoiTra("");
               }}
             >
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addLoaiYeuCauDoiTraMutation.mutate()} disabled={!newLoaiYeuCauDoiTra.trim() || addLoaiYeuCauDoiTraMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
@@ -1877,25 +1817,25 @@ export function SettingsModule() {
           setAddLuuYLoiLinhKienDoiTraOpen(false);
           setNewLuuYLoiLinhKienDoiTra("");
         }}
-        title="Thêm giá trị (Lưu ý lỗi linh kiện — Theo dõi đổi trả)"
+        title={tr("Thêm giá trị (Lưu ý lỗi linh kiện — Theo dõi đổi trả)")}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Lưu ý lỗi linh kiện</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Lưu ý lỗi linh kiện")}</label>
             <div className="mt-1">
               <Select
                 value={newLuuYLoiLinhKienDoiTra}
                 onChange={setNewLuuYLoiLinhKienDoiTra}
                 className="w-full"
                 options={[
-                  { value: "", label: "-- Chọn giá trị --" },
+                  { value: "", label: tr("-- Chọn giá trị --") },
                   ...(luuYLoiLinhKienDoiTraGoiY?.rows ?? [])
                     .filter((lyc) => !(luuYLoiLinhKienDoiTra?.rows ?? []).some((r) => r.luu_y_loi_linh_kien === lyc))
                     .map((lyc) => ({ value: lyc, label: lyc })),
                 ]}
               />
             </div>
-            <div className="text-xs text-[var(--ink-400)] mt-1">Danh sách lấy từ các giá trị "Lưu ý lỗi linh kiện" đã từng xuất hiện trong dữ liệu import.</div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Danh sách lấy từ các giá trị \"Lưu ý lỗi linh kiện\" đã từng xuất hiện trong dữ liệu import.")}</div>
           </div>
           <div className="flex justify-end gap-2">
             <Btn
@@ -1905,64 +1845,58 @@ export function SettingsModule() {
                 setNewLuuYLoiLinhKienDoiTra("");
               }}
             >
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addLuuYLoiLinhKienDoiTraMutation.mutate()} disabled={!newLuuYLoiLinhKienDoiTra.trim() || addLuuYLoiLinhKienDoiTraMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={addGreetingGifOpen} onClose={() => setAddGreetingGifOpen(false)} title="Thêm GIF chào mừng mới">
+      <Modal open={addGreetingGifOpen} onClose={() => setAddGreetingGifOpen(false)} title={tr("Thêm GIF chào mừng mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Link GIF trực tiếp</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Link GIF trực tiếp")}</label>
             <input
               value={newGreetingGif}
               onChange={(e) => setNewGreetingGif(e.target.value)}
               placeholder="Vd: https://media1.tenor.com/m/xxxx/ten-file.gif"
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <div className="text-xs text-[var(--ink-400)] mt-1">Cần là link ảnh trực tiếp (đuôi .gif), không phải link trang xem của Tenor/Giphy.</div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">{tr("Cần là link ảnh trực tiếp (đuôi .gif), không phải link trang xem của Tenor/Giphy.")}</div>
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddGreetingGifOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addGreetingGifMutation.mutate()} disabled={!newGreetingGif.trim() || addGreetingGifMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={addGreetingMessageOpen} onClose={() => setAddGreetingMessageOpen(false)} title="Thêm lời chào mới">
+      <Modal open={addGreetingMessageOpen} onClose={() => setAddGreetingMessageOpen(false)} title={tr("Thêm lời chào mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Nội dung lời chào</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Nội dung lời chào")}</label>
             <input
               value={newGreetingMessage}
               onChange={(e) => setNewGreetingMessage(e.target.value)}
-              placeholder="Vd: Chào bạn! Rất vui vì lại được đồng hành cùng bạn hôm nay."
+              placeholder={tr("Vd: Chào bạn! Rất vui vì lại được đồng hành cùng bạn hôm nay.")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddGreetingMessageOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addGreetingMessageMutation.mutate()} disabled={!newGreetingMessage.trim() || addGreetingMessageMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={addExcludeNgayOpen} onClose={() => setAddExcludeNgayOpen(false)} title="Thêm ngày loại trừ">
+      <Modal open={addExcludeNgayOpen} onClose={() => setAddExcludeNgayOpen(false)} title={tr("Thêm ngày loại trừ")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ngày")}</label>
             <input
               type="date"
               value={newExcludeNgay.ngay}
@@ -1977,8 +1911,7 @@ export function SettingsModule() {
                 checked={newExcludeNgay.toanBo}
                 onChange={(e) => setNewExcludeNgay((s) => ({ ...s, toanBo: e.target.checked, khuVucList: [] }))}
               />
-              Tất cả khu vực
-            </label>
+              {tr("Tất cả khu vực")}</label>
             {!newExcludeNgay.toanBo && (
               <div className="max-h-48 overflow-y-auto border border-[var(--line)] rounded-lg p-2 space-y-1">
                 {(dashboardFilters?.khuVuc ?? []).map((kv) => (
@@ -2000,24 +1933,22 @@ export function SettingsModule() {
             )}
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú (tùy chọn)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú (tùy chọn)")}</label>
             <input
               value={newExcludeNgay.ghiChu}
               onChange={(e) => setNewExcludeNgay((s) => ({ ...s, ghiChu: e.target.value }))}
-              placeholder="Vd: Nghỉ lễ Quốc khánh"
+              placeholder={tr("Vd: Nghỉ lễ Quốc khánh")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddExcludeNgayOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn
               onClick={() => addExcludeNgayMutation.mutate()}
               disabled={!newExcludeNgay.ngay || (!newExcludeNgay.toanBo && newExcludeNgay.khuVucList.length === 0) || addExcludeNgayMutation.isPending}
             >
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
@@ -2029,11 +1960,11 @@ export function SettingsModule() {
           setKtvModalOpen(false);
           setEditingKtvMa(null);
         }}
-        title={editingKtvMa ? "Sửa KTV" : "Thêm KTV"}
+        title={editingKtvMa ? tr("Sửa KTV") : tr("Thêm KTV")}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Mã KTV *</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Mã KTV *")}</label>
             <input
               value={ktvForm.ma_ktv}
               onChange={(e) => setKtvForm({ ...ktvForm, ma_ktv: e.target.value })}
@@ -2043,27 +1974,27 @@ export function SettingsModule() {
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên hiển thị</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên hiển thị")}</label>
             <input value={ktvForm.ten_hien_thi} onChange={(e) => setKtvForm({ ...ktvForm, ten_hien_thi: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Số điện thoại</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Số điện thoại")}</label>
             <input value={ktvForm.sdt} onChange={(e) => setKtvForm({ ...ktvForm, sdt: e.target.value })} placeholder="09xxxxxxxx" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div className="border-t border-[var(--line)] pt-3">
-            <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">Dùng cho module "Đặt mua linh kiện" (chỉ Admin sửa)</div>
+            <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">{tr("Dùng cho module \"Đặt mua linh kiện\" (chỉ Admin sửa)")}</div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-[var(--ink-400)]">Vai trò</label>
+                <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Vai trò")}</label>
                 <Select
                   value={ktvForm.vai_tro_ktv}
                   onChange={(v) => setKtvForm({ ...ktvForm, vai_tro_ktv: v })}
                   options={[
-                    { value: "", label: "-- Chưa phân loại --" },
+                    { value: "", label: tr("-- Chưa phân loại --") },
                     { value: "KTV", label: "KTV" },
                     { value: "CTV", label: "CTV" },
-                    { value: "Tram", label: "Trạm" },
-                    { value: "Ve tinh", label: "Vệ tinh" },
+                    { value: "Tram", label: tr("Trạm") },
+                    { value: "Ve tinh", label: tr("Vệ tinh") },
                   ]}
                   className="w-full mt-1"
                 />
@@ -2073,17 +2004,17 @@ export function SettingsModule() {
                 <input value={ktvForm.gmail} onChange={(e) => setKtvForm({ ...ktvForm, gmail: e.target.value })} placeholder="vd: nguyenvana@gmail.com" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-[var(--ink-400)]">Email Giám sát phụ trách</label>
-                <input value={ktvForm.giam_sat_quan_ly} onChange={(e) => setKtvForm({ ...ktvForm, giam_sat_quan_ly: e.target.value })} placeholder="Email tài khoản Giám sát" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+                <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Email Giám sát phụ trách")}</label>
+                <input value={ktvForm.giam_sat_quan_ly} onChange={(e) => setKtvForm({ ...ktvForm, giam_sat_quan_ly: e.target.value })} placeholder={tr("Email tài khoản Giám sát")} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-[var(--ink-400)]">Tài khoản đăng nhập đã ghép (nếu có)</label>
-                <input value={ktvForm.email_dang_nhap} onChange={(e) => setKtvForm({ ...ktvForm, email_dang_nhap: e.target.value })} placeholder="Email tài khoản đã đăng nhập hệ thống" className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+                <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tài khoản đăng nhập đã ghép (nếu có)")}</label>
+                <input value={ktvForm.email_dang_nhap} onChange={(e) => setKtvForm({ ...ktvForm, email_dang_nhap: e.target.value })} placeholder={tr("Email tài khoản đã đăng nhập hệ thống")} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
               </div>
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
             <textarea value={ktvForm.ghi_chu} onChange={(e) => setKtvForm({ ...ktvForm, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div className="flex justify-end gap-2">
@@ -2094,86 +2025,80 @@ export function SettingsModule() {
                 setEditingKtvMa(null);
               }}
             >
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => saveKtvMutation.mutate()} disabled={!ktvForm.ma_ktv.trim() || saveKtvMutation.isPending}>
-              {editingKtvMa ? "Lưu" : "Thêm"}
+              {editingKtvMa ? tr("Lưu") : tr("Thêm")}
             </Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={addPartnerKeyOpen} onClose={() => setAddPartnerKeyOpen(false)} title="Cấp key API cho đối tác mới">
+      <Modal open={addPartnerKeyOpen} onClose={() => setAddPartnerKeyOpen(false)} title={tr("Cấp key API cho đối tác mới")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên đối tác</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên đối tác")}</label>
             <input
               value={newPartnerKey.tenDoiTac}
               onChange={(e) => setNewPartnerKey({ ...newPartnerKey, tenDoiTac: e.target.value })}
-              placeholder="Vd: Đối tác XYZ"
+              placeholder={tr("Vd: Đối tác XYZ")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú (tùy chọn)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú (tùy chọn)")}</label>
             <input
               value={newPartnerKey.ghiChu}
               onChange={(e) => setNewPartnerKey({ ...newPartnerKey, ghiChu: e.target.value })}
-              placeholder="Vd: Dùng cho hệ thống đối soát nội bộ của đối tác"
+              placeholder={tr("Vd: Dùng cho hệ thống đối soát nội bộ của đối tác")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddPartnerKeyOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addPartnerKeyMutation.mutate()} disabled={!newPartnerKey.tenDoiTac.trim() || addPartnerKeyMutation.isPending}>
-              Tạo key
-            </Btn>
+              {tr("Tạo key")}</Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={!!createdPartnerKey} onClose={() => setCreatedPartnerKey(null)} title="Đã tạo key mới">
+      <Modal open={!!createdPartnerKey} onClose={() => setCreatedPartnerKey(null)} title={tr("Đã tạo key mới")}>
         {createdPartnerKey && (
           <div className="space-y-3">
             <div className="text-sm text-[var(--ink-600)]">
-              Key cho đối tác <b>{createdPartnerKey.tenDoiTac}</b> — sao chép và gửi cho đối tác ngay, hệ thống <b>sẽ không hiển thị lại</b> key này sau khi đóng cửa sổ này.
-            </div>
+              {tr("Key cho đối tác")} <b>{createdPartnerKey.tenDoiTac}</b>  {tr("— sao chép và gửi cho đối tác ngay, hệ thống")} <b>{tr("sẽ không hiển thị lại")}</b>  {tr("key này sau khi đóng cửa sổ này.")}</div>
             <div className="flex gap-2">
               <input readOnly value={createdPartnerKey.apiKey} className="focus-ring flex-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs font-mono" />
               <Btn
                 size="sm"
                 onClick={() => {
                   navigator.clipboard.writeText(createdPartnerKey.apiKey);
-                  addToast("Đã sao chép key");
+                  addToast(tr("Đã sao chép key"));
                 }}
               >
-                Sao chép
-              </Btn>
+                {tr("Sao chép")}</Btn>
             </div>
             <div className="flex justify-end">
               <Btn variant="ghost" onClick={() => setCreatedPartnerKey(null)}>
-                Đóng
-              </Btn>
+                {tr("Đóng")}</Btn>
             </div>
           </div>
         )}
       </Modal>
 
-      <Modal open={ldeNhomOpen} onClose={() => { setLdeNhomOpen(false); setEditingNhomId(null); }} title={editingNhomId ? "Sửa nhóm loại đề xuất" : "Thêm nhóm loại đề xuất"}>
+      <Modal open={ldeNhomOpen} onClose={() => { setLdeNhomOpen(false); setEditingNhomId(null); }} title={editingNhomId ? tr("Sửa nhóm loại đề xuất") : tr("Thêm nhóm loại đề xuất")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên nhóm</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên nhóm")}</label>
             <input
               value={nhomForm.ten_nhom}
               onChange={(e) => setNhomForm({ ...nhomForm, ten_nhom: e.target.value })}
-              placeholder="Vd: KTV & Vệ tinh"
+              placeholder={tr("Vd: KTV & Vệ tinh")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">Vai trò / flag được dùng nhóm này</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-2">{tr("Vai trò / flag được dùng nhóm này")}</label>
             <div className="border border-[var(--line)] rounded-lg p-2 space-y-1 max-h-52 overflow-y-auto">
               {LDE_VAI_TRO_FLAGS.map(({ flag, label }) => (
                 <label key={flag} className="flex items-center gap-2 text-sm">
@@ -2194,30 +2119,29 @@ export function SettingsModule() {
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={nhomForm.bat_tat} onChange={(e) => setNhomForm({ ...nhomForm, bat_tat: e.target.checked })} />
-            Nhóm đang bật
-          </label>
+            {tr("Nhóm đang bật")}</label>
           <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setLdeNhomOpen(false); setEditingNhomId(null); }}>Hủy</Btn>
+            <Btn variant="ghost" onClick={() => { setLdeNhomOpen(false); setEditingNhomId(null); }}>{tr("Hủy")}</Btn>
             <Btn onClick={() => saveNhomMutation.mutate()} disabled={!nhomForm.ten_nhom.trim() || saveNhomMutation.isPending}>
-              {editingNhomId ? "Lưu" : "Thêm"}
+              {editingNhomId ? tr("Lưu") : tr("Thêm")}
             </Btn>
           </div>
         </div>
       </Modal>
 
-      <Modal open={ldeOptionOpen} onClose={() => { setLdeOptionOpen(false); setEditingOptionId(null); }} title={editingOptionId ? "Sửa option" : "Thêm option"}>
+      <Modal open={ldeOptionOpen} onClose={() => { setLdeOptionOpen(false); setEditingOptionId(null); }} title={editingOptionId ? tr("Sửa option") : tr("Thêm option")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên option</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên option")}</label>
             <input
               value={optionForm.ten_option}
               onChange={(e) => setOptionForm({ ...optionForm, ten_option: e.target.value })}
-              placeholder="Vd: MUA HÀNG"
+              placeholder={tr("Vd: MUA HÀNG")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Thứ tự (STT)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Thứ tự (STT)")}</label>
             <input
               type="number"
               value={optionForm.stt}
@@ -2227,12 +2151,11 @@ export function SettingsModule() {
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={optionForm.bat_tat} onChange={(e) => setOptionForm({ ...optionForm, bat_tat: e.target.checked })} />
-            Đang bật
-          </label>
+            {tr("Đang bật")}</label>
           <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setLdeOptionOpen(false); setEditingOptionId(null); }}>Hủy</Btn>
+            <Btn variant="ghost" onClick={() => { setLdeOptionOpen(false); setEditingOptionId(null); }}>{tr("Hủy")}</Btn>
             <Btn onClick={() => saveOptionMutation.mutate()} disabled={!optionForm.ten_option.trim() || saveOptionMutation.isPending}>
-              {editingOptionId ? "Lưu" : "Thêm"}
+              {editingOptionId ? tr("Lưu") : tr("Thêm")}
             </Btn>
           </div>
         </div>
@@ -2241,29 +2164,27 @@ export function SettingsModule() {
       <Modal
         open={lyDoChamOpen}
         onClose={() => { setLyDoChamOpen(false); setEditingLyDoChamId(null); }}
-        title={editingLyDoChamId ? "Sửa lý do chậm" : "Thêm lý do chậm mới"}
+        title={editingLyDoChamId ? tr("Sửa lý do chậm") : tr("Thêm lý do chậm mới")}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên lý do</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tên lý do")}</label>
             <input
               value={lyDoChamForm.ten_ly_do}
               onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, ten_ly_do: e.target.value })}
-              placeholder="Vd: Do nhà máy hết hàng"
+              placeholder={tr("Vd: Do nhà máy hết hàng")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1">Hệ thống sử dụng</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1">{tr("Hệ thống sử dụng")}</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={lyDoChamForm.muaHang} onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, muaHang: e.target.checked })} />
-                Mua hàng
-              </label>
+                {tr("Mua hàng")}</label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={lyDoChamForm.baoHanh} onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, baoHanh: e.target.checked })} />
-                Bảo hành
-              </label>
+                {tr("Bảo hành")}</label>
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold">
@@ -2272,10 +2193,9 @@ export function SettingsModule() {
               checked={lyDoChamForm.quan_ly_don_thieu_linh_kien}
               onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, quan_ly_don_thieu_linh_kien: e.target.checked })}
             />
-            Tự tạo ticket "Thiếu linh kiện" (chuyển dòng sang Chờ hàng)
-          </label>
+            {tr("Tự tạo ticket \"Thiếu linh kiện\" (chuyển dòng sang Chờ hàng)")}</label>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Thứ tự (STT)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Thứ tự (STT)")}</label>
             <input
               type="number"
               value={lyDoChamForm.stt}
@@ -2285,15 +2205,14 @@ export function SettingsModule() {
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={lyDoChamForm.bat_tat} onChange={(e) => setLyDoChamForm({ ...lyDoChamForm, bat_tat: e.target.checked })} />
-            Đang bật
-          </label>
+            {tr("Đang bật")}</label>
           <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setLyDoChamOpen(false); setEditingLyDoChamId(null); }}>Hủy</Btn>
+            <Btn variant="ghost" onClick={() => { setLyDoChamOpen(false); setEditingLyDoChamId(null); }}>{tr("Hủy")}</Btn>
             <Btn
               onClick={() => saveLyDoChamMutation.mutate()}
               disabled={!lyDoChamForm.ten_ly_do.trim() || (!lyDoChamForm.muaHang && !lyDoChamForm.baoHanh) || saveLyDoChamMutation.isPending}
             >
-              {editingLyDoChamId ? "Lưu" : "Thêm"}
+              {editingLyDoChamId ? tr("Lưu") : tr("Thêm")}
             </Btn>
           </div>
         </div>
@@ -2302,29 +2221,29 @@ export function SettingsModule() {
       <Modal
         open={loaiViPhamOpen}
         onClose={() => { setLoaiViPhamOpen(false); setEditingLoaiViPhamId(null); }}
-        title={editingLoaiViPhamId ? "Sửa loại lỗi vi phạm" : "Thêm loại lỗi vi phạm mới"}
+        title={editingLoaiViPhamId ? tr("Sửa loại lỗi vi phạm") : tr("Thêm loại lỗi vi phạm mới")}
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Lỗi</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Lỗi")}</label>
             <input
               value={loaiViPhamForm.ten_loi}
               onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, ten_loi: e.target.value })}
-              placeholder="Vd: Thực hiện sai quy trình nghiệp vụ kỹ thuật viên"
+              placeholder={tr("Vd: Thực hiện sai quy trình nghiệp vụ kỹ thuật viên")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Nhóm lỗi</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Nhóm lỗi")}</label>
             <input
               value={loaiViPhamForm.nhom_loi}
               onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, nhom_loi: e.target.value })}
-              placeholder="Vd: Lỗi quy trình, sai hẹn, trang phục"
+              placeholder={tr("Vd: Lỗi quy trình, sai hẹn, trang phục")}
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Điểm thẻ tương ứng</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Điểm thẻ tương ứng")}</label>
             <input
               type="number"
               step="0.25"
@@ -2339,10 +2258,9 @@ export function SettingsModule() {
               checked={loaiViPhamForm.bat_buoc_ghi_chu}
               onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, bat_buoc_ghi_chu: e.target.checked })}
             />
-            Bắt buộc CSKH nhập Ghi chú khi chọn lỗi này (vd: "Lỗi khác")
-          </label>
+            {tr("Bắt buộc CSKH nhập Ghi chú khi chọn lỗi này (vd: \"Lỗi khác\")")}</label>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Thứ tự (STT)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Thứ tự (STT)")}</label>
             <input
               type="number"
               value={loaiViPhamForm.stt}
@@ -2352,15 +2270,14 @@ export function SettingsModule() {
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={loaiViPhamForm.bat_tat} onChange={(e) => setLoaiViPhamForm({ ...loaiViPhamForm, bat_tat: e.target.checked })} />
-            Đang bật
-          </label>
+            {tr("Đang bật")}</label>
           <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setLoaiViPhamOpen(false); setEditingLoaiViPhamId(null); }}>Hủy</Btn>
+            <Btn variant="ghost" onClick={() => { setLoaiViPhamOpen(false); setEditingLoaiViPhamId(null); }}>{tr("Hủy")}</Btn>
             <Btn
               onClick={() => saveLoaiViPhamMutation.mutate()}
               disabled={!loaiViPhamForm.ten_loi.trim() || !loaiViPhamForm.nhom_loi.trim() || saveLoaiViPhamMutation.isPending}
             >
-              {editingLoaiViPhamId ? "Lưu" : "Thêm"}
+              {editingLoaiViPhamId ? tr("Lưu") : tr("Thêm")}
             </Btn>
           </div>
         </div>

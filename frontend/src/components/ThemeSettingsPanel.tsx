@@ -19,16 +19,17 @@ import {
 } from "../theme/presets";
 import { loadLocalThemeConfig, saveLocalThemeConfig } from "../theme/localThemeConfig";
 import { isSupportedFontFile, saveCustomFont, clearCustomFont, getCustomFontFileName, applyCustomFontFromCache, CUSTOM_FONT_FAMILY } from "../lib/customFont";
+import { tr } from "../i18n/tr";
 
 const CUSTOM_FIELDS: { key: keyof ThemeCustomColors; label: string }[] = [
-  { key: "accent", label: "Nút bấm" },
-  { key: "bg", label: "Nền trang" },
-  { key: "surface", label: "Thẻ" },
+  { key: "accent", label: tr("Nút bấm") },
+  { key: "bg", label: tr("Nền trang") },
+  { key: "surface", label: tr("Thẻ") },
   { key: "topbar", label: "Thanh top" },
-  { key: "line", label: "Viền" },
-  { key: "ink", label: "Chữ" },
-  { key: "sidebarFrom", label: "Menu trái (trên)" },
-  { key: "sidebarTo", label: "Menu trái (dưới)" },
+  { key: "line", label: tr("Viền") },
+  { key: "ink", label: tr("Chữ") },
+  { key: "sidebarFrom", label: tr("Menu trái (trên)") },
+  { key: "sidebarTo", label: tr("Menu trái (dưới)") },
 ];
 
 // Noi dung chon giao dien dung chung: hien tren trang rieng "Giao dien" (module giao-dien).
@@ -51,7 +52,7 @@ export function ThemeSettingsPanel() {
   function persist(next: ThemeConfig) {
     setConfig(next);
     saveLocalThemeConfig(next);
-    addToast("Đã lưu giao diện (trên máy này)");
+    addToast(tr("Đã lưu giao diện (trên máy này)"));
   }
 
   function currentBaseConfig(): ThemeConfig {
@@ -105,7 +106,7 @@ export function ThemeSettingsPanel() {
   // thi KHONG doi giao dien hien tai, chi bao toast.
   async function handleFontFileChosen(file: File) {
     if (!isSupportedFontFile(file)) {
-      addToast("File không đúng định dạng font (.ttf/.otf/.woff/.woff2).");
+      addToast(tr("File không đúng định dạng font (.ttf/.otf/.woff/.woff2)."));
       return;
     }
     setCustomFontBusy(true);
@@ -116,7 +117,7 @@ export function ThemeSettingsPanel() {
       setCustomFontFileName(file.name);
       persist({ ...currentBaseConfig(), font: "custom" });
     } catch {
-      addToast("Không đọc được file font này, kiểm tra lại file và thử lại.");
+      addToast(tr("Không đọc được file font này, kiểm tra lại file và thử lại."));
     } finally {
       setCustomFontBusy(false);
     }
@@ -131,7 +132,7 @@ export function ThemeSettingsPanel() {
   return (
     <div className="space-y-5">
       <div>
-        <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">Gam màu dựng sẵn</div>
+        <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">{tr("Gam màu dựng sẵn")}</div>
         <div className="grid grid-cols-3 gap-2.5">
           <button
             onClick={pickRandomColorMode}
@@ -140,7 +141,7 @@ export function ThemeSettingsPanel() {
             }`}
           >
             <div className="text-lg mb-1">🎲</div>
-            <div className="text-xs font-semibold">Ngẫu nhiên</div>
+            <div className="text-xs font-semibold">{tr("Ngẫu nhiên")}</div>
           </button>
           {THEME_PRESETS.map((p) => (
             <button
@@ -153,7 +154,7 @@ export function ThemeSettingsPanel() {
               <div className="flex gap-1 mb-1.5">
                 <span className="w-4 h-4 rounded-full inline-block" style={{ background: p.colors.accent }} />
                 <span className="w-4 h-4 rounded-full inline-block border border-[var(--line)]" style={{ background: p.colors.bg }} />
-                <span className="w-4 h-4 rounded-full inline-block" style={{ background: p.colors.sidebarFrom }} title="Màu menu trái" />
+                <span className="w-4 h-4 rounded-full inline-block" style={{ background: p.colors.sidebarFrom }} title={tr("Màu menu trái")} />
               </div>
               <div className="text-xs font-semibold">{p.label}</div>
             </button>
@@ -168,17 +169,16 @@ export function ThemeSettingsPanel() {
             }`}
           >
             <div className="text-lg mb-1">🎨</div>
-            <div className="text-xs font-semibold">Tùy chỉnh…</div>
+            <div className="text-xs font-semibold">{tr("Tùy chỉnh…")}</div>
           </button>
         </div>
         <div className="text-[11px] text-[var(--ink-400)] mt-2">
-          "Ngẫu nhiên": mỗi lần mở lại ứng dụng sẽ tự đổi sang 1 gam màu khác. Chọn hẳn 1 gam màu (hoặc tự tùy chỉnh) để cố định, không đổi nữa.
-        </div>
+          {tr("\"Ngẫu nhiên\": mỗi lần mở lại ứng dụng sẽ tự đổi sang 1 gam màu khác. Chọn hẳn 1 gam màu (hoặc tự tùy chỉnh) để cố định, không đổi nữa.")}</div>
       </div>
 
       {showCustomEditor && (
         <div className="anim-in border-t border-[var(--line)] pt-4">
-          <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">Tự chọn màu từng vị trí</div>
+          <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">{tr("Tự chọn màu từng vị trí")}</div>
           <div className="grid grid-cols-2 gap-3">
             {CUSTOM_FIELDS.map((f) => (
               <div key={f.key} className="flex items-center justify-between gap-2 border border-[var(--line)] rounded-lg px-2.5 py-1.5">
@@ -192,17 +192,16 @@ export function ThemeSettingsPanel() {
               </div>
             ))}
           </div>
-          <div className="text-[11px] text-[var(--ink-400)] mt-2">Chọn màu nhấn ("Nút bấm") sẽ tự gợi ý lại 2 màu menu trái — chỉnh tiếp riêng nếu muốn khác đi.</div>
+          <div className="text-[11px] text-[var(--ink-400)] mt-2">{tr("Chọn màu nhấn (\"Nút bấm\") sẽ tự gợi ý lại 2 màu menu trái — chỉnh tiếp riêng nếu muốn khác đi.")}</div>
           <div className="flex justify-end mt-3">
             <Btn size="sm" onClick={saveCustom}>
-              Lưu gam màu tùy chỉnh
-            </Btn>
+              {tr("Lưu gam màu tùy chỉnh")}</Btn>
           </div>
         </div>
       )}
 
       <div className="border-t border-[var(--line)] pt-4">
-        <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">Phông chữ</div>
+        <div className="text-xs font-semibold text-[var(--ink-400)] mb-2">{tr("Phông chữ")}</div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           <button
             onClick={pickRandomFontMode}
@@ -211,7 +210,7 @@ export function ThemeSettingsPanel() {
             }`}
           >
             <div className="text-base mb-1">🎲</div>
-            <div className="text-xs font-semibold">Ngẫu nhiên</div>
+            <div className="text-xs font-semibold">{tr("Ngẫu nhiên")}</div>
           </button>
           {FONT_OPTIONS.map((f) => (
             <button
@@ -237,7 +236,7 @@ export function ThemeSettingsPanel() {
             }`}
           >
             <div className="text-base mb-1">{customFontBusy ? "⏳" : "⇩"}</div>
-            <div className="text-xs font-semibold">{customFontBusy ? "Đang tải…" : "Tải font từ máy…"}</div>
+            <div className="text-xs font-semibold">{customFontBusy ? tr("Đang tải…") : tr("Tải font từ máy…")}</div>
           </button>
           <input
             ref={customFontInputRef}
@@ -252,21 +251,18 @@ export function ThemeSettingsPanel() {
           />
         </div>
         <div className="text-[11px] text-[var(--ink-400)] mt-2">
-          "Ngẫu nhiên": mỗi lần mở lại ứng dụng sẽ tự đổi sang 1 phông chữ khác. Chọn hẳn 1 phông chữ để cố định, không đổi nữa.
-        </div>
+          {tr("\"Ngẫu nhiên\": mỗi lần mở lại ứng dụng sẽ tự đổi sang 1 phông chữ khác. Chọn hẳn 1 phông chữ để cố định, không đổi nữa.")}</div>
         {config.font === "custom" && (
           <div className="flex items-center gap-2 mt-2.5 text-xs text-[var(--ink-400)]">
             <span>
-              Đang dùng font riêng: <span className="font-semibold text-[var(--ink-600)]">{customFontFileName ?? "…"}</span>
+              {tr("Đang dùng font riêng:")} <span className="font-semibold text-[var(--ink-600)]">{customFontFileName ?? "…"}</span>
             </span>
             <button onClick={handleClearCustomFont} className="focus-ring font-semibold text-[var(--coral-500)] hover:underline">
-              Xoá, dùng mặc định
-            </button>
+              {tr("Xoá, dùng mặc định")}</button>
           </div>
         )}
         <div className="text-[11px] text-[var(--ink-400)] mt-2">
-          Font tải từ máy chỉ lưu trên trình duyệt này (không đồng bộ sang máy/trình duyệt khác) — nếu mở ở nơi khác chưa có font này, hệ thống tự dùng lại font mặc định.
-        </div>
+          {tr("Font tải từ máy chỉ lưu trên trình duyệt này (không đồng bộ sang máy/trình duyệt khác) — nếu mở ở nơi khác chưa có font này, hệ thống tự dùng lại font mặc định.")}</div>
       </div>
     </div>
   );

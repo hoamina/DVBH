@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { Modal } from "./ui/Modal";
 import { HoSoLinhKien } from "./HoSoLinhKien";
+import { tr } from "../i18n/tr";
 
 // Mo "Ho so linh kien" tu BAT KY cho nao dang hien ma linh kien (2026-10-08): GT ton, chi tiet ca, Quan ly ton, danh
 // muc... 1 popup duy nhat cap App (render SAU CaseDetail -> nam tren cung). Chi bat khi nguoi dung co quyen module
@@ -19,7 +20,7 @@ export function HoSoLinhKienProvider({ enabled, openCase, children }: { enabled:
     <HoSoLinhKienContext.Provider value={enabled ? mo : null}>
       {children}
       {dangMo && (
-        <Modal open title={`Hồ sơ linh kiện ${dangMo.ma}${dangMo.ten ? ` — ${dangMo.ten}` : ""}`} onClose={() => setDangMo(null)} width="max-w-[1800px]" height="h-[calc(100vh-2rem)]">
+        <Modal open title={tr("Hồ sơ linh kiện {0}{1}", dangMo.ma, dangMo.ten ? ` — ${dangMo.ten}` : "")} onClose={() => setDangMo(null)} width="max-w-[1800px]" height="h-[calc(100vh-2rem)]">
           <HoSoLinhKien
             maLk={dangMo.ma}
             openCase={(id, tab) => {
@@ -42,7 +43,7 @@ export function MaLinhKienLink({ ma, ten, className = "", children }: { ma: stri
   return (
     <button
       type="button"
-      title="Xem tồn kho / hồ sơ linh kiện"
+      title={tr("Xem tồn kho / hồ sơ linh kiện")}
       onClick={(e) => {
         e.stopPropagation();
         mo(ma2, ten);

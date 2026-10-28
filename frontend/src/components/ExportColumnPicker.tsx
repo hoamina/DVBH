@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Btn } from "./ui/Btn";
 import { applyExportTemplate, clearExportTemplate, loadExportTemplate, saveExportTemplate } from "../lib/exportTemplate";
+import { tr } from "../i18n/tr";
 
 // Bang chon cot truoc khi tai Excel (CHOT 2026-10-23) - mo qua pickExportColumns() tu lib/exportExcel.ts (ham xuat
 // duoc goi tu ~36 noi, ngoai cay React) nen tu tao 1 React root rieng gan vao body, dong la go bo. Chi xu ly tren
@@ -49,25 +50,23 @@ function ExportColumnPicker({
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-3" onMouseDown={(e) => e.target === e.currentTarget && onDone(null)}>
       <div className="w-full max-w-lg max-h-[88vh] flex flex-col rounded-xl bg-[var(--surface,white)] shadow-2xl border border-[var(--line)]">
         <div className="px-4 pt-4 pb-2 border-b border-[var(--line)]">
-          <div className="font-display font-bold text-[var(--ink-900)]">Chọn cột tải về</div>
+          <div className="font-display font-bold text-[var(--ink-900)]">{tr("Chọn cột tải về")}</div>
           <div className="text-xs text-[var(--ink-400)] mt-0.5 truncate" title={filename}>
-            {filename} · {soBat}/{items.length} cột{coMau ? " · đang dùng mẫu đã lưu" : ""}
+            {filename} · {soBat}/{items.length}  {tr("cột")}{coMau ? " " + tr("· đang dùng mẫu đã lưu") : ""}
           </div>
           <div className="flex items-center gap-2 mt-2">
             <input
               value={tim}
               onChange={(e) => setTim(e.target.value)}
-              placeholder="Tìm cột…"
+              placeholder={tr("Tìm cột…")}
               className="focus-ring flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <button type="button" className="text-xs font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => datTatCa(true)}>
-              Chọn hết
-            </button>
+              {tr("Chọn hết")}</button>
             <button type="button" className="text-xs font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => datTatCa(false)}>
-              Bỏ hết
-            </button>
+              {tr("Bỏ hết")}</button>
           </div>
-          <div className="text-[11px] text-[var(--ink-400)] mt-1">Kéo thả (≡) hoặc bấm ↑ ↓ để đổi vị trí cột.</div>
+          <div className="text-[11px] text-[var(--ink-400)] mt-1">{tr("Kéo thả (≡) hoặc bấm ↑ ↓ để đổi vị trí cột.")}</div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 py-1">
@@ -86,7 +85,7 @@ function ExportColumnPicker({
                 onDragEnd={() => setKeoIdx(null)}
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-[var(--surface-100)] ${keoIdx === idx ? "opacity-40" : ""}`}
               >
-                <span className={`select-none text-[var(--ink-400)] ${timThuong ? "opacity-30" : "cursor-grab"}`} title="Kéo để đổi vị trí">
+                <span className={`select-none text-[var(--ink-400)] ${timThuong ? "opacity-30" : "cursor-grab"}`} title={tr("Kéo để đổi vị trí")}>
                   ≡
                 </span>
                 <input type="checkbox" checked={it.on} onChange={() => setItems((prev) => prev.map((x, i) => (i === idx ? { ...x, on: !x.on } : x)))} />
@@ -108,8 +107,7 @@ function ExportColumnPicker({
           <div className="flex items-center justify-between gap-2 text-xs">
             <label className="flex items-center gap-1.5 text-[var(--ink-600)]">
               <input type="checkbox" checked={ghiNho} onChange={(e) => setGhiNho(e.target.checked)} />
-              Ghi nhớ lựa chọn cho lần tải sau (trên máy này)
-            </label>
+              {tr("Ghi nhớ lựa chọn cho lần tải sau (trên máy này)")}</label>
             <button
               type="button"
               className="font-semibold text-[var(--ocean-600)] hover:underline"
@@ -118,19 +116,15 @@ function ExportColumnPicker({
                 setItems(columns.map((col) => ({ col, on: true })));
               }}
             >
-              Khôi phục mặc định
-            </button>
+              {tr("Khôi phục mặc định")}</button>
           </div>
           <div className="flex items-center justify-end gap-2">
             <Btn variant="ghost" size="sm" onClick={() => onDone(null)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn variant="subtle" size="sm" onClick={() => onDone(columns)}>
-              Tải mặc định
-            </Btn>
+              {tr("Tải mặc định")}</Btn>
             <Btn size="sm" disabled={soBat === 0} onClick={taiTheoLuaChon}>
-              Tải theo lựa chọn
-            </Btn>
+              {tr("Tải theo lựa chọn")}</Btn>
           </div>
         </div>
       </div>

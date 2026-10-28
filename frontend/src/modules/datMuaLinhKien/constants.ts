@@ -1,4 +1,5 @@
 import type { BadgeTone } from "../../components/ui/Badge";
+import { tr } from "../../i18n/tr";
 
 // Hang so/dictionary dung chung cho module "Dat mua linh kien" (tach tu DatMuaLinhKienModule.tsx
 // khi chia nho file - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -11,87 +12,87 @@ import type { BadgeTone } from "../../components/ui/Badge";
 // request() trong api/client.ts) truoc, roi tra cuu dictionary theo ma, cuoi cung moi fallback hien
 // ma tho kem tien to giai thich (van giu ma de ho tro/debug doi chieu duoc).
 export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN_ROLE: "Bạn không có quyền thực hiện thao tác này",
-  MODULE_NOT_ALLOWED: "Tài khoản của bạn không có quyền truy cập module này",
-  NOT_FOUND: "Không tìm thấy dữ liệu (có thể đã bị xoá hoặc thay đổi)",
-  STATE_CHANGED: "Trạng thái vừa bị người khác thay đổi — tải lại trang và thử lại",
-  DA_DONG: "Dòng này đã đóng, không thể xử lý tiếp",
-  DONG_DA_DONG: "Dòng này đã đóng, không thể xử lý tiếp",
-  PHIEU_DA_DONG: "Phiếu này đã đóng, không thể xử lý tiếp",
-  INVALID_STATE: "Trạng thái hiện tại không cho phép thao tác này",
-  INVALID_TRANG_THAI: "Trạng thái đích không hợp lệ",
-  INVALID_HANH_DONG: "Hành động không hợp lệ",
-  INVALID_BODY: "Dữ liệu gửi lên không hợp lệ",
-  INVALID_DON_HANG: "Thông tin dòng đơn hàng chưa đầy đủ hoặc không hợp lệ",
-  INVALID_CONTENT_TYPE: "Định dạng file không hợp lệ",
-  EMPTY_FILE: "File rỗng, vui lòng chọn file khác",
-  MA_LK_NOT_FOUND: "Không tìm thấy mã linh kiện này trong danh mục",
-  MISSING_DON_HANG: "Cần chọn ít nhất 1 dòng đơn hàng",
-  MISSING_NGUOI_NHAN_HANG: "Cần chọn người nhận hàng",
-  MISSING_LOAI_DON: "Cần chọn loại đơn",
-  MISSING_MA_XUAT_KHO: "Cần nhập mã đơn hàng",
-  MISSING_MA_MISA: "Cần nhập mã MISA",
-  MISSING_SO_TIEN: "Cần nhập số tiền",
-  MISSING_BANG_CHUNG: "Cần nhập bằng chứng chuyển tiền",
-  MISSING_LY_DO_CHAM: "Cần chọn lý do chậm",
-  MISSING_GHI_CHU: "Cần nhập ghi chú/lý do",
-  MISSING_GIAI_TRINH: "Cần nhập giải trình",
-  MISSING_IDS: "Chưa chọn dòng nào để xử lý",
-  MISSING_CASE_ID: "Thiếu mã case",
-  MISSING_CHUYEN_TIEN_APPROVED: "Cần Tác nghiệp xác nhận chuyển tiền trước",
-  QUA_NHIEU_ID: "Chọn quá nhiều dòng cùng lúc, vui lòng chia nhỏ đợt xử lý",
-  THIEU_CHINH_SACH_HOAC_MA_YCSC: "Thiếu Chính sách hoặc Mã yêu cầu sự cố",
-  THIEU_LY_DO_HUY: "Cần nhập lý do huỷ",
-  THIEU_LY_DO_CHAM: "Cần chọn lý do chậm",
-  LY_DO_CHAM_KHONG_HOP_LE: "Lý do chậm không hợp lệ",
-  NGUOI_NHAN_HANG_KHONG_HOP_LE: "Người nhận hàng không hợp lệ",
-  NGUOI_NHAN_HANG_NGOAI_PHAM_VI: "Người nhận hàng này không thuộc phạm vi quản lý của bạn",
-  NGOAI_PHAM_VI_GS: "KTV này không thuộc quyền phụ trách của bạn",
-  VE_TINH_CHUA_GAN_TRAM: "Vệ tinh này chưa được gán Trạm phụ trách",
-  DON_HANG_KHONG_HOP_LE: "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)",
-  MA_XUAT_KHO_DA_TON_TAI: "Mã đơn hàng này đã được dùng cho phiếu khác",
-  MA_XUAT_KHO_CHUA_XAC_NHAN: "Cần nhập và xác nhận mã đơn hàng trước",
-  CASE_NOT_FOUND: "Không tìm thấy case này",
-  DA_CO_CA_THIEU_LK_DANG_MO: "Đã có ca thiếu linh kiện đang mở cho dòng này",
-  USE_TRA_HANG_ROUTE: "Dòng trả hàng xử lý ở tab Trả hàng riêng",
+  FORBIDDEN_ROLE: tr("Bạn không có quyền thực hiện thao tác này"),
+  MODULE_NOT_ALLOWED: tr("Tài khoản của bạn không có quyền truy cập module này"),
+  NOT_FOUND: tr("Không tìm thấy dữ liệu (có thể đã bị xoá hoặc thay đổi)"),
+  STATE_CHANGED: tr("Trạng thái vừa bị người khác thay đổi — tải lại trang và thử lại"),
+  DA_DONG: tr("Dòng này đã đóng, không thể xử lý tiếp"),
+  DONG_DA_DONG: tr("Dòng này đã đóng, không thể xử lý tiếp"),
+  PHIEU_DA_DONG: tr("Phiếu này đã đóng, không thể xử lý tiếp"),
+  INVALID_STATE: tr("Trạng thái hiện tại không cho phép thao tác này"),
+  INVALID_TRANG_THAI: tr("Trạng thái đích không hợp lệ"),
+  INVALID_HANH_DONG: tr("Hành động không hợp lệ"),
+  INVALID_BODY: tr("Dữ liệu gửi lên không hợp lệ"),
+  INVALID_DON_HANG: tr("Thông tin dòng đơn hàng chưa đầy đủ hoặc không hợp lệ"),
+  INVALID_CONTENT_TYPE: tr("Định dạng file không hợp lệ"),
+  EMPTY_FILE: tr("File rỗng, vui lòng chọn file khác"),
+  MA_LK_NOT_FOUND: tr("Không tìm thấy mã linh kiện này trong danh mục"),
+  MISSING_DON_HANG: tr("Cần chọn ít nhất 1 dòng đơn hàng"),
+  MISSING_NGUOI_NHAN_HANG: tr("Cần chọn người nhận hàng"),
+  MISSING_LOAI_DON: tr("Cần chọn loại đơn"),
+  MISSING_MA_XUAT_KHO: tr("Cần nhập mã đơn hàng"),
+  MISSING_MA_MISA: tr("Cần nhập mã MISA"),
+  MISSING_SO_TIEN: tr("Cần nhập số tiền"),
+  MISSING_BANG_CHUNG: tr("Cần nhập bằng chứng chuyển tiền"),
+  MISSING_LY_DO_CHAM: tr("Cần chọn lý do chậm"),
+  MISSING_GHI_CHU: tr("Cần nhập ghi chú/lý do"),
+  MISSING_GIAI_TRINH: tr("Cần nhập giải trình"),
+  MISSING_IDS: tr("Chưa chọn dòng nào để xử lý"),
+  MISSING_CASE_ID: tr("Thiếu mã case"),
+  MISSING_CHUYEN_TIEN_APPROVED: tr("Cần Tác nghiệp xác nhận chuyển tiền trước"),
+  QUA_NHIEU_ID: tr("Chọn quá nhiều dòng cùng lúc, vui lòng chia nhỏ đợt xử lý"),
+  THIEU_CHINH_SACH_HOAC_MA_YCSC: tr("Thiếu Chính sách hoặc Mã yêu cầu sự cố"),
+  THIEU_LY_DO_HUY: tr("Cần nhập lý do huỷ"),
+  THIEU_LY_DO_CHAM: tr("Cần chọn lý do chậm"),
+  LY_DO_CHAM_KHONG_HOP_LE: tr("Lý do chậm không hợp lệ"),
+  NGUOI_NHAN_HANG_KHONG_HOP_LE: tr("Người nhận hàng không hợp lệ"),
+  NGUOI_NHAN_HANG_NGOAI_PHAM_VI: tr("Người nhận hàng này không thuộc phạm vi quản lý của bạn"),
+  NGOAI_PHAM_VI_GS: tr("KTV này không thuộc quyền phụ trách của bạn"),
+  VE_TINH_CHUA_GAN_TRAM: tr("Vệ tinh này chưa được gán Trạm phụ trách"),
+  DON_HANG_KHONG_HOP_LE: tr("Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)"),
+  MA_XUAT_KHO_DA_TON_TAI: tr("Mã đơn hàng này đã được dùng cho phiếu khác"),
+  MA_XUAT_KHO_CHUA_XAC_NHAN: tr("Cần nhập và xác nhận mã đơn hàng trước"),
+  CASE_NOT_FOUND: tr("Không tìm thấy case này"),
+  DA_CO_CA_THIEU_LK_DANG_MO: tr("Đã có ca thiếu linh kiện đang mở cho dòng này"),
+  USE_TRA_HANG_ROUTE: tr("Dòng trả hàng xử lý ở tab Trả hàng riêng"),
 };
 
 // Ma loi tra ve tu applyDonHangLog (backend/src/routes/datMuaLinhKien.ts) khi 1 dong trong bulk-log
 // khong hop le - dung de phan biet voi cac nextTrangThai hop le ("TN da duyet", "Cho TN duyet"...).
 export const BULK_LOG_ERROR_MESSAGES: Record<string, string> = {
-  NOT_FOUND: "không tìm thấy dòng đơn hàng",
-  DONG_DA_DONG: "dòng đã đóng",
-  FORBIDDEN_ROLE: "không đủ quyền xử lý",
-  INVALID_STATE: "sai trạng thái hiện tại",
-  USE_TRA_HANG_ROUTE: "dòng trả hàng dùng tab riêng",
-  MISSING_LY_DO_CHAM: "thiếu lý do chậm",
-  LY_DO_CHAM_KHONG_HOP_LE: "lý do chậm không hợp lệ",
-  DA_CO_CA_THIEU_LK_DANG_MO: "đã có ca thiếu linh kiện đang mở cho dòng này",
-  STATE_CHANGED: "trạng thái vừa bị người khác thay đổi, tải lại và thử lại",
+  NOT_FOUND: tr("không tìm thấy dòng đơn hàng"),
+  DONG_DA_DONG: tr("dòng đã đóng"),
+  FORBIDDEN_ROLE: tr("không đủ quyền xử lý"),
+  INVALID_STATE: tr("sai trạng thái hiện tại"),
+  USE_TRA_HANG_ROUTE: tr("dòng trả hàng dùng tab riêng"),
+  MISSING_LY_DO_CHAM: tr("thiếu lý do chậm"),
+  LY_DO_CHAM_KHONG_HOP_LE: tr("lý do chậm không hợp lệ"),
+  DA_CO_CA_THIEU_LK_DANG_MO: tr("đã có ca thiếu linh kiện đang mở cho dòng này"),
+  STATE_CHANGED: tr("trạng thái vừa bị người khác thay đổi, tải lại và thử lại"),
   // 2 ma nay thuc te chi xay ra khi request khong den tu UI binh thuong (UI da chan truoc ca 2 truong
   // hop o phia client) - them vao day chi de PHONG THU: neu thieu, ma loi se KHONG khop bat ky key
   // nao trong dictionary nay, khien dong that bai bi dem NHAM thanh thanh cong trong toast bulk-log
   // (phat hien khi ra soat QA 2026-08-19, so sanh voi applyDonHangLog o backend).
-  THIEU_LY_DO_HUY: "thiếu lý do huỷ",
-  INVALID_HANH_DONG: "hành động không hợp lệ ở trạng thái hiện tại",
+  THIEU_LY_DO_HUY: tr("thiếu lý do huỷ"),
+  INVALID_HANH_DONG: tr("hành động không hợp lệ ở trạng thái hiện tại"),
 };
 
 // Ma loi tra ve tu applyTraHangLog (backend/src/routes/traHang.ts) khi 1 dong trong bulk-log khong
 // hop le - dung de phan biet voi cac nextTrangThai hop le.
 export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
-  NOT_FOUND: "không tìm thấy dòng trả hàng",
-  DA_DONG: "dòng đã đóng",
-  FORBIDDEN_ROLE: "không đủ quyền xử lý",
-  INVALID_STATE: "sai trạng thái hiện tại",
+  NOT_FOUND: tr("không tìm thấy dòng trả hàng"),
+  DA_DONG: tr("dòng đã đóng"),
+  FORBIDDEN_ROLE: tr("không đủ quyền xử lý"),
+  INVALID_STATE: tr("sai trạng thái hiện tại"),
   // CHOT (ra soat module #13): dong dang "Cho TN duyet tong" tu choi bat buoc ghi_chu - dong nay
   // KHONG the xu ly qua "Tu choi tat ca" hang loat (khong nhap duoc ghi_chu rieng tung dong), phai
   // mo tung dong de nhap ly do that su.
-  MISSING_GHI_CHU: "cần nhập lý do khi từ chối bước TN duyệt tổng — mở từng dòng để nhập",
+  MISSING_GHI_CHU: tr("cần nhập lý do khi từ chối bước TN duyệt tổng — mở từng dòng để nhập"),
   // Phat hien khi ra soat QA 2026-08-19: THIEU key nay khien 1 dong that bai do 2 nguoi cung xu ly
   // dong thoi (optimistic-concurrency, xem applyTraHangLog o backend) bi dem NHAM thanh thanh cong
   // trong toast bulk-log - day la truong hop THUC SU xay ra trong dung thao tac binh thuong (khong
   // can request bat thuong), khac 2 ma o BULK_LOG_ERROR_MESSAGES ben tren.
-  STATE_CHANGED: "trạng thái vừa bị người khác thay đổi, tải lại và thử lại",
+  STATE_CHANGED: tr("trạng thái vừa bị người khác thay đổi, tải lại và thử lại"),
 };
 
 // Trang thai cua 1 DONG don hang (dat_don_hang_log) - khong con o cap phieu.
@@ -186,18 +187,18 @@ export const TRANG_THAI_DOT_TONE: Record<BadgeTone, string> = {
 // gan nhu trung voi cac nhan bare "KT"/"Kho"/"TN" cua luong PXK/tac nghiep khi luot nhanh qua thanh
 // cuon ngang; dau "·" bien moi nhan thanh 1 TU GHEP rieng biet thay vi 2 tu roi de nham voi nhan bare.
 export const STEP_SHORT_LABEL: Record<string, string> = {
-  tram: "Trạm",
+  tram: tr("Trạm"),
   tp_dvbh: "TBP",
-  tra_hang_kt: "Trả·KT",
-  tra_hang_kho: "Trả·Kho",
-  tra_hang_qc: "Trả·QC",
-  tra_hang_tn: "Trả·TN",
-  tra_hang_kt_nhap: "Trả·KT NK",
-  tra_hang_kho_nhap: "Trả·Kho NK",
+  tra_hang_kt: tr("Trả·KT"),
+  tra_hang_kho: tr("Trả·Kho"),
+  tra_hang_qc: tr("Trả·QC"),
+  tra_hang_tn: tr("Trả·TN"),
+  tra_hang_kt_nhap: tr("Trả·KT NK"),
+  tra_hang_kho_nhap: tr("Trả·Kho NK"),
   tac_nghiep: "TN",
-  cho_hang: "Chờ hàng",
-  thieu_lk: "Thiếu LK",
-  cho_tien: "Chờ tiền",
+  cho_hang: tr("Chờ hàng"),
+  thieu_lk: tr("Thiếu LK"),
+  cho_tien: tr("Chờ tiền"),
   tao_pxk: "PXK",
   ke_toan: "KT",
   kho: "Kho",
@@ -210,22 +211,22 @@ export const STEP_SHORT_LABEL: Record<string, string> = {
 // chu he thong luc thiet ke backend GET /dat-mua-lk/luong-quy-trinh. Van dung thuoc tinh title (native
 // tooltip) - KHONG tu ve tooltip vi nam trong container overflow-x-auto, de bi cat mep khi cuon ngang.
 export const STEP_DESCRIPTION: Record<string, string> = {
-  tram: "Đơn đang chờ Trạm duyệt trước khi chuyển lên cấp tiếp theo.",
-  tp_dvbh: "Đơn linh kiện đặc thù đang chờ TBP DVBH xác nhận.",
-  tra_hang_kt: "Đơn trả hàng đang chờ Kế toán duyệt mềm.",
-  tra_hang_kho: "Đơn trả hàng đang chờ Kho xác nhận.",
-  tra_hang_qc: "Đơn trả hàng đang chờ QC xác nhận.",
-  tra_hang_tn: "Đơn trả hàng đang chờ TN duyệt tổng.",
-  tra_hang_kt_nhap: "Đơn trả hàng đã duyệt, đang chờ Kế toán xác nhận nhập kho.",
-  tra_hang_kho_nhap: "Đơn trả hàng đang chờ Kho xác nhận nhập kho.",
-  tac_nghiep: "Đơn mua hàng/công nợ đang chờ Tác nghiệp duyệt.",
-  cho_hang: "Đơn đã duyệt nhưng đang chờ hàng về kho.",
-  thieu_lk: "Ticket báo thiếu linh kiện đang chờ Kho xử lý.",
-  cho_tien: "Phiếu xuất kho có tiền cần chuyển nhưng chưa được xác nhận đã chuyển.",
-  tao_pxk: "Phiếu xuất kho đã tạo nhưng chưa gửi Kế toán.",
-  ke_toan: "Phiếu xuất kho đang chờ Kế toán chốt đơn xuất.",
-  kho: "Phiếu xuất kho đã chốt, đang chờ Kho gửi hàng.",
-  ktv: "Phiếu xuất kho đang chờ KTV xác nhận đã nhận hàng.",
+  tram: tr("Đơn đang chờ Trạm duyệt trước khi chuyển lên cấp tiếp theo."),
+  tp_dvbh: tr("Đơn linh kiện đặc thù đang chờ TBP DVBH xác nhận."),
+  tra_hang_kt: tr("Đơn trả hàng đang chờ Kế toán duyệt mềm."),
+  tra_hang_kho: tr("Đơn trả hàng đang chờ Kho xác nhận."),
+  tra_hang_qc: tr("Đơn trả hàng đang chờ QC xác nhận."),
+  tra_hang_tn: tr("Đơn trả hàng đang chờ TN duyệt tổng."),
+  tra_hang_kt_nhap: tr("Đơn trả hàng đã duyệt, đang chờ Kế toán xác nhận nhập kho."),
+  tra_hang_kho_nhap: tr("Đơn trả hàng đang chờ Kho xác nhận nhập kho."),
+  tac_nghiep: tr("Đơn mua hàng/công nợ đang chờ Tác nghiệp duyệt."),
+  cho_hang: tr("Đơn đã duyệt nhưng đang chờ hàng về kho."),
+  thieu_lk: tr("Ticket báo thiếu linh kiện đang chờ Kho xử lý."),
+  cho_tien: tr("Phiếu xuất kho có tiền cần chuyển nhưng chưa được xác nhận đã chuyển."),
+  tao_pxk: tr("Phiếu xuất kho đã tạo nhưng chưa gửi Kế toán."),
+  ke_toan: tr("Phiếu xuất kho đang chờ Kế toán chốt đơn xuất."),
+  kho: tr("Phiếu xuất kho đã chốt, đang chờ Kho gửi hàng."),
+  ktv: tr("Phiếu xuất kho đang chờ KTV xác nhận đã nhận hàng."),
 };
 
 // Danh sach option trang thai dung CHUNG cho TrangThaiChipFilter (hien thi) VA ActiveFiltersBar (chip
@@ -234,50 +235,50 @@ export const STEP_DESCRIPTION: Record<string, string> = {
 // tri raw filterTrangThai (vd "Cho kho xu ly" khong dau) lam nhan chip thay vi nhan dep co dau - phat
 // hien khi test qua localhost:5173 that (khong phai chi doc code).
 export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
-  { value: "", label: "Tất cả trạng thái" },
-  { value: "Cho Tram duyet", label: "Chờ Trạm duyệt" },
-  { value: "Cho TBP xac nhan", label: "Chờ TBP DVBH xác nhận" },
-  { value: "Cho TN duyet", label: "Chờ TN duyệt" },
-  { value: "TN da duyet", label: "TN đã duyệt" },
-  { value: "TN tu choi", label: "TN từ chối" },
-  { value: "Cho hang", label: "Chờ hàng" },
-  { value: "Da huy", label: "Đã hủy" },
+  { value: "", label: tr("Tất cả trạng thái") },
+  { value: "Cho Tram duyet", label: tr("Chờ Trạm duyệt") },
+  { value: "Cho TBP xac nhan", label: tr("Chờ TBP DVBH xác nhận") },
+  { value: "Cho TN duyet", label: tr("Chờ TN duyệt") },
+  { value: "TN da duyet", label: tr("TN đã duyệt") },
+  { value: "TN tu choi", label: tr("TN từ chối") },
+  { value: "Cho hang", label: tr("Chờ hàng") },
+  { value: "Da huy", label: tr("Đã hủy") },
 ];
 export const PXK_TRANG_THAI_OPTIONS = [
-  { value: "", label: "Tất cả" },
-  { value: "Dang tao phieu", label: "Đang tạo phiếu" },
-  { value: "Cho ke toan", label: "Chờ kế toán" },
-  { value: "Da chot xong don xuat", label: "Đã chốt xong đơn xuất" },
-  { value: "Dang gui KTV", label: "Đang gửi KTV" },
-  { value: "KTV da nhan", label: "KTV đã nhận" },
-  { value: "Ke toan huy", label: "Kế toán huỷ" },
-  { value: "Hang tru kho", label: "Hàng trừ kho" },
-  { value: "Kho da ket thuc", label: "Kho đã kết thúc" },
+  { value: "", label: tr("Tất cả") },
+  { value: "Dang tao phieu", label: tr("Đang tạo phiếu") },
+  { value: "Cho ke toan", label: tr("Chờ kế toán") },
+  { value: "Da chot xong don xuat", label: tr("Đã chốt xong đơn xuất") },
+  { value: "Dang gui KTV", label: tr("Đang gửi KTV") },
+  { value: "KTV da nhan", label: tr("KTV đã nhận") },
+  { value: "Ke toan huy", label: tr("Kế toán huỷ") },
+  { value: "Hang tru kho", label: tr("Hàng trừ kho") },
+  { value: "Kho da ket thuc", label: tr("Kho đã kết thúc") },
 ];
 // QA 2026-08-19: THIEU truoc day 2 trang thai "Kho tu choi sai TT"/"Da huy bo" - deu la trang thai
 // HOP LE thuc su dat toi duoc (xem validNext o backend/src/routes/datMuaLinhKien.ts), nhung khong co
 // trong danh sach loc nen nguoi dung khong the loc rieng cac ve da bi kho tu choi/huy bo, phai tu doc
 // qua "Tat ca" - khac voi moi tab khac deu co day du option loc cho trang thai "huy/tu choi" cua no.
 export const THIEU_LK_TRANG_THAI_OPTIONS = [
-  { value: "", label: "Tất cả" },
-  { value: "Cho kho xu ly", label: "Chờ kho xử lý" },
-  { value: "Kho da tiep nhan", label: "Kho đã tiếp nhận" },
-  { value: "Kho xac nhan hang da ve", label: "Hàng đã về" },
-  { value: "Kho tu choi sai TT", label: "Kho từ chối (sai TT)" },
-  { value: "Da huy bo", label: "Đã huỷ bỏ" },
-  { value: "Da ket thuc", label: "Đã kết thúc" },
+  { value: "", label: tr("Tất cả") },
+  { value: "Cho kho xu ly", label: tr("Chờ kho xử lý") },
+  { value: "Kho da tiep nhan", label: tr("Kho đã tiếp nhận") },
+  { value: "Kho xac nhan hang da ve", label: tr("Hàng đã về") },
+  { value: "Kho tu choi sai TT", label: tr("Kho từ chối (sai TT)") },
+  { value: "Da huy bo", label: tr("Đã huỷ bỏ") },
+  { value: "Da ket thuc", label: tr("Đã kết thúc") },
 ];
 export const TRA_HANG_TRANG_THAI_OPTIONS = [
-  { value: "", label: "Tất cả" },
-  { value: "Cho ke toan duyet mem", label: "Chờ kế toán duyệt mềm" },
-  { value: "Cho kho xac nhan", label: "Chờ kho xác nhận" },
-  { value: "Cho QC xac nhan", label: "Chờ QC xác nhận" },
-  { value: "Cho TN duyet tong", label: "Chờ TN duyệt tổng" },
-  { value: "Cho ke toan xac nhan nhap kho", label: "Chờ kế toán xác nhận nhập kho" },
-  { value: "Cho kho xac nhan nhap kho", label: "Chờ kho xác nhận nhập kho" },
-  { value: "Da hoan thanh", label: "Đã hoàn thành" },
-  { value: "Tu choi", label: "Từ chối" },
-  { value: "Da huy", label: "Đã huỷ" },
+  { value: "", label: tr("Tất cả") },
+  { value: "Cho ke toan duyet mem", label: tr("Chờ kế toán duyệt mềm") },
+  { value: "Cho kho xac nhan", label: tr("Chờ kho xác nhận") },
+  { value: "Cho QC xac nhan", label: tr("Chờ QC xác nhận") },
+  { value: "Cho TN duyet tong", label: tr("Chờ TN duyệt tổng") },
+  { value: "Cho ke toan xac nhan nhap kho", label: tr("Chờ kế toán xác nhận nhập kho") },
+  { value: "Cho kho xac nhan nhap kho", label: tr("Chờ kho xác nhận nhập kho") },
+  { value: "Da hoan thanh", label: tr("Đã hoàn thành") },
+  { value: "Tu choi", label: tr("Từ chối") },
+  { value: "Da huy", label: tr("Đã huỷ") },
 ];
 
 export const PIPELINE_NOTCH = 10;
@@ -285,11 +286,11 @@ export const PIPELINE_SEG_WIDTH = 80;
 
 export const PXK_MINI_STEPS = ["Dang tao phieu", "Cho ke toan", "Da chot xong don xuat", "Dang gui KTV", "KTV da nhan"] as const;
 export const PXK_MINI_LABEL: Record<string, string> = {
-  "Dang tao phieu": "Tạo phiếu",
-  "Cho ke toan": "Kế toán",
-  "Da chot xong don xuat": "Chốt xong",
-  "Dang gui KTV": "Gửi KTV",
-  "KTV da nhan": "KTV nhận",
+  "Dang tao phieu": tr("Tạo phiếu"),
+  "Cho ke toan": tr("Kế toán"),
+  "Da chot xong don xuat": tr("Chốt xong"),
+  "Dang gui KTV": tr("Gửi KTV"),
+  "KTV da nhan": tr("KTV nhận"),
 };
 export const PXK_MINI_NHANH_RE = new Set(["Ke toan huy", "Hang tru kho", "Kho da ket thuc"]);
 export const PXK_MINI_SEG_WIDTH = 62;

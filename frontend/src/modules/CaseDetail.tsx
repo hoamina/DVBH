@@ -74,6 +74,7 @@ import {
   type LoaiViPhamRow,
   parseLoaiKhaoSat,
 } from "../types";
+import { tr } from "../i18n/tr";
 
 type ViewMode = "compact" | "expanded";
 
@@ -133,9 +134,9 @@ async function fetchCaseDetailCached(id: string): Promise<CacheEntry<CaseDetailR
 // Badge trang thai ca dau phan Thong tin: ca da dong ma tien do "Không hoàn thành XLSC" (CRM/Odoo "Thất
 // bại") hien "Thất bại" thay vi "Đã hoàn thành" (khop ticker "Ca thất bại", lib/caseTickers.ts).
 function caseStatusBadge(c: CaseRow) {
-  if (!c.thoi_gian_hoan_thanh) return <Badge tone="amber">Đang tồn đọng</Badge>;
-  if (c.tien_do_hoan_thanh === "Không hoàn thành XLSC") return <Badge tone="coral">Thất bại</Badge>;
-  return <Badge tone="teal">Đã hoàn thành</Badge>;
+  if (!c.thoi_gian_hoan_thanh) return <Badge tone="amber">{tr("Đang tồn đọng")}</Badge>;
+  if (c.tien_do_hoan_thanh === "Không hoàn thành XLSC") return <Badge tone="coral">{tr("Thất bại")}</Badge>;
+  return <Badge tone="teal">{tr("Đã hoàn thành")}</Badge>;
 }
 
 // Badge tom tat "Số lượng ảnh" (case_dvbh.so_luong_anh, migration 0143, chi nguon Odoo) - anh CHUA
@@ -145,10 +146,10 @@ function soLuongAnhBadge(c: CaseRow) {
   const sl = parseSoLuongAnh(c.so_luong_anh);
   if (!sl) return null;
   const total = sl.ben_trong + sl.ben_ngoai + sl.bao_cao + sl.tem_serial + sl.bang_chung_huy;
-  const title = `Bên trong ${sl.ben_trong} · Bên ngoài ${sl.ben_ngoai} · Báo cáo ${sl.bao_cao} · Tem serial ${sl.tem_serial} · Bằng chứng hủy ${sl.bang_chung_huy} (nguồn Odoo, xem ảnh trực tiếp trên Odoo)`;
+  const title = tr("Bên trong {0} · Bên ngoài {1} · Báo cáo {2} · Tem serial {3} · Bằng chứng hủy {4} (nguồn Odoo, xem ảnh trực tiếp trên Odoo)", sl.ben_trong, sl.ben_ngoai, sl.bao_cao, sl.tem_serial, sl.bang_chung_huy);
   return (
     <span title={title}>
-      <Badge tone="ocean">📷 {total} ảnh (Odoo)</Badge>
+      <Badge tone="ocean">📷 {total}  {tr("ảnh (Odoo)")}</Badge>
     </span>
   );
 }
@@ -177,9 +178,9 @@ function readCaseInfoLayout(): CaseInfoLayout {
   }
 }
 const CASE_INFO_LAYOUT_HINT: Record<CaseInfoLayout, string> = {
-  1: "Kiểu 1: 7 tab — Cơ bản / Xử lý / Bổ sung / Lỗi / Gửi BH / Lịch hẹn / Xin hủy",
-  2: "Kiểu 2: 5 tab — Nội dung / Lỗi / Gửi BH / Lịch hẹn / Xin hủy",
-  3: "Kiểu 3: 1 tab — gộp tất cả thông tin case",
+  1: tr("Kiểu 1: 7 tab — Cơ bản / Xử lý / Bổ sung / Lỗi / Gửi BH / Lịch hẹn / Xin hủy"),
+  2: tr("Kiểu 2: 5 tab — Nội dung / Lỗi / Gửi BH / Lịch hẹn / Xin hủy"),
+  3: tr("Kiểu 3: 1 tab — gộp tất cả thông tin case"),
 };
 type XuLyTabs = {
   active: string;
@@ -204,16 +205,16 @@ function DiaChiCaCu({ c, hienMoi = true, hienCu = true }: { c: CaseRow; hienMoi?
     <div className="space-y-1">
       {hienMoi && (
         <div className="flex items-start gap-2">
-          <Badge tone="teal">Mới</Badge>
+          <Badge tone="teal">{tr("Mới")}</Badge>
           <span>
             {tinhMoi || "—"}
-            {tinhMoi && <span className="ml-1 text-[11px] text-[var(--ink-400)]">(quy đổi từ tỉnh cũ)</span>}
+            {tinhMoi && <span className="ml-1 text-[11px] text-[var(--ink-400)]">{tr("(quy đổi từ tỉnh cũ)")}</span>}
           </span>
         </div>
       )}
       {hienCu && (
         <div className="flex items-start gap-2 text-[var(--ink-600)]">
-          <Badge tone="gray">Cũ</Badge>
+          <Badge tone="gray">{tr("Cũ")}</Badge>
           <span>{[c.quan_huyen, c.tinh ? idx.tinhCu(c.tinh) : null].filter(Boolean).join(", ") || "—"}</span>
         </div>
       )}
@@ -246,25 +247,25 @@ function KhuVucField({ c }: { c: CaseRow }) {
   const save = useMutation({
     mutationFn: () => api.patch(`/cases/${c.id}/khu-vuc`, { khu_vuc: value }),
     onSuccess: async () => {
-      addToast("Đã cập nhật khu vực");
+      addToast(tr("Đã cập nhật khu vực"));
       setOpen(false);
       await refresh();
     },
-    onError: () => addToast("Không thể lưu khu vực, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu khu vực, thử lại sau.")),
   });
   const restore = useMutation({
     mutationFn: () => api.delete(`/cases/${c.id}/khu-vuc`),
     onSuccess: async () => {
-      addToast("Đã khôi phục khu vực theo CRM");
+      addToast(tr("Đã khôi phục khu vực theo CRM"));
       await refresh();
     },
-    onError: () => addToast("Không thể khôi phục, thử lại sau."),
+    onError: () => addToast(tr("Không thể khôi phục, thử lại sau.")),
   });
   const options = Array.from(new Set([...(filters?.khuVuc ?? []), ...(c.khu_vuc ? [c.khu_vuc] : [])]));
   return (
     <>
       <Field
-        label="Khu vực"
+        label={tr("Khu vực")}
         value={
           <div className="space-y-1">
             <span className="flex items-center gap-1.5">
@@ -272,7 +273,7 @@ function KhuVucField({ c }: { c: CaseRow }) {
               {isAdmin && (
                 <button
                   type="button"
-                  title="Sửa khu vực của ca này (Admin)"
+                  title={tr("Sửa khu vực của ca này (Admin)")}
                   onClick={() => {
                     setValue(c.khu_vuc ?? "");
                     setOpen(true);
@@ -285,7 +286,7 @@ function KhuVucField({ c }: { c: CaseRow }) {
             </span>
             {c.khu_vuc_sua_at && (
               <div className="text-[11px] font-normal text-[var(--ink-400)]">
-                <Badge tone="amber">Sửa tay</Badge> {c.khu_vuc_sua_by} · {fmtDateTime(c.khu_vuc_sua_at)} · CRM: {shortKhuVuc(c.khu_vuc_crm) || "—"}
+                <Badge tone="amber">{tr("Sửa tay")}</Badge> {c.khu_vuc_sua_by} · {fmtDateTime(c.khu_vuc_sua_at)} · CRM: {shortKhuVuc(c.khu_vuc_crm) || "—"}
                 {isAdmin && (
                   <button
                     type="button"
@@ -293,7 +294,7 @@ function KhuVucField({ c }: { c: CaseRow }) {
                     disabled={restore.isPending}
                     className="ml-1 font-semibold text-[var(--ocean-600)] hover:underline disabled:opacity-40"
                   >
-                    {restore.isPending ? "Đang khôi phục…" : "Khôi phục theo CRM"}
+                    {restore.isPending ? tr("Đang khôi phục…") : tr("Khôi phục theo CRM")}
                   </button>
                 )}
               </div>
@@ -305,22 +306,20 @@ function KhuVucField({ c }: { c: CaseRow }) {
         <Modal
           open={open}
           onClose={() => setOpen(false)}
-          title={`Sửa khu vực ca ${c.id}`}
+          title={tr("Sửa khu vực ca {0}", c.id)}
           footer={
             <div className="flex justify-end gap-2">
               <Btn variant="ghost" onClick={() => setOpen(false)}>
-                Hủy
-              </Btn>
+                {tr("Hủy")}</Btn>
               <Btn onClick={() => save.mutate()} disabled={!value || value === c.khu_vuc || save.isPending}>
-                {save.isPending ? "Đang lưu…" : "Lưu"}
+                {save.isPending ? tr("Đang lưu…") : tr("Lưu")}
               </Btn>
             </div>
           }
         >
           <div className="space-y-2 text-sm">
             <div className="text-[var(--ink-600)]">
-              Chỉ áp dụng cho đúng ca này. Các lần import CRM sau sẽ không ghi đè khu vực đã sửa tay (vẫn khôi phục theo CRM được).
-            </div>
+              {tr("Chỉ áp dụng cho đúng ca này. Các lần import CRM sau sẽ không ghi đè khu vực đã sửa tay (vẫn khôi phục theo CRM được).")}</div>
             <Select value={value} onChange={setValue} options={options.map((k) => ({ value: k, label: k }))} className="w-full" />
           </div>
         </Modal>
@@ -344,7 +343,7 @@ function renderCaseFieldsGrid(
   const hienCu = hien("Địa chỉ cũ");
   const topFields = (
     <>
-      {hien("Khách hàng") && <Field label="Khách hàng" value={c.khach_hang ?? "—"} />}
+      {hien("Khách hàng") && <Field label={tr("Khách hàng")} value={c.khach_hang ?? "—"} />}
       {hien("Serial") && <Field
         label="Serial"
         value={
@@ -353,7 +352,7 @@ function renderCaseFieldsGrid(
               <button
                 type="button"
                 onClick={onSerialClick}
-                title="Xem các ca trùng serial này"
+                title={tr("Xem các ca trùng serial này")}
                 className={`font-mono underline decoration-dotted underline-offset-2 hover:text-[var(--ocean-600)] focus-ring rounded ${
                   serialBlacklisted ? "line-through text-[var(--ink-400)]" : ""
                 }`}
@@ -378,19 +377,19 @@ function renderCaseFieldsGrid(
           {(hienMoi || hienCu) && (
             <div className="col-span-2">
               <Field
-                label="Địa chỉ"
+                label={tr("Địa chỉ")}
                 value={
                   <div className="space-y-1">
                     {hienMoi && (
                       <div className="flex items-start gap-2">
-                        <Badge tone="teal">Mới</Badge>
+                        <Badge tone="teal">{tr("Mới")}</Badge>
                         <span>{[c.xa_moi, c.tinh_moi].filter(Boolean).join(", ") || "—"}</span>
                       </div>
                     )}
                     {hienCu && (
                       <div className="flex items-start gap-2 text-[var(--ink-600)]">
-                        <Badge tone="gray">Cũ</Badge>
-                        <span>{[c.xa_cu, c.huyen_cu ?? c.quan_huyen, c.tinh_cu ?? c.tinh].filter(Boolean).join(", ") || "— (Odoo không nhập)"}</span>
+                        <Badge tone="gray">{tr("Cũ")}</Badge>
+                        <span>{[c.xa_cu, c.huyen_cu ?? c.quan_huyen, c.tinh_cu ?? c.tinh].filter(Boolean).join(", ") || tr("— (Odoo không nhập)")}</span>
                       </div>
                     )}
                   </div>
@@ -404,55 +403,55 @@ function renderCaseFieldsGrid(
           {hien("Khu vực") && <KhuVucField c={c} />}
           {(hienMoi || hienCu) && (
             <div className="col-span-2">
-              <Field label="Địa chỉ" value={<DiaChiCaCu c={c} hienMoi={hienMoi} hienCu={hienCu} />} />
+              <Field label={tr("Địa chỉ")} value={<DiaChiCaCu c={c} hienMoi={hienMoi} hienCu={hienCu} />} />
             </div>
           )}
         </>
       )}
-      {hien("Hãng / Nhóm SP") && <Field label="Hãng / Nhóm SP" value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />}
-      {hien("Trạm triển khai") && <Field label="Trạm triển khai" value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />}
+      {hien("Hãng / Nhóm SP") && <Field label={tr("Hãng / Nhóm SP")} value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />}
+      {hien("Trạm triển khai") && <Field label={tr("Trạm triển khai")} value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />}
       {hien("KTV triển khai") && <Field
-        label="KTV triển khai"
+        label={tr("KTV triển khai")}
         value={
           c.ktv_trien_khai && c.ktv_trien_khai !== c.ky_thuat_vien ? (
             <KtvNameWithPhone kyThuatVien={c.ktv_trien_khai} canEdit={!!canEditKtvPhone} />
           ) : (
-            <span className="text-[var(--ink-500)]">= Trạm triển khai</span>
+            <span className="text-[var(--ink-500)]">{tr("= Trạm triển khai")}</span>
           )
         }
       />}
-      {hien("Tiếp nhận CSKH") && <Field label="Tiếp nhận CSKH" value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />}
-      {hien("Hẹn xử lý") && <Field label="Hẹn xử lý" value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />}
-      {hien("Thời gian hoàn thành") && <Field label="Thời gian hoàn thành" value={fmtDateTime(c.thoi_gian_hoan_thanh)} />}
-      {hien("Dự kiến hoàn thành (giải trình gần nhất)") && <Field label="Dự kiến hoàn thành (giải trình gần nhất)" value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />}
-      {hien("Ngày import") && <Field label="Ngày import" value={fmtDateTime(c.ngay_import)} />}
-      {hien("Cập nhật gần nhất") && <Field label="Cập nhật gần nhất" value={fmtDateTime(c.ngay_cap_nhat_gan_nhat)} />}
-      {hien("Đúng hạn / Xử lý 24h") && <Field label="Đúng hạn / Xử lý 24h" value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />}
+      {hien("Tiếp nhận CSKH") && <Field label={tr("Tiếp nhận CSKH")} value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />}
+      {hien("Hẹn xử lý") && <Field label={tr("Hẹn xử lý")} value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />}
+      {hien("Thời gian hoàn thành") && <Field label={tr("Thời gian hoàn thành")} value={fmtDateTime(c.thoi_gian_hoan_thanh)} />}
+      {hien("Dự kiến hoàn thành (giải trình gần nhất)") && <Field label={tr("Dự kiến hoàn thành (giải trình gần nhất)")} value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />}
+      {hien("Ngày import") && <Field label={tr("Ngày import")} value={fmtDateTime(c.ngay_import)} />}
+      {hien("Cập nhật gần nhất") && <Field label={tr("Cập nhật gần nhất")} value={fmtDateTime(c.ngay_cap_nhat_gan_nhat)} />}
+      {hien("Đúng hạn / Xử lý 24h") && <Field label={tr("Đúng hạn / Xử lý 24h")} value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />}
     </>
   );
   const xuLyGrid = (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-      {hien("Nhóm / Loại yêu cầu") && <Field label="Nhóm / Loại yêu cầu" value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />}
-      {hien("Mức độ") && <Field label="Mức độ" value={mucDoBadge(c.muc_do) ?? "—"} />}
-      {hien("Cách thức xử lý") && <Field label="Cách thức xử lý" value={c.cach_thuc_xu_ly ?? "—"} />}
-      {hien("Sản phẩm bảo hành") && <Field label="Sản phẩm bảo hành" value={c.san_pham_bao_hanh ?? "—"} />}
-      {hien("Hình thức bảo hành") && <Field label="Hình thức bảo hành" value={c.hinh_thuc_bao_hanh ?? "—"} />}
-      {hien("Tiến độ hoàn thành") && <Field label="Tiến độ hoàn thành" value={c.tien_do_hoan_thanh ?? "—"} />}
-      {hien("Lý do hủy") && <Field label="Lý do hủy" value={c.ly_do_huy ?? "—"} />}
-      {hien("Lý do quá hạn") && <Field label="Lý do quá hạn" value={c.ly_do_qua_han ?? "—"} />}
+      {hien("Nhóm / Loại yêu cầu") && <Field label={tr("Nhóm / Loại yêu cầu")} value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />}
+      {hien("Mức độ") && <Field label={tr("Mức độ")} value={mucDoBadge(c.muc_do) ?? "—"} />}
+      {hien("Cách thức xử lý") && <Field label={tr("Cách thức xử lý")} value={c.cach_thuc_xu_ly ?? "—"} />}
+      {hien("Sản phẩm bảo hành") && <Field label={tr("Sản phẩm bảo hành")} value={c.san_pham_bao_hanh ?? "—"} />}
+      {hien("Hình thức bảo hành") && <Field label={tr("Hình thức bảo hành")} value={c.hinh_thuc_bao_hanh ?? "—"} />}
+      {hien("Tiến độ hoàn thành") && <Field label={tr("Tiến độ hoàn thành")} value={c.tien_do_hoan_thanh ?? "—"} />}
+      {hien("Lý do hủy") && <Field label={tr("Lý do hủy")} value={c.ly_do_huy ?? "—"} />}
+      {hien("Lý do quá hạn") && <Field label={tr("Lý do quá hạn")} value={c.ly_do_qua_han ?? "—"} />}
       {hien("Mô tả lỗi") && (
         <div className="col-span-2">
-          <Field label="Mô tả lỗi" value={c.mo_ta_loi ?? "—"} />
+          <Field label={tr("Mô tả lỗi")} value={c.mo_ta_loi ?? "—"} />
         </div>
       )}
       {hien("Lưu ý lỗi linh kiện") && (
         <div className="col-span-2">
-          <Field label="Lưu ý lỗi linh kiện" value={c.luu_y_loi_linh_kien ?? "—"} />
+          <Field label={tr("Lưu ý lỗi linh kiện")} value={c.luu_y_loi_linh_kien ?? "—"} />
         </div>
       )}
       {hien("Nội dung xử lý chi tiết") && (
         <div className="col-span-2">
-          <Field label="Nội dung xử lý chi tiết" value={c.noi_dung_xu_ly ?? "—"} />
+          <Field label={tr("Nội dung xử lý chi tiết")} value={c.noi_dung_xu_ly ?? "—"} />
         </div>
       )}
     </div>
@@ -460,8 +459,7 @@ function renderCaseFieldsGrid(
   const hinhAnhSection = (
     <>
       <div className="font-display font-bold text-sm mb-3">
-        Hình ảnh báo cáo công việc
-        {parseLinkHinhAnh(c.link_hinh_anh).length > 0 && ` (${parseLinkHinhAnh(c.link_hinh_anh).length})`}
+        {tr("Hình ảnh báo cáo công việc")}{parseLinkHinhAnh(c.link_hinh_anh).length > 0 && ` (${parseLinkHinhAnh(c.link_hinh_anh).length})`}
       </div>
       <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />
     </>
@@ -470,28 +468,27 @@ function renderCaseFieldsGrid(
     <>
       <div className="font-display font-bold text-sm mb-3">Doanh thu</div>
       <div className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
-        <Field label="DT sản phẩm" value={fmtVND(c.dt_san_pham)} />
-        <Field label="DT linh kiện" value={fmtVND(c.dt_linh_kien)} />
-        <Field label="DT dịch vụ" value={fmtVND(c.dt_dich_vu)} />
+        <Field label={tr("DT sản phẩm")} value={fmtVND(c.dt_san_pham)} />
+        <Field label={tr("DT linh kiện")} value={fmtVND(c.dt_linh_kien)} />
+        <Field label={tr("DT dịch vụ")} value={fmtVND(c.dt_dich_vu)} />
       </div>
     </>
   );
   const phanLoaiSection = (
     <>
-      <div className="font-display font-bold text-sm mb-3">Phân loại &amp; nguồn gốc</div>
+      <div className="font-display font-bold text-sm mb-3">{tr("Phân loại & nguồn gốc")}</div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-        <Field label="Đối tác" value={c.doi_tac ?? "—"} />
-        <Field label="Ngày mua" value={fmtDate(c.ngay_mua)} />
-        <Field label="Ngày sản xuất" value={fmtDate(c.ngay_san_xuat)} />
-        <Field label="Nhóm khách hàng" value={c.nhom_kh ?? "—"} />
-        <Field label="Ngành / Loại ngành" value={`${c.nganh ?? "—"} — ${c.loai_nganh ?? "—"}`} />
+        <Field label={tr("Đối tác")} value={c.doi_tac ?? "—"} />
+        <Field label={tr("Ngày mua")} value={fmtDate(c.ngay_mua)} />
+        <Field label={tr("Ngày sản xuất")} value={fmtDate(c.ngay_san_xuat)} />
+        <Field label={tr("Nhóm khách hàng")} value={c.nhom_kh ?? "—"} />
+        <Field label={tr("Ngành / Loại ngành")} value={`${c.nganh ?? "—"} — ${c.loai_nganh ?? "—"}`} />
         <Field
           label="Link CRM"
           value={
             c.link_crm ? (
               <a href={c.link_crm} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline">
-                Mở trên CRM
-              </a>
+                {tr("Mở trên CRM")}</a>
             ) : (
               "—"
             )
@@ -503,16 +500,16 @@ function renderCaseFieldsGrid(
 
   if (xuLyTabs) {
     const { layout } = xuLyTabs;
-    const loiTab: TabItem = { key: "loi-linh-kien", label: "Lỗi", count: xuLyTabs.countLoi };
-    const bhTab: TabItem = { key: "bao-hanh", label: "Gửi BH", count: xuLyTabs.countBaoHanh };
-    const lichHenTab: TabItem = { key: "lich-hen", label: "Lịch hẹn", count: xuLyTabs.countLichHen };
-    const yeuCauHuyTab: TabItem = { key: "yeu-cau-huy", label: "Xin hủy", count: xuLyTabs.countYeuCauHuy };
+    const loiTab: TabItem = { key: "loi-linh-kien", label: tr("Lỗi"), count: xuLyTabs.countLoi };
+    const bhTab: TabItem = { key: "bao-hanh", label: tr("Gửi BH"), count: xuLyTabs.countBaoHanh };
+    const lichHenTab: TabItem = { key: "lich-hen", label: tr("Lịch hẹn"), count: xuLyTabs.countLichHen };
+    const yeuCauHuyTab: TabItem = { key: "yeu-cau-huy", label: tr("Xin hủy"), count: xuLyTabs.countYeuCauHuy };
     const tabs: TabItem[] =
       layout === 3
-        ? [{ key: "tat-ca", label: "Thông tin case" }]
+        ? [{ key: "tat-ca", label: tr("Thông tin case") }]
         : layout === 2
-          ? [{ key: "noi-dung", label: "Nội dung" }, loiTab, bhTab, lichHenTab, yeuCauHuyTab]
-          : [{ key: "co-ban", label: "Cơ bản" }, { key: "xu-ly", label: "Xử lý" }, { key: "bo-sung", label: "Bổ sung" }, loiTab, bhTab, lichHenTab, yeuCauHuyTab];
+          ? [{ key: "noi-dung", label: tr("Nội dung") }, loiTab, bhTab, lichHenTab, yeuCauHuyTab]
+          : [{ key: "co-ban", label: tr("Cơ bản") }, { key: "xu-ly", label: tr("Xử lý") }, { key: "bo-sung", label: tr("Bổ sung") }, loiTab, bhTab, lichHenTab, yeuCauHuyTab];
     // Tab dang chon co the thuoc kieu khac (vd doi Kieu 1 -> 2 khi dang o "xu-ly") -> quy ve tab tuong ung.
     let active = xuLyTabs.active;
     if (!tabs.some((t) => t.key === active)) active = layout === 2 && ["co-ban", "xu-ly", "bo-sung"].includes(active) ? "noi-dung" : tabs[0].key;
@@ -530,7 +527,7 @@ function renderCaseFieldsGrid(
     ].filter(Boolean);
     const boSung = (
       <div className="space-y-4 [&>*+*]:border-t [&>*+*]:border-[var(--line)] [&>*+*]:pt-4">
-        {boSungParts.length > 0 ? boSungParts : <div className="text-sm text-[var(--ink-400)]">Đã ẩn toàn bộ mục bổ sung (nút ⚙).</div>}
+        {boSungParts.length > 0 ? boSungParts : <div className="text-sm text-[var(--ink-400)]">{tr("Đã ẩn toàn bộ mục bổ sung (nút ⚙).")}</div>}
       </div>
     );
     // Kieu 2/3 xep doc nhieu phan, ngan bang duong ke - KHONG hien tieu de trung gian (chot 2026-10-08); data-sec de
@@ -550,7 +547,7 @@ function renderCaseFieldsGrid(
               <div className="flex-1 min-w-0">
                 <Tabs active={active} onChange={xuLyTabs.onChange} tabs={tabs} />
               </div>
-              <div className="flex shrink-0 rounded-lg border border-[var(--line)] overflow-hidden mt-1.5" role="group" aria-label="Kiểu xem">
+              <div className="flex shrink-0 rounded-lg border border-[var(--line)] overflow-hidden mt-1.5" role="group" aria-label={tr("Kiểu xem")}>
                 {([1, 2, 3] as CaseInfoLayout[]).map((l) => (
                   <button
                     key={l}
@@ -561,7 +558,7 @@ function renderCaseFieldsGrid(
                       layout === l ? "bg-[var(--ocean-500)] text-white" : "text-[var(--ink-500)] hover:bg-slate-100"
                     }`}
                   >
-                    Kiểu {l}
+                    {tr("Kiểu")} {l}
                   </button>
                 ))}
               </div>
@@ -594,7 +591,7 @@ function renderCaseFieldsGrid(
         {coBanFields}
       </div>
       <Card className="p-4 mb-3">
-        <div className="font-display font-bold text-sm mb-3">Thông tin xử lý</div>
+        <div className="font-display font-bold text-sm mb-3">{tr("Thông tin xử lý")}</div>
         {xuLyGrid}
       </Card>
       <Card className="p-4 mb-3">{hinhAnhSection}</Card>
@@ -847,7 +844,7 @@ export function CaseDetail({
       ly_do_ton_tranh_chap?: string;
     }) => api.post(`/tranh-chap/${caseId}/tiep-nhan`, body),
     onSuccess: () => {
-      addToast("Đã tiếp nhận xử lý tranh chấp");
+      addToast(tr("Đã tiếp nhận xử lý tranh chấp"));
       setTiepNhanTranhChapOpen(false);
       qc.invalidateQueries({ queryKey: ["tranh-chap-tien-trinh-case", caseId] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
@@ -859,7 +856,7 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
     },
-    onError: (err) => addToast(describeTranhChapError(err, "Không thể tiếp nhận, thử lại sau.")),
+    onError: (err) => addToast(describeTranhChapError(err, tr("Không thể tiếp nhận, thử lại sau."))),
   });
 
   // "Xac nhan AI" nhanh ngay trong the "Tranh chap" cua ca chi tiet (CHOT 2026-08-22) - cung 1 API
@@ -867,7 +864,7 @@ export function CaseDetail({
   const xacNhanAiCaseDetail = useMutation({
     mutationFn: (ketQua: "dung" | "khong_phai") => api.post(`/tranh-chap/${caseId}/xac-nhan-ai`, { ket_qua: ketQua }),
     onSuccess: async (_data, ketQua) => {
-      addToast(ketQua === "dung" ? "Đã xác nhận: Đúng là tranh chấp." : "Đã xác nhận: Không phải tranh chấp.");
+      addToast(ketQua === "dung" ? tr("Đã xác nhận: Đúng là tranh chấp.") : tr("Đã xác nhận: Không phải tranh chấp."));
       const fresh = await fetchCaseDetail(caseId!);
       const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
       qc.setQueryData(["case", caseId], newEntry);
@@ -875,7 +872,7 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xac-nhan-ai-count"] });
       qc.invalidateQueries({ queryKey: ["tranh-chap-cho-xu-ly"] });
     },
-    onError: (err) => addToast(describeTranhChapError(err, "Không thể xác nhận, thử lại sau.")),
+    onError: (err) => addToast(describeTranhChapError(err, tr("Không thể xác nhận, thử lại sau."))),
   });
 
   const [giaiTrinhModalOpen, setGiaiTrinhModalOpen] = useState(false);
@@ -970,7 +967,7 @@ export function CaseDetail({
         ma_xuat_hang_lien_quan: lyDoChon?.thuoc_thieu_linh_kien ? form.ma_xuat_hang || undefined : undefined,
       }),
     onSuccess: async () => {
-      addToast(`Đã ghi nhận giải trình cho ca ${caseId}`);
+      addToast(tr("Đã ghi nhận giải trình cho ca {0}", caseId));
       setForm({ ly_do_cham: "", noi_dung: "", linh_kien_thieu: "", ngay_du_kien: "", ngay_yeu_cau_co_hang: "", ma_xuat_hang: "" });
       setGiaiTrinhModalOpen(false);
       // CHOT 2026-08-11 (mo rong 2026-08-12: giai trinh nay gio ap dung duoc cho MOI ca da dong, ke ca
@@ -997,7 +994,7 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["missing-parts"] });
       qc.invalidateQueries({ queryKey: ["missing-parts-by-khu-vuc"] });
     },
-    onError: () => addToast("Không thể ghi nhận giải trình, thử lại sau."),
+    onError: () => addToast(tr("Không thể ghi nhận giải trình, thử lại sau.")),
   });
 
   // Giai trinh vi pham (migration 0108) - Giam sat nhap tay THAY cho KTV khi KTV khong tu giai trinh
@@ -1012,7 +1009,7 @@ export function CaseDetail({
         anh_urls: viPhamGiaiTrinhPhotos,
       }),
     onSuccess: async () => {
-      addToast("Đã lưu giải trình vi phạm");
+      addToast(tr("Đã lưu giải trình vi phạm"));
       setViPhamGiaiTrinhTarget(null);
       setViPhamGiaiTrinhForm({ ngay_giai_trinh: "", noi_dung_giai_trinh: "", ghi_chu: "" });
       setViPhamGiaiTrinhPhotos([]);
@@ -1020,7 +1017,7 @@ export function CaseDetail({
       const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
       qc.setQueryData(["case", caseId], newEntry);
     },
-    onError: () => addToast("Không thể lưu giải trình, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu giải trình, thử lại sau.")),
   });
 
   // Chot/bo vi pham cap 2 (QC) - dung LAI pattern "fetch that + ghi de closedDataCache" nhu tren, cong
@@ -1030,7 +1027,7 @@ export function CaseDetail({
     mutationFn: ({ id, chot, ket_qua_cap_1 }: { id: string; chot: boolean; ket_qua_cap_1?: string }) =>
       api.patch(`/vi-pham/${id}/cap2`, { chot, ket_qua_cap_1 }),
     onSuccess: async (_d, vars) => {
-      addToast(`QC đã ${vars.chot ? "chốt" : "bỏ"} vi phạm cấp 2`);
+      addToast(vars.chot ? tr("QC đã chốt vi phạm cấp 2") : tr("QC đã bỏ vi phạm cấp 2"));
       setQcKetQuaCap1Override((prev) => {
         const next = { ...prev };
         delete next[vars.id];
@@ -1042,7 +1039,7 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["survey"] });
       qc.invalidateQueries({ queryKey: ["survey-counts"] });
     },
-    onError: () => addToast("Không thể ghi nhận quyết định QC, thử lại sau."),
+    onError: () => addToast(tr("Không thể ghi nhận quyết định QC, thử lại sau.")),
   });
 
   // Tao vi_pham thu cong (migration 0113) - dung LAI pattern "fetch that + ghi de closedDataCache" nhu
@@ -1056,7 +1053,7 @@ export function CaseDetail({
         ngay_ghi_nhan: manualViPhamForm.ngay_ghi_nhan || undefined,
       }),
     onSuccess: async () => {
-      addToast("Đã ghi nhận vi phạm, chờ QC xác nhận");
+      addToast(tr("Đã ghi nhận vi phạm, chờ QC xác nhận"));
       setManualViPhamOpen(false);
       setManualViPhamForm({ ket_qua_cap_1: "", ghi_chu: "", ngay_ghi_nhan: "" });
       const fresh = await fetchCaseDetail(caseId!);
@@ -1067,10 +1064,10 @@ export function CaseDetail({
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      if (code === "GHI_CHU_BAT_BUOC") addToast("Loại lỗi này bắt buộc phải nhập Ghi chú.");
-      else if (code === "DUPLICATE") addToast("Vi phạm này đã tồn tại cho ca này.");
-      else if (code === "INVALID_KET_QUA_CAP_1") addToast("Loại lỗi không hợp lệ, thử lại.");
-      else addToast("Không thể ghi nhận vi phạm, thử lại sau.");
+      if (code === "GHI_CHU_BAT_BUOC") addToast(tr("Loại lỗi này bắt buộc phải nhập Ghi chú."));
+      else if (code === "DUPLICATE") addToast(tr("Vi phạm này đã tồn tại cho ca này."));
+      else if (code === "INVALID_KET_QUA_CAP_1") addToast(tr("Loại lỗi không hợp lệ, thử lại."));
+      else addToast(tr("Không thể ghi nhận vi phạm, thử lại sau."));
     },
   });
 
@@ -1081,7 +1078,7 @@ export function CaseDetail({
       const res = await api.postBinary<{ ok: true; url: string }>(`/vi-pham/${viPhamId}/giai-trinh/anh`, bytes, file.type || "image/jpeg");
       setViPhamGiaiTrinhPhotos((prev) => (prev.length < 5 ? [...prev, res.url] : prev));
     } catch {
-      addToast("Không thể tải ảnh lên, thử lại sau.");
+      addToast(tr("Không thể tải ảnh lên, thử lại sau."));
     } finally {
       setViPhamGiaiTrinhUploading(false);
     }
@@ -1099,13 +1096,13 @@ export function CaseDetail({
   const bienBanHopSubmit = useMutation({
     mutationFn: () => api.post(`/cases/${caseId}/bien-ban-hop`, { noi_dung: bienBanHopNoiDung.trim() }),
     onSuccess: async () => {
-      addToast("Đã lưu biên bản họp");
+      addToast(tr("Đã lưu biên bản họp"));
       setBienBanHopNoiDung("");
       const fresh = await fetchCaseDetail(caseId!);
       const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${caseId}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
       qc.setQueryData(["case", caseId], newEntry);
     },
-    onError: () => addToast("Không thể lưu biên bản họp, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu biên bản họp, thử lại sau.")),
   });
 
   const c = data?.case;
@@ -1226,10 +1223,10 @@ export function CaseDetail({
     };
 
     if (c?.thoi_gian_cskh_tiep_nhan) {
-      pushDb({ key: "case-open", rawTs: c.thoi_gian_cskh_tiep_nhan, tone: "gray", typeLabel: "Ca được mở", actor: null, summary: "Tiếp nhận CSKH", jumpTab: null });
+      pushDb({ key: "case-open", rawTs: c.thoi_gian_cskh_tiep_nhan, tone: "gray", typeLabel: tr("Ca được mở"), actor: null, summary: tr("Tiếp nhận CSKH"), jumpTab: null });
     }
     if (c?.thoi_gian_hoan_thanh) {
-      pushDb({ key: "case-close", rawTs: c.thoi_gian_hoan_thanh, tone: "gray", typeLabel: "Ca được đóng", actor: null, summary: c.tien_do_hoan_thanh ?? "Hoàn thành", jumpTab: null });
+      pushDb({ key: "case-close", rawTs: c.thoi_gian_hoan_thanh, tone: "gray", typeLabel: tr("Ca được đóng"), actor: null, summary: c.tien_do_hoan_thanh ?? tr("Hoàn thành"), jumpTab: null });
     }
 
     for (const l of giaiTrinhList) {
@@ -1237,7 +1234,7 @@ export function CaseDetail({
         key: `gt-${l.id}`,
         rawTs: l.ngay_giai_trinh,
         tone: "ocean",
-        typeLabel: "GT tồn",
+        typeLabel: tr("GT tồn"),
         actor: l.nguoi_giai_trinh,
         summary: l.noi_dung ? `${l.ly_do_cham}: ${l.noi_dung}` : l.ly_do_cham,
         jumpTab: "giai-trinh",
@@ -1245,7 +1242,7 @@ export function CaseDetail({
     }
 
     for (const b of bienBanHopList) {
-      pushDb({ key: `bbh-${b.id}`, rawTs: b.created_at, tone: "sky", typeLabel: "Biên bản họp", actor: b.nguoi_ghi, summary: b.noi_dung, jumpTab: "bien-ban-hop" });
+      pushDb({ key: `bbh-${b.id}`, rawTs: b.created_at, tone: "sky", typeLabel: tr("Biên bản họp"), actor: b.nguoi_ghi, summary: b.noi_dung, jumpTab: "bien-ban-hop" });
     }
 
     for (const v of viPhamList) {
@@ -1253,7 +1250,7 @@ export function CaseDetail({
         key: `vp-${v.id}-ghi-nhan`,
         rawTs: v.ngay_ghi_nhan,
         tone: "coral",
-        typeLabel: `Vi phạm ghi nhận (${v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi)})`,
+        typeLabel: tr("Vi phạm ghi nhận ({0})", v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi)),
         actor: v.nguoi_ghi_nhan,
         summary: v.ket_qua_cap_1 ?? "Chưa khảo sát",
         jumpTab: "vi-pham",
@@ -1263,9 +1260,9 @@ export function CaseDetail({
           key: `vp-${v.id}-chot`,
           rawTs: v.ngay_chot,
           tone: "coral",
-          typeLabel: "Vi phạm chốt cấp 2",
+          typeLabel: tr("Vi phạm chốt cấp 2"),
           actor: v.nguoi_chot,
-          summary: v.chot_bo_cap_2 ? "Đã xác nhận vi phạm" : "Không vi phạm",
+          summary: v.chot_bo_cap_2 ? tr("Đã xác nhận vi phạm") : tr("Không vi phạm"),
           jumpTab: "vi-pham",
         });
       }
@@ -1279,7 +1276,7 @@ export function CaseDetail({
         key: `vp-gt-${g.id}`,
         rawTs: g.ngay_giai_trinh,
         tone: "coral",
-        typeLabel: g.nguon === "ktv_qua_api" ? "Vi phạm giải trình (KTV qua API)" : "Vi phạm giải trình (Giám sát nhập tay)",
+        typeLabel: g.nguon === "ktv_qua_api" ? tr("Vi phạm giải trình (KTV qua API)") : tr("Vi phạm giải trình (Giám sát nhập tay)"),
         // GS nhap thay khong con nhap ten KTV nua - rot ve nguoi_nhap (nguoi dang nhap thuc su ghi log
         // nay) khi thieu nguoi_giai_trinh, khop dung fallback dung trong the "Vi pham" (renderGiaiTrinhRow).
         actor: g.nguoi_giai_trinh || g.nguoi_nhap,
@@ -1294,7 +1291,7 @@ export function CaseDetail({
         key: `kqg-${k.id}`,
         rawTs: k.ngay_gio_thuc_hien,
         tone: "teal",
-        typeLabel: `Khảo sát${loaiList.length ? " (" + loaiList.map((loai) => LOAI_LOI_META[loai]?.short ?? loai).join(", ") + ")" : ""}`,
+        typeLabel: tr("Khảo sát{0}", loaiList.length ? " (" + loaiList.map((loai) => LOAI_LOI_META[loai]?.short ?? loai).join(", ") + ")" : ""),
         actor: k.nguoi_thuc_hien,
         summary: k.ket_qua_cuoc_goi ?? k.ghi_chu ?? "—",
         jumpTab: "khao-sat",
@@ -1312,13 +1309,13 @@ export function CaseDetail({
           key: `tc-log-${log.id}`,
           rawTs: log.ngay_xu_ly,
           tone: "violet",
-          typeLabel: `Tranh chấp: ${TRANG_THAI_LABELS[log.trang_thai_xu_ly] ?? log.trang_thai_xu_ly}`,
+          typeLabel: tr("Tranh chấp: {0}", TRANG_THAI_LABELS[log.trang_thai_xu_ly] ?? log.trang_thai_xu_ly),
           actor: log.nguoi_xu_ly,
           summary: log.ghi_chu ?? "—",
           jumpTab: "tranh-chap",
         });
         for (const sub of log.logCon ?? []) {
-          pushDb({ key: `tc-logcon-${sub.id}`, rawTs: sub.created_at, tone: "violet", typeLabel: "Tranh chấp: phản hồi", actor: sub.nguoi_ghi, summary: sub.noi_dung, jumpTab: "tranh-chap" });
+          pushDb({ key: `tc-logcon-${sub.id}`, rawTs: sub.created_at, tone: "violet", typeLabel: tr("Tranh chấp: phản hồi"), actor: sub.nguoi_ghi, summary: sub.noi_dung, jumpTab: "tranh-chap" });
         }
       }
     }
@@ -1328,7 +1325,7 @@ export function CaseDetail({
         key: "nap-gas",
         rawTs: napGasDanhGia.ngay_chot,
         tone: "orange",
-        typeLabel: "Đánh giá nạp gas",
+        typeLabel: tr("Đánh giá nạp gas"),
         actor: napGasDanhGia.nguoi_chot,
         summary: `${NAP_GAS_DANH_GIA_META[napGasDanhGia.danh_gia_nap_gas]?.label ?? napGasDanhGia.danh_gia_nap_gas} · ${NAP_GAS_PHI_DICH_VU_META[napGasDanhGia.phi_dich_vu]?.label ?? napGasDanhGia.phi_dich_vu}`,
         jumpTab: "nap-gas",
@@ -1341,7 +1338,7 @@ export function CaseDetail({
         key: "ca-lap-gs",
         rawTs: glap.ngay_giai_trinh,
         tone: "indigo",
-        typeLabel: "Đánh giá ca lặp (GS)",
+        typeLabel: tr("Đánh giá ca lặp (GS)"),
         actor: glap.nguoi_giai_trinh,
         summary: `${glap.chot_danh_gia_lap ? (CA_LAP_META[glap.chot_danh_gia_lap]?.label ?? glap.chot_danh_gia_lap) : "—"}${glap.dien_giai_lap ? ": " + glap.dien_giai_lap : ""}`,
         jumpTab: "ca-lap",
@@ -1352,7 +1349,7 @@ export function CaseDetail({
         key: "ca-lap-qc",
         rawTs: glap.ngay_qc,
         tone: "indigo",
-        typeLabel: "Đánh giá ca lặp (QC)",
+        typeLabel: tr("Đánh giá ca lặp (QC)"),
         actor: glap.nguoi_qc,
         summary: `${glap.qc_chot ? (CA_LAP_META[glap.qc_chot]?.label ?? glap.qc_chot) : "—"}${glap.qc_ghi_chu ? ": " + glap.qc_ghi_chu : ""}`,
         jumpTab: "ca-lap",
@@ -1364,42 +1361,42 @@ export function CaseDetail({
     // dinh 1 mau/nguon (khong con doi theo trang thai duyet/ket qua nhu truoc) de phan biet NGUON
     // log ngay tu mau sac trong tab "Tien trinh chung" - trang thai cu the van doc duoc qua typeLabel.
     for (const r of muaHangMatched) {
-      pushSheet({ key: `mh-${r.id}-1`, rawTs: r.ngayTao, tone: "amber", typeLabel: "Mua hàng (AppSheet): Tạo đề xuất", summary: r.loaiDeXuat || "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-1`, rawTs: r.ngayTao, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Tạo đề xuất"), summary: r.loaiDeXuat || "—", jumpTab: "mua-hang" });
       pushSheet({
         key: `mh-${r.id}-2`,
         rawTs: r.ngayXacNhan,
         tone: "amber",
-        typeLabel: "Mua hàng (AppSheet): Tác nghiệp tiếp nhận",
-        summary: r.trangThaiDuyet && r.trangThaiDuyet !== "ĐỒNG Ý" ? `Trạng thái duyệt: ${r.trangThaiDuyet}` : "—",
+        typeLabel: tr("Mua hàng (AppSheet): Tác nghiệp tiếp nhận"),
+        summary: r.trangThaiDuyet && r.trangThaiDuyet !== "ĐỒNG Ý" ? tr("Trạng thái duyệt: {0}", r.trangThaiDuyet) : "—",
         jumpTab: "mua-hang",
       });
-      pushSheet({ key: `mh-${r.id}-3`, rawTs: r.ngayAdminTaoDonXuat, tone: "amber", typeLabel: "Mua hàng (AppSheet): Tác nghiệp tạo phiếu", summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-4`, rawTs: r.ngayKeToanDuyet, tone: "amber", typeLabel: "Mua hàng (AppSheet): Kế toán duyệt phiếu", summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-5`, rawTs: r.ngayKhoXacNhan, tone: "amber", typeLabel: "Mua hàng (AppSheet): Kho duyệt xuất hàng", summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-3`, rawTs: r.ngayAdminTaoDonXuat, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Tác nghiệp tạo phiếu"), summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-4`, rawTs: r.ngayKeToanDuyet, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Kế toán duyệt phiếu"), summary: "—", jumpTab: "mua-hang" });
+      pushSheet({ key: `mh-${r.id}-5`, rawTs: r.ngayKhoXacNhan, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Kho duyệt xuất hàng"), summary: "—", jumpTab: "mua-hang" });
     }
 
     for (const r of baoHanhMatched) {
-      pushSheet({ key: `bh-${r.id}-1`, rawTs: r.thoiGianTao, tone: "rose", typeLabel: "Bảo hành: Tạo đơn bảo hành", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-2`, rawTs: r.ngayGui, tone: "rose", typeLabel: "Bảo hành: KTV gửi đơn bảo hành", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-3`, rawTs: r.ngayKhoNhanHang, tone: "rose", typeLabel: "Bảo hành: Kho nhận hàng", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-4`, rawTs: r.ngayGioAdminNhanTuKho, tone: "rose", typeLabel: "Bảo hành: Admin nhận được linh kiện", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-5`, rawTs: r.ngayGioSuaXong, tone: "rose", typeLabel: "Bảo hành: Đã sửa xong", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-6`, rawTs: r.ngayKhoNhanHangTuAdmin, tone: "rose", typeLabel: "Bảo hành: Kế toán duyệt phiếu", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-7`, rawTs: r.ngayKhoGuiHangChoKtv, tone: "rose", typeLabel: "Bảo hành: Kho gửi linh kiện cho KTV", summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-8`, rawTs: r.ngayKtvNhanHang, tone: "rose", typeLabel: "Bảo hành: KTV đã nhận được linh kiện", summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-1`, rawTs: r.thoiGianTao, tone: "rose", typeLabel: tr("Bảo hành: Tạo đơn bảo hành"), summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-2`, rawTs: r.ngayGui, tone: "rose", typeLabel: tr("Bảo hành: KTV gửi đơn bảo hành"), summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-3`, rawTs: r.ngayKhoNhanHang, tone: "rose", typeLabel: tr("Bảo hành: Kho nhận hàng"), summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-4`, rawTs: r.ngayGioAdminNhanTuKho, tone: "rose", typeLabel: tr("Bảo hành: Admin nhận được linh kiện"), summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-5`, rawTs: r.ngayGioSuaXong, tone: "rose", typeLabel: tr("Bảo hành: Đã sửa xong"), summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-6`, rawTs: r.ngayKhoNhanHangTuAdmin, tone: "rose", typeLabel: tr("Bảo hành: Kế toán duyệt phiếu"), summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-7`, rawTs: r.ngayKhoGuiHangChoKtv, tone: "rose", typeLabel: tr("Bảo hành: Kho gửi linh kiện cho KTV"), summary: "—", jumpTab: "bao-hanh" });
+      pushSheet({ key: `bh-${r.id}-8`, rawTs: r.ngayKtvNhanHang, tone: "rose", typeLabel: tr("Bảo hành: KTV đã nhận được linh kiện"), summary: "—", jumpTab: "bao-hanh" });
     }
 
     for (const o of donBaoHanhOdooList) {
       const lk = o.ten_linh_kien || o.ma_linh_kien || "—";
-      pushDb({ key: `bho-${o.odoo_id}-1`, rawTs: o.ngay_tao, tone: "rose", typeLabel: `Bảo hành (Odoo): Tạo đơn ${o.ma_don ?? ""}`, actor: o.nguoi_tao, summary: lk, jumpTab: "loi-linh-kien" });
-      pushDb({ key: `bho-${o.odoo_id}-2`, rawTs: o.ngay_hoan_thanh, tone: "rose", typeLabel: `Bảo hành (Odoo): ${donBhTrangThai(o.trang_thai).label} ${o.ma_don ?? ""}`, actor: null, summary: lk, jumpTab: "loi-linh-kien" });
+      pushDb({ key: `bho-${o.odoo_id}-1`, rawTs: o.ngay_tao, tone: "rose", typeLabel: tr("Bảo hành (Odoo): Tạo đơn {0}", o.ma_don ?? ""), actor: o.nguoi_tao, summary: lk, jumpTab: "loi-linh-kien" });
+      pushDb({ key: `bho-${o.odoo_id}-2`, rawTs: o.ngay_hoan_thanh, tone: "rose", typeLabel: tr("Bảo hành (Odoo): {0} {1}", donBhTrangThai(o.trang_thai).label, o.ma_don ?? ""), actor: null, summary: lk, jumpTab: "loi-linh-kien" });
     }
 
     for (const r of thieuHangMatched) {
-      pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Tạo yêu cầu", summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Kho đã tiếp nhận", summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-3`, rawTs: r.ngayKhoXacNhan, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Kho xác nhận hàng về", summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-4`, rawTs: r.ngayAdminXuLy, tone: "lime", typeLabel: "Thiếu hàng (AppSheet): Admin kết thúc", summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Tạo yêu cầu"), summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Kho đã tiếp nhận"), summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-3`, rawTs: r.ngayKhoXacNhan, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Kho xác nhận hàng về"), summary: "—", jumpTab: "thieu-hang" });
+      pushSheet({ key: `th-${r.id}-4`, rawTs: r.ngayAdminXuLy, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Admin kết thúc"), summary: "—", jumpTab: "thieu-hang" });
     }
 
     // He "Dat mua linh kien" (linh-kien-app) - moi dong log cua don/ticket thieu LK/phieu xuat kho/tra
@@ -1416,7 +1413,7 @@ export function CaseDetail({
         // Log tao ticket thieu LK khong co ghi chu - lay ly do/ngay du kien tu block thieu_lk cung thoi diem.
         if (e.event === "thieu_lk_cho_kho_xu_ly" && !detail) {
           const t = (o.thieu_lk ?? []).find((x) => x.ngay_tao === e.at);
-          if (t) detail = [t.ly_do ? `Lý do: ${t.ly_do}` : "", t.ngay_du_kien_co_hang ? `Dự kiến có hàng: ${fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang))}` : ""].filter(Boolean).join(" · ");
+          if (t) detail = [t.ly_do ? tr("Lý do: {0}", t.ly_do) : "", t.ngay_du_kien_co_hang ? tr("Dự kiến có hàng: {0}", fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang))) : ""].filter(Boolean).join(" · ");
         }
         const head = e.source === "phieu_xuat_kho" ? `${o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ") || "PXK"} · ${lkName}` : `${o.order_id} · ${lkName}`;
         const vnLocal = linhKienIsoToVnLocal(e.at);
@@ -1444,26 +1441,26 @@ export function CaseDetail({
         const ms = Date.parse(iso);
         if (Number.isNaN(ms)) return;
         const vnLocal = new Date(ms + 7 * 3600_000).toISOString().slice(0, 19).replace("T", " ");
-        events.push({ key: `dt-${key}`, sortMs: parseFlexibleDbDate(vnLocal).getTime(), displayTime: fmtDateTime(vnLocal), tone: "rose", typeLabel: `Đổi trả: ${label}`, actor, summary, jumpTab: "luong-mail" });
+        events.push({ key: `dt-${key}`, sortMs: parseFlexibleDbDate(vnLocal).getTime(), displayTime: fmtDateTime(vnLocal), tone: "rose", typeLabel: tr("Đổi trả: {0}", label), actor, summary, jumpTab: "luong-mail" });
       };
       const dx = dt.de_xuat ?? {};
-      pushDt("phat-sinh", dt.origin_at, "Phát sinh mail", dt.origin_name || dt.origin_email || null, dt.subject || "—");
-      pushDt("tiep-nhan", dt.tiep_nhan_at, "Karofi tiếp nhận", null, "—");
-      pushDt("de-xuat", dt.de_xuat_at, "Đề xuất đổi", dt.de_xuat_from || null, [dx["Máy/Linh kiện đề xuất đổi"] && `Đề xuất: ${dx["Máy/Linh kiện đề xuất đổi"]}`, dx["Lý do đổi"]].filter(Boolean).join(" · ") || "—");
-      pushDt("duyet", dt.duyet_at, "Duyệt đổi", dt.duyet_from || null, "—");
-      pushDt("giao", dt.giao_xu_ly_at, "Karofi giao xử lý", null, "—");
-      pushDt("so", dt.len_so_at, "Lên SO", null, "—");
-      pushDt("do", dt.len_do_at, "Lên DO", null, "—");
+      pushDt("phat-sinh", dt.origin_at, tr("Phát sinh mail"), dt.origin_name || dt.origin_email || null, dt.subject || "—");
+      pushDt("tiep-nhan", dt.tiep_nhan_at, tr("Karofi tiếp nhận"), null, "—");
+      pushDt("de-xuat", dt.de_xuat_at, tr("Đề xuất đổi"), dt.de_xuat_from || null, [dx["Máy/Linh kiện đề xuất đổi"] && tr("Đề xuất: {0}", dx["Máy/Linh kiện đề xuất đổi"]), dx["Lý do đổi"]].filter(Boolean).join(" · ") || "—");
+      pushDt("duyet", dt.duyet_at, tr("Duyệt đổi"), dt.duyet_from || null, "—");
+      pushDt("giao", dt.giao_xu_ly_at, tr("Karofi giao xử lý"), null, "—");
+      pushDt("so", dt.len_so_at, tr("Lên SO"), null, "—");
+      pushDt("do", dt.len_do_at, tr("Lên DO"), null, "—");
       const cmDt = mailTimeline?.ca_moi;
       if (cmDt?.ca_moi_id) {
-        pushDt("ca-moi", cmDt.ca_moi_tn_at, "Mở ca mới", null, `Ca đổi ${cmDt.ca_moi_id}${cmDt.ca_moi_san_pham ? ` · ${cmDt.ca_moi_san_pham}` : ""}`);
-        if (cmDt.ca_moi_ht_at && /^Hoàn thành/i.test(cmDt.ca_moi_tien_do)) pushDt("thanh-cong", cmDt.ca_moi_ht_at, "Đổi trả thành công", null, `Ca đổi ${cmDt.ca_moi_id} · ${cmDt.ca_moi_tien_do}`);
+        pushDt("ca-moi", cmDt.ca_moi_tn_at, tr("Mở ca mới"), null, tr("Ca đổi {0}{1}", cmDt.ca_moi_id, cmDt.ca_moi_san_pham ? ` · ${cmDt.ca_moi_san_pham}` : ""));
+        if (cmDt.ca_moi_ht_at && /^Hoàn thành/i.test(cmDt.ca_moi_tien_do)) pushDt("thanh-cong", cmDt.ca_moi_ht_at, tr("Đổi trả thành công"), null, tr("Ca đổi {0} · {1}", cmDt.ca_moi_id, cmDt.ca_moi_tien_do));
       }
       (mailTimeline?.nhat_ky ?? []).forEach((n, i) => pushDt(`nk-${i}`, n.at, NHAT_KY_LABEL[n.hanh_dong] ?? n.hanh_dong, n.nguoi, n.chi_tiet || "—"));
     }
 
     qcThucTeMatched.forEach((r, i) => {
-      pushSheet({ key: `qc-${r.idCrm}-${i}`, rawTs: r.ngayDanhGia, tone: "cyan", typeLabel: "QC thực tế", summary: r.ketQua || "—", jumpTab: "qc-thuc-te" });
+      pushSheet({ key: `qc-${r.idCrm}-${i}`, rawTs: r.ngayDanhGia, tone: "cyan", typeLabel: tr("QC thực tế"), summary: r.ketQua || "—", jumpTab: "qc-thuc-te" });
     });
 
     // PO dat hang: CHI tinh vao "Tien trinh chung" khi "ID CRM" = ID ca dang xem (chot 2026-08-22,
@@ -1472,7 +1469,7 @@ export function CaseDetail({
     poDatHangMatched
       .filter((r) => r.idCrm === c?.id)
       .forEach((r, i) => {
-        pushSheet({ key: `po-${r.id}-${i}`, rawTs: r.ngayTao, tone: "fuchsia", typeLabel: "PO đặt hàng", summary: r.tatCa || "—", jumpTab: "po-dat-hang" });
+        pushSheet({ key: `po-${r.id}-${i}`, rawTs: r.ngayTao, tone: "fuchsia", typeLabel: tr("PO đặt hàng"), summary: r.tatCa || "—", jumpTab: "po-dat-hang" });
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
@@ -1531,29 +1528,27 @@ export function CaseDetail({
   }, [c, tienTrinhListForCase, muaHangMatched, baoHanhMatched, thieuHangMatched, lkOrders]);
 
   const summaryItems: { label: string; value: number | null }[] = [
-    { label: "Thời gian xử lý case", value: tienTrinhChungSummary.caseDuration },
-    { label: "Thời gian xử lý tranh chấp, KN", value: tienTrinhChungSummary.tranhChapDuration },
-    { label: "Thời gian đặt hàng", value: tienTrinhChungSummary.datHangDuration },
-    { label: "Thời gian sửa chữa bảo hành", value: tienTrinhChungSummary.baoHanhDuration },
-    { label: "Thời gian xử lý thiếu hàng", value: tienTrinhChungSummary.thieuHangDuration },
+    { label: tr("Thời gian xử lý case"), value: tienTrinhChungSummary.caseDuration },
+    { label: tr("Thời gian xử lý tranh chấp, KN"), value: tienTrinhChungSummary.tranhChapDuration },
+    { label: tr("Thời gian đặt hàng"), value: tienTrinhChungSummary.datHangDuration },
+    { label: tr("Thời gian sửa chữa bảo hành"), value: tienTrinhChungSummary.baoHanhDuration },
+    { label: tr("Thời gian xử lý thiếu hàng"), value: tienTrinhChungSummary.thieuHangDuration },
   ].filter((it) => it.value !== null);
 
   const tienTrinhChungContent = (
     <div>
       <div className="text-xs text-[var(--ink-400)] italic mb-3">
-        Gộp toàn bộ mốc thời gian của ca này (giải trình, biên bản họp, vi phạm, khảo sát, tranh chấp, nạp gas, ca lặp, mua hàng, bảo hành, thiếu hàng, QC thực tế, PO đặt hàng) theo đúng thời
-        gian tạo — bấm vào 1 dòng để mở tab chi tiết tương ứng.
-      </div>
+        {tr("Gộp toàn bộ mốc thời gian của ca này (giải trình, biên bản họp, vi phạm, khảo sát, tranh chấp, nạp gas, ca lặp, mua hàng, bảo hành, thiếu hàng, QC thực tế, PO đặt hàng) theo đúng thời gian tạo — bấm vào 1 dòng để mở tab chi tiết tương ứng.")}</div>
       {summaryItems.length > 0 && (
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)] mb-4 p-2.5 rounded-lg bg-slate-50 border border-[var(--line)]">
           {summaryItems.map((it) => (
             <span key={it.label}>
-              {it.label}: <strong className="text-[var(--ink-900)]">{it.value!.toFixed(1)} ngày</strong>
+              {it.label}: <strong className="text-[var(--ink-900)]">{it.value!.toFixed(1)}  {tr("ngày")}</strong>
             </span>
           ))}
         </div>
       )}
-      {tienTrinhChungEvents.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có mốc nào cho ca này.</div>}
+      {tienTrinhChungEvents.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có mốc nào cho ca này.")}</div>}
       <div className="space-y-0">
         {tienTrinhChungEvents.map((e, i) => {
           const next = tienTrinhChungEvents[i + 1];
@@ -1586,7 +1581,7 @@ export function CaseDetail({
               )}
               {gapDays !== null && gapDays > 0.05 && (
                 <div className="text-[11px] text-[var(--ink-400)] pl-4 pt-1.5">
-                  ↳ cách mốc trước <strong className="text-[var(--ink-700)]">{gapDays.toFixed(1)} ngày</strong>
+                  {tr("↳ cách mốc trước")} <strong className="text-[var(--ink-700)]">{gapDays.toFixed(1)}  {tr("ngày")}</strong>
                 </div>
               )}
             </div>
@@ -1621,12 +1616,12 @@ export function CaseDetail({
   const addBlacklist = useMutation({
     mutationFn: () => api.post("/ca-lap/blacklist", { seri_san_pham: c?.seri_san_pham }),
     onSuccess: async () => {
-      addToast(`Đã thêm serial ${c?.seri_san_pham} vào blacklist`);
+      addToast(tr("Đã thêm serial {0} vào blacklist", c?.seri_san_pham));
       setBlacklistConfirmOpen(false);
       await refreshCaLapQueries();
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
     },
-    onError: () => addToast("Không thể thêm serial vào blacklist, thử lại sau."),
+    onError: () => addToast(tr("Không thể thêm serial vào blacklist, thử lại sau.")),
   });
 
   // "Bo qua" nhanh 1 dong trong Chuoi lich su theo serial (CHOT 2026-08-05) - thay vi mo modal chon
@@ -1642,10 +1637,10 @@ export function CaseDetail({
       await Promise.all(calls);
     },
     onSuccess: async () => {
-      addToast("Đã bỏ qua đánh giá lặp");
+      addToast(tr("Đã bỏ qua đánh giá lặp"));
       await refreshCaLapQueries();
     },
-    onError: () => addToast("Không thể lưu, thử lại sau."),
+    onError: () => addToast(tr("Không thể lưu, thử lại sau.")),
   });
 
   // "Huy ca" (Admin) - an ca khoi moi hang doi can xu ly + KPI (xem backend/src/routes/cases.ts
@@ -1675,21 +1670,21 @@ export function CaseDetail({
   const huyCa = useMutation({
     mutationFn: () => api.post(`/cases/${caseId}/huy`, { ly_do: huyCaLyDo || undefined }),
     onSuccess: async () => {
-      addToast(`Đã hủy ca ${caseId}`);
+      addToast(tr("Đã hủy ca {0}", caseId));
       setHuyCaConfirmOpen(false);
       setHuyCaLyDo("");
       await refreshAfterHuyCa();
     },
-    onError: () => addToast("Không thể hủy ca, thử lại sau."),
+    onError: () => addToast(tr("Không thể hủy ca, thử lại sau.")),
   });
 
   const boHuyCa = useMutation({
     mutationFn: () => api.post(`/cases/${caseId}/bo-huy`, {}),
     onSuccess: async () => {
-      addToast(`Đã bỏ hủy ca ${caseId}`);
+      addToast(tr("Đã bỏ hủy ca {0}", caseId));
       await refreshAfterHuyCa();
     },
-    onError: () => addToast("Không thể bỏ hủy ca, thử lại sau."),
+    onError: () => addToast(tr("Không thể bỏ hủy ca, thử lại sau.")),
   });
 
   // Nap gas cung la ca DA DONG (chi ap dung khi thoi_gian_hoan_thanh + tien_do_hoan_thanh = "Hoan
@@ -1709,10 +1704,10 @@ export function CaseDetail({
     mutationFn: () =>
       api.patch(`/nap-gas/${caseId}/danh-gia`, { danh_gia_nap_gas: effectiveNapGasDanhGia, phi_dich_vu: effectiveNapGasPhiDichVu }),
     onSuccess: async () => {
-      addToast("Đã chốt đánh giá nạp gas");
+      addToast(tr("Đã chốt đánh giá nạp gas"));
       await refreshNapGasQueries();
     },
-    onError: () => addToast("Không thể chốt đánh giá nạp gas, thử lại sau."),
+    onError: () => addToast(tr("Không thể chốt đánh giá nạp gas, thử lại sau.")),
   });
 
   if (!caseId) return null;
@@ -1722,14 +1717,13 @@ export function CaseDetail({
       {canGiaiTrinh && (
         <div className="flex justify-end mb-4">
           <Btn size="sm" onClick={openGiaiTrinhModal}>
-            + Thêm giải trình
-          </Btn>
+            {tr("+ Thêm giải trình")}</Btn>
         </div>
       )}
 
       <div>
-        <div className="font-display font-bold text-sm mb-3">Lịch sử giải trình</div>
-        {giaiTrinhList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có giải trình nào cho ca này.</div>}
+        <div className="font-display font-bold text-sm mb-3">{tr("Lịch sử giải trình")}</div>
+        {giaiTrinhList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có giải trình nào cho ca này.")}</div>}
         <div className="space-y-3">
           {giaiTrinhList.map((l) => (
             <div key={l.id} className="relative pl-4 border-l-2 border-[var(--ocean-100)]">
@@ -1739,9 +1733,9 @@ export function CaseDetail({
               </div>
               <div className="text-sm font-semibold">{l.ly_do_cham}</div>
               <div className="text-sm text-[var(--ink-600)]">{l.noi_dung}</div>
-              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">Linh kiện thiếu: <MaLinhKienLink ma={l.linh_kien_thieu} /></div>}
-              {l.ngay_yeu_cau_co_hang && <div className="text-xs text-[var(--ink-400)] mt-0.5">Ngày yêu cầu có hàng: {fmtDate(l.ngay_yeu_cau_co_hang)}</div>}
-              {l.ma_xuat_hang_lien_quan && <div className="text-xs text-[var(--ink-400)]">Mã xuất hàng liên quan: {l.ma_xuat_hang_lien_quan}</div>}
+              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">{tr("Linh kiện thiếu:")} <MaLinhKienLink ma={l.linh_kien_thieu} /></div>}
+              {l.ngay_yeu_cau_co_hang && <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Ngày yêu cầu có hàng:")} {fmtDate(l.ngay_yeu_cau_co_hang)}</div>}
+              {l.ma_xuat_hang_lien_quan && <div className="text-xs text-[var(--ink-400)]">{tr("Mã xuất hàng liên quan:")} {l.ma_xuat_hang_lien_quan}</div>}
             </div>
           ))}
         </div>
@@ -1755,19 +1749,19 @@ export function CaseDetail({
         <textarea
           value={bienBanHopNoiDung}
           onChange={(e) => setBienBanHopNoiDung(e.target.value)}
-          placeholder="Ghi nội dung cuộc họp về ca này…"
+          placeholder={tr("Ghi nội dung cuộc họp về ca này…")}
           rows={3}
           className="focus-ring w-full border border-[var(--line)] rounded-lg px-3 py-2 text-sm resize-y"
         />
         <div className="flex justify-end mt-2">
           <Btn size="sm" disabled={!bienBanHopNoiDung.trim() || bienBanHopSubmit.isPending} onClick={() => bienBanHopSubmit.mutate()}>
-            {bienBanHopSubmit.isPending ? "Đang lưu…" : "+ Lưu biên bản họp"}
+            {bienBanHopSubmit.isPending ? tr("Đang lưu…") : tr("+ Lưu biên bản họp")}
           </Btn>
         </div>
       </div>
 
-      <div className="font-display font-bold text-sm mb-3">Nhật ký biên bản họp</div>
-      {bienBanHopList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có biên bản họp nào cho ca này.</div>}
+      <div className="font-display font-bold text-sm mb-3">{tr("Nhật ký biên bản họp")}</div>
+      {bienBanHopList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có biên bản họp nào cho ca này.")}</div>}
       <div className="space-y-3">
         {bienBanHopList.map((b) => (
           <div key={b.id} className="relative pl-4 border-l-2 border-[var(--ocean-100)]">
@@ -1787,11 +1781,10 @@ export function CaseDetail({
       {canTaoViPhamThuCong && (
         <div className="flex justify-end mb-4">
           <Btn size="sm" onClick={() => setManualViPhamOpen(true)}>
-            + Tạo vi phạm thủ công
-          </Btn>
+            {tr("+ Tạo vi phạm thủ công")}</Btn>
         </div>
       )}
-      {viPhamList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa ghi nhận vi phạm nào cho ca này.</div>}
+      {viPhamList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa ghi nhận vi phạm nào cho ca này.")}</div>}
       <div className="space-y-3">
         {viPhamList.map((v) => {
           // "Khong loi" (CHOT 2026-09-14): ket qua khao sat cap 1 da ket luan KHONG vi pham - khop
@@ -1801,7 +1794,7 @@ export function CaseDetail({
           // bat ky route nao (xem WHERE ...ket_qua_cap_1 != 'Khong loi'...) - truoc day UI van hien
           // "chờ QC" + nut Chot/Bo loi + Giai trinh thay du QC/GS khong con viec gi phai lam.
           const laKhongLoi = v.ket_qua_cap_1 === "Khong loi";
-          const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? "đã xác nhận" : "Không vi phạm") : laKhongLoi ? "Không vi phạm" : v.ket_qua_cap_1 ? "chờ QC" : "Nghi ngờ";
+          const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? tr("đã xác nhận") : tr("Không vi phạm")) : laKhongLoi ? tr("Không vi phạm") : v.ket_qua_cap_1 ? tr("chờ QC") : tr("Nghi ngờ");
           const daDay = daDayViPham(v.id);
           return (
             <Card key={v.id} className="p-3">
@@ -1809,9 +1802,8 @@ export function CaseDetail({
                 <span className="font-semibold text-sm">{v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi)}</span>
                 <div className="flex items-center gap-1.5">
                   {daDay && (
-                    <span title="Đã đẩy sang app vi phạm" className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--teal-600)]">
-                      ✓ Đã đẩy sang app vi phạm
-                    </span>
+                    <span title={tr("Đã đẩy sang app vi phạm")} className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--teal-600)]">
+                      {tr("✓ Đã đẩy sang app vi phạm")}</span>
                   )}
                   <Badge tone={statusTone(trangThai)}>{trangThai}</Badge>
                 </div>
@@ -1830,7 +1822,7 @@ export function CaseDetail({
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
                     {qcEditable ? (
                       <div>
-                        <label className="text-[11px] font-semibold text-[var(--ink-400)] block mb-0.5">Kết quả cấp 1</label>
+                        <label className="text-[11px] font-semibold text-[var(--ink-400)] block mb-0.5">{tr("Kết quả cấp 1")}</label>
                         <Select
                           value={effectiveKetQuaCap1}
                           onChange={(val) => setQcKetQuaCap1Override({ ...qcKetQuaCap1Override, [v.id]: val })}
@@ -1839,18 +1831,16 @@ export function CaseDetail({
                         />
                       </div>
                     ) : (
-                      <Field label="Kết quả cấp 1" value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
+                      <Field label={tr("Kết quả cấp 1")} value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
                     )}
-                    <Field label="Người ghi nhận" value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
-                    <Field label="Ngày ghi nhận" value={fmtDateTime(v.ngay_ghi_nhan)} />
+                    <Field label={tr("Người ghi nhận")} value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
+                    <Field label={tr("Ngày ghi nhận")} value={fmtDateTime(v.ngay_ghi_nhan)} />
                     {qcEditable && (
                       <div className="flex items-center justify-end gap-1.5">
                         <Btn size="sm" variant="success" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: true, ket_qua_cap_1: effectiveKetQuaCap1 })}>
-                          Chốt lỗi
-                        </Btn>
+                          {tr("Chốt lỗi")}</Btn>
                         <Btn size="sm" variant="danger" disabled={qcChotCap2.isPending} onClick={() => qcChotCap2.mutate({ id: v.id, chot: false, ket_qua_cap_1: effectiveKetQuaCap1 })}>
-                          Bỏ lỗi
-                        </Btn>
+                          {tr("Bỏ lỗi")}</Btn>
                       </div>
                     )}
                   </div>
@@ -1865,11 +1855,11 @@ export function CaseDetail({
                 const moTa = v.ghi_chu?.trim() || ketQuaGoiList.find((k) => k.id === v.ket_qua_goi_id)?.ghi_chu?.trim() || null;
                 return (
                   <div className="mt-1.5">
-                    <div className="text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Ghi chú mô tả lỗi</div>
+                    <div className="text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">{tr("Ghi chú mô tả lỗi")}</div>
                     {moTa ? (
                       <div className="text-sm font-medium text-[var(--ink-900)] whitespace-pre-wrap">{moTa}</div>
                     ) : (
-                      <div className="text-xs text-[var(--ink-400)] italic">Không có ghi chú.</div>
+                      <div className="text-xs text-[var(--ink-400)] italic">{tr("Không có ghi chú.")}</div>
                     )}
                   </div>
                 );
@@ -1898,7 +1888,7 @@ export function CaseDetail({
                         <div className="flex gap-1.5 mt-1 flex-wrap">
                           {anh.map((url, i) => (
                             <a key={i} href={url} target="_blank" rel="noreferrer" className="text-[var(--ocean-600)] underline">
-                              Ảnh {i + 1}
+                              {tr("Ảnh")} {i + 1}
                             </a>
                           ))}
                         </div>
@@ -1909,15 +1899,15 @@ export function CaseDetail({
                 return (
                   <div className="mt-2 pt-2 border-t border-[var(--line)] space-y-2">
                     {giaiTrinhCuaLoiNay.length === 0 ? (
-                      <div className="text-xs text-[var(--ink-400)] italic">{laKhongLoi ? "Không có lỗi — không cần giải trình." : "Chưa có giải trình."}</div>
+                      <div className="text-xs text-[var(--ink-400)] italic">{laKhongLoi ? tr("Không có lỗi — không cần giải trình.") : tr("Chưa có giải trình.")}</div>
                     ) : (
                       <>
                         <div>
                           <div className="flex items-center gap-1.5 mb-1">
-                            <Badge tone="ocean">Giải trình của KTV</Badge>
+                            <Badge tone="ocean">{tr("Giải trình của KTV")}</Badge>
                           </div>
                           {giaiTrinhKtv.length === 0 ? (
-                            <div className="text-xs text-[var(--ink-400)] italic">Chưa có.</div>
+                            <div className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có.")}</div>
                           ) : (
                             <div className="space-y-1.5">{giaiTrinhKtv.map(renderGiaiTrinhRow)}</div>
                           )}
@@ -1925,7 +1915,7 @@ export function CaseDetail({
                         {giaiTrinhGs.length > 0 && (
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
-                              <Badge tone="gray">Giải trình của giám sát</Badge>
+                              <Badge tone="gray">{tr("Giải trình của giám sát")}</Badge>
                             </div>
                             <div className="space-y-1.5">{giaiTrinhGs.map(renderGiaiTrinhRow)}</div>
                           </div>
@@ -1934,14 +1924,13 @@ export function CaseDetail({
                     )}
                     {canGiaiTrinhViPham && !laKhongLoi && (
                       <Btn size="sm" variant="ghost" onClick={() => openViPhamGiaiTrinhModal(v.id)}>
-                        Giải trình thay
-                      </Btn>
+                        {tr("Giải trình thay")}</Btn>
                     )}
                     {v.chot_bo_cap_2 !== null && (
                       <div className="pt-2 border-t border-[var(--line)] grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-                        <Field label="Chốt lỗi của QC" value={v.chot_bo_cap_2 ? "Đã xác nhận vi phạm" : "Không vi phạm"} />
-                        <Field label="Người chốt cấp 2" value={v.nguoi_chot ? formatPersonDisplay(v.nguoi_chot, personDir) : "—"} />
-                        <Field label="Ngày chốt cấp 2" value={fmtDateTime(v.ngay_chot)} />
+                        <Field label={tr("Chốt lỗi của QC")} value={v.chot_bo_cap_2 ? tr("Đã xác nhận vi phạm") : tr("Không vi phạm")} />
+                        <Field label={tr("Người chốt cấp 2")} value={v.nguoi_chot ? formatPersonDisplay(v.nguoi_chot, personDir) : "—"} />
+                        <Field label={tr("Ngày chốt cấp 2")} value={fmtDateTime(v.ngay_chot)} />
                       </div>
                     )}
                   </div>
@@ -1956,7 +1945,7 @@ export function CaseDetail({
 
   const khaoSatContent = (
     <div>
-      {ketQuaGoiList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Chưa có cuộc gọi khảo sát nào cho ca này.</div>}
+      {ketQuaGoiList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có cuộc gọi khảo sát nào cho ca này.")}</div>}
       <div className="space-y-3">
         {ketQuaGoiList.map((k) => {
           const loaiList = parseLoaiKhaoSat(k.loai_khao_sat);
@@ -1965,7 +1954,7 @@ export function CaseDetail({
               <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
                 <span className="font-semibold text-sm">{k.ket_qua_cuoc_goi ?? "—"}</span>
                 <div className="flex items-center gap-1.5">
-                  {k.can_goi_lai !== null && <Badge tone={k.can_goi_lai ? "amber" : "gray"}>{k.can_goi_lai ? "Cần gọi lại" : "Không cần gọi lại"}</Badge>}
+                  {k.can_goi_lai !== null && <Badge tone={k.can_goi_lai ? "amber" : "gray"}>{k.can_goi_lai ? tr("Cần gọi lại") : tr("Không cần gọi lại")}</Badge>}
                   <span className="text-xs text-[var(--ink-400)]">{fmtDateTime(k.ngay_gio_thuc_hien)}</span>
                 </div>
               </div>
@@ -1979,10 +1968,10 @@ export function CaseDetail({
                 </div>
               )}
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-                <Field label="Đối tượng liên hệ" value={k.doi_tuong_lien_he ?? "—"} />
-                <Field label="Người thực hiện" value={formatPersonDisplay(k.nguoi_thuc_hien, personDir)} />
-                {k.ly_do_that_bai && <Field label="Lý do thất bại" value={k.ly_do_that_bai} />}
-                {k.ghi_chu && <Field label="Ghi chú" value={k.ghi_chu} />}
+                <Field label={tr("Đối tượng liên hệ")} value={k.doi_tuong_lien_he ?? "—"} />
+                <Field label={tr("Người thực hiện")} value={formatPersonDisplay(k.nguoi_thuc_hien, personDir)} />
+                {k.ly_do_that_bai && <Field label={tr("Lý do thất bại")} value={k.ly_do_that_bai} />}
+                {k.ghi_chu && <Field label={tr("Ghi chú")} value={k.ghi_chu} />}
               </div>
             </Card>
           );
@@ -2008,22 +1997,22 @@ export function CaseDetail({
 
   const caLapContent = (
     <div>
-      {!caLap?.detection && <div className="text-sm text-[var(--ink-400)] italic">Không phát hiện ca lặp (cùng serial, hoàn thành trong 45 ngày) cho ca này.</div>}
+      {!caLap?.detection && <div className="text-sm text-[var(--ink-400)] italic">{tr("Không phát hiện ca lặp (cùng serial, hoàn thành trong 45 ngày) cho ca này.")}</div>}
       {caLap?.detection && (
         <>
           <div className="flex items-center justify-between flex-wrap gap-1.5 mb-3 text-sm">
             <span>
-              Ca liền trước: <span className="font-mono font-semibold">{caLap.detection.priorId}</span>
-              <span className="text-[var(--ink-400)]"> · hoàn thành {fmtDateTime(caLap.detection.priorHt)}</span>
+              {tr("Ca liền trước:")} <span className="font-mono font-semibold">{caLap.detection.priorId}</span>
+              <span className="text-[var(--ink-400)]">  {tr("· hoàn thành")} {fmtDateTime(caLap.detection.priorHt)}</span>
             </span>
-            <Badge tone={caLap.detection.gapDays <= 45 ? "coral" : "gray"}>{(displayGapDays ?? caLap.detection.gapDays).toFixed(1)} ngày</Badge>
+            <Badge tone={caLap.detection.gapDays <= 45 ? "coral" : "gray"}>{(displayGapDays ?? caLap.detection.gapDays).toFixed(1)}  {tr("ngày")}</Badge>
           </div>
 
           {caLap.detection.gapDays <= 45 && lapStatus && (
             <div className="flex items-center gap-2 flex-wrap mb-4">
               <Badge tone={lapStatus.tone}>{lapStatus.label}</Badge>
               <Btn size="sm" variant={canGsLap || canQcLap ? "primary" : "subtle"} onClick={() => setCaLapModalOpen(true)}>
-                {canGsLap || canQcLap ? "🔒 Xử lý ca lặp" : "👁 Xem giải trình lặp"}
+                {canGsLap || canQcLap ? tr("🔒 Xử lý ca lặp") : tr("👁 Xem giải trình lặp")}
               </Btn>
             </div>
           )}
@@ -2033,8 +2022,7 @@ export function CaseDetail({
               man hinh (form giai trinh nay chuyen vao Modal rieng, bam nut o tren de mo). */}
           <div>
             <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-2">
-              Chuỗi lịch sử theo serial ({caLap.lichSu.length} ca, mới nhất trên đầu)
-            </div>
+              {tr("Chuỗi lịch sử theo serial (")}{caLap.lichSu.length}  {tr("ca, mới nhất trên đầu)")}</div>
             <div>
               {caLap.lichSu.map((h, i) => {
                 const isCurrent = h.id === caseId;
@@ -2079,7 +2067,7 @@ export function CaseDetail({
                                 popup (truoc chi co border/cham mau nhat, chu he thong bao khong de
                                 nhan ra giua danh sach nhieu dong) - them nen mau (xem className cha)
                                 + nhan "Ca dang xem" ngay canh gio. */}
-                            {isCurrent && <Badge tone="coral">📍 Ca đang xem</Badge>}{" "}
+                            {isCurrent && <Badge tone="coral">{tr("📍 Ca đang xem")}</Badge>}{" "}
                             {fmtDateTime(h.thoi_gian_hoan_thanh)}
                             {/* Trang thai da chot (neu co) - CHOT 2026-08-05, xem chu thich lichSu
                                 phia backend (LEFT JOIN giai_trinh_lap). Chi hien khi co IT NHAT 1
@@ -2097,8 +2085,7 @@ export function CaseDetail({
                               canEvalThisRow ? (
                                 <>
                                   <Btn size="sm" variant="subtle" type="button" onClick={(e) => { e.stopPropagation(); setEvalRowCaseId(h.id); }}>
-                                    🔒 Đánh giá lặp
-                                  </Btn>
+                                    {tr("🔒 Đánh giá lặp")}</Btn>
                                   {/* "Bo qua" nhanh (CHOT 2026-08-05) - luu thang "Bo qua" + "Tinh
                                       luong" cho phan nguoi dung hien co quyen, khong can mo modal.
                                       loading (CHOT 2026-09-14): truoc chi co disabled (mo opacity
@@ -2117,11 +2104,10 @@ export function CaseDetail({
                                       boQuaLap.mutate(h.id);
                                     }}
                                   >
-                                    Bỏ qua
-                                  </Btn>
+                                    {tr("Bỏ qua")}</Btn>
                                 </>
                               ) : (
-                                <span className="text-xs text-[var(--ink-400)] italic px-2 py-1 shrink-0">Không tính lặp</span>
+                                <span className="text-xs text-[var(--ink-400)] italic px-2 py-1 shrink-0">{tr("Không tính lặp")}</span>
                               )
                             )}
                             {h.link_crm && (
@@ -2146,7 +2132,7 @@ export function CaseDetail({
                         {h.cach_thuc_xu_ly && <CachThucXuLyLine text={h.cach_thuc_xu_ly} />}
                       </div>
                     </div>
-                    {gapDays !== null && <div className="text-[11px] text-[var(--ink-400)] pl-4 pb-1">↳ cách ca sau {gapDays.toFixed(1)} ngày</div>}
+                    {gapDays !== null && <div className="text-[11px] text-[var(--ink-400)] pl-4 pb-1">{tr("↳ cách ca sau")} {gapDays.toFixed(1)}  {tr("ngày")}</div>}
                   </div>
                 );
               })}
@@ -2160,28 +2146,27 @@ export function CaseDetail({
   const napGasContent = (
     <div>
       {!napGasEligible && (
-        <div className="text-xs text-[var(--ink-400)] italic mb-2">Ca này chưa được CRM đánh dấu "Nghi ngờ nạp gas" — vẫn có thể đánh giá thủ công bên dưới nếu cần.</div>
+        <div className="text-xs text-[var(--ink-400)] italic mb-2">{tr("Ca này chưa được CRM đánh dấu \"Nghi ngờ nạp gas\" — vẫn có thể đánh giá thủ công bên dưới nếu cần.")}</div>
       )}
       {canNapGas && napGasLocked && (
         <div className="text-xs text-[var(--coral-500)] italic mb-2">
-          🔒 Đã quá {NAP_GAS_LOCK_DAYS} ngày kể từ khi hoàn thành — khóa chốt đánh giá nạp gas.
-        </div>
+          {tr("🔒 Đã quá")} {NAP_GAS_LOCK_DAYS}  {tr("ngày kể từ khi hoàn thành — khóa chốt đánh giá nạp gas.")}</div>
       )}
       {canNapGas && !napGasLocked ? (
         <Card className="p-3 space-y-2">
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Đánh giá nạp gas</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Đánh giá nạp gas")}</label>
           <Select
             value={effectiveNapGasDanhGia}
             onChange={(v) => setNapGasForm({ ...napGasForm, danh_gia_nap_gas: v })}
             className="w-full"
-            options={[{ value: "", label: "— Chọn đánh giá —" }, ...NAP_GAS_DANH_GIA_KEYS.map((k) => ({ value: k, label: NAP_GAS_DANH_GIA_META[k].label }))]}
+            options={[{ value: "", label: tr("— Chọn đánh giá —") }, ...NAP_GAS_DANH_GIA_KEYS.map((k) => ({ value: k, label: NAP_GAS_DANH_GIA_META[k].label }))]}
           />
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Phí dịch vụ</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Phí dịch vụ")}</label>
           <Select
             value={effectiveNapGasPhiDichVu}
             onChange={(v) => setNapGasForm({ ...napGasForm, phi_dich_vu: v })}
             className="w-full"
-            options={[{ value: "", label: "— Chọn phí dịch vụ —" }, ...NAP_GAS_PHI_DICH_VU_KEYS.map((k) => ({ value: k, label: NAP_GAS_PHI_DICH_VU_META[k].label }))]}
+            options={[{ value: "", label: tr("— Chọn phí dịch vụ —") }, ...NAP_GAS_PHI_DICH_VU_KEYS.map((k) => ({ value: k, label: NAP_GAS_PHI_DICH_VU_META[k].label }))]}
           />
           <div className="flex items-center gap-2 flex-wrap pt-1">
             <Btn
@@ -2189,7 +2174,7 @@ export function CaseDetail({
               onClick={() => saveNapGas.mutate()}
               disabled={!effectiveNapGasDanhGia || !effectiveNapGasPhiDichVu || saveNapGas.isPending}
             >
-              {saveNapGas.isPending ? "Đang lưu…" : napGasDanhGia ? "🔒 Chốt lại đánh giá" : "🔒 Chốt đánh giá"}
+              {saveNapGas.isPending ? tr("Đang lưu…") : napGasDanhGia ? tr("🔒 Chốt lại đánh giá") : tr("🔒 Chốt đánh giá")}
             </Btn>
             {napGasDanhGia && (
               <span className="text-xs text-[var(--ink-400)]">
@@ -2203,13 +2188,13 @@ export function CaseDetail({
           {napGasDanhGia ? (
             <>
               <Badge tone="ocean">{NAP_GAS_DANH_GIA_META[napGasDanhGia.danh_gia_nap_gas].label}</Badge>
-              <span className="text-[var(--ink-400)]">Phí dịch vụ: {NAP_GAS_PHI_DICH_VU_META[napGasDanhGia.phi_dich_vu].label}</span>
+              <span className="text-[var(--ink-400)]">{tr("Phí dịch vụ:")} {NAP_GAS_PHI_DICH_VU_META[napGasDanhGia.phi_dich_vu].label}</span>
               <span className="text-[var(--ink-400)]">
                 · {formatPersonDisplay(napGasDanhGia.nguoi_chot, personDir)} · {fmtDateTime(napGasDanhGia.ngay_chot)}
               </span>
             </>
           ) : (
-            <span className="text-[var(--ink-400)] italic">Chưa có đánh giá nạp gas.</span>
+            <span className="text-[var(--ink-400)] italic">{tr("Chưa có đánh giá nạp gas.")}</span>
           )}
         </div>
       )}
@@ -2241,26 +2226,24 @@ export function CaseDetail({
     <CacheBanner cachedAt={purchaseSyncedAt} onSync={refreshPurchaseData} isSyncing={purchaseRefreshing} />
   ) : (
     <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-100 text-xs text-[var(--ink-600)]">
-      <LoadingInline /> Đang đồng bộ dữ liệu mua hàng/bảo hành/QC từ Google Sheet lần đầu…
-    </div>
+      <LoadingInline />  {tr("Đang đồng bộ dữ liệu mua hàng/bảo hành/QC từ Google Sheet lần đầu…")}</div>
   );
 
   // Khoi "He Dat mua linh kien" (linh-kien-app) dau tab Mua hang/Thieu hang - nguon AppSheet ben duoi
   // giu nguyen (chot 2026-09-30: 2 nguon song song).
   const lkStatusLine = lkLoading ? (
     <div className="flex items-center gap-2 text-xs text-[var(--ink-500)]">
-      <LoadingInline /> Đang tải từ hệ Đặt mua linh kiện…
-    </div>
+      <LoadingInline />  {tr("Đang tải từ hệ Đặt mua linh kiện…")}</div>
   ) : lkTimeline && !lkTimeline.configured ? (
-    <div className="text-xs text-[var(--ink-400)] italic">Chưa cấu hình kết nối hệ Đặt mua linh kiện.</div>
+    <div className="text-xs text-[var(--ink-400)] italic">{tr("Chưa cấu hình kết nối hệ Đặt mua linh kiện.")}</div>
   ) : lkTimeline && !lkTimeline.ok ? (
-    <div className="text-xs text-red-600 italic">Không tải được dữ liệu từ hệ Đặt mua linh kiện ({lkTimeline.error}).</div>
+    <div className="text-xs text-red-600 italic">{tr("Không tải được dữ liệu từ hệ Đặt mua linh kiện (")}{lkTimeline.error}).</div>
   ) : null;
   const lkOrdersBlock = (
     <div className="mb-4">
-      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Hệ Đặt mua linh kiện</div>
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Hệ Đặt mua linh kiện")}</div>
       {lkStatusLine}
-      {!lkLoading && lkTimeline?.ok && lkOrders.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">Không có đơn nào gắn với ca này.</div>}
+      {!lkLoading && lkTimeline?.ok && lkOrders.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Không có đơn nào gắn với ca này.")}</div>}
       <div className="space-y-3">
         {lkOrders.map((o) => (
           <Card key={o.order_id} className="p-3">
@@ -2273,14 +2256,14 @@ export function CaseDetail({
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{o.order_id}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Mã linh kiện" value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk} />} />
-              <Field label="Loại đề xuất" value={o.loai_de_xuat || "—"} />
-              <Field label="SL đề xuất / thực xuất" value={`${o.so_luong_de_xuat ?? "—"} / ${o.so_luong_thuc_xuat ?? "—"}`} />
-              <Field label="Ngày tạo" value={fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))} />
-              <Field label="Người tạo" value={o.nguoi_tao_ten ? `${o.nguoi_tao_ten} (${o.nguoi_tao})` : o.nguoi_tao} />
-              <Field label="Người nhận hàng" value={o.nguoi_nhan_hang ? (o.nguoi_nhan_hang_ten ? `${o.nguoi_nhan_hang_ten} (${o.nguoi_nhan_hang})` : o.nguoi_nhan_hang) : "—"} />
-              {o.phieu_xuat_kho.length > 0 && <Field label="Phiếu xuất kho" value={o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ")} />}
-              {o.ly_do_cham && <Field label="Lý do chậm" value={o.ly_do_cham} />}
+              <Field label={tr("Mã linh kiện")} value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk} />} />
+              <Field label={tr("Loại đề xuất")} value={o.loai_de_xuat || "—"} />
+              <Field label={tr("SL đề xuất / thực xuất")} value={`${o.so_luong_de_xuat ?? "—"} / ${o.so_luong_thuc_xuat ?? "—"}`} />
+              <Field label={tr("Ngày tạo")} value={fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))} />
+              <Field label={tr("Người tạo")} value={o.nguoi_tao_ten ? `${o.nguoi_tao_ten} (${o.nguoi_tao})` : o.nguoi_tao} />
+              <Field label={tr("Người nhận hàng")} value={o.nguoi_nhan_hang ? (o.nguoi_nhan_hang_ten ? `${o.nguoi_nhan_hang_ten} (${o.nguoi_nhan_hang})` : o.nguoi_nhan_hang) : "—"} />
+              {o.phieu_xuat_kho.length > 0 && <Field label={tr("Phiếu xuất kho")} value={o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ")} />}
+              {o.ly_do_cham && <Field label={tr("Lý do chậm")} value={o.ly_do_cham} />}
             </div>
           </Card>
         ))}
@@ -2289,13 +2272,13 @@ export function CaseDetail({
   );
   const lkThieuBlock = (
     <div className="mb-4">
-      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Hệ Đặt mua linh kiện</div>
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Hệ Đặt mua linh kiện")}</div>
       {lkStatusLine}
       {!lkLoading && lkTimeline?.ok && lkThieuTickets.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">
           {lkThieuCount > 0
-            ? "Có yêu cầu thiếu linh kiện (xem mốc trong Tiến trình chung) — hệ Đặt mua LK chưa trả chi tiết lý do/ngày hàng về."
-            : "Không có yêu cầu thiếu linh kiện nào."}
+            ? tr("Có yêu cầu thiếu linh kiện (xem mốc trong Tiến trình chung) — hệ Đặt mua LK chưa trả chi tiết lý do/ngày hàng về.")
+            : tr("Không có yêu cầu thiếu linh kiện nào.")}
         </div>
       )}
       <div className="space-y-3">
@@ -2305,17 +2288,17 @@ export function CaseDetail({
           return (
             <Card key={t.id} className="p-3">
               <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-                <span className="font-semibold text-sm">{t.ly_do || "(chưa rõ lý do)"}</span>
+                <span className="font-semibold text-sm">{t.ly_do || tr("(chưa rõ lý do)")}</span>
                 <Badge tone={statusWordTone(trangThai)}>{trangThai}</Badge>
               </div>
               <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
                 {t.id} · {o.order_id}
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-                <Field label="Linh kiện" value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk}>{`${o.ma_lk}${o.ten_lk ? ` – ${o.ten_lk}` : ""}`}</MaLinhKienLink>} />
-                <Field label="Ngày tạo" value={fmtDateTime(linhKienIsoToVnLocal(t.ngay_tao))} />
-                <Field label="Ngày dự kiến có hàng" value={t.ngay_du_kien_co_hang ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang)) : "—"} />
-                <Field label="Ngày hàng về thực tế" value={t.ngay_hang_ve_thuc_te ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_hang_ve_thuc_te)) : "—"} />
+                <Field label={tr("Linh kiện")} value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk}>{`${o.ma_lk}${o.ten_lk ? ` – ${o.ten_lk}` : ""}`}</MaLinhKienLink>} />
+                <Field label={tr("Ngày tạo")} value={fmtDateTime(linhKienIsoToVnLocal(t.ngay_tao))} />
+                <Field label={tr("Ngày dự kiến có hàng")} value={t.ngay_du_kien_co_hang ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang)) : "—"} />
+                <Field label={tr("Ngày hàng về thực tế")} value={t.ngay_hang_ve_thuc_te ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_hang_ve_thuc_te)) : "—"} />
               </div>
             </Card>
           );
@@ -2327,16 +2310,16 @@ export function CaseDetail({
   const muaHangContent = (
     <div>
       {lkOrdersBlock}
-      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn AppSheet (Google Sheet)</div>
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
       {purchaseSyncBanner}
       {!purchaseSyncing && muaHangMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn mua hàng liên quan đến ca này.</div>
+        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn mua hàng liên quan đến ca này.")}</div>
       )}
       <div className="space-y-3">
         {muaHangMatched.map((r) => (
           <Card key={r.id} className="p-3">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.linhKien || "(chưa rõ linh kiện)"}</span>
+              <span className="font-semibold text-sm">{r.linhKien || tr("(chưa rõ linh kiện)")}</span>
               <div className="flex items-center gap-1.5">
                 {r._region && <Badge tone="gray">{r._region}</Badge>}
                 {r.trangThaiDuyet && <Badge tone={muaHangTone(r.trangThaiDuyet)}>{r.trangThaiDuyet}</Badge>}
@@ -2344,19 +2327,18 @@ export function CaseDetail({
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Mã linh kiện" value={r.maLinhKien ? <MaLinhKienLink ma={r.maLinhKien} /> : "—"} />
-              <Field label="Loại đề xuất" value={r.loaiDeXuat || "—"} />
-              <Field label="SL đề xuất / thực xuất" value={`${r.soLuongDeXuat || "—"} / ${r.soLuongThucXuat || "—"}`} />
-              <Field label="Giá đề xuất" value={r.giaDeXuat || "—"} />
-              <Field label="Ngày tạo" value={r.ngayTao || "—"} />
-              <Field label="Ngày KTV nhận hàng" value={r.ngayKtvNhanHang || "—"} />
-              <Field label="Trạng thái gửi hàng" value={r.trangThaiGuiHang || "—"} />
-              {r.lyDoTuChoi && <Field label="Lý do từ chối" value={r.lyDoTuChoi} />}
+              <Field label={tr("Mã linh kiện")} value={r.maLinhKien ? <MaLinhKienLink ma={r.maLinhKien} /> : "—"} />
+              <Field label={tr("Loại đề xuất")} value={r.loaiDeXuat || "—"} />
+              <Field label={tr("SL đề xuất / thực xuất")} value={`${r.soLuongDeXuat || "—"} / ${r.soLuongThucXuat || "—"}`} />
+              <Field label={tr("Giá đề xuất")} value={r.giaDeXuat || "—"} />
+              <Field label={tr("Ngày tạo")} value={r.ngayTao || "—"} />
+              <Field label={tr("Ngày KTV nhận hàng")} value={r.ngayKtvNhanHang || "—"} />
+              <Field label={tr("Trạng thái gửi hàng")} value={r.trangThaiGuiHang || "—"} />
+              {r.lyDoTuChoi && <Field label={tr("Lý do từ chối")} value={r.lyDoTuChoi} />}
             </div>
             <div className="flex justify-end mt-2">
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn mua hàng ${r.id}`, raw: parseRawRow(r) })}>
-                🔍 Xem đầy đủ
-              </Btn>
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: tr("Đơn mua hàng {0}", r.id), raw: parseRawRow(r) })}>
+                {tr("🔍 Xem đầy đủ")}</Btn>
             </div>
           </Card>
         ))}
@@ -2374,20 +2356,20 @@ export function CaseDetail({
       <div>
         {orders.length > 0 && (
           <div className="mb-4">
-            <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn Odoo ({orders.length}) — chi tiết theo linh kiện ở mục "Lỗi"</div>
+            <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn Odoo (")}{orders.length}{tr(") — chi tiết theo linh kiện ở mục \"Lỗi\"")}</div>
             <DonBaoHanhOdooList parts={parts} orders={orders} />
-            <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">Nguồn AppSheet (Google Sheet)</div>
+            <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
           </div>
         )}
         {purchaseSyncBanner}
         {!purchaseSyncing && matched.length === 0 && (
-          <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy đơn bảo hành liên quan đến ca này.</div>
+          <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn bảo hành liên quan đến ca này.")}</div>
         )}
         <div className="space-y-3">
           {matched.map((r) => (
             <Card key={r.id} className="p-3">
               <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-                <span className="font-semibold text-sm">{r.modelSanPham || "(chưa rõ model)"}</span>
+                <span className="font-semibold text-sm">{r.modelSanPham || tr("(chưa rõ model)")}</span>
                 <div className="flex items-center gap-1.5">
                   {r._region && <Badge tone="gray">{r._region}</Badge>}
                   {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
@@ -2396,22 +2378,21 @@ export function CaseDetail({
               <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
                 <Field label="Serial" value={r.serial || "—"} />
-                <Field label="Hãng" value={r.hang || "—"} />
-                <Field label="Linh kiện sửa" value={r.linhKienSua || "—"} />
-                <Field label="Tình trạng hư hỏng" value={r.tinhTrangHuHong || "—"} />
-                <Field label="Phương án xử lý" value={r.phuongAnXuLy || "—"} />
-                <Field label="Cách thức xử lý" value={r.cachThucXuLy || "—"} />
-                <Field label="Nguyên nhân chậm" value={r.nguyenNhanCham || "—"} />
-                <Field label="Người sửa" value={r.nguoiSua || "—"} />
-                <Field label="Ngày gửi" value={r.ngayGui || "—"} />
-                <Field label="Ngày giờ trả xong" value={r.ngayGioTraXong || "—"} />
-                {r.danhGiaKetQua && <Field label="Đánh giá kết quả sau sửa chữa" value={r.danhGiaKetQua} />}
-                {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+                <Field label={tr("Hãng")} value={r.hang || "—"} />
+                <Field label={tr("Linh kiện sửa")} value={r.linhKienSua || "—"} />
+                <Field label={tr("Tình trạng hư hỏng")} value={r.tinhTrangHuHong || "—"} />
+                <Field label={tr("Phương án xử lý")} value={r.phuongAnXuLy || "—"} />
+                <Field label={tr("Cách thức xử lý")} value={r.cachThucXuLy || "—"} />
+                <Field label={tr("Nguyên nhân chậm")} value={r.nguyenNhanCham || "—"} />
+                <Field label={tr("Người sửa")} value={r.nguoiSua || "—"} />
+                <Field label={tr("Ngày gửi")} value={r.ngayGui || "—"} />
+                <Field label={tr("Ngày giờ trả xong")} value={r.ngayGioTraXong || "—"} />
+                {r.danhGiaKetQua && <Field label={tr("Đánh giá kết quả sau sửa chữa")} value={r.danhGiaKetQua} />}
+                {r.ghiChu && <Field label={tr("Ghi chú")} value={r.ghiChu} />}
               </div>
               <div className="flex justify-end mt-2">
-                <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `Đơn bảo hành ${r.id}`, raw: parseRawRow(r) })}>
-                  🔍 Xem đầy đủ
-                </Btn>
+                <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: tr("Đơn bảo hành {0}", r.id), raw: parseRawRow(r) })}>
+                  {tr("🔍 Xem đầy đủ")}</Btn>
               </div>
             </Card>
           ))}
@@ -2427,7 +2408,7 @@ export function CaseDetail({
       <div className="flex items-start justify-between gap-2 mb-3">
         {/* Ticker trang thai + Link CRM nhu tieu de ca goc (2026-10-08) - cung du lieu GET /cases/:id. */}
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">Ca đối chiếu: {compareId}</div>
+          <div className="text-xs font-semibold text-[var(--ocean-600)] uppercase tracking-wide">{tr("Ca đối chiếu:")} {compareId}</div>
           {compareC && caseStatusBadge(compareC)}
           {compareC && mucDoBadge(compareC.muc_do)}
           {compareC && soLuongAnhBadge(compareC)}
@@ -2458,7 +2439,7 @@ export function CaseDetail({
         <>
           {renderCaseFieldsGrid(
             compareC,
-            compareData?.caLap.serialBlacklisted ? <Badge tone="gray">🚫 Đã blacklist</Badge> : undefined,
+            compareData?.caLap.serialBlacklisted ? <Badge tone="gray">{tr("🚫 Đã blacklist")}</Badge> : undefined,
             compareData?.caLap.serialBlacklisted,
             undefined,
             compareData?.caLap.lichSu.length ? () => setSerialHistorySource("compare") : undefined,
@@ -2500,7 +2481,7 @@ export function CaseDetail({
       {renderCaseFieldsGrid(
         c,
         caLap?.serialBlacklisted ? (
-          <Badge tone="gray">🚫 Đã blacklist</Badge>
+          <Badge tone="gray">{tr("🚫 Đã blacklist")}</Badge>
         ) : (
           c.seri_san_pham &&
           (canGsLap || canQcLap) && (
@@ -2559,26 +2540,26 @@ export function CaseDetail({
   const thieuHangContent = (
     <div>
       {lkThieuBlock}
-      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Nguồn AppSheet (Google Sheet)</div>
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
       {purchaseSyncBanner}
       {!purchaseSyncing && thieuHangMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">Không có yêu cầu xử lý thiếu hàng liên quan đến ca này.</div>
+        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không có yêu cầu xử lý thiếu hàng liên quan đến ca này.")}</div>
       )}
       <div className="space-y-3">
         {thieuHangMatched.map((r) => (
           <Card key={r.id} className="p-3">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.lyDoLuaChon || "(chưa rõ lý do)"}</span>
+              <span className="font-semibold text-sm">{r.lyDoLuaChon || tr("(chưa rõ lý do)")}</span>
               {r.trangThaiXuLy && <Badge tone={statusWordTone(r.trangThaiXuLy)}>{r.trangThaiXuLy}</Badge>}
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Nguồn" value={r.nguon || "—"} />
-              <Field label="Ngày dự kiến có hàng" value={r.ngayDuKienCoHang || "—"} />
-              <Field label="Ngày kho xác nhận hàng về" value={r.ngayKhoXacNhan || "—"} />
-              <Field label="Thay đổi ngày dự kiến" value={r.thayDoiNgayDuKien || "—"} />
-              {r.giaiThichLyDo && <Field label="Giải thích lý do thiếu hàng" value={r.giaiThichLyDo} />}
-              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+              <Field label={tr("Nguồn")} value={r.nguon || "—"} />
+              <Field label={tr("Ngày dự kiến có hàng")} value={r.ngayDuKienCoHang || "—"} />
+              <Field label={tr("Ngày kho xác nhận hàng về")} value={r.ngayKhoXacNhan || "—"} />
+              <Field label={tr("Thay đổi ngày dự kiến")} value={r.thayDoiNgayDuKien || "—"} />
+              {r.giaiThichLyDo && <Field label={tr("Giải thích lý do thiếu hàng")} value={r.giaiThichLyDo} />}
+              {r.ghiChu && <Field label={tr("Ghi chú")} value={r.ghiChu} />}
             </div>
           </Card>
         ))}
@@ -2590,13 +2571,13 @@ export function CaseDetail({
     <div>
       {purchaseSyncBanner}
       {!purchaseSyncing && poDatHangMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy PO đặt hàng liên quan đến ca này.</div>
+        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy PO đặt hàng liên quan đến ca này.")}</div>
       )}
       <div className="space-y-3">
         {poDatHangMatched.map((r, i) => (
           <Card key={`${r.id}-${i}`} className="p-3">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.tenLinhKien || "(chưa rõ linh kiện)"}</span>
+              <span className="font-semibold text-sm">{r.tenLinhKien || tr("(chưa rõ linh kiện)")}</span>
               {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2 flex items-center gap-1.5 flex-wrap">
@@ -2604,33 +2585,32 @@ export function CaseDetail({
               {r._nguon === "app" ? <Badge tone="ocean">App EO</Badge> : r._nguon === "sheet" ? <Badge tone="gray">Google Sheet</Badge> : null}
               {r.maPheDuyet && <span>· {r.maPheDuyet}</span>}
               {r.trangThaiEo && <span>· EO {r.trangThaiEo}</span>}
-              {r.capCeo && <span title={r.capCeo}><Badge tone="coral">Cấp CEO</Badge></span>}
-              {r.soLoiTheoDoi && !r.capCeo && <span className="text-[var(--coral-500)]">· {r.soLoiTheoDoi} lỗi theo dõi</span>}
+              {r.capCeo && <span title={r.capCeo}><Badge tone="coral">{tr("Cấp CEO")}</Badge></span>}
+              {r.soLoiTheoDoi && !r.capCeo && <span className="text-[var(--coral-500)]">· {r.soLoiTheoDoi}  {tr("lỗi theo dõi")}</span>}
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Mã linh kiện đề xuất" value={r.maLinhKienDeXuat ? <MaLinhKienLink ma={r.maLinhKienDeXuat} /> : "—"} />
-              <Field label="Đối tác" value={r.doiTac || "—"} />
-              <Field label="Kho cần đặt hàng" value={r.khoCanDat || "—"} />
-              <Field label="SL đặt / nhập Amis / còn thiếu" value={`${r.soLuongDat || "—"} / ${r.slNhapTheoAmis || "—"} / ${r.soLuongConThieu || "—"}`} />
-              <Field label="Tốc độ hàng về" value={r.tocDoHangVe || "—"} />
-              <Field label="Ngày dự kiến gần nhất" value={r.ngayDuKienGanNhat || "—"} />
-              <Field label="Ngày về gần nhất toàn quốc" value={r.ngayVeGanNhatToanQuoc || "—"} />
-              <Field label="Ngày ban hành PO" value={r.ngayBanHanh || "—"} />
-              <Field label="Hàng về thực tế (PO)" value={r.ngayVeThucTe ? <span title={r.phieuNhap ? `Phiếu nhập: ${r.phieuNhap}` : undefined}>{r.ngayVeThucTe}</span> : "—"} />
-              <Field label="NM cam kết" value={r.nmCamKet || "—"} />
-              <Field label="Ngày tạo" value={r.ngayTao || "—"} />
-              {r.canhBao && <Field label="Cảnh báo" value={r.canhBao} />}
-              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
-              {r.maLinhKienGoc && <Field label="Thay từ mã" value={r.maLinhKienGoc} />}
-              {r.keHoachHangVe && <Field label="Kế hoạch hàng về" value={r.keHoachHangVe} />}
+              <Field label={tr("Mã linh kiện đề xuất")} value={r.maLinhKienDeXuat ? <MaLinhKienLink ma={r.maLinhKienDeXuat} /> : "—"} />
+              <Field label={tr("Đối tác")} value={r.doiTac || "—"} />
+              <Field label={tr("Kho cần đặt hàng")} value={r.khoCanDat || "—"} />
+              <Field label={tr("SL đặt / nhập Amis / còn thiếu")} value={`${r.soLuongDat || "—"} / ${r.slNhapTheoAmis || "—"} / ${r.soLuongConThieu || "—"}`} />
+              <Field label={tr("Tốc độ hàng về")} value={r.tocDoHangVe || "—"} />
+              <Field label={tr("Ngày dự kiến gần nhất")} value={r.ngayDuKienGanNhat || "—"} />
+              <Field label={tr("Ngày về gần nhất toàn quốc")} value={r.ngayVeGanNhatToanQuoc || "—"} />
+              <Field label={tr("Ngày ban hành PO")} value={r.ngayBanHanh || "—"} />
+              <Field label={tr("Hàng về thực tế (PO)")} value={r.ngayVeThucTe ? <span title={r.phieuNhap ? tr("Phiếu nhập: {0}", r.phieuNhap) : undefined}>{r.ngayVeThucTe}</span> : "—"} />
+              <Field label={tr("NM cam kết")} value={r.nmCamKet || "—"} />
+              <Field label={tr("Ngày tạo")} value={r.ngayTao || "—"} />
+              {r.canhBao && <Field label={tr("Cảnh báo")} value={r.canhBao} />}
+              {r.ghiChu && <Field label={tr("Ghi chú")} value={r.ghiChu} />}
+              {r.maLinhKienGoc && <Field label={tr("Thay từ mã")} value={r.maLinhKienGoc} />}
+              {r.keHoachHangVe && <Field label={tr("Kế hoạch hàng về")} value={r.keHoachHangVe} />}
             </div>
             <div className="flex justify-end gap-1.5 mt-2">
               {r.linkEo && (
-                <a href={r.linkEo} target="_blank" rel="noopener noreferrer" className="text-xs underline self-center text-[var(--ink-500)]">Mở EO ↗</a>
+                <a href={r.linkEo} target="_blank" rel="noopener noreferrer" className="text-xs underline self-center text-[var(--ink-500)]">{tr("Mở EO ↗")}</a>
               )}
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `PO đặt hàng ${r.id}`, raw: parseRawRow(r) })}>
-                🔍 Xem đầy đủ
-              </Btn>
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: tr("PO đặt hàng {0}", r.id), raw: parseRawRow(r) })}>
+                {tr("🔍 Xem đầy đủ")}</Btn>
             </div>
           </Card>
         ))}
@@ -2642,30 +2622,29 @@ export function CaseDetail({
     <div>
       {purchaseSyncBanner}
       {!purchaseSyncing && qcThucTeMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">Không tìm thấy kết quả QC thực tế liên quan đến ca này.</div>
+        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy kết quả QC thực tế liên quan đến ca này.")}</div>
       )}
       <div className="space-y-3">
         {qcThucTeMatched.map((r, i) => (
           <Card key={`${r.idCrm}-${i}`} className="p-3">
             <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.tenKtv || "(chưa rõ KTV)"}</span>
+              <span className="font-semibold text-sm">{r.tenKtv || tr("(chưa rõ KTV)")}</span>
               {r.ketQua && <Badge tone={qcKetQuaTone(r.ketQua)}>{r.ketQua}</Badge>}
             </div>
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.idCrm}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label="Ngày KTV đóng ca" value={r.ngayKtvDongCa || "—"} />
-              <Field label="Số lượng lỗi" value={r.soLuongLoi || "—"} />
-              <Field label="Điểm chuẩn / trừ / thực" value={`${r.diemTieuChuan || "—"} / ${r.diemTru || "—"} / ${r.diemThuc || "—"}`} />
-              <Field label="Ngày đánh giá" value={r.ngayDanhGia || "—"} />
-              <Field label="Người đánh giá" value={r.nguoiDanhGia || "—"} />
-              {r.danhGiaLoi && <Field label="Đánh giá lỗi báo cáo CRM" value={r.danhGiaLoi} />}
-              {r.chiTietDanhGia && <Field label="Chi tiết đánh giá lỗi báo cáo CRM" value={r.chiTietDanhGia} />}
-              {r.ghiChu && <Field label="Ghi chú" value={r.ghiChu} />}
+              <Field label={tr("Ngày KTV đóng ca")} value={r.ngayKtvDongCa || "—"} />
+              <Field label={tr("Số lượng lỗi")} value={r.soLuongLoi || "—"} />
+              <Field label={tr("Điểm chuẩn / trừ / thực")} value={`${r.diemTieuChuan || "—"} / ${r.diemTru || "—"} / ${r.diemThuc || "—"}`} />
+              <Field label={tr("Ngày đánh giá")} value={r.ngayDanhGia || "—"} />
+              <Field label={tr("Người đánh giá")} value={r.nguoiDanhGia || "—"} />
+              {r.danhGiaLoi && <Field label={tr("Đánh giá lỗi báo cáo CRM")} value={r.danhGiaLoi} />}
+              {r.chiTietDanhGia && <Field label={tr("Chi tiết đánh giá lỗi báo cáo CRM")} value={r.chiTietDanhGia} />}
+              {r.ghiChu && <Field label={tr("Ghi chú")} value={r.ghiChu} />}
             </div>
             <div className="flex justify-end mt-2">
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: `QC thực tế ${r.idCrm}`, raw: parseRawRow(r) })}>
-                🔍 Xem đầy đủ
-              </Btn>
+              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: tr("QC thực tế {0}", r.idCrm), raw: parseRawRow(r) })}>
+                {tr("🔍 Xem đầy đủ")}</Btn>
             </div>
           </Card>
         ))}
@@ -2685,10 +2664,10 @@ export function CaseDetail({
       {tienTrinhListForCase.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">
           {aiChoXacNhan
-            ? "AI phát hiện ca này có khả năng là tranh chấp, đang chờ xác nhận."
+            ? tr("AI phát hiện ca này có khả năng là tranh chấp, đang chờ xác nhận.")
             : tranhChapEligible
-              ? "Ca này chưa có tiến trình xử lý tranh chấp nào."
-              : "Ca này chưa được CRM đánh dấu nghi ngờ tranh chấp — vẫn có thể tạo yêu cầu xử lý thủ công bên dưới nếu cần."}
+              ? tr("Ca này chưa có tiến trình xử lý tranh chấp nào.")
+              : tr("Ca này chưa được CRM đánh dấu nghi ngờ tranh chấp — vẫn có thể tạo yêu cầu xử lý thủ công bên dưới nếu cần.")}
         </div>
       )}
       {(aiChoXacNhan || (canTiepNhanTranhChapMoi && canWriteTranhChapForCase)) && (
@@ -2696,17 +2675,14 @@ export function CaseDetail({
           {aiChoXacNhan && canConfirmAiForCase && (
             <>
               <Btn size="sm" variant="success" disabled={xacNhanAiCaseDetail.isPending} onClick={() => xacNhanAiCaseDetail.mutate("dung")}>
-                Đúng là tranh chấp
-              </Btn>
+                {tr("Đúng là tranh chấp")}</Btn>
               <Btn size="sm" variant="ghost" disabled={xacNhanAiCaseDetail.isPending} onClick={() => xacNhanAiCaseDetail.mutate("khong_phai")}>
-                Không phải tranh chấp
-              </Btn>
+                {tr("Không phải tranh chấp")}</Btn>
             </>
           )}
           {canTiepNhanTranhChapMoi && canWriteTranhChapForCase && (
             <Btn size="sm" onClick={() => setTiepNhanTranhChapOpen(true)}>
-              + Tạo yêu cầu giải quyết tranh chấp, khiếu nại
-            </Btn>
+              {tr("+ Tạo yêu cầu giải quyết tranh chấp, khiếu nại")}</Btn>
           )}
         </div>
       )}
@@ -2728,35 +2704,35 @@ export function CaseDetail({
   const fullTabsList: TabItem[] =
     viewMode === "compact"
       ? [
-          { key: "info", label: "Thông tin" },
-          { key: "tien-trinh-chung", label: "Tiến trình chung", count: tienTrinhChungEvents.length },
-          { key: "giai-trinh", label: "GT tồn", count: giaiTrinhList.length },
-          { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
-          { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
-          { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
-          { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
-          { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
-          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
-          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
-          { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
-          { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
-          { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
-          { key: "luong-mail", label: "Đổi trả", count: mailTimeline?.thu.length ?? 0 },
+          { key: "info", label: tr("Thông tin") },
+          { key: "tien-trinh-chung", label: tr("Tiến trình chung"), count: tienTrinhChungEvents.length },
+          { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
+          { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
+          { key: "vi-pham", label: tr("Vi phạm"), count: viPhamList.length },
+          { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length },
+          { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
+          { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
+          { key: "mua-hang", label: tr("Mua hàng"), count: muaHangMatched.length + lkOrders.length },
+          { key: "thieu-hang", label: tr("Thiếu hàng"), count: thieuHangMatched.length + lkThieuCount },
+          { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
+          { key: "qc-thuc-te", label: tr("QC thực tế"), count: qcThucTeMatched.length },
+          { key: "tranh-chap", label: tr("Tranh chấp"), count: tienTrinhListForCase.length },
+          { key: "luong-mail", label: tr("Đổi trả"), count: mailTimeline?.thu.length ?? 0 },
         ]
       : [
-          { key: "tien-trinh-chung", label: "Tiến trình chung", count: tienTrinhChungEvents.length },
-          { key: "giai-trinh", label: "GT tồn", count: giaiTrinhList.length },
-          { key: "bien-ban-hop", label: "Biên bản họp", count: bienBanHopList.length },
-          { key: "vi-pham", label: "Vi phạm", count: viPhamList.length },
-          { key: "khao-sat", label: "Khảo sát", count: ketQuaGoiList.length },
-          { key: "ca-lap", label: "Ca lặp", count: caLap?.detection ? 1 : 0 },
-          { key: "nap-gas", label: "Nạp gas", count: napGasDanhGia ? 1 : 0 },
-          { key: "mua-hang", label: "Mua hàng", count: muaHangMatched.length + lkOrders.length },
-          { key: "thieu-hang", label: "Thiếu hàng", count: thieuHangMatched.length + lkThieuCount },
-          { key: "po-dat-hang", label: "PO đặt hàng", count: poDatHangMatched.length },
-          { key: "qc-thuc-te", label: "QC thực tế", count: qcThucTeMatched.length },
-          { key: "tranh-chap", label: "Tranh chấp", count: tienTrinhListForCase.length },
-          { key: "luong-mail", label: "Đổi trả", count: mailTimeline?.thu.length ?? 0 },
+          { key: "tien-trinh-chung", label: tr("Tiến trình chung"), count: tienTrinhChungEvents.length },
+          { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
+          { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
+          { key: "vi-pham", label: tr("Vi phạm"), count: viPhamList.length },
+          { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length },
+          { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
+          { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
+          { key: "mua-hang", label: tr("Mua hàng"), count: muaHangMatched.length + lkOrders.length },
+          { key: "thieu-hang", label: tr("Thiếu hàng"), count: thieuHangMatched.length + lkThieuCount },
+          { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
+          { key: "qc-thuc-te", label: tr("QC thực tế"), count: qcThucTeMatched.length },
+          { key: "tranh-chap", label: tr("Tranh chấp"), count: tienTrinhListForCase.length },
+          { key: "luong-mail", label: tr("Đổi trả"), count: mailTimeline?.thu.length ?? 0 },
         ];
 
   // "info"/"giai-trinh" la 2 tab loi luon hien; tab dang active cung luon hien (khong tu bien mat
@@ -2774,7 +2750,7 @@ export function CaseDetail({
             onClick={() => setShowAllTabs((v) => !v)}
             className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline"
           >
-            {showAllTabs ? "Thu gọn ▲" : `Xem thêm ${emptyTabKeys.size} tab trống ▾`}
+            {showAllTabs ? tr("Thu gọn ▲") : tr("Xem thêm {0} tab trống ▾", emptyTabKeys.size)}
           </button>
         </div>
       )}
@@ -2789,15 +2765,13 @@ export function CaseDetail({
         onClick={() => onViewModeChange("compact")}
         className={`px-2.5 py-1.5 ${viewMode === "compact" ? "bg-[var(--ocean-500)] text-white" : "text-[var(--ink-400)] hover:bg-slate-50"}`}
       >
-        Ngắn gọn
-      </button>
+        {tr("Ngắn gọn")}</button>
       <button
         type="button"
         onClick={() => onViewModeChange("expanded")}
         className={`px-2.5 py-1.5 ${viewMode === "expanded" ? "bg-[var(--ocean-500)] text-white" : "text-[var(--ink-400)] hover:bg-slate-50"}`}
       >
-        Mở rộng
-      </button>
+        {tr("Mở rộng")}</button>
     </div>
   );
 
@@ -2814,20 +2788,19 @@ export function CaseDetail({
         {canGoBack && (
           <>
             <Btn size="sm" variant="ghost" type="button" onClick={onBack}>
-              ← Quay lại
-            </Btn>
+              {tr("← Quay lại")}</Btn>
             <Btn size="sm" variant="ghost" type="button" onClick={onBackToRoot}>
-              ⏮ Về ca {rootCaseId}
+              {tr("⏮ Về ca")} {rootCaseId}
             </Btn>
           </>
         )}
-        <h3 className="font-display font-bold text-[var(--ink-900)] truncate">Chi tiết ca {caseId}</h3>
+        <h3 className="font-display font-bold text-[var(--ink-900)] truncate">{tr("Chi tiết ca")} {caseId}</h3>
         {c && caseStatusBadge(c)}
         {c && mucDoBadge(c.muc_do)}
         {c && soLuongAnhBadge(c)}
         {c?.huy_bo_at && (
           <Badge tone="gray" solid>
-            🚫 Đã hủy{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
+            {tr("🚫 Đã hủy")}{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
           </Badge>
         )}
         {tickers.map((t, i) => (
@@ -2846,19 +2819,18 @@ export function CaseDetail({
           canHuyCa &&
           (c.huy_bo_at ? (
             <Btn size="sm" variant="ghost" onClick={() => boHuyCa.mutate()} disabled={boHuyCa.isPending}>
-              {boHuyCa.isPending ? "Đang bỏ hủy…" : "Bỏ hủy ca"}
+              {boHuyCa.isPending ? tr("Đang bỏ hủy…") : tr("Bỏ hủy ca")}
             </Btn>
           ) : (
             <Btn size="sm" variant="danger" onClick={() => setHuyCaConfirmOpen(true)}>
-              Hủy ca
-            </Btn>
+              {tr("Hủy ca")}</Btn>
           ))}
       </div>
 
       {viewMode === "expanded" && isFromCache && entry && (
         <div className="flex items-center gap-2 text-xs text-[var(--ink-400)] shrink-0">
           <span>
-            💾 Dữ liệu khách hàng đã lưu về máy bạn · 🕐 {fmtDateTime(entry.cachedAt)}
+            {tr("💾 Dữ liệu khách hàng đã lưu về máy bạn · 🕐")} {fmtDateTime(entry.cachedAt)}
           </span>
           <button
             type="button"
@@ -2866,7 +2838,7 @@ export function CaseDetail({
             disabled={syncCaseMutation.isPending}
             className="focus-ring font-semibold text-[var(--ocean-600)] hover:underline disabled:opacity-40 disabled:no-underline"
           >
-            {syncCaseMutation.isPending ? "Đang đồng bộ…" : "🔄 Đồng bộ lại"}
+            {syncCaseMutation.isPending ? tr("Đang đồng bộ…") : tr("🔄 Đồng bộ lại")}
           </button>
         </div>
       )}
@@ -2963,11 +2935,10 @@ export function CaseDetail({
           !form.ngay_du_kien ||
           (thieuLinhKien && (!form.linh_kien_thieu || !form.ngay_yeu_cau_co_hang || !form.ma_xuat_hang.trim()));
         return (
-      <Modal open onClose={() => setGiaiTrinhModalOpen(false)} title={`Thêm giải trình — Ca ${caseId}`} width="max-w-xl">
+      <Modal open onClose={() => setGiaiTrinhModalOpen(false)} title={tr("Thêm giải trình — Ca {0}", caseId)} width="max-w-xl">
           {giaiTrinhList.length > 0 && (
             <div className="text-xs text-[var(--ocean-600)] bg-[var(--ocean-100)]/50 rounded-lg px-3 py-2 mb-3">
-              Đã tự động điền lại theo giải trình gần nhất — kiểm tra lại nội dung trước khi gửi.
-            </div>
+              {tr("Đã tự động điền lại theo giải trình gần nhất — kiểm tra lại nội dung trước khi gửi.")}</div>
           )}
           <form
             onSubmit={(e) => {
@@ -2979,7 +2950,7 @@ export function CaseDetail({
           >
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">
-                Lý do chậm <span className="text-[var(--coral-500)]">*</span>
+                {tr("Lý do chậm")} <span className="text-[var(--coral-500)]">*</span>
               </label>
               <ChoiceSelect
                 value={form.ly_do_cham || lyDoChon?.ten_ly_do || ""}
@@ -2991,11 +2962,10 @@ export function CaseDetail({
             {thieuLinhKien && (
               <>
                 <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-100)]/50 rounded-lg px-3 py-2">
-                  Lý do liên quan thiếu linh kiện — bắt buộc nhập đầy đủ linh kiện thiếu, ngày yêu cầu có hàng và mã xuất hàng liên quan.
-                </div>
+                  {tr("Lý do liên quan thiếu linh kiện — bắt buộc nhập đầy đủ linh kiện thiếu, ngày yêu cầu có hàng và mã xuất hàng liên quan.")}</div>
                 <div>
                   <label className="text-xs font-semibold text-[var(--ink-400)]">
-                    Linh kiện thiếu <span className="text-[var(--coral-500)]">*</span>
+                    {tr("Linh kiện thiếu")} <span className="text-[var(--coral-500)]">*</span>
                   </label>
                   <Select
                     value={form.linh_kien_thieu}
@@ -3007,7 +2977,7 @@ export function CaseDetail({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-[var(--ink-400)]">
-                      Ngày yêu cầu có hàng <span className="text-[var(--coral-500)]">*</span>
+                      {tr("Ngày yêu cầu có hàng")} <span className="text-[var(--coral-500)]">*</span>
                     </label>
                     <input
                       type="date"
@@ -3018,7 +2988,7 @@ export function CaseDetail({
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-[var(--ink-400)]">
-                      Mã xuất hàng liên quan <span className="text-[var(--coral-500)]">*</span>
+                      {tr("Mã xuất hàng liên quan")} <span className="text-[var(--coral-500)]">*</span>
                     </label>
                     <input
                       value={form.ma_xuat_hang}
@@ -3032,19 +3002,19 @@ export function CaseDetail({
             )}
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">
-                Nội dung giải trình <span className="text-[var(--coral-500)]">*</span>
+                {tr("Nội dung giải trình")} <span className="text-[var(--coral-500)]">*</span>
               </label>
               <textarea
                 value={form.noi_dung}
                 onChange={(e) => setForm({ ...form, noi_dung: e.target.value })}
                 rows={3}
-                placeholder="Mô tả tình trạng xử lý, kế hoạch tiếp theo…"
+                placeholder={tr("Mô tả tình trạng xử lý, kế hoạch tiếp theo…")}
                 className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
             </div>
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">
-                Ngày dự kiến hoàn thành mới <span className="text-[var(--coral-500)]">*</span>
+                {tr("Ngày dự kiến hoàn thành mới")} <span className="text-[var(--coral-500)]">*</span>
               </label>
               <input
                 type="date"
@@ -3054,11 +3024,10 @@ export function CaseDetail({
               />
             </div>
             <div className="flex justify-end items-center gap-2 pt-1">
-              {missingRequired && <span className="text-xs text-[var(--ink-400)] mr-auto">Vui lòng điền đủ các trường bắt buộc (*).</span>}
+              {missingRequired && <span className="text-xs text-[var(--ink-400)] mr-auto">{tr("Vui lòng điền đủ các trường bắt buộc (*).")}</span>}
               <Btn variant="ghost" type="button" onClick={() => setGiaiTrinhModalOpen(false)}>
-                Hủy
-              </Btn>
-              <Btn disabled={submit.isPending || missingRequired}>{submit.isPending ? "Đang gửi…" : "Gửi giải trình"}</Btn>
+                {tr("Hủy")}</Btn>
+              <Btn disabled={submit.isPending || missingRequired}>{submit.isPending ? tr("Đang gửi…") : tr("Gửi giải trình")}</Btn>
             </div>
           </form>
         </Modal>
@@ -3066,7 +3035,7 @@ export function CaseDetail({
       })()}
 
       {viPhamGiaiTrinhTarget && (
-        <Modal open onClose={() => setViPhamGiaiTrinhTarget(null)} title="Giải trình thay cho KTV" width="max-w-lg">
+        <Modal open onClose={() => setViPhamGiaiTrinhTarget(null)} title={tr("Giải trình thay cho KTV")} width="max-w-lg">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -3077,7 +3046,7 @@ export function CaseDetail({
           >
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">
-                Ngày giải trình <span className="text-[var(--coral-500)]">*</span>
+                {tr("Ngày giải trình")} <span className="text-[var(--coral-500)]">*</span>
               </label>
               <input
                 type="date"
@@ -3087,7 +3056,7 @@ export function CaseDetail({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Nội dung giải trình</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Nội dung giải trình")}</label>
               <textarea
                 value={viPhamGiaiTrinhForm.noi_dung_giai_trinh}
                 onChange={(e) => setViPhamGiaiTrinhForm({ ...viPhamGiaiTrinhForm, noi_dung_giai_trinh: e.target.value })}
@@ -3096,7 +3065,7 @@ export function CaseDetail({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
               <textarea
                 value={viPhamGiaiTrinhForm.ghi_chu}
                 onChange={(e) => setViPhamGiaiTrinhForm({ ...viPhamGiaiTrinhForm, ghi_chu: e.target.value })}
@@ -3105,11 +3074,11 @@ export function CaseDetail({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Ảnh bằng chứng (tối đa 5 ảnh)</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ảnh bằng chứng (tối đa 5 ảnh)")}</label>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {viPhamGiaiTrinhPhotos.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs text-[var(--ocean-600)] underline bg-slate-50 rounded-lg px-2 py-1">
-                    Ảnh {i + 1}
+                    {tr("Ảnh")} {i + 1}
                   </a>
                 ))}
                 {viPhamGiaiTrinhPhotos.length < 5 && (
@@ -3130,10 +3099,9 @@ export function CaseDetail({
             </div>
             <div className="flex justify-end items-center gap-2 pt-1">
               <Btn variant="ghost" type="button" onClick={() => setViPhamGiaiTrinhTarget(null)}>
-                Hủy
-              </Btn>
+                {tr("Hủy")}</Btn>
               <Btn disabled={submitViPhamGiaiTrinh.isPending || !viPhamGiaiTrinhForm.ngay_giai_trinh}>
-                {submitViPhamGiaiTrinh.isPending ? "Đang lưu…" : "Lưu giải trình"}
+                {submitViPhamGiaiTrinh.isPending ? tr("Đang lưu…") : tr("Lưu giải trình")}
               </Btn>
             </div>
           </form>
@@ -3141,7 +3109,7 @@ export function CaseDetail({
       )}
 
       {manualViPhamOpen && (
-        <Modal open onClose={() => setManualViPhamOpen(false)} title={`Tạo vi phạm thủ công — Ca ${caseId}`} width="max-w-lg">
+        <Modal open onClose={() => setManualViPhamOpen(false)} title={tr("Tạo vi phạm thủ công — Ca {0}", caseId)} width="max-w-lg">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -3153,23 +3121,22 @@ export function CaseDetail({
           >
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">
-                Loại lỗi <span className="text-[var(--coral-500)]">*</span>
+                {tr("Loại lỗi")} <span className="text-[var(--coral-500)]">*</span>
               </label>
               <Select
                 value={manualViPhamForm.ket_qua_cap_1}
                 onChange={(val) => setManualViPhamForm({ ...manualViPhamForm, ket_qua_cap_1: val })}
-                options={[{ value: "", label: "— Chọn loại lỗi —" }, ...ketQuaCap1OptionsForQc, { value: "Khong loi", label: "Không có lỗi" }]}
+                options={[{ value: "", label: tr("— Chọn loại lỗi —") }, ...ketQuaCap1OptionsForQc, { value: "Khong loi", label: tr("Không có lỗi") }]}
                 className="w-full mt-1"
               />
               {/* "Khong loi" (2026-09-30): van ghi nhan nhung backend tu chot QC bo loi, khong gui KTV giai trinh. */}
               {manualViPhamForm.ket_qua_cap_1 === "Khong loi" && (
-                <div className="text-[11px] text-[var(--ink-400)] mt-0.5">Vẫn ghi nhận lên hệ thống nhưng tự động chốt QC bỏ lỗi, không gửi KTV giải trình.</div>
+                <div className="text-[11px] text-[var(--ink-400)] mt-0.5">{tr("Vẫn ghi nhận lên hệ thống nhưng tự động chốt QC bỏ lỗi, không gửi KTV giải trình.")}</div>
               )}
             </div>
             <div>
               <label className="text-xs font-semibold text-[var(--ink-400)]">
-                Ghi chú
-                {batBuocGhiChuByTenLoi.get(manualViPhamForm.ket_qua_cap_1) && <span className="text-[var(--coral-500)]"> *</span>}
+                {tr("Ghi chú")}{batBuocGhiChuByTenLoi.get(manualViPhamForm.ket_qua_cap_1) && <span className="text-[var(--coral-500)]"> *</span>}
               </label>
               <textarea
                 value={manualViPhamForm.ghi_chu}
@@ -3179,19 +3146,18 @@ export function CaseDetail({
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày ghi nhận</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ngày ghi nhận")}</label>
               <input
                 type="date"
                 value={manualViPhamForm.ngay_ghi_nhan}
                 onChange={(e) => setManualViPhamForm({ ...manualViPhamForm, ngay_ghi_nhan: e.target.value })}
                 className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
-              <div className="text-[11px] text-[var(--ink-400)] mt-0.5">Để trống sẽ dùng thời điểm hiện tại.</div>
+              <div className="text-[11px] text-[var(--ink-400)] mt-0.5">{tr("Để trống sẽ dùng thời điểm hiện tại.")}</div>
             </div>
             <div className="flex justify-end items-center gap-2 pt-1">
               <Btn variant="ghost" type="button" onClick={() => setManualViPhamOpen(false)}>
-                Hủy
-              </Btn>
+                {tr("Hủy")}</Btn>
               <Btn
                 disabled={
                   createViPhamThuCong.isPending ||
@@ -3199,7 +3165,7 @@ export function CaseDetail({
                   (!!batBuocGhiChuByTenLoi.get(manualViPhamForm.ket_qua_cap_1) && !manualViPhamForm.ghi_chu.trim())
                 }
               >
-                {createViPhamThuCong.isPending ? "Đang lưu…" : "Tạo vi phạm"}
+                {createViPhamThuCong.isPending ? tr("Đang lưu…") : tr("Tạo vi phạm")}
               </Btn>
             </div>
           </form>
@@ -3213,24 +3179,22 @@ export function CaseDetail({
       {evalRowCaseId && <CaLapEvalModal caseId={evalRowCaseId} canGsLap={canGsLap} canQcLap={canQcLap} onClose={() => setEvalRowCaseId(null)} />}
 
       {blacklistConfirmOpen && (
-        <Modal open onClose={() => setBlacklistConfirmOpen(false)} title="Xác nhận thêm vào blacklist" width="max-w-md">
+        <Modal open onClose={() => setBlacklistConfirmOpen(false)} title={tr("Xác nhận thêm vào blacklist")} width="max-w-md">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Thêm serial <span className="font-mono font-semibold">{c?.seri_san_pham}</span> vào blacklist? Serial này sẽ bị loại khỏi phát hiện Ca lặp cho tất cả các ca liên quan.
-          </div>
+            {tr("Thêm serial")} <span className="font-mono font-semibold">{c?.seri_san_pham}</span>  {tr("vào blacklist? Serial này sẽ bị loại khỏi phát hiện Ca lặp cho tất cả các ca liên quan.")}</div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setBlacklistConfirmOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addBlacklist.mutate()} disabled={addBlacklist.isPending}>
-              {addBlacklist.isPending ? "Đang thêm…" : "Xác nhận thêm"}
+              {addBlacklist.isPending ? tr("Đang thêm…") : tr("Xác nhận thêm")}
             </Btn>
           </div>
         </Modal>
       )}
 
       {serialHistorySource && (
-        <Modal open onClose={() => setSerialHistorySource(null)} title={`Các ca trùng serial ${serialHistorySeri ?? ""}`} width="max-w-lg">
-          <div className="text-xs text-[var(--ink-400)] italic mb-3">{serialHistoryRows.length} ca cùng serial này, mới nhất trên đầu — bấm vào 1 ca để mở chi tiết ca đó.</div>
+        <Modal open onClose={() => setSerialHistorySource(null)} title={tr("Các ca trùng serial {0}", serialHistorySeri ?? "")} width="max-w-lg">
+          <div className="text-xs text-[var(--ink-400)] italic mb-3">{serialHistoryRows.length}  {tr("ca cùng serial này, mới nhất trên đầu — bấm vào 1 ca để mở chi tiết ca đó.")}</div>
           <div className="space-y-1.5">
             {serialHistoryRows.map((h) => {
               const isActive = h.id === serialHistoryActiveId;
@@ -3250,13 +3214,13 @@ export function CaseDetail({
                   <div className="flex-1 min-w-0 text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold font-mono">
-                        {isActive && <Badge tone="coral">📍 Ca đang xem</Badge>}{" "}
+                        {isActive && <Badge tone="coral">{tr("📍 Ca đang xem")}</Badge>}{" "}
                         {h.id}
                       </span>
-                      {h.huy_bo_at && <Badge tone="gray">🚫 Đã hủy</Badge>}
+                      {h.huy_bo_at && <Badge tone="gray">{tr("🚫 Đã hủy")}</Badge>}
                     </div>
                     <div className="text-xs text-[var(--ink-400)]">
-                      Tiếp nhận {fmtDateTime(h.thoi_gian_cskh_tiep_nhan)} · Hoàn thành {fmtDateTime(h.thoi_gian_hoan_thanh)}
+                      {tr("Tiếp nhận")} {fmtDateTime(h.thoi_gian_cskh_tiep_nhan)}  {tr("· Hoàn thành")} {fmtDateTime(h.thoi_gian_hoan_thanh)}
                     </div>
                     <div className="text-xs text-[var(--ink-600)]">
                       KTV {h.ky_thuat_vien ?? "—"} · {h.tien_do_hoan_thanh ?? "—"}
@@ -3280,12 +3244,11 @@ export function CaseDetail({
       )}
 
       {huyCaConfirmOpen && (
-        <Modal open onClose={() => setHuyCaConfirmOpen(false)} title="Xác nhận hủy ca" width="max-w-md">
+        <Modal open onClose={() => setHuyCaConfirmOpen(false)} title={tr("Xác nhận hủy ca")} width="max-w-md">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Hủy ca <span className="font-mono font-semibold">{caseId}</span>? Ca sẽ bị ẩn khỏi mọi hàng đợi cần xử lý (giải trình tồn, khảo sát, ca lặp, thiếu linh kiện, nạp gas) và không tính vào KPI/doanh thu — vẫn xem được ở đây và trong "Danh sách tổng". Có thể bỏ hủy sau nếu cần.
-          </div>
+            {tr("Hủy ca")} <span className="font-mono font-semibold">{caseId}</span>{tr("? Ca sẽ bị ẩn khỏi mọi hàng đợi cần xử lý (giải trình tồn, khảo sát, ca lặp, thiếu linh kiện, nạp gas) và không tính vào KPI/doanh thu — vẫn xem được ở đây và trong \"Danh sách tổng\". Có thể bỏ hủy sau nếu cần.")}</div>
           <div className="mb-4">
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do hủy (tùy chọn)</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Lý do hủy (tùy chọn)")}</label>
             <textarea
               rows={2}
               value={huyCaLyDo}
@@ -3295,10 +3258,9 @@ export function CaseDetail({
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setHuyCaConfirmOpen(false)}>
-              Hủy bỏ
-            </Btn>
+              {tr("Hủy bỏ")}</Btn>
             <Btn variant="danger" onClick={() => huyCa.mutate()} disabled={huyCa.isPending}>
-              {huyCa.isPending ? "Đang hủy…" : "Xác nhận hủy ca"}
+              {huyCa.isPending ? tr("Đang hủy…") : tr("Xác nhận hủy ca")}
             </Btn>
           </div>
         </Modal>

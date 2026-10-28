@@ -37,6 +37,7 @@ import {
   type LyDoTonTranhChapRow,
   type GiamSatInfo,
 } from "../lib/tranhChapShared";
+import { tr } from "../i18n/tr";
 
 /**
  * Modal "Tiep nhan xu ly tranh chap" - dung chung boi TranhChapModule.tsx (tab "Cho xu ly") va
@@ -84,75 +85,74 @@ export function TiepNhanModal({
   const canLyDoTon = !TRANG_THAI_DONG.includes(trangThai);
 
   return (
-    <Modal open onClose={onClose} title={`Tiếp nhận xử lý tranh chấp — ${caseRow.id}`}>
+    <Modal open onClose={onClose} title={tr("Tiếp nhận xử lý tranh chấp — {0}", caseRow.id)}>
       <div className="space-y-3">
         <div className="text-sm text-[var(--ink-600)]">
           {caseRow.khach_hang ?? "—"} · {shortKhuVuc(caseRow.khu_vuc)}
         </div>
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Phân loại tranh chấp</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Phân loại tranh chấp")}</label>
           {phanLoaiOptions.length ? (
             <Select value={phanLoai} onChange={setPhanLoai} options={phanLoaiOptions.map((p) => p.ten_phan_loai)} className="w-full mt-1" />
           ) : (
-            <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có phân loại nào — vào Settings → Phân loại tranh chấp để thêm trước.</div>
+            <div className="text-xs text-[var(--coral-500)] mt-1">{tr("Chưa có phân loại nào — vào Settings → Phân loại tranh chấp để thêm trước.")}</div>
           )}
         </div>
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Mức độ</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Mức độ")}</label>
           <Select value={mucDo} onChange={setMucDo} options={MUC_DO_OPTIONS} className="w-full mt-1" />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Trạng thái</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Trạng thái")}</label>
           <Select value={trangThai} onChange={setTrangThai} options={GIAM_SAT_STATUS_OPTIONS} className="w-full mt-1" />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày dự kiến xử lý xong</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ngày dự kiến xử lý xong")}</label>
           <input type="date" value={ngayDuKien} onChange={(e) => setNgayDuKien(e.target.value)} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
         </div>
         {canKetQua && (
           <>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả xử lý *</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Kết quả xử lý *")}</label>
               {ketQuaOptions.length ? (
                 <Select
                   value={ketQua}
                   onChange={setKetQua}
-                  options={[{ value: "", label: "Chọn kết quả xử lý…" }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
+                  options={[{ value: "", label: tr("Chọn kết quả xử lý…") }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
                   className="w-full mt-1"
                 />
               ) : (
-                <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Kết quả xử lý tranh chấp để thêm trước.</div>
+                <div className="text-xs text-[var(--coral-500)] mt-1">{tr("Chưa có danh mục — vào Settings → Kết quả xử lý tranh chấp để thêm trước.")}</div>
               )}
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Hài lòng sau tranh chấp *</label>
-              <Select value={haiLong} onChange={setHaiLong} options={[{ value: "", label: "Chọn mức hài lòng…" }, ...HAI_LONG_OPTIONS]} className="w-full mt-1" />
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Hài lòng sau tranh chấp *")}</label>
+              <Select value={haiLong} onChange={setHaiLong} options={[{ value: "", label: tr("Chọn mức hài lòng…") }, ...HAI_LONG_OPTIONS]} className="w-full mt-1" />
             </div>
           </>
         )}
         {canLyDoTon && (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do tồn tranh chấp *</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Lý do tồn tranh chấp *")}</label>
             {lyDoTonOptions.length ? (
               <Select
                 value={lyDoTon}
                 onChange={setLyDoTon}
-                options={[{ value: "", label: "Chọn lý do tồn…" }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                options={[{ value: "", label: tr("Chọn lý do tồn…") }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
                 className="w-full mt-1"
               />
             ) : (
-              <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Lý do tồn tranh chấp để thêm trước.</div>
+              <div className="text-xs text-[var(--coral-500)] mt-1">{tr("Chưa có danh mục — vào Settings → Lý do tồn tranh chấp để thêm trước.")}</div>
             )}
           </div>
         )}
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
           <textarea value={ghiChu} onChange={(e) => setGhiChu(e.target.value)} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>
-            Hủy
-          </Btn>
+            {tr("Hủy")}</Btn>
           <Btn
             onClick={() =>
               onSubmit({
@@ -168,8 +168,7 @@ export function TiepNhanModal({
             }
             disabled={!phanLoai || !mucDo || !trangThai || (canKetQua && (!ketQua || !haiLong)) || (canLyDoTon && !lyDoTon) || isPending}
           >
-            Tiếp nhận
-          </Btn>
+            {tr("Tiếp nhận")}</Btn>
         </div>
       </div>
     </Modal>
@@ -194,9 +193,9 @@ function dueUrgency(dueDate: string | null, isDaDong: boolean): { label: string;
   if (!dueDate || isDaDong) return null;
   const todayVN = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
   const diffDays = Math.round((new Date(`${todayVN}T00:00:00Z`).getTime() - new Date(`${dueDate.slice(0, 10)}T00:00:00Z`).getTime()) / 86400000);
-  if (diffDays > 0) return { label: `⚠ Quá hạn ${diffDays} ngày`, tone: "coral" };
-  if (diffDays === 0) return { label: "⏰ Đến hạn hôm nay", tone: "amber" };
-  if (diffDays === -1) return { label: "⏰ Sắp đến hạn (còn 1 ngày)", tone: "amber" };
+  if (diffDays > 0) return { label: tr("⚠ Quá hạn {0} ngày", diffDays), tone: "coral" };
+  if (diffDays === 0) return { label: tr("⏰ Đến hạn hôm nay"), tone: "amber" };
+  if (diffDays === -1) return { label: tr("⏰ Sắp đến hạn (còn 1 ngày)"), tone: "amber" };
   return null;
 }
 
@@ -267,22 +266,22 @@ export function TienTrinhPanel({
       ly_do_ton_tranh_chap?: string;
     }) => api.post(`/tranh-chap/tien-trinh/${encodeURIComponent(id)}/log`, body),
     onSuccess: () => {
-      addToast("Đã thêm log xử lý");
+      addToast(tr("Đã thêm log xử lý"));
       setAddLogOpen(false);
       invalidateAfterWrite();
     },
-    onError: (err) => addToast(describeTranhChapError(err, "Không thể thêm log, thử lại sau.")),
+    onError: (err) => addToast(describeTranhChapError(err, tr("Không thể thêm log, thử lại sau."))),
   });
 
   const addLogCon = useMutation({
     mutationFn: ({ logId, noiDung }: { logId: number; noiDung: string }) => api.post(`/tranh-chap/log/${logId}/log-con`, { noi_dung: noiDung }),
     onSuccess: () => {
-      addToast("Đã thêm log con");
+      addToast(tr("Đã thêm log con"));
       setLogConOpenFor(null);
       setLogConText("");
       invalidateAfterWrite();
     },
-    onError: (err) => addToast(describeTranhChapError(err, "Không thể thêm log con, thử lại sau.")),
+    onError: (err) => addToast(describeTranhChapError(err, tr("Không thể thêm log con, thử lại sau."))),
   });
 
   const editLog = useMutation({
@@ -294,21 +293,21 @@ export function TienTrinhPanel({
       body: { trang_thai_xu_ly?: string; thoi_gian_du_kien_xong?: string; ghi_chu?: string; ket_qua_xu_ly?: string; hai_long_sau_tranh_chap?: string; ly_do_ton_tranh_chap?: string };
     }) => api.patch(`/tranh-chap/log/${logId}`, body),
     onSuccess: () => {
-      addToast("Đã cập nhật log");
+      addToast(tr("Đã cập nhật log"));
       setEditingLog(null);
       invalidateAfterWrite();
     },
-    onError: (err) => addToast(describeTranhChapError(err, "Không thể sửa log, thử lại sau.")),
+    onError: (err) => addToast(describeTranhChapError(err, tr("Không thể sửa log, thử lại sau."))),
   });
 
   const editMeta = useMutation({
     mutationFn: (body: { phan_loai_tranh_chap?: string; muc_do?: string }) => api.patch(`/tranh-chap/tien-trinh/${encodeURIComponent(id)}`, body),
     onSuccess: () => {
-      addToast("Đã cập nhật phân loại/mức độ");
+      addToast(tr("Đã cập nhật phân loại/mức độ"));
       setEditMetaOpen(false);
       invalidateAfterWrite();
     },
-    onError: (err) => addToast(describeTranhChapError(err, "Không thể cập nhật, thử lại sau.")),
+    onError: (err) => addToast(describeTranhChapError(err, tr("Không thể cập nhật, thử lại sau."))),
   });
 
   const tt = data.tienTrinh;
@@ -356,13 +355,13 @@ export function TienTrinhPanel({
             </div>
             <div className="font-display font-bold text-base text-[var(--ink-900)] truncate">{tt.khach_hang ?? "—"}</div>
             <div className="text-xs text-[var(--ink-400)] mt-0.5">
-              {shortKhuVuc(tt.khu_vuc)} · Tạo {fmtDateTime(tt.ngay_tao)}
-              {giamSatDeXuat.length > 0 && <> · GS từng xử lý: {giamSatDeXuat.map((g) => g.ten ?? g.email).join(", ")}</>}
+              {shortKhuVuc(tt.khu_vuc)}  {tr("· Tạo")} {fmtDateTime(tt.ngay_tao)}
+              {giamSatDeXuat.length > 0 && <>  {tr("· GS từng xử lý:")} {giamSatDeXuat.map((g) => g.ten ?? g.email).join(", ")}</>}
             </div>
           </div>
           {onOpenCase && (
             <Btn variant="ghost" size="sm" onClick={() => onOpenCase(tt.case_id)} className="shrink-0">
-              Xem ca sự vụ ({tt.case_id}) →
+              {tr("Xem ca sự vụ (")}{tt.case_id}) →
             </Btn>
           )}
         </div>
@@ -372,8 +371,7 @@ export function TienTrinhPanel({
           <Badge tone={MUC_DO_TONE[tt.muc_do] ?? "gray"}>{MUC_DO_LABELS[tt.muc_do] ?? tt.muc_do}</Badge>
           {canEditMeta && (
             <button className="text-xs text-[var(--ocean-600)] underline ml-0.5" onClick={() => setEditMetaOpen(true)}>
-              ✎ Sửa
-            </button>
+              {tr("✎ Sửa")}</button>
           )}
         </div>
 
@@ -391,15 +389,14 @@ export function TienTrinhPanel({
       {/* ---- "Con": timeline log xu ly ---- */}
       <div>
         <div className="flex items-center justify-between mb-2 px-0.5">
-          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">Lịch sử xử lý ({logs.length})</div>
+          <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">{tr("Lịch sử xử lý (")}{logs.length})</div>
           {canWrite && !isDaDong && (
             <Btn size="sm" variant="subtle" onClick={() => setAddLogOpen(true)}>
-              + Thêm log
-            </Btn>
+              {tr("+ Thêm log")}</Btn>
           )}
         </div>
 
-        {logs.length === 0 && <div className="text-xs text-[var(--ink-400)] italic px-0.5">Chưa có log nào.</div>}
+        {logs.length === 0 && <div className="text-xs text-[var(--ink-400)] italic px-0.5">{tr("Chưa có log nào.")}</div>}
 
         <div className="space-y-2.5">
           {logs.map((log, idx) => {
@@ -432,24 +429,24 @@ export function TienTrinhPanel({
                     <Badge tone={TRANG_THAI_TONE[log.trang_thai_xu_ly] ?? "gray"}>{TRANG_THAI_LABELS[log.trang_thai_xu_ly] ?? log.trang_thai_xu_ly}</Badge>
                     {canEdit && (
                       <button className="text-xs text-[var(--ocean-600)] underline" onClick={() => setEditingLog(log)}>
-                        Sửa (còn {Math.max(0, Math.ceil(24 - hoursSince))}h)
+                        {tr("Sửa (còn")} {Math.max(0, Math.ceil(24 - hoursSince))}h)
                       </button>
                     )}
                   </div>
                   <div className="text-xs text-[var(--ink-400)] mt-1">
                     {formatPersonDisplay(log.nguoi_xu_ly, personDir)} · {fmtDateTime(log.ngay_xu_ly)}
-                    {log.thoi_gian_du_kien_xong ? ` · Dự kiến xong: ${log.thoi_gian_du_kien_xong}` : ""}
+                    {log.thoi_gian_du_kien_xong ? " " + tr("· Dự kiến xong: {0}", log.thoi_gian_du_kien_xong) : ""}
                   </div>
                   {/* CHOT 2026-08-20: log.dang_cho_nguoi_xu_ly da duoc luu tu truoc nhung chua tung
                       hien trong dong lich su - chi thay o cot rieng cua bang "Quan ly tien trinh"
                       (TranhChapModule.tsx), MAT DAU VET ngay tren chinh log da "day" viec cho ai. Hien
                       lai o day de minh bach: ai xem lai lich su cung biet log nay da chuyen giao cho ai. */}
                   {log.dang_cho_nguoi_xu_ly && (
-                    <div className="text-xs text-[var(--ocean-600)] font-semibold mt-1">→ Đang chờ: {formatPersonDisplay(log.dang_cho_nguoi_xu_ly, personDir)}</div>
+                    <div className="text-xs text-[var(--ocean-600)] font-semibold mt-1">{tr("→ Đang chờ:")} {formatPersonDisplay(log.dang_cho_nguoi_xu_ly, personDir)}</div>
                   )}
                   {log.ly_do_ton_tranh_chap && (
                     <div className="text-xs mt-1.5">
-                      <span className="text-[var(--ink-400)]">Lý do tồn: </span>
+                      <span className="text-[var(--ink-400)]">{tr("Lý do tồn:")} </span>
                       <span className="text-[var(--ink-700)] font-medium">{log.ly_do_ton_tranh_chap}</span>
                     </div>
                   )}
@@ -489,7 +486,7 @@ export function TienTrinhPanel({
                           onChange={(e) => setLogConText(e.target.value)}
                           rows={2}
                           autoFocus
-                          placeholder="Ghi chú tiến độ xử lý…"
+                          placeholder={tr("Ghi chú tiến độ xử lý…")}
                           className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
                         />
                         <div className="flex items-center gap-2">
@@ -498,23 +495,21 @@ export function TienTrinhPanel({
                             disabled={!logConText.trim() || addLogCon.isPending}
                             onClick={() => addLogCon.mutate({ logId: log.id, noiDung: logConText.trim() })}
                           >
-                            {addLogCon.isPending ? "Đang lưu…" : "Lưu"}
+                            {addLogCon.isPending ? tr("Đang lưu…") : tr("Lưu")}
                           </Btn>
                           <Btn size="sm" variant="ghost" onClick={() => { setLogConOpenFor(null); setLogConText(""); }}>
-                            Hủy
-                          </Btn>
+                            {tr("Hủy")}</Btn>
                         </div>
                       </div>
                     ) : (
                       <button className="text-xs text-[var(--ocean-600)] underline mt-1.5" onClick={() => { setLogConOpenFor(log.id); setLogConText(""); }}>
-                        + Thêm log con
-                      </button>
+                        {tr("+ Thêm log con")}</button>
                     )
                   )}
                 </div>
                 {daysSincePrev !== null && (
                   <div className="text-[11px] font-semibold text-[var(--coral-600)] pt-1.5">
-                    ↳ cách log trước <strong>{daysSincePrev.toFixed(1)} ngày</strong>
+                    {tr("↳ cách log trước")} <strong>{daysSincePrev.toFixed(1)}  {tr("ngày")}</strong>
                   </div>
                 )}
               </div>
@@ -522,13 +517,13 @@ export function TienTrinhPanel({
           })}
         </div>
 
-        {isDaDong && <div className="text-xs text-[var(--ink-400)] italic mt-2 px-0.5">Tiến trình đã đóng.</div>}
+        {isDaDong && <div className="text-xs text-[var(--ink-400)] italic mt-2 px-0.5">{tr("Tiến trình đã đóng.")}</div>}
       </div>
 
       {addLogOpen && (
         <LogFormModal
-          title="Thêm log xử lý mới"
-          submitLabel="Thêm log"
+          title={tr("Thêm log xử lý mới")}
+          submitLabel={tr("Thêm log")}
           // CHOT 2026-08-28: "dang_cho_nguoi_xu_ly" ke thua tu log GAN NHAT thay vi luon rong - truoc
           // day form nay luon bat dau trong, khien nguoi dang duoc gan (VD Giam sat X dang "giu bong")
           // vo tinh XOA MAT phan gan cua chinh minh moi khi ho tu them 1 log cap nhat ma khong chu dong
@@ -555,8 +550,8 @@ export function TienTrinhPanel({
 
       {editingLog && (
         <LogFormModal
-          title={`Sửa log — ${TRANG_THAI_LABELS[editingLog.trang_thai_xu_ly] ?? editingLog.trang_thai_xu_ly}`}
-          submitLabel="Lưu"
+          title={tr("Sửa log — {0}", TRANG_THAI_LABELS[editingLog.trang_thai_xu_ly] ?? editingLog.trang_thai_xu_ly)}
+          submitLabel={tr("Lưu")}
           initial={{
             trang_thai_xu_ly: editingLog.trang_thai_xu_ly,
             thoi_gian_du_kien_xong: editingLog.thoi_gian_du_kien_xong ?? "",
@@ -668,7 +663,7 @@ function LogFormModal({
   const isKsnbOrAdmin = !!user?.la_ksnb_doi_tac || user?.vai_tro === "Admin";
   if (isKsnbOrAdmin && currentPhase === "cskh") {
     if (!phaseOptions.some((opt) => opt.value === "Giam sat chua xu ly")) {
-      phaseOptions.push({ value: "Giam sat chua xu ly", label: "Chuyển lại giám sát xử lý" });
+      phaseOptions.push({ value: "Giam sat chua xu ly", label: tr("Chuyển lại giám sát xử lý") });
     }
   }
 
@@ -696,17 +691,17 @@ function LogFormModal({
     <Modal open onClose={onClose} title={title} width="max-w-lg">
       <div className="space-y-3">
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Trạng thái xử lý</label>
-          <Select value={trangThai} onChange={handleTrangThaiChange} options={[{ value: "", label: "Chọn trạng thái…" }, ...phaseOptions]} className="w-full mt-1" />
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Trạng thái xử lý")}</label>
+          <Select value={trangThai} onChange={handleTrangThaiChange} options={[{ value: "", label: tr("Chọn trạng thái…") }, ...phaseOptions]} className="w-full mt-1" />
         </div>
         {showDangCho && (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Đang chờ người xử lý{isChuyenLaiGiamSat ? " *" : ""}</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Đang chờ người xử lý")}{isChuyenLaiGiamSat ? " *" : ""}</label>
             <Select
               value={dangCho}
               onChange={setDangCho}
               options={[
-                { value: "", label: "Chọn người xử lý…" },
+                { value: "", label: tr("Chọn người xử lý…") },
                 ...handlingUsers.map((u) => ({ value: u.email, label: `${u.ten} (${u.vai_tro} - ${u.email})` })),
               ]}
               className="w-full mt-1"
@@ -714,16 +709,16 @@ function LogFormModal({
             {isChuyenLaiGiamSat && (
               <div className="text-[11px] text-[var(--ink-400)] mt-1">
                 {giamSatPhuTrach.length === 1
-                  ? `Đã tự động chọn Giám sát từng xử lý ca này — chọn lại nếu không đúng.`
+                  ? tr("Đã tự động chọn Giám sát từng xử lý ca này — chọn lại nếu không đúng.")
                   : giamSatPhuTrach.length > 1
-                    ? `Ca này từng có nhiều Giám sát xử lý (${giamSatPhuTrach.map((g) => g.ten ?? g.email).join(", ")}) — vui lòng chọn.`
-                    : `Không xác định được Giám sát từng xử lý ca này — vui lòng chọn thủ công.`}
+                    ? tr("Ca này từng có nhiều Giám sát xử lý ({0}) — vui lòng chọn.", giamSatPhuTrach.map((g) => g.ten ?? g.email).join(", "))
+                    : tr("Không xác định được Giám sát từng xử lý ca này — vui lòng chọn thủ công.")}
               </div>
             )}
           </div>
         )}
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Ngày dự kiến xử lý xong</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ngày dự kiến xử lý xong")}</label>
           <input
             type="date"
             value={ngayDuKien}
@@ -734,56 +729,55 @@ function LogFormModal({
         {canKetQua && (
           <>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Kết quả xử lý *</label>
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Kết quả xử lý *")}</label>
               {ketQuaOptions.length ? (
                 <Select
                   value={ketQua}
                   onChange={setKetQua}
                   options={[
-                    { value: "", label: "Chọn kết quả xử lý…" },
+                    { value: "", label: tr("Chọn kết quả xử lý…") },
                     ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua })),
                   ]}
                   className="w-full mt-1"
                 />
               ) : (
-                <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Kết quả xử lý tranh chấp để thêm trước.</div>
+                <div className="text-xs text-[var(--coral-500)] mt-1">{tr("Chưa có danh mục — vào Settings → Kết quả xử lý tranh chấp để thêm trước.")}</div>
               )}
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Hài lòng sau tranh chấp *</label>
-              <Select value={haiLong} onChange={setHaiLong} options={[{ value: "", label: "Chọn mức hài lòng…" }, ...HAI_LONG_OPTIONS]} className="w-full mt-1" />
+              <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Hài lòng sau tranh chấp *")}</label>
+              <Select value={haiLong} onChange={setHaiLong} options={[{ value: "", label: tr("Chọn mức hài lòng…") }, ...HAI_LONG_OPTIONS]} className="w-full mt-1" />
             </div>
           </>
         )}
         {canLyDoTon && (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Lý do tồn tranh chấp *</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Lý do tồn tranh chấp *")}</label>
             {lyDoTonOptions.length ? (
               <Select
                 value={lyDoTon}
                 onChange={setLyDoTon}
-                options={[{ value: "", label: "Chọn lý do tồn…" }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                options={[{ value: "", label: tr("Chọn lý do tồn…") }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
                 className="w-full mt-1"
               />
             ) : (
-              <div className="text-xs text-[var(--coral-500)] mt-1">Chưa có danh mục — vào Settings → Lý do tồn tranh chấp để thêm trước.</div>
+              <div className="text-xs text-[var(--coral-500)] mt-1">{tr("Chưa có danh mục — vào Settings → Lý do tồn tranh chấp để thêm trước.")}</div>
             )}
           </div>
         )}
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Ghi chú")}</label>
           <textarea
             value={ghiChu}
             onChange={(e) => setGhiChu(e.target.value)}
             rows={3}
-            placeholder="Ghi chú…"
+            placeholder={tr("Ghi chú…")}
             className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
           />
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>
-            Hủy
-          </Btn>
+            {tr("Hủy")}</Btn>
           <Btn
             onClick={() =>
               onSubmit({
@@ -798,7 +792,7 @@ function LogFormModal({
             }
             disabled={!trangThai || (canKetQua && (!ketQua || !haiLong)) || (isChuyenLaiGiamSat && !dangCho) || (canLyDoTon && !lyDoTon) || isPending}
           >
-            {isPending ? "Đang lưu…" : submitLabel}
+            {isPending ? tr("Đang lưu…") : submitLabel}
           </Btn>
         </div>
       </div>
@@ -825,22 +819,21 @@ function EditMetaModal({
   const [mucDoValue, setMucDoValue] = useState(mucDo);
 
   return (
-    <Modal open onClose={onClose} title="Sửa phân loại / mức độ" width="max-w-md">
+    <Modal open onClose={onClose} title={tr("Sửa phân loại / mức độ")} width="max-w-md">
       <div className="space-y-3">
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Phân loại tranh chấp</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Phân loại tranh chấp")}</label>
           <Select value={phanLoaiValue} onChange={setPhanLoaiValue} options={phanLoaiOptions.map((p) => p.ten_phan_loai)} className="w-full mt-1" />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Mức độ</label>
+          <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Mức độ")}</label>
           <Select value={mucDoValue} onChange={setMucDoValue} options={MUC_DO_OPTIONS} className="w-full mt-1" />
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <Btn variant="ghost" onClick={onClose}>
-            Hủy
-          </Btn>
+            {tr("Hủy")}</Btn>
           <Btn onClick={() => onSubmit({ phan_loai_tranh_chap: phanLoaiValue, muc_do: mucDoValue })} disabled={isPending}>
-            {isPending ? "Đang lưu…" : "Lưu"}
+            {isPending ? tr("Đang lưu…") : tr("Lưu")}
           </Btn>
         </div>
       </div>

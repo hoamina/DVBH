@@ -21,6 +21,8 @@ import { Field } from "./ui/Field";
 import { LoadingInline } from "./ui/LoadingInline";
 import { Modal } from "./ui/Modal";
 import { useToast } from "./ui/Toast";
+import { tr } from "../i18n/tr";
+
 
 interface MailThu {
   nguon: "gmail" | "trich_dan";
@@ -122,47 +124,47 @@ function useDoiTraAction(caseId: string) {
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : "";
-      addToast(code === "FORBIDDEN_ROLE" ? "Bạn không có quyền thao tác luồng đổi trả của ca này." : code || "Không lưu được, thử lại sau.");
+      addToast(code === "FORBIDDEN_ROLE" ? tr("Bạn không có quyền thao tác luồng đổi trả của ca này.") : code || tr("Không lưu được, thử lại sau."));
     },
   });
 }
 
 export const TRANG_THAI_LUONG: Record<string, { label: string; tone: AnyBadgeTone }> = {
-  phat_sinh: { label: "Phát sinh", tone: "gray" },
-  tiep_nhan: { label: "Karofi đã tiếp nhận", tone: "sky" },
-  cho_duyet: { label: "Chờ duyệt đổi", tone: "amber" },
-  da_duyet: { label: "Đã duyệt đổi", tone: "teal" },
-  giao_xu_ly: { label: "Karofi giao xử lý", tone: "indigo" },
-  da_len_so: { label: "Đã lên SO", tone: "violet" },
-  da_len_do: { label: "Đã lên DO", tone: "ocean" },
+  phat_sinh: { label: tr("Phát sinh"), tone: "gray" },
+  tiep_nhan: { label: tr("Karofi đã tiếp nhận"), tone: "sky" },
+  cho_duyet: { label: tr("Chờ duyệt đổi"), tone: "amber" },
+  da_duyet: { label: tr("Đã duyệt đổi"), tone: "teal" },
+  giao_xu_ly: { label: tr("Karofi giao xử lý"), tone: "indigo" },
+  da_len_so: { label: tr("Đã lên SO"), tone: "violet" },
+  da_len_do: { label: tr("Đã lên DO"), tone: "ocean" },
 };
 
 const MOC_THU: Record<string, { label: string; tone: AnyBadgeTone }> = {
-  tiep_nhan: { label: "Tiếp nhận", tone: "sky" },
-  giao_xu_ly: { label: "Giao xử lý", tone: "indigo" },
-  len_so: { label: "Lên SO", tone: "violet" },
-  len_do: { label: "Lên DO", tone: "ocean" },
-  len_so_do: { label: "Lên SO + DO", tone: "violet" },
+  tiep_nhan: { label: tr("Tiếp nhận"), tone: "sky" },
+  giao_xu_ly: { label: tr("Giao xử lý"), tone: "indigo" },
+  len_so: { label: tr("Lên SO"), tone: "violet" },
+  len_do: { label: tr("Lên DO"), tone: "ocean" },
+  len_so_do: { label: tr("Lên SO + DO"), tone: "violet" },
 };
 
 // Trang thai noi ca moi (he theodoidoimay): tu gan khi dung 1 ung vien cung ID KH + khop model;
 // con lai nguoi dung chon/nhap ma ca doi thu cong (o day hoac trang bao cao cua he do).
 export const CA_MOI_GAN: Record<string, { label: string; tone: AnyBadgeTone }> = {
-  tu_dong: { label: "Hệ thống tự gán (khớp model)", tone: "teal" },
-  xac_nhan: { label: "Đã xác nhận", tone: "teal" },
-  goi_y: { label: "Gợi ý - chờ xác nhận", tone: "amber" },
-  nhieu_ung_vien: { label: "Nhiều ứng viên - chờ xác nhận", tone: "amber" },
-  chua_co: { label: "Chưa có ca mới", tone: "gray" },
-  khong_co_id_kh: { label: "Ca gốc chưa có ID khách hàng", tone: "gray" },
+  tu_dong: { label: tr("Hệ thống tự gán (khớp model)"), tone: "teal" },
+  xac_nhan: { label: tr("Đã xác nhận"), tone: "teal" },
+  goi_y: { label: tr("Gợi ý - chờ xác nhận"), tone: "amber" },
+  nhieu_ung_vien: { label: tr("Nhiều ứng viên - chờ xác nhận"), tone: "amber" },
+  chua_co: { label: tr("Chưa có ca mới"), tone: "gray" },
+  khong_co_id_kh: { label: tr("Ca gốc chưa có ID khách hàng"), tone: "gray" },
 };
 
 export const NHAT_KY_LABEL: Record<string, string> = {
-  tao_tu_mail: "Thêm vào luồng đổi trả",
-  ket_thuc: "Kết thúc luồng đổi trả",
-  mo_lai: "Mở lại luồng đổi trả",
-  gan_ca_moi: "Gán ca đổi máy",
-  khong_co_ca_moi: "Xác nhận không có ca mới",
-  bo_ca_moi: "Bỏ gán ca đổi máy",
+  tao_tu_mail: tr("Thêm vào luồng đổi trả"),
+  ket_thuc: tr("Kết thúc luồng đổi trả"),
+  mo_lai: tr("Mở lại luồng đổi trả"),
+  gan_ca_moi: tr("Gán ca đổi máy"),
+  khong_co_ca_moi: tr("Xác nhận không có ca mới"),
+  bo_ca_moi: tr("Bỏ gán ca đổi máy"),
 };
 
 // Cac truong nhay cam / da co o the Thong tin ca - an khoi bang de xuat.
@@ -193,10 +195,10 @@ function khoang(from: string | null, to: string | null): string {
   if (!from || !to) return "";
   const phut = Math.round((Date.parse(to) - Date.parse(from)) / 60000);
   if (phut < 0) return "";
-  if (phut < 60) return `${phut} phút`;
+  if (phut < 60) return tr("{0} phút", phut);
   const gio = Math.floor(phut / 60);
-  if (gio < 24) return `${gio} giờ ${phut % 60 ? `${phut % 60} phút` : ""}`.trim();
-  return `${Math.floor(gio / 24)} ngày ${gio % 24 ? `${gio % 24} giờ` : ""}`.trim();
+  if (gio < 24) return tr("{0} giờ {1}", gio, phut % 60 ? tr("{0} phút", phut % 60) : "").trim();
+  return tr("{0} ngày {1}", Math.floor(gio / 24), gio % 24 ? tr("{0} giờ", gio % 24) : "").trim();
 }
 
 const tenNguoiGui = (t: MailThu) => t.from_name || t.from_email.split("@")[0];
@@ -207,8 +209,8 @@ function NhanThu({ t }: { t: MailThu }) {
   const mocThu = MOC_THU[t.moc];
   return (
     <>
-      {t.la_de_xuat === 1 && <Badge tone="amber">Đề xuất</Badge>}
-      {t.la_duyet === 1 && <Badge tone="teal">Duyệt</Badge>}
+      {t.la_de_xuat === 1 && <Badge tone="amber">{tr("Đề xuất")}</Badge>}
+      {t.la_duyet === 1 && <Badge tone="teal">{tr("Duyệt")}</Badge>}
       {mocThu && <Badge tone={mocThu.tone}>{mocThu.label}</Badge>}
     </>
   );
@@ -224,8 +226,7 @@ function BangDeXuat({ rows }: { rows: [string, string][] }) {
           value={
             /^https?:\/\//.test(v) ? (
               <a className="text-[var(--ocean-600)] hover:underline" href={v} target="_blank" rel="noreferrer">
-                Mở link
-              </a>
+                {tr("Mở link")}</a>
             ) : (
               v
             )
@@ -267,24 +268,23 @@ function CaMoiCard({
   return (
     <Card className="p-3">
       <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
-        <div className="text-xs font-semibold text-[var(--ink-500)]">Ca mới đổi cho KH</div>
-        <Badge tone={gan.tone}>{daXacNhanKhongCo ? "Đã xác nhận không có ca mới" : gan.label}</Badge>
+        <div className="text-xs font-semibold text-[var(--ink-500)]">{tr("Ca mới đổi cho KH")}</div>
+        <Badge tone={gan.tone}>{daXacNhanKhongCo ? tr("Đã xác nhận không có ca mới") : gan.label}</Badge>
       </div>
       {cm?.ca_moi_id ? (
         <>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-            <Field label="Mã ca đổi" value={moCa(cm.ca_moi_id)} />
-            <Field label="Sản phẩm" value={cm.ca_moi_san_pham || "—"} />
-            <Field label="Mở ca mới" value={fmtVn(cm.ca_moi_tn_at)} />
-            <Field label="Tiến độ" value={cm.ca_moi_tien_do || "—"} />
-            {cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) && <Field label="Đổi trả thành công" value={fmtVn(cm.ca_moi_ht_at)} />}
+            <Field label={tr("Mã ca đổi")} value={moCa(cm.ca_moi_id)} />
+            <Field label={tr("Sản phẩm")} value={cm.ca_moi_san_pham || "—"} />
+            <Field label={tr("Mở ca mới")} value={fmtVn(cm.ca_moi_tn_at)} />
+            <Field label={tr("Tiến độ")} value={cm.ca_moi_tien_do || "—"} />
+            {cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) && <Field label={tr("Đổi trả thành công")} value={fmtVn(cm.ca_moi_ht_at)} />}
           </div>
           <div className="flex items-center justify-between gap-2 mt-2 text-xs text-[var(--ink-500)] flex-wrap">
-            <span>{ganBoi ? `Gán bởi ${ganBoi.nguoi} · ${fmtVn(ganBoi.at)}` : ""}</span>
+            <span>{ganBoi ? tr("Gán bởi {0} · {1}", ganBoi.nguoi, fmtVn(ganBoi.at)) : ""}</span>
             {canWrite && (
-              <button type="button" disabled={dangLuu} className="text-[var(--coral-500)] hover:underline disabled:opacity-40" onClick={() => onGan(null, "Đã bỏ gán ca đổi máy.")}>
-                Bỏ gán / nhập lại
-              </button>
+              <button type="button" disabled={dangLuu} className="text-[var(--coral-500)] hover:underline disabled:opacity-40" onClick={() => onGan(null, tr("Đã bỏ gán ca đổi máy."))}>
+                {tr("Bỏ gán / nhập lại")}</button>
             )}
           </div>
         </>
@@ -292,17 +292,16 @@ function CaMoiCard({
         <div className="space-y-2">
           {ungVien.length > 0 ? (
             <div className="space-y-1">
-              <div className="text-xs text-[var(--ink-500)]">Ca cùng ID khách hàng mở sau khi duyệt:</div>
+              <div className="text-xs text-[var(--ink-500)]">{tr("Ca cùng ID khách hàng mở sau khi duyệt:")}</div>
               {ungVien.map((u) => (
                 <div key={u.id} className="flex items-baseline gap-2 text-sm flex-wrap">
                   {moCa(u.id)}
                   <span className="text-xs text-[var(--ink-500)]">{fmtVn(u.tn_at)}</span>
                   <span className="text-xs text-[var(--ink-700)] truncate">{u.san_pham}</span>
-                  {u.khop_model && <Badge tone="teal">Khớp model</Badge>}
+                  {u.khop_model && <Badge tone="teal">{tr("Khớp model")}</Badge>}
                   {canWrite && (
-                    <button type="button" disabled={dangLuu} className="text-xs font-semibold text-[var(--ocean-600)] hover:underline disabled:opacity-40" onClick={() => onGan(u.id, `Đã gán ca đổi ${u.id}.`)}>
-                      Chọn ca này
-                    </button>
+                    <button type="button" disabled={dangLuu} className="text-xs font-semibold text-[var(--ocean-600)] hover:underline disabled:opacity-40" onClick={() => onGan(u.id, tr("Đã gán ca đổi {0}.", u.id))}>
+                      {tr("Chọn ca này")}</button>
                   )}
                 </div>
               ))}
@@ -310,10 +309,10 @@ function CaMoiCard({
           ) : (
             <div className="text-sm text-[var(--ink-400)] italic">
               {daXacNhanKhongCo
-                ? `Đã xác nhận không có ca mới${ganBoi ? ` (${ganBoi.nguoi} · ${fmtVn(ganBoi.at)})` : ""}.`
+                ? tr("Đã xác nhận không có ca mới{0}.", ganBoi ? ` (${ganBoi.nguoi} · ${fmtVn(ganBoi.at)})` : "")
                 : cm?.trang_thai_gan === "khong_co_id_kh"
-                  ? "Ca gốc chưa có ID khách hàng từ pipeline - hệ thống chưa tự tìm được ca mới."
-                  : "Chưa thấy ca nào cùng ID khách hàng được mở sau khi duyệt."}
+                  ? tr("Ca gốc chưa có ID khách hàng từ pipeline - hệ thống chưa tự tìm được ca mới.")
+                  : tr("Chưa thấy ca nào cùng ID khách hàng được mở sau khi duyệt.")}
             </div>
           )}
           {canWrite && (
@@ -321,26 +320,23 @@ function CaMoiCard({
               className="flex items-center gap-2 flex-wrap"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (maHopLe) onGan(ma.trim().toUpperCase(), `Đã gán ca đổi ${ma.trim().toUpperCase()}.`);
+                if (maHopLe) onGan(ma.trim().toUpperCase(), tr("Đã gán ca đổi {0}.", ma.trim().toUpperCase()));
               }}
             >
               <input
                 value={ma}
                 onChange={(e) => setMa(e.target.value)}
-                placeholder="Nhập mã ca đổi (vd 1357104 / SC26...)"
+                placeholder={tr("Nhập mã ca đổi (vd 1357104 / SC26...)")}
                 className="focus-ring flex-1 min-w-[200px] rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-sm font-mono"
               />
               <Btn size="sm" type="submit" disabled={!maHopLe || dangLuu} loading={dangLuu}>
-                Gán ca đổi
-              </Btn>
+                {tr("Gán ca đổi")}</Btn>
               {!daXacNhanKhongCo ? (
-                <Btn size="sm" variant="ghost" type="button" disabled={dangLuu} onClick={() => onGan("", "Đã xác nhận không có ca mới.")}>
-                  Không có ca mới
-                </Btn>
+                <Btn size="sm" variant="ghost" type="button" disabled={dangLuu} onClick={() => onGan("", tr("Đã xác nhận không có ca mới."))}>
+                  {tr("Không có ca mới")}</Btn>
               ) : (
-                <Btn size="sm" variant="ghost" type="button" disabled={dangLuu} onClick={() => onGan(null, "Đã bỏ xác nhận - hệ thống sẽ tự tìm lại.")}>
-                  Bỏ xác nhận
-                </Btn>
+                <Btn size="sm" variant="ghost" type="button" disabled={dangLuu} onClick={() => onGan(null, tr("Đã bỏ xác nhận - hệ thống sẽ tự tìm lại."))}>
+                  {tr("Bỏ xác nhận")}</Btn>
               )}
             </form>
           )}
@@ -375,20 +371,18 @@ function DocMailModal({
     <Modal
       open
       onClose={onClose}
-      title={`Mail đổi trả (${thu.length} thư)`}
+      title={tr("Mail đổi trả ({0} thư)", thu.length)}
       width="max-w-5xl"
       height="h-[88vh]"
       footer={
         <div className="flex items-center justify-between gap-2">
           <Btn variant="ghost" size="sm" disabled={idx === 0} onClick={() => chon(idx - 1)}>
-            ‹ Thư trước
-          </Btn>
+            {tr("‹ Thư trước")}</Btn>
           <span className="text-xs text-[var(--ink-500)]">
             {idx + 1} / {thu.length}
           </span>
           <Btn variant="ghost" size="sm" disabled={idx === thu.length - 1} onClick={() => chon(idx + 1)}>
-            Thư sau ›
-          </Btn>
+            {tr("Thư sau ›")}</Btn>
         </div>
       }
     >
@@ -418,20 +412,20 @@ function DocMailModal({
           <div className="font-semibold text-[var(--ink-900)] mb-1">{t.subject}</div>
           <div className="flex items-center gap-1.5 flex-wrap mb-2">
             <NhanThu t={t} />
-            {t.nguon === "trich_dan" && <Badge tone="gray">Khôi phục từ trích dẫn</Badge>}
+            {t.nguon === "trich_dan" && <Badge tone="gray">{tr("Khôi phục từ trích dẫn")}</Badge>}
           </div>
           <div className="text-xs text-[var(--ink-500)] space-y-0.5 mb-3 border-b border-[var(--line)] pb-2">
             <div>
               <b className="text-[var(--ink-700)]">{t.from_name || t.from_email}</b> {t.from_name && `<${t.from_email}>`} · {fmtVn(t.sent_at)}
             </div>
-            {t.to_addr && <div className="break-words">Đến: {t.to_addr}</div>}
+            {t.to_addr && <div className="break-words">{tr("Đến:")} {t.to_addr}</div>}
             {t.cc_addr && <div className="break-words">CC: {t.cc_addr}</div>}
           </div>
           <div className="text-sm text-[var(--ink-700)] whitespace-pre-line break-words space-y-1">
             {dong.map((s, i) =>
               GHI_CHU_BANG.test(s.trim()) && deXuat.length ? (
                 <div key={i} className="my-2 rounded-lg border border-[var(--line)] p-3 bg-slate-50/60">
-                  <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">Bảng đề xuất đổi</div>
+                  <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Bảng đề xuất đổi")}</div>
                   <BangDeXuat rows={deXuat} />
                 </div>
               ) : (
@@ -442,12 +436,11 @@ function DocMailModal({
           <div className="flex items-center gap-3 mt-3 pt-2 border-t border-[var(--line)] text-xs text-[var(--ink-500)] flex-wrap">
             {t.attachments.length > 0 && <span>📎 {t.attachments.map((a) => a.name).join(", ")}</span>}
             <button type="button" className="text-[var(--ocean-600)] hover:underline" onClick={() => setNguyenVan((v) => !v)}>
-              {nguyenVan ? "Xem bản gọn" : "Xem nguyên văn"}
+              {nguyenVan ? tr("Xem bản gọn") : tr("Xem nguyên văn")}
             </button>
             {t.gmail_link && (
               <a className="text-[var(--ocean-600)] hover:underline" href={t.gmail_link} target="_blank" rel="noreferrer">
-                Mở trong Gmail theo dõi
-              </a>
+                {tr("Mở trong Gmail theo dõi")}</a>
             )}
           </div>
         </div>
@@ -460,25 +453,22 @@ function DocMailModal({
 function KetThucModal({ caseId, dangLuu, onClose, onXacNhan }: { caseId: string; dangLuu: boolean; onClose: () => void; onXacNhan: (ghiChu: string) => void }) {
   const [ghiChu, setGhiChu] = useState("");
   return (
-    <Modal open onClose={onClose} title="Kết thúc luồng đổi trả?" width="max-w-md">
+    <Modal open onClose={onClose} title={tr("Kết thúc luồng đổi trả?")} width="max-w-md">
       <div className="space-y-3">
         <div className="text-sm text-[var(--ink-700)]">
-          Xác nhận luồng đổi trả của ca <b className="font-mono">{caseId}</b> đã xong. Hệ thống sẽ <b>ngừng tự động cập nhật</b> (đồng bộ tranh chấp, tìm ca mới) cho ca này; mail mới vẫn được lưu, vẫn nhập mã ca đổi thủ công được. Có thể mở lại sau. (Luồng không có thông tin mới trong 30 ngày sẽ được hệ thống tự kết thúc.)
-        </div>
+          {tr("Xác nhận luồng đổi trả của ca")} <b className="font-mono">{caseId}</b>  {tr("đã xong. Hệ thống sẽ")} <b>{tr("ngừng tự động cập nhật")}</b>  {tr("(đồng bộ tranh chấp, tìm ca mới) cho ca này; mail mới vẫn được lưu, vẫn nhập mã ca đổi thủ công được. Có thể mở lại sau. (Luồng không có thông tin mới trong 30 ngày sẽ được hệ thống tự kết thúc.)")}</div>
         <textarea
           value={ghiChu}
           onChange={(e) => setGhiChu(e.target.value)}
           rows={3}
-          placeholder="Ghi chú (tuỳ chọn) - vd: KH đã nhận máy mới"
+          placeholder={tr("Ghi chú (tuỳ chọn) - vd: KH đã nhận máy mới")}
           className="focus-ring w-full rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-sm"
         />
         <div className="flex justify-end gap-2">
           <Btn variant="ghost" onClick={onClose}>
-            Hủy
-          </Btn>
+            {tr("Hủy")}</Btn>
           <Btn variant="success" loading={dangLuu} onClick={() => onXacNhan(ghiChu.trim())}>
-            Kết thúc luồng
-          </Btn>
+            {tr("Kết thúc luồng")}</Btn>
         </div>
       </div>
     </Modal>
@@ -498,14 +488,13 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-[var(--ink-500)]">
-        <LoadingInline /> Đang tải luồng đổi trả…
-      </div>
+        <LoadingInline />  {tr("Đang tải luồng đổi trả…")}</div>
     );
   }
-  if (!data || !data.configured) return <div className="text-xs text-[var(--ink-400)] italic">Chưa cấu hình kết nối hệ Theo dõi đổi máy.</div>;
-  if (!data.ok) return <div className="text-xs text-red-600 italic">Không tải được luồng đổi trả ({data.error}).</div>;
+  if (!data || !data.configured) return <div className="text-xs text-[var(--ink-400)] italic">{tr("Chưa cấu hình kết nối hệ Theo dõi đổi máy.")}</div>;
+  if (!data.ok) return <div className="text-xs text-red-600 italic">{tr("Không tải được luồng đổi trả (")}{data.error}).</div>;
   if (!data.found || !data.luong) {
-    return <div className="text-sm text-[var(--ink-400)] italic">Chưa có luồng đổi trả nào gắn với ca này.</div>;
+    return <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có luồng đổi trả nào gắn với ca này.")}</div>;
   }
 
   const l = data.luong;
@@ -516,22 +505,22 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
   const ganBoi = [...nhatKy].reverse().find((n) => n.hanh_dong === "gan_ca_moi" || n.hanh_dong === "khong_co_ca_moi");
   const daKetThuc = !!l.ket_thuc_at;
   const moc: { label: string; at: string | null | undefined; who?: string }[] = [
-    { label: "Phát sinh", at: l.origin_at, who: l.origin_name || l.origin_email },
-    { label: "Karofi tiếp nhận", at: l.tiep_nhan_at },
-    { label: "Đề xuất đổi", at: l.de_xuat_at, who: l.de_xuat_from },
-    { label: l.duyet_xac_nhan ? "Duyệt (đã xác nhận)" : "Duyệt", at: l.duyet_at, who: l.duyet_from },
-    { label: "Giao xử lý", at: l.giao_xu_ly_at },
-    { label: "Lên SO", at: l.len_so_at },
-    { label: "Lên DO", at: l.len_do_at },
+    { label: tr("Phát sinh"), at: l.origin_at, who: l.origin_name || l.origin_email },
+    { label: tr("Karofi tiếp nhận"), at: l.tiep_nhan_at },
+    { label: tr("Đề xuất đổi"), at: l.de_xuat_at, who: l.de_xuat_from },
+    { label: l.duyet_xac_nhan ? tr("Duyệt (đã xác nhận)") : tr("Duyệt"), at: l.duyet_at, who: l.duyet_from },
+    { label: tr("Giao xử lý"), at: l.giao_xu_ly_at },
+    { label: tr("Lên SO"), at: l.len_so_at },
+    { label: tr("Lên DO"), at: l.len_do_at },
   ];
   if (l.duyet_at || cm?.ca_moi_id) {
-    moc.push({ label: "Mở ca mới", at: cm?.ca_moi_id ? cm.ca_moi_tn_at : null, who: cm?.ca_moi_id ?? undefined });
+    moc.push({ label: tr("Mở ca mới"), at: cm?.ca_moi_id ? cm.ca_moi_tn_at : null, who: cm?.ca_moi_id ?? undefined });
     moc.push({
-      label: "Đổi trả thành công",
+      label: tr("Đổi trả thành công"),
       at: cm?.ca_moi_id && cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) ? cm.ca_moi_ht_at : null,
     });
   }
-  if (daKetThuc) moc.push({ label: "Kết thúc luồng", at: l.ket_thuc_at, who: l.ket_thuc_boi });
+  if (daKetThuc) moc.push({ label: tr("Kết thúc luồng"), at: l.ket_thuc_at, who: l.ket_thuc_boi });
   const deXuat = Object.entries(l.de_xuat ?? {}).filter(([k, v]) => v && !AN_TRUONG_DE_XUAT.has(k));
   const deXuatChinh = TRUONG_CHINH.map((k) => [k, l.de_xuat?.[k] ?? ""] as [string, string]).filter(([, v]) => v);
   const ganCaMoi = (caMoiId: string | null, thongBao: string) => thaoTac.mutate({ action: "ca-moi", body: { ca_moi_id: caMoiId }, thongBao });
@@ -543,8 +532,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
           <div className="flex items-center gap-1.5 flex-wrap">
             {daKetThuc ? (
               <Badge tone="gray" solid>
-                Đã kết thúc luồng
-              </Badge>
+                {tr("Đã kết thúc luồng")}</Badge>
             ) : (
               <Badge tone={tt.tone} solid>
                 {tt.label}
@@ -556,7 +544,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
           <div className="flex items-center gap-1.5">
             {thu.length > 0 && (
               <Btn variant="subtle" size="sm" onClick={() => setDocIdx(thu.length - 1)}>
-                ✉ Đọc mail ({thu.length})
+                {tr("✉ Đọc mail (")}{thu.length})
               </Btn>
             )}
             {canWrite &&
@@ -565,22 +553,19 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
                   variant="ghost"
                   size="sm"
                   loading={thaoTac.isPending}
-                  onClick={() => thaoTac.mutate({ action: "mo-lai", body: {}, thongBao: "Đã mở lại luồng đổi trả - hệ thống tiếp tục tự cập nhật." })}
+                  onClick={() => thaoTac.mutate({ action: "mo-lai", body: {}, thongBao: tr("Đã mở lại luồng đổi trả - hệ thống tiếp tục tự cập nhật.") })}
                 >
-                  Mở lại luồng
-                </Btn>
+                  {tr("Mở lại luồng")}</Btn>
               ) : (
                 <Btn variant="success" size="sm" onClick={() => setHoiKetThuc(true)}>
-                  ✓ Kết thúc luồng
-                </Btn>
+                  {tr("✓ Kết thúc luồng")}</Btn>
               ))}
           </div>
         </div>
         {daKetThuc && (
           <div className="text-xs text-[var(--ink-500)] mb-2">
-            Kết thúc bởi <b className="text-[var(--ink-700)]">{l.ket_thuc_boi}</b> · {fmtVn(l.ket_thuc_at)}
-            {l.ket_thuc_ghi_chu ? ` · ${l.ket_thuc_ghi_chu}` : ""} — hệ thống không còn tự tìm/cập nhật; vẫn nhập mã ca đổi thủ công được.
-          </div>
+            {tr("Kết thúc bởi")} <b className="text-[var(--ink-700)]">{l.ket_thuc_boi}</b> · {fmtVn(l.ket_thuc_at)}
+            {l.ket_thuc_ghi_chu ? ` · ${l.ket_thuc_ghi_chu}` : ""}  {tr("— hệ thống không còn tự tìm/cập nhật; vẫn nhập mã ca đổi thủ công được.")}</div>
         )}
         <ol className="space-y-1">
           {moc.map((m, i) => {
@@ -605,8 +590,8 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
       {deXuat.length > 0 && (
         <Card className="p-3">
           <button type="button" className="w-full flex items-center justify-between gap-2 text-left" onClick={() => setMoDeXuat((v) => !v)}>
-            <span className="text-xs font-semibold text-[var(--ink-500)]">Nội dung đề xuất đổi</span>
-            <span className="text-xs text-[var(--ocean-600)]">{moDeXuat ? "Thu gọn ▴" : `Xem đủ ${deXuat.length} trường ▾`}</span>
+            <span className="text-xs font-semibold text-[var(--ink-500)]">{tr("Nội dung đề xuất đổi")}</span>
+            <span className="text-xs text-[var(--ocean-600)]">{moDeXuat ? tr("Thu gọn ▴") : tr("Xem đủ {0} trường ▾", deXuat.length)}</span>
           </button>
           <div className="mt-2">
             <BangDeXuat rows={moDeXuat ? deXuat : deXuatChinh} />
@@ -616,7 +601,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
 
       {thu.length > 0 && (
         <Card className="p-0 overflow-hidden">
-          <div className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-[var(--ink-500)]">Nhật ký mail · bấm 1 thư để đọc</div>
+          <div className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-[var(--ink-500)]">{tr("Nhật ký mail · bấm 1 thư để đọc")}</div>
           <ol className="divide-y divide-[var(--line)]">
             {thu.map((t, i) => (
               <li key={`${t.gmail_id}-${i}`}>
@@ -640,7 +625,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
 
       {nhatKy.length > 0 && (
         <Card className="p-3">
-          <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">Nhật ký thao tác</div>
+          <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Nhật ký thao tác")}</div>
           <ol className="space-y-1">
             {nhatKy.map((n, i) => (
               <li key={i} className="flex items-baseline gap-2 text-xs flex-wrap">
@@ -662,7 +647,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
           onClose={() => setHoiKetThuc(false)}
           onXacNhan={(ghiChu) =>
             thaoTac.mutate(
-              { action: "ket-thuc", body: { ghi_chu: ghiChu }, thongBao: "Đã kết thúc luồng đổi trả." },
+              { action: "ket-thuc", body: { ghi_chu: ghiChu }, thongBao: tr("Đã kết thúc luồng đổi trả.") },
               { onSuccess: () => setHoiKetThuc(false) },
             )
           }

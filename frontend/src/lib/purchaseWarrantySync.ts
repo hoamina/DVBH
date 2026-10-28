@@ -7,6 +7,8 @@
 import { parseTsv } from "./tsvParser";
 import { getCachedEntry, setCachedEntry } from "./closedDataCache";
 import { fetchPoEoRows, mergePoRows } from "./poDatHangEo";
+import { tr } from "../i18n/tr";
+
 
 export type PurchaseWarrantyDataset = "mua-hang" | "bao-hanh" | "thieu-hang" | "qc-thuc-te" | "po-dat-hang";
 
@@ -238,7 +240,7 @@ export async function getDataset(dataset: PurchaseWarrantyDataset, opts?: { forc
       getSheetDataset(dataset, opts).catch(() => ({ rows: [] as SheetRow[], cachedAt: "" })),
       fetchPoEoRows(!!opts?.force),
     ]);
-    if (sheet.rows.length === 0 && app.length === 0) throw new Error("Không tải được PO từ Google Sheet lẫn app EO");
+    if (sheet.rows.length === 0 && app.length === 0) throw new Error(tr("Không tải được PO từ Google Sheet lẫn app EO"));
     return { rows: mergePoRows(sheet.rows, app), cachedAt: new Date().toISOString() };
   }
   return getSheetDataset(dataset, opts);

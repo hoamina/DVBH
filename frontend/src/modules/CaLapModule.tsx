@@ -37,6 +37,8 @@ import { ImportGiaiTrinhLapModal, VAI_TRO_IMPORT_GIAI_TRINH_LAP } from "../compo
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
+import { tr } from "../i18n/tr";
+
 
 interface BlacklistImportSummary {
   thanhCong: number;
@@ -45,20 +47,20 @@ interface BlacklistImportSummary {
 }
 
 const VIEWS = [
-  { key: "tong-quan", label: "Tổng quan" },
-  { key: "danh-sach", label: "Danh sách ca lặp" },
+  { key: "tong-quan", label: tr("Tổng quan") },
+  { key: "danh-sach", label: tr("Danh sách ca lặp") },
   { key: "blacklist", label: "Blacklist serial" },
 ];
 
 const TRANG_THAI_TABS = [
-  { key: "", label: "Tất cả" },
-  { key: "can-danh-gia", label: "Cần đánh giá" },
-  { key: "cho-qc", label: "Chờ QC" },
-  { key: "da-chot", label: "Đã chốt" },
-  { key: "qua-han-lap", label: "Quá hạn lặp" },
+  { key: "", label: tr("Tất cả") },
+  { key: "can-danh-gia", label: tr("Cần đánh giá") },
+  { key: "cho-qc", label: tr("Chờ QC") },
+  { key: "da-chot", label: tr("Đã chốt") },
+  { key: "qua-han-lap", label: tr("Quá hạn lặp") },
 ];
 
-const TRANG_THAI_LABELS: Record<string, string> = { "can-danh-gia": "Cần đánh giá", "cho-qc": "Chờ QC", "da-chot": "Đã chốt" };
+const TRANG_THAI_LABELS: Record<string, string> = { "can-danh-gia": tr("Cần đánh giá"), "cho-qc": tr("Chờ QC"), "da-chot": tr("Đã chốt") };
 
 function pct(a: number | undefined, b: number | undefined) {
   return b ? Math.round(((a ?? 0) / b) * 1000) / 10 : 0;
@@ -311,7 +313,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const addBlacklistMutation = useMutation({
     mutationFn: () => api.post("/ca-lap/blacklist", { seri_san_pham: newSerial }),
     onSuccess: () => {
-      addToast(`Đã thêm serial ${newSerial} vào blacklist`);
+      addToast(tr("Đã thêm serial {0} vào blacklist", newSerial));
       setNewSerial("");
       setAddBlacklistOpen(false);
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
@@ -319,13 +321,13 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
       qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
     },
-    onError: () => addToast("Không thể thêm serial vào blacklist, thử lại sau."),
+    onError: () => addToast(tr("Không thể thêm serial vào blacklist, thử lại sau.")),
   });
 
   const toggleBlacklistMutation = useMutation({
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/ca-lap/blacklist/${id}`, { bat_tat }),
     onSuccess: () => {
-      addToast("Đã cập nhật blacklist serial");
+      addToast(tr("Đã cập nhật blacklist serial"));
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-list"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
@@ -336,14 +338,14 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const deleteBlacklistMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/ca-lap/blacklist/${id}`),
     onSuccess: () => {
-      addToast("Đã xoá serial khỏi blacklist");
+      addToast(tr("Đã xoá serial khỏi blacklist"));
       setDeleteConfirmRow(null);
       qc.invalidateQueries({ queryKey: ["ca-lap-blacklist"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-list"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-status"] });
       qc.invalidateQueries({ queryKey: ["ca-lap-tong-quan"] });
     },
-    onError: () => addToast("Không thể xoá serial, thử lại sau."),
+    onError: () => addToast(tr("Không thể xoá serial, thử lại sau.")),
   });
 
   // Khop dung cot hien tren PaginatedTable "Danh sach ca lap" ben duoi (mang "columns").
@@ -393,7 +395,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     { key: "seri_san_pham", header: "Serial", render: (r) => <span className="font-mono text-xs">{r.seri_san_pham}</span> },
     {
       key: "khach_hang",
-      header: "Khách hàng",
+      header: tr("Khách hàng"),
       render: (r) => (
         <>
           {isVipKh(r.nhom_kh) && <VipBadge />}
@@ -402,29 +404,29 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
       ),
     },
     { key: "ky_thuat_vien", header: "KTV", render: (r) => r.ky_thuat_vien ?? "—" },
-    { key: "hoan_thanh", header: "Hoàn thành", sortKey: "thoi_gian_hoan_thanh", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
-    { key: "prior_id", header: "Ca trước", render: (r) => <span className="font-mono text-xs">{r.prior_id}</span> },
-    { key: "gap_days", header: "Khoảng cách (ngày)", render: (r) => <span className="font-mono">{r.gap_days.toFixed(1)}</span> },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), sortKey: "thoi_gian_hoan_thanh", render: (r) => <span className="text-xs">{fmtDateTime(r.thoi_gian_hoan_thanh)}</span> },
+    { key: "prior_id", header: tr("Ca trước"), render: (r) => <span className="font-mono text-xs">{r.prior_id}</span> },
+    { key: "gap_days", header: tr("Khoảng cách (ngày)"), render: (r) => <span className="font-mono">{r.gap_days.toFixed(1)}</span> },
     {
       key: "trang_thai",
-      header: "Trạng thái",
+      header: tr("Trạng thái"),
       render: (r) => {
         const t = trangThaiLapOf(r);
         return <Badge tone={t.tone}>{t.label}</Badge>;
       },
     },
-    { key: "chot_hinh_thuc_xu_ly", header: "Chốt hình thức xử lý", render: (r) => <span className="text-xs">{r.chot_hinh_thuc_xu_ly ?? "—"}</span> },
-    { key: "nguoi_giai_trinh", header: "Người giải trình", render: (r) => <span className="text-xs">{r.nguoi_giai_trinh ? formatPersonDisplay(r.nguoi_giai_trinh, personDir) : "—"}</span> },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => shortKhuVuc(r.khu_vuc) },
+    { key: "chot_hinh_thuc_xu_ly", header: tr("Chốt hình thức xử lý"), render: (r) => <span className="text-xs">{r.chot_hinh_thuc_xu_ly ?? "—"}</span> },
+    { key: "nguoi_giai_trinh", header: tr("Người giải trình"), render: (r) => <span className="text-xs">{r.nguoi_giai_trinh ? formatPersonDisplay(r.nguoi_giai_trinh, personDir) : "—"}</span> },
+    { key: "khu_vuc", header: tr("Khu vực"), render: (r) => shortKhuVuc(r.khu_vuc) },
   ];
 
   const blacklistColumns: Column<BlacklistSerialRow>[] = [
     { key: "seri_san_pham", header: "Serial", render: (r) => <span className="font-mono text-sm">{r.seri_san_pham}</span> },
-    { key: "nguoi_them", header: "Người thêm", render: (r) => formatPersonDisplay(r.nguoi_them, personDir) },
-    { key: "ngay_them", header: "Ngày thêm", render: (r) => <span className="text-xs">{fmtDateTime(r.ngay_them)}</span> },
+    { key: "nguoi_them", header: tr("Người thêm"), render: (r) => formatPersonDisplay(r.nguoi_them, personDir) },
+    { key: "ngay_them", header: tr("Ngày thêm"), render: (r) => <span className="text-xs">{fmtDateTime(r.ngay_them)}</span> },
     {
       key: "bat_tat",
-      header: "Bật / Tắt",
+      header: tr("Bật / Tắt"),
       render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleBlacklistMutation.mutate({ id: r.id, bat_tat: !r.bat_tat })} />,
     },
     {
@@ -436,8 +438,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
           onClick={() => setDeleteConfirmRow(r)}
           className="text-xs font-semibold text-[var(--coral-500)] hover:underline"
         >
-          🗑 Xoá
-        </button>
+          {tr("🗑 Xoá")}</button>
       ),
     },
   ];
@@ -451,8 +452,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
         setPage(1);
       }}
       options={[
-        { value: "", label: "Tất cả khu vực" },
-        { value: QLDVBH_FILTER_VALUE, label: "Tất cả DVBH (MB/MN...)" },
+        { value: "", label: tr("Tất cả khu vực") },
+        { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
         ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
       ]}
       myAreas={myAreas}
@@ -481,24 +482,24 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Tổng ca cần rà soát" value={tq?.kpi.tongCanRaSoat ?? 0} tone="ocean" sub="Ca đã đóng trong kỳ đã chọn" />
-            <StatCard label="Ca serial chuẩn" value={tq?.kpi.tongSerialChuan ?? 0} tone="ocean" sub="Serial hợp lệ, không blacklist" />
-            <StatCard label="Tỷ lệ serial sai" value={`${tq?.kpi.tySerialSai ?? 0}%`} tone="amber" sub="Rỗng, quá ngắn (≤4 ký tự) hoặc bị blacklist" />
-            <StatCard label="Tổng ca lặp" value={tq?.kpi.tongLap ?? 0} tone="coral" sub={`${tq?.kpi.quaHanLap ?? 0} ca quá hạn lặp (loại khỏi lặp)`} />
-            <StatCard label="Serial phát lặp" value={tq?.kpi.serialLapCount ?? 0} tone="amber" sub="Số serial duy nhất bị lặp" />
-            <StatCard label="Đã giải trình" value={tq?.kpi.daGiaiTrinh ?? 0} tone="teal" sub={`${pct(tq?.kpi.daGiaiTrinh, tq?.kpi.tongLap)}% tổng ca lặp`} />
-            <StatCard label="Chưa giải trình" value={tq?.kpi.chuaGiaiTrinh ?? 0} tone="amber" sub="Cần giám sát xử lý" />
-            <StatCard label="KTV liên quan" value={tq?.kpi.ktvLienQuan ?? 0} tone="ocean" sub="Kỹ thuật viên có ca lặp" />
-            <StatCard label="Lỗi lặp đã chốt" value={tq?.kpi.loiLapDaChot ?? 0} tone="coral" sub={`Tỷ lệ lỗi lặp ${tq?.kpi.tyLeLoiLap ?? 0}%`} />
-            <StatCard label="Tỷ lệ GS đã đánh giá" value={`${tq?.kpi.gsRate ?? 0}%`} tone="ocean" />
-            <StatCard label="Tỷ lệ QC đã đánh giá" value={`${tq?.kpi.qcRate ?? 0}%`} tone="ocean" />
+            <StatCard label={tr("Tổng ca cần rà soát")} value={tq?.kpi.tongCanRaSoat ?? 0} tone="ocean" sub={tr("Ca đã đóng trong kỳ đã chọn")} />
+            <StatCard label={tr("Ca serial chuẩn")} value={tq?.kpi.tongSerialChuan ?? 0} tone="ocean" sub={tr("Serial hợp lệ, không blacklist")} />
+            <StatCard label={tr("Tỷ lệ serial sai")} value={`${tq?.kpi.tySerialSai ?? 0}%`} tone="amber" sub={tr("Rỗng, quá ngắn (≤4 ký tự) hoặc bị blacklist")} />
+            <StatCard label={tr("Tổng ca lặp")} value={tq?.kpi.tongLap ?? 0} tone="coral" sub={tr("{0} ca quá hạn lặp (loại khỏi lặp)", tq?.kpi.quaHanLap ?? 0)} />
+            <StatCard label={tr("Serial phát lặp")} value={tq?.kpi.serialLapCount ?? 0} tone="amber" sub={tr("Số serial duy nhất bị lặp")} />
+            <StatCard label={tr("Đã giải trình")} value={tq?.kpi.daGiaiTrinh ?? 0} tone="teal" sub={tr("{0}% tổng ca lặp", pct(tq?.kpi.daGiaiTrinh, tq?.kpi.tongLap))} />
+            <StatCard label={tr("Chưa giải trình")} value={tq?.kpi.chuaGiaiTrinh ?? 0} tone="amber" sub={tr("Cần giám sát xử lý")} />
+            <StatCard label={tr("KTV liên quan")} value={tq?.kpi.ktvLienQuan ?? 0} tone="ocean" sub={tr("Kỹ thuật viên có ca lặp")} />
+            <StatCard label={tr("Lỗi lặp đã chốt")} value={tq?.kpi.loiLapDaChot ?? 0} tone="coral" sub={tr("Tỷ lệ lỗi lặp {0}%", tq?.kpi.tyLeLoiLap ?? 0)} />
+            <StatCard label={tr("Tỷ lệ GS đã đánh giá")} value={`${tq?.kpi.gsRate ?? 0}%`} tone="ocean" />
+            <StatCard label={tr("Tỷ lệ QC đã đánh giá")} value={`${tq?.kpi.qcRate ?? 0}%`} tone="ocean" />
           </div>
 
           <Card className="p-4 mb-4">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div>
-                <div className="font-display font-bold text-sm">Báo cáo theo khu vực</div>
-                <div className="text-xs text-[var(--ink-400)] mt-0.5">Sắp xếp theo tên khu vực (A-Z)</div>
+                <div className="font-display font-bold text-sm">{tr("Báo cáo theo khu vực")}</div>
+                <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Sắp xếp theo tên khu vực (A-Z)")}</div>
               </div>
               <Btn
                 variant="ghost"
@@ -512,26 +513,24 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
                   )
                 }
               >
-                ⬇ Xuất Excel
-              </Btn>
+                {tr("⬇ Xuất Excel")}</Btn>
             </div>
             <div className="overflow-x-auto">
               <table className="dense w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th className="py-2 pr-3">Khu vực</th>
-                    <th className="py-2 pr-3">Tổng cần rà soát</th>
-                    <th className="py-2 pr-3">Serial chuẩn</th>
+                    <th className="py-2 pr-3">{tr("Khu vực")}</th>
+                    <th className="py-2 pr-3">{tr("Tổng cần rà soát")}</th>
+                    <th className="py-2 pr-3">{tr("Serial chuẩn")}</th>
                     <th className="py-2 pr-3">Serial sai</th>
-                    <th className="py-2 pr-3">Tỷ lệ sai</th>
-                    <th className="py-2 pr-3">Ca lặp</th>
-                    <th className="py-2 pr-3">Serial lặp</th>
+                    <th className="py-2 pr-3">{tr("Tỷ lệ sai")}</th>
+                    <th className="py-2 pr-3">{tr("Ca lặp")}</th>
+                    <th className="py-2 pr-3">{tr("Serial lặp")}</th>
                     <th className="py-2 pr-3" style={{ minWidth: 140 }}>
-                      Tồn đọng
-                    </th>
-                    <th className="py-2 pr-3">Đã giải trình</th>
-                    <th className="py-2 pr-3">Lỗi lặp đã chốt</th>
-                    <th className="py-2 pr-3">Cần GS / QC xử lý</th>
+                      {tr("Tồn đọng")}</th>
+                    <th className="py-2 pr-3">{tr("Đã giải trình")}</th>
+                    <th className="py-2 pr-3">{tr("Lỗi lặp đã chốt")}</th>
+                    <th className="py-2 pr-3">{tr("Cần GS / QC xử lý")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -541,13 +540,13 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
                       const totalColor = conDongColor(totalRate);
                       return (
                         <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                          <td className="py-2 pr-3">Tổng cộng</td>
+                          <td className="py-2 pr-3">{tr("Tổng cộng")}</td>
                           <td className="py-2 pr-3 font-mono">{khuVucTotal.raSoat}</td>
                           <td className="py-2 pr-3 font-mono">{khuVucTotal.valid_serial}</td>
                           <td className="py-2 pr-3 font-mono">{khuVucTotal.serial_sai}</td>
                           <td className="py-2 pr-3 font-mono">{pct(khuVucTotal.serial_sai, khuVucTotal.raSoat)}%</td>
                           <td className="py-2 pr-3 font-mono">{khuVucTotal.lap_n}</td>
-                          <td className="py-2 pr-3 font-mono text-[var(--ink-400)]" title="Không cộng được (đếm serial khác nhau, có thể trùng giữa các nhóm)">
+                          <td className="py-2 pr-3 font-mono text-[var(--ink-400)]" title={tr("Không cộng được (đếm serial khác nhau, có thể trùng giữa các nhóm)")}>
                             —
                           </td>
                           <td className="py-2 pr-3">
@@ -603,8 +602,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
                   {sortedKhuVucRows.length === 0 && (
                     <tr>
                       <td colSpan={11} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                        Không có dữ liệu.
-                      </td>
+                        {tr("Không có dữ liệu.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -613,16 +611,16 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
           </Card>
 
           <Card className="p-4 mb-4">
-            <div className="font-display font-bold text-sm mb-3">10 KTV có nhiều ca lặp nhất</div>
+            <div className="font-display font-bold text-sm mb-3">{tr("10 KTV có nhiều ca lặp nhất")}</div>
             <div className="overflow-x-auto">
               <table className="dense w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                    <th className="py-2 pr-3">Kỹ thuật viên</th>
-                    <th className="py-2 pr-3">Tổng ca cần rà soát</th>
-                    <th className="py-2 pr-3">Tổng ca lặp</th>
-                    <th className="py-2 pr-3">Đã giải trình</th>
-                    <th className="py-2 pr-3">Lỗi đã chốt</th>
+                    <th className="py-2 pr-3">{tr("Kỹ thuật viên")}</th>
+                    <th className="py-2 pr-3">{tr("Tổng ca cần rà soát")}</th>
+                    <th className="py-2 pr-3">{tr("Tổng ca lặp")}</th>
+                    <th className="py-2 pr-3">{tr("Đã giải trình")}</th>
+                    <th className="py-2 pr-3">{tr("Lỗi đã chốt")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -638,8 +636,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
                   {(tq?.ktvTable ?? []).length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                        Không có dữ liệu.
-                      </td>
+                        {tr("Không có dữ liệu.")}</td>
                     </tr>
                   )}
                 </tbody>
@@ -649,17 +646,17 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
             <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Xu hướng ca lặp theo ngày hoàn thành</div>
+              <div className="font-display font-bold text-sm mb-3">{tr("Xu hướng ca lặp theo ngày hoàn thành")}</div>
               <ChartCanvas
                 type="line"
                 data={{
                   labels: (tq?.charts.trend ?? []).map((r) => r.ngay.slice(5)),
-                  datasets: [{ label: "Số ca", data: (tq?.charts.trend ?? []).map((r) => r.so_ca), borderColor: "#0E7C6B", backgroundColor: "rgba(14,124,107,.12)", fill: true, tension: 0.3, pointRadius: 3 }],
+                  datasets: [{ label: tr("Số ca"), data: (tq?.charts.trend ?? []).map((r) => r.so_ca), borderColor: "#0E7C6B", backgroundColor: "rgba(14,124,107,.12)", fill: true, tension: 0.3, pointRadius: 3 }],
                 }}
               />
             </Card>
             <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Trạng thái giải trình (ca lặp ≤45 ngày)</div>
+              <div className="font-display font-bold text-sm mb-3">{tr("Trạng thái giải trình (ca lặp ≤45 ngày)")}</div>
               <ChartCanvas
                 type="doughnut"
                 height={220}
@@ -672,19 +669,19 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Top KTV theo số ca lặp</div>
+              <div className="font-display font-bold text-sm mb-3">{tr("Top KTV theo số ca lặp")}</div>
               <ChartCanvas
                 type="bar"
                 height={200}
                 data={{
                   labels: (tq?.charts.topKtv ?? []).map((r) => (r.nhom.length > 16 ? r.nhom.slice(0, 16) + "…" : r.nhom)),
-                  datasets: [{ label: "Số ca", data: (tq?.charts.topKtv ?? []).map((r) => r.so_ca), backgroundColor: "#0E7C6B", borderRadius: 4 }],
+                  datasets: [{ label: tr("Số ca"), data: (tq?.charts.topKtv ?? []).map((r) => r.so_ca), backgroundColor: "#0E7C6B", borderRadius: 4 }],
                 }}
                 options={{ indexAxis: "y" as const }}
               />
             </Card>
             <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Loại lỗi đã chốt</div>
+              <div className="font-display font-bold text-sm mb-3">{tr("Loại lỗi đã chốt")}</div>
               <ChartCanvas
                 type="pie"
                 height={200}
@@ -695,13 +692,13 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
               />
             </Card>
             <Card className="p-4">
-              <div className="font-display font-bold text-sm mb-3">Top tỉnh có ca lặp</div>
+              <div className="font-display font-bold text-sm mb-3">{tr("Top tỉnh có ca lặp")}</div>
               <ChartCanvas
                 type="bar"
                 height={200}
                 data={{
                   labels: (tq?.charts.topTinh ?? []).map((r) => r.nhom),
-                  datasets: [{ label: "Số ca", data: (tq?.charts.topTinh ?? []).map((r) => r.so_ca), backgroundColor: "#C97A2B", borderRadius: 4 }],
+                  datasets: [{ label: tr("Số ca"), data: (tq?.charts.topTinh ?? []).map((r) => r.so_ca), backgroundColor: "#C97A2B", borderRadius: 4 }],
                 }}
               />
             </Card>
@@ -724,10 +721,10 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
-            <StatCard label="Tổng ca lặp (≤45 ngày)" value={kpi?.tongLap ?? 0} tone="coral" />
-            <StatCard label="Chờ QC" value={kpi?.choQc ?? 0} tone="amber" />
-            <StatCard label="Đã chốt" value={kpi?.daChot ?? 0} tone="teal" />
-            <StatCard label="Quá hạn lặp (loại khỏi thống kê)" value={kpi?.quaHanLap ?? 0} tone="gray" />
+            <StatCard label={tr("Tổng ca lặp (≤45 ngày)")} value={kpi?.tongLap ?? 0} tone="coral" />
+            <StatCard label={tr("Chờ QC")} value={kpi?.choQc ?? 0} tone="amber" />
+            <StatCard label={tr("Đã chốt")} value={kpi?.daChot ?? 0} tone="teal" />
+            <StatCard label={tr("Quá hạn lặp (loại khỏi thống kê)")} value={kpi?.quaHanLap ?? 0} tone="gray" />
           </div>
 
           <div className="flex items-center justify-between mb-1">
@@ -735,11 +732,10 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             <div className="flex items-center gap-2">
               {canImportGtl && (
                 <Btn variant="ghost" size="sm" onClick={() => setImportGtlOpen(true)}>
-                  ⬆ Import giải trình lặp
-                </Btn>
+                  {tr("⬆ Import giải trình lặp")}</Btn>
               )}
               <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
-                {exportRunner.busy ? "⏳ Đang xuất…" : "⬇ Xuất Excel"}
+                {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
               </Btn>
             </div>
           </div>
@@ -764,7 +760,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             onRowClick={(r) => openCase(r.id, "ca-lap")}
             rowKey={(r) => r.id}
             rowClassName={(r) => vipRowClassName(r.nhom_kh)}
-            emptyText="Không có ca lặp nào trong phạm vi đã lọc."
+            emptyText={tr("Không có ca lặp nào trong phạm vi đã lọc.")}
             sortBy={sortBy}
             sortDir={sortDir}
             onSortChange={(newSortBy, newSortDir) => {
@@ -780,16 +776,14 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
       {view === "blacklist" && (
         <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-[var(--ink-600)]">Serial trong danh sách này sẽ bị loại khỏi phát hiện ca lặp (vd: hàng demo, hàng cho mượn quay vòng nhiều khách).</div>
+            <div className="text-sm text-[var(--ink-600)]">{tr("Serial trong danh sách này sẽ bị loại khỏi phát hiện ca lặp (vd: hàng demo, hàng cho mượn quay vòng nhiều khách).")}</div>
             <Btn size="sm" onClick={() => setAddBlacklistOpen(true)}>
-              + Thêm serial
-            </Btn>
+              {tr("+ Thêm serial")}</Btn>
           </div>
           <ImportUploader<BlacklistImportSummary>
             description={
               <>
-                Nhập hàng loạt serial vào blacklist từ file Excel/CSV (1 cột <b className="font-mono">seri_san_pham</b>). Serial đã có sẽ tự bật lại nếu trước đó bị tắt.
-              </>
+                {tr("Nhập hàng loạt serial vào blacklist từ file Excel/CSV (1 cột")} <b className="font-mono">seri_san_pham</b>{tr("). Serial đã có sẽ tự bật lại nếu trước đó bị tắt.")}</>
             }
             templateUrl="/api/ca-lap/blacklist/template"
             previewUrl="/ca-lap/blacklist/preview"
@@ -797,12 +791,12 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             buildBody={(rows) => ({ rows })}
             renderSummary={(s) => (
               <div className="grid grid-cols-2 gap-3 mb-2">
-                <StatCard label="Sẵn sàng ghi" value={s.thanhCong} tone="teal" />
-                <StatCard label="Dòng trống bỏ qua" value={s.boQua} tone={s.boQua > 0 ? "amber" : "gray"} />
+                <StatCard label={tr("Sẵn sàng ghi")} value={s.thanhCong} tone="teal" />
+                <StatCard label={tr("Dòng trống bỏ qua")} value={s.boQua} tone={s.boQua > 0 ? "amber" : "gray"} />
               </div>
             )}
             getErrors={(s) => s.errors}
-            successMessage={(s) => `Import thành công: ${s.thanhCong} serial vào blacklist`}
+            successMessage={(s) => tr("Import thành công: {0} serial vào blacklist", s.thanhCong)}
             invalidateKeys={[["ca-lap-blacklist"], ["ca-lap-list"], ["ca-lap-status"], ["ca-lap-tong-quan"]]}
           />
           <div className="flex justify-end mb-2">
@@ -812,7 +806,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
                 setBlacklistSearch(v);
                 setBlacklistPage(1);
               }}
-              placeholder="Tìm theo Serial…"
+              placeholder={tr("Tìm theo Serial…")}
             />
           </div>
           <PaginatedTable
@@ -825,17 +819,17 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
             total={filteredBlacklistRows.length}
             onPageChange={setBlacklistPage}
             rowKey={(r) => r.id}
-            emptyText="Chưa có serial nào trong blacklist."
+            emptyText={tr("Chưa có serial nào trong blacklist.")}
             storageKey="ca-lap-blacklist"
           />
         </div>
       )}
 
       {canImportGtl && <ImportGiaiTrinhLapModal open={importGtlOpen} onClose={() => setImportGtlOpen(false)} role={role} />}
-      <Modal open={addBlacklistOpen} onClose={() => setAddBlacklistOpen(false)} title="Thêm serial vào blacklist">
+      <Modal open={addBlacklistOpen} onClose={() => setAddBlacklistOpen(false)} title={tr("Thêm serial vào blacklist")}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Serial sản phẩm</label>
+            <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Serial sản phẩm")}</label>
             <input
               value={newSerial}
               onChange={(e) => setNewSerial(e.target.value)}
@@ -844,26 +838,22 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
           </div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setAddBlacklistOpen(false)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn onClick={() => addBlacklistMutation.mutate()} disabled={!newSerial.trim() || addBlacklistMutation.isPending}>
-              Thêm
-            </Btn>
+              {tr("Thêm")}</Btn>
           </div>
         </div>
       </Modal>
 
       {deleteConfirmRow && (
-        <Modal open onClose={() => setDeleteConfirmRow(null)} title="Xác nhận xoá blacklist" width="max-w-md">
+        <Modal open onClose={() => setDeleteConfirmRow(null)} title={tr("Xác nhận xoá blacklist")} width="max-w-md">
           <div className="text-sm text-[var(--ink-600)] mb-4">
-            Xoá hẳn serial <span className="font-mono font-semibold">{deleteConfirmRow.seri_san_pham}</span> khỏi danh sách blacklist? Serial này sẽ được tính lại là ca lặp bình thường nếu phát hiện trùng trong tương lai.
-          </div>
+            {tr("Xoá hẳn serial")} <span className="font-mono font-semibold">{deleteConfirmRow.seri_san_pham}</span>  {tr("khỏi danh sách blacklist? Serial này sẽ được tính lại là ca lặp bình thường nếu phát hiện trùng trong tương lai.")}</div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={() => setDeleteConfirmRow(null)}>
-              Hủy
-            </Btn>
+              {tr("Hủy")}</Btn>
             <Btn variant="danger" onClick={() => deleteBlacklistMutation.mutate(deleteConfirmRow.id)} disabled={deleteBlacklistMutation.isPending}>
-              {deleteBlacklistMutation.isPending ? "Đang xoá…" : "Xác nhận xoá"}
+              {deleteBlacklistMutation.isPending ? tr("Đang xoá…") : tr("Xác nhận xoá")}
             </Btn>
           </div>
         </Modal>
