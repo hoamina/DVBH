@@ -82,6 +82,21 @@ const CA_LAP_CTE_BODY = `
 // notifications.ts dung lai cho badge sidebar.
 export const CA_LAP_CTE = `WITH ${CA_LAP_CTE_BODY}`;
 
+// SUA 2026-10-29: D1 gioi han 100 COT / ket qua - "lap.*" (82 cot case_dvbh + 3 cot tinh cua CTE) + 10 cot giai trinh lap = 95, sat
+// gioi han (Quan ly ton da vo dung loi nay o v1.500 khi case_dvbh len 82 cot). Cac cau tra DANH SACH chi lay id + cot rieng cua ca lap,
+// roi ghepDuCotCa() lay du cot case_dvbh theo khoa chinh (1 bind json_each) - them cot vao case_dvbh khong lam vo danh sach nua.
+const LAP_COT_RIENG = "lap.id AS id, lap.prior_id, lap.prior_ht, lap.gap_days";
+
+async function ghepDuCotCa(db: D1Database, dong: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+  if (!dong.length) return dong;
+  const { results: full } = await db
+    .prepare("SELECT * FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify(dong.map((r) => r.id)))
+    .all<Record<string, unknown>>();
+  const theoId = new Map(full.map((r) => [String(r.id), r]));
+  return dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...r }));
+}
+
 const GT_LAP_COLUMNS = `
   gl.id as gt_id, gl.chot_danh_gia_lap, gl.chot_hinh_thuc_xu_ly, gl.dien_giai_lap,
   gl.nguoi_giai_trinh, gl.ngay_giai_trinh, gl.qc_chot, gl.qc_ghi_chu, gl.nguoi_qc, gl.ngay_qc
@@ -121,14 +136,14 @@ caLap.get("/danh-sach", async (c) => {
     SELECT COUNT(*) as total FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id ${whereSql}`;
 
   const rowsQueryBase = `${CA_LAP_CTE}
-    SELECT lap.*, ${GT_LAP_COLUMNS}
+    SELECT ${LAP_COT_RIENG}, ${GT_LAP_COLUMNS}
     FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id
     ${whereSql}
     ORDER BY (CASE WHEN lap.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), lap.thoi_gian_hoan_thanh DESC`;
 
   if (isExport) {
-    const { results } = await c.env.DB.prepare(`${rowsQueryBase} LIMIT 5000`).bind(...binds).all();
-    const lapRows = (results as Record<string, unknown>[]).map((r) => ({ ...r, loai_dong: "Ca lặp" }) as Record<string, unknown>);
+    const { results } = await c.env.DB.prepare(`${rowsQueryBase} LIMIT 5000`).bind(...binds).all<Record<string, unknown>>();
+    const lapRows = (await ghepDuCotCa(c.env.DB, results)).map((r) => ({ ...r, loai_dong: "Ca lặp" }) as Record<string, unknown>);
 
     // Kem theo "ca goc" (case bi lap lai, tham chieu qua prior_id) thanh DONG RIENG trong file xuat -
     // CHOT 2026-09-10 theo yeu cau nguoi dung: chi bo sung ca goc khi ca goc CUNG HOAN THANH TRONG
@@ -174,11 +189,11 @@ caLap.get("/danh-sach", async (c) => {
   const [kpiRow, countRow, rowsResult] = await Promise.all([
     c.env.DB.prepare(kpiQuery).bind(start, end, ...scopeClause.binds, ...khuVucClause.binds).first<Record<string, number>>(),
     c.env.DB.prepare(countQuery).bind(...binds).first<{ total: number }>(),
-    c.env.DB.prepare(`${rowsQueryBase} LIMIT ? OFFSET ?`).bind(...binds, pageSize, offset).all(),
+    c.env.DB.prepare(`${rowsQueryBase} LIMIT ? OFFSET ?`).bind(...binds, pageSize, offset).all<Record<string, unknown>>(),
   ]);
 
   return c.json({
-    rows: rowsResult.results,
+    rows: await ghepDuCotCa(c.env.DB, rowsResult.results),
     page,
     pageSize,
     total: countRow?.total ?? 0,
@@ -209,14 +224,14 @@ caLap.get("/danh-sach/list", async (c) => {
 
   const { results } = await c.env.DB.prepare(
     `${CA_LAP_CTE}
-     SELECT lap.* FROM lap
+     SELECT ${LAP_COT_RIENG} FROM lap
      WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}
      ORDER BY lap.thoi_gian_hoan_thanh DESC`,
   )
     .bind(start, end, ...scopeClause.binds, ...khuVucClause.binds)
-    .all();
+    .all<Record<string, unknown>>();
 
-  return c.json({ rows: results, thang });
+  return c.json({ rows: await ghepDuCotCa(c.env.DB, results), thang });
 });
 
 // GET /api/ca-lap/danh-sach/status?khu_vuc=&thang= - phan DONG (giai_trinh_lap) cua danh sach -

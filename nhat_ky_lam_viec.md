@@ -4982,3 +4982,9 @@ Lập kế hoạch 5 giai đoạn (SRS §12), làm trước GĐ1 vì không đ�
 - Sửa `routes/cases.ts`: câu chính chỉ lấy `c.id` + cột tính thêm (lọc/sắp xếp/phân trang giữ nguyên), `layDuCotCa()` lấy đủ cột
   `case_dvbh` theo khóa chính (1 bind json_each) rồi ghép — áp cả danh sách lẫn xuất Excel; thêm cột vào case_dvbh không làm vỡ nữa.
 - Rủi ro còn lại: CTE ca lặp (`routes/caLap.ts` `lap.*` + 10 cột giải trình lặp) đang 95 cột — thêm ≥ 6 cột vào case_dvbh sẽ chạm giới hạn.
+
+## 2026-10-29 — Ca lặp: phòng giới hạn 100 cột D1 (v1.501)
+- `routes/caLap.ts`: danh sách ca lặp (`/danh-sach` + xuất Excel) đang 95 cột (`lap.*` 85 + 10 cột giải trình lặp), `/danh-sach/list`
+  85 cột — sát giới hạn 100 cột/kết quả của D1 (lỗi Quản lý tồn v1.500). Câu chính giờ chỉ lấy `LAP_COT_RIENG` (id, prior_id,
+  prior_ht, gap_days) + cột giải trình lặp, `ghepDuCotCa()` lấy đủ cột case_dvbh theo khóa chính rồi ghép. Kết quả trả về giữ
+  nguyên (đo local: 95 / 96 / 85 trường).
