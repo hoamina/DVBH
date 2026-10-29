@@ -73,7 +73,9 @@ missingParts.get("/", async (c) => {
   if (trangThai === "da-dong") return c.json({ error: "DEPRECATED_USE_MANIFEST_ENDPOINT" }, 410);
 
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  // Tran 5000 (2026-10-29): nut "Xuat Excel" Danh sach chi tiet goi pageSize=5000 nhung tran cu 200 -> file bi cat o 200 ca.
+  // 1 trang lon KHONG doc them dong D1: COUNT(*) OVER() von da quet het cac ca khop o moi trang; UI van goi 20/trang.
+  const pageSize = Math.min(5000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
 
   const ageClause = ageFilterClause("c.thoi_gian_cskh_tiep_nhan", c.req.query("tuoi_tu"), c.req.query("tuoi_den"));

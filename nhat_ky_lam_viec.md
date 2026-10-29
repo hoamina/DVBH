@@ -5012,4 +5012,5 @@ từng nước một.
   `linh_kien`), tồn = `/ton-kho-lk/tong-hop` (cùng cache react-query, `useLayTonKhoTongHop` trong `TonKhoLk.tsx`).
   Không thêm truy vấn D1 nào, không đổi backend.
 - Thử local: mã 040-079 → file ra tên đầy đủ, MB 5 / MN 2, khớp tab tổng hợp; tiêu đề cột tiếng Việt.
-- Còn tồn (chưa sửa): `GET /api/missing-parts` giới hạn `pageSize` ≤ 200 nhưng nút xuất gọi `pageSize=5000` → file chỉ có tối đa 200 ca.
+- v1.504: sửa lỗi file chỉ có tối đa 200 ca — `GET /api/missing-parts` giới hạn `pageSize` ≤ 200 trong khi nút xuất gọi `pageSize=5000`;
+  nâng trần lên 5000 (1 câu truy vấn, không đọc thêm dòng D1 vì `COUNT(*) OVER()` vốn quét hết ca khớp; UI vẫn 20/trang).
