@@ -5,6 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { toJsonArray, fromJsonArray } from "../lib/jsonArray";
+import { docPhamViQuocGia, RE_MA_QUOC_GIA } from "../lib/quocGia";
 import { bumpVersions } from "../lib/dataVersions";
 import { nowVN } from "../lib/vnTime";
 import { parseModulesColumn } from "../lib/moduleAccess";
@@ -60,6 +61,7 @@ users.get("/", async (c) => {
     ...r,
     khu_vuc_phu_trach: fromJsonArray(r.khu_vuc_phu_trach as string | null),
     khu_vuc_duoc_xem: fromJsonArray(r.khu_vuc_duoc_xem as string | null),
+    pham_vi_quoc_gia: docPhamViQuocGia(r.pham_vi_quoc_gia as string | null),
     modules: parseModulesColumn(r.modules as string | null),
   }));
 
@@ -123,10 +125,19 @@ users.patch("/:email", async (c) => {
     xem_danh_muc_lk?: boolean;
     tram_cha?: string | null;
     giam_sat_quan_ly?: string | null;
+    // "Đa quốc gia" (migration 0148): undefined = khong doi, null = toan bo, mang ma nuoc (>=1) = chi cac nuoc do.
+    pham_vi_quoc_gia?: string[] | null;
   }>();
 
   if (body.vai_tro !== undefined && body.vai_tro !== null && !(VAI_TRO_VALUES as readonly string[]).includes(body.vai_tro)) {
     return c.json({ error: "INVALID_VAI_TRO" }, 400);
+  }
+
+  if (body.pham_vi_quoc_gia !== undefined && body.pham_vi_quoc_gia !== null) {
+    const ds = body.pham_vi_quoc_gia;
+    if (!Array.isArray(ds) || ds.length === 0 || ds.some((m) => typeof m !== "string" || !RE_MA_QUOC_GIA.test(m))) {
+      return c.json({ error: "INVALID_PHAM_VI_QUOC_GIA", message: "Chọn ít nhất 1 quốc gia hoặc Toàn bộ" }, 400);
+    }
   }
 
   const existing = await c.env.DB.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
@@ -164,10 +175,14 @@ users.patch("/:email", async (c) => {
     xem_danh_muc_lk: derivedXemDanhMucLk,
     tram_cha: body.tram_cha !== undefined ? (body.tram_cha ?? null) : existing.tram_cha,
     giam_sat_quan_ly: body.giam_sat_quan_ly !== undefined ? (body.giam_sat_quan_ly ?? null) : existing.giam_sat_quan_ly,
+    pham_vi_quoc_gia:
+      body.pham_vi_quoc_gia !== undefined
+        ? (body.pham_vi_quoc_gia === null ? null : JSON.stringify([...new Set(body.pham_vi_quoc_gia)]))
+        : existing.pham_vi_quoc_gia,
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, khu_vuc_duoc_xem = ?, la_ksnb_doi_tac = ?, modules = ?, bi_khoa = ?, co_the_import_tranh_chap = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, tram_cha = ?, giam_sat_quan_ly = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, khu_vuc_phu_trach = ?, khu_vuc_duoc_xem = ?, la_ksnb_doi_tac = ?, modules = ?, bi_khoa = ?, co_the_import_tranh_chap = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, tram_cha = ?, giam_sat_quan_ly = ?, pham_vi_quoc_gia = ?, updated_at = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
@@ -188,6 +203,7 @@ users.patch("/:email", async (c) => {
       next.xem_danh_muc_lk,
       next.tram_cha,
       next.giam_sat_quan_ly,
+      next.pham_vi_quoc_gia,
       nowVN(),
       email,
     )

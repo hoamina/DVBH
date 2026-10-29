@@ -15,6 +15,7 @@ import { ROLE_MODULES, MODULE_TITLES } from "../layout/navConfig";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { useAuth, type VaiTro } from "../auth/AuthContext";
 import { tr } from "../i18n/tr";
+import { PhamViQuocGiaEditor } from "../components/PhamViQuocGiaEditor";
 
 const PAGE_SIZE = 20;
 
@@ -198,6 +199,11 @@ export function UsersModule() {
         <>
           <div className="font-semibold">{u.ten ?? tr("(chưa cập nhật tên)")}</div>
           <div className="text-xs text-[var(--ink-400)] font-mono">{u.email}</div>
+          {u.pham_vi_quoc_gia && (
+            <div className="mt-0.5" title={tr("Quốc gia được xem")}>
+              <Badge tone="ocean">{u.pham_vi_quoc_gia.join(", ")}</Badge>
+            </div>
+          )}
         </>
       ),
     },
@@ -690,6 +696,7 @@ function EditUserModal({
             </div>
           )}
         </div>
+        <PhamViQuocGiaEditor email={user.email} giaTri={user.pham_vi_quoc_gia ?? null} />
         {role === "Admin" ? (
           <div className="text-xs text-[var(--ink-400)] italic">{tr("Vai trò Admin luôn xem được toàn bộ module - không cần tùy chỉnh riêng.")}</div>
         ) : (

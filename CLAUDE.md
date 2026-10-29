@@ -227,6 +227,12 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   must check `phamViCua(db) === "tat_ca"`; (4) cron/refresh-reports chot both scopes via `lib/phamViChot.ts` (history
   starts 2026-10-13). R2 data (closed-case chunks, lũy kế) is filtered client-side (`frontend/src/lib/phamVi.ts`;
   lũy kế NSKX = column "KH VIPs" containing NSKX/NSXK, auto months write "NSKX"). The old "Báo cáo NSKX" module was removed.
+- **"Đa quốc gia" (multi-country, SRS §12, migration 0148, 2026-10-29) — only GĐ1 done**: `case_dvbh.quoc_gia` is set on
+  INSERT only (GHI_MOI) from GLOB ID patterns in `quoc_gia_mau_id` (`lib/quocGia.ts`; real IDs are all-digits = old CRM,
+  `T…` = CRM 3T, `SC…` = Odoo VN); `users.pham_vi_quoc_gia` (NULL = all) is stored/edited but **NOT enforced yet** — GĐ2 plans
+  to extend the `lib/phamVi.ts` table-rename proxy with a country dimension (per-country views/table copies created at
+  runtime) plus per-case `FORBIDDEN_QUOC_GIA` checks. 8 owner questions (INDO ID format/collision, unmatched IDs, R2, partner
+  API, Telegram…) are listed in SRS §12 — ask before building GĐ2.
 - **Cancelled cases (`huy_bo_at`) are excluded everywhere via VIEW `case_hieu_luc`** (migration 0133,
   2026-10-11): every report/list/dropdown READ query uses `case_hieu_luc`, not `case_dvbh`. Keep `case_dvbh`
   only for writes, single-case lookups by id (Admin can still open a cancelled case), and queries with
@@ -368,7 +374,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0147`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0148`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

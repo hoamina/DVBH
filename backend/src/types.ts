@@ -67,6 +67,9 @@ export interface AppUser {
   ngon_ngu: NgonNgu;
   // Bat/tat thu cung 3T Pet cho chinh minh (migration 0147); co he thong rieng o cai_dat_he_thong.
   bat_pet_3t: boolean;
+  // "Đa quốc gia" (migration 0148): ma nuoc user duoc xem du lieu, null = toan bo. GĐ1 chi luu/hien thi, GĐ2 moi ep
+  // loc (lib/phamVi.ts). Doc qua lib/quocGia.ts docPhamViQuocGia.
+  pham_vi_quoc_gia: string[] | null;
 }
 
 export const NGON_NGU_VALUES = ["vi", "en", "id"] as const;

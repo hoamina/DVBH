@@ -12058,5 +12058,101 @@
  "Đã tắt 3T Pet cho toàn hệ thống": [
   "3T Pet disabled system-wide",
   "3T Pet dimatikan untuk seluruh sistem"
+ ],
+ "Đã lưu quốc gia được xem": [
+  "Visible countries saved",
+  "Negara yang dapat dilihat disimpan"
+ ],
+ "Quốc gia được xem": [
+  "Visible countries",
+  "Negara yang dapat dilihat"
+ ],
+ "Toàn bộ": [
+  "All",
+  "Semua"
+ ],
+ "Chưa áp dụng lọc dữ liệu — hệ thống sẽ lọc báo cáo/danh sách theo quốc gia ở giai đoạn sau.": [
+  "Data filtering not applied yet — reports/lists will be filtered by country in a later phase.",
+  "Penyaringan data belum diterapkan — laporan/daftar akan disaring per negara pada tahap berikutnya."
+ ],
+ "Lưu quốc gia": [
+  "Save countries",
+  "Simpan negara"
+ ],
+ "Đã lưu quốc gia": [
+  "Country saved",
+  "Negara disimpan"
+ ],
+ "Đã lưu mẫu ID": [
+  "ID pattern saved",
+  "Pola ID disimpan"
+ ],
+ "Không khớp mẫu nào → mặc định {0}": [
+  "No pattern matched → default {0}",
+  "Tidak ada pola yang cocok → default {0}"
+ ],
+ "Danh mục quốc gia": [
+  "Country list",
+  "Daftar negara"
+ ],
+ "Mã 2-5 chữ in hoa. Không xóa được quốc gia (ca và người dùng đã gắn mã) — chỉ tắt.": [
+  "Code of 2-5 uppercase letters. Countries cannot be deleted (cases and users reference the code) — only disabled.",
+  "Kode 2-5 huruf kapital. Negara tidak dapat dihapus (kasus dan pengguna sudah memakai kode) — hanya dinonaktifkan."
+ ],
+ "Tên": [
+  "Name",
+  "Nama"
+ ],
+ "Thứ tự": [
+  "Order",
+  "Urutan"
+ ],
+ "Bật": [
+  "On",
+  "Aktif"
+ ],
+ "Tên quốc gia": [
+  "Country name",
+  "Nama negara"
+ ],
+ "Thêm / sửa quốc gia": [
+  "Add / edit country",
+  "Tambah / ubah negara"
+ ],
+ "Mẫu ID → quốc gia / nguồn": [
+  "ID pattern → country / source",
+  "Pola ID → negara / sumber"
+ ],
+ "Mẫu dạng GLOB: * = chuỗi bất kỳ, ? = 1 ký tự, [0-9] = 1 chữ số (phân biệt hoa/thường). Xét theo độ ưu tiên tăng dần; ID không khớp mẫu nào xếp vào {0}. Chỉ áp dụng cho ca tạo mới từ lần import sau.": [
+  "GLOB patterns: * = any string, ? = 1 character, [0-9] = 1 digit (case-sensitive). Checked by ascending priority; IDs matching no pattern go to {0}. Applies only to cases created from the next import.",
+  "Pola GLOB: * = string apa saja, ? = 1 karakter, [0-9] = 1 digit (peka huruf besar/kecil). Diperiksa menurut prioritas naik; ID yang tidak cocok dengan pola mana pun masuk ke {0}. Hanya berlaku untuk kasus baru sejak impor berikutnya."
+ ],
+ "Mẫu ID": [
+  "ID pattern",
+  "Pola ID"
+ ],
+ "Quốc gia": [
+  "Country",
+  "Negara"
+ ],
+ "Xóa mẫu {0}?": [
+  "Delete pattern {0}?",
+  "Hapus pola {0}?"
+ ],
+ "Nguồn (vd odoo_id)": [
+  "Source (e.g. odoo_id)",
+  "Sumber (mis. odoo_id)"
+ ],
+ "Thêm mẫu": [
+  "Add pattern",
+  "Tambah pola"
+ ],
+ "Thử 1 ID:": [
+  "Test an ID:",
+  "Uji satu ID:"
+ ],
+ "Thử": [
+  "Test",
+  "Uji"
  ]
 }

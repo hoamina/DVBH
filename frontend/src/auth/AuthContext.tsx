@@ -49,6 +49,8 @@ export interface AppUser {
   // Thu cung 3T Pet (migration 0147): bat_pet_3t = cai dat ca nhan; pet_3t_he_thong = co Admin (tinh o GET /auth/me).
   bat_pet_3t: boolean;
   pet_3t_he_thong: boolean;
+  // "Đa quốc gia" (migration 0148): ma nuoc duoc xem, null = toan bo. GĐ1 chi hien thi, chua loc du lieu.
+  pham_vi_quoc_gia: string[] | null;
 }
 
 type AuthState =

@@ -13,6 +13,7 @@ import {
 import { nowVN } from "./vnTime";
 import { recomputeCanKhaoSatBatch } from "./canKhaoSat";
 import { computeTheoDoiDoiTra } from "./theoDoiDoiTra";
+import { docBoMauId, taoBoMauId, xacDinhQuocGia, type BoMauId } from "./quocGia";
 
 /**
  * Luong import hang ngay - port tu import.js (thiet ke Node.js/pg ban goc).
@@ -156,7 +157,7 @@ function presentOptionalFields(incoming: ImportRow): string[] {
   return OPTIONAL_FIELDS.filter((f) => Object.prototype.hasOwnProperty.call(incoming, f));
 }
 
-function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, crmHash: string, doiTraSets: DoiTraSets): D1PreparedStatement {
+function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, crmHash: string, doiTraSets: DoiTraSets, boMauId: BoMauId): D1PreparedStatement {
   const normalizedFlags = Object.fromEntries(
     VIOLATION_FIELDS.map((f) => [f, normalizeViolationFlag(incoming[f]) ? 1 : 0]),
   );
@@ -166,7 +167,7 @@ function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, 
   // Dong MOI luon bat dau tu currentDbValue=0 (khong the da bi khoa 1/3) - xem lib/theoDoiDoiTra.ts.
   const theoDoiDoiTra = computeTheoDoiDoiTra(0, businessValues.loai_yeu_cau, businessValues.luu_y_loi_linh_kien, doiTraSets.loaiYeuCauSet, doiTraSets.luuYLoiLinhKienSet);
   const optional = presentOptionalFields(incoming);
-  const fields = ["id", ...BUSINESS_FIELDS, ...optional, ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "theo_doi_doi_tra", "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat"];
+  const fields = ["id", ...BUSINESS_FIELDS, ...optional, ...VIOLATION_FIELDS, "nghi_ngo_tranh_chap", "theo_doi_doi_tra", "crm_hash", "ngay_import", "ngay_cap_nhat_gan_nhat", "quoc_gia"];
   const values = {
     ...Object.fromEntries(optional.map((f) => [f, businessFieldValue(f, incoming)])),
     id: incoming.id,
@@ -177,6 +178,9 @@ function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, 
     crm_hash: crmHash,
     ngay_import: now,
     ngay_cap_nhat_gan_nhat: now,
+    // Quoc gia theo mau ID (lib/quocGia.ts, migration 0148) - CHI luc tao moi: id khong doi nen quoc gia khong doi,
+    // GHI_DE khong dong vao cot nay. Khong nam trong crm_hash.
+    quoc_gia: xacDinhQuocGia(incoming.id, boMauId),
   };
   const placeholders = fields.map(() => "?").join(", ");
   return db
@@ -258,6 +262,7 @@ export async function processImport(
   );
   // Chi can khi commit=true (INSERT/UPDATE that su moi dung toi) - preview khong doc them 2 bang nay.
   const doiTraSets: DoiTraSets = commit ? await loadDoiTraSets(db) : { loaiYeuCauSet: new Set(), luuYLoiLinhKienSet: new Set() };
+  const boMauId: BoMauId = commit ? await docBoMauId(db) : taoBoMauId([]);
 
   const now = nowVN();
   const statements: D1PreparedStatement[] = [];
@@ -284,7 +289,7 @@ export async function processImport(
       addAffectedSerial(affectedSerials, businessFieldValue("seri_san_pham", incoming));
       addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
       canKhaoSatIds.add(incoming.id);
-      if (commit) statements.push(buildInsertStatement(db, incoming, now, incomingHash, doiTraSets));
+      if (commit) statements.push(buildInsertStatement(db, incoming, now, incomingHash, doiTraSets, boMauId));
       continue;
     }
 

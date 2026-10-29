@@ -272,3 +272,35 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
 - Báo cáo lũy kế: nhóm NSKX = cột "KH VIPs" chứa "NSKX" (kể cả ghi nhầm "NSXK", vd "NSXK - hết 1 năm"); tháng hệ thống tự
   tính ghi "NSKX" cho ca NSKX. Tab Tốc độ theo miền: RTAT và tốc độ cuối tuần không phân chia theo NSKX (có ghi chú).
 - Module "Báo cáo NSKX" riêng đã gỡ.
+
+## 12. Đa quốc gia: VN, ID (INDO), sau này PLP… (kế hoạch duyệt 2026-10-29)
+
+Mục tiêu: mỗi người được phân quyền xem dữ liệu VN, ID hoặc toàn bộ; mọi báo cáo/danh sách/Excel/badge/số chốt/cache
+tính theo đúng phần được xem; thêm nước mới không cần sửa code. Khác "Phạm vi NSKX" (§11, chỉ là nút xem): quốc gia là
+**quyền**, server phải ép.
+
+**Giai đoạn**
+1. **GĐ1 – Nền dữ liệu (xong, v1.499, migration 0148)** — chưa đổi hành vi, mọi người vẫn thấy như cũ.
+   - Bảng `quoc_gia` (VN, ID) + `quoc_gia_mau_id` (mẫu ID dạng GLOB → quốc gia + nguồn, có độ ưu tiên). Mẫu sẵn:
+     `SC[0-9]*` = Odoo VN, `T[0-9]*` = CRM 3T, `[0-9]*` = CRM cũ (ID toàn số — dữ liệu thật có dạng này).
+   - `case_dvbh.quoc_gia` (mặc định VN, không cần cập nhật lại dữ liệu cũ). Import (Excel + QuickSight/Odoo) gán nước cho
+     ca **tạo mới** theo mẫu; ca đã có giữ nguyên nước. ID không khớp mẫu nào → VN (tạm, chờ chốt Q4).
+   - `users.pham_vi_quoc_gia` (NULL = toàn bộ): chọn trong Quản lý User → Phân quyền → "Quốc gia được xem" (nút lưu riêng).
+   - Cài đặt → "Quốc gia": thêm/tắt nước, thêm/xóa mẫu ID, thử 1 ID xem xếp vào đâu (Admin).
+2. **GĐ2 – Ép quyền phía server**: mở rộng proxy đổi tên bảng của §11 thêm chiều quốc gia (view `case_hieu_luc_<nước>`,
+   bản sao bảng số chốt/cache theo nước tạo động khi kích hoạt nước, không cần migration); kiểm tra 1 ca theo nước
+   (`FORBIDDEN_QUOC_GIA`); rà các truy vấn bảng con (vi phạm, khảo sát, giải trình…) chưa đi qua `case_hieu_luc`; badge theo nước.
+3. **GĐ3 – Số chốt 08:00/17:30 theo nước, nút chọn nước trên TopBar** (chỉ hiện nước được phép; NSKX chỉ ở VN), chép lịch
+   sử số chốt cũ sang bản VN.
+4. **GĐ4 – R2 (ca đã đóng, lũy kế) + API đối tác theo nước** (cần chủ hệ thống duyệt).
+5. **GĐ5 – Đón nguồn Odoo INDO thật.**
+
+**Câu hỏi chờ chủ hệ thống chốt (trước GĐ2)**
+- Q1: ID ca Odoo INDO có dạng gì? Nếu cũng là `SC…` sẽ **trùng khóa** với Odoo VN → pipeline phải thêm tiền tố (vd `ID-SC…`). PLP?
+- Q2: Người xem nhiều nước (không phải tất cả) xem từng nước một qua nút chọn có được không?
+- Q3: INDO có khu vực/KTV/giám sát/danh mục riêng không? Các module VN (Đặt mua LK, Tồn kho LK, Doanh thu, Lũy kế, Khảo sát) có mở cho INDO?
+- Q4: Ca không khớp mẫu ID nào: từ chối + ghi lỗi (đề xuất) hay xếp VN?
+- Q5: Cho tách file R2 (ca đã đóng) theo nước?
+- Q6: Ảnh Telegram 17:30: chỉ VN, toàn bộ, hay mỗi nước 1 ảnh?
+- Q7: API đối tác hiện có giới hạn VN (đề xuất) hay toàn bộ?
+- Q8: Mặc định người dùng hiện có: Admin/Viewer/TBP/QC = toàn bộ, còn lại = VN?

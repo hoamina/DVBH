@@ -50,6 +50,7 @@ import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
 import { autoSyncTonKhoLk } from "./lib/tonKhoLk";
 import tonKhoLkRoutes from "./routes/tonKhoLk";
 import diaGioiRoutes from "./routes/diaGioi";
+import quocGiaRoutes from "./routes/quocGia";
 
 const app = new Hono<{ Bindings: Env }>();
 // "Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (lib/phamVi.ts) - GET co ?pv= doc/ghi bo du lieu rieng cua pham vi.
@@ -61,6 +62,7 @@ app.route("/api/missing-parts", missingPartsRoutes);
 app.route("/api/po-dat-hang", poDatHangRoutes);
 app.route("/api/ton-kho-lk", tonKhoLkRoutes);
 app.route("/api/dia-gioi", diaGioiRoutes);
+app.route("/api/quoc-gia", quocGiaRoutes);
 app.route("/api/tranh-chap", tranhChapRoutes);
 app.route("/api/nap-gas", napGasRoutes);
 app.route("/api/survey", surveyRoutes);

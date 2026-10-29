@@ -10,6 +10,7 @@ import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { StatCard } from "../components/ui/StatCard";
 import { ImportUploader } from "../components/ImportUploader";
 import { TinhQuyDoiSettings } from "../components/TinhQuyDoiSettings";
+import { QuocGiaSettings } from "../components/QuocGiaSettings";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import {
@@ -1022,9 +1023,11 @@ export function SettingsModule() {
           { key: "mua-hang", label: tr("Mua hàng") },
           { key: "google-drive", label: "Google Drive" },
           { key: "quy-doi-tinh", label: tr("Quy đổi tỉnh") },
+          { key: "quoc-gia", label: tr("Quốc gia") },
         ]}
       />
       {tab === "quy-doi-tinh" && <TinhQuyDoiSettings />}
+      {tab === "quoc-gia" && <QuocGiaSettings />}
       {tab === "google-drive" && (
         <div className="mt-4 max-w-xl">
           <Card>

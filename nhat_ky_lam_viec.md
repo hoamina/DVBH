@@ -4962,3 +4962,16 @@ Yêu cầu: 1 Google Sheet lấy dữ liệu từ DVBH theo file mẫu "mẫu go
   `idx_case_archive_pending`. Script Sheet: `scripts/google-sheet-ca.gs` (menu DVBH: Làm mới ngay / Cài API key / Bật-tắt
   tự cập nhật 8h–9h sáng giờ VN). Key cấp ở Cài đặt → API đối tác.
 - Đã thử câu SQL trên D1 local (đúng khu vực/cột, plan dùng index); chưa chạy thử Apps Script trên Google Sheet thật.
+
+## 2026-10-29 — Đa quốc gia GĐ1: nền dữ liệu quốc gia (v1.499)
+Yêu cầu: chuẩn bị DVBH cho nguồn Odoo INDO (rồi PLP…): phân quyền xem theo nước, mọi báo cáo theo đúng phần được xem.
+Lập kế hoạch 5 giai đoạn (SRS §12), làm trước GĐ1 vì không đổi hành vi và không phụ thuộc câu hỏi còn mở.
+- Phát hiện khi khảo sát: dữ liệu có 3 dạng ID — toàn số (CRM cũ), `T…` (CRM 3T), `SC…` (Odoo VN) → nhận diện bằng mẫu
+  GLOB có độ ưu tiên thay vì chỉ tiền tố chữ.
+- Migration 0148: `quoc_gia`, `quoc_gia_mau_id`, `case_dvbh.quoc_gia` (DEFAULT 'VN', không UPDATE lại bảng lớn; index để
+  GĐ2), `users.pham_vi_quoc_gia`.
+- `lib/quocGia.ts` (GLOB → RegExp, `xacDinhQuocGia`), `importProcessor.ts` gán nước cho dòng GHI_MOI;
+  `routes/quocGia.ts` (`/api/quoc-gia`), Cài đặt → "Quốc gia", Quản lý User → "Quốc gia được xem".
+- Thử local: import ca `ZZ…` với mẫu thử `ZZ*`→ID ra ID, ca đã có ghi đè giữ VN, ID không khớp ra VN; PATCH user mảng rỗng
+  bị chặn 400, lưu/khôi phục toàn bộ đúng, không đụng vai trò/khu vực; màn Cài đặt + modal hiển thị đúng.
+- Còn mở: 8 câu hỏi trong SRS §12 cần chủ hệ thống chốt trước GĐ2.

@@ -601,6 +601,7 @@ export interface UserRow {
   xem_danh_muc_lk: number;
   tram_cha: string | null;
   giam_sat_quan_ly: string | null;
+  pham_vi_quoc_gia: string[] | null;
 }
 
 export interface Paged<T> {
