@@ -1,3 +1,4 @@
+import { envVn } from "../lib/phamViChot";
 import { Hono } from "hono";
 import type { Env } from "../types";
 import { processImport } from "../lib/importProcessor";
@@ -64,6 +65,8 @@ externalImport.post("/commit", async (c) => {
 // len du lieu nghiep vu) - pipeline goi trung hoac retry do timeout khong sao ca.
 externalImport.post("/refresh-reports", async (c) => {
   await warmDefaultReports(c.env.DB);
+  // + pham vi VN (da so nguoi xem chi duoc xem VN - lib/phamVi.ts, migration 0149), cache rieng precomputed_cache_vn.
+  await warmDefaultReports(envVn(c.env).DB);
   return c.json({ ok: true });
 });
 

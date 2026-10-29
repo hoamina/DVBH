@@ -221,18 +221,28 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   `backlog_age_daily`, `backlog_age_month_manifest`, `ton_ktv_daily`, `canh_bao_ton_daily_log`) → `<table>_<pv>`
   copies. So all report/snapshot/self-heal code runs unchanged but reads and writes the scope's own data, and can never
   overwrite the "Tất cả" numbers. NSKX = `doi_tac IN ('NSKX','[NSKX]')` (`[NSKX]` = old CRM label, pre-07/2026).
-  Rules: (1) a **new snapshot/cache table** fed from case reads must get `_nskx`/`_khong_nskx` copies + be added to
-  `BANG_THEO_PHAM_VI`, else NSKX mode silently shows/writes "Tất cả" data; (2) code reachable from a GET that writes
+  Rules: (1) a **new snapshot/cache table** fed from case reads must get `_nskx`/`_khong_nskx` copies (+ per-country copies:
+  add it to `BANG_THEO_PHAM_VI` and create `_vn`/`_vn_nskx`/`_vn_khong_nskx`/`_id` in its migration) or scoped modes silently
+  show/write "Tất cả" data; (2) code reachable from a GET that writes
   **shared** derived data (e.g. `refreshCaLapPrecompute`) must use `dbGoc(db)`; (3) anything sent outside (Telegram)
-  must check `phamViCua(db) === "tat_ca"`; (4) cron/refresh-reports chot both scopes via `lib/phamViChot.ts` (history
+  must check `laPhamViGoc(db)`; (4) cron/refresh-reports chot both scopes via `lib/phamViChot.ts` (history
   starts 2026-10-13). R2 data (closed-case chunks, lũy kế) is filtered client-side (`frontend/src/lib/phamVi.ts`;
   lũy kế NSKX = column "KH VIPs" containing NSKX/NSXK, auto months write "NSKX"). The old "Báo cáo NSKX" module was removed.
-- **"Đa quốc gia" (multi-country, SRS §12, migration 0148, 2026-10-29) — only GĐ1 done**: `case_dvbh.quoc_gia` is set on
-  INSERT only (GHI_MOI) from GLOB ID patterns in `quoc_gia_mau_id` (`lib/quocGia.ts`; real IDs are all-digits = old CRM,
-  `T…` = CRM 3T, `SC…` = Odoo VN); `users.pham_vi_quoc_gia` (NULL = all) is stored/edited but **NOT enforced yet** — GĐ2 plans
-  to extend the `lib/phamVi.ts` table-rename proxy with a country dimension (per-country views/table copies created at
-  runtime) plus per-case `FORBIDDEN_QUOC_GIA` checks. 8 owner questions (INDO ID format/collision, unmatched IDs, R2, partner
-  API, Telegram…) are listed in SRS §12 — ask before building GĐ2.
+- **"Đa quốc gia" (multi-country, SRS §12, migrations 0148/0149, 2026-10-29) — ENFORCED**: `case_dvbh.quoc_gia` is set on
+  INSERT only (GHI_MOI) from GLOB ID patterns in `quoc_gia_mau_id` (`lib/quocGia.ts`; real IDs: all-digits = old CRM,
+  `T…` = CRM 3T, `SC…` = Odoo VN; unmatched → VN). `users.pham_vi_quoc_gia` (NULL = all; staff + new accounts default
+  `["VN"]`, Admin = all) is a **permission**, applied in `loadUser` via `apPhamViQuocGia` (`lib/phamVi.ts`) on top of the
+  NSKX proxy: GET → same table-rename proxy with a country dimension (suffix `vn`, `vn_nskx`, `vn_khong_nskx`, `id`, …;
+  NSKX only exists for VN) **plus** every plain `FROM/JOIN case_dvbh [alias]` becomes a `quoc_gia`-filtered subquery
+  (so a case of another country is "not found", child-table joins are filtered too); non-GET → only that case_dvbh filter
+  over ALL the user's countries (`bocGhiTheoNuoc`). Skipped: `/auth`, `/partner`, `/external-import`, `/import`.
+  Multi-country users view one country at a time (`?qg=`, TopBar `QuocGiaToggle`), server re-validates (`chonQuocGia`).
+  Per-country views/table copies: VN+ID in migration 0149 (history copied from the base tables), new countries created at
+  runtime from the base DDL (`lib/quocGiaKichHoat.ts`, on Admin enable + every cron chốt). Cron chốt/17:30/retry loop all
+  scopes (`lib/phamViChot.ts`), `warmDefaultReports` also warms VN. Telegram/`xoaBanPhamVi` check `laPhamViGoc(db)`.
+  R2 chunks/lũy kế filtered client-side (`frontend/src/lib/phamVi.ts` `locTheoQuocGia`; chunk rows without `quoc_gia` = VN).
+  Not country-scoped yet (owner questions Q3/Q5/Q6/Q7 in SRS §12): Đặt mua LK/Trả hàng/PXK (`dat_don_hang`), partner API,
+  R2 downloads themselves, Telegram (= all). No index on `quoc_gia` on purpose (low selectivity would mislead the planner).
 - **Cancelled cases (`huy_bo_at`) are excluded everywhere via VIEW `case_hieu_luc`** (migration 0133,
   2026-10-11): every report/list/dropdown READ query uses `case_hieu_luc`, not `case_dvbh`. Keep `case_dvbh`
   only for writes, single-case lookups by id (Admin can still open a cancelled case), and queries with
@@ -374,7 +384,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0148`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0149`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

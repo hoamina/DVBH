@@ -3,7 +3,7 @@ import { useHuyBoIds } from "./useHuyBoIds";
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
 import type { CaseRow } from "../types";
-import { laNskxDoiTac, locTheoPhamVi, usePhamVi } from "../lib/phamVi";
+import { laNskxDoiTac, locTheoPhamVi, locTheoQuocGia, usePhamVi, useQuocGiaDangXem } from "../lib/phamVi";
 
 /**
  * Tab "Da dong" cua man Thieu linh kien - dung CHUNG co che chunk R2 theo ngay voi cases.ts
@@ -141,14 +141,19 @@ export function useMissingPartsDaDongChunked(thang: string) {
   const huyBoIds = useHuyBoIds();
   // "Phạm vi báo cáo" (lib/phamVi.ts): chunk R2 toan he thong -> loc tai trinh duyet.
   const pv = usePhamVi();
+  // "Đa quốc gia": chunk R2 chua ca moi nuoc -> loc theo nuoc dang xem tai trinh duyet (nhu NSKX).
+  const qg = useQuocGiaDangXem();
   const visibleRows = useMemo(
     () =>
       locTheoPhamVi(
-        rows.filter((r) => !(r as { huy_bo_at?: string | null }).huy_bo_at && !huyBoIds.has(String(r.id))),
+        locTheoQuocGia(
+          rows.filter((r) => !(r as { huy_bo_at?: string | null }).huy_bo_at && !huyBoIds.has(String(r.id))),
+          qg,
+        ),
         (r) => laNskxDoiTac(r.doi_tac),
         pv,
       ),
-    [rows, huyBoIds, pv],
+    [rows, huyBoIds, pv, qg],
   );
 
   return { rows: visibleRows, isLoading, isError, throttled, refetch: sync };

@@ -11,7 +11,13 @@ export type PhamVi = "tat_ca" | "nskx" | "khong_nskx";
 const KEY = "dvbh_pham_vi";
 const listeners = new Set<() => void>();
 
+/** Chieu NSKX hieu luc - NSKX chi co nghia o VN: dang xem nuoc khac thi luon "tat_ca" (khop backend chuanHoaPhamVi). */
 export function phamViHienTai(): PhamVi {
+  const qg = quocGiaHienTai();
+  if (qg !== null && qg !== QUOC_GIA_CO_NSKX) return "tat_ca";
+  return phamViDaChon();
+}
+function phamViDaChon(): PhamVi {
   try {
     const v = localStorage.getItem(KEY);
     return v === "nskx" || v === "khong_nskx" ? v : "tat_ca";
@@ -19,9 +25,49 @@ export function phamViHienTai(): PhamVi {
     return "tat_ca";
   }
 }
+
+/*
+ * "Đa quốc gia" (2026-10-29, SRS §12, backend lib/phamVi.ts): nuoc dang xem. La QUYEN (users.pham_vi_quoc_gia, null =
+ * toan bo) - server tu kiem lai, o day chi de gui ?qg= va dat khoa cache trinh duyet khop voi nuoc server dung.
+ * Nguoi duoc nhieu nuoc chon xem tung nuoc 1; nguoi toan bo con co "Tất cả" (null).
+ */
+export const QUOC_GIA_CO_NSKX = "VN";
+const KEY_QG = "dvbh_quoc_gia";
+// undefined = chua biet quyen (truoc khi /auth/me tra ve).
+let quyenQuocGia: string[] | null | undefined;
+
+/** Goi khi biet user (AuthContext): danh sach nuoc duoc xem, null = toan bo. */
+export function datQuyenQuocGia(ds: string[] | null) {
+  quyenQuocGia = ds;
+  listeners.forEach((l) => l());
+}
+export function quyenQuocGiaHienTai(): string[] | null | undefined {
+  return quyenQuocGia;
+}
+/** Nuoc dang xem (null = tat ca nuoc) - cung quy tac backend chonQuocGia. */
+export function quocGiaHienTai(): string | null {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(KEY_QG) || null;
+  } catch {
+    raw = null;
+  }
+  if (!quyenQuocGia) return raw; // toan bo (hoac chua biet quyen)
+  if (raw && quyenQuocGia.includes(raw)) return raw;
+  return quyenQuocGia[0] ?? QUOC_GIA_CO_NSKX;
+}
+export function setQuocGia(v: string | null) {
+  if (v) localStorage.setItem(KEY_QG, v);
+  else localStorage.removeItem(KEY_QG);
+  listeners.forEach((l) => l());
+}
+export function useQuocGiaDangXem(): string | null {
+  return useSyncExternalStore(subscribe, quocGiaHienTai);
+}
+
 function subscribe(cb: () => void) {
   listeners.add(cb);
-  const onStorage = (e: StorageEvent) => e.key === KEY && cb();
+  const onStorage = (e: StorageEvent) => (e.key === KEY || e.key === KEY_QG) && cb();
   window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(cb);
@@ -38,9 +84,15 @@ export function usePhamVi(): PhamVi {
 
 export const PHAM_VI_LABEL: Record<PhamVi, string> = { tat_ca: "Tất cả", nskx: "NSKX", khong_nskx: "Không NSKX" };
 
-/** Hau to cho khoa cache phia trinh duyet (IndexedDB) - "" o che do Tất cả de giu nguyen cache cu. */
-export function hauToPhamVi(v: PhamVi = phamViHienTai()): string {
-  return v === "tat_ca" ? "" : `|pv=${v}`;
+/** Hau to cho khoa cache phia trinh duyet (IndexedDB) - "" o che do Tất cả (moi nuoc) de giu nguyen cache cu. */
+export function hauToPhamVi(v: PhamVi = phamViHienTai(), qg: string | null = quocGiaHienTai()): string {
+  return `${qg ? `|qg=${qg}` : ""}${v === "tat_ca" ? "" : `|pv=${v}`}`;
+}
+
+/** Loc du lieu tai tu R2 (chunk ca da dong) theo nuoc dang xem - chunk cu chua co cot quoc_gia = VN (truoc 2026-10-29). */
+export function locTheoQuocGia<T>(rows: T[], qg: string | null = quocGiaHienTai()): T[] {
+  if (qg === null) return rows;
+  return rows.filter((r) => ((r as { quoc_gia?: string | null }).quoc_gia ?? QUOC_GIA_CO_NSKX) === qg);
 }
 
 /** Ca NSKX theo doi_tac: "NSKX" hoac "[NSKX]" (cach ghi CRM cu, du lieu truoc 07/2026) - khop view backend (migration 0136). */

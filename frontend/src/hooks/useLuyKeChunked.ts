@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { laNskxKhVip, locTheoPhamVi, usePhamVi } from "../lib/phamVi";
+import { QUOC_GIA_CO_NSKX, laNskxKhVip, locTheoPhamVi, usePhamVi, useQuocGiaDangXem } from "../lib/phamVi";
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
 
@@ -110,7 +110,12 @@ export function useLuyKeChunked(enabled = true) {
   // "Phạm vi báo cáo" (lib/phamVi.ts): nhom KH NSKX = cot "KH VIPs" chua "NSKX"/"NSXK" (thang nhap Excel tay); thang
   // he thong tu tinh ghi "NSKX" cho ca doi_tac = NSKX (backend luyKeCompute.ts).
   const pv = usePhamVi();
-  const rowsPhamVi = useMemo(() => locTheoPhamVi(rows, (r) => laNskxKhVip(r.kh_vip), pv), [rows, pv]);
+  // "Đa quốc gia": luy ke chi co du lieu VN (CRM/Odoo VN) -> dang xem nuoc khac thi rong.
+  const qg = useQuocGiaDangXem();
+  const rowsPhamVi = useMemo(
+    () => (qg !== null && qg !== QUOC_GIA_CO_NSKX ? [] : locTheoPhamVi(rows, (r) => laNskxKhVip(r.kh_vip), pv)),
+    [rows, pv, qg],
+  );
 
   return { rows: rowsPhamVi, soDongTatCa: rows.length, months, isLoading, isError, refetch: sync };
 }

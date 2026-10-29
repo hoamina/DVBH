@@ -1,6 +1,6 @@
 import { autoLogCaKetThucTrongNgay } from "../lib/autoLogCaKetThuc";
 import { Hono } from "hono";
-import { chotSoLieuPhamVi } from "../lib/phamViChot";
+import { chotSoLieuPhamVi, envVn } from "../lib/phamViChot";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -166,6 +166,7 @@ importRoute.use("*", verifySessionMiddleware, loadUser, requireRole("Admin", "TB
 importRoute.post("/refresh-reports", async (c) => {
   await bumpVersions(c.env.DB, ["cases"]);
   await warmDefaultReports(c.env.DB);
+  await warmDefaultReports(envVn(c.env).DB);
   // Cung 1 nut "Lam moi bao cao" (Import data) con dung de tinh lai NGAY "Bao cao ngay 08:00" (banner
   // Tong quat, xem lib/dailySnapshot.ts) thay vi cho den cron 08:00 hom sau - boc rieng try/catch,
   // loi o day khong duoc lam that bai request refresh-reports goc (2 co che doc lap nhau).

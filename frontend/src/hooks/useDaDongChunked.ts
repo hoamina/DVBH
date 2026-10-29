@@ -3,7 +3,7 @@ import { useHuyBoIds } from "./useHuyBoIds";
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
 import type { CaseRow } from "../types";
-import { laNskxDoiTac, locTheoPhamVi, usePhamVi } from "../lib/phamVi";
+import { laNskxDoiTac, locTheoPhamVi, locTheoQuocGia, usePhamVi, useQuocGiaDangXem } from "../lib/phamVi";
 
 /**
  * Nap du lieu "Ca da dong" theo co che snapshot R2 tung ngay (xem backend/src/lib/daDongDayChunks.ts):
@@ -129,14 +129,19 @@ export function useDaDongChunked(thang: string, enabled = true) {
   const huyBoIds = useHuyBoIds();
   // "Phạm vi báo cáo" (lib/phamVi.ts): chunk R2 la du lieu toan he thong -> loc NSKX / Khong NSKX tai trinh duyet.
   const pv = usePhamVi();
+  // "Đa quốc gia": chunk R2 chua ca moi nuoc -> loc theo nuoc dang xem tai trinh duyet (nhu NSKX).
+  const qg = useQuocGiaDangXem();
   const visibleRows = useMemo(
     () =>
       locTheoPhamVi(
-        rows.filter((r) => !(r as { huy_bo_at?: string | null }).huy_bo_at && !huyBoIds.has(String(r.id))),
+        locTheoQuocGia(
+          rows.filter((r) => !(r as { huy_bo_at?: string | null }).huy_bo_at && !huyBoIds.has(String(r.id))),
+          qg,
+        ),
         (r) => laNskxDoiTac(r.doi_tac),
         pv,
       ),
-    [rows, huyBoIds, pv],
+    [rows, huyBoIds, pv, qg],
   );
 
   return { rows: visibleRows, isLoading, isError, throttled, refetch: sync };

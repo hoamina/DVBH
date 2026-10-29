@@ -6,7 +6,7 @@ import { useToast } from "./ui/Toast";
 import { useQuocGia } from "../lib/quocGia";
 import { tr } from "../i18n/tr";
 
-// Quan ly User -> modal Phan quyen: "Quốc gia được xem" (migration 0148). Luu doc lap voi nut "Lưu" chinh cua modal
+// Quan ly User -> modal Phan quyen: "Quốc gia được xem" (migration 0148, ep loc tu migration 0149 - lib/phamVi.ts backend). Luu doc lap voi nut "Lưu" chinh cua modal
 // (PATCH /users/:email chi gui pham_vi_quoc_gia) - giong "Khu vực phụ trách (Giám sát)". null = Toàn bộ.
 export function PhamViQuocGiaEditor({ email, giaTri }: { email: string; giaTri: string[] | null }) {
   const qc = useQueryClient();
@@ -50,7 +50,7 @@ export function PhamViQuocGiaEditor({ email, giaTri }: { email: string; giaTri: 
         ))}
       </div>
       <div className="text-xs text-[var(--ink-400)] mb-2">
-        {tr("Chưa áp dụng lọc dữ liệu — hệ thống sẽ lọc báo cáo/danh sách theo quốc gia ở giai đoạn sau.")}
+        {tr("Người dùng chỉ thấy dữ liệu (báo cáo, danh sách, chi tiết ca) của các quốc gia được chọn; được nhiều nước thì xem từng nước qua nút Quốc gia trên thanh đầu trang. Áp dụng từ lần tải trang sau của người đó.")}
       </div>
       <Btn size="sm" variant="ghost" onClick={() => luu.mutate()} disabled={luu.isPending || (!toanBo && chon.size === 0)}>
         {tr("Lưu quốc gia")}

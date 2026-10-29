@@ -11,6 +11,7 @@ import { SearchResultsPopup, type SearchMatchRow } from "../components/SearchRes
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { DiaGioiToggle } from "../components/DiaGioiToggle";
 import { PhamViToggle } from "../components/PhamViToggle";
+import { QuocGiaToggle } from "../components/QuocGiaToggle";
 import { TonKhoSearch } from "../components/TonKhoSearch";
 import { NgonNguSwitcher } from "../components/NgonNguSwitcher";
 import { useTranslation } from "react-i18next";
@@ -218,6 +219,7 @@ export function TopBar({
       <Greeting />
       <div className="ml-auto flex items-center gap-3">
         <NgonNguSwitcher className="hidden sm:inline-flex" />
+        <QuocGiaToggle className="flex" />
         <PhamViToggle className="flex" />
         <DiaGioiToggle className="hidden sm:flex" />
         <button onClick={() => goTo("giao-dien")} className="focus-ring w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-base" title={t("topbar.theme")}>

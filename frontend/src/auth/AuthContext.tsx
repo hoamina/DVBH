@@ -1,3 +1,4 @@
+import { datQuyenQuocGia } from "../lib/phamVi";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { apDungNgonNgu, chuanHoaNgonNgu, layNgonNguChoDongBo, type NgonNgu } from "../i18n";
 import { NGON_NGU_TRANG } from "../i18n/tr";
@@ -92,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             window.location.reload();
             return;
           }
+          // "Đa quốc gia": quyen xem theo nuoc - phai co TRUOC khi cac module goi API (api/client.ts gan ?qg=).
+          datQuyenQuocGia(user.pham_vi_quoc_gia ?? null);
           setState({ status: "authenticated", user, showDailyReport });
           return;
         }

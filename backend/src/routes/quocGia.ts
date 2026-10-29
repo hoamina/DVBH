@@ -4,7 +4,8 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { nowVN } from "../lib/vnTime";
-import { RE_MA_QUOC_GIA, docBoMauId, globSangRegex, QUOC_GIA_MAC_DINH } from "../lib/quocGia";
+import { RE_MA_QUOC_GIA, docBoMauId, globSangRegex, QUOC_GIA_MAC_DINH, xoaCacheQuocGia } from "../lib/quocGia";
+import { damBaoBangQuocGia } from "../lib/quocGiaKichHoat";
 
 // /api/quoc-gia (2026-10-29, migration 0148) - "Đa quốc gia" GĐ1: danh muc quoc gia + mau ID -> quoc gia/nguon.
 // Doc: moi user dang nhap (can danh sach nuoc de hien thi); mau ID + sua: Admin. Mau ID chi anh huong ca TAO MOI tu
@@ -60,6 +61,9 @@ quocGia.put("/nuoc", adminOnly, async (c) => {
   )
     .bind(ma, ten, Number.isFinite(body.thu_tu) ? Number(body.thu_tu) : 0, body.kich_hoat === false ? 0 : 1, c.get("user").email, nowVN())
     .run();
+  xoaCacheQuocGia();
+  // Nuoc dang bat phai co san view/bang theo pham vi (lib/phamVi.ts) truoc khi ai chon xem - tao ngay (chi cai con thieu).
+  if (body.kich_hoat !== false) await damBaoBangQuocGia(c.env.DB, [ma]);
   return c.json({ ok: true });
 });
 

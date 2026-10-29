@@ -1,3 +1,4 @@
+import { PHAM_VI_QUOC_GIA_MAC_DINH } from "../lib/quocGia";
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { type Env, NGON_NGU_VALUES } from "../types";
@@ -78,8 +79,8 @@ auth.get("/callback", async (c) => {
   // Upsert ten hien thi (khong dong lai vai_tro/trang_thai_duyet o day - loadUser xu ly). Moi tai
   // khoan (ke ca KTV/Ve tinh) deu vao "Cho duyet" cho den khi Admin duyet thu cong.
   await c.env.DB.prepare(
-    `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, pham_vi_quoc_gia)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(email) DO UPDATE SET ten = excluded.ten, updated_at = ?`,
   )
     .bind(
@@ -87,6 +88,7 @@ auth.get("/callback", async (c) => {
       userInfo.name ?? null,
       isBootstrapAdmin ? "Admin" : null,
       isBootstrapAdmin ? "Da duyet" : "Cho duyet",
+      isBootstrapAdmin ? null : PHAM_VI_QUOC_GIA_MAC_DINH,
       nowVN(),
     )
     .run();

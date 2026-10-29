@@ -1,3 +1,4 @@
+import { PHAM_VI_QUOC_GIA_MAC_DINH } from "../lib/quocGia";
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
@@ -1240,11 +1241,11 @@ async function provisionPlaceholderUser(
   const laVeTinh = args.vaiTroKtv === "Ve tinh";
   return db
     .prepare(
-      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh, giam_sat_quan_ly)
-       VALUES (?, ?, NULL, 'Cho duyet', ?, ?, ?)
+      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh, giam_sat_quan_ly, pham_vi_quoc_gia)
+       VALUES (?, ?, NULL, 'Cho duyet', ?, ?, ?, ?)
        ON CONFLICT(email) DO NOTHING`,
     )
-    .bind(args.email, args.ten, laVeTinh ? 0 : 1, laVeTinh ? 1 : 0, args.giamSatQuanLy);
+    .bind(args.email, args.ten, laVeTinh ? 0 : 1, laVeTinh ? 1 : 0, args.giamSatQuanLy, PHAM_VI_QUOC_GIA_MAC_DINH);
 }
 
 // PATCH /api/settings/ktv-lien-he/:ma/dat-mua-lk - { gmail?, vai_tro_ktv?, giam_sat_quan_ly?,

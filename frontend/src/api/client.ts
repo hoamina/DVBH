@@ -1,14 +1,20 @@
-import { phamViHienTai } from "../lib/phamVi";
+import { phamViHienTai, quocGiaHienTai } from "../lib/phamVi";
 
 const BASE = "/api";
 
 // "Phạm vi báo cáo" (lib/phamVi.ts): gan ?pv= vao MOI request GET (xem bao cao/danh sach) - tru badge menu (luon Tất cả).
+// "Đa quốc gia": gan ?qg= (nuoc dang xem) vao moi GET ke ca badge menu (badge theo nuoc) - tru /auth.
 const KHONG_GAN_PHAM_VI = /^\/(notifications|auth)(\/|\?|$)/;
+const KHONG_GAN_QUOC_GIA = /^\/auth(\/|\?|$)/;
 function ganPhamVi(path: string, init?: RequestInit): string {
   if (init?.method && init.method !== "GET") return path;
+  const them: string[] = [];
+  const qg = quocGiaHienTai();
+  if (qg && !KHONG_GAN_QUOC_GIA.test(path)) them.push(`qg=${encodeURIComponent(qg)}`);
   const pv = phamViHienTai();
-  if (pv === "tat_ca" || KHONG_GAN_PHAM_VI.test(path)) return path;
-  return `${path}${path.includes("?") ? "&" : "?"}pv=${pv}`;
+  if (pv !== "tat_ca" && !KHONG_GAN_PHAM_VI.test(path)) them.push(`pv=${pv}`);
+  if (!them.length) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}${them.join("&")}`;
 }
 
 export class ApiError extends Error {

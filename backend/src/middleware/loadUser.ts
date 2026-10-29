@@ -2,7 +2,8 @@ import type { Context, Next } from "hono";
 import type { AppUser, Env, VaiTro } from "../types";
 import { fromJsonArray } from "../lib/jsonArray";
 import { parseModulesColumn } from "../lib/moduleAccess";
-import { docPhamViQuocGia } from "../lib/quocGia";
+import { docPhamViQuocGia, PHAM_VI_QUOC_GIA_MAC_DINH } from "../lib/quocGia";
+import { apPhamViQuocGia } from "../lib/phamVi";
 
 interface UserRow {
   ngon_ngu: string | null;
@@ -45,11 +46,12 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   if (!row) {
     const isBootstrapAdmin = email === c.env.BOOTSTRAP_ADMIN_EMAIL;
     row = await c.env.DB.prepare(
-      `INSERT INTO users (email, vai_tro, trang_thai_duyet)
-       VALUES (?, ?, ?)
+      `INSERT INTO users (email, vai_tro, trang_thai_duyet, pham_vi_quoc_gia)
+       VALUES (?, ?, ?, ?)
        RETURNING ${USER_COLUMNS}`,
     )
-      .bind(email, isBootstrapAdmin ? "Admin" : null, isBootstrapAdmin ? "Da duyet" : "Cho duyet")
+      // Tai khoan moi mac dinh chi xem VN (chot 2026-10-29, migration 0149) - Admin bootstrap giu toan bo.
+      .bind(email, isBootstrapAdmin ? "Admin" : null, isBootstrapAdmin ? "Da duyet" : "Cho duyet", isBootstrapAdmin ? null : PHAM_VI_QUOC_GIA_MAC_DINH)
       .first<UserRow>();
   }
 
@@ -93,5 +95,7 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     pham_vi_quoc_gia: docPhamViQuocGia(row.pham_vi_quoc_gia),
   };
   c.set("user", user);
+  // "Đa quốc gia" (lib/phamVi.ts): boc DB theo nuoc user duoc xem - sau dong nay moi truy van cua route deu da loc.
+  await apPhamViQuocGia(c, user);
   await next();
 }

@@ -4988,3 +4988,17 @@ Lập kế hoạch 5 giai đoạn (SRS §12), làm trước GĐ1 vì không đ�
   85 cột — sát giới hạn 100 cột/kết quả của D1 (lỗi Quản lý tồn v1.500). Câu chính giờ chỉ lấy `LAP_COT_RIENG` (id, prior_id,
   prior_ht, gap_days) + cột giải trình lặp, `ghepDuCotCa()` lấy đủ cột case_dvbh theo khóa chính rồi ghép. Kết quả trả về giữ
   nguyên (đo local: 95 / 96 / 85 trường).
+
+## 2026-10-29 — Đa quốc gia GĐ2+GĐ3: ép quyền xem theo nước (v1.502)
+Chủ hệ thống chốt: mẫu ID INDO/PLP bổ sung sau; ID không khớp → VN; nhân viên hiện tại mặc định VN; nhiều nước thì xem
+từng nước một.
+- `lib/phamVi.ts`: proxy đổi tên bảng thêm chiều quốc gia (hậu tố `vn`, `vn_nskx`, `vn_khong_nskx`, `id`…), lọc thêm mọi
+  `FROM/JOIN case_dvbh` theo `quoc_gia`; request ghi chỉ ẩn ca của nước không có quyền. Áp trong `loadUser`.
+- Migration 0149: users → `["VN"]` (trừ Admin), view + bảng sao VN/ID, chép lịch sử số chốt sang bản VN.
+- `lib/quocGiaKichHoat.ts`: tạo bảng/view nước mới lúc chạy từ DDL bảng gốc (khi Admin bật nước + mỗi lần cron chốt).
+- Cron chốt 08:00/17:30/retry chạy cho mọi phạm vi; warm cache thêm VN. Telegram/xóa cache dùng `laPhamViGoc`.
+- Frontend: `QuocGiaToggle` (TopBar), `?qg=` trong `api/client.ts`, khóa IndexedDB theo nước, lọc chunk R2/lũy kế theo nước.
+- Thử local: ca giả `IDTEST001` (ID) — Tất cả 1427 / VN 1426 / ID 1; user chỉ VN: `?qg=ID` bị ép về VN, chi tiết + ghi lên ca
+  ID → 404; duyệt 15 module không lỗi 500; tạo nước "TH" lúc chạy ra đủ view + 7 bảng + index; cron 08:00 chốt đủ VN/ID/VN×NSKX.
+- Kiểm regex trên mọi câu `FROM/JOIN case_dvbh` trong code (phát hiện + sửa lỗi dạng `case_dvbh c INDEXED BY` ở chế độ ghi).
+

@@ -18,7 +18,7 @@
  *   VIP/Loc tong/Tranh chap (4 con so co the trung nhau, giong cach he thong tach B2B/NSKX rieng
  *   khoi tong chung - xem NEED_B2B_1_NGAY/NEED_NSKX_2_NGAY trong needGiaiTrinh.ts).
  */
-import { phamViCua } from "./phamVi";
+import { laPhamViGoc } from "./phamVi";
 import { ageExpr } from "./ageCalc";
 import { caseFilterTonAt0800 } from "./needGiaiTrinh";
 import { khuVucReportExclusionClause, khuVucAdHocClause } from "./filterParams";
@@ -287,8 +287,8 @@ export async function generateCanhBaoTonSnapshot(env: Env, generatedBy: string):
     }
   }
 
-  // Pham vi NSKX / Khong NSKX (lib/phamVi.ts): chi chot so, KHONG gui Telegram.
-  if (phamViCua(db) !== "tat_ca") return;
+  // Pham vi NSKX / Khong NSKX / theo quoc gia (lib/phamVi.ts): chi chot so, KHONG gui Telegram.
+  if (!laPhamViGoc(db)) return;
   try {
     const dateParts = ngay.split("-");
     const ngayFormatted = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;

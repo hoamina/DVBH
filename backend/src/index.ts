@@ -43,7 +43,7 @@ import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canh
 import { autoLogCaKetThucTrongNgay } from "./lib/autoLogCaKetThuc";
 import { autoLogGiaiTrinhQuaTranhChap } from "./lib/canhBaoCap2GiaiTrinh";
 import { phamViMiddleware } from "./lib/phamVi";
-import { chotSoLieuPhamVi, chotGiaiTrinhPhamVi, retryLuongDoiTraPhamVi } from "./lib/phamViChot";
+import { chotSoLieuPhamVi, chotGiaiTrinhPhamVi, retryLuongDoiTraPhamVi, envVn } from "./lib/phamViChot";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
@@ -289,6 +289,7 @@ export default {
       // re) nhung bao cao nao chua doi tu lan tinh truoc, khong ton kem khi khong co gi moi.
       try {
         await warmDefaultReports(env.DB);
+        await warmDefaultReports(envVn(env).DB);
       } catch (err) {
         console.error("[cron-daily-snapshot] warmDefaultReports loi:", err instanceof Error ? err.message : String(err));
       }

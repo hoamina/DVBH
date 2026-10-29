@@ -12071,10 +12071,6 @@
   "All",
   "Semua"
  ],
- "Chưa áp dụng lọc dữ liệu — hệ thống sẽ lọc báo cáo/danh sách theo quốc gia ở giai đoạn sau.": [
-  "Data filtering not applied yet — reports/lists will be filtered by country in a later phase.",
-  "Penyaringan data belum diterapkan — laporan/daftar akan disaring per negara pada tahap berikutnya."
- ],
  "Lưu quốc gia": [
   "Save countries",
   "Simpan negara"
@@ -12154,5 +12150,17 @@
  "Thử": [
   "Test",
   "Uji"
+ ],
+ "Người dùng chỉ thấy dữ liệu (báo cáo, danh sách, chi tiết ca) của các quốc gia được chọn; được nhiều nước thì xem từng nước qua nút Quốc gia trên thanh đầu trang. Áp dụng từ lần tải trang sau của người đó.": [
+  "The user only sees data (reports, lists, case details) of the selected countries; with several countries they view one at a time via the Country switch in the top bar. Takes effect on their next page load.",
+  "Pengguna hanya melihat data (laporan, daftar, detail kasus) dari negara yang dipilih; jika beberapa negara, dilihat satu per satu lewat tombol Negara di bilah atas. Berlaku saat halaman dimuat ulang berikutnya."
+ ],
+ "Quốc gia đang xem": [
+  "Country being viewed",
+  "Negara yang dilihat"
+ ],
+ "Tất cả quốc gia": [
+  "All countries",
+  "Semua negara"
  ]
 }

@@ -14,8 +14,10 @@ export interface MauIdQuocGia {
 /** Ma nuoc hop le: 2-5 chu in hoa (khop CHECK migration 0148) - GĐ2 ghep ma nay vao ten bang/view nen phai chat. */
 export const RE_MA_QUOC_GIA = /^[A-Z]{2,5}$/;
 
-/** Nuoc mac dinh khi ID khong khop mau nao. GĐ1 giu "VN" de khong doi hanh vi; chot lai voi chu he thong (Q4). */
+/** Nuoc mac dinh: ID khong khop mau nao -> VN; tai khoan moi chi xem VN (chu he thong chot 2026-10-29). */
 export const QUOC_GIA_MAC_DINH = "VN";
+/** Gia tri users.pham_vi_quoc_gia ghi cho tai khoan moi (tru Admin bootstrap). */
+export const PHAM_VI_QUOC_GIA_MAC_DINH = JSON.stringify([QUOC_GIA_MAC_DINH]);
 
 /** GLOB SQLite (* ? [..] [^..]) -> RegExp, phan biet hoa/thuong nhu GLOB. Tra null neu mau hong. */
 export function globSangRegex(glob: string): RegExp | null {
@@ -83,4 +85,21 @@ export function docPhamViQuocGia(raw: string | null | undefined): string[] | nul
   } catch {
     return [];
   }
+}
+
+// Danh sach ma nuoc dang bat - doc moi request co ?qg cua user toan bo + moi lan cron chot, nen giu trong isolate
+// 5 phut (bang vai dong). Sua danh muc (routes/quocGia.ts) goi xoaCacheQuocGia() cho isolate dang chay.
+let cacheNuoc: { ds: string[]; luc: number } | null = null;
+const TUOI_CACHE_NUOC_MS = 5 * 60_000;
+
+export async function dsQuocGiaKichHoat(db: D1Database): Promise<string[]> {
+  if (cacheNuoc && Date.now() - cacheNuoc.luc < TUOI_CACHE_NUOC_MS) return cacheNuoc.ds;
+  const { results } = await db.prepare("SELECT ma FROM quoc_gia WHERE kich_hoat = 1 ORDER BY thu_tu, ma").all<{ ma: string }>();
+  const ds = results.map((r) => r.ma).filter((m) => RE_MA_QUOC_GIA.test(m));
+  cacheNuoc = { ds, luc: Date.now() };
+  return ds;
+}
+
+export function xoaCacheQuocGia(): void {
+  cacheNuoc = null;
 }

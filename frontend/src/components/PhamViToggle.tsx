@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { setPhamVi, usePhamVi, type PhamVi } from "../lib/phamVi";
+import { QUOC_GIA_CO_NSKX, setPhamVi, usePhamVi, useQuocGiaDangXem, type PhamVi } from "../lib/phamVi";
 
 // Nut "Phạm vi báo cáo" (2026-10-13) - dat o TopBar canh nut Địa giới. CHI anh huong viec xem bao cao/danh sach
 // (lib/phamVi.ts). Doi pham vi -> bo toan bo du lieu react-query de moi man tai lai theo pham vi moi.
@@ -11,12 +11,15 @@ export function PhamViToggle({ className = "" }: { className?: string }) {
   const { t } = useTranslation();
   const pv = usePhamVi();
   const qc = useQueryClient();
+  // NSKX la doi tac VN - dang xem nuoc khac thi an nut (server cung bo qua ?pv).
+  const qg = useQuocGiaDangXem();
   const chon = (v: PhamVi) => {
     if (v === pv) return;
     setPhamVi(v);
     qc.resetQueries();
   };
   const dangLoc = pv !== "tat_ca";
+  if (qg !== null && qg !== QUOC_GIA_CO_NSKX) return null;
   return (
     <div className={`flex items-center gap-1.5 ${className}`} title={t("phamVi.groupTitle")}>
       <span className={`text-[11px] hidden lg:inline ${dangLoc ? "font-bold text-[var(--coral-500)]" : "text-[var(--ink-400)]"}`}>

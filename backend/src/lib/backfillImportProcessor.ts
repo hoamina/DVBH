@@ -8,6 +8,7 @@
  *     nhap Google lan dau, chi khac la chua duoc duyet nen chua dang nhap duoc.
  */
 
+import { PHAM_VI_QUOC_GIA_MAC_DINH } from "./quocGia";
 import { nowVN } from "./vnTime";
 
 const CHUNK_SIZE_SELECT = 100;
@@ -48,7 +49,7 @@ export async function ensureUsersExist(db: D1Database, emails: (string | null | 
   if (missing.length === 0) return;
 
   const statements = missing.map((email) =>
-    db.prepare("INSERT INTO users (email, trang_thai_duyet) VALUES (?, 'Cho duyet')").bind(email),
+    db.prepare("INSERT INTO users (email, trang_thai_duyet, pham_vi_quoc_gia) VALUES (?, 'Cho duyet', ?)").bind(email, PHAM_VI_QUOC_GIA_MAC_DINH),
   );
   for (let i = 0; i < statements.length; i += CHUNK_SIZE_BATCH) {
     await db.batch(statements.slice(i, i + CHUNK_SIZE_BATCH));

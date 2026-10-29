@@ -287,7 +287,8 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
      ca **tạo mới** theo mẫu; ca đã có giữ nguyên nước. ID không khớp mẫu nào → VN (tạm, chờ chốt Q4).
    - `users.pham_vi_quoc_gia` (NULL = toàn bộ): chọn trong Quản lý User → Phân quyền → "Quốc gia được xem" (nút lưu riêng).
    - Cài đặt → "Quốc gia": thêm/tắt nước, thêm/xóa mẫu ID, thử 1 ID xem xếp vào đâu (Admin).
-2. **GĐ2 – Ép quyền phía server**: mở rộng proxy đổi tên bảng của §11 thêm chiều quốc gia (view `case_hieu_luc_<nước>`,
+2. **GĐ2 + GĐ3 (xong, v1.502, migration 0149)** — đã ép quyền, chi tiết bên dưới. Kế hoạch gốc:
+   **GĐ2 – Ép quyền phía server**: mở rộng proxy đổi tên bảng của §11 thêm chiều quốc gia (view `case_hieu_luc_<nước>`,
    bản sao bảng số chốt/cache theo nước tạo động khi kích hoạt nước, không cần migration); kiểm tra 1 ca theo nước
    (`FORBIDDEN_QUOC_GIA`); rà các truy vấn bảng con (vi phạm, khảo sát, giải trình…) chưa đi qua `case_hieu_luc`; badge theo nước.
 3. **GĐ3 – Số chốt 08:00/17:30 theo nước, nút chọn nước trên TopBar** (chỉ hiện nước được phép; NSKX chỉ ở VN), chép lịch
@@ -295,12 +296,26 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 4. **GĐ4 – R2 (ca đã đóng, lũy kế) + API đối tác theo nước** (cần chủ hệ thống duyệt).
 5. **GĐ5 – Đón nguồn Odoo INDO thật.**
 
-**Câu hỏi chờ chủ hệ thống chốt (trước GĐ2)**
-- Q1: ID ca Odoo INDO có dạng gì? Nếu cũng là `SC…` sẽ **trùng khóa** với Odoo VN → pipeline phải thêm tiền tố (vd `ID-SC…`). PLP?
-- Q2: Người xem nhiều nước (không phải tất cả) xem từng nước một qua nút chọn có được không?
+**Chủ hệ thống đã chốt (2026-10-29)**
+- Q1: mẫu ID của INDO/PLP bổ sung sau (thêm ở Cài đặt → "Quốc gia" khi có).
+- Q4: ca không khớp mẫu nào → xếp VN.
+- Q8: nhân viên hiện tại mặc định VN (Admin giữ toàn bộ để quản trị); tài khoản mới đăng nhập cũng mặc định VN.
+- Q2: người được xem nhiều nước chọn xem từng nước một (nút chọn nước trên thanh đầu trang).
+
+**Câu hỏi còn mở**
 - Q3: INDO có khu vực/KTV/giám sát/danh mục riêng không? Các module VN (Đặt mua LK, Tồn kho LK, Doanh thu, Lũy kế, Khảo sát) có mở cho INDO?
-- Q4: Ca không khớp mẫu ID nào: từ chối + ghi lỗi (đề xuất) hay xếp VN?
 - Q5: Cho tách file R2 (ca đã đóng) theo nước?
 - Q6: Ảnh Telegram 17:30: chỉ VN, toàn bộ, hay mỗi nước 1 ảnh?
 - Q7: API đối tác hiện có giới hạn VN (đề xuất) hay toàn bộ?
-- Q8: Mặc định người dùng hiện có: Admin/Viewer/TBP/QC = toàn bộ, còn lại = VN?
+
+**Đã triển khai GĐ2 + GĐ3 (v1.502, 2026-10-29)**
+- Nhân viên hiện có + tài khoản mới: chỉ xem VN. Admin: toàn bộ. Đổi ở Quản lý User → Phân quyền → "Quốc gia được xem".
+- Người chỉ có 1 nước: không thấy nút chọn nước, mọi báo cáo/danh sách/Excel/badge/chi tiết ca chỉ gồm nước đó; mở ca của
+  nước khác (gõ ID, tìm kiếm) → không tìm thấy; thao tác ghi lên ca nước khác → không tìm thấy.
+- Người nhiều nước / toàn bộ: nút "Quốc gia" trên thanh đầu trang, xem từng nước một (toàn bộ có thêm "Tất cả").
+  Nút NSKX chỉ hiện khi xem VN hoặc Tất cả.
+- Số chốt 08:00 / 17:30 / Cảnh báo tồn / tuổi tồn / tồn theo KTV có bản riêng từng nước; lịch sử trước 29/10/2026 đã
+  chép sang bản VN. Ảnh Telegram vẫn là số "Tất cả".
+- Thêm nước mới: Cài đặt → "Quốc gia" → thêm mã + bật → hệ thống tự tạo bảng riêng, thêm mẫu ID cho nguồn của nước đó.
+- Chưa tách theo nước (chờ Q3/Q5/Q7): Đặt mua linh kiện / Trả hàng / Phiếu xuất kho, API đối tác, file R2 tải về (đang lọc
+  ở trình duyệt).

@@ -1,4 +1,5 @@
-import { PHAM_VI_LOC, bocPhamVi, phamViCua } from "./phamVi";
+import { bocPhamVi, laPhamViGoc, phamViTheoNuoc } from "./phamVi";
+import { dsQuocGiaKichHoat } from "./quocGia";
 /**
  * Cache JSON tinh san cho cac endpoint doc NHIEU nhung du lieu nguon CHI doi khi import ghi
  * case_dvbh (xem KE_HOACH_TOI_UU_D1.md Giai doan 2 - R2: /dashboard/filters, /dashboard/months).
@@ -70,11 +71,13 @@ export async function recompute<T>(db: D1Database, key: string, compute: () => P
   return value;
 }
 
-/** Ban cache cua 2 pham vi NSKX / Khong NSKX (bang precomputed_cache_<pv>, lib/phamVi.ts) khong co duong recompute rieng
- * -> khi "Tất cả" bi tinh lai / xoa (biet chac nguon vua doi) thi xoa luon dong tuong ung, lan xem sau tu tinh lai. */
+/** Ban cache cua cac pham vi NSKX / Khong NSKX / theo quoc gia (bang precomputed_cache_<hau to>, lib/phamVi.ts) khong co
+ * duong recompute rieng -> khi "Tất cả" bi tinh lai / xoa (biet chac nguon vua doi) thi xoa luon dong tuong ung, lan xem
+ * sau tu tinh lai. */
 async function xoaBanPhamVi(db: D1Database, sql: string, bind: string): Promise<void> {
-  if (phamViCua(db) !== "tat_ca") return;
-  await db.batch(PHAM_VI_LOC.map((pv) => bocPhamVi(db, pv).prepare(sql).bind(bind)));
+  if (!laPhamViGoc(db)) return;
+  const dsPhamVi = phamViTheoNuoc(await dsQuocGiaKichHoat(db));
+  await db.batch(dsPhamVi.map((s) => bocPhamVi(db, s).prepare(sql).bind(bind)));
 }
 
 /**
