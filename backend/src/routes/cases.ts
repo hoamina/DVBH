@@ -638,8 +638,12 @@ cases.get("/", async (c) => {
     tuoi_ton: AGE_EXPR,
   };
   const sortExpr = SORT_EXPR[sortByRaw] ?? SORT_EXPR.id;
+  // SUA 2026-10-29 (Quan ly ton > Danh sach chi tiet "Khong tai duoc du lieu"): D1 gioi han 100 COT / ket qua - "c.*" (82 cot sau
+  // migration 0148 quoc_gia) + 19 cot tinh them = 101 -> "too many columns in result set". Gio 2 buoc: cau nay chi lay c.id + cac cot
+  // tinh them (loc/sap xep/phan trang giu nguyen), roi layDuCotCa() lay du cot case_dvbh cua DUNG cac id do (khoa chinh) va ghep lai -
+  // them cot vao case_dvbh ve sau khong lam vo danh sach nua.
   const baseQuery = `
-    SELECT c.*, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
+    SELECT c.id AS id, lg.ly_do_cham as last_ly_do_cham, lg.ngay_giai_trinh as last_ngay_giai_trinh,
            lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh, lg.noi_dung as last_noi_dung_giai_trinh,
            lg.linh_kien_thieu as last_ma_linh_kien_thieu, lg.ma_xuat_hang_lien_quan as last_ma_xuat_hang_lien_quan,
            ${CASE_TRANH_CHAP_STATUS_EXPR} as last_tranh_chap_trang_thai,
@@ -661,18 +665,28 @@ cases.get("/", async (c) => {
     ORDER BY (CASE WHEN c.nhom_kh LIKE '%VIP%' THEN 0 ELSE 1 END), ${sortExpr} ${sortDir}
   `;
 
+  // Ghep du cot case_dvbh (theo khoa chinh, 1 bind json_each) vao cac dong da loc/sap xep - giu thu tu, cot tinh them de len sau.
+  const layDuCotCa = async (dong: Record<string, unknown>[]) => {
+    if (!dong.length) return dong;
+    const { results: full } = await c.env.DB.prepare("SELECT * FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))")
+      .bind(JSON.stringify(dong.map((r) => r.id)))
+      .all<Record<string, unknown>>();
+    const theoId = new Map(full.map((r) => [String(r.id), r]));
+    return dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...r }));
+  };
+
   if (isExport) {
-    const { results } = await c.env.DB.prepare(`${baseQuery} LIMIT 5000`).bind(...binds).all();
-    return c.json({ rows: results });
+    const { results } = await c.env.DB.prepare(`${baseQuery} LIMIT 5000`).bind(...binds).all<Record<string, unknown>>();
+    return c.json({ rows: await layDuCotCa(results) });
   }
 
   const offset = (page - 1) * pageSize;
   const { results } = await c.env.DB.prepare(`${baseQuery} LIMIT ? OFFSET ?`)
     .bind(...binds, pageSize, offset)
-    .all();
+    .all<Record<string, unknown>>();
 
   return c.json({
-    rows: results,
+    rows: await layDuCotCa(results),
     page,
     pageSize,
     total: countRow?.total ?? 0,

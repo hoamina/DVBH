@@ -4975,3 +4975,10 @@ Lập kế hoạch 5 giai đoạn (SRS §12), làm trước GĐ1 vì không đ�
 - Thử local: import ca `ZZ…` với mẫu thử `ZZ*`→ID ra ID, ca đã có ghi đè giữ VN, ID không khớp ra VN; PATCH user mảng rỗng
   bị chặn 400, lưu/khôi phục toàn bộ đúng, không đụng vai trò/khu vực; màn Cài đặt + modal hiển thị đúng.
 - Còn mở: 8 câu hỏi trong SRS §12 cần chủ hệ thống chốt trước GĐ2.
+
+## 2026-10-29 — Sửa lỗi Quản lý tồn > Danh sách chi tiết "Không tải được dữ liệu" (v1.500)
+- Nguyên nhân (tái hiện ở local, log Worker): `D1_ERROR: too many columns in result set` — D1 giới hạn 100 cột/kết quả;
+  `GET /api/cases` dùng `SELECT c.*` (case_dvbh 82 cột sau migration 0148 `quoc_gia`) + 19 cột tính thêm = 101.
+- Sửa `routes/cases.ts`: câu chính chỉ lấy `c.id` + cột tính thêm (lọc/sắp xếp/phân trang giữ nguyên), `layDuCotCa()` lấy đủ cột
+  `case_dvbh` theo khóa chính (1 bind json_each) rồi ghép — áp cả danh sách lẫn xuất Excel; thêm cột vào case_dvbh không làm vỡ nữa.
+- Rủi ro còn lại: CTE ca lặp (`routes/caLap.ts` `lap.*` + 10 cột giải trình lặp) đang 95 cột — thêm ≥ 6 cột vào case_dvbh sẽ chạm giới hạn.
