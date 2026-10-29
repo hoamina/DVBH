@@ -18,7 +18,6 @@
  *   VIP/Loc tong/Tranh chap (4 con so co the trung nhau, giong cach he thong tach B2B/NSKX rieng
  *   khoi tong chung - xem NEED_B2B_1_NGAY/NEED_NSKX_2_NGAY trong needGiaiTrinh.ts).
  */
-import { laPhamViGoc } from "./phamVi";
 import { ageExpr } from "./ageCalc";
 import { caseFilterTonAt0800 } from "./needGiaiTrinh";
 import { khuVucReportExclusionClause, khuVucAdHocClause } from "./filterParams";
@@ -32,7 +31,8 @@ import { type SnapshotBucket, upsertSnapshot } from "./dailySnapshot";
 import { getVnDateStr } from "./reportCache";
 import { nowVN } from "./vnTime";
 import { renderCanhBaoTonImage } from "./reportImage";
-import { sendTelegramPhoto, TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID } from "./telegram";
+import { nhomTelegramCuaPhamVi, sendTelegramPhoto, TELEGRAM_BOT_ID } from "./telegram";
+import { QUOC_GIA_MAC_DINH } from "./quocGia";
 import type { Env } from "../types";
 import { computeLuongDoiTraTon, ngayVNCuaIso } from "./luongDoiTraTon";
 import { boSungCap2VaoSnapshotHomNay } from "./canhBaoCap2GiaiTrinh";
@@ -287,14 +287,15 @@ export async function generateCanhBaoTonSnapshot(env: Env, generatedBy: string):
     }
   }
 
-  // Pham vi NSKX / Khong NSKX / theo quoc gia (lib/phamVi.ts): chi chot so, KHONG gui Telegram.
-  if (!laPhamViGoc(db)) return;
+  // Telegram gui rieng TUNG NUOC (lan chot cua pham vi 1 nuoc, vao nhom cua nuoc do) - "Tất cả" / NSKX chi chot so.
   try {
+    const nhom = await nhomTelegramCuaPhamVi(db);
+    if (!nhom) return;
     const dateParts = ngay.split("-");
     const ngayFormatted = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
     const { cap1, cap2 } = canhBaoTonImageRows(buckets);
     const png = await renderCanhBaoTonImage(cap1, cap2, ngayFormatted);
-    await sendTelegramPhoto(TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID, png);
+    await sendTelegramPhoto(TELEGRAM_BOT_ID, nhom.chatId, png, nhom.qg === QUOC_GIA_MAC_DINH ? undefined : nhom.qg);
   } catch (err) {
     console.error("[Telegram] Loi tien trinh gui anh Canh bao ton danh cho QL:", err instanceof Error ? err.message : String(err));
   }

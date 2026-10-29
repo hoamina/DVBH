@@ -19,7 +19,6 @@
  *   filter co the co, se bung no chi phi).
  */
 import { layCap2, hopCap2VaoBuckets, boSungCap2VaoSnapshotHomNay } from "./canhBaoCap2GiaiTrinh";
-import { laPhamViGoc } from "./phamVi";
 import type { AppUser } from "../types";
 import { RECENT_OR_OPEN_CONDITION } from "../routes/survey";
 import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "../routes/caLap";
@@ -52,7 +51,8 @@ import { CURRENT_MONTH_VALUE, khuVucReportExclusionClause, QLDVBH_FILTER_VALUE }
 import { hasModule } from "./moduleAccess";
 import { type DashboardKpisPayload, type TrendRow, computeDashboardKpis, computeDashboardPivot, PIVOT_DIMS } from "./dashboardCompute";
 import { buildBaocaoTonRows, renderBaocaoTonImage } from "./reportImage";
-import { sendTelegramPhoto, TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID } from "./telegram";
+import { nhomTelegramCuaPhamVi, sendTelegramPhoto, TELEGRAM_BOT_ID } from "./telegram";
+import { QUOC_GIA_MAC_DINH } from "./quocGia";
 import { computeRevenue } from "./revenueCompute";
 
 export type RoleVariant = "giam_sat" | "qc" | "khac";
@@ -1205,15 +1205,16 @@ export async function chotGiaiTrinhDailyLog(db: D1Database): Promise<void> {
   }
 
   // GUI ANH TOM TAT QUA TELEGRAM SAU KHI CHOT XONG (CHOT 2026-08-06 - xem lib/reportImage.ts)
-  // Pham vi NSKX / Khong NSKX / theo quoc gia (lib/phamVi.ts): chi chot so, KHONG gui Telegram.
-  if (!laPhamViGoc(db)) return;
+  // Telegram gui rieng TUNG NUOC (lan chot cua pham vi 1 nuoc, vao nhom cua nuoc do) - "Tất cả" / NSKX chi chot so.
   try {
+    const nhom = await nhomTelegramCuaPhamVi(db);
+    if (!nhom) return;
     const { mb, mn, kddv } = buildBaocaoTonRows(entries, resolvedList);
     const dateParts = ngay.split("-");
     const ngayFormatted = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
 
     const png = await renderBaocaoTonImage(mb, mn, kddv, ngayFormatted);
-    await sendTelegramPhoto(TELEGRAM_BOT_ID, TELEGRAM_CHAT_ID, png);
+    await sendTelegramPhoto(TELEGRAM_BOT_ID, nhom.chatId, png, nhom.qg === QUOC_GIA_MAC_DINH ? undefined : nhom.qg);
   } catch (err) {
     console.error("[Telegram] Loi tien trinh gui anh bao cao:", err instanceof Error ? err.message : String(err));
   }

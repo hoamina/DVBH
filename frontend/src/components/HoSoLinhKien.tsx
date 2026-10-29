@@ -1,3 +1,4 @@
+import { dl } from "../lib/banDichDuLieu";
 import { useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -543,7 +544,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                       <td className={`${TH} font-mono`}>{o.id}</td>
                       <td className={TH}>
                         {linhKienLoaiDonLabel(o.loai_don)}
-                        {o.loai_de_xuat && <div className="text-[var(--ink-400)]">{o.loai_de_xuat}</div>}
+                        {o.loai_de_xuat && <div className="text-[var(--ink-400)]">{dl(o.loai_de_xuat)}</div>}
                       </td>
                       <td className={`${TH} font-semibold`}>{linhKienTrangThaiLabel(o.trang_thai_hien_tai)}</td>
                       <td className={`${TH} text-right tabular-nums`}>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { dl } from "../lib/banDichDuLieu";
 import { createPortal } from "react-dom";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -1587,7 +1588,7 @@ export function BacklogModule({
       key: "ly_do",
       header: tr("Lý do tồn gần nhất"),
       sortKey: "last_ly_do_cham",
-      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa giải trình")}</span>),
+      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{dl(c.last_ly_do_cham)}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa giải trình")}</span>),
     },
     {
       key: "last_tranh_chap_trang_thai",
@@ -1596,7 +1597,7 @@ export function BacklogModule({
       render: (c) =>
         c.last_tranh_chap_trang_thai && c.last_tranh_chap_trang_thai !== "Chua xu ly" ? (
           <div className="space-y-0.5">
-            {c.last_phan_loai_tranh_chap && <div className="text-[11px] text-[var(--ink-400)] truncate">{c.last_phan_loai_tranh_chap}</div>}
+            {c.last_phan_loai_tranh_chap && <div className="text-[11px] text-[var(--ink-400)] truncate">{dl(c.last_phan_loai_tranh_chap)}</div>}
             <Badge tone={TRANG_THAI_TONE[c.last_tranh_chap_trang_thai] ?? "gray"}>{TRANG_THAI_LABELS[c.last_tranh_chap_trang_thai] ?? c.last_tranh_chap_trang_thai}</Badge>
           </div>
         ) : (
@@ -1653,7 +1654,8 @@ export function BacklogModule({
   const textCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
     key,
     header,
-    render: (c) => <span className="text-xs">{(c[key] as unknown as string | null) ?? "—"}</span>,
+    // dl(): gia tri trung lua chon Cai dat (loai yeu cau, ly do ton tranh chap...) hien ban dich theo ngon ngu (Q3).
+    render: (c) => <span className="text-xs">{dl((c[key] as unknown as string | null)) ?? "—"}</span>,
   });
   const dateCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
     key,
@@ -1778,7 +1780,7 @@ export function BacklogModule({
     {
       key: "ly_do",
       header: tr("Lý do tồn gần nhất"),
-      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{c.last_ly_do_cham}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa giải trình")}</span>),
+      render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{dl(c.last_ly_do_cham)}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa giải trình")}</span>),
     },
     { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },

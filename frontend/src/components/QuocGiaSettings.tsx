@@ -21,7 +21,7 @@ export function QuocGiaSettings() {
   const loi = (e: Error) => toast(e.message);
 
   const luuNuoc = useMutation({
-    mutationFn: (b: { ma: string; ten: string; thu_tu: number; kich_hoat: boolean }) => api.put("/quoc-gia/nuoc", b),
+    mutationFn: (b: { ma: string; ten: string; thu_tu: number; kich_hoat: boolean; telegram_chat_id?: string | null }) => api.put("/quoc-gia/nuoc", b),
     onSuccess: () => {
       lamMoi();
       toast(tr("Đã lưu quốc gia"));
@@ -65,7 +65,8 @@ export function QuocGiaSettings() {
       <Card className="p-4">
         <div className="font-semibold mb-1">{tr("Danh mục quốc gia")}</div>
         <div className="text-xs text-[var(--ink-400)] mb-3">
-          {tr("Mã 2-5 chữ in hoa. Không xóa được quốc gia (ca và người dùng đã gắn mã) — chỉ tắt.")}
+          {tr("Mã 2-5 chữ in hoa. Không xóa được quốc gia (ca và người dùng đã gắn mã) — chỉ tắt.")}{" "}
+          {tr("Ảnh báo cáo Telegram 08:00 / 17:30 gửi riêng từng nước vào nhóm của nước đó.")}
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -74,6 +75,7 @@ export function QuocGiaSettings() {
               <th>{tr("Tên")}</th>
               <th>{tr("Thứ tự")}</th>
               <th>{tr("Bật")}</th>
+              <th>{tr("Nhóm Telegram (mã chat)")}</th>
             </tr>
           </thead>
           <tbody>
@@ -89,6 +91,20 @@ export function QuocGiaSettings() {
                     disabled={!canEdit || luuNuoc.isPending}
                     onChange={(e) => luuNuoc.mutate({ ma: q.ma, ten: q.ten, thu_tu: q.thu_tu, kich_hoat: e.target.checked })}
                   />
+                </td>
+                <td>
+                  {canEdit ? (
+                    <input
+                      key={`${q.ma}-${q.telegram_chat_id ?? ""}`}
+                      className={`${O_NHAP} w-44 font-mono`}
+                      placeholder={tr("Trống = không gửi")}
+                      defaultValue={q.telegram_chat_id ?? ""}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== (q.telegram_chat_id ?? "")) luuNuoc.mutate({ ma: q.ma, ten: q.ten, thu_tu: q.thu_tu, kich_hoat: !!q.kich_hoat, telegram_chat_id: v });
+                      }}
+                    />
+                  ) : null}
                 </td>
               </tr>
             ))}

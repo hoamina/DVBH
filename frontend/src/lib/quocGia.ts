@@ -10,6 +10,7 @@ export interface QuocGia {
   ten: string;
   thu_tu: number;
   kich_hoat: number;
+  telegram_chat_id: string | null;
   nguoi_sua: string | null;
   ngay_sua: string | null;
 }

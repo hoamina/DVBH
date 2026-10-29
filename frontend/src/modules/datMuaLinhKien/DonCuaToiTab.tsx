@@ -1,3 +1,4 @@
+import { dl } from "../../lib/banDichDuLieu";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -272,7 +273,7 @@ export function DonHangDetailModal({
             <Select
               value={lyDoChamId}
               onChange={setLyDoChamId}
-              options={[{ value: "", label: tr("-- Chọn lý do --") }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+              options={[{ value: "", label: tr("-- Chọn lý do --") }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: dl(l.ten_ly_do) }))]}
             />
             <input
               value={ghiChu}
@@ -291,7 +292,7 @@ export function DonHangDetailModal({
             <Select
               value={lyDoChamId}
               onChange={setLyDoChamId}
-              options={[{ value: "", label: tr("-- Chọn lý do --") }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+              options={[{ value: "", label: tr("-- Chọn lý do --") }, ...choHangReasons.map((l) => ({ value: String(l.id), label: dl(l.ten_ly_do) }))]}
             />
             <input
               value={ghiChu}
@@ -419,7 +420,7 @@ export function DonHangDetailModal({
 
           {d.ly_do_cham ? (
             <div className="text-xs text-[var(--ink-600)]">
-              <span className="font-semibold">{tr("Lý do chậm:")}</span> {d.ly_do_cham}
+              <span className="font-semibold">{tr("Lý do chậm:")}</span> {dl(d.ly_do_cham)}
             </div>
           ) : canTacNghiep && d.trang_thai === "Cho TN duyet" ? (
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -460,7 +461,7 @@ export function DonHangDetailModal({
                       if (!matched) return null;
                       return (
                         <Btn key={kw} size="sm" variant={editDraft.loai_de_xuat === matched ? "primary" : "ghost"} disabled={!canEditFull} onClick={() => updateEditDraft({ loai_de_xuat: matched })}>
-                          {kw}
+                          {dl(kw)}
                         </Btn>
                       );
                     })}
@@ -498,7 +499,7 @@ export function DonHangDetailModal({
                   <Select
                     value={editDraft.loai_de_xuat}
                     onChange={(v) => updateEditDraft({ loai_de_xuat: v })}
-                    options={[{ value: "", label: tr("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
+                    options={[{ value: "", label: tr("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: dl(o) }))]}
                     disabled={!canEditFull}
                     className="w-full mt-1"
                   />
@@ -1015,7 +1016,7 @@ export function DonCuaToiTab({
           <Select
             value={bulkLyDoChamId}
             onChange={setBulkLyDoChamId}
-            options={[{ value: "", label: tr("-- Chọn lý do --") }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+            options={[{ value: "", label: tr("-- Chọn lý do --") }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: dl(l.ten_ly_do) }))]}
             className="w-full"
           />
           <div className="text-xs text-[var(--ink-500)]">
@@ -1451,7 +1452,7 @@ export function DonHangGroupedList({
                 <Select
                   value={bulkLyDoChamId}
                   onChange={setBulkLyDoChamId}
-                  options={[{ value: "", label: tr("-- Chọn lý do --") }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  options={[{ value: "", label: tr("-- Chọn lý do --") }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: dl(l.ten_ly_do) }))]}
                   className="w-full"
                 />
                 <div className="flex justify-end gap-2">
@@ -1465,7 +1466,7 @@ export function DonHangGroupedList({
                 <Select
                   value={bulkLyDoChamId}
                   onChange={setBulkLyDoChamId}
-                  options={[{ value: "", label: tr("-- Chọn lý do --") }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  options={[{ value: "", label: tr("-- Chọn lý do --") }, ...choHangReasons.map((l) => ({ value: String(l.id), label: dl(l.ten_ly_do) }))]}
                   className="w-full"
                 />
                 <div className="flex justify-end gap-2">

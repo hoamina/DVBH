@@ -9,6 +9,7 @@
 // (POST /api/cases/:id/doi-tra/:action, backend kiem tra canWriteTranhChap).
 // v1.436: he kia TU ket thuc luong sau 30 ngay khong co thong tin moi (nguoi = "Hệ thống"); luong da ket thuc VAN nhap ma
 // ca doi thu cong duoc (khong ton luot kiem tra tu dong). Tien do ca doi do backend DVBH doc truc tiep tu case_dvbh.
+import { dl } from "../lib/banDichDuLieu";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api/client";
@@ -538,7 +539,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
                 {tt.label}
               </Badge>
             )}
-            {l.loai_yeu_cau && <Badge tone="gray">{l.loai_yeu_cau}</Badge>}
+            {l.loai_yeu_cau && <Badge tone="gray">{dl(l.loai_yeu_cau)}</Badge>}
             {l.serial && <span className="text-xs font-mono text-[var(--ink-500)]">{l.serial}</span>}
           </div>
           <div className="flex items-center gap-1.5">

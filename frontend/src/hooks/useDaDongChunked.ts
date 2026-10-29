@@ -59,6 +59,9 @@ export function useDaDongChunked(thang: string, enabled = true) {
   // hien minh khong con la lan moi nhat thi tu bo ket qua, tranh ghi de state bang du lieu cu hon.
   const syncSeq = useRef(0);
 
+  // "Đa quốc gia": server chi tra dong cua nuoc dang xem -> khoa cache IndexedDB + noi dung tach theo nuoc.
+  const qgTai = useQuocGiaDangXem();
+  const hauToNuoc = qgTai ? `${qgTai}-` : "";
   const sync = useCallback(async () => {
     if (!enabled) {
       setIsLoading(false);
@@ -75,7 +78,7 @@ export function useDaDongChunked(thang: string, enabled = true) {
       const needFetch: string[] = [];
 
       for (const ngay of serverDays) {
-        const cached = await getCachedEntry<DayCacheEntry>(`${CACHE_PREFIX}${ngay}`);
+        const cached = await getCachedEntry<DayCacheEntry>(`${CACHE_PREFIX}${hauToNuoc}${ngay}`);
         if (cached && cached.data.hash === manifest.chunks[ngay].hash) {
           dayEntries.set(ngay, cached.data);
         } else {
@@ -85,15 +88,15 @@ export function useDaDongChunked(thang: string, enabled = true) {
 
       const throttledList: ThrottleInfo[] = [];
       if (needFetch.length > 0) {
-        const res = await api.post<ChunksResponse>("/cases/da-dong-chunks", { ngay: needFetch });
+        const res = await api.post<ChunksResponse>("/cases/da-dong-chunks", { ngay: needFetch, qg: qgTai ?? undefined });
         for (const ngay of needFetch) {
           if (res.chunks[ngay]) {
             const entry: DayCacheEntry = { hash: manifest.chunks[ngay].hash, rows: res.chunks[ngay] };
-            await setCachedEntry(`${CACHE_PREFIX}${ngay}`, entry);
+            await setCachedEntry(`${CACHE_PREFIX}${hauToNuoc}${ngay}`, entry);
             dayEntries.set(ngay, entry);
           } else if (res.throttled[ngay]) {
             throttledList.push({ ngay, retryAfterSeconds: res.throttled[ngay].retryAfterSeconds });
-            const stale = await getCachedEntry<DayCacheEntry>(`${CACHE_PREFIX}${ngay}`);
+            const stale = await getCachedEntry<DayCacheEntry>(`${CACHE_PREFIX}${hauToNuoc}${ngay}`);
             if (stale) dayEntries.set(ngay, stale.data);
           }
         }
@@ -118,7 +121,7 @@ export function useDaDongChunked(thang: string, enabled = true) {
     } finally {
       if (mySeq === syncSeq.current) setIsLoading(false);
     }
-  }, [thang, enabled]);
+  }, [thang, enabled, qgTai]);
 
   useEffect(() => {
     sync();

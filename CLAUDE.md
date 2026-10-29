@@ -225,7 +225,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   add it to `BANG_THEO_PHAM_VI` and create `_vn`/`_vn_nskx`/`_vn_khong_nskx`/`_id` in its migration) or scoped modes silently
   show/write "Tất cả" data; (2) code reachable from a GET that writes
   **shared** derived data (e.g. `refreshCaLapPrecompute`) must use `dbGoc(db)`; (3) anything sent outside (Telegram)
-  must check `laPhamViGoc(db)`; (4) cron/refresh-reports chot both scopes via `lib/phamViChot.ts` (history
+  must not send from a non-country scope (Telegram: `nhomTelegramCuaPhamVi`); (4) cron/refresh-reports chot both scopes via `lib/phamViChot.ts` (history
   starts 2026-10-13). R2 data (closed-case chunks, lũy kế) is filtered client-side (`frontend/src/lib/phamVi.ts`;
   lũy kế NSKX = column "KH VIPs" containing NSKX/NSXK, auto months write "NSKX"). The old "Báo cáo NSKX" module was removed.
 - **"Đa quốc gia" (multi-country, SRS §12, migrations 0148/0149, 2026-10-29) — ENFORCED**: `case_dvbh.quoc_gia` is set on
@@ -240,9 +240,20 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   Per-country views/table copies: VN+ID in migration 0149 (history copied from the base tables), new countries created at
   runtime from the base DDL (`lib/quocGiaKichHoat.ts`, on Admin enable + every cron chốt). Cron chốt/17:30/retry loop all
   scopes (`lib/phamViChot.ts`), `warmDefaultReports` also warms VN. Telegram/`xoaBanPhamVi` check `laPhamViGoc(db)`.
-  R2 chunks/lũy kế filtered client-side (`frontend/src/lib/phamVi.ts` `locTheoQuocGia`; chunk rows without `quoc_gia` = VN).
-  Not country-scoped yet (owner questions Q3/Q5/Q6/Q7 in SRS §12): Đặt mua LK/Trả hàng/PXK (`dat_don_hang`), partner API,
-  R2 downloads themselves, Telegram (= all). No index on `quoc_gia` on purpose (low selectivity would mislead the planner).
+  R2 "đã đóng" chunks stay ONE shared file per day (no extra R2 writes) but `POST /api/cases/da-dong-chunks` only returns
+  rows of the request's country (`chonQuocGia`, rows without `quoc_gia` = VN); client IndexedDB keys carry the country.
+  Lũy kế = VN only. Telegram 08:00/17:30 images are sent per COUNTRY scope to `quoc_gia.telegram_chat_id` (migration 0150,
+  `lib/telegram.ts nhomTelegramCuaPhamVi`; "Tất cả"/NSKX scopes send nothing) and NEVER from local dev
+  (`danhDauMoiTruongLocal`, `LOCAL_DEV_BYPASS_AUTH=true`). Partner API = all countries (owner decision). Catalogs
+  (khu vực, KTV, settings lists, Đặt mua LK) are shared by all countries. No index on `quoc_gia` on purpose (low
+  selectivity would mislead the planner).
+- **Settings option translations (migration 0150, owner decision 2026-10-29)**: the 11 option tables in Settings (`ban_dich_en`/
+  `ban_dich_id`, + `nhom_loi_en/id` on `settings_loai_vi_pham`; list in `routes/banDich.ts BANG_LUA_CHON`) have EN/ID
+  translations — existing ones AI-translated in the migration, new ones typed by Admin in the "Bản dịch (EN / ID)" column
+  (`components/BanDichCell.tsx`, `PUT /api/ban-dich`). Stored/sent values stay Vietnamese; the UI shows `dl(value)`
+  (`frontend/src/lib/banDichDuLieu.ts`, dictionary from `GET /api/ban-dich` loaded after login when language ≠ vi). Wrap
+  `dl()` only at render sites of these values (never compared/sent/Excel values). This is the one exception to "business
+  data stays Vietnamese" in the i18n section below.
 - **Cancelled cases (`huy_bo_at`) are excluded everywhere via VIEW `case_hieu_luc`** (migration 0133,
   2026-10-11): every report/list/dropdown READ query uses `case_hieu_luc`, not `case_dvbh`. Keep `case_dvbh`
   only for writes, single-case lookups by id (Admin can still open a cancelled case), and queries with
@@ -384,7 +395,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0149`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0150`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

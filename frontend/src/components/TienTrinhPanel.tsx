@@ -1,3 +1,4 @@
+import { dl } from "../lib/banDichDuLieu";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "./ui/Btn";
@@ -93,7 +94,7 @@ export function TiepNhanModal({
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Phân loại tranh chấp")}</label>
           {phanLoaiOptions.length ? (
-            <Select value={phanLoai} onChange={setPhanLoai} options={phanLoaiOptions.map((p) => p.ten_phan_loai)} className="w-full mt-1" />
+            <Select value={phanLoai} onChange={setPhanLoai} options={phanLoaiOptions.map((p) => ({ value: p.ten_phan_loai, label: dl(p.ten_phan_loai) }))} className="w-full mt-1" />
           ) : (
             <div className="text-xs text-[var(--coral-500)] mt-1">{tr("Chưa có phân loại nào — vào Settings → Phân loại tranh chấp để thêm trước.")}</div>
           )}
@@ -118,7 +119,7 @@ export function TiepNhanModal({
                 <Select
                   value={ketQua}
                   onChange={setKetQua}
-                  options={[{ value: "", label: tr("Chọn kết quả xử lý…") }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua }))]}
+                  options={[{ value: "", label: tr("Chọn kết quả xử lý…") }, ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: dl(k.ten_ket_qua) }))]}
                   className="w-full mt-1"
                 />
               ) : (
@@ -138,7 +139,7 @@ export function TiepNhanModal({
               <Select
                 value={lyDoTon}
                 onChange={setLyDoTon}
-                options={[{ value: "", label: tr("Chọn lý do tồn…") }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                options={[{ value: "", label: tr("Chọn lý do tồn…") }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: dl(l.ten_ly_do) }))]}
                 className="w-full mt-1"
               />
             ) : (
@@ -367,7 +368,7 @@ export function TienTrinhPanel({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap mt-3">
-          <Badge tone={phanLoaiTone(tt.phan_loai_tranh_chap)}>{tt.phan_loai_tranh_chap}</Badge>
+          <Badge tone={phanLoaiTone(tt.phan_loai_tranh_chap)}>{dl(tt.phan_loai_tranh_chap)}</Badge>
           <Badge tone={MUC_DO_TONE[tt.muc_do] ?? "gray"}>{MUC_DO_LABELS[tt.muc_do] ?? tt.muc_do}</Badge>
           {canEditMeta && (
             <button className="text-xs text-[var(--ocean-600)] underline ml-0.5" onClick={() => setEditMetaOpen(true)}>
@@ -447,12 +448,12 @@ export function TienTrinhPanel({
                   {log.ly_do_ton_tranh_chap && (
                     <div className="text-xs mt-1.5">
                       <span className="text-[var(--ink-400)]">{tr("Lý do tồn:")} </span>
-                      <span className="text-[var(--ink-700)] font-medium">{log.ly_do_ton_tranh_chap}</span>
+                      <span className="text-[var(--ink-700)] font-medium">{dl(log.ly_do_ton_tranh_chap)}</span>
                     </div>
                   )}
                   {(log.ket_qua_xu_ly || log.hai_long_sau_tranh_chap) && (
                     <div className="text-xs mt-1.5 flex gap-1.5 flex-wrap">
-                      {log.ket_qua_xu_ly && <Badge tone="ocean">{log.ket_qua_xu_ly}</Badge>}
+                      {log.ket_qua_xu_ly && <Badge tone="ocean">{dl(log.ket_qua_xu_ly)}</Badge>}
                       {log.hai_long_sau_tranh_chap && (
                         <Badge tone="teal">{HAI_LONG_OPTIONS.find((h) => h.value === log.hai_long_sau_tranh_chap)?.label ?? log.hai_long_sau_tranh_chap}</Badge>
                       )}
@@ -736,7 +737,7 @@ function LogFormModal({
                   onChange={setKetQua}
                   options={[
                     { value: "", label: tr("Chọn kết quả xử lý…") },
-                    ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: k.ten_ket_qua })),
+                    ...ketQuaOptions.map((k) => ({ value: k.ten_ket_qua, label: dl(k.ten_ket_qua) })),
                   ]}
                   className="w-full mt-1"
                 />
@@ -757,7 +758,7 @@ function LogFormModal({
               <Select
                 value={lyDoTon}
                 onChange={setLyDoTon}
-                options={[{ value: "", label: tr("Chọn lý do tồn…") }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                options={[{ value: "", label: tr("Chọn lý do tồn…") }, ...lyDoTonOptions.map((l) => ({ value: l.ten_ly_do, label: dl(l.ten_ly_do) }))]}
                 className="w-full mt-1"
               />
             ) : (
@@ -823,7 +824,7 @@ function EditMetaModal({
       <div className="space-y-3">
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Phân loại tranh chấp")}</label>
-          <Select value={phanLoaiValue} onChange={setPhanLoaiValue} options={phanLoaiOptions.map((p) => p.ten_phan_loai)} className="w-full mt-1" />
+          <Select value={phanLoaiValue} onChange={setPhanLoaiValue} options={phanLoaiOptions.map((p) => ({ value: p.ten_phan_loai, label: dl(p.ten_phan_loai) }))} className="w-full mt-1" />
         </div>
         <div>
           <label className="text-xs font-semibold text-[var(--ink-400)]">{tr("Mức độ")}</label>

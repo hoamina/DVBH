@@ -302,11 +302,12 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Q8: nhân viên hiện tại mặc định VN (Admin giữ toàn bộ để quản trị); tài khoản mới đăng nhập cũng mặc định VN.
 - Q2: người được xem nhiều nước chọn xem từng nước một (nút chọn nước trên thanh đầu trang).
 
-**Câu hỏi còn mở**
-- Q3: INDO có khu vực/KTV/giám sát/danh mục riêng không? Các module VN (Đặt mua LK, Tồn kho LK, Doanh thu, Lũy kế, Khảo sát) có mở cho INDO?
-- Q5: Cho tách file R2 (ca đã đóng) theo nước?
-- Q6: Ảnh Telegram 17:30: chỉ VN, toàn bộ, hay mỗi nước 1 ảnh?
-- Q7: API đối tác hiện có giới hạn VN (đề xuất) hay toàn bộ?
+**Chủ hệ thống chốt tiếp (2026-10-29)**
+- Q3: INDO dùng chung danh mục; các lựa chọn trong Cài đặt có thêm cột bản dịch, hiển thị theo ngôn ngữ người dùng
+  (lựa chọn đang có: AI dịch sẵn; thêm mới: Admin tự nhập). Hiện ở mọi nơi trên giao diện; Excel và ảnh Telegram vẫn tiếng Việt.
+- Q5: tách dữ liệu ca đã đóng (R2) theo nước.
+- Q6: ảnh Telegram gửi riêng từng nước.
+- Q7: API đối tác trả toàn bộ (không giới hạn nước).
 
 **Đã triển khai GĐ2 + GĐ3 (v1.502, 2026-10-29)**
 - Nhân viên hiện có + tài khoản mới: chỉ xem VN. Admin: toàn bộ. Đổi ở Quản lý User → Phân quyền → "Quốc gia được xem".
@@ -319,3 +320,15 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Thêm nước mới: Cài đặt → "Quốc gia" → thêm mã + bật → hệ thống tự tạo bảng riêng, thêm mẫu ID cho nguồn của nước đó.
 - Chưa tách theo nước (chờ Q3/Q5/Q7): Đặt mua linh kiện / Trả hàng / Phiếu xuất kho, API đối tác, file R2 tải về (đang lọc
   ở trình duyệt).
+
+**Đã triển khai GĐ4 (v1.505, migration 0150, 2026-10-29)**
+- Q5: file R2 ca đã đóng vẫn là 1 file/ngày (không thêm lần ghi R2), nhưng máy chủ chỉ trả dòng của nước người dùng
+  đang xem → trình duyệt không bao giờ nhận dữ liệu nước khác. Bộ nhớ đệm trình duyệt tách theo nước.
+- Q6: ảnh 08:00 (Cảnh báo tồn) và 17:30 (tỷ lệ giải trình) gửi theo từng nước vào nhóm Telegram của nước đó (Cài đặt →
+  Quốc gia → cột "Nhóm Telegram"). VN giữ nhóm cũ; ID chưa có nhóm → chưa gửi. "Tất cả" không gửi nữa (hiện chỉ có dữ liệu
+  VN nên ảnh VN giống hệt trước).
+- Q3: 11 danh mục (lý do chậm, lý do chậm đặt mua LK, loại lỗi + nhóm lỗi vi phạm, phân loại / kết quả / lý do tồn tranh chấp,
+  loại yêu cầu bỏ qua lặp / đổi trả, lưu ý lỗi linh kiện, loại đề xuất + nhóm) có cột "Bản dịch (EN / ID)"; 121 giá trị
+  hiện có đã dịch sẵn. Áp dụng ở ô chọn, danh sách, chi tiết ca, tiến trình tranh chấp, đặt mua LK.
+- Q7: API đối tác giữ nguyên (toàn bộ).
+

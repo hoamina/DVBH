@@ -1,3 +1,4 @@
+import { dl } from "../lib/banDichDuLieu";
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -163,7 +164,7 @@ function DaXacNhanDoiTraMonthTable({
       ),
     },
     { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
-    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
+    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (c) => <span className="text-xs">{dl(c.loai_yeu_cau) ?? "—"}</span> },
     { key: "xac_nhan_luc", header: tr("Xác nhận lúc"), render: (c) => <span className="text-xs">{fmtDateTime(c.theo_doi_doi_tra_xac_nhan_luc)}</span> },
     { key: "xac_nhan_boi", header: tr("Người xác nhận"), render: (c) => <span className="text-xs">{c.theo_doi_doi_tra_xac_nhan_boi ?? "—"}</span> },
     {
@@ -507,8 +508,8 @@ export function TranhChapModule({
       ),
     },
     { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
-    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (c) => <span className="text-xs">{c.loai_yeu_cau ?? "—"}</span> },
-    { key: "luu_y_loi_linh_kien", header: tr("Lưu ý lỗi linh kiện"), render: (c) => <span className="text-xs">{c.luu_y_loi_linh_kien ?? "—"}</span> },
+    { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (c) => <span className="text-xs">{dl(c.loai_yeu_cau) ?? "—"}</span> },
+    { key: "luu_y_loi_linh_kien", header: tr("Lưu ý lỗi linh kiện"), render: (c) => <span className="text-xs">{dl(c.luu_y_loi_linh_kien) ?? "—"}</span> },
     { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     {
       key: "action",
@@ -810,7 +811,7 @@ export function TranhChapModule({
         c.is_gqkn_day_lai_gs ? (
           <Badge tone="amber">{tr("GQKN đẩy lại GS")}</Badge>
         ) : c.last_ly_do_cham ? (
-          <Badge tone="coral">{c.last_ly_do_cham}</Badge>
+          <Badge tone="coral">{dl(c.last_ly_do_cham)}</Badge>
         ) : (
           <span className="text-[var(--ink-400)] text-xs italic">—</span>
         ),
@@ -921,7 +922,7 @@ export function TranhChapModule({
         </>
       ),
     },
-    { key: "phan_loai", header: tr("Phân loại"), render: (r) => <Badge tone={phanLoaiTone(r.phan_loai_tranh_chap)}>{r.phan_loai_tranh_chap}</Badge> },
+    { key: "phan_loai", header: tr("Phân loại"), render: (r) => <Badge tone={phanLoaiTone(r.phan_loai_tranh_chap)}>{dl(r.phan_loai_tranh_chap)}</Badge> },
     { key: "muc_do", header: tr("Mức độ"), render: (r) => <Badge tone={MUC_DO_TONE[r.muc_do] ?? "gray"}>{MUC_DO_LABELS[r.muc_do] ?? r.muc_do}</Badge> },
     {
       key: "trang_thai",
@@ -933,7 +934,7 @@ export function TranhChapModule({
     {
       key: "ly_do_ton_tranh_chap_gan_nhat",
       header: tr("Lý do tồn tranh chấp gần nhất"),
-      render: (r) => (r.ly_do_ton_tranh_chap_gan_nhat ? <span className="text-xs">{r.ly_do_ton_tranh_chap_gan_nhat}</span> : <span className="text-[var(--ink-400)] text-xs italic">—</span>),
+      render: (r) => (r.ly_do_ton_tranh_chap_gan_nhat ? <span className="text-xs">{dl(r.ly_do_ton_tranh_chap_gan_nhat)}</span> : <span className="text-[var(--ink-400)] text-xs italic">—</span>),
     },
     {
       key: "dang_cho_nguoi_xu_ly",
@@ -1680,7 +1681,7 @@ export function TranhChapModule({
             <Select
               value={ttPhanLoai}
               onChange={(v) => { setTtPhanLoai(v); setTtPage(1); }}
-              options={[{ value: "", label: tr("Tất cả phân loại") }, ...(phanLoaiOptions?.rows.map((r) => ({ value: r.ten_phan_loai, label: r.ten_phan_loai })) ?? [])]}
+              options={[{ value: "", label: tr("Tất cả phân loại") }, ...(phanLoaiOptions?.rows.map((r) => ({ value: r.ten_phan_loai, label: dl(r.ten_phan_loai) })) ?? [])]}
             />
             <Select
               value={ttMucDo}

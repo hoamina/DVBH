@@ -12162,5 +12162,29 @@
  "Tất cả quốc gia": [
   "All countries",
   "Semua negara"
+ ],
+ "Đã lưu bản dịch": [
+  "Translation saved",
+  "Terjemahan disimpan"
+ ],
+ "Ảnh báo cáo Telegram 08:00 / 17:30 gửi riêng từng nước vào nhóm của nước đó.": [
+  "The 08:00 / 17:30 Telegram report images are sent per country to that country's group.",
+  "Gambar laporan Telegram 08:00 / 17:30 dikirim per negara ke grup negara tersebut."
+ ],
+ "Nhóm Telegram (mã chat)": [
+  "Telegram group (chat ID)",
+  "Grup Telegram (ID chat)"
+ ],
+ "Trống = không gửi": [
+  "Empty = do not send",
+  "Kosong = tidak dikirim"
+ ],
+ "Bản dịch nhóm lỗi (EN / ID)": [
+  "Error group translation (EN / ID)",
+  "Terjemahan grup kesalahan (EN / ID)"
+ ],
+ "Bản dịch (EN / ID)": [
+  "Translation (EN / ID)",
+  "Terjemahan (EN / ID)"
  ]
 }

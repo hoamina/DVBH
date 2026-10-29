@@ -1,3 +1,4 @@
+import { dl } from "../../lib/banDichDuLieu";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -64,7 +65,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
           onChange={(v) => v && themVaoNhom.mutate(Number(v))}
           options={[
             { value: "", label: tr("+ Thêm vào nhóm thay thế") },
-            ...(nhomData?.rows ?? []).map((n) => ({ value: String(n.id), label: n.ten_nhom })),
+            ...(nhomData?.rows ?? []).map((n) => ({ value: String(n.id), label: dl(n.ten_nhom) })),
           ]}
         />
       )}

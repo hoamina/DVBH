@@ -1,3 +1,4 @@
+import { dl } from "../../lib/banDichDuLieu";
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -412,7 +413,7 @@ export function TaoDonTab({
                               });
                             }}
                           >
-                            {kw}
+                            {dl(kw)}
                           </Btn>
                         );
                       })}
@@ -459,7 +460,7 @@ export function TaoDonTab({
                     <Select
                       value={d.loai_de_xuat}
                       onChange={(v) => updateDraft(idx, { loai_de_xuat: v })}
-                      options={[{ value: "", label: tr("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
+                      options={[{ value: "", label: tr("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: dl(o) }))]}
                       className="w-full mt-1"
                     />
                   )}

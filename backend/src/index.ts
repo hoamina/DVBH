@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { danhDauMoiTruongLocal } from "./lib/telegram";
 import type { Env } from "./types";
 import authRoutes from "./routes/auth";
 import casesRoutes from "./routes/cases";
@@ -51,6 +52,7 @@ import { autoSyncTonKhoLk } from "./lib/tonKhoLk";
 import tonKhoLkRoutes from "./routes/tonKhoLk";
 import diaGioiRoutes from "./routes/diaGioi";
 import quocGiaRoutes from "./routes/quocGia";
+import banDichRoutes from "./routes/banDich";
 
 const app = new Hono<{ Bindings: Env }>();
 // "Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (lib/phamVi.ts) - GET co ?pv= doc/ghi bo du lieu rieng cua pham vi.
@@ -63,6 +65,7 @@ app.route("/api/po-dat-hang", poDatHangRoutes);
 app.route("/api/ton-kho-lk", tonKhoLkRoutes);
 app.route("/api/dia-gioi", diaGioiRoutes);
 app.route("/api/quoc-gia", quocGiaRoutes);
+app.route("/api/ban-dich", banDichRoutes);
 app.route("/api/tranh-chap", tranhChapRoutes);
 app.route("/api/nap-gas", napGasRoutes);
 app.route("/api/survey", surveyRoutes);
@@ -171,9 +174,13 @@ async function runSheetSync(label: string, fn: () => Promise<{ ok: boolean; reas
 }
 
 export default {
-  fetch: app.fetch,
+  fetch: (req: Request, env: Env, ctx: ExecutionContext) => {
+    danhDauMoiTruongLocal(env);
+    return app.fetch(req, env, ctx);
+  },
 
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
+    danhDauMoiTruongLocal(env);
     if (event.cron === ETX_SYNC_CRON) {
       try {
         if (await hasSucceededToday(env.DB)) return; // dot truoc trong ngay da xong, khong goi lai API

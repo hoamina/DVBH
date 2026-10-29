@@ -1,3 +1,4 @@
+import { dl } from "../../lib/banDichDuLieu";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -775,7 +776,7 @@ export function PxkDetailModal({
                         <Select
                           value=""
                           onChange={(v) => v && setBangChungGhiChuDraft(v)}
-                          options={[{ value: "", label: tr("+ Chọn nhanh lý do") }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                          options={[{ value: "", label: tr("+ Chọn nhanh lý do") }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: dl(l.ten_ly_do) }))]}
                           className="text-xs"
                         />
                       )}
@@ -819,7 +820,7 @@ export function PxkDetailModal({
                       <td className="px-2 py-1 border border-[var(--line)] text-right">{d.so_luong_de_xuat}</td>
                       <td className="px-2 py-1 border border-[var(--line)]">
                         {d.ly_do_cham ? (
-                          <span>{d.ly_do_cham}</span>
+                          <span>{dl(d.ly_do_cham)}</span>
                         ) : canTacNghiep && trangThai === "Dang tao phieu" ? (
                           <div className="flex flex-col gap-1">
                             <div className="flex gap-1 items-center">
@@ -842,7 +843,7 @@ export function PxkDetailModal({
                               <Select
                                 value=""
                                 onChange={(v) => v && setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
-                                options={[{ value: "", label: tr("+ Chọn nhanh lý do có sẵn") }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                                options={[{ value: "", label: tr("+ Chọn nhanh lý do có sẵn") }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: dl(l.ten_ly_do) }))]}
                                 className="text-[11px]"
                               />
                             )}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { dl } from "../lib/banDichDuLieu";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
@@ -765,7 +766,7 @@ export function MissingPartsModule({
     },
     { key: "ngay_yeu_cau", header: tr("Ngày yêu cầu có hàng"), render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_yeu_cau_co_hang)}</span> },
     { key: "ngay_du_kien", header: tr("Ngày dự kiến HT"), render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_du_kien_hoan_thanh)}</span> },
-    { key: "last_ly_do_cham", header: tr("Lý do tồn gần nhất"), render: (c) => <span className="text-xs">{c.last_ly_do_cham ?? "—"}</span> },
+    { key: "last_ly_do_cham", header: tr("Lý do tồn gần nhất"), render: (c) => <span className="text-xs">{dl(c.last_ly_do_cham) ?? "—"}</span> },
     {
       key: "tuoi_ton",
       header: tr("Tuổi tồn"),

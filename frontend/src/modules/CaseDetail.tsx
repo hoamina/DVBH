@@ -1,3 +1,4 @@
+import { dl } from "../lib/banDichDuLieu";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, statusTone, type BadgeTone, type AnyBadgeTone } from "../components/ui/Badge";
@@ -431,7 +432,7 @@ function renderCaseFieldsGrid(
   );
   const xuLyGrid = (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-      {hien("Nhóm / Loại yêu cầu") && <Field label={tr("Nhóm / Loại yêu cầu")} value={`${c.nhom_yeu_cau ?? "—"} — ${c.loai_yeu_cau ?? "—"}`} />}
+      {hien("Nhóm / Loại yêu cầu") && <Field label={tr("Nhóm / Loại yêu cầu")} value={`${c.nhom_yeu_cau ?? "—"} — ${dl(c.loai_yeu_cau) ?? "—"}`} />}
       {hien("Mức độ") && <Field label={tr("Mức độ")} value={mucDoBadge(c.muc_do) ?? "—"} />}
       {hien("Cách thức xử lý") && <Field label={tr("Cách thức xử lý")} value={c.cach_thuc_xu_ly ?? "—"} />}
       {hien("Sản phẩm bảo hành") && <Field label={tr("Sản phẩm bảo hành")} value={c.san_pham_bao_hanh ?? "—"} />}
@@ -446,7 +447,7 @@ function renderCaseFieldsGrid(
       )}
       {hien("Lưu ý lỗi linh kiện") && (
         <div className="col-span-2">
-          <Field label={tr("Lưu ý lỗi linh kiện")} value={c.luu_y_loi_linh_kien ?? "—"} />
+          <Field label={tr("Lưu ý lỗi linh kiện")} value={dl(c.luu_y_loi_linh_kien) ?? "—"} />
         </div>
       )}
       {hien("Nội dung xử lý chi tiết") && (
@@ -790,7 +791,7 @@ export function CaseDetail({
       (loaiViPhamData?.rows ?? [])
         .filter((r) => r.bat_tat)
         .sort((a, b) => a.stt - b.stt)
-        .map((r) => ({ value: r.ten_loi, label: r.ten_loi })),
+        .map((r) => ({ value: r.ten_loi, label: dl(r.ten_loi) })),
     [loaiViPhamData],
   );
   // ten_loi -> bat_buoc_ghi_chu, dung cho form tao vi_pham thu cong ben duoi - cung pattern voi
@@ -1236,7 +1237,7 @@ export function CaseDetail({
         tone: "ocean",
         typeLabel: tr("GT tồn"),
         actor: l.nguoi_giai_trinh,
-        summary: l.noi_dung ? `${l.ly_do_cham}: ${l.noi_dung}` : l.ly_do_cham,
+        summary: l.noi_dung ? `${dl(l.ly_do_cham)}: ${l.noi_dung}` : dl(l.ly_do_cham),
         jumpTab: "giai-trinh",
       });
     }
@@ -1252,7 +1253,7 @@ export function CaseDetail({
         tone: "coral",
         typeLabel: tr("Vi phạm ghi nhận ({0})", v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi)),
         actor: v.nguoi_ghi_nhan,
-        summary: v.ket_qua_cap_1 ?? "Chưa khảo sát",
+        summary: dl(v.ket_qua_cap_1) ?? "Chưa khảo sát",
         jumpTab: "vi-pham",
       });
       if (v.chot_bo_cap_2 !== null && v.ngay_chot) {
@@ -1731,7 +1732,7 @@ export function CaseDetail({
               <div className="text-xs text-[var(--ink-400)] mb-0.5">
                 {fmtDateTime(l.ngay_giai_trinh)} · {formatPersonDisplay(l.nguoi_giai_trinh, personDir)}
               </div>
-              <div className="text-sm font-semibold">{l.ly_do_cham}</div>
+              <div className="text-sm font-semibold">{dl(l.ly_do_cham)}</div>
               <div className="text-sm text-[var(--ink-600)]">{l.noi_dung}</div>
               {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">{tr("Linh kiện thiếu:")} <MaLinhKienLink ma={l.linh_kien_thieu} /></div>}
               {l.ngay_yeu_cau_co_hang && <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Ngày yêu cầu có hàng:")} {fmtDate(l.ngay_yeu_cau_co_hang)}</div>}
@@ -1831,7 +1832,7 @@ export function CaseDetail({
                         />
                       </div>
                     ) : (
-                      <Field label={tr("Kết quả cấp 1")} value={v.ket_qua_cap_1 ?? "Chưa khảo sát"} />
+                      <Field label={tr("Kết quả cấp 1")} value={dl(v.ket_qua_cap_1) ?? "Chưa khảo sát"} />
                     )}
                     <Field label={tr("Người ghi nhận")} value={formatPersonDisplay(v.nguoi_ghi_nhan, personDir)} />
                     <Field label={tr("Ngày ghi nhận")} value={fmtDateTime(v.ngay_ghi_nhan)} />
@@ -2257,13 +2258,13 @@ export function CaseDetail({
             <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{o.order_id}</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
               <Field label={tr("Mã linh kiện")} value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk} />} />
-              <Field label={tr("Loại đề xuất")} value={o.loai_de_xuat || "—"} />
+              <Field label={tr("Loại đề xuất")} value={dl(o.loai_de_xuat) || "—"} />
               <Field label={tr("SL đề xuất / thực xuất")} value={`${o.so_luong_de_xuat ?? "—"} / ${o.so_luong_thuc_xuat ?? "—"}`} />
               <Field label={tr("Ngày tạo")} value={fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))} />
               <Field label={tr("Người tạo")} value={o.nguoi_tao_ten ? `${o.nguoi_tao_ten} (${o.nguoi_tao})` : o.nguoi_tao} />
               <Field label={tr("Người nhận hàng")} value={o.nguoi_nhan_hang ? (o.nguoi_nhan_hang_ten ? `${o.nguoi_nhan_hang_ten} (${o.nguoi_nhan_hang})` : o.nguoi_nhan_hang) : "—"} />
               {o.phieu_xuat_kho.length > 0 && <Field label={tr("Phiếu xuất kho")} value={o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ")} />}
-              {o.ly_do_cham && <Field label={tr("Lý do chậm")} value={o.ly_do_cham} />}
+              {o.ly_do_cham && <Field label={tr("Lý do chậm")} value={dl(o.ly_do_cham)} />}
             </div>
           </Card>
         ))}
@@ -2956,7 +2957,7 @@ export function CaseDetail({
                 value={form.ly_do_cham || lyDoChon?.ten_ly_do || ""}
                 onChange={(v) => setForm({ ...form, ly_do_cham: v })}
                 className="w-full mt-1"
-                options={activeLyDo.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))}
+                options={activeLyDo.map((l) => ({ value: l.ten_ly_do, label: dl(l.ten_ly_do) }))}
               />
             </div>
             {thieuLinhKien && (

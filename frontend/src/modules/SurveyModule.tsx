@@ -1,3 +1,4 @@
+import { dl } from "../lib/banDichDuLieu";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
@@ -943,7 +944,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       (loaiViPhamData?.rows ?? [])
         .filter((r) => r.bat_tat)
         .sort((a, b) => a.stt - b.stt)
-        .map((r) => ({ value: r.ten_loi, label: r.ten_loi })),
+        .map((r) => ({ value: r.ten_loi, label: dl(r.ten_loi) })),
     [loaiViPhamData],
   );
   // Gia tri QC dang sua tam thoi TRUOC khi bam Chot/Bo, key = vi_pham.id.
@@ -1869,7 +1870,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                         }
                         return (
                           <Badge key={v.id} tone={statusTone(trangThai)}>
-                            {v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi)} · {v.ket_qua_cap_1}
+                            {v.loai_loi_chi_tiet || (LOAI_LOI_META[v.loai_loi]?.short ?? v.loai_loi)} · {dl(v.ket_qua_cap_1)}
                           </Badge>
                         );
                       })}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BanDichCell } from "../components/BanDichCell";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Select } from "../components/ui/Select";
@@ -101,6 +102,24 @@ const LOAI_DONG_BO_LABELS: Record<string, string> = {
   nap_gas_danh_gia_cu: tr("Đánh giá nạp gas cũ"),
   vi_pham_ngoai: tr("Vi phạm QC tự ghi (Sheet ngoài, đồng bộ 03:00 hàng ngày)"),
 };
+
+
+// Cot "Bản dịch (EN / ID)" cho cac bang lua chon (2026-10-29, migration 0150, "Đa quốc gia" Q3 - xem components/BanDichCell.tsx).
+type CoBanDich = { id: number; ban_dich_en?: string | null; ban_dich_id?: string | null; nhom_loi_en?: string | null; nhom_loi_id?: string | null };
+function cotBanDich<T>(bang: string, queryKey: string[], truong: "ban_dich" | "nhom_loi" = "ban_dich"): Column<T> {
+  return {
+    key: `${truong}_dich`,
+    header: truong === "nhom_loi" ? tr("Bản dịch nhóm lỗi (EN / ID)") : tr("Bản dịch (EN / ID)"),
+    render: (r) => {
+      const x = r as unknown as CoBanDich;
+      return truong === "nhom_loi" ? (
+        <BanDichCell bang={bang} id={x.id} en={x.nhom_loi_en} idn={x.nhom_loi_id} truong="nhom_loi" queryKey={queryKey} />
+      ) : (
+        <BanDichCell bang={bang} id={x.id} en={x.ban_dich_en} idn={x.ban_dich_id} queryKey={queryKey} />
+      );
+    },
+  };
+}
 
 export function SettingsModule() {
   const [tab, setTab] = useState("ly-do");
@@ -733,6 +752,7 @@ export function SettingsModule() {
 
   const lyDoColumns: Column<LyDoRow>[] = [
     { key: "ten_ly_do", header: tr("Tên lý do"), render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    cotBanDich<LyDoRow>("settings_ly_do", ["settings-ly-do"]),
     { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleReason.mutate({ id: r.id, field: "bat_tat", value: !r.bat_tat })} /> },
     {
       key: "thuoc_thieu_linh_kien",
@@ -749,6 +769,7 @@ export function SettingsModule() {
   const lyDoChamColumns: Column<LyDoChamMuaLkRow>[] = [
     { key: "stt", header: "STT", render: (r) => <span className="text-xs text-[var(--ink-500)]">{r.stt}</span> },
     { key: "ten_ly_do", header: tr("Tên lý do"), render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    cotBanDich<LyDoChamMuaLkRow>("settings_ly_do_cham", ["settings-ly-do-cham"]),
     {
       key: "he_thong_su_dung",
       header: tr("Hệ thống sử dụng"),
@@ -787,7 +808,9 @@ export function SettingsModule() {
   const loaiViPhamColumns: Column<LoaiViPhamRow>[] = [
     { key: "stt", header: "STT", render: (r) => <span className="text-xs text-[var(--ink-500)]">{r.stt}</span> },
     { key: "ten_loi", header: tr("Lỗi"), render: (r) => <span className="font-medium">{r.ten_loi}</span> },
+    cotBanDich<LoaiViPhamRow>("settings_loai_vi_pham", ["settings-loai-vi-pham"]),
     { key: "nhom_loi", header: tr("Nhóm lỗi"), render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.nhom_loi}</span> },
+    cotBanDich<LoaiViPhamRow>("settings_loai_vi_pham", ["settings-loai-vi-pham"], "nhom_loi"),
     { key: "diem_the", header: tr("Điểm thẻ"), render: (r) => <span className="text-xs">{r.diem_the}</span> },
     {
       key: "bat_buoc_ghi_chu",
@@ -813,21 +836,25 @@ export function SettingsModule() {
 
   const phanLoaiColumns: Column<PhanLoaiTranhChapRow>[] = [
     { key: "ten_phan_loai", header: tr("Tên phân loại"), render: (r) => <span className="font-medium">{r.ten_phan_loai}</span> },
+    cotBanDich<PhanLoaiTranhChapRow>("settings_phan_loai_tranh_chap", ["settings-phan-loai-tranh-chap"]),
     { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => togglePhanLoai.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const lyDoTonColumns: Column<LyDoTonTranhChapRow>[] = [
     { key: "ten_ly_do", header: tr("Lý do tồn tranh chấp"), render: (r) => <span className="font-medium">{r.ten_ly_do}</span> },
+    cotBanDich<LyDoTonTranhChapRow>("settings_ly_do_ton_tranh_chap", ["settings-ly-do-ton-tranh-chap"]),
     { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleLyDoTon.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const ketQuaColumns: Column<KetQuaXuLyTranhChapRow>[] = [
     { key: "ten_ket_qua", header: tr("Tên kết quả"), render: (r) => <span className="font-medium">{r.ten_ket_qua}</span> },
+    cotBanDich<KetQuaXuLyTranhChapRow>("settings_ket_qua_xu_ly_tranh_chap", ["settings-ket-qua-xu-ly-tranh-chap"]),
     { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleKetQua.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
   const loaiYeuCauBoQuaLapColumns: Column<LoaiYeuCauBoQuaLapRow>[] = [
     { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
+    cotBanDich<LoaiYeuCauBoQuaLapRow>("settings_loai_yeu_cau_bo_qua_lap", ["settings-loai-yeu-cau-bo-qua-lap"]),
     {
       key: "bat_tat",
       header: tr("Đang bỏ qua"),
@@ -840,6 +867,7 @@ export function SettingsModule() {
 
   const loaiYeuCauDoiTraColumns: Column<LoaiYeuCauDoiTraRow>[] = [
     { key: "loai_yeu_cau", header: tr("Loại yêu cầu"), render: (r) => <span className="font-medium">{r.loai_yeu_cau}</span> },
+    cotBanDich<LoaiYeuCauDoiTraRow>("settings_loai_yeu_cau_doi_tra", ["settings-loai-yeu-cau-doi-tra"]),
     {
       key: "bat_tat",
       header: tr("Đang áp dụng"),
@@ -850,6 +878,7 @@ export function SettingsModule() {
 
   const luuYLoiLinhKienDoiTraColumns: Column<LuuYLoiLinhKienDoiTraRow>[] = [
     { key: "luu_y_loi_linh_kien", header: tr("Lưu ý lỗi linh kiện"), render: (r) => <span className="font-medium">{r.luu_y_loi_linh_kien}</span> },
+    cotBanDich<LuuYLoiLinhKienDoiTraRow>("settings_luu_y_loi_linh_kien_doi_tra", ["settings-luu-y-loi-linh-kien-doi-tra"]),
     {
       key: "bat_tat",
       header: tr("Đang áp dụng"),
@@ -1573,6 +1602,9 @@ export function SettingsModule() {
                 <div className="flex items-center justify-between mb-3 gap-3">
                   <div>
                     <span className="font-semibold text-sm">{nhom.ten_nhom}</span>
+                    <div className="mt-1 max-w-xs">
+                      <BanDichCell bang="settings_loai_de_xuat_nhom" id={nhom.id} en={(nhom as unknown as CoBanDich).ban_dich_en} idn={(nhom as unknown as CoBanDich).ban_dich_id} queryKey={["settings-lde-nhom"]} />
+                    </div>
                     {!nhom.bat_tat && <span className="ml-2 text-xs text-[var(--coral-500)] font-semibold">{tr("[Đã tắt]")}</span>}
                     <div className="flex flex-wrap gap-1 mt-1">
                       {flagLabels.map((l) => (
@@ -1602,6 +1634,7 @@ export function SettingsModule() {
                       <thead className="bg-[var(--surface-2)] text-xs text-[var(--ink-500)]">
                         <tr>
                           <th className="text-left px-3 py-2 font-semibold">{tr("Tên option")}</th>
+                          <th className="text-left px-3 py-2 font-semibold">{tr("Bản dịch (EN / ID)")}</th>
                           <th className="text-center px-3 py-2 font-semibold w-16">STT</th>
                           <th className="text-center px-3 py-2 font-semibold w-20">{tr("Bật/Tắt")}</th>
                           <th className="px-3 py-2 w-20"></th>
@@ -1612,6 +1645,9 @@ export function SettingsModule() {
                           <tr key={opt.id} className="border-t border-[var(--line)]">
                             <td className="px-3 py-2">
                               <span className={opt.bat_tat ? "font-medium" : "text-[var(--ink-400)] line-through"}>{opt.ten_option}</span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <BanDichCell bang="settings_loai_de_xuat" id={opt.id} en={(opt as unknown as CoBanDich).ban_dich_en} idn={(opt as unknown as CoBanDich).ban_dich_id} queryKey={["settings-lde-options"]} />
                             </td>
                             <td className="px-3 py-2 text-center text-xs text-[var(--ink-500)]">{opt.stt}</td>
                             <td className="px-3 py-2 text-center">

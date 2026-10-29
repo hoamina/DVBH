@@ -5014,3 +5014,19 @@ từng nước một.
 - Thử local: mã 040-079 → file ra tên đầy đủ, MB 5 / MN 2, khớp tab tổng hợp; tiêu đề cột tiếng Việt.
 - v1.504: sửa lỗi file chỉ có tối đa 200 ca — `GET /api/missing-parts` giới hạn `pageSize` ≤ 200 trong khi nút xuất gọi `pageSize=5000`;
   nâng trần lên 5000 (1 câu truy vấn, không đọc thêm dòng D1 vì `COUNT(*) OVER()` vốn quét hết ca khớp; UI vẫn 20/trang).
+
+## 2026-10-29 — Đa quốc gia GĐ4: R2 theo nước, Telegram từng nước, bản dịch lựa chọn Cài đặt (v1.505)
+Chủ hệ thống chốt: Q3 dùng chung danh mục + cột bản dịch (AI dịch dữ liệu đang có, Admin nhập phần thêm mới, hiện mọi nơi
+trên giao diện); Q5 tách R2 theo nước; Q6 Telegram riêng từng nước; Q7 API đối tác toàn bộ.
+- Q5: chọn lọc phía máy chủ khi trả chunk (`POST /api/cases/da-dong-chunks` theo `chonQuocGia`) thay vì ghi thêm file R2
+  theo nước — cùng kết quả về tách dữ liệu, không thêm điểm ghi R2, không phải chạy lại dữ liệu cũ.
+- Q6: `quoc_gia.telegram_chat_id` (VN = nhóm cũ), gửi ở lần chốt phạm vi từng nước (`nhomTelegramCuaPhamVi`).
+- **Sự cố:** lúc thử cron 08:00 ở môi trường local (GĐ2), worker local đã gửi thật 1 ảnh "Cảnh báo tồn" (số liệu DB local)
+  vào nhóm Telegram production vì bot + nhóm ghi cứng trong code. Đã thêm chốt: dev local (`LOCAL_DEV_BYPASS_AUTH=true`)
+  không bao giờ gửi Telegram.
+- Q3: migration 0150 thêm `ban_dich_en/ban_dich_id` cho 11 bảng (+ `nhom_loi_en/id`), nạp 121 bản dịch EN/ID; `GET/PUT
+  /api/ban-dich`; frontend `dl()` (lib/banDichDuLieu.ts) ở chỗ hiển thị, cột sửa bản dịch trong Cài đặt (BanDichCell).
+  Xóa hash nội dung cũ của `settings_ly_do` để trình duyệt tải lại danh sách có cột mới.
+- Thử local: từ điển 107 mục, sửa/khôi phục bản dịch qua API, bảng lạ bị chặn; giao diện EN hiện "Due to technician" ở
+  chi tiết ca; chunk ngày đã đóng: VN có dòng, ID 0 dòng.
+

@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { chonQuocGia, dbGoc } from "../lib/phamVi";
+import { QUOC_GIA_MAC_DINH } from "../lib/quocGia";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -715,7 +717,10 @@ cases.get("/da-dong-manifest", async (c) => {
 cases.post("/da-dong-chunks", async (c) => {
   const scope = scopeByKhuVuc(c);
   const user = c.get("user");
-  const body = await c.req.json<{ ngay?: unknown }>().catch(() => ({ ngay: [] }));
+  const body = await c.req.json<{ ngay?: unknown; qg?: unknown }>().catch(() => ({ ngay: [] as unknown, qg: undefined as unknown }));
+  // "Đa quốc gia" (SRS §12, Q5 - tach theo nuoc): file R2 la chung moi nuoc -> server chi tra dong cua nuoc dang xem
+  // (kiem lai quyen nhu GET, chonQuocGia). Dong chunk cu chua co cot quoc_gia = VN (moi du lieu truoc 2026-10-29).
+  const qg = await chonQuocGia(dbGoc(c.env.DB), user.pham_vi_quoc_gia, typeof body.qg === "string" ? body.qg : c.req.query("qg"));
   const requested = Array.isArray(body.ngay)
     ? [...new Set(body.ngay.filter((n): n is string => typeof n === "string" && /^\d{4}-\d{2}-\d{2}$/.test(n)))]
     : [];
@@ -732,10 +737,11 @@ cases.post("/da-dong-chunks", async (c) => {
   const rawChunks = allowedDates.length > 0 ? await getDaDongChunks(c.env, allowedDates) : {};
   const chunks: Record<string, Record<string, unknown>[]> = {};
   for (const [ngay, rows] of Object.entries(rawChunks)) {
+    const theoNuoc = qg === null ? rows : rows.filter((row) => ((row.quoc_gia as string | null | undefined) ?? QUOC_GIA_MAC_DINH) === qg);
     chunks[ngay] =
       scope === null
-        ? rows
-        : rows.filter((row) => scope.length > 0 && typeof row.khu_vuc === "string" && scope.includes(row.khu_vuc as string));
+        ? theoNuoc
+        : theoNuoc.filter((row) => scope.length > 0 && typeof row.khu_vuc === "string" && scope.includes(row.khu_vuc as string));
   }
 
   return c.json({ chunks, throttled });

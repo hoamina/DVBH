@@ -1,3 +1,4 @@
+import { dl } from "../lib/banDichDuLieu";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
@@ -147,7 +148,7 @@ export function SurveyCallWorkspace({
     () => (loaiViPhamData?.rows ?? []).filter((r) => r.bat_tat).sort((a, b) => a.stt - b.stt),
     [loaiViPhamData],
   );
-  const ketQuaCap1Options = useMemo(() => activeLoaiViPham.map((r) => ({ value: r.ten_loi, label: r.ten_loi })), [activeLoaiViPham]);
+  const ketQuaCap1Options = useMemo(() => activeLoaiViPham.map((r) => ({ value: r.ten_loi, label: dl(r.ten_loi) })), [activeLoaiViPham]);
   // ten_loi -> bat_buoc_ghi_chu, dung de biet 1 lua chon co bat buoc Ghi chu hay khong (thay the viec
   // so sanh chuoi cung "ket_qua_cap_1 === 'Loi khac'" truoc day - xem migration 0112).
   const batBuocGhiChuByTenLoi = useMemo(() => {
@@ -802,7 +803,7 @@ export function SurveyCallWorkspace({
                                   const trangThai = v.chot_bo_cap_2 !== null ? (v.chot_bo_cap_2 ? tr("đã xác nhận") : tr("Không vi phạm")) : v.ket_qua_cap_1 === "Khong loi" ? tr("Không vi phạm") : tr("chờ QC");
                                   return (
                                     <Badge key={v.id} tone={statusTone(trangThai)}>
-                                      {LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi} · {v.ket_qua_cap_1 === "Khong loi" ? tr("Không lỗi") : v.ket_qua_cap_1}
+                                      {LOAI_LOI_META[v.loai_loi]?.label ?? v.loai_loi} · {v.ket_qua_cap_1 === "Khong loi" ? tr("Không lỗi") : dl(v.ket_qua_cap_1)}
                                     </Badge>
                                   );
                                 })}

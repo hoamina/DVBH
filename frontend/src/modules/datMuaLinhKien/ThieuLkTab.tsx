@@ -1,3 +1,4 @@
+import { dl } from "../../lib/banDichDuLieu";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -208,7 +209,7 @@ export function ThieuLkTab({
     // quan_ly_don_thieu_linh_kien=1, xem migration 0065 + applyDonHangLog) - KHONG PHAI "tu PXK" nhu
     // gia dinh ban dau. Doi nhan cho dung nguon goc, tranh nham voi hanh dong "Kho da tiep nhan"
     // giai trinh THUC TE ngay ben canh (2 khai niem "ly do" khac nhau dung canh nhau).
-    { key: "ten_ly_do", header: tr("Lý do TN báo"), render: (r) => r.ten_ly_do ?? "—" },
+    { key: "ten_ly_do", header: tr("Lý do TN báo"), render: (r) => dl(r.ten_ly_do) ?? "—" },
   ];
 
   return (
@@ -274,7 +275,7 @@ export function ThieuLkTab({
                       onClick={() => setGhiChu(l.ten_ly_do)}
                       className="focus-ring px-2 py-0.5 rounded-full text-[11px] font-medium bg-[var(--surface-100)] text-[var(--ink-600)] border border-[var(--line)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-700)]"
                     >
-                      {l.ten_ly_do}
+                      {dl(l.ten_ly_do)}
                     </button>
                   ))}
                 </div>
