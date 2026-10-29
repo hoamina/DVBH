@@ -4960,5 +4960,5 @@ Yêu cầu: 1 Google Sheet lấy dữ liệu từ DVBH theo file mẫu "mẫu go
   nhất**, tự cập nhật mỗi ngày + nút bấm tay, ghi **theo ID** (giữ cột người dùng tự thêm bên phải).
 - Backend: `GET /api/partner/google-sheet-ca` (PARTNER_API_GUIDE §15) — 2 nhánh UNION ALL (tồn / mới đóng) đều đi index
   `idx_case_archive_pending`. Script Sheet: `scripts/google-sheet-ca.gs` (menu DVBH: Làm mới ngay / Cài API key / Bật-tắt
-  tự cập nhật 9h). Key cấp ở Cài đặt → API đối tác.
+  tự cập nhật 8h–9h sáng giờ VN). Key cấp ở Cài đặt → API đối tác.
 - Đã thử câu SQL trên D1 local (đúng khu vực/cột, plan dùng index); chưa chạy thử Apps Script trên Google Sheet thật.

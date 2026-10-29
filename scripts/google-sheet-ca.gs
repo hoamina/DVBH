@@ -10,7 +10,7 @@
  *  1. Mở Google Sheet → Tiện ích mở rộng → Apps Script → dán toàn bộ file này → Lưu.
  *  2. Tải lại Sheet → menu "DVBH" → "Cài API key" → dán key do Admin DVBH cấp
  *     (Cài đặt → API đối tác). Key lưu trong Script Properties, không nằm trong code.
- *  3. Menu "DVBH" → "Bật tự cập nhật hằng ngày" (chạy khoảng 9h–10h sáng mỗi ngày).
+ *  3. Menu "DVBH" → "Bật tự cập nhật hằng ngày" (chạy trong khoảng 8h–9h sáng giờ VN mỗi ngày).
  *  4. Muốn kéo ngay: menu "DVBH" → "Làm mới ngay".
  * Lần đầu chạy, Google sẽ hỏi quyền (gọi URL bên ngoài + sửa bảng tính) → Cho phép.
  */
@@ -54,8 +54,8 @@ function caiApiKey() {
 
 function batTuCapNhat() {
   tatTuCapNhat();
-  ScriptApp.newTrigger("keoDuLieuDvbh").timeBased().everyDays(1).atHour(9).create();
-  SpreadsheetApp.getActive().toast("Đã bật tự cập nhật mỗi ngày (khoảng 9h–10h).", "DVBH");
+  ScriptApp.newTrigger("keoDuLieuDvbh").timeBased().everyDays(1).atHour(8).inTimezone("Asia/Ho_Chi_Minh").create();
+  SpreadsheetApp.getActive().toast("Đã bật tự cập nhật mỗi ngày (trong khoảng 8h–9h sáng).", "DVBH");
 }
 
 function tatTuCapNhat() {
