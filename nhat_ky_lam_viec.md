@@ -4951,3 +4951,14 @@ Tiếp phần dở của phiên sáng (tài khoản khác, chưa commit):
   trang (widget không có hàm hủy); bật → chèn script ngay. Tab đang mở của người khác hết game ở lần tải trang sau.
 - Thử local (dev-login Admin): cá nhân tắt → không script/host/ThreeTPet; Admin tắt + cá nhân bật → không tải, công tắc khóa;
   Admin bật lại → widget nạp ngay không cần tải lại.
+
+## 2026-10-29 — Google Sheet tự kéo dữ liệu ca từ DVBH (v1.498)
+Yêu cầu: 1 Google Sheet lấy dữ liệu từ DVBH theo file mẫu "mẫu google sheet lấy dữ liệu.xlsx" (28 cột = tiêu đề file xuất CRM).
+- Chọn phương án **Sheet kéo** (Apps Script gọi API đối tác) thay vì DVBH bắn sang: không cần credential Google/cron mới
+  trong Worker (đã chạm giới hạn cron), lỗi lần này thì lần sau tự lấy đủ, đổi cột không cần deploy DVBH.
+- Chốt với chủ hệ thống: 11 khu vực (MB1-3, MN1-3, KDDV, 2 Phòng bảo hành 3T, 2 B2B), ca **đang tồn + hoàn thành 3 ngày gần
+  nhất**, tự cập nhật mỗi ngày + nút bấm tay, ghi **theo ID** (giữ cột người dùng tự thêm bên phải).
+- Backend: `GET /api/partner/google-sheet-ca` (PARTNER_API_GUIDE §15) — 2 nhánh UNION ALL (tồn / mới đóng) đều đi index
+  `idx_case_archive_pending`. Script Sheet: `scripts/google-sheet-ca.gs` (menu DVBH: Làm mới ngay / Cài API key / Bật-tắt
+  tự cập nhật 9h). Key cấp ở Cài đặt → API đối tác.
+- Đã thử câu SQL trên D1 local (đúng khu vực/cột, plan dùng index); chưa chạy thử Apps Script trên Google Sheet thật.

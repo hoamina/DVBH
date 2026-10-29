@@ -461,6 +461,84 @@ partnerApi.get("/thieu-linh-kien", async (c) => {
   });
 });
 
+// GET /api/partner/google-sheet-ca (2026-10-29, PARTNER_API_GUIDE.md muc 15) - nguon cho Google Sheet (Apps Script
+// scripts/google-sheet-ca.gs) tu KEO du lieu ve 1 lan/ngay + nut bam tay, Sheet cap nhat theo ID. Tap ca = DANG TON
+// + DA HOAN THANH tu (hom nay VN - so_ngay) tro di (mac dinh 3), loc khu_vuc (danh sach cach dau phay, Sheet tu cau
+// hinh). Tra "columns" (dung 28 tieu de/thu tu file mau "mẫu google sheet lấy dữ liệu.xlsx" = tieu de file xuat CRM)
+// + "rows" dang mang de Sheet ghi thang. 2 nhanh UNION ALL de moi nhanh di dung partial index cua no (idx_case_ton /
+// idx_case_hoan_thanh_not_null) thay vi OR quet ca bang. Khong ghi partner_api_log; 30 req/phut/key.
+const GOOGLE_SHEET_KEY_LIMIT_PER_MIN = 30;
+const GOOGLE_SHEET_MAX_PAGE_SIZE = 5000;
+const GOOGLE_SHEET_COT: [tieuDe: string, cot: string | null][] = [
+  ["ID", "id"],
+  ["Khách hàng", "khach_hang"],
+  ["Link CRM", "link_crm"],
+  ["Seri sản phẩm", "seri_san_pham"],
+  ["Cách thức xử lý", "cach_thuc_xu_ly"],
+  ["Tỉnh", "tinh"],
+  ["Quận/ huyện", "quan_huyen"],
+  ["Thời gian CSKH tiếp nhận", "thoi_gian_cskh_tiep_nhan"],
+  ["Mô tả tình trạng lỗi của sản phẩm", "mo_ta_loi"],
+  ["Thời gian hẹn xử lý", "thoi_gian_hen_xu_ly"],
+  ["Nhóm yêu cầu", "nhom_yeu_cau"],
+  ["Loại yêu cầu", "loai_yeu_cau"],
+  ["Độ ưu tiên", "muc_do"],
+  ["Sản phẩm bảo hành", "san_pham_bao_hanh"],
+  ["Hình thức bảo hành", "hinh_thuc_bao_hanh"],
+  ["Kỹ thuật viên", "ky_thuat_vien"],
+  ["Tiến độ hoàn thành", "tien_do_hoan_thanh"],
+  ["Thời gian hoàn thành", "thoi_gian_hoan_thanh"],
+  ["Lưu ý thông tin lỗi linh kiện", "luu_y_loi_linh_kien"],
+  ["Lý do hủy", "ly_do_huy"],
+  ["Nội dung xử lý chi tiết", "noi_dung_xu_ly"],
+  ["XLSC Lý do quá hạn", "ly_do_qua_han"],
+  ["XLSC Doanh thu sản phẩm", "dt_san_pham"],
+  ["XLSC Doanh thu linh kiện", "dt_linh_kien"],
+  ["XLSC Doanh thu dịch vụ", "dt_dich_vu"],
+  ["TBP", "khu_vuc"],
+  ["Bỏ trống", null],
+  ["ĐÚNG SLA", "dung_han"],
+];
+const GOOGLE_SHEET_SELECT = GOOGLE_SHEET_COT.filter(([, cot]) => cot).map(([, cot]) => `c.${cot}`).join(", ");
+
+partnerApi.get("/google-sheet-ca", async (c) => {
+  const apiKey = c.req.header("X-API-Key")!;
+  const keyRow = await findActivePartnerKey(c.env.DB, apiKey);
+  if (!keyRow) {
+    await rejectInvalidKey(c, apiKey);
+    return c.json({ error: "INVALID_API_KEY" }, 401);
+  }
+  const ok = await checkPerKeyRateLimit("partner-google-sheet-key-limit", keyRow.id, GOOGLE_SHEET_KEY_LIMIT_PER_MIN, (p) => c.executionCtx.waitUntil(p));
+  if (!ok) return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+
+  const page = Math.max(1, Math.floor(Number(c.req.query("page") ?? 1)) || 1);
+  const pageSize = Math.min(GOOGLE_SHEET_MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(c.req.query("pageSize") ?? 2000)) || 2000));
+  const soNgay = Math.min(31, Math.max(0, Math.floor(Number(c.req.query("so_ngay") ?? 3)) || 0));
+  const tuNgay = addDays(parseDateOnly(todayVN())!, -soNgay);
+  const kv = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const { results } = await c.env.DB.prepare(
+    `SELECT *, COUNT(*) OVER() AS total_count FROM (
+       SELECT ${GOOGLE_SHEET_SELECT} FROM case_hieu_luc c
+       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL${kv.sql}
+       UNION ALL
+       SELECT ${GOOGLE_SHEET_SELECT} FROM case_hieu_luc c
+       WHERE c.thoi_gian_hoan_thanh IS NOT NULL AND c.thoi_gian_hoan_thanh >= ? AND c.archived_at IS NULL${kv.sql}
+     ) ORDER BY id LIMIT ? OFFSET ?`,
+  )
+    .bind(...kv.binds, tuNgay, ...kv.binds, pageSize, (page - 1) * pageSize)
+    .all<Record<string, unknown> & { total_count: number }>();
+  const total = results.length ? Number(results[0].total_count) : 0;
+  return c.json({
+    generated_at: nowVN(),
+    tu_ngay_hoan_thanh: tuNgay,
+    page,
+    pageSize,
+    total,
+    columns: GOOGLE_SHEET_COT.map(([tieuDe]) => tieuDe),
+    rows: results.map((r) => GOOGLE_SHEET_COT.map(([, cot]) => (cot ? r[cot] ?? "" : ""))),
+  });
+});
+
 // GET /api/partner/thong-ke-ktv?thang=YYYY-MM[&ma_ktv=] (2026-10-26, PARTNER_API_GUIDE.md muc 14) - so lieu cong viec
 // theo KTV cho he "Giai trinh vi pham" (vipham) hien tab "Bao cao nhanh". Chi tra SO DEM (khong co du lieu khach hang).
 // Tinh 1 lan cho ca thang roi cache (lib/thongKeKtv.ts, domain "cases"), "ma_ktv" chi loc tren ket qua da cache. Khong

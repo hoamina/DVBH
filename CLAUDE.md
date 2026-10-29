@@ -165,6 +165,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     `pet_3t_he_thong` by `GET /api/auth/me`, Admin sets via `PATCH /api/auth/pet-3t-he-thong`) AND personal `users.bat_pet_3t`
     (`PATCH /api/auth/me`) are on. UI: `components/PetSettingsPanel.tsx` in Cài đặt cá nhân. `cai_dat_he_thong` is a generic
     key/value table for future system flags (no FK to `users` on purpose).
+  - `partnerApi.ts` `GET /google-sheet-ca` (2026-10-29, PARTNER_API_GUIDE §15) — a Google Sheet PULLS open cases + cases
+    completed in the last `so_ngay` (default 3) days, filtered by `khu_vuc`, as the 28 CRM-export columns of the owner's
+    template; the Apps Script lives in `scripts/google-sheet-ca.gs` (daily trigger + manual menu, upsert by ID, key in
+    Script Properties). Two UNION ALL branches so each hits a partial index. Pull chosen over push (no Google creds/cron
+    in the Worker, self-heals). Live (not cached), no `logPartnerApiCall`, 30 req/min/key.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the

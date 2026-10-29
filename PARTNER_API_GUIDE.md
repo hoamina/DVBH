@@ -875,3 +875,20 @@ riêng 2 field tiếp nhận theo **ngày CSKH tiếp nhận**:
 
 Tính 1 lần cho cả tháng rồi cache (`lib/thongKeKtv.ts`, domain `cases`): số mới sau mỗi đợt import CRM; riêng 2 field
 `vi_pham_*` có thể chậm tới đợt import kế tiếp. Bên gọi nên tự cache (vipham cache 1 giờ).
+
+## 15. Dữ liệu ca cho Google Sheet (`GET /api/partner/google-sheet-ca`) — thêm 2026-10-29
+
+Bên gọi: Google Sheet (Apps Script `scripts/google-sheet-ca.gs` trong repo DVBH) tự kéo 1 lần/ngày + nút "Làm mới ngay",
+ghi vào sheet **theo ID** (trùng ID thì cập nhật, ID mới thêm cuối, không xóa dòng). Key cấp riêng ở Cài đặt → API đối tác.
+
+```
+GET /api/partner/google-sheet-ca?khu_vuc=<kv1>,<kv2>,...&so_ngay=3&page=1&pageSize=2000
+X-API-Key: <key>
+→ 200 { "generated_at", "tu_ngay_hoan_thanh", "page", "pageSize", "total", "columns": [28 tiêu đề], "rows": [[...28 giá trị]] }
+  | 401 | 429 (30 req/phút/key)
+```
+
+Tập ca = **đang tồn** + **hoàn thành từ (hôm nay giờ VN − `so_ngay`)** (mặc định 3, tối đa 31); ca hủy/đã lưu trữ không có.
+`khu_vuc` bỏ trống = mọi khu vực. `columns` đúng 28 cột/thứ tự file mẫu (= tiêu đề file xuất CRM): ID … TBP (= khu vực),
+"Bỏ trống" (luôn rỗng), "ĐÚNG SLA" (= `dung_han`); "Độ ưu tiên" = `muc_do` (chỉ ca Odoo có). Thời gian dạng
+`YYYY-MM-DD HH:MM:SS` giờ VN. Sắp theo ID, phân trang (`pageSize` tối đa 5000).
