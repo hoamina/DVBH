@@ -7,7 +7,7 @@ import { Badge, type BadgeTone } from "./ui/Badge";
 import { LoadingInline } from "./ui/LoadingInline";
 import { StatCard } from "./ui/StatCard";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
-import { linhKienLoaiDonLabel, linhKienTrangThaiLabel } from "../lib/linhKienTimeline";
+import { linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienSlThucXuat } from "../lib/linhKienTimeline";
 import { fmtSl, TonKhoCapNhatLine } from "./TonKhoLk";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
@@ -548,7 +548,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                       </td>
                       <td className={`${TH} font-semibold`}>{linhKienTrangThaiLabel(o.trang_thai_hien_tai)}</td>
                       <td className={`${TH} text-right tabular-nums`}>
-                        <span className="font-semibold">{fmtSl(o.so_luong_de_xuat)}</span> / {o.so_luong_thuc_xuat === null ? "—" : fmtSl(o.so_luong_thuc_xuat)}
+                        <span className="font-semibold">{fmtSl(o.so_luong_de_xuat)}</span> / {(() => { const sl = linhKienSlThucXuat(o); return sl === null ? "—" : fmtSl(sl); })()}
                       </td>
                       <td className={TH}>{o.nguoi_nhan_hang_ten ?? "—"}</td>
                       <td className={TH}>{o.khu_vuc_ma ?? "—"}</td>

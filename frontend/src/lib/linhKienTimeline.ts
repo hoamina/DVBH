@@ -138,3 +138,23 @@ export function linhKienActorDisplay(e: { actor: string | null; actor_name?: str
 export function linhKienIsoToVnLocal(iso: string): string {
   return iso.length > 10 ? iso.slice(0, 19).replace("T", " ") : iso;
 }
+
+// linh-kien-app chi luu so_luong_thuc_xuat khi TN/Kho DOI so luong khac de xuat - NULL = "bang SL de xuat"
+// (ben do moi noi doc deu COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)). Truoc 2026-10-29 DVBH hien
+// thang NULL -> "—" cho moi don da duyet/da xuat kho. Gio: don con cho duyet/da tu choi/huy (chua co
+// khai niem thuc xuat) moi hien "—"; con lai (hoac da co phieu xuat kho) hien SL thuc xuat ?? SL de xuat.
+const CHUA_XUAT_TRANG_THAI = new Set([
+  "Cho Tram duyet", "Cho TBP xac nhan", "Cho TN duyet", "Cho hang", "TN tu choi", "Tu choi", "Da huy",
+  "Cho ke toan duyet mem", "Cho kho xac nhan",
+]);
+export function linhKienSlThucXuat(o: {
+  trang_thai_hien_tai: string | null;
+  so_luong_de_xuat?: number | null;
+  so_luong_thuc_xuat?: number | null;
+  phieu_xuat_kho?: unknown[];
+}): number | null {
+  if (o.so_luong_thuc_xuat != null) return o.so_luong_thuc_xuat;
+  const coPxk = (o.phieu_xuat_kho?.length ?? 0) > 0;
+  if (!coPxk && (!o.trang_thai_hien_tai || CHUA_XUAT_TRANG_THAI.has(o.trang_thai_hien_tai))) return null;
+  return o.so_luong_de_xuat ?? null;
+}

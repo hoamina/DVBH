@@ -5030,3 +5030,13 @@ trên giao diện); Q5 tách R2 theo nước; Q6 Telegram riêng từng nước;
 - Thử local: từ điển 107 mục, sửa/khôi phục bản dịch qua API, bảng lạ bị chặn; giao diện EN hiện "Due to technician" ở
   chi tiết ca; chunk ngày đã đóng: VN có dòng, ID 0 dòng.
 
+
+## 2026-10-29 — Chi tiết ca > Hệ Đặt mua linh kiện: "SL thực xuất" luôn trống (v1.506)
+Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh kiện" toàn hiện trống/0 (vd DDH-003409, TN đã duyệt, đã có PXK
+ĐH43932BN, hiện "1 / —").
+- Nguyên nhân: linh-kien-app chỉ lưu `dat_don_hang.so_luong_thuc_xuat` khi TN/Kho ĐỔI số lượng khác đề xuất; bằng đề xuất thì
+  để NULL (mọi chỗ bên đó đọc `COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)`). API `case-timeline` trả nguyên NULL, DVBH
+  hiện thẳng → "—". Không thiếu field ở hệ ngoài, không cần sửa linh-kien-app.
+- Sửa: `linhKienSlThucXuat()` (frontend/src/lib/linhKienTimeline.ts) — đơn còn chờ duyệt/chờ hàng/từ chối/hủy (và đơn trả hàng
+  chưa qua Kho xác nhận) mà chưa có PXK thì vẫn "—"; còn lại hiện `thực xuất ?? đề xuất`. Dùng ở CaseDetail và bảng đơn của
+  Hồ sơ linh kiện (cùng lỗi). DDH-003409 giờ hiện "1 / 1".

@@ -34,7 +34,7 @@ import { computeCaseTickers } from "../lib/caseTickers";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchMuaHang, matchBaoHanh, matchThieuHang, matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purchaseWarrantyMatch";
 import { parseRawRow } from "../lib/purchaseWarrantySync";
-import { useLinhKienTimeline, linhKienEventLabel, linhKienSourceLabel, linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienActorDisplay, linhKienIsoToVnLocal } from "../lib/linhKienTimeline";
+import { useLinhKienTimeline, linhKienEventLabel, linhKienSourceLabel, linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienActorDisplay, linhKienIsoToVnLocal, linhKienSlThucXuat } from "../lib/linhKienTimeline";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
@@ -93,6 +93,38 @@ interface CaseDetailResponse {
   bienBanHop: BienBanHopRow[];
   // Optional: cache IndexedDB cua ca da dong luu truoc migration 0122 khong co truong nay.
   donBaoHanhOdoo?: DonBaoHanhOdooRow[];
+  // Log "chuyen sang Ton TBP / Ton CEO" (migration 0151) - CHI de nam van de, KHONG tinh la giai trinh (khong gop vao
+  // giaiTrinh). Optional: cache ca da dong truoc v1.506 khong co.
+  chuyenCapLog?: ChuyenCapLogRow[];
+}
+
+interface ChuyenCapLogRow {
+  id: number;
+  cap: 1 | 2;
+  ngay: string;
+  chi_tieu: string; // JSON mang key chi tieu Canh bao ton
+  created_at: string;
+}
+
+const CHI_TIEU_CANH_BAO_LABEL: Record<string, string> = {
+  ton14: tr("Tồn ≥14 ngày"),
+  vipSvip5: tr("VIP/S.VIP tồn ≥5 ngày"),
+  locTong3: tr("Lọc tổng tồn ≥3 ngày"),
+  tranhChap3: tr("Tranh chấp/KN ≥3 ngày"),
+  luongDoiTra7: tr("Luồng đổi trả ≥7 ngày"),
+  ton20: tr("Tồn >20 ngày"),
+  vipSvip7: tr("VIP/S.VIP tồn ≥7 ngày"),
+  locTong5: tr("Lọc tổng tồn ≥5 ngày"),
+  tranhChap5: tr("Tranh chấp/KN ≥5 ngày"),
+  luongDoiTra10: tr("Luồng đổi trả ≥10 ngày"),
+};
+
+function chiTieuCanhBaoText(json: string): string {
+  try {
+    return (JSON.parse(json) as string[]).map((k) => CHI_TIEU_CANH_BAO_LABEL[k] ?? k).join(", ");
+  } catch {
+    return "";
+  }
 }
 
 async function fetchCaseDetail(caseId: string): Promise<CaseDetailResponse> {
@@ -909,6 +941,7 @@ export function CaseDetail({
   const [napGasForm, setNapGasForm] = useState({ danh_gia_nap_gas: "", phi_dich_vu: "" });
   const lyDoChon = activeLyDo.find((l) => l.ten_ly_do === form.ly_do_cham) ?? activeLyDo[0];
   const giaiTrinhList = data?.giaiTrinh ?? [];
+  const chuyenCapLogList = data?.chuyenCapLog ?? [];
   // Email nguoi_giai_trinh duy nhat cua ca (da tai san cung data ca, khong fetch them) - nguon phu
   // cho deriveGiamSatSuggestion() trong tab "Tranh chap, khieu nai" (xem TienTrinhPanel).
   const giaiTrinhNguoiGiaiTrinhEmails = useMemo(
@@ -1741,6 +1774,27 @@ export function CaseDetail({
           ))}
         </div>
       </div>
+
+      {chuyenCapLogList.length > 0 && (
+        <div className="mt-6">
+          <div className="font-display font-bold text-sm mb-1">{tr("Nhật ký hệ thống")}</div>
+          <div className="text-xs text-[var(--ink-400)] mb-3">{tr("Chỉ lưu log để nắm vấn đề, không tính là đã giải trình.")}</div>
+          <div className="space-y-3">
+            {chuyenCapLogList.map((g) => (
+              <div key={g.id} className="relative pl-4 border-l-2 border-dashed border-[var(--line)]">
+                <div className={`absolute -left-[5px] top-1 w-2 h-2 rounded-full ${g.cap === 2 ? "bg-[var(--coral-500)]" : "bg-[var(--amber-500)]"}`}></div>
+                <div className="text-xs text-[var(--ink-400)] mb-0.5">
+                  {fmtDateTime(g.created_at)} · {tr("Hệ thống")}
+                </div>
+                <div className="text-sm font-semibold">
+                  {g.cap === 2 ? tr("Ca chuyển sang Tồn CEO (Cảnh báo tồn Cấp 2)") : tr("Ca chuyển sang Tồn TBP (Cảnh báo tồn Cấp 1)")}
+                </div>
+                {chiTieuCanhBaoText(g.chi_tieu) && <div className="text-sm text-[var(--ink-600)]">{chiTieuCanhBaoText(g.chi_tieu)}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -2259,7 +2313,7 @@ export function CaseDetail({
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
               <Field label={tr("Mã linh kiện")} value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk} />} />
               <Field label={tr("Loại đề xuất")} value={dl(o.loai_de_xuat) || "—"} />
-              <Field label={tr("SL đề xuất / thực xuất")} value={`${o.so_luong_de_xuat ?? "—"} / ${o.so_luong_thuc_xuat ?? "—"}`} />
+              <Field label={tr("SL đề xuất / thực xuất")} value={`${o.so_luong_de_xuat ?? "—"} / ${linhKienSlThucXuat(o) ?? "—"}`} />
               <Field label={tr("Ngày tạo")} value={fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))} />
               <Field label={tr("Người tạo")} value={o.nguoi_tao_ten ? `${o.nguoi_tao_ten} (${o.nguoi_tao})` : o.nguoi_tao} />
               <Field label={tr("Người nhận hàng")} value={o.nguoi_nhan_hang ? (o.nguoi_nhan_hang_ten ? `${o.nguoi_nhan_hang_ten} (${o.nguoi_nhan_hang})` : o.nguoi_nhan_hang) : "—"} />
