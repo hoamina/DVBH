@@ -5002,3 +5002,14 @@ từng nước một.
   ID → 404; duyệt 15 module không lỗi 500; tạo nước "TH" lúc chạy ra đủ view + 7 bảng + index; cron 08:00 chốt đủ VN/ID/VN×NSKX.
 - Kiểm regex trên mọi câu `FROM/JOIN case_dvbh` trong code (phát hiện + sửa lỗi dạng `case_dvbh c INDEXED BY` ở chế độ ghi).
 
+
+## 2026-10-29 — Ca thiếu linh kiện > Danh sách chi tiết: file tải về thêm tên LK + tồn kho MB/MN (v1.503)
+
+- Yêu cầu chủ hệ thống: "DS chi tiết các ca khi tải về bổ sung thêm 3 cột: số LK tồn kho MB, tồn kho MN + tên linh kiện thiếu".
+- File `ca_thieu_linh_kien.xlsx` thêm 3 cột ngay sau "Linh kiện thiếu": "Tên linh kiện thiếu", "Tồn kho MB", "Tồn kho MN"
+  (tồn của chính mã đang thiếu). Ca không có mã / mã không có trong tồn kho → để trống.
+- Lấy đúng nguồn của tab "Linh kiện thiếu" để 2 tab cùng con số: tên = danh sách mã thiếu trang đã tải (join danh mục
+  `linh_kien`), tồn = `/ton-kho-lk/tong-hop` (cùng cache react-query, `useLayTonKhoTongHop` trong `TonKhoLk.tsx`).
+  Không thêm truy vấn D1 nào, không đổi backend.
+- Thử local: mã 040-079 → file ra tên đầy đủ, MB 5 / MN 2, khớp tab tổng hợp; tiêu đề cột tiếng Việt.
+- Còn tồn (chưa sửa): `GET /api/missing-parts` giới hạn `pageSize` ≤ 200 nhưng nút xuất gọi `pageSize=5000` → file chỉ có tối đa 200 ca.

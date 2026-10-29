@@ -61,19 +61,29 @@ export function useTonKhoMeta() {
 }
 
 /** Map ma_hang -> ton MB/MN/KTV (null khi chua tai xong). */
+type TonKhoTongHopPayload = { rows: ({ ma_hang: string } & TonKhoTongHop)[] };
+const TON_KHO_TONG_HOP_QUERY = {
+  queryKey: ["ton-kho-lk-tong-hop"],
+  queryFn: () => api.get<TonKhoTongHopPayload>("/ton-kho-lk/tong-hop"),
+  staleTime: 5 * 60_000,
+};
+
+function tonKhoMap(data: TonKhoTongHopPayload): Map<string, TonKhoTongHop> {
+  const m = new Map<string, TonKhoTongHop>();
+  for (const r of data.rows) m.set(r.ma_hang, { ton_mb: r.ton_mb, ton_mn: r.ton_mn, ton_ktv: r.ton_ktv });
+  return m;
+}
+
 export function useTonKhoTongHop() {
-  const q = useQuery({
-    queryKey: ["ton-kho-lk-tong-hop"],
-    queryFn: () => api.get<{ rows: ({ ma_hang: string } & TonKhoTongHop)[] }>("/ton-kho-lk/tong-hop"),
-    staleTime: 5 * 60_000,
-  });
-  const map = useMemo(() => {
-    if (!q.data) return null;
-    const m = new Map<string, TonKhoTongHop>();
-    for (const r of q.data.rows) m.set(r.ma_hang, { ton_mb: r.ton_mb, ton_mn: r.ton_mn, ton_ktv: r.ton_ktv });
-    return m;
-  }, [q.data]);
+  const q = useQuery(TON_KHO_TONG_HOP_QUERY);
+  const map = useMemo(() => (q.data ? tonKhoMap(q.data) : null), [q.data]);
   return { map, isLoading: q.isLoading, isError: q.isError };
+}
+
+/** Lay map ton kho ngoai render (vd luc Xuat Excel) - dung chung cache react-query voi useTonKhoTongHop -> cung con so voi tab "Linh kiện thiếu". */
+export function useLayTonKhoTongHop() {
+  const qc = useQueryClient();
+  return async () => tonKhoMap(await qc.fetchQuery(TON_KHO_TONG_HOP_QUERY));
 }
 
 function useInvalidateTonKho() {

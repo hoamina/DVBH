@@ -27,7 +27,7 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { useToast } from "../components/ui/Toast";
-import { TonKhoSyncBar, TonKhoCauHinhTab, useTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
+import { TonKhoSyncBar, TonKhoCauHinhTab, useTonKhoTongHop, useLayTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 import { useMoHoSoLinhKien, MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { useDiaGioiIndex, useDiaGioiLoc, gomTheoDiaGioi, congDong, soSanhTen, DG_TRONG } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
@@ -606,6 +606,7 @@ export function MissingPartsModule({
   // Danh sach linh kien thieu gom nhom tu TOAN BO backlog dang mo (khong gioi han theo trang hien
   // tai nhu soMaLinhKien cu) - dung cho ca the "Ma LK thieu" (so luong, view=danh-sach) lan tab "Linh
   // kien thieu" (view=linh-kien-thieu) - enabled ca 2, chi tat khi dang o tab "Bao cao".
+  const layTonKhoTongHop = useLayTonKhoTongHop();
   const linhKienThieuQuery = useQuery({
     queryKey: ["missing-parts-linh-kien-thieu", khuVucFilter, modelFilter, doiTacFilter, quickFilterLocTongBcn],
     queryFn: () =>
@@ -682,6 +683,9 @@ export function MissingPartsModule({
   const EXPORT_LABELS: Record<string, string> = {
     ...CASE_FIELD_LABELS,
     last_linh_kien_thieu: "Linh kiện thiếu",
+    ten_linh_kien_thieu: "Tên linh kiện thiếu",
+    ton_kho_mb: "Tồn kho MB",
+    ton_kho_mn: "Tồn kho MN",
     last_ngay_yeu_cau_co_hang: "Ngày yêu cầu có hàng",
     last_ngay_du_kien_hoan_thanh: "Ngày dự kiến HT",
     last_ly_do_cham: "Lý do tồn gần nhất",
@@ -715,7 +719,30 @@ export function MissingPartsModule({
         ...dimFilter,
       })}`,
     );
-    await exportRowsToExcel(all.rows.map((r) => ({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) })), "ca_thieu_linh_kien.xlsx", "Data", EXPORT_LABELS);
+    // 3 cot canh "Linh kiện thiếu" (2026-10-29): ten LK + ton kho MB/MN cua chinh ma do - lay DUNG nguon tab "Linh kiện
+    // thiếu" (ten = danh sach ma thieu da tai, join danh muc linh_kien; ton = /ton-kho-lk/tong-hop) -> 2 tab cung con so,
+    // khong them truy van D1 theo tung ca. Ca khong co ma / ma khong co trong ton kho -> de trong.
+    const tenLk = new Map(((linhKienThieuQuery.data ?? (await linhKienThieuQuery.refetch()).data)?.rows ?? []).map((r) => [r.ma_lk, r.ten_lk ?? ""]));
+    const tonKhoMap = await layTonKhoTongHop();
+    await exportRowsToExcel(
+      all.rows.map((r) => {
+        const ma = r.last_linh_kien_thieu ?? "";
+        const t = ma ? tonKhoMap.get(ma) : undefined;
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries({ ...r, khu_vuc: shortKhuVuc(r.khu_vuc) })) {
+          out[k] = v;
+          if (k === "last_linh_kien_thieu") {
+            out.ten_linh_kien_thieu = (ma && tenLk.get(ma)) || "";
+            out.ton_kho_mb = t ? t.ton_mb : "";
+            out.ton_kho_mn = t ? t.ton_mn : "";
+          }
+        }
+        return out;
+      }),
+      "ca_thieu_linh_kien.xlsx",
+      "Data",
+      EXPORT_LABELS,
+    );
   }
 
   const columns: Column<MissingPartCase>[] = [
