@@ -5040,3 +5040,12 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
 - Sửa: `linhKienSlThucXuat()` (frontend/src/lib/linhKienTimeline.ts) — đơn còn chờ duyệt/chờ hàng/từ chối/hủy (và đơn trả hàng
   chưa qua Kho xác nhận) mà chưa có PXK thì vẫn "—"; còn lại hiện `thực xuất ?? đề xuất`. Dùng ở CaseDetail và bảng đơn của
   Hồ sơ linh kiện (cùng lỗi). DDH-003409 giờ hiện "1 / 1".
+
+## 2026-10-30 — Sửa lỗi "Danh sách tổng > Theo tháng 09/2026 không hiện data" (v1.507)
+- Nguyên nhân (lỗi từ v1.505): cache trình duyệt của chunk "ca đã đóng" tách theo nước đang xem (Tất cả / VN / ID), nên
+  mỗi lần Admin đổi nút Quốc gia phải tải lại cả tháng; nhưng giới hạn tải R2 (10 phút/file, 5 lần/ngày) tính CHUNG mọi nước
+  → lần đổi thứ 2 trong 10 phút bị chặn, nước mới chưa có cache → bảng 0 dòng ("30 ngày đang chờ đồng bộ"). Xác nhận bằng
+  r2_download_log: tài khoản Admin báo lỗi tải 30 file tháng 09 mỗi file 2 lần trong ngày.
+- Sửa: (1) hạn mức tải tính riêng theo nước (khóa `ngày|NƯỚC` trong r2_download_log, "Tất cả" giữ khóa cũ); (2) bị chặn mà
+  chưa có cache của nước đang xem thì dùng tạm cache "Tất cả" (đủ mọi nước, trình duyệt vẫn lọc theo nước).
+- Thử local: Tất cả → VN → ID tải liên tiếp cùng 1 ngày đều được; tải lại VN ngay thì vẫn bị chặn đúng thiết kế.

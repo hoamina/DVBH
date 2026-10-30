@@ -102,7 +102,10 @@ export function useMissingPartsDaDongChunked(thang: string) {
             dayEntries.set(ngay, entry);
           } else if (res.throttled[ngay]) {
             throttledList.push({ ngay, retryAfterSeconds: res.throttled[ngay].retryAfterSeconds });
-            const stale = await getCachedEntry<DayCacheEntry>(`${CACHE_PREFIX}${hauToNuoc}${ngay}`);
+            // Chua co cache cua nuoc dang xem -> dung tam cache "Tất cả" (du moi nuoc, ben duoi van loc theo nuoc) thay vi trong.
+            const stale =
+              (await getCachedEntry<DayCacheEntry>(`${CACHE_PREFIX}${hauToNuoc}${ngay}`)) ??
+              (hauToNuoc ? await getCachedEntry<DayCacheEntry>(`${CACHE_PREFIX}${ngay}`) : null);
             if (stale) dayEntries.set(ngay, stale.data);
           }
         }

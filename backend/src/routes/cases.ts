@@ -729,7 +729,9 @@ cases.post("/da-dong-chunks", async (c) => {
   const allowedDates: string[] = [];
   const throttled: Record<string, { retryAfterSeconds: number }> = {};
   for (const ngay of requested) {
-    const quota = await checkAndConsumeDownloadQuota(c.env.DB, user.email, ngay);
+    // Han muc tai tinh RIENG theo nuoc dang xem (khoa "ngay|NUOC"): moi nuoc co cache trinh duyet rieng, doi nut Quoc gia
+    // phai tai lai ca thang - dung chung 1 han muc thi lan doi thu 2 trong 10 phut bi chan va hien 0 dong (loi v1.505).
+    const quota = await checkAndConsumeDownloadQuota(c.env.DB, user.email, qg ? `${ngay}|${qg}` : ngay);
     if (quota.allowed) allowedDates.push(ngay);
     else throttled[ngay] = { retryAfterSeconds: quota.retryAfterSeconds ?? 60 };
   }
