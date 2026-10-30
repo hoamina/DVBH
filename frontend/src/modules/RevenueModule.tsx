@@ -309,6 +309,7 @@ export function RevenueModule() {
               {tr("⬇ Xuất Excel")}</Btn>
           </div>
         </div>
+        <div className="overflow-x-auto">
         <table className="dense w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
@@ -352,6 +353,7 @@ export function RevenueModule() {
             )}
           </tbody>
         </table>
+        </div>
       </Card>
     </div>
   );

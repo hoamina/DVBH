@@ -201,8 +201,11 @@ export function TopBar({
     );
   }
 
+  // SUA 2026-10-30 (v1.512): tren dien thoai (<sm) nut Quoc gia + Pham vi khong vua 1 hang voi cac icon -> header rong ~630px,
+  // ca trang bi day tran ngang. Duoi sm 2 nut nay xuong 1 hang rieng ben duoi (cuon ngang neu van chat), header giu min-w-0.
   return (
-    <header className="h-16 bg-[var(--topbar-bg)] border-b border-[var(--line)] flex items-center gap-4 px-5 sticky top-0 z-30">
+    <div className="sticky top-0 z-30">
+    <header className="h-16 bg-[var(--topbar-bg)] border-b border-[var(--line)] flex items-center gap-2 sm:gap-4 px-3 sm:px-5 min-w-0">
       <button onClick={onOpenMobileMenu} className="focus-ring md:hidden w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-[var(--ink-600)] shrink-0">
         ☰
       </button>
@@ -217,10 +220,10 @@ export function TopBar({
       <GlobalSearch onFound={onSearch} className="hidden md:block w-40 lg:w-52" />
       <TonKhoSearch className="hidden md:block w-40 lg:w-52" />
       <Greeting />
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
         <NgonNguSwitcher className="hidden sm:inline-flex" />
-        <QuocGiaToggle className="flex" />
-        <PhamViToggle className="flex" />
+        <QuocGiaToggle className="hidden sm:flex" />
+        <PhamViToggle className="hidden sm:flex" />
         <DiaGioiToggle className="hidden sm:flex" />
         <button onClick={() => goTo("giao-dien")} className="focus-ring w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-base" title={t("topbar.theme")}>
           🎨
@@ -322,5 +325,10 @@ export function TopBar({
         </div>
       </div>
     </header>
+    <div className="sm:hidden bg-[var(--topbar-bg)] border-b border-[var(--line)] px-3 py-1.5 flex items-center gap-2 overflow-x-auto empty:hidden">
+      <QuocGiaToggle className="flex shrink-0" />
+      <PhamViToggle className="flex shrink-0" />
+    </div>
+    </div>
   );
 }

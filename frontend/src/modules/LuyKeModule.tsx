@@ -606,6 +606,7 @@ export function LuyKeModule() {
                   >
                     {tr("⬇ Xuất Excel")}</Btn>
                 </div>
+                <div className="overflow-x-auto">
                 <table className="dense w-full text-sm">
                   <thead>
                     <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
@@ -638,6 +639,7 @@ export function LuyKeModule() {
                     )}
                   </tbody>
                 </table>
+                </div>
               </Card>
             </>
           )}

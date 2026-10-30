@@ -691,7 +691,7 @@ function DmxBreakdownCard({
       </button>
       {/* CHOT 2026-08-16 "Phuong an A": chi tiet 3 dong con chuyen sang hien khi hover (thu gon mac
        * dinh de tiet kiem dien tich) - van "di chuyen vao doc them duoc" dung yeu cau, khong xoa han. */}
-      <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity absolute z-30 top-full left-0 mt-1 w-56 bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg p-2 space-y-1">
+      <div className="hidden group-hover:block absolute z-30 top-full left-0 mt-1 w-56 max-w-[80vw] bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg p-2 space-y-1">
         {rows.map((r) => (
           <button key={r.label} type="button" className="flex items-center justify-between w-full text-xs text-[var(--ink-600)] hover:text-[var(--ocean-600)]" onClick={r.onClick}>
             <span className={r.value > 0 ? "" : "text-[var(--ink-400)]"}>{r.label}</span>
@@ -754,7 +754,7 @@ function DeltaBreakdownCard({
       {/* CHOT 2026-08-16 "Phuong an A": primarySub + cac dong con chuyen sang popover hien khi hover,
        * thu gon mac dinh de tiet kiem dien tich nhung van "di chuyen vao doc them duoc". */}
       {hasExtra && (
-        <div className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity absolute z-30 top-full left-0 mt-1 w-60 bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg p-2 space-y-1">
+        <div className="hidden group-hover:block absolute z-30 top-full left-0 mt-1 w-60 max-w-[80vw] bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg p-2 space-y-1">
           {primarySub && <div className="text-[11px] text-[var(--ink-400)]">{primarySub}</div>}
           {rows.map((r) => {
             const rowMuted = mutable && r.bucket.remaining === 0;

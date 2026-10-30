@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { taiChunkTheoDot } from "../lib/daDongChunkFetch";
+import { moDong, taiChunkTheoDot, type DayCacheEntry as DayCacheEntryChung } from "../lib/daDongChunkFetch";
 import { useHuyBoIds } from "./useHuyBoIds";
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
@@ -40,15 +40,7 @@ interface ManifestResponse {
   thieuLinhKienLyDo: string[];
 }
 
-interface ChunksResponse {
-  chunks: Record<string, Record<string, unknown>[]>;
-  throttled: Record<string, { retryAfterSeconds: number }>;
-}
-
-interface DayCacheEntry {
-  hash: string;
-  rows: Record<string, unknown>[];
-}
+type DayCacheEntry = DayCacheEntryChung<Record<string, unknown>>;
 
 export interface ThrottleInfo {
   ngay: string;
@@ -96,10 +88,10 @@ export function useMissingPartsDaDongChunked(thang: string) {
       const throttledList: ThrottleInfo[] = [];
       if (needFetch.length > 0) {
         // Tai theo dot 3 ngay (lib/daDongChunkFetch.ts) - ca thang 1 request lam Worker loi "Invalid string length".
-        const res: ChunksResponse = await taiChunkTheoDot(needFetch, qgTai);
+        const res = await taiChunkTheoDot(needFetch, qgTai);
         for (const ngay of needFetch) {
           if (res.chunks[ngay]) {
-            const entry: DayCacheEntry = { hash: manifest.chunks[ngay].hash, rows: res.chunks[ngay] };
+            const entry: DayCacheEntry = { hash: manifest.chunks[ngay].hash, ...res.chunks[ngay] };
             await setCachedEntry(`${CACHE_PREFIX}${hauToNuoc}${ngay}`, entry);
             dayEntries.set(ngay, entry);
           } else if (res.throttled[ngay]) {
@@ -117,7 +109,7 @@ export function useMissingPartsDaDongChunked(thang: string) {
 
       const merged: MissingPartClosedCase[] = [];
       for (const entry of dayEntries.values()) {
-        for (const row of entry.rows) {
+        for (const row of moDong(entry)) {
           const id = row.id as string;
           const reason = manifest.reasons[id];
           if (!reason || !reason.ly_do_cham || !thieuSet.has(reason.ly_do_cham)) continue;

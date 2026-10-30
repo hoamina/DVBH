@@ -717,7 +717,9 @@ cases.get("/da-dong-manifest", async (c) => {
 cases.post("/da-dong-chunks", async (c) => {
   const scope = scopeByKhuVuc(c);
   const user = c.get("user");
-  const body = await c.req.json<{ ngay?: unknown; qg?: unknown }>().catch(() => ({ ngay: [] as unknown, qg: undefined as unknown }));
+  const body = await c.req
+    .json<{ ngay?: unknown; qg?: unknown; dang?: unknown }>()
+    .catch(() => ({ ngay: [] as unknown, qg: undefined as unknown, dang: undefined as unknown }));
   // "Đa quốc gia" (SRS §12, Q5 - tach theo nuoc): file R2 la chung moi nuoc -> server chi tra dong cua nuoc dang xem
   // (kiem lai quyen nhu GET, chonQuocGia). Dong chunk cu chua co cot quoc_gia = VN (moi du lieu truoc 2026-10-29).
   const qg = await chonQuocGia(dbGoc(c.env.DB), user.pham_vi_quoc_gia, typeof body.qg === "string" ? body.qg : c.req.query("qg"));
@@ -742,13 +744,23 @@ cases.post("/da-dong-chunks", async (c) => {
   }
 
   const rawChunks = allowedDates.length > 0 ? await getDaDongChunks(c.env, allowedDates) : {};
-  const chunks: Record<string, Record<string, unknown>[]> = {};
+  // dang "cot" (v1.512): { cot, dong } thay vi mang object - bo ten 82 cot lap lai o tung ca (~40% dung luong, thang 10 ~216 MB
+  // giai nen). Client cu (khong gui dang) van nhan mang object.
+  const dangCot = body.dang === "cot";
+  const chunks: Record<string, Record<string, unknown>[] | { cot: string[]; dong: unknown[][] }> = {};
   for (const [ngay, rows] of Object.entries(rawChunks)) {
     const theoNuoc = qg === null ? rows : rows.filter((row) => ((row.quoc_gia as string | null | undefined) ?? QUOC_GIA_MAC_DINH) === qg);
-    chunks[ngay] =
+    const daLoc =
       scope === null
         ? theoNuoc
         : theoNuoc.filter((row) => scope.length > 0 && typeof row.khu_vuc === "string" && scope.includes(row.khu_vuc as string));
+    if (!dangCot) {
+      chunks[ngay] = daLoc;
+      continue;
+    }
+    // Hop ten cot moi dong (chunk cu/moi co the lech cot sau migration) - cot thieu o 1 dong = null.
+    const cot = [...new Set(daLoc.flatMap((row) => Object.keys(row)))];
+    chunks[ngay] = { cot, dong: daLoc.map((row) => cot.map((k) => row[k] ?? null)) };
   }
 
   return c.json({ chunks, throttled });

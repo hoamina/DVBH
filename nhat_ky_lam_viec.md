@@ -5084,3 +5084,19 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
   cùng lúc; cột ca đối chiếu cũng có thêm 1 banner.
 - Sửa `CaseDetail.tsx renderBaoHanh(..., hienBanner)`: ẩn banner ở khối Bảo hành khi cột phải đang mở 1 trong 4 tab đó, luôn ẩn
   ở cột ca đối chiếu. Chưa thử được trên trình duyệt local (cổng 8787 bị dự án khác chiếm), chỉ typecheck/build.
+
+## 2026-10-30 — Mobile tràn ngang + "Danh sách tổng" tháng 10 tải ~216 MB (v1.512)
+- **Mobile tràn vùng hiển thị**: từ v1.502 TopBar có thêm nút Quốc gia cạnh nút Phạm vi (NSKX), cả 2 hiện ở mọi màn hình → hàng
+  icon bên phải rộng ~506px, trang bị đẩy ra ~630px trên điện thoại 375px (trình duyệt thu nhỏ/cuộn ngang cả app). Sửa
+  `layout/TopBar.tsx`: dưới `sm` 2 nút này xuống 1 hàng riêng dưới header (cuộn ngang nếu vẫn chật), header + hàng này bọc chung
+  1 khối `sticky`. Đã kiểm tra local 375px: scrollWidth = 375.
+  Quét thêm mọi module ở 375px, sửa 4 chỗ cũng đẩy trang rộng: Doanh thu (bảng KTV 1089px) + Lũy kế (bảng tốc độ 586px) bọc
+  `overflow-x-auto`; Quản lý tồn: popover hover ẩn bằng `invisible` vẫn chiếm chỗ (429px) → `hidden group-hover:block`
+  + `max-w-[80vw]`; Khảo sát: cụm "Từ ngày … đến" cho `flex-wrap`. Sau sửa mọi module ≤ 375px.
+- **Tải ca đã đóng quá nặng**: chunk R2 là mảng object `c.*` 82 cột, tên cột lặp lại ở từng ca (~3,6 KB/ca; ngày 28/10 = 788 ca
+  = 2,8 MB) → cả tháng giải nén ra hàng trăm MB (wire đã gzip ~8x). Sửa: `POST /api/cases/da-dong-chunks` nhận `dang: "cot"` →
+  trả `{cot, dong}` (giảm ~40%), client cũ không gửi `dang` vẫn nhận mảng object; cache IndexedDB lưu luôn dạng cột
+  (`lib/daDongChunkFetch.ts moDong`, đọc được cả cache cũ dạng `rows`). File R2 KHÔNG đổi (không thêm lần ghi R2). Mở ra vẫn đủ
+  mọi cột kể cả null → Excel "tất cả cột" không đổi.
+- `frontend/vite.config.ts`: proxy đọc `DVBH_API_TARGET` (mặc định 8787); `.claude/launch.json` thêm `dvbh-frontend-8788`
+  (frontend trỏ backend 8788 khi 8787 bị dự án khác chiếm).

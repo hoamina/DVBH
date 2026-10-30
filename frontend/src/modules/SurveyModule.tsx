@@ -1191,7 +1191,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
                 onChange={(e) => setThangReport(e.target.value)}
                 className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 <span className="text-xs text-[var(--ink-400)]">{tr("Từ ngày")}</span>
                 <input
                   type="date"

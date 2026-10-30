@@ -4,21 +4,48 @@
     {
       "name": "dvbh-worker",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:worker"],
+      "runtimeArgs": [
+        "run",
+        "dev:worker"
+      ],
       "port": 8787
     },
     {
       "name": "dvbh-worker-8788",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--workspace", "backend", "--", "--port", "8788"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "backend",
+        "--",
+        "--port",
+        "8788"
+      ],
       "port": 8788
     },
     {
       "name": "dvbh-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev:frontend"
+      ],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "dvbh-frontend-8788",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:frontend"
+      ],
+      "port": 5174,
+      "autoPort": true,
+      "env": {
+        "DVBH_API_TARGET": "http://localhost:8788"
+      }
     }
   ]
 }
