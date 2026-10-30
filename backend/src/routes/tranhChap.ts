@@ -182,6 +182,10 @@ const TRANH_CHAP_ELIGIBLE = `c.nghi_ngo_tranh_chap = 1 AND c.tien_do_hoan_thanh 
 // (partial index idx_case_nghi_ngo_tranh_chap, ~4k ca - ELIGIBLE bat buoc dieu nay) HOP ca da co tien trinh (~1,4k) -> them
 // "c.id IN (...)" de D1 di thang theo khoa chinh tren ~5,5k ca; ket qua KHONG doi (dieu kien goc van giu nguyen).
 const TRANH_CHAP_UNG_VIEN = `c.id IN (SELECT id FROM case_dvbh WHERE nghi_ngo_tranh_chap = 1 UNION SELECT case_id FROM tranh_chap_tien_trinh)`;
+// Cung y tuong cho hang doi "Cho xu ly" (2026-10-30, v1.513): (ELIGIBLE va chua co tien trinh) OR (theo_doi_doi_tra = 1 va chua co
+// tien trinh) OR (GQKN day lai GS - bat buoc DA co tien trinh) -> ung vien = nghi_ngo_tranh_chap = 1 HOP theo_doi_doi_tra = 1 (partial
+// index idx_case_theo_doi_doi_tra_1, migration 0152) HOP ca co tien trinh. Truoc do d1 insights: 3,1 giay/lan, quet ~431k dong.
+const TRANH_CHAP_UNG_VIEN_CHO_XU_LY = `c.id IN (SELECT id FROM case_dvbh WHERE nghi_ngo_tranh_chap = 1 UNION SELECT id FROM case_dvbh WHERE theo_doi_doi_tra = 1 UNION SELECT case_id FROM tranh_chap_tien_trinh)`;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap = 2" = AI phat hien, DANG CHO xac nhan thu cong (khac "= 1" la
 // DA XAC NHAN, hoac tu CRM that hoac sau khi qua buoc xac nhan nay) - xem ratchetNghiNgoTranhChap()
@@ -268,7 +272,7 @@ tranhChap.get("/cho-xu-ly", async (c) => {
   // ELIGIBLE) de xu ly nhu 1 khieu nai binh thuong qua 1 hang doi duy nhat - KHONG dong bo voi
   // nghi_ngo_tranh_chap (2 co dam bao doc lap, tranh anh huong bao cao/thong ke dang doc rieng
   // nghi_ngo_tranh_chap).
-  const baseWhereSql = `(${TRANH_CHAP_ELIGIBLE} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${THEO_DOI_DOI_TRA_DA_XAC_NHAN} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${IS_GQKN_DAY_LAI_GS_EXPR})${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
+  const baseWhereSql = `${TRANH_CHAP_UNG_VIEN_CHO_XU_LY} AND (${TRANH_CHAP_ELIGIBLE} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${THEO_DOI_DOI_TRA_DA_XAC_NHAN} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${IS_GQKN_DAY_LAI_GS_EXPR})${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
   const listWhereSql = `${baseWhereSql}${minDaysClauseSql}${idClauseSql}`;
   const binds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...nhomKhClause.binds, ...monthBinds];
   const listBinds = [...binds, ...idBinds];

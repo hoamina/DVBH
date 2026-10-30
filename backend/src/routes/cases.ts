@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { layKhuVucQldvbh } from "../lib/khuVucQldvbh";
 import { chonQuocGia, dbGoc } from "../lib/phamVi";
 import { QUOC_GIA_MAC_DINH } from "../lib/quocGia";
 import type { Context } from "hono";
@@ -860,8 +861,7 @@ cases.get("/backlog-daily", async (c) => {
   const khuVucParam = c.req.query("khu_vuc");
   if (khuVucParam === QLDVBH_FILTER_VALUE) {
     const scope = scopeByKhuVuc(c);
-    const { results } = await c.env.DB.prepare("SELECT DISTINCT khu_vuc FROM case_hieu_luc WHERE khu_vuc LIKE '%qldvbh%'").all<{ khu_vuc: string }>();
-    let list = results.map((r) => r.khu_vuc);
+    let list = await layKhuVucQldvbh(c.env.DB);
     if (scope !== null) list = list.filter((kv) => scope.includes(kv));
     const data = await getBacklogDailyForKhuVucGroup(c.env.DB, list);
     return c.json(data);
@@ -1231,7 +1231,9 @@ cases.post("/:id/doi-tra/:action", async (c) => {
 
 // GET /api/cases/huy-bo/ids - TOAN BO id ca da huy bo (moi user). Client dung de loc chunk R2 "Ca da
 // dong" (chunk chup du lieu luc import, ca huy SAU do van con trong chunk - khong ghi lai R2 khi huy).
-// Doc qua idx_case_huy_bo_at (migration 0037) - chi quet dung so ca da huy (~vai nghin).
+// Doc qua idx_case_huy_bo_at (partial "IS NOT NULL" tu migration 0152) - chi quet dung so ca da huy (~3,5 nghin). Truoc 0152
+// planner quet CA bang (~146k dong, ~1 giay/lan) vi thong ke cu. KHONG them INDEXED BY: proxy quoc gia boc case_dvbh thanh subquery
+// khong co "IS NOT NULL" -> partial index thanh "no query solution".
 cases.get("/huy-bo/ids", async (c) => {
   const { results } = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE huy_bo_at IS NOT NULL").all<{ id: string }>();
   return c.json({ ids: results.map((r) => r.id) });

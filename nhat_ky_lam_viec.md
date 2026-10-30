@@ -5100,3 +5100,21 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
   mọi cột kể cả null → Excel "tất cả cột" không đổi.
 - `frontend/vite.config.ts`: proxy đọc `DVBH_API_TARGET` (mặc định 8787); `.claude/launch.json` thêm `dvbh-frontend-8788`
   (frontend trỏ backend 8788 khi 8787 bị dự án khác chiếm).
+
+## 2026-10-30 — Rà soát web chậm trên production (v1.513, migration 0152)
+- Đo thật: `wrangler d1 insights` (3 ngày) + `wrangler tail` 150s + `EXPLAIN QUERY PLAN`/đo giờ trên D1 remote (chỉ SELECT).
+  DB 788 MB, 147k ca, ~99k truy vấn đọc + 27k ghi/ngày, 533M rows_read/ngày. D1 chạy tuần tự từng truy vấn → câu vài giây làm
+  mọi request khác xếp hàng. Từ 29/10 (đa quốc gia) nhiều báo cáo chạy lặp theo từng phạm vi (Tất cả/VN/VN_NSKX/ID…).
+- **Nguyên nhân chính**: view `case_hieu_luc*` lọc `huy_bo_at IS NULL` (~97% bảng) → planner chọn `idx_case_huy_bo_at (huy_bo_at=NULL)`,
+  đọc ~143k entry index rồi tra từng dòng ngẫu nhiên (thống kê `sqlite_stat1` cũ: 80k dòng). Đo: `SELECT DISTINCT khu_vuc … LIKE
+  '%qldvbh%'` 4,6–5,5 s (lạnh) / 347 ms (ấm) vs 9 ms qua `idx_case_khu_vuc`. Lỗi này đã gặp 30/07 (dashboardCompute UNION ALL) nhưng
+  từ migration 0133 mọi báo cáo đi qua view nên lặp lại khắp nơi.
+- Sửa:
+  - Migration 0152: `idx_case_huy_bo_at` thành partial `WHERE huy_bo_at IS NOT NULL` (planner không dùng được cho IS NULL; danh sách
+    ca hủy vẫn dùng được), thêm `idx_case_theo_doi_doi_tra_1`, `PRAGMA optimize` cập nhật thống kê.
+  - `lib/khuVucQldvbh.ts layKhuVucQldvbh`: danh sách khu vực QLDVBH quét `idx_case_khu_vuc` trên DB gốc (dùng ở `/cases/backlog-daily`
+    + `dailySnapshot`) — câu tốn thời gian NHẤT của D1 (58 lần × 5,5 s / 3 ngày).
+  - `tranhChap.ts` hàng đợi "Chờ xử lý": thêm `TRANH_CHAP_UNG_VIEN_CHO_XU_LY` (nghi ngờ tranh chấp ∪ theo dõi đổi trả =1 ∪ có tiến
+    trình) — đo trên prod cùng kết quả 2615 ca, 5,5 s → 0,4 s (chưa có index mới).
+- Chưa xử lý (ghi nhận): `/api/partner/case-lookup` 0,6–2 s/lần (3 round-trip D1 tuần tự, worker gọi có thể ở colo xa D1 SIN; không
+  ảnh hưởng người dùng DVBH); các dropdown lọc dashboard (GROUP BY cả bảng theo từng phạm vi, ~0,5 s/lần, đã cache theo version).

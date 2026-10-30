@@ -54,6 +54,7 @@ import { buildBaocaoTonRows, renderBaocaoTonImage } from "./reportImage";
 import { nhomTelegramCuaPhamVi, sendTelegramPhoto, TELEGRAM_BOT_ID } from "./telegram";
 import { QUOC_GIA_MAC_DINH } from "./quocGia";
 import { computeRevenue } from "./revenueCompute";
+import { layKhuVucQldvbh } from "./khuVucQldvbh";
 
 export type RoleVariant = "giam_sat" | "qc" | "khac";
 
@@ -956,8 +957,7 @@ export async function getBacklogSnapshotIds(
     if (laNhieuKhuVuc) {
       list = [...new Set(khuVucFilter.split(",").map((v) => v.trim()).filter(Boolean))];
     } else {
-      const { results } = await db.prepare("SELECT DISTINCT khu_vuc FROM case_hieu_luc WHERE khu_vuc LIKE '%qldvbh%'").all<{ khu_vuc: string }>();
-      list = results.map((r) => r.khu_vuc);
+      list = await layKhuVucQldvbh(db);
     }
     // Loc theo DUNG scopeByKhuVuc nhu route /backlog-daily (StatCard) - truoc day chi loc Giam sat theo
     // khu_vuc_phu_trach, lech voi StatCard khi co khu_vuc_duoc_xem hoac vai tro khac co pham vi.
