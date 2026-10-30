@@ -5049,3 +5049,17 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
 - Sửa: (1) hạn mức tải tính riêng theo nước (khóa `ngày|NƯỚC` trong r2_download_log, "Tất cả" giữ khóa cũ); (2) bị chặn mà
   chưa có cache của nước đang xem thì dùng tạm cache "Tất cả" (đủ mọi nước, trình duyệt vẫn lọc theo nước).
 - Thử local: Tất cả → VN → ID tải liên tiếp cùng 1 ngày đều được; tải lại VN ngay thì vẫn bị chặn đúng thiết kế.
+
+## 2026-10-30 — Log "ca chuyển sang Tồn TBP / Tồn CEO" trong mục Giải trình tồn (v1.508, migration 0151)
+- Yêu cầu chủ hệ thống: "khi 1 đơn chuyển sang trạng thái tồn TBP hoặc tồn CEO sẽ lưu log trong mục giải trình tồn (chỉ lưu
+  log để nắm vấn đề chứ không tính là được giải trình)". Tồn TBP/CEO = Cảnh báo tồn Cấp 1 (TP DVBH) / Cấp 2 (CEO), chỉ được
+  tính lúc chốt 08:00 (thêm lần bổ sung luồng đổi trả trong ngày) → đó là thời điểm ghi log.
+- Bảng riêng `canh_bao_ton_chuyen_cap_log` (không ghi vào `giai_trinh`, nên need_giai_trinh / tỷ lệ / badge / Lý do tồn gần
+  nhất / báo cáo / snapshot không đổi). `lib/canhBaoTon.ts ghiLogChuyenCapCanhBao`: so tập ca từng cấp với lần chốt trước
+  gần nhất, ca mới vào cấp → 1 dòng (kèm chỉ tiêu). Lên CEO sau khi đã ở TBP → thêm 1 dòng Cấp 2; rơi khỏi cấp rồi vào lại →
+  ghi lại. Chỉ chạy ở phạm vi gốc (không ghi trùng ở NSKX/từng nước); chưa có lần chốt trước → không ghi; chỉ tiêu lần trước
+  bị lỗi (luồng đổi trả chưa lấy được) → bỏ qua ca chỉ vào cấp nhờ chỉ tiêu đó. Chạy lại trong ngày không ghi lặp (UNIQUE).
+- Chi tiết ca, tab "GT tồn": khối "Nhật ký hệ thống" dưới Lịch sử giải trình, ghi chú "không tính là đã giải trình"; số đếm tab
+  không tính log này.
+- Thử local: Tồn >20 ngày tăng 1415 → 1426 so với lần chốt trước → ghi đúng 11 dòng Cấp 2, Cấp 1 không đổi → 0 dòng; chi tiết
+  ca trả `chuyenCapLog`, `giaiTrinh` vẫn rỗng, nhãn "Tồn chưa giải trình" vẫn còn.

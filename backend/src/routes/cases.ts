@@ -30,7 +30,7 @@ import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersion
 // ghi tu NOI KHAC (import Excel, QC, dong bo Sheet, nguoi dung khac) khong hien (bug 2026-09-30, ca
 // 1341623: import bao "da co" nhung chi tiet ca khong thay). Nay tra kem detailVersion = version-tag cac
 // domain nay; FE so voi GET /cases/detail-version truoc khi dung cache.
-const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
+const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey } from "../lib/dailySnapshot";
@@ -1249,7 +1249,7 @@ cases.get("/:id", async (c) => {
 
   // Doc tag TRUOC du lieu: neu co ghi xen giua, tag cu hon du lieu -> lan mo sau tu tai lai (an toan).
   const detailVersion = await getVersionTag(c.env.DB, CASE_DETAIL_DOMAINS);
-  const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop, donBaoHanhOdoo] = await Promise.all([
+  const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop, donBaoHanhOdoo, chuyenCapLog] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC").bind(id).all(),
@@ -1268,6 +1268,9 @@ cases.get("/:id", async (c) => {
     c.env.DB.prepare("SELECT * FROM bien_ban_hop WHERE case_id = ? ORDER BY id DESC").bind(id).all(),
     // Don bao hanh tu Odoo (migration 0122) - FE noi voi case.linh_kien_loi theo ma_linh_kien.
     c.env.DB.prepare("SELECT * FROM don_bao_hanh_odoo WHERE case_id = ? ORDER BY odoo_id").bind(id).all(),
+    // Log "chuyen sang Ton TBP / Ton CEO" (migration 0151) - CHI de nam van de, KHONG phai giai trinh: tra ve field rieng,
+    // FE hien xen trong tab "GT ton" nhung khong gop vao giaiTrinh (moi tinh toan phia FE doc giaiTrinh).
+    c.env.DB.prepare("SELECT id, cap, ngay, chi_tieu, created_at FROM canh_bao_ton_chuyen_cap_log WHERE case_id = ? ORDER BY id DESC").bind(id).all(),
   ]);
 
   return c.json({
@@ -1281,6 +1284,7 @@ cases.get("/:id", async (c) => {
     napGasDanhGia: napGasDanhGia ?? null,
     bienBanHop: bienBanHop.results,
     donBaoHanhOdoo: donBaoHanhOdoo.results,
+    chuyenCapLog: chuyenCapLog.results,
     detailVersion,
   });
 });

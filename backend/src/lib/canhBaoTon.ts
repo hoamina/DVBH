@@ -35,7 +35,9 @@ import { nhomTelegramCuaPhamVi, sendTelegramPhoto, TELEGRAM_BOT_ID } from "./tel
 import { QUOC_GIA_MAC_DINH } from "./quocGia";
 import type { Env } from "../types";
 import { computeLuongDoiTraTon, ngayVNCuaIso } from "./luongDoiTraTon";
-import { boSungCap2VaoSnapshotHomNay } from "./canhBaoCap2GiaiTrinh";
+import { boSungCap2VaoSnapshotHomNay, CAP2_KEYS } from "./canhBaoCap2GiaiTrinh";
+import { laPhamViGoc } from "./phamVi";
+import { bumpVersions } from "./dataVersions";
 
 const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 
@@ -254,6 +256,66 @@ async function boSungCap2(db: D1Database): Promise<void> {
   }
 }
 
+const CAP1_KEYS: readonly CanhBaoTonMetricKey[] = ["ton14", "vipSvip5", "locTong3", "tranhChap3", "luongDoiTra7"];
+
+/** CHOT 2026-10-29 (chu he thong): "khi 1 don chuyen sang trang thai ton TBP hoac ton CEO se luu log trong muc giai trinh
+ * ton (chi luu log de nam van de chu khong tinh la duoc giai trinh)". Ton TBP = Cap 1 (TP DVBH), Ton CEO = Cap 2.
+ * So tap ca cua tung cap trong snapshot hom nay voi snapshot chot GAN NHAT truoc do -> ca moi vao cap = 1 dong
+ * canh_bao_ton_chuyen_cap_log (migration 0151, bang RIENG - khong dong vao giai_trinh nen khong cong thuc "da giai
+ * trinh" nao tinh no). Idempotent (UNIQUE case_id+cap+ngay) nen goi lai moi lan snapshot hom nay doi. Chi chay o pham vi
+ * goc (snapshot toan he thong) - pham vi NSKX/quoc gia la tap con, ghi lai se trung. Chua co snapshot truoc -> khong ghi
+ * (tranh lan dau coi toan bo ca dang ton la "vua chuyen"). Chi tieu luc truoc bi loi (luong doi tra chua lay duoc) ->
+ * khong biet ca co o cap do khong: bo qua ca CHI vao cap nho chi tieu do. Loi KHONG chan luong chot. */
+async function ghiLogChuyenCapCanhBao(db: D1Database, ngay: string, buckets: Partial<CanhBaoTonBuckets>): Promise<void> {
+  if (!laPhamViGoc(db)) return;
+  try {
+    const prevRow = await db
+      .prepare("SELECT payload FROM daily_snapshot WHERE scope_key = ? AND ngay < ? ORDER BY ngay DESC LIMIT 1")
+      .bind(SNAPSHOT_SCOPE_KEY, ngay)
+      .first<{ payload: string }>();
+    if (!prevRow) return;
+    const prev = JSON.parse(prevRow.payload) as Partial<CanhBaoTonBuckets>;
+    const rows: { id: string; cap: number; ct: string }[] = [];
+    for (const [cap, keys] of [[1, CAP1_KEYS], [2, CAP2_KEYS]] as const) {
+      const prevIds = new Set<string>();
+      const chuaRo = new Set<CanhBaoTonMetricKey>();
+      for (const k of keys) {
+        const b = prev[k];
+        if (!b || b.loi) chuaRo.add(k);
+        else for (const id of b.ids) prevIds.add(String(id));
+      }
+      const moi = new Map<string, CanhBaoTonMetricKey[]>();
+      for (const k of keys) {
+        const b = buckets[k];
+        if (!b || b.loi) continue;
+        for (const raw of b.ids) {
+          const id = String(raw);
+          if (prevIds.has(id)) continue;
+          const ds = moi.get(id) ?? [];
+          ds.push(k);
+          moi.set(id, ds);
+        }
+      }
+      for (const [id, ks] of moi) {
+        if (ks.every((k) => chuaRo.has(k))) continue;
+        rows.push({ id, cap, ct: JSON.stringify(ks) });
+      }
+    }
+    if (rows.length === 0) return;
+    const res = await db
+      .prepare(
+        `INSERT INTO canh_bao_ton_chuyen_cap_log (case_id, cap, ngay, chi_tieu, created_at)
+         SELECT json_extract(value, '$.id'), json_extract(value, '$.cap'), ?, json_extract(value, '$.ct'), ? FROM json_each(?) WHERE true
+         ON CONFLICT(case_id, cap, ngay) DO NOTHING`,
+      )
+      .bind(ngay, nowVN(), JSON.stringify(rows))
+      .run();
+    if ((res.meta?.changes ?? 0) > 0) await bumpVersions(db, ["canh_bao_ton_log"]);
+  } catch (err) {
+    console.error("ghiLogChuyenCapCanhBao loi:", err instanceof Error ? err.message : String(err));
+  }
+}
+
 export async function generateCanhBaoTonSnapshot(env: Env, generatedBy: string): Promise<void> {
   const db = env.DB;
   const ngay = getVnDateStr();
@@ -263,6 +325,7 @@ export async function generateCanhBaoTonSnapshot(env: Env, generatedBy: string):
 
   await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, generatedBy, buckets);
   await boSungCap2(db);
+  await ghiLogChuyenCapCanhBao(db, ngay, buckets);
 
   for (const [khuVuc, row] of Object.entries(byKhuVuc)) {
     try {
@@ -561,6 +624,7 @@ export async function getCanhBaoTonSnapshot(env: Env): Promise<CanhBaoTonSnapsho
     const buckets = await computeCanhBaoTonBuckets(env);
     await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, "auto", buckets);
     await boSungCap2(db);
+    await ghiLogChuyenCapCanhBao(db, ngay, buckets);
     row = { generated_at: generatedAt, generated_by: "auto", payload: JSON.stringify(buckets) };
   }
 
@@ -629,5 +693,6 @@ export async function retryLuongDoiTraSnapshot(env: Env): Promise<void> {
   buckets.luongDoiTra10 = luong.b10;
   await db.prepare("UPDATE daily_snapshot SET payload = ? WHERE ngay = ? AND scope_key = ?").bind(JSON.stringify(buckets), ngay, SNAPSHOT_SCOPE_KEY).run();
   await boSungCap2(db);
+  await ghiLogChuyenCapCanhBao(db, ngay, buckets);
   await upsertLuongDoiTraDailyLog(db, ngay, luong.byKhuVuc);
 }

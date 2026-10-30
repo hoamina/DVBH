@@ -12186,5 +12186,21 @@
  "Bản dịch (EN / ID)": [
   "Translation (EN / ID)",
   "Terjemahan (EN / ID)"
+ ],
+ "Nhật ký hệ thống": [
+  "System log",
+  "Log sistem"
+ ],
+ "Chỉ lưu log để nắm vấn đề, không tính là đã giải trình.": [
+  "Logged for awareness only — does not count as an explanation.",
+  "Hanya dicatat untuk pemantauan — tidak dihitung sebagai penjelasan."
+ ],
+ "Ca chuyển sang Tồn CEO (Cảnh báo tồn Cấp 2)": [
+  "Case escalated to CEO backlog (Backlog alert Level 2)",
+  "Kasus naik ke backlog CEO (Peringatan backlog Level 2)"
+ ],
+ "Ca chuyển sang Tồn TBP (Cảnh báo tồn Cấp 1)": [
+  "Case escalated to Department Head backlog (Backlog alert Level 1)",
+  "Kasus naik ke backlog Kepala Bagian (Peringatan backlog Level 1)"
  ]
 }

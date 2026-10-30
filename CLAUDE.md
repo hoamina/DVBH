@@ -297,6 +297,12 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     exchange case not completed, age from mail `origin_at`), not D1 — so their bucket can carry `loi` when that Worker
     was unreachable at 08:00, and every hourly `DAILY_SNAPSHOT_CRON` fire retries (`retryLuongDoiTraSnapshot`).
     `getCanhBaoTonSnapshot`/`computeCanhBaoTonBuckets` take `Env` (need the Service Binding), not `D1Database`.
+    **"Tồn TBP / Tồn CEO" log** (2026-10-29, migration 0151): every time the base-scope ("Tất cả") Cảnh báo tồn snapshot of
+    today is written (08:00 chốt, self-heal, luồng đổi trả retry), `ghiLogChuyenCapCanhBao` diffs each level (Cấp 1 = TBP/TP
+    DVBH, Cấp 2 = CEO) against the most recent earlier snapshot and inserts one row per case that newly entered it into
+    `canh_bao_ton_chuyen_cap_log` (UNIQUE case+cap+ngay → idempotent; bumps domain `canh_bao_ton_log`, in
+    `CASE_DETAIL_DOMAINS`). Shown in CaseDetail tab "GT tồn" as "Nhật ký hệ thống" — owner rule: log only, it is **NOT** a
+    giải trình, so it lives in its own table and is returned as `chuyenCapLog`, never merged into `giai_trinh`/`giaiTrinh`.
   - `telegram.ts` — sends PNG images via Telegram Bot API (`sendTelegramPhoto`); used only by
     `dailySnapshot.ts` for the 17:30 VN daily report push.
 
@@ -395,7 +401,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0150`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0151`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
