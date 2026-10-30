@@ -5063,3 +5063,8 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
   không tính log này.
 - Thử local: Tồn >20 ngày tăng 1415 → 1426 so với lần chốt trước → ghi đúng 11 dòng Cấp 2, Cấp 1 không đổi → 0 dòng; chi tiết
   ca trả `chuyenCapLog`, `giaiTrinh` vẫn rỗng, nhãn "Tồn chưa giải trình" vẫn còn.
+
+## 2026-10-30 — Tăng x2 giới hạn tải chunk R2 ca đã đóng (v1.509)
+- Sự cố: Danh sách tổng tháng 09 hiện "30 ngày đang chờ đồng bộ" + 0 dòng — lượt tải 30 file lúc 07:56:50 trùng lúc deploy
+  v1.508 (07:57:20), quota đã tính nhưng trình duyệt không nhận được dữ liệu → bị chặn 10 phút.
+- Chủ hệ thống chốt tăng x2: `lib/r2DownloadRateLimit.ts` 10 → 5 phút giữa 2 lần tải cùng 1 file, 5 → 10 lần/ngày.

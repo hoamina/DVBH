@@ -1,13 +1,15 @@
 /**
  * Rate-limit tai chunk R2 theo TUNG FILE/ngay rieng (khong phai 1 ngan sach chung ca tai khoan) -
  * nguyen tac chot voi chu he thong: 1 tai khoan chi duoc tai LAI DUNG 1 file "chunk_ngay" toi thieu
- * moi 10 phut, toi da 5 lan/ngay (VN). Cac file (ngay) khac nhau co dong ho rieng - dung
+ * moi 5 phut, toi da 10 lan/ngay (VN) - tang x2 ngay 2026-10-30. Cac file (ngay) khac nhau co dong ho rieng - dung
  * r2_download_log (migration 0029), khoa (email, chunk_ngay, ngay_vn).
  */
 import { getVnDateStr } from "./reportCache";
 
-const MIN_INTERVAL_MS = 10 * 60 * 1000;
-const MAX_PER_DAY = 5;
+// TANG x2 (chu he thong 2026-10-30, sau su co tai trung luc deploy -> bi chan 10 phut, Danh sach tong hien 0 dong):
+// 10 phut -> 5 phut giua 2 lan tai lai cung 1 file, 5 -> 10 lan/ngay.
+const MIN_INTERVAL_MS = 5 * 60 * 1000;
+const MAX_PER_DAY = 10;
 
 export interface DownloadQuotaResult {
   allowed: boolean;
