@@ -5068,3 +5068,12 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
 - Sự cố: Danh sách tổng tháng 09 hiện "30 ngày đang chờ đồng bộ" + 0 dòng — lượt tải 30 file lúc 07:56:50 trùng lúc deploy
   v1.508 (07:57:20), quota đã tính nhưng trình duyệt không nhận được dữ liệu → bị chặn 10 phút.
 - Chủ hệ thống chốt tăng x2: `lib/r2DownloadRateLimit.ts` 10 → 5 phút giữa 2 lần tải cùng 1 file, 5 → 10 lần/ngày.
+
+## 2026-10-30 — Sửa Danh sách tổng / ca đã đóng "Không tải được dữ liệu" (v1.510)
+- Bắt bằng `wrangler tail`: `POST /api/cases/da-dong-chunks` → 500 `RangeError: Invalid string length` — client gửi CẢ THÁNG
+  (30 ngày) trong 1 request, Worker gộp thành 1 chuỗi JSON quá lớn. Tháng 10 "thử lại thì hiện" vì một phần ngày đã có cache
+  (request nhỏ hơn); lần lỗi vẫn bị tính hạn mức nên tháng 09 sau đó rơi vào "chờ đồng bộ".
+- `frontend/src/lib/daDongChunkFetch.ts` `taiChunkTheoDot`: tải theo đợt 3 ngày, đợt lỗi → các ngày đó coi như "chờ" 60s (dùng
+  cache cũ + tự thử lại); dùng ở `useDaDongChunked` + `useMissingPartsDaDongChunked`.
+- `routes/cases.ts`: tối đa 5 ngày/request, ngày vượt trả "chờ" 1s không trừ hạn mức.
+- `.claude/launch.json`: thêm cấu hình `dvbh-worker-8788` (8787 thường bị dev server dự án khác chiếm).

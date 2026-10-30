@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { taiChunkTheoDot } from "../lib/daDongChunkFetch";
 import { useHuyBoIds } from "./useHuyBoIds";
 import { api } from "../api/client";
 import { getCachedEntry, setCachedEntry } from "../lib/closedDataCache";
@@ -88,7 +89,8 @@ export function useDaDongChunked(thang: string, enabled = true) {
 
       const throttledList: ThrottleInfo[] = [];
       if (needFetch.length > 0) {
-        const res = await api.post<ChunksResponse>("/cases/da-dong-chunks", { ngay: needFetch, qg: qgTai ?? undefined });
+        // Tai theo dot 3 ngay (lib/daDongChunkFetch.ts) - ca thang 1 request lam Worker loi "Invalid string length".
+        const res: ChunksResponse = await taiChunkTheoDot(needFetch, qgTai);
         for (const ngay of needFetch) {
           if (res.chunks[ngay]) {
             const entry: DayCacheEntry = { hash: manifest.chunks[ngay].hash, rows: res.chunks[ngay] };

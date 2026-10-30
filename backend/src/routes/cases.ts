@@ -728,7 +728,12 @@ cases.post("/da-dong-chunks", async (c) => {
 
   const allowedDates: string[] = [];
   const throttled: Record<string, { retryAfterSeconds: number }> = {};
-  for (const ngay of requested) {
+  // SUA 2026-10-30: toi da 5 ngay/request - ca thang 1 lan lam JSON phan hoi qua lon -> 500 "RangeError: Invalid string length"
+  // (Danh sach tong thang 09). Ngay vuot qua tra ve "cho" 1s, KHONG tru han muc - client moi tai theo dot 3 ngay
+  // (frontend/src/lib/daDongChunkFetch.ts), client cu tu thu lai phan con lai.
+  const MAX_NGAY_MOI_LAN = 5;
+  for (const ngay of requested.slice(MAX_NGAY_MOI_LAN)) throttled[ngay] = { retryAfterSeconds: 1 };
+  for (const ngay of requested.slice(0, MAX_NGAY_MOI_LAN)) {
     // Han muc tai tinh RIENG theo nuoc dang xem (khoa "ngay|NUOC"): moi nuoc co cache trinh duyet rieng, doi nut Quoc gia
     // phai tai lai ca thang - dung chung 1 han muc thi lan doi thu 2 trong 10 phut bi chan va hien 0 dong (loi v1.505).
     const quota = await checkAndConsumeDownloadQuota(c.env.DB, user.email, qg ? `${ngay}|${qg}` : ngay);

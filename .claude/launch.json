@@ -8,6 +8,12 @@
       "port": 8787
     },
     {
+      "name": "dvbh-worker-8788",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace", "backend", "--", "--port", "8788"],
+      "port": 8788
+    },
+    {
       "name": "dvbh-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:frontend"],
