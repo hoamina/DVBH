@@ -5077,3 +5077,10 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
   cache cũ + tự thử lại); dùng ở `useDaDongChunked` + `useMissingPartsDaDongChunked`.
 - `routes/cases.ts`: tối đa 5 ngày/request, ngày vượt trả "chờ" 1s không trừ hạn mức.
 - `.claude/launch.json`: thêm cấu hình `dvbh-worker-8788` (8787 thường bị dev server dự án khác chiếm).
+
+## 2026-10-30 — Chi tiết ca: banner "Đồng bộ lại" dữ liệu mua hàng/bảo hành hiện 2 lần (v1.511)
+- Nguyên nhân: banner đồng bộ Google Sheet mua hàng/bảo hành/QC (`purchaseSyncBanner`) được chèn riêng vào khối "Bảo hành"
+  (thẻ Thông tin xử lý, cột trái) và vào các tab Mua hàng / Thiếu hàng / PO / QC (cột phải) → chế độ xem rộng hiện 2 banner
+  cùng lúc; cột ca đối chiếu cũng có thêm 1 banner.
+- Sửa `CaseDetail.tsx renderBaoHanh(..., hienBanner)`: ẩn banner ở khối Bảo hành khi cột phải đang mở 1 trong 4 tab đó, luôn ẩn
+  ở cột ca đối chiếu. Chưa thử được trên trình duyệt local (cổng 8787 bị dự án khác chiếm), chỉ typecheck/build.

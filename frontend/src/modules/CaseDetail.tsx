@@ -2406,7 +2406,9 @@ export function CaseDetail({
   const yeuCauHuyContent = <CancelRequestPanel items={yeuCauHuyList} />;
 
   // Dung chung cho ca goc + cot ca doi chieu (2026-10-08) - moi ben truyen du lieu cua chinh ca do.
-  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched) {
+  // hienBanner (2026-10-30): banner dong bo mua hang/bao hanh chi hien 1 lan tren man hinh - an o day khi cot phai (expanded)
+  // dang mo 1 tab cung nguon da co banner, va luon an o cot ca doi chieu.
+  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched, hienBanner = true) {
     return (
       <div>
         {orders.length > 0 && (
@@ -2416,7 +2418,7 @@ export function CaseDetail({
             <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
           </div>
         )}
-        {purchaseSyncBanner}
+        {hienBanner && purchaseSyncBanner}
         {!purchaseSyncing && matched.length === 0 && (
           <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn bảo hành liên quan đến ca này.")}</div>
         )}
@@ -2455,7 +2457,12 @@ export function CaseDetail({
       </div>
     );
   }
-  const baoHanhContent = renderBaoHanh(linhKienLoiList, donBaoHanhOdooList, baoHanhMatched);
+  const baoHanhContent = renderBaoHanh(
+    linhKienLoiList,
+    donBaoHanhOdooList,
+    baoHanhMatched,
+    !(viewMode === "expanded" && ["mua-hang", "thieu-hang", "po-dat-hang", "qc-thuc-te"].includes(tab)),
+  );
 
   // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
   const compareContent = compareId && (
@@ -2512,7 +2519,7 @@ export function CaseDetail({
               countYeuCauHuy: compareYeuCauHuyList.length,
               panels: {
                 "loi-linh-kien": <LoiLinhKienPanel parts={compareLoiList} orders={compareOrders} />,
-                "bao-hanh": renderBaoHanh(compareLoiList, compareOrders, compareBaoHanhMatched),
+                "bao-hanh": renderBaoHanh(compareLoiList, compareOrders, compareBaoHanhMatched, false),
                 "lich-hen": <LichHenPanel items={compareLichHenList} />,
                 "yeu-cau-huy": <CancelRequestPanel items={compareYeuCauHuyList} />,
               },
