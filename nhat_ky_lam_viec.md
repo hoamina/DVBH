@@ -5118,3 +5118,10 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
     trình) — đo trên prod cùng kết quả 2615 ca, 5,5 s → 0,4 s (chưa có index mới).
 - Chưa xử lý (ghi nhận): `/api/partner/case-lookup` 0,6–2 s/lần (3 round-trip D1 tuần tự, worker gọi có thể ở colo xa D1 SIN; không
   ảnh hưởng người dùng DVBH); các dropdown lọc dashboard (GROUP BY cả bảng theo từng phạm vi, ~0,5 s/lần, đã cache theo version).
+
+## 2026-10-31 — Ca thiếu linh kiện: đổi tên cột + thêm cột "Tên linh kiện" (v1.514)
+- Cột "Linh kiện thiếu" → "Mã linh kiện thiếu" ở bảng Danh sách chi tiết (đang tồn + đã đóng) và tiêu đề Excel. Tab "Linh kiện thiếu"
+  giữ tên cũ.
+- Danh sách chi tiết (đang tồn): thêm cột "Tên linh kiện" ngay sau mã — tên lấy từ danh sách tab "Linh kiện thiếu" (cùng bộ lọc,
+  query vốn đã bật ở view danh-sach), không thêm truy vấn D1. Bảng ca đã đóng chưa có cột này (mã của ca đã đóng không nằm trong
+  danh sách đang thiếu).

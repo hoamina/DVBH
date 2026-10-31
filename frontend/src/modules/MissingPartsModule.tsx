@@ -683,7 +683,7 @@ export function MissingPartsModule({
   // cac field last_* tu giai_trinh, xem SELECT_COLS o backend/src/routes/missingParts.ts).
   const EXPORT_LABELS: Record<string, string> = {
     ...CASE_FIELD_LABELS,
-    last_linh_kien_thieu: "Linh kiện thiếu",
+    last_linh_kien_thieu: "Mã linh kiện thiếu",
     ten_linh_kien_thieu: "Tên linh kiện thiếu",
     ton_kho_mb: "Tồn kho MB",
     ton_kho_mn: "Tồn kho MN",
@@ -746,6 +746,10 @@ export function MissingPartsModule({
     );
   }
 
+  // Cot "Tên linh kiện" (2026-10-31): ten theo ma lay tu danh sach tab "Linh kiện thiếu" (cung bo loc, query da bat san o
+  // view danh-sach) - khong them truy van D1 theo tung ca, giong cot ten LK trong file Excel.
+  const tenLkTheoMa = new Map((linhKienThieuQuery.data?.rows ?? []).map((r) => [r.ma_lk, r.ten_lk ?? ""]));
+
   const columns: Column<MissingPartCase>[] = [
     { key: "id", header: "ID", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
     {
@@ -761,8 +765,13 @@ export function MissingPartsModule({
     { key: "ky_thuat_vien", header: tr("Kỹ thuật viên"), render: (c) => <span className="text-xs">{c.ky_thuat_vien ?? "—"}</span> },
     {
       key: "linh_kien",
-      header: tr("Linh kiện thiếu"),
+      header: tr("Mã linh kiện thiếu"),
       render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa chọn")}</span>),
+    },
+    {
+      key: "ten_linh_kien",
+      header: tr("Tên linh kiện"),
+      render: (c) => <span className="text-xs">{(c.last_linh_kien_thieu && tenLkTheoMa.get(c.last_linh_kien_thieu)) || "—"}</span>,
     },
     { key: "ngay_yeu_cau", header: tr("Ngày yêu cầu có hàng"), render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_yeu_cau_co_hang)}</span> },
     { key: "ngay_du_kien", header: tr("Ngày dự kiến HT"), render: (c) => <span className="text-xs">{fmtDate(c.last_ngay_du_kien_hoan_thanh)}</span> },
@@ -786,7 +795,7 @@ export function MissingPartsModule({
     { key: "khach_hang", header: tr("Khách hàng"), render: (c) => c.khach_hang ?? "—" },
     {
       key: "linh_kien",
-      header: tr("Linh kiện thiếu"),
+      header: tr("Mã linh kiện thiếu"),
       render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa chọn")}</span>),
     },
     { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },

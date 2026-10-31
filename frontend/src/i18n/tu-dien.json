@@ -12202,5 +12202,9 @@
  "Ca chuyển sang Tồn TBP (Cảnh báo tồn Cấp 1)": [
   "Case escalated to Department Head backlog (Backlog alert Level 1)",
   "Kasus naik ke backlog Kepala Bagian (Peringatan backlog Level 1)"
+ ],
+ "Mã linh kiện thiếu": [
+  "Missing part code",
+  "Kode suku cadang kurang"
  ]
 }
