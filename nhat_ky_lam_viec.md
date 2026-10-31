@@ -5125,3 +5125,8 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
 - Danh sách chi tiết (đang tồn): thêm cột "Tên linh kiện" ngay sau mã — tên lấy từ danh sách tab "Linh kiện thiếu" (cùng bộ lọc,
   query vốn đã bật ở view danh-sach), không thêm truy vấn D1. Bảng ca đã đóng chưa có cột này (mã của ca đã đóng không nằm trong
   danh sách đang thiếu).
+
+## 2026-10-31 — Ca thiếu linh kiện đã đóng: thêm cột "Tên linh kiện" (v1.515)
+- `GET /api/missing-parts/ten-linh-kien?ma=a,b,c` (≤100 mã, tra khóa chính `linh_kien`) — mã của ca đã đóng thường không còn trong danh
+  sách "đang thiếu" nên không dùng lại `/linh-kien-thieu` được.
+- `MissingPartsDaDongList` gọi theo TRANG đang xem (10 mã), gắn `ten_linh_kien_thieu` vào dòng; cột "Tên linh kiện" sau "Mã linh kiện thiếu".

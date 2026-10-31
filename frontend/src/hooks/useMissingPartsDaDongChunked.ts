@@ -52,6 +52,8 @@ export interface ThrottleInfo {
 export interface MissingPartClosedCase extends CaseRow {
   last_linh_kien_thieu: string | null;
   last_ngay_yeu_cau_co_hang: string | null;
+  // Gan o MissingPartsDaDongList (theo trang, GET /missing-parts/ten-linh-kien) - khong co trong chunk R2.
+  ten_linh_kien_thieu?: string | null;
 }
 
 export function useMissingPartsDaDongChunked(thang: string) {

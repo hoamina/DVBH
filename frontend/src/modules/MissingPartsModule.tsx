@@ -87,7 +87,16 @@ function MissingPartsDaDongList({
     return r;
   }, [allRows, khuVucFilter, dimFilter, idSearch, dgMode, dgIdx]);
 
-  const pagedRows = rows.slice((page - 1) * pageSize, page * pageSize);
+  const trangRows = rows.slice((page - 1) * pageSize, page * pageSize);
+  // Cot "Tên linh kiện" (2026-10-31): chi tra ten cho cac ma cua TRANG dang xem (toi da 10 ma, tra khoa chinh linh_kien).
+  const maTrang = [...new Set(trangRows.map((r) => r.last_linh_kien_thieu).filter((v): v is string => !!v))].sort();
+  const { data: tenLkData } = useQuery({
+    queryKey: ["missing-parts-ten-linh-kien", maTrang.join(",")],
+    queryFn: () => api.get<{ ten: Record<string, string> }>(`/missing-parts/ten-linh-kien${buildQuery({ ma: maTrang.join(",") })}`),
+    enabled: maTrang.length > 0,
+    staleTime: 10 * 60 * 1000,
+  });
+  const pagedRows = trangRows.map((r) => ({ ...r, ten_linh_kien_thieu: (r.last_linh_kien_thieu && tenLkData?.ten[r.last_linh_kien_thieu]) || null }));
 
   const monthOptions = (monthsData?.months ?? []).map((m) => ({ value: m, label: m }));
   if (!monthOptions.some((o) => o.value === currentMonth)) {
@@ -798,6 +807,7 @@ export function MissingPartsModule({
       header: tr("Mã linh kiện thiếu"),
       render: (c) => (c.last_linh_kien_thieu ? <Badge tone="amber"><MaLinhKienLink ma={c.last_linh_kien_thieu} /></Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa chọn")}</span>),
     },
+    { key: "ten_linh_kien", header: tr("Tên linh kiện"), render: (c) => <span className="text-xs">{c.ten_linh_kien_thieu || "—"}</span> },
     { key: "hoan_thanh", header: tr("Hoàn thành"), render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
     { key: "khu_vuc", header: tr("Khu vực"), render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">Xem →</span> },

@@ -253,6 +253,20 @@ export async function computeLinhKienThieu(db: D1Database, params: LinhKienThieu
   return { rows: results };
 }
 
+// GET /api/missing-parts/ten-linh-kien?ma=a,b,c - ten linh kien theo ma (danh muc linh_kien, tra theo khoa chinh) cho cot
+// "Tên linh kiện" o bang ca DA DONG (2026-10-31): ma cua ca da dong thuong khong con trong danh sach "dang thieu" nen khong dung
+// lai /linh-kien-thieu duoc. Client goi theo trang (10 ma) -> doc dung so ma; toi da 100 ma/lan (gioi han bind D1).
+missingParts.get("/ten-linh-kien", async (c) => {
+  const ma = [...new Set((c.req.query("ma") ?? "").split(",").map((v) => v.trim()).filter(Boolean))].slice(0, 100);
+  if (ma.length === 0) return c.json({ ten: {} });
+  const { results } = await c.env.DB.prepare(
+    `SELECT ma_linh_kien, ten_linh_kien FROM linh_kien WHERE ma_linh_kien IN (${ma.map(() => "?").join(", ")})`,
+  )
+    .bind(...ma)
+    .all<{ ma_linh_kien: string; ten_linh_kien: string }>();
+  return c.json({ ten: Object.fromEntries(results.map((r) => [r.ma_linh_kien, r.ten_linh_kien])) });
+});
+
 // GET /api/missing-parts/linh-kien-thieu - danh sach linh kien thieu (gom nhom tu ca "dang ton"),
 // dung de doi chieu voi du lieu PO/mua hang/bao hanh (Google Sheet, doc o frontend qua
 // usePurchaseWarrantyData - khong co o backend nen KHONG join o day, chi tra ma + ten + so ca).
