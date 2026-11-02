@@ -279,6 +279,8 @@ const CASE_LOOKUP_COLUMNS = [
   "dt_san_pham", "dt_linh_kien", "dt_dich_vu", "ly_do_qua_han",
   "ngay_import", "ngay_cap_nhat_gan_nhat", "dung_han", "xu_ly_24h_bucket", "ly_do_huy",
   "link_hinh_anh",
+  // 02/11/2026: app sua chua (suachua) can "Ngay san xuat" (migration 0145) de hien o danh sach don nhom theo KTV / linh kien.
+  "ngay_san_xuat",
 ] as const;
 type CaseLookupRow = Record<(typeof CASE_LOOKUP_COLUMNS)[number], string | number | null>;
 
