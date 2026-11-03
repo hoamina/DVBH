@@ -5130,3 +5130,22 @@ Chủ hệ thống báo: SL thực xuất trên thẻ "Hệ Đặt mua linh ki�
 - `GET /api/missing-parts/ten-linh-kien?ma=a,b,c` (≤100 mã, tra khóa chính `linh_kien`) — mã của ca đã đóng thường không còn trong danh
   sách "đang thiếu" nên không dùng lại `/linh-kien-thieu` được.
 - `MissingPartsDaDongList` gọi theo TRANG đang xem (10 mã), gắn `ten_linh_kien_thieu` vào dòng; cột "Tên linh kiện" sau "Mã linh kiện thiếu".
+
+## 2026-11-03 — Gắn ID Lada vào ca khi đồng bộ ETX/Lada (v1.517, migration 0153)
+Yêu cầu chủ hệ thống: "Khi đồng bộ tự động dữ liệu từ lada về, gắn thêm ID lada liên quan vào ID case đó (hiện ID lada
+trên UI case khi click vào sẽ xem được thông tin ID case lada liên quan)".
+- "Lada" = hệ ETX của luồng đồng bộ "Giải trình tồn B2B" (`lib/etxGiaiTrinhSync.ts`, cron 17h15). Mỗi dòng API có
+  `order_id` (= ID Lada) và `id_truy_xuat` (= `case_dvbh.id`). Đo thật 03/11 (60 đối tác, 1.347 dòng): 1 ID Lada chỉ thuộc
+  1 ca, 1 ca có thể có nhiều ID Lada (vd T25668 = B1427881 + B1431234, đơn bị hủy chuyển KTV rồi tạo đơn mới).
+- Migration 0153 `case_lada` (PK `order_id`, index `case_id`, không FK): ảnh chụp đơn ở dòng API mới nhất (trạng thái đơn,
+  loại lead, KTV, tỉnh, khách/điểm giao, ngày khởi tạo/hẹn, lần + thời điểm giải trình cuối, mã/tên đối tác).
+- `ghiLienKetLada`: chạy trong vòng lặp từng đối tác, chỉ với dòng có ca tồn tại. Upsert `ON CONFLICT … WHERE` có cột đổi
+  (và không để dòng cũ đè dòng mới) → đồng bộ lại không ghi gì (đã thử local: lần 2 `updated_at` và version giữ nguyên).
+  Domain mới `lada` (bump khi có đơn mới/đổi), thêm vào `CASE_DETAIL_DOMAINS`.
+- `GET /api/cases/:id` trả thêm `lada`. `GET /api/cases/:id/lada/:orderId`: proxy API ETX `giai-trinh-ton?doi_tac&order_id`
+  (60 ngày, hạn lưu ETX), không lưu D1, chỉ đơn đã liên kết với đúng ca (404 nếu không), cùng phạm vi khu vực; bỏ email
+  nhân viên Lada trước khi trả về.
+- UI: trường "ID Lada" sau Serial ở tab Cơ bản (ẩn/hiện qua ⚙), mỗi ID kèm badge trạng thái đơn; bấm → popup
+  `components/LadaPanel.tsx` (thông tin đơn + nhật ký giải trình trên Lada). Nhãn bọc `tr()`, có EN/ID.
+- Hạn chế: chỉ đơn có dòng giải trình trong cửa sổ đồng bộ 3 ngày mới được gắn. Đơn cũ hơn sẽ tự gắn khi Lada có giải
+  trình mới. API ETX không có link web của đơn Lada nên dùng popup.

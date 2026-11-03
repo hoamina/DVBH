@@ -1,6 +1,7 @@
 import type { Env } from "../types";
 import { CHUNK_SIZE_BATCH, findExistingCaseIds, loadActiveLyDoNames } from "./backfillImportProcessor";
 import { bumpVersions } from "./dataVersions";
+import { nowVN } from "./vnTime";
 
 // Dong bo "Giai trinh ton B2B" tu API doi tac ETX (xem "API_B2B_giaitrinh v2.md" - khoa PHAM VI
 // TOAN BO, doc duoc moi doi tac). Da xac minh bang du lieu san xuat 2026-09-14: id_truy_xuat (API)
@@ -34,6 +35,15 @@ interface EtxDong {
   thoi_diem: string; // "YYYY-MM-DDTHH:MM:SS+07:00"
   du_kien_xong: string; // "YYYY-MM-DD" hoac rong
   id_dat_linh_kien: string;
+  // Thong tin don Lada (dung cho case_lada, migration 0153) - API tra them, co the rong.
+  trang_thai_don?: string;
+  loai_lead?: string;
+  ktv?: string;
+  tinh_thanh?: string;
+  ten_khach?: string;
+  ngay_khoi_tao?: string;
+  ngay_hen?: string;
+  lan?: number;
 }
 
 interface EtxGiaiTrinhTonResponse {
@@ -92,6 +102,54 @@ async function dienBuMaLinhKienEtx(db: D1Database): Promise<number> {
     .map((r) => db.prepare("UPDATE giai_trinh SET linh_kien_thieu = ? WHERE id = ?").bind(r.ma, r.id));
   for (let i = 0; i < stmts.length; i += CHUNK_SIZE_BATCH) await db.batch(stmts.slice(i, i + CHUNK_SIZE_BATCH));
   return stmts.length;
+}
+
+// ---------- Lien ket ca <-> ID Lada (case_lada, migration 0153) ----------
+// Moi order_id lay dong API MOI NHAT (thoi_diem lon nhat) lam "anh chup" don Lada. Upsert chi ghi khi co cot doi
+// (WHERE ... IS NOT ...) va khong de dong cu hon ghi de dong moi hon -> dong bo lai trong cua so LOOKBACK_DAYS khong ghi
+// lap: changes = 0, chi ton 1 PK seek/don. Tra ve so don THAT SU them moi/cap nhat (de bump domain "lada").
+const LADA_COT = ["case_id", "ma_doi_tac", "ten_doi_tac", "trang_thai_don", "loai_lead", "ktv", "tinh_thanh", "ten_khach", "ngay_khoi_tao", "ngay_hen", "so_lan_giai_trinh", "giai_trinh_cuoi_luc"] as const;
+const LADA_UPSERT_SQL = `INSERT INTO case_lada (order_id, ${LADA_COT.join(", ")}, created_at, updated_at)
+  VALUES (?, ${LADA_COT.map(() => "?").join(", ")}, ?, ?)
+  ON CONFLICT(order_id) DO UPDATE SET ${LADA_COT.map((k) => `${k} = excluded.${k}`).join(", ")}, updated_at = excluded.updated_at
+  WHERE excluded.giai_trinh_cuoi_luc >= COALESCE(case_lada.giai_trinh_cuoi_luc, '')
+    AND (${LADA_COT.map((k) => `case_lada.${k} IS NOT excluded.${k}`).join(" OR ")})`;
+
+async function ghiLienKetLada(db: D1Database, doiTac: EtxDoiTac, dong: EtxDong[]): Promise<number> {
+  const moiNhat = new Map<string, EtxDong>();
+  for (const d of dong) {
+    if (!d.order_id || !d.id_truy_xuat) continue;
+    const cu = moiNhat.get(d.order_id);
+    if (!cu || d.thoi_diem > cu.thoi_diem) moiNhat.set(d.order_id, d);
+  }
+  if (!moiNhat.size) return 0;
+  const now = nowVN();
+  const txt = (v: string | undefined) => (v ?? "").trim() || null;
+  const stmts = [...moiNhat.values()].map((d) =>
+    db.prepare(LADA_UPSERT_SQL).bind(
+      d.order_id,
+      d.id_truy_xuat,
+      doiTac.ma,
+      txt(doiTac.ten),
+      txt(d.trang_thai_don),
+      txt(d.loai_lead),
+      txt(d.ktv),
+      txt(d.tinh_thanh),
+      txt(d.ten_khach),
+      txt(d.ngay_khoi_tao),
+      txt(d.ngay_hen),
+      typeof d.lan === "number" ? d.lan : null,
+      toVnLocalTimestamp(d.thoi_diem),
+      now,
+      now,
+    ),
+  );
+  let soDoi = 0;
+  for (let i = 0; i < stmts.length; i += CHUNK_SIZE_BATCH) {
+    const kq = await db.batch(stmts.slice(i, i + CHUNK_SIZE_BATCH));
+    for (const r of kq) if ((r.meta?.changes ?? 0) > 0) soDoi++;
+  }
+  return soDoi;
 }
 
 function vnDateStr(offsetDays = 0): string {
@@ -245,6 +303,7 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
   const caseIdsCapNhat = new Set<string>();
   let soLichSuMoi = 0;
   let soLichSuTrung = 0;
+  let soLienKetLadaDoi = 0;
   const loiTungDoiTac: string[] = [];
   const dsDoiTac = doiTacRes.data.doi_tac;
   let nextDoiTac = dsDoiTac.length;
@@ -268,6 +327,7 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
     const caseIds = dongRes.dong.map((d) => d.id_truy_xuat).filter(Boolean);
     const existingCaseIds = await findExistingCaseIds(db, caseIds);
     const maLkHopLe = await maLinhKienHopLe(db, dongRes.dong.flatMap((d) => maLinhKienUngVien(d.ghi_chu)));
+    soLienKetLadaDoi += await ghiLienKetLada(db, doiTac, dongRes.dong.filter((d) => existingCaseIds.has(d.id_truy_xuat)));
 
     const entries = dongRes.dong
       .filter((d) => d.id_truy_xuat && existingCaseIds.has(d.id_truy_xuat))
@@ -323,7 +383,10 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
     }
   }
 
-  if (soLichSuMoi > 0 || soDongDienBuLk > 0) await bumpVersions(db, ["giai_trinh"]);
+  const domains: ("giai_trinh" | "lada")[] = [];
+  if (soLichSuMoi > 0 || soDongDienBuLk > 0) domains.push("giai_trinh");
+  if (soLienKetLadaDoi > 0) domains.push("lada");
+  await bumpVersions(db, domains);
 
   const tl = opts.tichLuy ?? { soCaseCapNhat: 0, soLichSuMoi: 0, soLichSuTrung: 0, loi: [] };
   const tong = {
@@ -341,4 +404,39 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
   }
   // Chua xong: tra loi cua dot nay qua soLichSu... (tich luy) - loi tung doi tac gui kem qua tichLuy o route.
   return { ok: true, ...tong, done, nextDoiTac, tongDoiTac: dsDoiTac.length, loi: [...tl.loi, ...loiTungDoiTac] };
+}
+
+/** Popup "ID Lada" trong Chi tiet ca (GET /api/cases/:id/lada/:orderId): goi API ETX loc theo order_id, 60 ngay gan nhat
+ * (han luu cua ETX - "tu" vuot san thi API tu keo ve san). Theo yeu cau, KHONG luu D1. Tra cac dong nhat ky Lada, moi nhat truoc. */
+export async function fetchLadaDon(
+  env: Env,
+  maDoiTac: string,
+  orderId: string,
+): Promise<{ ok: true; dong: Record<string, unknown>[] } | { ok: false; status: number; error: string }> {
+  const apiKey = env.ETX_GIAI_TRINH_API_KEY;
+  if (!apiKey) return { ok: false, status: 400, error: "MISSING_API_KEY" };
+  const params = new URLSearchParams({ doi_tac: maDoiTac, order_id: orderId, tu: vnDateStr(-59), den: vnDateStr(), so_dong: "200" });
+  const res = await fetchJson<EtxGiaiTrinhTonResponse>(`${ETX_API_BASE}/v1/giai-trinh-ton?${params}`, apiKey);
+  if (!res.ok) return res;
+  // Chi tra truong UI can - bo email nhan vien Lada (nguoi_giai_trinh.email), id_dong... khong dua ra trinh duyet.
+  const dong = res.data.dong
+    .filter((d) => d.order_id === orderId)
+    .sort((a, b) => (a.thoi_diem < b.thoi_diem ? 1 : -1))
+    .map((d) => {
+      const ngt = (d as EtxDong & { nguoi_giai_trinh?: { ho_ten?: string } | null }).nguoi_giai_trinh;
+      const coAnh = (d as EtxDong & { co_anh?: boolean }).co_anh;
+      return {
+        order_id: d.order_id,
+        thoi_diem: d.thoi_diem,
+        lan: d.lan,
+        ly_do: d.ly_do,
+        ghi_chu: d.ghi_chu,
+        du_kien_xong: d.du_kien_xong,
+        trang_thai_don: d.trang_thai_don,
+        co_anh: coAnh,
+        id_dat_linh_kien: d.id_dat_linh_kien,
+        nguoi_giai_trinh: ngt?.ho_ten ? { ho_ten: ngt.ho_ten } : null,
+      };
+    });
+  return { ok: true, dong };
 }

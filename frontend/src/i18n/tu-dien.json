@@ -12206,5 +12206,77 @@
  "Mã linh kiện thiếu": [
   "Missing part code",
   "Kode suku cadang kurang"
+ ],
+ "Xem thông tin đơn Lada": [
+  "View Lada order details",
+  "Lihat detail pesanan Lada"
+ ],
+ "Đơn Lada {0}": [
+  "Lada order {0}",
+  "Pesanan Lada {0}"
+ ],
+ "Trạng thái đơn": [
+  "Order status",
+  "Status pesanan"
+ ],
+ "Loại lead": [
+  "Lead type",
+  "Jenis lead"
+ ],
+ "Ngày khởi tạo": [
+  "Created date",
+  "Tanggal dibuat"
+ ],
+ "Ngày hẹn": [
+  "Appointment date",
+  "Tanggal janji"
+ ],
+ "Tỉnh thành": [
+  "Province",
+  "Provinsi"
+ ],
+ "KTV (Lada)": [
+  "Technician (Lada)",
+  "Teknisi (Lada)"
+ ],
+ "Khách / điểm giao": [
+  "Customer / delivery point",
+  "Pelanggan / titik kirim"
+ ],
+ "Giải trình gần nhất": [
+  "Latest explanation",
+  "Penjelasan terakhir"
+ ],
+ "Nhật ký giải trình trên Lada": [
+  "Explanation log on Lada",
+  "Log penjelasan di Lada"
+ ],
+ "Không lấy được dữ liệu từ Lada": [
+  "Could not load data from Lada",
+  "Gagal memuat data dari Lada"
+ ],
+ "Lada không còn nhật ký nào của đơn này trong 60 ngày gần nhất.": [
+  "Lada has no log for this order in the last 60 days.",
+  "Lada tidak memiliki log untuk pesanan ini dalam 60 hari terakhir."
+ ],
+ "lần {0}": [
+  "#{0}",
+  "ke-{0}"
+ ],
+ "có ảnh": [
+  "has photos",
+  "ada foto"
+ ],
+ "Dự kiến xong": [
+  "Expected done",
+  "Perkiraan selesai"
+ ],
+ "ID đặt linh kiện": [
+  "Part order ID",
+  "ID pesanan suku cadang"
+ ],
+ "ID Lada": [
+  "Lada ID",
+  "ID Lada"
  ]
 }

@@ -31,7 +31,7 @@ import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersion
 // ghi tu NOI KHAC (import Excel, QC, dong bo Sheet, nguoi dung khac) khong hien (bug 2026-09-30, ca
 // 1341623: import bao "da co" nhung chi tiet ca khong thay). Nay tra kem detailVersion = version-tag cac
 // domain nay; FE so voi GET /cases/detail-version truoc khi dung cache.
-const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
+const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey } from "../lib/dailySnapshot";
@@ -41,6 +41,7 @@ import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_T
 import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
 import { fetchMailTimeline, postDoiTraAction, type DoiTraAction } from "../lib/mailTimeline";
 import { getTonKtvMonth } from "../lib/tonKtvSnapshot";
+import { fetchLadaDon } from "../lib/etxGiaiTrinhSync";
 
 const cases = new Hono<{ Bindings: Env }>();
 
@@ -1192,6 +1193,24 @@ cases.get("/:id/linh-kien-timeline", async (c) => {
   return c.json(await fetchLinhKienTimeline(c.env, id));
 });
 
+// Popup "ID Lada" (migration 0153): nhat ky don Lada tra TRUC TIEP API ETX theo order_id (khong luu D1). Chi tra duoc
+// don da lien ket voi DUNG ca nay (can ma_doi_tac luu trong case_lada) - cung pham vi khu vuc nhu chi tiet ca.
+cases.get("/:id/lada/:orderId", async (c) => {
+  const id = c.req.param("id");
+  const orderId = c.req.param("orderId");
+  const row = await c.env.DB.prepare(
+    "SELECT c.khu_vuc, l.ma_doi_tac FROM case_lada l JOIN case_dvbh c ON c.id = l.case_id WHERE l.order_id = ? AND l.case_id = ?",
+  )
+    .bind(orderId, id)
+    .first<{ khu_vuc: string | null; ma_doi_tac: string }>();
+  if (!row) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(row.khu_vuc))) return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  const kq = await fetchLadaDon(c.env, row.ma_doi_tac, orderId);
+  if (!kq.ok) return c.json({ error: "LADA_API_FAILED", message: kq.error }, 502);
+  return c.json({ dong: kq.dong });
+});
+
 // Luong mail doi tra (he theodoidoimay) - cung pham vi khu vuc nhu chi tiet ca.
 cases.get("/:id/mail-timeline", async (c) => {
   const id = c.req.param("id");
@@ -1268,7 +1287,7 @@ cases.get("/:id", async (c) => {
 
   // Doc tag TRUOC du lieu: neu co ghi xen giua, tag cu hon du lieu -> lan mo sau tu tai lai (an toan).
   const detailVersion = await getVersionTag(c.env.DB, CASE_DETAIL_DOMAINS);
-  const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop, donBaoHanhOdoo, chuyenCapLog] = await Promise.all([
+  const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop, donBaoHanhOdoo, chuyenCapLog, lada] = await Promise.all([
     c.env.DB.prepare("SELECT * FROM giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC").bind(id).all(),
@@ -1290,6 +1309,8 @@ cases.get("/:id", async (c) => {
     // Log "chuyen sang Ton TBP / Ton CEO" (migration 0151) - CHI de nam van de, KHONG phai giai trinh: tra ve field rieng,
     // FE hien xen trong tab "GT ton" nhung khong gop vao giaiTrinh (moi tinh toan phia FE doc giaiTrinh).
     c.env.DB.prepare("SELECT id, cap, ngay, chi_tieu, created_at FROM canh_bao_ton_chuyen_cap_log WHERE case_id = ? ORDER BY id DESC").bind(id).all(),
+    // ID Lada lien quan (migration 0153, ghi luc dong bo ETX) - 1 ca co the co nhieu don Lada, moi nhat truoc.
+    c.env.DB.prepare("SELECT * FROM case_lada WHERE case_id = ? ORDER BY ngay_khoi_tao DESC, order_id DESC").bind(id).all(),
   ]);
 
   return c.json({
@@ -1304,6 +1325,7 @@ cases.get("/:id", async (c) => {
     bienBanHop: bienBanHop.results,
     donBaoHanhOdoo: donBaoHanhOdoo.results,
     chuyenCapLog: chuyenCapLog.results,
+    lada: lada.results,
     detailVersion,
   });
 });

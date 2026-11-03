@@ -19,6 +19,7 @@ import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai 
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
 import { CancelRequestPanel, parseCancelRequest } from "../components/CancelRequestPanel";
 import { LuongMailPanel, useMailTimeline, NHAT_KY_LABEL } from "../components/LuongMailPanel";
+import { LadaIds, type CaseLadaRow } from "../components/LadaPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
@@ -96,6 +97,8 @@ interface CaseDetailResponse {
   // Log "chuyen sang Ton TBP / Ton CEO" (migration 0151) - CHI de nam van de, KHONG tinh la giai trinh (khong gop vao
   // giaiTrinh). Optional: cache ca da dong truoc v1.506 khong co.
   chuyenCapLog?: ChuyenCapLogRow[];
+  // ID Lada lien ket (migration 0153). Optional: cache ca da dong truoc v1.517 khong co.
+  lada?: CaseLadaRow[];
 }
 
 interface ChuyenCapLogRow {
@@ -368,6 +371,7 @@ function renderCaseFieldsGrid(
   canEditKtvPhone?: boolean,
   onSerialClick?: () => void,
   xuLyTabs?: XuLyTabs,
+  lada?: CaseLadaRow[],
 ) {
   // Truong bi an qua nut ⚙ (chi the co xuLyTabs - ca goc + ca doi chieu); khoa = nhan hien thi.
   const an = xuLyTabs?.an;
@@ -399,6 +403,7 @@ function renderCaseFieldsGrid(
           </span>
         }
       />}
+      {lada && lada.length > 0 && hien("ID Lada") && <Field label={tr("ID Lada")} value={<LadaIds caseId={c.id} items={lada} />} />}
     </>
   );
   const coBanFields = (
@@ -2524,6 +2529,7 @@ export function CaseDetail({
                 "yeu-cau-huy": <CancelRequestPanel items={compareYeuCauHuyList} />,
               },
             },
+            compareData?.lada,
           )}
         </>
       )}
@@ -2578,6 +2584,7 @@ export function CaseDetail({
             "yeu-cau-huy": yeuCauHuyContent,
           },
         },
+        data?.lada,
       )}
     </>
   );

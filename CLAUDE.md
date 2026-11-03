@@ -170,6 +170,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     template; the Apps Script lives in `scripts/google-sheet-ca.gs` (daily trigger + manual menu, upsert by ID, key in
     Script Properties). Two UNION ALL branches so each hits a partial index. Pull chosen over push (no Google creds/cron
     in the Worker, self-heals). Live (not cached), no `logPartnerApiCall`, 30 req/min/key.
+  - `cases.ts` `GET /:id/lada/:orderId` + table `case_lada` (2026-11-03, migration 0153) — "ID Lada" = `order_id` of the ETX/Lada
+    "Giải trình tồn B2B" API (`lib/etxGiaiTrinhSync.ts`; `id_truy_xuat` = `case_dvbh.id`). The sync upserts one row per Lada
+    order (1 case can have several) via `ghiLienKetLada`, writing only when a column changed; domain `lada` (in
+    `CASE_DETAIL_DOMAINS`). CaseDetail field "ID Lada" (`components/LadaPanel.tsx`) → popup that proxies the ETX API by
+    `order_id` + stored `ma_doi_tac` on demand (60-day retention, not stored, staff emails stripped).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -401,7 +406,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0152`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0153`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

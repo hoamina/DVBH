@@ -12,6 +12,7 @@ export const NHOM_TRUONG_CASE_INFO: { nhom: string; truong: string[] }[] = [
     truong: [
       "Khách hàng",
       "Serial",
+      "ID Lada",
       "Khu vực",
       "Địa chỉ mới",
       "Địa chỉ cũ",

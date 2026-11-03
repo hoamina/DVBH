@@ -37,7 +37,9 @@
 // kho MB/MN (routes/tonKhoLk.ts PUT /kho/:ma) - chi cac endpoint /api/ton-kho-lk doc.
 // "canh_bao_ton_log" (2026-10-29): log ca chuyen sang Ton TBP/CEO (lib/canhBaoTon.ts ghiLogChuyenCapCanhBao, migration
 // 0151) - chi CaseDetail doc (CASE_DETAIL_DOMAINS), bump toi da vai lan/ngay khi co dong moi.
-const ALL_DOMAINS = ["blacklist", "canh_bao_ton_log", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "khao_sat_loai_tru", "nap_gas_danh_gia", "po_dat_hang", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
+// "lada" (2026-11-03): lien ket ca <-> ID Lada (case_lada, migration 0153) ghi luc dong bo ETX (lib/etxGiaiTrinhSync.ts
+// ghiLienKetLada) - chi CaseDetail doc (CASE_DETAIL_DOMAINS), chi bump khi co don moi/doi.
+const ALL_DOMAINS = ["blacklist", "canh_bao_ton_log", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "khao_sat_loai_tru", "lada", "nap_gas_danh_gia", "po_dat_hang", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay
