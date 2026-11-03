@@ -175,6 +175,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     order (1 case can have several) via `ghiLienKetLada`, writing only when a column changed; domain `lada` (in
     `CASE_DETAIL_DOMAINS`). CaseDetail field "ID Lada" (`components/LadaPanel.tsx`) → popup that proxies the ETX API by
     `order_id` + stored `ma_doi_tac` on demand (60-day retention, not stored, staff emails stripped).
+    Older orders: Settings ETX tab button "Lấy ID Lada 60 ngày" (`chi_lien_ket_lada`) writes only `case_lada`, never `giai_trinh`/sync log.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the

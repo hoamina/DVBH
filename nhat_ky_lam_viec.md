@@ -5173,3 +5173,12 @@ Yêu cầu chủ hệ thống: "sửa data tải về từ dvbh các cột ngày
 - Đã thử local (bắt blob tải về, đọc lại bằng SheetJS) với VI/EN/ID: Danh sách tổng, Ca thiếu LK (tổng hợp + chi tiết),
   Mẫu tính lương (EN, vẫn tiêu đề Việt), mẫu loại trừ khảo sát ID rồi tải ngược lên (đọc đúng 2 dòng). Không còn ô ngày
   dạng chuỗi.
+
+## 2026-11-03 — Nút "Lấy ID Lada 60 ngày" (v1.519)
+- Chủ hệ thống đồng ý lấy bù ID Lada cho đơn cũ (đồng bộ thường chỉ lấy cửa sổ 3 ngày).
+- `syncGiaiTrinhTonB2B(env, { chiLienKetLada: true })`: kéo 60 ngày (hạn lưu ETX), CHỈ ghi `case_lada`. Không ghi
+  `giai_trinh`, không điền bù mã LK, không ghi `etx_giai_trinh_sync_log` (dòng ok=1 sẽ làm 2 đợt cron retry tưởng đã chạy).
+  Kết quả có thêm `soLienKetLada`.
+- `POST /settings/etx-giai-trinh-sync-log/chay-ngay` nhận `chi_lien_ket_lada`. Settings tab "Đồng bộ giải trình B2B (ETX)"
+  có nút "Lấy ID Lada 60 ngày", chạy theo đợt giống "Chạy ngay". Chạy lại nhiều lần an toàn (upsert chỉ ghi khi đổi).
+- Thử local: ca T25668 (đơn 20–21/10) gắn đủ 2 ID Lada, số dòng `giai_trinh`/log đồng bộ giữ nguyên.

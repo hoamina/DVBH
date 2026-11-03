@@ -12746,5 +12746,17 @@
  "Yêu cầu huỷ": [
   "Cancellation request",
   "Permintaan pembatalan"
+ ],
+ "Đã lấy xong ID Lada 60 ngày: {0} đơn Lada mới/cập nhật": [
+  "Lada IDs for 60 days loaded: {0} Lada orders new/updated",
+  "ID Lada 60 hari selesai dimuat: {0} pesanan Lada baru/diperbarui"
+ ],
+ "Chỉ gắn ID Lada vào ca cho toàn bộ 60 ngày gần nhất (hạn lưu của ETX) — không ghi giải trình, không ghi nhật ký đồng bộ": [
+  "Only attach Lada IDs to cases for the last 60 days (ETX retention) — no explanations or sync log are written",
+  "Hanya menautkan ID Lada ke kasus untuk 60 hari terakhir (masa simpan ETX) — tidak menulis penjelasan maupun log sinkronisasi"
+ ],
+ "Lấy ID Lada 60 ngày": [
+  "Load Lada IDs (60 days)",
+  "Ambil ID Lada (60 hari)"
  ]
 }

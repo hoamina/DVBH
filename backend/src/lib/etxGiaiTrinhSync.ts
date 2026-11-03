@@ -253,6 +253,8 @@ export type EtxSyncResult =
       done: boolean;
       nextDoiTac: number;
       tongDoiTac: number;
+      // So don Lada (case_lada) them moi/cap nhat - tich luy qua cac dot.
+      soLienKetLada: number;
       // Loi tung doi tac tich luy (chi khi chua xong - giao dien gui lai qua tich_luy).
       loi?: string[];
     }
@@ -272,7 +274,10 @@ export type EtxSyncResult =
 export interface EtxSyncOpts {
   tuDoiTac?: number;
   hanMs?: number;
-  tichLuy?: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[] };
+  tichLuy?: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[]; soLienKetLada?: number };
+  // 2026-11-03: nut "Lấy ID Lada 60 ngày" (Admin) - CHI ghi case_lada cho toan bo 60 ngay (han luu ETX), KHONG ghi
+  // giai_trinh, KHONG dien bu ma LK, KHONG ghi etx_giai_trinh_sync_log (dong ok=1 se lam 2 dot cron retry tuong da chay).
+  chiLienKetLada?: boolean;
 }
 
 export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Promise<EtxSyncResult> {
@@ -282,11 +287,13 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
   const apiKey = env.ETX_GIAI_TRINH_API_KEY;
   if (!apiKey) return { ok: false, reason: "MISSING_API_KEY" };
 
-  const tu = vnDateStr(-LOOKBACK_DAYS + 1);
+  const chiLada = !!opts.chiLienKetLada;
+  const tu = chiLada ? vnDateStr(-59) : vnDateStr(-LOOKBACK_DAYS + 1);
   const den = vnDateStr();
 
   const doiTacRes = await fetchDoiTacList(apiKey);
   if (!doiTacRes.ok) {
+    if (chiLada) return { ok: false, reason: "DOI_TAC_LIST_FAILED", message: doiTacRes.error };
     await writeSummaryLog(db, {
       ok: false,
       soCaseCapNhat: 0,
@@ -299,7 +306,7 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
   }
 
   const activeLyDo = await loadActiveLyDoNames(db);
-  const soDongDienBuLk = tuDoiTac === 0 ? await dienBuMaLinhKienEtx(db) : 0;
+  const soDongDienBuLk = tuDoiTac === 0 && !chiLada ? await dienBuMaLinhKienEtx(db) : 0;
   const caseIdsCapNhat = new Set<string>();
   let soLichSuMoi = 0;
   let soLichSuTrung = 0;
@@ -328,6 +335,7 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
     const existingCaseIds = await findExistingCaseIds(db, caseIds);
     const maLkHopLe = await maLinhKienHopLe(db, dongRes.dong.flatMap((d) => maLinhKienUngVien(d.ghi_chu)));
     soLienKetLadaDoi += await ghiLienKetLada(db, doiTac, dongRes.dong.filter((d) => existingCaseIds.has(d.id_truy_xuat)));
+    if (chiLada) continue;
 
     const entries = dongRes.dong
       .filter((d) => d.id_truy_xuat && existingCaseIds.has(d.id_truy_xuat))
@@ -393,8 +401,10 @@ export async function syncGiaiTrinhTonB2B(env: Env, opts: EtxSyncOpts = {}): Pro
     soCaseCapNhat: tl.soCaseCapNhat + caseIdsCapNhat.size,
     soLichSuMoi: tl.soLichSuMoi + soLichSuMoi,
     soLichSuTrung: tl.soLichSuTrung + soLichSuTrung,
+    soLienKetLada: (tl.soLienKetLada ?? 0) + soLienKetLadaDoi,
   };
   const done = nextDoiTac >= dsDoiTac.length;
+  if (done && chiLada) return { ok: true, ...tong, done, nextDoiTac, tongDoiTac: dsDoiTac.length, loi: [...tl.loi, ...loiTungDoiTac] };
   if (done) {
     const loi = [...tl.loi, ...loiTungDoiTac];
     const ok = loi.length === 0;

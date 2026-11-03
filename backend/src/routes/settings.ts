@@ -1151,8 +1151,11 @@ settings.get("/etx-giai-trinh-sync-log", adminOnly, async (c) => {
 // SUA 2026-10-26: chay theo DOT (~50s/request, duoi nguong 100s cua Cloudflare) - body {tu_doi_tac, tich_luy} tu dot truoc,
 // tra done=false + next_doi_tac thi giao dien goi tiep (xem syncGiaiTrinhTonB2B EtxSyncOpts).
 settings.post("/etx-giai-trinh-sync-log/chay-ngay", adminOnly, async (c) => {
-  const body = await c.req.json<{ tu_doi_tac?: number; tich_luy?: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[] } }>().catch(() => ({}) as Record<string, never>);
-  const result = await syncGiaiTrinhTonB2B(c.env, { tuDoiTac: body.tu_doi_tac ?? 0, hanMs: 50_000, tichLuy: body.tich_luy });
+  const body = await c.req
+    .json<{ tu_doi_tac?: number; tich_luy?: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[]; soLienKetLada?: number }; chi_lien_ket_lada?: boolean }>()
+    .catch(() => ({}) as Record<string, never>);
+  // chi_lien_ket_lada (2026-11-03): nut "Lấy ID Lada 60 ngày" - chi ghi case_lada, xem EtxSyncOpts.chiLienKetLada.
+  const result = await syncGiaiTrinhTonB2B(c.env, { tuDoiTac: body.tu_doi_tac ?? 0, hanMs: 50_000, tichLuy: body.tich_luy, chiLienKetLada: body.chi_lien_ket_lada === true });
   if (!result.ok) {
     if (result.reason === "MISSING_API_KEY") return c.json({ error: "MISSING_API_KEY" }, 400);
     return c.json({ error: "DOI_TAC_LIST_FAILED", message: result.message }, 502);

@@ -633,16 +633,17 @@ export function SettingsModule() {
   // giua chung, khong ghi log) -> chay theo DOT (~50s/dot): goi lap lai voi tu_doi_tac/tich_luy toi khi done.
   const [etxTienDo, setEtxTienDo] = useState<string | null>(null);
   const runEtxSyncNowMutation = useMutation({
-    mutationFn: async () => {
-      type Res = { ok: true; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; done: boolean; nextDoiTac: number; tongDoiTac: number; loi?: string[] };
+    // chiLienKetLada (2026-11-03): nut "Lấy ID Lada 60 ngày" - cung co che theo dot, chi ghi lien ket ca <-> ID Lada.
+    mutationFn: async (chiLienKetLada: boolean) => {
+      type Res = { ok: true; soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; soLienKetLada: number; done: boolean; nextDoiTac: number; tongDoiTac: number; loi?: string[] };
       let tuDoiTac = 0;
-      let tichLuy: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; loi: string[] } | undefined;
+      let tichLuy: { soCaseCapNhat: number; soLichSuMoi: number; soLichSuTrung: number; soLienKetLada: number; loi: string[] } | undefined;
       try {
-        for (let dot = 0; dot < 30; dot++) {
-          const res = await api.post<Res>("/settings/etx-giai-trinh-sync-log/chay-ngay", { tu_doi_tac: tuDoiTac, tich_luy: tichLuy });
+        for (let dot = 0; dot < 60; dot++) {
+          const res = await api.post<Res>("/settings/etx-giai-trinh-sync-log/chay-ngay", { tu_doi_tac: tuDoiTac, tich_luy: tichLuy, chi_lien_ket_lada: chiLienKetLada });
           if (res.done) return res;
           tuDoiTac = res.nextDoiTac;
-          tichLuy = { soCaseCapNhat: res.soCaseCapNhat, soLichSuMoi: res.soLichSuMoi, soLichSuTrung: res.soLichSuTrung, loi: res.loi ?? [] };
+          tichLuy = { soCaseCapNhat: res.soCaseCapNhat, soLichSuMoi: res.soLichSuMoi, soLichSuTrung: res.soLichSuTrung, soLienKetLada: res.soLienKetLada, loi: res.loi ?? [] };
           setEtxTienDo(tr("Đang chạy… đối tác {0}/{1}", tuDoiTac, res.tongDoiTac));
         }
         throw new Error("QUA_NHIEU_DOT");
@@ -650,7 +651,11 @@ export function SettingsModule() {
         setEtxTienDo(null);
       }
     },
-    onSuccess: (res) => {
+    onSuccess: (res, chiLienKetLada) => {
+      if (chiLienKetLada) {
+        addToast(tr("Đã lấy xong ID Lada 60 ngày: {0} đơn Lada mới/cập nhật", res.soLienKetLada) + (res.loi?.length ? ` — ${tr("lỗi")}: ${res.loi.join("; ")}` : ""));
+        return;
+      }
       addToast(tr("Đã chạy xong: {0} case cập nhật, {1} lịch sử mới, {2} trùng", res.soCaseCapNhat, res.soLichSuMoi, res.soLichSuTrung));
       qc.invalidateQueries({ queryKey: ["settings-etx-giai-trinh-sync-log"] });
     },
@@ -1519,9 +1524,20 @@ export function SettingsModule() {
           <div className="flex items-center justify-between mb-3 gap-3">
             <div className="text-sm text-[var(--ink-600)]">
               {tr("Nhật ký mỗi lần hệ thống kéo \"Giải trình tồn B2B\" từ API đối tác ETX (tự động 17h15 hằng ngày, thử lại lúc 17h20/17h25 nếu chưa xong) — dùng để tra cứu khi nghi ngờ có đối tác bị lỗi/thiếu dòng. Chỉ giữ 30 ngày gần nhất, tự xóa dòng cũ hơn.")}</div>
-            <Btn size="sm" onClick={() => runEtxSyncNowMutation.mutate()} disabled={runEtxSyncNowMutation.isPending}>
-              {runEtxSyncNowMutation.isPending ? (etxTienDo ?? tr("Đang chạy…")) : tr("Chạy ngay")}
-            </Btn>
+            <div className="flex items-center gap-2 shrink-0">
+              <Btn
+                size="sm"
+                variant="ghost"
+                title={tr("Chỉ gắn ID Lada vào ca cho toàn bộ 60 ngày gần nhất (hạn lưu của ETX) — không ghi giải trình, không ghi nhật ký đồng bộ")}
+                onClick={() => runEtxSyncNowMutation.mutate(true)}
+                disabled={runEtxSyncNowMutation.isPending}
+              >
+                {runEtxSyncNowMutation.isPending && runEtxSyncNowMutation.variables ? (etxTienDo ?? tr("Đang chạy…")) : tr("Lấy ID Lada 60 ngày")}
+              </Btn>
+              <Btn size="sm" onClick={() => runEtxSyncNowMutation.mutate(false)} disabled={runEtxSyncNowMutation.isPending}>
+                {runEtxSyncNowMutation.isPending && !runEtxSyncNowMutation.variables ? (etxTienDo ?? tr("Đang chạy…")) : tr("Chạy ngay")}
+              </Btn>
+            </div>
           </div>
           <PaginatedTable
             columns={etxSyncLogColumns}
