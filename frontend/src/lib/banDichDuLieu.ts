@@ -4,7 +4,7 @@ import { NGON_NGU_TRANG } from "../i18n/tr";
  * Ban dich cac lua chon trong Cai dat (ly do cham, loai loi vi pham, phan loai / ket qua / ly do ton tranh chap, loai de
  * xuat...) - "Đa quốc gia" SRS §12 Q3, migration 0150, backend routes/banDich.ts. Du lieu LUU va gui server van la tieng
  * Viet; CHI dich luc hien thi bang dl(gia tri). Tach rieng khoi tu dien giao dien tr() (i18n/tr.ts) de khong de len nhan
- * UI va khong lam doi tieu de Excel (veTiengViet). Excel / Telegram giu tieng Viet: chi boc dl() o cho render, khong boc
+ * UI va tieu de cot Excel. GIA TRI o Excel / Telegram giu tieng Viet: chi boc dl() o cho render, khong boc
  * gia tri dem so sanh, gui server, dung lam khoa hay ghi vao file Excel.
  * Nap 1 lan sau khi dang nhap (AuthContext), chi khi ngon ngu khac "vi". Admin sua ban dich -> co hieu luc lan tai trang sau.
  */

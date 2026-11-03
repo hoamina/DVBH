@@ -70,7 +70,7 @@ import { TinhHuyenFilterControl } from "../components/TinhHuyenFilterControl";
 import { useDiaGioiLoc, useOnDiaGioiModeChange, gomTheoDiaGioi, soSanhTen, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 import { KhaoSatLoaiTruTab } from "../components/KhaoSatLoaiTru";
 import { KhaoSatTheoDoiLoaiTruTab } from "../components/KhaoSatTheoDoiLoaiTru";
-import { tr } from "../i18n/tr";
+import { napCacBanDichTieuDe, tr } from "../i18n/tr";
 
 interface FunnelData {
   tongCaMo: number;
@@ -2156,12 +2156,27 @@ function BulkAssignModal({
 
   async function handleFileChosen(file: File) {
     const XLSX = await import("xlsx");
+    const banDichPromise = napCacBanDichTieuDe();
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const data = e.target?.result;
       const workbook = XLSX.read(data, { type: "binary" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const parsed = XLSX.utils.sheet_to_json<{ id?: string; assigned_to?: string }>(sheet, { defval: "" });
+      const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+      // File tai ve co tieu de da doi nhan + dich theo ngon ngu nguoi tai ("ID", "Phân công"/"Assigned"...) - doi ve
+      // khoa id / assigned_to ma backend can (CHOT 2026-11-03); van nhan file go tay voi cot "id" / "assigned_to".
+      const banDich = await banDichPromise;
+      const KHOA = new Map<string, "id" | "assigned_to">([["id", "id"], ["assigned_to", "assigned_to"]]);
+      for (const s of banDich("ID")) KHOA.set(s, "id");
+      for (const s of banDich("Phân công")) KHOA.set(s, "assigned_to");
+      const parsed = raw.map((r) => {
+        const o: { id?: string; assigned_to?: string } = {};
+        for (const [h, v] of Object.entries(r)) {
+          const k = KHOA.get(h.trim());
+          if (k && o[k] === undefined) o[k] = String(v ?? "");
+        }
+        return o;
+      });
       setRows(parsed);
       previewMutation.mutate(parsed);
     };

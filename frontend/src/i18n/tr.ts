@@ -52,7 +52,15 @@ export function tr(vi: string, ...thamSo: unknown[]): string {
   });
 }
 
-/** Doi 1 nhan da dich ve lai tieng Viet (dung cho tieu de cot file Excel - Excel luon tieng Viet). */
+/** Doi 1 nhan da dich (ngon ngu DANG CHON) ve lai tieng Viet - exportExcel dung lam ten cot noi bo (mau chon cot). */
 export function veTiengViet(s: string): string {
   return nguoc?.get(s) ?? s;
+}
+
+/** Doc file Excel import do app tai ve (tieu de da dich theo ngon ngu nguoi TAI, co the khac nguoi dang import): tra ve
+ * ham cho 1 cau tieng Viet -> moi cach viet cua no [vi, en, id] de so khop tieu de cot. Di theo chieu xuoi (khong dich
+ * nguoc) vi nhieu cau Viet trung 1 ban dich. Nap tu dien day du ca o che do "vi". */
+export async function napCacBanDichTieuDe(): Promise<(vi: string) => string[]> {
+  const tuDien = (await import("./tu-dien.json")).default as Record<string, string[]>;
+  return (vi: string) => [vi, ...(tuDien[vi] ?? []).filter(Boolean)];
 }

@@ -2,7 +2,8 @@
  * "Mau tai file" ca nhan (CHOT 2026-10-23, chu he thong): moi lan bam tai Excel hien bang chon cot (bat/tat, keo doi vi
  * tri) - lua chon luu localStorage CUA TRINH DUYET NGUOI DUNG, khong goi server. Moi LOAI file 1 mau rieng, khoa = ten
  * file bo phan duoi + cac cum so (ngay/thang/ID) de "ca_lap_2026-10.xlsx" va "ca_lap_2026-11.xlsx" dung chung 1 mau.
- * Cot dinh danh bang TIEU DE cuoi cung tren Excel (sau khi doi nhan tieng Viet).
+ * Cot dinh danh bang NHAN TIENG VIET cua cot (tieu de tren Excel duoc dich luc ghi file - lib/excelChung.ts tieuDeExcel),
+ * nen 1 mau dung duoc cho ca 3 ngon ngu.
  */
 
 export interface ExportTemplate {

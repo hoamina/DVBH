@@ -7,7 +7,8 @@ import { Card } from "./ui/Card";
 import { useToast } from "./ui/Toast";
 import { LOAI_LOI_META, fmtDate, fmtDateTime, type LoaiLoi } from "../types";
 import { extractMaKtv } from "../lib/ktvPhone";
-import { tr } from "../i18n/tr";
+import { napCacBanDichTieuDe, tr } from "../i18n/tr";
+import { taoSheetTuDong } from "../lib/excelChung";
 
 // Tab "Danh sách loại trừ" - Quản lý khảo sát (2026-10-09, backend routes/survey.ts /loai-tru, migration 0128).
 // TN CSKH / TBP CSKH khai bao KTV + nhom loi + khoang ngay (theo NGAY CSKH TIEP NHAN ca) khong bat buoc khao sat.
@@ -158,11 +159,15 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
 
   async function taiMau() {
     const XLSX = await import("xlsx");
-    const ws = XLSX.utils.aoa_to_sheet([
+    // Tieu de theo ngon ngu nguoi dung (CHOT 2026-11-03) - docFile doi nguoc ve tieng Viet tu ca 3 ngon ngu; ngay = o ngay that.
+    const ws = taoSheetTuDong(
+      XLSX,
+      [
+        { KTV: tr("(ma.ktv) hoặc mã KTV, vd and.mn2"), "Nhóm lỗi": "120 phút", "Từ ngày": "2026-10-01", "Đến ngày": "2026-10-31", "Ghi chú": "KTV nghỉ phép" },
+        { KTV: "and.mn2", "Nhóm lỗi": "120 phút, Lỡ kế hoạch", "Từ ngày": "2026-10-01", "Đến ngày": "2026-10-15", "Ghi chú": "" },
+      ],
       ["KTV", "Nhóm lỗi", "Từ ngày", "Đến ngày", "Ghi chú"],
-      ["(ma.ktv) hoặc mã KTV, vd and.mn2", "120 phút", "01/10/2026", "31/10/2026", "KTV nghỉ phép"],
-      ["and.mn2", "120 phút, Lỡ kế hoạch", "01/10/2026", "15/10/2026", ""],
-    ]);
+    );
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Loai tru");
     XLSX.writeFile(wb, "mau_danh_sach_loai_tru_khao_sat.xlsx");
@@ -173,12 +178,17 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+    // Tieu de mau tai ve dich theo ngon ngu nguoi tai -> nhan them ban EN/ID cua dung 5 tieu de mau.
+    const banDich = await napCacBanDichTieuDe();
+    const TIEU_DE: Record<string, string> = { KTV: "ktv", "Nhóm lỗi": "nhom loi", "Từ ngày": "tu ngay", "Đến ngày": "den ngay", "Ghi chú": "ghi chu" };
+    const veKhoa = new Map<string, string>();
+    for (const [vi, khoa] of Object.entries(TIEU_DE)) for (const s of banDich(vi)) veKhoa.set(khongDau(s), khoa);
     const ok: NewRow[] = [];
     const loi: string[] = [];
     raw.forEach((r, i) => {
       const dong = i + 2;
       const get = (...keys: string[]) => {
-        const k = Object.keys(r).find((h) => keys.includes(khongDau(h)));
+        const k = Object.keys(r).find((h) => keys.includes(khongDau(h)) || keys.includes(veKhoa.get(khongDau(h)) ?? ""));
         return k ? r[k] : "";
       };
       const ktvRaw = String(get("ktv", "ky thuat vien", "ma ktv") ?? "").trim();

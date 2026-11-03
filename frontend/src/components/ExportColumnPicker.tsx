@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { Btn } from "./ui/Btn";
 import { applyExportTemplate, clearExportTemplate, loadExportTemplate, saveExportTemplate } from "../lib/exportTemplate";
 import { tr } from "../i18n/tr";
+import { tieuDeExcel } from "../lib/excelChung";
 
 // Bang chon cot truoc khi tai Excel (CHOT 2026-10-23) - mo qua pickExportColumns() tu lib/exportExcel.ts (ham xuat
 // duoc goi tu ~36 noi, ngoai cay React) nen tu tao 1 React root rieng gan vao body, dong la go bo. Chi xu ly tren
@@ -92,7 +93,7 @@ function ExportColumnPicker({
 
         <div className="flex-1 overflow-y-auto px-2 py-1">
           {items.map((it, idx) => {
-            if (timThuong && !it.col.toLowerCase().includes(timThuong)) return null;
+            if (timThuong && !tieuDeExcel(it.col).toLowerCase().includes(timThuong) && !it.col.toLowerCase().includes(timThuong)) return null;
             return (
               <div
                 key={it.col}
@@ -110,8 +111,8 @@ function ExportColumnPicker({
                   ≡
                 </span>
                 <input type="checkbox" checked={it.on} onChange={() => setItems((prev) => prev.map((x, i) => (i === idx ? { ...x, on: !x.on } : x)))} />
-                <span className={`flex-1 truncate ${it.on ? "text-[var(--ink-900)]" : "text-[var(--ink-400)] line-through"}`} title={it.col}>
-                  {it.col}
+                <span className={`flex-1 truncate ${it.on ? "text-[var(--ink-900)]" : "text-[var(--ink-400)] line-through"}`} title={tieuDeExcel(it.col)}>
+                  {tieuDeExcel(it.col)}
                 </span>
                 <button type="button" className="px-1 text-[var(--ink-400)] hover:text-[var(--ink-900)] disabled:opacity-20" disabled={idx === 0} onClick={() => doiCho(idx, idx - 1)}>
                   ↑

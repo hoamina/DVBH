@@ -439,13 +439,22 @@ TABLE`, fails with "already exists") — confirmed by hitting exactly this in pr
   `users.ngon_ngu` (migration 0146, `PATCH /api/auth/me {ngon_ngu}`), mirrored in localStorage
   `dvbh_ngon_ngu` for the login screen/boot; switcher `components/NgonNguSwitcher.tsx` (TopBar + login).
   **Only UI chrome is translated** — business data (khu vực, CRM/Odoo statuses, reasons, KTV names,
-  notes), Excel exports, Telegram images and server error messages stay Vietnamese (owner decision).
+  notes), Excel cell values, Telegram images and server error messages stay Vietnamese (owner decision).
   Two mechanisms side by side: (1) frame (sidebar/topbar/login, v1.492) uses i18next keys `t("topbar.x")` in
   `i18n/locales/*.json`; nav labels use `nav.<moduleKey>`; (2) everything else (all modules, v1.494) uses
   `tr("<câu tiếng Việt>", ...args)` from `i18n/tr.ts` — the Vietnamese sentence IS the key, translations live in
   `i18n/tu-dien.json` (`{"<vi>": ["<en>", "<id>"]}`, `{0}` = params), missing key = stays Vietnamese. Language is
   fixed per page load (switching reloads); the dictionary loads in `main.tsx` BEFORE `bootstrap.tsx` so module-level
-  constants get translated too. Excel headers are mapped back to Vietnamese via `veTiengViet` (`lib/exportExcel.ts`).
+  constants get translated too. **Excel downloads (owner decision 2026-11-03, replaces "Excel stays Vietnamese")**:
+  column HEADERS follow the user's language, cell values stay Vietnamese, file/sheet names unchanged. Internally
+  `exportExcel.ts` still turns labels back into Vietnamese (`veTiengViet`) so saved column-picker templates survive a
+  language switch; `lib/excelChung.ts` translates them only when writing the sheet / showing the picker (`tieuDeExcel`,
+  "A - B" labels translated per part). Exception: the fixed "Mẫu tính lương" preset keeps its Vietnamese CRM headers.
+  App-generated import templates (Khảo sát loại trừ, Gán CSKH hàng loạt) are translated too, so their parsers accept the
+  VI/EN/ID header of each expected column (`napCacBanDichTieuDe`). New export header → add it to `tu-dien.json`.
+  Dates: `taoSheetTuDong` writes every column whose non-empty values are ALL date strings (`YYYY-MM-DD[ HH:MM[:SS]]`
+  or `DD/MM/YYYY[ HH:MM[:SS]]`, wall-clock VN, no timezone shift; only ISO `Z`/offset values are moved to VN) as real
+  Excel date cells: `dd/mm/yyyy hh:mm:ss`, or `dd/mm/yyyy` when there is no time (00:00:00 counts as no time).
   New UI string: wrap in `tr("...")`, then `node frontend/scripts/i18n-kiem-tra.mjs` (lists untranslated keys;
   `--con-lai` lists unwrapped Vietnamese strings — most remaining ones are intentionally data/Excel/comparison
   values). Never wrap a value that is compared, sent to the server, or used as a key — wrap at the render site.

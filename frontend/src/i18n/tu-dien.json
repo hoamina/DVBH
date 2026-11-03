@@ -12278,5 +12278,473 @@
  "ID Lada": [
   "Lada ID",
   "ID Lada"
+ ],
+ "% Khảo sát thành công": [
+  "% Successful surveys",
+  "% Survei berhasil"
+ ],
+ "% Nghi ngờ 120 phút": [
+  "% Suspected 120 min",
+  "% Dicurigai 120 menit"
+ ],
+ "% Nghi ngờ hẹn lại": [
+  "% Suspected rescheduled",
+  "% Dicurigai dijadwal ulang"
+ ],
+ "% Nghi ngờ lỡ kế hoạch": [
+  "% Suspected missed plan",
+  "% Dicurigai meleset rencana"
+ ],
+ "% Nghi ngờ quá 24h": [
+  "% Suspected over 24h",
+  "% Dicurigai lewat 24 jam"
+ ],
+ "% Tỷ lệ chốt lỗi": [
+  "% Error confirmation rate",
+  "% Rasio konfirmasi error"
+ ],
+ "% Tỷ lệ giải trình": [
+  "% Explanation rate",
+  "% Rasio penjelasan"
+ ],
+ "% Vi phạm / đã gọi thành công 120 phút": [
+  "% Violations / called successfully 120 min",
+  "% Pelanggaran / berhasil ditelepon 120 menit"
+ ],
+ "% Vi phạm / đã gọi thành công hẹn lại": [
+  "% Violations / called successfully rescheduled",
+  "% Pelanggaran / berhasil ditelepon dijadwal ulang"
+ ],
+ "% Vi phạm / đã gọi thành công lỡ kế hoạch": [
+  "% Violations / called successfully missed plan",
+  "% Pelanggaran / berhasil ditelepon meleset rencana"
+ ],
+ "% Vi phạm / đã gọi thành công quá 24h": [
+  "% Violations / called successfully over 24h",
+  "% Pelanggaran / berhasil ditelepon lewat 24 jam"
+ ],
+ "% Vi phạm 120 phút": [
+  "% Violations 120 min",
+  "% Pelanggaran 120 menit"
+ ],
+ "% Vi phạm hẹn lại": [
+  "% Violations rescheduled",
+  "% Pelanggaran dijadwal ulang"
+ ],
+ "% Vi phạm lỡ kế hoạch": [
+  "% Violations missed plan",
+  "% Pelanggaran meleset rencana"
+ ],
+ "% Vi phạm quá 24h": [
+  "% Violations over 24h",
+  "% Pelanggaran lewat 24 jam"
+ ],
+ "% Đã gọi 120 phút": [
+  "% Called 120 min",
+  "% Sudah ditelepon 120 menit"
+ ],
+ "% Đã gọi hẹn lại": [
+  "% Called rescheduled",
+  "% Sudah ditelepon dijadwal ulang"
+ ],
+ "% Đã gọi lỡ kế hoạch": [
+  "% Called missed plan",
+  "% Sudah ditelepon meleset rencana"
+ ],
+ "% Đã gọi quá 24h": [
+  "% Called over 24h",
+  "% Sudah ditelepon lewat 24 jam"
+ ],
+ "Biến động (cuối − đầu)": [
+  "Change (end − start)",
+  "Perubahan (akhir − awal)"
+ ],
+ "Bỏ qua 120 phút": [
+  "Skipped 120 min",
+  "Dilewati 120 menit"
+ ],
+ "Bỏ qua hẹn lại": [
+  "Skipped rescheduled",
+  "Dilewati dijadwal ulang"
+ ],
+ "Bỏ qua lỡ kế hoạch": [
+  "Skipped missed plan",
+  "Dilewati meleset rencana"
+ ],
+ "Bỏ qua quá 24h": [
+  "Skipped over 24h",
+  "Dilewati lewat 24 jam"
+ ],
+ "Ca lâu nhất (ngày)": [
+  "Oldest case (days)",
+  "Kasus terlama (hari)"
+ ],
+ "Chốt cấp 2": [
+  "Level-2 decision",
+  "Keputusan level 2"
+ ],
+ "Chờ GS xử lý": [
+  "Awaiting supervisor",
+  "Menunggu supervisor"
+ ],
+ "Cần giải trình (ngày)": [
+  "Needs explanation (day)",
+  "Perlu penjelasan (hari)"
+ ],
+ "Diễn giải": [
+  "Explanation",
+  "Keterangan"
+ ],
+ "Diễn giải lặp": [
+  "Repeat explanation",
+  "Keterangan berulang"
+ ],
+ "Email đăng nhập": [
+  "Login email",
+  "Email masuk"
+ ],
+ "Ghi chú QC": [
+  "QC note",
+  "Catatan QC"
+ ],
+ "Giá trị linh kiện dự kiến": [
+  "Estimated parts value",
+  "Perkiraan nilai suku cadang"
+ ],
+ "Giám sát quản lý": [
+  "Managing supervisor",
+  "Supervisor pengelola"
+ ],
+ "Giám sát đánh giá lặp": [
+  "Supervisor repeat assessment",
+  "Penilaian berulang supervisor"
+ ],
+ "Hoàn thành ca trước": [
+  "Previous case completed",
+  "Kasus sebelumnya selesai"
+ ],
+ "ID cuộc gọi khảo sát": [
+  "Survey call ID",
+  "ID panggilan survei"
+ ],
+ "Khóa tài khoản": [
+  "Account locked",
+  "Akun dikunci"
+ ],
+ "Kết quả chốt cấp 1": [
+  "Level-1 decision result",
+  "Hasil keputusan level 1"
+ ],
+ "Loại dòng": [
+  "Row type",
+  "Jenis baris"
+ ],
+ "Loại trừ từ": [
+  "Excluded from",
+  "Dikecualikan dari"
+ ],
+ "Loại trừ đến": [
+  "Excluded until",
+  "Dikecualikan sampai"
+ ],
+ "Lũy kế (ca-ngày)": [
+  "Cumulative (case-days)",
+  "Kumulatif (kasus-hari)"
+ ],
+ "Module tùy chỉnh": [
+  "Custom modules",
+  "Modul kustom"
+ ],
+ "Mã vi phạm": [
+  "Violation code",
+  "Kode pelanggaran"
+ ],
+ "Nghi ngờ 120 phút": [
+  "Suspected 120 min",
+  "Dicurigai 120 menit"
+ ],
+ "Nghi ngờ KH hẹn lại": [
+  "Suspected customer rescheduled",
+  "Dicurigai pelanggan menjadwal ulang"
+ ],
+ "Nghi ngờ hẹn lại": [
+  "Suspected rescheduled",
+  "Dicurigai dijadwal ulang"
+ ],
+ "Nghi ngờ hẹn quá 24h": [
+  "Suspected appointment over 24h",
+  "Dicurigai janji lewat 24 jam"
+ ],
+ "Nghi ngờ lỗi 120 phút": [
+  "Suspected 120-minute error",
+  "Dicurigai error 120 menit"
+ ],
+ "Nghi ngờ lỡ kế hoạch": [
+  "Suspected missed plan",
+  "Dicurigai meleset rencana"
+ ],
+ "Nghi ngờ quá 24h": [
+  "Suspected over 24h",
+  "Dicurigai lewat 24 jam"
+ ],
+ "Nghi ngờ trong kỳ": [
+  "Suspected in period",
+  "Dicurigai dalam periode"
+ ],
+ "Nghi ngờ trước": [
+  "Suspected before",
+  "Dicurigai sebelumnya"
+ ],
+ "Ngày QC": [
+  "QC date",
+  "Tanggal QC"
+ ],
+ "Ngày giải trình GS": [
+  "Supervisor explanation date",
+  "Tanggal penjelasan supervisor"
+ ],
+ "Ngày giải trình Giám sát": [
+  "Supervisor explanation date",
+  "Tanggal penjelasan supervisor"
+ ],
+ "Ngày giải trình KTV": [
+  "Technician explanation date",
+  "Tanggal penjelasan teknisi"
+ ],
+ "Ngày giờ thực hiện": [
+  "Performed at",
+  "Waktu pelaksanaan"
+ ],
+ "Người QC": [
+  "QC by",
+  "QC oleh"
+ ],
+ "Số KTV đang loại trừ": [
+  "Technicians excluded",
+  "Teknisi dikecualikan"
+ ],
+ "Số PO": [
+  "PO count",
+  "Jumlah PO"
+ ],
+ "Số ca thiếu": [
+  "Cases short",
+  "Kasus kekurangan"
+ ],
+ "Số ca tính SLA": [
+  "Cases counted for SLA",
+  "Kasus dihitung SLA"
+ ],
+ "Số ca tính ≤24h": [
+  "Cases counted for ≤24h",
+  "Kasus dihitung ≤24 jam"
+ ],
+ "Tiếp nhận trong kỳ": [
+  "Received in period",
+  "Diterima dalam periode"
+ ],
+ "Trạng thái gọi": [
+  "Call status",
+  "Status panggilan"
+ ],
+ "Trạng thái loại trừ": [
+  "Exclusion status",
+  "Status pengecualian"
+ ],
+ "Tên linh kiện thiếu": [
+  "Missing part name",
+  "Nama suku cadang kurang"
+ ],
+ "Tỉnh (bộ lọc)": [
+  "Province (filter)",
+  "Provinsi (filter)"
+ ],
+ "Tổng cuộc gọi": [
+  "Total calls",
+  "Total panggilan"
+ ],
+ "Tổng ngày chờ": [
+  "Total waiting days",
+  "Total hari menunggu"
+ ],
+ "Tỷ lệ lỗi vi phạm": [
+  "Violation error rate",
+  "Rasio error pelanggaran"
+ ],
+ "Tỷ lệ nghi ngờ trong kỳ (%)": [
+  "Suspected rate in period (%)",
+  "Rasio dicurigai dalam periode (%)"
+ ],
+ "Tỷ lệ nghi ngờ trước (%)": [
+  "Suspected rate before (%)",
+  "Rasio dicurigai sebelumnya (%)"
+ ],
+ "Vai trò KTV": [
+  "Technician role",
+  "Peran teknisi"
+ ],
+ "Vi phạm 120 phút": [
+  "Violations 120 min",
+  "Pelanggaran 120 menit"
+ ],
+ "Vi phạm hẹn lại": [
+  "Violations rescheduled",
+  "Pelanggaran dijadwal ulang"
+ ],
+ "Vi phạm lỡ kế hoạch": [
+  "Violations missed plan",
+  "Pelanggaran meleset rencana"
+ ],
+ "Vi phạm quá 24h": [
+  "Violations over 24h",
+  "Pelanggaran lewat 24 jam"
+ ],
+ "ĐMX chưa GT >3 ngày": [
+  "ĐMX not explained >3 days",
+  "ĐMX belum dijelaskan >3 hari"
+ ],
+ "Đã giải trình (ngày)": [
+  "Explained (day)",
+  "Sudah dijelaskan (hari)"
+ ],
+ "Đã gọi 120 phút": [
+  "Called 120 min",
+  "Sudah ditelepon 120 menit"
+ ],
+ "Đã gọi hẹn lại": [
+  "Called rescheduled",
+  "Sudah ditelepon dijadwal ulang"
+ ],
+ "Đã gọi hẹn thành công 120 phút": [
+  "Called, appointment set 120 min",
+  "Sudah ditelepon, janji berhasil 120 menit"
+ ],
+ "Đã gọi lỡ kế hoạch": [
+  "Called missed plan",
+  "Sudah ditelepon meleset rencana"
+ ],
+ "Đã gọi quá 24h": [
+  "Called over 24h",
+  "Sudah ditelepon lewat 24 jam"
+ ],
+ "Đã gọi thành công 120 phút": [
+  "Called successfully 120 min",
+  "Berhasil ditelepon 120 menit"
+ ],
+ "Đã gọi thành công hẹn lại": [
+  "Called successfully rescheduled",
+  "Berhasil ditelepon dijadwal ulang"
+ ],
+ "Đã gọi thành công lỡ kế hoạch": [
+  "Called successfully missed plan",
+  "Berhasil ditelepon meleset rencana"
+ ],
+ "Đã gọi thành công quá 24h": [
+  "Called successfully over 24h",
+  "Berhasil ditelepon lewat 24 jam"
+ ],
+ "LK lỗi {0}": [
+  "Faulty part {0}",
+  "Suku cadang rusak {0}"
+ ],
+ "(ma.ktv) hoặc mã KTV, vd and.mn2": [
+  "(ma.ktv) or technician code, e.g. and.mn2",
+  "(ma.ktv) atau kode teknisi, mis. and.mn2"
+ ],
+ "Số linh kiện lỗi": [
+  "Faulty parts count",
+  "Jumlah suku cadang rusak"
+ ],
+ "Tỉnh (gốc)": [
+  "Province (raw)",
+  "Provinsi (asli)"
+ ],
+ "Quận/Huyện (gốc)": [
+  "District (raw)",
+  "Kabupaten/Kota (asli)"
+ ],
+ "Tỉnh mới (Odoo)": [
+  "New province (Odoo)",
+  "Provinsi baru (Odoo)"
+ ],
+ "Xã mới (Odoo)": [
+  "New commune (Odoo)",
+  "Kelurahan baru (Odoo)"
+ ],
+ "Tỉnh cũ (Odoo)": [
+  "Old province (Odoo)",
+  "Provinsi lama (Odoo)"
+ ],
+ "Huyện cũ (Odoo)": [
+  "Old district (Odoo)",
+  "Kabupaten lama (Odoo)"
+ ],
+ "Xã cũ (Odoo)": [
+  "Old commune (Odoo)",
+  "Kelurahan lama (Odoo)"
+ ],
+ "Nguồn gốc lỗi": [
+  "Fault origin",
+  "Asal kerusakan"
+ ],
+ "Mô tả hiện tượng": [
+  "Symptom description",
+  "Deskripsi gejala"
+ ],
+ "Nguyên nhân lỗi": [
+  "Fault cause",
+  "Penyebab kerusakan"
+ ],
+ "Mô tả nguyên nhân": [
+  "Cause description",
+  "Deskripsi penyebab"
+ ],
+ "Mô tả cách xử lý": [
+  "Handling description",
+  "Deskripsi penanganan"
+ ],
+ "KTV": [
+  "Technician",
+  "Teknisi"
+ ],
+ "Cần GT": [
+  "Needs expl.",
+  "Perlu penjelasan"
+ ],
+ "Ca": [
+  "Case",
+  "Kasus"
+ ],
+ "Người xác nhận theo dõi đổi trả": [
+  "Exchange tracking confirmed by",
+  "Pemantauan penukaran dikonfirmasi oleh"
+ ],
+ "Thời gian xác nhận theo dõi đổi trả": [
+  "Exchange tracking confirmed at",
+  "Waktu konfirmasi pemantauan penukaran"
+ ],
+ "ID khách hàng": [
+  "Customer ID",
+  "ID pelanggan"
+ ],
+ "Khu vực CRM": [
+  "CRM region",
+  "Wilayah CRM"
+ ],
+ "Người sửa khu vực": [
+  "Region edited by",
+  "Wilayah diubah oleh"
+ ],
+ "Thời gian sửa khu vực": [
+  "Region edited at",
+  "Waktu ubah wilayah"
+ ],
+ "Số lượng ảnh": [
+  "Image count",
+  "Jumlah gambar"
+ ],
+ "Yêu cầu huỷ": [
+  "Cancellation request",
+  "Permintaan pembatalan"
  ]
 }

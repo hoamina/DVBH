@@ -5149,3 +5149,27 @@ trên UI case khi click vào sẽ xem được thông tin ID case lada liên qua
   `components/LadaPanel.tsx` (thông tin đơn + nhật ký giải trình trên Lada). Nhãn bọc `tr()`, có EN/ID.
 - Hạn chế: chỉ đơn có dòng giải trình trong cửa sổ đồng bộ 3 ngày mới được gắn. Đơn cũ hơn sẽ tự gắn khi Lada có giải
   trình mới. API ETX không có link web của đơn Lada nên dùng popup.
+
+## 2026-11-03 — File Excel tải về: cột ngày thành ô ngày thật + tiêu đề theo ngôn ngữ người dùng (v1.518)
+Yêu cầu chủ hệ thống: "sửa data tải về từ dvbh các cột ngày tháng để định dạng dd/mm/yyyy hh:mm:ss nếu không có giờ thì
+để dd/mm/yyyy. tiêu đề để ngôn ngữ theo lựa chọn của người dùng". Thay quyết định cũ "Excel luôn tiếng Việt" (2026-10-28).
+- Chốt với chủ hệ thống: "Mẫu tính lương" GIỮ tiêu đề tiếng Việt (khớp file mẫu CRM); mẫu import do app tạo ĐƯỢC dịch
+  (phần đọc file nhận cả VI/EN/ID); tên file + tên sheet giữ nguyên; giá trị trong ô giữ nguyên tiếng Việt.
+- `lib/excelChung.ts` (mới, dùng chung): `serialNgayExcel`/`oNgayExcel` (gom từ `exportMauTinhLuong.ts`), `tieuDeExcel`,
+  `taoSheetTuDong` (thay `json_to_sheet` trong `exportExcel.ts`). Cột ngày = MỌI giá trị khác rỗng đều là chuỗi ngày
+  (`YYYY-MM-DD[ HH:MM[:SS]]` hoặc `DD/MM/YYYY[ HH:MM[:SS]]`, kiểm ngày có thật) → ô số serial, `dd/mm/yyyy hh:mm:ss`, hoặc
+  `dd/mm/yyyy` nếu không có giờ (00:00:00 coi như không có giờ, như Mẫu tính lương). Giờ VN lưu nguyên, không đổi múi;
+  chỉ chuỗi ISO có `Z`/`+hh:mm` mới quy về giờ VN. Mã/ID/serial không bao giờ khớp mẫu này.
+- Tiêu đề: tên cột nội bộ vẫn là nhãn tiếng Việt (`veTiengViet`), nên mẫu chọn cột đã lưu không lệch khi đổi ngôn ngữ.
+  Lúc ghi file và trong bảng chọn cột (`ExportColumnPicker`) mới dịch bằng `tr()`. Nhãn ghép "A - B" (vd "03/10 - Đã GT",
+  "LK lỗi 2 - Mã linh kiện") được dịch từng phần.
+- Từ điển: thêm ~117 tiêu đề còn thiếu (bảng nhãn ở Khảo sát/Vi phạm/Quản lý tồn/Users..., cột địa giới gốc, 12 trường
+  "LK lỗi"). `caseFieldLabels.ts` thêm nhãn cho 11 cột trước đây lộ tên thô (`id_khach_hang`, `quoc_gia`, `lich_hen`...).
+  File toàn ca không phải Odoo nay cũng ra "Số linh kiện lỗi" thay cho `linh_kien_loi`.
+- Mẫu import "Danh sách loại trừ khảo sát": tiêu đề dịch, ngày mẫu là ô ngày; `docFile` nhận tiêu đề cả 3 ngôn ngữ
+  (`napCacBanDichTieuDe` trong `i18n/tr.ts`, so theo chiều xuôi vì nhiều câu Việt trùng một bản dịch). "Gán CSKH hàng
+  loạt": file tải về có cột "ID"/"Phân công" (và bản dịch) nhưng trước đây phần đọc chỉ nhận `id`/`assigned_to`, nên mọi
+  dòng bị bỏ qua. Nay ánh xạ cả hai kiểu.
+- Đã thử local (bắt blob tải về, đọc lại bằng SheetJS) với VI/EN/ID: Danh sách tổng, Ca thiếu LK (tổng hợp + chi tiết),
+  Mẫu tính lương (EN, vẫn tiêu đề Việt), mẫu loại trừ khảo sát ID rồi tải ngược lên (đọc đúng 2 dòng). Không còn ô ngày
+  dạng chuỗi.

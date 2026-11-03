@@ -1,4 +1,5 @@
 import type * as XLSXNS from "xlsx";
+import { oNgayExcel } from "./excelChung";
 
 /**
  * "Mẫu tính lương" (CHOT 2026-10-28, chu he thong): mau CO DINH chon duoc trong bang chon cot khi tai danh sach CA
@@ -12,6 +13,7 @@ import type * as XLSXNS from "xlsx";
  *    chi Odoo co), khong co thi trong; "Tỉnh mới" + "Phường / xã mới" (Odoo) noi CUOI file.
  *  - "Thời gian gốc của ca mở lại" = thoi_gian_goc_dong_ca.
  * Ngay/gio ghi thanh o ngay that cua Excel (so serial nhu file mau) kem dinh dang dd/mm/yyyy de doc duoc.
+ * Tieu de GIU tieng Viet o moi ngon ngu (CHOT 2026-11-03: khop file mau CRM), khac cac file tai ve con lai.
  */
 
 type Row = Record<string, unknown>;
@@ -89,23 +91,12 @@ export const MAU_TINH_LUONG_COT: CotMau[] = [
   { tieuDe: "Phường / xã mới", lay: f("xa_moi") },
 ];
 
-const EXCEL_EPOCH = Date.UTC(1899, 11, 30);
-
-/** "YYYY-MM-DD[ HH:MM[:SS]]" (gio VN luu nguyen wall-clock, khong doi mui gio) -> so serial ngay Excel. */
-function serialExcel(v: unknown): number | null {
-  if (typeof v !== "string") return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(v.trim());
-  if (!m) return null;
-  const ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0));
-  return (ms - EXCEL_EPOCH) / 86400000;
-}
-
 function oExcel(v: unknown, kieu: Kieu): XLSXNS.CellObject | null {
   if (v == null || v === "") return null;
   if (kieu === "ngay" || kieu === "ngay_gio") {
-    const n = serialExcel(v);
-    // Gia tri chi co ngay (vd QuickSight "2026-07-16") -> khong hien " 00:00:00" gia.
-    if (n != null) return { t: "n", v: n, z: kieu === "ngay" || Number.isInteger(n) ? "dd/mm/yyyy" : "dd/mm/yyyy hh:mm:ss" };
+    // Gia tri chi co ngay (vd QuickSight "2026-07-16") -> khong hien " 00:00:00" gia (lib/excelChung.ts).
+    const o = oNgayExcel(v, kieu === "ngay");
+    if (o) return o;
   }
   if (kieu === "so" || kieu === "ma") {
     const n = typeof v === "number" ? v : /^\d+(\.\d+)?$/.test(String(v).trim()) ? Number(v) : NaN;

@@ -4,6 +4,7 @@ import type { LinhKienLoiItem } from "../types";
 import { pickExportColumns } from "../components/ExportColumnPicker";
 import { exportTemplateKey } from "./exportTemplate";
 import { taoSheetMauTinhLuong } from "./exportMauTinhLuong";
+import { taoSheetTuDong } from "./excelChung";
 import { tr } from "../i18n/tr";
 import { DiaGioiIndex, NHAN_CAP_1, NHAN_CAP_2, coTienTo, diaGioiModeHienTai, khoaTen, type QuyDoiRow } from "./diaGioi";
 
@@ -43,14 +44,17 @@ export async function exportRowsToExcel<T extends object>(
     cleanedRows = dg.rows;
     labels = { ...(headerLabels ?? {}), ...dg.labels };
   }
-  if (cleanedRows.some((r) => typeof r.linh_kien_loi === "string")) {
+  // Ke ca khi moi dong deu NULL (file chi co ca khong phai Odoo) -> van doi nhan "Số linh kiện lỗi", khong lo ten cot tho.
+  if (cleanedRows.some((r) => "linh_kien_loi" in r)) {
     const lk = tachLinhKienLoi(cleanedRows);
     cleanedRows = lk.rows;
     labels = { ...(labels ?? {}), ...lk.labels };
   }
-  // Excel LUON tieng Viet (chot i18n 2026-10-28): nhan cot lay tu cot tren man hinh co the da duoc dich (tr()) -> doi nguoc.
+  // Cot NOI BO luon la nhan tieng Viet (nhan lay tu cot tren man hinh co the da duoc dich - doi nguoc) de "mau tai file"
+  // da luu khong lech khi doi ngon ngu; tieu de that tren Excel dich theo ngon ngu dang chon LUC GHI FILE (taoSheetTuDong
+  // -> tieuDeExcel, CHOT 2026-11-03 - thay quyet dinh cu "Excel luon tieng Viet"). Rieng "Mẫu tính lương" giu tieng Viet.
   if (labels) labels = Object.fromEntries(Object.entries(labels).map(([k, v]) => [k, veTiengViet(v)]));
-  const exportRows = labels ? cleanedRows.map((row) => remapKeys(row, labels!)) : cleanedRows;
+  const exportRows = cleanedRows.map((row) => remapKeys(row, labels ?? {}));
   // "Mau tai file" ca nhan (2026-10-23): hien bang chon cot (bat/tat, keo doi vi tri, luu localStorage) truoc khi tai -
   // components/ExportColumnPicker.tsx + lib/exportTemplate.ts. Cot = hop tieu de theo thu tu xuat hien (nhu json_to_sheet).
   const allCols: string[] = [];
@@ -69,10 +73,7 @@ export async function exportRowsToExcel<T extends object>(
     }
     header = picked.cols;
   }
-  const worksheet = XLSX.utils.json_to_sheet(
-    exportRows.map((r) => Object.fromEntries(header.map((k) => [k, (r as Record<string, unknown>)[k] ?? ""]))),
-    { header },
-  );
+  const worksheet = taoSheetTuDong(XLSX, exportRows, header);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   XLSX.writeFile(workbook, filename);
@@ -189,7 +190,7 @@ function omitExcludedFields<T extends object>(row: T, includeFields: string[]): 
 function remapKeys(row: Record<string, unknown>, headerLabels: Record<string, string>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {
-    out[headerLabels[key] ?? key] = value;
+    out[headerLabels[key] ?? veTiengViet(key)] = value;
   }
   return out;
 }
