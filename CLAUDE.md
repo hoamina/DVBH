@@ -453,9 +453,10 @@ TABLE`, fails with "already exists") — confirmed by hitting exactly this in pr
   "A - B" labels translated per part). Exception: the fixed "Mẫu tính lương" preset keeps its Vietnamese CRM headers.
   App-generated import templates (Khảo sát loại trừ, Gán CSKH hàng loạt) are translated too, so their parsers accept the
   VI/EN/ID header of each expected column (`napCacBanDichTieuDe`). New export header → add it to `tu-dien.json`.
-  Dates: `taoSheetTuDong` writes every column whose non-empty values are ALL date strings (`YYYY-MM-DD[ HH:MM[:SS]]`
-  or `DD/MM/YYYY[ HH:MM[:SS]]`, wall-clock VN, no timezone shift; only ISO `Z`/offset values are moved to VN) as real
-  Excel date cells: `dd/mm/yyyy hh:mm:ss`, or `dd/mm/yyyy` when there is no time (00:00:00 counts as no time).
+  Dates (owner correction 2026-11-04, v1.520): ONLY date-time columns change — `taoSheetTuDong` turns a column into real
+  Excel date cells only when every non-empty value is `yyyy-mm-dd[ hh:mm[:ss]]` AND at least one has a time; cells with
+  time → `dd/mm/yyyy hh:mm:ss`, cells without → `dd/mm/yyyy` (wall-clock VN, no timezone shift). Date-only columns
+  (`yyyy-mm-dd`), `dd/mm/yyyy` strings, ISO `T…Z` values and every other column stay exactly as before.
   New UI string: wrap in `tr("...")`, then `node frontend/scripts/i18n-kiem-tra.mjs` (lists untranslated keys;
   `--con-lai` lists unwrapped Vietnamese strings — most remaining ones are intentionally data/Excel/comparison
   values). Never wrap a value that is compared, sent to the server, or used as a key — wrap at the render site.

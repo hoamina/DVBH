@@ -5182,3 +5182,13 @@ Yêu cầu chủ hệ thống: "sửa data tải về từ dvbh các cột ngày
 - `POST /settings/etx-giai-trinh-sync-log/chay-ngay` nhận `chi_lien_ket_lada`. Settings tab "Đồng bộ giải trình B2B (ETX)"
   có nút "Lấy ID Lada 60 ngày", chạy theo đợt giống "Chạy ngay". Chạy lại nhiều lần an toàn (upsert chỉ ghi khi đổi).
 - Thử local: ca T25668 (đơn 20–21/10) gắn đủ 2 ID Lada, số dòng `giai_trinh`/log đồng bộ giữ nguyên.
+
+## 2026-11-04 — Sửa lại phạm vi đổi định dạng ngày trong Excel tải về (v1.520)
+Chủ hệ thống: "sai yêu cầu của tôi rồi, tôi yêu cầu là các cột ngày giờ (hiện tại đang format yyyy-mm-dd hh:m:ss) mới
+chuyển định dạng, còn các cột khác giữ nguyên". Bản v1.518 đổi cả cột chỉ có ngày (vd "Ngày mua") và chuỗi dd/mm/yyyy.
+- `taoSheetTuDong` (`lib/excelChung.ts`): cột chỉ được đổi khi MỌI giá trị khác rỗng có dạng `yyyy-mm-dd[ hh:mm[:ss]]`
+  VÀ có ít nhất 1 giá trị có giờ. Ô có giờ → `dd/mm/yyyy hh:mm:ss`; ô không giờ trong cột đó → `dd/mm/yyyy`. Cột chỉ có
+  ngày, chuỗi dd/mm/yyyy, ISO `T…Z` (không còn quy múi giờ) và mọi cột khác giữ nguyên như trước v1.518.
+- "Mẫu tính lương": trả `exportMauTinhLuong.ts` về đúng logic trước v1.518 (bỏ dùng hàm chung), chỉ giữ ghi chú tiêu đề
+  tiếng Việt. Mẫu import loại trừ khảo sát: ngày mẫu lại là chuỗi "01/10/2026" như cũ (tiêu đề vẫn theo ngôn ngữ).
+- Thử local: Danh sách tổng tháng 10 — 11 cột thời gian ra ô ngày `dd/mm/yyyy hh:mm:ss`, "Ngày mua" giữ `2025-04-06`.

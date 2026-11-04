@@ -159,12 +159,12 @@ export function KhaoSatLoaiTruTab({ kyThuatVienOptions }: { kyThuatVienOptions: 
 
   async function taiMau() {
     const XLSX = await import("xlsx");
-    // Tieu de theo ngon ngu nguoi dung (CHOT 2026-11-03) - docFile doi nguoc ve tieng Viet tu ca 3 ngon ngu; ngay = o ngay that.
+    // Tieu de theo ngon ngu nguoi dung (CHOT 2026-11-03) - docFile nhan tieu de ca 3 ngon ngu; o giu nguyen nhu cu.
     const ws = taoSheetTuDong(
       XLSX,
       [
-        { KTV: tr("(ma.ktv) hoặc mã KTV, vd and.mn2"), "Nhóm lỗi": "120 phút", "Từ ngày": "2026-10-01", "Đến ngày": "2026-10-31", "Ghi chú": "KTV nghỉ phép" },
-        { KTV: "and.mn2", "Nhóm lỗi": "120 phút, Lỡ kế hoạch", "Từ ngày": "2026-10-01", "Đến ngày": "2026-10-15", "Ghi chú": "" },
+        { KTV: tr("(ma.ktv) hoặc mã KTV, vd and.mn2"), "Nhóm lỗi": "120 phút", "Từ ngày": "01/10/2026", "Đến ngày": "31/10/2026", "Ghi chú": "KTV nghỉ phép" },
+        { KTV: "and.mn2", "Nhóm lỗi": "120 phút, Lỡ kế hoạch", "Từ ngày": "01/10/2026", "Đến ngày": "15/10/2026", "Ghi chú": "" },
       ],
       ["KTV", "Nhóm lỗi", "Từ ngày", "Đến ngày", "Ghi chú"],
     );
