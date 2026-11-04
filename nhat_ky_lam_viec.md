@@ -5192,3 +5192,9 @@ chuyển định dạng, còn các cột khác giữ nguyên". Bản v1.518 đ�
 - "Mẫu tính lương": trả `exportMauTinhLuong.ts` về đúng logic trước v1.518 (bỏ dùng hàm chung), chỉ giữ ghi chú tiêu đề
   tiếng Việt. Mẫu import loại trừ khảo sát: ngày mẫu lại là chuỗi "01/10/2026" như cũ (tiêu đề vẫn theo ngôn ngữ).
 - Thử local: Danh sách tổng tháng 10 — 11 cột thời gian ra ô ngày `dd/mm/yyyy hh:mm:ss`, "Ngày mua" giữ `2025-04-06`.
+
+## 2026-11-04 — Excel tải về bị "ẩn" cột (v1.521)
+Chủ hệ thống báo: tải file về chỉ còn thấy các cột ngày giờ (J, L, T, AM, AR...), các cột khác như bị ẩn. Nguyên nhân (lỗi
+từ v1.518): `taoSheetTuDong` gán `!cols` = `{}` cho cột không phải ngày; SheetJS ghi thành `<col min max/>` không có
+width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặt độ rộng cho cột ngày giờ; cột khác không khai báo, giữ
+độ rộng mặc định. Đã kiểm XML sinh ra bằng SheetJS: chỉ còn `<col>` của cột ngày.

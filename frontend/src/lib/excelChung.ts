@@ -75,6 +75,12 @@ export function taoSheetTuDong(XLSX: typeof XLSXNS, rows: Record<string, unknown
     });
   });
   ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: Math.max(0, cols.length - 1) } });
-  ws["!cols"] = cols.map((_, ci) => (laCotNgay[ci] ? { wch: 19 } : {}));
+  // Mang THUA: chi dat do rong cho cot ngay gio. Phan tu {} (khong co width) bi SheetJS ghi thanh cot rong 0 -> Excel hien
+  // nhu cot bi an (loi v1.518-1.520); o trong mang thua thi SheetJS bo qua, cot giu do rong mac dinh.
+  const doRong: XLSXNS.ColInfo[] = [];
+  laCotNgay.forEach((la, ci) => {
+    if (la) doRong[ci] = { wch: 19 };
+  });
+  ws["!cols"] = doRong;
   return ws;
 }
