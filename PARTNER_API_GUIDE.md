@@ -890,5 +890,6 @@ X-API-Key: <key>
 
 Tập ca = **đang tồn** + **hoàn thành từ (hôm nay giờ VN − `so_ngay`)** (mặc định 3, tối đa 31); ca hủy/đã lưu trữ không có.
 `khu_vuc` bỏ trống = mọi khu vực. `columns` đúng 28 cột/thứ tự file mẫu (= tiêu đề file xuất CRM): ID … TBP (= khu vực),
-"Bỏ trống" (luôn rỗng), "ĐÚNG SLA" (= `dung_han`); "Độ ưu tiên" = `muc_do` (chỉ ca Odoo có). Thời gian dạng
+"Bỏ trống" (luôn rỗng), "ĐÚNG SLA" (= `dung_han`), "Kỹ thuật viên" = KTV phụ trách (`ktv_trien_khai`) nếu có,
+không thì Trạm phụ trách (`ky_thuat_vien`) — từ 2026-11-05; "Độ ưu tiên" = `muc_do` (chỉ ca Odoo có). Thời gian dạng
 `YYYY-MM-DD HH:MM:SS` giờ VN. Sắp theo ID, phân trang (`pageSize` tối đa 5000).

@@ -503,7 +503,14 @@ const GOOGLE_SHEET_COT: [tieuDe: string, cot: string | null][] = [
   ["Bỏ trống", null],
   ["ĐÚNG SLA", "dung_han"],
 ];
-const GOOGLE_SHEET_SELECT = GOOGLE_SHEET_COT.filter(([, cot]) => cot).map(([, cot]) => `c.${cot}`).join(", ");
+// Cot "Kỹ thuật viên" (chu he thong 2026-11-05): uu tien KTV phu trach (ktv_trien_khai - Odoo, tram nhieu nguoi), trong
+// thi lay Tram phu trach (ky_thuat_vien) - giu ten cot ky_thuat_vien de mapping ben duoi khong doi.
+const GOOGLE_SHEET_BIEU_THUC: Record<string, string> = {
+  ky_thuat_vien: "COALESCE(NULLIF(TRIM(c.ktv_trien_khai), ''), c.ky_thuat_vien) AS ky_thuat_vien",
+};
+const GOOGLE_SHEET_SELECT = GOOGLE_SHEET_COT.filter(([, cot]) => cot)
+  .map(([, cot]) => GOOGLE_SHEET_BIEU_THUC[cot!] ?? `c.${cot}`)
+  .join(", ");
 
 partnerApi.get("/google-sheet-ca", async (c) => {
   const apiKey = c.req.header("X-API-Key")!;

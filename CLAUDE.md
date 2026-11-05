@@ -167,7 +167,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     key/value table for future system flags (no FK to `users` on purpose).
   - `partnerApi.ts` `GET /google-sheet-ca` (2026-10-29, PARTNER_API_GUIDE §15) — a Google Sheet PULLS open cases + cases
     completed in the last `so_ngay` (default 3) days, filtered by `khu_vuc`, as the 28 CRM-export columns of the owner's
-    template; the Apps Script lives in `scripts/google-sheet-ca.gs` (daily trigger + manual menu, upsert by ID, key in
+    template ("Kỹ thuật viên" = `COALESCE(ktv_trien_khai, ky_thuat_vien)`, owner 2026-11-05); the Apps Script lives in `scripts/google-sheet-ca.gs` (daily trigger + manual menu, upsert by ID, key in
     Script Properties). Two UNION ALL branches so each hits a partial index. Pull chosen over push (no Google creds/cron
     in the Worker, self-heals). Live (not cached), no `logPartnerApiCall`, 30 req/min/key.
   - `cases.ts` `GET /:id/lada/:orderId` + table `case_lada` (2026-11-03, migration 0153) — "ID Lada" = `order_id` of the ETX/Lada

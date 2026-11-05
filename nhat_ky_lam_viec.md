@@ -5198,3 +5198,9 @@ Chủ hệ thống báo: tải file về chỉ còn thấy các cột ngày gi�
 từ v1.518): `taoSheetTuDong` gán `!cols` = `{}` cho cột không phải ngày; SheetJS ghi thành `<col min max/>` không có
 width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặt độ rộng cho cột ngày giờ; cột khác không khai báo, giữ
 độ rộng mặc định. Đã kiểm XML sinh ra bằng SheetJS: chỉ còn `<col>` của cột ngày.
+
+## 2026-11-05 — Google Sheet ca: cột "Kỹ thuật viên" ưu tiên KTV phụ trách (v1.525)
+- Chủ hệ thống: cột "Kỹ thuật viên" của dữ liệu Google Sheet kéo hằng ngày (`GET /api/partner/google-sheet-ca`) trả KTV phụ
+  trách (`ktv_trien_khai`, Odoo) nếu không trống, trống thì Trạm phụ trách (`ky_thuat_vien`). SQL
+  `COALESCE(NULLIF(TRIM(ktv_trien_khai), ''), ky_thuat_vien)`, giữ tên cột nên Apps Script không phải sửa. Đã chạy câu SQL trên
+  D1 local (local chưa có dữ liệu `ktv_trien_khai` nên chỉ kiểm cú pháp/nhánh trống).
