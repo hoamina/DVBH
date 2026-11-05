@@ -79,11 +79,10 @@ externalImport.post("/refresh-reports", async (c) => {
 // ma_import_odoo (migration 0129) = External ID de import nguoc Odoo; doi gia tri cung tinh la "doi".
 // D1 tra ve "D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window" khi
 // CA TAI KHOAN dung D1 do (khong rieng request nay - thay ca o cac job nen khac chay song song luc
-// import) vuot quota tuc thoi cua Cloudflare. Loi NHAT THOI, thu lai sau vai giay thuong qua duoc
-// ngay. Xac nhan qua wrangler tail 2026-11-05: endpoint nay (29 cau SELECT lien tiep cho ~2900 ID,
-// don bao hanh Odoo tang dan theo thoi gian) bi loi 500 hoan toan (ghi_moi=cap_nhat=0) tu luc so
-// dong vuot ~2000, dung loi nay o CA giai doan SELECT lan batch INSERT.
-async function withD1Retry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
+// import) vuot quota tuc thoi cua Cloudflare. Xac nhan qua wrangler tail 2026-11-05: tinh trang nay
+// keo dai LIEN TUC suot ca cua so import (vai phut), KHONG phai 1 cơn ngan vai giay - can ngan sach
+// retry du dai (toi da ~1 phut cho ca chuoi, backoff tang dan + jitter) moi du de "cho qua".
+async function withD1Retry<T>(fn: () => Promise<T>, maxAttempts = 8): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -92,7 +91,8 @@ async function withD1Retry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T>
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.includes("D1_ERROR") || !/overloaded/i.test(msg) || attempt === maxAttempts) throw err;
       lastErr = err;
-      await new Promise((resolve) => setTimeout(resolve, 300 * 2 ** (attempt - 1) + Math.random() * 200));
+      const delay = Math.min(800 * 2 ** (attempt - 1), 10000) + Math.random() * 400;
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   throw lastErr;
@@ -119,22 +119,15 @@ externalImport.post("/don-bao-hanh-odoo", async (c) => {
     byId.set(id, r);
   }
 
-  const ids = [...byId.keys()];
-  const existing = new Map<number, { key: string; maImport: string | null }>();
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    const { results } = await withD1Retry(() =>
-      c.env.DB.prepare(
-        `SELECT odoo_id, ngay_cap_nhat_odoo, con_hieu_luc, ma_import_odoo FROM don_bao_hanh_odoo WHERE odoo_id IN (${chunk.map(() => "?").join(", ")})`,
-      )
-        .bind(...chunk)
-        .all<{ odoo_id: number; ngay_cap_nhat_odoo: string | null; con_hieu_luc: number; ma_import_odoo: string | null }>(),
-    );
-    for (const r of results) {
-      existing.set(r.odoo_id, { key: `${r.ngay_cap_nhat_odoo}|${r.con_hieu_luc}|${r.ma_import_odoo}`, maImport: r.ma_import_odoo });
-    }
-  }
-
+  // 2026-11-05: BO vong SELECT dò "đã có/đã đổi" theo lô 100 ID (truoc day ~29 cau tuan tu cho
+  // ~2900 don) - chinh no la nguyen nhan chinh gay qua tai D1 "Too many resources consumed within
+  // a 10 second window" (xac nhan qua wrangler tail, loi keo dai suot ca cua so import ~vai phut,
+  // khong phai cơn ngan de retry vuot qua). Thay bang "ON CONFLICT ... WHERE" de chinh SQLite so
+  // sanh va bo qua dong khong doi NGAY TRONG 1 cau UPSERT (khong can doc truoc), giu nguyen dung 3
+  // truong dung de phat hien "doi" nhu truoc (ngay_cap_nhat_odoo/con_hieu_luc/ma_import_odoo).
+  // Danh doi: khong con phan biet chinh xac "ghi moi" vs "cap nhat" (gop chung "da ghi"); pipeline
+  // cu khong gui ma_import_odoo (undefined) se ghi NULL thay vi giu gia tri cu (chap nhan duoc vi
+  // pipeline hien tai luon gui truong nay, xem ocrm/warranty.py).
   const now = nowVN();
   const val = (r: Record<string, unknown>, f: string) => {
     if (f === "con_hieu_luc") return r[f] === false || r[f] === 0 || r[f] === "0" ? 0 : 1;
@@ -144,28 +137,26 @@ externalImport.post("/don-bao-hanh-odoo", async (c) => {
   const cols = ["odoo_id", ...DON_BH_FIELDS, "ngay_dong_bo"];
   const sql =
     `INSERT INTO don_bao_hanh_odoo (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})
-     ON CONFLICT(odoo_id) DO UPDATE SET ${[...DON_BH_FIELDS, "ngay_dong_bo"].map((f) => `${f} = excluded.${f}`).join(", ")}`;
-  const statements: D1PreparedStatement[] = [];
-  let ghiMoi = 0;
-  let capNhat = 0;
-  for (const [id, r] of byId) {
-    const old = existing.get(id);
-    // Pipeline cu chua gui ma_import_odoo (undefined) -> giu gia tri dang luu, khong coi la "doi"
-    const maImport = r.ma_import_odoo === undefined ? (old?.maImport ?? null) : (val(r, "ma_import_odoo") as string | null);
-    if (old !== undefined && old.key === `${val(r, "ngay_cap_nhat_odoo")}|${val(r, "con_hieu_luc")}|${maImport}`) continue;
-    if (old === undefined) ghiMoi++;
-    else capNhat++;
-    statements.push(
-      c.env.DB.prepare(sql).bind(id, ...DON_BH_FIELDS.map((f) => (f === "ma_import_odoo" ? maImport : val(r, f))), now),
-    );
-  }
+     ON CONFLICT(odoo_id) DO UPDATE SET ${[...DON_BH_FIELDS, "ngay_dong_bo"].map((f) => `${f} = excluded.${f}`).join(", ")}
+     WHERE don_bao_hanh_odoo.ngay_cap_nhat_odoo IS NOT excluded.ngay_cap_nhat_odoo
+        OR don_bao_hanh_odoo.con_hieu_luc IS NOT excluded.con_hieu_luc
+        OR don_bao_hanh_odoo.ma_import_odoo IS NOT excluded.ma_import_odoo`;
+  const statements: D1PreparedStatement[] = [...byId.entries()].map(([id, r]) =>
+    c.env.DB.prepare(sql).bind(
+      id,
+      ...DON_BH_FIELDS.map((f) => val(r, f)),
+      now,
+    ),
+  );
+  let daGhi = 0;
   for (let i = 0; i < statements.length; i += 500) {
     const slice = statements.slice(i, i + 500);
-    await withD1Retry(() => c.env.DB.batch(slice));
+    const results = await withD1Retry(() => c.env.DB.batch(slice));
+    daGhi += results.reduce((sum, r) => sum + (r.meta?.changes ?? 0), 0);
   }
-  if (statements.length > 0) await bumpVersions(c.env.DB, ["don_bao_hanh_odoo"]);
+  if (daGhi > 0) await withD1Retry(() => bumpVersions(c.env.DB, ["don_bao_hanh_odoo"]));
 
-  return c.json({ ghi_moi: ghiMoi, cap_nhat: capNhat, bo_qua: byId.size - statements.length, loi: errors.length, errors });
+  return c.json({ ghi_moi: 0, cap_nhat: daGhi, bo_qua: byId.size - daGhi, loi: errors.length, errors });
 });
 
 export default externalImport;
