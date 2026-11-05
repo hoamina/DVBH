@@ -5204,3 +5204,16 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   trách (`ktv_trien_khai`, Odoo) nếu không trống, trống thì Trạm phụ trách (`ky_thuat_vien`). SQL
   `COALESCE(NULLIF(TRIM(ktv_trien_khai), ''), ky_thuat_vien)`, giữ tên cột nên Apps Script không phải sửa. Đã chạy câu SQL trên
   D1 local (local chưa có dữ liệu `ktv_trien_khai` nên chỉ kiểm cú pháp/nhánh trống).
+
+## 2026-11-05 — Danh sách tổng thiếu rất nhiều ca (snapshot R2 "đã đóng" ngừng ghi từ 03/11) (v1.526)
+- Triệu chứng: nhiều ca SC… hoàn thành 03/11 không có trong Danh sách tổng theo tháng. Đối chiếu production (SELECT): ngày
+  03/11 D1 763 ca / file R2 398 ca; 04/11 (800 ca) và 05/11 (437 ca) chưa có file; manifest đứng yên từ 03/11 15:04 VN,
+  marker tự vá đứng từ 03/11 08:08 VN. `import_history.bg_error` trống.
+- Nguyên nhân: từ 03–05/11 cả tài khoản D1 hay bị "D1 DB is overloaded" kéo dài vài phút trong cửa sổ import của pipeline
+  (đã thấy ở route đơn BH Odoo, v1.523). Snapshot R2 sau import chạy nền cũng dính lỗi đó, rồi lệnh ghi `bg_error` cũng lỗi
+  → mất im lặng. Lưới an toàn tự vá thì đã bị dồn về chỉ chạy lúc 08:00 và đứng sau `chotSoLieuPhamVi` + `refreshCaLapPrecompute`
+  không bọc try/catch → không chạy tới.
+- Sửa: `lib/d1Retry.ts withD1Retry` dùng chung (tách từ externalImport.ts) cho các câu D1 của `recomputeOneDay`; `runBgTask`
+  nuốt lỗi khi ghi bg_error; tự vá chạy MỖI lần fire `DAILY_SNAPSHOT_CRON` (8h–18h VN, đầu tiên, có retry); bọc try/catch 2
+  bước 08:00 kia. Không thêm điểm ghi R2 mới (vẫn 2 điểm đã chốt). Dữ liệu thiếu tự vá ở lần cron kế tiếp (08:00 sáng 06/11).
+- Phát hiện thêm: 1 dòng rác `case_dvbh.id = 'ID'` (dòng tiêu đề Excel bị import thành ca, tạo 04/11 02:13) - chưa xóa, chờ chủ hệ thống.

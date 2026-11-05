@@ -2,6 +2,7 @@ import { envVn } from "../lib/phamViChot";
 import { Hono } from "hono";
 import type { Env } from "../types";
 import { processImport } from "../lib/importProcessor";
+import { withD1Retry } from "../lib/d1Retry";
 import { nowVN } from "../lib/vnTime";
 import { scheduleCaLapRefreshIfChanged } from "./importRoute";
 import { warmDefaultReports } from "../lib/reportWarmup";
@@ -82,21 +83,7 @@ externalImport.post("/refresh-reports", async (c) => {
 // import) vuot quota tuc thoi cua Cloudflare. Xac nhan qua wrangler tail 2026-11-05: tinh trang nay
 // keo dai LIEN TUC suot ca cua so import (vai phut), KHONG phai 1 cơn ngan vai giay - can ngan sach
 // retry du dai (toi da ~1 phut cho ca chuoi, backoff tang dan + jitter) moi du de "cho qua".
-async function withD1Retry<T>(fn: () => Promise<T>, maxAttempts = 8): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes("D1_ERROR") || !/overloaded/i.test(msg) || attempt === maxAttempts) throw err;
-      lastErr = err;
-      const delay = Math.min(800 * 2 ** (attempt - 1), 10000) + Math.random() * 400;
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-  }
-  throw lastErr;
-}
+// -> dung chung lib/d1Retry.ts withD1Retry (2026-11-05, tach ra de bo snapshot R2 "ca da dong" cung dung).
 
 const DON_BH_FIELDS = [
   "ma_don", "case_id", "ma_linh_kien", "ten_linh_kien", "so_luong", "don_gia", "thanh_tien", "trang_thai",

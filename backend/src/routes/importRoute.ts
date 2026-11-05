@@ -81,11 +81,17 @@ async function runBgTask(env: Env, importHistoryId: number, label: string, task:
   } catch (err) {
     console.error(`[import bg] ${label} that bai:`, err);
     const message = err instanceof Error ? err.message : String(err);
-    await env.DB.prepare(
-      `UPDATE import_history SET bg_error = COALESCE(bg_error || char(10), '') || ? WHERE id = ?`,
-    )
-      .bind(`${label}: ${message}`, importHistoryId)
-      .run();
+    // Ghi bg_error cung co the dinh "D1 overloaded" dung luc task vua loi (2026-11-05) - nuot loi o day (da console.error o
+    // tren), khong de 1 promise bi reject ma khong ai bat.
+    try {
+      await env.DB.prepare(
+        `UPDATE import_history SET bg_error = COALESCE(bg_error || char(10), '') || ? WHERE id = ?`,
+      )
+        .bind(`${label}: ${message}`, importHistoryId)
+        .run();
+    } catch (ghiErr) {
+      console.error(`[import bg] khong ghi duoc bg_error cho "${label}":`, ghiErr);
+    }
   }
 }
 

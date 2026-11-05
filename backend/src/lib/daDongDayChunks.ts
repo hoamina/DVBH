@@ -26,6 +26,7 @@
 import type { Env } from "../types";
 import { cachedReport, buildReportKey } from "./reportCache";
 import { nowVN } from "./vnTime";
+import { withD1Retry } from "./d1Retry";
 
 interface DaDongManifestEntry {
   hash: string;
@@ -55,14 +56,18 @@ async function sha256Hex(text: string): Promise<string> {
 }
 
 async function computeDayRows(db: D1Database, ngay: string): Promise<Record<string, unknown>[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT c.* FROM case_hieu_luc c
-       WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < date(?, '+1 day')
-       ORDER BY c.id ASC`,
-    )
-    .bind(ngay, ngay)
-    .all();
+  // withD1Retry (2026-11-05): snapshot chay trong cua so import cua pipeline, luc ca tai khoan D1 hay bi "overloaded"
+  // keo dai vai phut - truoc day loi nay lam mat im lang snapshot tu 03/11 (xem nhat_ky_lam_viec.md).
+  const { results } = await withD1Retry(() =>
+    db
+      .prepare(
+        `SELECT c.* FROM case_hieu_luc c
+         WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < date(?, '+1 day')
+         ORDER BY c.id ASC`,
+      )
+      .bind(ngay, ngay)
+      .all(),
+  );
   return results as Record<string, unknown>[];
 }
 
@@ -72,7 +77,7 @@ async function recomputeOneDay(env: Env, ngay: string): Promise<void> {
   // Ngay khong con case nao (vd 1 case doi ngay hoan thanh sang ngay khac giua 2 lan import) - xoa
   // hop de "khong co dong manifest" = "0 ca" nhat quan voi trang thai ban dau (chua backfill).
   if (rows.length === 0) {
-    await env.DB.prepare("DELETE FROM da_dong_chunk_manifest WHERE ngay = ?").bind(ngay).run();
+    await withD1Retry(() => env.DB.prepare("DELETE FROM da_dong_chunk_manifest WHERE ngay = ?").bind(ngay).run());
     await env.REPORTS.delete(dayR2Key(ngay));
     return;
   }
@@ -80,16 +85,20 @@ async function recomputeOneDay(env: Env, ngay: string): Promise<void> {
   const payload = JSON.stringify(rows);
   const hash = await sha256Hex(payload);
 
-  const existing = await env.DB.prepare("SELECT hash FROM da_dong_chunk_manifest WHERE ngay = ?").bind(ngay).first<{ hash: string }>();
+  const existing = await withD1Retry(() =>
+    env.DB.prepare("SELECT hash FROM da_dong_chunk_manifest WHERE ngay = ?").bind(ngay).first<{ hash: string }>(),
+  );
   if (existing && existing.hash === hash) return; // noi dung khong doi - bo qua, tranh ghi R2 thua
 
   await env.REPORTS.put(dayR2Key(ngay), payload, { httpMetadata: { contentType: "application/json" } });
-  await env.DB.prepare(
-    `INSERT INTO da_dong_chunk_manifest (ngay, hash, row_count, updated_at) VALUES (?, ?, ?, datetime('now'))
-     ON CONFLICT(ngay) DO UPDATE SET hash = excluded.hash, row_count = excluded.row_count, updated_at = excluded.updated_at`,
-  )
-    .bind(ngay, hash, rows.length)
-    .run();
+  await withD1Retry(() =>
+    env.DB.prepare(
+      `INSERT INTO da_dong_chunk_manifest (ngay, hash, row_count, updated_at) VALUES (?, ?, ?, datetime('now'))
+       ON CONFLICT(ngay) DO UPDATE SET hash = excluded.hash, row_count = excluded.row_count, updated_at = excluded.updated_at`,
+    )
+      .bind(ngay, hash, rows.length)
+      .run(),
+  );
 }
 
 /** Diem ghi R2 DUY NHAT cho tinh nang nay - xem quy uoc o dau file. */

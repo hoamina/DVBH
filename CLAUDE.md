@@ -81,7 +81,8 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
 - `index.ts` — Hono app, mounts one router per domain under `/api/*`, `app.get("*")` falls through
   to `ASSETS.fetch` for the SPA. `scheduled()` handles three cron triggers (see `wrangler*.jsonc`
   `triggers.crons`): the hourly one (`CA_LAP_REFRESH_CRON`) is now a safety net for three
-  independent, try/catch-isolated jobs — it refreshes the "ca lặp" (duplicate case) precompute only
+  independent, try/catch-isolated jobs (self-heal of R2 "đã đóng" chunks now runs on EVERY `DAILY_SNAPSHOT_CRON` fire
+  8h–18h VN, first, wrapped in `withD1Retry` — fixed 2026-11-05 after it had silently drifted to 08:00-only) — it refreshes the "ca lặp" (duplicate case) precompute only
   when `shouldSkipCronRefresh()` says source data actually changed (the *real* refresh trigger is the
   import path calling `refreshCaLapPrecompute()` directly, not the cron), self-heals R2 "đã đóng"
   day-chunk snapshots (`selfHealDaDongDayChunks`), and re-warms the dashboard report cache
@@ -368,6 +369,9 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
   (a matching index, or a narrower `WHERE`/`IN` set) — not reducing columns selected. The lever for
   cutting `rows_written` is reducing *how many rows get written at all* (skip no-op writes) and
   *how many indexes a hot column touches* — not the payload size of the write.
+- **"D1 DB is overloaded" (account-wide, lasts minutes during the pipeline import window, 2026-11-05)**: background/import
+  writes that must not be lost go through `lib/d1Retry.ts withD1Retry` (only retries that error). It silently stopped the
+  R2 "đã đóng" snapshot 03–05/11 (bg_error write failed too) → Danh sách tổng missed cases.
 - **Max 100 bound parameters per statement** (D1-specific; plain SQLite allows ~32k). A dynamic
   `IN (?, ?, ...)` built from a data-driven list (ids, emails) fails with "too many SQL variables" once
   the list + other binds pass 100 — the Ca lặp Excel export did exactly this with ~3-4k prior ids

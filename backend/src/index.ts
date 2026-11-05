@@ -38,6 +38,7 @@ import { generateTonKtvSnapshot } from "./lib/tonKtvSnapshot";
 import { computeAndPushLuyKeCurrentMonth } from "./lib/luyKeCompute";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
+import { withD1Retry } from "./lib/d1Retry";
 import { warmDefaultReports } from "./lib/reportWarmup";
 import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
 import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
@@ -217,6 +218,15 @@ export default {
     }
 
     if (event.cron === DAILY_SNAPSHOT_CRON) {
+      // Tu do + tu va snapshot R2 "ca da dong" (lib/daDongDayChunks.ts selfHealDaDongDayChunks) - SUA 2026-11-05: chay MOI lan
+      // fire (8h-18h VN), dung thiet ke "luoi an toan moi gio"; truoc do chi con chay luc 08:00, lai nam sau 2 buoc khong boc
+      // try/catch -> 03/11-05/11 snapshot dung ghi ma khong ai biet (Danh sach tong thieu ca). Rat re khi khong co gi doi
+      // (1 dong doc qua index). withD1Retry: ca ham idempotent, chay lai an toan khi D1 "overloaded".
+      try {
+        await withD1Retry(() => selfHealDaDongDayChunks(env), 4);
+      } catch (err) {
+        console.error("[self-heal] da-dong-day-chunks loi:", err instanceof Error ? err.message : String(err));
+      }
       try {
         await autoSyncTonKhoLk(env, event.scheduledTime);
       } catch (err) {
@@ -274,20 +284,20 @@ export default {
         console.error("[cron-daily-snapshot] generateTonKtvSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
       // Cung bo so chot tren cho 2 pham vi NSKX / Khong NSKX (lib/phamViChot.ts) - sau khi "Tất cả" da xong.
-      await chotSoLieuPhamVi(env, "auto", { canhBaoTon: true });
+      try {
+        await chotSoLieuPhamVi(env, "auto", { canhBaoTon: true });
+      } catch (err) {
+        console.error("[cron-daily-snapshot] chotSoLieuPhamVi loi:", err instanceof Error ? err.message : String(err));
+      }
       // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
       // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem
       // shouldSkipCronRefresh o caLapRefresh.ts).
-      if (!(await shouldSkipCronRefresh(env.DB))) {
-        await refreshCaLapPrecompute(env.DB);
-      }
-      // Tu do + tu va snapshot R2 "ca da dong" (xem lib/daDongDayChunks.ts selfHealDaDongDayChunks)
-      // - doc lap voi ca lap, boc rieng try/catch de 1 ben loi khong chan ben con lai (dung nguyen
-      // tac voi runBgTask o importRoute.ts). Rat re khi khong co gi doi (xem chu thich trong ham).
       try {
-        await selfHealDaDongDayChunks(env);
+        if (!(await shouldSkipCronRefresh(env.DB))) {
+          await refreshCaLapPrecompute(env.DB);
+        }
       } catch (err) {
-        console.error("[self-heal] da-dong-day-chunks loi:", err instanceof Error ? err.message : String(err));
+        console.error("[cron-daily-snapshot] refreshCaLapPrecompute loi:", err instanceof Error ? err.message : String(err));
       }
       // Luoi an toan cho bao cao dashboard - co che CHINH la pipeline QuickSight tu goi
       // POST /api/external-import/refresh-reports dung 1 lan sau moi dot day file (xem
