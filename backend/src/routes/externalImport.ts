@@ -77,6 +77,27 @@ externalImport.post("/refresh-reports", async (c) => {
 // thanh_tien, trang_thai, tinh_trang_loi, ghi_chu, ngay_tao, ngay_hoan_thanh, nguoi_tao,
 // ngay_cap_nhat_odoo, con_hieu_luc, ma_import_odoo }] } - gio deu la gio VN "YYYY-MM-DD HH:MM:SS".
 // ma_import_odoo (migration 0129) = External ID de import nguoc Odoo; doi gia tri cung tinh la "doi".
+// D1 tra ve "D1_ERROR: D1 DB is overloaded. Too many resources consumed within a 10 second window" khi
+// CA TAI KHOAN dung D1 do (khong rieng request nay - thay ca o cac job nen khac chay song song luc
+// import) vuot quota tuc thoi cua Cloudflare. Loi NHAT THOI, thu lai sau vai giay thuong qua duoc
+// ngay. Xac nhan qua wrangler tail 2026-11-05: endpoint nay (29 cau SELECT lien tiep cho ~2900 ID,
+// don bao hanh Odoo tang dan theo thoi gian) bi loi 500 hoan toan (ghi_moi=cap_nhat=0) tu luc so
+// dong vuot ~2000, dung loi nay o CA giai doan SELECT lan batch INSERT.
+async function withD1Retry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("D1_ERROR") || !/overloaded/i.test(msg) || attempt === maxAttempts) throw err;
+      lastErr = err;
+      await new Promise((resolve) => setTimeout(resolve, 300 * 2 ** (attempt - 1) + Math.random() * 200));
+    }
+  }
+  throw lastErr;
+}
+
 const DON_BH_FIELDS = [
   "ma_don", "case_id", "ma_linh_kien", "ten_linh_kien", "so_luong", "don_gia", "thanh_tien", "trang_thai",
   "tinh_trang_loi", "ghi_chu", "ngay_tao", "ngay_hoan_thanh", "nguoi_tao", "ngay_cap_nhat_odoo", "con_hieu_luc",
@@ -102,11 +123,13 @@ externalImport.post("/don-bao-hanh-odoo", async (c) => {
   const existing = new Map<number, { key: string; maImport: string | null }>();
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100);
-    const { results } = await c.env.DB.prepare(
-      `SELECT odoo_id, ngay_cap_nhat_odoo, con_hieu_luc, ma_import_odoo FROM don_bao_hanh_odoo WHERE odoo_id IN (${chunk.map(() => "?").join(", ")})`,
-    )
-      .bind(...chunk)
-      .all<{ odoo_id: number; ngay_cap_nhat_odoo: string | null; con_hieu_luc: number; ma_import_odoo: string | null }>();
+    const { results } = await withD1Retry(() =>
+      c.env.DB.prepare(
+        `SELECT odoo_id, ngay_cap_nhat_odoo, con_hieu_luc, ma_import_odoo FROM don_bao_hanh_odoo WHERE odoo_id IN (${chunk.map(() => "?").join(", ")})`,
+      )
+        .bind(...chunk)
+        .all<{ odoo_id: number; ngay_cap_nhat_odoo: string | null; con_hieu_luc: number; ma_import_odoo: string | null }>(),
+    );
     for (const r of results) {
       existing.set(r.odoo_id, { key: `${r.ngay_cap_nhat_odoo}|${r.con_hieu_luc}|${r.ma_import_odoo}`, maImport: r.ma_import_odoo });
     }
@@ -136,7 +159,10 @@ externalImport.post("/don-bao-hanh-odoo", async (c) => {
       c.env.DB.prepare(sql).bind(id, ...DON_BH_FIELDS.map((f) => (f === "ma_import_odoo" ? maImport : val(r, f))), now),
     );
   }
-  for (let i = 0; i < statements.length; i += 500) await c.env.DB.batch(statements.slice(i, i + 500));
+  for (let i = 0; i < statements.length; i += 500) {
+    const slice = statements.slice(i, i + 500);
+    await withD1Retry(() => c.env.DB.batch(slice));
+  }
   if (statements.length > 0) await bumpVersions(c.env.DB, ["don_bao_hanh_odoo"]);
 
   return c.json({ ghi_moi: ghiMoi, cap_nhat: capNhat, bo_qua: byId.size - statements.length, loi: errors.length, errors });
