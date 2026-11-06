@@ -47,7 +47,10 @@
   "services": [
     { "binding": "VIPHAM_APP", "service": "vipham" },
     { "binding": "LINHKIEN_APP", "service": "linhkien" },
-    { "binding": "THEODOI_APP", "service": "theodoidoimay" }
+    { "binding": "THEODOI_APP", "service": "theodoidoimay" },
+    // 2026-11-06: "SUACHUA_APP" - Worker "suachua" (Gui bao hanh linh kien), luong gui BH cua 1 ca
+    // (lib/suaChuaTimeline.ts). SUACHUA_APP_API_KEY dat qua "wrangler secret put".
+    { "binding": "SUACHUA_APP", "service": "suachua" }
   ],
 
   "vars": {
@@ -59,6 +62,7 @@
     // "wrangler secret put" (da dat).
     "VIPHAM_APP_URL": "https://vipham.dichvu3t.workers.dev",
     "LINHKIEN_APP_URL": "https://linhkien.dichvu3t.workers.dev",
-    "THEODOI_APP_URL": "https://theodoidoimay.dichvu3t.workers.dev"
+    "THEODOI_APP_URL": "https://theodoidoimay.dichvu3t.workers.dev",
+    "SUACHUA_APP_URL": "https://suachua.dichvu3t.workers.dev"
   }
 }

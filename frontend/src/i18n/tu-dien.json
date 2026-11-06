@@ -12758,5 +12758,153 @@
  "Lấy ID Lada 60 ngày": [
   "Load Lada IDs (60 days)",
   "Ambil ID Lada (60 hari)"
+ ],
+ "{0}/{1} hoàn tất": [
+  "{0}/{1} completed",
+  "{0}/{1} selesai"
+ ],
+ "Thất lạc": [
+  "Lost",
+  "Hilang"
+ ],
+ "Hướng xử lý": [
+  "Handling method",
+  "Metode penanganan"
+ ],
+ "Loại bảo hành": [
+  "Warranty type",
+  "Jenis garansi"
+ ],
+ "Linh kiện thực tế": [
+  "Actual part",
+  "Suku cadang aktual"
+ ],
+ "NV sửa chữa": [
+  "Repair staff",
+  "Staf perbaikan"
+ ],
+ "Loại đối trừ": [
+  "Offset type",
+  "Jenis kompensasi"
+ ],
+ "Xử lý xác": [
+  "Defective part disposal",
+  "Penanganan bangkai"
+ ],
+ "Phiếu trả": [
+  "Return slip",
+  "Slip pengembalian"
+ ],
+ "Mã vận đơn trả": [
+  "Return tracking no.",
+  "No. resi pengembalian"
+ ],
+ "Ghi chú Admin:": [
+  "Admin note:",
+  "Catatan Admin:"
+ ],
+ "Ghi chú NV:": [
+  "Staff note:",
+  "Catatan staf:"
+ ],
+ "Kế toán từ chối:": [
+  "Rejected by accounting:",
+  "Ditolak akuntansi:"
+ ],
+ "KTV báo không nhận được:": [
+  "Technician reported not received:",
+  "Teknisi melaporkan tidak diterima:"
+ ],
+ "KTV đánh giá:": [
+  "Technician feedback:",
+  "Penilaian teknisi:"
+ ],
+ "Vận đơn {0}": [
+  "Tracking {0}",
+  "Resi {0}"
+ ],
+ "Đơn Odoo #{0}": [
+  "Odoo order #{0}",
+  "Pesanan Odoo #{0}"
+ ],
+ "Tạo trên app": [
+  "Created in app",
+  "Dibuat di aplikasi"
+ ],
+ "Thùng": [
+  "Box",
+  "Kotak"
+ ],
+ "SL khai {0}": [
+  "Declared qty {0}",
+  "Jml dideklarasikan {0}"
+ ],
+ "thực nhận {0}": [
+  "received {0}",
+  "diterima {0}"
+ ],
+ "KTV đề xuất: {0}": [
+  "Technician proposed: {0}",
+  "Usulan teknisi: {0}"
+ ],
+ "KTV đóng thùng": [
+  "Technician packed box",
+  "Teknisi mengemas kotak"
+ ],
+ "Gửi xe về Kho": [
+  "Shipped to warehouse",
+  "Dikirim ke gudang"
+ ],
+ "Kho nhận hàng": [
+  "Warehouse received",
+  "Gudang menerima"
+ ],
+ "Sự cố: {0}": [
+  "Incident: {0}",
+  "Insiden: {0}"
+ ],
+ "Admin BH nhận": [
+  "Warranty admin received",
+  "Admin garansi menerima"
+ ],
+ "Phân loại / xử lý": [
+  "Classification / handling",
+  "Klasifikasi / penanganan"
+ ],
+ "Trả KTV": [
+  "Returned to technician",
+  "Dikembalikan ke teknisi"
+ ],
+ "Đơn vị xử lý ({0})": [
+  "Handling units ({0})",
+  "Unit penanganan ({0})"
+ ],
+ "▾ Ẩn nhật ký": [
+  "▾ Hide log",
+  "▾ Sembunyikan log"
+ ],
+ "▸ Nhật ký ({0})": [
+  "▸ Log ({0})",
+  "▸ Log ({0})"
+ ],
+ "App Gửi bảo hành": [
+  "Warranty shipping app",
+  "Aplikasi kirim garansi"
+ ],
+ "Không tải được dữ liệu từ app Gửi bảo hành ({0}).": [
+  "Could not load data from the warranty shipping app ({0}).",
+  "Gagal memuat data dari aplikasi kirim garansi ({0})."
+ ],
+ "Mở app Gửi bảo hành ↗": [
+  "Open warranty shipping app ↗",
+  "Buka aplikasi kirim garansi ↗"
+ ],
+ "Gửi BH (app): {0}": [
+  "Warranty shipping (app): {0}",
+  "Kirim garansi (app): {0}"
+ ],
+ "App Gửi bảo hành ({0}) — luồng gửi sửa thực tế": [
+  "Warranty shipping app ({0}) — actual repair flow",
+  "Aplikasi kirim garansi ({0}) — alur perbaikan aktual"
  ]
 }

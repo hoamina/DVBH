@@ -19,6 +19,8 @@ import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai 
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
 import { CancelRequestPanel, parseCancelRequest } from "../components/CancelRequestPanel";
 import { LuongMailPanel, useMailTimeline, NHAT_KY_LABEL } from "../components/LuongMailPanel";
+import { SuaChuaPanel } from "../components/SuaChuaPanel";
+import { useSuaChuaTimeline } from "../lib/suaChuaTimeline";
 import { LadaIds, type CaseLadaRow } from "../components/LadaPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
@@ -1179,6 +1181,9 @@ export function CaseDetail({
   // Luong mail doi tra (he theodoidoimay) - chi lay so thu de hien tren tab; noi dung do LuongMailPanel
   // tu tai (cung queryKey -> React Query dung chung 1 lan goi).
   const { data: mailTimeline } = useMailTimeline(c?.id);
+  // Luong "Gui bao hanh linh kien" (he suachua, 2026-11-06) - keo theo yeu cau, khong luu D1 (lib/suaChuaTimeline.ts).
+  const { data: scTimeline, isLoading: scLoading } = useSuaChuaTimeline(c?.id);
+  const scDonList = useMemo(() => (scTimeline?.ok ? scTimeline.don : []), [scTimeline]);
   const lkOrders = useMemo(() => lkTimeline?.orders ?? [], [lkTimeline]);
   const lkThieuTickets = useMemo(() => lkOrders.flatMap((o) => (o.thieu_lk ?? []).map((t) => ({ order: o, ticket: t }))), [lkOrders]);
   // So "yeu cau thieu LK" tu he Dat mua LK - uu tien block thieu_lk (API moi); linh-kien-app ban cu chua
@@ -1431,6 +1436,24 @@ export function CaseDetail({
       pushDb({ key: `bho-${o.odoo_id}-2`, rawTs: o.ngay_hoan_thanh, tone: "rose", typeLabel: tr("Bảo hành (Odoo): {0} {1}", donBhTrangThai(o.trang_thai).label, o.ma_don ?? ""), actor: null, summary: lk, jumpTab: "loi-linh-kien" });
     }
 
+    // He "Gui bao hanh linh kien" (suachua) - moi dong nhat ky la 1 moc (gio VN local nhu D1 dvbh).
+    for (const d of scDonList) {
+      const lk = d.ten_lk || d.ma_lk || "—";
+      for (const [i, l] of d.timeline.entries()) {
+        const buoc = l.den ? (l.tu ? `${l.tu} → ${l.den}` : l.den) : tr("Cập nhật");
+        pushDb({
+          key: `sc-${d.id}-${i}`,
+          rawTs: l.at,
+          tone: "rose",
+          typeLabel: tr("Gửi BH (app): {0}", buoc),
+          actor: l.nguoi,
+          summary: `${l.ma} · ${lk}${l.ghi_chu ? `
+${l.ghi_chu}` : ""}`,
+          jumpTab: "bao-hanh",
+        });
+      }
+    }
+
     for (const r of thieuHangMatched) {
       pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Tạo yêu cầu"), summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
       pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Kho đã tiếp nhận"), summary: "—", jumpTab: "thieu-hang" });
@@ -1512,7 +1535,7 @@ export function CaseDetail({
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
-  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList, mailTimeline]);
+  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList, mailTimeline, scDonList]);
 
   // "Tieu de tom tat" (chot 2026-08-22) - 5 khoang thoi gian tinh theo "kieu bao trum" (min moc dau -
   // max moc cuoi cua CHINH nhom do, hoac "hien tai" neu con dang mo - CHI ap dung cho case/tranh chap
@@ -2413,9 +2436,19 @@ export function CaseDetail({
   // Dung chung cho ca goc + cot ca doi chieu (2026-10-08) - moi ben truyen du lieu cua chinh ca do.
   // hienBanner (2026-10-30): banner dong bo mua hang/bao hanh chi hien 1 lan tren man hinh - an o day khi cot phai (expanded)
   // dang mo 1 tab cung nguon da co banner, va luon an o cot ca doi chieu.
-  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched, hienBanner = true) {
+  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched, hienBanner = true, coSuaChua = false) {
+    const hienSc = coSuaChua && (scLoading || scDonList.length > 0 || (!!scTimeline?.configured && !scTimeline.ok));
     return (
       <div>
+        {hienSc && (
+          <div className="mb-4">
+            <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">
+              {tr("App Gửi bảo hành ({0}) — luồng gửi sửa thực tế", scDonList.length)}
+            </div>
+            <SuaChuaPanel data={scTimeline} isLoading={scLoading} />
+            {orders.length === 0 && <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>}
+          </div>
+        )}
         {orders.length > 0 && (
           <div className="mb-4">
             <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn Odoo (")}{orders.length}{tr(") — chi tiết theo linh kiện ở mục \"Lỗi\"")}</div>
@@ -2467,6 +2500,7 @@ export function CaseDetail({
     donBaoHanhOdooList,
     baoHanhMatched,
     !(viewMode === "expanded" && ["mua-hang", "thieu-hang", "po-dat-hang", "qc-thuc-te"].includes(tab)),
+    true,
   );
 
   // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
@@ -2574,7 +2608,8 @@ export function CaseDetail({
           onAnChange: changeAnTruong,
           cardRef: xuLyCardRef,
           countLoi: linhKienLoiList.length,
-          countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length,
+          // Don suachua gan don Odoo da duoc dem trong donBaoHanhOdooList -> chi cong don tao tay tren app.
+          countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length + scDonList.filter((d) => !d.odoo_id).length,
           countLichHen: lichHenList.length,
           countYeuCauHuy: yeuCauHuyList.length,
           panels: {

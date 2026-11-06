@@ -39,6 +39,7 @@ import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc,
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, canWriteTranhChap } from "../lib/tranhChapTienTrinh";
 import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
+import { fetchSuaChuaTimeline } from "../lib/suaChuaTimeline";
 import { fetchMailTimeline, postDoiTraAction, type DoiTraAction } from "../lib/mailTimeline";
 import { getTonKtvMonth } from "../lib/tonKtvSnapshot";
 import { fetchLadaDon } from "../lib/etxGiaiTrinhSync";
@@ -1191,6 +1192,19 @@ cases.get("/:id/linh-kien-timeline", async (c) => {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
   return c.json(await fetchLinhKienTimeline(c.env, id));
+});
+
+// Luong "Gui bao hanh linh kien" (he suachua, lib/suaChuaTimeline.ts, 2026-11-06) - CaseDetail tab "Gui BH" +
+// "Tien trinh chung". Cung pham vi khu vuc nhu chi tiet ca.
+cases.get("/:id/sua-chua-timeline", async (c) => {
+  const id = c.req.param("id");
+  const caseRow = await c.env.DB.prepare("SELECT khu_vuc FROM case_dvbh WHERE id = ?").bind(id).first<{ khu_vuc: string | null }>();
+  if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeByKhuVuc(c);
+  if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
+    return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+  }
+  return c.json(await fetchSuaChuaTimeline(c.env, id));
 });
 
 // Popup "ID Lada" (migration 0153): nhat ky don Lada tra TRUC TIEP API ETX theo order_id (khong luu D1). Chi tra duoc

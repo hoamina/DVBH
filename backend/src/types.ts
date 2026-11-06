@@ -117,6 +117,11 @@ export interface Env {
   THEODOI_APP_URL?: string;
   THEODOI_APP_API_KEY?: string;
   THEODOI_APP?: Fetcher;
+  // He "Gui bao hanh linh kien" (suachua.dichvu3t.workers.dev) - keo luong gui bao hanh cua 1 ca qua
+  // GET /api/partner/v1/case-timeline (xem lib/suaChuaTimeline.ts, 2026-11-06). Optional nhu LINHKIEN_APP_*.
+  SUACHUA_APP_URL?: string;
+  SUACHUA_APP_API_KEY?: string;
+  SUACHUA_APP?: Fetcher;
   // Khoa "pham vi toan bo" cua API doi tac ETX (doc duoc nhat ky giai trinh ton cua MOI doi tac B2B,
   // xem lib/etxGiaiTrinhSync.ts + "API_B2B_giaitrinh v2.md") - optional vi local dev khong can goi
   // API that; thieu bien nay thi cron tu bo qua (xem syncGiaiTrinhTonB2B "MISSING_API_KEY").

@@ -5244,3 +5244,14 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   UI/ảnh Telegram/từ điển). Giữ key nội bộ `vipSvip5`/`vipSvip7` + cột lịch sử `vip_svip_5/7_ngay` (số các ngày trước là ngưỡng
   cũ). API `danh-sach-ton?loai=canh-bao-ceo`: mã nhóm `vip_svip_tu_7_ngay` → `vip_svip_tu_4_ngay` (PARTNER_API_GUIDE §). Số chốt
   hôm nay đã chốt theo ngưỡng cũ — áp dụng từ lần chốt 08:00 kế tiếp (07/11).
+
+## 2026-11-06 — CaseDetail "Gửi BH": kéo luồng gửi bảo hành từ app suachua (dvbh v1.529, suachua v1.089)
+- Phân tích UI: tab "Gửi BH" chỉ có (1) đơn Odoo + 1 badge tóm tắt `sc_*` (suachua đẩy 15 phút/lần), (2) AppSheet cũ. Không thấy
+  thùng/nhà xe/vận đơn, ai nhận kho, hướng xử lý, NV sửa, kết quả, phiếu trả, nhật ký; đơn KTV tạo tay trên suachua (không có đơn
+  Odoo) hoàn toàn không hiện.
+- Làm: suachua `GET /api/partner/v1/case-timeline?id=` (secret `DVBH_PARTNER_API_KEY`) → dvbh `lib/suaChuaTimeline.ts` (Service
+  Binding `SUACHUA_APP`, secret `SUACHUA_APP_API_KEY`) → `GET /api/cases/:id/sua-chua-timeline` (cùng phạm vi khu vực) →
+  `components/SuaChuaPanel.tsx`: khối "App Gửi bảo hành" đầu tab Gửi BH (giai đoạn, 6 mốc luồng, đơn vị xử lý, phiếu trả, nhật ký),
+  mốc nhật ký vào "Tiến trình chung" ("Gửi BH (app): …"), số đếm tab cộng thêm đơn tạo tay (đơn có Odoo đã đếm ở nguồn Odoo).
+- Phản biện đã chốt: gọi theo yêu cầu (không lưu D1, mẫu linh-kien-timeline) — không dùng được cho báo cáo/danh sách, chấp nhận;
+  giữ badge `sc_*` (danh sách cần, không phải gọi API); không trả email nhân viên; key riêng mỗi chiều; cột ca đối chiếu không gọi.
