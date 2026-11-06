@@ -46,6 +46,24 @@
       "env": {
         "DVBH_API_TARGET": "http://localhost:8788"
       }
+    },
+    {
+      "name": "dvbh-worker-8788-suachua",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "backend",
+        "--",
+        "--port",
+        "8788",
+        "--var",
+        "SUACHUA_APP_URL:http://127.0.0.1:8789",
+        "--var",
+        "SUACHUA_APP_API_KEY:localtest"
+      ],
+      "port": 8788
     }
   ]
 }
