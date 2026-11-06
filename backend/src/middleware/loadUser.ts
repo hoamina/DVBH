@@ -39,9 +39,13 @@ const USER_COLUMNS = "email, ten, ten_goi, gioi_tinh, vai_tro, khu_vuc_phu_trach
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
-  await c.env.DB.prepare("PRAGMA foreign_keys = ON").run();
-
-  let row = await c.env.DB.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ?`).bind(email).first<UserRow>();
+  // 2026-11-07: gop PRAGMA + doc user thanh 1 luot batch (truoc la 2 luot tuan tu) - moi luot phai xep hang doi D1 (DB chay
+  // 1 truy van/luc), luc D1 co hang doi thi moi luot them la them do tre cho MOI request. Giu PRAGMA (khong bo) cho chac.
+  const [, userRes] = await c.env.DB.batch<UserRow>([
+    c.env.DB.prepare("PRAGMA foreign_keys = ON"),
+    c.env.DB.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ?`).bind(email),
+  ]);
+  let row: UserRow | null = userRes?.results?.[0] ?? null;
 
   if (!row) {
     const isBootstrapAdmin = email === c.env.BOOTSTRAP_ADMIN_EMAIL;

@@ -378,6 +378,12 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
 - **"D1 DB is overloaded" (account-wide, lasts minutes during the pipeline import window, 2026-11-05)**: background/import
   writes that must not be lost go through `lib/d1Retry.ts withD1Retry` (only retries that error). It silently stopped the
   R2 "đã đóng" snapshot 03–05/11 (bg_error write failed too) → Danh sách tổng missed cases.
+- **Latency = D1 queue time, not rows (audit 2026-11-07)**: one D1 DB runs ONE query at a time, so a 1 ms case search waits
+  behind every 1–5 s report query, and "overloaded" = this DB's own queue passing ~10 s. Rank optimizations by
+  `wrangler d1 insights … --sort-by=time` (total ms held), not only by rows read. Each sequential D1 round trip per request
+  also queues separately — batch independent reads with `db.batch` (done in `loadUser` + `cachedReport`, v1.536). Before a
+  recreate-table migration, re-create EVERY index of the old table: migration 0022 silently lost `idx_ket_qua_goi_ngay`
+  (restored in 0154) and call-history-by-month scanned the whole table at ~5.5 s for months.
 - **Max 100 bound parameters per statement** (D1-specific; plain SQLite allows ~32k). A dynamic
   `IN (?, ?, ...)` built from a data-driven list (ids, emails) fails with "too many SQL variables" once
   the list + other binds pass 100 — the Ca lặp Excel export did exactly this with ~3-4k prior ids
@@ -417,7 +423,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0153`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0154`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

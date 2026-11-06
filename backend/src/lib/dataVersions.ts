@@ -64,15 +64,27 @@ export async function bumpVersions(db: D1Database, domains: DataDomain[]): Promi
  * duoc bump (chua co dong trong data_versions) coi nhu version 0, van co mat trong tag de 2 lan
  * goi cung danh sach domain luon ra cung dinh dang chuoi. */
 export async function getVersionTag(db: D1Database, domains: DataDomain[]): Promise<string> {
+  const [stmt, doc] = versionTagStatement(db, domains);
+  if (!stmt) return doc([]);
+  const { results } = await stmt.all<{ domain: string; version: number }>();
+  return doc(results);
+}
+
+/** Tach rieng cau SELECT + ham ghep tag de reportCache.ts gop chung 1 luot db.batch voi cau doc envelope (2026-11-07).
+ * Ket qua ghep GIONG HET getVersionTag. Khong co domain -> stmt null, tag "". */
+export function versionTagStatement(
+  db: D1Database,
+  domains: DataDomain[],
+): [D1PreparedStatement | null, (rows: { domain: string; version: number }[]) => string] {
   const sorted = Array.from(new Set(domains)).sort();
-  if (sorted.length === 0) return "";
-
+  if (sorted.length === 0) return [null, () => ""];
   const placeholders = sorted.map(() => "?").join(", ");
-  const { results } = await db
-    .prepare(`SELECT domain, version FROM data_versions WHERE domain IN (${placeholders})`)
-    .bind(...sorted)
-    .all<{ domain: string; version: number }>();
-
-  const versionByDomain = new Map(results.map((r) => [r.domain, r.version]));
-  return sorted.map((d) => `${d}:${versionByDomain.get(d) ?? 0}`).join("|");
+  const stmt = db.prepare(`SELECT domain, version FROM data_versions WHERE domain IN (${placeholders})`).bind(...sorted);
+  return [
+    stmt,
+    (rows) => {
+      const versionByDomain = new Map(rows.map((r) => [r.domain, r.version]));
+      return sorted.map((d) => `${d}:${versionByDomain.get(d) ?? 0}`).join("|");
+    },
+  ];
 }

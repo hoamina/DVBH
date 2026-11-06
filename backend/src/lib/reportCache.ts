@@ -10,7 +10,7 @@
  * KHONG can biet domain nao vua doi, chi can khai bao dung danh sach domain minh phu thuoc.
  */
 import type { DataDomain } from "./dataVersions";
-import { getVersionTag } from "./dataVersions";
+import { versionTagStatement } from "./dataVersions";
 
 interface CacheEnvelope<T> {
   v: string;
@@ -49,15 +49,26 @@ export function getVnDateStr(): string {
  * 100% kieu T cua compute(), reportCache chi boc ngoai khong dong vao noi dung. */
 // extraTag (2026-11-06): noi them vao tag cho nguon du lieu doi ma KHONG bump domain nao (vd so chot 08:00 daily_snapshot,
 // chot 17h30 giai_trinh_daily_log) - nguoi goi tu doc 1 "dau van tay" re cua nguon do roi truyen vao.
-export async function cachedReport<T>(db: D1Database, key: string, domains: DataDomain[], compute: () => Promise<T>, extraTag = ""): Promise<T> {
-  const currentTag = `${await getVersionTag(db, domains)}|ngay:${getVnDateStr()}${extraTag ? `|${extraTag}` : ""}`;
 
-  const row = await db.prepare("SELECT payload FROM precomputed_cache WHERE key = ?").bind(key).first<{ payload: string }>();
+export async function cachedReport<T>(db: D1Database, key: string, domains: DataDomain[], compute: () => Promise<T>, extraTag = ""): Promise<T> {
+  // 2026-11-07: doc version-tag + envelope trong 1 luot batch (truoc la 2 luot tuan tu, moi luot xep hang doi D1 rieng).
+  const [versionStmt, readVersion] = versionTagStatement(db, domains);
+  const stmts: D1PreparedStatement[] = [db.prepare("SELECT payload FROM precomputed_cache WHERE key = ?").bind(key)];
+  if (versionStmt) stmts.push(versionStmt);
+  const res = await db.batch(stmts);
+  const row = (res[0]?.results?.[0] as { payload: string } | undefined) ?? null;
+  const versionTag = readVersion(versionStmt ? ((res[1]?.results ?? []) as { domain: string; version: number }[]) : []);
+  const currentTag = `${versionTag}|ngay:${getVnDateStr()}${extraTag ? `|${extraTag}` : ""}`;
+
   if (row) {
     const envelope = JSON.parse(row.payload) as CacheEnvelope<T>;
     if (envelope.v === currentTag) return envelope.data;
   }
 
+  return tinhVaGhi(db, key, currentTag, compute);
+}
+
+async function tinhVaGhi<T>(db: D1Database, key: string, currentTag: string, compute: () => Promise<T>): Promise<T> {
   const data = await compute();
   const envelope: CacheEnvelope<T> = { v: currentTag, data };
   await db

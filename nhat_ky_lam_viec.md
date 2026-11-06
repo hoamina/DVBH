@@ -5311,3 +5311,21 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   cỡ thường màu đậm) cho: ghi chú các bước luồng dọc, ghi chú Admin/NV/Kế toán từ chối/KTV báo không nhận/KTV đánh giá (tab Bảo
   hành), "Tình trạng lỗi" đơn Odoo + "Ghi chú" linh kiện lỗi (tab Lỗi). Luồng ngang thêm hàng ghi chú các bước đã tới ngay dưới
   (trước chỉ hiện khi rê chuột); người làm ở luồng dọc chữ thường + 👤.
+
+## 2026-11-07 — Rà soát hiệu năng / bảo mật toàn app + Giai đoạn 1 (v1.536)
+- Nguyên văn: *"hệ thống đang có hiện tượng lag, chậm, tốc độ giảm, tìm kiếm case không phản hồi ... kiểm tra lần lượt các màn
+  hình giao diện, báo cáo, cách lấy dữ liệu ... đưa ra giải pháp mà không làm ảnh hưởng đến nhu cầu công việc"*.
+- Đo production: Worker trung vị 200–430ms nhưng P99 5–9s; `/cases/search` chỉ ~1ms (MULTI-INDEX OR id/seri) → chậm do XẾP HÀNG
+  sau truy vấn nặng (1 D1 DB chạy 1 truy vấn/lúc). Top 40 truy vấn chiếm ~707s D1/24h. Đã sửa trước đó: khảo sát candidates
+  (v1.527), backlog-daily (v1.534).
+- Lỗi thật: `idx_ket_qua_goi_ngay` (0019) MẤT trên production từ migration 0022 (dựng lại bảng) → Lịch sử khảo sát theo tháng
+  ~5,5s/lần quét toàn bảng. Migration 0154 tạo lại (IF NOT EXISTS). So toàn bộ index migrations vs production: chỉ còn 2 index
+  bảng phiếu đặt cũ (module đã tách sang linh-kien-app) thiếu, không ảnh hưởng.
+- v1.536: `loadUser` gộp PRAGMA + đọc user 1 lượt `db.batch`; `cachedReport` gộp đọc version + envelope 1 lượt (`versionTagStatement`
+  mới trong dataVersions.ts, tag giống hệt). Header bảo mật: API (middleware index.ts) + tĩnh (`frontend/public/_headers`:
+  nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy, Permissions-Policy; /assets/* immutable 1 năm vì tên file có hash).
+- Đã cân nhắc rồi BỎ: cache trong bộ nhớ vài giây (người vừa lưu giải trình thấy số cũ); "chống dồn" chờ chung Promise giữa các
+  request (Workers: request gốc bị hủy thì request chờ có thể treo mãi). Chưa đổi: dời chốt 08:00 → 7h30 (chủ hệ thống cho phép
+  nếu cần — đo giờ 8h sau bản này rồi quyết).
+- Còn mở: 1 secret production có TÊN là chuỗi hex 64 ký tự (nghi gõ nhầm giá trị vào chỗ tên) — chờ chủ hệ thống xác nhận để xóa +
+  xoay khóa. Giai đoạn 2: gộp mỗi màn báo cáo thành 1 request (Quản lý tồn trước), viết lại các truy vấn 1–5s.

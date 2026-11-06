@@ -57,6 +57,22 @@ import banDichRoutes from "./routes/banDich";
 
 const app = new Hono<{ Bindings: Env }>();
 // "Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (lib/phamVi.ts) - GET co ?pv= doc/ghi bo du lieu rieng cua pham vi.
+// Header bao mat cho moi response API (2026-11-07; tai nguyen tinh dung frontend/public/_headers).
+app.use("/api/*", async (c, next) => {
+  await next();
+  const dat = (h: Headers) => {
+    h.set("X-Content-Type-Options", "nosniff");
+    h.set("X-Frame-Options", "SAMEORIGIN");
+    h.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  };
+  try {
+    dat(c.res.headers);
+  } catch {
+    // Response lay thang tu fetch()/Service Binding co headers bat bien -> boc lai 1 Response moi roi moi dat.
+    c.res = new Response(c.res.body, c.res);
+    dat(c.res.headers);
+  }
+});
 app.use("/api/*", phamViMiddleware);
 
 app.route("/api/auth", authRoutes);

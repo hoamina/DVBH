@@ -1,0 +1,10 @@
+# Header bao mat cho tai nguyen tinh (2026-11-07) - Workers Static Assets doc file nay, khong qua Worker.
+# Khong dat CSP o day (widget 3T Pet / font / anh Drive tu nguon ngoai) - neu can thi bat Report-Only truoc.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
