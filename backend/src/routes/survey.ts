@@ -26,7 +26,7 @@ import {
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
-import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION, LOAI_TRU_SELECT_COLUMNS } from "../lib/surveyConditions";
+import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION, tinhCoLoaiTru, type LoaiTruRow } from "../lib/surveyConditions";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 
@@ -85,14 +85,18 @@ survey.get("/candidates", async (c) => {
 
   const timeCondition = tab === "qua-han-khao-sat" ? OVERDUE_SURVEY_CONDITION : RECENT_OR_OPEN_CONDITION;
 
-  const { results } = await c.env.DB.prepare(
+  // 2026-11-06: cot loai_tru_* tinh bang JS (tinhCoLoaiTru) thay cho LOAI_TRU_SELECT_COLUMNS trong SELECT - ban SQL
+  // la 4 EXISTS/ca va SQLite chon "SCAN khao_sat_loai_tru" (~340 dong) cho moi EXISTS -> ~1.3M rows read/lan mo
+  // danh sach (~370M/ngay). Doc ca bang loai tru 1 lan (vai tram dong) roi so khop o day, cung dieu kien voi
+  // loaiTruExistsSql (lib/surveyConditions.ts).
+  const [{ results }, { results: loaiTru }] = await c.env.DB.batch([
+    c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.assigned_to, c.mo_ta_loi, c.ky_thuat_vien, c.tinh, c.quan_huyen, c.seri_san_pham,
             c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hen_xu_ly, c.thoi_gian_hoan_thanh, c.link_crm, c.noi_dung_xu_ly,
             CASE WHEN c.loi_120p = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi 120 phut') THEN 1 ELSE 0 END as need_loi_120p,
             CASE WHEN c.loi_qua_han_24h = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Hen qua 24h') THEN 1 ELSE 0 END as need_loi_qua_han_24h,
             CASE WHEN c.loi_lo_ke_hoach = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'Loi lo ke hoach') THEN 1 ELSE 0 END as need_loi_lo_ke_hoach,
             CASE WHEN c.loi_kh_hen_lai = 1 AND NOT EXISTS (SELECT 1 FROM vi_pham v WHERE v.case_id = c.id AND v.loai_loi = 'KH hen lai') THEN 1 ELSE 0 END as need_loi_kh_hen_lai,
-            ${LOAI_TRU_SELECT_COLUMNS},
             -- Phan loai 3 nhom loai tru nhau (CHOT 2026-08-22 lan 3, dung cong thuc voi khoi 5 cua
             -- computeSurveyKhuVucReport - xem chu thich day du o do): "chua_goi" (chua co ban ghi
             -- ket_qua_goi nao), "cho_goi_lai" (cuoc goi GAN NHAT tich can_goi_lai=1), "con_loi_chua_
@@ -108,11 +112,21 @@ survey.get("/candidates", async (c) => {
        AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?
        AND ${timeCondition} AND c.can_khao_sat = 1${scopeClause.sql}${extraFilter}
      ORDER BY c.thoi_gian_cskh_tiep_nhan DESC`,
-  )
-    .bind(start, end, ...scopeClause.binds, ...extraBinds)
-    .all();
+    ).bind(start, end, ...scopeClause.binds, ...extraBinds),
+    c.env.DB.prepare("SELECT ma_ktv, loai_loi, tu_ngay, den_ngay FROM khao_sat_loai_tru"),
+  ]);
 
-  return c.json({ rows: results });
+  const rows = (results as Record<string, unknown>[]).map((r) => {
+    const co = tinhCoLoaiTru(loaiTru as LoaiTruRow[], r.ky_thuat_vien as string | null, r.thoi_gian_cskh_tiep_nhan as string | null);
+    return {
+      ...r,
+      loai_tru_120p: co("Loi 120 phut"),
+      loai_tru_qua_han_24h: co("Hen qua 24h"),
+      loai_tru_lo_ke_hoach: co("Loi lo ke hoach"),
+      loai_tru_kh_hen_lai: co("KH hen lai"),
+    };
+  });
+  return c.json({ rows });
 });
 
 // GET /api/survey/call-history?thang=YYYY-MM&khu_vuc=&tinh=&quan_huyen=&ky_thuat_vien= - toan bo cuoc

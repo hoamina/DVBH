@@ -46,3 +46,19 @@ export const LOAI_TRU_SELECT_COLUMNS = `
   CASE WHEN ${loaiTruExistsSql("Hen qua 24h")} THEN 1 ELSE 0 END as loai_tru_qua_han_24h,
   CASE WHEN ${loaiTruExistsSql("Loi lo ke hoach")} THEN 1 ELSE 0 END as loai_tru_lo_ke_hoach,
   CASE WHEN ${loaiTruExistsSql("KH hen lai")} THEN 1 ELSE 0 END as loai_tru_kh_hen_lai`;
+
+// 2026-11-06: ban JS cua loaiTruExistsSql cho GET /survey/candidates (doc khao_sat_loai_tru 1 lan thay vi 4 EXISTS/ca,
+// xem chu thich o route). PHAI giu dung dieu kien voi loaiTruExistsSql: ky_thuat_vien bat dau bang "(ma_ktv)" va
+// 10 ky tu dau cua thoi_gian_cskh_tiep_nhan nam trong [tu_ngay, den_ngay] (so sanh chuoi nhu SQLite BETWEEN).
+export interface LoaiTruRow {
+  ma_ktv: string;
+  loai_loi: string;
+  tu_ngay: string;
+  den_ngay: string;
+}
+export function tinhCoLoaiTru(ds: LoaiTruRow[], kyThuatVien: string | null, tiepNhan: string | null): (loaiLoi: string) => 0 | 1 {
+  if (!kyThuatVien || !tiepNhan) return () => 0;
+  const ngay = tiepNhan.slice(0, 10);
+  const khop = ds.filter((x) => kyThuatVien.startsWith(`(${x.ma_ktv})`) && ngay >= x.tu_ngay && ngay <= x.den_ngay);
+  return (loaiLoi) => (khop.some((x) => x.loai_loi === loaiLoi) ? 1 : 0);
+}
