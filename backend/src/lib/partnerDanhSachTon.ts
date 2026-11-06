@@ -33,7 +33,7 @@ export type DanhSachTonLoai = keyof typeof DANH_SACH_TON_LOAI;
 // CANH_BAO_TON_METRICS).
 const NHOM_CEO: { key: CanhBaoTonMetricKey; ma: string; ten: string }[] = [
   { key: "ton20", ma: "ton_tren_20_ngay", ten: "Tồn >20 ngày" },
-  { key: "vipSvip7", ma: "vip_svip_tu_7_ngay", ten: "VIP/S.VIP tồn ≥7 ngày" },
+  { key: "vipSvip7", ma: "vip_svip_tu_4_ngay", ten: "VIP/S.VIP tồn ≥4 ngày" },
   { key: "locTong5", ma: "loc_tong_tu_5_ngay", ten: "Lọc tổng tồn ≥5 ngày" },
   { key: "tranhChap5", ma: "tranh_chap_tu_5_ngay", ten: "Tranh chấp/KN ≥5 ngày" },
   { key: "luongDoiTra10", ma: "luong_doi_tra_tu_10_ngay", ten: "Luồng đổi trả tồn ≥10 ngày" },

@@ -5232,3 +5232,15 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - ④ linh-kien-app: `dat_don_hang.ma_yeu_cau_su_co` thiếu index (case-timeline ~12k lần/ngày quét 5,4k dòng) → migration 0107.
 - Còn mở: sua-chua tăng tự nhiên (2M → 90M/ngày từ 31/10, theo dõi); push lỗi ở linh-kien-app (repo not found), EO (403), dvbh
   remote `etx87` lệch 2 commit "Workflow Mây" (chưa push); `event_log` EO có bản ghi ngày 2206-05-14.
+
+## 2026-11-06 — Tổng quát "Tháng hiện tại" không load + lùi ngưỡng Cảnh báo tồn VIP/S.VIP (v1.528)
+- ① Tổng quát chọn "Tháng hiện tại" hiện toàn 0 (cả Tỷ lệ SLA 0% → API không trả dữ liệu), tháng cụ thể vẫn chạy. Bộ lọc mặc
+  định đọc số chốt 08:00 (`getSnapshotForUser`); khi hôm nay chưa có số chốt của phạm vi người xem (nghi do cron 08:00 dính
+  "D1 DB is overloaded" — bước chốt đã bọc try/catch từ v1.526 nên lỗi bị nuốt) thì request tự tính lại CẢ payload, lỗi/treo là
+  trắng trang. Không xác nhận được trên production (SELECT D1 remote bị chặn, chưa đăng nhập trình duyệt). Sửa: `getSnapshotForUserAnToan`
+  (lỗi hoặc >8s → tính sống qua `cachedReport` như bộ lọc tháng cụ thể, lần tính số chốt dở vẫn chạy tiếp qua `waitUntil`) cho
+  `/dashboard/kpis`, `/dashboard/pivot`, `/revenue`.
+- ② Cảnh báo tồn VIP/S.VIP (chủ hệ thống): Cấp 1 TP DVBH ≥5 → ≥3 ngày, Cấp 2 CEO ≥7 → ≥4 ngày (`NEED_VIP_SVIP_5/7_NGAY`, nhãn
+  UI/ảnh Telegram/từ điển). Giữ key nội bộ `vipSvip5`/`vipSvip7` + cột lịch sử `vip_svip_5/7_ngay` (số các ngày trước là ngưỡng
+  cũ). API `danh-sach-ton?loai=canh-bao-ceo`: mã nhóm `vip_svip_tu_7_ngay` → `vip_svip_tu_4_ngay` (PARTNER_API_GUIDE §). Số chốt
+  hôm nay đã chốt theo ngưỡng cũ — áp dụng từ lần chốt 08:00 kế tiếp (07/11).

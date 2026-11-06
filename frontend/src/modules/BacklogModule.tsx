@@ -459,12 +459,12 @@ type CanhBaoTonMetricKey =
   | "ton20" | "vipSvip7" | "locTong5" | "tranhChap5" | "luongDoiTra10";
 const CANH_BAO_TON_METRICS: { cap: 1 | 2; key: CanhBaoTonMetricKey; label: string; trendCol: string }[] = [
   { cap: 1, key: "ton14", label: tr("Tồn ≥14 ngày"), trendCol: "ton_14_ngay" },
-  { cap: 1, key: "vipSvip5", label: tr("VIP/S.VIP tồn ≥5 ngày"), trendCol: "vip_svip_5_ngay" },
+  { cap: 1, key: "vipSvip5", label: tr("VIP/S.VIP tồn ≥3 ngày"), trendCol: "vip_svip_5_ngay" },
   { cap: 1, key: "locTong3", label: tr("Lọc tổng tồn ≥3 ngày"), trendCol: "loc_tong_3_ngay" },
   { cap: 1, key: "tranhChap3", label: tr("Tranh chấp/KN ≥3 ngày"), trendCol: "tranh_chap_3_ngay" },
   { cap: 1, key: "luongDoiTra7", label: tr("Luồng đổi trả ≥7 ngày"), trendCol: "luong_doi_tra_7_ngay" },
   { cap: 2, key: "ton20", label: tr("Tồn >20 ngày"), trendCol: "ton_20_ngay" },
-  { cap: 2, key: "vipSvip7", label: tr("VIP/S.VIP tồn ≥7 ngày"), trendCol: "vip_svip_7_ngay" },
+  { cap: 2, key: "vipSvip7", label: tr("VIP/S.VIP tồn ≥4 ngày"), trendCol: "vip_svip_7_ngay" },
   { cap: 2, key: "locTong5", label: tr("Lọc tổng tồn ≥5 ngày"), trendCol: "loc_tong_5_ngay" },
   { cap: 2, key: "tranhChap5", label: tr("Tranh chấp/KN ≥5 ngày"), trendCol: "tranh_chap_5_ngay" },
   { cap: 2, key: "luongDoiTra10", label: tr("Luồng đổi trả ≥10 ngày"), trendCol: "luong_doi_tra_10_ngay" },
@@ -620,11 +620,11 @@ const NHOM_OPTIONS = [
   { value: "da-giai-trinh-trong-ngay", label: tr("Đã giải trình trong ngày") },
   { value: "da-dong", label: tr("Ca đã đóng") },
   { value: "canh-bao-ton:ton14", label: tr("Cảnh báo tồn — Cấp 1: Tồn ≥14 ngày") },
-  { value: "canh-bao-ton:vipSvip5", label: tr("Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥5 ngày") },
+  { value: "canh-bao-ton:vipSvip5", label: tr("Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥3 ngày") },
   { value: "canh-bao-ton:locTong3", label: tr("Cảnh báo tồn — Cấp 1: Lọc tổng tồn ≥3 ngày") },
   { value: "canh-bao-ton:tranhChap3", label: tr("Cảnh báo tồn — Cấp 1: Tranh chấp/KN ≥3 ngày") },
   { value: "canh-bao-ton:ton20", label: tr("Cảnh báo tồn — Cấp 2: Tồn >20 ngày") },
-  { value: "canh-bao-ton:vipSvip7", label: tr("Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥7 ngày") },
+  { value: "canh-bao-ton:vipSvip7", label: tr("Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥4 ngày") },
   { value: "canh-bao-ton:locTong5", label: tr("Cảnh báo tồn — Cấp 2: Lọc tổng tồn ≥5 ngày") },
   { value: "canh-bao-ton:tranhChap5", label: tr("Cảnh báo tồn — Cấp 2: Tranh chấp/KN ≥5 ngày") },
 ];

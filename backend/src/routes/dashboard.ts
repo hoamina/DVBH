@@ -3,7 +3,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { getDailyReportWithDelta, getSnapshotForUser, isDefaultReportParams } from "../lib/dailySnapshot";
+import { getDailyReportWithDelta, getSnapshotForUserAnToan, isDefaultReportParams } from "../lib/dailySnapshot";
 import { type DashboardFilterParams, computeDashboardKpis, PIVOT_DIMS, computeDashboardPivot } from "../lib/dashboardCompute";
 import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_FILTERS_BY_KV_CACHE_KEY } from "../lib/precomputedCache";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -192,7 +192,7 @@ dashboard.get("/kpis", async (c) => {
     nhom_san_pham: c.req.query("nhom_san_pham"),
   };
   if (isDefaultReportParams(params)) {
-    const snap = await getSnapshotForUser(c.env.DB, c.get("user"));
+    const snap = await getSnapshotForUserAnToan(c.env.DB, c.get("user"), (p) => c.executionCtx.waitUntil(p));
     if (snap) return c.json(snap.payload.kpis);
   }
   const key = buildReportKey("dashboard/kpis", params, scope);
@@ -219,7 +219,7 @@ dashboard.get("/pivot", async (c) => {
     dg_loc: c.req.query("dg_loc") || undefined,
   };
   if (isDefaultReportParams(params) && !params.dg_loc) {
-    const snap = await getSnapshotForUser(c.env.DB, c.get("user"));
+    const snap = await getSnapshotForUserAnToan(c.env.DB, c.get("user"), (p) => c.executionCtx.waitUntil(p));
     if (snap && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return c.json({ rows: snap.payload.pivotByDim[dimKey] ?? [] });
   }
   // "v2" (2026-10-22): dim KTV doi sang KTV trien khai - bo envelope cache cu nhom theo tram.

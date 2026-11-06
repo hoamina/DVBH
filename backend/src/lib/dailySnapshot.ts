@@ -567,6 +567,38 @@ export async function getSnapshotForUser(db: D1Database, user: AppUser): Promise
   return { generatedAt: row.generated_at, generatedBy: row.generated_by, payload: JSON.parse(row.payload) };
 }
 
+const SNAPSHOT_DOC_TOI_DA_MS = 8000;
+
+/** Ban "an toan" cua getSnapshotForUser cho cac GET bao cao mac dinh (Tong quat /kpis + /pivot, Bao cao doanh thu) - sua
+ * 2026-11-06 "Tong quat chon Thang hien tai khong load": khi hom nay chua co so chot cua pham vi nguoi xem (vd cron 08:00
+ * dinh "D1 DB is overloaded" - buoc chot da boc try/catch nen loi bi nuot), getSnapshotForUser tinh lai CA payload ngay
+ * trong request; buoc nang do loi/treo thi ca trang hien 0. Gio: loi hoac qua SNAPSHOT_DOC_TOI_DA_MS -> tra null de route
+ * tinh song qua cachedReport (dung duong cua bo loc thang cu the). Lan tinh dang chay van duoc giu qua waitUntil de ghi
+ * xong so chot cho lan sau. */
+export async function getSnapshotForUserAnToan(
+  db: D1Database,
+  user: AppUser,
+  waitUntil?: (p: Promise<unknown>) => void,
+): Promise<SnapshotForUser | null> {
+  const p = getSnapshotForUser(db, user);
+  const daBat = p.catch((err) => {
+    console.error("getSnapshotForUserAnToan: doc so chot loi, tinh song", err instanceof Error ? err.message : String(err));
+    return null;
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const hetGio = new Promise<"het_gio">((resolve) => {
+    timer = setTimeout(() => resolve("het_gio"), SNAPSHOT_DOC_TOI_DA_MS);
+  });
+  const kq = await Promise.race([daBat, hetGio]);
+  if (timer) clearTimeout(timer);
+  if (kq === "het_gio") {
+    console.error("getSnapshotForUserAnToan: doc so chot qua", SNAPSHOT_DOC_TOI_DA_MS, "ms, tinh song");
+    waitUntil?.(daBat);
+    return null;
+  }
+  return kq;
+}
+
 // D1 gioi han DUNG 100 tham so bind/cau lenh (xem developers.cloudflare.com/d1/platform/limits/,
 // giong chu thich CHUNK_SIZE_SERI o lib/caLapRefresh.ts - loi that da gap production 2026-07-29).
 // Chunk id can chua them 1-2 bind "since" (caLap nhanh "khac" can ca ngay_giai_trinh LAN ngay_qc) nen

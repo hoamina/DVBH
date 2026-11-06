@@ -678,7 +678,7 @@ Trả JSON (không phải Excel) 1 trong 2 danh sách, chọn bằng tham số `
 
 | `loai` | Danh sách | Thời điểm số liệu |
 |---|---|---|
-| `canh-bao-ceo` | Đúng danh sách thẻ **"Cảnh báo tồn · Cấp 2 (CEO)"** ở module Quản lý tồn — 5 nhóm: `ton_tren_20_ngay` (tồn >20 ngày), `vip_svip_tu_7_ngay` (KH VIP/S.VIP tồn ≥7 ngày), `loc_tong_tu_5_ngay` (Lọc tổng tồn ≥5 ngày), `tranh_chap_tu_5_ngay` (tranh chấp/KN chưa đóng ≥5 ngày), `luong_doi_tra_tu_10_ngay` (luồng đổi trả chưa kết thúc, ca đổi chưa hoàn thành, ≥10 ngày từ lúc phát sinh mail — thêm 2026-10-12) | **Chốt 08:00 giờ VN** mỗi ngày (cùng nguồn UI + ảnh Telegram) — gọi lại trong ngày ra cùng danh sách. Ca đã đóng/huỷ sau 08:00 vẫn còn trong danh sách, xem `con_ton` / `da_huy`. |
+| `canh-bao-ceo` | Đúng danh sách thẻ **"Cảnh báo tồn · Cấp 2 (CEO)"** ở module Quản lý tồn — 5 nhóm: `ton_tren_20_ngay` (tồn >20 ngày), `vip_svip_tu_4_ngay` (KH VIP/S.VIP tồn ≥4 ngày — đổi từ `vip_svip_tu_7_ngay` ≥7 ngày ngày 2026-11-06), `loc_tong_tu_5_ngay` (Lọc tổng tồn ≥5 ngày), `tranh_chap_tu_5_ngay` (tranh chấp/KN chưa đóng ≥5 ngày), `luong_doi_tra_tu_10_ngay` (luồng đổi trả chưa kết thúc, ca đổi chưa hoàn thành, ≥10 ngày từ lúc phát sinh mail — thêm 2026-10-12) | **Chốt 08:00 giờ VN** mỗi ngày (cùng nguồn UI + ảnh Telegram) — gọi lại trong ngày ra cùng danh sách. Ca đã đóng/huỷ sau 08:00 vẫn còn trong danh sách, xem `con_ton` / `da_huy`. |
 | `nskx-ton-3-ngay` | Ca **đang tồn** của đối tác NSKX có tuổi tồn ≥ 3 ngày (cùng nghĩa bộ lọc "Tồn trên 3 ngày" + Đối tác NSKX ở Quản lý tồn) | Tính **tại thời điểm gọi** (`chot_luc = null`) |
 
 Tuổi tồn = số ngày từ `thoi_gian_cskh_tiep_nhan` đến 00:00 hôm nay (giờ VN) — cùng công thức toàn hệ thống.
@@ -700,7 +700,7 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
   "chot_luc": "2026-10-02 08:00:03",
   "tong_hop": [
     { "ma": "ton_tren_20_ngay", "ten": "Tồn >20 ngày", "so_ca": 120 },
-    { "ma": "vip_svip_tu_7_ngay", "ten": "VIP/S.VIP tồn ≥7 ngày", "so_ca": 4 },
+    { "ma": "vip_svip_tu_4_ngay", "ten": "VIP/S.VIP tồn ≥4 ngày", "so_ca": 4 },
     { "ma": "loc_tong_tu_5_ngay", "ten": "Lọc tổng tồn ≥5 ngày", "so_ca": 15 },
     { "ma": "tranh_chap_tu_5_ngay", "ten": "Tranh chấp/KN ≥5 ngày", "so_ca": 1 },
     { "ma": "luong_doi_tra_tu_10_ngay", "ten": "Luồng đổi trả tồn ≥10 ngày", "so_ca": 0 }

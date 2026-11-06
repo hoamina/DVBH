@@ -4,7 +4,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc } from "../middleware/scopeByKhuVuc";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
-import { getSnapshotForUser, isDefaultReportParams } from "../lib/dailySnapshot";
+import { getSnapshotForUserAnToan, isDefaultReportParams } from "../lib/dailySnapshot";
 import { computeRevenue } from "../lib/revenueCompute";
 import { hasModule } from "../lib/moduleAccess";
 
@@ -37,7 +37,7 @@ revenue.get("/", async (c) => {
   const dim = REVENUE_SNAPSHOT_FIELD[dimQ] || dimQ === "ky_thuat_vien_tinh" || dimQ === "tinh" ? dimQ : "khu_vuc";
   const params = { dim, khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
   if (REVENUE_SNAPSHOT_FIELD[dim] && isDefaultReportParams(params)) {
-    const snap = await getSnapshotForUser(c.env.DB, c.get("user"));
+    const snap = await getSnapshotForUserAnToan(c.env.DB, c.get("user"), (p) => c.executionCtx.waitUntil(p));
     if (snap) return c.json(snap.payload[REVENUE_SNAPSHOT_FIELD[dim]]);
   }
   // "rv": doi khi doi output compute() (2 = them so_ca_co_dt, 2026-10-09) - cache cu cung ngay khong tu het han.

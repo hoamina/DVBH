@@ -43,8 +43,10 @@ const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 
 export const NEED_TON_14_NGAY = `${AGE_C} >= 14`;
 export const NEED_TON_20_NGAY = `${AGE_C} > 20`;
-export const NEED_VIP_SVIP_5_NGAY = `c.nhom_kh LIKE '%VIP%' AND ${AGE_C} >= 5`;
-export const NEED_VIP_SVIP_7_NGAY = `c.nhom_kh LIKE '%VIP%' AND ${AGE_C} >= 7`;
+// CHOT 2026-11-06 (chu he thong): VIP/S.VIP lui nguong Cap 1 (TP DVBH) 5 -> 3 ngay, Cap 2 (CEO) 7 -> 4 ngay. GIU ten
+// hang/key noi bo (vipSvip5/vipSvip7, cot vip_svip_5_ngay/vip_svip_7_ngay) de khong vo lich su + snapshot cu.
+export const NEED_VIP_SVIP_5_NGAY = `c.nhom_kh LIKE '%VIP%' AND ${AGE_C} >= 3`;
+export const NEED_VIP_SVIP_7_NGAY = `c.nhom_kh LIKE '%VIP%' AND ${AGE_C} >= 4`;
 export const NEED_LOC_TONG_3_NGAY = `c.nhom_san_pham = 'Lọc tổng' AND ${AGE_C} >= 3`;
 export const NEED_LOC_TONG_5_NGAY = `c.nhom_san_pham = 'Lọc tổng' AND ${AGE_C} >= 5`;
 
@@ -227,14 +229,14 @@ export function canhBaoTonImageRows(buckets: CanhBaoTonBuckets) {
   return {
     cap1: [
       { label: "Tồn ≥14 ngày", count: buckets.ton14.count },
-      { label: "VIP/S.VIP tồn ≥5 ngày", count: buckets.vipSvip5.count },
+      { label: "VIP/S.VIP tồn ≥3 ngày", count: buckets.vipSvip5.count },
       { label: "Lọc tổng tồn ≥3 ngày", count: buckets.locTong3.count },
       { label: "Tranh chấp/KN ≥3 ngày", count: buckets.tranhChap3.count },
       { label: luongLabel(buckets.luongDoiTra7, "≥7"), count: buckets.luongDoiTra7?.count ?? 0 },
     ],
     cap2: [
       { label: "Tồn >20 ngày", count: buckets.ton20.count },
-      { label: "VIP/S.VIP tồn ≥7 ngày", count: buckets.vipSvip7.count },
+      { label: "VIP/S.VIP tồn ≥4 ngày", count: buckets.vipSvip7.count },
       { label: "Lọc tổng tồn ≥5 ngày", count: buckets.locTong5.count },
       { label: "Tranh chấp/KN ≥5 ngày", count: buckets.tranhChap5.count },
       { label: luongLabel(buckets.luongDoiTra10, "≥10"), count: buckets.luongDoiTra10?.count ?? 0 },

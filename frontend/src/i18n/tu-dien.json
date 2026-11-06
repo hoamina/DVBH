@@ -2299,9 +2299,9 @@
   "Backlog alert — Level 1: Disputes/complaints ≥3 days",
   "Peringatan tunggakan — Level 1: Sengketa/keluhan ≥3 hari"
  ],
- "Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥5 ngày": [
-  "Backlog alert — Level 1: VIP/S.VIP backlog ≥5 days",
-  "Peringatan tunggakan — Level 1: VIP/S.VIP tertunda ≥5 hari"
+ "Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥3 ngày": [
+  "Backlog alert — Level 1: VIP/S.VIP backlog ≥3 days",
+  "Peringatan tunggakan — Level 1: VIP/S.VIP tertunda ≥3 hari"
  ],
  "Cảnh báo tồn — Cấp 2: Lọc tổng tồn ≥5 ngày": [
   "Backlog alert — Level 2: Whole-house filter ≥5 days",
@@ -2315,9 +2315,9 @@
   "Backlog alert — Level 2: Disputes/complaints ≥5 days",
   "Peringatan tunggakan — Level 2: Sengketa/keluhan ≥5 hari"
  ],
- "Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥7 ngày": [
-  "Backlog alert — Level 2: VIP/S.VIP backlog ≥7 days",
-  "Peringatan tunggakan — Level 2: VIP/S.VIP tertunda ≥7 hari"
+ "Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥4 ngày": [
+  "Backlog alert — Level 2: VIP/S.VIP backlog ≥4 days",
+  "Peringatan tunggakan — Level 2: VIP/S.VIP tertunda ≥4 hari"
  ],
  "Cảnh báo tồn · Cấp 1 (TP DVBH)": [
   "Backlog alert · Level 1 (Service Manager)",
@@ -11691,13 +11691,13 @@
   "VIP/S.VIP not explained >=24h",
   "VIP/S.VIP belum dijelaskan >=24 jam"
  ],
- "VIP/S.VIP tồn ≥5 ngày": [
-  "VIP/S.VIP backlog ≥5 days",
-  "VIP/S.VIP tertunda ≥5 hari"
+ "VIP/S.VIP tồn ≥3 ngày": [
+  "VIP/S.VIP backlog ≥3 days",
+  "VIP/S.VIP tertunda ≥3 hari"
  ],
- "VIP/S.VIP tồn ≥7 ngày": [
-  "VIP/S.VIP backlog ≥7 days",
-  "VIP/S.VIP tertunda ≥7 hari"
+ "VIP/S.VIP tồn ≥4 ngày": [
+  "VIP/S.VIP backlog ≥4 days",
+  "VIP/S.VIP tertunda ≥4 hari"
  ],
  "Vui lòng điền đủ các trường bắt buộc (*).": [
   "Please fill in all required fields (*).",

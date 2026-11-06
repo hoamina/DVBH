@@ -111,12 +111,12 @@ interface ChuyenCapLogRow {
 
 const CHI_TIEU_CANH_BAO_LABEL: Record<string, string> = {
   ton14: tr("Tồn ≥14 ngày"),
-  vipSvip5: tr("VIP/S.VIP tồn ≥5 ngày"),
+  vipSvip5: tr("VIP/S.VIP tồn ≥3 ngày"),
   locTong3: tr("Lọc tổng tồn ≥3 ngày"),
   tranhChap3: tr("Tranh chấp/KN ≥3 ngày"),
   luongDoiTra7: tr("Luồng đổi trả ≥7 ngày"),
   ton20: tr("Tồn >20 ngày"),
-  vipSvip7: tr("VIP/S.VIP tồn ≥7 ngày"),
+  vipSvip7: tr("VIP/S.VIP tồn ≥4 ngày"),
   locTong5: tr("Lọc tổng tồn ≥5 ngày"),
   tranhChap5: tr("Tranh chấp/KN ≥5 ngày"),
   luongDoiTra10: tr("Luồng đổi trả ≥10 ngày"),
