@@ -5274,3 +5274,12 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   đơn vị tách nhánh từ bước phân loại) + nhật ký đã lọc; bên dưới nguồn AppSheet bảo hành. Bỏ khối suachua khỏi Thông tin case
   › Gửi BH (giữ Odoo + AppSheet ở đó). Mốc suachua trong Tiến trình chung nhảy tới tab "Bảo hành".
 - Chưa xem bằng mắt (Browser pane ẩn, không điều hướng được); đã kiểm tra chuỗi dvbh local → suachua local trả đủ luồng.
+
+## 2026-11-06 — Tab "Bảo hành": luồng ngang gọn + Tiến trình chung chỉ bước chính (v1.532)
+- Nguyên văn: *"luồng tiến trình bảo hành này cho tôi thành luồng ngang theo dạng đường thẳng với thông tin ngắn gọn ... nếu người
+  dùng muốn đọc kỹ thì ấn nút mở rộng"*; *"Log tiến trình chung của đơn BH ... chỉ cần hiện log các bước chính ... gộp phiếu, tách
+  phiếu, log tự động của hệ thống thì không cần kéo về"*.
+- `SuaChuaPanel`: mặc định `LuongNgang` (1 hàng ngang các bước, nhãn ngắn + dd/mm HH:mm, bước đang chờ tô vàng, rê chuột xem người /
+  ghi chú; đơn nhiều đơn vị = 1 hàng / đơn vị "#n"). Nút "▾ Xem chi tiết" mở luồng dọc cũ + chi tiết đơn vị + nhật ký.
+- Tiến trình chung: thay toàn bộ nhật ký suachua bằng các MỐC đã xong của luồng (`luong`, trạng thái xong/lỗi có giờ); mốc chung
+  của thùng ghi 1 lần/đơn, từ "Phân loại" ghi theo đơn vị. Nhãn "Bảo hành (app): <bước>".

@@ -85,7 +85,55 @@ function Luong({ moc, prevAt = null }: { moc: SuaChuaMoc[]; prevAt?: string | nu
   );
 }
 
-const MOC_CHUNG = new Set(["tao_don", "gui_xe", "kho_nhan", "admin_nhan", "xac_nhan_sl"]);
+export const MOC_CHUNG = new Set(["tao_don", "gui_xe", "kho_nhan", "admin_nhan", "xac_nhan_sl"]);
+
+// Nhan ngan cho luong ngang (key on dinh do suachua tinh, lib/partnerCaseFlow.ts). Key la -> dung nhan day du.
+const NHAN_NGAN: Record<string, string> = {
+  tao_don: "Tạo đơn",
+  gui_xe: "Gửi xe",
+  kho_nhan: "Kho nhận",
+  admin_nhan: "Admin nhận",
+  xac_nhan_sl: "Xác nhận SL",
+  phan_loai: "Phân loại",
+  sua_chua: "Sửa chữa",
+  admin_xac_nhan: "Admin XN",
+  phieu_tra: "Phiếu trả",
+  ke_toan: "KT duyệt",
+  kho_gui: "Kho gửi",
+  ktv_nhan: "KTV nhận",
+};
+
+/** "YYYY-MM-DD HH:MM[:SS]" -> "dd/mm HH:mm" (gio VN local, khong doi mui gio). */
+function ngayNgan(at: string | null): string {
+  if (!at) return "";
+  const m = at.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!m) return at;
+  return `${m[3]}/${m[2]}${m[4] ? ` ${m[4]}:${m[5]}` : ""}`;
+}
+
+/** Luong NGANG gon (mac dinh): 1 duong thang cac buoc, nhan ngan + ngay gio; buoc dang cho to noi. Re chuot xem day du. */
+function LuongNgang({ moc }: { moc: SuaChuaMoc[] }) {
+  return (
+    <div className="overflow-x-auto pb-1 min-w-0">
+      <ol className="flex min-w-max items-start">
+        {moc.map((m, i) => {
+          const st = MOC_STYLE[m.trang_thai];
+          const den = m.trang_thai !== "chua";
+          const title = [tr(m.label), m.at ? fmtDateTime(m.at) : null, m.nguoi, m.ghi_chu].filter(Boolean).join("\n");
+          const nhan = m.trang_thai === "loi" || !NHAN_NGAN[m.key] ? tr(m.label) : tr(NHAN_NGAN[m.key]);
+          return (
+            <li key={m.key + i} className="relative flex flex-col items-center w-[76px] shrink-0" title={title}>
+              {i > 0 && <span className={`absolute top-[9px] right-1/2 w-full h-0.5 ${den ? "bg-[var(--teal-500)]" : "bg-slate-200"}`} />}
+              <span className={`relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${st.dot}`}>{st.icon}</span>
+              <span className={`mt-1 text-[11px] leading-tight text-center px-0.5 ${m.trang_thai === "dang" ? "font-bold text-[var(--amber-600)]" : st.text}`}>{nhan}</span>
+              {m.at && <span className="text-[10px] text-[var(--ink-400)] leading-tight">{ngayNgan(m.at)}</span>}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
 
 function DonViChiTiet({ u }: { u: SuaChuaDonVi }) {
   const t = u.phieu_tra;
@@ -119,6 +167,7 @@ function DonViChiTiet({ u }: { u: SuaChuaDonVi }) {
 
 function DonCard({ d }: { d: SuaChuaDon }) {
   const [moLog, setMoLog] = useState(false);
+  const [moRong, setMoRong] = useState(false);
   const g = d.phieu_gui;
   const gd = giaiDoanDon(d);
   const nhieu = d.don_vi.length > 1;
@@ -161,48 +210,69 @@ function DonCard({ d }: { d: SuaChuaDon }) {
       )}
 
       <div className="mt-3 pt-3 border-t border-[var(--line)]">
-        <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Luồng quy trình bảo hành")}</div>
-        <Luong moc={luongChung} />
-        {nhieu &&
-          d.don_vi.map((u) => (
-            <div key={u.id} className="mt-3 ml-3 pl-3 border-l-2 border-[var(--ocean-500)]/30">
-              <div className="flex items-center gap-2 flex-wrap mb-2">
-                <span className="text-xs font-bold text-[var(--ink-700)]">{tr("Đơn vị #{0}", u.so_thu_tu)}</span>
-                <span className="font-mono text-[11px] text-[var(--ink-400)]">{u.id}</span>
-                <Badge tone={giaiDoanTone(u.giai_doan)}>{u.giai_doan_label ?? u.giai_doan}</Badge>
-                {u.that_lac && <Badge tone="coral">{tr("Thất lạc")}</Badge>}
-              </div>
-              <Luong moc={(u.luong ?? []).filter((m) => !MOC_CHUNG.has(m.key))} prevAt={lastChungAt} />
-              <DonViChiTiet u={u} />
-            </div>
-          ))}
-        {!nhieu && d.don_vi[0] && <DonViChiTiet u={d.don_vi[0]} />}
-      </div>
-
-      {d.timeline.length > 0 && (
-        <div className="mt-3">
-          <button type="button" className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => setMoLog((v) => !v)}>
-            {moLog ? tr("▾ Ẩn nhật ký") : tr("▸ Nhật ký ({0})", d.timeline.length)}
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="text-xs font-semibold text-[var(--ink-500)]">{tr("Luồng quy trình bảo hành")}</div>
+          <button type="button" className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline shrink-0" onClick={() => setMoRong((v) => !v)}>
+            {moRong ? tr("▴ Thu gọn") : tr("▾ Xem chi tiết")}
           </button>
-          {moLog && (
-            <div className="mt-1.5 space-y-1">
-              {d.timeline.map((l, i) => (
-                <div key={i} className="text-xs border-b border-[var(--line)] last:border-0 py-1">
-                  <span className="text-[var(--ink-500)]">{fmtDateTime(l.at)}</span>
-                  <span className="font-mono text-[var(--ink-400)] ml-2">{l.ma}</span>
-                  {l.nguoi && <span className="ml-2 font-semibold">{l.nguoi}</span>}
-                  {(l.tu || l.den) && l.tu !== l.den && (
-                    <span className="ml-2">
-                      {l.tu ?? "—"} → {l.den ?? "—"}
-                    </span>
-                  )}
-                  {l.ghi_chu && <div className="text-[var(--ink-700)] whitespace-pre-line">{l.ghi_chu}</div>}
+        </div>
+        {!moRong &&
+          (nhieu ? (
+            <div className="space-y-2">
+              {d.don_vi.map((u) => (
+                <div key={u.id} className="flex items-start gap-2">
+                  <span className="text-[11px] font-bold text-[var(--ink-600)] w-7 shrink-0 pt-0.5">#{u.so_thu_tu}</span>
+                  <LuongNgang moc={u.luong ?? []} />
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+          ) : (
+            <LuongNgang moc={d.don_vi[0]?.luong ?? d.luong ?? []} />
+          ))}
+        {moRong && (
+          <>
+            <Luong moc={luongChung} />
+            {nhieu &&
+              d.don_vi.map((u) => (
+                <div key={u.id} className="mt-3 ml-3 pl-3 border-l-2 border-[var(--ocean-500)]/30">
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className="text-xs font-bold text-[var(--ink-700)]">{tr("Đơn vị #{0}", u.so_thu_tu)}</span>
+                    <span className="font-mono text-[11px] text-[var(--ink-400)]">{u.id}</span>
+                    <Badge tone={giaiDoanTone(u.giai_doan)}>{u.giai_doan_label ?? u.giai_doan}</Badge>
+                    {u.that_lac && <Badge tone="coral">{tr("Thất lạc")}</Badge>}
+                  </div>
+                  <Luong moc={(u.luong ?? []).filter((m) => !MOC_CHUNG.has(m.key))} prevAt={lastChungAt} />
+                  <DonViChiTiet u={u} />
+                </div>
+              ))}
+            {!nhieu && d.don_vi[0] && <DonViChiTiet u={d.don_vi[0]} />}
+            {d.timeline.length > 0 && (
+              <div className="mt-3">
+                <button type="button" className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => setMoLog((v) => !v)}>
+                  {moLog ? tr("▾ Ẩn nhật ký") : tr("▸ Nhật ký ({0})", d.timeline.length)}
+                </button>
+                {moLog && (
+                  <div className="mt-1.5 space-y-1">
+                    {d.timeline.map((l, i) => (
+                      <div key={i} className="text-xs border-b border-[var(--line)] last:border-0 py-1">
+                        <span className="text-[var(--ink-500)]">{fmtDateTime(l.at)}</span>
+                        <span className="font-mono text-[var(--ink-400)] ml-2">{l.ma}</span>
+                        {l.nguoi && <span className="ml-2 font-semibold">{l.nguoi}</span>}
+                        {(l.tu || l.den) && l.tu !== l.den && (
+                          <span className="ml-2">
+                            {l.tu ?? "—"} → {l.den ?? "—"}
+                          </span>
+                        )}
+                        {l.ghi_chu && <div className="text-[var(--ink-700)] whitespace-pre-line">{l.ghi_chu}</div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </Card>
   );
 }

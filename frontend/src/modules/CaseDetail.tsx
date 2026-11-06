@@ -19,7 +19,7 @@ import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai 
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
 import { CancelRequestPanel, parseCancelRequest } from "../components/CancelRequestPanel";
 import { LuongMailPanel, useMailTimeline, NHAT_KY_LABEL } from "../components/LuongMailPanel";
-import { SuaChuaPanel } from "../components/SuaChuaPanel";
+import { SuaChuaPanel, MOC_CHUNG } from "../components/SuaChuaPanel";
 import { useSuaChuaTimeline } from "../lib/suaChuaTimeline";
 import { LadaIds, type CaseLadaRow } from "../components/LadaPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
@@ -1436,22 +1436,31 @@ export function CaseDetail({
       pushDb({ key: `bho-${o.odoo_id}-2`, rawTs: o.ngay_hoan_thanh, tone: "rose", typeLabel: tr("Bảo hành (Odoo): {0} {1}", donBhTrangThai(o.trang_thai).label, o.ma_don ?? ""), actor: null, summary: lk, jumpTab: "loi-linh-kien" });
     }
 
-    // He "Gui bao hanh linh kien" (suachua) - moi dong nhat ky la 1 moc (gio VN local nhu D1 dvbh).
+    // He "Gui bao hanh linh kien" (suachua) - CHI cac buoc chinh da xong cua luong quy trinh (2026-11-06 vong 3: "khong can
+    // log chi tiet ... gop phieu, tach phieu, log tu dong cua he thong thi khong can keo ve"). Moc chung cua thung (tao don ->
+    // xac nhan SL) chi 1 lan / don; tu buoc phan loai ghi theo tung don vi. Nhat ky day du van xem o tab "Bảo hành".
     for (const d of scDonList) {
       const lk = d.ten_lk || d.ma_lk || "—";
-      for (const [i, l] of d.timeline.entries()) {
-        // Dong khong doi trang thai (vd "Kho đã in phiếu") -> khong hien "Nháp → Nháp", noi dung o ghi chu.
-        const buoc = l.tu && l.den && l.tu !== l.den ? `${l.tu} → ${l.den}` : !l.tu && l.den ? l.den : tr("Cập nhật");
-        pushDb({
-          key: `sc-${d.id}-${i}`,
-          rawTs: l.at,
-          tone: "rose",
-          typeLabel: tr("Gửi BH (app): {0}", buoc),
-          actor: l.nguoi,
-          summary: `${l.ma} · ${lk}${l.ghi_chu ? `
-${l.ghi_chu}` : ""}`,
-          jumpTab: "bao-hanh-app",
-        });
+      const nhieu = d.don_vi.length > 1;
+      const nguon = d.don_vi.length ? d.don_vi.map((u) => ({ u, luong: u.luong ?? [] })) : [{ u: null, luong: d.luong ?? [] }];
+      const daGhiChung = new Set<string>();
+      for (const { u, luong } of nguon) {
+        for (const m of luong) {
+          if (!m.at || (m.trang_thai !== "xong" && m.trang_thai !== "loi")) continue;
+          const chung = MOC_CHUNG.has(m.key);
+          if (chung && daGhiChung.has(m.key)) continue;
+          if (chung) daGhiChung.add(m.key);
+          const ma = !chung && u && nhieu ? `${d.id} #${u.so_thu_tu}` : d.id;
+          pushDb({
+            key: `sc-${d.id}-${chung ? "" : (u?.id ?? "")}-${m.key}`,
+            rawTs: m.at,
+            tone: "rose",
+            typeLabel: tr("Bảo hành (app): {0}", tr(m.label)),
+            actor: m.nguoi,
+            summary: `${ma} · ${lk}${m.ghi_chu ? `\n${m.ghi_chu}` : ""}`,
+            jumpTab: "bao-hanh-app",
+          });
+        }
       }
     }
 

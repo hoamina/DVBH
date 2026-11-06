@@ -13022,5 +13022,49 @@
  "KTV báo không nhận được hàng": [
   "Technician reported not received",
   "Teknisi melaporkan tidak diterima"
+ ],
+ "▴ Thu gọn": [
+  "▴ Collapse",
+  "▴ Ciutkan"
+ ],
+ "▾ Xem chi tiết": [
+  "▾ Show details",
+  "▾ Lihat detail"
+ ],
+ "Bảo hành (app): {0}": [
+  "Warranty (app): {0}",
+  "Garansi (app): {0}"
+ ],
+ "Gửi xe": [
+  "Shipped",
+  "Dikirim"
+ ],
+ "Kho nhận": [
+  "WH received",
+  "Gudang terima"
+ ],
+ "Admin nhận": [
+  "Admin received",
+  "Admin terima"
+ ],
+ "Xác nhận SL": [
+  "Qty confirmed",
+  "Jml dikonfirmasi"
+ ],
+ "Sửa chữa": [
+  "Repair",
+  "Perbaikan"
+ ],
+ "Admin XN": [
+  "Admin confirmed",
+  "Admin konfirmasi"
+ ],
+ "KT duyệt": [
+  "Acct approved",
+  "Akuntansi setuju"
+ ],
+ "Kho gửi": [
+  "WH shipped",
+  "Gudang kirim"
  ]
 }
