@@ -5217,3 +5217,18 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   nuốt lỗi khi ghi bg_error; tự vá chạy MỖI lần fire `DAILY_SNAPSHOT_CRON` (8h–18h VN, đầu tiên, có retry); bọc try/catch 2
   bước 08:00 kia. Không thêm điểm ghi R2 mới (vẫn 2 điểm đã chốt). Dữ liệu thiếu tự vá ở lần cron kế tiếp (08:00 sáng 06/11).
 - Phát hiện thêm: 1 dòng rác `case_dvbh.id = 'ID'` (dòng tiêu đề Excel bị import thành ca, tạo 04/11 02:13) - chưa xóa, chờ chủ hệ thống.
+
+## 2026-11-06 — Rà soát lượt đọc D1 toàn tài khoản smarttrade.vp + sửa 4 điểm (dvbh v1.527, ccdc, muahang v0.061, linh-kien-app migration 0107)
+- Số liệu (GraphQL `d1AnalyticsAdaptiveGroups` + `wrangler d1 insights`): TB đọc/ngày 327M (tuần 05/10) → 1.177M (tuần 02/11),
+  vượt mức ~833M/ngày của gói Paid (25 tỷ/tháng). Ghi bình thường (<1M/ngày).
+- ① dvbh `GET /survey/candidates`: 4 `EXISTS khao_sat_loai_tru` mỗi ca, planner chọn `SCAN x` → ~1,33M rows/lần, ~370M/ngày.
+  Sửa: đọc bảng loại trừ 1 lần, tính cờ `loai_tru_*` bằng JS (`tinhCoLoaiTru`, cùng điều kiện `loaiTruExistsSql`). Đối chiếu
+  dữ liệu thật tháng 10–11: 4.358 ca, 0 lệch. `NEED_SURVEY_CONDITION` (tính `can_khao_sat`) vẫn dùng bản SQL.
+- ② ccdc `/dashboard/viec-can-lam`: FE gọi lại mỗi 60s kể cả tab ẩn, mỗi lần chạy 7–8 câu cảnh báo (tồn âm quét view
+  `v_ton_kho` ~84k rows) → ~230M/ngày. Sửa: chỉ gọi lại khi tab hiện + cache số cảnh báo cho badge 2 phút trong isolate.
+- ③ muahang (EO): hủy 228 dòng liên tiếp → mỗi lần bump `eo` + `qc.invalidateQueries()` toàn cục → báo cáo 0.1 (~279k rows) bị
+  tính lại 4–5 lần/lần hủy → 296M rows trong 1 giờ. Sửa: khóa `report_cache.computing_until` (migration 0019) để 1 request
+  tính, request khác chờ ≤10s; đồng bộ DVBH cách nhau 2 phút thay 20s.
+- ④ linh-kien-app: `dat_don_hang.ma_yeu_cau_su_co` thiếu index (case-timeline ~12k lần/ngày quét 5,4k dòng) → migration 0107.
+- Còn mở: sua-chua tăng tự nhiên (2M → 90M/ngày từ 31/10, theo dõi); push lỗi ở linh-kien-app (repo not found), EO (403), dvbh
+  remote `etx87` lệch 2 commit "Workflow Mây" (chưa push); `event_log` EO có bản ghi ngày 2206-05-14.
