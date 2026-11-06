@@ -5303,3 +5303,11 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Sửa: bọc `cachedReport` cả 4 nhánh (R11 trong YEU_CAU_BAO_CAO_TINH_SAN.md, `extraTag` mới cho nguồn không bump domain:
   daily_snapshot / giai_trinh_daily_log / ngày loại trừ); gộp nhóm chạy tối đa 3 khu vực/lúc. Local: 1,77s → 0,27s (cache), kết
   quả giống hệt; bump domain giai_trinh → tính lại đúng.
+
+## 2026-11-06 — Link mở app nổi bật + ghi chú dễ đọc (v1.535)
+- Nguyên văn: *"hiện thị các link dẫn đến app linh kiện hoặc app bảo hành khó nhìn quá => cần làm nổi bật"*; *"Các thông tin ghi chú
+  trên UI case đang để mờ mờ nhỏ bên dưới các thông tin, cần làm rõ và dễ nhìn hơn"*.
+- `MoAppLink` thành chip (viền + nền xanh, chữ đậm, ↗, rê chuột nền đậm). `GhiChuBox` mới (viền trái vàng, nền vàng nhạt, chữ
+  cỡ thường màu đậm) cho: ghi chú các bước luồng dọc, ghi chú Admin/NV/Kế toán từ chối/KTV báo không nhận/KTV đánh giá (tab Bảo
+  hành), "Tình trạng lỗi" đơn Odoo + "Ghi chú" linh kiện lỗi (tab Lỗi). Luồng ngang thêm hàng ghi chú các bước đã tới ngay dưới
+  (trước chỉ hiện khi rê chuột); người làm ở luồng dọc chữ thường + 👤.

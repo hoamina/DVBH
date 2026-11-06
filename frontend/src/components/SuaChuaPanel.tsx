@@ -11,7 +11,7 @@ import { LoadingInline } from "./ui/LoadingInline";
 import { MaLinhKienLink } from "./HoSoLinhKienProvider";
 import { fmtDateTime, parseDbDateTime } from "../types";
 import { tr } from "../i18n/tr";
-import { MoAppLink, SUACHUA_URL } from "./MoAppLink";
+import { MoAppLink, GhiChuBox, SUACHUA_URL } from "./MoAppLink";
 import { SUACHUA_APP_URL, type SuaChuaDon, type SuaChuaDonVi, type SuaChuaMoc, type SuaChuaTimelineResult } from "../lib/suaChuaTimeline";
 
 export function giaiDoanTone(gd: string | null | undefined): BadgeTone {
@@ -72,13 +72,8 @@ function Luong({ moc, prevAt = null }: { moc: SuaChuaMoc[]; prevAt?: string | nu
               {m.at && <span className="text-xs text-[var(--ink-500)]">{fmtDateTime(m.at)}</span>}
               {cach && <span className="text-[11px] text-[var(--ink-400)]">(+{cach})</span>}
             </div>
-            {(m.nguoi || m.ghi_chu) && (
-              <div className="text-xs text-[var(--ink-600)] mt-0.5 whitespace-pre-line">
-                {m.nguoi && <span className="font-medium">{m.nguoi}</span>}
-                {m.nguoi && m.ghi_chu && " · "}
-                {m.ghi_chu}
-              </div>
-            )}
+            {m.nguoi && <div className="text-sm font-medium text-[var(--ink-700)] mt-0.5">👤 {m.nguoi}</div>}
+            {m.ghi_chu && <GhiChuBox className="mt-1">{m.ghi_chu}</GhiChuBox>}
           </li>
         );
       })}
@@ -132,6 +127,18 @@ function LuongNgang({ moc }: { moc: SuaChuaMoc[] }) {
           );
         })}
       </ol>
+      {/* Ghi chu cua cac buoc da toi (huong xu ly, ket qua, van don, ly do...) hien luon - khong bat re chuot moi thay. */}
+      {moc.some((m) => m.ghi_chu && m.trang_thai !== "chua") && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {moc
+            .filter((m) => m.ghi_chu && m.trang_thai !== "chua")
+            .map((m, i) => (
+              <span key={m.key + i} className="rounded-md border-l-4 border-[var(--amber-500)] bg-[var(--amber-100)] px-2 py-0.5 text-[13px] text-[var(--ink-900)]">
+                <span className="font-semibold">{tr(NHAN_NGAN[m.key] ?? m.label)}:</span> {m.ghi_chu}
+              </span>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -148,11 +155,12 @@ function DonViChiTiet({ u }: { u: SuaChuaDonVi }) {
   if (t?.ma_don_hang) fields.push([tr("Mã đơn hàng"), t.ma_don_hang]);
   if (t?.ma_misa) fields.push([tr("Mã MISA"), t.ma_misa]);
   const notes = [
-    u.ghi_chu_admin && `${tr("Ghi chú Admin:")} ${u.ghi_chu_admin}`,
-    u.ghi_chu_nv && `${tr("Ghi chú NV:")} ${u.ghi_chu_nv}`,
-    t?.ly_do_tu_choi_kt && `${tr("Kế toán từ chối:")} ${t.ly_do_tu_choi_kt}`,
-    t?.danh_gia_ktv && `${tr("KTV đánh giá:")} ${t.danh_gia_ktv}`,
-  ].filter(Boolean);
+    [tr("Ghi chú Admin:"), u.ghi_chu_admin],
+    [tr("Ghi chú NV:"), u.ghi_chu_nv],
+    [tr("Kế toán từ chối:"), t?.ly_do_tu_choi_kt],
+    [tr("KTV báo không nhận được:"), t?.khong_nhan_duoc_ghi_chu],
+    [tr("KTV đánh giá:"), t?.danh_gia_ktv],
+  ].filter((x): x is [string, string] => !!x[1]);
   if (fields.length === 0 && notes.length === 0) return null;
   return (
     <div className="mt-2 pt-2 border-t border-dashed border-[var(--line)]">
@@ -163,7 +171,13 @@ function DonViChiTiet({ u }: { u: SuaChuaDonVi }) {
           ))}
         </div>
       )}
-      {notes.length > 0 && <div className="text-xs text-[var(--ink-600)] mt-1.5 space-y-0.5">{notes.map((n, i) => <div key={i}>{n}</div>)}</div>}
+      {notes.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {notes.map(([l, v]) => (
+            <GhiChuBox key={l} label={l}>{v}</GhiChuBox>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -273,7 +287,7 @@ function DonCard({ d }: { d: SuaChuaDon }) {
                             {l.tu ?? "—"} → {l.den ?? "—"}
                           </span>
                         )}
-                        {l.ghi_chu && <div className="text-[var(--ink-700)] whitespace-pre-line">{l.ghi_chu}</div>}
+                        {l.ghi_chu && <div className="text-sm text-[var(--ink-900)] whitespace-pre-line mt-0.5">{l.ghi_chu}</div>}
                       </div>
                     ))}
                   </div>

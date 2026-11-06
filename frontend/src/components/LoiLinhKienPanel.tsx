@@ -5,6 +5,7 @@ import { MaLinhKienLink } from "./HoSoLinhKienProvider";
 import { Modal } from "./ui/Modal";
 import { fmtDateTime, fmtVND, type DonBaoHanhOdooRow, type LinhKienLoiItem } from "../types";
 import { tr } from "../i18n/tr";
+import { GhiChuBox } from "./MoAppLink";
 
 // Tab "Loi linh kien" (CaseDetail) - nguon Odoo OCRM. Logic Odoo: don bao hanh linh kien
 // (technical.service.warranty) la CON cua 1 linh kien bao loi (technical.service.broken.detail) cung
@@ -124,7 +125,7 @@ export function DonBaoHanhOdooItem({ o, onOpen, parentLabel }: { o: DonBaoHanhOd
         </span>
       </div>
       {parentLabel && <div className="text-xs text-[var(--ink-600)] mt-1">{parentLabel}</div>}
-      {o.tinh_trang_loi && <div className="text-xs text-[var(--ink-700)] mt-1">{tr("Tình trạng lỗi:")} {o.tinh_trang_loi}</div>}
+      {o.tinh_trang_loi && <GhiChuBox className="mt-1.5" label={tr("Tình trạng lỗi:")}>{o.tinh_trang_loi}</GhiChuBox>}
       <div className="text-[11px] text-[var(--ink-400)] mt-1">
         {tr("Tạo")} {fmtDateTime(o.ngay_tao)}
         {o.nguoi_tao ? " " + tr("bởi {0}", o.nguoi_tao) : ""}
@@ -363,7 +364,7 @@ function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHan
         <Step label={tr("Nhóm lỗi — Nguyên nhân")} main={nguyenNhan} desc={p.mo_ta_nguyen_nhan} tone="bg-[var(--amber-500)]" />
         <Step label={tr("Cách thức xử lý")} main={p.cach_thuc_xu_ly} desc={p.mo_ta_cach_xu_ly} tone="bg-[var(--teal-500)]" />
       </div>
-      {p.ghi_chu && <div className="text-xs text-[var(--ink-500)] mt-2 ml-3">{tr("Ghi chú:")} {p.ghi_chu}</div>}
+      {p.ghi_chu && <GhiChuBox className="mt-2 ml-3" label={tr("Ghi chú:")}>{p.ghi_chu}</GhiChuBox>}
 
       <div className="mt-3 pt-3 border-t border-[var(--line)]">
         <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Đơn bảo hành linh kiện (")}{orders.length})</div>
