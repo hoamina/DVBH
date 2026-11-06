@@ -5283,3 +5283,13 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   ghi chú; đơn nhiều đơn vị = 1 hàng / đơn vị "#n"). Nút "▾ Xem chi tiết" mở luồng dọc cũ + chi tiết đơn vị + nhật ký.
 - Tiến trình chung: thay toàn bộ nhật ký suachua bằng các MỐC đã xong của luồng (`luong`, trạng thái xong/lỗi có giờ); mốc chung
   của thùng ghi 1 lần/đơn, từ "Phân loại" ghi theo đơn vị. Nhãn "Bảo hành (app): <bước>".
+
+## 2026-11-06 — Link mở thẳng đơn trên app Gửi bảo hành / Đặt mua linh kiện (dvbh v1.533, suachua v1.095, linhkien v1.444)
+- Nguyên văn: *"app bảo hành, app đặt linh kiện cho phép mở case theo ID đơn ví dụ: https://suachua.dichvu3t.workers.dev/DH-002957-1
+  https://linhkien.dichvu3t.workers.dev/DDH-003943 => ... gắn thêm các link liên kết để người tra cứu có thể nhanh chóng mở đơn"*.
+- Phát hiện: production lúc đó CHƯA mở được 2 dạng link này (chỉ ra trang chủ) — linhkien chỉ nhận PMH/PCN/PTL/PXK/TRA/TLK, suachua chỉ
+  có `#/ktv/nhan-hang/TR-…`. Chủ hệ thống chọn làm đủ 3 app: linhkien thêm `DDH` vào link trực tiếp (mở như kết quả tìm kiếm đơn
+  hàng); suachua thêm `/DH-…(-n)`, `/BH-…`, `/TR-…` (route resolve `GET /api/tra-cuu/mo-theo-id/:id` + modal chi tiết sẵn có, quyền
+  do route chi tiết kiểm tra).
+- dvbh `components/MoAppLink.tsx`: tab Bảo hành (mã đơn, thùng, đơn vị #n, phiếu trả, mã trong nhật ký) → suachua; tab Mua hàng
+  (mã DDH, phiếu xuất kho) + Thiếu hàng (TLK, DDH) → linhkien. Mở tab mới; người bấm cần tài khoản có quyền ở app đó.

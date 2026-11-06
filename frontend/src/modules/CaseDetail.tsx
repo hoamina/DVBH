@@ -21,6 +21,7 @@ import { CancelRequestPanel, parseCancelRequest } from "../components/CancelRequ
 import { LuongMailPanel, useMailTimeline, NHAT_KY_LABEL } from "../components/LuongMailPanel";
 import { SuaChuaPanel, MOC_CHUNG } from "../components/SuaChuaPanel";
 import { useSuaChuaTimeline } from "../lib/suaChuaTimeline";
+import { MoAppLink, LINHKIEN_URL } from "../components/MoAppLink";
 import { LadaIds, type CaseLadaRow } from "../components/LadaPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
@@ -2347,7 +2348,9 @@ export function CaseDetail({
                 <Badge tone={statusWordTone(linhKienTrangThaiLabel(o.trang_thai_hien_tai))}>{linhKienTrangThaiLabel(o.trang_thai_hien_tai)}</Badge>
               </div>
             </div>
-            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{o.order_id}</div>
+            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
+              <MoAppLink base={LINHKIEN_URL} id={o.order_id} title={tr("Mở đơn trên app Đặt mua linh kiện")} />
+            </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
               <Field label={tr("Mã linh kiện")} value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk} />} />
               <Field label={tr("Loại đề xuất")} value={dl(o.loai_de_xuat) || "—"} />
@@ -2355,7 +2358,17 @@ export function CaseDetail({
               <Field label={tr("Ngày tạo")} value={fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))} />
               <Field label={tr("Người tạo")} value={o.nguoi_tao_ten ? `${o.nguoi_tao_ten} (${o.nguoi_tao})` : o.nguoi_tao} />
               <Field label={tr("Người nhận hàng")} value={o.nguoi_nhan_hang ? (o.nguoi_nhan_hang_ten ? `${o.nguoi_nhan_hang_ten} (${o.nguoi_nhan_hang})` : o.nguoi_nhan_hang) : "—"} />
-              {o.phieu_xuat_kho.length > 0 && <Field label={tr("Phiếu xuất kho")} value={o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ")} />}
+              {o.phieu_xuat_kho.length > 0 && (
+                <Field
+                  label={tr("Phiếu xuất kho")}
+                  value={o.phieu_xuat_kho.map((p, i) => (
+                    <span key={p.id}>
+                      {i > 0 && ", "}
+                      <MoAppLink base={LINHKIEN_URL} id={p.id}>{p.ma_xuat_kho}</MoAppLink>
+                    </span>
+                  ))}
+                />
+              )}
               {o.ly_do_cham && <Field label={tr("Lý do chậm")} value={dl(o.ly_do_cham)} />}
             </div>
           </Card>
@@ -2385,7 +2398,7 @@ export function CaseDetail({
                 <Badge tone={statusWordTone(trangThai)}>{trangThai}</Badge>
               </div>
               <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
-                {t.id} · {o.order_id}
+                <MoAppLink base={LINHKIEN_URL} id={t.id} /> · <MoAppLink base={LINHKIEN_URL} id={o.order_id} />
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
                 <Field label={tr("Linh kiện")} value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk}>{`${o.ma_lk}${o.ten_lk ? ` – ${o.ten_lk}` : ""}`}</MaLinhKienLink>} />

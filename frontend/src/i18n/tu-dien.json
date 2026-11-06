@@ -13066,5 +13066,17 @@
  "Kho gửi": [
   "WH shipped",
   "Gudang kirim"
+ ],
+ "Mở đơn trên app Gửi bảo hành": [
+  "Open order in warranty shipping app",
+  "Buka pesanan di aplikasi kirim garansi"
+ ],
+ "Mở thùng gửi trên app Gửi bảo hành": [
+  "Open box in warranty shipping app",
+  "Buka kotak di aplikasi kirim garansi"
+ ],
+ "Mở đơn trên app Đặt mua linh kiện": [
+  "Open order in parts purchasing app",
+  "Buka pesanan di aplikasi pembelian suku cadang"
  ]
 }

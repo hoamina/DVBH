@@ -11,6 +11,7 @@ import { LoadingInline } from "./ui/LoadingInline";
 import { MaLinhKienLink } from "./HoSoLinhKienProvider";
 import { fmtDateTime, parseDbDateTime } from "../types";
 import { tr } from "../i18n/tr";
+import { MoAppLink, SUACHUA_URL } from "./MoAppLink";
 import { SUACHUA_APP_URL, type SuaChuaDon, type SuaChuaDonVi, type SuaChuaMoc, type SuaChuaTimelineResult } from "../lib/suaChuaTimeline";
 
 export function giaiDoanTone(gd: string | null | undefined): BadgeTone {
@@ -142,6 +143,8 @@ function DonViChiTiet({ u }: { u: SuaChuaDonVi }) {
   if (u.ma_lk_thuc_te) fields.push([tr("Linh kiện thực tế"), <span key="lk">{u.ten_lk_thuc_te ?? ""} (<MaLinhKienLink ma={u.ma_lk_thuc_te} ten={u.ten_lk_thuc_te} className="font-mono" />)</span>]);
   if (u.loai_doi_tru) fields.push([tr("Loại đối trừ"), u.loai_doi_tru]);
   if (u.xu_ly_xac) fields.push([tr("Xử lý xác"), u.xu_ly_xac]);
+  if (t) fields.push([tr("Phiếu trả"), <span key="tra"><MoAppLink base={SUACHUA_URL} id={t.id} /> · {t.trang_thai_label ?? t.trang_thai}</span>]);
+  if (t?.ma_van_don) fields.push([tr("Mã vận đơn trả"), t.ma_van_don]);
   if (t?.ma_don_hang) fields.push([tr("Mã đơn hàng"), t.ma_don_hang]);
   if (t?.ma_misa) fields.push([tr("Mã MISA"), t.ma_misa]);
   const notes = [
@@ -190,8 +193,13 @@ function DonCard({ d }: { d: SuaChuaDon }) {
         </div>
       </div>
       <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
-        {d.id}
-        {g && ` · ${tr("Thùng")} ${g.id}`}
+        <MoAppLink base={SUACHUA_URL} id={d.id} title={tr("Mở đơn trên app Gửi bảo hành")} />
+        {g && (
+          <>
+            {" · "}
+            {tr("Thùng")} <MoAppLink base={SUACHUA_URL} id={g.id} title={tr("Mở thùng gửi trên app Gửi bảo hành")} />
+          </>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
         <Field label={tr("Mã linh kiện")} value={d.ma_lk ? <MaLinhKienLink ma={d.ma_lk} ten={d.ten_lk} /> : "—"} />
@@ -221,7 +229,9 @@ function DonCard({ d }: { d: SuaChuaDon }) {
             <div className="space-y-2">
               {d.don_vi.map((u) => (
                 <div key={u.id} className="flex items-start gap-2">
-                  <span className="text-[11px] font-bold text-[var(--ink-600)] w-7 shrink-0 pt-0.5">#{u.so_thu_tu}</span>
+                  <span className="text-[11px] font-bold w-9 shrink-0 pt-0.5">
+                    <MoAppLink base={SUACHUA_URL} id={u.id} title={u.id}>#{u.so_thu_tu}</MoAppLink>
+                  </span>
                   <LuongNgang moc={u.luong ?? []} />
                 </div>
               ))}
@@ -237,7 +247,7 @@ function DonCard({ d }: { d: SuaChuaDon }) {
                 <div key={u.id} className="mt-3 ml-3 pl-3 border-l-2 border-[var(--ocean-500)]/30">
                   <div className="flex items-center gap-2 flex-wrap mb-2">
                     <span className="text-xs font-bold text-[var(--ink-700)]">{tr("Đơn vị #{0}", u.so_thu_tu)}</span>
-                    <span className="font-mono text-[11px] text-[var(--ink-400)]">{u.id}</span>
+                    <span className="text-[11px]"><MoAppLink base={SUACHUA_URL} id={u.id} /></span>
                     <Badge tone={giaiDoanTone(u.giai_doan)}>{u.giai_doan_label ?? u.giai_doan}</Badge>
                     {u.that_lac && <Badge tone="coral">{tr("Thất lạc")}</Badge>}
                   </div>
@@ -256,7 +266,7 @@ function DonCard({ d }: { d: SuaChuaDon }) {
                     {d.timeline.map((l, i) => (
                       <div key={i} className="text-xs border-b border-[var(--line)] last:border-0 py-1">
                         <span className="text-[var(--ink-500)]">{fmtDateTime(l.at)}</span>
-                        <span className="font-mono text-[var(--ink-400)] ml-2">{l.ma}</span>
+                        <span className="ml-2"><MoAppLink base={SUACHUA_URL} id={l.ma} /></span>
                         {l.nguoi && <span className="ml-2 font-semibold">{l.nguoi}</span>}
                         {(l.tu || l.den) && l.tu !== l.den && (
                           <span className="ml-2">
