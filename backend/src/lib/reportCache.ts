@@ -47,8 +47,10 @@ export function getVnDateStr(): string {
  * moi) hoac chua co dong nao thi chay compute() that su roi ghi de (UPSERT) envelope moi truoc khi
  * tra ve - lan doc tiep theo se lai duoc dung cache moi. Response shape tra ve client GIU NGUYEN
  * 100% kieu T cua compute(), reportCache chi boc ngoai khong dong vao noi dung. */
-export async function cachedReport<T>(db: D1Database, key: string, domains: DataDomain[], compute: () => Promise<T>): Promise<T> {
-  const currentTag = `${await getVersionTag(db, domains)}|ngay:${getVnDateStr()}`;
+// extraTag (2026-11-06): noi them vao tag cho nguon du lieu doi ma KHONG bump domain nao (vd so chot 08:00 daily_snapshot,
+// chot 17h30 giai_trinh_daily_log) - nguoi goi tu doc 1 "dau van tay" re cua nguon do roi truyen vao.
+export async function cachedReport<T>(db: D1Database, key: string, domains: DataDomain[], compute: () => Promise<T>, extraTag = ""): Promise<T> {
+  const currentTag = `${await getVersionTag(db, domains)}|ngay:${getVnDateStr()}${extraTag ? `|${extraTag}` : ""}`;
 
   const row = await db.prepare("SELECT payload FROM precomputed_cache WHERE key = ?").bind(key).first<{ payload: string }>();
   if (row) {

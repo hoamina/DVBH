@@ -32,9 +32,9 @@ import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersion
 // 1341623: import bao "da co" nhung chi tiet ca khong thay). Nay tra kem detailVersion = version-tag cac
 // domain nay; FE so voi GET /cases/detail-version truoc khi dung cache.
 const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
-import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { cachedReport, buildReportKey, getVnDateStr } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
-import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey } from "../lib/dailySnapshot";
+import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey, buildKhuVucFilterScopeKey } from "../lib/dailySnapshot";
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, canWriteTranhChap } from "../lib/tranhChapTienTrinh";
@@ -876,13 +876,33 @@ cases.get("/backlog-by-khu-vuc", async (c) => {
 // "qldvbh" trong ten (getBacklogDailyForKhuVucGroup) - loc theo scope TRUOC khi cong (Giam sat chi
 // duoc cong nhung khu_vuc nam trong khu_vuc_phu_trach cua minh). Tra null neu khong co snapshot y
 // nghia (Giam sat chua gan khu_vuc_phu_trach nao, giong /dashboard/daily-report).
+// 2026-11-06: boc cachedReport ca 4 nhanh - truoc day TINH SONG moi lan goi (so "da giai trinh tu 08:00" cua tung nhom, hang
+// tram truy van moi lan mo trang) va la nguon chinh cua "D1 DB is overloaded" buoi toi 06/11. Tag = domain cases/giai_trinh/settings
+// + dau van tay so chot 08:00 cua dung cac scope (daily_snapshot, khong bump domain) + so dong chot 17h30 hom nay + so ngay loai tru
+// trong thang (settings_giai_trinh_exclude_ngay ghi khong bump domain) - doi bat ky nguon nao thi tinh lai, con lai dung cache.
+async function backlogDailyCached<T>(db: D1Database, bien: string, scopeKeys: string[], compute: () => Promise<T>): Promise<T> {
+  const ngay = getVnDateStr();
+  const monthStart = `${ngay.slice(0, 7)}-01`;
+  const st = await db
+    .prepare(
+      `SELECT COALESCE(MAX(generated_at), '') AS g, COUNT(*) AS n,
+              (SELECT COUNT(*) FROM giai_trinh_daily_log WHERE ngay = ?) AS l,
+              (SELECT COUNT(*) || ':' || COALESCE(MAX(rowid), 0) FROM settings_giai_trinh_exclude_ngay WHERE ngay >= ?) AS x
+       FROM daily_snapshot WHERE ngay = ? AND scope_key IN (SELECT value FROM json_each(?))`,
+    )
+    .bind(ngay, monthStart, ngay, JSON.stringify(scopeKeys))
+    .first<{ g: string; n: number; l: number; x: string }>();
+  return cachedReport(db, `rpt:cases/backlog-daily|${bien}`, ["cases", "giai_trinh", "settings"], compute, `snap:${st?.g}#${st?.n}|log:${st?.l}|ex:${st?.x}`);
+}
+
 cases.get("/backlog-daily", async (c) => {
   const khuVucParam = c.req.query("khu_vuc");
   if (khuVucParam === QLDVBH_FILTER_VALUE) {
     const scope = scopeByKhuVuc(c);
     let list = await layKhuVucQldvbh(c.env.DB);
     if (scope !== null) list = list.filter((kv) => scope.includes(kv));
-    const data = await getBacklogDailyForKhuVucGroup(c.env.DB, list);
+    list = [...list].sort();
+    const data = await backlogDailyCached(c.env.DB, `nhom:${list.join(",")}`, list.map(buildKhuVucFilterScopeKey), () => getBacklogDailyForKhuVucGroup(c.env.DB, list));
     return c.json(data);
   }
   const isSingleKhuVuc = !!khuVucParam && khuVucParam !== QLDVBH_FILTER_VALUE && !khuVucParam.includes(",");
@@ -891,7 +911,7 @@ cases.get("/backlog-daily", async (c) => {
     if (scope !== null && !scope.includes(khuVucParam)) {
       return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
     }
-    const data = await getBacklogDailyForKhuVuc(c.env.DB, khuVucParam);
+    const data = await backlogDailyCached(c.env.DB, `kv:${khuVucParam}`, [buildKhuVucFilterScopeKey(khuVucParam)], () => getBacklogDailyForKhuVuc(c.env.DB, khuVucParam));
     return c.json(data);
   }
   // CHOT 2026-10-20 (huong 1): chon NHIEU khu vuc le cung doc dong bang 08:00 - cong snapshot rieng tung khu vuc (giong
@@ -899,11 +919,15 @@ cases.get("/backlog-daily", async (c) => {
   // Khu vuc ngoai pham vi xem cua nguoi dung bi bo qua (khong 403), giong nhanh nhom QLDVBH.
   if (khuVucParam && khuVucParam.includes(",")) {
     const scope = scopeByKhuVuc(c);
-    const list = [...new Set(khuVucParam.split(",").map((v) => v.trim()).filter(Boolean))].filter((kv) => scope === null || scope.includes(kv));
-    const data = await getBacklogDailyForKhuVucGroup(c.env.DB, list);
+    const list = [...new Set(khuVucParam.split(",").map((v) => v.trim()).filter(Boolean))].filter((kv) => scope === null || scope.includes(kv)).sort();
+    const data = await backlogDailyCached(c.env.DB, `nhom:${list.join(",")}`, list.map(buildKhuVucFilterScopeKey), () => getBacklogDailyForKhuVucGroup(c.env.DB, list));
     return c.json(data);
   }
-  const data = await getBacklogDailyWithDelta(c.env.DB, c.get("user"));
+  // Nhanh mac dinh: snapshot theo vai tro (getSnapshotForUser) - khoa = bien the vai tro + khu vuc phu trach (Giam sat).
+  const user = c.get("user");
+  const variant = roleVariantOf(user.vai_tro);
+  const kvList = variant === "giam_sat" ? user.khu_vuc_phu_trach : [];
+  const data = await backlogDailyCached(c.env.DB, `vt:${variant}:${[...kvList].sort().join(",")}`, [buildSnapshotScopeKey(variant, kvList)], () => getBacklogDailyWithDelta(c.env.DB, user));
   return c.json(data);
 });
 

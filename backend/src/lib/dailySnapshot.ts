@@ -1052,7 +1052,7 @@ export async function getBacklogSnapshotIds(
  * vai_tro/khu_vuc_phu_trach nhu buildSnapshotScopeKey - day la khi nguoi dung TU CHON 1 khu_vuc o bo
  * loc, xem BacklogModule.tsx isSingleKhuVucOnly). Namespace rieng "khu-vuc-loc|" de khong dung do voi
  * "giam_sat|"/"khac|all"/"qc|all" da co. */
-function buildKhuVucFilterScopeKey(khuVuc: string): string {
+export function buildKhuVucFilterScopeKey(khuVuc: string): string {
   return `khu-vuc-loc|${khuVuc}`;
 }
 
@@ -1175,7 +1175,18 @@ function mergeBacklogDailyPayloads(payloads: BacklogDailyPayload[]): BacklogDail
  * neu danh sach rong (vd Giam sat khong phu trach khu_vuc nao thuoc nhom dang loc). */
 export async function getBacklogDailyForKhuVucGroup(db: D1Database, khuVucList: string[]): Promise<BacklogDailyPayload | null> {
   if (khuVucList.length === 0) return null;
-  const payloads = await Promise.all(khuVucList.map((kv) => getBacklogDailyForKhuVuc(db, kv)));
+  // 2026-11-06: truoc day Promise.all ca ~15 khu vuc QLDVBH cung luc, moi khu vuc lai ~17 nhom x lo 98 ID dem song song ->
+  // hang tram truy van D1 dong thoi moi lan mo Quan ly ton -> "D1 DB is overloaded" keo ca tim kiem / menu loi theo. Nay
+  // chay toi da 3 khu vuc 1 luc (route con boc cachedReport nen chi chay khi du lieu doi).
+  const payloads: BacklogDailyPayload[] = new Array(khuVucList.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < khuVucList.length) {
+      const i = next++;
+      payloads[i] = await getBacklogDailyForKhuVuc(db, khuVucList[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(3, khuVucList.length) }, worker));
   return mergeBacklogDailyPayloads(payloads);
 }
 

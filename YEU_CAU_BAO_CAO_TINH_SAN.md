@@ -181,6 +181,15 @@ tính lại không cần thiết.
 domain list cập nhật thành `cases, giai_trinh, vi_pham, giai_trinh_lap, blacklist,
 nap_gas_danh_gia, tranh_chap, dat_mua_lk`.
 
+## R11 — `GET /api/cases/backlog-daily` (chốt 2026-11-06, v1.534)
+
+Trước đây tính SỐNG mỗi lần gọi (số "đã giải trình từ 08:00" cho ~17 nhóm × lô 98 ID, nhóm "Tất cả DVBH" chạy cùng lúc ~15
+khu vực) → hàng trăm truy vấn D1 đồng thời mỗi lần mở Quản lý tồn → "D1 DB is overloaded" (tối 06/11, kéo theo cả tìm kiếm).
+Nay cả 4 nhánh (nhóm QLDVBH, 1 khu vực, nhiều khu vực, mặc định theo vai trò) bọc `cachedReport`, key `rpt:cases/backlog-daily|<biến thể>`,
+domain `["cases","giai_trinh","settings"]` + `extraTag` (tham số mới của `cachedReport`) = dấu vân tay các nguồn KHÔNG bump domain:
+`MAX(generated_at)`+số dòng `daily_snapshot` hôm nay của đúng các scope, số dòng `giai_trinh_daily_log` hôm nay (chốt 17h30), số
+dòng + max rowid `settings_giai_trinh_exclude_ngay` trong tháng. Lần tính lại chạy tối đa 3 khu vực cùng lúc.
+
 ## Ràng buộc chung cho MỌI hạng mục
 
 - KHÔNG đổi shape response; KHÔNG sửa frontend.

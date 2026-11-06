@@ -5293,3 +5293,13 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   do route chi tiết kiểm tra).
 - dvbh `components/MoAppLink.tsx`: tab Bảo hành (mã đơn, thùng, đơn vị #n, phiếu trả, mã trong nhật ký) → suachua; tab Mua hàng
   (mã DDH, phiếu xuất kho) + Thiếu hàng (TLK, DDH) → linhkien. Mở tab mới; người bấm cần tài khoản có quyền ở app đó.
+
+## 2026-11-06 (tối) — Tìm kiếm / Quản lý tồn lỗi "INTERNAL_ERROR" do D1 quá tải: cache backlog-daily (v1.534)
+- Triệu chứng: tìm case liên tục báo INTERNAL_ERROR, phải 10–15s mới tìm được. `wrangler tail`: mỗi lần mở trang có 4–6
+  request lỗi "D1 DB is overloaded… 10 second window", search bị từ chối sau 12ms; tổng tải D1 giờ 23h chỉ 1,2M rows/224 truy vấn
+  → không phải lưu lượng mà là 1 request bắn quá nhiều truy vấn cùng lúc.
+- Nguyên nhân: `GET /cases/backlog-daily` (nhóm "Tất cả DVBH") KHÔNG cache, `Promise.all` ~15 khu vực × ~17 nhóm × lô 98 ID →
+  hàng trăm truy vấn đồng thời mỗi lần mở Quản lý tồn (wall 5–10s rồi lỗi).
+- Sửa: bọc `cachedReport` cả 4 nhánh (R11 trong YEU_CAU_BAO_CAO_TINH_SAN.md, `extraTag` mới cho nguồn không bump domain:
+  daily_snapshot / giai_trinh_daily_log / ngày loại trừ); gộp nhóm chạy tối đa 3 khu vực/lúc. Local: 1,77s → 0,27s (cache), kết
+  quả giống hệt; bump domain giai_trinh → tính lại đúng.
