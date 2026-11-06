@@ -5263,3 +5263,14 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Sửa: (1) `/cases/search` không gắn `pv` (tra cứu 1 ca, không phải báo cáo; quốc gia + khu vực phụ trách vẫn áp như cũ);
   (2) không ra kết quả → server trả `ly_do` (`da_huy` / `ngoai_khu_vuc` / `khong_co`, đọc `case_dvbh` theo id/seri, chỉ trả
   mã lý do), TopBar báo đúng câu; (3) lỗi API không còn bị báo nhầm là "không tìm thấy".
+
+## 2026-11-06 — Tab "Bảo hành" riêng + sửa nhật ký sai từ app suachua (dvbh v1.530, suachua v1.090)
+- Lỗi: SC261012748 chỉ gửi 1 linh kiện nhưng "Tiến trình chung" hiện cả loạt "Gửi BH (app): Nháp → Nháp … Gộp thêm đơn vị
+  DH-0027xx vào phiếu" — log của phiếu trả TR-000506 dùng chung cho đơn nhiều ca. Sửa phía suachua (`logThuocDon`): log cấp
+  thùng/phiếu trả chỉ giữ dòng đổi trạng thái hoặc dòng nhắc đúng mã đơn của ca. Nhãn dòng không đổi trạng thái = "Cập nhật".
+- Tab mới "Bảo hành" (key `bao-hanh-app`, cạnh "Mua hàng", cùng khuôn): mỗi đơn gửi sửa 1 thẻ (linh kiện, badge Odoo/tạo trên
+  app + giai đoạn, mã đơn · thùng, lưới: mã LK, SL khai/thực nhận, KTV gửi, ngày tạo, hướng xử lý, tổng thời gian; ô "Lỗi")
+  + "Luồng quy trình bảo hành" dạng bước dọc (xong / đang chờ / chưa tới / lỗi, giờ, người, +thời gian giữa 2 mốc; đơn nhiều
+  đơn vị tách nhánh từ bước phân loại) + nhật ký đã lọc; bên dưới nguồn AppSheet bảo hành. Bỏ khối suachua khỏi Thông tin case
+  › Gửi BH (giữ Odoo + AppSheet ở đó). Mốc suachua trong Tiến trình chung nhảy tới tab "Bảo hành".
+- Chưa xem bằng mắt (Browser pane ẩn, không điều hướng được); đã kiểm tra chuỗi dvbh local → suachua local trả đủ luồng.

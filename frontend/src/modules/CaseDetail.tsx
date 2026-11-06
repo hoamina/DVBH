@@ -1440,7 +1440,8 @@ export function CaseDetail({
     for (const d of scDonList) {
       const lk = d.ten_lk || d.ma_lk || "—";
       for (const [i, l] of d.timeline.entries()) {
-        const buoc = l.den ? (l.tu ? `${l.tu} → ${l.den}` : l.den) : tr("Cập nhật");
+        // Dong khong doi trang thai (vd "Kho đã in phiếu") -> khong hien "Nháp → Nháp", noi dung o ghi chu.
+        const buoc = l.tu && l.den && l.tu !== l.den ? `${l.tu} → ${l.den}` : !l.tu && l.den ? l.den : tr("Cập nhật");
         pushDb({
           key: `sc-${d.id}-${i}`,
           rawTs: l.at,
@@ -1449,7 +1450,7 @@ export function CaseDetail({
           actor: l.nguoi,
           summary: `${l.ma} · ${lk}${l.ghi_chu ? `
 ${l.ghi_chu}` : ""}`,
-          jumpTab: "bao-hanh",
+          jumpTab: "bao-hanh-app",
         });
       }
     }
@@ -2436,19 +2437,9 @@ ${l.ghi_chu}` : ""}`,
   // Dung chung cho ca goc + cot ca doi chieu (2026-10-08) - moi ben truyen du lieu cua chinh ca do.
   // hienBanner (2026-10-30): banner dong bo mua hang/bao hanh chi hien 1 lan tren man hinh - an o day khi cot phai (expanded)
   // dang mo 1 tab cung nguon da co banner, va luon an o cot ca doi chieu.
-  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched, hienBanner = true, coSuaChua = false) {
-    const hienSc = coSuaChua && (scLoading || scDonList.length > 0 || (!!scTimeline?.configured && !scTimeline.ok));
+  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched, hienBanner = true) {
     return (
       <div>
-        {hienSc && (
-          <div className="mb-4">
-            <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">
-              {tr("App Gửi bảo hành ({0}) — luồng gửi sửa thực tế", scDonList.length)}
-            </div>
-            <SuaChuaPanel data={scTimeline} isLoading={scLoading} />
-            {orders.length === 0 && <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>}
-          </div>
-        )}
         {orders.length > 0 && (
           <div className="mb-4">
             <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn Odoo (")}{orders.length}{tr(") — chi tiết theo linh kiện ở mục \"Lỗi\"")}</div>
@@ -2499,8 +2490,21 @@ ${l.ghi_chu}` : ""}`,
     linhKienLoiList,
     donBaoHanhOdooList,
     baoHanhMatched,
-    !(viewMode === "expanded" && ["mua-hang", "thieu-hang", "po-dat-hang", "qc-thuc-te"].includes(tab)),
-    true,
+    !(viewMode === "expanded" && ["mua-hang", "thieu-hang", "po-dat-hang", "qc-thuc-te", "bao-hanh-app"].includes(tab)),
+  );
+
+  // Tab "Bảo hành" (2026-11-06 vong 2, cung khuon tab "Mua hàng"): App Gửi bảo hành (suachua, luong quy trinh tung don)
+  // + nguon AppSheet bao hanh cu ben duoi. Don Odoo + ban dong bo van o Thong tin case > Gửi BH.
+  const baoHanhAppContent = (
+    <div>
+      <SuaChuaPanel data={scTimeline} isLoading={scLoading} />
+      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
+      {purchaseSyncBanner}
+      {!purchaseSyncing && baoHanhMatched.length === 0 && (
+        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn bảo hành liên quan đến ca này.")}</div>
+      )}
+      {baoHanhMatched.length > 0 && renderBaoHanh([], [], baoHanhMatched, false)}
+    </div>
   );
 
   // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
@@ -2608,8 +2612,7 @@ ${l.ghi_chu}` : ""}`,
           onAnChange: changeAnTruong,
           cardRef: xuLyCardRef,
           countLoi: linhKienLoiList.length,
-          // Don suachua gan don Odoo da duoc dem trong donBaoHanhOdooList -> chi cong don tao tay tren app.
-          countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length + scDonList.filter((d) => !d.odoo_id).length,
+          countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length,
           countLichHen: lichHenList.length,
           countYeuCauHuy: yeuCauHuyList.length,
           panels: {
@@ -2816,6 +2819,7 @@ ${l.ghi_chu}` : ""}`,
           { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length },
           { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
+          { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length + baoHanhMatched.length },
           { key: "mua-hang", label: tr("Mua hàng"), count: muaHangMatched.length + lkOrders.length },
           { key: "thieu-hang", label: tr("Thiếu hàng"), count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
@@ -2831,6 +2835,7 @@ ${l.ghi_chu}` : ""}`,
           { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length },
           { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
+          { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length + baoHanhMatched.length },
           { key: "mua-hang", label: tr("Mua hàng"), count: muaHangMatched.length + lkOrders.length },
           { key: "thieu-hang", label: tr("Thiếu hàng"), count: thieuHangMatched.length + lkThieuCount },
           { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
@@ -3000,6 +3005,7 @@ ${l.ghi_chu}` : ""}`,
               {tab === "khao-sat" && khaoSatContent}
               {tab === "ca-lap" && caLapContent}
               {tab === "nap-gas" && napGasContent}
+              {tab === "bao-hanh-app" && baoHanhAppContent}
               {tab === "mua-hang" && muaHangContent}
               {tab === "thieu-hang" && thieuHangContent}
               {tab === "po-dat-hang" && poDatHangContent}
@@ -3021,7 +3027,8 @@ ${l.ghi_chu}` : ""}`,
             {tab === "khao-sat" && khaoSatContent}
             {tab === "ca-lap" && caLapContent}
             {tab === "nap-gas" && napGasContent}
-            {tab === "mua-hang" && muaHangContent}
+            {tab === "bao-hanh-app" && baoHanhAppContent}
+              {tab === "mua-hang" && muaHangContent}
             {tab === "thieu-hang" && thieuHangContent}
             {tab === "po-dat-hang" && poDatHangContent}
             {tab === "qc-thuc-te" && qcThucTeContent}

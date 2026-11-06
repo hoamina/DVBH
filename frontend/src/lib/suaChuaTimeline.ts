@@ -38,8 +38,19 @@ export interface SuaChuaPhieuTra {
   cap_nhat: string | null;
 }
 
+// Moc luong quy trinh do suachua tinh (lib/partnerCaseFlow.ts ben repo do).
+export interface SuaChuaMoc {
+  key: string;
+  label: string;
+  trang_thai: "xong" | "dang" | "chua" | "loi";
+  at: string | null;
+  nguoi: string | null;
+  ghi_chu: string | null;
+}
+
 export interface SuaChuaDonVi {
   id: string;
+  luong?: SuaChuaMoc[];
   so_thu_tu: number;
   giai_doan: string;
   giai_doan_label: string | null;
@@ -88,6 +99,7 @@ export interface SuaChuaDon {
   giai_doan: string | null; // chi co khi don chua tach don vi
   giai_doan_label: string | null;
   tao_luc: string | null;
+  luong?: SuaChuaMoc[] | null; // chi co khi don chua tach don vi
   phieu_gui: SuaChuaPhieuGui | null;
   don_vi: SuaChuaDonVi[];
   timeline: SuaChuaLog[];

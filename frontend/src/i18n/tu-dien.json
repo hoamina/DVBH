@@ -12918,5 +12918,109 @@
  "App Gửi bảo hành ({0}) — luồng gửi sửa thực tế": [
   "Warranty shipping app ({0}) — actual repair flow",
   "Aplikasi kirim garansi ({0}) — alur perbaikan aktual"
+ ],
+ "Đang chờ": [
+  "Waiting",
+  "Menunggu"
+ ],
+ "SL khai / thực nhận": [
+  "Declared / received qty",
+  "Jml deklarasi / diterima"
+ ],
+ "KTV gửi": [
+  "Sending technician",
+  "Teknisi pengirim"
+ ],
+ "Tổng thời gian xử lý": [
+  "Total handling time",
+  "Total waktu penanganan"
+ ],
+ "Đã xử lý được": [
+  "Elapsed so far",
+  "Waktu berjalan"
+ ],
+ "KTV đề xuất": [
+  "Technician proposal",
+  "Usulan teknisi"
+ ],
+ "Sự cố tiếp nhận": [
+  "Receiving incident",
+  "Insiden penerimaan"
+ ],
+ "Luồng quy trình bảo hành": [
+  "Warranty process flow",
+  "Alur proses garansi"
+ ],
+ "Đơn vị #{0}": [
+  "Unit #{0}",
+  "Unit #{0}"
+ ],
+ "Chưa cấu hình kết nối app Gửi bảo hành.": [
+  "Warranty shipping app connection not configured.",
+  "Koneksi aplikasi kirim garansi belum dikonfigurasi."
+ ],
+ "Không có đơn gửi bảo hành nào gắn với ca này.": [
+  "No warranty shipments linked to this case.",
+  "Tidak ada pengiriman garansi untuk kasus ini."
+ ],
+ "KTV tạo đơn": [
+  "Technician created order",
+  "Teknisi membuat pesanan"
+ ],
+ "KTV gửi xe về Kho": [
+  "Technician shipped to warehouse",
+  "Teknisi mengirim ke gudang"
+ ],
+ "Xác nhận số lượng": [
+  "Quantity confirmed",
+  "Jumlah dikonfirmasi"
+ ],
+ "Admin BH phân loại": [
+  "Warranty admin classified",
+  "Admin garansi mengklasifikasi"
+ ],
+ "Đã huỷ đơn bảo hành": [
+  "Warranty order cancelled",
+  "Pesanan garansi dibatalkan"
+ ],
+ "Đã chuyển kho": [
+  "Transferred to warehouse",
+  "Dipindahkan ke gudang"
+ ],
+ "NV sửa chữa / chẩn đoán": [
+  "Repair / diagnosis",
+  "Perbaikan / diagnosis"
+ ],
+ "Admin BH xác nhận hoàn tất": [
+  "Warranty admin confirmed done",
+  "Admin garansi konfirmasi selesai"
+ ],
+ "Tạo phiếu trả": [
+  "Return slip created",
+  "Slip pengembalian dibuat"
+ ],
+ "Kết thúc, không gửi hàng về KTV": [
+  "Closed, not shipped back",
+  "Selesai, tidak dikirim kembali"
+ ],
+ "Kế toán duyệt": [
+  "Accounting approved",
+  "Akuntansi menyetujui"
+ ],
+ "Kho gửi trả KTV": [
+  "Warehouse shipped back",
+  "Gudang mengirim kembali"
+ ],
+ "KTV nhận lại hàng": [
+  "Technician received back",
+  "Teknisi menerima kembali"
+ ],
+ "Gửi thất bại (thất lạc)": [
+  "Shipment failed (lost)",
+  "Pengiriman gagal (hilang)"
+ ],
+ "KTV báo không nhận được hàng": [
+  "Technician reported not received",
+  "Teknisi melaporkan tidak diterima"
  ]
 }

@@ -1,16 +1,17 @@
-// Khoi "App Gửi bảo hành" trong tab "Gửi BH" cua CaseDetail (2026-11-06) - du lieu song tu he suachua
-// (frontend/src/lib/suaChuaTimeline.ts). Moi don gui sua (BH-...) cua ca: buoc hien tai, 6 moc luong
-// (KTV dong thung -> gui xe -> Kho nhan -> Admin BH nhan -> xu ly -> tra KTV), tung don vi (huong xu ly,
-// NV sua, ket qua, phieu tra) va nhat ky day du. Ca don KTV tao tay khong co don Odoo cung hien o day.
+// Tab "Bảo hành" cua CaseDetail (2026-11-06, vong 2) - du lieu song tu he suachua ("App Gửi bảo hành",
+// frontend/src/lib/suaChuaTimeline.ts). Cung khuon the tab "Mua hàng": moi don gui sua (DH-...) la 1 the
+// (linh kien, badge trang thai, ma don, luoi thong tin) + LUONG QUY TRINH tu luc KTV tao don toi khi KTV nhan lai
+// (moc do suachua tinh: xong / dang cho / chua toi / loi, kem thoi diem, nguoi lam, thoi gian giua 2 moc).
+// Don nhieu don vi: cac moc chung (tao don -> xac nhan SL) hien 1 lan, tu buoc phan loai tach theo tung don vi.
 import { useState } from "react";
 import { Badge, type BadgeTone } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { Field } from "./ui/Field";
 import { LoadingInline } from "./ui/LoadingInline";
 import { MaLinhKienLink } from "./HoSoLinhKienProvider";
-import { fmtDateTime } from "../types";
+import { fmtDateTime, parseDbDateTime } from "../types";
 import { tr } from "../i18n/tr";
-import { SUACHUA_APP_URL, type SuaChuaDon, type SuaChuaDonVi, type SuaChuaTimelineResult } from "../lib/suaChuaTimeline";
+import { SUACHUA_APP_URL, type SuaChuaDon, type SuaChuaDonVi, type SuaChuaMoc, type SuaChuaTimelineResult } from "../lib/suaChuaTimeline";
 
 export function giaiDoanTone(gd: string | null | undefined): BadgeTone {
   if (!gd) return "gray";
@@ -22,62 +23,96 @@ export function giaiDoanTone(gd: string | null | undefined): BadgeTone {
   return "amber";
 }
 
-/** Buoc "tong" cua 1 don: don chua tach -> giai doan cua thung; 1 don vi -> giai doan don vi do; nhieu don vi ->
- * don vi cham nhat chua ket thuc (hoac don vi dau tien neu tat ca da ket thuc) + "x/y hoàn tất". */
+const KET_THUC = (g: string) => g === "tra_ktv_da_nhan" || g.startsWith("ket_thuc") || g === "tra_ket_thuc_khong_gui";
+
+/** Buoc "tong" cua 1 don: chua tach -> giai doan thung; 1 don vi -> giai doan don vi; nhieu -> don vi cham nhat chua xong. */
 export function giaiDoanDon(d: SuaChuaDon): { code: string | null; label: string; detail: string | null } {
   if (d.don_vi.length === 0) return { code: d.giai_doan, label: d.giai_doan_label ?? d.trang_thai_cha_label ?? "—", detail: null };
-  const ketThuc = (g: string) => g === "tra_ktv_da_nhan" || g.startsWith("ket_thuc") || g === "tra_ket_thuc_khong_gui";
-  const mo = d.don_vi.filter((u) => !ketThuc(u.giai_doan));
+  const mo = d.don_vi.filter((u) => !KET_THUC(u.giai_doan));
   const u = mo[0] ?? d.don_vi[0];
   const xong = d.don_vi.filter((x) => x.giai_doan === "tra_ktv_da_nhan").length;
   return { code: u.giai_doan, label: u.giai_doan_label ?? u.trang_thai_label ?? u.giai_doan, detail: d.don_vi.length > 1 ? tr("{0}/{1} hoàn tất", xong, d.don_vi.length) : null };
 }
 
-function Moc({ done, label, at, desc }: { done: boolean; label: string; at: string | null; desc?: string | null }) {
+function khoangThoiGian(ms: number): string {
+  if (ms < 0) return "";
+  const gio = ms / 3_600_000;
+  if (gio < 1) return tr("{0} phút", Math.max(1, Math.round(ms / 60_000)));
+  if (gio < 24) return tr("{0} giờ", Math.round(gio * 10) / 10);
+  return tr("{0} ngày", Math.round((gio / 24) * 10) / 10);
+}
+// Gio VN local "YYYY-MM-DD[ HH:MM:SS]" (nowVN() ben suachua) - cung cach doc voi cot thoi gian D1 dvbh.
+const msOf = (at: string | null) => (at ? parseDbDateTime(at.includes(":") ? at : `${at} 00:00:00`).getTime() : NaN);
+
+const MOC_STYLE: Record<SuaChuaMoc["trang_thai"], { dot: string; text: string; icon: string }> = {
+  xong: { dot: "bg-[var(--teal-500)] text-white", text: "text-[var(--ink-900)]", icon: "✓" },
+  dang: { dot: "bg-[var(--amber-500)] text-white ring-4 ring-[var(--amber-500)]/20", text: "text-[var(--ink-900)]", icon: "…" },
+  chua: { dot: "bg-slate-200 text-slate-400", text: "text-[var(--ink-400)]", icon: "" },
+  loi: { dot: "bg-[var(--coral-500)] text-white", text: "text-[var(--coral-600)]", icon: "!" },
+};
+
+/** Luong quy trinh dang cac buoc doc. prevAt = moc truoc khoi (de tinh "+x" cho moc dau khi luong bi tach). */
+function Luong({ moc, prevAt = null }: { moc: SuaChuaMoc[]; prevAt?: string | null }) {
+  let truoc = prevAt;
   return (
-    <div className="relative pl-5 pb-2 last:pb-0">
-      <span className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full ${done ? "bg-[var(--teal-500)]" : "bg-slate-300"}`} />
-      <div className={`text-xs font-semibold ${done ? "text-[var(--ink-900)]" : "text-[var(--ink-400)]"}`}>
-        {label}
-        {at && <span className="ml-2 font-normal text-[var(--ink-500)]">{fmtDateTime(at)}</span>}
-      </div>
-      {desc && <div className="text-xs text-[var(--ink-500)] mt-0.5 whitespace-pre-line">{desc}</div>}
-    </div>
+    <ol className="relative">
+      {moc.map((m, i) => {
+        const st = MOC_STYLE[m.trang_thai];
+        const cach = m.at && truoc ? khoangThoiGian(msOf(m.at) - msOf(truoc)) : "";
+        if (m.at) truoc = m.at;
+        const last = i === moc.length - 1;
+        return (
+          <li key={m.key + i} className="relative pl-8 pb-3 last:pb-0">
+            {!last && <span className={`absolute left-[11px] top-6 bottom-0 w-0.5 ${m.trang_thai === "xong" ? "bg-[var(--teal-500)]/50" : "bg-slate-200"}`} />}
+            <span className={`absolute left-0 top-0.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${st.dot}`}>{st.icon}</span>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className={`text-sm font-semibold ${st.text}`}>{tr(m.label)}</span>
+              {m.trang_thai === "dang" && <Badge tone="amber">{tr("Đang chờ")}</Badge>}
+              {m.at && <span className="text-xs text-[var(--ink-500)]">{fmtDateTime(m.at)}</span>}
+              {cach && <span className="text-[11px] text-[var(--ink-400)]">(+{cach})</span>}
+            </div>
+            {(m.nguoi || m.ghi_chu) && (
+              <div className="text-xs text-[var(--ink-600)] mt-0.5 whitespace-pre-line">
+                {m.nguoi && <span className="font-medium">{m.nguoi}</span>}
+                {m.nguoi && m.ghi_chu && " · "}
+                {m.ghi_chu}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-function DonViRow({ u }: { u: SuaChuaDonVi }) {
+const MOC_CHUNG = new Set(["tao_don", "gui_xe", "kho_nhan", "admin_nhan", "xac_nhan_sl"]);
+
+function DonViChiTiet({ u }: { u: SuaChuaDonVi }) {
   const t = u.phieu_tra;
+  const fields: [string, React.ReactNode][] = [];
+  if (u.loai_bao_hanh) fields.push([tr("Loại bảo hành"), u.loai_bao_hanh]);
+  if (u.ma_lk_thuc_te) fields.push([tr("Linh kiện thực tế"), <span key="lk">{u.ten_lk_thuc_te ?? ""} (<MaLinhKienLink ma={u.ma_lk_thuc_te} ten={u.ten_lk_thuc_te} className="font-mono" />)</span>]);
+  if (u.loai_doi_tru) fields.push([tr("Loại đối trừ"), u.loai_doi_tru]);
+  if (u.xu_ly_xac) fields.push([tr("Xử lý xác"), u.xu_ly_xac]);
+  if (t?.ma_don_hang) fields.push([tr("Mã đơn hàng"), t.ma_don_hang]);
+  if (t?.ma_misa) fields.push([tr("Mã MISA"), t.ma_misa]);
+  const notes = [
+    u.ghi_chu_admin && `${tr("Ghi chú Admin:")} ${u.ghi_chu_admin}`,
+    u.ghi_chu_nv && `${tr("Ghi chú NV:")} ${u.ghi_chu_nv}`,
+    t?.ly_do_tu_choi_kt && `${tr("Kế toán từ chối:")} ${t.ly_do_tu_choi_kt}`,
+    t?.danh_gia_ktv && `${tr("KTV đánh giá:")} ${t.danh_gia_ktv}`,
+  ].filter(Boolean);
+  if (fields.length === 0 && notes.length === 0) return null;
   return (
-    <div className="rounded-xl border border-[var(--line)] px-3 py-2">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-xs font-bold">{u.id}</span>
-        <Badge tone={giaiDoanTone(u.giai_doan)}>{u.giai_doan_label ?? u.giai_doan}</Badge>
-        {u.that_lac && <Badge tone="coral">{tr("Thất lạc")}</Badge>}
-      </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
-        <Field label={tr("Hướng xử lý")} value={u.huong_xu_ly_label ?? "—"} />
-        <Field label={tr("Loại bảo hành")} value={u.loai_bao_hanh ?? "—"} />
-        {u.ma_lk_thuc_te && <Field label={tr("Linh kiện thực tế")} value={<span>{u.ten_lk_thuc_te ?? ""} (<MaLinhKienLink ma={u.ma_lk_thuc_te} ten={u.ten_lk_thuc_te} className="font-mono" />)</span>} />}
-        {u.nv_sua_chua && <Field label={tr("NV sửa chữa")} value={u.nv_sua_chua} />}
-        {u.ket_qua && <Field label={tr("Kết quả")} value={u.ket_qua} />}
-        {u.loai_doi_tru && <Field label={tr("Loại đối trừ")} value={u.loai_doi_tru} />}
-        {u.xu_ly_xac && <Field label={tr("Xử lý xác")} value={u.xu_ly_xac} />}
-        {u.ly_do_tu_choi && <Field label={tr("Lý do huỷ")} value={u.ly_do_tu_choi} />}
-        {t && <Field label={tr("Phiếu trả")} value={<span><span className="font-mono">{t.id}</span> · {t.trang_thai_label ?? t.trang_thai}</span>} />}
-        {t?.ma_van_don && <Field label={tr("Mã vận đơn trả")} value={t.ma_van_don} />}
-        {t?.ma_don_hang && <Field label={tr("Mã đơn hàng")} value={t.ma_don_hang} />}
-        {t?.ma_misa && <Field label={tr("Mã MISA")} value={t.ma_misa} />}
-      </div>
-      {(u.ghi_chu_admin || u.ghi_chu_nv || t?.danh_gia_ktv || t?.khong_nhan_duoc_ghi_chu || t?.ly_do_tu_choi_kt) && (
-        <div className="text-xs text-[var(--ink-600)] mt-2 space-y-0.5">
-          {u.ghi_chu_admin && <div>{tr("Ghi chú Admin:")} {u.ghi_chu_admin}</div>}
-          {u.ghi_chu_nv && <div>{tr("Ghi chú NV:")} {u.ghi_chu_nv}</div>}
-          {t?.ly_do_tu_choi_kt && <div>{tr("Kế toán từ chối:")} {t.ly_do_tu_choi_kt}</div>}
-          {t?.khong_nhan_duoc_ghi_chu && <div>{tr("KTV báo không nhận được:")} {t.khong_nhan_duoc_ghi_chu}</div>}
-          {t?.danh_gia_ktv && <div>{tr("KTV đánh giá:")} {t.danh_gia_ktv}</div>}
+    <div className="mt-2 pt-2 border-t border-dashed border-[var(--line)]">
+      {fields.length > 0 && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+          {fields.map(([l, v]) => (
+            <Field key={l} label={l} value={v} />
+          ))}
         </div>
       )}
+      {notes.length > 0 && <div className="text-xs text-[var(--ink-600)] mt-1.5 space-y-0.5">{notes.map((n, i) => <div key={i}>{n}</div>)}</div>}
     </div>
   );
 }
@@ -86,59 +121,63 @@ function DonCard({ d }: { d: SuaChuaDon }) {
   const [moLog, setMoLog] = useState(false);
   const g = d.phieu_gui;
   const gd = giaiDoanDon(d);
-  const coXuLy = d.don_vi.some((u) => u.huong_xu_ly);
-  const traXong = d.don_vi.length > 0 && d.don_vi.every((u) => u.giai_doan === "tra_ktv_da_nhan" || u.giai_doan.startsWith("ket_thuc"));
-  const phieuTra = [...new Map(d.don_vi.filter((u) => u.phieu_tra).map((u) => [u.phieu_tra!.id, u.phieu_tra!])).values()];
-  const vanChuyen = g ? [g.hinh_thuc_gui, g.don_vi_van_chuyen, g.ma_van_don ? tr("Vận đơn {0}", g.ma_van_don) : null, g.ma_xe_hoac_tai_xe].filter(Boolean).join(" · ") : null;
-  const xuLy = d.don_vi
-    .filter((u) => u.huong_xu_ly_label)
-    .map((u) => `${d.don_vi.length > 1 ? `#${u.so_thu_tu} ` : ""}${u.huong_xu_ly_label}${u.nv_sua_chua ? ` — ${u.nv_sua_chua}` : ""}${u.ket_qua ? ` — ${u.ket_qua}` : ""}`)
-    .join("\n");
-  const traAt = phieuTra.map((t) => t.cap_nhat).filter(Boolean).sort().pop() ?? null;
+  const nhieu = d.don_vi.length > 1;
+  const luongChung = (d.don_vi[0]?.luong ?? d.luong ?? []).filter((m) => !nhieu || MOC_CHUNG.has(m.key));
+  const lastChungAt = [...luongChung].reverse().find((m) => m.at)?.at ?? null;
+  const huong = [...new Set(d.don_vi.map((u) => u.huong_xu_ly_label).filter(Boolean))].join(", ");
+  // Tong thoi gian: tu luc tao don toi moc cuoi da xong (don da ket thuc) hoac toi bay gio (dang xu ly).
+  const tatCaMoc = d.don_vi.length ? d.don_vi.flatMap((u) => u.luong ?? []) : (d.luong ?? []);
+  const xongHet = d.don_vi.length > 0 && d.don_vi.every((u) => KET_THUC(u.giai_doan));
+  const cuoi = tatCaMoc.filter((m) => m.at).map((m) => m.at!).sort().pop() ?? null;
+  const tongMs = d.tao_luc ? (xongHet && cuoi ? msOf(cuoi) : Date.now()) - msOf(d.tao_luc) : NaN;
   return (
-    <Card className="p-3 border-l-4 border-l-[var(--ocean-500)]">
-      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <span className="font-mono text-xs font-bold">{d.id}</span>
-          <Badge tone={giaiDoanTone(gd.code)} solid>{gd.label}</Badge>
+    <Card className="p-3">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+        <span className="font-semibold text-sm">{d.ten_lk || d.ma_lk || tr("(chưa rõ linh kiện)")}</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge tone="gray">{d.odoo_id ? tr("Đơn Odoo #{0}", d.odoo_id) : tr("Tạo trên app")}</Badge>
+          <Badge tone={giaiDoanTone(gd.code)}>{gd.label}</Badge>
           {gd.detail && <span className="text-xs text-[var(--ink-500)]">{gd.detail}</span>}
-          {d.odoo_id ? <Badge tone="gray">{tr("Đơn Odoo #{0}", d.odoo_id)}</Badge> : <Badge tone="gray">{tr("Tạo trên app")}</Badge>}
         </div>
-        {g && <span className="text-xs text-[var(--ink-500)]">{tr("Thùng")} <span className="font-mono">{g.id}</span></span>}
       </div>
-      <div className="text-sm font-semibold">
-        {d.ten_lk ?? tr("(chưa rõ linh kiện)")} {d.ma_lk && <span className="font-mono text-xs text-[var(--ink-400)]">(<MaLinhKienLink ma={d.ma_lk} ten={d.ten_lk} />)</span>}
+      <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
+        {d.id}
+        {g && ` · ${tr("Thùng")} ${g.id}`}
       </div>
-      <div className="text-xs text-[var(--ink-600)] mt-0.5">
-        {tr("SL khai {0}", d.so_luong_khai)}
-        {d.so_luong_thuc_nhan != null && " · " + tr("thực nhận {0}", d.so_luong_thuc_nhan)}
-        {d.ly_do_chenh_lech_sl && ` (${d.ly_do_chenh_lech_sl})`}
-        {d.loai_doi_tru_de_xuat && " · " + tr("KTV đề xuất: {0}", d.loai_doi_tru_de_xuat)}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
+        <Field label={tr("Mã linh kiện")} value={d.ma_lk ? <MaLinhKienLink ma={d.ma_lk} ten={d.ten_lk} /> : "—"} />
+        <Field label={tr("SL khai / thực nhận")} value={`${d.so_luong_khai ?? "—"} / ${d.so_luong_thuc_nhan ?? "—"}${d.ly_do_chenh_lech_sl ? ` (${d.ly_do_chenh_lech_sl})` : ""}`} />
+        <Field label={tr("KTV gửi")} value={g?.ktv ? `${g.ktv}${g.ma_ktv ? ` (${g.ma_ktv})` : ""}` : "—"} />
+        <Field label={tr("Ngày tạo")} value={fmtDateTime(d.tao_luc)} />
+        <Field label={tr("Hướng xử lý")} value={huong || "—"} />
+        <Field label={xongHet ? tr("Tổng thời gian xử lý") : tr("Đã xử lý được")} value={Number.isFinite(tongMs) ? khoangThoiGian(tongMs) : "—"} />
+        {d.loai_doi_tru_de_xuat && <Field label={tr("KTV đề xuất")} value={d.loai_doi_tru_de_xuat} />}
+        {g?.su_co && <Field label={tr("Sự cố tiếp nhận")} value={g.su_co} />}
       </div>
-      {d.mo_ta_loi && <div className="text-xs text-[var(--ink-700)] mt-1">{tr("Mô tả lỗi:")} {d.mo_ta_loi}</div>}
-
-      <div className="mt-3 ml-1 border-l-2 border-[var(--line)] pl-2">
-        <Moc done={!!g} label={tr("KTV đóng thùng")} at={g?.tao_luc ?? d.tao_luc} desc={g?.ktv ? `${g.ktv}${g.ma_ktv ? ` (${g.ma_ktv})` : ""}` : null} />
-        <Moc done={!!g?.gui_xe_luc} label={tr("Gửi xe về Kho")} at={g?.gui_xe_luc ?? null} desc={vanChuyen} />
-        <Moc done={!!g?.kho_nhan_luc} label={tr("Kho nhận hàng")} at={g?.kho_nhan_luc ?? null} desc={[g?.kho_nhan, g?.su_co ? tr("Sự cố: {0}", g.su_co) : null].filter(Boolean).join("\n") || null} />
-        <Moc done={!!g?.admin_nhan_luc} label={tr("Admin BH nhận")} at={g?.admin_nhan_luc ?? null} desc={g?.admin_nhan ?? null} />
-        <Moc done={coXuLy} label={tr("Phân loại / xử lý")} at={null} desc={xuLy || null} />
-        <Moc
-          done={traXong}
-          label={tr("Trả KTV")}
-          at={traAt}
-          desc={phieuTra.map((t) => `${t.id} · ${t.trang_thai_label ?? t.trang_thai}${t.ma_van_don ? ` · ${tr("Vận đơn {0}", t.ma_van_don)}` : ""}`).join("\n") || null}
-        />
-      </div>
-
-      {d.don_vi.length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          <div className="text-xs font-semibold text-[var(--ink-500)]">{tr("Đơn vị xử lý ({0})", d.don_vi.length)}</div>
-          {d.don_vi.map((u) => (
-            <DonViRow key={u.id} u={u} />
-          ))}
+      {d.mo_ta_loi && (
+        <div className="text-xs mt-2 px-2.5 py-1.5 rounded-lg bg-[var(--coral-100,#fdecec)] text-[var(--ink-800)]">
+          <span className="font-semibold">{tr("Lỗi:")}</span> {d.mo_ta_loi}
         </div>
       )}
+
+      <div className="mt-3 pt-3 border-t border-[var(--line)]">
+        <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Luồng quy trình bảo hành")}</div>
+        <Luong moc={luongChung} />
+        {nhieu &&
+          d.don_vi.map((u) => (
+            <div key={u.id} className="mt-3 ml-3 pl-3 border-l-2 border-[var(--ocean-500)]/30">
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <span className="text-xs font-bold text-[var(--ink-700)]">{tr("Đơn vị #{0}", u.so_thu_tu)}</span>
+                <span className="font-mono text-[11px] text-[var(--ink-400)]">{u.id}</span>
+                <Badge tone={giaiDoanTone(u.giai_doan)}>{u.giai_doan_label ?? u.giai_doan}</Badge>
+                {u.that_lac && <Badge tone="coral">{tr("Thất lạc")}</Badge>}
+              </div>
+              <Luong moc={(u.luong ?? []).filter((m) => !MOC_CHUNG.has(m.key))} prevAt={lastChungAt} />
+              <DonViChiTiet u={u} />
+            </div>
+          ))}
+        {!nhieu && d.don_vi[0] && <DonViChiTiet u={d.don_vi[0]} />}
+      </div>
 
       {d.timeline.length > 0 && (
         <div className="mt-3">
@@ -152,7 +191,7 @@ function DonCard({ d }: { d: SuaChuaDon }) {
                   <span className="text-[var(--ink-500)]">{fmtDateTime(l.at)}</span>
                   <span className="font-mono text-[var(--ink-400)] ml-2">{l.ma}</span>
                   {l.nguoi && <span className="ml-2 font-semibold">{l.nguoi}</span>}
-                  {(l.tu || l.den) && (
+                  {(l.tu || l.den) && l.tu !== l.den && (
                     <span className="ml-2">
                       {l.tu ?? "—"} → {l.den ?? "—"}
                     </span>
@@ -169,19 +208,22 @@ function DonCard({ d }: { d: SuaChuaDon }) {
 }
 
 export function SuaChuaPanel({ data, isLoading }: { data: SuaChuaTimelineResult | undefined; isLoading: boolean }) {
-  if (isLoading) return <LoadingInline label={tr("App Gửi bảo hành")} className="text-sm text-[var(--ink-500)]" />;
-  if (!data || !data.configured) return null;
-  if (!data.ok) return <div className="text-xs text-[var(--coral-600)]">{tr("Không tải được dữ liệu từ app Gửi bảo hành ({0}).", data.error ?? "")}</div>;
-  if (data.don.length === 0) return null;
   return (
-    <div className="space-y-2">
-      {data.don.map((d) => (
-        <DonCard key={d.id} d={d} />
-      ))}
-      <div className="text-right">
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold text-[var(--ink-500)]">{tr("App Gửi bảo hành")}</div>
         <a href={SUACHUA_APP_URL} target="_blank" rel="noreferrer" className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline">
           {tr("Mở app Gửi bảo hành ↗")}
         </a>
+      </div>
+      {isLoading && <LoadingInline label={tr("App Gửi bảo hành")} className="text-sm text-[var(--ink-500)]" />}
+      {!isLoading && data && !data.configured && <div className="text-xs text-[var(--ink-400)] italic">{tr("Chưa cấu hình kết nối app Gửi bảo hành.")}</div>}
+      {!isLoading && data?.configured && !data.ok && <div className="text-xs text-[var(--coral-600)]">{tr("Không tải được dữ liệu từ app Gửi bảo hành ({0}).", data.error ?? "")}</div>}
+      {!isLoading && data?.ok && data.don.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Không có đơn gửi bảo hành nào gắn với ca này.")}</div>}
+      <div className="space-y-3">
+        {(data?.ok ? data.don : []).map((d) => (
+          <DonCard key={d.id} d={d} />
+        ))}
       </div>
     </div>
   );

@@ -125,8 +125,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   - `cases.ts` `GET /:id/sua-chua-timeline` (2026-11-06) — same pattern for the "Gửi bảo hành linh kiện" Worker (`suachua`,
     repo `../gui-bao-hanh-linh-kien`): proxies its `GET /api/partner/v1/case-timeline?id=` via Service Binding `SUACHUA_APP` +
     secret `SUACHUA_APP_API_KEY` (= `DVBH_PARTNER_API_KEY` there) (`lib/suaChuaTimeline.ts`), on demand, nothing stored. Shown at
-    the top of CaseDetail tab "Gửi BH" (`components/SuaChuaPanel.tsx`: stage, 6 milestones, units, return slips, log) + log rows in
-    "Tiến trình chung". Covers app-created orders without an Odoo order too; the `sc_*` badge on `don_bao_hanh_odoo` stays for lists.
+    its own CaseDetail tab "Bảo hành" (key `bao-hanh-app`, next to "Mua hàng", same card layout; `components/SuaChuaPanel.tsx`:
+    per-order card + per-unit process flow `luong` computed by suachua `lib/partnerCaseFlow.ts`, filtered log) + log rows in
+    "Tiến trình chung". Shared box / return-slip logs are filtered suachua-side to transitions + lines naming this order. Covers app-created orders without an Odoo order too; the `sc_*` badge on `don_bao_hanh_odoo` stays for lists.
   - `cases.ts` `GET /:id/linh-kien-timeline` — proxies linh-kien-app's `GET /api/partner/v1/case-timeline`
     (purchase/missing-part/PXK/return logs for one case) via Service Binding `LINHKIEN_APP` + secret
     `LINHKIEN_APP_API_KEY` (`lib/linhKienTimeline.ts`); called on demand when a case is opened, nothing
