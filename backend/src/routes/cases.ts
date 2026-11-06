@@ -802,7 +802,24 @@ cases.get("/search", async (c) => {
     .bind(q, q, ...scopeClause.binds)
     .all();
 
-  return c.json({ matches: results });
+  if (results.length > 0) return c.json({ matches: results });
+
+  // Sua 2026-11-06 ("tim ID SC261012748 bao khong thay du co tren he thong"): khong ra ket qua thi tra kem LY DO de
+  // nguoi dung biet vi sao (truoc day chi 1 cau "khong tim thay"). Doc BANG GOC case_dvbh (van qua proxy quoc gia ->
+  // ca nuoc khac khong lo), khong loc khu vuc/huy - chi tra ma ly do, khong tra du lieu ca ngoai quyen. Toi da vai dong
+  // theo id/seri (index seek), chi chay khi khong co ket qua.
+  const { results: tho } = await c.env.DB.prepare(
+    `SELECT c.khu_vuc, c.huy_bo_at FROM case_dvbh c WHERE (c.id = ? OR c.seri_san_pham = ?) LIMIT 20`,
+  )
+    .bind(q, q)
+    .all<{ khu_vuc: string | null; huy_bo_at: string | null }>();
+  let ly_do: "khong_co" | "da_huy" | "ngoai_khu_vuc" = "khong_co";
+  if (tho.length > 0) {
+    const conHieuLuc = tho.filter((r) => r.huy_bo_at === null);
+    if (conHieuLuc.length === 0) ly_do = "da_huy";
+    else if (scope !== null && conHieuLuc.every((r) => !r.khu_vuc || !scope.includes(r.khu_vuc))) ly_do = "ngoai_khu_vuc";
+  }
+  return c.json({ matches: [], ly_do });
 });
 
 // GET /api/cases/counts - so luong tung tab Backlog trong 1 query (cho hien thi "Chua giai trinh (4500)")

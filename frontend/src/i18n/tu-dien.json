@@ -1,4 +1,16 @@
 {
+ "Ca {0} đã bị hủy nên không hiển thị.": [
+  "Case {0} was cancelled, so it is not shown.",
+  "Kasus {0} telah dibatalkan sehingga tidak ditampilkan."
+ ],
+ "Ca {0} thuộc khu vực ngoài phạm vi phụ trách của bạn.": [
+  "Case {0} belongs to an area outside your assigned scope.",
+  "Kasus {0} berada di area di luar cakupan tanggung jawab Anda."
+ ],
+ "Lỗi khi tìm kiếm, vui lòng thử lại ({0}).": [
+  "Search failed, please try again ({0}).",
+  "Pencarian gagal, silakan coba lagi ({0})."
+ ],
  "-- Chính tôi --": [
   "-- Myself --",
   "-- Saya sendiri --"

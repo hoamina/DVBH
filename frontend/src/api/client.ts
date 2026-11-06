@@ -4,7 +4,8 @@ const BASE = "/api";
 
 // "Phạm vi báo cáo" (lib/phamVi.ts): gan ?pv= vao MOI request GET (xem bao cao/danh sach) - tru badge menu (luon Tất cả).
 // "Đa quốc gia": gan ?qg= (nuoc dang xem) vao moi GET ke ca badge menu (badge theo nuoc) - tru /auth.
-const KHONG_GAN_PHAM_VI = /^\/(notifications|auth)(\/|\?|$)/;
+// "/cases/search" (2026-11-06): tim 1 ca theo ID/Serial la tra cuu, khong phai bao cao - khong loc theo NSKX.
+const KHONG_GAN_PHAM_VI = /^\/(notifications|auth|cases\/search)(\/|\?|$)/;
 const KHONG_GAN_QUOC_GIA = /^\/auth(\/|\?|$)/;
 function ganPhamVi(path: string, init?: RequestInit): string {
   if (init?.method && init.method !== "GET") return path;

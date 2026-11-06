@@ -5255,3 +5255,11 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   mốc nhật ký vào "Tiến trình chung" ("Gửi BH (app): …"), số đếm tab cộng thêm đơn tạo tay (đơn có Odoo đã đếm ở nguồn Odoo).
 - Phản biện đã chốt: gọi theo yêu cầu (không lưu D1, mẫu linh-kien-timeline) — không dùng được cho báo cáo/danh sách, chấp nhận;
   giữ badge `sc_*` (danh sách cần, không phải gọi API); không trả email nhân viên; key riêng mỗi chiều; cột ca đối chiếu không gọi.
+
+## 2026-11-06 — Tìm kiếm tổng (TopBar) báo "không thấy" ca có thật (v1.530)
+- Báo lỗi: tìm `SC261012748` báo không thấy. Không xem được production (SELECT remote bị chặn) nên chưa biết chắc lý do của
+  đúng ca này. Tái hiện local 1 nguyên nhân chắc chắn: `api/client.ts` gắn `?pv=` vào MỌI GET → khi TopBar để phạm vi
+  NSKX/Không NSKX, `GET /cases/search` đọc view đã lọc → ca ngoài phạm vi "không tồn tại".
+- Sửa: (1) `/cases/search` không gắn `pv` (tra cứu 1 ca, không phải báo cáo; quốc gia + khu vực phụ trách vẫn áp như cũ);
+  (2) không ra kết quả → server trả `ly_do` (`da_huy` / `ngoai_khu_vuc` / `khong_co`, đọc `case_dvbh` theo id/seri, chỉ trả
+  mã lý do), TopBar báo đúng câu; (3) lỗi API không còn bị báo nhầm là "không tìm thấy".

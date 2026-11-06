@@ -229,9 +229,9 @@ function MainApp({
     });
   }
 
-  function handleSearch(id: string | null) {
+  function handleSearch(id: string | null, thongBao?: string) {
     if (id) openCase(id);
-    else addToast(i18n.t("app.caseNotFound"));
+    else addToast(thongBao ?? i18n.t("app.caseNotFound"));
   }
 
   return (

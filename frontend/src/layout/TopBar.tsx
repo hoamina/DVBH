@@ -1,3 +1,4 @@
+import { tr } from "../i18n/tr";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { AppUser } from "../auth/AuthContext";
@@ -52,7 +53,7 @@ function GlobalSearch({
   autoFocus,
   className = "w-40 lg:w-52",
 }: {
-  onFound: (id: string | null) => void;
+  onFound: (id: string | null, thongBao?: string) => void;
   onSubmitted?: () => void;
   autoFocus?: boolean;
   className?: string;
@@ -69,15 +70,28 @@ function GlobalSearch({
     const query = q.trim();
     if (!query) return;
     try {
-      const res = await api.get<{ matches: SearchMatchRow[] }>(`/cases/search?q=${encodeURIComponent(query)}`);
+      const res = await api.get<{ matches: SearchMatchRow[]; ly_do?: "khong_co" | "da_huy" | "ngoai_khu_vuc" }>(
+        `/cases/search?q=${encodeURIComponent(query)}`,
+      );
       if (res.matches.length > 1) {
         setMultiMatches({ query, rows: res.matches });
+      } else if (res.matches[0]) {
+        onFound(res.matches[0].id);
+        setQ("");
       } else {
-        onFound(res.matches[0]?.id ?? null);
-        if (res.matches[0]) setQ("");
+        // Sua 2026-11-06: server tra kem ly do khong thay (xem GET /cases/search) - bao dung ly do thay vi 1 cau chung.
+        onFound(
+          null,
+          res.ly_do === "da_huy"
+            ? tr("Ca {0} đã bị hủy nên không hiển thị.", query)
+            : res.ly_do === "ngoai_khu_vuc"
+              ? tr("Ca {0} thuộc khu vực ngoài phạm vi phụ trách của bạn.", query)
+              : undefined,
+        );
       }
-    } catch {
-      onFound(null);
+    } catch (err) {
+      // Loi mang/server khong con bi bao nham thanh "khong tim thay".
+      onFound(null, tr("Lỗi khi tìm kiếm, vui lòng thử lại ({0}).", err instanceof Error ? err.message : String(err)));
     }
     onSubmitted?.();
   }
@@ -119,7 +133,7 @@ export function TopBar({
 }: {
   role: string;
   user: AppUser;
-  onSearch: (id: string | null) => void;
+  onSearch: (id: string | null, thongBao?: string) => void;
   onOpenMobileMenu: () => void;
   onNavigate?: (module: string) => void;
 }) {
@@ -189,8 +203,8 @@ export function TopBar({
           ←
         </button>
         <GlobalSearch
-          onFound={(id) => {
-            onSearch(id);
+          onFound={(id, thongBao) => {
+            onSearch(id, thongBao);
             setMobileSearchOpen(false);
           }}
           onSubmitted={() => setMobileSearchOpen(false)}
