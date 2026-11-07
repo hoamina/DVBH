@@ -1127,16 +1127,24 @@ export function BacklogModule({
   // khong remount/focus) - backend da co cachedReport()/tinh delta re (xem dailySnapshot.ts), polling
   // vai phut/lan khong dang ke so voi ngan sach doc D1.
   const BACKLOG_REPORT_REFETCH_MS = 3 * 60_000;
-  const { data: stats } = useQuery({
-    queryKey: ["backlog-stats", sharedFilterParams],
-    queryFn: () => api.get<BacklogStats>(`/cases/backlog-stats${buildQuery(sharedFilterParams)}`),
+  // 2026-11-07: man Quan ly ton KEO 1 LAN - 1 request GET /cases/man-quan-ly-ton thay cho 4 request rieng (backlog-stats, counts,
+  // backlog-daily, giai-trinh-daily-trend); server gom doc cache cua ca 4 phan vao 1 luot D1. queryKey bat dau bang "backlog-stats"
+  // de cac cho dang invalidateQueries(["backlog-stats"]) (CaseDetail, ImportModule) van lam moi duoc man nay. Bang tỷ lệ giải trình
+  // chi kem khi dang o tab Bao cao (giong enabled cu). "Theo nhom" (dim) va "ton theo moc" van query rieng (bo loc tuong tac).
+  const { data: manQlt } = useQuery({
+    queryKey: ["backlog-stats", "man-quan-ly-ton", khuVucFilter || null, view === "bao-cao"],
+    queryFn: () =>
+      api.get<{
+        stats: BacklogStats;
+        counts: CanGiaiTrinhCounts;
+        backlogDaily: BacklogDailyPayload | null;
+        giaiTrinhTrend: { rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] } | null;
+      }>(`/cases/man-quan-ly-ton${buildQuery({ khu_vuc: khuVucFilter, xu_huong: view === "bao-cao" ? "1" : undefined, days: view === "bao-cao" ? "14" : undefined })}`),
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
+    placeholderData: (prev) => prev,
   });
-  const { data: counts } = useQuery({
-    queryKey: ["backlog-counts", sharedFilterParams],
-    queryFn: () => api.get<CanGiaiTrinhCounts>(`/cases/counts${buildQuery(sharedFilterParams)}`),
-    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
-  });
+  const stats = manQlt?.stats;
+  const counts = manQlt?.counts;
   // CHOT 2026-08-01: "Bao cao ngay 08:00" (dong bang + delta trong ngay, xem lib/dailySnapshot.ts)
   // CHI co y nghia khi khong bat bo loc phu nao (khong the dong bang truoc moi to hop filter) -
   // giong het isDefaultReportParams() da dung cho Dashboard/Revenue, ap dung rieng cho Quan ly ton
@@ -1164,20 +1172,12 @@ export function BacklogModule({
     enabled: !(reportDim === "khu_vuc" && isFrozenEligible),
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
-  const { data: backlogDaily } = useQuery({
-    queryKey: ["backlog-daily", khuVucFilter || null],
-    queryFn: () => api.get<BacklogDailyPayload | null>(`/cases/backlog-daily${khuVucFilter ? buildQuery({ khu_vuc: khuVucFilter }) : ""}`),
-    enabled: isFrozenEligible,
-    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
-  });
+  // Lay tu request gop o tren (truoc la query rieng, enabled: isFrozenEligible - khong du dieu kien thi coi nhu khong co).
+  const backlogDaily = isFrozenEligible ? manQlt?.backlogDaily : undefined;
   // Bang lich su "Ty le giai trinh theo ngay" (chot 17h30, xem giai_trinh_daily_log) - KHONG phu
   // thuoc bo loc phu (chi loc theo pham vi khu_vuc cua nguoi xem o backend), nen luon fetch khi dang
   // xem tab Bao cao, khong gate theo isFrozenEligible.
-  const { data: giaiTrinhTrend } = useQuery({
-    queryKey: ["giai-trinh-daily-trend"],
-    queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] }>("/cases/giai-trinh-daily-trend?days=14"),
-    enabled: view === "bao-cao",
-  });
+  const giaiTrinhTrend = view === "bao-cao" ? (manQlt?.giaiTrinhTrend ?? undefined) : undefined;
   // "So ca ton theo moc thoi gian" (cuoi tab Bao cao) - bo loc tu ngay/den ngay, mac dinh 30 ngay gan
   // nhat. Doc thang tu daily_snapshot (GET /cases/ton-trend) - khong tinh song, xem chu thich route.
   const [tonTrendFrom, setTonTrendFrom] = useState(() => vnDateOffsetStr(30));

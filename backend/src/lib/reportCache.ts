@@ -9,8 +9,50 @@
  * compute() that su roi ghi de envelope moi truoc khi tra ve. Endpoint boc qua cachedReport()
  * KHONG can biet domain nao vua doi, chi can khai bao dung danh sach domain minh phu thuoc.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { DataDomain } from "./dataVersions";
 import { versionTagStatement } from "./dataVersions";
+
+/** "Gom doc" (2026-11-07, man Quan ly ton keo 1 lan): trong pham vi chayGomDoc(), moi lan cachedReport doc envelope + version
+ * KHONG goi D1 ngay ma xep hang, het luot dong bo hien tai (setTimeout 0) thi gui CHUNG 1 db.batch cho ca hang - endpoint gop
+ * chay nhieu bao cao song song chi ton 1-2 luot xep hang doi D1 thay vi moi bao cao 1 luot. AsyncLocalStorage -> hang doi
+ * thuoc DUNG 1 request (khong dung chung Promise giua cac request). Ngoai chayGomDoc: goi thang db.batch nhu cu. */
+interface MucGom {
+  db: D1Database;
+  stmts: D1PreparedStatement[];
+  resolve: (r: D1Result[]) => void;
+  reject: (e: unknown) => void;
+}
+const gomStore = new AsyncLocalStorage<{ hang: MucGom[] }>();
+
+export function chayGomDoc<T>(fn: () => Promise<T>): Promise<T> {
+  return gomStore.run({ hang: [] }, fn);
+}
+
+function docGom(db: D1Database, stmts: D1PreparedStatement[]): Promise<D1Result[]> {
+  const g = gomStore.getStore();
+  if (!g) return db.batch(stmts);
+  return new Promise<D1Result[]>((resolve, reject) => {
+    g.hang.push({ db, stmts, resolve, reject });
+    if (g.hang.length === 1) setTimeout(() => void xaHang(g), 0);
+  });
+}
+
+async function xaHang(g: { hang: MucGom[] }): Promise<void> {
+  const muc = g.hang.splice(0);
+  if (muc.length === 0) return;
+  try {
+    // Moi statement da duoc prepare qua dung DB (boc pham vi) cua nguoi goi -> gop chung 1 batch qua DB bat ky deu dung bang.
+    const kq = await muc[0].db.batch(muc.flatMap((m) => m.stmts));
+    let i = 0;
+    for (const m of muc) {
+      m.resolve(kq.slice(i, i + m.stmts.length));
+      i += m.stmts.length;
+    }
+  } catch (e) {
+    for (const m of muc) m.reject(e);
+  }
+}
 
 interface CacheEnvelope<T> {
   v: string;
@@ -55,7 +97,7 @@ export async function cachedReport<T>(db: D1Database, key: string, domains: Data
   const [versionStmt, readVersion] = versionTagStatement(db, domains);
   const stmts: D1PreparedStatement[] = [db.prepare("SELECT payload FROM precomputed_cache WHERE key = ?").bind(key)];
   if (versionStmt) stmts.push(versionStmt);
-  const res = await db.batch(stmts);
+  const res = await docGom(db, stmts);
   const row = (res[0]?.results?.[0] as { payload: string } | undefined) ?? null;
   const versionTag = readVersion(versionStmt ? ((res[1]?.results ?? []) as { domain: string; version: number }[]) : []);
   const currentTag = `${versionTag}|ngay:${getVnDateStr()}${extraTag ? `|${extraTag}` : ""}`;

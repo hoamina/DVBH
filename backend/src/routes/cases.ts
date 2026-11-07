@@ -32,7 +32,7 @@ import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersion
 // 1341623: import bao "da co" nhung chi tiet ca khong thay). Nay tra kem detailVersion = version-tag cac
 // domain nay; FE so voi GET /cases/detail-version truoc khi dung cache.
 const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
-import { cachedReport, buildReportKey, getVnDateStr } from "../lib/reportCache";
+import { cachedReport, buildReportKey, getVnDateStr, chayGomDoc } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey, buildKhuVucFilterScopeKey } from "../lib/dailySnapshot";
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
@@ -895,7 +895,8 @@ async function backlogDailyCached<T>(db: D1Database, bien: string, scopeKeys: st
   return cachedReport(db, `rpt:cases/backlog-daily|${bien}`, ["cases", "giai_trinh", "settings"], compute, `snap:${st?.g}#${st?.n}|log:${st?.l}|ex:${st?.x}`);
 }
 
-cases.get("/backlog-daily", async (c) => {
+// Tach than route thanh ham (2026-11-07) de endpoint gop /man-quan-ly-ton dung chung - null = khu vuc ngoai pham vi (403).
+async function docBacklogDaily(c: Context<{ Bindings: Env }>): Promise<unknown | null> {
   const khuVucParam = c.req.query("khu_vuc");
   if (khuVucParam === QLDVBH_FILTER_VALUE) {
     const scope = scopeByKhuVuc(c);
@@ -903,16 +904,16 @@ cases.get("/backlog-daily", async (c) => {
     if (scope !== null) list = list.filter((kv) => scope.includes(kv));
     list = [...list].sort();
     const data = await backlogDailyCached(c.env.DB, `nhom:${list.join(",")}`, list.map(buildKhuVucFilterScopeKey), () => getBacklogDailyForKhuVucGroup(c.env.DB, list));
-    return c.json(data);
+    return data;
   }
   const isSingleKhuVuc = !!khuVucParam && khuVucParam !== QLDVBH_FILTER_VALUE && !khuVucParam.includes(",");
   if (isSingleKhuVuc) {
     const scope = scopeByKhuVuc(c);
     if (scope !== null && !scope.includes(khuVucParam)) {
-      return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
+      return null;
     }
     const data = await backlogDailyCached(c.env.DB, `kv:${khuVucParam}`, [buildKhuVucFilterScopeKey(khuVucParam)], () => getBacklogDailyForKhuVuc(c.env.DB, khuVucParam));
-    return c.json(data);
+    return data;
   }
   // CHOT 2026-10-20 (huong 1): chon NHIEU khu vuc le cung doc dong bang 08:00 - cong snapshot rieng tung khu vuc (giong
   // nhom "Tat ca DVBH" o tren), thay vi roi ve so song (truoc day 2 nguoi cung pham vi thay 2 so khac nhau tuy cach chon).
@@ -921,13 +922,19 @@ cases.get("/backlog-daily", async (c) => {
     const scope = scopeByKhuVuc(c);
     const list = [...new Set(khuVucParam.split(",").map((v) => v.trim()).filter(Boolean))].filter((kv) => scope === null || scope.includes(kv)).sort();
     const data = await backlogDailyCached(c.env.DB, `nhom:${list.join(",")}`, list.map(buildKhuVucFilterScopeKey), () => getBacklogDailyForKhuVucGroup(c.env.DB, list));
-    return c.json(data);
+    return data;
   }
   // Nhanh mac dinh: snapshot theo vai tro (getSnapshotForUser) - khoa = bien the vai tro + khu vuc phu trach (Giam sat).
   const user = c.get("user");
   const variant = roleVariantOf(user.vai_tro);
   const kvList = variant === "giam_sat" ? user.khu_vuc_phu_trach : [];
   const data = await backlogDailyCached(c.env.DB, `vt:${variant}:${[...kvList].sort().join(",")}`, [buildSnapshotScopeKey(variant, kvList)], () => getBacklogDailyWithDelta(c.env.DB, user));
+  return data;
+}
+
+cases.get("/backlog-daily", async (c) => {
+  const data = await docBacklogDaily(c);
+  if (data === null) return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   return c.json(data);
 });
 
@@ -938,7 +945,7 @@ cases.get("/backlog-daily", async (c) => {
 // so loc nao khac. "tu_ngay"/"den_ngay" (them 2026-08-28, phuc vu nut "Tai ca thang" cua
 // BacklogModule.tsx) - khi truyen CA HAI, uu tien dung khoang ngay tuong minh nay THAY THE "days"
 // (khong gioi han 60 ngay nhu "days", vi 1 thang bat ky <=31 ngay la du an toan).
-cases.get("/giai-trinh-daily-trend", async (c) => {
+async function docGiaiTrinhTrend(c: Context<{ Bindings: Env }>) {
   const scope = scopeByKhuVuc(c);
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
   const tuNgay = c.req.query("tu_ngay");
@@ -970,8 +977,29 @@ cases.get("/giai-trinh-daily-trend", async (c) => {
     byKhuVuc.set(r.khu_vuc, arr);
   }
   const rows = Array.from(byKhuVuc.entries()).map(([khu_vuc, days]) => ({ khu_vuc, days }));
-  return c.json({ rows, excludedNgay: exclusionResults });
-});
+  return { rows, excludedNgay: exclusionResults };
+}
+
+cases.get("/giai-trinh-daily-trend", async (c) => c.json(await docGiaiTrinhTrend(c)));
+
+// GET /api/cases/man-quan-ly-ton?khu_vuc=&xu_huong=1&days=14 (2026-11-07) - man "Quan ly ton" KEO 1 LAN: gop 4 API truoc day goi
+// rieng (backlog-stats, counts, backlog-daily, giai-trinh-daily-trend) vao 1 request -> 1 lan xac thuc/doc user thay vi 4, va moi
+// lan doc cache cua ca 4 phan gom chung 1 db.batch (chayGomDoc) thay vi moi phan 1 luot xep hang doi D1. Noi dung tung phan GIONG
+// HET route le (cung ham, cung khoa cache); route le giu nguyen cho client cu / noi khac. "Theo nhom" (dim) va "ton theo moc" (chon
+// ngay) VAN goi rieng vi la bo loc tuong tac - doi 1 o loc khong phai tai lai ca man.
+cases.get("/man-quan-ly-ton", async (c) =>
+  chayGomDoc(async () => {
+    const scope = scopeByKhuVuc(c);
+    const params = readReportFilterParams(c);
+    const [stats, counts, backlogDaily, giaiTrinhTrend] = await Promise.all([
+      computeBacklogStats(c.env.DB, params, scope),
+      cachedReport(c.env.DB, buildReportKey("cases/counts", params, scope), ["cases", "giai_trinh", "settings"], () => computeCasesCounts(c.env.DB, params, scope)),
+      docBacklogDaily(c),
+      c.req.query("xu_huong") === "1" ? docGiaiTrinhTrend(c) : Promise.resolve(null),
+    ]);
+    return c.json({ stats, counts, backlogDaily, giaiTrinhTrend });
+  }),
+);
 
 // Bo loc khu_vuc chung cua module Quan ly ton ("" = tat ca, QLDVBH_FILTER_VALUE = nhom qldvbh, con lai
 // = danh sach phan tach dau phay) ap len TEN khu_vuc trong du lieu da dong bang (khong phai WHERE tren

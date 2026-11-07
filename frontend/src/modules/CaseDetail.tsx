@@ -281,6 +281,8 @@ function KhuVucField({ c }: { c: CaseRow }) {
     qc.setQueryData(["case", String(c.id)], newEntry);
     qc.invalidateQueries({ queryKey: ["backlog-list"] });
     qc.invalidateQueries({ queryKey: ["backlog-by-khu-vuc"] });
+    // Man Quan ly ton keo 1 lan (key bat dau "backlog-stats", gom ca bao cao 08:00 - truoc la query rieng tu lam moi 3 phut).
+    qc.invalidateQueries({ queryKey: ["backlog-stats"] });
     qc.invalidateQueries({ queryKey: ["notifications-count"] });
   }
   const save = useMutation({

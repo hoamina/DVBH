@@ -190,6 +190,13 @@ domain `["cases","giai_trinh","settings"]` + `extraTag` (tham số mới của `
 `MAX(generated_at)`+số dòng `daily_snapshot` hôm nay của đúng các scope, số dòng `giai_trinh_daily_log` hôm nay (chốt 17h30), số
 dòng + max rowid `settings_giai_trinh_exclude_ngay` trong tháng. Lần tính lại chạy tối đa 3 khu vực cùng lúc.
 
+## R12 — `GET /api/cases/man-quan-ly-ton` (chốt 2026-11-07, v1.537)
+
+- Màn "Quản lý tồn" kéo 1 lần: gộp `backlog-stats` (R9.1) + `counts` (R5) + `backlog-daily` (R11) + `giai-trinh-daily-trend` (`xu_huong=1`).
+- KHÔNG có cache/khoá riêng: gọi đúng các hàm + khoá cache của route lẻ → domain như các mục trên. Đổi domain/khoá ở route lẻ là đổi luôn ở đây.
+- `chayGomDoc` (lib/reportCache.ts): mọi lần đọc envelope + version của 4 phần gom chung 1 `db.batch` (AsyncLocalStorage, chỉ trong 1 request).
+- Route lẻ giữ nguyên. "Theo nhóm" (dim) và "Tồn theo mốc" vẫn gọi riêng (bộ lọc tương tác).
+
 ## Ràng buộc chung cho MỌI hạng mục
 
 - KHÔNG đổi shape response; KHÔNG sửa frontend.

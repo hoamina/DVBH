@@ -5329,3 +5329,13 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   nếu cần — đo giờ 8h sau bản này rồi quyết).
 - Còn mở: 1 secret production có TÊN là chuỗi hex 64 ký tự (nghi gõ nhầm giá trị vào chỗ tên) — chờ chủ hệ thống xác nhận để xóa +
   xoay khóa. Giai đoạn 2: gộp mỗi màn báo cáo thành 1 request (Quản lý tồn trước), viết lại các truy vấn 1–5s.
+
+## 2026-11-07 — Màn Quản lý tồn kéo 1 lần (v1.537)
+- Nguyên văn: *"Các báo cáo cho cùng 1 màn hình ... chỉ kéo D1 1 lần với đầy đủ các thông tin"* → *"Làm Quản lý tồn"*.
+- `GET /api/cases/man-quan-ly-ton` thay 4 request (backlog-stats, counts, backlog-daily, giai-trinh-daily-trend): 1 lần xác thực/đọc user
+  thay vì 4; đọc cache 4 phần gom 1 `db.batch` (`chayGomDoc`, AsyncLocalStorage theo request; khai báo type `src/node-async-hooks.d.ts`).
+  Tách thân route thành `docBacklogDaily` / `docGiaiTrinhTrend` dùng chung, route lẻ giữ nguyên.
+- Frontend: 1 `useQuery` key `["backlog-stats","man-quan-ly-ton",…]` (giữ tiền tố để invalidate cũ vẫn ăn), `placeholderData` giữ số cũ khi
+  đổi tab. "Theo nhóm" + "Tồn theo mốc" + Cảnh báo tồn vẫn riêng. CaseDetail `refresh()` invalidate thêm `backlog-stats`.
+- So local 8 tổ hợp (không lọc / 1 KV / nhiều KV / Tất cả DVBH × Tất cả/NSKX): 4 phần khớp 100% với route lẻ. Chưa xem giao diện bằng
+  mắt (Browser pane ẩn).
