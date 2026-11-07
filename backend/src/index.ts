@@ -155,7 +155,8 @@ const ETX_SYNC_CRON = "15,20,25 10 * * *";
 // wrangler*.jsonc "triggers.crons".
 // 2026-10-08: mo rong thanh MOI GIO 01-11 UTC (= 8h-18h VN) de hoi ton kho linh kien ben linh-kien-app
 // (lib/tonKhoLk.ts autoSyncTonKhoLk) MA KHONG them Cron Trigger thu 5 (Worker da tung bi Cloudflare am tham bo
-// trigger khi vuot gioi han, xem ETX_SYNC_CRON). Toan bo viec "08:00" ben duoi chi chay khi gio UTC theo lich = 1.
+// trigger khi vuot gioi han, xem ETX_SYNC_CRON). 2026-11-07: CHOT SO da chuyen sang 07:30 (CHOT_0730_1730_CRON); trigger nay chi con
+// luoi an toan moi gio + viec nang luc 12:00 (gio UTC 5).
 const DAILY_SNAPSHOT_CRON = "0 1-11 * * *";
 
 // 17:30 chieu gio VN = 10:30 UTC - "chot" ty le giai trinh trong ngay theo khu vuc vao bang
@@ -164,7 +165,10 @@ const DAILY_SNAPSHOT_CRON = "0 1-11 * * *";
 // voi DAILY_SNAPSHOT_CRON (khong gom ve 08:00) - neu chot cung luc voi baseline 08:00 thi ty le
 // "da giai trinh trong ngay" se luon bang 0%, mat tac dung theo doi cuoi ngay. Phai khai bao trong
 // ca 2 wrangler*.jsonc "triggers.crons".
-const DAILY_LOG_1730_CRON = "30 10 * * *";
+// 2026-11-07: GOP them moc 07:30 VN (00:30 UTC) - "chot so 08:00" chay som 07:30 de gian cach voi luong 08:00 (nguoi dung mo man +
+// luoi an toan moi gio) - KHONG them Cron Trigger moi (Cloudflare tung am tham bo trigger khi vuot gioi han, xem ETX_SYNC_CRON).
+// Moc dieu kien "ton tai 08:00" (TON_ANCHOR_0800) va moc tuoi ton khong doi nen so chot 07:30 = so 08:00 (import chi 07:05 / 09:04).
+const CHOT_0730_1730_CRON = "30 0,10 * * *";
 
 // 03:00 sang gio VN = 20:00 UTC (ngay hom truoc) - dong bo hang ngay vi_pham tu Google Sheet QC tu
 // quan ly ben ngoai he thong (them 2026-09-16, xem lib/viPhamSheetSync.ts). Gop chung voi archive
@@ -187,6 +191,91 @@ async function runSheetSync(label: string, fn: () => Promise<{ ok: boolean; reas
     }
   } catch (err) {
     console.error(`[cron-sheet-sync] ${label} loi khong mong doi:`, err instanceof Error ? err.message : String(err));
+  }
+}
+
+/** 07:30 VN - chot so "Bao cao ngay 08:00" cho MOI pham vi (2026-11-07: tach khoi lan fire 08:00, chot TRUOC moi viec khac, moi
+ * buoc boc withD1Retry - upsert idempotent; anh Telegram Canh bao ton gui o CUOI generateCanhBaoTonSnapshot trong khoi try rieng nen
+ * lan thu lai chi xay ra truoc khi gui -> khong gui trung). Tu 04/11 tung khong chot duoc ngay nao (loi bi nuot, khong thu lai). */
+async function chotBuoiSang(env: Env): Promise<void> {
+  try {
+    await withD1Retry(() => generateDailySnapshot(env.DB, "auto"), 6);
+  } catch (err) {
+    console.error("[cron-daily-snapshot] generateDailySnapshot loi:", err instanceof Error ? err.message : String(err));
+  }
+  try {
+    await withD1Retry(() => generateKhuVucBacklogSnapshots(env.DB, "auto"), 6);
+  } catch (err) {
+    console.error("[cron-daily-snapshot] generateKhuVucBacklogSnapshots loi:", err instanceof Error ? err.message : String(err));
+  }
+  // "Canh bao ton danh cho QL" - chot cung moc 08:00 (xem lib/canhBaoTon.ts
+  // generateCanhBaoTonSnapshot), doc lap voi 2 buoc tren.
+  try {
+    await withD1Retry(() => generateCanhBaoTonSnapshot(env, "auto"), 6);
+  } catch (err) {
+    console.error("[cron-daily-snapshot] generateCanhBaoTonSnapshot loi:", err instanceof Error ? err.message : String(err));
+  }
+  // Bao cao "Tuoi ton trung binh" - chot cung moc 08:00 (xem lib/backlogAgeSnapshot.ts), doc lap
+  // voi cac buoc tren.
+  try {
+    await withD1Retry(() => generateBacklogAgeSnapshot(env.DB), 6);
+  } catch (err) {
+    console.error("[cron-daily-snapshot] generateBacklogAgeSnapshot loi:", err instanceof Error ? err.message : String(err));
+  }
+  // "So ca ton theo KTV" (Quan ly ton > Bao cao) - chot chet 08:00, xem lib/tonKtvSnapshot.ts.
+  try {
+    await withD1Retry(() => generateTonKtvSnapshot(env.DB), 6);
+  } catch (err) {
+    console.error("[cron-daily-snapshot] generateTonKtvSnapshot loi:", err instanceof Error ? err.message : String(err));
+  }
+  // Cung bo so chot tren cho 2 pham vi NSKX / Khong NSKX (lib/phamViChot.ts) - sau khi "Tất cả" da xong.
+  try {
+    await chotSoLieuPhamVi(env, "auto", { canhBaoTon: true });
+  } catch (err) {
+    console.error("[cron-daily-snapshot] chotSoLieuPhamVi loi:", err instanceof Error ? err.message : String(err));
+  }
+}
+
+/** 12:00 VN - cac luoi an toan nang truoc day chay ngay sau chot 08:00 (ca lap, lam nong cache, can_khao_sat, luy ke R2). */
+async function viecNangBuoiTrua(env: Env): Promise<void> {
+  // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
+  // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem
+  // shouldSkipCronRefresh o caLapRefresh.ts).
+  try {
+    if (!(await shouldSkipCronRefresh(env.DB))) {
+      await refreshCaLapPrecompute(env.DB);
+    }
+  } catch (err) {
+    console.error("[cron-daily-snapshot] refreshCaLapPrecompute loi:", err instanceof Error ? err.message : String(err));
+  }
+  // Luoi an toan cho bao cao dashboard - co che CHINH la pipeline QuickSight tu goi
+  // POST /api/external-import/refresh-reports dung 1 lan sau moi dot day file (xem
+  // externalImport.ts). Neu tin hieu do bi mat (loi mang, pipeline quen goi...), cache van tu
+  // lam moi toi da sau 1 lan/ngay nho nhanh nay - warmDefaultReports() tu bo qua (chi 1 luot doc
+  // re) nhung bao cao nao chua doi tu lan tinh truoc, khong ton kem khi khong co gi moi.
+  try {
+    await warmDefaultReports(env.DB);
+    await warmDefaultReports(envVn(env).DB);
+  } catch (err) {
+    console.error("[cron-daily-snapshot] warmDefaultReports loi:", err instanceof Error ? err.message : String(err));
+  }
+  // Luoi an toan tu-heal cho case_dvbh.can_khao_sat (migration 0097, xem lib/canKhaoSat.ts) -
+  // co che CHINH van la 3 diem ghi goi recomputeCanKhaoSatBatch() truc tiep (importProcessor.ts,
+  // routes/survey.ts POST /calls, routes/importKhaoSat.ts); day chi bat lai truong hop 1 diem
+  // ghi nao do bi lech/bo sot. Doc lap voi cac buoc tren, boc rieng try/catch.
+  try {
+    await selfHealCanKhaoSat(env.DB);
+  } catch (err) {
+    console.error("[self-heal] can-khao-sat loi:", err instanceof Error ? err.message : String(err));
+  }
+  // "Bao cao luy ke" tu dong - chot 2026-08-28 (xem lib/luyKeCompute.ts). Tinh lai THANG HIEN TAI
+  // tu case_dvbh that va ghi R2 (2 diem ghi da CHOT, xem chu thich dau lib/luyKeChunks.ts) - song
+  // song voi import Excel thu cong hien co (nguoi dung "chot cuoi" 1 thang bang import se GHI DE
+  // ket qua cron). Doc lap voi cac buoc tren, boc rieng try/catch.
+  try {
+    await computeAndPushLuyKeCurrentMonth(env);
+  } catch (err) {
+    console.error("[cron-daily-snapshot] computeAndPushLuyKeCurrentMonth loi:", err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -234,12 +323,10 @@ export default {
     }
 
     if (event.cron === DAILY_SNAPSHOT_CRON) {
-      // SUA 2026-11-07: tu 04/11 lan fire 08:00 KHONG chot duoc gi (daily_snapshot/ton_ktv/backlog_age/canh_bao_ton_daily_log trong 4
-      // ngay; so tren man la ban "tu tao khi co nguoi mo" luc 05:49 / 09:07...). Moi buoc chot loi chi console.error, KHONG thu lai, va
-      // chay SAU 2 buoc luoi an toan (tu va R2 + dong bo ton kho) dung luc pipeline import + nguoi dung mo man lam D1 "overloaded".
-      // Gio: luc 08:00 CHOT TRUOC (moi buoc boc withD1Retry - upsert idempotent, Telegram khong gui o day), luoi an toan chay sau.
-      const la0800 = new Date(event.scheduledTime).getUTCHours() === 1;
-      const chayLuoiAnToan = async () => {
+      // LICH 2026-11-07 (gian cach luong tu dong buoi sang, khong them Cron Trigger): 07:05 pipeline import (ben ngoai) -> 07:30 CHOT SO
+      // (CHOT_0730_1730_CRON, chotBuoiSang) -> 08:00..18:00 moi gio: luoi an toan duoi day -> 12:00 them viecNangBuoiTrua.
+      // Truoc day moi viec don vao lan fire 08:00, chot chay sau luoi an toan va loi bi nuot -> 04/11-07/11 khong co ban chot nao.
+      const gio = new Date(event.scheduledTime).getUTCHours();
       // Tu do + tu va snapshot R2 "ca da dong" (lib/daDongDayChunks.ts selfHealDaDongDayChunks) - SUA 2026-11-05: chay MOI lan
       // fire (8h-18h VN), dung thiet ke "luoi an toan moi gio"; truoc do chi con chay luc 08:00, lai nam sau 2 buoc khong boc
       // try/catch -> 03/11-05/11 snapshot dung ghi ma khong ai biet (Danh sach tong thieu ca). Rat re khi khong co gi doi
@@ -254,11 +341,9 @@ export default {
       } catch (err) {
         console.error("[cron-ton-kho-lk] loi khong mong doi:", err instanceof Error ? err.message : String(err));
       }
-      };
-      if (!la0800) await chayLuoiAnToan();
-      // Chi tieu "Luong doi tra" cua the Canh bao ton doc tu he theodoidoimay - neu luc 08:00 khong goi duoc
-      // (hoac snapshot chot truoc khi co chi tieu) thi moi lan fire 9h-18h VN thu lai (lib/canhBaoTon.ts).
-      if (new Date(event.scheduledTime).getUTCHours() !== 1) {
+      // Chi tieu "Luong doi tra" cua the Canh bao ton doc tu he theodoidoimay - neu luc chot 07:30 khong goi duoc
+      // (hoac snapshot chot truoc khi co chi tieu) thi moi lan fire 8h-18h VN thu lai (lib/canhBaoTon.ts).
+      {
         try {
           await retryLuongDoiTraSnapshot(env);
         } catch (err) {
@@ -275,89 +360,18 @@ export default {
         // neu thieu - damBaoBucketCeo) va tu ghi giai trinh qua tranh chap (da chay ngay sau moi lan ghi log tranh chap +
         // 1 lan truoc chot 17h30) - tranh doc/ghi D1 thua.
       }
-      // Cac viec chot 08:00 VN - KHONG chay o cac lan fire 9h-18h VN them vao 2026-10-08.
-      if (new Date(event.scheduledTime).getUTCHours() !== 1) return;
-      try {
-        await withD1Retry(() => generateDailySnapshot(env.DB, "auto"), 6);
-      } catch (err) {
-        console.error("[cron-daily-snapshot] generateDailySnapshot loi:", err instanceof Error ? err.message : String(err));
-      }
-      try {
-        await withD1Retry(() => generateKhuVucBacklogSnapshots(env.DB, "auto"), 6);
-      } catch (err) {
-        console.error("[cron-daily-snapshot] generateKhuVucBacklogSnapshots loi:", err instanceof Error ? err.message : String(err));
-      }
-      // "Canh bao ton danh cho QL" - chot cung moc 08:00 (xem lib/canhBaoTon.ts
-      // generateCanhBaoTonSnapshot), doc lap voi 2 buoc tren.
-      try {
-        await withD1Retry(() => generateCanhBaoTonSnapshot(env, "auto"), 6);
-      } catch (err) {
-        console.error("[cron-daily-snapshot] generateCanhBaoTonSnapshot loi:", err instanceof Error ? err.message : String(err));
-      }
-      // Bao cao "Tuoi ton trung binh" - chot cung moc 08:00 (xem lib/backlogAgeSnapshot.ts), doc lap
-      // voi cac buoc tren.
-      try {
-        await withD1Retry(() => generateBacklogAgeSnapshot(env.DB), 6);
-      } catch (err) {
-        console.error("[cron-daily-snapshot] generateBacklogAgeSnapshot loi:", err instanceof Error ? err.message : String(err));
-      }
-      // "So ca ton theo KTV" (Quan ly ton > Bao cao) - chot chet 08:00, xem lib/tonKtvSnapshot.ts.
-      try {
-        await withD1Retry(() => generateTonKtvSnapshot(env.DB), 6);
-      } catch (err) {
-        console.error("[cron-daily-snapshot] generateTonKtvSnapshot loi:", err instanceof Error ? err.message : String(err));
-      }
-      // Cung bo so chot tren cho 2 pham vi NSKX / Khong NSKX (lib/phamViChot.ts) - sau khi "Tất cả" da xong.
-      try {
-        await chotSoLieuPhamVi(env, "auto", { canhBaoTon: true });
-      } catch (err) {
-        console.error("[cron-daily-snapshot] chotSoLieuPhamVi loi:", err instanceof Error ? err.message : String(err));
-      }
-      // 08:00: luoi an toan (tu va R2 + dong bo ton kho) chay SAU khi da chot xong (xem SUA 2026-11-07 o dau nhanh).
-      await chayLuoiAnToan();
-      // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
-      // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem
-      // shouldSkipCronRefresh o caLapRefresh.ts).
-      try {
-        if (!(await shouldSkipCronRefresh(env.DB))) {
-          await refreshCaLapPrecompute(env.DB);
-        }
-      } catch (err) {
-        console.error("[cron-daily-snapshot] refreshCaLapPrecompute loi:", err instanceof Error ? err.message : String(err));
-      }
-      // Luoi an toan cho bao cao dashboard - co che CHINH la pipeline QuickSight tu goi
-      // POST /api/external-import/refresh-reports dung 1 lan sau moi dot day file (xem
-      // externalImport.ts). Neu tin hieu do bi mat (loi mang, pipeline quen goi...), cache van tu
-      // lam moi toi da sau 1 lan/ngay nho nhanh nay - warmDefaultReports() tu bo qua (chi 1 luot doc
-      // re) nhung bao cao nao chua doi tu lan tinh truoc, khong ton kem khi khong co gi moi.
-      try {
-        await warmDefaultReports(env.DB);
-        await warmDefaultReports(envVn(env).DB);
-      } catch (err) {
-        console.error("[cron-daily-snapshot] warmDefaultReports loi:", err instanceof Error ? err.message : String(err));
-      }
-      // Luoi an toan tu-heal cho case_dvbh.can_khao_sat (migration 0097, xem lib/canKhaoSat.ts) -
-      // co che CHINH van la 3 diem ghi goi recomputeCanKhaoSatBatch() truc tiep (importProcessor.ts,
-      // routes/survey.ts POST /calls, routes/importKhaoSat.ts); day chi bat lai truong hop 1 diem
-      // ghi nao do bi lech/bo sot. Doc lap voi cac buoc tren, boc rieng try/catch.
-      try {
-        await selfHealCanKhaoSat(env.DB);
-      } catch (err) {
-        console.error("[self-heal] can-khao-sat loi:", err instanceof Error ? err.message : String(err));
-      }
-      // "Bao cao luy ke" tu dong - chot 2026-08-28 (xem lib/luyKeCompute.ts). Tinh lai THANG HIEN TAI
-      // tu case_dvbh that va ghi R2 (2 diem ghi da CHOT, xem chu thich dau lib/luyKeChunks.ts) - song
-      // song voi import Excel thu cong hien co (nguoi dung "chot cuoi" 1 thang bang import se GHI DE
-      // ket qua cron). Doc lap voi cac buoc tren, boc rieng try/catch.
-      try {
-        await computeAndPushLuyKeCurrentMonth(env);
-      } catch (err) {
-        console.error("[cron-daily-snapshot] computeAndPushLuyKeCurrentMonth loi:", err instanceof Error ? err.message : String(err));
-      }
+      // 12:00 VN (gio UTC 5): viec nang con lai cua "dot 08:00" cu - doi ra gio trua (it nguoi dung, khong trung import 07:05/09:04)
+      // de gian cach luong tu dong buoi sang (2026-11-07). Chot so da chuyen sang 07:30 (CHOT_0730_1730_CRON).
+      if (gio === 5) await viecNangBuoiTrua(env);
       return;
     }
 
-    if (event.cron === DAILY_LOG_1730_CRON) {
+    if (event.cron === CHOT_0730_1730_CRON) {
+      // 07:30 VN (gio UTC 0): CHOT SO "Bao cao ngay 08:00" - xem chotBuoiSang.
+      if (new Date(event.scheduledTime).getUTCHours() === 0) {
+        await chotBuoiSang(env);
+        return;
+      }
       // Bat log tranh chap cap 2 ghi sau lan cron gio gan nhat, truoc khi chot so 17h30.
       try {
         await autoLogGiaiTrinhQuaTranhChap(env.DB);

@@ -25,6 +25,21 @@
       "port": 8788
     },
     {
+      "name": "dvbh-worker-8792-cron",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "backend",
+        "--",
+        "--port",
+        "8792",
+        "--test-scheduled"
+      ],
+      "port": 8792
+    },
+    {
       "name": "dvbh-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

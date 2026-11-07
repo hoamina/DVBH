@@ -79,7 +79,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
 ### Backend (`backend/src/`)
 
 - `index.ts` — Hono app, mounts one router per domain under `/api/*`, `app.get("*")` falls through
-  to `ASSETS.fetch` for the SPA. `scheduled()` handles three cron triggers (see `wrangler*.jsonc`
+  to `ASSETS.fetch` for the SPA. **Cron schedule (2026-11-07, still 4 triggers — Cloudflare silently drops extra ones):** 07:05
+  QuickSight import (external) → 07:30 `chotBuoiSang` (all "Báo cáo ngày 08:00" snapshots, every scope, each step `withD1Retry`,
+  Telegram "Cảnh báo tồn" image) via `"30 0,10 * * *"` (shared with 17:30) → 08:00–18:00 hourly safety nets (`"0 1-11 * * *"`) → 12:00
+  `viecNangBuoiTrua` (ca lặp net, warm reports, can_khao_sat heal, lũy kế R2). The "tồn at 08:00" anchor (`TON_ANCHOR_0800`) is fixed, so a
+  07:30 chốt equals an 08:00 one. 04–07/11 the old all-in-08:00 fire chốt nothing (errors swallowed, no retry). Workers Logs enabled. `scheduled()` handles three cron triggers (see `wrangler*.jsonc`
   `triggers.crons`): the hourly one (`CA_LAP_REFRESH_CRON`) is now a safety net for three
   independent, try/catch-isolated jobs (self-heal of R2 "đã đóng" chunks now runs on EVERY `DAILY_SNAPSHOT_CRON` fire
   8h–18h VN, first, wrapped in `withD1Retry` — fixed 2026-11-05 after it had silently drifted to 08:00-only) — it refreshes the "ca lặp" (duplicate case) precompute only
@@ -201,7 +205,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     `LINHKIEN_APP`). Only ONE version kept: a new `phien_ban` (linh-kien-app import time) → DELETE + re-insert all
     of `ton_kho_lk` (~8.7k rows) in one batch, bump domain `ton_kho`. Auto-checked hourly 8h–18h VN Mon–Sat
     (stops for the day once today's version is in) by piggybacking on `DAILY_SNAPSHOT_CRON`, now `"0 1-11 * * *"`
-    — every "08:00" job in that branch is guarded by `getUTCHours(scheduledTime) === 1`; this avoids a 5th Cron
+    — (since 2026-11-07 the morning "08:00" chốt runs at 07:30 from `CHOT_0730_1730_CRON`, heavy tails at 12:00 = UTC hour 5); this avoids a 5th Cron
     Trigger (see the ETX_SYNC_CRON note on the silently dropped triggers). `ton_kho_nhom_kho` = which `ma_kho`
     sum into "Tồn kho MB"/"Tồn kho MN" (tab "Cấu hình kho", Admin/TBP DVBH edit). UI: `components/TonKhoLk.tsx`.
     GĐ2 "Hồ sơ linh kiện" (`components/HoSoLinhKien.tsx`): per-part stock `GET /ma/:ma`, order history + shortage

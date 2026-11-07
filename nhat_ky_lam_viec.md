@@ -5431,6 +5431,18 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Không có log (observability chưa bật) nên không xác định chắc bước nào lỗi; mốc tự vá R2 đã khớp (không kẹt vòng). Nghi D1 "overloaded"
   đúng 08:00 (pipeline import + người mở màn): mỗi bước chốt lỗi chỉ console.error, không thử lại, lại chạy sau 2 bước lưới an toàn.
 - Sửa: lần fire 08:00 chốt TRƯỚC (tự vá R2 + đồng bộ tồn kho chạy sau `chotSoLieuPhamVi`); mỗi bước chốt (Tất cả + từng phạm vi trong
-  `phamViChot.ts`) bọc `withD1Retry(..., 6)` — upsert idempotent, Telegram không gửi ở đây (gửi 17h30). Bật `observability` trong
+  `phamViChot.ts`) bọc `withD1Retry(..., 6)` — upsert idempotent (ảnh Telegram Cảnh báo tồn gửi ở CUỐI generateCanhBaoTonSnapshot trong try riêng → thử lại chỉ xảy ra trước khi gửi, không trùng). Bật `observability` trong
   wrangler.smarttrade.jsonc để sáng mai xem log thật (dashboard > Workers > dvbh > Logs).
 - Số hôm nay 07/11 không khôi phục được mốc 08:00. Chưa sửa: bản tự tạo trước 8h (05:49) — khi cron 08:00 chạy được sẽ ghi đè (upsert).
+
+## 2026-11-07 — Sắp xếp lại luồng tự động buổi sáng: chốt 07:30, việc nặng 12:00 (không thêm cron trigger) (v1.549)
+- Nguyên văn: *"khung 08:00 nếu có quá nhiều lượt hành động => đẩy sớm lên từ 7h30-08h đều được để giãn cách các luồng tự động tránh bị quá tải.
+  => sắp xếp lại thứ tự luồng 08:00 (lưu ý lỗi cron quá số lượng)"*.
+- Pipeline QuickSight import cố định ~07:05 và ~09:04 (import_history). Mốc "tồn tại 08:00" (TON_ANCHOR_0800) và mốc tuổi tồn cố định →
+  chốt 07:30 cho số giống chốt 08:00 (trừ khi có import tay đúng 07:30–08:00).
+- Lịch mới, VẪN 4 trigger: `"30 10 * * *"` → `"30 0,10 * * *"` (CHOT_0730_1730_CRON): giờ UTC 0 = 07:30 `chotBuoiSang` (toàn bộ chốt
+  + mọi phạm vi + ảnh Telegram Cảnh báo tồn, từ nay đến lúc 07:30), giờ UTC 10 = chốt 17h30 như cũ. `"0 1-11 * * *"`: mọi giờ 8h–18h chỉ
+  lưới an toàn (tự vá R2, tồn kho, luồng đổi trả, tự ghi log ca kết thúc); 12:00 (giờ UTC 5) thêm `viecNangBuoiTrua` (ca lặp, làm nóng
+  cache, tự vá can_khao_sat, lũy kế R2). Cập nhật cả wrangler.jsonc + wrangler.smarttrade.jsonc.
+- Kiểm tra local (`--test-scheduled`, `/cdn-cgi/handler/scheduled?cron=..&time=..`; `/__scheduled` bị SPA fallback chặn): 07:30 chốt đủ
+  (Tất cả + VN, ton_ktv, backlog_age, 11s); 08:00/12:00/17:30 không chốt lại. Launch config mới `dvbh-worker-8792-cron`.
