@@ -427,7 +427,7 @@ export async function computeSnapshotPayload(db: D1Database, roleVariant: RoleVa
     db
       .prepare(
         `SELECT SUM(${REVENUE_EXPR_C}) as tong FROM case_hieu_luc c
-         WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${kpiEligibleClause("c.")}${khuVucClause}`,
+         WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${kpiEligibleClause("c.", true)}${khuVucClause}`,
       )
       .bind(start, end, ...khuVucBinds)
       .first<{ tong: number | null }>(),

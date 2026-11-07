@@ -15,6 +15,9 @@
  */
 export const KPI_ELIGIBLE_CLAUSE = "tien_do_hoan_thanh = 'Hoàn thành XLSC' AND tinh_vao_kpi = 1 AND huy_bo_at IS NULL";
 
-export function kpiEligibleClause(prefix = ""): string {
-  return `${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND ${prefix}tinh_vao_kpi = 1 AND ${prefix}huy_bo_at IS NULL`;
+// theoThang (2026-11-07): cau co loc them khoang 1 THANG theo thoi_gian_hoan_thanh -> "+" truoc tien_do_hoan_thanh de SQLite khong chon
+// idx_case_kpi_eligible (quet ~130k ca "Hoan thanh XLSC" moi thoi gian) ma dung index theo ngay hoan thanh. Production doanh thu thang
+// hien tai 490ms -> 19ms, ket qua giong het. KHONG bat cho khoang dai (ca nam: index tien_do nhanh hon) - xem caLapEligible.ts.
+export function kpiEligibleClause(prefix = "", theoThang = false): string {
+  return `${theoThang ? "+" : ""}${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND ${prefix}tinh_vao_kpi = 1 AND ${prefix}huy_bo_at IS NULL`;
 }

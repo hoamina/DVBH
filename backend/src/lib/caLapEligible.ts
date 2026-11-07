@@ -21,7 +21,11 @@
 // he thong ve 0 (bug that xay ra tren production 2026-08-29, xac nhan qua raSoatQuery/khuVucQueryA
 // tra ve 0/am o Bao cao theo khu vuc). Fix: qualify ro ve TRAI (case_dvbh.loai_yeu_cau) khi prefix
 // rong - SQLite cho phep dung ten bang goc de qualify khi KHONG co alias rieng trong FROM.
-export function eligibleClause(prefix: string): string {
+// theoThang (2026-11-07): cau loc them khoang 1 THANG theo thoi_gian_hoan_thanh -> them dau "+" truoc tien_do_hoan_thanh de SQLite KHONG
+// chon idx_case_kpi_eligible (tien_do) ma dung index theo ngay hoan thanh: planner chon nham index tien_do nen quet ~132k ca "Hoan thanh
+// XLSC" tu truoc toi nay thay vi ~23k ca cua thang (production: 683ms -> 82ms, ket qua giong het). KHONG bat cho cau quet toan bang /
+// khoang dai (ca nam: index tien_do lai nhanh hon) - vd caLapRefresh.ts giu nguyen.
+export function eligibleClause(prefix: string, theoThang = false): string {
   const outerLoaiYeuCau = prefix ? `${prefix}loai_yeu_cau` : "case_hieu_luc.loai_yeu_cau"; // 2026-10-11: moi cho goi prefix="" doc view case_hieu_luc (migration 0133)
-  return ` AND ${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND (${prefix}hinh_thuc_bao_hanh IS NULL OR ${prefix}hinh_thuc_bao_hanh != 'Gọi điện tư vấn') AND ${prefix}huy_bo_at IS NULL AND NOT EXISTS (SELECT 1 FROM settings_loai_yeu_cau_bo_qua_lap x WHERE x.loai_yeu_cau = ${outerLoaiYeuCau} AND x.bat_tat = 1)`;
+  return ` AND ${theoThang ? "+" : ""}${prefix}tien_do_hoan_thanh = 'Hoàn thành XLSC' AND (${prefix}hinh_thuc_bao_hanh IS NULL OR ${prefix}hinh_thuc_bao_hanh != 'Gọi điện tư vấn') AND ${prefix}huy_bo_at IS NULL AND NOT EXISTS (SELECT 1 FROM settings_loai_yeu_cau_bo_qua_lap x WHERE x.loai_yeu_cau = ${outerLoaiYeuCau} AND x.bat_tat = 1)`;
 }

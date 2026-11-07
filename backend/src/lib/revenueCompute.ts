@@ -15,7 +15,8 @@ const CO_DT_EXPR = `SUM(CASE WHEN (${REVENUE_EXPR}) > 0 THEN 1 ELSE 0 END)`;
 
 // Doanh thu chi tinh ca "tinh vao KPI" - xem giai thich chi tiet trong lib/kpiEligible.ts. Truoc
 // day route nay KHONG loc gi ca, gay lech ~161 trieu (tren tong ~2.8 ty) so voi cach tinh dung.
-const KPI_ELIGIBLE_CLAUSE = kpiEligibleClause();
+// Moi cau doanh thu deu loc 1 thang (buildRevenueFilterClause) -> bat theoThang (xem kpiEligible.ts).
+const KPI_ELIGIBLE_CLAUSE = kpiEligibleClause("", true);
 
 // Cac dim hop le cho GET /revenue?dim=... - CHOT 2026-08-01: them "ky_thuat_vien" (thay the hoan
 // toan bang "Doanh thu theo Giam sat" cu, xem computeRevenueGiamSat da bi go bo).

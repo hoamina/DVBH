@@ -5382,3 +5382,16 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Sửa thêm: chú thích của route `sync-sheet` bị chèn lệch lên trên route mới → đưa về đúng chỗ.
 - Chỉnh theo chủ hệ thống (cùng ngày, v1.543): ca đã loại trừ không đẩy lại — miễn loại trừ 3T chỉ áp ca tiếp nhận từ
   `NGAY_BAT_DAU_MIEN_LOAI_TRU_3T` = 2026-11-07; ca 3T tiếp nhận trước giữ loại trừ cũ (cron self-heal không đổi chúng). Không chạy tính lại remote.
+
+## 2026-11-07 — Viết lại truy vấn chậm: SQLite chọn nhầm index tiến độ (v1.541)
+- Nguyên văn: *"Viết lại truy vấn chậm"*.
+- Nguyên nhân chung (EXPLAIN trên production): câu lọc 1 THÁNG theo `thoi_gian_hoan_thanh` + `tien_do_hoan_thanh = 'Hoàn thành XLSC'` bị planner chọn
+  `idx_case_kpi_eligible` (tiến độ) → quét ~130k ca hoàn thành mọi thời gian thay vì ~5–40k ca của tháng. Sửa: dấu `+` trước `tien_do_hoan_thanh`
+  (no-op về giá trị, chỉ chặn index) qua tham số mới `theoThang` của `eligibleClause` (5 chỗ caLap.ts) và `kpiEligibleClause` (revenueCompute.ts,
+  dailyReport.ts, dailySnapshot.ts). Đo production (kết quả giống hệt): ca lặp T10 683→82ms, T11 587→16ms; doanh thu tháng hiện tại 490→19ms,
+  T10 481→113ms. KHÔNG bật cho khoảng cả năm/toàn bảng (cả năm thì index tiến độ nhanh hơn: 410 vs 804ms) → `caLapRefresh.ts` giữ nguyên.
+- Đã thử rồi KHÔNG đổi: (1) "giải trình gần nhất" ROW_NUMBER → truy vấn con LIMIT 1 qua `idx_case_giai_trinh_ngay`: kết quả giống hệt nhưng chỉ
+  164k→152k rows, phần tốn là quét case_dvbh với `IS NULL OR >=` chứ không phải phần nối → không đáng sửa 15 nơi; (2) danh sách ID cần khảo sát
+  (40k ca can_khao_sat=1, chỉ ~1.1k còn trong diện): chặn index thì planner chuyển sang archived_at, tệ hơn (41k→75k) → giữ nguyên.
+- So local: chạy code cũ và mới (xóa cache rpt: trước mỗi lần, Worker đã reload) trên 10 endpoint doanh thu/ca lặp/báo cáo ngày: giống hệt từng byte.
+  Cache cũ vẫn đúng (kết quả không đổi) nên không cần xóa precomputed_cache trên production.

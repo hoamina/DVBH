@@ -332,12 +332,12 @@ interface KtvRowB {
 async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
   const { scopeClause, scopeClauseLap, khuVucClause, khuVucClauseLap, rasoatBinds, lapBinds } = ctx;
 
-  const raSoatQuery = `SELECT COUNT(*) as n FROM case_hieu_luc WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
+  const raSoatQuery = `SELECT COUNT(*) as n FROM case_hieu_luc WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("", true)}${scopeClause.sql}${khuVucClause.sql}`;
   const validQuery = `SELECT COUNT(*) as n FROM case_hieu_luc
     WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?
       AND seri_san_pham IS NOT NULL AND length(seri_san_pham) > 4
       AND NOT EXISTS (SELECT 1 FROM blacklist_serial b WHERE b.seri_san_pham = UPPER(TRIM(case_hieu_luc.seri_san_pham)) AND b.bat_tat = 1)
-      ${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}`;
+      ${eligibleClause("", true)}${scopeClause.sql}${khuVucClause.sql}`;
 
   // Tach tu lapKpiQuery goc: 4 cot nay chi doc CTE `lap` (case_dvbh), khong doc gl.* nen khong can
   // JOIN giai_trinh_lap.
@@ -357,7 +357,7 @@ async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
     WITH raSoatByKv AS (
       SELECT khu_vuc, COUNT(*) as raSoat
       FROM case_hieu_luc
-      WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}
+      WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("", true)}${scopeClause.sql}${khuVucClause.sql}
       GROUP BY khu_vuc
     ),
     validByKv AS (
@@ -366,7 +366,7 @@ async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
       WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?
         AND seri_san_pham IS NOT NULL AND length(seri_san_pham) > 4
         AND NOT EXISTS (SELECT 1 FROM blacklist_serial b WHERE b.seri_san_pham = UPPER(TRIM(case_hieu_luc.seri_san_pham)) AND b.bat_tat = 1)
-        ${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}
+        ${eligibleClause("", true)}${scopeClause.sql}${khuVucClause.sql}
       GROUP BY khu_vuc
     ),
     ${CA_LAP_CTE_BODY},
@@ -394,7 +394,7 @@ async function computeCaLapBlockA(db: D1Database, ctx: CaLapQueryContext) {
     WITH raSoatByKtv AS (
       SELECT ky_thuat_vien, COUNT(*) as raSoat
       FROM case_hieu_luc
-      WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("")}${scopeClause.sql}${khuVucClause.sql}
+      WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ?${eligibleClause("", true)}${scopeClause.sql}${khuVucClause.sql}
       GROUP BY ky_thuat_vien
     ),
     ${CA_LAP_CTE_BODY},
