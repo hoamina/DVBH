@@ -40,7 +40,10 @@ export const BUSINESS_FIELDS = [
 // "yeu_cau_huy" (2026-10-26, migration 0144): trang thai xin huy HIEN TAI (Odoo khong luu lich su
 // nhieu lan, xin lai thi ghi de) - JSON array 1 phan tu, giong co che lich_hen ve mat luu tru.
 // "ngay_san_xuat" (2026-10-27, migration 0145): Ngày sản xuất tu Odoo (YYYY-MM-DD), QuickSight de NULL.
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat"] as const;
+// 7 nhom Odoo bo sung (2026-11-07, migration 0155) - moi nhom 1 object JSON: hien_tuong_odoo, sla_odoo,
+// bao_hanh_nha_may, phi_odoo, khao_sat_odoo, thong_so_nuoc, ktv_odoo (xem ODOO_BO_SUNG_FIELDS).
+export const ODOO_BO_SUNG_FIELDS = ["hien_tuong_odoo", "sla_odoo", "bao_hanh_nha_may", "phi_odoo", "khao_sat_odoo", "thong_so_nuoc", "ktv_odoo"] as const;
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat", ...ODOO_BO_SUNG_FIELDS] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
@@ -247,6 +250,7 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
   if (field === "lich_hen") return normalizeLichHen(incoming[field]);
   if (field === "so_luong_anh") return normalizeSoLuongAnh(incoming[field]);
   if (field === "yeu_cau_huy") return normalizeLichHen(incoming[field]); // cung dang mang JSON, dung chung ham
+  if ((ODOO_BO_SUNG_FIELDS as readonly string[]).includes(field)) return normalizeJsonObject(incoming[field]);
   if ((OPTIONAL_FIELDS as readonly string[]).includes(field) && incoming[field] === "") return null;
   return incoming[field] ?? null;
 }
@@ -279,6 +283,21 @@ export function normalizeLichHen(rawValue: unknown): string | null {
     }
   }
   return Array.isArray(arr) && arr.length > 0 ? JSON.stringify(arr) : null;
+}
+
+// 7 nhom Odoo bo sung: API gui object (hoac chuoi JSON) -> luu chuoi JSON; object rong/khong hop le -> NULL.
+export function normalizeJsonObject(rawValue: unknown): string | null {
+  let obj: unknown = rawValue;
+  if (typeof rawValue === "string") {
+    if (!rawValue.trim()) return null;
+    try {
+      obj = JSON.parse(rawValue);
+    } catch {
+      return null;
+    }
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj) || Object.keys(obj).length === 0) return null;
+  return JSON.stringify(obj);
 }
 
 const SO_LUONG_ANH_KEYS = ["ben_trong", "ben_ngoai", "bao_cao", "tem_serial", "bang_chung_huy"] as const;

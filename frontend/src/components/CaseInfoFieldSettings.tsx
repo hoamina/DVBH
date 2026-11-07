@@ -19,6 +19,7 @@ export const NHOM_TRUONG_CASE_INFO: { nhom: string; truong: string[] }[] = [
       "Hãng / Nhóm SP",
       "Trạm triển khai",
       "KTV triển khai",
+      "Nhận việc / check-in (Odoo)",
       "Tiếp nhận CSKH",
       "Hẹn xử lý",
       "Thời gian hoàn thành",
@@ -26,6 +27,7 @@ export const NHOM_TRUONG_CASE_INFO: { nhom: string; truong: string[] }[] = [
       "Ngày import",
       "Cập nhật gần nhất",
       "Đúng hạn / Xử lý 24h",
+      "SLA Odoo",
     ],
   },
   {
@@ -39,12 +41,14 @@ export const NHOM_TRUONG_CASE_INFO: { nhom: string; truong: string[] }[] = [
       "Tiến độ hoàn thành",
       "Lý do hủy",
       "Lý do quá hạn",
+      "Hiện tượng lỗi",
       "Mô tả lỗi",
       "Lưu ý lỗi linh kiện",
       "Nội dung xử lý chi tiết",
     ],
   },
-  { nhom: tr("Bổ sung"), truong: ["Hình ảnh báo cáo công việc", "Doanh thu", "Phân loại & nguồn gốc"] },
+  { nhom: tr("Bổ sung"), truong: ["Hình ảnh báo cáo công việc", "Doanh thu", "Thu phí", "Phân loại & nguồn gốc", "Bảo hành nhà máy"] },
+  { nhom: tr("Lỗi"), truong: ["Thông số nước"] },
 ];
 
 export function readAnTruong(): Set<string> {

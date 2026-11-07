@@ -13106,5 +13106,305 @@
  "Mở đơn trên app Đặt mua linh kiện": [
   "Open order in parts purchasing app",
   "Buka pesanan di aplikasi pembelian suku cadang"
+ ],
+ "✓ Đã nhận việc": [
+  "✓ Job accepted",
+  "✓ Pekerjaan diterima"
+ ],
+ "Chưa xác nhận nhận việc": [
+  "Job not yet accepted",
+  "Pekerjaan belum dikonfirmasi"
+ ],
+ "Xem chi tiết check-in": [
+  "View check-in details",
+  "Lihat detail check-in"
+ ],
+ "Check-in {0} lần": [
+  "Check-in {0} time(s)",
+  "Check-in {0} kali"
+ ],
+ "lệch > 200m": [
+  "off by > 200m",
+  "selisih > 200m"
+ ],
+ "{0} ảnh selfie": [
+  "{0} selfie photo(s)",
+  "{0} foto selfie"
+ ],
+ "Lệch > 200m": [
+  "Off by > 200m",
+  "Selisih > 200m"
+ ],
+ "Lý do trả việc:": [
+  "Job return reason:",
+  "Alasan mengembalikan pekerjaan:"
+ ],
+ "hạn": [
+  "due",
+  "batas"
+ ],
+ "Trễ SLA {0}h": [
+  "SLA late {0}h",
+  "Terlambat SLA {0} jam"
+ ],
+ "Quá SLA": [
+  "SLA breached",
+  "Melewati SLA"
+ ],
+ "Kịp SLA": [
+  "Within SLA",
+  "Sesuai SLA"
+ ],
+ "Khu vực DVBH khác khu vực trên Odoo": [
+  "DVBH area differs from the Odoo area",
+  "Area DVBH berbeda dengan area di Odoo"
+ ],
+ "xử lý {0} ngày": [
+  "handled in {0} day(s)",
+  "ditangani {0} hari"
+ ],
+ "KH báo": [
+  "Customer reported",
+  "Dilaporkan pelanggan"
+ ],
+ "KTV xác định": [
+  "Technician found",
+  "Ditemukan teknisi"
+ ],
+ "Mất phí": [
+  "Paid service",
+  "Layanan berbayar"
+ ],
+ "Không thu phí": [
+  "Free of charge",
+  "Tanpa biaya"
+ ],
+ "Đã thu": [
+  "Collected",
+  "Terkumpul"
+ ],
+ "Đã nhập thu tiền": [
+  "Payment recorded",
+  "Pembayaran tercatat"
+ ],
+ "Bảo hành nhà máy": [
+  "Factory warranty",
+  "Garansi pabrik"
+ ],
+ "Trạng thái gốc: {0}": [
+  "Original status: {0}",
+  "Status asli: {0}"
+ ],
+ "xuất kho": [
+  "shipped from warehouse",
+  "keluar gudang"
+ ],
+ "{0} tháng": [
+  "{0} months",
+  "{0} bulan"
+ ],
+ "Thông số nước tại nhà KH": [
+  "Water readings at customer site",
+  "Parameter air di lokasi pelanggan"
+ ],
+ "vào": [
+  "in",
+  "masuk"
+ ],
+ "ra": [
+  "out",
+  "keluar"
+ ],
+ "tại vòi": [
+  "at tap",
+  "di keran"
+ ],
+ "nước thải": [
+  "waste water",
+  "air buangan"
+ ],
+ "Khảo sát CSKH (Odoo)": [
+  "Customer care survey (Odoo)",
+  "Survei layanan pelanggan (Odoo)"
+ ],
+ "Cuộc gọi": [
+  "Call",
+  "Panggilan"
+ ],
+ "Lý do đánh giá": [
+  "Rating reason",
+  "Alasan penilaian"
+ ],
+ "KH không hài lòng": [
+  "Customer unsatisfied",
+  "Pelanggan tidak puas"
+ ],
+ "Check-in KTV (Odoo)": [
+  "Technician check-in (Odoo)",
+  "Check-in teknisi (Odoo)"
+ ],
+ "Lệch GPS–mạng {0}m (> 200m)": [
+  "GPS–network gap {0}m (> 200m)",
+  "Selisih GPS–jaringan {0}m (> 200m)"
+ ],
+ "Lệch GPS–mạng {0}m": [
+  "GPS–network gap {0}m",
+  "Selisih GPS–jaringan {0}m"
+ ],
+ "Quá SLA (Odoo)": [
+  "SLA breached (Odoo)",
+  "Melewati SLA (Odoo)"
+ ],
+ "Hạn SLA {0}": [
+  "SLA due {0}",
+  "Batas SLA {0}"
+ ],
+ "Hiện tượng lỗi (Odoo)": [
+  "Fault symptoms (Odoo)",
+  "Gejala kerusakan (Odoo)"
+ ],
+ "SLA Odoo": [
+  "Odoo SLA",
+  "SLA Odoo"
+ ],
+ "Thu phí (Odoo)": [
+  "Fees (Odoo)",
+  "Biaya (Odoo)"
+ ],
+ "Thu phí": [
+  "Fees",
+  "Biaya"
+ ],
+ "Thông số nước": [
+  "Water readings",
+  "Parameter air"
+ ],
+ "KTV (Odoo)": [
+  "Technician (Odoo)",
+  "Teknisi (Odoo)"
+ ],
+ "Nhận việc / check-in (Odoo)": [
+  "Job acceptance / check-in (Odoo)",
+  "Penerimaan pekerjaan / check-in (Odoo)"
+ ],
+ "Gọi thành công": [
+  "Call successful",
+  "Panggilan berhasil"
+ ],
+ "Không nghe máy / tắt máy / chặn": [
+  "No answer / phone off / blocked",
+  "Tidak diangkat / mati / diblokir"
+ ],
+ "KH bận, từ chối trả lời": [
+  "Customer busy, declined to answer",
+  "Pelanggan sibuk, menolak menjawab"
+ ],
+ "Không gọi được": [
+  "Could not call",
+  "Tidak dapat menelepon"
+ ],
+ "Rất không hài lòng": [
+  "Very unsatisfied",
+  "Sangat tidak puas"
+ ],
+ "KH không đánh giá": [
+  "Customer gave no rating",
+  "Pelanggan tidak menilai"
+ ],
+ "KH không làm việc trực tiếp": [
+  "Customer not dealt with directly",
+  "Pelanggan tidak ditangani langsung"
+ ],
+ "Hài lòng: thái độ, kỹ năng KTV": [
+  "Satisfied: technician attitude and skills",
+  "Puas: sikap dan keterampilan teknisi"
+ ],
+ "Hài lòng: thái độ, kỹ năng NV CSKH": [
+  "Satisfied: customer care staff attitude and skills",
+  "Puas: sikap dan keterampilan staf layanan"
+ ],
+ "Hài lòng: chính sách bảo hành, hậu mãi": [
+  "Satisfied: warranty and after-sales policy",
+  "Puas: kebijakan garansi dan purnajual"
+ ],
+ "Hài lòng: chất lượng sản phẩm tốt": [
+  "Satisfied: good product quality",
+  "Puas: kualitas produk baik"
+ ],
+ "Hài lòng: trải nghiệm tổng thể tích cực": [
+  "Satisfied: positive overall experience",
+  "Puas: pengalaman keseluruhan positif"
+ ],
+ "Hài lòng: xử lý nhanh, nhiệt tình": [
+  "Satisfied: fast and attentive handling",
+  "Puas: penanganan cepat dan ramah"
+ ],
+ "Hài lòng: giá cả hợp lý": [
+  "Satisfied: reasonable price",
+  "Puas: harga wajar"
+ ],
+ "Hài lòng: lý do khác": [
+  "Satisfied: other reason",
+  "Puas: alasan lain"
+ ],
+ "Không hài lòng: chất lượng sản phẩm": [
+  "Unsatisfied: product quality",
+  "Tidak puas: kualitas produk"
+ ],
+ "Không hài lòng: giá cả, chi phí": [
+  "Unsatisfied: price and cost",
+  "Tidak puas: harga dan biaya"
+ ],
+ "Không hài lòng: NV CSKH": [
+  "Unsatisfied: customer care staff",
+  "Tidak puas: staf layanan pelanggan"
+ ],
+ "Không hài lòng: nguyên nhân khác": [
+  "Unsatisfied: other cause",
+  "Tidak puas: penyebab lain"
+ ],
+ "Không hài lòng: giao tiếp, thái độ phục vụ": [
+  "Unsatisfied: communication and service attitude",
+  "Tidak puas: komunikasi dan sikap layanan"
+ ],
+ "Không hài lòng: kiến thức, kỹ năng tay nghề": [
+  "Unsatisfied: knowledge and workmanship",
+  "Tidak puas: pengetahuan dan keterampilan"
+ ],
+ "Không hài lòng: chính sách bảo hành": [
+  "Unsatisfied: warranty policy",
+  "Tidak puas: kebijakan garansi"
+ ],
+ "Không hài lòng: trễ hẹn, thời gian chờ đợi": [
+  "Unsatisfied: late visit, waiting time",
+  "Tidak puas: terlambat, waktu tunggu"
+ ],
+ "Còn hạn": [
+  "Active",
+  "Masih berlaku"
+ ],
+ "Chưa kích hoạt": [
+  "Not activated",
+  "Belum diaktifkan"
+ ],
+ "Thời hạn và SLA": [
+  "Deadlines and SLA",
+  "Tenggat dan SLA"
+ ],
+ "Doanh thu và thu phí": [
+  "Revenue and fees",
+  "Pendapatan dan biaya"
+ ],
+ "Lệch = khoảng cách giữa vị trí GPS và vị trí theo mạng lúc check-in": [
+  "Gap = distance between the GPS position and the network position at check-in",
+  "Selisih = jarak antara posisi GPS dan posisi jaringan saat check-in"
+ ],
+ "lệch {0}m": [
+  "off by {0}m",
+  "selisih {0}m"
+ ],
+ "Odoo: {0} ≠ DVBH: {1}": [
+  "Odoo: {0} ≠ DVBH: {1}",
+  "Odoo: {0} ≠ DVBH: {1}"
  ]
 }

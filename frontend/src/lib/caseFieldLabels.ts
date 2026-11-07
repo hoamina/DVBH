@@ -93,5 +93,12 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   lich_hen: tr("Lịch hẹn"),
   so_luong_anh: tr("Số lượng ảnh"),
   yeu_cau_huy: tr("Yêu cầu huỷ"),
+  hien_tuong_odoo: tr("Hiện tượng lỗi (Odoo)"),
+  sla_odoo: tr("SLA Odoo"),
+  bao_hanh_nha_may: tr("Bảo hành nhà máy"),
+  phi_odoo: tr("Thu phí (Odoo)"),
+  khao_sat_odoo: tr("Khảo sát CSKH (Odoo)"),
+  thong_so_nuoc: tr("Thông số nước"),
+  ktv_odoo: tr("KTV (Odoo)"),
   quoc_gia: tr("Quốc gia"),
 };

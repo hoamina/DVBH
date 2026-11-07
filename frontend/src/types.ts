@@ -59,6 +59,14 @@ export interface CaseRow {
   // Migration 0144 - chi ca Odoo: trang thai xin huy HIEN TAI (chuoi JSON CancelRequestItem[], 1 phan
   // tu - Odoo khong luu lich su nhieu lan, xin lai thi ghi de).
   yeu_cau_huy?: string | null;
+  // Migration 0155 - chi ca Odoo: 7 nhom thong tin bo sung, moi cot 1 chuoi JSON object (xem lib/odooBoSung.ts).
+  hien_tuong_odoo?: string | null;
+  sla_odoo?: string | null;
+  bao_hanh_nha_may?: string | null;
+  phi_odoo?: string | null;
+  khao_sat_odoo?: string | null;
+  thong_so_nuoc?: string | null;
+  ktv_odoo?: string | null;
   ngay_import: string;
   ngay_cap_nhat_gan_nhat: string;
   assigned_to: string | null;

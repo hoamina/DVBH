@@ -18,6 +18,21 @@ import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
 import { CancelRequestPanel, parseCancelRequest } from "../components/CancelRequestPanel";
+import {
+  BaoHanhNhaMayField,
+  HienTuongOdooValue,
+  KhaoSatOdooCard,
+  KtvOdooStatus,
+  PhiOdooLine,
+  SlaOdooLine,
+  ThongSoNuocStrip,
+  coHienTuongOdoo,
+  coKhaoSatOdoo,
+  coPhiOdoo,
+  coSlaOdoo,
+  khongHaiLongBadge,
+  odooTimelineEvents,
+} from "../components/OdooBoSungParts";
 import { LuongMailPanel, useMailTimeline, NHAT_KY_LABEL } from "../components/LuongMailPanel";
 import { SuaChuaPanel, MOC_CHUNG } from "../components/SuaChuaPanel";
 import { useSuaChuaTimeline } from "../lib/suaChuaTimeline";
@@ -411,6 +426,32 @@ function renderCaseFieldsGrid(
       {lada && lada.length > 0 && hien("ID Lada") && <Field label={tr("ID Lada")} value={<LadaIds caseId={c.id} items={lada} />} />}
     </>
   );
+  // 2026-11-07: gom cac moc thoi gian + "Đúng hạn" (DVBH) + SLA Odoo vao 1 vung "Thời hạn và SLA" de doi chieu
+  // tai 1 cho. Tung truong van an/hien rieng qua nut ⚙ (khoa nhan giu nguyen); an het -> khong ve khung.
+  const thoiHanItems = [
+    hien("Tiếp nhận CSKH") && <Field key="tn" label={tr("Tiếp nhận CSKH")} value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />,
+    hien("Hẹn xử lý") && <Field key="hen" label={tr("Hẹn xử lý")} value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />,
+    hien("Thời gian hoàn thành") && <Field key="ht" label={tr("Thời gian hoàn thành")} value={fmtDateTime(c.thoi_gian_hoan_thanh)} />,
+    hien("Dự kiến hoàn thành (giải trình gần nhất)") && (
+      <Field key="dk" label={tr("Dự kiến hoàn thành (giải trình gần nhất)")} value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />
+    ),
+    hien("Đúng hạn / Xử lý 24h") && (
+      <Field key="dh" label={tr("Đúng hạn / Xử lý 24h")} value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />
+    ),
+  ].filter(Boolean);
+  const slaOdoo = hien("SLA Odoo") && coSlaOdoo(c);
+  const thoiHanZone =
+    thoiHanItems.length > 0 || slaOdoo ? (
+      <div className="col-span-2 rounded-lg border border-[var(--line)] px-3 py-2.5">
+        <div className="text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-2">{tr("Thời hạn và SLA")}</div>
+        {thoiHanItems.length > 0 && <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">{thoiHanItems}</div>}
+        {slaOdoo && (
+          <div className={thoiHanItems.length > 0 ? "mt-2.5 pt-2.5 border-t border-[var(--line)]" : ""}>
+            <Field label={tr("SLA Odoo")} value={<SlaOdooLine c={c} />} />
+          </div>
+        )}
+      </div>
+    ) : null;
   const coBanFields = (
     <>
       {/* Ca Odoo (ma SC...) luon hien 2 dong Mới/Cũ: Odoo khong nhap dia chi cu thi ghi ro, tranh hieu nham la chua dong bo */}
@@ -456,20 +497,20 @@ function renderCaseFieldsGrid(
       {hien("KTV triển khai") && <Field
         label={tr("KTV triển khai")}
         value={
-          c.ktv_trien_khai && c.ktv_trien_khai !== c.ky_thuat_vien ? (
-            <KtvNameWithPhone kyThuatVien={c.ktv_trien_khai} canEdit={!!canEditKtvPhone} />
-          ) : (
-            <span className="text-[var(--ink-500)]">{tr("= Trạm triển khai")}</span>
-          )
+          <>
+            {c.ktv_trien_khai && c.ktv_trien_khai !== c.ky_thuat_vien ? (
+              <KtvNameWithPhone kyThuatVien={c.ktv_trien_khai} canEdit={!!canEditKtvPhone} />
+            ) : (
+              <span className="text-[var(--ink-500)]">{tr("= Trạm triển khai")}</span>
+            )}
+            {/* Odoo (migration 0155): nhan viec / check-in / ly do tra viec - an rieng qua nut ⚙ */}
+            {hien("Nhận việc / check-in (Odoo)") && <KtvOdooStatus c={c} />}
+          </>
         }
       />}
-      {hien("Tiếp nhận CSKH") && <Field label={tr("Tiếp nhận CSKH")} value={fmtDateTime(c.thoi_gian_cskh_tiep_nhan)} />}
-      {hien("Hẹn xử lý") && <Field label={tr("Hẹn xử lý")} value={fmtDateTime(c.thoi_gian_hen_xu_ly)} />}
-      {hien("Thời gian hoàn thành") && <Field label={tr("Thời gian hoàn thành")} value={fmtDateTime(c.thoi_gian_hoan_thanh)} />}
-      {hien("Dự kiến hoàn thành (giải trình gần nhất)") && <Field label={tr("Dự kiến hoàn thành (giải trình gần nhất)")} value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />}
+      {thoiHanZone}
       {hien("Ngày import") && <Field label={tr("Ngày import")} value={fmtDateTime(c.ngay_import)} />}
       {hien("Cập nhật gần nhất") && <Field label={tr("Cập nhật gần nhất")} value={fmtDateTime(c.ngay_cap_nhat_gan_nhat)} />}
-      {hien("Đúng hạn / Xử lý 24h") && <Field label={tr("Đúng hạn / Xử lý 24h")} value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />}
     </>
   );
   const xuLyGrid = (
@@ -482,6 +523,11 @@ function renderCaseFieldsGrid(
       {hien("Tiến độ hoàn thành") && <Field label={tr("Tiến độ hoàn thành")} value={c.tien_do_hoan_thanh ?? "—"} />}
       {hien("Lý do hủy") && <Field label={tr("Lý do hủy")} value={c.ly_do_huy ?? "—"} />}
       {hien("Lý do quá hạn") && <Field label={tr("Lý do quá hạn")} value={c.ly_do_qua_han ?? "—"} />}
+      {hien("Hiện tượng lỗi") && coHienTuongOdoo(c) && (
+        <div className="col-span-2">
+          <Field label={tr("Hiện tượng lỗi")} value={<HienTuongOdooValue c={c} />} />
+        </div>
+      )}
       {hien("Mô tả lỗi") && (
         <div className="col-span-2">
           <Field label={tr("Mô tả lỗi")} value={c.mo_ta_loi ?? "—"} />
@@ -507,13 +553,19 @@ function renderCaseFieldsGrid(
       <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />
     </>
   );
+  const coPhi = hien("Thu phí") && coPhiOdoo(c);
   const doanhThuSection = (
     <>
-      <div className="font-display font-bold text-sm mb-3">Doanh thu</div>
+      <div className="font-display font-bold text-sm mb-3">{coPhi ? tr("Doanh thu và thu phí") : tr("Doanh thu")}</div>
       <div className="grid grid-cols-3 gap-x-4 gap-y-2.5 text-sm">
         <Field label={tr("DT sản phẩm")} value={fmtVND(c.dt_san_pham)} />
         <Field label={tr("DT linh kiện")} value={fmtVND(c.dt_linh_kien)} />
         <Field label={tr("DT dịch vụ")} value={fmtVND(c.dt_dich_vu)} />
+        {coPhi && (
+          <div className="col-span-3">
+            <Field label={tr("Thu phí (Odoo)")} value={<PhiOdooLine c={c} />} />
+          </div>
+        )}
       </div>
     </>
   );
@@ -525,6 +577,7 @@ function renderCaseFieldsGrid(
         <Field label={tr("Ngày mua")} value={fmtDate(c.ngay_mua)} />
         <Field label={tr("Ngày sản xuất")} value={fmtDate(c.ngay_san_xuat)} />
         <Field label={tr("Nhóm khách hàng")} value={c.nhom_kh ?? "—"} />
+        {hien("Bảo hành nhà máy") && <BaoHanhNhaMayField c={c} />}
         <Field label={tr("Ngành / Loại ngành")} value={`${c.nganh ?? "—"} — ${c.loai_nganh ?? "—"}`} />
         <Field
           label="Link CRM"
@@ -1271,6 +1324,9 @@ export function CaseDetail({
 
     if (c?.thoi_gian_cskh_tiep_nhan) {
       pushDb({ key: "case-open", rawTs: c.thoi_gian_cskh_tiep_nhan, tone: "gray", typeLabel: tr("Ca được mở"), actor: null, summary: tr("Tiếp nhận CSKH"), jumpTab: null });
+    }
+    for (const e of odooTimelineEvents(c)) {
+      pushDb({ key: `odoo-${e.key}`, rawTs: e.rawTs, tone: e.lech ? "coral" : "cyan", typeLabel: e.typeLabel, actor: e.actor, summary: e.summary, jumpTab: "co-ban" });
     }
     if (c?.thoi_gian_hoan_thanh) {
       pushDb({ key: "case-close", rawTs: c.thoi_gian_hoan_thanh, tone: "gray", typeLabel: tr("Ca được đóng"), actor: null, summary: c.tien_do_hoan_thanh ?? tr("Hoàn thành"), jumpTab: null });
@@ -2041,7 +2097,8 @@ export function CaseDetail({
 
   const khaoSatContent = (
     <div>
-      {ketQuaGoiList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có cuộc gọi khảo sát nào cho ca này.")}</div>}
+      <KhaoSatOdooCard c={data?.case} />
+      {ketQuaGoiList.length === 0 && !coKhaoSatOdoo(data?.case) && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có cuộc gọi khảo sát nào cho ca này.")}</div>}
       <div className="space-y-3">
         {ketQuaGoiList.map((k) => {
           const loaiList = parseLoaiKhaoSat(k.loai_khao_sat);
@@ -2454,7 +2511,12 @@ export function CaseDetail({
     </div>
   );
 
-  const loiLinhKienContent = <LoiLinhKienPanel parts={linhKienLoiList} orders={donBaoHanhOdooList} />;
+  const loiLinhKienContent = (
+    <>
+      {!anTruong.has("Thông số nước") && <ThongSoNuocStrip c={data?.case} />}
+      <LoiLinhKienPanel parts={linhKienLoiList} orders={donBaoHanhOdooList} />
+    </>
+  );
   const lichHenContent = <LichHenPanel items={lichHenList} />;
   const yeuCauHuyContent = <CancelRequestPanel items={yeuCauHuyList} />;
 
@@ -2541,6 +2603,7 @@ export function CaseDetail({
           {compareC && caseStatusBadge(compareC)}
           {compareC && mucDoBadge(compareC.muc_do)}
           {compareC && soLuongAnhBadge(compareC)}
+          {compareC && khongHaiLongBadge(compareC)}
           {compareC &&
             computeCaseTickers(compareC, compareData?.giaiTrinh ?? [], compareData?.viPham ?? [], activeLyDo, compareData?.caLap).map((t, i) => (
               <Badge key={i} tone={t.tone}>
@@ -2585,7 +2648,12 @@ export function CaseDetail({
               countLichHen: compareLichHenList.length,
               countYeuCauHuy: compareYeuCauHuyList.length,
               panels: {
-                "loi-linh-kien": <LoiLinhKienPanel parts={compareLoiList} orders={compareOrders} />,
+                "loi-linh-kien": (
+                  <>
+                    {!anTruong.has("Thông số nước") && <ThongSoNuocStrip c={compareC} />}
+                    <LoiLinhKienPanel parts={compareLoiList} orders={compareOrders} />
+                  </>
+                ),
                 "bao-hanh": renderBaoHanh(compareLoiList, compareOrders, compareBaoHanhMatched, false),
                 "lich-hen": <LichHenPanel items={compareLichHenList} />,
                 "yeu-cau-huy": <CancelRequestPanel items={compareYeuCauHuyList} />,
@@ -2655,7 +2723,7 @@ export function CaseDetail({
   // the Thong tin xu ly): mo dung tab con + cuon toi the; compact phai chuyen ve tab "info" truoc vi
   // the nam trong do.
   function jumpToTab(key: string) {
-    if (key === "loi-linh-kien" || key === "bao-hanh" || key === "lich-hen" || key === "yeu-cau-huy") {
+    if (key === "co-ban" || key === "loi-linh-kien" || key === "bao-hanh" || key === "lich-hen" || key === "yeu-cau-huy") {
       setXuLyTab(key);
       if (viewMode === "compact") onTabChange("info");
       // Kieu 3 xep doc -> cuon toi dung phan (data-sec); Kieu 1/2 -> cuon toi dau the.
@@ -2840,7 +2908,7 @@ export function CaseDetail({
           { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
           { key: "vi-pham", label: tr("Vi phạm"), count: viPhamList.length },
-          { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length },
+          { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length + (coKhaoSatOdoo(data?.case) ? 1 : 0) },
           { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
           { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length + baoHanhMatched.length },
@@ -2856,7 +2924,7 @@ export function CaseDetail({
           { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
           { key: "vi-pham", label: tr("Vi phạm"), count: viPhamList.length },
-          { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length },
+          { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length + (coKhaoSatOdoo(data?.case) ? 1 : 0) },
           { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
           { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length + baoHanhMatched.length },
@@ -2931,6 +2999,7 @@ export function CaseDetail({
         {c && caseStatusBadge(c)}
         {c && mucDoBadge(c.muc_do)}
         {c && soLuongAnhBadge(c)}
+        {c && khongHaiLongBadge(c)}
         {c?.huy_bo_at && (
           <Badge tone="gray" solid>
             {tr("🚫 Đã hủy")}{c.huy_bo_ly_do ? `: ${c.huy_bo_ly_do}` : ""}
