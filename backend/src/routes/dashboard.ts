@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -6,7 +7,7 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { getDailyReportWithDelta, getSnapshotForUserAnToan, isDefaultReportParams } from "../lib/dailySnapshot";
 import { type DashboardFilterParams, computeDashboardKpis, PIVOT_DIMS, computeDashboardPivot } from "../lib/dashboardCompute";
 import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_FILTERS_BY_KV_CACHE_KEY } from "../lib/precomputedCache";
-import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { cachedReport, buildReportKey, chayGomDoc } from "../lib/reportCache";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../lib/filterParams";
 
 const dashboard = new Hono<{ Bindings: Env }>();
@@ -183,7 +184,15 @@ dashboard.get("/daily-report", async (c) => {
 // khop yeu cau "1 lan load DB lam bao cao cho tat ca, dung yen ca ngay tru khi lam moi thu cong".
 // Bo loc KHAC mac dinh (nguoi dung tu chon khu_vuc/hang/thang) van tinh song qua reportCache nhu
 // truoc (khong the dong bang truoc MOI to hop filter co the co).
-dashboard.get("/kpis", async (c) => {
+// Tach than route thanh ham (2026-11-07) de endpoint gop /man-tong-quat dung chung. "laySnap" = doc so chot 08:00 (endpoint gop
+// truyen ham da nho ket qua -> 1 request chi doc so chot 1 lan cho ca kpis + 2 pivot).
+type LaySnap = () => ReturnType<typeof getSnapshotForUserAnToan>;
+function taoLaySnap(c: Context<{ Bindings: Env }>): LaySnap {
+  let p: ReturnType<typeof getSnapshotForUserAnToan> | undefined;
+  return () => (p ??= getSnapshotForUserAnToan(c.env.DB, c.get("user"), (x) => c.executionCtx.waitUntil(x)));
+}
+
+async function docKpis(c: Context<{ Bindings: Env }>, laySnap: LaySnap) {
   const scope = scopeByKhuVuc(c);
   const params: DashboardFilterParams = {
     khu_vuc: c.req.query("khu_vuc"),
@@ -192,21 +201,22 @@ dashboard.get("/kpis", async (c) => {
     nhom_san_pham: c.req.query("nhom_san_pham"),
   };
   if (isDefaultReportParams(params)) {
-    const snap = await getSnapshotForUserAnToan(c.env.DB, c.get("user"), (p) => c.executionCtx.waitUntil(p));
-    if (snap) return c.json(snap.payload.kpis);
+    const snap = await laySnap();
+    if (snap) return snap.payload.kpis;
   }
   const key = buildReportKey("dashboard/kpis", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "giai_trinh"], () => computeDashboardKpis(c.env.DB, params, scope));
-  return c.json(payload);
-});
+  return cachedReport(c.env.DB, key, ["cases", "vi_pham", "giai_trinh"], () => computeDashboardKpis(c.env.DB, params, scope));
+}
+
+dashboard.get("/kpis", async (c) => c.json(await docKpis(c, taoLaySnap(c))));
 
 // GET /api/dashboard/pivot?dim=khu_vuc|tinh|doi_tac|hang|ky_thuat_vien - CHOT 2026-08-01: voi bo loc
 // MAC DINH doc CA 5 dim tu "Bao cao ngay 08:00" (dailySnapshot.ts tinh san het, xem
 // DailySnapshotPayload.pivotByDim) - cung ly do voi /kpis o tren. Bo loc khac mac dinh van qua
 // reportCache song nhu truoc.
-dashboard.get("/pivot", async (c) => {
-  const dimKey = c.req.query("dim") ?? "khu_vuc";
-  if (!PIVOT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
+// null = dim khong hop le (route tra 400).
+async function docPivot(c: Context<{ Bindings: Env }>, dimKey: string, dgLoc: string | undefined, laySnap: LaySnap) {
+  if (!PIVOT_DIMS[dimKey]) return null;
   const scope = scopeByKhuVuc(c);
   const params = {
     dimKey,
@@ -216,16 +226,40 @@ dashboard.get("/pivot", async (c) => {
     nhom_san_pham: c.req.query("nhom_san_pham"),
     // Loc phu "Tinh" (chon nhieu) cua bang pivot khi nhom theo KTV (2026-10-23) - JSON gia tri tho theo che do Dia gioi
     // cu/moi (frontend lib/diaGioi.ts buildDgLoc), ap qua filterParams.ts diaGioiLoc. Co loc -> tinh song (cache theo key).
-    dg_loc: c.req.query("dg_loc") || undefined,
+    dg_loc: dgLoc || undefined,
   };
   if (isDefaultReportParams(params) && !params.dg_loc) {
-    const snap = await getSnapshotForUserAnToan(c.env.DB, c.get("user"), (p) => c.executionCtx.waitUntil(p));
-    if (snap && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return c.json({ rows: snap.payload.pivotByDim[dimKey] ?? [] });
+    const snap = await laySnap();
+    if (snap && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return { rows: snap.payload.pivotByDim[dimKey] ?? [] };
   }
   // "v2" (2026-10-22): dim KTV doi sang KTV trien khai - bo envelope cache cu nhom theo tram.
   const key = buildReportKey("dashboard/pivot-v2", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases"], () => computeDashboardPivot(c.env.DB, params, scope));
-  return c.json(payload);
+  return cachedReport(c.env.DB, key, ["cases"], () => computeDashboardPivot(c.env.DB, params, scope));
+}
+
+dashboard.get("/pivot", async (c) => {
+  const data = await docPivot(c, c.req.query("dim") ?? "khu_vuc", c.req.query("dg_loc"), taoLaySnap(c));
+  if (data === null) return c.json({ error: "INVALID_DIM" }, 400);
+  return c.json(data);
 });
+
+// GET /api/dashboard/man-tong-quat?khu_vuc=&hang=&thang=&nhom_san_pham=&dim= (2026-11-07) - man "Tong quat" KEO 1 LAN: gop 4 request
+// truoc day goi rieng (daily-report, kpis, pivot theo dim dang chon, pivot KTV) -> 1 lan xac thuc/doc user, so chot 08:00 doc 1 lan
+// dung chung, moi lan doc cache gom 1 db.batch (chayGomDoc). Noi dung tung phan GIONG HET route le (cung ham, cung khoa cache). Pivot co
+// loc phu Tinh (dg_loc) van goi rieng /pivot (bo loc tuong tac).
+dashboard.get("/man-tong-quat", async (c) =>
+  chayGomDoc(async () => {
+    const laySnap = taoLaySnap(c);
+    const dimKey = c.req.query("dim") ?? "khu_vuc";
+    const [dailyReport, kpis, pivot, pivotKtv] = await Promise.all([
+      getDailyReportWithDelta(c.env.DB, c.get("user")),
+      docKpis(c, laySnap),
+      docPivot(c, dimKey, undefined, laySnap),
+      dimKey === "ky_thuat_vien" ? null : docPivot(c, "ky_thuat_vien", undefined, laySnap),
+    ]);
+    if (pivot === null) return c.json({ error: "INVALID_DIM" }, 400);
+    return c.json({ dailyReport, kpis, pivot, pivotKtv: pivotKtv ?? pivot });
+  }),
+);
 
 export default dashboard;

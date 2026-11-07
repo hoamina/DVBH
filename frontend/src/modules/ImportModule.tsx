@@ -335,6 +335,7 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
     onSuccess: () => {
       addToast(tr("Đã làm mới xong toàn bộ báo cáo dashboard."));
       qc.invalidateQueries({ queryKey: ["daily-report"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-kpis"] }); // man Tong quat keo 1 lan (gom ca bao cao 08:00)
     },
     onError: (err) => addToast(tr("Làm mới báo cáo thất bại: {0}", describeError(err))),
   });

@@ -85,10 +85,6 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   // ap dung dong thoi cho ca "Filter tong" (kpi) lan "Bang pivot phan tich da chieu" qua filterParams.
   const [modelFilter, setModelFilter] = useLocalStorageState("filters:dashboard-model", ALL_MODEL);
 
-  const { data: dailyReport } = useQuery({
-    queryKey: ["daily-report"],
-    queryFn: () => api.get<DailyReport>("/dashboard/daily-report"),
-  });
   const { data: modelOptionsData } = useQuery({
     queryKey: ["dashboard-filters"],
     queryFn: () => api.get<{ nhomSanPham: (string | null)[] }>("/dashboard/filters"),
@@ -102,15 +98,26 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   };
   const query = buildQuery(filterParams);
 
-  const { data: kpi } = useQuery({ queryKey: ["dashboard-kpis", query], queryFn: () => api.get<Kpis>(`/dashboard/kpis${query}`) });
-  const { data: pivot } = useQuery({
+  // 2026-11-07: man Tong quat KEO 1 LAN - 1 request GET /dashboard/man-tong-quat thay cho 4 (daily-report, kpis, pivot theo dim, pivot
+  // KTV); server doc so chot 08:00 1 lan + gom doc cache 1 luot D1. Key bat dau "dashboard-kpis" de cho dang invalidate kpis van lam
+  // moi. Rieng pivot co loc phu Tinh (pivotDgLoc) van goi /dashboard/pivot rieng (bo loc tuong tac).
+  const { data: manTq } = useQuery({
+    queryKey: ["dashboard-kpis", "man-tong-quat", query, pivotDim],
+    queryFn: () =>
+      api.get<{ dailyReport: DailyReport; kpis: Kpis; pivot: { rows: PivotRow[] }; pivotKtv: { rows: PivotRow[] } }>(
+        `/dashboard/man-tong-quat${buildQuery({ ...filterParams, dim: pivotDim })}`,
+      ),
+    placeholderData: (prev) => prev,
+  });
+  const { data: pivotLocTinh } = useQuery({
     queryKey: ["dashboard-pivot", pivotDim, query, pivotDgLoc],
     queryFn: () => api.get<{ rows: PivotRow[] }>(`/dashboard/pivot${buildQuery({ ...filterParams, dim: pivotDim, dg_loc: pivotDgLoc })}`),
+    enabled: !!pivotDgLoc,
   });
-  const { data: pivotKtv } = useQuery({
-    queryKey: ["dashboard-pivot", "ky_thuat_vien", query],
-    queryFn: () => api.get<{ rows: PivotRow[] }>(`/dashboard/pivot${buildQuery({ ...filterParams, dim: "ky_thuat_vien" })}`),
-  });
+  const dailyReport = manTq?.dailyReport;
+  const kpi = manTq?.kpis;
+  const pivot = pivotDgLoc ? pivotLocTinh : manTq?.pivot;
+  const pivotKtv = manTq?.pivotKtv;
 
   // Dong "Tong cong" dau bang pivot - cong don cac cot so tren cac dong dang hien (tu doi theo
   // pivotDim/bo loc hien tai), roi tinh lai 3 cot ty le tu tong tu so/mau so (khong cong trung binh

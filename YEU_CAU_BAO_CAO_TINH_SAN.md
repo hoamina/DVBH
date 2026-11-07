@@ -197,6 +197,12 @@ dòng + max rowid `settings_giai_trinh_exclude_ngay` trong tháng. Lần tính l
 - `chayGomDoc` (lib/reportCache.ts): mọi lần đọc envelope + version của 4 phần gom chung 1 `db.batch` (AsyncLocalStorage, chỉ trong 1 request).
 - Route lẻ giữ nguyên. "Theo nhóm" (dim) và "Tồn theo mốc" vẫn gọi riêng (bộ lọc tương tác).
 
+## R13 — `GET /api/dashboard/man-tong-quat` (chốt 2026-11-07, v1.538)
+
+- Màn "Tổng quát" kéo 1 lần: gộp `daily-report` + `kpis` + `pivot` (dim đang chọn) + `pivot` KTV. Cùng hàm + khoá cache với route lẻ
+  (`docKpis`/`docPivot`), số chốt 08:00 đọc 1 lần dùng chung (`taoLaySnap`), đọc cache gom 1 `db.batch` (`chayGomDoc`).
+- Pivot có lọc phụ Tỉnh (`dg_loc`) vẫn gọi `/dashboard/pivot` riêng. Route lẻ giữ nguyên.
+
 ## Ràng buộc chung cho MỌI hạng mục
 
 - KHÔNG đổi shape response; KHÔNG sửa frontend.

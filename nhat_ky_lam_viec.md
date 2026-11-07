@@ -5339,3 +5339,12 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   đổi tab. "Theo nhóm" + "Tồn theo mốc" + Cảnh báo tồn vẫn riêng. CaseDetail `refresh()` invalidate thêm `backlog-stats`.
 - So local 8 tổ hợp (không lọc / 1 KV / nhiều KV / Tất cả DVBH × Tất cả/NSKX): 4 phần khớp 100% với route lẻ. Chưa xem giao diện bằng
   mắt (Browser pane ẩn).
+
+## 2026-11-07 — Màn Tổng quát kéo 1 lần (v1.538)
+- Nguyên văn: *"Làm Tổng quát ngay"*.
+- `GET /api/dashboard/man-tong-quat` thay 4 request (daily-report, kpis, pivot theo dim, pivot KTV): 1 lần xác thực, số chốt 08:00 đọc
+  1 lần (trước 3 lần: kpis + 2 pivot), đọc cache gom 1 lượt. Tách `docKpis`/`docPivot` dùng chung, route lẻ giữ nguyên. Khi đang nhóm
+  theo KTV thì pivot KTV dùng luôn kết quả pivot (trước gửi 2 request trùng).
+- Frontend: key `["dashboard-kpis","man-tong-quat",…]`; lọc phụ Tỉnh vẫn query `/pivot` riêng. ImportModule "Làm mới báo cáo" invalidate
+  thêm `dashboard-kpis` (chỉ commit đúng dòng này; phần nút "Tự vá ngay" của phiên khác vẫn để nguyên chưa commit).
+- So local 18 tổ hợp (tháng hiện tại = số chốt, tháng 10 tính sống, lọc khu vực/hãng/NSKX × 3 chiều pivot): khớp 100%.
