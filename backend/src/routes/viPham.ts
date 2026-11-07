@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -262,7 +263,8 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
 // that ca 1291772) nen doi hau to key de ep tinh lai ngay, tranh serve nham envelope cu gia tri cu.
 // Them domain "ket_qua_goi" (khongCanGoi/daGoi/choGoiLai/conLoiChuaGoi doc bang nay) - da cap nhat
 // YEU_CAU_BAO_CAO_TINH_SAN.md tuong ung.
-viPham.get("/funnel", async (c) => {
+// Tach than route thanh ham (2026-11-07) de endpoint gop GET /api/survey/man-bao-cao dung chung.
+export async function docViPhamFunnel(c: Context<{ Bindings: Env }>) {
   const scope = scopeByKhuVuc(c);
   const params: ViPhamFunnelParams = {
     thang: c.req.query("thang"),
@@ -276,9 +278,10 @@ viPham.get("/funnel", async (c) => {
     nguon_crm: c.req.query("nguon_crm"),
   };
   const key = buildReportKey("vi-pham/funnel-v5", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham", "ket_qua_goi"], () => computeViPhamFunnel(c.env.DB, params, scope));
-  return c.json(payload);
-});
+  return cachedReport(c.env.DB, key, ["cases", "vi_pham", "ket_qua_goi"], () => computeViPhamFunnel(c.env.DB, params, scope));
+}
+
+viPham.get("/funnel", async (c) => c.json(await docViPhamFunnel(c)));
 
 export interface ViPhamLeaderboardParams {
   by?: string;
@@ -397,13 +400,14 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
 // version-tag domain (khong theo deploy code), nen key cu se tiep tuc tra ve envelope THIEU 2 truong
 // moi cho toi khi domain "vi_pham"/"cases" tinh co bump - doi ten key ep tinh lai ngay, tranh phai
 // cho 1 write tinh co xay ra. Neu doi shape payload lan nua trong tuong lai, lai doi hau to version.
-viPham.get("/leaderboard", async (c) => {
+export async function docViPhamLeaderboard(c: Context<{ Bindings: Env }>, by: string | undefined) {
   const scope = scopeByKhuVuc(c);
-  const params: ViPhamLeaderboardParams = { by: c.req.query("by"), thang: c.req.query("thang") };
+  const params: ViPhamLeaderboardParams = { by, thang: c.req.query("thang") };
   const key = buildReportKey("vi-pham/leaderboard-v2", params, scope);
-  const payload = await cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamLeaderboard(c.env.DB, params, scope));
-  return c.json(payload);
-});
+  return cachedReport(c.env.DB, key, ["cases", "vi_pham"], () => computeViPhamLeaderboard(c.env.DB, params, scope));
+}
+
+viPham.get("/leaderboard", async (c) => c.json(await docViPhamLeaderboard(c, c.req.query("by"))));
 
 // POST /api/vi-pham/backfill-push-vipham?from=YYYY-MM-DD HH:MM:SS&limit=200 - chi Admin, chay THU
 // CONG (yeu cau 2026-09-13: bao lai toan bo vi pham ghi nhan tu 0h 1/9 sang vipham app, phong khi

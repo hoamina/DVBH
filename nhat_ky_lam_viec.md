@@ -5348,3 +5348,11 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Frontend: key `["dashboard-kpis","man-tong-quat",…]`; lọc phụ Tỉnh vẫn query `/pivot` riêng. ImportModule "Làm mới báo cáo" invalidate
   thêm `dashboard-kpis` (chỉ commit đúng dòng này; phần nút "Tự vá ngay" của phiên khác vẫn để nguyên chưa commit).
 - So local 18 tổ hợp (tháng hiện tại = số chốt, tháng 10 tính sống, lọc khu vực/hãng/NSKX × 3 chiều pivot): khớp 100%.
+
+## 2026-11-07 — Báo cáo khảo sát kéo 1 lần (v1.539)
+- Nguyên văn: *"Khảo sát"* (làm tiếp màn sau Tổng quát).
+- `GET /api/survey/man-bao-cao` thay 4 request của nút "Cập nhật báo cáo" (bảng theo khu vực, phễu vi phạm, top KTV, top giám sát).
+  Tách `docSurveyBaoCao` (survey.ts) + `docViPhamFunnel`/`docViPhamLeaderboard` (viPham.ts, export) dùng chung; route lẻ giữ nguyên.
+- Frontend: 1 query `enabled:false` (key giữ tiền tố `survey-bao-cao-khu-vuc`), `refreshReport()` refetch 1 lần. Khác biệt duy nhất: trước
+  4 phần lỗi độc lập, nay lỗi D1 thì cả tab báo lỗi cùng lúc (bấm Cập nhật lại).
+- So local 18 tổ hợp (tháng 10/11, lọc khu vực, ngày gọi, NSKX, nguồn CRM × 3 chiều): khớp 100% (local không có dữ liệu vi phạm → 2 bảng xếp hạng rỗng ở cả 2).

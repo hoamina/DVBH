@@ -1,5 +1,7 @@
 import { extractMaKtv } from "../lib/ktvCode";
 import { Hono } from "hono";
+import type { Context } from "hono";
+import { docViPhamFunnel, docViPhamLeaderboard } from "./viPham";
 import type { Env, LoaiLoi } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -24,7 +26,7 @@ import {
   dimGroupExpr,
 } from "../lib/filterParams";
 import { bumpVersions } from "../lib/dataVersions";
-import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { cachedReport, buildReportKey, chayGomDoc } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION, tinhCoLoaiTru, type LoaiTruRow } from "../lib/surveyConditions";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
@@ -1129,9 +1131,10 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
 }
 
 // GET /api/survey/bao-cao-khu-vuc?dim=&thang=&khu_vuc=&tinh=&quan_huyen=&ky_thuat_vien=&nguoi_khao_sat=&nguon_crm=&doi_tac=&hang=&nhom_san_pham=&nhom_kh=&nganh=
-survey.get("/bao-cao-khu-vuc", async (c) => {
+// Tach than route thanh ham (2026-11-07) de endpoint gop /man-bao-cao dung chung. null = dim khong hop le (400).
+async function docSurveyBaoCao(c: Context<{ Bindings: Env }>) {
   const dimKey = c.req.query("dim") ?? "khu_vuc";
-  if (!SURVEY_REPORT_DIMS[dimKey]) return c.json({ error: "INVALID_DIM" }, 400);
+  if (!SURVEY_REPORT_DIMS[dimKey]) return null;
 
   const scope = scopeByKhuVuc(c);
   const params: SurveyKhuVucParams = {
@@ -1155,9 +1158,31 @@ survey.get("/bao-cao-khu-vuc", async (c) => {
   // dong moi nhat/case+loai_loi, tranh dem trung) - doi hau to key nhu lan "-v6" truoc.
   // "-v9" (2026-10-23): them cot KTV dang loai tru (doc khao_sat_loai_tru -> them domain khao_sat_loai_tru).
   const key = buildReportKey("survey/bao-cao-khu-vuc-v9", params, scope);
-  const payload = await cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS, "khao_sat_loai_tru"], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
-  return c.json(payload);
+  return cachedReport(c.env.DB, key, [...SURVEY_REPORT_DOMAINS, "khao_sat_loai_tru"], () => computeSurveyKhuVucReport(c.env.DB, params, scope));
+}
+
+survey.get("/bao-cao-khu-vuc", async (c) => {
+  const data = await docSurveyBaoCao(c);
+  if (data === null) return c.json({ error: "INVALID_DIM" }, 400);
+  return c.json(data);
 });
+
+// GET /api/survey/man-bao-cao?<cung tham so bao-cao-khu-vuc> (2026-11-07) - tab "Bao cao" cua Quan ly khao sat KEO 1 LAN: gop 4 request
+// nut "Cap nhat bao cao" truoc day goi rieng (bao-cao-khu-vuc, vi-pham/funnel, vi-pham/leaderboard ktv + giam-sat) -> 1 lan xac thuc,
+// moi lan doc cache gom 1 db.batch (chayGomDoc). Tung phan GIONG HET route le (cung ham, cung khoa cache). Funnel bo qua nguoi_khao_sat
+// va dim; leaderboard chi dung thang - y het cach frontend goi route le truoc day.
+survey.get("/man-bao-cao", async (c) =>
+  chayGomDoc(async () => {
+    const [baoCaoKhuVuc, funnel, ktvBoard, giamSatBoard] = await Promise.all([
+      docSurveyBaoCao(c),
+      docViPhamFunnel(c),
+      docViPhamLeaderboard(c, "ktv"),
+      docViPhamLeaderboard(c, "giam-sat"),
+    ]);
+    if (baoCaoKhuVuc === null) return c.json({ error: "INVALID_DIM" }, 400);
+    return c.json({ baoCaoKhuVuc, funnel, ktvBoard, giamSatBoard });
+  }),
+);
 
 // POST /api/survey/calls
 survey.post(

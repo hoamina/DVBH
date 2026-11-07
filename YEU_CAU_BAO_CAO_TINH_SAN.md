@@ -203,6 +203,12 @@ dòng + max rowid `settings_giai_trinh_exclude_ngay` trong tháng. Lần tính l
   (`docKpis`/`docPivot`), số chốt 08:00 đọc 1 lần dùng chung (`taoLaySnap`), đọc cache gom 1 `db.batch` (`chayGomDoc`).
 - Pivot có lọc phụ Tỉnh (`dg_loc`) vẫn gọi `/dashboard/pivot` riêng. Route lẻ giữ nguyên.
 
+## R14 — `GET /api/survey/man-bao-cao` (chốt 2026-11-07, v1.539)
+
+- Tab "Báo cáo" Quản lý khảo sát kéo 1 lần: gộp `survey/bao-cao-khu-vuc` + `vi-pham/funnel` + `vi-pham/leaderboard` (ktv, giam-sat).
+  Cùng hàm + khoá cache với route lẻ (`docSurveyBaoCao`, `docViPhamFunnel`, `docViPhamLeaderboard`), đọc cache gom 1 `db.batch`.
+- Vẫn chỉ chạy khi bấm "Cập nhật báo cáo" / tự tải khi báo cáo cũ ≥ 1 ngày (như trước). Route lẻ giữ nguyên.
+
 ## Ràng buộc chung cho MỌI hạng mục
 
 - KHÔNG đổi shape response; KHÔNG sửa frontend.

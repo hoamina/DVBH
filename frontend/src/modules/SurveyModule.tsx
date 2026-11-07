@@ -551,11 +551,19 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   // "Cap nhat bao cao", xem ben duoi) - giam so lan goi cac endpoint bao cao dang bi cache mien theo
   // domain "ket_qua_goi" (bump gan nhu lien tuc gio hanh chinh, xem SURVEY_REPORT_DOMAINS o
   // backend/src/routes/survey.ts) thay vi tu dong goi lai moi khi nguoi dung doi Thang/Khu vuc/KTV...
-  const { data: baoCaoKhuVuc, refetch: refetchBaoCaoKhuVuc } = useQuery({
-    queryKey: ["survey-bao-cao-khu-vuc", reportDim, khuVucFilter, dgParam, ktvFilter, nguoiKhaoSatFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
+  // 2026-11-07: tab Bao cao KEO 1 LAN - 1 request GET /survey/man-bao-cao thay cho 4 (bao-cao-khu-vuc, vi-pham/funnel, leaderboard KTV +
+  // giam sat); server gom doc cache 1 luot D1. Van "enabled: false" + chi chay qua refreshReport() nhu truoc. Key giu tien to
+  // "survey-bao-cao-khu-vuc" (cho dang invalidate cu). Funnel bo qua dim/nguoi_khao_sat, leaderboard chi dung thang (server tu lo).
+  const { data: manBaoCao, refetch: refetchManBaoCao } = useQuery({
+    queryKey: ["survey-bao-cao-khu-vuc", "man-bao-cao", reportDim, khuVucFilter, dgParam, ktvFilter, nguoiKhaoSatFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
     queryFn: () =>
-      api.get<{ rows: SurveyBaoCaoRow[]; thang: string; moc_loai_tru?: string }>(
-        `/survey/bao-cao-khu-vuc${buildQuery({
+      api.get<{
+        baoCaoKhuVuc: { rows: SurveyBaoCaoRow[]; thang: string; moc_loai_tru?: string };
+        funnel: FunnelData;
+        ktvBoard: { rows: LeaderboardRow[] };
+        giamSatBoard: { rows: LeaderboardRow[] };
+      }>(
+        `/survey/man-bao-cao${buildQuery({
           dim: reportDim,
           khu_vuc: khuVucFilter,
           dg_loc: dgParam,
@@ -569,6 +577,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       ),
     enabled: false,
   });
+  const baoCaoKhuVuc = manBaoCao?.baoCaoKhuVuc;
 
   // Dong "Tong cong" dau bang "Bao cao khao sat theo khu vuc" - cong don cac cot dem tren cac dong
   // dang hien, roi tinh lai TAT CA cot % tu tong (khong cong trung binh % tung dong) - dung CHINH
@@ -710,36 +719,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     queryFn: () => api.get<{ rows: { email: string; ten: string | null }[] }>("/survey/cskh-list"),
     enabled: isLead,
   });
-  const { data: funnel, refetch: refetchFunnel } = useQuery({
-    // CHOT 2026-08-22: nhan THEM dung bo loc voi baoCaoKhuVuc (khu_vuc/tinh/quan_huyen/ky_thuat_vien/
-    // ngay_goi_tu-den/nguon_crm) - truoc day chi nhan "thang" nen bat ky bo loc nao khac dang duoc
-    // chon (vd "Ngay goi tu/den" con luu tu truoc trong localStorage) se lam Phau va bang khu vuc
-    // lech nhau ma khong nhan ra (xem chu thich day du o computeViPhamFunnel, backend/src/routes/viPham.ts).
-    queryKey: ["vi-pham-funnel", khuVucFilter, dgParam, ktvFilter, thangReport, ngayGoiTuReport, ngayGoiDenReport, nguonCrmFilter],
-    queryFn: () =>
-      api.get<FunnelData>(
-        `/vi-pham/funnel${buildQuery({
-          khu_vuc: khuVucFilter,
-          dg_loc: dgParam,
-          ky_thuat_vien: ktvFilter,
-          thang: thangReport,
-          ngay_goi_tu: ngayGoiTuReport || undefined,
-          ngay_goi_den: ngayGoiDenReport || undefined,
-          nguon_crm: nguonCrmFilter || undefined,
-        })}`,
-      ),
-    enabled: false,
-  });
-  const { data: ktvBoard, refetch: refetchKtvBoard } = useQuery({
-    queryKey: ["vi-pham-leaderboard", "ktv", thangReport],
-    queryFn: () => api.get<{ rows: LeaderboardRow[] }>(`/vi-pham/leaderboard${buildQuery({ by: "ktv", thang: thangReport })}`),
-    enabled: false,
-  });
-  const { data: giamSatBoard, refetch: refetchGiamSatBoard } = useQuery({
-    queryKey: ["vi-pham-leaderboard", "giam-sat", thangReport],
-    queryFn: () => api.get<{ rows: LeaderboardRow[] }>(`/vi-pham/leaderboard${buildQuery({ by: "giam-sat", thang: thangReport })}`),
-    enabled: false,
-  });
+  const funnel = manBaoCao?.funnel;
+  const ktvBoard = manBaoCao?.ktvBoard;
+  const giamSatBoard = manBaoCao?.giamSatBoard;
   // Luu vao localStorage (khac useState truoc day) de "lan cap nhat gan nhat" SONG QUA moi lan mo
   // lai module (truoc day dung useState nen cu vao lai the "Quan ly khao sat" - remount component -
   // la mat trang thai, useEffect ben duoi lai coi nhu "chua tung tai" va tu dong goi lai ca 4 bao
@@ -755,7 +737,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
   async function refreshReport() {
     setIsRefreshingReport(true);
     try {
-      await Promise.all([refetchFunnel(), refetchKtvBoard(), refetchGiamSatBoard(), refetchBaoCaoKhuVuc()]);
+      await refetchManBaoCao();
       setReportLastUpdatedIso(new Date().toISOString());
     } finally {
       setIsRefreshingReport(false);
