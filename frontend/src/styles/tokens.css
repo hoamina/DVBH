@@ -328,3 +328,20 @@ select:where(:not(:disabled)):focus {
 .vip-row-bg:hover {
   background-color: color-mix(in srgb, var(--amber-500) 40%, white) !important;
 }
+
+/* Dien thoai (<768px, 2026-11-07): bang nhieu cot van cuon ngang trong khung rieng, nhung gon lai de bot phai vuot -
+   giam khoang dem trai/phai cua o + cho tieu de cot xuong dong (truoc la 1 dong dai nhu "TINH TOAN THEO THOI GIAN MO CA").
+   Chi tac dong o duoi md, man hinh may tinh giu nguyen. */
+@media (max-width: 767px) {
+  main table th,
+  main table td,
+  .fixed table th,
+  .fixed table td {
+    padding-left: 0.375rem !important;
+    padding-right: 0.375rem !important;
+  }
+  main table thead th,
+  .fixed table thead th {
+    white-space: normal !important;
+  }
+}

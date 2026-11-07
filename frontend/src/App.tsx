@@ -28,6 +28,7 @@ import { ThemeModule } from "./modules/ThemeModule";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
 import { useToast } from "./components/ui/Toast";
+import { useIsMobile } from "./hooks/useMediaQuery";
 import { LoadingInline } from "./components/ui/LoadingInline";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { usePurchaseWarrantyData } from "./hooks/usePurchaseWarrantyData";
@@ -170,6 +171,7 @@ function MainApp({
   // "Huy ca" - chi Admin, an ca khoi moi hang doi can xu ly + KPI, co the dao nguoc (xem
   // backend/src/routes/cases.ts POST /:id/huy, /bo-huy).
   const canHuyCa = role === "Admin";
+  const isMobile = useIsMobile();
 
   // Tab dau tien phu hop cho tung viewMode - "info" chi ton tai o "compact" (giu dung tab cu),
   // "expanded" khong co tab info rieng vi cot trai da ghim san thong tin khach hang.
@@ -193,15 +195,19 @@ function MainApp({
   // soat thay chi tiet day du ngay), ke ca khi dang dung "compact" o tang truoc - popCase() vi vay
   // se tu phuc hoi dung "compact" da luu rieng cho tang truoc do. popCase()/backToRoot()/closeCase()
   // dieu khien nut Quay lai / shortcut ve ca goc / dong han popup.
+  // Dien thoai (<768px, 2026-11-07): "Mo rong" chia popup thanh 2 khung cuon nho chong nhau -> tren mobile LUON mo
+  // "Ngan gon" (toan man hinh, thong tin la 1 tab), mac dinh vao tab "Thong tin" neu khong chi dinh tab.
   function openCase(id: string, tab?: string) {
-    const validTab = tab && VALID_TABS.expanded.includes(tab) ? tab : FIRST_TAB.expanded;
-    setCaseStack([{ id, viewMode: "expanded", tab: validTab }]);
+    const vm = isMobile ? "compact" : "expanded";
+    const validTab = tab && VALID_TABS[vm].includes(tab) ? tab : FIRST_TAB[vm];
+    setCaseStack([{ id, viewMode: vm, tab: validTab }]);
   }
   function pushCase(id: string) {
     setCaseStack((s) => {
       const top = s.at(-1);
-      const tab = top && VALID_TABS.expanded.includes(top.tab) ? top.tab : FIRST_TAB.expanded;
-      return [...s, { id, viewMode: "expanded", tab }];
+      const vm = isMobile ? "compact" : "expanded";
+      const tab = top && VALID_TABS[vm].includes(top.tab) ? top.tab : FIRST_TAB[vm];
+      return [...s, { id, viewMode: vm, tab }];
     });
   }
   function popCase() {
@@ -301,8 +307,8 @@ function MainApp({
       </div>
       <CaseDetail
         caseId={caseStack.at(-1)?.id ?? null}
-        viewMode={caseStack.at(-1)?.viewMode ?? "expanded"}
-        tab={caseStack.at(-1)?.tab ?? FIRST_TAB.expanded}
+        viewMode={isMobile ? "compact" : (caseStack.at(-1)?.viewMode ?? "expanded")}
+        tab={caseStack.at(-1)?.tab ?? (isMobile ? FIRST_TAB.compact : FIRST_TAB.expanded)}
         onTabChange={setTopTab}
         onViewModeChange={setTopViewMode}
         rootCaseId={caseStack[0]?.id ?? null}

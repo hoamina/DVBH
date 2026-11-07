@@ -5446,3 +5446,15 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   cache, tự vá can_khao_sat, lũy kế R2). Cập nhật cả wrangler.jsonc + wrangler.smarttrade.jsonc.
 - Kiểm tra local (`--test-scheduled`, `/cdn-cgi/handler/scheduled?cron=..&time=..`; `/__scheduled` bị SPA fallback chặn): 07:30 chốt đủ
   (Tất cả + VN, ton_ktv, backlog_age, 11s); 08:00/12:00/17:30 không chốt lại. Launch config mới `dvbh-worker-8792-cron`.
+
+## 2026-11-07 — Giao diện bản mobile: hết tràn ngang ở tab, popup ca toàn màn hình, bảng gọn hơn (v1.550)
+- Nguyên văn: *"chỉnh lại giao diện cho bản mobile"* — phạm vi: toàn bộ; lỗi gặp: tràn ngang / phải kéo.
+- Đo ở 375px (dev local, dò phần tử vượt khung): trang ngoài không tràn; cái phải vuốt ngang là (1) thanh tab cuộn ngang (Settings ~2400px,
+  Import ~1200px, Quản lý tồn/Tranh chấp ~780px), (2) bảng nhiều cột (Khảo sát 4465px, Quản lý tồn 1766px, Tổng quát 1002px…),
+  (3) popup chi tiết ca chế độ "Mở rộng" bị chia 2 khung cuộn nhỏ (360px + 220px), hàng tab "Cơ bản…" bị nút Kiểu 1/2/3 bóp còn 61px.
+- Sửa: `Tabs.tsx` dưới md xuống dòng thay vì cuộn ngang; `App.tsx` dưới 768px luôn mở ca ở "Ngắn gọn" (toàn màn hình, tab "Thông tin"
+  mặc định), nút Ngắn gọn/Mở rộng ẩn trên mobile; CaseDetail: Kiểu 1/2/3 + ⚙ lên hàng riêng phía trên tab; `Modal` lề nhỏ hơn trên mobile;
+  `tokens.css` dưới md: ô bảng đệm trái/phải 6px + tiêu đề cột được xuống dòng.
+- Đo lại: không còn tab nào phải vuốt; bảng hẹp ~một nửa (Tổng quát 550px, Khảo sát 1710px, Lũy kế + Tranh chấp vừa màn hình); popup ca
+  không còn tràn ở các tab. Máy tính (1440px) giữ nguyên (popup vẫn mở rộng, tab 1 hàng). Bảng pivot nhiều ngày/nhiều cột vẫn cuộn ngang
+  trong khung riêng (đúng dữ liệu) — chưa làm cột đầu dính (sticky) vì nhiều bảng có rowSpan.

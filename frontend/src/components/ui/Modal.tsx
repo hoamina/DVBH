@@ -30,9 +30,9 @@ export function Modal({
   useLockBodyScroll(open);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-2 sm:p-4">
       <div className={`bg-[var(--surface)] rounded-2xl w-full ${width} ${height} overflow-hidden flex flex-col anim-in shadow-2xl`}>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--line)]">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 border-b border-[var(--line)]">
           <h3 className="font-display font-bold text-[var(--ink-900)]">{title}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
@@ -41,8 +41,8 @@ export function Modal({
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto min-h-0 flex-1 p-5">{children}</div>
-        {footer && <div className="border-t border-[var(--line)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
+        <div className="overflow-y-auto min-h-0 flex-1 p-3 sm:p-5">{children}</div>
+        {footer && <div className="border-t border-[var(--line)] bg-[var(--surface)] px-3 sm:px-5 py-3">{footer}</div>}
       </div>
     </div>
   );

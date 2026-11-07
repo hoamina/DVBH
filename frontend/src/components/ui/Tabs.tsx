@@ -6,7 +6,9 @@ export interface TabItem {
 
 export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: string; onChange: (key: string) => void }) {
   return (
-    <div className="flex items-center gap-1 border-b border-[var(--line)] mb-4 overflow-x-auto">
+    // Dien thoai (<768px, 2026-11-07): tab XUONG DONG thay vi cuon ngang (Settings ~2400px, Import ~1200px phai vuot
+    // ngang moi thay tab cuoi); tu md tro len giu 1 hang cuon ngang nhu cu.
+    <div className="flex flex-wrap md:flex-nowrap items-center gap-x-0.5 md:gap-1 border-b border-[var(--line)] mb-4 md:overflow-x-auto">
       {tabs.map((t) => {
         const isActive = active === t.key;
         // Chi hien badge khi count > 0 - tab "rong" (0) khong can hien "(0)" gay roi mat, vua giup
@@ -16,7 +18,7 @@ export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: stri
           <button
             key={t.key}
             onClick={() => onChange(t.key)}
-            className={`focus-ring px-3 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
+            className={`focus-ring px-2 md:px-3 py-2 md:py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
               isActive
                 ? "border-[var(--ocean-500)] text-[var(--ocean-600)]"
                 : hasCount
