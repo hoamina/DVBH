@@ -119,7 +119,7 @@ survey.get("/candidates", async (c) => {
   ]);
 
   const rows = (results as Record<string, unknown>[]).map((r) => {
-    const co = tinhCoLoaiTru(loaiTru as LoaiTruRow[], r.ky_thuat_vien as string | null, r.thoi_gian_cskh_tiep_nhan as string | null);
+    const co = tinhCoLoaiTru(loaiTru as LoaiTruRow[], String(r.id), r.ky_thuat_vien as string | null, r.thoi_gian_cskh_tiep_nhan as string | null);
     return {
       ...r,
       loai_tru_120p: co("Loi 120 phut"),
@@ -1542,6 +1542,7 @@ survey.post("/loai-tru", requireRole(...LOAI_TRU_ROLES), async (c) => {
     `UPDATE case_dvbh AS c SET ${RECOMPUTE_SET}
      WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${CO_LOI_SQL}
        AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < date(?, '+1 day')
+       AND SUBSTR(c.id, 1, 1) != 'T'
        AND EXISTS (SELECT 1 FROM khao_sat_loai_tru x WHERE x.id > ?
          AND substr(c.ky_thuat_vien, 1, length(x.ma_ktv) + 2) = '(' || x.ma_ktv || ')'
          AND substr(c.thoi_gian_cskh_tiep_nhan, 1, 10) BETWEEN x.tu_ngay AND x.den_ngay)

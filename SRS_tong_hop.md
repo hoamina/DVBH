@@ -230,6 +230,8 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
   chuỗi CRM, Nhóm lỗi — nhiều nhóm cách dấu phẩy / "Tất cả", Từ ngày, Đến ngày dd/mm/yyyy, Ghi chú; có file mẫu, xem
   trước dòng lỗi trước khi import). Sửa = xóa + tạo lại. Mỗi lần thêm/xóa tính lại `can_khao_sat` ngay cho ca bị ảnh hưởng.
 - Chưa áp dụng cho các chỉ số báo cáo khảo sát (tỷ lệ nghi ngờ/vi phạm vẫn đếm theo cờ lỗi gốc).
+- **Chỉ áp cho ca nguồn CRM KRF** (chốt 2026-11-07): ca CRM 3T (ID bắt đầu bằng "T") không bao giờ bị loại trừ, vẫn cần
+  khảo sát bình thường dù KTV có trong danh sách. Tab "Theo dõi KTV loại trừ" vẫn đếm mọi nguồn như cũ.
 
 ## 10. Địa giới cũ / mới — tỉnh, huyện, xã (chốt 2026-10-10)
 

@@ -5364,3 +5364,10 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   (query tab chờ Tổng quan xong mới chạy để không bắn trùng). Chuyển tab không tải lại Tổng quan, không nháy.
 - Khác biệt: nếu Tổng quan lỗi thì tab cũng chưa tải (trước chạy độc lập).
 - So local 30 tổ hợp (tháng 10/11, khu vực, NSKX, Tất cả QLDVBH × 6 kiểu tab/nhóm/trạng thái): khớp 100%.
+
+## 2026-11-07 — Danh sách loại trừ khảo sát chỉ áp ca CRM KRF (v1.541)
+
+- Yêu cầu chủ hệ thống: loại trừ chỉ áp ca nguồn CRM KRF, không áp ca CRM 3T (ID bắt đầu "T", cùng quy ước `nguonCrmClause`).
+- `loaiTruExistsSql` thêm `SUBSTR(c.id,1,1) != 'T'` → `NEED_SURVEY_CONDITION` tự đúng ở mọi nơi tính `can_khao_sat`;
+  `tinhCoLoaiTru` (cờ mờ ở danh sách cần gọi) nhận thêm id ca; POST thêm loại trừ chỉ tính lại ca KRF.
+- Ca 3T đang `can_khao_sat = 0` do bị loại trừ trước đây: tính lại 1 lần trên remote sau deploy (và cron 08:00 self-heal cũng bắt lại).
