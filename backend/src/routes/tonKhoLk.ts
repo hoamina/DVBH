@@ -110,15 +110,21 @@ tonKhoLk.get("/tim", async (c) => {
 
 // GET /ma/:ma - ton cua 1 ma hang o TUNG kho (kho cong ty + kho KTV) kem nhom MB/MN - "Ho so linh kien" (GD2).
 // idx_ton_kho_lk_ma_hang -> chi doc dung so dong cua ma do.
+// `ten` (2026-11-07): ten LK cho tieu de popup khi noi mo chi co ma (vd GT ton) - uu tien danh muc linh_kien (PK seek),
+// khong co thi lay ten_hang trong file ton MISA.
 tonKhoLk.get("/ma/:ma", async (c) => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT t.nguon, t.ma_kho, t.ten_kho, t.ma_ktv, t.ten_ktv, t.khu_vuc_ma, t.ten_hang, t.dvt, t.cuoi_ky, n.nhom
-     FROM ton_kho_lk t LEFT JOIN ton_kho_nhom_kho n ON n.ma_kho = t.ma_kho
-     WHERE t.ma_hang = ? ORDER BY t.cuoi_ky DESC`,
-  )
-    .bind(c.req.param("ma"))
-    .all();
-  return c.json({ rows: results });
+  const ma = c.req.param("ma");
+  const [ton, dm] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT t.nguon, t.ma_kho, t.ten_kho, t.ma_ktv, t.ten_ktv, t.khu_vuc_ma, t.ten_hang, t.dvt, t.cuoi_ky, n.nhom
+       FROM ton_kho_lk t LEFT JOIN ton_kho_nhom_kho n ON n.ma_kho = t.ma_kho
+       WHERE t.ma_hang = ? ORDER BY t.cuoi_ky DESC`,
+    ).bind(ma),
+    c.env.DB.prepare("SELECT ten_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma),
+  ]);
+  const rows = ton.results as { ten_hang: string | null }[];
+  const ten = (dm.results[0] as { ten_linh_kien?: string } | undefined)?.ten_linh_kien || rows.find((r) => r.ten_hang)?.ten_hang || null;
+  return c.json({ rows, ten });
 });
 
 // GET /ma/:ma/lich-su - don dat hang gan nhat + ticket thieu hang cua 1 ma ben linh-kien-app (goi THEO YEU CAU luc mo

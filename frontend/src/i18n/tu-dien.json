@@ -13530,5 +13530,17 @@
  "ẩn {0} PO hủy / SL 0": [
   "{0} cancelled / zero-qty POs hidden",
   "{0} PO batal / jumlah 0 disembunyikan"
+ ],
+ "Bỏ qua / không có mail mốc này": [
+  "Skipped / no email for this step",
+  "Dilewati / tidak ada email untuk tahap ini"
+ ],
+ "Chưa tới": [
+  "Not reached yet",
+  "Belum sampai"
+ ],
+ "Ca mới": [
+  "New case",
+  "Kasus baru"
  ]
 }

@@ -1371,7 +1371,12 @@ cases.get("/:id", async (c) => {
   // Doc tag TRUOC du lieu: neu co ghi xen giua, tag cu hon du lieu -> lan mo sau tu tai lai (an toan).
   const detailVersion = await getVersionTag(c.env.DB, CASE_DETAIL_DOMAINS);
   const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop, donBaoHanhOdoo, chuyenCapLog, lada] = await Promise.all([
-    c.env.DB.prepare("SELECT * FROM giai_trinh WHERE case_id = ? ORDER BY ngay_giai_trinh DESC").bind(id).all(),
+    // ten_linh_kien_thieu (2026-11-07): ten LK tu danh muc linh_kien (PK seek, 1 dong/giai trinh co LK) de GT ton hien ca ten.
+    c.env.DB.prepare(
+      `SELECT gt.*, lk.ten_linh_kien AS ten_linh_kien_thieu FROM giai_trinh gt
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = gt.linh_kien_thieu
+       WHERE gt.case_id = ? ORDER BY gt.ngay_giai_trinh DESC`,
+    ).bind(id).all(),
     c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
     c.env.DB.prepare("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC").bind(id).all(),
     // Giai trinh vi pham (migration 0108) - KTV qua he ngoai hoac Giam sat nhap tay thay, xem

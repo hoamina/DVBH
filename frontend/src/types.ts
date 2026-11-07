@@ -124,6 +124,8 @@ export interface GiaiTrinhRow {
   ly_do_cham: string;
   noi_dung: string | null;
   linh_kien_thieu: string | null;
+  /** Ten LK tu danh muc linh_kien (JOIN o GET /cases/:id) - co the thieu voi cache cu. */
+  ten_linh_kien_thieu?: string | null;
   ngay_du_kien_hoan_thanh: string | null;
   ngay_yeu_cau_co_hang: string | null;
   ma_xuat_hang_lien_quan: string | null;

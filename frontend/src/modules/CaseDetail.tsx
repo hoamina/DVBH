@@ -1864,7 +1864,7 @@ export function CaseDetail({
               </div>
               <div className="text-sm font-semibold">{dl(l.ly_do_cham)}</div>
               <div className="text-sm text-[var(--ink-600)]">{l.noi_dung}</div>
-              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">{tr("Linh kiện thiếu:")} <MaLinhKienLink ma={l.linh_kien_thieu} /></div>}
+              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">{tr("Linh kiện thiếu:")} <MaLinhKienLink ma={l.linh_kien_thieu} ten={l.ten_linh_kien_thieu} />{l.ten_linh_kien_thieu && <span className="font-normal text-[var(--ink-600)]"> — {l.ten_linh_kien_thieu}</span>}</div>}
               {l.ngay_yeu_cau_co_hang && <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Ngày yêu cầu có hàng:")} {fmtDate(l.ngay_yeu_cau_co_hang)}</div>}
               {l.ma_xuat_hang_lien_quan && <div className="text-xs text-[var(--ink-400)]">{tr("Mã xuất hàng liên quan:")} {l.ma_xuat_hang_lien_quan}</div>}
             </div>

@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Modal } from "./ui/Modal";
+import { api } from "../api/client";
 import { HoSoLinhKien } from "./HoSoLinhKien";
 import { tr } from "../i18n/tr";
 
@@ -20,17 +22,32 @@ export function HoSoLinhKienProvider({ enabled, openCase, children }: { enabled:
     <HoSoLinhKienContext.Provider value={enabled ? mo : null}>
       {children}
       {dangMo && (
-        <Modal open title={tr("Hồ sơ linh kiện {0}{1}", dangMo.ma, dangMo.ten ? ` — ${dangMo.ten}` : "")} onClose={() => setDangMo(null)} width="max-w-[1800px]" height="h-[calc(100vh-2rem)]">
-          <HoSoLinhKien
-            maLk={dangMo.ma}
-            openCase={(id, tab) => {
-              setDangMo(null);
-              openCase(id, tab);
-            }}
-          />
-        </Modal>
+        <HoSoModal
+          ma={dangMo.ma}
+          ten={dangMo.ten}
+          onClose={() => setDangMo(null)}
+          openCase={(id, tab) => {
+            setDangMo(null);
+            openCase(id, tab);
+          }}
+        />
       )}
     </HoSoLinhKienContext.Provider>
+  );
+}
+
+// Noi mo chi co ma (GT ton, ...) -> lay ten tu GET /ton-kho-lk/ma/:ma (`ten`). Cung queryKey voi HoSoLinhKien nen
+// react-query gop thanh 1 request, khong goi them.
+function HoSoModal({ ma, ten, onClose, openCase }: { ma: string; ten: string | null; onClose: () => void; openCase: (id: string, tab?: string) => void }) {
+  const tonQ = useQuery({
+    queryKey: ["ton-kho-lk-ma", ma],
+    queryFn: () => api.get<{ rows: unknown[]; ten?: string | null }>(`/ton-kho-lk/ma/${encodeURIComponent(ma)}`),
+  });
+  const tenHien = ten || tonQ.data?.ten || null;
+  return (
+    <Modal open title={tr("Hồ sơ linh kiện {0}{1}", ma, tenHien ? ` — ${tenHien}` : "")} onClose={onClose} width="max-w-[1800px]" height="h-[calc(100vh-2rem)]">
+      <HoSoLinhKien maLk={ma} openCase={openCase} />
+    </Modal>
   );
 }
 

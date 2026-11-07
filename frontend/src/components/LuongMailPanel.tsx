@@ -9,6 +9,8 @@
 // (POST /api/cases/:id/doi-tra/:action, backend kiem tra canWriteTranhChap).
 // v1.436: he kia TU ket thuc luong sau 30 ngay khong co thong tin moi (nguoi = "Hệ thống"); luong da ket thuc VAN nhap ma
 // ca doi thu cong duoc (khong ton luot kiem tra tu dong). Tien do ca doi do backend DVBH doc truc tiep tu case_dvbh.
+// 2026-11-07: mac dinh chi hien LUONG NGANG gon (biet dang toi buoc nao) + nut "Xem chi tiết" xo ra day du (moc doc,
+// ca moi, de xuat, nhat ky mail, nhat ky thao tac) - quy uoc chung moi UI chi tiet (CLAUDE.md global).
 import { dl } from "../lib/banDichDuLieu";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -450,6 +452,55 @@ function DocMailModal({
   );
 }
 
+type MocDoiTra = { label: string; nhan: string; at: string | null | undefined; who?: string };
+
+/** Luong NGANG gon (2026-11-07, cung kieu tab Bảo hành): 1 duong cac moc, nhan ngan + ngay gio + "+khoang cach"; moc
+ * ke tiep sau moc da toi cuoi cung to noi "dang cho" (tru khi luong da ket thuc); moc bi bo qua (sau no da co moc toi)
+ * hien vong rong. Re chuot xem day du (nhan, gio, nguoi). */
+function LuongNgangDoiTra({ moc, daKetThuc }: { moc: MocDoiTra[]; daKetThuc: boolean }) {
+  const cuoi = moc.map((m) => !!m.at).lastIndexOf(true);
+  const dangIdx = !daKetThuc && cuoi < moc.length - 1 ? cuoi + 1 : -1;
+  let truoc: string | null = null;
+  return (
+    <div className="overflow-x-auto pb-1 min-w-0">
+      <ol className="flex min-w-max items-start">
+        {moc.map((m, i) => {
+          const toi = !!m.at;
+          const boQua = !toi && i < cuoi;
+          const dang = i === dangIdx;
+          const cach = m.at && truoc ? khoang(truoc, m.at) : "";
+          if (m.at) truoc = m.at;
+          const dot = toi
+            ? "bg-[var(--teal-500)] text-white"
+            : dang
+              ? "bg-[var(--amber-500)] text-white ring-4 ring-[var(--amber-500)]/20"
+              : boQua
+                ? "bg-white border-2 border-slate-300 text-slate-400"
+                : "bg-slate-200 text-slate-400";
+          const title = [m.label, m.at ? fmtVn(m.at) : boQua ? tr("Bỏ qua / không có mail mốc này") : dang ? tr("Đang chờ") : tr("Chưa tới"), m.who]
+            .filter(Boolean)
+            .join("\n");
+          return (
+            <li key={m.label} className="relative flex flex-col items-center w-[84px] shrink-0" title={title}>
+              {i > 0 && <span className={`absolute top-[9px] right-1/2 w-full h-0.5 ${i <= cuoi ? "bg-[var(--teal-500)]" : "bg-slate-200"}`} />}
+              <span className={`relative z-10 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${dot}`}>{toi ? "✓" : dang ? "…" : ""}</span>
+              <span
+                className={`mt-1 text-[11px] leading-tight text-center px-0.5 ${
+                  dang ? "font-bold text-[var(--amber-600)]" : toi ? "font-semibold text-[var(--ink-900)]" : "text-[var(--ink-400)]"
+                }`}
+              >
+                {m.nhan}
+              </span>
+              {m.at && <span className="text-[10px] text-[var(--ink-500)] leading-tight tabular-nums">{fmtNgan(m.at)}</span>}
+              {cach && <span className="text-[10px] text-[var(--ink-400)] leading-tight">+{cach}</span>}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 /** Popup xac nhan ket thuc luong doi tra (ghi chu tuy chon, luu vao nhat ky). */
 function KetThucModal({ caseId, dangLuu, onClose, onXacNhan }: { caseId: string; dangLuu: boolean; onClose: () => void; onXacNhan: (ghiChu: string) => void }) {
   const [ghiChu, setGhiChu] = useState("");
@@ -485,6 +536,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
   const [docIdx, setDocIdx] = useState<number | null>(null);
   const [moDeXuat, setMoDeXuat] = useState(false);
   const [hoiKetThuc, setHoiKetThuc] = useState(false);
+  const [moRong, setMoRong] = useState(false);
 
   if (isLoading) {
     return (
@@ -505,23 +557,24 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
   const cm = data.ca_moi;
   const ganBoi = [...nhatKy].reverse().find((n) => n.hanh_dong === "gan_ca_moi" || n.hanh_dong === "khong_co_ca_moi");
   const daKetThuc = !!l.ket_thuc_at;
-  const moc: { label: string; at: string | null | undefined; who?: string }[] = [
-    { label: tr("Phát sinh"), at: l.origin_at, who: l.origin_name || l.origin_email },
-    { label: tr("Karofi tiếp nhận"), at: l.tiep_nhan_at },
-    { label: tr("Đề xuất đổi"), at: l.de_xuat_at, who: l.de_xuat_from },
-    { label: l.duyet_xac_nhan ? tr("Duyệt (đã xác nhận)") : tr("Duyệt"), at: l.duyet_at, who: l.duyet_from },
-    { label: tr("Giao xử lý"), at: l.giao_xu_ly_at },
-    { label: tr("Lên SO"), at: l.len_so_at },
-    { label: tr("Lên DO"), at: l.len_do_at },
+  const moc: MocDoiTra[] = [
+    { label: tr("Phát sinh"), nhan: tr("Phát sinh"), at: l.origin_at, who: l.origin_name || l.origin_email },
+    { label: tr("Karofi tiếp nhận"), nhan: tr("Tiếp nhận"), at: l.tiep_nhan_at },
+    { label: tr("Đề xuất đổi"), nhan: tr("Đề xuất"), at: l.de_xuat_at, who: l.de_xuat_from },
+    { label: l.duyet_xac_nhan ? tr("Duyệt (đã xác nhận)") : tr("Duyệt"), nhan: tr("Duyệt"), at: l.duyet_at, who: l.duyet_from },
+    { label: tr("Giao xử lý"), nhan: tr("Giao xử lý"), at: l.giao_xu_ly_at },
+    { label: tr("Lên SO"), nhan: tr("Lên SO"), at: l.len_so_at },
+    { label: tr("Lên DO"), nhan: tr("Lên DO"), at: l.len_do_at },
   ];
   if (l.duyet_at || cm?.ca_moi_id) {
-    moc.push({ label: tr("Mở ca mới"), at: cm?.ca_moi_id ? cm.ca_moi_tn_at : null, who: cm?.ca_moi_id ?? undefined });
+    moc.push({ label: tr("Mở ca mới"), nhan: tr("Ca mới"), at: cm?.ca_moi_id ? cm.ca_moi_tn_at : null, who: cm?.ca_moi_id ?? undefined });
     moc.push({
       label: tr("Đổi trả thành công"),
+      nhan: tr("Hoàn thành"),
       at: cm?.ca_moi_id && cm.ca_moi_ht_at && /^Hoàn thành/i.test(cm.ca_moi_tien_do) ? cm.ca_moi_ht_at : null,
     });
   }
-  if (daKetThuc) moc.push({ label: tr("Kết thúc luồng"), at: l.ket_thuc_at, who: l.ket_thuc_boi });
+  if (daKetThuc) moc.push({ label: tr("Kết thúc luồng"), nhan: tr("Kết thúc"), at: l.ket_thuc_at, who: l.ket_thuc_boi });
   const deXuat = Object.entries(l.de_xuat ?? {}).filter(([k, v]) => v && !AN_TRUONG_DE_XUAT.has(k));
   const deXuatChinh = TRUONG_CHINH.map((k) => [k, l.de_xuat?.[k] ?? ""] as [string, string]).filter(([, v]) => v);
   const ganCaMoi = (caMoiId: string | null, thongBao: string) => thaoTac.mutate({ action: "ca-moi", body: { ca_moi_id: caMoiId }, thongBao });
@@ -568,7 +621,16 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
             {tr("Kết thúc bởi")} <b className="text-[var(--ink-700)]">{l.ket_thuc_boi}</b> · {fmtVn(l.ket_thuc_at)}
             {l.ket_thuc_ghi_chu ? ` · ${l.ket_thuc_ghi_chu}` : ""}  {tr("— hệ thống không còn tự tìm/cập nhật; vẫn nhập mã ca đổi thủ công được.")}</div>
         )}
-        <ol className="space-y-1">
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <LuongNgangDoiTra moc={moc} daKetThuc={daKetThuc} />
+          </div>
+          <button type="button" className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline shrink-0 pt-0.5" onClick={() => setMoRong((v) => !v)}>
+            {moRong ? tr("▴ Thu gọn") : tr("▾ Xem chi tiết")}
+          </button>
+        </div>
+        {moRong && (
+          <ol className="space-y-1 mt-3 pt-3 border-t border-[var(--line)]">
           {moc.map((m, i) => {
             const truoc = moc.slice(0, i).reverse().find((x) => x.at)?.at ?? null;
             return (
@@ -581,14 +643,15 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
               </li>
             );
           })}
-        </ol>
+          </ol>
+        )}
       </Card>
 
-      {(cm || l.duyet_at) && (
+      {moRong && (cm || l.duyet_at) && (
         <CaMoiCard cm={cm} ganBoi={ganBoi} canWrite={canWrite} dangLuu={thaoTac.isPending} onGan={ganCaMoi} onOpenCase={onOpenCase} />
       )}
 
-      {deXuat.length > 0 && (
+      {moRong && deXuat.length > 0 && (
         <Card className="p-3">
           <button type="button" className="w-full flex items-center justify-between gap-2 text-left" onClick={() => setMoDeXuat((v) => !v)}>
             <span className="text-xs font-semibold text-[var(--ink-500)]">{tr("Nội dung đề xuất đổi")}</span>
@@ -600,7 +663,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
         </Card>
       )}
 
-      {thu.length > 0 && (
+      {moRong && thu.length > 0 && (
         <Card className="p-0 overflow-hidden">
           <div className="px-3 pt-2.5 pb-1.5 text-xs font-semibold text-[var(--ink-500)]">{tr("Nhật ký mail · bấm 1 thư để đọc")}</div>
           <ol className="divide-y divide-[var(--line)]">
@@ -624,7 +687,7 @@ export function LuongMailPanel({ caseId, khuVuc, onOpenCase }: { caseId: string;
         </Card>
       )}
 
-      {nhatKy.length > 0 && (
+      {moRong && nhatKy.length > 0 && (
         <Card className="p-3">
           <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Nhật ký thao tác")}</div>
           <ol className="space-y-1">
