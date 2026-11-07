@@ -234,6 +234,12 @@ export default {
     }
 
     if (event.cron === DAILY_SNAPSHOT_CRON) {
+      // SUA 2026-11-07: tu 04/11 lan fire 08:00 KHONG chot duoc gi (daily_snapshot/ton_ktv/backlog_age/canh_bao_ton_daily_log trong 4
+      // ngay; so tren man la ban "tu tao khi co nguoi mo" luc 05:49 / 09:07...). Moi buoc chot loi chi console.error, KHONG thu lai, va
+      // chay SAU 2 buoc luoi an toan (tu va R2 + dong bo ton kho) dung luc pipeline import + nguoi dung mo man lam D1 "overloaded".
+      // Gio: luc 08:00 CHOT TRUOC (moi buoc boc withD1Retry - upsert idempotent, Telegram khong gui o day), luoi an toan chay sau.
+      const la0800 = new Date(event.scheduledTime).getUTCHours() === 1;
+      const chayLuoiAnToan = async () => {
       // Tu do + tu va snapshot R2 "ca da dong" (lib/daDongDayChunks.ts selfHealDaDongDayChunks) - SUA 2026-11-05: chay MOI lan
       // fire (8h-18h VN), dung thiet ke "luoi an toan moi gio"; truoc do chi con chay luc 08:00, lai nam sau 2 buoc khong boc
       // try/catch -> 03/11-05/11 snapshot dung ghi ma khong ai biet (Danh sach tong thieu ca). Rat re khi khong co gi doi
@@ -248,6 +254,8 @@ export default {
       } catch (err) {
         console.error("[cron-ton-kho-lk] loi khong mong doi:", err instanceof Error ? err.message : String(err));
       }
+      };
+      if (!la0800) await chayLuoiAnToan();
       // Chi tieu "Luong doi tra" cua the Canh bao ton doc tu he theodoidoimay - neu luc 08:00 khong goi duoc
       // (hoac snapshot chot truoc khi co chi tieu) thi moi lan fire 9h-18h VN thu lai (lib/canhBaoTon.ts).
       if (new Date(event.scheduledTime).getUTCHours() !== 1) {
@@ -270,32 +278,32 @@ export default {
       // Cac viec chot 08:00 VN - KHONG chay o cac lan fire 9h-18h VN them vao 2026-10-08.
       if (new Date(event.scheduledTime).getUTCHours() !== 1) return;
       try {
-        await generateDailySnapshot(env.DB, "auto");
+        await withD1Retry(() => generateDailySnapshot(env.DB, "auto"), 6);
       } catch (err) {
         console.error("[cron-daily-snapshot] generateDailySnapshot loi:", err instanceof Error ? err.message : String(err));
       }
       try {
-        await generateKhuVucBacklogSnapshots(env.DB, "auto");
+        await withD1Retry(() => generateKhuVucBacklogSnapshots(env.DB, "auto"), 6);
       } catch (err) {
         console.error("[cron-daily-snapshot] generateKhuVucBacklogSnapshots loi:", err instanceof Error ? err.message : String(err));
       }
       // "Canh bao ton danh cho QL" - chot cung moc 08:00 (xem lib/canhBaoTon.ts
       // generateCanhBaoTonSnapshot), doc lap voi 2 buoc tren.
       try {
-        await generateCanhBaoTonSnapshot(env, "auto");
+        await withD1Retry(() => generateCanhBaoTonSnapshot(env, "auto"), 6);
       } catch (err) {
         console.error("[cron-daily-snapshot] generateCanhBaoTonSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
       // Bao cao "Tuoi ton trung binh" - chot cung moc 08:00 (xem lib/backlogAgeSnapshot.ts), doc lap
       // voi cac buoc tren.
       try {
-        await generateBacklogAgeSnapshot(env.DB);
+        await withD1Retry(() => generateBacklogAgeSnapshot(env.DB), 6);
       } catch (err) {
         console.error("[cron-daily-snapshot] generateBacklogAgeSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
       // "So ca ton theo KTV" (Quan ly ton > Bao cao) - chot chet 08:00, xem lib/tonKtvSnapshot.ts.
       try {
-        await generateTonKtvSnapshot(env.DB);
+        await withD1Retry(() => generateTonKtvSnapshot(env.DB), 6);
       } catch (err) {
         console.error("[cron-daily-snapshot] generateTonKtvSnapshot loi:", err instanceof Error ? err.message : String(err));
       }
@@ -305,6 +313,8 @@ export default {
       } catch (err) {
         console.error("[cron-daily-snapshot] chotSoLieuPhamVi loi:", err instanceof Error ? err.message : String(err));
       }
+      // 08:00: luoi an toan (tu va R2 + dong bo ton kho) chay SAU khi da chot xong (xem SUA 2026-11-07 o dau nhanh).
+      await chayLuoiAnToan();
       // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
       // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem
       // shouldSkipCronRefresh o caLapRefresh.ts).

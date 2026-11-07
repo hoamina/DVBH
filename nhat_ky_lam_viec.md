@@ -5422,3 +5422,15 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Chủ hệ thống thêm 2 quy ước CHUNG mọi dự án (ghi ở `~/.claude/CLAUDE.md`): UI chi tiết phải có luồng quy trình ngang + nút xổ chi
   tiết; bảng dữ liệu kiểu Excel (lọc theo tiêu đề cột: từ khóa / chọn nhiều / ngày-khoảng ngày; sắp xếp).
 - Deploy từ worktree sạch tại commit efc4b3b vì thư mục chính đang có thay đổi cron chưa commit của phiên song song (không đẩy kèm).
+
+## 2026-11-07 — Chốt 08:00 hỏng từ 04/11: chốt trước, thử lại khi D1 quá tải, bật Workers Logs (v1.548)
+- Nguyên văn: *"tại sao báo cáo tồn lại chốt vào 9h sáng này? logic là chốt auto trước 8h"*.
+- Điều tra production: từ 04/11 lần cron 08:00 KHÔNG ghi được bản chốt nào (daily_snapshot "Tất cả" 30 bản/ngày → 3–8; ton_ktv_daily,
+  backlog_age_daily, canh_bao_ton_daily_log dừng ở 03/11). Số đang thấy là bản "tự tạo khi có người mở màn" (getSnapshotForUser /
+  getBacklogDailyForKhuVuc tính khi thiếu) → giờ chốt = giờ người đầu tiên mở: 09:07:55 (Tất cả DVBH), 05:49 (VN MB1–3), 00:30 (Cảnh báo tồn).
+- Không có log (observability chưa bật) nên không xác định chắc bước nào lỗi; mốc tự vá R2 đã khớp (không kẹt vòng). Nghi D1 "overloaded"
+  đúng 08:00 (pipeline import + người mở màn): mỗi bước chốt lỗi chỉ console.error, không thử lại, lại chạy sau 2 bước lưới an toàn.
+- Sửa: lần fire 08:00 chốt TRƯỚC (tự vá R2 + đồng bộ tồn kho chạy sau ); mỗi bước chốt (Tất cả + từng phạm vi trong
+  ) bọc  — upsert idempotent, Telegram không gửi ở đây (gửi 17h30). Bật  trong
+  wrangler.smarttrade.jsonc để sáng mai xem log thật (dashboard > Workers > dvbh > Logs).
+- Số hôm nay 07/11 không khôi phục được mốc 08:00. Chưa sửa: bản tự tạo trước 8h (05:49) — khi cron 08:00 chạy được sẽ ghi đè (upsert).

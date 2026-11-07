@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { withD1Retry } from "./d1Retry";
 import { envPhamVi, hauToPhamVi, phamViTheoNuoc, type PhamViDb } from "./phamVi";
 import { dsQuocGiaKichHoat } from "./quocGia";
 import { damBaoBangQuocGia } from "./quocGiaKichHoat";
@@ -35,15 +36,17 @@ async function dsPhamViChot(env: Env): Promise<PhamViDb[]> {
 }
 
 /** Chot 08:00 (cron) va nut "Làm mới báo cáo" (canhBaoTon=false: nut do khong chot the Canh bao ton). */
+// 2026-11-07: moi buoc boc withD1Retry - luc 08:00 D1 hay "overloaded" (pipeline import + nguoi dung mo man), truoc day 1 lan loi la mat
+// so chot ca ngay (04/11-07/11 khong co ban chot 08:00 nao). Cac buoc deu upsert idempotent -> thu lai an toan.
 export async function chotSoLieuPhamVi(env: Env, generatedBy: string, opts: { canhBaoTon: boolean }): Promise<void> {
   for (const s of await dsPhamViChot(env)) {
     const pv = hauToPhamVi(s);
     const e = envPhamVi(env, s);
-    await thu(`${pv} generateDailySnapshot`, () => generateDailySnapshot(e.DB, generatedBy));
-    await thu(`${pv} generateKhuVucBacklogSnapshots`, () => generateKhuVucBacklogSnapshots(e.DB, generatedBy));
-    if (opts.canhBaoTon) await thu(`${pv} generateCanhBaoTonSnapshot`, () => generateCanhBaoTonSnapshot(e, generatedBy));
-    await thu(`${pv} generateBacklogAgeSnapshot`, () => generateBacklogAgeSnapshot(e.DB));
-    await thu(`${pv} generateTonKtvSnapshot`, () => generateTonKtvSnapshot(e.DB));
+    await thu(`${pv} generateDailySnapshot`, () => withD1Retry(() => generateDailySnapshot(e.DB, generatedBy), 6));
+    await thu(`${pv} generateKhuVucBacklogSnapshots`, () => withD1Retry(() => generateKhuVucBacklogSnapshots(e.DB, generatedBy), 6));
+    if (opts.canhBaoTon) await thu(`${pv} generateCanhBaoTonSnapshot`, () => withD1Retry(() => generateCanhBaoTonSnapshot(e, generatedBy), 6));
+    await thu(`${pv} generateBacklogAgeSnapshot`, () => withD1Retry(() => generateBacklogAgeSnapshot(e.DB), 6));
+    await thu(`${pv} generateTonKtvSnapshot`, () => withD1Retry(() => generateTonKtvSnapshot(e.DB), 6));
   }
 }
 

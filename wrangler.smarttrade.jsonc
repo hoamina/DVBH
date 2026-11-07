@@ -4,6 +4,9 @@
   "main": "backend/src/index.ts",
   "compatibility_date": "2026-07-16",
   "compatibility_flags": ["nodejs_compat"],
+  // Workers Logs (2026-11-07): truoc day KHONG bat -> cron 08:00 hong 04/11-07/11 ma khong con log nao de biet buoc nao loi.
+  // Xem: Cloudflare dashboard > Workers > dvbh > Logs (luu 7 ngay). Muc console.error cua cron se hien o day.
+  "observability": { "enabled": true },
 
   "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }],
 
