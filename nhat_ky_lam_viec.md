@@ -5356,3 +5356,11 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Frontend: 1 query `enabled:false` (key giữ tiền tố `survey-bao-cao-khu-vuc`), `refreshReport()` refetch 1 lần. Khác biệt duy nhất: trước
   4 phần lỗi độc lập, nay lỗi D1 thì cả tab báo lỗi cùng lúc (bấm Cập nhật lại).
 - So local 18 tổ hợp (tháng 10/11, lọc khu vực, ngày gọi, NSKX, nguồn CRM × 3 chiều): khớp 100% (local không có dữ liệu vi phạm → 2 bảng xếp hạng rỗng ở cả 2).
+
+## 2026-11-07 — Báo cáo vi phạm kéo 1 lần (v1.540)
+- Nguyên văn: *"Vi phạm"*.
+- Màn này vốn đã tải theo tab (Tổng quan + đúng 1 tab) và cả 4 báo cáo đã có cache → lợi ích nhỏ hơn 3 màn trước: đổi bộ lọc khi đang ở
+  tab Đa chiều/Điểm thẻ/Danh sách từ 2 request còn 1. `GET /api/bao-cao-vi-pham/man`; client nạp sẵn dữ liệu tab vào cache query tab
+  (query tab chờ Tổng quan xong mới chạy để không bắn trùng). Chuyển tab không tải lại Tổng quan, không nháy.
+- Khác biệt: nếu Tổng quan lỗi thì tab cũng chưa tải (trước chạy độc lập).
+- So local 30 tổ hợp (tháng 10/11, khu vực, NSKX, Tất cả QLDVBH × 6 kiểu tab/nhóm/trạng thái): khớp 100%.

@@ -209,6 +209,12 @@ dòng + max rowid `settings_giai_trinh_exclude_ngay` trong tháng. Lần tính l
   Cùng hàm + khoá cache với route lẻ (`docSurveyBaoCao`, `docViPhamFunnel`, `docViPhamLeaderboard`), đọc cache gom 1 `db.batch`.
 - Vẫn chỉ chạy khi bấm "Cập nhật báo cáo" / tự tải khi báo cáo cũ ≥ 1 ngày (như trước). Route lẻ giữ nguyên.
 
+## R15 — `GET /api/bao-cao-vi-pham/man` (chốt 2026-11-07, v1.540)
+
+- Báo cáo vi phạm: mở màn / đổi bộ lọc kéo 1 lần Tổng quan + dữ liệu tab đang mở (`tab=da-chieu|diem-the|danh-sach`), cùng hàm + khoá
+  cache với route lẻ (`docTongQuan`/`docDaChieu`/`docDiemThe`/`docDanhSach`), đọc cache gom 1 `db.batch`. Client nạp sẵn kết quả tab vào
+  cache query của tab (`setQueryData`); chuyển tab sau đó vẫn gọi route lẻ. Route lẻ giữ nguyên (cả `danh-sach?export=true`).
+
 ## Ràng buộc chung cho MỌI hạng mục
 
 - KHÔNG đổi shape response; KHÔNG sửa frontend.

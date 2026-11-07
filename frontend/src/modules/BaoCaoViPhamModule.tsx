@@ -313,24 +313,38 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
   const ktvOptions = [ALL_KTV, ...(filterOptions?.kyThuatVien ?? [])];
   const nhomKhOptions = [ALL_NHOM_KH, ...(filterOptions?.nhomKh ?? []).filter((n): n is string => !!n)];
 
+  // 2026-11-07: mo man / doi bo loc KEO 1 LAN - Tong quan lay qua GET /bao-cao-vi-pham/man kem du lieu dung tab dang mo, roi NAP SAN
+  // vao cache cua query tab do (setQueryData) -> query tab thay du lieu moi, khong goi them. Query tab cho Tong quan xong moi chay
+  // (enabled ... && !!tongQuan) de khong ban trung. Chuyen tab sau do: Tong quan da co, chi tab moi goi route le nhu truoc.
   const { data: tongQuan } = useQuery({
     queryKey: ["bao-cao-vi-pham-tong-quan", apiParams],
-    queryFn: () => api.get<TongQuanPayload>(`/bao-cao-vi-pham/tong-quan${buildQuery(apiParams)}`),
+    queryFn: async () => {
+      const r = await api.get<{
+        tongQuan: TongQuanPayload;
+        daChieu: { rows: DaChieuRow[] } | null;
+        diemThe: { rows: DiemTheRow[] } | null;
+        danhSach: { rows: DanhSachRow[] } | null;
+      }>(`/bao-cao-vi-pham/man${buildQuery({ ...apiParams, tab, nhom: tab === "da-chieu" ? nhom : undefined, trang_thai: tab === "danh-sach" ? trangThai || undefined : undefined })}`);
+      if (r.daChieu) qcClient.setQueryData(["bao-cao-vi-pham-da-chieu", apiParams, nhom], r.daChieu);
+      if (r.diemThe) qcClient.setQueryData(["bao-cao-vi-pham-diem-the", apiParams], r.diemThe);
+      if (r.danhSach) qcClient.setQueryData(["bao-cao-vi-pham-danh-sach", apiParams, trangThai], r.danhSach);
+      return r.tongQuan;
+    },
   });
   const { data: daChieu } = useQuery({
     queryKey: ["bao-cao-vi-pham-da-chieu", apiParams, nhom],
     queryFn: () => api.get<{ rows: DaChieuRow[] }>(`/bao-cao-vi-pham/da-chieu${buildQuery({ ...apiParams, nhom })}`),
-    enabled: tab === "da-chieu",
+    enabled: tab === "da-chieu" && !!tongQuan,
   });
   const { data: diemThe } = useQuery({
     queryKey: ["bao-cao-vi-pham-diem-the", apiParams],
     queryFn: () => api.get<{ rows: DiemTheRow[] }>(`/bao-cao-vi-pham/diem-the${buildQuery(apiParams)}`),
-    enabled: tab === "diem-the",
+    enabled: tab === "diem-the" && !!tongQuan,
   });
   const { data: danhSach } = useQuery({
     queryKey: ["bao-cao-vi-pham-danh-sach", apiParams, trangThai],
     queryFn: () => api.get<{ rows: DanhSachRow[] }>(`/bao-cao-vi-pham/danh-sach${buildQuery({ ...apiParams, trang_thai: trangThai || undefined })}`),
-    enabled: tab === "danh-sach",
+    enabled: tab === "danh-sach" && !!tongQuan,
   });
   // Quay ve trang 1 moi khi bo loc doi (khong thi co the dung o 1 trang rong neu du lieu moi it
   // hon vi tri trang dang xem).
