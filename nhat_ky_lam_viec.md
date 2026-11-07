@@ -5409,3 +5409,16 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - `MoAppLink.tsx`: `MUAHANG_URL` + `appUrlTheoMa`/`MaAppLink` nhận app theo tiền tố mã (LK-/EOI- → muahang, DDH/PMH/PCN/PTL/PXK/TLK/TRA →
   linhkien, DH/BH/TR → suachua; mã khác để chữ thường). Gắn link cho ID PO, đơn đặt + ticket thiếu hàng (linhkien), cột ID bảng
   Google Sheet mua hàng / bảo hành. Link `EOI-…` chưa kiểm được app muahang có mở thẳng không (chỉ dạng `LK-…` được xác nhận).
+
+## 2026-11-07 — Tên linh kiện ở GT tồn / Hồ sơ LK + tab Đổi trả dạng luồng ngang (v1.547)
+- Yêu cầu: mở Hồ sơ linh kiện từ GT tồn không có tên LK; GT tồn chỉ hiện mã → bổ sung tên; tab Đổi trả trong Chi tiết ca làm lại
+  dạng đường ngang rút gọn + nút xem chi tiết xổ xuống.
+- `GET /api/cases/:id` giải trình kèm `ten_linh_kien_thieu` (LEFT JOIN `linh_kien`, PK seek). GT tồn hiện "mã — tên".
+- `GET /api/ton-kho-lk/ma/:ma` trả thêm `ten` (danh mục `linh_kien`, không có thì `ten_hang` file MISA). `HoSoLinhKienProvider` tự
+  lấy tên khi nơi mở chỉ truyền mã (cùng queryKey với `HoSoLinhKien` nên không thêm request).
+- `LuongMailPanel.tsx`: mặc định chỉ hiện luồng ngang (mốc đã qua xanh / đang chờ cam / bỏ qua vòng rỗng / chưa tới xám, kèm
+  "+khoảng cách"), nút "▾ Xem chi tiết" xổ ra mốc dọc, ca mới, đề xuất, nhật ký mail, nhật ký thao tác. Nút Đọc mail / Kết thúc luồng
+  vẫn ở ngoài.
+- Chủ hệ thống thêm 2 quy ước CHUNG mọi dự án (ghi ở `~/.claude/CLAUDE.md`): UI chi tiết phải có luồng quy trình ngang + nút xổ chi
+  tiết; bảng dữ liệu kiểu Excel (lọc theo tiêu đề cột: từ khóa / chọn nhiều / ngày-khoảng ngày; sắp xếp).
+- Deploy từ worktree sạch tại commit efc4b3b vì thư mục chính đang có thay đổi cron chưa commit của phiên song song (không đẩy kèm).
