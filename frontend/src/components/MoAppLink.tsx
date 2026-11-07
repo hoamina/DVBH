@@ -7,6 +7,25 @@ import type { ReactNode } from "react";
 
 export const SUACHUA_URL = "https://suachua.dichvu3t.workers.dev";
 export const LINHKIEN_URL = "https://linhkien.dichvu3t.workers.dev";
+// App "PO mua hàng" (EO, Worker muahang) mo thang 1 dong PO theo "ID ĐẶT LK" (vd /LK-26041700010) - 2026-11-07.
+export const MUAHANG_URL = "https://muahang.dichvu3t.workers.dev";
+
+/** Nhan dang app theo tien to ma (null = ma khong thuoc app nao biet -> khong gan link). */
+export function appUrlTheoMa(id: string | null | undefined): string | null {
+  const s = (id ?? "").trim().toUpperCase();
+  if (/^(LK|EOI)-/.test(s)) return MUAHANG_URL;
+  if (/^(DDH|PMH|PCN|PTL|PXK|TLK|TRA)-/.test(s)) return LINHKIEN_URL;
+  if (/^(DH|BH|TR)-/.test(s)) return SUACHUA_URL;
+  return null;
+}
+
+/** Ma bat ky: neu tien to khop 1 app thi thanh link chip, khong thi chu thuong (dung cho bang Google Sheet / PO). */
+export function MaAppLink({ id, title }: { id: string | null | undefined; title?: string }) {
+  const base = appUrlTheoMa(id);
+  if (!id) return <>—</>;
+  if (!base) return <span className="font-mono">{id}</span>;
+  return <MoAppLink base={base} id={id.trim()} title={title} />;
+}
 
 export function MoAppLink({ base, id, children, title }: { base: string; id: string | null | undefined; children?: ReactNode; title?: string }) {
   if (!id) return <>{children ?? "—"}</>;

@@ -12,6 +12,8 @@ import { fmtSl, TonKhoCapNhatLine } from "./TonKhoLk";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
 import type { SheetRow } from "../lib/purchaseWarrantySync";
+import { poSortKey } from "../lib/poDatHangEo";
+import { MaAppLink, MoAppLink, LINHKIEN_URL } from "./MoAppLink";
 import { tr } from "../i18n/tr";
 
 
@@ -161,25 +163,124 @@ function TuoiBadge({ ngay }: { ngay: number | null }) {
   return <Badge tone={tone}>{ngay}  {tr("ngày")}</Badge>;
 }
 
-// 2026-10-23: them Ngay ban hanh PO / Ngay hang ve thuc te (PO, re chuot xem phieu nhap) / NM cam ket / Ghi chu.
-const PO_DAT_HANG_COLS: { key: string; label: string; titleKey?: string }[] = [
-  { key: "id", label: tr("ID đặt LK") },
-  { key: "ngayBanHanh", label: tr("Ngày ban hành PO") },
-  { key: "doiTac", label: tr("Đối tác") },
-  { key: "khoCanDat", label: tr("Kho cần đặt") },
-  { key: "soLuongDat", label: tr("SL đặt") },
-  { key: "slNhapTheoAmis", label: tr("SL nhập Amis") },
-  { key: "soLuongConThieu", label: tr("SL còn thiếu") },
-  { key: "trangThai", label: tr("Trạng thái") },
-  { key: "tocDoHangVe", label: tr("Tốc độ về") },
-  { key: "canhBao", label: tr("Cảnh báo") },
-  { key: "ngayDuKienGanNhat", label: tr("Ngày dự kiến hàng về") },
-  { key: "nmCamKet", label: tr("NM cam kết") },
-  { key: "ngayVeThucTe", label: tr("Hàng về thực tế (PO)"), titleKey: "phieuNhap" },
-  { key: "ngayVeGanNhatToanQuoc", label: tr("Ngày về gần nhất toàn quốc") },
-  { key: "ghiChu", label: tr("Ghi chú") },
-  { key: "ngayCapNhat", label: tr("Cập nhật") },
+// ---- PO dat hang (lam lai 2026-11-07, phan hoi chu he thong): bo PO huy / SL dat = 0; cot "Về thực tế" theo tung PO;
+// PO dang cho hang tren dau + to nen vang, PO da xong mo di; moi kho 1 mau chip; ID PO bam mo thang app PO mua hang;
+// PO co gan ID ca -> hien ma ca (bam mo ca). Ngay trong SheetRow deu dang 'dd/mm/yyyy[ HH:MM:SS]' (poDatHangEo.ts).
+const soNguyen = (v: string | undefined): number | null => {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const x = Number(s.replace(/[^\d.-]/g, ""));
+  return Number.isFinite(x) ? x : null;
+};
+function poBiHuy(r: SheetRow): boolean {
+  const eo = (r.trangThaiEo ?? "").toLowerCase();
+  if (eo.includes("hủy") || eo.includes("từ chối")) return true;
+  if (/hủy|huỷ|từ chối/i.test(`${r.trangThai ?? ""} ${r.tatCa ?? ""}`)) return true;
+  return soNguyen(r.soLuongDat) === 0;
+}
+function poDangCho(r: SheetRow): boolean {
+  const thieu = soNguyen(r.soLuongConThieu);
+  if (thieu !== null) return thieu > 0;
+  return !/kết thúc|hoàn thành|đã về|đủ/i.test(r.trangThai ?? "");
+}
+/** Ngay ve thuc te cua CHINH PO: cot app EO, khong co thi lay ngay phieu nhap AMIS muon nhat cua PO. */
+function poNgayVe(r: SheetRow): string {
+  if (r.ngayVeThucTe) return r.ngayVeThucTe;
+  const ds = (r.phieuNhap ?? "").match(/\d{1,2}\/\d{1,2}\/\d{4}/g) ?? [];
+  return ds.sort((a, b) => (poSortKey(a) < poSortKey(b) ? 1 : -1))[0] ?? "";
+}
+const ngayNgan = (s: string | undefined) => (s ? s.split(" ")[0] : "");
+
+// Mau chip kho - gan theo thu tu ten kho (on dinh trong 1 lan xem), du phan biet nhanh 7 kho.
+const KHO_MAU = [
+  { bg: "#dbeafe", fg: "#1e40af" },
+  { bg: "#ede9fe", fg: "#5b21b6" },
+  { bg: "#ccfbf1", fg: "#0f766e" },
+  { bg: "#fce7f3", fg: "#9d174d" },
+  { bg: "#fef3c7", fg: "#92400e" },
+  { bg: "#e0f2fe", fg: "#075985" },
+  { bg: "#ecfccb", fg: "#3f6212" },
 ];
+function KhoChip({ kho, mau }: { kho: string; mau: { bg: string; fg: string } | undefined }) {
+  if (!kho) return <span className="text-[var(--ink-400)]">—</span>;
+  return (
+    <span className="inline-block rounded-md px-1.5 py-[1px] font-semibold whitespace-nowrap" style={{ background: mau?.bg, color: mau?.fg }}>
+      {kho}
+    </span>
+  );
+}
+
+function PoTable({ rows, khoMau, openCase }: { rows: SheetRow[]; khoMau: Map<string, { bg: string; fg: string }>; openCase?: (id: string, tab?: string) => void }) {
+  return (
+    <div className="overflow-auto max-h-80">
+      <table className="dense w-full text-xs">
+        <thead className={THEAD}>
+          <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
+            <th className={TH}>{tr("ID PO")}</th>
+            <th className={TH}>{tr("Trạng thái")}</th>
+            <th className={TH}>{tr("Kho cần đặt")}</th>
+            <th className={TH}>{tr("Cho ca")}</th>
+            <th className={`${TH} text-right`}>{tr("Đặt / về / thiếu")}</th>
+            <th className={TH}>{tr("Ban hành")}</th>
+            <th className={TH}>{tr("Dự kiến về")}</th>
+            <th className={TH}>{tr("Về thực tế")}</th>
+            <th className={TH}>{tr("Cảnh báo")}</th>
+            <th className={TH}>{tr("NM cam kết")}</th>
+            <th className={TH}>{tr("Đối tác")}</th>
+            <th className={TH}>{tr("Ghi chú")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const cho = poDangCho(r);
+            const ve = poNgayVe(r);
+            return (
+              <tr
+                key={r.id || i}
+                className="border-b border-[var(--line)] last:border-0"
+                style={cho ? { background: "color-mix(in srgb, var(--amber-100) 60%, transparent)" } : { color: "var(--ink-500)" }}
+              >
+                <td className={`${TH} whitespace-nowrap`} style={{ borderLeft: `3px solid ${cho ? "var(--amber-500)" : "var(--teal-500)"}` }}>
+                  <MaAppLink id={r.id} title={tr("Mở PO trên app PO mua hàng")} />
+                </td>
+                <td className={TH}>{cho ? <Badge tone="amber">{tr("Chờ hàng")}</Badge> : <Badge tone="teal">{tr("Đã xong")}</Badge>}</td>
+                <td className={TH}>
+                  <KhoChip kho={r.khoCanDat ?? ""} mau={khoMau.get(r.khoCanDat ?? "")} />
+                </td>
+                <td className={TH}>
+                  {r.idCrm ? (
+                    <button type="button" className="font-mono font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => openCase?.(r.idCrm)}>
+                      {r.idCrm}
+                    </button>
+                  ) : (
+                    <span className="text-[var(--ink-400)]">—</span>
+                  )}
+                </td>
+                <td className={`${TH} text-right tabular-nums whitespace-nowrap`}>
+                  {r.soLuongDat || "—"} / {r.slNhapTheoAmis || "0"} / <span className={cho ? "font-bold text-[var(--coral-600)]" : ""}>{r.soLuongConThieu || "0"}</span>
+                </td>
+                <td className={`${TH} whitespace-nowrap`}>{ngayNgan(r.ngayBanHanh) || ngayNgan(r.ngayTao) || "—"}</td>
+                <td className={`${TH} whitespace-nowrap ${cho ? "font-semibold text-[var(--ink-900)]" : ""}`}>{cho ? r.ngayDuKienGanNhat || tr("Chưa có") : r.ngayDuKienGanNhat || "—"}</td>
+                <td
+                  className={`${TH} whitespace-nowrap ${ve ? "font-semibold text-[var(--teal-600)]" : ""} ${r.phieuNhap ? "cursor-help" : ""}`}
+                  title={r.phieuNhap ? tr("Phiếu nhập: {0}", r.phieuNhap) : undefined}
+                >
+                  {ve || "—"}
+                </td>
+                <td className={TH}>{r.canhBao ? <span className={cho ? "text-[var(--coral-600)] font-semibold" : ""}>{r.canhBao}</span> : "—"}</td>
+                <td className={`${TH} whitespace-nowrap`}>{r.nmCamKet || "—"}</td>
+                <td className={TH}>{r.doiTac || "—"}</td>
+                <td className={`${TH} max-w-[260px] truncate`} title={r.ghiChu || undefined}>
+                  {r.ghiChu || "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 const MUA_HANG_COLS: { key: string; label: string }[] = [
   { key: "id", label: "ID" },
@@ -226,7 +327,7 @@ function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: s
                   className={`py-1.5 px-2 ${c.titleKey && r[c.titleKey] ? "cursor-help underline decoration-dotted underline-offset-2" : ""}`}
                   title={c.titleKey && r[c.titleKey] ? tr("Phiếu nhập: {0}", r[c.titleKey]) : undefined}
                 >
-                  {r[c.key] || "—"}
+                  {c.key === "id" ? <MaAppLink id={r.id} /> : r[c.key] || "—"}
                 </td>
               ))}
             </tr>
@@ -243,10 +344,30 @@ const TR = "border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-1
 
 export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id: string, tab?: string) => void }) {
   const { poDatHang, muaHang, baoHanh } = usePurchaseWarrantyData();
-  const po = useMemo(() => matchPoDatHangByLinhKien(maLk, poDatHang), [maLk, poDatHang]);
+  const poTatCa = useMemo(() => matchPoDatHangByLinhKien(maLk, poDatHang), [maLk, poDatHang]);
+  // Bo PO huy / SL dat = 0; PO dang cho hang len dau, trong moi nhom moi ban hanh truoc.
+  const po = useMemo(() => {
+    const k = (r: SheetRow) => poSortKey(r.ngayBanHanh) || poSortKey(r.ngayTao);
+    return poTatCa
+      .filter((r) => !poBiHuy(r))
+      .sort((a, b) => Number(poDangCho(b)) - Number(poDangCho(a)) || (k(a) < k(b) ? 1 : k(a) > k(b) ? -1 : 0));
+  }, [poTatCa]);
+  const poAn = poTatCa.length - po.length;
+  const poCho = po.filter(poDangCho);
+  const khoMau = useMemo(() => {
+    const m = new Map<string, { bg: string; fg: string }>();
+    [...new Set(po.map((r) => r.khoCanDat ?? "").filter(Boolean))].sort().forEach((k, i) => m.set(k, KHO_MAU[i % KHO_MAU.length]));
+    return m;
+  }, [po]);
+  // Ca -> PO dat rieng cho ca do (PO co gan ID CRM)
+  const poTheoCa = useMemo(() => {
+    const m = new Map<string, SheetRow[]>();
+    for (const r of po) if (r.idCrm) m.set(r.idCrm, [...(m.get(r.idCrm) ?? []), r]);
+    return m;
+  }, [po]);
   const muaHangRows = useMemo(() => matchMuaHangByLinhKien(maLk, muaHang), [maLk, muaHang]);
   const baoHanhRows = useMemo(() => matchBaoHanhByLinhKien(maLk, baoHanh), [maLk, baoHanh]);
-  const tonQ = useQuery({ queryKey: ["ton-kho-lk-ma", maLk], queryFn: () => api.get<{ rows: TonRow[] }>(`/ton-kho-lk/ma/${encodeURIComponent(maLk)}`) });
+  const tonQ = useQuery({ queryKey: ["ton-kho-lk-ma", maLk], queryFn: () => api.get<{ rows: TonRow[]; ten?: string | null }>(`/ton-kho-lk/ma/${encodeURIComponent(maLk)}`) });
   const caQ = useQuery({
     queryKey: ["missing-parts-ma-lk", maLk],
     queryFn: () => api.get<Paged<CaThieu>>(`/missing-parts?ma_lk=${encodeURIComponent(maLk)}&pageSize=200`),
@@ -297,6 +418,71 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
           : { tone: "coral", icon: "⛔", title: tr("Hết hàng toàn hệ thống"), text: tr("Kho + KTV đều hết — cần đặt PO / theo dõi hàng về.") };
   const nd = nhanDinh ? TONE_VAR[nhanDinh.tone] : null;
 
+  // "Tinh hinh cung ung" (2026-11-07): tra loi trong vai giay - dang co PO cho hang khong, bao gio ve, lan dat gan nhat,
+  // lan ve gan nhat, don dat / ticket / bao hanh lien quan.
+  const maxBy = <T,>(xs: T[], key: (x: T) => string, min = false): T | undefined =>
+    xs.filter((x) => key(x)).sort((a, b) => (key(a) < key(b) ? (min ? -1 : 1) : key(a) > key(b) ? (min ? 1 : -1) : 0))[0];
+  const slThieuCho = poCho.reduce((s, r) => s + (soNguyen(r.soLuongConThieu) ?? 0), 0);
+  const duKienSomNhat = maxBy(poCho, (r) => poSortKey(r.ngayDuKienGanNhat), true);
+  const poMoiNhat = po[0] && maxBy(po, (r) => poSortKey(r.ngayBanHanh) || poSortKey(r.ngayTao));
+  const veGanNhat = maxBy(po, (r) => poSortKey(poNgayVe(r)));
+  const donMoiNhat = maxBy(orders, (o) => o.ngay_tao);
+  const ticketDuKien = maxBy(ticketMo, (t) => t.ngay_du_kien_co_hang ?? "", true);
+  const caCoPo = cases.filter((c) => poTheoCa.has(c.id)).length;
+  const cungUng: { label: string; value: ReactNode; sub?: ReactNode; tone: BadgeTone }[] = [
+    {
+      label: tr("PO đang chờ hàng"),
+      value: poCho.length,
+      sub: poCho.length ? tr("còn thiếu {0}", fmtSl(slThieuCho)) : tr("không có PO nào đang chờ"),
+      tone: poCho.length ? "amber" : "gray",
+    },
+    {
+      label: tr("Dự kiến có hàng sớm nhất"),
+      value: duKienSomNhat ? ngayNgan(duKienSomNhat.ngayDuKienGanNhat) : poCho.length ? tr("Chưa có ngày") : "—",
+      sub: duKienSomNhat ? <KhoChip kho={duKienSomNhat.khoCanDat ?? ""} mau={khoMau.get(duKienSomNhat.khoCanDat ?? "")} /> : undefined,
+      tone: duKienSomNhat ? "ocean" : poCho.length ? "coral" : "gray",
+    },
+    {
+      label: tr("PO đặt gần nhất"),
+      value: poMoiNhat ? ngayNgan(poMoiNhat.ngayBanHanh) || ngayNgan(poMoiNhat.ngayTao) || "—" : "—",
+      sub: poMoiNhat ? <MaAppLink id={poMoiNhat.id} /> : tr("chưa có PO"),
+      tone: poMoiNhat ? "ocean" : "gray",
+    },
+    {
+      label: tr("Hàng về gần nhất (PO)"),
+      value: veGanNhat ? poNgayVe(veGanNhat) : "—",
+      sub: veGanNhat ? <KhoChip kho={veGanNhat.khoCanDat ?? ""} mau={khoMau.get(veGanNhat.khoCanDat ?? "")} /> : undefined,
+      tone: veGanNhat ? "teal" : "gray",
+    },
+    {
+      label: tr("Đơn đặt LK gần nhất"),
+      value: donMoiNhat ? fmtDate(donMoiNhat.ngay_tao) : lsQ.isLoading ? "…" : "—",
+      sub: donMoiNhat ? (
+        <span>
+          <MoAppLink base={LINHKIEN_URL} id={donMoiNhat.id} /> {linhKienTrangThaiLabel(donMoiNhat.trang_thai_hien_tai)}
+        </span>
+      ) : undefined,
+      tone: donMoiNhat ? "ocean" : "gray",
+    },
+    {
+      label: tr("Ticket thiếu hàng mở"),
+      value: ticketMo.length,
+      sub: ticketDuKien?.ngay_du_kien_co_hang ? tr("kho hẹn {0}", fmtDate(ticketDuKien.ngay_du_kien_co_hang)) : undefined,
+      tone: ticketMo.length ? "amber" : "gray",
+    },
+    {
+      label: tr("Ca thiếu đã có PO riêng"),
+      value: cases.length ? `${caCoPo}/${cases.length}` : "—",
+      sub: cases.length ? tr("PO gắn đúng ID ca") : undefined,
+      tone: cases.length && caCoPo < cases.length ? "coral" : "gray",
+    },
+    {
+      label: tr("Bảo hành liên quan"),
+      value: baoHanhRows.length,
+      tone: baoHanhRows.length ? "ocean" : "gray",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Diem nhan: the so lieu chinh + nhan dinh */}
@@ -313,7 +499,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
           />
           <StatCard label={tr("Ca đang thiếu")} value={cases.length} tone="coral" muted={cases.length === 0} sub={tuoiMax !== null ? tr("lâu nhất {0} ngày", tuoiMax) : tr("trong phạm vi bạn xem")} />
           <StatCard label={tr("Ticket thiếu hàng mở")} value={ticketMo.length} tone="amber" muted={ticketMo.length === 0} sub={tr("{0} ticket tổng", thieuLk.length)} />
-          <StatCard label={tr("PO liên quan")} value={po.length} tone="gray" muted={po.length === 0} sub="Google Sheet + App EO" />
+          <StatCard label={tr("PO liên quan")} value={po.length} tone="gray" muted={po.length === 0} sub={tr("{0} đang chờ hàng", poCho.length)} />
         </div>
         {nhanDinh && nd && (
           <div className="rounded-xl px-4 py-3 flex items-start gap-3" style={{ background: nd.tint, borderLeft: `5px solid ${nd.solid}` }}>
@@ -326,6 +512,23 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
             </div>
           </div>
         )}
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
+          <div className="text-xs font-bold uppercase tracking-wide text-[var(--ink-500)] mb-2">{tr("Tình hình cung ứng")}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
+            {cungUng.map((x) => {
+              const c = TONE_VAR[x.tone];
+              return (
+                <div key={x.label} className="rounded-lg px-2.5 py-2 min-w-0" style={{ background: `color-mix(in srgb, ${c.tint} 60%, transparent)`, borderTop: `3px solid ${c.solid}` }}>
+                  <div className="text-[11px] text-[var(--ink-500)] leading-tight">{x.label}</div>
+                  <div className="font-display font-bold text-base tabular-nums" style={{ color: c.text }}>
+                    {x.value}
+                  </div>
+                  {x.sub && <div className="text-[11px] text-[var(--ink-600)] truncate">{x.sub}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <Zone n={1} title={tr("Nhu cầu")} hint={tr("ca đang chờ linh kiện này, lâu nhất trên đầu")}>
@@ -349,6 +552,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                     <th className={TH}>{tr("Khách hàng")}</th>
                     <th className={`${TH} text-right`}>{tr("Tuổi tồn")}</th>
                     <th className={TH}>{tr("Ngày cần hàng")}</th>
+                    <th className={TH}>{tr("PO cho ca này")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -368,6 +572,17 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                         <td className={`${TH} ${treHen ? "text-[var(--coral-600)] font-semibold" : ""}`}>
                           {c.last_ngay_yeu_cau_co_hang ? fmtDate(c.last_ngay_yeu_cau_co_hang) : "—"}
                           {treHen && " " + tr("· quá hẹn")}
+                        </td>
+                        <td className={TH}>
+                          {(poTheoCa.get(c.id) ?? []).map((p) => (
+                            <span key={p.id} className="inline-flex items-center gap-1 mr-1.5 whitespace-nowrap">
+                              <MaAppLink id={p.id} title={tr("Đã có PO đặt cho ca này")} />
+                              <span className={poDangCho(p) ? "text-[var(--amber-600)]" : "text-[var(--teal-600)]"}>
+                                {poDangCho(p) ? (p.ngayDuKienGanNhat ? tr("DK {0}", p.ngayDuKienGanNhat) : tr("chờ hàng")) : (poNgayVe(p) ? tr("đã về {0}", poNgayVe(p)) : tr("đã xong"))}
+                              </span>
+                            </span>
+                          ))}
+                          {!poTheoCa.has(c.id) && <span className="text-[var(--ink-400)]">—</span>}
                         </td>
                       </tr>
                     );
@@ -496,8 +711,8 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                     return (
                       <tr key={t.id} className={`border-b border-[var(--line)] last:border-0 ${tt?.mo ? "" : "opacity-60"}`} style={tt?.mo ? { background: "color-mix(in srgb, var(--amber-100) 55%, transparent)" } : undefined}>
                         <td className={`${TH} font-mono`}>
-                          {t.id}
-                          <div className="text-[var(--ink-400)]">{t.dat_don_hang_id}</div>
+                          <MoAppLink base={LINHKIEN_URL} id={t.id} />
+                          <div className="mt-0.5"><MoAppLink base={LINHKIEN_URL} id={t.dat_don_hang_id} /></div>
                         </td>
                         <td className={TH}>{tt ? <Badge tone={tt.tone}>{tt.label}</Badge> : (t.trang_thai ?? "—")}</td>
                         <td className={TH}>{t.ly_do ?? "—"}</td>
@@ -541,7 +756,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
                 <tbody>
                   {orders.map((o) => (
                     <tr key={o.id} className={TR}>
-                      <td className={`${TH} font-mono`}>{o.id}</td>
+                      <td className={`${TH} font-mono whitespace-nowrap`}><MoAppLink base={LINHKIEN_URL} id={o.id} title={tr("Mở đơn trên app Đặt mua linh kiện")} /></td>
                       <td className={TH}>
                         {linhKienLoaiDonLabel(o.loai_don)}
                         {o.loai_de_xuat && <div className="text-[var(--ink-400)]">{dl(o.loai_de_xuat)}</div>}
@@ -572,8 +787,21 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
           )}
         </Section>
 
-        <Section title={tr("PO đặt hàng liên quan")} icon="📑" tone="orange" count={po.length} emptyText={po.length === 0 ? tr("Không có PO liên quan.") : null}>
-          <SheetRowsTable rows={po} columns={PO_DAT_HANG_COLS} />
+        <Section
+          title={tr("PO đặt hàng liên quan")}
+          icon="📑"
+          tone="orange"
+          count={po.length}
+          emptyText={po.length === 0 ? (poAn > 0 ? tr("Chỉ có {0} PO đã hủy / SL đặt = 0 (đã ẩn).", poAn) : tr("Không có PO liên quan.")) : null}
+          right={
+            <span className="flex items-center gap-2 text-[var(--ink-500)]">
+              <span><span className="inline-block w-2.5 h-2.5 rounded-sm align-middle mr-1" style={{ background: "var(--amber-500)" }} />{tr("{0} chờ hàng", poCho.length)}</span>
+              <span><span className="inline-block w-2.5 h-2.5 rounded-sm align-middle mr-1" style={{ background: "var(--teal-500)" }} />{tr("{0} đã xong", po.length - poCho.length)}</span>
+              {poAn > 0 && <span className="text-[var(--ink-400)]">· {tr("ẩn {0} PO hủy / SL 0", poAn)}</span>}
+            </span>
+          }
+        >
+          <PoTable rows={po} khoMau={khoMau} openCase={openCase} />
         </Section>
       </Zone>
 

@@ -5395,3 +5395,17 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   (40k ca can_khao_sat=1, chỉ ~1.1k còn trong diện): chặn index thì planner chuyển sang archived_at, tệ hơn (41k→75k) → giữ nguyên.
 - So local: chạy code cũ và mới (xóa cache rpt: trước mỗi lần, Worker đã reload) trên 10 endpoint doanh thu/ca lặp/báo cáo ngày: giống hệt từng byte.
   Cache cũ vẫn đúng (kết quả không đổi) nên không cần xóa precomputed_cache trên production.
+
+## 2026-11-07 — Hồ sơ linh kiện: làm lại "PO đặt hàng liên quan" + khối "Tình hình cung ứng" + link app (v1.546)
+- Nguyên văn (rút gọn): *"bỏ các đơn bị hủy bỏ (hoặc SL đặt = 0); thêm cột thời gian về thực tế theo từng ID PO; tô màu các đơn đã xong
+  khác các PO còn đang chờ hàng, tô màu các kho khác nhau ... nhìn nhanh trong 5-10s"*; *"PO mua hàng cho phép mở theo ID đơn PO dạng
+  https://muahang.dichvu3t.workers.dev/LK-26041700010"*; *"thông tin đơn đặt, bảo hành gán thêm link ID"*.
+- `HoSoLinhKien.tsx`: bảng PO riêng (`PoTable`) — ẩn PO có Trạng thái EO hủy/từ chối, trạng thái chứa "hủy", hoặc SL đặt = 0 (ghi số PO đã
+  ẩn ở tiêu đề); PO còn thiếu > 0 = "Chờ hàng" (nền vàng, lên đầu), còn lại "Đã xong" (chữ mờ, vạch xanh); trong nhóm mới ban hành trước.
+  Cột "Về thực tế" = `ngay_ve_theo_eo`, không có thì ngày phiếu nhập AMIS muộn nhất của PO. Chip màu theo kho. Cột "Cho ca" (ID CRM, bấm mở ca).
+- Khối "Tình hình cung ứng" dưới nhận định: PO đang chờ (+SL còn thiếu), dự kiến có hàng sớm nhất (+kho), PO đặt gần nhất, hàng về gần
+  nhất, đơn đặt LK gần nhất (linh-kien-app), ticket thiếu hàng mở (+ngày kho hẹn), số ca thiếu đã có PO gắn đúng ID ca, bảo hành liên quan.
+  Bảng "Ca đang báo thiếu" thêm cột "PO cho ca này".
+- `MoAppLink.tsx`: `MUAHANG_URL` + `appUrlTheoMa`/`MaAppLink` nhận app theo tiền tố mã (LK-/EOI- → muahang, DDH/PMH/PCN/PTL/PXK/TLK/TRA →
+  linhkien, DH/BH/TR → suachua; mã khác để chữ thường). Gắn link cho ID PO, đơn đặt + ticket thiếu hàng (linhkien), cột ID bảng
+  Google Sheet mua hàng / bảo hành. Link `EOI-…` chưa kiểm được app muahang có mở thẳng không (chỉ dạng `LK-…` được xác nhận).

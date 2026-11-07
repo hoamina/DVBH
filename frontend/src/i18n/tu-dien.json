@@ -13406,5 +13406,129 @@
  "Odoo: {0} ≠ DVBH: {1}": [
   "Odoo: {0} ≠ DVBH: {1}",
   "Odoo: {0} ≠ DVBH: {1}"
+ ],
+ "ID PO": [
+  "PO ID",
+  "ID PO"
+ ],
+ "Cho ca": [
+  "For case",
+  "Untuk kasus"
+ ],
+ "Đặt / về / thiếu": [
+  "Ordered / received / short",
+  "Pesan / diterima / kurang"
+ ],
+ "Ban hành": [
+  "Issued",
+  "Diterbitkan"
+ ],
+ "Dự kiến về": [
+  "Expected arrival",
+  "Perkiraan tiba"
+ ],
+ "Về thực tế": [
+  "Actual arrival",
+  "Tiba aktual"
+ ],
+ "Mở PO trên app PO mua hàng": [
+  "Open PO in the Purchasing app",
+  "Buka PO di aplikasi Pembelian"
+ ],
+ "Đã xong": [
+  "Done",
+  "Selesai"
+ ],
+ "PO đang chờ hàng": [
+  "POs awaiting goods",
+  "PO menunggu barang"
+ ],
+ "còn thiếu {0}": [
+  "{0} still short",
+  "kurang {0}"
+ ],
+ "không có PO nào đang chờ": [
+  "no PO pending",
+  "tidak ada PO tertunda"
+ ],
+ "Dự kiến có hàng sớm nhất": [
+  "Earliest expected stock",
+  "Perkiraan stok tercepat"
+ ],
+ "Chưa có ngày": [
+  "No date yet",
+  "Belum ada tanggal"
+ ],
+ "PO đặt gần nhất": [
+  "Latest PO",
+  "PO terbaru"
+ ],
+ "chưa có PO": [
+  "no PO yet",
+  "belum ada PO"
+ ],
+ "Hàng về gần nhất (PO)": [
+  "Latest arrival (PO)",
+  "Kedatangan terakhir (PO)"
+ ],
+ "Đơn đặt LK gần nhất": [
+  "Latest part order",
+  "Pesanan suku cadang terbaru"
+ ],
+ "kho hẹn {0}": [
+  "warehouse promised {0}",
+  "gudang janji {0}"
+ ],
+ "Ca thiếu đã có PO riêng": [
+  "Short cases with own PO",
+  "Kasus kurang dengan PO sendiri"
+ ],
+ "PO gắn đúng ID ca": [
+  "PO tagged with case ID",
+  "PO ditandai ID kasus"
+ ],
+ "{0} đang chờ hàng": [
+  "{0} awaiting goods",
+  "{0} menunggu barang"
+ ],
+ "Tình hình cung ứng": [
+  "Supply status",
+  "Status pasokan"
+ ],
+ "PO cho ca này": [
+  "PO for this case",
+  "PO untuk kasus ini"
+ ],
+ "Đã có PO đặt cho ca này": [
+  "A PO already exists for this case",
+  "Sudah ada PO untuk kasus ini"
+ ],
+ "DK {0}": [
+  "ETA {0}",
+  "Perk. {0}"
+ ],
+ "đã về {0}": [
+  "arrived {0}",
+  "tiba {0}"
+ ],
+ "đã xong": [
+  "done",
+  "selesai"
+ ],
+ "Chỉ có {0} PO đã hủy / SL đặt = 0 (đã ẩn).": [
+  "Only {0} cancelled / zero-qty POs (hidden).",
+  "Hanya {0} PO batal / jumlah 0 (disembunyikan)."
+ ],
+ "{0} chờ hàng": [
+  "{0} awaiting",
+  "{0} menunggu"
+ ],
+ "{0} đã xong": [
+  "{0} done",
+  "{0} selesai"
+ ],
+ "ẩn {0} PO hủy / SL 0": [
+  "{0} cancelled / zero-qty POs hidden",
+  "{0} PO batal / jumlah 0 disembunyikan"
  ]
 }
