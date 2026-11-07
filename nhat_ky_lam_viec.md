@@ -5430,7 +5430,7 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   getBacklogDailyForKhuVuc tính khi thiếu) → giờ chốt = giờ người đầu tiên mở: 09:07:55 (Tất cả DVBH), 05:49 (VN MB1–3), 00:30 (Cảnh báo tồn).
 - Không có log (observability chưa bật) nên không xác định chắc bước nào lỗi; mốc tự vá R2 đã khớp (không kẹt vòng). Nghi D1 "overloaded"
   đúng 08:00 (pipeline import + người mở màn): mỗi bước chốt lỗi chỉ console.error, không thử lại, lại chạy sau 2 bước lưới an toàn.
-- Sửa: lần fire 08:00 chốt TRƯỚC (tự vá R2 + đồng bộ tồn kho chạy sau ); mỗi bước chốt (Tất cả + từng phạm vi trong
-  ) bọc  — upsert idempotent, Telegram không gửi ở đây (gửi 17h30). Bật  trong
+- Sửa: lần fire 08:00 chốt TRƯỚC (tự vá R2 + đồng bộ tồn kho chạy sau `chotSoLieuPhamVi`); mỗi bước chốt (Tất cả + từng phạm vi trong
+  `phamViChot.ts`) bọc `withD1Retry(..., 6)` — upsert idempotent, Telegram không gửi ở đây (gửi 17h30). Bật `observability` trong
   wrangler.smarttrade.jsonc để sáng mai xem log thật (dashboard > Workers > dvbh > Logs).
 - Số hôm nay 07/11 không khôi phục được mốc 08:00. Chưa sửa: bản tự tạo trước 8h (05:49) — khi cron 08:00 chạy được sẽ ghi đè (upsert).
