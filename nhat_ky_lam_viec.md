@@ -5383,7 +5383,7 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Chỉnh theo chủ hệ thống (cùng ngày, v1.543): ca đã loại trừ không đẩy lại — miễn loại trừ 3T chỉ áp ca tiếp nhận từ
   `NGAY_BAT_DAU_MIEN_LOAI_TRU_3T` = 2026-11-07; ca 3T tiếp nhận trước giữ loại trừ cũ (cron self-heal không đổi chúng). Không chạy tính lại remote.
 
-## 2026-11-07 — Viết lại truy vấn chậm: SQLite chọn nhầm index tiến độ (v1.541)
+## 2026-11-07 — Viết lại truy vấn chậm: SQLite chọn nhầm index tiến độ (v1.544)
 - Nguyên văn: *"Viết lại truy vấn chậm"*.
 - Nguyên nhân chung (EXPLAIN trên production): câu lọc 1 THÁNG theo `thoi_gian_hoan_thanh` + `tien_do_hoan_thanh = 'Hoàn thành XLSC'` bị planner chọn
   `idx_case_kpi_eligible` (tiến độ) → quét ~130k ca hoàn thành mọi thời gian thay vì ~5–40k ca của tháng. Sửa: dấu `+` trước `tien_do_hoan_thanh`
