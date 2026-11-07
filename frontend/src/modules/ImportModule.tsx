@@ -340,8 +340,34 @@ export function ImportModule({ openCase }: { openCase?: (id: string) => void } =
     onError: (err) => addToast(tr("Làm mới báo cáo thất bại: {0}", describeError(err))),
   });
 
+  // Chay ngay luoi an toan tu va du lieu ca da dong (R2) - cung ham cron chay moi gio 8h-18h (2026-11-05).
+  const selfHealMutation = useMutation({
+    mutationFn: () => api.post<{ checked: boolean; healedDates: string[] }>("/import/self-heal-da-dong"),
+    onSuccess: (kq) => {
+      addToast(
+        kq.healedDates.length > 0
+          ? tr("Đã kiểm tra và cập nhật lại dữ liệu ca đã đóng của {0} ngày.", kq.healedDates.length)
+          : tr("Dữ liệu ca đã đóng đã đầy đủ, không có ngày nào cần cập nhật."),
+      );
+      qc.invalidateQueries();
+    },
+    onError: (err) => addToast(tr("Tự vá dữ liệu ca đã đóng thất bại: {0}", describeError(err))),
+  });
+
   return (
     <div className="anim-in">
+      {isAdmin && (
+        <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="font-display font-bold text-sm">{tr("Tự vá dữ liệu ca đã đóng")}</div>
+            <div className="text-xs text-[var(--ink-600)] mt-0.5">
+              {tr("Kiểm tra và ghi lại dữ liệu ca đã đóng theo ngày (nguồn của Danh sách tổng theo tháng) cho những ngày bị sót. Hệ thống tự chạy mỗi giờ từ 8h đến 18h; bấm khi cần cập nhật ngay.")}</div>
+          </div>
+          <Btn variant="ghost" size="sm" onClick={() => selfHealMutation.mutate()} disabled={selfHealMutation.isPending}>
+            {selfHealMutation.isPending ? tr("Đang kiểm tra…") : tr("🩹 Tự vá ngay")}
+          </Btn>
+        </Card>
+      )}
       {isAdmin && (
         <Card className="p-4 mb-5 flex items-center justify-between flex-wrap gap-3">
           <div>

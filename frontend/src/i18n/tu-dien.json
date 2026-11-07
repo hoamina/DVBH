@@ -12771,6 +12771,34 @@
   "Load Lada IDs (60 days)",
   "Ambil ID Lada (60 hari)"
  ],
+ "Đã kiểm tra và cập nhật lại dữ liệu ca đã đóng của {0} ngày.": [
+  "Checked and rewrote closed-case data for {0} day(s).",
+  "Data kasus selesai untuk {0} hari telah diperiksa dan diperbarui."
+ ],
+ "Dữ liệu ca đã đóng đã đầy đủ, không có ngày nào cần cập nhật.": [
+  "Closed-case data is complete; no day needed updating.",
+  "Data kasus selesai sudah lengkap, tidak ada hari yang perlu diperbarui."
+ ],
+ "Tự vá dữ liệu ca đã đóng thất bại: {0}": [
+  "Closed-case data self-heal failed: {0}",
+  "Perbaikan otomatis data kasus selesai gagal: {0}"
+ ],
+ "Tự vá dữ liệu ca đã đóng": [
+  "Self-heal closed-case data",
+  "Perbaikan otomatis data kasus selesai"
+ ],
+ "Kiểm tra và ghi lại dữ liệu ca đã đóng theo ngày (nguồn của Danh sách tổng theo tháng) cho những ngày bị sót. Hệ thống tự chạy mỗi giờ từ 8h đến 18h; bấm khi cần cập nhật ngay.": [
+  "Checks and rewrites the per-day closed-case data (source of the monthly Master list) for any missed days. The system runs this every hour from 8:00 to 18:00; click to update right away.",
+  "Memeriksa dan menulis ulang data kasus selesai per hari (sumber Daftar induk bulanan) untuk hari yang terlewat. Sistem menjalankannya tiap jam dari 08.00 sampai 18.00; klik untuk memperbarui sekarang."
+ ],
+ "Đang kiểm tra…": [
+  "Checking…",
+  "Memeriksa…"
+ ],
+ "🩹 Tự vá ngay": [
+  "🩹 Self-heal now",
+  "🩹 Perbaiki sekarang"
+ ],
  "{0}/{1} hoàn tất": [
   "{0}/{1} completed",
   "{0}/{1} selesai"

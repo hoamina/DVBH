@@ -21,7 +21,8 @@ import { generateDailySnapshot, generateKhuVucBacklogSnapshots } from "../lib/da
 import { generateBacklogAgeSnapshot } from "../lib/backlogAgeSnapshot";
 import { generateTonKtvSnapshot } from "../lib/tonKtvSnapshot";
 import { nowVN } from "../lib/vnTime";
-import { recomputeDaDongDayChunks } from "../lib/daDongDayChunks";
+import { recomputeDaDongDayChunks, selfHealDaDongDayChunks } from "../lib/daDongDayChunks";
+import { withD1Retry } from "../lib/d1Retry";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 
 // Tinh lai cache /dashboard/filters (pham vi khong gioi han) + /dashboard/months (xem
@@ -240,6 +241,14 @@ importRoute.post("/commit", async (c) => {
 
   scheduleCaLapRefreshIfChanged(c, summary, inserted.meta.last_row_id);
   return c.json({ filename: body.filename, ...summary });
+});
+
+// POST /api/import/self-heal-da-dong (Admin, 2026-11-05) - chay NGAY luoi an toan tu va snapshot R2 "ca da dong" (dung ham
+// selfHealDaDongDayChunks cua cron, KHONG phai diem ghi R2 moi - chu he thong dong y 2026-11-05). Dung khi Danh sach tong
+// thieu ca ma khong muon doi lan cron ke tiep. An toan goi lai: ngay khong doi noi dung thi khong ghi R2.
+importRoute.post("/self-heal-da-dong", requireRole("Admin"), async (c) => {
+  const kq = await withD1Retry(() => selfHealDaDongDayChunks(c.env), 4);
+  return c.json(kq);
 });
 
 // POST /api/import/sync-sheet - dong bo ca moi tu Google Sheet publish TSV, chi Admin

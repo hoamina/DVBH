@@ -5371,3 +5371,12 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - `loaiTruExistsSql` thêm `SUBSTR(c.id,1,1) != 'T'` → `NEED_SURVEY_CONDITION` tự đúng ở mọi nơi tính `can_khao_sat`;
   `tinhCoLoaiTru` (cờ mờ ở danh sách cần gọi) nhận thêm id ca; POST thêm loại trừ chỉ tính lại ca KRF.
 - Ca 3T đang `can_khao_sat = 0` do bị loại trừ trước đây: tính lại 1 lần trên remote sau deploy (và cron 08:00 self-heal cũng bắt lại).
+
+## 2026-11-07 — Hoàn thiện + triển khai nút "🩹 Tự vá ngay" (màn Import, Admin) (v1.542)
+- Việc dở của 1 phiên ngày 05/11 (sau sự cố Danh sách tổng thiếu ca), nằm chưa commit trong thư mục làm việc; từng lọt lên
+  production ở v1.529 (deploy từ thư mục làm việc) rồi mất ở v1.531 (deploy từ bản sạch).
+- `POST /api/import/self-heal-da-dong` (requireRole Admin): chạy NGAY `selfHealDaDongDayChunks` (cùng hàm cron mỗi giờ 8h–18h),
+  bọc `withD1Retry` 4 lần. Không phải điểm ghi R2 mới (chủ hệ thống đồng ý 05/11): không có ca nào đổi từ lần kiểm tra trước thì
+  dừng ngay; chỉ ghi lại R2 các ngày có ca đổi. Đường `/import` không đi qua proxy NSKX/quốc gia → luôn chạy trên dữ liệu gốc.
+- `ImportModule.tsx`: thẻ "Tự vá dữ liệu ca đã đóng" + nút, báo "đã cập nhật lại N ngày" / "đã đầy đủ"; 7 câu EN/ID.
+- Sửa thêm: chú thích của route `sync-sheet` bị chèn lệch lên trên route mới → đưa về đúng chỗ.
