@@ -19,9 +19,13 @@
 // LOAI_TRU_SELECT_COLUMNS). Khop KTV bang tien to "(ma_ktv)" cua c.ky_thuat_vien (substr, khong LIKE vi ma co the
 // chua "_").
 // CHOT 2026-11-07 (chu he thong): danh sach loai tru CHI ap cho ca nguon CRM KRF - ca CRM 3T (ID bat dau bang "T",
-// cung quy uoc nguonCrmClause o filterParams.ts) KHONG bao gio bi loai tru, van can khao sat binh thuong.
+// cung quy uoc nguonCrmClause o filterParams.ts) KHONG bi loai tru, van can khao sat binh thuong. Chu he thong chot them:
+// chi tinh tu thoi diem nay - ca 3T tiep nhan TRUOC NGAY_BAT_DAU_MIEN_LOAI_TRU_3T giu nguyen loai tru cu (khong day lai
+// vao hang doi goi, ke ca khi cron self-heal tinh lai).
+export const NGAY_BAT_DAU_MIEN_LOAI_TRU_3T = "2026-11-07";
+const AP_LOAI_TRU_SQL = `(SUBSTR(c.id, 1, 1) != 'T' OR substr(c.thoi_gian_cskh_tiep_nhan, 1, 10) < '${NGAY_BAT_DAU_MIEN_LOAI_TRU_3T}')`;
 export function loaiTruExistsSql(loaiLoi: string): string {
-  return `(SUBSTR(c.id, 1, 1) != 'T' AND EXISTS (SELECT 1 FROM khao_sat_loai_tru x WHERE x.loai_loi = '${loaiLoi}'
+  return `(${AP_LOAI_TRU_SQL} AND EXISTS (SELECT 1 FROM khao_sat_loai_tru x WHERE x.loai_loi = '${loaiLoi}'
       AND substr(c.ky_thuat_vien, 1, length(x.ma_ktv) + 2) = '(' || x.ma_ktv || ')'
       AND substr(c.thoi_gian_cskh_tiep_nhan, 1, 10) BETWEEN x.tu_ngay AND x.den_ngay))`;
 }
@@ -52,7 +56,7 @@ export const LOAI_TRU_SELECT_COLUMNS = `
 // 2026-11-06: ban JS cua loaiTruExistsSql cho GET /survey/candidates (doc khao_sat_loai_tru 1 lan thay vi 4 EXISTS/ca,
 // xem chu thich o route). PHAI giu dung dieu kien voi loaiTruExistsSql: ky_thuat_vien bat dau bang "(ma_ktv)" va
 // 10 ky tu dau cua thoi_gian_cskh_tiep_nhan nam trong [tu_ngay, den_ngay] (so sanh chuoi nhu SQLite BETWEEN), va ca
-// KHONG thuoc CRM 3T (ID bat dau bang "T" -> khong bao gio loai tru, CHOT 2026-11-07).
+// KHONG phai ca CRM 3T tiep nhan tu NGAY_BAT_DAU_MIEN_LOAI_TRU_3T (giong AP_LOAI_TRU_SQL).
 export interface LoaiTruRow {
   ma_ktv: string;
   loai_loi: string;
@@ -60,8 +64,9 @@ export interface LoaiTruRow {
   den_ngay: string;
 }
 export function tinhCoLoaiTru(ds: LoaiTruRow[], caId: string, kyThuatVien: string | null, tiepNhan: string | null): (loaiLoi: string) => 0 | 1 {
-  if (caId.startsWith("T") || !kyThuatVien || !tiepNhan) return () => 0;
+  if (!kyThuatVien || !tiepNhan) return () => 0;
   const ngay = tiepNhan.slice(0, 10);
+  if (caId.startsWith("T") && ngay >= NGAY_BAT_DAU_MIEN_LOAI_TRU_3T) return () => 0;
   const khop = ds.filter((x) => kyThuatVien.startsWith(`(${x.ma_ktv})`) && ngay >= x.tu_ngay && ngay <= x.den_ngay);
   return (loaiLoi) => (khop.some((x) => x.loai_loi === loaiLoi) ? 1 : 0);
 }

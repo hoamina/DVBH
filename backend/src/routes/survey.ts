@@ -28,7 +28,7 @@ import {
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey, chayGomDoc } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
-import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION, tinhCoLoaiTru, type LoaiTruRow } from "../lib/surveyConditions";
+import { NEED_SURVEY_CONDITION, RECENT_OR_OPEN_CONDITION, OVERDUE_SURVEY_CONDITION, NGAY_BAT_DAU_MIEN_LOAI_TRU_3T, tinhCoLoaiTru, type LoaiTruRow } from "../lib/surveyConditions";
 import { recomputeCanKhaoSatBatch } from "../lib/canKhaoSat";
 import { pushViPhamToVipham } from "../lib/viPhamBenNgoai";
 
@@ -1542,7 +1542,7 @@ survey.post("/loai-tru", requireRole(...LOAI_TRU_ROLES), async (c) => {
     `UPDATE case_dvbh AS c SET ${RECOMPUTE_SET}
      WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${CO_LOI_SQL}
        AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < date(?, '+1 day')
-       AND SUBSTR(c.id, 1, 1) != 'T'
+       AND (SUBSTR(c.id, 1, 1) != 'T' OR substr(c.thoi_gian_cskh_tiep_nhan, 1, 10) < '${NGAY_BAT_DAU_MIEN_LOAI_TRU_3T}')
        AND EXISTS (SELECT 1 FROM khao_sat_loai_tru x WHERE x.id > ?
          AND substr(c.ky_thuat_vien, 1, length(x.ma_ktv) + 2) = '(' || x.ma_ktv || ')'
          AND substr(c.thoi_gian_cskh_tiep_nhan, 1, 10) BETWEEN x.tu_ngay AND x.den_ngay)

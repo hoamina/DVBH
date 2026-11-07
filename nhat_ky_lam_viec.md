@@ -5380,3 +5380,5 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   dừng ngay; chỉ ghi lại R2 các ngày có ca đổi. Đường `/import` không đi qua proxy NSKX/quốc gia → luôn chạy trên dữ liệu gốc.
 - `ImportModule.tsx`: thẻ "Tự vá dữ liệu ca đã đóng" + nút, báo "đã cập nhật lại N ngày" / "đã đầy đủ"; 7 câu EN/ID.
 - Sửa thêm: chú thích của route `sync-sheet` bị chèn lệch lên trên route mới → đưa về đúng chỗ.
+- Chỉnh theo chủ hệ thống (cùng ngày, v1.543): ca đã loại trừ không đẩy lại — miễn loại trừ 3T chỉ áp ca tiếp nhận từ
+  `NGAY_BAT_DAU_MIEN_LOAI_TRU_3T` = 2026-11-07; ca 3T tiếp nhận trước giữ loại trừ cũ (cron self-heal không đổi chúng). Không chạy tính lại remote.
