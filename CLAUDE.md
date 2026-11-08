@@ -79,11 +79,19 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
 ### Backend (`backend/src/`)
 
 - `index.ts` — Hono app, mounts one router per domain under `/api/*`, `app.get("*")` falls through
-  to `ASSETS.fetch` for the SPA. **Cron schedule (2026-11-07, still 4 triggers — Cloudflare silently drops extra ones):** 07:05
-  QuickSight import (external) → 07:30 `chotBuoiSang` (all "Báo cáo ngày 08:00" snapshots, every scope, each step `withD1Retry`,
-  Telegram "Cảnh báo tồn" image) via `"30 0,10 * * *"` (shared with 17:30) → 08:00–18:00 hourly safety nets (`"0 1-11 * * *"`) → 12:00
-  `viecNangBuoiTrua` (ca lặp net, warm reports, can_khao_sat heal, lũy kế R2). The "tồn at 08:00" anchor (`TON_ANCHOR_0800`) is fixed, so a
-  07:30 chốt equals an 08:00 one. 04–07/11 the old all-in-08:00 fire chốt nothing (errors swallowed, no retry). Workers Logs enabled. `scheduled()` handles three cron triggers (see `wrangler*.jsonc`
+  to `ASSETS.fetch` for the SPA. **Cron schedule (2026-11-08, still 4 triggers — Cloudflare silently drops extra ones):** 07:05
+  QuickSight import (external) → chốt "Báo cáo ngày 08:00" PER COUNTRY GROUP via `"30,40 0,10 * * *"` (`lib/chotTon.ts nhomTheoPhut`):
+  minute 30 = VN (+VN×NSKX/Không NSKX), minute 40 = other countries + Admin's mixed "Tất cả quốc gia" scopes; same split for the
+  17:30/17:40 tỷ lệ giải trình log (`phamViChot.ts chotGiaiTrinhNhom`) → 08:00–18:00 hourly safety nets (`"0 1-11 * * *"`; first
+  `chotBuNeuThieu`: any scope without today's `chot_xong|all` marker row is re-chốt; 18:00 re-runs a missing 17:30 log) → 12:00
+  `viecNangBuoiTrua`. **`lib/chotTon.ts` = ONE read per country group** (~1.700 open cases with every NEED_* flag computed in the same
+  SQL, + 4 small banner reads, ~8 queries, ~2.5s) then every scope (role / giám sát / each khu vực / NSKX subset) is filtered in memory
+  and written with `db.batch`. The old per-scope SQL (~6.000 queries per chốt, `Promise.all` fan-out) overloaded D1 by itself and
+  broke the chốt 04–08/11 (verified 08/11: identical results, 0 diffs on 3 scopes). Snapshots no longer hold kpis/pivot/revenue
+  (routes fall back to `cachedReport`). Read-time self-heal (`getSnapshotForUser`, `getBacklogDailyForKhuVuc`, `getCanhBaoTonSnapshot`)
+  uses the same one-read engine and does NOT persist before 07:30 (`vnTime.ts duocLuuSoTuTinh`). "Đã xử lý trong ngày" = one
+  `layCaDaGiaiTrinhSau` query + set intersection (not 98-id chunks per bucket). Never reintroduce `Promise.all` fan-outs in chốt code
+  (`gioiHanDongThoi` caps the remaining generators at 2 concurrent queries). Workers Logs enabled. `scheduled()` handles three cron triggers (see `wrangler*.jsonc`
   `triggers.crons`): the hourly one (`CA_LAP_REFRESH_CRON`) is now a safety net for three
   independent, try/catch-isolated jobs (self-heal of R2 "đã đóng" chunks now runs on EVERY `DAILY_SNAPSHOT_CRON` fire
   8h–18h VN, first, wrapped in `withD1Retry` — fixed 2026-11-05 after it had silently drifted to 08:00-only) — it refreshes the "ca lặp" (duplicate case) precompute only

@@ -9,3 +9,9 @@
 export function nowVN(): string {
   return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
 }
+
+/** Truoc gio nay (VN) KHONG luu so chot tu tinh khi doc - du lieu chua qua dot import sang (07:05), cron 07:30 se chot (lib/chotTon.ts). */
+export const GIO_BAT_DAU_LUU_SO_CHOT = "07:30";
+export function duocLuuSoTuTinh(): boolean {
+  return nowVN().slice(11, 16) >= GIO_BAT_DAU_LUU_SO_CHOT;
+}

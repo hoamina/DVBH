@@ -38,7 +38,8 @@ revenue.get("/", async (c) => {
   const params = { dim, khu_vuc: c.req.query("khu_vuc"), hang: c.req.query("hang"), thang: c.req.query("thang") };
   if (REVENUE_SNAPSHOT_FIELD[dim] && isDefaultReportParams(params)) {
     const snap = await getSnapshotForUserAnToan(c.env.DB, c.get("user"), (p) => c.executionCtx.waitUntil(p));
-    if (snap) return c.json(snap.payload[REVENUE_SNAPSHOT_FIELD[dim]]);
+    const tuSnap = snap?.payload[REVENUE_SNAPSHOT_FIELD[dim]];
+    if (tuSnap) return c.json(tuSnap);
   }
   // "rv": doi khi doi output compute() (2 = them so_ca_co_dt, 2026-10-09) - cache cu cung ngay khong tu het han.
   const key = buildReportKey("revenue", { ...params, rv: "3" }, scope);

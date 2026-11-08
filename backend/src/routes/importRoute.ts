@@ -1,6 +1,7 @@
 import { autoLogCaKetThucTrongNgay } from "../lib/autoLogCaKetThuc";
 import { Hono } from "hono";
-import { chotSoLieuPhamVi, envVn } from "../lib/phamViChot";
+import { envVn } from "../lib/phamViChot";
+import { chotNhom, tatCaNhom } from "../lib/chotTon";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -17,9 +18,6 @@ import { computeDashboardFiltersByKhuVuc, deriveDashboardFilters, computeDashboa
 import type { SyncStatusPayload } from "./dashboard";
 import { bumpVersions } from "../lib/dataVersions";
 import { warmDefaultReports } from "../lib/reportWarmup";
-import { generateDailySnapshot, generateKhuVucBacklogSnapshots } from "../lib/dailySnapshot";
-import { generateBacklogAgeSnapshot } from "../lib/backlogAgeSnapshot";
-import { generateTonKtvSnapshot } from "../lib/tonKtvSnapshot";
 import { nowVN } from "../lib/vnTime";
 import { recomputeDaDongDayChunks, selfHealDaDongDayChunks } from "../lib/daDongDayChunks";
 import { withD1Retry } from "../lib/d1Retry";
@@ -174,31 +172,9 @@ importRoute.post("/refresh-reports", async (c) => {
   await bumpVersions(c.env.DB, ["cases"]);
   await warmDefaultReports(c.env.DB);
   await warmDefaultReports(envVn(c.env).DB);
-  // Cung 1 nut "Lam moi bao cao" (Import data) con dung de tinh lai NGAY "Bao cao ngay 08:00" (banner
-  // Tong quat, xem lib/dailySnapshot.ts) thay vi cho den cron 08:00 hom sau - boc rieng try/catch,
-  // loi o day khong duoc lam that bai request refresh-reports goc (2 co che doc lap nhau).
-  try {
-    await generateDailySnapshot(c.env.DB, c.get("user").email);
-  } catch (err) {
-    console.error("refresh-reports: loi khi generateDailySnapshot", err);
-  }
-  try {
-    await generateKhuVucBacklogSnapshots(c.env.DB, c.get("user").email);
-  } catch (err) {
-    console.error("refresh-reports: loi khi generateKhuVucBacklogSnapshots", err);
-  }
-  try {
-    await generateBacklogAgeSnapshot(c.env.DB);
-  } catch (err) {
-    console.error("refresh-reports: loi khi generateBacklogAgeSnapshot", err);
-  }
-  try {
-    await generateTonKtvSnapshot(c.env.DB);
-  } catch (err) {
-    console.error("refresh-reports: loi khi generateTonKtvSnapshot", err);
-  }
-  // Cung bo so tren cho 2 pham vi NSKX / Khong NSKX (lib/phamViChot.ts).
-  await chotSoLieuPhamVi(c.env, c.get("user").email, { canhBaoTon: false });
+  // Cung nut nay tinh lai NGAY so chot "Bao cao ngay 08:00" (ca tuoi ton, ton KTV) cho moi nhom quoc gia - 1 lan doc / nhom
+  // (lib/chotTon.ts), KHONG chot lai the Canh bao ton.
+  for (const nhom of await tatCaNhom(c.env)) await chotNhom(c.env, nhom, c.get("user").email, { canhBaoTon: false });
   return c.json({ ok: true });
 });
 

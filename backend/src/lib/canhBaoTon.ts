@@ -29,7 +29,7 @@ import {
 } from "./tranhChapTienTrinh";
 import { type SnapshotBucket, upsertSnapshot } from "./dailySnapshot";
 import { getVnDateStr } from "./reportCache";
-import { nowVN } from "./vnTime";
+import { nowVN, duocLuuSoTuTinh } from "./vnTime";
 import { renderCanhBaoTonImage } from "./reportImage";
 import { nhomTelegramCuaPhamVi, sendTelegramPhoto, TELEGRAM_BOT_ID } from "./telegram";
 import { QUOC_GIA_MAC_DINH } from "./quocGia";
@@ -624,9 +624,13 @@ export async function getCanhBaoTonSnapshot(env: Env): Promise<CanhBaoTonSnapsho
   if (!row) {
     const generatedAt = nowVN();
     const buckets = await computeCanhBaoTonBuckets(env);
-    await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, "auto", buckets);
-    await boSungCap2(db);
-    await ghiLogChuyenCapCanhBao(db, ngay, buckets);
+    // 2026-11-08: truoc 07:30 (vd API doi tac goi luc 00:30) chi tinh, KHONG luu - truoc day ban 00:30 (du lieu truoc dot import
+    // 07:05) thanh so chot ca ngay khi cron loi.
+    if (duocLuuSoTuTinh()) {
+      await upsertSnapshot(db, ngay, SNAPSHOT_SCOPE_KEY, generatedAt, "auto", buckets);
+      await boSungCap2(db);
+      await ghiLogChuyenCapCanhBao(db, ngay, buckets);
+    }
     row = { generated_at: generatedAt, generated_by: "auto", payload: JSON.stringify(buckets) };
   }
 

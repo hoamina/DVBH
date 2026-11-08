@@ -5458,3 +5458,30 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Đo lại: không còn tab nào phải vuốt; bảng hẹp ~một nửa (Tổng quát 550px, Khảo sát 1710px, Lũy kế + Tranh chấp vừa màn hình); popup ca
   không còn tràn ở các tab. Máy tính (1440px) giữ nguyên (popup vẫn mở rộng, tab 1 hàng). Bảng pivot nhiều ngày/nhiều cột vẫn cuộn ngang
   trong khung riêng (đúng dữ liệu) — chưa làm cột đầu dính (sticky) vì nhiều bảng có rowSpan.
+
+## 2026-11-08 — Quản lý tồn: chốt số 1 lần đọc / nước, VN 07:30 – ID 07:40, chốt bù mỗi giờ (v1.551)
+- Nguyên văn: *"phần Quản lý tồn ... từ đầu tháng 11 dữ liệu sai nhiều (số chốt đầu ngày sai, thiếu, nhầm, chốt 17h30 cũng lệch ... telegram
+  ca giải trình tồn = 0 nhưng báo cáo vẫn rất cao)"*; tiếp: *"tại sao lại cần chạy nhiều truy vấn như vậy? ... tạo xong toàn bộ số liệu cần chốt
+  trong 1 lần chạy"*, *"tách riêng các mốc thời gian cho data VN, data IND"*, *"IND chỉ cần chốt lùi 10' là được"*.
+- Điều tra production (SELECT, chủ hệ thống cho phép): từ 04/11 các bản `khac|all` / `qc|all` / giám sát hầu như không ghi được ở cron
+  (cả "Tất cả" lẫn `_vn`); 08/11 cron 07:30 chạy (~2 phút, status success) nhưng chỉ ghi 6 khu vực đầu + Cảnh báo tồn + Tồn KTV;
+  `backlog_age_daily` mất từ 04/11. Số người xem thấy là bản tự tạo khi đọc, giờ bất kỳ: Cảnh báo tồn 00:30 (API đối tác, dữ liệu trước
+  import 07:05), VN 05:49/06:09, "Tất cả" 16:54 (05/11) / 16:22 (06/11) → baseline đầu ngày hụt, 17h30 lệch báo cáo, "Tất cả" lệch VN
+  (06/11: 84 vs 182). 08/11 không có bản chốt chính → chốt 17h30 + Telegram bỏ qua, màn Quản lý tồn (endpoint gộp) lỗi cả cụm → bảng
+  "Tỷ lệ giải trình theo ngày" trống dù `giai_trinh_daily_log` vẫn đủ 25/10–07/11. Ảnh Telegram VN khớp sổ ghi (đa số nhóm "còn 0").
+- Lỗi gốc (đo lại bằng probe chỉ-SELECT chạy đúng hàm thật qua D1 HTTP API): 1 bản chốt `khac` = ~60 câu `Promise.all` → "D1 DB is
+  overloaded … 10 second window" ngay cả lúc D1 rảnh (4 câu song song hỏng sau 31 câu; tuần tự 12s/0 lỗi). Mỗi lần chốt ~6.000 câu
+  (7 phạm vi × (14 scope vai trò × ~38 + 16 khu vực × ~19)). `withD1Retry` v1.548 vô dụng vì hàm cũ tự nuốt lỗi từng scope.
+- Sửa: `lib/chotTon.ts` — mỗi nhóm nước 1 lần đọc tập ca tồn mốc 08:00 (~1.700 ca, cờ NEED_* tính ngay trong SQL = 1 nguồn định nghĩa)
+  + 4 câu banner + danh sách khu vực (~8 câu, ~2,5s), lọc mọi scope trong bộ nhớ, ghi `db.batch`. Đối chiếu với hàm cũ trên dữ liệu thật:
+  khac / qc / giám sát MB2 — 22 chỉ tiêu, lệch 0. Bản chốt bỏ kpis/pivot/revenue (route tự tính qua cachedReport). Cron `"30,40 0,10 * * *"`
+  (vẫn 4 trigger): phút 30 = VN (+NSKX/Không NSKX), phút 40 = ID + phạm vi "Tất cả quốc gia" của Admin; 17:30/17:40 tương tự. Mỗi phạm vi
+  chốt xong ghi dấu `chot_xong|all`; lưới mỗi giờ 8h–18h chốt bù nhóm thiếu dấu (không chốt lại Cảnh báo tồn đã có từ 07:30 → không gửi
+  trùng Telegram); 18:00 chốt lại log 17h30 nếu thiếu. Tự tính khi đọc (getSnapshotForUser / khu vực / Cảnh báo tồn) dùng cùng engine và
+  KHÔNG lưu trước 07:30. "Đã xử lý trong ngày" = 1 câu `layCaDaGiaiTrinhSau` + giao tập (trước: ~17 bucket × lô 98 id mỗi lần mở màn).
+  Các bước còn lại (Cảnh báo tồn, tuổi tồn, tồn KTV) chạy qua `gioiHanDongThoi` (tối đa 2 câu đồng thời).
+- Kiểm tra local (`--test-scheduled`): 07:30 ghi VN×3 phạm vi, 07:40 ghi ID + 3 phạm vi tổng, có dấu chốt xong; 17:30/17:40 ghi log; xoá dấu
+  VN → lưới 08:00 chốt bù đúng VN, không chốt lại Cảnh báo tồn; API `/cases/man-quan-ly-ton` (0,4s, bảng tỷ lệ có dữ liệu), `/dashboard/
+  man-tong-quat`, `/revenue`, `/dashboard/daily-report` đều 200.
+- Chưa làm: mốc "giải trình tính đến 08:00" (để chốt muộn vẫn ra cùng số) — chờ chủ hệ thống duyệt; múi giờ riêng từng nước (ID dùng WIB
+  = +7 như VN nên chưa cần). Lịch sử 04–07/11 giữ nguyên (số tạm); 08/11 (Chủ nhật) không chốt bù vì đã quá 18h.

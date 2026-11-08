@@ -33,19 +33,17 @@ import phieuXuatKhoRoutes from "./routes/phieuXuatKho";
 import traHangRoutes from "./routes/traHang";
 import backlogAgeReportRoutes from "./routes/backlogAgeReport";
 import luyKeRoutes from "./routes/luyKe";
-import { generateBacklogAgeSnapshot } from "./lib/backlogAgeSnapshot";
-import { generateTonKtvSnapshot } from "./lib/tonKtvSnapshot";
 import { computeAndPushLuyKeCurrentMonth } from "./lib/luyKeCompute";
 import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { withD1Retry } from "./lib/d1Retry";
 import { warmDefaultReports } from "./lib/reportWarmup";
-import { generateDailySnapshot, chotGiaiTrinhDailyLog, generateKhuVucBacklogSnapshots } from "./lib/dailySnapshot";
-import { generateCanhBaoTonSnapshot, retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
+import { retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
+import { chotNhom, chotBuNeuThieu, nhomTheoPhut, tatCaNhom } from "./lib/chotTon";
 import { autoLogCaKetThucTrongNgay } from "./lib/autoLogCaKetThuc";
 import { autoLogGiaiTrinhQuaTranhChap } from "./lib/canhBaoCap2GiaiTrinh";
 import { phamViMiddleware } from "./lib/phamVi";
-import { chotSoLieuPhamVi, chotGiaiTrinhPhamVi, retryLuongDoiTraPhamVi, envVn } from "./lib/phamViChot";
+import { chotGiaiTrinhNhom, retryLuongDoiTraPhamVi, envVn } from "./lib/phamViChot";
 import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
@@ -168,7 +166,9 @@ const DAILY_SNAPSHOT_CRON = "0 1-11 * * *";
 // 2026-11-07: GOP them moc 07:30 VN (00:30 UTC) - "chot so 08:00" chay som 07:30 de gian cach voi luong 08:00 (nguoi dung mo man +
 // luoi an toan moi gio) - KHONG them Cron Trigger moi (Cloudflare tung am tham bo trigger khi vuot gioi han, xem ETX_SYNC_CRON).
 // Moc dieu kien "ton tai 08:00" (TON_ANCHOR_0800) va moc tuoi ton khong doi nen so chot 07:30 = so 08:00 (import chi 07:05 / 09:04).
-const CHOT_0730_1730_CRON = "30 0,10 * * *";
+// 2026-11-08: them phut 40 (VAN 1 trigger) - moi nuoc chot rieng khung gio: VN phut 30 (07:30 / 17:30), nuoc khac + "Tất cả quốc gia"
+// phut 40 (07:40 / 17:40) - xem lib/chotTon.ts nhomTheoPhut.
+const CHOT_0730_1730_CRON = "30,40 0,10 * * *";
 
 // 03:00 sang gio VN = 20:00 UTC (ngay hom truoc) - dong bo hang ngay vi_pham tu Google Sheet QC tu
 // quan ly ben ngoai he thong (them 2026-09-16, xem lib/viPhamSheetSync.ts). Gop chung voi archive
@@ -194,45 +194,17 @@ async function runSheetSync(label: string, fn: () => Promise<{ ok: boolean; reas
   }
 }
 
-/** 07:30 VN - chot so "Bao cao ngay 08:00" cho MOI pham vi (2026-11-07: tach khoi lan fire 08:00, chot TRUOC moi viec khac, moi
- * buoc boc withD1Retry - upsert idempotent; anh Telegram Canh bao ton gui o CUOI generateCanhBaoTonSnapshot trong khoi try rieng nen
- * lan thu lai chi xay ra truoc khi gui -> khong gui trung). Tu 04/11 tung khong chot duoc ngay nao (loi bi nuot, khong thu lai). */
-async function chotBuoiSang(env: Env): Promise<void> {
-  try {
-    await withD1Retry(() => generateDailySnapshot(env.DB, "auto"), 6);
-  } catch (err) {
-    console.error("[cron-daily-snapshot] generateDailySnapshot loi:", err instanceof Error ? err.message : String(err));
-  }
-  try {
-    await withD1Retry(() => generateKhuVucBacklogSnapshots(env.DB, "auto"), 6);
-  } catch (err) {
-    console.error("[cron-daily-snapshot] generateKhuVucBacklogSnapshots loi:", err instanceof Error ? err.message : String(err));
-  }
-  // "Canh bao ton danh cho QL" - chot cung moc 08:00 (xem lib/canhBaoTon.ts
-  // generateCanhBaoTonSnapshot), doc lap voi 2 buoc tren.
-  try {
-    await withD1Retry(() => generateCanhBaoTonSnapshot(env, "auto"), 6);
-  } catch (err) {
-    console.error("[cron-daily-snapshot] generateCanhBaoTonSnapshot loi:", err instanceof Error ? err.message : String(err));
-  }
-  // Bao cao "Tuoi ton trung binh" - chot cung moc 08:00 (xem lib/backlogAgeSnapshot.ts), doc lap
-  // voi cac buoc tren.
-  try {
-    await withD1Retry(() => generateBacklogAgeSnapshot(env.DB), 6);
-  } catch (err) {
-    console.error("[cron-daily-snapshot] generateBacklogAgeSnapshot loi:", err instanceof Error ? err.message : String(err));
-  }
-  // "So ca ton theo KTV" (Quan ly ton > Bao cao) - chot chet 08:00, xem lib/tonKtvSnapshot.ts.
-  try {
-    await withD1Retry(() => generateTonKtvSnapshot(env.DB), 6);
-  } catch (err) {
-    console.error("[cron-daily-snapshot] generateTonKtvSnapshot loi:", err instanceof Error ? err.message : String(err));
-  }
-  // Cung bo so chot tren cho 2 pham vi NSKX / Khong NSKX (lib/phamViChot.ts) - sau khi "Tất cả" da xong.
-  try {
-    await chotSoLieuPhamVi(env, "auto", { canhBaoTon: true });
-  } catch (err) {
-    console.error("[cron-daily-snapshot] chotSoLieuPhamVi loi:", err instanceof Error ? err.message : String(err));
+/** Chot so "Bao cao ngay 08:00" theo NHOM QUOC GIA (lib/chotTon.ts, 2026-11-08): phut 30 (07:30 VN) -> VN; phut 40 (07:40) -> nuoc khac
+ * + pham vi "Tất cả quốc gia" cua Admin. Moi nhom 1 LAN DOC tap ca ton (~1.700 ca, ~8 cau) roi tinh moi scope trong bo nho - truoc day
+ * ~6.000 cau/lan, Promise.all tu lam D1 "overloaded" -> 04/11-08/11 gan nhu khong chot duoc. Telegram Canh bao ton gui trong
+ * generateCanhBaoTonSnapshot (chi pham vi nuoc co nhom Telegram). */
+async function chotBuoiSang(env: Env, phut: number): Promise<void> {
+  for (const nhom of await nhomTheoPhut(env, phut)) {
+    try {
+      await chotNhom(env, nhom, "auto", { canhBaoTon: true });
+    } catch (err) {
+      console.error(`[cron-chot] nhom ${nhom ?? "tat-ca"} loi:`, err instanceof Error ? err.message : String(err));
+    }
   }
 }
 
@@ -327,6 +299,16 @@ export default {
       // (CHOT_0730_1730_CRON, chotBuoiSang) -> 08:00..18:00 moi gio: luoi an toan duoi day -> 12:00 them viecNangBuoiTrua.
       // Truoc day moi viec don vao lan fire 08:00, chot chay sau luoi an toan va loi bi nuot -> 04/11-07/11 khong co ban chot nao.
       const gio = new Date(event.scheduledTime).getUTCHours();
+      // CHOT BU (2026-11-08): nhom nuoc nao hom nay chua co dau "chot xong" (cron 07:30/07:40 loi) -> chot lai ngay, TRUOC moi viec khac.
+      try {
+        await chotBuNeuThieu(env);
+      } catch (err) {
+        console.error("[chot-bu] loi:", err instanceof Error ? err.message : String(err));
+      }
+      // 18:00 VN: pham vi nao chua co log 17h30 hom nay -> chot lai (khong gui trung Telegram).
+      if (gio === 11) {
+        for (const nhom of await tatCaNhom(env)) await chotGiaiTrinhNhom(env, nhom, true);
+      }
       // Tu do + tu va snapshot R2 "ca da dong" (lib/daDongDayChunks.ts selfHealDaDongDayChunks) - SUA 2026-11-05: chay MOI lan
       // fire (8h-18h VN), dung thiet ke "luoi an toan moi gio"; truoc do chi con chay luc 08:00, lai nam sau 2 buoc khong boc
       // try/catch -> 03/11-05/11 snapshot dung ghi ma khong ai biet (Danh sach tong thieu ca). Rat re khi khong co gi doi
@@ -367,23 +349,22 @@ export default {
     }
 
     if (event.cron === CHOT_0730_1730_CRON) {
-      // 07:30 VN (gio UTC 0): CHOT SO "Bao cao ngay 08:00" - xem chotBuoiSang.
-      if (new Date(event.scheduledTime).getUTCHours() === 0) {
-        await chotBuoiSang(env);
+      const t = new Date(event.scheduledTime);
+      const phut = t.getUTCMinutes();
+      // 07:30 / 07:40 VN (gio UTC 0): CHOT SO "Bao cao ngay 08:00" theo nhom nuoc - xem chotBuoiSang.
+      if (t.getUTCHours() === 0) {
+        await chotBuoiSang(env, phut);
         return;
       }
-      // Bat log tranh chap cap 2 ghi sau lan cron gio gan nhat, truoc khi chot so 17h30.
-      try {
-        await autoLogGiaiTrinhQuaTranhChap(env.DB);
-      } catch (err) {
-        console.error("[cron-daily-log-1730] autoLogGiaiTrinhQuaTranhChap loi:", err instanceof Error ? err.message : String(err));
+      // 17:30 VN: bat log tranh chap cap 2 (dung chung moi nuoc, ghi 1 lan) truoc khi chot.
+      if (phut < 40) {
+        try {
+          await autoLogGiaiTrinhQuaTranhChap(env.DB);
+        } catch (err) {
+          console.error("[cron-daily-log-1730] autoLogGiaiTrinhQuaTranhChap loi:", err instanceof Error ? err.message : String(err));
+        }
       }
-      try {
-        await chotGiaiTrinhDailyLog(env.DB);
-      } catch (err) {
-        console.error("[cron-daily-log-1730] chotGiaiTrinhDailyLog loi:", err instanceof Error ? err.message : String(err));
-      }
-      await chotGiaiTrinhPhamVi(env);
+      for (const nhom of await nhomTheoPhut(env, phut)) await chotGiaiTrinhNhom(env, nhom);
       return;
     }
 

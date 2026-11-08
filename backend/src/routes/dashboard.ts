@@ -202,7 +202,8 @@ async function docKpis(c: Context<{ Bindings: Env }>, laySnap: LaySnap) {
   };
   if (isDefaultReportParams(params)) {
     const snap = await laySnap();
-    if (snap) return snap.payload.kpis;
+    // So chot tu 08/11/2026 khong con kpis (lib/chotTon.ts) -> tinh qua cachedReport ben duoi.
+    if (snap?.payload.kpis) return snap.payload.kpis;
   }
   const key = buildReportKey("dashboard/kpis", params, scope);
   return cachedReport(c.env.DB, key, ["cases", "vi_pham", "giai_trinh"], () => computeDashboardKpis(c.env.DB, params, scope));
@@ -230,7 +231,8 @@ async function docPivot(c: Context<{ Bindings: Env }>, dimKey: string, dgLoc: st
   };
   if (isDefaultReportParams(params) && !params.dg_loc) {
     const snap = await laySnap();
-    if (snap && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return { rows: snap.payload.pivotByDim[dimKey] ?? [] };
+    const pivotByDim = snap?.payload.pivotByDim;
+    if (pivotByDim && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return { rows: pivotByDim[dimKey] ?? [] };
   }
   // "v2" (2026-10-22): dim KTV doi sang KTV trien khai - bo envelope cache cu nhom theo tram.
   const key = buildReportKey("dashboard/pivot-v2", params, scope);

@@ -18,42 +18,17 @@
  *   khac mac dinh van tinh song qua reportCache nhu truoc (khong dong bang truoc duoc MOI to hop
  *   filter co the co, se bung no chi phi).
  */
-import { layCap2, hopCap2VaoBuckets, boSungCap2VaoSnapshotHomNay } from "./canhBaoCap2GiaiTrinh";
+import { boSungCap2VaoSnapshotHomNay } from "./canhBaoCap2GiaiTrinh";
+import { tinhPayloadMotScope, tinhBacklogMotKhuVuc, duocLuuSoTuTinh, layCaDaGiaiTrinhSau, demDaGiaiTrinh } from "./chotTon";
 import type { AppUser } from "../types";
-import { RECENT_OR_OPEN_CONDITION } from "../routes/survey";
-import { CA_LAP_CTE, NGUONG_NGAY_LAP } from "../routes/caLap";
-import {
-  latestGiaiTrinhJoin,
-  CASE_FILTER_TON,
-  caseFilterTonAt0800,
-  NEED_TONG,
-  NEED_LO_KE_HOACH,
-  NEED_TAI_GIAI_TRINH,
-  NEED_DMX_CHUA_GT_3_NGAY,
-  NEED_CHUA_GT_5_NGAY,
-  NEED_DIEU_HOA_1_NGAY,
-  NEED_B2B_1_NGAY,
-  NEED_NSKX_2_NGAY,
-  NEED_LOC_TONG_BCN_1_NGAY,
-  NEED_LO_KE_HOACH_DMX_5_NGAY,
-  NEED_LO_KE_HOACH_14_NGAY,
-  NEED_TAI_GIAI_TRINH_DMX_5_NGAY,
-  NEED_TAI_GIAI_TRINH_14_NGAY,
-  NEED_VIP_CHUA_GT_24H,
-} from "./needGiaiTrinh";
-import { ageExpr } from "./ageCalc";
-import { kpiEligibleClause } from "./kpiEligible";
-import { missingPartsJoin, REVENUE_EXPR_C, currentMonthBoundsVN } from "./dailyReport";
 import { getVnDateStr } from "./reportCache";
-import { fromJsonArray } from "./jsonArray";
 import { nowVN } from "./vnTime";
-import { CURRENT_MONTH_VALUE, khuVucReportExclusionClause, QLDVBH_FILTER_VALUE } from "./filterParams";
+import { CURRENT_MONTH_VALUE, QLDVBH_FILTER_VALUE } from "./filterParams";
 import { hasModule } from "./moduleAccess";
-import { type DashboardKpisPayload, type TrendRow, computeDashboardKpis, computeDashboardPivot, PIVOT_DIMS } from "./dashboardCompute";
+import type { DashboardKpisPayload, TrendRow } from "./dashboardCompute";
 import { buildBaocaoTonRows, renderBaocaoTonImage } from "./reportImage";
 import { nhomTelegramCuaPhamVi, sendTelegramPhoto, TELEGRAM_BOT_ID } from "./telegram";
 import { QUOC_GIA_MAC_DINH } from "./quocGia";
-import { computeRevenue } from "./revenueCompute";
 import { layKhuVucQldvbh } from "./khuVucQldvbh";
 
 export type RoleVariant = "giam_sat" | "qc" | "khac";
@@ -138,14 +113,16 @@ export interface DailySnapshotPayload extends BacklogBuckets {
   caLap: SnapshotBucket;
   canKhaoSat: SnapshotBucket;
   doanhThuThang: number;
-  kpis: DashboardKpisPayload;
-  pivotByDim: Record<string, TrendRow[]>;
+  // Tu 2026-11-08 (lib/chotTon.ts) so chot KHONG con kpis/pivot/revenue (khong phai so "ton") - route /kpis /pivot /revenue
+  // thay vang thi tinh qua cachedReport. Snapshot cu van co.
+  kpis?: DashboardKpisPayload;
+  pivotByDim?: Record<string, TrendRow[]>;
   // true = pivotByDim.ky_thuat_vien da nhom theo KTV trien khai (2026-10-22). Snapshot cu (thieu) -> route /pivot tinh song
   // rieng dim KTV, tranh hien so theo tram cu toi het ngay.
   pivotKtvTrienKhai?: boolean;
-  revenueByKhuVuc: { totals: unknown; byDim: unknown[] };
-  revenueByHang: { totals: unknown; byDim: unknown[] };
-  revenueByKtv: { totals: unknown; byDim: unknown[] };
+  revenueByKhuVuc?: { totals: unknown; byDim: unknown[] };
+  revenueByHang?: { totals: unknown; byDim: unknown[] };
+  revenueByKtv?: { totals: unknown; byDim: unknown[] };
 }
 
 /** Suy role_variant tu vai_tro thuc te - "Giam sat" va "QC" co nhanh caLapWhere rieng (xem duoi), moi
@@ -173,13 +150,6 @@ export function isDefaultReportParams(params: { khu_vuc?: string; hang?: string;
   return !params.khu_vuc && !params.hang && !params.nhom_san_pham && (!params.thang || params.thang === CURRENT_MONTH_VALUE);
 }
 
-const toBucket = (rows: { id: string }[]): SnapshotBucket => ({ ids: rows.map((r) => r.id), count: rows.length });
-
-/** Tinh cac bucket rieng cho khoi "Tong ton"/"Can giai trinh" (Quan ly ton), gioi han theo
- * "khuVucList" NEU khong rong (mang rong = khong gioi han, toan he thong) - khac cac ham con lai
- * trong file nay, o day KHONG gan dieu kien gioi han voi "roleVariant" (isGiamSat) nua, de dung LAI
- * duoc cho snapshot loc theo 1 khu_vuc bat ky (khong chi khu_vuc_phu_trach cua Giam sat) - xem
- * generateKhuVucBacklogSnapshots(). */
 /** Snapshot hom nay chua co bucket "canhBaoCap2" (the "CEO cần giải trình") - vd chot TRUOC khi Canh bao ton chot xong, hoac
  * truoc ban 2026-10-21 - thi bo sung ngay luc doc (boSungCap2VaoSnapshotHomNay ghi cho moi snapshot hom nay, chi 1 lan)
  * roi doc lai, thay vi cho cron gio. Chi chay khi da co snapshot Canh bao ton hom nay. */
@@ -201,264 +171,6 @@ async function damBaoBucketCeo<R extends { payload: string }>(db: D1Database, ng
   );
 }
 
-async function computeBacklogBuckets(db: D1Database, khuVucList: string[]): Promise<BacklogBuckets> {
-  const exclusionClause = khuVucReportExclusionClause("c.khu_vuc");
-  const khuVucClause = (khuVucList.length > 0 ? ` AND c.khu_vuc IN (${khuVucList.map(() => "?").join(", ")})` : "") + exclusionClause.sql;
-  const khuVucBinds = [...khuVucList, ...exclusionClause.binds];
-  // CHOT 2026-08-01: baseline "ton" cua Bao cao ngay 08:00 PHAI dung caseFilterTonAt0800() (khong
-  // phai CASE_FILTER_TON/"thoi_gian_hoan_thanh IS NULL" don thuan) - xem chu thich day du trong
-  // needGiaiTrinh.ts. join phai truyen CUNG dieu kien nay de giu dung "superset an toan".
-  const tonAnchorC = caseFilterTonAt0800("c");
-  const joinScope = latestGiaiTrinhJoin(caseFilterTonAt0800());
-
-  const needIdQuery = (needExpr: string) =>
-    db
-      .prepare(
-        `SELECT c.id as id FROM case_hieu_luc c
-         ${joinScope}
-         WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${needExpr}${khuVucClause}`,
-      )
-      .bind(...khuVucBinds)
-      .all<{ id: string }>();
-
-  const [
-    tonRows,
-    backlogTongTonRows,
-    backlogTrenRow,
-    backlogLoKeHoachRows,
-    backlogTaiGiaiTrinhRows,
-    backlogChuaGt3NgayDmxRows,
-    backlogChuaGt5NgayRows,
-    backlogDieuHoa1NgayRows,
-    backlogLoKeHoachDmx5Rows,
-    backlogLoKeHoach14Rows,
-    backlogTaiGiaiTrinhDmx5Rows,
-    backlogTaiGiaiTrinh14Rows,
-    backlogB2bRows,
-    backlogNskxRows,
-    backlogLocTongBcnRows,
-    backlogVip24hRows,
-    khuVucReportResult,
-  ] = await Promise.all([
-    db
-      .prepare(
-        `SELECT c.id as id, c.khu_vuc as khu_vuc FROM case_hieu_luc c
-         ${joinScope}
-         WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${NEED_TONG}${khuVucClause}`,
-      )
-      .bind(...khuVucBinds)
-      .all<{ id: string; khu_vuc: string | null }>(),
-    db
-      .prepare(
-        `SELECT c.id as id FROM case_hieu_luc c
-         WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${khuVucClause}`,
-      )
-      .bind(...khuVucBinds)
-      .all<{ id: string }>(),
-    db
-      .prepare(
-        `SELECT
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 3 THEN 1 ELSE 0 END) as tren_3,
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 5 THEN 1 ELSE 0 END) as tren_5,
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 7 THEN 1 ELSE 0 END) as tren_7,
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 14 THEN 1 ELSE 0 END) as tren_14
-         FROM case_hieu_luc c
-         WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${khuVucClause}`,
-      )
-      .bind(...khuVucBinds)
-      .first<Record<string, number>>(),
-    needIdQuery(NEED_LO_KE_HOACH),
-    needIdQuery(NEED_TAI_GIAI_TRINH),
-    needIdQuery(NEED_DMX_CHUA_GT_3_NGAY),
-    needIdQuery(NEED_CHUA_GT_5_NGAY),
-    needIdQuery(NEED_DIEU_HOA_1_NGAY),
-    needIdQuery(NEED_LO_KE_HOACH_DMX_5_NGAY),
-    needIdQuery(NEED_LO_KE_HOACH_14_NGAY),
-    needIdQuery(NEED_TAI_GIAI_TRINH_DMX_5_NGAY),
-    needIdQuery(NEED_TAI_GIAI_TRINH_14_NGAY),
-    needIdQuery(NEED_B2B_1_NGAY),
-    needIdQuery(NEED_NSKX_2_NGAY),
-    needIdQuery(NEED_LOC_TONG_BCN_1_NGAY),
-    needIdQuery(NEED_VIP_CHUA_GT_24H),
-    // Nguon tinh (khong ID-list) cho bang "Bao cao ton theo khu vuc" khi nhom theo Khu vuc - 1 truy
-    // van GROUP BY duy nhat, tuong tu computeBacklogByKhuVuc() (cases.ts) nhung dung tonAnchorC/
-    // joinScope thay vi "song", va luon co dim=khu_vuc (khong nhan dim khac - dung tien le da chot).
-    db
-      .prepare(
-        `SELECT c.khu_vuc as nhom,
-           COUNT(*) as tong_ton,
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 3 THEN 1 ELSE 0 END) as tren_3,
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 5 THEN 1 ELSE 0 END) as tren_5,
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 7 THEN 1 ELSE 0 END) as tren_7,
-           SUM(CASE WHEN ${ageExpr("c.thoi_gian_cskh_tiep_nhan")} >= 14 THEN 1 ELSE 0 END) as tren_14,
-           SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh,
-           SUM(CASE WHEN ${NEED_LO_KE_HOACH} THEN 1 ELSE 0 END) as lo_ke_hoach,
-           SUM(CASE WHEN ${NEED_TAI_GIAI_TRINH} THEN 1 ELSE 0 END) as cho_giai_trinh_lai,
-           SUM(CASE WHEN ${NEED_DMX_CHUA_GT_3_NGAY} THEN 1 ELSE 0 END) as dmx_chua_gt_3_ngay,
-           SUM(CASE WHEN ${NEED_CHUA_GT_5_NGAY} THEN 1 ELSE 0 END) as chua_gt_5_ngay,
-           SUM(CASE WHEN ${NEED_DIEU_HOA_1_NGAY} THEN 1 ELSE 0 END) as dieu_hoa_1_ngay,
-           SUM(CASE WHEN ${NEED_B2B_1_NGAY} THEN 1 ELSE 0 END) as b2b_1_ngay,
-           SUM(CASE WHEN ${NEED_NSKX_2_NGAY} THEN 1 ELSE 0 END) as nskx_2_ngay,
-           SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
-         FROM case_hieu_luc c
-         ${joinScope}
-         WHERE ${tonAnchorC} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND c.khu_vuc IS NOT NULL${khuVucClause}
-         GROUP BY c.khu_vuc`,
-      )
-      .bind(...khuVucBinds)
-      .all<{ nhom: string } & Record<string, number>>(),
-  ]);
-
-  const tonCanGiaiTrinhByKhuVuc: Record<string, SnapshotBucket> = {};
-  {
-    const byKv = new Map<string, string[]>();
-    for (const r of tonRows.results) {
-      const kv = r.khu_vuc ?? "—";
-      const arr = byKv.get(kv) ?? [];
-      arr.push(r.id);
-      byKv.set(kv, arr);
-    }
-    for (const [kv, ids] of byKv) tonCanGiaiTrinhByKhuVuc[kv] = { ids, count: ids.length };
-  }
-
-  const khuVucReportRows: Record<string, KhuVucReportRow> = {};
-  for (const r of khuVucReportResult.results) {
-    khuVucReportRows[r.nhom] = {
-      tong_ton: r.tong_ton ?? 0,
-      tren_3: r.tren_3 ?? 0,
-      tren_5: r.tren_5 ?? 0,
-      tren_7: r.tren_7 ?? 0,
-      tren_14: r.tren_14 ?? 0,
-      da_giai_trinh: r.da_giai_trinh ?? 0,
-      lo_ke_hoach: r.lo_ke_hoach ?? 0,
-      cho_giai_trinh_lai: r.cho_giai_trinh_lai ?? 0,
-      dmx_chua_gt_3_ngay: r.dmx_chua_gt_3_ngay ?? 0,
-      chua_gt_5_ngay: r.chua_gt_5_ngay ?? 0,
-      dieu_hoa_1_ngay: r.dieu_hoa_1_ngay ?? 0,
-      b2b_1_ngay: r.b2b_1_ngay ?? 0,
-      nskx_2_ngay: r.nskx_2_ngay ?? 0,
-      thieu_linh_kien: r.thieu_linh_kien ?? 0,
-    };
-  }
-
-  // CHOT 2026-10-20: gop ca "Canh bao ton cap 2 (CEO)" da chot hom nay vao "Tong can giai trinh" (xem
-  // lib/canhBaoCap2GiaiTrinh.ts). Luc cron 08:00 chay, snapshot Canh bao ton chua co -> 0 ca, se duoc bo sung sau qua
-  // boSungCap2VaoSnapshotHomNay(); nhanh nay cho snapshot tu-heal sinh sau 08:00.
-  const tonCanGiaiTrinh = toBucket(tonRows.results);
-  const canhBaoCap2: SnapshotBucket = { ids: [], count: 0 };
-  hopCap2VaoBuckets({ tonCanGiaiTrinh, tonCanGiaiTrinhByKhuVuc, canhBaoCap2 }, await layCap2(db, getVnDateStr()), khuVucList.length > 0 ? khuVucList : null);
-
-  return {
-    tonCanGiaiTrinh,
-    tonCanGiaiTrinhByKhuVuc,
-    canhBaoCap2,
-    backlogTongTon: toBucket(backlogTongTonRows.results),
-    backlogTren3: backlogTrenRow?.tren_3 ?? 0,
-    backlogTren5: backlogTrenRow?.tren_5 ?? 0,
-    backlogTren7: backlogTrenRow?.tren_7 ?? 0,
-    backlogTren14: backlogTrenRow?.tren_14 ?? 0,
-    backlogLoKeHoach: toBucket(backlogLoKeHoachRows.results),
-    backlogTaiGiaiTrinh: toBucket(backlogTaiGiaiTrinhRows.results),
-    backlogChuaGt3NgayDmx: toBucket(backlogChuaGt3NgayDmxRows.results),
-    backlogChuaGt5Ngay: toBucket(backlogChuaGt5NgayRows.results),
-    backlogDieuHoa1Ngay: toBucket(backlogDieuHoa1NgayRows.results),
-    backlogLoKeHoachDmx5: toBucket(backlogLoKeHoachDmx5Rows.results),
-    backlogLoKeHoach14: toBucket(backlogLoKeHoach14Rows.results),
-    backlogTaiGiaiTrinhDmx5: toBucket(backlogTaiGiaiTrinhDmx5Rows.results),
-    backlogTaiGiaiTrinh14: toBucket(backlogTaiGiaiTrinh14Rows.results),
-    backlogB2b: toBucket(backlogB2bRows.results),
-    backlogNskx: toBucket(backlogNskxRows.results),
-    backlogLocTongBcn: toBucket(backlogLocTongBcnRows.results),
-    backlogVip24h: toBucket(backlogVip24hRows.results),
-    khuVucReportRows,
-  };
-}
-
-/** Tinh THAT SU 1 snapshot (khong qua bang daily_snapshot) cho 1 role_variant + khu vuc phu trach
- * (chi dung khi la "giam_sat"). Dung SELECT c.id (khong phai COUNT(*)) cho 4 bucket de luu lai danh
- * sach case id lam baseline doi chieu delta; KPI/pivot/doanh thu tinh voi bo loc mac dinh (thang hien
- * tai, khong khu_vuc/hang rieng - "scope" ben duoi da la gioi han khu vuc phu trach cua Giam sat, tuong
- * duong scopeByKhuVuc() ma cac route nay dung khi tinh song). */
-export async function computeSnapshotPayload(db: D1Database, roleVariant: RoleVariant, khuVucList: string[]): Promise<DailySnapshotPayload> {
-  const isGiamSat = roleVariant === "giam_sat";
-  const exclusionC = khuVucReportExclusionClause("c.khu_vuc");
-  const exclusionLap = khuVucReportExclusionClause("lap.khu_vuc");
-  const khuVucClause = (isGiamSat ? ` AND c.khu_vuc IN (${khuVucList.map(() => "?").join(", ")})` : "") + exclusionC.sql;
-  const khuVucClauseLap = (isGiamSat ? ` AND lap.khu_vuc IN (${khuVucList.map(() => "?").join(", ")})` : "") + exclusionLap.sql;
-  const khuVucBinds = [...(isGiamSat ? khuVucList : []), ...exclusionC.binds];
-  const khuVucBindsLap = [...(isGiamSat ? khuVucList : []), ...exclusionLap.binds];
-  const { start, end } = currentMonthBoundsVN();
-  const scope: string[] | null = isGiamSat ? khuVucList : null;
-
-  const caLapWhere =
-    roleVariant === "giam_sat"
-      ? "gl.chot_danh_gia_lap IS NULL"
-      : roleVariant === "qc"
-        ? "gl.chot_danh_gia_lap IS NOT NULL AND gl.qc_chot IS NULL"
-        : "(gl.chot_danh_gia_lap IS NULL OR gl.qc_chot IS NULL)";
-  // CHOT 2026-08-02: badge sidebar "Ca lap" dem theo THANG HIEN TAI (lap.thoi_gian_hoan_thanh, dung
-  // cot "thang" ma CaLapModule.tsx/routes/caLap.ts /danh-sach da dung), khong con la tong so ca lap
-  // CHUA XU LY tu truoc den nay - tranh con so tich luy vo han qua cac thang.
-
-  const pivotDimKeys = Object.keys(PIVOT_DIMS);
-
-  const [linhKienRows, caLapRows, khaoSatRows, doanhThuRow, kpis, pivotResults, revenueByKhuVuc, revenueByHang, revenueByKtv, backlogBuckets] = await Promise.all([
-    db
-      .prepare(
-        `SELECT c.id as id FROM case_hieu_luc c
-         ${missingPartsJoin(CASE_FILTER_TON)}
-         WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${khuVucClause}`,
-      )
-      .bind(...khuVucBinds)
-      .all<{ id: string }>(),
-    db
-      .prepare(
-        `${CA_LAP_CTE} SELECT lap.id as id FROM lap LEFT JOIN giai_trinh_lap gl ON gl.case_id = lap.id WHERE lap.thoi_gian_hoan_thanh >= ? AND lap.thoi_gian_hoan_thanh < ? AND lap.gap_days <= ${NGUONG_NGAY_LAP} AND ${caLapWhere}${khuVucClauseLap}`,
-      )
-      .bind(start, end, ...khuVucBindsLap)
-      .all<{ id: string }>(),
-    db
-      .prepare(
-        `SELECT c.id as id FROM case_hieu_luc c
-         WHERE c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${RECENT_OR_OPEN_CONDITION} AND c.can_khao_sat = 1${khuVucClause}`,
-      )
-      .bind(...khuVucBinds)
-      .all<{ id: string }>(),
-    db
-      .prepare(
-        `SELECT SUM(${REVENUE_EXPR_C}) as tong FROM case_hieu_luc c
-         WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ? AND ${kpiEligibleClause("c.", true)}${khuVucClause}`,
-      )
-      .bind(start, end, ...khuVucBinds)
-      .first<{ tong: number | null }>(),
-    computeDashboardKpis(db, { thang: CURRENT_MONTH_VALUE }, scope),
-    Promise.all(pivotDimKeys.map((dimKey) => computeDashboardPivot(db, { dimKey, thang: CURRENT_MONTH_VALUE }, scope))),
-    computeRevenue(db, { dim: "khu_vuc", thang: CURRENT_MONTH_VALUE }, scope),
-    computeRevenue(db, { dim: "hang", thang: CURRENT_MONTH_VALUE }, scope),
-    computeRevenue(db, { dim: "ky_thuat_vien", thang: CURRENT_MONTH_VALUE }, scope),
-    computeBacklogBuckets(db, isGiamSat ? khuVucList : []),
-  ]);
-
-  const pivotByDim: Record<string, TrendRow[]> = {};
-  pivotDimKeys.forEach((dimKey, i) => {
-    pivotByDim[dimKey] = pivotResults[i].rows;
-  });
-
-  return {
-    ...backlogBuckets,
-    thieuLinhKien: toBucket(linhKienRows.results),
-    caLap: toBucket(caLapRows.results),
-    canKhaoSat: toBucket(khaoSatRows.results),
-    doanhThuThang: doanhThuRow?.tong ?? 0,
-    kpis,
-    pivotByDim,
-    pivotKtvTrienKhai: true,
-    revenueByKhuVuc,
-    revenueByHang,
-    revenueByKtv,
-  };
-}
-
 // Dung chung cho ca DailySnapshotPayload (scope theo vai_tro) LAN BacklogBuckets (scope theo 1
 // khu_vuc bat ky, xem generateKhuVucBacklogSnapshots) - bang daily_snapshot chi luu JSON text, khong
 // rang buoc shape theo scope_key namespace nao.
@@ -470,45 +182,6 @@ export async function upsertSnapshot(db: D1Database, ngay: string, scopeKey: str
     )
     .bind(ngay, scopeKey, generatedAt, generatedBy, JSON.stringify(payload))
     .run();
-}
-
-/** Orchestrator chay o cron 08:00 VN (index.ts) VA o endpoint "Lam moi bao cao" (Admin). Tinh + luu
- * lai snapshot cho: 1 ban "khac" (moi vai tro ngoai Giam sat/QC), 1 ban "qc", va 1 ban rieng cho MOI
- * khu_vuc_phu_trach PHAN BIET cua cac user vai_tro=Giam sat (2 Giam sat trung khu vuc dung chung 1
- * scope_key, khoi tinh lai). Tung buoc boc try/catch rieng (giong dung convention reportWarmup.ts) -
- * 1 scope loi khong duoc chan cac scope con lai. */
-export async function generateDailySnapshot(db: D1Database, generatedBy: string): Promise<void> {
-  const ngay = getVnDateStr();
-  const generatedAt = nowVN();
-
-  const tasks: { scopeKey: string; roleVariant: RoleVariant; khuVucList: string[] }[] = [
-    { scopeKey: buildSnapshotScopeKey("khac", []), roleVariant: "khac", khuVucList: [] },
-    { scopeKey: buildSnapshotScopeKey("qc", []), roleVariant: "qc", khuVucList: [] },
-  ];
-
-  try {
-    const giamSatUsers = await db.prepare("SELECT khu_vuc_phu_trach FROM users WHERE vai_tro = 'Giam sat'").all<{ khu_vuc_phu_trach: string | null }>();
-    const seen = new Set<string>();
-    for (const u of giamSatUsers.results) {
-      const scope = fromJsonArray(u.khu_vuc_phu_trach);
-      if (scope.length === 0) continue;
-      const scopeKey = buildSnapshotScopeKey("giam_sat", scope);
-      if (seen.has(scopeKey)) continue;
-      seen.add(scopeKey);
-      tasks.push({ scopeKey, roleVariant: "giam_sat", khuVucList: scope });
-    }
-  } catch (err) {
-    console.error("generateDailySnapshot: loi khi lay danh sach Giam sat", err);
-  }
-
-  for (const task of tasks) {
-    try {
-      const payload = await computeSnapshotPayload(db, task.roleVariant, task.khuVucList);
-      await upsertSnapshot(db, ngay, task.scopeKey, generatedAt, generatedBy, payload);
-    } catch (err) {
-      console.error(`generateDailySnapshot: loi khi tinh/luu scope ${task.scopeKey}`, err);
-    }
-  }
 }
 
 export interface SnapshotForUser {
@@ -559,8 +232,9 @@ export async function getSnapshotForUser(db: D1Database, user: AppUser): Promise
 
   if (!row) {
     const generatedAt = nowVN();
-    const payload = await computeSnapshotPayload(db, roleVariant, khuVucList);
-    await upsertSnapshot(db, ngay, scopeKey, generatedAt, "auto", payload);
+    // 1 lan doc (lib/chotTon.ts). Truoc 07:30 chi tinh, KHONG luu (du lieu chua qua dot import sang - cron 07:30 se chot).
+    const payload = await tinhPayloadMotScope(db, roleVariant, khuVucList);
+    if (duocLuuSoTuTinh()) await upsertSnapshot(db, ngay, scopeKey, generatedAt, "auto", payload);
     row = { generated_at: generatedAt, generated_by: "auto", payload: JSON.stringify(payload) };
   }
 
@@ -686,12 +360,14 @@ export async function getDailyReportWithDelta(db: D1Database, user: AppUser): Pr
   const caLapTsCond = roleVariant === "giam_sat" ? "ngay_giai_trinh > ?" : roleVariant === "qc" ? "ngay_qc > ?" : "(ngay_giai_trinh > ? OR ngay_qc > ?)";
   const caLapBinds = roleVariant === "khac" ? [since, since] : [since];
 
-  const [tonResolved, linhKienResolved, caLapResolved, khaoSatResolved] = await Promise.all([
-    countResolved(db, "giai_trinh", "ngay_giai_trinh > ?", snapshot.tonCanGiaiTrinh.ids, [since]),
-    countResolved(db, "giai_trinh", "ngay_giai_trinh > ?", snapshot.thieuLinhKien.ids, [since]),
+  const [daGt, caLapResolved, khaoSatResolved] = await Promise.all([
+    layCaDaGiaiTrinhSau(db, since),
     countResolved(db, "giai_trinh_lap", caLapTsCond, snapshot.caLap.ids, caLapBinds),
     countResolved(db, "vi_pham", "ngay_ghi_nhan > ?", snapshot.canKhaoSat.ids, [since]),
   ]);
+
+  const tonResolved = demDaGiaiTrinh(daGt, snapshot.tonCanGiaiTrinh.ids);
+  const linhKienResolved = demDaGiaiTrinh(daGt, snapshot.thieuLinhKien.ids);
 
   return {
     scope: isGiamSat ? "khu_vuc" : "toan_he_thong",
@@ -785,7 +461,9 @@ async function computeBacklogDeltaPayload(
   khuVucFilter?: string,
 ): Promise<BacklogDailyPayload> {
   const since = generatedAt;
-  const resolvedOf = (bucket: SnapshotBucket) => countResolved(db, "giai_trinh", "ngay_giai_trinh > ?", bucket.ids, [since]);
+  // 1 cau lay tap ca co giai trinh sau moc (truoc day ~17 bucket x lo 98 id, moi lan mo man hang chuc cau).
+  const daGt = await layCaDaGiaiTrinhSau(db, since);
+  const resolvedOf = async (bucket: SnapshotBucket) => demDaGiaiTrinh(daGt, bucket.ids);
 
   const khuVucEntries = Object.entries(s.tonCanGiaiTrinhByKhuVuc);
 
@@ -946,8 +624,8 @@ export async function getBacklogBucketsForKhuVuc(db: D1Database, khuVuc: string)
     return { buckets: JSON.parse(row.payload), generatedAt: row.generated_at };
   } else {
     const generatedAt = nowVN();
-    const buckets = await computeBacklogBuckets(db, [khuVuc]);
-    await upsertSnapshot(db, ngay, scopeKey, generatedAt, "auto", buckets);
+    const buckets = await tinhBacklogMotKhuVuc(db, khuVuc);
+    if (duocLuuSoTuTinh()) await upsertSnapshot(db, ngay, scopeKey, generatedAt, "auto", buckets);
     return { buckets, generatedAt };
   }
 }
@@ -1056,26 +734,6 @@ export function buildKhuVucFilterScopeKey(khuVuc: string): string {
   return `khu-vuc-loc|${khuVuc}`;
 }
 
-/** Orchestrator MOI (2026-08-01) - tinh + luu bucket Quan ly ton RIENG cho TUNG khu_vuc CO THAT
- * trong du lieu (khac cac scope theo vai_tro o generateDailySnapshot), de nguoi dung loc dung 1
- * khu_vuc cu the o Quan ly ton van thay dong bang/delta thay vi roi ve so song. Goi CUNG luc voi
- * generateDailySnapshot() (cron 08:00 + "Lam moi bao cao" trong Import data). CHI tinh bucket backlog
- * (khong tinh lai kpis/pivot/revenue rieng cho tung khu_vuc - qua ton kem, khong ai doc toi). */
-export async function generateKhuVucBacklogSnapshots(db: D1Database, generatedBy: string): Promise<void> {
-  const ngay = getVnDateStr();
-  const generatedAt = nowVN();
-
-  const { results } = await db.prepare("SELECT DISTINCT khu_vuc FROM case_hieu_luc WHERE khu_vuc IS NOT NULL").all<{ khu_vuc: string }>();
-  for (const { khu_vuc } of results) {
-    try {
-      const buckets = await computeBacklogBuckets(db, [khu_vuc]);
-      await upsertSnapshot(db, ngay, buildKhuVucFilterScopeKey(khu_vuc), generatedAt, generatedBy, buckets);
-    } catch (err) {
-      console.error(`generateKhuVucBacklogSnapshots: loi khi tinh/luu khu vuc ${khu_vuc}`, err);
-    }
-  }
-}
-
 /** Ham GOI TU cases.ts (route GET /api/cases/backlog-daily?khu_vuc=...) - doc/tu-heal snapshot Quan
  * ly ton cho DUNG 1 khu_vuc (nguoi dung loc dung 1 khu_vuc, khong loc gi khac them - xem
  * isSingleKhuVucOnly o frontend). KHONG kiem tra quyen xem o day (ham nay khong biet gi ve user) -
@@ -1105,8 +763,8 @@ export async function getBacklogDailyForKhuVuc(db: D1Database, khuVuc: string): 
   } else {
     generatedAt = nowVN();
     generatedBy = "auto";
-    buckets = await computeBacklogBuckets(db, [khuVuc]);
-    await upsertSnapshot(db, ngay, scopeKey, generatedAt, generatedBy, buckets);
+    buckets = await tinhBacklogMotKhuVuc(db, khuVuc);
+    if (duocLuuSoTuTinh()) await upsertSnapshot(db, ngay, scopeKey, generatedAt, generatedBy, buckets);
   }
 
   return computeBacklogDeltaPayload(db, buckets, generatedAt, generatedBy, khuVuc);
@@ -1212,7 +870,8 @@ export async function computeTonDailyEntries(
 
   // Log lich su nay do ty le GIAI TRINH, nen chi tinh log giai_trinh moi; viec dong ca khong
   // thay the mot luot giai trinh trong chi tieu nay (khac voi StatCard Quan ly ton o tren).
-  const resolvedList = await Promise.all(entries.map(([, bucket]) => countResolved(db, "giai_trinh", "ngay_giai_trinh > ?", bucket.ids, [since])));
+  const daGt = await layCaDaGiaiTrinhSau(db, since);
+  const resolvedList = entries.map(([, bucket]) => demDaGiaiTrinh(daGt, bucket.ids));
 
   return { ngay, entries, resolvedList };
 }
