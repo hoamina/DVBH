@@ -362,7 +362,17 @@ async function buoc(ten: string, fn: () => Promise<unknown>): Promise<boolean> {
 
 /** Chot 1 nhom quoc gia (nhom = ma nuoc, null = "Tất cả quốc gia"). canhBaoTon=false: nut "Làm mới báo cáo" (khong chot Canh bao
  * ton). Moi buoc idempotent (upsert) + withD1Retry; pham vi nao xong het moi ghi dau SCOPE_CHOT_XONG. */
-export async function chotNhom(env: Env, nhom: string | null, generatedBy: string, opts: { canhBaoTon: boolean }): Promise<void> {
+/** opts.giuSoDaChot (cron 07:30/07:40 + chot bu moi gio): KHONG ghi de so chot hom nay da co (so chot, tuoi ton, ton KTV) - chi lap
+ * cho con thieu. Sua 2026-11-09: truoc day chot bu moi gio ghi de lai toan bo snapshot -> gio chot nhay 08:00, 09:00... 14:00 va "da
+ * giai trinh trong ngay" chi dem giai trinh SAU gio chot moi (ca CEO giai trinh 09:30 van hien "can giai trinh"). Chi nut "Làm mới
+ * báo cáo" (Admin chu dong) moi ghi de. */
+export async function chotNhom(
+  env: Env,
+  nhom: string | null,
+  generatedBy: string,
+  opts: { canhBaoTon: boolean; giuSoDaChot?: boolean },
+): Promise<void> {
+  const giu = opts.giuSoDaChot === true;
   if (nhom !== null) await buoc(`${nhom} tao bang quoc gia`, () => damBaoBangQuocGia(env.DB, [nhom]));
   const dsPv = phamViCuaNhom(nhom);
   const envCua = (s: PhamViDb) => {
@@ -423,7 +433,7 @@ export async function chotNhom(env: Env, nhom: string | null, generatedBy: strin
       const stmts = dong.map(([k, p]) =>
         e.DB.prepare(
           `INSERT INTO daily_snapshot (ngay, scope_key, generated_at, generated_by, payload) VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(ngay, scope_key) DO UPDATE SET generated_at = excluded.generated_at, generated_by = excluded.generated_by, payload = excluded.payload`,
+           ON CONFLICT(ngay, scope_key) DO ${giu ? "NOTHING" : "UPDATE SET generated_at = excluded.generated_at, generated_by = excluded.generated_by, payload = excluded.payload"}`,
         ).bind(ngay, k, generatedAt, generatedBy, JSON.stringify(p)),
       );
       for (let i = 0; i < stmts.length; i += 10) {
@@ -431,8 +441,15 @@ export async function chotNhom(env: Env, nhom: string | null, generatedBy: strin
         await withD1Retry(() => e.DB.batch(lo), 6);
       }
     });
-    const okAge = await buoc(`${hauToPhamVi(s)} tuoi ton`, () => withD1Retry(() => generateBacklogAgeSnapshot(e.DB), 6));
-    const okKtv = await buoc(`${hauToPhamVi(s)} ton KTV`, () => withD1Retry(() => generateTonKtvSnapshot(e.DB), 6));
+    const daCo = async (sql: string) => giu && !!(await e.DB.prepare(sql).bind(ngay).first().catch(() => null));
+    const okAge = await buoc(`${hauToPhamVi(s)} tuoi ton`, async () => {
+      if (await daCo("SELECT 1 AS c FROM backlog_age_daily WHERE ngay = ? LIMIT 1")) return;
+      await withD1Retry(() => generateBacklogAgeSnapshot(e.DB), 6);
+    });
+    const okKtv = await buoc(`${hauToPhamVi(s)} ton KTV`, async () => {
+      if (await daCo("SELECT 1 AS c FROM ton_ktv_daily WHERE ngay = ?")) return;
+      await withD1Retry(() => generateTonKtvSnapshot(e.DB), 6);
+    });
     if (ok && okAge && okKtv && opts.canhBaoTon) {
       await buoc(`${hauToPhamVi(s)} dau chot xong`, () =>
         withD1Retry(
@@ -482,7 +499,7 @@ export async function chotBuNeuThieu(env: Env): Promise<void> {
     }
     if (thieu) {
       console.error(`[chot-bu] nhom ${nhom ?? "tat-ca"} chua chot xong hom nay - chot bu`);
-      await chotNhom(env, nhom, "auto", { canhBaoTon: true });
+      await chotNhom(env, nhom, "auto", { canhBaoTon: true, giuSoDaChot: true });
     }
   }
 }

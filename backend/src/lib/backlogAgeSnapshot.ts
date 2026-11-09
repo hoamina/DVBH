@@ -14,7 +14,6 @@
 import { ageExprAtAnchor } from "./ageCalc";
 import { caseFilterTonAt0800, TON_ANCHOR_0800 } from "./needGiaiTrinh";
 import { getVnDateStr } from "./reportCache";
-import { dimGroupExpr } from "./filterParams";
 
 const AGE_0800_EXPR = ageExprAtAnchor(TON_ANCHOR_0800, "c.thoi_gian_cskh_tiep_nhan");
 const TON_FILTER_C = caseFilterTonAt0800("c");
@@ -41,40 +40,56 @@ async function sha256Hex(text: string): Promise<string> {
 }
 
 /** Tinh + ghi de snapshot cua "hom nay" (gio VN) - idempotent, goi lai nhieu lan trong cung 1 ngay
- * (cron 08:00 hoac nut "Lam moi bao cao") se ghi de dung ket qua moi nhat, khong cong don. */
+ * (cron chot hoac nut "Lam moi bao cao") se ghi de dung ket qua moi nhat, khong cong don.
+ * SUA 2026-11-09: truoc day 8 cau INSERT...SELECT (moi cau quet toan bang ~75k dong, ~1,5s) trong 1 batch -> tu 04/11 loi
+ * moi lan chot (bang trong tu 04/11) lam dau "chot xong" khong bao gio duoc ghi va chot bu moi gio ghi de so chot. Gio: 1 cau
+ * doc tap ca ton (~1.700 dong) roi gop theo tung dim trong bo nho, ghi gop (cung ket qua voi cac cau GROUP BY cu). */
 export async function generateBacklogAgeSnapshot(db: D1Database): Promise<void> {
   const ngay = getVnDateStr();
-  const baseWhere = `WHERE ${TON_FILTER_C} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL`;
+  const { results } = await db
+    .prepare(
+      `SELECT ${AGE_0800_EXPR} AS tuoi, c.khu_vuc, c.tinh, c.tinh_moi, c.hang, c.doi_tac, c.nhom_kh, c.ky_thuat_vien
+       FROM case_hieu_luc c WHERE ${TON_FILTER_C} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL`,
+    )
+    .all<{ tuoi: number | null } & Record<string, string | null>>();
 
-  await db.prepare("DELETE FROM backlog_age_daily WHERE ngay = ?").bind(ngay).run();
+  // key "dim\u0000gia_tri" -> [tong_tuoi (null = SUM toan NULL), so_ca]
+  const gop = new Map<string, [number | null, number]>();
+  const cong = (dim: string, giaTri: string, tuoi: number | null) => {
+    const k = `${dim}\u0000${giaTri}`;
+    const cu = gop.get(k) ?? [null, 0];
+    gop.set(k, [tuoi === null ? cu[0] : (cu[0] ?? 0) + tuoi, cu[1] + 1]);
+  };
+  let tongTuoi = 0;
+  for (const r of results) {
+    const tuoi = r.tuoi === null || r.tuoi === undefined ? null : Number(r.tuoi);
+    tongTuoi += tuoi ?? 0;
+    if ((r.khu_vuc ?? "").toLowerCase().includes("qldvbh")) cong("khu_vuc", "__nhom_qldvbh__", tuoi);
+    for (const dim of BACKLOG_AGE_DIMS) {
+      if (dim === "tinh") {
+        if ((r.tinh ?? "") !== "" || (r.tinh_moi ?? "") !== "") cong(dim, `${r.tinh ?? ""}\u001f${r.tinh_moi ?? ""}`, tuoi);
+      } else {
+        const v = r[dim];
+        if (v !== null && v !== undefined && v !== "") cong(dim, v, tuoi);
+      }
+    }
+  }
+  const dong: [string, string, number | null, number][] = [["tong", "tat_ca", tongTuoi, results.length]];
+  for (const [k, [t, n]] of gop) {
+    const i = k.indexOf("\u0000");
+    dong.push([k.slice(0, i), k.slice(i + 1), t, n]);
+  }
 
-  const statements = [
-    // Tong toan he thong - dong "Tat ca" dung chung cho moi dimension o client.
-    db.prepare(
-      `INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca)
-       SELECT ?, 'tong', 'tat_ca', COALESCE(SUM(${AGE_0800_EXPR}), 0), COUNT(*)
-       FROM case_hieu_luc c ${baseWhere}`,
-    ).bind(ngay),
-    // Nhom khu vuc QLDVBH - giong dung nhom loc "QLDVBH" da co san o Quan ly ton (khu_vuc LIKE '%qldvbh%').
-    db.prepare(
-      `INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca)
-       SELECT ?, 'khu_vuc', '__nhom_qldvbh__', COALESCE(SUM(${AGE_0800_EXPR}), 0), COUNT(*)
-       FROM case_hieu_luc c ${baseWhere} AND c.khu_vuc LIKE '%qldvbh%'
-       HAVING COUNT(*) > 0`,
-    ).bind(ngay),
-    ...BACKLOG_AGE_DIMS.map((dim) => {
-      // "tinh" (2026-10-10): gia_tri = cap tho (tinh cu, tinh_moi) noi  - frontend gom theo che do "Dia gioi cu /
-      // moi" (filterParams.ts dimGroupExpr). Snapshot truoc ngay nay chi co tinh cu - frontend van doc duoc.
-      const expr = dimGroupExpr(dim);
-      const coGiaTri = dim === "tinh" ? "(COALESCE(c.tinh,'') != '' OR COALESCE(c.tinh_moi,'') != '')" : `c.${dim} IS NOT NULL AND c.${dim} != ''`;
-      return db.prepare(
-        `INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca)
-         SELECT ?, ?, ${expr}, SUM(${AGE_0800_EXPR}), COUNT(*)
-         FROM case_hieu_luc c ${baseWhere} AND ${coGiaTri}
-         GROUP BY ${expr}`,
-      ).bind(ngay, dim);
-    }),
-  ];
+  // DELETE + INSERT nhieu dong / cau (5 bind/dong, D1 toi da 100 bind/cau) trong 1 batch (1 giao dich).
+  const statements = [db.prepare("DELETE FROM backlog_age_daily WHERE ngay = ?").bind(ngay)];
+  for (let i = 0; i < dong.length; i += 20) {
+    const lo = dong.slice(i, i + 20);
+    statements.push(
+      db
+        .prepare(`INSERT INTO backlog_age_daily (ngay, dim, gia_tri, tong_tuoi, so_ca) VALUES ${lo.map(() => "(?, ?, ?, ?, ?)").join(", ")}`)
+        .bind(...lo.flatMap((d) => [ngay, ...d])),
+    );
+  }
   await db.batch(statements);
 
   await updateMonthManifest(db, ngay.slice(0, 7));

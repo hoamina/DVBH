@@ -5485,3 +5485,17 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   man-tong-quat`, `/revenue`, `/dashboard/daily-report` đều 200.
 - Chưa làm: mốc "giải trình tính đến 08:00" (để chốt muộn vẫn ra cùng số) — chờ chủ hệ thống duyệt; múi giờ riêng từng nước (ID dùng WIB
   = +7 như VN nên chưa cần). Lịch sử 04–07/11 giữ nguyên (số tạm); 08/11 (Chủ nhật) không chốt bù vì đã quá 18h.
+
+## 2026-11-09 — v1.552: giờ chốt "đầu ngày" nhảy liên tục + ca CEO đã giải trình vẫn hiện "cần giải trình"
+
+- Nguyên văn: *"chốt đầu ngày này là chốt cố định 1 khung giờ 7h30, đang bị bug thời gian chốt thay đổi liên tục"*; *"Ca CEO đã giải trình
+  trong ngày nhưng vẫn hiện trong danh sách cần giải trình"* (ca 1349016, giải trình 09:30 09/11, thẻ CEO "Đầu ngày 2 · Đã xử lý 0").
+- Production (SELECT): 09/11 không có dấu `chot_xong|all` ở phạm vi nào (cả các ngày trước) → lưới mỗi giờ coi như chưa chốt và chạy
+  `chotNhom` lại, **ghi đè** mọi bản chốt (lần cuối 14:00:49). Dấu không ghi được vì bước "Tuổi tồn TB" lỗi mỗi lần (`backlog_age_daily`
+  trống từ 04/11): 8 câu INSERT…SELECT quét toàn bảng (~1,5s/câu, ~75k dòng) trong 1 batch.
+- Bug 2 là hệ quả: ca CEO luôn nằm trong baseline (cấp 2 phải giải trình mỗi ngày), "đã xử lý" = có giải trình SAU giờ chốt → giờ chốt bị
+  đẩy sang 14:00 thì giải trình 09:30 không được tính.
+- Sửa: `chotNhom` thêm `giuSoDaChot` (cron 07:30/07:40 + chốt bù): `ON CONFLICT DO NOTHING` cho bản chốt, bỏ qua tuổi tồn / tồn KTV đã có
+  trong ngày — chỉ lấp chỗ thiếu; nút "Làm mới báo cáo" (Admin) vẫn ghi đè. `generateBacklogAgeSnapshot`: 1 câu đọc tập ca tồn (~1.800
+  dòng, ~0,5s) rồi gộp theo dim trong bộ nhớ, ghi DELETE + INSERT nhiều dòng/câu trong 1 batch.
+- Dữ liệu 09/11 đã bị ghi đè lúc 14:00 (baseline tính lúc 14:00) — không khôi phục được bản 07:30 gốc.

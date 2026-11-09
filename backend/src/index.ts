@@ -201,7 +201,7 @@ async function runSheetSync(label: string, fn: () => Promise<{ ok: boolean; reas
 async function chotBuoiSang(env: Env, phut: number): Promise<void> {
   for (const nhom of await nhomTheoPhut(env, phut)) {
     try {
-      await chotNhom(env, nhom, "auto", { canhBaoTon: true });
+      await chotNhom(env, nhom, "auto", { canhBaoTon: true, giuSoDaChot: true });
     } catch (err) {
       console.error(`[cron-chot] nhom ${nhom ?? "tat-ca"} loi:`, err instanceof Error ? err.message : String(err));
     }
