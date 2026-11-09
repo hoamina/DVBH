@@ -5499,3 +5499,9 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   trong ngày — chỉ lấp chỗ thiếu; nút "Làm mới báo cáo" (Admin) vẫn ghi đè. `generateBacklogAgeSnapshot`: 1 câu đọc tập ca tồn (~1.800
   dòng, ~0,5s) rồi gộp theo dim trong bộ nhớ, ghi DELETE + INSERT nhiều dòng/câu trong 1 batch.
 - Dữ liệu 09/11 đã bị ghi đè lúc 14:00 (baseline tính lúc 14:00) — không khôi phục được bản 07:30 gốc.
+- (tiếp, v1.553) Theo chủ hệ thống: đặt lại `generated_at` các bản chốt 09/11 (7 bảng `daily_snapshot*`, 182 dòng) về giờ chốt Cảnh
+  báo tồn của từng phạm vi (VN 07:30:49, "Tất cả quốc gia" 07:41:05). Payload vẫn là bản tính lúc 14:00.
+- Sau deploy v1.552, lưới 15:00 vẫn hỏng tuổi tồn ở phạm vi lớn (VN, Không NSKX, Tất cả); NSKX thì chạy được. Nguyên nhân gốc thật sự:
+  dòng rác `case_dvbh.id = 'ID'` (dòng TIÊU ĐỀ Excel bị nhập thành ca lúc 04/11 09:13, khu vực "TBP", KTV "Kỹ thuật viên", ngày tiếp
+  nhận = chữ) → tuổi NULL → nhóm riêng của nó có SUM NULL → vi phạm `tong_tuoi NOT NULL` → cả batch hỏng. Sửa: tuổi NULL tính 0.
+  Dòng rác chưa xử lý (chờ chủ hệ thống quyết định huỷ / xoá); nó vẫn được đếm là 1 ca tồn.

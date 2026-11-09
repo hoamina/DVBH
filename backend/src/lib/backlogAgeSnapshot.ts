@@ -53,12 +53,13 @@ export async function generateBacklogAgeSnapshot(db: D1Database): Promise<void> 
     )
     .all<{ tuoi: number | null } & Record<string, string | null>>();
 
-  // key "dim\u0000gia_tri" -> [tong_tuoi (null = SUM toan NULL), so_ca]
-  const gop = new Map<string, [number | null, number]>();
+  // key "dim\u0000gia_tri" -> [tong_tuoi, so_ca]. Tuoi NULL (thoi_gian_cskh_tiep_nhan sai dinh dang) tinh 0: cot tong_tuoi NOT NULL -
+  // ban cu SUM() ra NULL cho nhom chi co ca loi -> ca batch hong (dong rac id "ID" = dong tieu de Excel nhap 04/11 lam hong tu do).
+  const gop = new Map<string, [number, number]>();
   const cong = (dim: string, giaTri: string, tuoi: number | null) => {
     const k = `${dim}\u0000${giaTri}`;
-    const cu = gop.get(k) ?? [null, 0];
-    gop.set(k, [tuoi === null ? cu[0] : (cu[0] ?? 0) + tuoi, cu[1] + 1]);
+    const cu = gop.get(k) ?? [0, 0];
+    gop.set(k, [cu[0] + (tuoi ?? 0), cu[1] + 1]);
   };
   let tongTuoi = 0;
   for (const r of results) {
@@ -74,7 +75,7 @@ export async function generateBacklogAgeSnapshot(db: D1Database): Promise<void> 
       }
     }
   }
-  const dong: [string, string, number | null, number][] = [["tong", "tat_ca", tongTuoi, results.length]];
+  const dong: [string, string, number, number][] = [["tong", "tat_ca", tongTuoi, results.length]];
   for (const [k, [t, n]] of gop) {
     const i = k.indexOf("\u0000");
     dong.push([k.slice(0, i), k.slice(i + 1), t, n]);
