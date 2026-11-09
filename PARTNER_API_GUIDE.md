@@ -18,7 +18,7 @@ cùng dạng "ghi" như mục 8).
 
 Mục 10 mô tả `GET /api/partner/cases` — xuất Excel hàng loạt theo khoảng ngày. Mục 11 (thêm
 2026-10-02) mô tả `GET /api/partner/danh-sach-ton` — trả JSON 2 danh sách ca tồn cần cảnh báo:
-danh sách **Cảnh báo tồn cấp 2 (CEO)** (chốt 08:00 hằng ngày) và **ca tồn NSKX ≥ 3 ngày** (tính tại
+danh sách **Cảnh báo tồn cấp 2 (CEO)** (chốt 07:40 hằng ngày — trước 2026-11-07 là 08:00) và **ca tồn NSKX ≥ 3 ngày** (tính tại
 thời điểm gọi).
 
 **Quan trọng — mô hình phân quyền**: endpoint này KHÔNG lọc dữ liệu theo đối tác hay theo KTV. Bất
@@ -678,10 +678,21 @@ Trả JSON (không phải Excel) 1 trong 2 danh sách, chọn bằng tham số `
 
 | `loai` | Danh sách | Thời điểm số liệu |
 |---|---|---|
-| `canh-bao-ceo` | Đúng danh sách thẻ **"Cảnh báo tồn · Cấp 2 (CEO)"** ở module Quản lý tồn — 5 nhóm: `ton_tren_20_ngay` (tồn >20 ngày), `vip_svip_tu_4_ngay` (KH VIP/S.VIP tồn ≥4 ngày — đổi từ `vip_svip_tu_7_ngay` ≥7 ngày ngày 2026-11-06), `loc_tong_tu_5_ngay` (Lọc tổng tồn ≥5 ngày), `tranh_chap_tu_5_ngay` (tranh chấp/KN chưa đóng ≥5 ngày), `luong_doi_tra_tu_10_ngay` (luồng đổi trả chưa kết thúc, ca đổi chưa hoàn thành, ≥10 ngày từ lúc phát sinh mail — thêm 2026-10-12) | **Chốt 08:00 giờ VN** mỗi ngày (cùng nguồn UI + ảnh Telegram) — gọi lại trong ngày ra cùng danh sách. Ca đã đóng/huỷ sau 08:00 vẫn còn trong danh sách, xem `con_ton` / `da_huy`. |
+| `canh-bao-ceo` | Đúng danh sách thẻ **"Cảnh báo tồn · Cấp 2 (CEO)"** ở module Quản lý tồn — 5 nhóm: `ton_tren_20_ngay` (tồn >20 ngày), `vip_svip_tu_4_ngay` (KH VIP/S.VIP tồn ≥4 ngày — đổi từ `vip_svip_tu_7_ngay` ≥7 ngày ngày 2026-11-06), `loc_tong_tu_5_ngay` (Lọc tổng tồn ≥5 ngày), `tranh_chap_tu_5_ngay` (tranh chấp/KN chưa đóng ≥5 ngày), `luong_doi_tra_tu_10_ngay` (luồng đổi trả chưa kết thúc, ca đổi chưa hoàn thành, ≥10 ngày từ lúc phát sinh mail — thêm 2026-10-12) | **Chốt 07:40 giờ VN** mỗi ngày (cùng nguồn UI + ảnh Telegram; trước 2026-11-07 là 08:00) — gọi lại trong ngày ra cùng danh sách. Ca đã đóng/huỷ sau giờ chốt vẫn còn trong danh sách, xem `con_ton` / `da_huy`. |
 | `nskx-ton-3-ngay` | Ca **đang tồn** của đối tác NSKX có tuổi tồn ≥ 3 ngày (cùng nghĩa bộ lọc "Tồn trên 3 ngày" + Đối tác NSKX ở Quản lý tồn) | Tính **tại thời điểm gọi** (`chot_luc = null`) |
 
 Tuổi tồn = số ngày từ `thoi_gian_cskh_tiep_nhan` đến 00:00 hôm nay (giờ VN) — cùng công thức toàn hệ thống.
+
+### 11.0. Lịch sử thay đổi (đối tác cần đối chiếu)
+
+| Ngày | Thay đổi | Ảnh hưởng phía đối tác |
+|---|---|---|
+| 2026-10-12 | Thêm nhóm `luong_doi_tra_tu_10_ngay` + field `luong_doi_tra` | Mảng `tong_hop` có 5 phần tử (trước là 4) |
+| 2026-10-22 | `con_ton` tính theo nhóm; thêm `ca_con_ton` | Lọc theo `con_ton` không còn mất 2 nhóm tranh chấp / luồng đổi trả |
+| **2026-11-06** | **Đổi mã nhóm `vip_svip_tu_7_ngay` → `vip_svip_tu_4_ngay`** (ngưỡng VIP/S.VIP từ ≥7 ngày xuống ≥4 ngày) | **Đối tác map cứng mã nhóm phải đổi sang mã mới** — mã cũ không còn xuất hiện trong `tong_hop[].ma` lẫn `cases[].nhom`. Nên xử lý mã nhóm lạ một cách mềm (vẫn hiện ca, nhóm hiển thị theo `tong_hop[].ten`) thay vì bỏ qua cả danh sách |
+| 2026-11-07 | Giờ chốt chuyển từ 08:00 sang **07:30 (dữ liệu VN) / 07:40 (toàn bộ các nước — nguồn của API này)** | `chot_luc` có dạng `YYYY-MM-DD 07:4x:xx`. Gọi trước giờ chốt: danh sách là số tạm tính, có thể khác bản chốt. Field `mo_ta` vẫn giữ chữ "chốt 08:00" (không đổi để tránh làm hỏng đối tác so chuỗi) |
+
+API trả **tất cả các nước** (VN + ID…) trong cùng 1 danh sách, không lọc theo quốc gia.
 
 ### 11.1. Request
 
@@ -697,7 +708,7 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
   "loai": "canh-bao-ceo",
   "mo_ta": "Cảnh báo tồn cấp 2 (CEO) — chốt 08:00 hằng ngày",
   "thoi_diem_lay": "2026-10-02 10:30:40",
-  "chot_luc": "2026-10-02 08:00:03",
+  "chot_luc": "2026-10-02 07:41:05",
   "tong_hop": [
     { "ma": "ton_tren_20_ngay", "ten": "Tồn >20 ngày", "so_ca": 120 },
     { "ma": "vip_svip_tu_4_ngay", "ten": "VIP/S.VIP tồn ≥4 ngày", "so_ca": 4 },
@@ -736,10 +747,10 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
   chỉ xét ca gốc nên luôn `false`, lọc theo `con_ton` sẽ mất cả 2 nhóm. `ca_con_ton` = nghĩa cũ (ca gốc chưa hoàn
   thành, chưa huỷ, chưa lưu trữ).
 - `luong_doi_tra` (chỉ ca thuộc nhóm `luong_doi_tra_tu_10_ngay`, còn lại `null`): `con_ton` (true / false = đã kết thúc
-  hoặc ca đổi đã hoàn thành sau 08:00 / null = không lấy được hệ Theo dõi đổi máy, kèm `loi`), `trang_thai` (bước hiện
+  hoặc ca đổi đã hoàn thành sau giờ chốt / null = không lấy được hệ Theo dõi đổi máy, kèm `loi`), `trang_thai` (bước hiện
   tại: `phat_sinh` / `tiep_nhan` / `cho_duyet` / `da_duyet` / `giao_xu_ly` / `da_len_so` / `da_len_do`), `tuoi_ngay`
   (ngày từ lúc phát sinh mail), `phat_sinh_luc`, `mail_gan_nhat` (ISO UTC).
-- `da_huy` = ca đã bị Admin huỷ bỏ. Với `canh-bao-ceo`, ca đã đóng hoặc bị huỷ **sau 08:00** vẫn giữ trong `cases` (`con_ton: false`,
+- `da_huy` = ca đã bị Admin huỷ bỏ. Với `canh-bao-ceo`, ca đã đóng hoặc bị huỷ **sau giờ chốt** vẫn giữ trong `cases` (`con_ton: false`,
   ca huỷ thì `da_huy: true`) để `so_ca` luôn khớp số đã chốt ở `tong_hop`.
 - Không trả các cột doanh thu (`dt_*`).
 
@@ -751,7 +762,7 @@ curl -s "https://dvbh.dichvu3t.workers.dev/api/partner/danh-sach-ton?loai=nskx-t
 | 401 | `MISSING_API_KEY` / `INVALID_API_KEY` | như mục 4 |
 | 429 | `TOO_MANY_REQUESTS_KEY` | Quá **30 request/phút/key** |
 
-Không giới hạn số lần/ngày. Khuyến nghị: `canh-bao-ceo` kéo 1 lần sau 08:05 mỗi ngày; `nskx-ton-3-ngay` 15–60 phút/lần.
+Không giới hạn số lần/ngày. Khuyến nghị: `canh-bao-ceo` kéo 1 lần sau **07:50** mỗi ngày (vẫn có thể kéo lại sau 08:05 như cũ — cùng kết quả); `nskx-ton-3-ngay` 15–60 phút/lần.
 
 ## 12. Danh sách ca thiếu linh kiện đang tồn (`GET /api/partner/thieu-linh-kien`) — thêm 2026-10-16
 
