@@ -53,6 +53,7 @@ export const COT_LOC: Record<string, { expr: string; kieu: Kieu }> = {
   dt_dich_vu: { expr: "c.dt_dich_vu", kieu: "number" },
   ngay_mua: { expr: "c.ngay_mua", kieu: "date" },
   ngay_san_xuat: { expr: "c.ngay_san_xuat", kieu: "date" },
+  ghi_chu_loai_dv: { expr: "c.ghi_chu_loai_dv", kieu: "text" },
   last_ngay_giai_trinh: { expr: "lg.ngay_giai_trinh", kieu: "date" },
   last_noi_dung_giai_trinh: { expr: "lg.noi_dung", kieu: "text" },
   last_ma_linh_kien_thieu: { expr: "lg.linh_kien_thieu", kieu: "list" },

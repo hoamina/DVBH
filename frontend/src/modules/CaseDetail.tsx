@@ -520,6 +520,7 @@ function renderCaseFieldsGrid(
       {hien("Cách thức xử lý") && <Field label={tr("Cách thức xử lý")} value={c.cach_thuc_xu_ly ?? "—"} />}
       {hien("Sản phẩm bảo hành") && <Field label={tr("Sản phẩm bảo hành")} value={c.san_pham_bao_hanh ?? "—"} />}
       {hien("Hình thức bảo hành") && <Field label={tr("Hình thức bảo hành")} value={c.hinh_thuc_bao_hanh ?? "—"} />}
+      {c.ghi_chu_loai_dv && <Field label={tr("Ghi chú loại dịch vụ")} value={c.ghi_chu_loai_dv} />}
       {hien("Tiến độ hoàn thành") && <Field label={tr("Tiến độ hoàn thành")} value={c.tien_do_hoan_thanh ?? "—"} />}
       {hien("Lý do hủy") && <Field label={tr("Lý do hủy")} value={c.ly_do_huy ?? "—"} />}
       {hien("Lý do quá hạn") && <Field label={tr("Lý do quá hạn")} value={c.ly_do_qua_han ?? "—"} />}

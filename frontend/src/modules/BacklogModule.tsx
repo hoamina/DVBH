@@ -1794,6 +1794,7 @@ export function BacklogModule({
     textCol("loai_yeu_cau", CASE_FIELD_LABELS.loai_yeu_cau),
     { key: "muc_do", header: CASE_FIELD_LABELS.muc_do, sortKey: "muc_do", filter: "list", render: (c) => mucDoBadge(c.muc_do) ?? <span className="text-xs">—</span> },
     textCol("hinh_thuc_bao_hanh", CASE_FIELD_LABELS.hinh_thuc_bao_hanh),
+    textCol("ghi_chu_loai_dv", CASE_FIELD_LABELS.ghi_chu_loai_dv, "text"),
     textCol("tien_do_hoan_thanh", CASE_FIELD_LABELS.tien_do_hoan_thanh),
     textCol("noi_dung_xu_ly", CASE_FIELD_LABELS.noi_dung_xu_ly, "text"),
     textCol("ly_do_ton_tranh_chap_gan_nhat", CASE_FIELD_LABELS.ly_do_ton_tranh_chap_gan_nhat),
