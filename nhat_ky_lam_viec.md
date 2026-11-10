@@ -5538,3 +5538,6 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   khác xoá lọc cột cũ để danh sách khớp số vừa bấm.
 - Kiểm tra local: KORIHOME 26 → danh sách 26; tìm "binh" khớp "Bình"; "chi lan" khớp "CHỊ LAN HƯƠNG"; khoảng ngày, khoảng tuổi tồn, (Trống),
   Tỉnh Hà Nội (131), cấp tồn, nhóm chốt 08:00/CEO/Cảnh báo tồn đều 200 và đúng số; sắp xếp giảm dần qua popup.
+- (tiếp, v1.556) Theo yêu cầu *"thêm cột filter theo loại yêu cầu và nhóm yêu cầu trong mục chi tiết quản lý tồn"*: thêm "Nhóm yêu cầu" và
+  "Loại yêu cầu" vào thanh "Bộ lọc:" (lọc được cả khi 2 cột đang ẩn). Server đã có sẵn trong whitelist `COT_LOC`; tiêu đề 2 cột (khi bật qua
+  "⚙ Tùy chỉnh cột") vốn đã có nút phễu lọc/sắp xếp từ v1.555.

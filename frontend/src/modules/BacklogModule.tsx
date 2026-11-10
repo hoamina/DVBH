@@ -1590,6 +1590,8 @@ export function BacklogModule({
     { key: "doi_tac", label: tr("Đối tác"), kieu: "list" },
     { key: "nganh", label: tr("Ngành"), kieu: "list" },
     { key: "nhom_kh", label: tr("Nhóm KH"), kieu: "list" },
+    { key: "nhom_yeu_cau", label: tr("Nhóm yêu cầu"), kieu: "list" },
+    { key: "loai_yeu_cau", label: tr("Loại yêu cầu"), kieu: "list" },
     { key: "ky_thuat_vien", label: "KTV", kieu: "list" },
     { key: "tuoi_ton", label: tr("Tuổi tồn (ngày)"), kieu: "number" },
     { key: "tiep_nhan", label: tr("Ngày tiếp nhận"), kieu: "date" },
