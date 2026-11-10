@@ -5550,3 +5550,6 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   thành 1 cột "Linh kiện lỗi" = "Mã - Tên" của từng linh kiện, cách nhau "; " (chi tiết từng trường xem tab "Lỗi linh kiện").
 - `lib/exportMauTinhLuong.ts`: "Nhân viên CSKH tiếp nhận" → "KTV triển khai" = COALESCE(ktv_trien_khai, ky_thuat_vien); "KQ CS sơ bộ" →
   "Nội dung xử lý" (`noi_dung_xu_ly`). Vị trí cột giữ nguyên.
+- (tiếp, v1.558) Phiên song song đã đẩy `6fe865f` (cột "Ghi chú loại DV" từ Odoo, migration 0156) cũng đánh số v1.557; bản v1.557 của phiên này
+  deploy trước khi gộp nên production tạm thiếu thay đổi đó. Đã rebase lên `6fe865f` (không xung đột, migration 0156 đã có trên DB thật) và
+  deploy lại v1.558 gồm cả hai.
