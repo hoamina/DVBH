@@ -5553,3 +5553,18 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - (tiếp, v1.558) Phiên song song đã đẩy `6fe865f` (cột "Ghi chú loại DV" từ Odoo, migration 0156) cũng đánh số v1.557; bản v1.557 của phiên này
   deploy trước khi gộp nên production tạm thiếu thay đổi đó. Đã rebase lên `6fe865f` (không xung đột, migration 0156 đã có trên DB thật) và
   deploy lại v1.558 gồm cả hai.
+
+## 2026-11-10 — v1.560: chọn quốc gia PH — "Danh sách tổng" / danh sách chi tiết Quản lý tồn tải rất lâu dù chỉ 46 ca
+
+- Nguyên văn: *"Khi lựa chọn quốc gia PH, các "danh sách chi tiết" trong "Quản lý tồn", data "Danh sách tổng" load rất lâu trong khi data
+  thực tế chỉ có 46 ca."*
+- D1 insights (1 ngày): mọi truy vấn phạm vi PH quét ~155k dòng (toàn bảng) hoặc ~77k (toàn ca đã đóng) vì chưa có index `quoc_gia` —
+  đã xử lý bằng index một phần `idx_case_dvbh_qg_ph` (migration 0157, v1.559). Đã kiểm `EXPLAIN QUERY PLAN` trên DB thật: danh sách chi
+  tiết, bộ lọc, KPI, doanh thu, Cảnh báo tồn của PH đều `SEARCH … USING INDEX idx_case_dvbh_qg_ph`.
+- Còn lại "Danh sách tổng" (tab theo tháng, cùng cơ chế với tab "Đã đóng" của Thiếu linh kiện): file R2 "đã đóng" mỗi ngày là CHUNG mọi
+  nước (gần như toàn ca VN, vài MB/ngày). Xem PH thì trình duyệt vẫn tải cả tháng (~10 request nối tiếp, mỗi request Worker đọc + giải nén
+  3 file R2) rồi lọc ra 0–vài dòng. Sửa (`lib/daDongDayChunks.ts`, `routes/cases.ts POST /da-dong-chunks`):
+  - Manifest (`getDaDongManifest`) với nước ngoài VN chỉ giữ ngày thật sự có ca của nước đó (đếm theo ngày qua `case_hieu_luc_<nước>`,
+    index một phần) → không tải ngày rỗng. Tháng 11 PH: 46 ca trên 6 ngày.
+  - Nội dung các ngày đó đọc thẳng D1 (`getDaDongRowsTuD1`, cùng điều kiện `computeDayRows`) thay vì file R2; không trừ hạn mức tải
+    (hạn mức để bảo vệ R2). Đo trên DB thật: 46 dòng đọc, ~1 ms. VN giữ nguyên R2.

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { layKhuVucQldvbh } from "../lib/khuVucQldvbh";
-import { chonQuocGia, dbGoc } from "../lib/phamVi";
+import { bocPhamVi, chonQuocGia, dbGoc } from "../lib/phamVi";
 import { QUOC_GIA_MAC_DINH } from "../lib/quocGia";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -10,7 +10,7 @@ import { requireRole } from "../middleware/requireRole";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { ageExpr, ageFilterClause as ageFilterClauseFor } from "../lib/ageCalc";
 import { khuVucAdHocClause, REPORT_DIMS, dimAdHocClause, sharedReportFilters, QLDVBH_FILTER_VALUE, khuVucReportExclusionClause, diaGioiLoc, dimGroupExpr } from "../lib/filterParams";
-import { getDaDongManifest, getDaDongChunks, getDaDongReasons } from "../lib/daDongDayChunks";
+import { getDaDongManifest, getDaDongChunks, getDaDongReasons, getDaDongRowsTuD1 } from "../lib/daDongDayChunks";
 import { checkAndConsumeDownloadQuota } from "../lib/r2DownloadRateLimit";
 import { findExistingCaseIds, runBatched, logImportHistory } from "../lib/backfillImportProcessor";
 import { csvTemplateResponse } from "../lib/csvTemplate";
@@ -814,7 +814,10 @@ cases.post("/da-dong-chunks", async (c) => {
   // (frontend/src/lib/daDongChunkFetch.ts), client cu tu thu lai phan con lai.
   const MAX_NGAY_MOI_LAN = 5;
   for (const ngay of requested.slice(MAX_NGAY_MOI_LAN)) throttled[ngay] = { retryAfterSeconds: 1 };
-  for (const ngay of requested.slice(0, MAX_NGAY_MOI_LAN)) {
+  // Nuoc ngoai VN (2026-11-10): doc thang D1 theo index mot phan cua nuoc (vai chuc dong) thay vi file R2 chung toan ca VN
+  // -> khong doc R2, khong tru han muc tai (han muc de bao ve R2/bang thong file lon).
+  const tuD1 = qg !== null && qg !== QUOC_GIA_MAC_DINH;
+  for (const ngay of tuD1 ? [] : requested.slice(0, MAX_NGAY_MOI_LAN)) {
     // Han muc tai tinh RIENG theo nuoc dang xem (khoa "ngay|NUOC"): moi nuoc co cache trinh duyet rieng, doi nut Quoc gia
     // phai tai lai ca thang - dung chung 1 han muc thi lan doi thu 2 trong 10 phut bi chan va hien 0 dong (loi v1.505).
     const quota = await checkAndConsumeDownloadQuota(c.env.DB, user.email, qg ? `${ngay}|${qg}` : ngay);
@@ -822,7 +825,11 @@ cases.post("/da-dong-chunks", async (c) => {
     else throttled[ngay] = { retryAfterSeconds: quota.retryAfterSeconds ?? 60 };
   }
 
-  const rawChunks = allowedDates.length > 0 ? await getDaDongChunks(c.env, allowedDates) : {};
+  const rawChunks = tuD1
+    ? await getDaDongRowsTuD1(bocPhamVi(c.env.DB, { qg, pv: "tat_ca" }), requested.slice(0, MAX_NGAY_MOI_LAN))
+    : allowedDates.length > 0
+      ? await getDaDongChunks(c.env, allowedDates)
+      : {};
   // dang "cot" (v1.512): { cot, dong } thay vi mang object - bo ten 82 cot lap lai o tung ca (~40% dung luong, thang 10 ~216 MB
   // giai nen). Client cu (khong gui dang) van nhan mang object.
   const dangCot = body.dang === "cot";

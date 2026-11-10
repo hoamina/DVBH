@@ -27,6 +27,8 @@ import type { Env } from "../types";
 import { cachedReport, buildReportKey } from "./reportCache";
 import { nowVN } from "./vnTime";
 import { withD1Retry } from "./d1Retry";
+import { quocGiaCua } from "./phamVi";
+import { QUOC_GIA_MAC_DINH } from "./quocGia";
 
 interface DaDongManifestEntry {
   hash: string;
@@ -118,6 +120,28 @@ export async function getDaDongManifest(db: D1Database, start: string, end: stri
 
   const map: Record<string, DaDongManifestEntry> = {};
   for (const r of results) map[r.ngay] = { hash: r.hash, rowCount: r.row_count };
+
+  // "Đa quốc gia" (2026-11-10): file R2 moi ngay la CHUNG moi nuoc (gan nhu toan ca VN, vai MB/ngay). Xem 1 nuoc nho (PH
+  // ~46 ca) truoc day van tai + giai nen ca thang file (~10 request noi tiep) roi loc ra 0 dong -> Danh sach tong rat cham.
+  // Nuoc ngoai VN: chi giu ngay THUC SU co ca cua nuoc do (D1 qua view case_hieu_luc_<nuoc> -> index mot phan
+  // idx_case_dvbh_qg_<nuoc>, migration 0157, doc vai chuc dong) - cung dieu kien voi computeDayRows nen ngay bi bo = 0 dong
+  // cua nuoc do trong chunk. VN giu nguyen (gan nhu ngay nao cung co ca).
+  const qg = quocGiaCua(db);
+  if (qg && qg !== QUOC_GIA_MAC_DINH && results.length > 0) {
+    const { results: coCa } = await db
+      .prepare(
+        `SELECT substr(thoi_gian_hoan_thanh, 1, 10) AS ngay, COUNT(*) AS n FROM case_hieu_luc
+         WHERE thoi_gian_hoan_thanh >= ? AND thoi_gian_hoan_thanh < ? GROUP BY 1`,
+      )
+      .bind(start, end)
+      .all<{ ngay: string; n: number }>();
+    const soCa = new Map(coCa.map((r) => [r.ngay, r.n]));
+    for (const ngay of Object.keys(map)) {
+      const n = soCa.get(ngay);
+      if (n) map[ngay].rowCount = n;
+      else delete map[ngay];
+    }
+  }
   return map;
 }
 
@@ -131,6 +155,32 @@ export async function getDaDongChunks(env: Env, dates: string[]): Promise<Record
       result[ngay] = obj ? (JSON.parse(await obj.text()) as Record<string, unknown>[]) : [];
     }),
   );
+  return result;
+}
+
+/**
+ * Noi dung "ca da dong" cua 1 nuoc NGOAI VN doc thang tu D1 (2026-11-10) thay vi file R2 chung: file R2 moi ngay gan nhu
+ * toan ca VN (vai MB), xem PH (~46 ca/thang) phai tai + giai nen ca file de loc ra vai dong. D1 qua view
+ * case_hieu_luc_<nuoc> (db PHAI la DB da boc theo nuoc - bocPhamVi) -> index mot phan idx_case_dvbh_qg_<nuoc>, chi doc
+ * dung so ca cua nuoc do. Cung cau loc voi computeDayRows (case_hieu_luc, theo ngay hoan thanh) nen noi dung trung chunk.
+ */
+export async function getDaDongRowsTuD1(db: D1Database, dates: string[]): Promise<Record<string, Record<string, unknown>[]>> {
+  const result: Record<string, Record<string, unknown>[]> = {};
+  if (dates.length === 0) return result;
+  for (const ngay of dates) result[ngay] = [];
+  const sx = [...dates].sort();
+  const { results } = await db
+    .prepare(
+      `SELECT c.* FROM case_hieu_luc c
+       WHERE c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < date(?, '+1 day')
+       ORDER BY c.id ASC`,
+    )
+    .bind(sx[0], sx[sx.length - 1])
+    .all<Record<string, unknown>>();
+  for (const row of results) {
+    const ngay = String(row.thoi_gian_hoan_thanh ?? "").slice(0, 10);
+    if (result[ngay]) result[ngay].push(row);
+  }
   return result;
 }
 
