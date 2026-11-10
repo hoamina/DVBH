@@ -6,7 +6,8 @@ import type * as XLSXNS from "xlsx";
  * (= tieu de file xuat CRM) + 2 cot dia gioi moi o cuoi. Doc tu dong ca THO (truoc khi exportExcel doi nhan/them cot).
  * Quyet dinh cot khong co du lieu san:
  *  - "Kênh tiếp nhận" = tien to [..] THU 2 cua Khách hàng ("[KH] [Hotline] Anh A" -> "Hotline").
- *  - "Nhân viên CSKH tiếp nhận", "KQ CS sơ bộ", "Link video": app khong luu -> de trong.
+ *  - "Link video": app khong luu -> de trong. (2026-11-11: "Nhân viên CSKH tiếp nhận" -> "KTV triển khai" = COALESCE(ktv_trien_khai,
+ *    ky_thuat_vien); "KQ CS sơ bộ" -> "Nội dung xử lý".)
  *  - "report_photo_url": giu cot nhung de trong (ke ca Admin).
  *  - Tỉnh / Quận-huyện / Phường-xã = dia gioi CU (tinh_cu/huyen_cu/xa_cu cua Odoo, khong co thi tinh/quan_huyen; xa
  *    chi Odoo co), khong co thi trong; "Tỉnh mới" + "Phường / xã mới" (Odoo) noi CUOI file.
@@ -62,8 +63,9 @@ export const MAU_TINH_LUONG_COT: CotMau[] = [
   { tieuDe: "Phường / xã", lay: f("xa_cu") },
   { tieuDe: "Độ ưu tiên", lay: f("muc_do") },
   { tieuDe: "Kênh tiếp nhận", lay: (r) => kenhTiepNhan(r.khach_hang) },
-  { tieuDe: "Nhân viên CSKH tiếp nhận", lay: trong },
-  { tieuDe: "KQ CS sơ bộ", lay: trong },
+  // 2026-11-11 (chu he thong): thay "Nhân viên CSKH tiếp nhận" / "KQ CS sơ bộ" (app khong luu, truoc de trong).
+  { tieuDe: "KTV triển khai", lay: dauTien("ktv_trien_khai", "ky_thuat_vien") },
+  { tieuDe: "Nội dung xử lý", lay: f("noi_dung_xu_ly") },
   { tieuDe: "Link video", lay: trong },
   { tieuDe: "Hãng", lay: f("hang") },
   { tieuDe: "Sản phẩm bảo hành", lay: f("san_pham_bao_hanh") },

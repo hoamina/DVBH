@@ -5541,3 +5541,12 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - (tiếp, v1.556) Theo yêu cầu *"thêm cột filter theo loại yêu cầu và nhóm yêu cầu trong mục chi tiết quản lý tồn"*: thêm "Nhóm yêu cầu" và
   "Loại yêu cầu" vào thanh "Bộ lọc:" (lọc được cả khi 2 cột đang ẩn). Server đã có sẵn trong whitelist `COT_LOC`; tiêu đề 2 cột (khi bật qua
   "⚙ Tùy chỉnh cột") vốn đã có nút phễu lọc/sắp xếp từ v1.555.
+
+## 2026-11-11 — v1.557: file tải về không tách linh kiện lỗi nữa + đổi 2 cột "Mẫu tính lương"
+
+- Nguyên văn: *"data tải về không tách danh sách linh kiện ra nữa"*; *"mẫu data tính lương thay thế các cột sau: Nhân viên CSKH tiếp nhận =>
+  KTV triển khai, KQ CS sơ bộ => Nội dung xử lý"*.
+- `lib/exportExcel.ts tachLinhKienLoi`: bỏ 12 cột "LK lỗi N - <trường>" cho mỗi linh kiện (bản 2026-10-22); cột JSON `linh_kien_loi` giờ ghi
+  thành 1 cột "Linh kiện lỗi" = "Mã - Tên" của từng linh kiện, cách nhau "; " (chi tiết từng trường xem tab "Lỗi linh kiện").
+- `lib/exportMauTinhLuong.ts`: "Nhân viên CSKH tiếp nhận" → "KTV triển khai" = COALESCE(ktv_trien_khai, ky_thuat_vien); "KQ CS sơ bộ" →
+  "Nội dung xử lý" (`noi_dung_xu_ly`). Vị trí cột giữ nguyên.

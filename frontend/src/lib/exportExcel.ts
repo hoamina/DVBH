@@ -79,49 +79,27 @@ export async function exportRowsToExcel<T extends object>(
   XLSX.writeFile(workbook, filename);
 }
 
-// Cac truong cua 1 linh kien loi (chuoi JSON case_dvbh.linh_kien_loi, nguon Odoo - xem types.ts LinhKienLoiItem) theo
-// thu tu cot tren Excel. Nhan khop tab "Lỗi linh kiện" (components/LoiLinhKienPanel.tsx).
-const LK_LOI_COT: [keyof LinhKienLoiItem, string][] = [
-  ["ma_linh_kien", "Mã linh kiện"],
-  ["ten_linh_kien", "Tên linh kiện"],
-  ["nhom_linh_kien", "Nhóm linh kiện"],
-  ["nguon_goc_loi", "Nguồn gốc lỗi"],
-  ["hien_tuong_loi", "Hiện tượng lỗi"],
-  ["mo_ta_hien_tuong", "Mô tả hiện tượng"],
-  ["nhom_loi", "Nhóm lỗi"],
-  ["nguyen_nhan_loi", "Nguyên nhân lỗi"],
-  ["mo_ta_nguyen_nhan", "Mô tả nguyên nhân"],
-  ["cach_thuc_xu_ly", "Cách thức xử lý"],
-  ["mo_ta_cach_xu_ly", "Mô tả cách xử lý"],
-  ["ghi_chu", "Ghi chú"],
-];
-
-/** CHOT 2026-10-22: tach cot JSON "linh_kien_loi" thanh cac cot doc duoc o CUOI file - moi linh kien loi 12 cot
- * "LK lỗi N - <trường>", N = 1..(so linh kien loi nhieu nhat trong file); ca it linh kien hon de trong. Cot JSON goc
- * doi thanh "Số linh kiện lỗi" (dem). Moi dong deu co du bo cot de thu tu cot tren Excel on dinh. */
+/** 2026-11-11 (chu he thong: "data tai ve khong tach danh sach linh kien ra nua"): cot JSON "linh_kien_loi" ghi thanh 1 cot
+ * "Linh kiện lỗi" duy nhat - moi linh kien "Mã - Tên", cach nhau "; ". Thay ban 2026-10-22 tach 12 cot "LK lỗi N - <trường>" cho
+ * moi linh kien (file rat rong). Chi tiet tung truong xem tab "Lỗi linh kiện" trong chi tiet ca. */
 function tachLinhKienLoi(rows: Record<string, unknown>[]): { rows: Record<string, unknown>[]; labels: Record<string, string> } {
-  const parsed = rows.map((r) => {
-    if (typeof r.linh_kien_loi !== "string" || !r.linh_kien_loi) return [] as LinhKienLoiItem[];
-    try {
-      const arr = JSON.parse(r.linh_kien_loi);
-      return Array.isArray(arr) ? (arr as LinhKienLoiItem[]) : [];
-    } catch {
-      return [];
+  const out = rows.map((r) => {
+    let items: LinhKienLoiItem[] = [];
+    if (typeof r.linh_kien_loi === "string" && r.linh_kien_loi) {
+      try {
+        const arr = JSON.parse(r.linh_kien_loi);
+        if (Array.isArray(arr)) items = arr as LinhKienLoiItem[];
+      } catch {
+        /* JSON hong - de trong */
+      }
     }
+    const text = items
+      .map((it) => [it.ma_linh_kien, it.ten_linh_kien].filter((x) => x != null && String(x).trim() !== "").join(" - "))
+      .filter(Boolean)
+      .join("; ");
+    return { ...r, linh_kien_loi: text };
   });
-  const maxN = Math.max(0, ...parsed.map((p) => p.length));
-  const labels: Record<string, string> = { linh_kien_loi: "Số linh kiện lỗi" };
-  for (let n = 1; n <= maxN; n++) for (const [f, nhan] of LK_LOI_COT) labels[`__lk${n}_${f}`] = `LK lỗi ${n} - ${nhan}`;
-  const out = rows.map((r, i) => {
-    const items = parsed[i];
-    const o: Record<string, unknown> = { ...r, linh_kien_loi: items.length || "" };
-    for (let n = 1; n <= maxN; n++) {
-      const it = items[n - 1];
-      for (const [f] of LK_LOI_COT) o[`__lk${n}_${f}`] = it ? (it[f] ?? "") : "";
-    }
-    return o;
-  });
-  return { rows: out, labels };
+  return { rows: out, labels: { linh_kien_loi: "Linh kiện lỗi" } };
 }
 
 function laDongCa(row: Record<string, unknown> | undefined): boolean {
