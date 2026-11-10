@@ -1,4 +1,4 @@
-import { BANG_THEO_PHAM_VI, dbGoc, dieuKienPhamVi, hauToPhamVi, phamViTheoNuoc, type PhamViDb } from "./phamVi";
+import { BANG_THEO_PHAM_VI, QUOC_GIA_CO_NSKX, dbGoc, dieuKienPhamVi, hauToPhamVi, phamViTheoNuoc, type PhamViDb } from "./phamVi";
 
 /**
  * "Đa quốc gia" (SRS §12): tao view case_hieu_luc_<hau to> + ban sao cac bang so chot/cache (BANG_THEO_PHAM_VI) cho
@@ -20,6 +20,11 @@ export function lenhTaoPhamVi(s: PhamViDb, ddl: DongDdl[]): string[] {
   const ht = hauToPhamVi(s);
   if (!ht) return [];
   const lenh = [`CREATE VIEW IF NOT EXISTS case_hieu_luc_${ht} AS SELECT * FROM case_dvbh WHERE huy_bo_at IS NULL AND ${dieuKienPhamVi(s)}`];
+  // Index mot phan cho nuoc ngoai VN (migration 0157): dieu kien TRUNG KHOP dieuKienPhamVi de SQLite dung duoc, VN
+  // khong bao gio khop -> khong anh huong truy van VN. Khong co index nay moi truy van cua nuoc do quet toan bang.
+  if (s.qg && s.qg !== QUOC_GIA_CO_NSKX && s.pv === "tat_ca") {
+    lenh.push(`CREATE INDEX IF NOT EXISTS idx_case_dvbh_qg_${s.qg.toLowerCase()} ON case_dvbh(quoc_gia, thoi_gian_hoan_thanh) WHERE ${dieuKienPhamVi(s)}`);
+  }
   for (const d of ddl.filter((x) => x.type === "table")) {
     lenh.push(d.sql.replace(/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["`]?\w+["`]?/i, `CREATE TABLE IF NOT EXISTS ${d.name}_${ht}`));
   }
