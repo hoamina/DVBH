@@ -10,7 +10,7 @@ import { mucDoBadge } from "../components/ui/MucDoBadge";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
-import { MultiSelectFilter } from "../components/MultiSelectFilter";
+import { LocCotPopover, locCotDangBat, tomTatLoc, GIA_TRI_TRONG, type GiaTriLoc, type KieuLocCot, type LocCot } from "../components/ui/LocCotPopover";
 import { StatCard } from "../components/ui/StatCard";
 import { HeroStat } from "../components/ui/HeroStat";
 import { Pill } from "../components/ui/Pill";
@@ -34,7 +34,7 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
-import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen, tachNhomDiaGioi, nhanTinh, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
+import { useDiaGioiIndex, useDiaGioiLoc, gopBangTheoTinh, soSanhTen, tachNhomDiaGioi, nhanTinh, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
 
 
@@ -1093,11 +1093,17 @@ export function BacklogModule({
   const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:backlog-khu-vuc", "");
   // CHOT 2026-08-01: rieng KTV duoc them LAI nhung CHI cho tab "Danh sach chi tiet" (khong dua vao
   // sharedFilterParams - khong anh huong isDefaultBacklogFilter/isFrozenEligible cua khoi Bao cao).
-  const [ktvFilter, setKtvFilter] = useState("");
+  // 2026-11-10: loc kieu Excel tren tieu de cot + thanh "Bộ lọc" (thay cho 2 o KTV / Nhom KH cu) - gui len server qua "loc_cot"
+  // (backend lib/locCot.ts). Khong luu localStorage: bam the so / o bao cao se dat lai cho khop con so vua bam.
+  const [locCot, setLocCotState] = useState<Record<string, LocCot>>({});
+  const setLocCot = (next: Record<string, LocCot>) => {
+    setLocCotState(next);
+    setPage(1);
+  };
+  const diaGioiLoc = useDiaGioiLoc();
   // Nhom KH - them cung nguyen tac voi KTV o tren (rieng cho "Danh sach chi tiet", khong vao
   // sharedFilterParams). Backend /api/cases da doc san query "nhom_kh" qua sharedReportFilters()
   // (REPORT_DIMS co san nhom_kh) nen chi can gui them tham so, khong can sua backend.
-  const [nhomKhFilter, setNhomKhFilter] = useState("");
   const pageSize = 10;
 
   const sharedFilterParams = { khu_vuc: khuVucFilter };
@@ -1410,6 +1416,22 @@ export function BacklogModule({
           ...exportKhuVucRowsBody,
         ];
 
+  // Tinh: popup chon ten tinh (theo che do Dia gioi cu/moi) -> dich sang dg_loc tho cho server. null = chua san sang.
+  const locCotGui: string | undefined | null = (() => {
+    const out: Record<string, unknown> = {};
+    for (const [k, f] of Object.entries(locCot)) {
+      if (!locCotDangBat(f)) continue;
+      if (k === "tinh") {
+        const ten = (f.in ?? []).filter((v) => v !== GIA_TRI_TRONG);
+        const dg = diaGioiLoc.buildDgLoc(ten);
+        if (dg === null) return null;
+        if (dg) out.tinh = { dg };
+        continue;
+      }
+      out[k] = f;
+    }
+    return Object.keys(out).length ? JSON.stringify(out) : undefined;
+  })();
   const listParams = {
     tab: dsTab,
     category: dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton" ? dsCategory : undefined,
@@ -1424,14 +1446,27 @@ export function BacklogModule({
     snapshot_0800:
       (listFromSnapshot0800 || nhomKey === "can-giai-trinh:ceo") && (dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton") ? true : undefined,
     ...sharedFilterParams,
-    ky_thuat_vien: dsTab !== "da-dong" ? ktvFilter || undefined : undefined,
-    nhom_kh: dsTab !== "da-dong" ? nhomKhFilter || undefined : undefined,
+    loc_cot: locCotGui === undefined ? undefined : locCotGui ?? undefined,
   };
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["backlog-list", listParams],
-    queryFn: () => api.get<Paged<CaseRow>>(`/cases${buildQuery(listParams)}`),
-    enabled: view === "danh-sach" && dsTab !== "da-dong",
+    queryFn: () => api.get<Paged<CaseRow> & { total_chua_loc?: number }>(`/cases${buildQuery(listParams)}`),
+    // locCotGui === null: dang cho bang quy doi dia gioi de dich loc Tinh -> tam hoan.
+    enabled: view === "danh-sach" && dsTab !== "da-dong" && locCotGui !== null,
   });
+  // Danh sach gia tri (+ so ca) cua 1 cot cho popup loc - ap moi bo loc KHAC cot do (backend bo qua chinh cot do).
+  async function layGiaTriCot(cot: string): Promise<GiaTriLoc[]> {
+    const { rows } = await api.get<{ rows: (GiaTriLoc & { tinh?: string | null; tinh_moi?: string | null })[] }>(
+      `/cases${buildQuery({ ...listParams, page: undefined, pageSize: undefined, gia_tri_cot: cot })}`,
+    );
+    if (cot !== "tinh") return rows;
+    const gom = new Map<string, number>();
+    for (const r of rows) {
+      const ten = dgIdx.tinh(dgMode, { tinh: r.tinh ?? null, tinh_moi: r.tinh_moi ?? null }) || GIA_TRI_TRONG;
+      gom.set(ten, (gom.get(ten) ?? 0) + r.n);
+    }
+    return [...gom.entries()].map(([v, n]) => ({ v, n }));
+  }
 
   function goToDanhSach(nhom: string, tuoiTu?: string) {
     setNhomKey(nhom);
@@ -1444,6 +1479,7 @@ export function BacklogModule({
     );
     setDsTuoiTu(tuoiTu ?? "");
     setIdSearch("");
+    setLocCotState({});
     setPage(1);
     setView("danh-sach");
   }
@@ -1451,11 +1487,18 @@ export function BacklogModule({
   // Drill-down tu 1 dong bang pivot: gan gia tri dong do vao dung bo loc chung ung voi cot dang
   // nhom (vd dang nhom theo "tinh" -> bam dong "Ha Noi" se set bo loc Tinh = "Ha Noi"), roi chuyen
   // sang Danh sach chi tiet voi nhom/tuoi tuong ung.
-  function drillDown(value: string, nhom: string, tuoiTu?: string) {
-    if (reportDim === "khu_vuc") {
+  // 2026-11-10: dim khac khu vuc (Tinh/Doi tac/Hang/Model/Nhom KH/Nganh) truoc day KHONG loc gi -> danh sach ra ca toan bo, khong khop
+  // so vua bam. Gio dat loc cot cung dim (value null = dong "Tong cong" -> khong loc dim). Bang theo dim khac khu vuc la so TINH SONG
+  // nen danh sach cung doc song (khong doc tap ID chot 08:00).
+  function drillDown(value: string | null, nhom: string, tuoiTu?: string) {
+    if (reportDim === "khu_vuc" && value !== null) {
       setKhuVucFilter(value);
     }
     goToDanhSach(nhom, tuoiTu);
+    if (reportDim !== "khu_vuc") {
+      setListFromSnapshot0800(false);
+      if (value !== null) setLocCotState({ [reportDim]: { in: [value === "" ? GIA_TRI_TRONG : value] } });
+    }
   }
 
   // Nhan cot khop dung voi cot hien tren PaginatedTable ben duoi (mang "columns") - "tiep_nhan"/
@@ -1539,11 +1582,32 @@ export function BacklogModule({
     return "giai-trinh";
   }
 
+  // Thanh "Bộ lọc" tren bang - gom ca cac cot dang AN (Tinh, Model, Hang...) de loc khong can bat cot. Cung gia tri voi loc tren tieu de.
+  const LOC_NHANH: { key: string; label: string; kieu: KieuLocCot; nhanGiaTri?: (v: string) => string }[] = [
+    { key: "tinh", label: NHAN_CAP_1[dgMode], kieu: "list" },
+    { key: "nhom_san_pham", label: "Model", kieu: "list" },
+    { key: "hang", label: tr("Hãng"), kieu: "list" },
+    { key: "doi_tac", label: tr("Đối tác"), kieu: "list" },
+    { key: "nganh", label: tr("Ngành"), kieu: "list" },
+    { key: "nhom_kh", label: tr("Nhóm KH"), kieu: "list" },
+    { key: "ky_thuat_vien", label: "KTV", kieu: "list" },
+    { key: "tuoi_ton", label: tr("Tuổi tồn (ngày)"), kieu: "number" },
+    { key: "tiep_nhan", label: tr("Ngày tiếp nhận"), kieu: "date" },
+    {
+      key: "cap_ton",
+      label: tr("Cấp tồn"),
+      kieu: "list",
+      nhanGiaTri: (v) => (v === "cap2" ? tr("Cấp 2 — CEO") : v === "cap1" ? tr("Cấp 1 — TBP/TP DVBH") : v),
+    },
+    { key: "nhom_ton", label: tr("Nhóm tồn"), kieu: "list", nhanGiaTri: (v) => NHOM_TON_BADGES.find((b) => b.key === v)?.label ?? v },
+  ];
+
   const columns: Column<CaseRow>[] = [
     {
       key: "id",
       header: "ID",
       sortKey: "id",
+      filter: "text",
       // Ca huy bo sau 08:00 van nam trong danh sach Canh bao ton da chot (khop so) - gan nhan de nguoi giai trinh biet
       render: (c) => (
         <span className="inline-flex items-center gap-1.5">
@@ -1560,6 +1624,7 @@ export function BacklogModule({
       key: "khach_hang",
       header: tr("Khách hàng"),
       sortKey: "khach_hang",
+      filter: "text",
       render: (c) => (
         <>
           {isVipKh(c.nhom_kh) && <VipBadge />}
@@ -1571,6 +1636,7 @@ export function BacklogModule({
       key: "ky_thuat_vien",
       header: tr("Trạm / KTV triển khai"),
       sortKey: "ky_thuat_vien",
+      filter: "list",
       render: (c) => (
         <span className="text-xs">
           {c.ky_thuat_vien ?? "—"}
@@ -1582,18 +1648,22 @@ export function BacklogModule({
         </span>
       ),
     },
-    { key: "tiep_nhan", header: tr("Tiếp nhận"), sortKey: "thoi_gian_cskh_tiep_nhan", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
-    { key: "du_kien", header: tr("Dự kiến HT"), sortKey: "last_ngay_du_kien_hoan_thanh", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
+    { key: "tiep_nhan", header: tr("Tiếp nhận"), sortKey: "thoi_gian_cskh_tiep_nhan", filter: "date", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_cskh_tiep_nhan)}</span> },
+    { key: "du_kien", header: tr("Dự kiến HT"), sortKey: "last_ngay_du_kien_hoan_thanh", filter: "date", render: (c) => <span className="text-xs">{fmtDateTime(c.last_ngay_du_kien_hoan_thanh)}</span> },
     {
       key: "ly_do",
       header: tr("Lý do tồn gần nhất"),
       sortKey: "last_ly_do_cham",
+      filter: "list",
+      filterValueLabel: (v) => (v === GIA_TRI_TRONG ? tr("Chưa giải trình") : (dl(v) ?? v)),
       render: (c) => (c.last_ly_do_cham ? <Badge tone="ocean">{dl(c.last_ly_do_cham)}</Badge> : <span className="text-[var(--ink-400)] text-xs italic">{tr("Chưa giải trình")}</span>),
     },
     {
       key: "last_tranh_chap_trang_thai",
       header: tr("Tiến độ TC"),
       sortKey: "last_tranh_chap_trang_thai",
+      filter: "list",
+      filterValueLabel: (v) => (v === "Chua xu ly" ? tr("Không tranh chấp") : (TRANG_THAI_LABELS[v] ?? v)),
       render: (c) =>
         c.last_tranh_chap_trang_thai && c.last_tranh_chap_trang_thai !== "Chua xu ly" ? (
           <div className="space-y-0.5">
@@ -1608,6 +1678,7 @@ export function BacklogModule({
       key: "tranh_chap_so_ngay_ton",
       header: tr("Tuổi TC"),
       sortKey: "tranh_chap_so_ngay_ton",
+      filter: "number",
       render: (c) =>
         c.tranh_chap_so_ngay_ton != null ? (
           <Pill tone={c.tranh_chap_so_ngay_ton > 5 ? "coral" : c.tranh_chap_so_ngay_ton > 3 ? "amber" : "gray"}>{c.tranh_chap_so_ngay_ton}  {tr("ngày")}</Pill>
@@ -1618,6 +1689,8 @@ export function BacklogModule({
     {
       key: "nhom_ton",
       header: tr("Nhóm tồn"),
+      filter: "list",
+      filterValueLabel: (v) => NHOM_TON_BADGES.find((b) => b.key === v)?.label ?? v,
       render: (c) => {
         const active = NHOM_TON_BADGES.filter((b) => c[b.key]);
         return active.length > 0 ? (
@@ -1637,6 +1710,7 @@ export function BacklogModule({
       key: "tuoi_ton",
       header: tr("Tuổi tồn"),
       sortKey: "tuoi_ton",
+      filter: "number",
       render: (c) =>
         c.tuoi_ton != null ? (
           <Pill tone={c.tuoi_ton > 14 ? "coral" : c.tuoi_ton > 3 ? "amber" : "gray"}>{c.tuoi_ton}  {tr("ngày")}</Pill>
@@ -1644,27 +1718,34 @@ export function BacklogModule({
           <span className="text-[var(--ink-400)] text-xs">—</span>
         ),
     },
-    { key: "khu_vuc", header: tr("Khu vực"), sortKey: "khu_vuc", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "khu_vuc", header: tr("Khu vực"), sortKey: "khu_vuc", filter: "list", filterValueLabel: (v) => (v === GIA_TRI_TRONG ? tr("(Trống)") : shortKhuVuc(v)), render: (c) => shortKhuVuc(c.khu_vuc) },
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">{tr("Xem / giải trình →")}</span> },
   ];
 
   // Cot bo sung cho bang "Danh sach chi tiet" - AN mac dinh, nguoi dung tu bat qua nut "⚙" canh cot
   // ID (xem PaginatedTable.tsx storageKey/optionalColumns). Nhan lay tu CASE_FIELD_LABELS (dung 1
   // nguon nhan tieng Viet voi Excel export) de khong lech chu voi cho khac trong app.
-  const textCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
+  const textCol = (key: keyof CaseRow, header: string, filter: KieuLocCot = "list"): Column<CaseRow> => ({
     key,
     header,
+    sortKey: key,
+    filter,
+    filterValueLabel: (v) => (v === GIA_TRI_TRONG ? tr("(Trống)") : (dl(v) ?? v)),
     // dl(): gia tri trung lua chon Cai dat (loai yeu cau, ly do ton tranh chap...) hien ban dich theo ngon ngu (Q3).
     render: (c) => <span className="text-xs">{dl((c[key] as unknown as string | null)) ?? "—"}</span>,
   });
   const dateCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
     key,
     header,
+    sortKey: key,
+    filter: "date",
     render: (c) => <span className="text-xs">{fmtDateTime(c[key] as unknown as string | null)}</span>,
   });
   const moneyCol = (key: keyof CaseRow, header: string): Column<CaseRow> => ({
     key,
     header,
+    sortKey: key,
+    filter: "number",
     render: (c) => <span className="text-xs font-mono">{fmtVND(c[key] as unknown as number | null)}</span>,
   });
   // "SL don mua"/"SL don bao hanh" - dung LAI matchMuaHang/matchBaoHanh (lib/purchaseWarrantyMatch.ts,
@@ -1695,24 +1776,24 @@ export function BacklogModule({
     return bucket?.label ?? "—";
   }
   const optionalCaseColumns: Column<CaseRow>[] = [
-    textCol("seri_san_pham", CASE_FIELD_LABELS.seri_san_pham),
+    textCol("seri_san_pham", CASE_FIELD_LABELS.seri_san_pham, "text"),
     // Tinh / cap 2 theo che do "Dia gioi cu / moi" (2026-10-10): cu = tinh + quan/huyen, moi = tinh moi (ca cu quy doi
     // theo bang) + xa/phuong moi.
-    { key: "tinh", header: NHAN_CAP_1[dgMode], render: (c) => <span className="text-xs">{dgIdx.tinh(dgMode, c) || "—"}</span> },
+    { key: "tinh", header: NHAN_CAP_1[dgMode], filter: "list", render: (c) => <span className="text-xs">{dgIdx.tinh(dgMode, c) || "—"}</span> },
     { key: "quan_huyen", header: NHAN_CAP_2[dgMode], render: (c) => <span className="text-xs">{(dgMode === "moi" ? c.xa_moi : c.quan_huyen) || "—"}</span> },
     textCol("hang", CASE_FIELD_LABELS.hang),
     textCol("nhom_san_pham", CASE_FIELD_LABELS.nhom_san_pham),
     textCol("nganh", CASE_FIELD_LABELS.nganh),
     textCol("doi_tac", CASE_FIELD_LABELS.doi_tac),
     textCol("nhom_kh", CASE_FIELD_LABELS.nhom_kh),
-    textCol("mo_ta_loi", CASE_FIELD_LABELS.mo_ta_loi),
+    textCol("mo_ta_loi", CASE_FIELD_LABELS.mo_ta_loi, "text"),
     dateCol("thoi_gian_hen_xu_ly", CASE_FIELD_LABELS.thoi_gian_hen_xu_ly),
     textCol("nhom_yeu_cau", CASE_FIELD_LABELS.nhom_yeu_cau),
     textCol("loai_yeu_cau", CASE_FIELD_LABELS.loai_yeu_cau),
-    { key: "muc_do", header: CASE_FIELD_LABELS.muc_do, render: (c) => mucDoBadge(c.muc_do) ?? <span className="text-xs">—</span> },
+    { key: "muc_do", header: CASE_FIELD_LABELS.muc_do, sortKey: "muc_do", filter: "list", render: (c) => mucDoBadge(c.muc_do) ?? <span className="text-xs">—</span> },
     textCol("hinh_thuc_bao_hanh", CASE_FIELD_LABELS.hinh_thuc_bao_hanh),
     textCol("tien_do_hoan_thanh", CASE_FIELD_LABELS.tien_do_hoan_thanh),
-    textCol("noi_dung_xu_ly", CASE_FIELD_LABELS.noi_dung_xu_ly),
+    textCol("noi_dung_xu_ly", CASE_FIELD_LABELS.noi_dung_xu_ly, "text"),
     textCol("ly_do_ton_tranh_chap_gan_nhat", CASE_FIELD_LABELS.ly_do_ton_tranh_chap_gan_nhat),
     moneyCol("dt_san_pham", CASE_FIELD_LABELS.dt_san_pham),
     moneyCol("dt_linh_kien", CASE_FIELD_LABELS.dt_linh_kien),
@@ -1720,7 +1801,7 @@ export function BacklogModule({
     dateCol("ngay_mua", CASE_FIELD_LABELS.ngay_mua),
     dateCol("ngay_san_xuat", CASE_FIELD_LABELS.ngay_san_xuat),
     dateCol("last_ngay_giai_trinh", CASE_FIELD_LABELS.last_ngay_giai_trinh),
-    textCol("last_noi_dung_giai_trinh", CASE_FIELD_LABELS.last_noi_dung_giai_trinh),
+    textCol("last_noi_dung_giai_trinh", CASE_FIELD_LABELS.last_noi_dung_giai_trinh, "text"),
     {
       key: "khoang_ton",
       header: tr("Khoảng tồn"),
@@ -2081,43 +2162,62 @@ export function BacklogModule({
                   {displayKhuVucRows.length > 0 && (
                     <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
                       <td className="py-2 px-2 sticky left-0 bg-slate-50 z-10 text-left">{tr("Tổng cộng")}</td>
-                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tong_ton}</td>
-                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_3}</td>
-                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_5}</td>
-                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_7}</td>
-                      <td className="py-2 px-2 text-center font-mono">{khuVucTotal.tren_14}</td>
+                      {/* 2026-11-10: dong Tong cong cung bam duoc (danh sach theo bo loc khu vuc dang chon, khong loc dim). */}
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={khuVucTotal.tong_ton > 0 ? "indigo" : "gray"} onClick={() => drillDown(null, "ton-hien-tai", "1")}>{khuVucTotal.tong_ton}</Pill>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={khuVucTotal.tren_3 > 0 ? "amber" : "gray"} onClick={() => drillDown(null, "ton-hien-tai", "3")}>{khuVucTotal.tren_3}</Pill>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={khuVucTotal.tren_5 > 0 ? "amber" : "gray"} onClick={() => drillDown(null, "ton-hien-tai", "5")}>{khuVucTotal.tren_5}</Pill>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={khuVucTotal.tren_7 > 0 ? "amber" : "gray"} onClick={() => drillDown(null, "ton-hien-tai", "7")}>{khuVucTotal.tren_7}</Pill>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <Pill tone={khuVucTotal.tren_14 > 0 ? "coral" : "gray"} onClick={() => drillDown(null, "ton-hien-tai", "14")}>{khuVucTotal.tren_14}</Pill>
+                      </td>
                       <td className="py-2 px-2 border-l border-[var(--line)] text-center font-mono">{khuVucTotal.da_giai_trinh}</td>
                       <td className="py-2 px-2 border-l border-[var(--line)] text-center">
-                        <NumCell value={khuVucTotal.can_giai_trinh_tong} bold />
+                        <NumCell value={khuVucTotal.can_giai_trinh_tong} bold onClick={showDailyCols ? undefined : () => drillDown(null, "can-giai-trinh:tong")} />
                       </td>
                       {showDailyCols && (
                         <>
                           <td className="py-2 px-2 text-center font-mono">{pct(khuVucTotal.da_giai_trinh, khuVucTotal.can_giai_trinh_tong)}%</td>
-                          <td className="py-2 px-2 border-l border-[var(--line)] text-center bg-amber-50/70 font-mono text-amber-800 font-bold">{khuVucTotal.trongNgayBaseline}</td>
+                          <td className="py-2 px-2 border-l border-[var(--line)] text-center bg-amber-50/70 font-mono text-amber-800 font-bold">
+                            {khuVucTotal.trongNgayBaseline > 0 ? (
+                              <button className="text-amber-700 hover:underline font-bold" onClick={() => drillDown(null, "can-giai-trinh:tong")}>
+                                {khuVucTotal.trongNgayBaseline}
+                              </button>
+                            ) : (
+                              khuVucTotal.trongNgayBaseline
+                            )}
+                          </td>
                           <td className="py-2 px-2 text-center font-mono">{khuVucTotal.trongNgayResolved}</td>
                           <td className="py-2 px-2 text-center font-mono">{pct(khuVucTotal.trongNgayResolved, khuVucTotal.trongNgayBaseline)}%</td>
                         </>
                       )}
                       <td className="py-2 px-2 text-center">
-                        <NumCell value={khuVucTotal.lo_ke_hoach} />
+                        <NumCell value={khuVucTotal.lo_ke_hoach} onClick={() => drillDown(null, "can-giai-trinh:lo_ke_hoach")} />
                       </td>
                       <td className="py-2 px-2 text-center">
-                        <NumCell value={khuVucTotal.cho_giai_trinh_lai} />
+                        <NumCell value={khuVucTotal.cho_giai_trinh_lai} onClick={() => drillDown(null, "can-giai-trinh:tai_giai_trinh")} />
                       </td>
                       <td className="py-2 px-2 text-center">
-                        <NumCell value={khuVucTotal.dmx_chua_gt_3_ngay} />
+                        <NumCell value={khuVucTotal.dmx_chua_gt_3_ngay} onClick={() => drillDown(null, "can-giai-trinh:dmx_chua_gt_3_ngay")} />
                       </td>
                       <td className="py-2 px-2 text-center">
-                        <NumCell value={khuVucTotal.chua_gt_5_ngay} />
+                        <NumCell value={khuVucTotal.chua_gt_5_ngay} onClick={() => drillDown(null, "can-giai-trinh:chua_gt_5_ngay")} />
                       </td>
                       <td className="py-2 px-2 text-center">
-                        <NumCell value={khuVucTotal.dieu_hoa_1_ngay} />
+                        <NumCell value={khuVucTotal.dieu_hoa_1_ngay} onClick={() => drillDown(null, "can-giai-trinh:dieu_hoa")} />
                       </td>
                       <td className="py-2 px-2 text-center">
-                        <NumCell value={khuVucTotal.b2b_1_ngay} />
+                        <NumCell value={khuVucTotal.b2b_1_ngay} onClick={() => drillDown(null, "can-giai-trinh:b2b")} />
                       </td>
                       <td className="py-2 px-2 text-center">
-                        <NumCell value={khuVucTotal.nskx_2_ngay} />
+                        <NumCell value={khuVucTotal.nskx_2_ngay} onClick={() => drillDown(null, "can-giai-trinh:nskx")} />
                       </td>
                       <td className="py-2 px-2 text-center font-mono">{khuVucTotal.thieu_linh_kien}</td>
                     </tr>
@@ -2464,27 +2564,6 @@ export function BacklogModule({
               />
             )}
             {dsTab !== "da-dong" && (
-              <Select
-                value={ktvFilter}
-                onChange={(v) => {
-                  setKtvFilter(v);
-                  setPage(1);
-                }}
-                options={[{ value: "", label: tr("Tất cả KTV") }, ...(filtersData?.kyThuatVien.map((k) => ({ value: k, label: k })) ?? [])]}
-              />
-            )}
-            {dsTab !== "da-dong" && (
-              <MultiSelectFilter
-                label={tr("Nhóm KH")}
-                value={nhomKhFilter}
-                onChange={(v) => {
-                  setNhomKhFilter(v);
-                  setPage(1);
-                }}
-                options={filtersData?.nhomKh ?? []}
-              />
-            )}
-            {dsTab !== "da-dong" && (
               <input
                 type="text"
                 value={idSearch}
@@ -2504,6 +2583,51 @@ export function BacklogModule({
               </div>
             )}
           </div>
+          {dsTab !== "da-dong" && (
+            <div className="flex items-center gap-1.5 flex-wrap mb-2 text-xs">
+              <span className="font-semibold text-[var(--ink-400)] mr-0.5">{tr("Bộ lọc:")}</span>
+              {LOC_NHANH.map((lc) => {
+                const f = locCot[lc.key];
+                const nhan = lc.nhanGiaTri ?? ((v: string) => (v === GIA_TRI_TRONG ? tr("(Trống)") : (dl(v) ?? v)));
+                return (
+                  <LocCotPopover
+                    key={lc.key}
+                    kieu={lc.kieu}
+                    tieuDe={lc.label}
+                    value={f}
+                    onChange={(v) => {
+                      const next = { ...locCot };
+                      if (v) next[lc.key] = v;
+                      else delete next[lc.key];
+                      setLocCot(next);
+                    }}
+                    layGiaTri={lc.kieu === "list" ? () => layGiaTriCot(lc.key) : undefined}
+                    nhanGiaTri={nhan}
+                    nut={({ dangBat, mo, ref }) => (
+                      <button
+                        ref={ref}
+                        type="button"
+                        onClick={mo}
+                        className={`focus-ring inline-flex items-center gap-1 rounded-full border px-2.5 py-1 transition-colors ${
+                          dangBat
+                            ? "border-[var(--ocean-500)] bg-[var(--ocean-100)] text-[var(--ocean-700)] font-semibold"
+                            : "border-[var(--line)] bg-[var(--surface)] text-[var(--ink-600)] hover:border-[var(--ocean-400)]"
+                        }`}
+                      >
+                        {lc.label}
+                        {dangBat ? <span className="font-normal">: {tomTatLoc(f, nhan, lc.kieu)}</span> : <span className="opacity-50">▾</span>}
+                      </button>
+                    )}
+                  />
+                );
+              })}
+              {Object.values(locCot).some(locCotDangBat) && (
+                <button type="button" onClick={() => setLocCot({})} className="ml-1 text-[var(--coral-600)] hover:underline">
+                  {tr("✕ Xóa tất cả lọc")}
+                </button>
+              )}
+            </div>
+          )}
           {dsTab === "da-dong" ? (
             <DaDongMonthList columns={closedColumns} khuVucFilter={khuVucFilter} onRowClick={(c) => openCase(c.id, preferredCaseTab(c))} />
           ) : (
@@ -2529,6 +2653,10 @@ export function BacklogModule({
                 setPage(1);
               }}
               storageKey="backlog-list"
+              colFilters={locCot}
+              onColFiltersChange={setLocCot}
+              loadFilterValues={layGiaTriCot}
+              totalUnfiltered={data?.total_chua_loc}
               optionalColumns={optionalCaseColumns}
               defaultVisibleOptionalKeys={["sl_don_mua", "sl_don_bao_hanh", "ly_do_ton_tranh_chap_gan_nhat"]}
             />

@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 import { Card } from "./Card";
 import { Btn } from "./Btn";
 import { LoadingInline } from "./LoadingInline";
+import { LocCotPopover, locCotDangBat, type GiaTriLoc, type KieuLocCot, type LocCot } from "./LocCotPopover";
+import { tr } from "../../i18n/tr";
 
 export interface Column<T> {
   key: string;
@@ -12,6 +14,10 @@ export interface Column<T> {
   className?: string;
   /** Neu co, header cot nay co the bam de sap xep (xem sortBy/sortDir/onSortChange o PaginatedTableProps). */
   sortKey?: string;
+  /** Loc kieu Excel tren tieu de (2026-11-10) - can them colFilters/onColFiltersChange (+ loadFilterValues cho kieu "list"). */
+  filter?: KieuLocCot;
+  /** Nhan hien thi cua 1 gia tri trong popup loc (vd rut gon khu vuc, dich trang thai). */
+  filterValueLabel?: (v: string) => string;
 }
 
 const MIN_COL_WIDTH = 60;
@@ -105,6 +111,12 @@ interface PaginatedTableProps<T> {
    * localStorage o day, chi doi noi RENDER. Bo qua prop nay (hoac node con null luc render dau,
    * truoc khi ref gan xong) se giu nguyen vi tri cu trong header. */
   columnSettingsContainer?: HTMLElement | null;
+  /** Loc kieu Excel tren tieu de cot (bang phan trang phia server -> trang goi gui colFilters len server). */
+  colFilters?: Record<string, LocCot>;
+  onColFiltersChange?: (next: Record<string, LocCot>) => void;
+  loadFilterValues?: (colKey: string) => Promise<GiaTriLoc[]>;
+  /** Tong so dong khi CHUA ap loc cot (de hien "x / tong"). */
+  totalUnfiltered?: number;
 }
 
 export function PaginatedTable<T>({
@@ -128,7 +140,19 @@ export function PaginatedTable<T>({
   onSortChange,
   storageKey,
   columnSettingsContainer,
+  colFilters,
+  onColFiltersChange,
+  loadFilterValues,
+  totalUnfiltered,
 }: PaginatedTableProps<T>) {
+  const soCotDangLoc = Object.values(colFilters ?? {}).filter(locCotDangBat).length;
+  const datLocCot = (key: string, v: LocCot | undefined) => {
+    if (!onColFiltersChange) return;
+    const next = { ...(colFilters ?? {}) };
+    if (v) next[key] = v;
+    else delete next[key];
+    onColFiltersChange(next);
+  };
   const { t } = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColWidths(storageKey));
@@ -327,7 +351,55 @@ export function PaginatedTable<T>({
                   >
                     <span className="inline-flex items-center gap-1">
                       {col.header}
-                      {isActive && <span>{sortDir === "asc" ? "▲" : "▼"}</span>}
+                      {isActive ? (
+                        <span className="text-[var(--ocean-600)]">{sortDir === "asc" ? "▲" : "▼"}</span>
+                      ) : (
+                        sortable && <span className="opacity-30" aria-hidden="true">↕</span>
+                      )}
+                      {col.filter && onColFiltersChange && (
+                        <LocCotPopover
+                          kieu={col.filter}
+                          tieuDe={col.header}
+                          value={colFilters?.[col.key]}
+                          onChange={(v) => datLocCot(col.key, v)}
+                          layGiaTri={loadFilterValues ? () => loadFilterValues(col.key) : undefined}
+                          nhanGiaTri={col.filterValueLabel}
+                          sapXep={
+                            sortable
+                              ? { dangChon: isActive ? (sortDir ?? "asc") : null, onChon: (d) => onSortChange!(col.sortKey!, d) }
+                              : undefined
+                          }
+                          nut={({ dangBat, mo, ref }) => (
+                            <span className="inline-flex items-center" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                              <button
+                                ref={ref}
+                                type="button"
+                                draggable={false}
+                                onClick={mo}
+                                title={dangBat ? tr("Đang lọc cột này — bấm để sửa") : tr("Lọc / sắp xếp cột này")}
+                                className={`focus-ring ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-[11px] leading-none ${
+                                  dangBat ? "bg-[var(--ocean-500)] text-white" : "text-[var(--ink-400)] hover:bg-slate-200 hover:text-[var(--ink-700)]"
+                                }`}
+                              >
+                                <svg viewBox="0 0 16 16" className="h-3 w-3" fill="currentColor" aria-hidden="true">
+                                  <path d="M1.5 2h13l-5 6.2V13l-3 1.5V8.2z" />
+                                </svg>
+                              </button>
+                              {dangBat && (
+                                <button
+                                  type="button"
+                                  draggable={false}
+                                  onClick={() => datLocCot(col.key, undefined)}
+                                  title={tr("Xóa lọc cột này")}
+                                  className="ml-0.5 text-[11px] text-[var(--coral-600)] hover:text-[var(--coral-500)]"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </span>
+                          )}
+                        />
+                      )}
                     </span>
                     {isPinned && storageKey && !columnSettingsContainer && (
                       // CHOT 2026-08-13: nut "⚙" truoc qua nho/mo nhat (chi 1 ky tu mau xam), nhieu
@@ -427,7 +499,18 @@ export function PaginatedTable<T>({
         </table>
       </div>
       <div className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--line)] text-xs text-[var(--ink-400)]">
-        <span>{t("common.rows", { count: total })}</span>
+        {soCotDangLoc > 0 ? (
+          <span className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-[var(--ocean-600)]">
+              {totalUnfiltered !== undefined ? tr("{0} / {1} dòng (đang lọc {2} cột)", total, totalUnfiltered, soCotDangLoc) : tr("{0} dòng (đang lọc {1} cột)", total, soCotDangLoc)}
+            </span>
+            <button type="button" onClick={() => onColFiltersChange?.({})} className="text-[var(--coral-600)] hover:underline">
+              {tr("✕ Xóa tất cả lọc cột")}
+            </button>
+          </span>
+        ) : (
+          <span>{t("common.rows", { count: total })}</span>
+        )}
         <div className="flex gap-1">
           <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
             ‹

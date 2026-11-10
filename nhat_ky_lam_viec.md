@@ -5515,3 +5515,26 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   kèm câu lỗi của server + nút "Thử lại". Gắn vào `DashboardModule` (man-tong-quat + pivot lọc tỉnh) và `RevenueModule` (5 query).
 - Kiểm tra trên dev local (giả lập trễ 12–15 s và lỗi 500 bằng cách bọc `fetch` trong trình duyệt): cả 3 trạng thái hiện đúng, "Thử lại"
   tải lại được. Thêm bản dịch EN/ID.
+
+## 2026-11-10 — v1.555: Quản lý tồn › Danh sách chi tiết lọc/sắp xếp kiểu Excel + bấm số ở "Báo cáo tồn theo" ra đúng danh sách
+
+- Nguyên văn: *"Quản lý tồn => danh sách chi tiết table tiêu đề thêm chức năng filter + sort như excel (chọn 1 hoặc nhiều, ngày thì từ ngày
+  đến ngày)"*; *"Báo cáo tồn theo khi click vào 1 số thì hiện danh sách chi tiết tương ứng với số đang filter (bổ sung filter: model, khu vực,
+  tỉnh, KTV, khoảng ngày tồn, cấp tồn CEO/TBP, đối tác, hãng, ngành)"*.
+- `PaginatedTable` (dùng chung) thêm lọc trên tiêu đề cột: `Column.filter` (list/text/date/number) + props `colFilters`/`onColFiltersChange`/
+  `loadFilterValues`/`totalUnfiltered`; nút phễu trên mỗi cột (tô xanh khi đang lọc, ✕ xoá nhanh), popup `components/ui/LocCotPopover.tsx`
+  (sắp xếp tăng/giảm, danh sách giá trị có ô tìm không dấu + số ca + chọn tất cả/bỏ chọn, ô "chứa từ", khoảng ngày/khoảng số); chân bảng
+  "x / tổng dòng (đang lọc n cột)" + "Xóa tất cả lọc cột". Mọi cột có sortKey hiện mũi tên ↕.
+- Server (bảng phân trang phía server): `GET /api/cases` nhận `loc_cot` (JSON, whitelist `lib/locCot.ts COT_LOC`, 1 bind json_each/cột) và
+  `gia_tri_cot=<cột>` (danh sách giá trị + số ca, áp các lọc KHÁC cột đó — như Excel); `total_chua_loc` khi đang lọc; sắp xếp được mọi cột
+  trong whitelist. Cột đặc biệt: `nhom_ton` (OR các NEED_*), `cap_ton` (id Cảnh báo tồn cấp 1 / cấp 2 hôm nay), `tinh` (`dg_loc` theo
+  Địa giới cũ/mới). "Chứa từ" không phân biệt dấu: D1 giới hạn độ sâu biểu thức 100 nên không bỏ dấu bằng REPLACE trong SQL được
+  (đã thử, lỗi) → đọc (id, giá trị) của danh sách đang lọc, so khớp `boDau()` trong Worker rồi lọc theo tập id. Áp dụng cả cho danh sách
+  chốt 08:00 / Cảnh báo tồn (lọc trên tập id đã chốt). Xuất Excel theo đúng bộ lọc.
+- Thanh "Bộ lọc:" trên bảng (thay 2 ô KTV / Nhóm KH cũ): Tỉnh, Model, Hãng, Đối tác, Ngành, Nhóm KH, KTV, Tuổi tồn, Ngày tiếp nhận, Cấp tồn
+  (CEO/TBP), Nhóm tồn — lọc được cả cột đang ẩn. Khu vực vẫn dùng bộ lọc khu vực chung đầu màn.
+- "Báo cáo tồn theo": trước đây chỉ nhóm Khu vực lọc theo dòng bấm; Tỉnh/Đối tác/Hãng/Model/Nhóm KH/Ngành ra cả danh sách toàn bộ.
+  Giờ đặt lọc cột tương ứng (bảng theo dim khác khu vực là số sống → danh sách cũng đọc sống). Dòng "Tổng cộng" bấm được. Bấm thẻ số
+  khác xoá lọc cột cũ để danh sách khớp số vừa bấm.
+- Kiểm tra local: KORIHOME 26 → danh sách 26; tìm "binh" khớp "Bình"; "chi lan" khớp "CHỊ LAN HƯƠNG"; khoảng ngày, khoảng tuổi tồn, (Trống),
+  Tỉnh Hà Nội (131), cấp tồn, nhóm chốt 08:00/CEO/Cảnh báo tồn đều 200 và đúng số; sắp xếp giảm dần qua popup.

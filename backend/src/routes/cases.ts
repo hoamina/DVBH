@@ -35,6 +35,9 @@ const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cas
 import { cachedReport, buildReportKey, getVnDateStr, chayGomDoc } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey, buildKhuVucFilterScopeKey } from "../lib/dailySnapshot";
+import { parseLocCot, locCotClause, coLocCot, COT_LOC, NHOM_TON_NEED, boDau } from "../lib/locCot";
+import { CAP1_KEYS } from "../lib/canhBaoTon";
+import { CAP2_KEYS } from "../lib/canhBaoCap2GiaiTrinh";
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, canWriteTranhChap } from "../lib/tranhChapTienTrinh";
@@ -526,13 +529,28 @@ cases.get("/", async (c) => {
   // trinh thay so con ma khong thay ca.
   const listFrom = isCanhBaoTonFrozen ? "case_dvbh" : "case_hieu_luc";
 
+  // Loc kieu Excel tren tieu de cot (lib/locCot.ts, 2026-11-10). "gia_tri_cot" = lay danh sach gia tri + so ca cua 1 cot cho popup
+  // loc (ap moi bo loc KHAC cot do, giong Excel).
+  const locCot = parseLocCot(c.req.query("loc_cot"));
+  const giaTriCot = c.req.query("gia_tri_cot") ?? "";
+  const canCapTon = giaTriCot === "cap_ton" || (Array.isArray(locCot.cap_ton?.in) && (locCot.cap_ton.in as unknown[]).length > 0);
+  const capTonIds: Record<string, string[]> = {};
+  if (canCapTon) {
+    const snapCb = await getCanhBaoTonSnapshot(c.env);
+    for (const [k, keys] of [["cap2", CAP2_KEYS], ["cap1", CAP1_KEYS]] as const) {
+      const ids = new Set<string>();
+      for (const m of keys) for (const id of snapCb.buckets[m]?.ids ?? []) ids.add(String(id));
+      capTonIds[k] = [...ids];
+    }
+  }
+  const xayWhere = (locX: { sql: string; binds: unknown[] }) => {
   let whereSql: string;
   let binds: unknown[];
   if (isCanhBaoTonFrozen) {
-    whereSql = `WHERE ${snapshotIdClause}${idClause.sql}${ktvClause.sql}${khuVucClause.sql}`;
-    binds = [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds), ...idClause.binds, ...ktvClause.binds, ...khuVucClause.binds];
+    whereSql = `WHERE ${snapshotIdClause}${idClause.sql}${ktvClause.sql}${khuVucClause.sql}${locX.sql}`;
+    binds = [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds), ...idClause.binds, ...ktvClause.binds, ...khuVucClause.binds, ...locX.binds];
   } else {
-    whereSql = `WHERE ${caseStateFilter} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${snapshotIdClause ? "" : ` AND ${tabFilter}`}${listScopeClause.sql}${extraFilter}`;
+    whereSql = `WHERE ${caseStateFilter} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${snapshotIdClause ? "" : ` AND ${tabFilter}`}${listScopeClause.sql}${extraFilter}${locX.sql}`;
     binds = [
       ...(snapshotIds ? [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds)] : []),
       ...listScopeClause.binds,
@@ -543,6 +561,7 @@ cases.get("/", async (c) => {
       ...idClause.binds,
       ...ktvClause.binds,
       ...exclusionClause.binds,
+      ...locX.binds,
     ];
   }
   if (snapshot0800 && since) {
@@ -578,6 +597,9 @@ cases.get("/", async (c) => {
     }
   }
 
+  return { whereSql, binds };
+  };
+
   // Tat ca cac tab o day (ton-hien-tai/can-giai-trinh/da-giai-trinh) deu bat buoc WHERE ngoai co
   // "thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL" (xem whereSql) => an toan dung preset
   // CASE_FILTER_TON_AND_CLOSED_RECENTLY (khong bind param) de gioi han subquery ROW_NUMBER().
@@ -598,6 +620,49 @@ cases.get("/", async (c) => {
     snapshotIds
       ? latestGiaiTrinhJoin("id IN (SELECT value FROM json_each(?))")
       : latestGiaiTrinhJoin(snapshot0800 ? caseFilterTonAt0800() : CASE_FILTER_TON_AND_CLOSED_RECENTLY);
+
+  // Loc "chua tu khoa" (khong dau): doc (id, gia tri) cua danh sach da ap cac loc khac, so khop trong Worker -> tap id.
+  const qIds: Record<string, string[]> = {};
+  const cotQ = Object.entries(locCot).filter(([k, f]) => COT_LOC[k] && k !== giaTriCot && typeof f?.q === "string" && f.q.trim() !== "");
+  if (cotQ.length) {
+    const w0 = xayWhere(locCotClause(locCot, giaTriCot || undefined, capTonIds));
+    for (const [k, f] of cotQ) {
+      const tuKhoa = boDau(String(f.q).trim());
+      const { results } = await c.env.DB.prepare(
+        `SELECT CAST(c.id AS TEXT) AS id, CAST(${COT_LOC[k].expr} AS TEXT) AS v FROM ${listFrom} c ${join} ${w0.whereSql}`,
+      )
+        .bind(...w0.binds)
+        .all<{ id: string; v: string | null }>();
+      qIds[k] = results.filter((r) => boDau(r.v ?? "").includes(tuKhoa)).map((r) => r.id);
+    }
+  }
+  const { whereSql, binds } = xayWhere(locCotClause(locCot, giaTriCot || undefined, capTonIds, qIds));
+
+  if (giaTriCot) {
+    const tu = `FROM ${listFrom} c ${join} ${whereSql}`;
+    if (giaTriCot === "nhom_ton") {
+      const cols = Object.entries(NHOM_TON_NEED).map(([k, d]) => `SUM(CASE WHEN ${d} THEN 1 ELSE 0 END) AS ${k}`);
+      const r = await c.env.DB.prepare(`SELECT ${cols.join(", ")} ${tu}`).bind(...binds).first<Record<string, number | null>>();
+      return c.json({ cot: giaTriCot, rows: Object.keys(NHOM_TON_NEED).map((k) => ({ v: k, n: r?.[k] ?? 0 })) });
+    }
+    if (giaTriCot === "cap_ton") {
+      const { results } = await c.env.DB.prepare(`SELECT CAST(c.id AS TEXT) AS id ${tu}`).bind(...binds).all<{ id: string }>();
+      const co = new Set(results.map((r) => r.id));
+      return c.json({ cot: giaTriCot, rows: ["cap2", "cap1"].map((k) => ({ v: k, n: (capTonIds[k] ?? []).filter((id) => co.has(id)).length })) });
+    }
+    if (giaTriCot === "tinh") {
+      const { results } = await c.env.DB.prepare(`SELECT c.tinh AS tinh, c.tinh_moi AS tinh_moi, COUNT(*) AS n ${tu} GROUP BY 1, 2`).bind(...binds).all();
+      return c.json({ cot: giaTriCot, rows: results });
+    }
+    const def = COT_LOC[giaTriCot];
+    if (!def) return c.json({ error: "INVALID_COT" }, 400);
+    const { results } = await c.env.DB.prepare(
+      `SELECT CAST(${def.expr} AS TEXT) AS v, COUNT(*) AS n ${tu} GROUP BY 1 ORDER BY n DESC LIMIT 3000`,
+    )
+      .bind(...binds)
+      .all<{ v: string | null; n: number }>();
+    return c.json({ cot: giaTriCot, rows: results });
+  }
 
   const countRow = await c.env.DB.prepare(
     `SELECT COUNT(*) as total FROM ${listFrom} c ${join} ${whereSql}`,
@@ -642,7 +707,7 @@ cases.get("/", async (c) => {
     tranh_chap_so_ngay_ton: `(CASE WHEN ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN ('Chua xu ly', ${tranhChapDongList}) THEN ${ageExpr(latestTienTrinhNgayTaoExpr)} ELSE NULL END)`,
     tuoi_ton: AGE_EXPR,
   };
-  const sortExpr = SORT_EXPR[sortByRaw] ?? SORT_EXPR.id;
+  const sortExpr = SORT_EXPR[sortByRaw] ?? COT_LOC[sortByRaw]?.expr ?? SORT_EXPR.id;
   // SUA 2026-10-29 (Quan ly ton > Danh sach chi tiet "Khong tai duoc du lieu"): D1 gioi han 100 COT / ket qua - "c.*" (82 cot sau
   // migration 0148 quoc_gia) + 19 cot tinh them = 101 -> "too many columns in result set". Gio 2 buoc: cau nay chi lay c.id + cac cot
   // tinh them (loc/sap xep/phan trang giu nguyen), roi layDuCotCa() lay du cot case_dvbh cua DUNG cac id do (khoa chinh) va ghep lai -
@@ -690,11 +755,22 @@ cases.get("/", async (c) => {
     .bind(...binds, pageSize, offset)
     .all<Record<string, unknown>>();
 
+  // "x / tong" khi dang loc cot: dem them 1 lan khong ap loc cot.
+  let totalChuaLoc: number | undefined;
+  if (coLocCot(locCot)) {
+    const goc = xayWhere({ sql: "", binds: [] });
+    const r0 = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM ${listFrom} c ${join} ${goc.whereSql}`)
+      .bind(...goc.binds)
+      .first<{ total: number }>();
+    totalChuaLoc = r0?.total ?? 0;
+  }
+
   return c.json({
     rows: await layDuCotCa(results),
     page,
     pageSize,
     total: countRow?.total ?? 0,
+    total_chua_loc: totalChuaLoc,
   });
 });
 

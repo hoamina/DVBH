@@ -13554,5 +13554,117 @@
  "Báo cáo đang được tính lại nên có thể mất vài chục giây — không cần tải lại trang.": [
   "The report is being recalculated and may take a few dozen seconds — no need to reload the page.",
   "Laporan sedang dihitung ulang dan mungkin memerlukan beberapa puluh detik — tidak perlu memuat ulang halaman."
+ ],
+ "{0} giá trị": [
+  "{0} values",
+  "{0} nilai"
+ ],
+ "(Trống)": [
+  "(Blank)",
+  "(Kosong)"
+ ],
+ "↑ Sắp xếp tăng dần (A→Z, cũ→mới)": [
+  "↑ Sort ascending (A→Z, old→new)",
+  "↑ Urutkan naik (A→Z, lama→baru)"
+ ],
+ "↓ Sắp xếp giảm dần (Z→A, mới→cũ)": [
+  "↓ Sort descending (Z→A, new→old)",
+  "↓ Urutkan turun (Z→A, baru→lama)"
+ ],
+ "Tìm giá trị…": [
+  "Search values…",
+  "Cari nilai…"
+ ],
+ "Không tải được danh sách giá trị.": [
+  "Could not load the value list.",
+  "Gagal memuat daftar nilai."
+ ],
+ "Đang tải danh sách giá trị…": [
+  "Loading values…",
+  "Memuat nilai…"
+ ],
+ "Chọn tất cả kết quả tìm": [
+  "Select all search results",
+  "Pilih semua hasil pencarian"
+ ],
+ "Bỏ chọn ({0})": [
+  "Clear ({0})",
+  "Hapus pilihan ({0})"
+ ],
+ "Không có giá trị phù hợp.": [
+  "No matching values.",
+  "Tidak ada nilai yang cocok."
+ ],
+ "Chứa từ… (không phân biệt dấu)": [
+  "Contains… (accent-insensitive)",
+  "Mengandung… (abaikan aksen)"
+ ],
+ "Đến": [
+  "To",
+  "Sampai"
+ ],
+ "Chọn 1 ngày: điền cùng ngày ở cả 2 ô. Để trống 1 ô = không giới hạn.": [
+  "One day: enter the same date in both boxes. Leave a box empty = no limit.",
+  "Satu hari: isi tanggal yang sama di kedua kotak. Kosongkan kotak = tanpa batas."
+ ],
+ "✕ Xóa lọc cột này": [
+  "✕ Clear this column filter",
+  "✕ Hapus filter kolom ini"
+ ],
+ "Áp dụng": [
+  "Apply",
+  "Terapkan"
+ ],
+ "Đang lọc cột này — bấm để sửa": [
+  "This column is filtered — click to edit",
+  "Kolom ini difilter — klik untuk mengubah"
+ ],
+ "Lọc / sắp xếp cột này": [
+  "Filter / sort this column",
+  "Filter / urutkan kolom ini"
+ ],
+ "Xóa lọc cột này": [
+  "Clear this column filter",
+  "Hapus filter kolom ini"
+ ],
+ "{0} / {1} dòng (đang lọc {2} cột)": [
+  "{0} / {1} rows ({2} columns filtered)",
+  "{0} / {1} baris ({2} kolom difilter)"
+ ],
+ "{0} dòng (đang lọc {1} cột)": [
+  "{0} rows ({1} columns filtered)",
+  "{0} baris ({1} kolom difilter)"
+ ],
+ "✕ Xóa tất cả lọc cột": [
+  "✕ Clear all column filters",
+  "✕ Hapus semua filter kolom"
+ ],
+ "Tuổi tồn (ngày)": [
+  "Backlog age (days)",
+  "Usia tunggakan (hari)"
+ ],
+ "Ngày tiếp nhận": [
+  "Received date",
+  "Tanggal diterima"
+ ],
+ "Cấp tồn": [
+  "Escalation level",
+  "Tingkat eskalasi"
+ ],
+ "Cấp 2 — CEO": [
+  "Level 2 — CEO",
+  "Tingkat 2 — CEO"
+ ],
+ "Cấp 1 — TBP/TP DVBH": [
+  "Level 1 — Dept. head",
+  "Tingkat 1 — Kepala bagian"
+ ],
+ "Bộ lọc:": [
+  "Filters:",
+  "Filter:"
+ ],
+ "✕ Xóa tất cả lọc": [
+  "✕ Clear all filters",
+  "✕ Hapus semua filter"
  ]
 }

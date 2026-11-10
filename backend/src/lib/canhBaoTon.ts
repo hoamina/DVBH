@@ -258,7 +258,7 @@ async function boSungCap2(db: D1Database): Promise<void> {
   }
 }
 
-const CAP1_KEYS: readonly CanhBaoTonMetricKey[] = ["ton14", "vipSvip5", "locTong3", "tranhChap3", "luongDoiTra7"];
+export const CAP1_KEYS: readonly CanhBaoTonMetricKey[] = ["ton14", "vipSvip5", "locTong3", "tranhChap3", "luongDoiTra7"];
 
 /** CHOT 2026-10-29 (chu he thong): "khi 1 don chuyen sang trang thai ton TBP hoac ton CEO se luu log trong muc giai trinh
  * ton (chi luu log de nam van de chu khong tinh la duoc giai trinh)". Ton TBP = Cap 1 (TP DVBH), Ton CEO = Cap 2.
