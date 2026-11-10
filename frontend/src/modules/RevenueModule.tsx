@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { BaoCaoDangTai } from "../components/ui/BaoCaoDangTai";
 import { StatCard } from "../components/ui/StatCard";
 import { Card } from "../components/ui/Card";
 import { Btn } from "../components/ui/Btn";
@@ -51,18 +52,21 @@ export function RevenueModule() {
     thang: filters.thang,
   };
 
-  const { data: byKhuVuc } = useQuery({
+  const byKhuVucQ = useQuery({
     queryKey: ["revenue-khuvuc", filterParams],
     queryFn: () => api.get<RevenueByDim>(`/revenue${buildQuery({ ...filterParams, dim: "khu_vuc" })}`),
   });
-  const { data: byHang } = useQuery({
+  const byKhuVuc = byKhuVucQ.data;
+  const byHangQ = useQuery({
     queryKey: ["revenue-hang", filterParams],
     queryFn: () => api.get<RevenueByDim>(`/revenue${buildQuery({ ...filterParams, dim: "hang" })}`),
   });
-  const { data: byKtv } = useQuery({
+  const byHang = byHangQ.data;
+  const byKtvQ = useQuery({
     queryKey: ["revenue-ktv", filterParams],
     queryFn: () => api.get<RevenueByDim>(`/revenue${buildQuery({ ...filterParams, dim: "ky_thuat_vien" })}`),
   });
+  const byKtv = byKtvQ.data;
 
   // Bo loc Tinh rieng cho bang KTV (2026-10-09). Chua chon tinh -> giu nguyen so lieu cu (dim ky_thuat_vien, dong bo
   // bao cao 08:00); chon tinh -> cong tu dim "ky_thuat_vien_tinh" (KTV x tinh) da chuan hoa ten tinh.
@@ -71,10 +75,11 @@ export function RevenueModule() {
   const tenTinh = (r: { tinh: string | null; tinh_moi: string | null }) => nhanTinh(dgMode, dgIdx.tinh(dgMode, r));
   const [tinhFilter, setTinhFilter] = useState("");
   useEffect(() => setTinhFilter(""), [dgMode]);
-  const { data: byKtvTinh } = useQuery({
+  const byKtvTinhQ = useQuery({
     queryKey: ["revenue-ktv-tinh", filterParams],
     queryFn: () => api.get<{ byDim: RevenueKtvTinhRow[] }>(`/revenue${buildQuery({ ...filterParams, dim: "ky_thuat_vien_tinh" })}`),
   });
+  const byKtvTinh = byKtvTinhQ.data;
   const tinhOptions = useMemo(
     () => [...new Set((byKtvTinh?.byDim ?? []).map(tenTinh))].sort(soSanhTen),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,13 +108,14 @@ export function RevenueModule() {
 
   // Bao cao "Doanh thu theo tinh" (2026-10-09): moi ca (ke ca chua gan KTV), gop theo ten tinh da chuan hoa; bam 1 dong
   // -> them/bo tinh do vao bo loc Tinh cua bang KTV ben duoi.
-  const { data: byTinh } = useQuery({
+  const byTinhQ = useQuery({
     queryKey: ["revenue-tinh", filterParams],
     queryFn: () =>
       api.get<{ byDim: { tinh: string | null; tinh_moi: string | null; so_ca: number; so_ca_co_dt: number; doanh_thu: number }[] }>(
         `/revenue${buildQuery({ ...filterParams, dim: "tinh" })}`,
       ),
   });
+  const byTinh = byTinhQ.data;
   const tinhRows = useMemo(() => {
     const gom = new Map<string, { tinh: string } & DongDt>();
     for (const r of byTinh?.byDim ?? []) {
@@ -155,9 +161,15 @@ export function RevenueModule() {
   // Cot dau tien (Ky thuat vien) sap A-Z.
   const sortedKtvRows = [...ktvRows].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
 
+  const dsQ = [byKhuVucQ, byHangQ, byKtvQ, byKtvTinhQ, byTinhQ];
   return (
     <div className="anim-in">
       <FilterBar filters={filters} setFilters={setFilters} />
+      <BaoCaoDangTai
+        dangTai={dsQ.some((q) => q.isFetching)}
+        loi={dsQ.find((q) => q.error)?.error}
+        onThuLai={() => dsQ.forEach((q) => q.error && void q.refetch())}
+      />
       <div className="flex flex-wrap gap-3 mb-4">
         <StatCard label={tr("Tổng doanh thu")} value={fmtVND(totals?.tong)} tone="ocean" />
         <StatCard label={tr("DT sản phẩm")} value={fmtVND(totals?.dt_san_pham)} tone="teal" />

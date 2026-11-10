@@ -13542,5 +13542,17 @@
  "Ca mới": [
   "New case",
   "Kasus baru"
+ ],
+ "Không tải được dữ liệu báo cáo.": [
+  "Could not load report data.",
+  "Gagal memuat data laporan."
+ ],
+ "Dữ liệu báo cáo đang tải, vui lòng chờ một chút…": [
+  "Report data is loading, please wait a moment…",
+  "Data laporan sedang dimuat, mohon tunggu sebentar…"
+ ],
+ "Báo cáo đang được tính lại nên có thể mất vài chục giây — không cần tải lại trang.": [
+  "The report is being recalculated and may take a few dozen seconds — no need to reload the page.",
+  "Laporan sedang dihitung ulang dan mungkin memerlukan beberapa puluh detik — tidak perlu memuat ulang halaman."
  ]
 }

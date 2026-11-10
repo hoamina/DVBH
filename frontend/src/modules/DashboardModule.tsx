@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { BaoCaoDangTai } from "../components/ui/BaoCaoDangTai";
 import { StatCard } from "../components/ui/StatCard";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
@@ -101,7 +102,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   // 2026-11-07: man Tong quat KEO 1 LAN - 1 request GET /dashboard/man-tong-quat thay cho 4 (daily-report, kpis, pivot theo dim, pivot
   // KTV); server doc so chot 08:00 1 lan + gom doc cache 1 luot D1. Key bat dau "dashboard-kpis" de cho dang invalidate kpis van lam
   // moi. Rieng pivot co loc phu Tinh (pivotDgLoc) van goi /dashboard/pivot rieng (bo loc tuong tac).
-  const { data: manTq } = useQuery({
+  const manTqQ = useQuery({
     queryKey: ["dashboard-kpis", "man-tong-quat", query, pivotDim],
     queryFn: () =>
       api.get<{ dailyReport: DailyReport; kpis: Kpis; pivot: { rows: PivotRow[] }; pivotKtv: { rows: PivotRow[] } }>(
@@ -109,11 +110,13 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
       ),
     placeholderData: (prev) => prev,
   });
-  const { data: pivotLocTinh } = useQuery({
+  const manTq = manTqQ.data;
+  const pivotLocTinhQ = useQuery({
     queryKey: ["dashboard-pivot", pivotDim, query, pivotDgLoc],
     queryFn: () => api.get<{ rows: PivotRow[] }>(`/dashboard/pivot${buildQuery({ ...filterParams, dim: pivotDim, dg_loc: pivotDgLoc })}`),
     enabled: !!pivotDgLoc,
   });
+  const pivotLocTinh = pivotLocTinhQ.data;
   const dailyReport = manTq?.dailyReport;
   const kpi = manTq?.kpis;
   const pivot = pivotDgLoc ? pivotLocTinh : manTq?.pivot;
@@ -156,6 +159,14 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
 
   return (
     <div className="anim-in">
+      <BaoCaoDangTai
+        dangTai={manTqQ.isFetching || pivotLocTinhQ.isFetching}
+        loi={manTqQ.error ?? pivotLocTinhQ.error}
+        onThuLai={() => {
+          void manTqQ.refetch();
+          if (pivotDgLoc) void pivotLocTinhQ.refetch();
+        }}
+      />
       {dailyReport && (
         <Card className="p-4 mb-4 border-[var(--coral-500)]/40 bg-gradient-to-br from-[var(--coral-100)]/50 to-transparent">
           <div className="flex items-center justify-between mb-1 flex-wrap gap-2">

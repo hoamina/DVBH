@@ -5505,3 +5505,13 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   dòng rác `case_dvbh.id = 'ID'` (dòng TIÊU ĐỀ Excel bị nhập thành ca lúc 04/11 09:13, khu vực "TBP", KTV "Kỹ thuật viên", ngày tiếp
   nhận = chữ) → tuổi NULL → nhóm riêng của nó có SUM NULL → vi phạm `tong_tuoi NOT NULL` → cả batch hỏng. Sửa: tuổi NULL tính 0.
   Dòng rác chưa xử lý (chờ chủ hệ thống quyết định huỷ / xoá); nó vẫn được đếm là 1 ca tồn.
+
+## 2026-11-10 — v1.554: thanh "Dữ liệu báo cáo đang tải" ở Tổng quát + Báo cáo doanh thu
+
+- Nguyên văn: *"khi các báo cáo đang load mục tổng quát, doanh thu thì mọi thứ cứ như bị lỗi, đơ cứng không có cảnh báo, nhắc nhở gì =>
+  thêm 1 cảnh báo là dữ liệu báo cáo đang load, vui lòng chờ 1 chút"*.
+- `components/ui/BaoCaoDangTai.tsx` (dùng chung): thanh dính đầu màn, hiện khi có request báo cáo đang chạy (trễ 300 ms để không nháy
+  khi cache trả ngay), quá 8 s thêm dòng "đang được tính lại, có thể mất vài chục giây — không cần tải lại trang"; request lỗi → thanh đỏ
+  kèm câu lỗi của server + nút "Thử lại". Gắn vào `DashboardModule` (man-tong-quat + pivot lọc tỉnh) và `RevenueModule` (5 query).
+- Kiểm tra trên dev local (giả lập trễ 12–15 s và lỗi 500 bằng cách bọc `fetch` trong trình duyệt): cả 3 trạng thái hiện đúng, "Thử lại"
+  tải lại được. Thêm bản dịch EN/ID.
