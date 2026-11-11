@@ -1,32 +1,22 @@
 import { ageExpr, AGE_ANCHOR } from "./ageCalc";
 
 /**
- * "Moi nhat" theo case_id - dung ROW_NUMBER() thay vi "MAX(ngay_giai_trinh) roi JOIN nguoc lai",
- * vi cach cu khi co >=2 dong giai_trinh TRUNG DUNG 1 giay (thuong gap khi backfill hang loat khong
- * co ngay_giai_trinh trong file, roi ca fallback ve cung 1 datetime('now')) se khop CA HAI dong voi
- * gia tri MAX, lam 1 case_id bi nhan len thanh nhieu dong ket qua. ROW_NUMBER() + "id DESC" lam
- * tie-breaker dam bao luon dung 1 dong cho moi case_id du co trung gio. Dung chung cho moi noi can
- * biet "giai trinh gan nhat" cua 1 case_dvbh (cases.ts, dailyReport.ts...).
+ * "Giai trinh gan nhat" cua tung ca: dong giai_trinh co (ngay_giai_trinh DESC, id DESC) lon nhat - "id DESC" lam tie-breaker
+ * nen luon dung 1 dong/ca du co nhieu dong trung gio (ly do khong dung "MAX(ngay) roi JOIN nguoc lai").
  *
- * latestGiaiTrinhJoin(caseFilterSql): "caseFilterSql" la dieu kien WHERE (khong co tu khoa WHERE)
- * ap len case_dvbh, dung de gioi han subquery ROW_NUMBER() chi tinh tren giai_trinh CUA DUNG TAP
- * case dang xet - thay vi quet TOAN BO bang giai_trinh (~25k hang, tang dan) moi lan goi bat ke
- * cau WHERE ben ngoai da loc hep den dau. AN TOAN vi ROW_NUMBER() PARTITION BY case_id: mien la tap
- * case_id loc boi caseFilterSql la SUPERSET (bang hoac rong hon) tap c.id thuc su duoc WHERE ngoai
- * chon, thi voi moi case_id do TAT CA dong giai_trinh cua no van duoc xet du (vi loc dua tren
- * case_dvbh.id chu khong dua tren tung dong giai_trinh), nen "ban ghi giai trinh gan nhat" tra ve
- * y het truoc day. Nguoc lai, NEU KHONG THE khang dinh caseFilterSql la superset an toan cho 1
- * endpoint nao do thi KHONG duoc dung ham nay cho endpoint do.
+ * SUA 2026-11-10 (ra soat tai du lieu): truoc day la subquery ROW_NUMBER() OVER (PARTITION BY case_id) tren giai_trinh cua
+ * TOAN BO tap ca loc boi tham so caseFilterSql (~3.300 ca dang ton/moi dong) roi MATERIALIZE + tao index tam - ke ca khi
+ * danh sach ngoai chi con 20 ca cua 1 khu vuc, va Danh sach chi tiet Quan ly ton chay lai 3-4 lan/lan mo (dem, trang, tong
+ * chua loc, popup loc cot): ~18k-89k dong doc, 0,5-2 s/cau. Gio tra theo TUNG dong ngoai bang index
+ * idx_giai_trinh_case_ngay (case_id, ngay_giai_trinh DESC, id DESC): ~1-2 dong doc/ca. Do tren DB that (cung checksum ket
+ * qua): 18.176 -> 2.364 dong, 16.470 -> 1.722 dong (1 khu vuc). Khong con tham so loc: tra theo ca thi dung voi MOI dong
+ * ngoai (khong con dieu kien "superset" de nho). Noi theo rowid (khong theo id: cot id TEXT PRIMARY KEY van cho phep NULL).
  */
-export function latestGiaiTrinhJoin(caseFilterSql: string): string {
+export function latestGiaiTrinhJoin(): string {
   return `
-  LEFT JOIN (
-    SELECT * FROM (
-      SELECT gt.*, ROW_NUMBER() OVER (PARTITION BY gt.case_id ORDER BY gt.ngay_giai_trinh DESC, gt.id DESC) AS rn
-      FROM giai_trinh gt
-      WHERE gt.case_id IN (SELECT id FROM case_hieu_luc WHERE ${caseFilterSql})
-    ) WHERE rn = 1
-  ) lg ON lg.case_id = c.id
+  LEFT JOIN giai_trinh lg ON lg.rowid = (
+    SELECT g1.rowid FROM giai_trinh g1 WHERE g1.case_id = c.id ORDER BY g1.ngay_giai_trinh DESC, g1.id DESC LIMIT 1
+  )
 `;
 }
 
@@ -151,12 +141,7 @@ export const TON_ANCHOR_0800 = "(date(datetime('now','+7 hours')) || ' 08:00:00'
  * Khac CASE_FILTER_TON (chi xet "dang mo ngay bay gio", dung cho MOI noi khac trong he thong ngoai
  * pham vi nay) - KHONG dung ham nay thay CASE_FILTER_TON o cac noi khac.
  *
- * QUAN TRONG: khi dung dieu kien nay lam outer WHERE cho 1 truy van co latestGiaiTrinhJoin(), PHAI
- * truyen CHINH XAC ham nay (cung alias r?ng, tuc caseFilterTonAt0800() khong tham so) lam
- * caseFilterSql cho latestGiaiTrinhJoin() trong CUNG truy van do - neu van truyen CASE_FILTER_TON cho
- * join thi subquery se KHONG con la superset an toan cua outer WHERE nua (outer WHERE gio RONG HON,
- * gom them ca case hoan thanh sau 08:00 ma CASE_FILTER_TON khong gom), lam "giai trinh gan nhat" tra
- * ve sai/NULL cho dung nhung case do (xem canh bao trong docstring latestGiaiTrinhJoin()).
+ * (Truoc 2026-11-10 ham nay con phai truyen lam tham so loc cho latestGiaiTrinhJoin - nay join tra theo tung ca, khong can.)
  */
 export function caseFilterTonAt0800(alias = ""): string {
   const p = alias ? `${alias}.` : "";

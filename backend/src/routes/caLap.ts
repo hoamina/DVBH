@@ -654,11 +654,10 @@ caLap.get("/tong-quan", async (c) => {
  * vao rat nho so voi quet toan bang.
  */
 export async function getCaLapDetection(db: D1Database, caseId: string) {
-  const caseRow = await db.prepare("SELECT seri_san_pham FROM case_dvbh WHERE id = ?").bind(caseId).first<{ seri_san_pham: string | null }>();
-  const seri = caseRow?.seri_san_pham;
-  if (!seri) return { detection: null, giaiTrinhLap: null, lichSu: [], serialBlacklisted: false };
-
-  const [detectionRow, giaiTrinhLapRow, lichSu, blacklistRow] = await Promise.all([
+  // SUA 2026-11-10 (ra soat tai du lieu): 5 cau gop 1 db.batch (1 luot D1) thay vi 1 + 4 luot - serial lay bang subquery theo id.
+  const SERI = "(SELECT seri_san_pham FROM case_dvbh WHERE id = ?)";
+  const [seriKq, detectionKq, giaiTrinhLapKq, lichSu, blacklistKq] = await db.batch<Record<string, unknown>>([
+    db.prepare("SELECT seri_san_pham FROM case_dvbh WHERE id = ?").bind(caseId),
     // CHOT 2026-08-20 (rao soat lag): lookup TRUC TIEP theo PK "id" (bieu thuc gap_days/prior_id/
     // prior_ht giu NGUYEN nhu CA_LAP_CTE) thay vi build ca CTE "lap" (toan bo case co ca_lap_prior_ht
     // IS NOT NULL, ~9k dong va tang dan theo thoi gian) roi moi loc 1 dong - D1 Insights do duoc CTE
@@ -670,9 +669,8 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
                 (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
          FROM case_hieu_luc WHERE id = ? AND ca_lap_prior_ht IS NOT NULL AND huy_bo_at IS NULL`,
       )
-      .bind(caseId)
-      .first<{ id: string; gap_days: number; prior_id: string; prior_ht: string }>(),
-    db.prepare("SELECT * FROM giai_trinh_lap WHERE case_id = ?").bind(caseId).first(),
+      .bind(caseId),
+    db.prepare("SELECT * FROM giai_trinh_lap WHERE case_id = ?").bind(caseId),
     // CHOT 2026-08-05: sap xep + tinh khoang cach giua cac ca lap gio dua theo thoi_gian_cskh_tiep_nhan
     // (khong phai thoi_gian_hoan_thanh nhu truoc) - "khoang cach" nghiep vu dung phai la "may lai bi
     // hong lai sau bao lau", tuc tu luc DONG ca truoc den luc MO ca sau, khong phai tu luc DONG ca
@@ -691,14 +689,17 @@ export async function getCaLapDetection(db: D1Database, caseId: string) {
                 (c.ca_lap_prior_ht IS NOT NULL AND c.huy_bo_at IS NULL AND (julianday(c.thoi_gian_hoan_thanh) - julianday(c.ca_lap_prior_ht)) <= ${NGUONG_NGAY_LAP}) as eligible_for_eval,
                 gl.chot_danh_gia_lap, gl.qc_chot
          FROM case_hieu_luc c LEFT JOIN giai_trinh_lap gl ON gl.case_id = c.id
-         WHERE c.seri_san_pham = ? ORDER BY c.thoi_gian_cskh_tiep_nhan DESC`,
+         WHERE c.seri_san_pham = ${SERI} ORDER BY c.thoi_gian_cskh_tiep_nhan DESC`,
       )
-      .bind(seri)
-      .all(),
+      .bind(caseId),
     // Dung de CaseDetail hien badge "da blacklist" thay vi nut them (tranh nham lan/them trung) -
     // xem eligibleClause() o tren, dinh nghia serial "sai" trong /tong-quan cung dua vao dieu kien nay.
-    db.prepare("SELECT 1 FROM blacklist_serial WHERE seri_san_pham = UPPER(TRIM(?)) AND bat_tat = 1").bind(seri).first(),
+    db.prepare(`SELECT 1 FROM blacklist_serial WHERE seri_san_pham = UPPER(TRIM(${SERI})) AND bat_tat = 1`).bind(caseId),
   ]);
+  if (!seriKq.results[0]?.seri_san_pham) return { detection: null, giaiTrinhLap: null, lichSu: [], serialBlacklisted: false };
+  const detectionRow = detectionKq.results[0] as { id: string; gap_days: number; prior_id: string; prior_ht: string } | undefined;
+  const giaiTrinhLapRow = giaiTrinhLapKq.results[0];
+  const blacklistRow = blacklistKq.results[0];
 
   return {
     detection: detectionRow ? { gapDays: detectionRow.gap_days, priorId: detectionRow.prior_id, priorHt: detectionRow.prior_ht } : null,

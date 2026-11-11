@@ -97,7 +97,7 @@ export async function computeDailyReportData(db: D1Database, user: AppUser): Pro
     db
       .prepare(
         `SELECT COUNT(*) as n FROM case_hieu_luc c
-         ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
+         ${latestGiaiTrinhJoin()}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${NEED_TONG}${khuVucClause}`,
       )
       .bind(...khuVucBinds)

@@ -5568,3 +5568,22 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
     index một phần) → không tải ngày rỗng. Tháng 11 PH: 46 ca trên 6 ngày.
   - Nội dung các ngày đó đọc thẳng D1 (`getDaDongRowsTuD1`, cùng điều kiện `computeDayRows`) thay vì file R2; không trừ hạn mức tải
     (hạn mức để bảo vệ R2). Đo trên DB thật: 46 dòng đọc, ~1 ms. VN giữ nguyên R2.
+
+## 2026-11-11 — v1.561: rà soát tải dữ liệu thừa (D1) — giải trình gần nhất, chi tiết ca, báo cáo vi phạm tháng
+
+- Yêu cầu: *"với vai trò 1 người xây dựng hệ thống => rà soát lại các các từng khu vực có việc load dữ liệu quá nhiều"*. Căn cứ D1 insights
+  24h/7 ngày + EXPLAIN trên DB thật. Chủ hệ thống duyệt: (1) bỏ — không đổi việc tải ngầm 7 Google Sheet sau đăng nhập; (2) OK; (4) OK.
+- (2) `latestGiaiTrinhJoin()` (`lib/needGiaiTrinh.ts`): bỏ subquery ROW_NUMBER() trên giải trình của ~3.300 ca (materialize + index tạm, chạy
+  lại 3–4 lần mỗi lần mở Danh sách chi tiết Quản lý tồn) → tra theo từng ca bằng `idx_giai_trinh_case_ngay`, nối theo `rowid` (cột `id`
+  TEXT PRIMARY KEY vẫn cho NULL — DB local có dòng như vậy). Bỏ tham số lọc; `json_each(snapshotIds)` trong Danh sách chi tiết chỉ còn bind
+  1 lần. Đối chiếu DB thật (mọi ca đang tồn VN): kết quả trùng mọi cột kiểm tra, 15.945 → 2.252 dòng đọc, 168 → 6 ms. Dùng chung cho
+  chốt số (`chotTon.ts`), báo cáo ngày, badge.
+- (4) `GET /api/cases/:id`: 11 câu đọc theo case_id gộp 1 `db.batch` (trước: 11 lượt Promise.all, mỗi lượt xếp hàng D1 riêng);
+  `getCaLapDetection` (caLap.ts) 1+4 lượt → 1 batch (serial lấy bằng subquery theo id).
+- (5) Báo cáo vi phạm tháng (Top Giám sát / KTV, `viPham.ts computeViPhamLeaderboard`) đọc ~45k dòng/lần vì `FROM vi_pham v WHERE
+  XAC_NHAN_EXPR` quét TOÀN BỘ vi_pham mọi tháng rồi mới lọc tháng theo ca. Đổi sang tập "đã xác nhận" qua 2 index một phần có sẵn
+  (`idx_vi_pham_da_chot` + `idx_vi_pham_cho_qc_that`, UNION ALL, 2 tập rời nhau): tháng 10 và 11 khớp 100% theo khu vực + KTV,
+  44.979 → 3.379 dòng.
+- Chưa làm, chờ chủ hệ thống: (3) số "Đã xử lý" của Khảo sát tính lại sau mỗi lần ghi vi phạm (~126k dòng × ~130 lần/ngày); (6) Ca lặp:
+  tính lại toàn bộ (LAG trên mọi ca đã đóng, ~1M dòng, ~3 s, ~4 lần/ngày, ghi lại ~18,7k dòng dù không đổi) + danh sách theo tháng đọc
+  hết ~18,7k ca lặp mọi tháng.

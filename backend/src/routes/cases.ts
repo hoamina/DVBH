@@ -203,7 +203,7 @@ export async function computeCasesCounts(db: D1Database, params: Record<string, 
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_tai_giai_trinh} THEN 1 ELSE 0 END) as dmx_tai_giai_trinh,
          SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.dmx_lo_ke_hoach} THEN 1 ELSE 0 END) as dmx_lo_ke_hoach
        FROM case_hieu_luc c
-       ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
+       ${latestGiaiTrinhJoin()}
        WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}`,
     )
     .bind(...scopeClause.binds, ...extraBinds)
@@ -279,7 +279,7 @@ export async function computeBacklogStats(db: D1Database, params: Record<string,
       .prepare(
         `SELECT SUM(CASE WHEN lg.case_id IS NOT NULL THEN 1 ELSE 0 END) as da_giai_trinh
          FROM case_hieu_luc c
-         ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
+         ${latestGiaiTrinhJoin()}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClauseC.sql}${extraFilter}`,
       )
       .bind(...scopeClauseC.binds, ...extraBinds)
@@ -364,7 +364,7 @@ export async function computeBacklogByKhuVuc(db: D1Database, params: Record<stri
            SUM(CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as nskx_2_ngay,
            SUM(CASE WHEN EXISTS (SELECT 1 FROM settings_ly_do sld WHERE sld.ten_ly_do = lg.ly_do_cham AND sld.thuoc_thieu_linh_kien = 1) THEN 1 ELSE 0 END) as thieu_linh_kien
          FROM case_hieu_luc c
-         ${latestGiaiTrinhJoin(CASE_FILTER_TON)}
+         ${latestGiaiTrinhJoin()}
          WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL AND ${dimCol} IS NOT NULL${scopeClauseC.sql}${extraFilter}
          GROUP BY ${dimCol}`,
       )
@@ -502,11 +502,6 @@ cases.get("/", async (c) => {
   // truyen ca tap qua json_each(?) thay vi tao mot "?" cho tung ID (loi nay tung lam UI chi hien
   // "Khong tai duoc du lieu" khi click the Bao cao 08:00).
   const snapshotIdClause = snapshotIds ? "c.id IN (SELECT value FROM json_each(?))" : null;
-  // CHOT 2026-08-12: khi co snapshotIds, "join" (ben duoi) CUNG can gioi han theo DUNG tap ID nay
-  // (thay vi caseFilterTonAt0800() danh gia lai moi lan doc) - nen json_each(?) xuat hien 2 LAN
-  // trong cau SQL cuoi cung (1 trong join, 1 trong whereSql) => bind gia tri nay 2 LAN, dung THU TU
-  // xuat hien trong text ("${join} ${whereSql}" - join dung truoc). Xem chu thich day du o bien
-  // "join" ben duoi ve ly do can gioi han nay (bug "Chua giai trinh" sai du GS da giai trinh).
 
   const isDaGiaiTrinhTrongNgay = tab === "da-giai-trinh-trong-ngay";
   const caseStateFilter = snapshotIdClause ?? (snapshot0800 ? caseFilterTonAt0800("c") : (isDaGiaiTrinhTrongNgay ? "(c.thoi_gian_hoan_thanh IS NULL OR c.thoi_gian_hoan_thanh >= date(datetime('now', '+7 hours')))" : "c.thoi_gian_hoan_thanh IS NULL"));
@@ -548,11 +543,11 @@ cases.get("/", async (c) => {
   let binds: unknown[];
   if (isCanhBaoTonFrozen) {
     whereSql = `WHERE ${snapshotIdClause}${idClause.sql}${ktvClause.sql}${khuVucClause.sql}${locX.sql}`;
-    binds = [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds), ...idClause.binds, ...ktvClause.binds, ...khuVucClause.binds, ...locX.binds];
+    binds = [JSON.stringify(snapshotIds), ...idClause.binds, ...ktvClause.binds, ...khuVucClause.binds, ...locX.binds];
   } else {
     whereSql = `WHERE ${caseStateFilter} AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${snapshotIdClause ? "" : ` AND ${tabFilter}`}${listScopeClause.sql}${extraFilter}${locX.sql}`;
     binds = [
-      ...(snapshotIds ? [JSON.stringify(snapshotIds), JSON.stringify(snapshotIds)] : []),
+      ...(snapshotIds ? [JSON.stringify(snapshotIds)] : []),
       ...listScopeClause.binds,
       ...khuVucClause.binds,
       ...ageClause.binds,
@@ -600,26 +595,10 @@ cases.get("/", async (c) => {
   return { whereSql, binds };
   };
 
-  // Tat ca cac tab o day (ton-hien-tai/can-giai-trinh/da-giai-trinh) deu bat buoc WHERE ngoai co
-  // "thoi_gian_hoan_thanh IS NULL AND archived_at IS NULL" (xem whereSql) => an toan dung preset
-  // CASE_FILTER_TON_AND_CLOSED_RECENTLY (khong bind param) de gioi han subquery ROW_NUMBER().
-  //
-  // CHOT 2026-08-12 (fix bug: chu he thong bao 4 ca da giai trinh trong ngay 12/08 nhung "Danh sach
-  // chi tiet" (drill-down "Bao cao ngay 08:00") van hien "Chua giai trinh"): khi co snapshotIds
-  // (dang xem drill-down dong bang), PHAI gioi han subquery "lg" (latest giai_trinh) theo DUNG tap
-  // case_id da chot (snapshotIds) thay vi caseFilterTonAt0800() - ham do DANH GIA LAI moi lan doc
-  // (dung datetime('now'), khong dong bang), nen 1 ca dang MO luc 08:00 (dat dieu kien lam baseline,
-  // dung de tinh vao snapshotIds) nhung sau do TRONG NGAY duoc import lai voi thoi_gian_hoan_thanh
-  // bi "lui ve truoc 08:00" (CRM ghi nhan thoi diem hoan thanh THAT SU, thuong som hon luc he thong
-  // dong bo du sync xay ra sau 08:00) se lam caseFilterTonAt0800() tu TRUE (dung luc 08:00) chuyen
-  // thanh FALSE (danh gia lai o thoi diem doc sau do) - subquery loc case_id cua "lg" khong con chua
-  // case_id nay nua, nen JOIN khong tim thay giai_trinh MOI du GS da giai trinh that trong ngay. Dung
-  // thang snapshotIds (tap ID CO DINH, khong danh gia lai) lam dieu kien loc thi luon an toan va
-  // chinh xac cho drill-down dong bang.
-  const join =
-    snapshotIds
-      ? latestGiaiTrinhJoin("id IN (SELECT value FROM json_each(?))")
-      : latestGiaiTrinhJoin(snapshot0800 ? caseFilterTonAt0800() : CASE_FILTER_TON_AND_CLOSED_RECENTLY);
+  // "Giai trinh gan nhat" tra theo TUNG ca (2026-11-10, xem latestGiaiTrinhJoin) - khong con subquery loc theo tap ca/snapshotIds
+  // nen json_each(snapshotIds) chi con 1 lan trong whereSql (truoc day 2 lan: join + where). Tra theo ca luon dung ca voi drill-down
+  // dong bang 08:00 (bug 2026-08-12 "Chua giai trinh" du GS da giai trinh khong the tai dien: khong con dieu kien loc danh gia lai).
+  const join = latestGiaiTrinhJoin();
 
   // Loc "chua tu khoa" (khong dau): doc (id, gia tri) cua danh sach da ap cac loc khac, so khop trong Worker -> tap id.
   const qIds: Record<string, string[]> = {};
@@ -1443,46 +1422,54 @@ cases.get("/:id", async (c) => {
   const id = c.req.param("id");
   if (!id) return c.json({ error: "INVALID_ID" }, 400);
 
-  const caseRow = await c.env.DB.prepare("SELECT * FROM case_dvbh WHERE id = ?").bind(id).first();
+  // Doc tag TRUOC du lieu: neu co ghi xen giua, tag cu hon du lieu -> lan mo sau tu tai lai (an toan).
+  const detailVersion = await getVersionTag(c.env.DB, CASE_DETAIL_DOMAINS);
+  // SUA 2026-11-10 (ra soat tai du lieu): 11 cau doc theo case_id gop vao 1 db.batch = 1 luot D1 thay vi 11 luot rieng (Promise.all) -
+  // D1 chay tung cau 1, moi luot xep hang rieng sau cac cau bao cao nang -> mo ca cham khi D1 dang ban. Ca bi chan quyen (403) van doc
+  // ca lo (vai dong theo index), khong tra ve gi ngoai loi.
+  const db = c.env.DB;
+  const lo = (sql: string) => db.prepare(sql).bind(id);
+  const [ketQuaLo, caLap] = await Promise.all([
+    db.batch([
+      lo("SELECT * FROM case_dvbh WHERE id = ?"),
+      // ten_linh_kien_thieu (2026-11-07): ten LK tu danh muc linh_kien (PK seek, 1 dong/giai trinh co LK) de GT ton hien ca ten.
+      lo(
+        `SELECT gt.*, lk.ten_linh_kien AS ten_linh_kien_thieu FROM giai_trinh gt
+         LEFT JOIN linh_kien lk ON lk.ma_linh_kien = gt.linh_kien_thieu
+         WHERE gt.case_id = ? ORDER BY gt.ngay_giai_trinh DESC`,
+      ),
+      lo("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC"),
+      lo("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC"),
+      // Giai trinh vi pham (migration 0108) - KTV qua he ngoai hoac Giam sat nhap tay thay, xem
+      // routes/viPham.ts POST /:id/giai-trinh + routes/partnerApi.ts POST /sync/giai-trinh-vi-pham.
+      lo("SELECT * FROM vi_pham_giai_trinh WHERE case_id = ? ORDER BY created_at DESC"),
+      // Nhat ky day tin sang he "vipham" (migration 0109, xem lib/viPhamBenNgoai.ts) - FE dung de tick
+      // "da day sang app vi pham" tren tung loi (chi can biet lan day "nghi_ngo_moi" - lan dau bao co -
+      // co thanh cong hay khong, cac lan cap nhat sau khong anh huong toi viec KTV co thay ca hay chua).
+      lo("SELECT vi_pham_id, ok FROM vi_pham_push_log WHERE case_id = ? AND loai_su_kien = 'nghi_ngo_moi' ORDER BY created_at DESC"),
+      // Danh gia nap gas (xem migration 0025 + backend/src/routes/napGas.ts) - moi ca chi co 1 dong
+      // (case_id la PRIMARY KEY), null neu chua tung duoc chot.
+      lo("SELECT * FROM nap_gas_danh_gia WHERE case_id = ?"),
+      // "Bien ban hop" (migration 0080) - nhat ky ghi chu cuoc hop, moi nhat truoc.
+      lo("SELECT * FROM bien_ban_hop WHERE case_id = ? ORDER BY id DESC"),
+      // Don bao hanh tu Odoo (migration 0122) - FE noi voi case.linh_kien_loi theo ma_linh_kien.
+      lo("SELECT * FROM don_bao_hanh_odoo WHERE case_id = ? ORDER BY odoo_id"),
+      // Log "chuyen sang Ton TBP / Ton CEO" (migration 0151) - CHI de nam van de, KHONG phai giai trinh: tra ve field rieng,
+      // FE hien xen trong tab "GT ton" nhung khong gop vao giaiTrinh (moi tinh toan phia FE doc giaiTrinh).
+      lo("SELECT id, cap, ngay, chi_tieu, created_at FROM canh_bao_ton_chuyen_cap_log WHERE case_id = ? ORDER BY id DESC"),
+      // ID Lada lien quan (migration 0153, ghi luc dong bo ETX) - 1 ca co the co nhieu don Lada, moi nhat truoc.
+      lo("SELECT * FROM case_lada WHERE case_id = ? ORDER BY ngay_khoi_tao DESC, order_id DESC"),
+    ]),
+    getCaLapDetection(db, id),
+  ]);
+  const [caseKq, giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, napGas, bienBanHop, donBaoHanhOdoo, chuyenCapLog, lada] = ketQuaLo;
+  const caseRow = (caseKq.results[0] as Record<string, unknown> | undefined) ?? null;
   if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
 
   const scope = scopeByKhuVuc(c);
   if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
-
-  // Doc tag TRUOC du lieu: neu co ghi xen giua, tag cu hon du lieu -> lan mo sau tu tai lai (an toan).
-  const detailVersion = await getVersionTag(c.env.DB, CASE_DETAIL_DOMAINS);
-  const [giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, caLap, napGasDanhGia, bienBanHop, donBaoHanhOdoo, chuyenCapLog, lada] = await Promise.all([
-    // ten_linh_kien_thieu (2026-11-07): ten LK tu danh muc linh_kien (PK seek, 1 dong/giai trinh co LK) de GT ton hien ca ten.
-    c.env.DB.prepare(
-      `SELECT gt.*, lk.ten_linh_kien AS ten_linh_kien_thieu FROM giai_trinh gt
-       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = gt.linh_kien_thieu
-       WHERE gt.case_id = ? ORDER BY gt.ngay_giai_trinh DESC`,
-    ).bind(id).all(),
-    c.env.DB.prepare("SELECT * FROM ket_qua_goi WHERE case_id = ? ORDER BY ngay_gio_thuc_hien DESC").bind(id).all(),
-    c.env.DB.prepare("SELECT * FROM vi_pham WHERE case_id = ? ORDER BY ngay_ghi_nhan DESC").bind(id).all(),
-    // Giai trinh vi pham (migration 0108) - KTV qua he ngoai hoac Giam sat nhap tay thay, xem
-    // routes/viPham.ts POST /:id/giai-trinh + routes/partnerApi.ts POST /sync/giai-trinh-vi-pham.
-    c.env.DB.prepare("SELECT * FROM vi_pham_giai_trinh WHERE case_id = ? ORDER BY created_at DESC").bind(id).all(),
-    // Nhat ky day tin sang he "vipham" (migration 0109, xem lib/viPhamBenNgoai.ts) - FE dung de tick
-    // "da day sang app vi pham" tren tung loi (chi can biet lan day "nghi_ngo_moi" - lan dau bao co -
-    // co thanh cong hay khong, cac lan cap nhat sau khong anh huong toi viec KTV co thay ca hay chua).
-    c.env.DB.prepare("SELECT vi_pham_id, ok FROM vi_pham_push_log WHERE case_id = ? AND loai_su_kien = 'nghi_ngo_moi' ORDER BY created_at DESC").bind(id).all(),
-    getCaLapDetection(c.env.DB, id),
-    // Danh gia nap gas (xem migration 0025 + backend/src/routes/napGas.ts) - moi ca chi co 1 dong
-    // (case_id la PRIMARY KEY), null neu chua tung duoc chot.
-    c.env.DB.prepare("SELECT * FROM nap_gas_danh_gia WHERE case_id = ?").bind(id).first(),
-    // "Bien ban hop" (migration 0080) - nhat ky ghi chu cuoc hop, moi nhat truoc.
-    c.env.DB.prepare("SELECT * FROM bien_ban_hop WHERE case_id = ? ORDER BY id DESC").bind(id).all(),
-    // Don bao hanh tu Odoo (migration 0122) - FE noi voi case.linh_kien_loi theo ma_linh_kien.
-    c.env.DB.prepare("SELECT * FROM don_bao_hanh_odoo WHERE case_id = ? ORDER BY odoo_id").bind(id).all(),
-    // Log "chuyen sang Ton TBP / Ton CEO" (migration 0151) - CHI de nam van de, KHONG phai giai trinh: tra ve field rieng,
-    // FE hien xen trong tab "GT ton" nhung khong gop vao giaiTrinh (moi tinh toan phia FE doc giaiTrinh).
-    c.env.DB.prepare("SELECT id, cap, ngay, chi_tieu, created_at FROM canh_bao_ton_chuyen_cap_log WHERE case_id = ? ORDER BY id DESC").bind(id).all(),
-    // ID Lada lien quan (migration 0153, ghi luc dong bo ETX) - 1 ca co the co nhieu don Lada, moi nhat truoc.
-    c.env.DB.prepare("SELECT * FROM case_lada WHERE case_id = ? ORDER BY ngay_khoi_tao DESC, order_id DESC").bind(id).all(),
-  ]);
 
   return c.json({
     case: caseRow,
@@ -1492,7 +1479,7 @@ cases.get("/:id", async (c) => {
     viPhamGiaiTrinh: viPhamGiaiTrinh.results,
     viPhamPushLog: viPhamPushLog.results,
     caLap,
-    napGasDanhGia: napGasDanhGia ?? null,
+    napGasDanhGia: napGas.results[0] ?? null,
     bienBanHop: bienBanHop.results,
     donBaoHanhOdoo: donBaoHanhOdoo.results,
     chuyenCapLog: chuyenCapLog.results,

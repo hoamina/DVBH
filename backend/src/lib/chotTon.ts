@@ -107,7 +107,7 @@ export interface DuLieuChot {
 /** 6 cau doc TUAN TU (khong Promise.all - tranh tu lam qua tai D1). */
 export async function docDuLieuChot(db: D1Database): Promise<DuLieuChot> {
   const tonAnchorC = caseFilterTonAt0800("c");
-  const joinScope = latestGiaiTrinhJoin(caseFilterTonAt0800());
+  const joinScope = latestGiaiTrinhJoin();
   const co = (ten: string, expr: string) => `(${expr}) AS ${ten}`;
   const ton = await db
     .prepare(

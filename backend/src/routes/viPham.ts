@@ -30,6 +30,12 @@ const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
 
 const XAC_NHAN_EXPR = "COALESCE(v.chot_bo_cap_2, CASE WHEN v.ket_qua_cap_1 != 'Khong loi' THEN 1 ELSE 0 END) = 1";
+// Tap dong vi_pham "da xac nhan" (dung nghia XAC_NHAN_EXPR) doc qua 2 index mot phan co san - idx_vi_pham_da_chot (chot_bo_cap_2 = 1)
+// va idx_vi_pham_cho_qc_that (chua chot cap 2, cap 1 ket luan co loi) - 2 tap roi nhau nen UNION ALL giu dung so dong. SUA 2026-11-10
+// (ra soat tai du lieu): truoc day "FROM vi_pham v WHERE XAC_NHAN_EXPR" quet TOAN BO vi_pham moi thang (~45k dong) chi de lay vai
+// tram dong roi moi loc thang theo ca; do tren DB that thang 10 + 11: 44.979 -> 3.379 dong, ket qua theo khu vuc + KTV khop 100%.
+const VI_PHAM_XAC_NHAN = `(SELECT case_id FROM vi_pham WHERE chot_bo_cap_2 = 1
+   UNION ALL SELECT case_id FROM vi_pham WHERE ket_qua_cap_1 IS NOT NULL AND ket_qua_cap_1 != 'Khong loi' AND chot_bo_cap_2 IS NULL)`;
 
 // KHONG them gio "00:00:00" vao bound - xem giai thich chi tiet o monthBounds() trong cases.ts.
 function monthBounds(thang: string): { start: string; end: string } {
@@ -345,8 +351,8 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
          (SELECT COUNT(*) FROM case_hieu_luc c2 WHERE c2.ky_thuat_vien = c.ky_thuat_vien
             AND c2.archived_at IS NULL AND c2.huy_bo_at IS NULL
             AND c2.thoi_gian_cskh_tiep_nhan >= ? AND c2.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC2.sql}) as tong_ca
-       FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
-       WHERE ${XAC_NHAN_EXPR} AND c.ky_thuat_vien IS NOT NULL
+       FROM ${VI_PHAM_XAC_NHAN} v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
+       WHERE c.ky_thuat_vien IS NOT NULL
          AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
        GROUP BY c.ky_thuat_vien
        ORDER BY so_vi_pham DESC
@@ -365,8 +371,8 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
   const { results } = await db.prepare(
     `WITH confirmed_by_khu_vuc AS (
        SELECT c.khu_vuc as khu_vuc, COUNT(*) as so_vi_pham
-       FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
-       WHERE ${XAC_NHAN_EXPR} AND c.khu_vuc IS NOT NULL
+       FROM ${VI_PHAM_XAC_NHAN} v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
+       WHERE c.khu_vuc IS NOT NULL
          AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
        GROUP BY c.khu_vuc
      ),
