@@ -335,3 +335,13 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   hiện có đã dịch sẵn. Áp dụng ở ô chọn, danh sách, chi tiết ca, tiến trình tranh chấp, đặt mua LK.
 - Q7: API đối tác giữ nguyên (toàn bộ).
 
+**Bổ sung 2026-11-11 (v1.563)**
+- **Quốc gia gửi kèm từ API**: pipeline auto qs gửi trường `quoc_gia` (theo nguồn tải: QuickSight/ocrm = VN,
+  g.karofi = PH; bật `SEND_QUOC_GIA` bên pipeline). Có trường → dùng luôn (để trống = VN), cả khi tạo ca mới lẫn khi
+  ca đã có mà nước khác giá trị đang lưu (sửa ca bị mẫu ID gán nhầm; tính như ghi đè). Mã chưa có trong danh mục
+  Quốc gia → báo lỗi trong kết quả import, tạm gán theo mẫu ID. Không có trường (import Excel tay) → giữ cách cũ (mẫu
+  ID, chỉ khi tạo mới). Không nằm trong `crm_hash`. Chi phí D1 gần như không đổi (cách cũ cũng chỉ đọc vài dòng mẫu
+  ID/lần import); lợi ích là gán đúng nước.
+- **Bỏ lựa chọn "Tất cả quốc gia"** trên TopBar: người được xem toàn bộ cũng chỉ xem từng nước (mặc định VN, nút chọn
+  các nước đang bật). Server (`chonQuocGia`) không còn trả "mọi nước" cho request GET của người dùng. Số chốt cron
+  của phạm vi gộp vẫn chạy (Cảnh báo tồn / log chuyển cấp dùng phạm vi gốc).

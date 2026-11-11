@@ -217,8 +217,11 @@ export const phamViMiddleware: MiddlewareHandler<{ Bindings: Env }> = async (c, 
 export async function chonQuocGia(db: D1Database, phamViUser: string[] | null, raw: string | undefined): Promise<string | null> {
   const yeuCau = raw?.trim().toUpperCase() || null;
   if (phamViUser === null) {
-    if (!yeuCau || !RE_MA_QUOC_GIA.test(yeuCau)) return null;
-    return (await dsQuocGiaKichHoat(db)).includes(yeuCau) ? yeuCau : null;
+    // Bo lua chon "Tất cả quốc gia" (chu he thong 2026-11-11): nguoi toan bo cung chi xem TUNG nuoc. Khong gui / gui
+    // ma khong hop le -> VN (neu VN dang bat) hoac nuoc dang bat dau tien.
+    const ds = await dsQuocGiaKichHoat(db);
+    if (yeuCau && RE_MA_QUOC_GIA.test(yeuCau) && ds.includes(yeuCau)) return yeuCau;
+    return ds.includes(QUOC_GIA_MAC_DINH) ? QUOC_GIA_MAC_DINH : (ds[0] ?? null);
   }
   if (phamViUser.length === 0) return QUOC_GIA_MAC_DINH;
   return yeuCau && phamViUser.includes(yeuCau) ? yeuCau : phamViUser[0];

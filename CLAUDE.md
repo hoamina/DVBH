@@ -263,7 +263,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   NSKX only exists for VN) **plus** every plain `FROM/JOIN case_dvbh [alias]` becomes a `quoc_gia`-filtered subquery
   (so a case of another country is "not found", child-table joins are filtered too); non-GET → only that case_dvbh filter
   over ALL the user's countries (`bocGhiTheoNuoc`). Skipped: `/auth`, `/partner`, `/external-import`, `/import`.
-  Multi-country users view one country at a time (`?qg=`, TopBar `QuocGiaToggle`), server re-validates (`chonQuocGia`).
+  Every user views ONE country at a time — the "Tất cả quốc gia" option was removed 2026-11-11 (owner); a full-scope user
+  without/with an invalid `?qg=` gets VN (`chonQuocGia`), the mixed base scope is now only for cron/partner/import.
+  Since 2026-11-11 the import also accepts an explicit `quoc_gia` field per row (auto qs `SEND_QUOC_GIA`, by download
+  source; empty = VN, unknown code → error + ID-pattern fallback): used on INSERT and re-written on an existing case whose
+  stored country differs (counted as GHI_DE); not part of `crm_hash`. Rows without the key keep the ID-pattern rule.
   Per-country views/table copies: VN+ID in migration 0149 (history copied from the base tables), new countries created at
   runtime from the base DDL (`lib/quocGiaKichHoat.ts`, on Admin enable + every cron chốt). Cron chốt/17:30/retry loop all
   scopes (`lib/phamViChot.ts`), `warmDefaultReports` also warms VN. Telegram/`xoaBanPhamVi` check `laPhamViGoc(db)`.

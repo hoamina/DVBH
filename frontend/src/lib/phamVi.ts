@@ -29,7 +29,7 @@ function phamViDaChon(): PhamVi {
 /*
  * "Đa quốc gia" (2026-10-29, SRS §12, backend lib/phamVi.ts): nuoc dang xem. La QUYEN (users.pham_vi_quoc_gia, null =
  * toan bo) - server tu kiem lai, o day chi de gui ?qg= va dat khoa cache trinh duyet khop voi nuoc server dung.
- * Nguoi duoc nhieu nuoc chon xem tung nuoc 1; nguoi toan bo con co "Tất cả" (null).
+ * Moi nguoi chi xem tung nuoc 1 (bo "Tất cả" 2026-11-11); null chi con la gia tri tam truoc khi biet quyen.
  */
 export const QUOC_GIA_CO_NSKX = "VN";
 const KEY_QG = "dvbh_quoc_gia";
@@ -52,7 +52,8 @@ export function quocGiaHienTai(): string | null {
   } catch {
     raw = null;
   }
-  if (!quyenQuocGia) return raw; // toan bo (hoac chua biet quyen)
+  // Toan bo (hoac chua biet quyen): khong con "Tất cả quốc gia" (2026-11-11) -> mac dinh VN; server kiem lai nuoc co bat.
+  if (!quyenQuocGia) return raw ?? QUOC_GIA_CO_NSKX;
   if (raw && quyenQuocGia.includes(raw)) return raw;
   return quyenQuocGia[0] ?? QUOC_GIA_CO_NSKX;
 }

@@ -5613,3 +5613,14 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Đo DB thật sau migrate (tháng 10): KPI ca lặp kết quả trùng, 19.569 → 4.323 dòng, 132 → 15 ms.
 - Kiểm tra local: huỷ ca gốc 1252522 → ca lặp SC261003403 bỏ liên kết; bỏ huỷ → khôi phục đúng; tính lại toàn bộ: 546 ca lặp giữ nguyên,
   0 dòng ghi thừa; danh sách tháng + status 200.
+
+## 2026-11-11 — v1.563: nhận quốc gia gửi kèm từ API + bỏ "Tất cả quốc gia"
+
+- Kiểm tra: dvbh tự suy quốc gia theo mẫu ID (chỉ khi tạo ca mới), bỏ qua cột "Quốc gia" pipeline auto qs đã có từ
+  10/11 (cờ `SEND_QUOC_GIA` chưa bật). Chi phí cách cũ rất nhỏ (đọc vài dòng `quoc_gia_mau_id`/lần import) → dùng cột
+  gửi kèm không tiết kiệm D1 đáng kể, lợi ích là đúng nước (ID Odoo PH có thể trùng dạng VN).
+- `importProcessor.ts`: trường `quoc_gia` có → dùng (trống = VN, mã lạ → báo lỗi + theo mẫu ID); ca đã có mà khác nước
+  → ghi đè cột này (tính GHI_DE). Không vào `crm_hash` nên bật cờ lần đầu không làm mọi dòng "đổi".
+- Bỏ nút "Tất cả" ở chọn quốc gia (`QuocGiaToggle`, `frontend/lib/phamVi.ts`, backend `chonQuocGia`): người toàn bộ
+  mặc định xem VN, chọn từng nước đang bật.
+- Việc tiếp theo: bật `SEND_QUOC_GIA=true` bên auto qs.
