@@ -22,12 +22,20 @@ export function exportTemplateKey(filename: string): string {
     .toLowerCase();
 }
 
+/** Nhan cot da doi ten -> nhan moi, de mau da luu truoc khi doi giu dung vi tri/bat-tat cua cot do.
+ * 2026-11-11: Excel Quan ly ton / QL NSKX "Tiếp nhận" -> "Thời gian tiếp nhận". */
+const NHAN_DOI_TEN: Record<string, string> = { "Tiếp nhận": "Thời gian tiếp nhận" };
+const doiTen = (cols: string[]) => cols.map((c) => NHAN_DOI_TEN[c] ?? c);
+
 export function loadExportTemplate(key: string): ExportTemplate | null {
   try {
     const raw = localStorage.getItem(PREFIX + key);
     if (!raw) return null;
     const v = JSON.parse(raw) as ExportTemplate;
-    return Array.isArray(v?.order) && Array.isArray(v?.hidden) ? v : null;
+    if (!Array.isArray(v?.order) || !Array.isArray(v?.hidden)) return null;
+    // Bo nhan cu neu mau da co ca nhan moi (tranh trung cot sau khi doi ten).
+    const order = [...new Set(doiTen(v.order))];
+    return { order, hidden: doiTen(v.hidden) };
   } catch {
     return null;
   }

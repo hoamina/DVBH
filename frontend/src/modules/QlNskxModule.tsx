@@ -445,7 +445,7 @@ function DanhSachNskx({
       seri_san_pham: "Serial",
       nhom_san_pham: "Model",
       loai_yeu_cau: "Loại yêu cầu",
-      thoi_gian_cskh_tiep_nhan: "Tiếp nhận",
+      thoi_gian_cskh_tiep_nhan: "Thời gian tiếp nhận",
       thoi_gian_hoan_thanh: "Hoàn thành",
       trang_thai: "Trạng thái",
       dung_han: "SLA",

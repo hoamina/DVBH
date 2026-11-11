@@ -1505,7 +1505,7 @@ export function BacklogModule({
   // "du_kien"/"ly_do" la key hien thi noi bo, doi lai dung ten field goc cua CaseRow lam key Excel.
   const DANH_SACH_EXPORT_LABELS: Record<string, string> = {
     ...CASE_FIELD_LABELS,
-    thoi_gian_cskh_tiep_nhan: "Tiếp nhận",
+    thoi_gian_cskh_tiep_nhan: "Thời gian tiếp nhận",
     last_ngay_du_kien_hoan_thanh: "Dự kiến HT",
     last_ly_do_cham: "Lý do tồn gần nhất",
     need_lo_ke_hoach: "Lỡ kế hoạch",

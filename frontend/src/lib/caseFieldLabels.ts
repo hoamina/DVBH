@@ -2,8 +2,8 @@ import { tr } from "../i18n/tr";
 /**
  * Nhan tieng Viet dung chung cho cac cot cua case_dvbh (CaseRow) khi xuat Excel (xem exportExcel.ts).
  * Cac module xuat nguyen dong CaseRow (nhieu hon so cot hien tren man hinh) - dung dict nay lam nen,
- * roi ghi de vai key bang dung chu tren man hinh cua chinh module do neu can (vi du Backlog dung
- * "Tiếp nhận" ngan gon thay vi "Thời gian tiếp nhận").
+ * roi ghi de vai key bang dung chu tren man hinh cua chinh module do neu can (Excel cot tiep nhan
+ * luon la "Thời gian tiếp nhận" - chu he thong 2026-11-11, du tren man hinh ghi gon "Tiếp nhận").
  */
 export const CASE_FIELD_LABELS: Record<string, string> = {
   id: "ID",
