@@ -5609,6 +5609,7 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
     liền 3 s như 1 câu tính toàn bộ). Lần chạy đầu sau deploy xử lý từ marker 09/11.
 - B: migration 0159 `idx_case_lap_ht` (partial index ca lặp theo `thoi_gian_hoan_thanh`); CTE `lap` dùng `INDEXED BY idx_case_lap_ht` →
   KPI / đếm / danh sách 1 tháng lọc tháng ngay trong index (trước đọc hết ~18,7k ca lặp mọi tháng mỗi câu). `/ca-lap/danh-sach/status`
-  đi từ `giai_trinh_lap` (~3k dòng) bằng CROSS JOIN thay vì quét ~29k ca đã đóng của tháng.
+  giữ JOIN cũ: sau khi có 0159 planner tự dùng index mới (~4,3k dòng/tháng, trước ~29k); ép CROSS JOIN lại tốn hơn (~6k).
+- Đo DB thật sau migrate (tháng 10): KPI ca lặp kết quả trùng, 19.569 → 4.323 dòng, 132 → 15 ms.
 - Kiểm tra local: huỷ ca gốc 1252522 → ca lặp SC261003403 bỏ liên kết; bỏ huỷ → khôi phục đúng; tính lại toàn bộ: 546 ca lặp giữ nguyên,
   0 dòng ghi thừa; danh sách tháng + status 200.

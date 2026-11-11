@@ -249,11 +249,11 @@ caLap.get("/danh-sach/status", async (c) => {
   const { start, end } = monthBounds(thang);
 
   const { results } = await c.env.DB.prepare(
-    // CROSS JOIN ep di tu giai_trinh_lap (~3k dong ca bang) roi tra ca theo khoa chinh - truoc day planner quet moi ca da dong
-    // cua thang (~29k dong) de tim vai tram ca co danh gia lap (2026-11-11). Ket qua giong het (cung dieu kien).
+    // 2026-11-11: planner tu chon idx_case_lap_ht (migration 0159, ca lap theo ngay hoan thanh) -> ~4,3k dong/thang thay vi quet
+    // ~29k ca da dong cua thang (do tren DB that; ep CROSS JOIN tu giai_trinh_lap lai ton hon: ~6k).
     `SELECT gl.*
      FROM giai_trinh_lap gl
-     CROSS JOIN case_hieu_luc c ON c.id = gl.case_id
+     JOIN case_hieu_luc c ON c.id = gl.case_id
      WHERE c.ca_lap_prior_ht IS NOT NULL
        AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}`,
   )
