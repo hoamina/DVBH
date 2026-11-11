@@ -205,7 +205,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     received from 2026-11-01 (`NSKX_DONG_BO_TU_NGAY`, owner decision)
     not marked "không thay" (+ their `case_lada` IDs) to linh-kien-app `POST /api/partner/v1/don-loi-loc`, which returns live orders of
     type "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" (cancelled/rejected excluded) → `nskx_don_lk` (only changed rows written; summary in
-    `cai_dat_he_thong` key `nskx_dong_bo_don`). Order status = đã lên đơn > không cần (không thay) > chưa lên đơn. Live reads, no cache.
+    `cai_dat_he_thong` key `nskx_dong_bo_don`). Order status = đã lên đơn > không cần (không thay) > không áp dụng (received before 2026-11-01) > chưa lên đơn. Live reads, no cache.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the

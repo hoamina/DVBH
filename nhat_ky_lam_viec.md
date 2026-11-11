@@ -5645,3 +5645,4 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   end-to-end ở local (local không cấu hình key linh-kien-app, DB local linh-kien-app không có đơn TG12) — đã kiểm cú pháp + query plan SQL.
 - Lưu ý: "lõi" phân biệt dấu (không bắt "lỗi"); nhưng có linh kiện như "Tay cầm lõi …" vẫn được đề xuất — GS bỏ chọn khi xác nhận.
 - v1.565: theo chủ hệ thống, đồng bộ đơn lõi lọc chỉ xử lý ca NSKX tiếp nhận từ 01/11/2026 (`NSKX_DONG_BO_TU_NGAY`).
+- v1.566: ca NSKX tiếp nhận trước 01/11/2026 có trạng thái đơn lõi "Không áp dụng" (không còn tính vào "Chưa đặt lõi"); báo cáo thêm cột này.

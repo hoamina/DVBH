@@ -70,7 +70,7 @@ interface NskxRow {
   trang_thai: string;
   de_xuat_loi: "co" | "khong";
   tt_loi_loc: "chua_danh_gia" | "thay" | "khong_thay";
-  tt_don: "da_len_don" | "chua_len_don" | "khong_can";
+  tt_don: "da_len_don" | "chua_len_don" | "khong_can" | "khong_ap_dung";
   thay_loi: number | null;
   ds_loi: string | null;
   ghi_chu_loi: string | null;
@@ -95,6 +95,7 @@ interface BaoCaoRow {
   da_dat_loi: number;
   khong_thay_loi: number;
   chua_dat_loi: number;
+  khong_ap_dung: number;
   chua_danh_gia: number;
 }
 
@@ -102,6 +103,7 @@ const TT_DON: Record<string, { label: string; tone: BadgeTone }> = {
   da_len_don: { label: tr("Đã đặt lõi"), tone: "teal" },
   chua_len_don: { label: tr("Chưa đặt lõi"), tone: "amber" },
   khong_can: { label: tr("Không cần (không thay lõi)"), tone: "gray" },
+  khong_ap_dung: { label: tr("Không áp dụng (trước 11/2026)"), tone: "gray" },
 };
 const TT_LOI_LOC: Record<string, { label: string; tone: BadgeTone }> = {
   chua_danh_gia: { label: tr("Chưa đánh giá"), tone: "orange" },
@@ -757,7 +759,7 @@ function XacNhanLoiModal({ row, onClose, onSaved }: { row: NskxRow; onClose: () 
   );
 }
 
-type CotBaoCao = "nhom" | "tong_ca" | "da_hoan_thanh" | "ty_24h" | "ty_sla" | "da_dat_loi" | "khong_thay_loi" | "chua_dat_loi" | "chua_danh_gia";
+type CotBaoCao = "nhom" | "tong_ca" | "da_hoan_thanh" | "ty_24h" | "ty_sla" | "da_dat_loi" | "khong_thay_loi" | "chua_dat_loi" | "khong_ap_dung" | "chua_danh_gia";
 
 function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; onDrill: (nhom: string | null, dim: "khu_vuc" | "ktv", tt?: string) => void }) {
   const [dim, setDim] = useLocalStorageState<"khu_vuc" | "ktv">("filters:ql-nskx-bao-cao-dim", "khu_vuc");
@@ -786,7 +788,7 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
     });
   }, [data, timNhom, sapXep]);
   const tong = useMemo(() => {
-    const t: BaoCaoRow = { nhom: null, khu_vuc: null, tong_ca: 0, da_hoan_thanh: 0, duoi_24h: 0, co_tinh_24h: 0, dung_han: 0, co_tinh_sla: 0, da_dat_loi: 0, khong_thay_loi: 0, chua_dat_loi: 0, chua_danh_gia: 0 };
+    const t: BaoCaoRow = { nhom: null, khu_vuc: null, tong_ca: 0, da_hoan_thanh: 0, duoi_24h: 0, co_tinh_24h: 0, dung_han: 0, co_tinh_sla: 0, da_dat_loi: 0, khong_thay_loi: 0, chua_dat_loi: 0, khong_ap_dung: 0, chua_danh_gia: 0 };
     for (const r of rows) for (const k of Object.keys(t) as (keyof BaoCaoRow)[]) if (typeof r[k] === "number") (t[k] as number) += r[k] as number;
     return t;
   }, [rows]);
@@ -799,6 +801,7 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
     { cot: "da_dat_loi", label: tr("Đã đặt lõi"), tt: "da_len_don" },
     { cot: "khong_thay_loi", label: tr("Không thay lõi"), tt: "khong_can" },
     { cot: "chua_dat_loi", label: tr("Chưa đặt lõi"), tt: "chua_len_don" },
+    { cot: "khong_ap_dung", label: tr("Không áp dụng"), tt: "khong_ap_dung" },
     { cot: "chua_danh_gia", label: tr("Chưa đánh giá lõi"), tt: "chua_danh_gia" },
   ];
   const o = (r: BaoCaoRow, c: (typeof COTS)[number], laTong: boolean) => {
@@ -825,11 +828,12 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
         da_dat_loi: r.da_dat_loi,
         khong_thay_loi: r.khong_thay_loi,
         chua_dat_loi: r.chua_dat_loi,
+        khong_ap_dung: r.khong_ap_dung,
         chua_danh_gia: r.chua_danh_gia,
       })),
       `bao_cao_nskx_${thang}.xlsx`,
       "Data",
-      { nhom: dim === "khu_vuc" ? "Khu vực" : "KTV", tong_ca: "Tổng ca", da_hoan_thanh: "Đã hoàn thành", ty_24h: "Tỷ lệ 24h", ty_sla: "Tỷ lệ SLA", da_dat_loi: "Đã đặt lõi", khong_thay_loi: "Không thay lõi", chua_dat_loi: "Chưa đặt lõi", chua_danh_gia: "Chưa đánh giá lõi" },
+      { nhom: dim === "khu_vuc" ? "Khu vực" : "KTV", tong_ca: "Tổng ca", da_hoan_thanh: "Đã hoàn thành", ty_24h: "Tỷ lệ 24h", ty_sla: "Tỷ lệ SLA", da_dat_loi: "Đã đặt lõi", khong_thay_loi: "Không thay lõi", chua_dat_loi: "Chưa đặt lõi", khong_ap_dung: "Không áp dụng", chua_danh_gia: "Chưa đánh giá lõi" },
       { skipColumnPicker: true },
     );
   }

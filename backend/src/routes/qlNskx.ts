@@ -37,7 +37,8 @@ const LOAI_DE_XUAT_LOI = "HỖ TRỢ NGOÀI BẢO HÀNH TG12";
 export const NSKX_DONG_BO_TU_NGAY = "2026-11-01";
 
 const TT_LOI_LOC_EXPR = "(CASE WHEN n.thay_loi IS NULL THEN 'chua_danh_gia' WHEN n.thay_loi = 1 THEN 'thay' ELSE 'khong_thay' END)";
-const TT_DON_EXPR = "(CASE WHEN d.co_don = 1 THEN 'da_len_don' WHEN n.thay_loi = 0 THEN 'khong_can' ELSE 'chua_len_don' END)";
+// "khong_ap_dung" (2026-11-11): ca tiep nhan truoc NSKX_DONG_BO_TU_NGAY khong dong bo don loi -> khong tinh "chua dat loi".
+const TT_DON_EXPR = `(CASE WHEN d.co_don = 1 THEN 'da_len_don' WHEN n.thay_loi = 0 THEN 'khong_can' WHEN c.thoi_gian_cskh_tiep_nhan < '${NSKX_DONG_BO_TU_NGAY}' THEN 'khong_ap_dung' ELSE 'chua_len_don' END)`;
 const DE_XUAT_LOI_EXPR = "(CASE WHEN c.linh_kien_loi LIKE '%lõi%' OR c.linh_kien_loi LIKE '%LÕI%' THEN 'co' ELSE 'khong' END)";
 const TRANG_THAI_EXPR = "(CASE WHEN c.thoi_gian_hoan_thanh IS NULL THEN 'Đang xử lý' ELSE 'Đã hoàn thành' END)";
 
@@ -328,6 +329,7 @@ qlNskx.get("/bao-cao", async (c) => {
        SUM(CASE WHEN ${TT_DON_EXPR} = 'da_len_don' THEN 1 ELSE 0 END) AS da_dat_loi,
        SUM(CASE WHEN ${TT_DON_EXPR} = 'khong_can' THEN 1 ELSE 0 END) AS khong_thay_loi,
        SUM(CASE WHEN ${TT_DON_EXPR} = 'chua_len_don' THEN 1 ELSE 0 END) AS chua_dat_loi,
+       SUM(CASE WHEN ${TT_DON_EXPR} = 'khong_ap_dung' THEN 1 ELSE 0 END) AS khong_ap_dung,
        SUM(CASE WHEN n.thay_loi IS NULL THEN 1 ELSE 0 END) AS chua_danh_gia
      ${FROM_NSKX} ${goc.sql} GROUP BY 1 ORDER BY tong_ca DESC, 1`,
   )
