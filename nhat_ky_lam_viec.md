@@ -5626,3 +5626,11 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Đã bật biến GitHub `SEND_QUOC_GIA=true` (Auto-QuickSight). Chủ hệ thống: không gửi lại toàn bộ — auto qs `run_all.py`
   không đưa cột Quốc gia vào hash nữa, chỉ dòng mới/dòng đổi gửi kèm. Ca PH cũ: kiểm tra D1 99/99 ca `PH-SC…` đã là PH
   (mẫu `PH-SC[0-9]*` ưu tiên 20 có sẵn trong `quoc_gia_mau_id`) → không cần cập nhật dữ liệu.
+
+## 2026-11-11 — Tổng quát PH không có số: cờ "Tính vào KPI" = 0 (sửa ở auto qs)
+
+- Kiểm tra D1: 99 ca PH có trạng thái giống VN ("Hoàn thành XLSC"…), Đúng hạn / 24h đầy đủ, khu vực `MM`/`Retail`, nhưng
+  `tinh_vao_kpi = 0` toàn bộ → Hoàn thành / Tỷ lệ SLA / Tỷ lệ 24h ở Tổng quát = 0. Không phải lỗi dvbh.
+- Nguyên nhân: auto qs `transform.py compute_tinh_vao_kpis` đòi TBP chứa "qldvbh" (quy ước tên TBP VN); TBP PH = khu vực
+  Odoo (MM/Retail). Chủ hệ thống chốt: PH tính KPI cả MM và Retail → nguồn `QUOC_GIA != "VN"` bỏ điều kiện này (các loại
+  trừ khác giữ nguyên). VN không đổi. Ca PH cũ tự ghi đè ở lần chạy pipeline kế tiếp (`tinh_vao_kpi` nằm trong crm_hash).
