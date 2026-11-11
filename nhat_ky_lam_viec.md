@@ -5656,3 +5656,6 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   `khu_vuc=<9 khu vực nối dấu phẩy>` trả 400 `khu_vuc too long` — `validateReportParams` (cases.ts) giới hạn TỔNG chuỗi 200 ký
   tự, ~5 tên dạng "(qldvbh.mb1) Quản lý khu vực MB1" đã vượt. Không liên quan quốc gia.
 - Sửa: giới hạn theo từng giá trị (≤150 ký tự) + tối đa 40 khu vực. Phát lại đúng 5 request lỗi ở local → 200.
+- v1.568: tab NSKX chuyển sau "Tiến trình chung"; danh sách chọn lõi chỉ mở khi bấm vào ô nhập; cạnh mỗi lõi đã chọn hiện trạng thái đơn
+  linh-kien-app cùng mã của ca (bỏ đơn huỷ/từ chối) + khối gợi ý "lõi đã đặt cho ca này nhưng chưa chọn" — phân tích trên máy người dùng
+  từ dữ liệu tab Mua hàng đã tải, không đọc/ghi thêm D1. Mã lõi không có trong danh mục: lấy tên từ đơn nếu có.

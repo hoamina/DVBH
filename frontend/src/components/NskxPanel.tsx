@@ -12,12 +12,14 @@ import { useToast } from "./ui/Toast";
 import { LuongNgangDoiTra, type MocDoiTra } from "./LuongMailPanel";
 import { parseLinhKienLoi } from "./LoiLinhKienPanel";
 import { fetchWithHashCache } from "../lib/staticListCache";
-import { useLinhKienTimeline, linhKienTrangThaiLabel } from "../lib/linhKienTimeline";
+import { useLinhKienTimeline, linhKienTrangThaiLabel, type LinhKienOrder } from "../lib/linhKienTimeline";
 import { fmtDateTime, type LinhKienRow, type LinhKienLoiItem } from "../types";
 import { tr } from "../i18n/tr";
 
 export const NSKX_DOI_TAC = ["NSKX", "[NSKX]"];
 const LOAI_DE_XUAT_LOI = "HỖ TRỢ NGOÀI BẢO HÀNH TG12";
+const DON_HUY = ["TN tu choi", "Tu choi", "Da huy"];
+const donHuy = (o: LinhKienOrder) => DON_HUY.includes(o.trang_thai_hien_tai ?? "");
 
 export interface LoiDaThay {
   ma_linh_kien: string;
@@ -103,7 +105,7 @@ export function NskxPanel({ caseId, linhKienLoi }: { caseId: string; linhKienLoi
   if (isError || !data) return <div className="text-sm text-[var(--coral-600)]">{tr("Không tải được thông tin NSKX của ca này.")}</div>;
   const r = data.row;
   const donDongBo = parseJsonArr<DonLoi>(r.don_loi);
-  const donConHieuLuc = donLk.filter((o) => !["TN tu choi", "Tu choi", "Da huy"].includes(o.trang_thai_hien_tai ?? ""));
+  const donConHieuLuc = donLk.filter((o) => !donHuy(o));
   const ngayDat = donConHieuLuc.map((o) => o.ngay_tao).sort()[0] ?? donDongBo.map((d) => d.ngay_tao).sort()[0] ?? null;
   const daDanhGia = r.tt_loi_loc !== "chua_danh_gia";
   const khongCanDat = ["khong_can", "khong_ap_dung"].includes(r.tt_don);
@@ -138,6 +140,7 @@ export function NskxPanel({ caseId, linhKienLoi }: { caseId: string; linhKienLoi
           caseId={caseId}
           linhKienLoi={linhKienLoi}
           hienTai={r}
+          donCuaCa={lk?.orders ?? []}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["ql-nskx"] });
             toast(tr("Đã lưu xác nhận lõi lọc ca {0}", caseId));
@@ -242,11 +245,14 @@ function XacNhanForm({
   caseId,
   linhKienLoi,
   hienTai,
+  donCuaCa,
   onSaved,
 }: {
   caseId: string;
   linhKienLoi: string | null | undefined;
   hienTai: CaNskx["row"];
+  /** Moi don linh-kien-app cua ca (cung du lieu tab Mua hang) - phan tich tren may nguoi dung, khong goi them API/D1. */
+  donCuaCa: LinhKienOrder[];
   onSaved: () => void;
 }) {
   const toast = useToast();
@@ -271,6 +277,21 @@ function XacNhanForm({
   const [ghiChu, setGhiChu] = useState(hienTai.ghi_chu_loi ?? "");
   const [tim, setTim] = useState("");
   const [chiLoi, setChiLoi] = useState(true);
+  // Danh sach chon loi chi mo khi bam vao o tim.
+  const [moChon, setMoChon] = useState(false);
+  // Don theo ma LK (bo don huy/tu choi), de hien trang thai dat hang canh tung loi + goi y loi da dat ma chua chon.
+  const donTheoMa = useMemo(() => {
+    const m = new Map<string, LinhKienOrder[]>();
+    for (const o of donCuaCa) if (!donHuy(o)) m.set(o.ma_lk, [...(m.get(o.ma_lk) ?? []), o]);
+    return m;
+  }, [donCuaCa]);
+  const goiYDaDat = useMemo(
+    () =>
+      [...donTheoMa.values()]
+        .map((ds) => ds[0])
+        .filter((o) => !ds.some((x) => x.ma_linh_kien === o.ma_lk) && (laLoi(o.ten_lk) || (o.loai_de_xuat ?? "").includes(LOAI_DE_XUAT_LOI))),
+    [donTheoMa, ds],
+  );
   const [dangLuu, setDangLuu] = useState(false);
   const ketQua = useMemo(() => {
     const q = boDau(tim.trim());
@@ -326,10 +347,25 @@ function XacNhanForm({
             {ds.length === 0 && <div className="text-[var(--ink-400)]">{tr("Chưa chọn lõi nào.")}</div>}
             {ds.map((x, i) => {
               const ten = tenTheoMa.get(x.ma_linh_kien);
+              const don = donTheoMa.get(x.ma_linh_kien) ?? [];
+              const tenDon = don[0]?.ten_lk;
               return (
                 <div key={x.ma_linh_kien} className="flex items-center gap-2 py-1 border-b border-[var(--line)]">
                   <span className="font-mono">{x.ma_linh_kien}</span>
-                  <span className={`flex-1 ${ten ? "" : "text-[var(--coral-600)]"}`}>{ten ?? tr("Không có trong danh mục linh kiện")}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className={ten ? "" : "text-[var(--coral-600)]"}>{ten ?? (tenDon ? `${tenDon} — ${tr("không có trong danh mục linh kiện")}` : tr("Không có trong danh mục linh kiện"))}</span>
+                    <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">
+                      {don.length ? (
+                        don.map((o) => (
+                          <span key={o.order_id} title={`${o.order_id} · ${o.loai_de_xuat ?? ""} · ${o.ngay_tao?.slice(0, 10) ?? ""}`}>
+                            <Badge tone="teal">{tr("Đã đặt: {0}", linhKienTrangThaiLabel(o.trang_thai_hien_tai))}</Badge>
+                          </span>
+                        ))
+                      ) : (
+                        <Badge tone="amber">{tr("Chưa có đơn đặt mã này")}</Badge>
+                      )}
+                    </span>
+                  </span>
                   <input
                     type="number"
                     min={1}
@@ -345,25 +381,55 @@ function XacNhanForm({
               );
             })}
           </div>
+          {goiYDaDat.length > 0 && (
+            <div className="rounded-lg bg-[var(--amber-100,#fff4dc)] px-2.5 py-1.5 text-xs">
+              <div className="font-semibold mb-0.5">{tr("Lõi đã đặt cho ca này (linh-kien-app) nhưng chưa chọn:")}</div>
+              {goiYDaDat.map((o) => (
+                <div key={o.ma_lk} className="flex items-center gap-2">
+                  <span className="font-mono">{o.ma_lk}</span>
+                  <span className="flex-1">
+                    {o.ten_lk} · {linhKienTrangThaiLabel(o.trang_thai_hien_tai)}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-[var(--ocean-600)] font-semibold hover:underline"
+                    onClick={() => setDs([...ds, { ma_linh_kien: o.ma_lk, so_luong: o.so_luong_de_xuat ?? 1 }])}
+                  >
+                    {tr("+ Thêm")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="text"
               value={tim}
-              onChange={(e) => setTim(e.target.value)}
-              placeholder={tr("Tìm mã / tên linh kiện để thêm…")}
+              onChange={(e) => {
+                setTim(e.target.value);
+                setMoChon(true);
+              }}
+              onFocus={() => setMoChon(true)}
+              onBlur={() => setTimeout(() => setMoChon(false), 150)}
+              placeholder={tr("Bấm để nhập mã / tên lõi cần thêm…")}
               className="focus-ring flex-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5"
             />
             <label className="inline-flex items-center gap-1 text-xs">
               <input type="checkbox" checked={chiLoi} onChange={(e) => setChiLoi(e.target.checked)} /> {tr("Chỉ lõi lọc")}
             </label>
           </div>
+          {moChon && (
           <div className="max-h-44 overflow-auto border border-[var(--line)] rounded-lg">
             {ketQua.map((r) => (
               <button
                 key={r.ma_linh_kien}
                 type="button"
                 disabled={ds.some((x) => x.ma_linh_kien === r.ma_linh_kien)}
-                onClick={() => setDs([...ds, { ma_linh_kien: r.ma_linh_kien, so_luong: 1 }])}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setDs([...ds, { ma_linh_kien: r.ma_linh_kien, so_luong: 1 }]);
+                  setTim("");
+                }}
                 className="w-full text-left px-2.5 py-1 hover:bg-[var(--ocean-100)] disabled:opacity-40 border-b border-[var(--line)] last:border-0"
               >
                 <span className="font-mono">{r.ma_linh_kien}</span> {r.ten_linh_kien}
@@ -371,6 +437,7 @@ function XacNhanForm({
             ))}
             {ketQua.length === 0 && <div className="px-2.5 py-2 text-[var(--ink-400)]">{tr("Không tìm thấy linh kiện.")}</div>}
           </div>
+          )}
         </>
       )}
       <textarea

@@ -2917,8 +2917,8 @@ export function CaseDetail({
     viewMode === "compact"
       ? [
           { key: "info", label: tr("Thông tin") },
-          ...nskxTab,
           { key: "tien-trinh-chung", label: tr("Tiến trình chung"), count: tienTrinhChungEvents.length },
+          ...nskxTab,
           { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
           { key: "vi-pham", label: tr("Vi phạm"), count: viPhamList.length },
@@ -2934,8 +2934,8 @@ export function CaseDetail({
           { key: "luong-mail", label: tr("Đổi trả"), count: mailTimeline?.thu.length ?? 0 },
         ]
       : [
-          ...nskxTab,
           { key: "tien-trinh-chung", label: tr("Tiến trình chung"), count: tienTrinhChungEvents.length },
+          ...nskxTab,
           { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
           { key: "vi-pham", label: tr("Vi phạm"), count: viPhamList.length },
