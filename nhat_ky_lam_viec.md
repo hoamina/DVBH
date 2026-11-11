@@ -5676,3 +5676,13 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - v1.573: Nhận 2 trường tuỳ chọn mới từ pipeline auto qs qua `/api/external-import/commit`: `so_gio_xu_ly_klt` (số giờ xử lý KHÔNG
   loại trừ ngoại lệ "KH hẹn lại lịch") + `dung_han_klt` (Đúng hạn/Quá hạn tương ứng). Migration 0163 thêm 2 cột vào `case_dvbh`; chỉ ghi
   khi dòng có key, chỉ vào hash khi có giá trị (ca cũ không đổi hash). Chi tiết ca hiện thêm dòng "Đúng hạn không loại trừ" khi có dữ liệu.
+
+## 2026-11-11 — v1.574–1.575: Excel "Thời gian tiếp nhận" + 3 cột ngày hàng về theo KV ở Quản lý tồn
+
+- v1.574: tiêu đề Excel cột tiếp nhận (Quản lý tồn, QL NSKX) "Tiếp nhận" → "Thời gian tiếp nhận" (EN/ID theo từ điển sẵn có); mẫu cột đã lưu tự đổi tên (`exportTemplate.ts NHAN_DOI_TEN`).
+- v1.575: "Danh sách chi tiết" thêm 3 cột thường (bảng + Excel) cho ca có "Mã linh kiện thiếu gần nhất": **Ngày hàng về dự kiến theo KV**, **Ngày về gần nhất theo KV**, **Ngày NM cam kết có hàng** (`lib/ngayHangVeTheoKv.ts`).
+  Đối chiếu PO đặt hàng (Google Sheet + app EO, cùng nguồn menu Thiếu linh kiện), bỏ PO huỷ/SL đặt 0, chỉ PO của kho cùng miền với khu vực ca
+  (khu vực qldvbh.mb/“miền Bắc” = MB, qldvbh.mn/“miền Nam” = MN; kho có MB/Bắc/HN = MB, MN/Nam/HCM = MN; không rõ miền → dùng mọi kho).
+  Dự kiến = ngày dự kiến gần nhất sớm nhất của PO đang chờ; về gần nhất = `ngay_ve_dung_kho` app EO (mới map thành `ngayVeDungKho`) hoặc ngày về thực tế/phiếu nhập AMIS;
+  NM cam kết = của PO có dự kiến sớm nhất, không có thì PO đang chờ gần nhất có nhập. Tính ở trình duyệt → không lọc/sắp xếp theo cột được (như "SL đơn mua").
+  Helper PO (`poBiHuy/poDangCho/poNgayVe`) chuyển từ HoSoLinhKien sang lib dùng chung.

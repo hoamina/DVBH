@@ -13,6 +13,7 @@ import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
 import type { SheetRow } from "../lib/purchaseWarrantySync";
 import { poSortKey } from "../lib/poDatHangEo";
+import { soNguyen, poBiHuy, poDangCho, poNgayVe } from "../lib/ngayHangVeTheoKv";
 import { MaAppLink, MoAppLink, LINHKIEN_URL } from "./MoAppLink";
 import { tr } from "../i18n/tr";
 
@@ -166,29 +167,6 @@ function TuoiBadge({ ngay }: { ngay: number | null }) {
 // ---- PO dat hang (lam lai 2026-11-07, phan hoi chu he thong): bo PO huy / SL dat = 0; cot "Về thực tế" theo tung PO;
 // PO dang cho hang tren dau + to nen vang, PO da xong mo di; moi kho 1 mau chip; ID PO bam mo thang app PO mua hang;
 // PO co gan ID ca -> hien ma ca (bam mo ca). Ngay trong SheetRow deu dang 'dd/mm/yyyy[ HH:MM:SS]' (poDatHangEo.ts).
-const soNguyen = (v: string | undefined): number | null => {
-  const s = String(v ?? "").trim();
-  if (!s) return null;
-  const x = Number(s.replace(/[^\d.-]/g, ""));
-  return Number.isFinite(x) ? x : null;
-};
-function poBiHuy(r: SheetRow): boolean {
-  const eo = (r.trangThaiEo ?? "").toLowerCase();
-  if (eo.includes("hủy") || eo.includes("từ chối")) return true;
-  if (/hủy|huỷ|từ chối/i.test(`${r.trangThai ?? ""} ${r.tatCa ?? ""}`)) return true;
-  return soNguyen(r.soLuongDat) === 0;
-}
-function poDangCho(r: SheetRow): boolean {
-  const thieu = soNguyen(r.soLuongConThieu);
-  if (thieu !== null) return thieu > 0;
-  return !/kết thúc|hoàn thành|đã về|đủ/i.test(r.trangThai ?? "");
-}
-/** Ngay ve thuc te cua CHINH PO: cot app EO, khong co thi lay ngay phieu nhap AMIS muon nhat cua PO. */
-function poNgayVe(r: SheetRow): string {
-  if (r.ngayVeThucTe) return r.ngayVeThucTe;
-  const ds = (r.phieuNhap ?? "").match(/\d{1,2}\/\d{1,2}\/\d{4}/g) ?? [];
-  return ds.sort((a, b) => (poSortKey(a) < poSortKey(b) ? 1 : -1))[0] ?? "";
-}
 const ngayNgan = (s: string | undefined) => (s ? s.split(" ")[0] : "");
 
 // Mau chip kho - gan theo thu tu ten kho (on dinh trong 1 lan xem), du phan biet nhanh 7 kho.

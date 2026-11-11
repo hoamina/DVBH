@@ -28,6 +28,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
+import { indexPoTheoMaLk, ngayHangVeTheoKv } from "../lib/ngayHangVeTheoKv";
 import { matchMuaHang, matchBaoHanh } from "../lib/purchaseWarrantyMatch";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
@@ -1123,7 +1124,10 @@ export function BacklogModule({
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
   });
   const linhKienTenMap = useMemo(() => new Map((linhKienData?.rows ?? []).map((r) => [r.ma_linh_kien, r.ten_linh_kien])), [linhKienData]);
-  const { muaHang, baoHanh } = usePurchaseWarrantyData();
+  const { muaHang, baoHanh, poDatHang } = usePurchaseWarrantyData();
+  // 2026-11-11: 3 cot ngay hang ve theo KV cho ca co "Mã linh kiện thiếu" - doi chieu PO dat hang (cung nguon menu Thiếu linh kiện).
+  const poTheoMaLk = useMemo(() => indexPoTheoMaLk(poDatHang), [poDatHang]);
+  const ngayHangVe = (c: CaseRow) => ngayHangVeTheoKv(c.last_ma_linh_kien_thieu, c.khu_vuc, poTheoMaLk);
   // CHOT 2026-08-11: cac the so o tab "Bao cao" (vd "Tong can giai trinh") co the doi CHI VI thoi
   // gian troi qua (1 ca vuot moc tuoi ton 3/5/7/14 ngay) hoac do NGUOI KHAC thao tac (giai trinh 1 ca,
   // import CRM...) - khong co mutation cuc bo nao de invalidateQueries khi do, nen neu nguoi dung cu
@@ -1523,6 +1527,9 @@ export function BacklogModule({
     sl_don_mua: "SL đơn mua",
     sl_don_bao_hanh: "SL đơn bảo hành",
     khoang_ton: "Khoảng tồn",
+    ngay_hang_ve_du_kien_kv: "Ngày hàng về dự kiến theo KV",
+    ngay_ve_gan_nhat_kv: "Ngày về gần nhất theo KV",
+    ngay_nm_cam_ket: "Ngày NM cam kết có hàng",
   };
 
   // Nhan cot cho bang pivot "Bao cao ton theo ..." - khop dung thead cua bang o duoi (cot "nhom" doi
@@ -1558,14 +1565,20 @@ export function BacklogModule({
     // Cot "Ten linh kien thieu gan nhat"/"SL don mua"/"SL don bao hanh" chi co tren frontend (tra
     // cuu qua linhKienTenMap/matchMuaHang/matchBaoHanh da cache san) - ghi de vao TUNG dong truoc khi
     // xuat, giu nguyen cac cot con lai tu API.
-    const enriched = all.rows.map((r) => ({
+    const enriched = all.rows.map((r) => {
+      const nv = ngayHangVe(r);
+      return {
       ...r,
+      ngay_hang_ve_du_kien_kv: nv.duKien,
+      ngay_ve_gan_nhat_kv: nv.veGanNhat,
+      ngay_nm_cam_ket: nv.nmCamKet,
       khu_vuc: shortKhuVuc(r.khu_vuc),
       last_ten_linh_kien_thieu: r.last_ma_linh_kien_thieu ? (linhKienTenMap.get(r.last_ma_linh_kien_thieu) ?? r.last_ma_linh_kien_thieu) : null,
       sl_don_mua: slDonMua(r),
       sl_don_bao_hanh: slDonBaoHanh(r),
       khoang_ton: khoangTon(r),
-    }));
+      };
+    });
     await exportRowsToExcel(enriched, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
   }
 
@@ -1721,6 +1734,30 @@ export function BacklogModule({
         ),
     },
     { key: "khu_vuc", header: tr("Khu vực"), sortKey: "khu_vuc", filter: "list", filterValueLabel: (v) => (v === GIA_TRI_TRONG ? tr("(Trống)") : shortKhuVuc(v)), render: (c) => shortKhuVuc(c.khu_vuc) },
+    // 2026-11-11 (chu he thong): ngay hang ve cua "Mã linh kiện thiếu" gan nhat, chi PO cua kho cung mien voi khu vuc ca
+    // (lib/ngayHangVeTheoKv.ts). Tinh o trinh duyet tu du lieu PO da cache (khong co tren server) nen khong loc/sap xep
+    // theo cot duoc - giong cac cot "SL đơn mua"/"SL đơn bảo hành". Cot THUONG (khong optional) de tu hien ca voi nguoi da
+    // tung tuy chinh cot (PaginatedTable chi tu noi cot thuong moi vao cuoi).
+    ...(
+      [
+        ["ngay_hang_ve_du_kien_kv", tr("Ngày hàng về dự kiến theo KV"), "duKien"],
+        ["ngay_ve_gan_nhat_kv", tr("Ngày về gần nhất theo KV"), "veGanNhat"],
+        ["ngay_nm_cam_ket", tr("Ngày NM cam kết có hàng"), "nmCamKet"],
+      ] as const
+    ).map(
+      ([key, header, f]): Column<CaseRow> => ({
+        key,
+        header,
+        render: (c) => {
+          const v = c.last_ma_linh_kien_thieu ? ngayHangVe(c)[f] : "";
+          return v ? (
+            <span className="text-xs whitespace-nowrap" title={tr("Mã linh kiện thiếu: {0}", c.last_ma_linh_kien_thieu ?? "")}>{v}</span>
+          ) : (
+            <span className="text-[var(--ink-400)] text-xs">—</span>
+          );
+        },
+      }),
+    ),
     { key: "action", header: "", render: () => <span className="text-[var(--ocean-500)] text-xs font-semibold">{tr("Xem / giải trình →")}</span> },
   ];
 

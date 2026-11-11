@@ -128,6 +128,8 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     // dong EO nay, phieu gan nhat) + danh sach phieu nhap; ngay NM cam ket (dot ke hoach cuoi co nhap).
     ngayBanHanh: fmt(p.ngay_ban_hanh),
     ngayVeThucTe: fmt(p.ngay_ve_theo_eo),
+    // 2026-11-11: lan ma LK ve DUNG kho nay gan nhat (moi PO) - cot "Ngày về gần nhất theo KV" o Quan ly ton.
+    ngayVeDungKho: fmt(p.ngay_ve_dung_kho),
     phieuNhap,
     nmCamKet: fmt(nmCamKet),
     tatCa: p.trang_thai ?? "",

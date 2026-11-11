@@ -13781,5 +13781,21 @@
   "Thiếu hàng — chờ chuyển tiền": ["Out of stock — awaiting payment", "Stok kurang — menunggu pembayaran"],
   "Thiếu hàng — chờ hàng": ["Out of stock — awaiting goods", "Stok kurang — menunggu barang"],
   "Chờ Giám sát duyệt": ["Awaiting Supervisor approval", "Menunggu persetujuan Supervisor"],
-  "Chờ TBP xác nhận (LK đặc thù)": ["Awaiting TBP confirmation (special part)", "Menunggu konfirmasi TBP (suku cadang khusus)"]
+  "Chờ TBP xác nhận (LK đặc thù)": ["Awaiting TBP confirmation (special part)", "Menunggu konfirmasi TBP (suku cadang khusus)"],
+ "Ngày hàng về dự kiến theo KV": [
+  "Expected arrival (region)",
+  "Perkiraan barang tiba (wilayah)"
+ ],
+ "Ngày về gần nhất theo KV": [
+  "Latest arrival (region)",
+  "Kedatangan terakhir (wilayah)"
+ ],
+ "Ngày NM cam kết có hàng": [
+  "Factory committed date",
+  "Tanggal komitmen pabrik"
+ ],
+ "Mã linh kiện thiếu: {0}": [
+  "Missing part code: {0}",
+  "Kode suku cadang kurang: {0}"
+ ]
 }
