@@ -5623,4 +5623,6 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   → ghi đè cột này (tính GHI_DE). Không vào `crm_hash` nên bật cờ lần đầu không làm mọi dòng "đổi".
 - Bỏ nút "Tất cả" ở chọn quốc gia (`QuocGiaToggle`, `frontend/lib/phamVi.ts`, backend `chonQuocGia`): người toàn bộ
   mặc định xem VN, chọn từng nước đang bật.
-- Việc tiếp theo: bật `SEND_QUOC_GIA=true` bên auto qs.
+- Đã bật biến GitHub `SEND_QUOC_GIA=true` (Auto-QuickSight). Chủ hệ thống: không gửi lại toàn bộ — auto qs `run_all.py`
+  không đưa cột Quốc gia vào hash nữa, chỉ dòng mới/dòng đổi gửi kèm. Ca PH cũ: kiểm tra D1 99/99 ca `PH-SC…` đã là PH
+  (mẫu `PH-SC[0-9]*` ưu tiên 20 có sẵn trong `quoc_gia_mau_id`) → không cần cập nhật dữ liệu.
