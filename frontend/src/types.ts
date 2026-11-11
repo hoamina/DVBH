@@ -13,6 +13,8 @@ export interface CaseRow {
   nganh: string | null;
   loai_nganh: string | null;
   doi_tac: string | null;
+  // Migration 0148 - ma nuoc cua ca (NULL = VN).
+  quoc_gia?: string | null;
   ky_thuat_vien: string | null;
   thoi_gian_cskh_tiep_nhan: string | null;
   mo_ta_loi: string | null;

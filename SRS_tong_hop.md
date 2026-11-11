@@ -358,6 +358,10 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Nút **Đồng bộ đơn lõi lọc** (thủ công): **chỉ ca NSKX tiếp nhận từ 01/11/2026** (chốt chủ hệ thống 2026-11-11); gửi ds ca NSKX (trừ ca đã xác nhận không thay) sang linh-kien-app, nhận lại ca nào đã có đơn loại
   đề xuất "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" còn hiệu lực (bỏ đơn huỷ / từ chối; khớp theo mã ca và cả ID Lada). Trạng thái đơn:
   **Đã đặt lõi** (có đơn) > **Không cần** (GS xác nhận không thay) > **Không áp dụng** (ca tiếp nhận trước 01/11/2026) > **Chưa đặt lõi** (còn lại). Báo cáo có thêm cột "Không áp dụng". Gồm cả ca đã lên đơn để phát hiện đơn bị huỷ sau.
+- Bổ sung 2026-11-11 (lần 2): chi tiết ca NSKX có tab **"NSKX"** (mở mặc định khi bấm ca từ menu QL NSKX): luồng ngang Tiếp nhận →
+  Hoàn thành → Đánh giá lõi → Đặt lõi; chọn **Có thay / Không thay / Không áp dụng** (+ lõi đã thay); "▾ Xem chi tiết" = lịch sử xác
+  nhận, đơn đặt lõi từ API linh-kien-app (cùng dữ liệu tab Mua hàng), linh kiện sửa chữa. Tab Đánh giá lõi lọc mặc định lọc ca
+  **đã hoàn thành** + chưa đánh giá; ca đã hoàn thành mà linh kiện sửa chữa không có lõi tự tính **"Không thay lõi (tự động)"**.
 - Tab **Báo cáo**: theo khu vực / KTV (`ky_thuat_vien`): tổng ca, đã hoàn thành, tỷ lệ 24h, tỷ lệ SLA (cùng công thức Tổng quát — trên ca
   tính KPI), đã đặt lõi, không thay lõi, chưa đặt lõi, chưa đánh giá lõi; bấm số → mở Danh sách đã lọc đúng nhóm.
 

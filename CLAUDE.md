@@ -205,7 +205,10 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     received from 2026-11-01 (`NSKX_DONG_BO_TU_NGAY`, owner decision)
     not marked "không thay" (+ their `case_lada` IDs) to linh-kien-app `POST /api/partner/v1/don-loi-loc`, which returns live orders of
     type "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" (cancelled/rejected excluded) → `nskx_don_lk` (only changed rows written; summary in
-    `cai_dat_he_thong` key `nskx_dong_bo_don`). Order status = đã lên đơn > không cần (không thay) > không áp dụng (received before 2026-11-01) > chưa lên đơn. Live reads, no cache.
+    `cai_dat_he_thong` key `nskx_dong_bo_don`). Order status = đã lên đơn > không cần (không thay) > không áp dụng (received before 2026-11-01) > chưa lên đơn.
+    Migration 0161: `thay_loi` 2 = không áp dụng + `nskx_loi_loc_log` (history). An unconfirmed COMPLETED case with no "lõi" part counts
+    as `tu_dong_khong_thay`. CaseDetail tab "nskx" (`components/NskxPanel.tsx`, prop `coNskx`, in App `VALID_TABS`) = flow + confirm
+    form + history + TG12 orders from the SAME `useLinhKienTimeline` data as tab "Mua hàng"; QL NSKX rows open the case on this tab. Live reads, no cache.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -450,7 +453,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0160`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0161`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

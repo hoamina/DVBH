@@ -452,12 +452,13 @@ function DocMailModal({
   );
 }
 
-type MocDoiTra = { label: string; nhan: string; at: string | null | undefined; who?: string };
+export type MocDoiTra = { label: string; nhan: string; at: string | null | undefined; who?: string };
 
 /** Luong NGANG gon (2026-11-07, cung kieu tab Bảo hành): 1 duong cac moc, nhan ngan + ngay gio + "+khoang cach"; moc
  * ke tiep sau moc da toi cuoi cung to noi "dang cho" (tru khi luong da ket thuc); moc bi bo qua (sau no da co moc toi)
  * hien vong rong. Re chuot xem day du (nhan, gio, nguoi). */
-function LuongNgangDoiTra({ moc, daKetThuc }: { moc: MocDoiTra[]; daKetThuc: boolean }) {
+// Dung chung: tab NSKX (components/NskxPanel.tsx) - at la ISO co mui gio.
+export function LuongNgangDoiTra({ moc, daKetThuc }: { moc: MocDoiTra[]; daKetThuc: boolean }) {
   const cuoi = moc.map((m) => !!m.at).lastIndexOf(true);
   const dangIdx = !daKetThuc && cuoi < moc.length - 1 ? cuoi + 1 : -1;
   let truoc: string | null = null;

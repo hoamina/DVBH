@@ -53,6 +53,7 @@ import { computeCaseTickers } from "../lib/caseTickers";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchMuaHang, matchBaoHanh, matchThieuHang, matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purchaseWarrantyMatch";
 import { parseRawRow } from "../lib/purchaseWarrantySync";
+import { NskxPanel, NSKX_DOI_TAC } from "../components/NskxPanel";
 import { useLinhKienTimeline, linhKienEventLabel, linhKienSourceLabel, linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienActorDisplay, linhKienIsoToVnLocal, linhKienSlThucXuat } from "../lib/linhKienTimeline";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
@@ -771,6 +772,7 @@ export function CaseDetail({
   canQcLap,
   canNapGas,
   canHuyCa,
+  coNskx = false,
   canGoBack,
   onBack,
   onBackToRoot,
@@ -788,6 +790,8 @@ export function CaseDetail({
   canQcLap: boolean;
   canNapGas: boolean;
   canHuyCa: boolean;
+  /** Nguoi xem co module "ql-nskx" -> ca NSKX (VN) co them tab "NSKX" (components/NskxPanel.tsx). */
+  coNskx?: boolean;
   canGoBack: boolean;
   onBack: () => void;
   onBackToRoot: () => void;
@@ -1842,6 +1846,12 @@ export function CaseDetail({
     },
     onError: () => addToast(tr("Không thể chốt đánh giá nạp gas, thử lại sau.")),
   });
+
+  const laCaNskx = coNskx && !!c && NSKX_DOI_TAC.includes(c.doi_tac ?? "") && (c.quoc_gia ?? "VN") === "VN";
+  // Tab "nskx" (mo tu QL NSKX) tren ca KHONG phai NSKX (vd bam sang ca lien quan) -> ve tab mac dinh thay vi trang rong.
+  useEffect(() => {
+    if (tab === "nskx" && c && !laCaNskx) onTabChange(viewMode === "compact" ? "info" : "giai-trinh");
+  }, [tab, c, laCaNskx, viewMode, onTabChange]);
 
   if (!caseId) return null;
 
@@ -2902,10 +2912,12 @@ export function CaseDetail({
     </div>
   );
 
+  const nskxTab: TabItem[] = laCaNskx ? [{ key: "nskx", label: "NSKX" }] : [];
   const fullTabsList: TabItem[] =
     viewMode === "compact"
       ? [
           { key: "info", label: tr("Thông tin") },
+          ...nskxTab,
           { key: "tien-trinh-chung", label: tr("Tiến trình chung"), count: tienTrinhChungEvents.length },
           { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
@@ -2922,6 +2934,7 @@ export function CaseDetail({
           { key: "luong-mail", label: tr("Đổi trả"), count: mailTimeline?.thu.length ?? 0 },
         ]
       : [
+          ...nskxTab,
           { key: "tien-trinh-chung", label: tr("Tiến trình chung"), count: tienTrinhChungEvents.length },
           { key: "giai-trinh", label: tr("GT tồn"), count: giaiTrinhList.length },
           { key: "bien-ban-hop", label: tr("Biên bản họp"), count: bienBanHopList.length },
@@ -2940,7 +2953,7 @@ export function CaseDetail({
 
   // "info"/"giai-trinh" la 2 tab loi luon hien; tab dang active cung luon hien (khong tu bien mat
   // khoi thanh khi dang xem no du no dang rong) - phan con lai chi an neu count === 0.
-  const CORE_TAB_KEYS = new Set(["info", "tien-trinh-chung", "giai-trinh"]);
+  const CORE_TAB_KEYS = new Set(["info", "nskx", "tien-trinh-chung", "giai-trinh"]);
   const emptyTabKeys = new Set(fullTabsList.filter((t) => !CORE_TAB_KEYS.has(t.key) && t.key !== tab && !t.count).map((t) => t.key));
   const tabsList = showAllTabs ? fullTabsList : fullTabsList.filter((t) => !emptyTabKeys.has(t.key));
 
@@ -3093,6 +3106,7 @@ export function CaseDetail({
             {/* Cot phai: cac the phu co the doi qua lai (Giai trinh ton / Vi pham / Ca lap) */}
             <div className="overflow-y-auto p-5">
               {tabsBar}
+              {tab === "nskx" && laCaNskx && c && <NskxPanel caseId={c.id} linhKienLoi={c.linh_kien_loi} />}
               {tab === "tien-trinh-chung" && tienTrinhChungContent}
               {tab === "giai-trinh" && giaiTrinhContent}
               {tab === "bien-ban-hop" && bienBanHopContent}
@@ -3115,6 +3129,7 @@ export function CaseDetail({
           <div className="overflow-y-auto flex-1 p-5">
             {tabsBar}
             {tab === "info" && infoContent}
+            {tab === "nskx" && laCaNskx && c && <NskxPanel caseId={c.id} linhKienLoi={c.linh_kien_loi} />}
             {tab === "tien-trinh-chung" && tienTrinhChungContent}
             {tab === "giai-trinh" && giaiTrinhContent}
             {tab === "bien-ban-hop" && bienBanHopContent}

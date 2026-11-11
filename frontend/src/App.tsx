@@ -183,9 +183,10 @@ function MainApp({
   // "tien-trinh-chung" them 2026-08-22 (CaseDetail.tsx) - PHAI co mat o day cung ly do voi "tranh-chap"
   // (xem chu thich ngay tren): thieu se lam tab bi coi la khong hop le, tu dong rot ve FIRST_TAB.
   // "luong-mail" (tab "Đổi trả", v1.435) - tab "Luồng duyệt đổi trả" cua module Tranh chap mo thang vao tab nay.
+  // "nskx" (2026-11-11) - menu QL NSKX mo thang tab "NSKX" (chi ca NSKX; CaseDetail tu ve tab mac dinh neu ca khong phai NSKX).
   const VALID_TABS: Record<"compact" | "expanded", string[]> = {
-    compact: ["info", "tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"],
-    expanded: ["tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"],
+    compact: ["info", "nskx", "tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"],
+    expanded: ["nskx", "tien-trinh-chung", "giai-trinh", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"],
   };
 
   // openCase() bat dau phien MOI (reset stack) - dung cho moi noi mo ca tu 1 danh sach/tim kiem.
@@ -324,6 +325,7 @@ function MainApp({
         canQcLap={canQcLap}
         canNapGas={canNapGas}
         canHuyCa={canHuyCa}
+        coNskx={allowedModules.includes("ql-nskx")}
       />
     </div>
     </HoSoLinhKienProvider>

@@ -5646,3 +5646,6 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Lưu ý: "lõi" phân biệt dấu (không bắt "lỗi"); nhưng có linh kiện như "Tay cầm lõi …" vẫn được đề xuất — GS bỏ chọn khi xác nhận.
 - v1.565: theo chủ hệ thống, đồng bộ đơn lõi lọc chỉ xử lý ca NSKX tiếp nhận từ 01/11/2026 (`NSKX_DONG_BO_TU_NGAY`).
 - v1.566: ca NSKX tiếp nhận trước 01/11/2026 có trạng thái đơn lõi "Không áp dụng" (không còn tính vào "Chưa đặt lõi"); báo cáo thêm cột này.
+- v1.567 (migration 0161): tab "NSKX" trong chi tiết ca (luồng ngang + xác nhận Có thay/Không thay/Không áp dụng + lịch sử + đơn đặt
+  lõi từ linh-kien-app dùng chung dữ liệu tab Mua hàng); Đánh giá lõi lọc mặc định chỉ ca đã hoàn thành; ca hoàn thành không có linh
+  kiện lõi tự tính "Không thay lõi (tự động)". Bấm Xác nhận / bấm dòng ở QL NSKX mở chi tiết ca tại tab NSKX.

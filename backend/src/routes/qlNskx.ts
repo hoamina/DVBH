@@ -36,10 +36,15 @@ const LOAI_DE_XUAT_LOI = "HỖ TRỢ NGOÀI BẢO HÀNH TG12";
 // Chot chu he thong 2026-11-11: chi dong bo don loi loc cho ca NSKX tiep nhan tu thang 11/2026 tro di.
 export const NSKX_DONG_BO_TU_NGAY = "2026-11-01";
 
-const TT_LOI_LOC_EXPR = "(CASE WHEN n.thay_loi IS NULL THEN 'chua_danh_gia' WHEN n.thay_loi = 1 THEN 'thay' ELSE 'khong_thay' END)";
-// "khong_ap_dung" (2026-11-11): ca tiep nhan truoc NSKX_DONG_BO_TU_NGAY khong dong bo don loi -> khong tinh "chua dat loi".
-const TT_DON_EXPR = `(CASE WHEN d.co_don = 1 THEN 'da_len_don' WHEN n.thay_loi = 0 THEN 'khong_can' WHEN c.thoi_gian_cskh_tiep_nhan < '${NSKX_DONG_BO_TU_NGAY}' THEN 'khong_ap_dung' ELSE 'chua_len_don' END)`;
 const DE_XUAT_LOI_EXPR = "(CASE WHEN c.linh_kien_loi LIKE '%lõi%' OR c.linh_kien_loi LIKE '%LÕI%' THEN 'co' ELSE 'khong' END)";
+// Danh gia loi loc. n.thay_loi: 1 = co thay, 0 = khong thay, 2 = khong ap dung (GS xac nhan). Chua xac nhan: ca DA HOAN THANH ma
+// linh kien sua chua khong co chu "lõi" -> mac dinh "tu_dong_khong_thay" (chu he thong 2026-11-11); con lai "chua_danh_gia".
+const TT_LOI_LOC_EXPR = `(CASE WHEN n.thay_loi = 1 THEN 'thay' WHEN n.thay_loi = 0 THEN 'khong_thay' WHEN n.thay_loi = 2 THEN 'khong_ap_dung'
+  WHEN c.thoi_gian_hoan_thanh IS NOT NULL AND NOT (COALESCE(c.linh_kien_loi, '') LIKE '%lõi%' OR COALESCE(c.linh_kien_loi, '') LIKE '%LÕI%') THEN 'tu_dong_khong_thay'
+  ELSE 'chua_danh_gia' END)`;
+// Trang thai don: co don > khong can (khong thay / tu dong khong thay) > khong ap dung (GS chon, hoac ca truoc NSKX_DONG_BO_TU_NGAY) > chua.
+const TT_DON_EXPR = `(CASE WHEN d.co_don = 1 THEN 'da_len_don' WHEN ${TT_LOI_LOC_EXPR} IN ('khong_thay', 'tu_dong_khong_thay') THEN 'khong_can'
+  WHEN n.thay_loi = 2 OR c.thoi_gian_cskh_tiep_nhan < '${NSKX_DONG_BO_TU_NGAY}' THEN 'khong_ap_dung' ELSE 'chua_len_don' END)`;
 const TRANG_THAI_EXPR = "(CASE WHEN c.thoi_gian_hoan_thanh IS NULL THEN 'Đang xử lý' ELSE 'Đã hoàn thành' END)";
 
 /** Cot loc/sap xep cua QL NSKX (alias c = case, n = nskx_loi_loc, d = nskx_don_lk). */
@@ -203,15 +208,13 @@ qlNskx.put("/:id/loi-loc", async (c) => {
     .first<{ id: string }>();
   if (!ca) return c.json({ error: "NOT_FOUND", message: "Không tìm thấy ca NSKX trong phạm vi khu vực của bạn." }, 404);
 
-  const body = await c.req.json<{ thay_loi?: unknown; ds_loi?: unknown; ghi_chu?: unknown; xoa?: unknown }>().catch(() => ({}) as Record<string, unknown>);
-  if (body.xoa === true) {
-    await c.env.DB.prepare("DELETE FROM nskx_loi_loc WHERE case_id = ?").bind(id).run();
-    return c.json({ ok: true });
-  }
-  if (body.thay_loi !== true && body.thay_loi !== false) return c.json({ error: "INVALID", message: "Chọn Có thay / Không thay." }, 400);
+  const body = await c.req.json<{ trang_thai?: unknown; ds_loi?: unknown; ghi_chu?: unknown }>().catch(() => ({}) as Record<string, unknown>);
+  const MA_TT: Record<string, number> = { thay: 1, khong_thay: 0, khong_ap_dung: 2 };
+  const thayLoi = MA_TT[String(body.trang_thai ?? "")];
+  if (thayLoi === undefined) return c.json({ error: "INVALID", message: "Chọn Có thay / Không thay / Không áp dụng." }, 400);
   const ghiChu = typeof body.ghi_chu === "string" ? body.ghi_chu.trim().slice(0, 1000) || null : null;
   let dsLoi: string | null = null;
-  if (body.thay_loi) {
+  if (thayLoi === 1) {
     const raw = Array.isArray(body.ds_loi) ? body.ds_loi : [];
     const gop = new Map<string, number>();
     for (const x of raw as { ma_linh_kien?: unknown; so_luong?: unknown }[]) {
@@ -229,14 +232,37 @@ qlNskx.put("/:id/loi-loc", async (c) => {
     if (sai.length) return c.json({ error: "INVALID_MA", message: `Mã không có trong danh mục linh kiện: ${sai.join(", ")}` }, 400);
     dsLoi = JSON.stringify([...gop.entries()].map(([ma, so_luong]) => ({ ma_linh_kien: ma, ten_linh_kien: ten.get(ma), so_luong })));
   }
-  await c.env.DB.prepare(
-    `INSERT INTO nskx_loi_loc (case_id, thay_loi, ds_loi, ghi_chu, nguoi_xac_nhan, ngay_xac_nhan) VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(case_id) DO UPDATE SET thay_loi = excluded.thay_loi, ds_loi = excluded.ds_loi, ghi_chu = excluded.ghi_chu,
-       nguoi_xac_nhan = excluded.nguoi_xac_nhan, ngay_xac_nhan = excluded.ngay_xac_nhan`,
-  )
-    .bind(id, body.thay_loi ? 1 : 0, dsLoi, ghiChu, user.email, nowVN())
-    .run();
+  const luc = nowVN();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO nskx_loi_loc (case_id, thay_loi, ds_loi, ghi_chu, nguoi_xac_nhan, ngay_xac_nhan) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(case_id) DO UPDATE SET thay_loi = excluded.thay_loi, ds_loi = excluded.ds_loi, ghi_chu = excluded.ghi_chu,
+         nguoi_xac_nhan = excluded.nguoi_xac_nhan, ngay_xac_nhan = excluded.ngay_xac_nhan`,
+    ).bind(id, thayLoi, dsLoi, ghiChu, user.email, luc),
+    c.env.DB.prepare(
+      "INSERT INTO nskx_loi_loc_log (case_id, thay_loi, ds_loi, ghi_chu, nguoi_xac_nhan, ngay_xac_nhan) VALUES (?, ?, ?, ?, ?, ?)",
+    ).bind(id, thayLoi, dsLoi, ghiChu, user.email, luc),
+  ]);
   return c.json({ ok: true });
+});
+
+// GET /ca/:id - tab "NSKX" chi tiet ca: trang thai danh gia + don loi (lan dong bo gan nhat) + lich su xac nhan.
+qlNskx.get("/ca/:id", async (c) => {
+  const id = c.req.param("id");
+  const scope = scopeByKhuVuc(c);
+  const sc = khuVucWhereClause(scope, "c.khu_vuc");
+  const [ca, log] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT c.id, c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hoan_thanh, ${DE_XUAT_LOI_EXPR} AS de_xuat_loi,
+         ${TT_LOI_LOC_EXPR} AS tt_loi_loc, ${TT_DON_EXPR} AS tt_don, n.thay_loi, n.ds_loi, n.ghi_chu AS ghi_chu_loi,
+         n.nguoi_xac_nhan, n.ngay_xac_nhan, d.don AS don_loi, d.ngay_dong_bo
+       ${FROM_NSKX} WHERE c.id = ? AND ${DK_NSKX}${sc.sql}`,
+    ).bind(id, ...sc.binds),
+    c.env.DB.prepare("SELECT thay_loi, ds_loi, ghi_chu, nguoi_xac_nhan, ngay_xac_nhan FROM nskx_loi_loc_log WHERE case_id = ? ORDER BY id DESC").bind(id),
+  ]);
+  const row = ca.results[0];
+  if (!row) return c.json({ error: "NOT_FOUND" }, 404);
+  return c.json({ row, log: log.results, duoc_xac_nhan: duocXacNhan(c.get("user").vai_tro) });
 });
 
 qlNskx.post("/dong-bo-don", async (c) => {
@@ -330,7 +356,7 @@ qlNskx.get("/bao-cao", async (c) => {
        SUM(CASE WHEN ${TT_DON_EXPR} = 'khong_can' THEN 1 ELSE 0 END) AS khong_thay_loi,
        SUM(CASE WHEN ${TT_DON_EXPR} = 'chua_len_don' THEN 1 ELSE 0 END) AS chua_dat_loi,
        SUM(CASE WHEN ${TT_DON_EXPR} = 'khong_ap_dung' THEN 1 ELSE 0 END) AS khong_ap_dung,
-       SUM(CASE WHEN n.thay_loi IS NULL THEN 1 ELSE 0 END) AS chua_danh_gia
+       SUM(CASE WHEN ${TT_LOI_LOC_EXPR} = 'chua_danh_gia' THEN 1 ELSE 0 END) AS chua_danh_gia
      ${FROM_NSKX} ${goc.sql} GROUP BY 1 ORDER BY tong_ca DESC, 1`,
   )
     .bind(...goc.binds)

@@ -9,32 +9,26 @@ import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
-import { Badge, type BadgeTone } from "../components/ui/Badge";
+import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
-import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { useToast } from "../components/ui/Toast";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { LocCotPopover, locCotDangBat, tomTatLoc, GIA_TRI_TRONG, type GiaTriLoc, type KieuLocCot, type LocCot } from "../components/ui/LocCotPopover";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, buildQuery, ApiError } from "../api/client";
-import { fmtDateTime, type LinhKienRow, type LinhKienLoiItem } from "../types";
+import { fmtDateTime } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useExportRunner } from "../hooks/useExportRunner";
 import { useAuth } from "../auth/AuthContext";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { fetchWithHashCache } from "../lib/staticListCache";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { parseLinhKienLoi } from "../components/LoiLinhKienPanel";
+import { TT_DON, TT_LOI_LOC, parseJsonArr as parseJson, laLoi, deXuatLoi as deXuatLoiTu, type LoiDaThay } from "../components/NskxPanel";
 import { useDiaGioiIndex, useDiaGioiLoc, NHAN_CAP_1 } from "../lib/diaGioi";
 import { dl } from "../lib/banDichDuLieu";
 import { tr } from "../i18n/tr";
 
-interface LoiDaThay {
-  ma_linh_kien: string;
-  ten_linh_kien?: string;
-  so_luong: number;
-}
 interface DonLoi {
   don_id: string;
   ma_lk: string;
@@ -69,8 +63,8 @@ interface NskxRow {
   tuoi_ton: number | null;
   trang_thai: string;
   de_xuat_loi: "co" | "khong";
-  tt_loi_loc: "chua_danh_gia" | "thay" | "khong_thay";
-  tt_don: "da_len_don" | "chua_len_don" | "khong_can" | "khong_ap_dung";
+  tt_loi_loc: string;
+  tt_don: string;
   thay_loi: number | null;
   ds_loi: string | null;
   ghi_chu_loi: string | null;
@@ -99,35 +93,8 @@ interface BaoCaoRow {
   chua_danh_gia: number;
 }
 
-const TT_DON: Record<string, { label: string; tone: BadgeTone }> = {
-  da_len_don: { label: tr("Đã đặt lõi"), tone: "teal" },
-  chua_len_don: { label: tr("Chưa đặt lõi"), tone: "amber" },
-  khong_can: { label: tr("Không cần (không thay lõi)"), tone: "gray" },
-  khong_ap_dung: { label: tr("Không áp dụng (trước 11/2026)"), tone: "gray" },
-};
-const TT_LOI_LOC: Record<string, { label: string; tone: BadgeTone }> = {
-  chua_danh_gia: { label: tr("Chưa đánh giá"), tone: "orange" },
-  thay: { label: tr("Có thay lõi"), tone: "ocean" },
-  khong_thay: { label: tr("Không thay lõi"), tone: "gray" },
-};
 const DE_XUAT: Record<string, string> = { co: tr("Có đề xuất lõi"), khong: tr("Không có") };
 
-function parseJson<T>(raw: string | null | undefined): T[] {
-  if (!raw) return [];
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
-}
-/** Linh kien sua chua co chu "lõi" (phan biet dau: "lỗi" KHONG tinh). */
-function laLoi(text: string | null | undefined): boolean {
-  return (text ?? "").toLowerCase().includes("lõi");
-}
-function deXuatLoi(r: NskxRow): LinhKienLoiItem[] {
-  return parseLinhKienLoi(r.linh_kien_loi).filter((p) => laLoi(p.ten_linh_kien) || laLoi(p.nhom_linh_kien));
-}
 function pct(a: number, b: number): string {
   return b ? `${((a / b) * 100).toFixed(1)}%` : "—";
 }
@@ -156,7 +123,7 @@ export function QlNskxModule({ openCase, headerExtra }: { openCase: (id: string,
   const [khuVuc, setKhuVuc] = useLocalStorageState("filters:ql-nskx-khu-vuc", "");
   // Loc cot rieng cho tung tab danh sach; bam so o Bao cao se dat loc vao tab Danh sach.
   const [locDs, setLocDs] = useState<Record<string, LocCot>>({});
-  const [locDg, setLocDg] = useState<Record<string, LocCot>>({ tt_loi_loc: { in: ["chua_danh_gia"] } });
+  const [locDg, setLocDg] = useState<Record<string, LocCot>>({ trang_thai: { in: ["Đã hoàn thành"] }, tt_loi_loc: { in: ["chua_danh_gia"] } });
   const qc = useQueryClient();
   const toast = useToast();
   const [dangDongBo, setDangDongBo] = useState(false);
@@ -259,10 +226,8 @@ function DanhSachNskx({
   const [idSearch, setIdSearch] = useState("");
   const [sortBy, setSortBy] = useState("tiep_nhan");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [dangSua, setDangSua] = useState<NskxRow | null>(null);
   const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
   const diaGioiLoc = useDiaGioiLoc();
-  const qc = useQueryClient();
   const setLocCot = (v: Record<string, LocCot>) => {
     setLocCotRaw(v);
     setPage(1);
@@ -421,7 +386,7 @@ function DanhSachNskx({
                 variant={r.tt_loi_loc === "chua_danh_gia" ? "primary" : "ghost"}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setDangSua(r);
+                  openCase(r.id, "nskx");
                 }}
               >
                 {r.tt_loi_loc === "chua_danh_gia" ? tr("Xác nhận") : tr("Sửa")}
@@ -460,7 +425,7 @@ function DanhSachNskx({
       dung_han: r.dung_han,
       xu_ly_24h_bucket: r.xu_ly_24h_bucket,
       linh_kien_sua_chua: parseLinhKienLoi(r.linh_kien_loi).map((p) => `${p.ma_linh_kien} ${p.ten_linh_kien}`).join("; "),
-      de_xuat_loi: deXuatLoi(r).map((p) => p.ma_linh_kien).join("; "),
+      de_xuat_loi: deXuatLoiTu(r.linh_kien_loi).map((p) => p.ma_linh_kien).join("; "),
       tt_loi_loc: TT_LOI_LOC[r.tt_loi_loc]?.label,
       loi_da_thay: parseJson<LoiDaThay>(r.ds_loi).map((x) => `${x.ma_linh_kien} ${x.ten_linh_kien ?? ""} x${x.so_luong}`).join("; "),
       nguoi_xac_nhan: r.nguoi_xac_nhan,
@@ -509,7 +474,7 @@ function DanhSachNskx({
         />
         {cheDo === "danh-gia" && (
           <span className="text-xs text-[var(--ink-500)]">
-            {tr("Linh kiện có chữ “lõi” được tô đậm và tự đề xuất khi xác nhận. Mặc định lọc ca chưa đánh giá.")}
+            {tr("Mặc định: ca đã hoàn thành, chưa đánh giá. Ca hoàn thành không có linh kiện “lõi” tự tính “Không thay lõi”. Bấm Xác nhận để mở tab NSKX của ca.")}
           </span>
         )}
         <div className="ml-auto">
@@ -572,7 +537,7 @@ function DanhSachNskx({
         pageSize={20}
         total={data?.total ?? 0}
         onPageChange={setPage}
-        onRowClick={(r) => openCase(r.id, cheDo === "danh-gia" ? "loi-linh-kien" : undefined)}
+        onRowClick={(r) => openCase(r.id, "nskx")}
         rowKey={(r) => r.id}
         emptyText={tr("Không có ca NSKX nào.")}
         sortBy={sortBy}
@@ -588,174 +553,7 @@ function DanhSachNskx({
         loadFilterValues={layGiaTriCot}
         totalUnfiltered={data?.total_chua_loc}
       />
-      {dangSua && (
-        <XacNhanLoiModal
-          row={dangSua}
-          onClose={() => setDangSua(null)}
-          onSaved={() => {
-            setDangSua(null);
-            qc.invalidateQueries({ queryKey: ["ql-nskx"] });
-          }}
-        />
-      )}
     </div>
-  );
-}
-
-function XacNhanLoiModal({ row, onClose, onSaved }: { row: NskxRow; onClose: () => void; onSaved: () => void }) {
-  const toast = useToast();
-  const { data: lkData } = useQuery({
-    queryKey: ["settings-linh-kien"],
-    queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
-  });
-  const catalog = lkData?.rows ?? [];
-  const tenTheoMa = useMemo(() => new Map(catalog.map((r) => [r.ma_linh_kien, r.ten_linh_kien])), [catalog]);
-  const deXuat = useMemo(() => deXuatLoi(row), [row]);
-  const daLuu = parseJson<LoiDaThay>(row.ds_loi);
-  const [thay, setThay] = useState<boolean | null>(row.thay_loi === null ? (deXuat.length ? true : null) : row.thay_loi === 1);
-  const [ds, setDs] = useState<LoiDaThay[]>(() => {
-    if (daLuu.length) return daLuu;
-    const gop = new Map<string, number>();
-    for (const p of deXuat) if (p.ma_linh_kien) gop.set(p.ma_linh_kien, (gop.get(p.ma_linh_kien) ?? 0) + 1);
-    return [...gop.entries()].map(([ma, so_luong]) => ({ ma_linh_kien: ma, so_luong }));
-  });
-  const [ghiChu, setGhiChu] = useState(row.ghi_chu_loi ?? "");
-  const [tim, setTim] = useState("");
-  const [chiLoi, setChiLoi] = useState(true);
-  const [dangLuu, setDangLuu] = useState(false);
-
-  const boDau = (v: string) => v.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
-  const ketQua = useMemo(() => {
-    const q = boDau(tim.trim());
-    return catalog
-      .filter((r) => (!chiLoi || laLoi(r.ten_linh_kien)) && (!q || boDau(`${r.ma_linh_kien} ${r.ten_linh_kien}`).includes(q)))
-      .slice(0, 50);
-  }, [catalog, tim, chiLoi]);
-  const saiMa = ds.filter((x) => catalog.length > 0 && !tenTheoMa.has(x.ma_linh_kien));
-
-  async function luu() {
-    if (thay === null) return toast(tr("Chọn Có thay / Không thay lõi."));
-    if (thay && !ds.length) return toast(tr("Chọn ít nhất 1 lõi lọc đã thay."));
-    if (thay && saiMa.length) return toast(tr("Có mã không thuộc danh mục linh kiện — xoá và chọn lại."));
-    setDangLuu(true);
-    try {
-      await api.put(`/ql-nskx/${encodeURIComponent(row.id)}/loi-loc`, { thay_loi: thay, ds_loi: thay ? ds : [], ghi_chu: ghiChu });
-      toast(tr("Đã lưu xác nhận lõi lọc ca {0}", row.id));
-      onSaved();
-    } catch (e) {
-      toast(e instanceof ApiError ? (e.detail ?? e.message) : String(e));
-    } finally {
-      setDangLuu(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={tr("Xác nhận lõi lọc — ca {0}", row.id)}
-      width="max-w-2xl"
-      footer={
-        <div className="flex justify-end gap-2">
-          <Btn variant="ghost" onClick={onClose}>
-            {tr("Huỷ")}
-          </Btn>
-          <Btn onClick={luu} loading={dangLuu}>
-            {tr("Lưu xác nhận")}
-          </Btn>
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-3 text-sm">
-        <div className="text-xs text-[var(--ink-500)]">
-          {row.khach_hang} · {row.ktv_trien_khai ?? row.ky_thuat_vien} · {shortKhuVuc(row.khu_vuc)}
-        </div>
-        <Card className="p-3">
-          <div className="font-semibold mb-1">{tr("Linh kiện sửa chữa trên ca")}</div>
-          {parseLinhKienLoi(row.linh_kien_loi).length === 0 ? (
-            <div className="text-[var(--ink-400)]">{tr("Ca không có báo cáo linh kiện xử lý.")}</div>
-          ) : (
-            parseLinhKienLoi(row.linh_kien_loi).map((p) => (
-              <div key={p.stt} className={laLoi(p.ten_linh_kien) || laLoi(p.nhom_linh_kien) ? "font-semibold text-[var(--ocean-700)]" : "text-[var(--ink-600)]"}>
-                <span className="font-mono">{p.ma_linh_kien}</span> {p.ten_linh_kien}
-                {p.cach_thuc_xu_ly ? <span className="font-normal text-[var(--ink-400)]"> — {p.cach_thuc_xu_ly}</span> : null}
-              </div>
-            ))
-          )}
-        </Card>
-        <div className="flex gap-4">
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-            <input type="radio" checked={thay === true} onChange={() => setThay(true)} /> {tr("Có thay lõi")}
-          </label>
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-            <input type="radio" checked={thay === false} onChange={() => setThay(false)} /> {tr("Không thay lõi")}
-          </label>
-        </div>
-        {thay && (
-          <>
-            <div>
-              <div className="font-semibold mb-1">{tr("Lõi lọc đã thay")}</div>
-              {ds.length === 0 && <div className="text-[var(--ink-400)]">{tr("Chưa chọn lõi nào.")}</div>}
-              {ds.map((x, i) => {
-                const ten = tenTheoMa.get(x.ma_linh_kien);
-                return (
-                  <div key={x.ma_linh_kien} className="flex items-center gap-2 py-1 border-b border-[var(--line)]">
-                    <span className="font-mono">{x.ma_linh_kien}</span>
-                    <span className={`flex-1 ${ten ? "" : "text-[var(--coral-600)]"}`}>{ten ?? tr("Không có trong danh mục linh kiện")}</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={x.so_luong}
-                      onChange={(e) => setDs(ds.map((y, j) => (j === i ? { ...y, so_luong: Math.max(1, Number(e.target.value) || 1) } : y)))}
-                      className="w-16 border border-[var(--line)] rounded px-1.5 py-0.5"
-                    />
-                    <button type="button" className="text-[var(--coral-600)]" onClick={() => setDs(ds.filter((_, j) => j !== i))}>
-                      ✕
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <input
-                  type="text"
-                  value={tim}
-                  onChange={(e) => setTim(e.target.value)}
-                  placeholder={tr("Tìm mã / tên linh kiện để thêm…")}
-                  className="focus-ring flex-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5"
-                />
-                <label className="inline-flex items-center gap-1 text-xs">
-                  <input type="checkbox" checked={chiLoi} onChange={(e) => setChiLoi(e.target.checked)} /> {tr("Chỉ lõi lọc")}
-                </label>
-              </div>
-              <div className="max-h-48 overflow-auto border border-[var(--line)] rounded-lg">
-                {ketQua.map((r) => (
-                  <button
-                    key={r.ma_linh_kien}
-                    type="button"
-                    disabled={ds.some((x) => x.ma_linh_kien === r.ma_linh_kien)}
-                    onClick={() => setDs([...ds, { ma_linh_kien: r.ma_linh_kien, so_luong: 1 }])}
-                    className="w-full text-left px-2.5 py-1 hover:bg-[var(--ocean-100)] disabled:opacity-40 border-b border-[var(--line)] last:border-0"
-                  >
-                    <span className="font-mono">{r.ma_linh_kien}</span> {r.ten_linh_kien}
-                  </button>
-                ))}
-                {ketQua.length === 0 && <div className="px-2.5 py-2 text-[var(--ink-400)]">{tr("Không tìm thấy linh kiện.")}</div>}
-              </div>
-            </div>
-          </>
-        )}
-        <textarea
-          value={ghiChu}
-          onChange={(e) => setGhiChu(e.target.value)}
-          placeholder={tr("Ghi chú (tuỳ chọn)")}
-          rows={2}
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5"
-        />
-      </div>
-    </Modal>
   );
 }
 
