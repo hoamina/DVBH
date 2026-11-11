@@ -52,7 +52,14 @@ const cases = new Hono<{ Bindings: Env }>();
 
 function validateReportParams(c: Context<{ Bindings: Env }>): string | null {
   const khuVuc = c.req.query("khu_vuc");
-  if (khuVuc && khuVuc.length > 200) return "khu_vuc too long";
+  // "khu_vuc" = NHIEU khu vuc noi bang dau phay (khuVucAdHocClause) - gioi han tong 200 ky tu cu lam 400 ngay khi chon ~5+ khu
+  // vuc ten dai ("(qldvbh.mb1) Quản lý khu vực MB1"...), bug 2026-11-11: Viewer chon 9 khu vuc -> Quan ly ton trong het. Gioi han
+  // theo TUNG gia tri + so luong (bind D1 toi da 100/cau, scope nguoi xem cung chiem bind).
+  if (khuVuc) {
+    const ds = khuVuc.split(",").map((v) => v.trim()).filter(Boolean);
+    if (ds.length > 40) return "khu_vuc: too many values";
+    if (ds.some((v) => v.length > 150)) return "khu_vuc too long";
+  }
 
   const ktv = c.req.query("ky_thuat_vien");
   if (ktv) {

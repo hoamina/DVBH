@@ -5649,3 +5649,10 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - v1.567 (migration 0161): tab "NSKX" trong chi tiết ca (luồng ngang + xác nhận Có thay/Không thay/Không áp dụng + lịch sử + đơn đặt
   lõi từ linh-kien-app dùng chung dữ liệu tab Mua hàng); Đánh giá lõi lọc mặc định chỉ ca đã hoàn thành; ca hoàn thành không có linh
   kiện lõi tự tính "Không thay lõi (tự động)". Bấm Xác nhận / bấm dòng ở QL NSKX mở chi tiết ca tại tab NSKX.
+
+## 2026-11-11 — v1.568: Quản lý tồn trống/“Không tải được dữ liệu” khi chọn nhiều khu vực
+
+- Viewer "mai nguyễn" (VN, 13 khu vực) thấy mọi khung Quản lý tồn trống. Bắt bằng `wrangler tail`: mọi request kèm
+  `khu_vuc=<9 khu vực nối dấu phẩy>` trả 400 `khu_vuc too long` — `validateReportParams` (cases.ts) giới hạn TỔNG chuỗi 200 ký
+  tự, ~5 tên dạng "(qldvbh.mb1) Quản lý khu vực MB1" đã vượt. Không liên quan quốc gia.
+- Sửa: giới hạn theo từng giá trị (≤150 ký tự) + tối đa 40 khu vực. Phát lại đúng 5 request lỗi ở local → 200.
