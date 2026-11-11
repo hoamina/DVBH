@@ -212,7 +212,7 @@ export function QlNskxModule({ openCase, headerExtra }: { openCase: (id: string,
       <div className="flex items-center gap-2 flex-wrap mb-2 text-xs text-[var(--ink-500)]">
         {duocXacNhan && (
           <Btn variant="subtle" size="sm" onClick={dongBo} loading={dangDongBo}>
-            {tr("⟳ Đồng bộ đơn lõi lọc từ linh-kien-app")}
+            {tr("⟳ Đồng bộ đơn lõi lọc từ linh-kien-app (ca từ 11/2026)")}
           </Btn>
         )}
         {db?.luc ? (

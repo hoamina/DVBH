@@ -5644,4 +5644,4 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Kiểm thử local: danh sách/giá trị cột/lọc từ khoá không dấu, lưu xác nhận (mã ngoài danh mục bị chặn), báo cáo. Chưa thử đồng bộ thật
   end-to-end ở local (local không cấu hình key linh-kien-app, DB local linh-kien-app không có đơn TG12) — đã kiểm cú pháp + query plan SQL.
 - Lưu ý: "lõi" phân biệt dấu (không bắt "lỗi"); nhưng có linh kiện như "Tay cầm lõi …" vẫn được đề xuất — GS bỏ chọn khi xác nhận.
-
+- v1.565: theo chủ hệ thống, đồng bộ đơn lõi lọc chỉ xử lý ca NSKX tiếp nhận từ 01/11/2026 (`NSKX_DONG_BO_TU_NGAY`).

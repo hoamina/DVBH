@@ -5,7 +5,7 @@
  *                             Danh sach chi tiet - Quan ly ton, bang cot rieng COT_NSKX), ?gia_tri_cot= / ?export=true.
  *  - PUT  /:id/loi-loc        Giam sat (khu vuc cua minh) / TBP DVBH / Admin xac nhan co thay / khong thay loi loc, thay loi gi
  *                             (ma bat buoc co trong bang linh_kien - danh muc dong bo tu linh-kien-app).
- *  - POST /dong-bo-don        dong bo THU CONG voi linh-kien-app: gui cac ca NSKX chua "khong thay loi" sang
+ *  - POST /dong-bo-don        dong bo THU CONG voi linh-kien-app: gui cac ca NSKX (tiep nhan tu 11/2026) chua "khong thay loi" sang
  *                             POST /api/partner/v1/don-loi-loc, nhan lai ca nao da co don loai "HỖ TRỢ NGOÀI BẢO HÀNH TG12…"
  *                             (bo don huy/tu choi) -> nskx_don_lk. Chi ghi dong thay doi.
  *  - GET  /bao-cao            bao cao nhanh theo khu vuc / KTV cua 1 thang.
@@ -33,6 +33,8 @@ qlNskx.use("*", async (c, next) => {
 
 const DK_NSKX = "c.doi_tac IN ('NSKX', '[NSKX]') AND COALESCE(c.quoc_gia, 'VN') = 'VN'";
 const LOAI_DE_XUAT_LOI = "HỖ TRỢ NGOÀI BẢO HÀNH TG12";
+// Chot chu he thong 2026-11-11: chi dong bo don loi loc cho ca NSKX tiep nhan tu thang 11/2026 tro di.
+export const NSKX_DONG_BO_TU_NGAY = "2026-11-01";
 
 const TT_LOI_LOC_EXPR = "(CASE WHEN n.thay_loi IS NULL THEN 'chua_danh_gia' WHEN n.thay_loi = 1 THEN 'thay' ELSE 'khong_thay' END)";
 const TT_DON_EXPR = "(CASE WHEN d.co_don = 1 THEN 'da_len_don' WHEN n.thay_loi = 0 THEN 'khong_can' ELSE 'chua_len_don' END)";
@@ -242,18 +244,22 @@ qlNskx.post("/dong-bo-don", async (c) => {
   const env = c.env;
   if (!env.LINHKIEN_APP_URL || !env.LINHKIEN_APP_API_KEY) return c.json({ error: "NOT_CONFIGURED", message: "Chưa cấu hình kết nối linh-kien-app." }, 500);
 
-  // Moi ca NSKX VN (toan he thong, khong theo khu vuc nguoi bam) tru ca GS da xac nhan "khong thay loi". Gom ca ca da len don
+  // Ca NSKX VN tiep nhan tu NSKX_DONG_BO_TU_NGAY (toan he thong, khong theo khu vuc nguoi bam) tru ca GS da xac nhan "khong thay loi". Gom ca ca da len don
   // de phat hien don bi huy/tu choi sau lan dong bo truoc.
   const { results: ds } = await env.DB.prepare(
     `SELECT c.id, d.co_don, d.don FROM case_hieu_luc c LEFT JOIN nskx_loi_loc n ON n.case_id = c.id LEFT JOIN nskx_don_lk d ON d.case_id = c.id
-     WHERE ${DK_NSKX} AND COALESCE(n.thay_loi, 1) = 1`,
-  ).all<{ id: string; co_don: number | null; don: string | null }>();
+     WHERE ${DK_NSKX} AND c.thoi_gian_cskh_tiep_nhan >= ? AND COALESCE(n.thay_loi, 1) = 1`,
+  )
+    .bind(NSKX_DONG_BO_TU_NGAY)
+    .all<{ id: string; co_don: number | null; don: string | null }>();
   const cu = new Map(ds.map((r) => [String(r.id), r]));
   const ids = [...cu.keys()];
   // Don chi khai ID Lada (khong ghi ma ca) - gui kem cap [ID Lada, ca] tu case_lada de linh-kien-app khop them qua ma_lada.
   const { results: ladaRows } = await env.DB.prepare(
-    `SELECT l.order_id, l.case_id FROM case_lada l JOIN case_dvbh c ON c.id = l.case_id WHERE ${DK_NSKX}`,
-  ).all<{ order_id: string; case_id: string }>();
+    `SELECT l.order_id, l.case_id FROM case_lada l JOIN case_dvbh c ON c.id = l.case_id WHERE ${DK_NSKX} AND c.thoi_gian_cskh_tiep_nhan >= ?`,
+  )
+    .bind(NSKX_DONG_BO_TU_NGAY)
+    .all<{ order_id: string; case_id: string }>();
   const ladaTheoCa = new Map<string, string[][]>();
   for (const r of ladaRows) {
     const k = String(r.case_id);

@@ -201,7 +201,8 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     (VN, `doi_tac IN ('NSKX','[NSKX]')`) by CSKH-received month, Excel-style column filters reusing `lib/locCot.ts` with its own
     column map (`locCotClause(..., cotMap)`); frontend skips `?pv=` for `/ql-nskx`. Tab "Đánh giá lõi lọc": GS (own khu vực) / TBP
     DVBH / Admin confirm thay/không thay + which cores (`nskx_loi_loc`, codes must exist in `linh_kien`; suggestion = `linh_kien_loi`
-    items whose name contains "lõi" — accent-sensitive, "lỗi" is not a core). Manual button `POST /dong-bo-don` sends all NSKX cases
+    items whose name contains "lõi" — accent-sensitive, "lỗi" is not a core). Manual button `POST /dong-bo-don` sends NSKX cases
+    received from 2026-11-01 (`NSKX_DONG_BO_TU_NGAY`, owner decision)
     not marked "không thay" (+ their `case_lada` IDs) to linh-kien-app `POST /api/partner/v1/don-loi-loc`, which returns live orders of
     type "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" (cancelled/rejected excluded) → `nskx_don_lk` (only changed rows written; summary in
     `cai_dat_he_thong` key `nskx_dong_bo_don`). Order status = đã lên đơn > không cần (không thay) > chưa lên đơn. Live reads, no cache.
