@@ -21,6 +21,7 @@ import { SurveyModule } from "./modules/SurveyModule";
 import { BaoCaoViPhamModule } from "./modules/BaoCaoViPhamModule";
 import { CaLapModule } from "./modules/CaLapModule";
 import { DanhSachTongModule } from "./modules/DanhSachTongModule";
+import { QlNskxModule } from "./modules/QlNskxModule";
 import { ImportModule } from "./modules/ImportModule";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
@@ -296,6 +297,7 @@ function MainApp({
           {active === "bao-cao-vi-pham" && <BaoCaoViPhamModule openCase={openCase} />}
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}
           {active === "danh-sach-tong" && <DanhSachTongModule openCase={openCase} />}
+          {active === "ql-nskx" && <QlNskxModule openCase={openCase} headerExtra={headerExtraEl} />}
           {active === "import" && <ImportModule openCase={openCase} />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}

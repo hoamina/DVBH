@@ -5634,3 +5634,14 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Nguyên nhân: auto qs `transform.py compute_tinh_vao_kpis` đòi TBP chứa "qldvbh" (quy ước tên TBP VN); TBP PH = khu vực
   Odoo (MM/Retail). Chủ hệ thống chốt: PH tính KPI cả MM và Retail → nguồn `QUOC_GIA != "VN"` bỏ điều kiện này (các loại
   trừ khác giữ nguyên). VN không đổi. Ca PH cũ tự ghi đè ở lần chạy pipeline kế tiếp (`tinh_vao_kpi` nằm trong crm_hash).
+
+## 2026-11-11 — Menu "QL NSKX" (v1.564)
+
+- Thêm module `ql-nskx` (backend `routes/qlNskx.ts`, frontend `modules/QlNskxModule.tsx`, migration 0160 `nskx_loi_loc` + `nskx_don_lk`):
+  danh sách ca NSKX VN theo tháng tiếp nhận có lọc kiểu Excel (dùng chung `lib/locCot.ts`, thêm tham số bảng cột riêng), tab Đánh giá lõi
+  lọc (GS xác nhận thay/không thay + lõi gì, đề xuất từ `linh_kien_loi` có chữ "lõi"), tab Báo cáo theo khu vực/KTV, nút đồng bộ đơn
+  lõi lọc với linh-kien-app (endpoint mới bên đó `POST /api/partner/v1/don-loi-loc`, khớp mã ca + ID Lada, bỏ đơn huỷ/từ chối).
+- Kiểm thử local: danh sách/giá trị cột/lọc từ khoá không dấu, lưu xác nhận (mã ngoài danh mục bị chặn), báo cáo. Chưa thử đồng bộ thật
+  end-to-end ở local (local không cấu hình key linh-kien-app, DB local linh-kien-app không có đơn TG12) — đã kiểm cú pháp + query plan SQL.
+- Lưu ý: "lõi" phân biệt dấu (không bắt "lỗi"); nhưng có linh kiện như "Tay cầm lõi …" vẫn được đề xuất — GS bỏ chọn khi xác nhận.
+

@@ -28,12 +28,13 @@ const TAM_TAT_MODULES = ["dat-mua-lk", "tra-hang"];
 // (chi ghi nhan, khong can xem bao cao phan tich) va KHONG cap Viewer/KSNB Doi tac (ngoai pham vi).
 // "bao-cao-nskx" (2026-09-21) DA GO 2026-10-13: thay bang nut "Phạm vi báo cáo" Tất cả / NSKX / Không NSKX
 // (lib/phamVi.ts). Gia tri cu con sot trong users.modules khong anh huong (khong con module/route nao).
+// "ql-nskx" (2026-11-11): menu QL NSKX - Admin/Viewer/QC/Giam sat/TBP DVBH (GS xac nhan loi loc khu vuc minh).
 export const DEFAULT_MODULES_BY_ROLE: Record<VaiTro, string[]> = {
-  Admin: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
-  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "giao-dien"],
-  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
-  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
+  Admin: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "danh-muc-lk", "import", "settings", "users", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "ql-nskx", "giao-dien"],
+  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "giao-dien"],
   "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "bao-cao-vi-pham", "danh-sach-tong", "giao-dien"],

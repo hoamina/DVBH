@@ -38,6 +38,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "bao-cao-vi-pham", label: tr("Báo cáo vi phạm"), icon: "🛡" },
       { key: "ca-lap", label: tr("Ca lặp"), icon: "🔁", countKey: "caLap" },
       { key: "danh-sach-tong", label: tr("Danh sách tổng"), icon: "📋" },
+      { key: "ql-nskx", label: tr("QL NSKX"), icon: "💧" },
       // "tra-hang" la 1 tab CON cua module dat-mua-lk (App.tsx render lai DatMuaLinhKienModule voi
       // forceView) - datMuaLk badge da GOM CA bucket tra hang, chi gan countKey o "dat-mua-lk" de
       // tranh hien trung 1 con so o 2 dong sidebar gay hieu nham cong don.
@@ -70,13 +71,13 @@ export const NAV_GROUPS: NavGroup[] = [
 // localStorage active-module dang luu cua nguoi dung hien tai.
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "dat-mua-lk", "tra-hang", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "giao-dien"],
+  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "tra-hang", "giao-dien"],
   // "dat-mua-lk"/"tra-hang" KHONG con hardcode o day tu 2026-08-16 (migration 0081) - Tac nghiep
   // tach doc lap khoi vai_tro (xem App.tsx dong cap them tu dong theo la_tac_nghiep, khop dung
   // DEFAULT_MODULES_BY_ROLE["TBP DVBH"] o backend/src/lib/moduleAccess.ts).
-  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "giao-dien"],
   CSKH: ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
   "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "bao-cao-vi-pham", "danh-sach-tong", "giao-dien"],
@@ -98,6 +99,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "bao-cao-vi-pham": tr("Báo cáo vi phạm"),
   "ca-lap": tr("Ca lặp"),
   "danh-sach-tong": tr("Danh sách tổng"),
+  "ql-nskx": tr("QL NSKX"),
   import: "Import data",
   settings: "Settings",
   users: tr("Quản lý User"),

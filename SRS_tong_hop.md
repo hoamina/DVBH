@@ -345,3 +345,19 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - **Bỏ lựa chọn "Tất cả quốc gia"** trên TopBar: người được xem toàn bộ cũng chỉ xem từng nước (mặc định VN, nút chọn
   các nước đang bật). Server (`chonQuocGia`) không còn trả "mọi nước" cho request GET của người dùng. Số chốt cron
   của phạm vi gộp vẫn chạy (Cảnh báo tồn / log chuyển cấp dùng phạm vi gốc).
+
+## 13. Menu "QL NSKX" — báo cáo riêng ca đối tác NSKX (chốt 2026-11-11)
+
+- Phạm vi: mọi ca `doi_tac` = NSKX / [NSKX], chỉ VN, chia theo **tháng tiếp nhận CSKH**; tôn trọng khu vực phụ trách của người xem.
+  Không phụ thuộc nút "Phạm vi báo cáo". Quyền mặc định: Admin, Viewer, QC, Giám sát, TBP DVBH (tài khoản đã tuỳ chỉnh module phải tick thêm).
+- Tab **Danh sách**: lọc/sắp xếp kiểu Excel trên tiêu đề cột + thanh "Bộ lọc" (trạng thái ca, đánh giá lõi, đơn lõi lọc, đề xuất lõi,
+  tỉnh, KTV, model, loại yêu cầu, SLA, 24h, ngày tiếp nhận/hoàn thành), xuất Excel.
+- Tab **Đánh giá lõi lọc**: hệ thống đề xuất lõi từ linh kiện sửa chữa trên ca (báo cáo linh kiện xử lý Odoo, tên/nhóm có chữ "lõi").
+  Giám sát (khu vực mình) / TBP DVBH / Admin xác nhận **Có thay / Không thay**; nếu thay thì chọn lõi + SL, chỉ được chọn mã có trong
+  danh mục linh kiện (đồng bộ từ linh-kien-app). Lưu ở bảng `nskx_loi_loc` (người + giờ xác nhận), sửa lại được.
+- Nút **Đồng bộ đơn lõi lọc** (thủ công): gửi ds ca NSKX (trừ ca đã xác nhận không thay) sang linh-kien-app, nhận lại ca nào đã có đơn loại
+  đề xuất "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" còn hiệu lực (bỏ đơn huỷ / từ chối; khớp theo mã ca và cả ID Lada). Trạng thái đơn:
+  **Đã đặt lõi** (có đơn) > **Không cần** (GS xác nhận không thay) > **Chưa đặt lõi** (còn lại). Gồm cả ca đã lên đơn để phát hiện đơn bị huỷ sau.
+- Tab **Báo cáo**: theo khu vực / KTV (`ky_thuat_vien`): tổng ca, đã hoàn thành, tỷ lệ 24h, tỷ lệ SLA (cùng công thức Tổng quát — trên ca
+  tính KPI), đã đặt lõi, không thay lõi, chưa đặt lõi, chưa đánh giá lõi; bấm số → mở Danh sách đã lọc đúng nhóm.
+

@@ -15,7 +15,7 @@ import { diaGioiLoc } from "./filterParams";
 
 export const GIA_TRI_TRONG = "__TRONG__";
 
-type Kieu = "list" | "text" | "date" | "number";
+export type Kieu = "list" | "text" | "date" | "number";
 
 const tranhChapDongList = TRANH_CHAP_TRANG_THAI_DONG.map((s) => `'${s}'`).join(", ");
 const latestTienTrinhNgayTaoExpr = `(SELECT tt.ngay_tao FROM tranh_chap_tien_trinh tt WHERE tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE})`;
@@ -110,6 +110,8 @@ export function locCotClause(
   capTonIds?: Record<string, string[]>,
   /** Tap id khop tu khoa (khong dau) cua tung cot loc "q". undefined = bo qua moi loc "q" (buoc tinh qIds). */
   qIds?: Record<string, string[]>,
+  /** Bang cot rieng cua man khac (vd QL NSKX) - mac dinh COT_LOC cua Danh sach chi tiet. */
+  cotMap: Record<string, { expr: string; kieu: Kieu }> = COT_LOC,
 ): { sql: string; binds: unknown[] } {
   let sql = "";
   const binds: unknown[] = [];
@@ -137,7 +139,7 @@ export function locCotClause(
       continue;
     }
 
-    const def = COT_LOC[cot];
+    const def = cotMap[cot];
     if (!def) continue;
     if (arr && arr.length) {
       const coTrong = arr.includes(GIA_TRI_TRONG);

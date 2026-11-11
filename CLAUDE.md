@@ -197,6 +197,14 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     `CASE_DETAIL_DOMAINS`). CaseDetail field "ID Lada" (`components/LadaPanel.tsx`) → popup that proxies the ETX API by
     `order_id` + stored `ma_doi_tac` on demand (60-day retention, not stored, staff emails stripped).
     Older orders: Settings ETX tab button "Lấy ID Lada 60 ngày" (`chi_lien_ket_lada`) writes only `case_lada`, never `giai_trinh`/sync log.
+  - `qlNskx.ts` (2026-11-11, migration 0160, module `ql-nskx`, `modules/QlNskxModule.tsx`) — menu "QL NSKX": every NSKX case
+    (VN, `doi_tac IN ('NSKX','[NSKX]')`) by CSKH-received month, Excel-style column filters reusing `lib/locCot.ts` with its own
+    column map (`locCotClause(..., cotMap)`); frontend skips `?pv=` for `/ql-nskx`. Tab "Đánh giá lõi lọc": GS (own khu vực) / TBP
+    DVBH / Admin confirm thay/không thay + which cores (`nskx_loi_loc`, codes must exist in `linh_kien`; suggestion = `linh_kien_loi`
+    items whose name contains "lõi" — accent-sensitive, "lỗi" is not a core). Manual button `POST /dong-bo-don` sends all NSKX cases
+    not marked "không thay" (+ their `case_lada` IDs) to linh-kien-app `POST /api/partner/v1/don-loi-loc`, which returns live orders of
+    type "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" (cancelled/rejected excluded) → `nskx_don_lk` (only changed rows written; summary in
+    `cai_dat_he_thong` key `nskx_dong_bo_don`). Order status = đã lên đơn > không cần (không thay) > chưa lên đơn. Live reads, no cache.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -441,7 +449,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0159`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0160`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
