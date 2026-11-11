@@ -5659,3 +5659,8 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - v1.568: tab NSKX chuyển sau "Tiến trình chung"; danh sách chọn lõi chỉ mở khi bấm vào ô nhập; cạnh mỗi lõi đã chọn hiện trạng thái đơn
   linh-kien-app cùng mã của ca (bỏ đơn huỷ/từ chối) + khối gợi ý "lõi đã đặt cho ca này nhưng chưa chọn" — phân tích trên máy người dùng
   từ dữ liệu tab Mua hàng đã tải, không đọc/ghi thêm D1. Mã lõi không có trong danh mục: lấy tên từ đơn nếu có.
+- v1.569: thêm "QL NSKX" vào danh sách module tuỳ chỉnh theo tài khoản (Quản lý User) — trước đó chỉ có theo vai trò mặc định.
+- v1.570 (chủ hệ thống chốt): mã lõi lấy từ báo cáo linh kiện Odoo của chính ca (`linh_kien_loi`, vd 2004020410/2004020354) được lưu
+  "Có thay lõi" dù chưa có trong danh mục `linh_kien` — tên theo báo cáo, giao diện ghi "(theo báo cáo linh kiện của ca)" thay vì báo
+  đỏ. Mã không có ở cả 2 nguồn vẫn bị chặn (400 INVALID_MA). Thử local ca SC261003410: lưu qua API + nút "Lưu xác nhận" OK, lịch sử ghi đúng.
+  Các mã này vẫn nên bổ sung vào danh mục bên linh-kien-app để chọn được từ ô tìm.

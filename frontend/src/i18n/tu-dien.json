@@ -13674,5 +13674,7 @@
  "Linh kiện lỗi": [
   "Faulty parts",
   "Suku cadang rusak"
- ]
+ ],
+  "(theo báo cáo linh kiện của ca)": ["(from this case's parts report)", "(dari laporan suku cadang kasus ini)"],
+  "Mã lấy từ báo cáo linh kiện của ca, chưa có trong danh mục linh kiện": ["Code taken from this case's parts report, not yet in the parts catalog", "Kode diambil dari laporan suku cadang kasus ini, belum ada di katalog suku cadang"]
 }

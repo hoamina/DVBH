@@ -192,6 +192,20 @@ qlNskx.get("/danh-sach", async (c) => {
   return c.json({ rows: res[0].results, page, pageSize, total, total_chua_loc: totalChuaLoc });
 });
 
+/** linh_kien_loi (chuoi JSON mang {ma_linh_kien, ten_linh_kien, ...} tu Odoo) -> [{ma, ten}]; loi parse = rong. */
+function tachLinhKienLoi(raw: string | null): { ma: string; ten: string }[] {
+  if (!raw) return [];
+  try {
+    const arr: unknown = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((x) => ({ ma: String((x as { ma_linh_kien?: unknown })?.ma_linh_kien ?? "").trim(), ten: String((x as { ten_linh_kien?: unknown })?.ten_linh_kien ?? "").trim() }))
+      .filter((x) => x.ma);
+  } catch {
+    return [];
+  }
+}
+
 /** Ai duoc xac nhan loi loc: Admin, TBP DVBH, Giam sat (chi ca trong khu vuc minh phu trach - scopeByKhuVuc). */
 function duocXacNhan(vaiTro: string | null): boolean {
   return vaiTro === "Admin" || vaiTro === "TBP DVBH" || vaiTro === "Giam sat";
@@ -203,9 +217,9 @@ qlNskx.put("/:id/loi-loc", async (c) => {
   const id = c.req.param("id");
   const scope = scopeByKhuVuc(c);
   const sc = khuVucWhereClause(scope, "c.khu_vuc");
-  const ca = await c.env.DB.prepare(`SELECT c.id FROM case_hieu_luc c WHERE c.id = ? AND ${DK_NSKX}${sc.sql}`)
+  const ca = await c.env.DB.prepare(`SELECT c.id, c.linh_kien_loi FROM case_hieu_luc c WHERE c.id = ? AND ${DK_NSKX}${sc.sql}`)
     .bind(id, ...sc.binds)
-    .first<{ id: string }>();
+    .first<{ id: string; linh_kien_loi: string | null }>();
   if (!ca) return c.json({ error: "NOT_FOUND", message: "Không tìm thấy ca NSKX trong phạm vi khu vực của bạn." }, 404);
 
   const body = await c.req.json<{ trang_thai?: unknown; ds_loi?: unknown; ghi_chu?: unknown }>().catch(() => ({}) as Record<string, unknown>);
@@ -228,6 +242,9 @@ qlNskx.put("/:id/loi-loc", async (c) => {
       .bind(JSON.stringify([...gop.keys()]))
       .all<{ ma_linh_kien: string; ten_linh_kien: string }>();
     const ten = new Map(results.map((r) => [r.ma_linh_kien, r.ten_linh_kien]));
+    // Chu he thong 2026-11-11: ma lay tu bao cao linh kien Odoo CUA CHINH CA (linh_kien_loi) duoc chap nhan du chua co
+    // trong danh muc linh_kien (vd 2004020410) - ten lay theo bao cao. Ma ngoai ca 2 nguon van bi tu choi.
+    for (const p of tachLinhKienLoi(ca.linh_kien_loi)) if (gop.has(p.ma) && !ten.has(p.ma)) ten.set(p.ma, p.ten);
     const sai = [...gop.keys()].filter((m) => !ten.has(m));
     if (sai.length) return c.json({ error: "INVALID_MA", message: `Mã không có trong danh mục linh kiện: ${sai.join(", ")}` }, 400);
     dsLoi = JSON.stringify([...gop.entries()].map(([ma, so_luong]) => ({ ma_linh_kien: ma, ten_linh_kien: ten.get(ma), so_luong })));

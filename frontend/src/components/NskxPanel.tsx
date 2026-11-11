@@ -263,6 +263,11 @@ function XacNhanForm({
   const catalog = lkData?.rows ?? [];
   const tenTheoMa = useMemo(() => new Map(catalog.map((r) => [r.ma_linh_kien, r.ten_linh_kien])), [catalog]);
   const deXuat = useMemo(() => deXuatLoi(linhKienLoi), [linhKienLoi]);
+  // Ma trong bao cao linh kien Odoo cua ca: duoc luu du chua co trong danh muc (chu he thong 2026-11-11), ten theo bao cao.
+  const tenTheoBaoCao = useMemo(
+    () => new Map(parseLinhKienLoi(linhKienLoi).filter((p) => p.ma_linh_kien).map((p) => [String(p.ma_linh_kien), p.ten_linh_kien ?? ""])),
+    [linhKienLoi],
+  );
   const TT_THEO_SO: Record<number, string> = { 1: "thay", 0: "khong_thay", 2: "khong_ap_dung" };
   const [trangThai, setTrangThai] = useState<string | null>(
     hienTai.thay_loi !== null ? TT_THEO_SO[hienTai.thay_loi] : hienTai.tt_loi_loc === "tu_dong_khong_thay" ? "khong_thay" : deXuat.length ? "thay" : null,
@@ -297,7 +302,7 @@ function XacNhanForm({
     const q = boDau(tim.trim());
     return catalog.filter((r) => (!chiLoi || laLoi(r.ten_linh_kien)) && (!q || boDau(`${r.ma_linh_kien} ${r.ten_linh_kien}`).includes(q))).slice(0, 50);
   }, [catalog, tim, chiLoi]);
-  const saiMa = ds.filter((x) => catalog.length > 0 && !tenTheoMa.has(x.ma_linh_kien));
+  const saiMa = ds.filter((x) => catalog.length > 0 && !tenTheoMa.has(x.ma_linh_kien) && !tenTheoBaoCao.has(x.ma_linh_kien));
 
   async function luu() {
     if (!trangThai) return toast(tr("Chọn Có thay / Không thay / Không áp dụng."));
@@ -347,13 +352,23 @@ function XacNhanForm({
             {ds.length === 0 && <div className="text-[var(--ink-400)]">{tr("Chưa chọn lõi nào.")}</div>}
             {ds.map((x, i) => {
               const ten = tenTheoMa.get(x.ma_linh_kien);
+              const tenBc = ten ? undefined : tenTheoBaoCao.get(x.ma_linh_kien);
               const don = donTheoMa.get(x.ma_linh_kien) ?? [];
               const tenDon = don[0]?.ten_lk;
               return (
                 <div key={x.ma_linh_kien} className="flex items-center gap-2 py-1 border-b border-[var(--line)]">
                   <span className="font-mono">{x.ma_linh_kien}</span>
                   <span className="flex-1 min-w-0">
+                    {tenBc !== undefined ? (
+                      <span>
+                        {tenBc || tenDon || x.ma_linh_kien}{" "}
+                        <span className="text-[var(--ink-400)]" title={tr("Mã lấy từ báo cáo linh kiện của ca, chưa có trong danh mục linh kiện")}>
+                          {tr("(theo báo cáo linh kiện của ca)")}
+                        </span>
+                      </span>
+                    ) : (
                     <span className={ten ? "" : "text-[var(--coral-600)]"}>{ten ?? (tenDon ? `${tenDon} — ${tr("không có trong danh mục linh kiện")}` : tr("Không có trong danh mục linh kiện"))}</span>
+                    )}
                     <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">
                       {don.length ? (
                         don.map((o) => (
