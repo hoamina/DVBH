@@ -5669,3 +5669,7 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   người nhận = KTV triển khai / Trạm, loại TG12-NSKX, mã YCSC = mã ca. Chống trùng 3 lớp (đọc sống đơn TG12, khoá tạm theo ca, mã yêu cầu tất
   định). Phía linh-kien-app: API v1.470/v1.473 (đã deploy). **Việc của Admin linh-kien-app**: bật "đặt thay đúng người bấm" cho khoá API DVBH.
   Thử local DVBH: xem trước / bỏ qua / validate đúng; luồng tạo phiếu thật đã thử ở local linh-kien-app (xem nhật ký bên đó).
+- v1.572: "Đặt lõi hàng loạt" chuyển vào thanh công cụ danh sách và lấy ĐÚNG bộ lọc đang xem (tháng, khu vực, lọc cột). Có 1 bước xác nhận;
+  Giám sát mà danh sách có ca thuộc khu vực ngoài phụ trách (khu vực được xem thêm) được hỏi "Có — đặt cả khu vực khác" / "Không — chỉ khu
+  vực tôi phụ trách". Bảng xem trước gộp theo KTV: mỗi mã lõi = số ca, tổng SL, dự kiến (kiểm tra trước bên linh-kien-app, ≤20 phiếu),
+  chi tiết theo ca xổ ra; phiếu mà mọi dòng bị chặn không được chọn sẵn. Thử local với tài khoản GS giả lập (MN3 phụ trách + MN1 được xem).

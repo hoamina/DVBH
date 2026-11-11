@@ -9,14 +9,14 @@
  *                             POST /api/partner/v1/don-loi-loc, nhan lai ca nao da co don loai "HỖ TRỢ NGOÀI BẢO HÀNH TG12…"
  *                             (bo don huy/tu choi) -> nskx_don_lk. Chi ghi dong thay doi.
  *  - GET  /bao-cao            bao cao nhanh theo khu vuc / KTV cua 1 thang.
- *  - GET  /dat-loi/ung-vien   ca da xac nhan "Co thay loi" + chua len don (tu 11/2026, khu vuc nguoi bam) - danh sach dat hang loat.
+ *  - GET  /dat-loi/ung-vien   (v1.572) THEO BO LOC danh sach dang xem: ca da xac nhan "Co thay loi" + chua len don (tu 11/2026), kem khu_vuc.
  *  - POST /dat-loi/xem-truoc  ke hoach dat (gom theo nguoi nhan, bo loi da co don / ngoai danh muc) [+ kiem tra truoc tung phieu].
  *  - POST /dat-loi/tao        dat that sang linh-kien-app voi tai khoan nguoi bam (lib/nskxDatLoi.ts - doc ky phan "an toan").
  * Trang thai don: da_len_don (co don con hieu luc) > khong_can (GS xac nhan khong thay loi) > chua_len_don (con lai).
  * Doc song (khong cachedReport): so ca NSKX/thang nho (vai tram), loc qua partial index idx_case_doi_tac.
  * Frontend KHONG gan ?pv= cho /ql-nskx (api/client.ts) - menu nay tu loc NSKX, khong phu thuoc nut "Pham vi bao cao".
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -137,13 +137,13 @@ const COT_DS = `c.id, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.ktv_trien_khai
   ${TT_LOI_LOC_EXPR} AS tt_loi_loc, ${TT_DON_EXPR} AS tt_don,
   n.thay_loi, n.ds_loi, n.ghi_chu AS ghi_chu_loi, n.nguoi_xac_nhan, n.ngay_xac_nhan, d.don AS don_loi, d.ngay_dong_bo`;
 
-qlNskx.get("/danh-sach", async (c) => {
+/** WHERE cua danh sach theo DUNG bo loc dang xem (thang / khu vuc / ID / loc cot kieu Excel, ke ca tim tu khoa khong dau) -
+ * dung chung cho GET /danh-sach va GET /dat-loi/ung-vien (dat hang loat theo bo loc). */
+async function whereTheoLoc(c: Context<{ Bindings: Env }>, giaTriCot = "") {
   const scope = scopeByKhuVuc(c);
   const thang = thangBounds(c.req.query("thang"));
   const goc = whereGoc(c, scope, thang);
   const locCot = parseLocCot(c.req.query("loc_cot"));
-  const giaTriCot = c.req.query("gia_tri_cot") ?? "";
-  const isExport = c.req.query("export") === "true";
 
   // Loc "chua tu khoa" khong dau (giong cases.ts GET "/"): doc (id, gia tri) roi so trong Worker -> tap id.
   const qIds: Record<string, string[]> = {};
@@ -161,6 +161,14 @@ qlNskx.get("/danh-sach", async (c) => {
   const loc = locCotClause(locCot, giaTriCot || undefined, undefined, qIds, COT_NSKX);
   const whereSql = goc.sql + loc.sql;
   const binds = [...goc.binds, ...loc.binds];
+
+  return { goc, loc, whereSql, binds };
+}
+
+qlNskx.get("/danh-sach", async (c) => {
+  const giaTriCot = c.req.query("gia_tri_cot") ?? "";
+  const isExport = c.req.query("export") === "true";
+  const { goc, loc, whereSql, binds } = await whereTheoLoc(c, giaTriCot);
 
   if (giaTriCot) {
     if (giaTriCot === "tinh") {
@@ -397,18 +405,20 @@ function docIds(raw: unknown): string[] | null {
 const loiLk = (c: { json: (b: unknown, s: 500 | 502) => Response }, err: unknown) =>
   err instanceof LoiLinhKienApp ? c.json({ error: "UPSTREAM", message: err.message }, err.status === 500 ? 500 : 502) : null;
 
+// Dat hang loat theo DUNG bo loc dang xem (cung tham so voi /danh-sach): ca da xac nhan "Co thay loi", chua co don (theo lan dong bo/doc song
+// gan nhat), tiep nhan tu 11/2026. Tra kem khu_vuc de frontend hoi GS co dat ca khu vuc ngoai phu trach khong.
 qlNskx.get("/dat-loi/ung-vien", async (c) => {
   if (!duocXacNhan(c.get("user").vai_tro)) return c.json({ error: "FORBIDDEN" }, 403);
-  const scope = scopeByKhuVuc(c);
-  const sc = khuVucWhereClause(scope, "c.khu_vuc");
-  const kv = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const { whereSql, binds } = await whereTheoLoc(c);
   const { results } = await c.env.DB.prepare(
-    `SELECT c.id ${FROM_NSKX} WHERE ${DK_NSKX} AND c.thoi_gian_cskh_tiep_nhan >= ? AND n.thay_loi = 1 AND COALESCE(d.co_don, 0) = 0${sc.sql}${kv.sql}
-     ORDER BY c.thoi_gian_cskh_tiep_nhan LIMIT ${CA_TOI_DA_MOI_LAN}`,
+    `SELECT c.id, c.khu_vuc ${FROM_NSKX} ${whereSql} AND c.thoi_gian_cskh_tiep_nhan >= ? AND n.thay_loi = 1 AND COALESCE(d.co_don, 0) = 0
+     ORDER BY c.thoi_gian_cskh_tiep_nhan LIMIT ${CA_TOI_DA_MOI_LAN + 1}`,
   )
-    .bind(NSKX_DAT_LOI_TU_NGAY, ...sc.binds, ...kv.binds)
-    .all<{ id: string }>();
-  return c.json({ ids: results.map((r) => String(r.id)), toi_da: CA_TOI_DA_MOI_LAN });
+    .bind(...binds, NSKX_DAT_LOI_TU_NGAY)
+    .all<{ id: string; khu_vuc: string | null }>();
+  const vuot = results.length > CA_TOI_DA_MOI_LAN;
+  const ca = results.slice(0, CA_TOI_DA_MOI_LAN).map((r) => ({ id: String(r.id), khu_vuc: r.khu_vuc }));
+  return c.json({ ca, ids: ca.map((r) => r.id), vuot, toi_da: CA_TOI_DA_MOI_LAN });
 });
 
 qlNskx.post("/dat-loi/xem-truoc", async (c) => {
@@ -422,7 +432,7 @@ qlNskx.post("/dat-loi/xem-truoc", async (c) => {
     const { keHoach, donSong } = await lapKeHoach(c.env, c.env.DB, ids, sc);
     await ghiDonLk(c.env.DB, donSong);
     // Kiem tra truoc (khong ghi) - chi khi it phieu (dat le / nhom nho); dat hang loat se kiem tra lai luc tao tung phieu.
-    const kiemTra = body.kiem_tra === true && keHoach.phieu.length <= 5;
+    const kiemTra = body.kiem_tra === true && keHoach.phieu.length <= 20;
     const phieu = [];
     for (const p of keHoach.phieu) {
       if (!kiemTra) {

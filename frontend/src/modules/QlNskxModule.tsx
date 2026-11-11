@@ -12,6 +12,7 @@ import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
+import { Modal } from "../components/ui/Modal";
 import { useToast } from "../components/ui/Toast";
 import { KhuVucFilterControl } from "../components/KhuVucFilterControl";
 import { LocCotPopover, locCotDangBat, tomTatLoc, GIA_TRI_TRONG, type GiaTriLoc, type KieuLocCot, type LocCot } from "../components/ui/LocCotPopover";
@@ -128,13 +129,6 @@ export function QlNskxModule({ openCase, headerExtra }: { openCase: (id: string,
   const qc = useQueryClient();
   const toast = useToast();
   const [dangDongBo, setDangDongBo] = useState(false);
-  // Dat loi hang loat (v1.571): ca da xac nhan "Co thay loi" + chua len don (tu 11/2026, khu vuc dang chon / khu vuc cua minh).
-  const [datLoiIds, setDatLoiIds] = useState<string[] | null>(null);
-  const { data: ungVien } = useQuery({
-    queryKey: ["ql-nskx", "dat-loi-ung-vien", khuVuc],
-    queryFn: () => api.get<{ ids: string[]; toi_da: number }>(`/ql-nskx/dat-loi/ung-vien${khuVuc ? `?khu_vuc=${encodeURIComponent(khuVuc)}` : ""}`),
-    enabled: duocXacNhan,
-  });
 
   const { data: thangData } = useQuery({ queryKey: ["ql-nskx-thang"], queryFn: () => api.get<ThangPayload>("/ql-nskx/thang") });
   const { data: filtersData } = useQuery({ queryKey: ["dashboard-filters"], queryFn: () => api.get<{ khuVuc: string[] }>("/dashboard/filters") });
@@ -192,17 +186,6 @@ export function QlNskxModule({ openCase, headerExtra }: { openCase: (id: string,
             {tr("⟳ Đồng bộ đơn lõi lọc từ linh-kien-app (ca từ 11/2026)")}
           </Btn>
         )}
-        {duocXacNhan && (
-          <Btn
-            size="sm"
-            onClick={() => setDatLoiIds(ungVien?.ids ?? [])}
-            disabled={!ungVien?.ids.length}
-            title={tr("Ca đã xác nhận “Có thay lõi” nhưng chưa có đơn TG12 (tiếp nhận từ 11/2026, theo khu vực đang chọn)")}
-          >
-            {tr("🛒 Đặt lõi hàng loạt ({0} ca chưa đặt)", ungVien?.ids.length ?? 0)}
-          </Btn>
-        )}
-        {datLoiIds && datLoiIds.length > 0 && <DatLoiNskxModal caseIds={datLoiIds} onClose={() => setDatLoiIds(null)} />}
         {db?.luc ? (
           <span>
             {tr("Lần đồng bộ gần nhất: {0} — {1} ca, {2} đã lên đơn, {3} chưa lên đơn", fmtDateTime(db.luc), db.so_ca, db.da_len_don, db.chua_len_don)}
@@ -496,7 +479,8 @@ function DanhSachNskx({
             {tr("Mặc định: ca đã hoàn thành, chưa đánh giá. Ca hoàn thành không có linh kiện “lõi” tự tính “Không thay lõi”. Bấm Xác nhận để mở tab NSKX của ca.")}
           </span>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {duocXacNhan && <DatLoiHangLoatNut params={{ ...params, page: undefined, pageSize: undefined, sortBy: undefined, sortDir: undefined }} />}
           <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
             {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
           </Btn>
@@ -732,3 +716,92 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
     </Card>
   );
 }
+
+/** Dat loi hang loat THEO BO LOC dang xem (v1.572): lay ung vien (da xac nhan "Co thay loi", chua co don, tu 11/2026) -> 1 lan xac nhan.
+ * Giam sat ma danh sach co ca thuoc khu vuc NGOAI phu trach (khu vuc duoc xem them) -> hoi co dat ca khu vuc khac khong; "Khong" = chi
+ * khu vuc minh phu trach. Sau do mo DatLoiNskxModal (bang loi du kien dat nhom theo KTV). */
+function DatLoiHangLoatNut({ params }: { params: Record<string, unknown> }) {
+  const auth = useAuth();
+  const user = auth.status === "authenticated" ? auth.user : null;
+  const toast = useToast();
+  const [dangTai, setDangTai] = useState(false);
+  const [hoi, setHoi] = useState<{ ca: { id: string; khu_vuc: string | null }[]; vuot: boolean; toi_da: number } | null>(null);
+  const [ids, setIds] = useState<string[] | null>(null);
+  const laGs = user?.vai_tro === "Giam sat";
+  const phuTrach = new Set(user?.khu_vuc_phu_trach ?? []);
+
+  async function bam() {
+    setDangTai(true);
+    try {
+      const r = await api.get<{ ca: { id: string; khu_vuc: string | null }[]; vuot: boolean; toi_da: number }>(
+        `/ql-nskx/dat-loi/ung-vien${buildQuery(params as Record<string, string | number | boolean | undefined>)}`,
+      );
+      if (!r.ca.length) toast(tr("Không có ca nào cần đặt lõi trong danh sách đang lọc (đã xác nhận “Có thay lõi”, chưa có đơn, từ 11/2026)."));
+      else setHoi(r);
+    } catch (e) {
+      toast(e instanceof ApiError ? (e.detail ?? e.message) : String(e));
+    } finally {
+      setDangTai(false);
+    }
+  }
+
+  const ngoai = hoi && laGs ? hoi.ca.filter((x) => !phuTrach.has(x.khu_vuc ?? "")) : [];
+  const cuaMinh = hoi ? hoi.ca.filter((x) => !laGs || phuTrach.has(x.khu_vuc ?? "")) : [];
+  const kvNgoai = [...new Set(ngoai.map((x) => shortKhuVuc(x.khu_vuc) || "—"))];
+  const chot = (ds: { id: string }[]) => {
+    setHoi(null);
+    if (ds.length) setIds(ds.map((x) => x.id));
+    else toast(tr("Không có ca nào thuộc khu vực bạn phụ trách."));
+  };
+
+  return (
+    <>
+      <Btn size="sm" onClick={bam} loading={dangTai} title={tr("Đặt lõi cho các ca trong danh sách đang lọc: đã xác nhận “Có thay lõi”, chưa có đơn TG12, tiếp nhận từ 11/2026")}>
+        {tr("🛒 Đặt lõi hàng loạt theo bộ lọc")}
+      </Btn>
+      {hoi && (
+        <Modal
+          open
+          onClose={() => setHoi(null)}
+          title={tr("Xác nhận đặt lõi hàng loạt")}
+          width="max-w-lg"
+          footer={
+            <div className="flex justify-end gap-2 flex-wrap">
+              <Btn variant="ghost" size="sm" onClick={() => setHoi(null)}>
+                {tr("Huỷ")}
+              </Btn>
+              {ngoai.length > 0 ? (
+                <>
+                  <Btn variant="ghost" size="sm" onClick={() => chot(cuaMinh)} disabled={!cuaMinh.length}>
+                    {tr("Không — chỉ khu vực tôi phụ trách ({0} ca)", cuaMinh.length)}
+                  </Btn>
+                  <Btn size="sm" onClick={() => chot(hoi.ca)}>
+                    {tr("Có — đặt cả khu vực khác ({0} ca)", hoi.ca.length)}
+                  </Btn>
+                </>
+              ) : (
+                <Btn size="sm" onClick={() => chot(hoi.ca)}>
+                  {tr("Tiếp tục ({0} ca)", hoi.ca.length)}
+                </Btn>
+              )}
+            </div>
+          }
+        >
+          <div className="flex flex-col gap-2 text-sm">
+            <div>{tr("Danh sách đang lọc có {0} ca đã xác nhận “Có thay lõi” nhưng chưa có đơn TG12.", hoi.ca.length)}</div>
+            {hoi.vuot && <div className="text-[var(--amber-600)] text-xs">{tr("Chỉ lấy {0} ca đầu tiên mỗi lần — đặt xong bấm lại để đặt tiếp.", hoi.toi_da)}</div>}
+            {ngoai.length > 0 && (
+              <div className="rounded-lg bg-[var(--amber-100,#fff4dc)] px-2.5 py-2">
+                <b>{tr("{0} ca thuộc khu vực ngoài phụ trách của bạn: {1}.", ngoai.length, kvNgoai.join(", "))}</b>
+                <div className="text-xs mt-0.5">{tr("Có đặt lõi cho cả các khu vực này không?")}</div>
+              </div>
+            )}
+            <div className="text-xs text-[var(--ink-500)]">{tr("Bước tiếp theo hiện bảng lõi dự kiến đặt theo từng KTV để bạn kiểm tra trước khi đặt.")}</div>
+          </div>
+        </Modal>
+      )}
+      {ids && <DatLoiNskxModal caseIds={ids} onClose={() => setIds(null)} />}
+    </>
+  );
+}
+

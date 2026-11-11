@@ -366,6 +366,8 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   "Chưa có đơn đặt mã này" theo đơn linh-kien-app của chính ca đó, kèm gợi ý lõi đã đặt mà chưa chọn (tính trên trình duyệt, không ghi D1).
 - v1.571: **Đặt lõi** sang linh-kien-app ngay trong hệ (lẻ ở tab NSKX, hàng loạt ở menu): đơn loại "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX",
   người đặt = người bấm, người nhận = KTV triển khai (không có thì Trạm), chỉ lõi đã xác nhận (dây / cút đặt ngoài), lõi đã có đơn không đặt lại.
+- v1.572: đặt hàng loạt theo bộ lọc danh sách đang xem; GS có ca ngoài khu vực phụ trách được hỏi có đặt cả khu vực khác không (Không =
+  chỉ khu vực mình); bảng lõi dự kiến đặt nhóm theo KTV (mã, số ca, tổng SL, dự kiến tự duyệt / thiếu hàng / bị chặn).
 - Tab **Báo cáo**: theo khu vực / KTV (`ky_thuat_vien`): tổng ca, đã hoàn thành, tỷ lệ 24h, tỷ lệ SLA (cùng công thức Tổng quát — trên ca
   tính KPI), đã đặt lõi, không thay lõi, chưa đặt lõi, chưa đánh giá lõi; bấm số → mở Danh sách đã lọc đúng nhóm.
 

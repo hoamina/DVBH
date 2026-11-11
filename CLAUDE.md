@@ -215,7 +215,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX", `ma_yeu_cau_su_co` = case id; only confirmed cores (`thay_loi = 1`), cases from 2026-11-01.
     Anti-duplicate: live TG12 read right before ordering, per-case lock `nskx_dat_loi_khoa` (5 min), deterministic `ma_yeu_cau`
     (re-send returns the old slip). One slip per recipient ≤30 lines, created SEQUENTIALLY; blocked lines are dropped after kiem-tra.
-    Every call logged in `nskx_dat_loi_log`. Single (tab NSKX) and bulk (menu button, `GET /dat-loi/ung-vien`, ≤500 cases).
+    Every call logged in `nskx_dat_loi_log`. Single (tab NSKX) and bulk (v1.572: button in the list toolbar, `GET /dat-loi/ung-vien` takes the SAME filters as `/danh-sach`
+    via shared `whereTheoLoc`, ≤500 cases; a Giám sát whose list includes cases outside `khu_vuc_phu_trach` is asked whether to include
+    them; the preview always runs kiem-tra (≤20 slips) and groups lines per KTV with a per-core summary).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
