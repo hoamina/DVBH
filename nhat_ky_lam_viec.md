@@ -5673,3 +5673,6 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   Giám sát mà danh sách có ca thuộc khu vực ngoài phụ trách (khu vực được xem thêm) được hỏi "Có — đặt cả khu vực khác" / "Không — chỉ khu
   vực tôi phụ trách". Bảng xem trước gộp theo KTV: mỗi mã lõi = số ca, tổng SL, dự kiến (kiểm tra trước bên linh-kien-app, ≤20 phiếu),
   chi tiết theo ca xổ ra; phiếu mà mọi dòng bị chặn không được chọn sẵn. Thử local với tài khoản GS giả lập (MN3 phụ trách + MN1 được xem).
+- v1.573: Nhận 2 trường tuỳ chọn mới từ pipeline auto qs qua `/api/external-import/commit`: `so_gio_xu_ly_klt` (số giờ xử lý KHÔNG
+  loại trừ ngoại lệ "KH hẹn lại lịch") + `dung_han_klt` (Đúng hạn/Quá hạn tương ứng). Migration 0163 thêm 2 cột vào `case_dvbh`; chỉ ghi
+  khi dòng có key, chỉ vào hash khi có giá trị (ca cũ không đổi hash). Chi tiết ca hiện thêm dòng "Đúng hạn không loại trừ" khi có dữ liệu.

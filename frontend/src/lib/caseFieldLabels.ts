@@ -63,6 +63,8 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   // form nao trong app cung dang xuat NGUYEN dong tra ve tu API (nhieu hon field CaseRow khai bao).
   thoi_gian_goc_dong_ca: tr("Thời gian gốc đóng ca"),
   so_gio_xu_ly: tr("Số giờ xử lý"),
+  so_gio_xu_ly_klt: tr("Số giờ xử lý không loại trừ"),
+  dung_han_klt: tr("Đúng hạn không loại trừ"),
   thoi_gian_tai_du_lieu_crm: tr("Thời gian tải dữ liệu CRM"),
   created_at: tr("Ngày tạo (hệ thống)"),
   updated_at: tr("Ngày cập nhật (hệ thống)"),

@@ -41,10 +41,13 @@ export const BUSINESS_FIELDS = [
 // nhieu lan, xin lai thi ghi de) - JSON array 1 phan tu, giong co che lich_hen ve mat luu tru.
 // "ngay_san_xuat" (2026-10-27, migration 0145): Ngày sản xuất tu Odoo (YYYY-MM-DD), QuickSight de NULL.
 // "ghi_chu_loai_dv" (2026-11-10, migration 0156): Ghi chú loại dịch vụ tu Odoo (implement_process_note), QuickSight NULL.
+// "so_gio_xu_ly_klt" / "dung_han_klt" (2026-11-11, migration 0163): SLA KHONG loai tru tu pipeline (gio tu tiep nhan
+// den hoan thanh, khong bo ngoai le "KH hen lai lich"; Đúng hạn/Quá hạn tuong ung). so_gio_xu_ly_klt la SO (REAL, chuan
+// hoa nhu so_gio_xu_ly). Cot co loai tru so_gio_xu_ly / dung_han giu nguyen.
 // 7 nhom Odoo bo sung (2026-11-07, migration 0155) - moi nhom 1 object JSON: hien_tuong_odoo, sla_odoo,
 // bao_hanh_nha_may, phi_odoo, khao_sat_odoo, thong_so_nuoc, ktv_odoo (xem ODOO_BO_SUNG_FIELDS).
 export const ODOO_BO_SUNG_FIELDS = ["hien_tuong_odoo", "sla_odoo", "bao_hanh_nha_may", "phi_odoo", "khao_sat_odoo", "thong_so_nuoc", "ktv_odoo"] as const;
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat", "ghi_chu_loai_dv", ...ODOO_BO_SUNG_FIELDS] as const;
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat", "ghi_chu_loai_dv", "so_gio_xu_ly_klt", "dung_han_klt", ...ODOO_BO_SUNG_FIELDS] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
@@ -252,8 +255,17 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
   if (field === "so_luong_anh") return normalizeSoLuongAnh(incoming[field]);
   if (field === "yeu_cau_huy") return normalizeLichHen(incoming[field]); // cung dang mang JSON, dung chung ham
   if ((ODOO_BO_SUNG_FIELDS as readonly string[]).includes(field)) return normalizeJsonObject(incoming[field]);
+  if (field === "so_gio_xu_ly_klt") return normalizeOptionalNumber(incoming[field]);
   if ((OPTIONAL_FIELDS as readonly string[]).includes(field) && incoming[field] === "") return null;
   return incoming[field] ?? null;
+}
+
+// Cot so tuy chon (so_gio_xu_ly_klt): so hoac chuoi so -> number; rong/khong phai so -> NULL.
+export function normalizeOptionalNumber(rawValue: unknown): number | null {
+  if (rawValue === null || rawValue === undefined) return null;
+  if (typeof rawValue === "string" && !rawValue.trim()) return null;
+  const n = Number(rawValue);
+  return Number.isFinite(n) ? n : null;
 }
 
 // "linh_kien_loi": API gui mang object (hoac chuoi JSON tu file Excel) -> luu chuoi JSON; mang rong/
@@ -340,7 +352,7 @@ function optionalHashParts(values: (f: string) => unknown): string[] {
 
 // Cac cot so thuc - chuan hoa qua Number() truoc khi hash de "100000" (DB) vs "100000.0" (Excel)
 // khong bi coi la khac nhau du cung gia tri, tranh GHI_DE thua khong can thiet moi lan import.
-const NUMERIC_BUSINESS_FIELDS = new Set(["dt_san_pham", "dt_linh_kien", "dt_dich_vu", "so_gio_xu_ly"]);
+const NUMERIC_BUSINESS_FIELDS = new Set(["dt_san_pham", "dt_linh_kien", "dt_dich_vu", "so_gio_xu_ly", "so_gio_xu_ly_klt"]);
 
 function canonicalizeForHash(field: string, rawValue: unknown): string {
   if (rawValue === null || rawValue === undefined || rawValue === "") return "";

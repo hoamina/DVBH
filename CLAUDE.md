@@ -155,6 +155,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     key is present in the row, hashed only when non-empty, deliberately NOT in `COLUMN_MAP` (manual Excel
     import would null them). CaseDetail tab "Lỗi linh kiện" (`components/LoiLinhKienPanel.tsx`) joins
     `linh_kien_loi` items with `don_bao_hanh_odoo` rows by `ma_linh_kien`.
+    `so_gio_xu_ly_klt` (REAL) / `dung_han_klt` (migration 0163, v1.573) = SLA WITHOUT the "KH hẹn lại lịch" exclusion
+    (both sources, sent only when the pipeline sets `SEND_SLA_KHONG_LOAI_TRU`); optional fields like the rest — the
+    existing `so_gio_xu_ly` / `dung_han` are unchanged. Shown in CaseDetail next to "Đúng hạn" only when present.
   - `partnerApi.ts` `GET /don-bao-hanh-odoo` + `POST /sync/sua-chua-trang-thai` (2026-10-04, migration
     0123) — the "Sửa chữa bảo hành" Worker (`suachua`) PULLS Odoo warranty orders every 15 min with a
     `(ngay_dong_bo, odoo_id)` cursor (+ `?ids=` re-fetch for orders whose case arrived later; LEFT JOIN

@@ -5343,6 +5343,14 @@
   "On time",
   "Tepat waktu"
  ],
+ "Đúng hạn không loại trừ": [
+  "On time (no exclusions)",
+  "Tepat waktu (tanpa pengecualian)"
+ ],
+ "Số giờ xử lý không loại trừ": [
+  "Handling hours (no exclusions)",
+  "Jam penanganan (tanpa pengecualian)"
+ ],
  "Đúng hạn / Xử lý 24h": [
   "On time / Handled in 24h",
   "Tepat waktu / Ditangani 24 jam"
