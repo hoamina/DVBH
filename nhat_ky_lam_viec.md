@@ -5587,3 +5587,28 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Chưa làm, chờ chủ hệ thống: (3) số "Đã xử lý" của Khảo sát tính lại sau mỗi lần ghi vi phạm (~126k dòng × ~130 lần/ngày); (6) Ca lặp:
   tính lại toàn bộ (LAG trên mọi ca đã đóng, ~1M dòng, ~3 s, ~4 lần/ngày, ghi lại ~18,7k dòng dù không đổi) + danh sách theo tháng đọc
   hết ~18,7k ca lặp mọi tháng.
+
+## 2026-11-11 — v1.562: Ca lặp — tính lại theo serial thay đổi, chỉ ghi dòng đổi, danh sách tháng qua index theo ngày (migration 0159)
+
+- Nguyên văn: *"cách tính ca lặp đang rất hao phí tài nguyên, có phương án gì không?"* → chủ hệ thống chọn *"Làm A + B"*.
+- A (`lib/caLapRefresh.ts`):
+  - 1 câu UPDATE duy nhất (CTE `ranked` LAG như cũ → `dich` = ca có prior mới + ca đang có prior nhưng không còn đủ điều kiện → NULL),
+    CHỈ ghi dòng có giá trị khác hiện tại (trước: xoá hết rồi ghi lại ~18,7k ca lặp mỗi lần tính toàn bộ). `ca_lap_computed_at` giờ = lúc
+    giá trị đổi. Hash `/ca-lap/version` chỉ tính lại khi có dòng đổi.
+  - Danh sách serial truyền vào rỗng (import mà mọi ca không có serial) = không làm gì; trước đây rơi vào tính lại toàn bộ (~1 triệu dòng,
+    ~3 s, ~4 lần/ngày theo D1 insights).
+  - Lưới an toàn 12:00 (`refreshCaLapTheoThayDoi`): chỉ tính lại serial của ca có `updated_at` mới hơn marker (2 câu qua
+    `idx_case_updated_at_closed` + `idx_case_ton`, bắt cả ca mở lại); Chủ nhật tính lại toàn bộ 1 lần. Import tính theo serial không đẩy
+    marker nữa (để lưới an toàn không bỏ sót sửa của đường ghi khác trước lúc import).
+  - Huỷ / bỏ huỷ ca (đơn lẻ + hàng loạt) tính lại serial của ca đó — huỷ không đổi `updated_at` nên trước đây phải chờ lần tính toàn bộ.
+  - Luôn chạy trên DB gốc (`dbGoc`) — trước đây 1 người chỉ có quyền VN thêm blacklist sẽ tính lại trên DB "bọc" theo nước, xoá ca lặp
+    của nước khác.
+  - Đối chiếu DB thật (100 serial, 425 ca lặp, chạy dạng SELECT không ghi): 6.444 dòng đọc / 119 ms, chỉ 2 dòng sẽ đổi — đều là dữ liệu
+    cũ thật (SC26102962 sửa 10/11 15:45 sau lần tính 12:00, không còn đủ điều kiện; SC2610310487 phải lùi về ca gốc SC26102583).
+  - Lưu ý chi phí: import đổi ~7.800 serial/ngày nên lưới an toàn 12:00 chạy ~80 lô nhỏ (~0,5 triệu dòng, mỗi lô ~0,1 s, không khoá D1
+    liền 3 s như 1 câu tính toàn bộ). Lần chạy đầu sau deploy xử lý từ marker 09/11.
+- B: migration 0159 `idx_case_lap_ht` (partial index ca lặp theo `thoi_gian_hoan_thanh`); CTE `lap` dùng `INDEXED BY idx_case_lap_ht` →
+  KPI / đếm / danh sách 1 tháng lọc tháng ngay trong index (trước đọc hết ~18,7k ca lặp mọi tháng mỗi câu). `/ca-lap/danh-sach/status`
+  đi từ `giai_trinh_lap` (~3k dòng) bằng CROSS JOIN thay vì quét ~29k ca đã đóng của tháng.
+- Kiểm tra local: huỷ ca gốc 1252522 → ca lặp SC261003403 bỏ liên kết; bỏ huỷ → khôi phục đúng; tính lại toàn bộ: 546 ca lặp giữ nguyên,
+  0 dòng ghi thừa; danh sách tháng + status 200.

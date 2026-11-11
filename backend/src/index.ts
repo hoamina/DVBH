@@ -34,7 +34,7 @@ import traHangRoutes from "./routes/traHang";
 import backlogAgeReportRoutes from "./routes/backlogAgeReport";
 import luyKeRoutes from "./routes/luyKe";
 import { computeAndPushLuyKeCurrentMonth } from "./lib/luyKeCompute";
-import { refreshCaLapPrecompute, shouldSkipCronRefresh } from "./lib/caLapRefresh";
+import { refreshCaLapPrecompute, refreshCaLapTheoThayDoi } from "./lib/caLapRefresh";
 import { selfHealDaDongDayChunks } from "./lib/daDongDayChunks";
 import { withD1Retry } from "./lib/d1Retry";
 import { warmDefaultReports } from "./lib/reportWarmup";
@@ -210,13 +210,13 @@ async function chotBuoiSang(env: Env, phut: number): Promise<void> {
 
 /** 12:00 VN - cac luoi an toan nang truoc day chay ngay sau chot 08:00 (ca lap, lam nong cache, can_khao_sat, luy ke R2). */
 async function viecNangBuoiTrua(env: Env): Promise<void> {
-  // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio) - guard chi
-  // thuc su recompute (full) khi du lieu nguon THAT SU doi ke tu lan refresh truoc (xem
-  // shouldSkipCronRefresh o caLapRefresh.ts).
+  // Luoi an toan cho "ca lap" (gop tu CA_LAP_REFRESH_CRON rieng, truoc chay moi gio). SUA 2026-11-11: chi tinh lai SERIAL cua
+  // cac ca co updated_at moi hon lan truoc (refreshCaLapTheoThayDoi) thay vi LAG tren moi ca da dong (~1 trieu dong doc); rieng
+  // Chu nhat tinh lai toan bo 1 lan (bat ca thay doi khong cham updated_at, vd doi serial bang tay).
   try {
-    if (!(await shouldSkipCronRefresh(env.DB))) {
-      await refreshCaLapPrecompute(env.DB);
-    }
+    const chuNhat = new Date(Date.now() + 7 * 60 * 60 * 1000).getUTCDay() === 0;
+    if (chuNhat) await refreshCaLapPrecompute(env.DB);
+    else await refreshCaLapTheoThayDoi(env.DB);
   } catch (err) {
     console.error("[cron-daily-snapshot] refreshCaLapPrecompute loi:", err instanceof Error ? err.message : String(err));
   }

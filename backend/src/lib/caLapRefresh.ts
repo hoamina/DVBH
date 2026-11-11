@@ -1,5 +1,6 @@
 import { eligibleClause } from "./caLapEligible";
 import { computeAndStoreHash } from "./contentHash";
+import { dbGoc } from "./phamVi";
 import { nowVN } from "./vnTime";
 
 // Ten dong trong content_versions (dung chung co che voi contentHash.ts/staticListCache.ts da
@@ -7,22 +8,30 @@ import { nowVN } from "./vnTime";
 // "ca lap" (KHONG tinh trang thai giai trinh - xem comment ham ben duoi) co doi hay chua.
 export const CA_LAP_SNAPSHOT_HASH_KEY = "ca_lap_snapshot";
 
-// Ten dong RIENG trong content_versions dung lam "marker" cho guard cron (xem shouldSkipCronRefresh
-// ben duoi) - KHONG dung chung dong voi CA_LAP_SNAPSHOT_HASH_KEY vi khac ban chat: cot "hash" cua
-// dong nay KHONG phai hash SHA-256 ma la chuoi MAX(updated_at) tho, chi de so sanh bang chuoi (==)
-// giua 2 lan refresh - tan dung lai model bang co san (ten_bang/hash/updated_at) thay vi tao bang moi.
+// Ten dong RIENG trong content_versions dung lam "marker" cho luoi an toan cron (xem refreshCaLapTheoThayDoi
+// ben duoi) - cot "hash" cua dong nay KHONG phai SHA-256 ma la chuoi MAX(updated_at) tho cua case_dvbh tai lan
+// luoi an toan / tinh lai toan bo gan nhat - tan dung model bang co san (ten_bang/hash/updated_at).
 const CA_LAP_SOURCE_MARKER_KEY = "ca-lap-source-max-updated";
 
-const CHUNK_SIZE_SERI = 100; // an toan voi gioi han bind-param cua SQLite, giong CHUNK_SIZE_SELECT o lib/importProcessor.ts
+// So serial / cau lenh o che do theo serial. Serial truyen qua json_each (1 bind) nen khong vuong gioi han 100 bind cua D1;
+// 100 chi de gioi han khoi luong 1 cau.
+const CHUNK_SIZE_SERI = 100;
 
-/** MAX(updated_at) tren cac ca DA DONG - di qua idx_case_updated_at_closed (migration 0018), SQLite
- * tra loi qua doc B-tree (O(1)) khong quet toan bang. Dung lam "dau van tay" re de biet du lieu
- * nguon co doi tu lan refresh truoc hay khong (xem shouldSkipCronRefresh). */
+/**
+ * MAX(updated_at) cua case_dvbh = "dau van tay" re de biet tu lan truoc co ghi nao vao ca khong. 2 cau, ca 2 di qua index:
+ * ca DA DONG qua idx_case_updated_at_closed (migration 0018, doc B-tree O(1)); ca DANG MO qua idx_case_ton (~1.700 dong) -
+ * can ca ca dang mo vi 1 ca "mo lai" (import doi thoi_gian_hoan_thanh ve NULL) roi khoi chuoi lap cua serial do.
+ */
 async function getSourceMaxUpdated(db: D1Database): Promise<string | null> {
-  const row = await db
-    .prepare(`SELECT MAX(updated_at) as max_updated FROM case_dvbh WHERE thoi_gian_hoan_thanh IS NOT NULL`)
-    .first<{ max_updated: string | null }>();
-  return row?.max_updated ?? null;
+  const [dong, mo] = await db.batch<{ m: string | null }>([
+    db.prepare(`SELECT MAX(updated_at) AS m FROM case_dvbh WHERE thoi_gian_hoan_thanh IS NOT NULL`),
+    db.prepare(`SELECT MAX(updated_at) AS m FROM case_dvbh INDEXED BY idx_case_ton WHERE thoi_gian_hoan_thanh IS NULL`),
+  ]);
+  const a = dong.results[0]?.m ?? null;
+  const b = mo.results[0]?.m ?? null;
+  if (a === null) return b;
+  if (b === null) return a;
+  return a > b ? a : b;
 }
 
 async function readSourceMarker(db: D1Database): Promise<string | null> {
@@ -43,37 +52,23 @@ async function writeSourceMarker(db: D1Database, value: string): Promise<void> {
     .run();
 }
 
+// Loc + chuan hoa danh sach serial: bo rong, bo trung, bo serial qua ngan (<=4 ky tu) vi khong bao gio du dieu kien vao danh
+// sach "ca lap" (xem length(c.seri_san_pham) > 4 ben duoi) - serial nhu vay khong can tinh lai.
+function normalizeAffectedSerials(affectedSerials: string[]): string[] {
+  return [...new Set(affectedSerials.map((s) => String(s).trim()).filter((s) => s.length > 4))];
+}
+
 /**
- * Guard danh RIENG cho Cron Trigger (backend/src/index.ts scheduled()) - luoi an toan du phong, xem
- * comment refreshCaLapPrecompute ben duoi. Luong import/blacklist LUON biet chac du lieu vua doi
- * (chinh no vua ghi) nen KHONG can qua guard nay, goi thang refreshCaLapPrecompute.
- *
- * So sanh MAX(updated_at) hien tai cua cac ca da dong voi marker luu tu lan refresh truoc (xem
- * writeSourceMarker). Neu KHONG doi tuc la khong co ghi du lieu nao (import/dong bo/sua ca) xay ra
- * ke tu lan refresh truoc -> khong co gi de tinh lai, tra ve true de cron bo qua het buoc quet/ghi
- * ton kem (clear + CTE LAG() + SELECT hash).
+ * 1 cau UPDATE duy nhat ghi lai ca_lap_prior_id/ca_lap_prior_ht trong pham vi `phamViC` (dieu kien them tren bang case_dvbh
+ * alias "c", rong = toan bo). SUA 2026-11-11 (ra soat tai du lieu): truoc day "xoa het roi ghi lai" -> moi lan tinh lai toan
+ * bo ghi lai ~18,7k ca lap (+ index) du khong co gi doi. Gio:
+ *   - ranked = LAG() theo serial (nhu cu) tren ca du dieu kien;
+ *   - dich  = ca co prior moi + ca DANG co prior nhung khong con trong tap moi (-> NULL);
+ *   - CHI ghi dong co gia tri khac hien tai (IS NOT so ca NULL), ca_lap_computed_at = luc gia tri doi.
+ * Doc va ghi trong cung 1 cau nen khong co trang thai trung gian (bug 2026-10-20 "Ca lap trong roi lai ra" khong tai dien).
  */
-export async function shouldSkipCronRefresh(db: D1Database): Promise<boolean> {
-  const current = await getSourceMaxUpdated(db);
-  if (current === null) return false; // chua co ca nao dong - de refreshCaLapPrecompute tu chay (ket qua rong) thay vi doan mo
-  const marker = await readSourceMarker(db);
-  return marker !== null && marker === current;
-}
-
-// Loc + chuan hoa danh sach serial "bi anh huong" truyen vao tu import/blacklist: bo rong, bo trung,
-// bo serial qua ngan (<=4 ky tu) vi khong bao gio du dieu kien vao danh sach "ca lap" (xem WHERE
-// length(c.seri_san_pham) > 4 ben duoi) - serial nhu vay khong can tinh lai. Tra ve null khi danh
-// sach rong sau loc (hoac caller khong truyen gi) de bao hieu "khong xac dinh duoc pham vi -> full
-// recompute", giong dung tinh than luoi an toan cua ham nay.
-function normalizeAffectedSerials(affectedSerials?: string[]): string[] | null {
-  if (!affectedSerials || affectedSerials.length === 0) return null;
-  const filtered = [...new Set(affectedSerials.map((s) => String(s).trim()).filter((s) => s.length > 4))];
-  return filtered.length > 0 ? filtered : null;
-}
-
-// Than CTE LAG() dung chung cho ca 2 che do (full/incremental) - `extraWhere` la dieu kien loc pham
-// vi serial (rong o che do full). Tach ham de khong lap code giua 2 nhanh trong refreshCaLapPrecompute.
-function buildRankedCte(extraWhere: string): string {
+function buildCapNhatSql(phamViC: string, now: string): string {
+  const phamViGoc = phamViC.replace(/\bc\./g, "");
   return `
     WITH ranked AS (
       SELECT c.id,
@@ -81,132 +76,119 @@ function buildRankedCte(extraWhere: string): string {
         LAG(c.id) OVER (PARTITION BY c.seri_san_pham ORDER BY c.thoi_gian_hoan_thanh ASC, c.id ASC) AS prior_id
       FROM case_dvbh c
       WHERE c.thoi_gian_hoan_thanh IS NOT NULL
-        AND c.seri_san_pham IS NOT NULL AND length(c.seri_san_pham) > 4${extraWhere}
+        AND c.seri_san_pham IS NOT NULL AND length(c.seri_san_pham) > 4${phamViC}
         AND NOT EXISTS (
           SELECT 1 FROM blacklist_serial b
           WHERE b.seri_san_pham = UPPER(TRIM(c.seri_san_pham)) AND b.bat_tat = 1
         )${eligibleClause("c.")}
-    )`;
+    ),
+    moi AS (SELECT id, prior_id, prior_ht FROM ranked WHERE prior_ht IS NOT NULL),
+    dich AS (
+      SELECT id, prior_id, prior_ht FROM moi
+      UNION ALL
+      SELECT id, NULL, NULL FROM case_dvbh
+      WHERE ca_lap_prior_ht IS NOT NULL${phamViGoc} AND id NOT IN (SELECT id FROM moi)
+    )
+    UPDATE case_dvbh
+    SET ca_lap_prior_id = dich.prior_id, ca_lap_prior_ht = dich.prior_ht, ca_lap_computed_at = '${now}'
+    FROM dich
+    WHERE case_dvbh.id = dich.id
+      AND (case_dvbh.ca_lap_prior_id IS NOT dich.prior_id OR case_dvbh.ca_lap_prior_ht IS NOT dich.prior_ht)`;
 }
 
-/**
- * Tinh lai toan bo / mot phan cot ca_lap_prior_id/ca_lap_prior_ht cua case_dvbh (xem migrations/0017 +
- * comment o routes/caLap.ts CA_LAP_CTE_BODY). Goi tu 3 noi:
- *  - NGAY SAU KHI IMPORT/DONG BO GHI DU LIEU MOI (importRoute.ts) - day la nguon chinh lam danh sach
- *    "ca lap" thay doi that su. Truyen kem affectedSerials (tap DISTINCT seri_san_pham cua cac dong
- *    GHI_MOI/GHI_DE, xem lib/importProcessor.ts) de chi tinh lai trong pham vi bi anh huong.
- *  - Cac thao tac blacklist (routes/caLap.ts) - LUON full recompute (khong truyen serials): blacklist
- *    luu serial da chuan hoa (trim + toUpperCase) con case_dvbh.seri_san_pham la gia tri tho, so khop
- *    IN theo gia tri tho se bo sot bien the viet thuong/thua khoang trang (NOT EXISTS trong CTE so
- *    sanh qua UPPER(TRIM(...))). Thao tac blacklist hiem nen chi phi nay chap nhan duoc.
- *  - Cron Trigger (backend/src/index.ts scheduled()) - CHI la luoi an toan du phong (vd 1 duong ghi
- *    du lieu nao khac quen goi truc tiep), duoc guard boi shouldSkipCronRefresh() truoc khi goi ham
- *    nay, va khi thuc su chay thi la FULL recompute (khong truyen affectedSerials) de lam dung nghia
- *    luoi an toan (bat duoc ca truong hop sot mat 1 nguon ghi khong xac dinh duoc serial).
- *
- * CHE DO INCREMENTAL (affectedSerials con lai sau loc, xem normalizeAffectedSerials): gioi han buoc 1
- * (xoa prior cu) va buoc 2 (CTE LAG()) vao dung cac serial trong danh sach, chunk 100 serial/cau
- * (giong pattern IN-chunk o lib/importProcessor.ts) vi LAG() PARTITION BY seri_san_pham nen ket qua
- * trong 1 serial KHONG BAO GIO phu thuoc du lieu cua serial khac - gioi han pham vi nay AN TOAN VE
- * LOGIC (ket qua giong het full recompute cho cac serial trong pham vi) nhung it rows-read hon nhieu.
- * Buoc 3 (tinh hash) van SELECT toan bo tap "lap" hien co (tap nay von da nho, di qua
- * idx_case_ca_lap_prior_ht) de hash luon phan anh dung TOAN BO danh sach hien tai, khong chi phan
- * vua doi.
- *
- * Neu KHONG truyen affectedSerials (hoac sau loc con rong) -> FULL recompute nhu truoc day: 3 buoc:
- *  1. Xoa het gia tri cu (phong truong hop 1 case truoc day co "prior" nhung nay khong con dieu
- *     kien nua - vd serial vua bi blacklist, hoac tien_do_hoan_thanh vua doi khac "Hoan thanh
- *     XLSC" - neu khong xoa truoc, dong do se giu gia tri CU mai mai vi UPDATE...FROM ben duoi chi
- *     dat lai gia tri cho cac dong CO trong tap "ranked" moi, khong tu xoa dong da rot ra ngoai).
- *  2. Tinh lai LAG() 1 lan duy nhat (dung window function - cham nhung CHI CHAY O DAY, khong o
- *     moi request), ghi ket qua vao case_dvbh qua UPDATE ... FROM (SQLite 3.33+, D1 ho tro).
- *  3. Dong ma hash cua danh sach "ca lap" vua tinh (CHI gom id/prior_id/prior_ht - KHONG gom trang
- *     thai giai trinh, vi trang thai doi lien tuc moi khi GS/QC xu ly xong 1 ca, se lam hash doi
- *     qua thuong xuyen neu gom vao, mat het loi ich cache).
- *
- * Sau khi xong (ca 2 che do), cap nhat lai marker MAX(updated_at) (xem shouldSkipCronRefresh) de cac
- * lan cron sau biet du lieu nguon da duoc "bat kip" den dau - chup gia tri NGAY TU DAU ham (truoc khi
- * ghi cac cot ca_lap_*), vi cac buoc ghi cua chinh ham nay KHONG dong cham cot updated_at nen chup
- * truoc/sau deu tuong duong ve mat gia tri, chup truoc de an toan hon voi du lieu moi ghi vao GIUA
- * luc ham dang chay (se bi cron lan sau bat lai, khong bo sot).
- */
-export async function refreshCaLapPrecompute(
-  db: D1Database,
-  affectedSerials?: string[],
-): Promise<{ cleared: number; updated: number; hash: string }> {
-  const now = nowVN();
-  const sourceMaxUpdated = await getSourceMaxUpdated(db);
-  const serials = normalizeAffectedSerials(affectedSerials);
-
-  let cleared = 0;
-  let updated = 0;
-
-  if (serials) {
-    for (let i = 0; i < serials.length; i += CHUNK_SIZE_SERI) {
-      const chunk = serials.slice(i, i + CHUNK_SIZE_SERI);
-      const placeholders = chunk.map(() => "?").join(", ");
-
-      // "now" noi thang vao chuoi SQL (khong bind ?) - GIONG HET pattern updateResult ben duoi -
-      // vi D1 gioi han CUNG 100 tham so bind/cau lenh (xem developers.cloudflare.com/d1/platform/
-      // limits/). Bind ca "now" LAN 100 serial cua CHUNK_SIZE_SERI se thanh 101 tham so, vuot gioi
-      // han dung 1 - loi that da gap tren production (2026-07-29, "too many SQL variables") khi 1
-      // lo du 100 serial (import lon bat thuong). "now" la chuoi server tu sinh (nowVN()), khong
-      // phai input nguoi dung, an toan de noi truc tiep.
-      // Xoa + ghi lai trong CUNG 1 db.batch (1 transaction) - xem chu thich o nhanh tinh lai toan bo ben duoi.
-      const clearStmt = db
-        .prepare(
-          `UPDATE case_dvbh SET ca_lap_prior_id = NULL, ca_lap_prior_ht = NULL, ca_lap_computed_at = '${now}'
-           WHERE ca_lap_prior_ht IS NOT NULL AND seri_san_pham IN (${placeholders})`,
-        )
-        .bind(...chunk);
-
-      const updateStmt = db
-        .prepare(
-          `${buildRankedCte(`\n        AND c.seri_san_pham IN (${placeholders})`)}
-           UPDATE case_dvbh
-           SET ca_lap_prior_id = ranked.prior_id, ca_lap_prior_ht = ranked.prior_ht, ca_lap_computed_at = '${now}'
-           FROM ranked
-           WHERE case_dvbh.id = ranked.id AND ranked.prior_ht IS NOT NULL`,
-        )
-        .bind(...chunk);
-      const [clearResult, updateResult] = await db.batch([clearStmt, updateStmt]);
-      cleared += clearResult.meta.changes ?? 0;
-      updated += updateResult.meta.changes ?? 0;
-    }
-  } else {
-    // BUG 2026-10-20 ("chon MN1+MN2+MN3 o Ca lap thi danh sach trong, luc sau lai ra"): truoc day xoa + ghi lai la 2 cau
-    // lenh RIENG - request doc danh sach roi dung vao khoang giua thay KHONG CO ca lap nao, frontend luu ket qua rong do vao
-    // IndexedDB kem hash /ca-lap/version; neu lan tinh lai khong doi tap ca lap thi hash giu nguyen -> to hop bo loc do
-    // hien rong mai cho toi lan import doi du lieu. Gop vao 1 db.batch (D1 chay batch nhu 1 transaction) de nguoi doc
-    // khong bao gio thay trang thai trung gian.
-    const [clearResult, updateResult] = await db.batch([
-      db
-        .prepare(
-          `UPDATE case_dvbh SET ca_lap_prior_id = NULL, ca_lap_prior_ht = NULL, ca_lap_computed_at = ?
-           WHERE ca_lap_prior_ht IS NOT NULL`,
-        )
-        .bind(now),
-      db.prepare(
-        `${buildRankedCte("")}
-         UPDATE case_dvbh
-         SET ca_lap_prior_id = ranked.prior_id, ca_lap_prior_ht = ranked.prior_ht, ca_lap_computed_at = '${now}'
-         FROM ranked
-         WHERE case_dvbh.id = ranked.id AND ranked.prior_ht IS NOT NULL`,
-      ),
-    ]);
-    cleared = clearResult.meta.changes ?? 0;
-    updated = updateResult.meta.changes ?? 0;
+/** Hash danh sach ca lap (id/prior_id/prior_ht - KHONG gom trang thai giai trinh) - client so voi GET /api/ca-lap/version. */
+async function capNhatHash(db: D1Database, coThayDoi: boolean): Promise<string> {
+  if (!coThayDoi) {
+    const row = await db.prepare("SELECT hash FROM content_versions WHERE ten_bang = ?").bind(CA_LAP_SNAPSHOT_HASH_KEY).first<{ hash: string }>();
+    if (row) return row.hash; // khong dong nao doi -> hash giu nguyen, khong doc lai ~18,7k ca lap
   }
-
   const { results: snapshot } = await db
     .prepare(
       `SELECT id, ca_lap_prior_id, ca_lap_prior_ht FROM case_dvbh
        WHERE ca_lap_prior_ht IS NOT NULL ORDER BY id`,
     )
     .all();
-  const hash = await computeAndStoreHash(db, CA_LAP_SNAPSHOT_HASH_KEY, snapshot);
+  return computeAndStoreHash(db, CA_LAP_SNAPSHOT_HASH_KEY, snapshot);
+}
 
+async function tinhTheoSerial(db: D1Database, serials: string[], now: string): Promise<number> {
+  let updated = 0;
+  for (let i = 0; i < serials.length; i += CHUNK_SIZE_SERI) {
+    const chunk = serials.slice(i, i + CHUNK_SIZE_SERI);
+    const r = await db
+      .prepare(buildCapNhatSql(" AND c.seri_san_pham IN (SELECT value FROM json_each(?))", now))
+      .bind(JSON.stringify(chunk), JSON.stringify(chunk))
+      .run();
+    updated += r.meta.changes ?? 0;
+  }
+  return updated;
+}
+
+/**
+ * Tinh lai cot ca_lap_prior_id/ca_lap_prior_ht cua case_dvbh (migration 0017, xem routes/caLap.ts CA_LAP_CTE_BODY).
+ *
+ * - CO truyen affectedSerials (import/dong bo, huy/bo huy ca): chi tinh lai cac serial do - LAG() PARTITION BY seri_san_pham
+ *   nen ket qua 1 serial khong phu thuoc serial khac, giong het tinh toan bo cho cac serial nay. Danh sach rong sau khi loc
+ *   (vd moi ca deu khong co serial) = KHONG CO GI de tinh (SUA 2026-11-11: truoc day roi vao nhanh tinh lai toan bo ~1 trieu
+ *   dong doc).
+ * - KHONG truyen: tinh lai toan bo (LAG tren moi ca da dong) - chi danh cho thay doi khong khoanh duoc theo serial: blacklist
+ *   (serial luu da chuan hoa UPPER/TRIM, khac gia tri tho trong case_dvbh), cai dat "loai yeu cau bo qua lap", lan dau chua
+ *   co hash, luoi an toan chua co marker. Cap nhat marker (xem refreshCaLapTheoThayDoi).
+ *
+ * Luon chay tren DB goc (dbGoc): cot ca_lap_* dung chung moi pham vi; D1 "boc" theo nuoc (lib/phamVi.ts) se loc ca nuoc khac
+ * khoi tap tinh (vd 1 Giam sat chi co quyen VN them blacklist -> truoc day xoa sach ca lap cua nuoc khac).
+ */
+export async function refreshCaLapPrecompute(
+  dbVao: D1Database,
+  affectedSerials?: string[],
+): Promise<{ updated: number; hash: string }> {
+  const db = dbGoc(dbVao);
+  const now = nowVN();
+  if (affectedSerials) {
+    const serials = normalizeAffectedSerials(affectedSerials);
+    const updated = serials.length ? await tinhTheoSerial(db, serials, now) : 0;
+    return { updated, hash: await capNhatHash(db, updated > 0) };
+  }
+  const sourceMaxUpdated = await getSourceMaxUpdated(db);
+  const r = await db.prepare(buildCapNhatSql("", now)).run();
+  const updated = r.meta.changes ?? 0;
+  const hash = await capNhatHash(db, updated > 0);
   if (sourceMaxUpdated !== null) await writeSourceMarker(db, sourceMaxUpdated);
+  return { updated, hash };
+}
 
-  return { cleared, updated, hash };
+/**
+ * Luoi an toan cron (index.ts viecNangBuoiTrua): bat cac thay doi ma duong ghi nao do quen tinh lai ca lap. SUA 2026-11-11: truoc
+ * day thay MAX(updated_at) doi la tinh lai TOAN BO (~1 trieu dong doc, ~3 s); gio chi tinh lai SERIAL cua cac ca co updated_at
+ * moi hon marker (doc qua 2 index updated_at/ca dang mo), roi day marker len. Chua co marker -> tinh lai toan bo 1 lan.
+ * Marker chi do luoi an toan va tinh lai toan bo cap nhat (import tinh theo serial KHONG day marker, de luoi an toan khong bo
+ * sot ca do duong ghi khac sua truoc luc import).
+ */
+export async function refreshCaLapTheoThayDoi(dbVao: D1Database): Promise<{ soSerial: number; updated: number }> {
+  const db = dbGoc(dbVao);
+  const [marker, hienTai] = await Promise.all([readSourceMarker(db), getSourceMaxUpdated(db)]);
+  if (hienTai === null) return { soSerial: 0, updated: 0 };
+  if (marker === null) {
+    const { updated } = await refreshCaLapPrecompute(db);
+    return { soSerial: -1, updated };
+  }
+  if (marker >= hienTai) return { soSerial: 0, updated: 0 };
+  const [dong, mo] = await db.batch<{ s: string | null }>([
+    db
+      .prepare(
+        `SELECT DISTINCT seri_san_pham AS s FROM case_dvbh
+         WHERE thoi_gian_hoan_thanh IS NOT NULL AND updated_at > ? AND updated_at <= ?`,
+      )
+      .bind(marker, hienTai),
+    db
+      .prepare(
+        `SELECT DISTINCT seri_san_pham AS s FROM case_dvbh INDEXED BY idx_case_ton
+         WHERE thoi_gian_hoan_thanh IS NULL AND updated_at > ? AND updated_at <= ?`,
+      )
+      .bind(marker, hienTai),
+  ]);
+  const serials = normalizeAffectedSerials([...dong.results, ...mo.results].map((r) => r.s ?? ""));
+  const { updated } = await refreshCaLapPrecompute(db, serials);
+  await writeSourceMarker(db, hienTai);
+  return { soSerial: serials.length, updated };
 }

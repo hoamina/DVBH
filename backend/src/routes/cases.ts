@@ -24,6 +24,7 @@ import {
   NEED_TAI_GIAI_TRINH,
 } from "../lib/needGiaiTrinh";
 import { getCaLapDetection, NGUONG_NGAY_LAP } from "./caLap";
+import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
 import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersions";
 
 // Cac domain ma GET /cases/:id doc (xem Promise.all trong route do). FE cache chi tiet ca DA DONG vao
@@ -1608,7 +1609,7 @@ cases.post("/:id/huy", requireRole("Admin"), async (c) => {
   const id = c.req.param("id");
   if (!id) return c.json({ error: "INVALID_ID" }, 400);
 
-  const caseRow = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE id = ?").bind(id).first();
+  const caseRow = await c.env.DB.prepare("SELECT id, seri_san_pham FROM case_dvbh WHERE id = ?").bind(id).first<{ seri_san_pham: string | null }>();
   if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
 
   const body = await c.req.json<{ ly_do?: string }>().catch(() => ({ ly_do: undefined }));
@@ -1621,6 +1622,9 @@ cases.post("/:id/huy", requireRole("Admin"), async (c) => {
   // Bump "cases" - huy ca anh huong KPI/backlog/khao sat/ca lap (khac assigned_to o survey.ts von
   // co y bo qua bump vi khong anh huong bao cao nao).
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+  // Ca lap: ca huy roi khoi chuoi lap cua serial (eligibleClause) - huy khong doi updated_at nen luoi an toan cron khong thay,
+  // tinh lai ngay serial nay (2026-11-11; truoc day cho lan tinh lai toan bo tinh co chay sau do).
+  c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB, [caseRow.seri_san_pham ?? ""]));
 
   return c.json({ ok: true });
 });
@@ -1630,7 +1634,7 @@ cases.post("/:id/bo-huy", requireRole("Admin"), async (c) => {
   const id = c.req.param("id");
   if (!id) return c.json({ error: "INVALID_ID" }, 400);
 
-  const caseRow = await c.env.DB.prepare("SELECT id FROM case_dvbh WHERE id = ?").bind(id).first();
+  const caseRow = await c.env.DB.prepare("SELECT id, seri_san_pham FROM case_dvbh WHERE id = ?").bind(id).first<{ seri_san_pham: string | null }>();
   if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
 
   await c.env.DB.prepare("UPDATE case_dvbh SET huy_bo_at = NULL, huy_bo_by = NULL, huy_bo_ly_do = NULL WHERE id = ?")
@@ -1638,6 +1642,7 @@ cases.post("/:id/bo-huy", requireRole("Admin"), async (c) => {
     .run();
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+  c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB, [caseRow.seri_san_pham ?? ""])); // xem /:id/huy
 
   return c.json({ ok: true });
 });
@@ -1726,6 +1731,12 @@ async function processBulkHuy(db: D1Database, rows: HuyBulkRow[], nguoiHuy: stri
       db.prepare("UPDATE case_dvbh SET huy_bo_at = ?, huy_bo_by = ?, huy_bo_ly_do = ? WHERE id = ?").bind(now, nguoiHuy, lyDo, id),
     );
     await runBatched(db, statements);
+    // Ca lap: tinh lai serial cua cac ca vua huy (xem POST /:id/huy).
+    const { results: seri } = await db
+      .prepare("SELECT DISTINCT seri_san_pham AS s FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))")
+      .bind(JSON.stringify(validRows.map((r) => r.id)))
+      .all<{ s: string | null }>();
+    await refreshCaLapPrecompute(db, seri.map((r) => r.s ?? ""));
   }
 
   return summary;

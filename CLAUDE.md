@@ -94,9 +94,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   (`gioiHanDongThoi` caps the remaining generators at 2 concurrent queries). Workers Logs enabled. `scheduled()` handles three cron triggers (see `wrangler*.jsonc`
   `triggers.crons`): the hourly one (`CA_LAP_REFRESH_CRON`) is now a safety net for three
   independent, try/catch-isolated jobs (self-heal of R2 "đã đóng" chunks now runs on EVERY `DAILY_SNAPSHOT_CRON` fire
-  8h–18h VN, first, wrapped in `withD1Retry` — fixed 2026-11-05 after it had silently drifted to 08:00-only) — it refreshes the "ca lặp" (duplicate case) precompute only
-  when `shouldSkipCronRefresh()` says source data actually changed (the *real* refresh trigger is the
-  import path calling `refreshCaLapPrecompute()` directly, not the cron), self-heals R2 "đã đóng"
+  8h–18h VN, first, wrapped in `withD1Retry` — fixed 2026-11-05 after it had silently drifted to 08:00-only) — it refreshes the "ca lặp" (duplicate case) precompute — since 2026-11-11 only the
+  SERIALS of cases whose `updated_at` passed the marker (`refreshCaLapTheoThayDoi`, noon job; full LAG recompute only on Sundays,
+  blacklist / "loại yêu cầu bỏ qua lặp" changes, or no marker yet), and every write path only rewrites rows whose prior actually changed
+  (the *real* refresh trigger is the import path calling `refreshCaLapPrecompute(db, affectedSerials)` directly, plus case huỷ/bỏ huỷ;
+  an empty serial list is a no-op, not a full recompute). Month lists read `idx_case_lap_ht` (migration 0159), self-heals R2 "đã đóng"
   day-chunk snapshots (`selfHealDaDongDayChunks`), and re-warms the dashboard report cache
   (`warmDefaultReports`, itself a fallback for the QuickSight pipeline's own
   `POST /api/external-import/refresh-reports` call); a 3x/day one (`SHEET_SYNC_CRON`, 2h/6h/9h UTC =
@@ -435,7 +437,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0154`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0159`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

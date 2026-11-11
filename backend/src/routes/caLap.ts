@@ -65,7 +65,9 @@ function monthBounds(thang: string): { start: string; end: string } {
  */
 // Than CTE (khong co tu khoa "WITH" dau) - dung khi can ghep vao GIUA 1 khoi WITH khac (khuVucQuery/
 // ktvQuery ben duoi co WITH rieng cua chung, khong the long them 1 "WITH" thu 2 o giua danh sach CTE).
-// INDEXED BY bat buoc planner dung partial index 0017 (~816 dong "lap"): khi cau ngoai co them dieu
+// SUA 2026-11-11: INDEXED BY doi sang idx_case_lap_ht (migration 0159, partial index ca lap THEO NGAY HOAN THANH) - loc thang
+// ngay trong index (~1-2k dong) thay vi doc het ~18,7k ca lap moi thang qua idx_case_ca_lap_prior_ht. Phai apply 0159 TRUOC deploy.
+// (Lich su:) INDEXED BY bat buoc planner dung partial index 0017 (~816 dong "lap"): khi cau ngoai co them dieu
 // kien thoi_gian_hoan_thanh >= ?/< ?, SQLite lam phang CTE roi hay chon NHAM idx_case_hoan_thanh_
 // not_null theo range - quet ~17.9 nghin ca da dong moi lan goi thay vi 816 dong (do thuc te bang
 // d1 insights 2026-07-23, xac nhan bang EXPLAIN QUERY PLAN). Neu index nay bi xoa, cau lenh se BAO
@@ -74,7 +76,7 @@ const CA_LAP_CTE_BODY = `
   lap AS (
     SELECT *, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
       (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
-    FROM case_dvbh INDEXED BY idx_case_ca_lap_prior_ht
+    FROM case_dvbh INDEXED BY idx_case_lap_ht
     WHERE ca_lap_prior_ht IS NOT NULL AND huy_bo_at IS NULL
   )
 `;
@@ -247,9 +249,11 @@ caLap.get("/danh-sach/status", async (c) => {
   const { start, end } = monthBounds(thang);
 
   const { results } = await c.env.DB.prepare(
+    // CROSS JOIN ep di tu giai_trinh_lap (~3k dong ca bang) roi tra ca theo khoa chinh - truoc day planner quet moi ca da dong
+    // cua thang (~29k dong) de tim vai tram ca co danh gia lap (2026-11-11). Ket qua giong het (cung dieu kien).
     `SELECT gl.*
      FROM giai_trinh_lap gl
-     JOIN case_hieu_luc c ON c.id = gl.case_id
+     CROSS JOIN case_hieu_luc c ON c.id = gl.case_id
      WHERE c.ca_lap_prior_ht IS NOT NULL
        AND c.thoi_gian_hoan_thanh >= ? AND c.thoi_gian_hoan_thanh < ?${scopeClause.sql}${khuVucClause.sql}`,
   )
