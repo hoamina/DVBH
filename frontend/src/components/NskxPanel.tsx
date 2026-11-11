@@ -15,6 +15,7 @@ import { fetchWithHashCache } from "../lib/staticListCache";
 import { useLinhKienTimeline, linhKienTrangThaiLabel, type LinhKienOrder } from "../lib/linhKienTimeline";
 import { fmtDateTime, type LinhKienRow, type LinhKienLoiItem } from "../types";
 import { tr } from "../i18n/tr";
+import { DatLoiNskxModal } from "./DatLoiNskxModal";
 
 export const NSKX_DOI_TAC = ["NSKX", "[NSKX]"];
 const LOAI_DE_XUAT_LOI = "HỖ TRỢ NGOÀI BẢO HÀNH TG12";
@@ -100,6 +101,7 @@ export function NskxPanel({ caseId, linhKienLoi }: { caseId: string; linhKienLoi
   const { data: lk, isLoading: lkLoading } = useLinhKienTimeline(caseId);
   const donLk = useMemo(() => (lk?.orders ?? []).filter((o) => (o.loai_de_xuat ?? "").includes(LOAI_DE_XUAT_LOI)), [lk]);
   const [moChiTiet, setMoChiTiet] = useState(false);
+  const [moDat, setMoDat] = useState(false);
 
   if (isLoading) return <div className="text-sm text-[var(--ink-400)]">{tr("Đang tải…")}</div>;
   if (isError || !data) return <div className="text-sm text-[var(--coral-600)]">{tr("Không tải được thông tin NSKX của ca này.")}</div>;
@@ -133,6 +135,23 @@ export function NskxPanel({ caseId, linhKienLoi }: { caseId: string; linhKienLoi
         <Badge tone={TT_DON[r.tt_don]?.tone ?? "gray"}>{TT_DON[r.tt_don]?.label ?? r.tt_don}</Badge>
       </div>
       <LuongNgangDoiTra moc={moc} daKetThuc={khongCanDat || !!ngayDat} />
+      {data.duoc_xac_nhan && r.thay_loi === 1 && r.tt_don !== "khong_ap_dung" && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Btn size="sm" onClick={() => setMoDat(true)}>
+            {r.tt_don === "da_len_don" ? tr("🛒 Đặt lõi còn thiếu") : tr("🛒 Đặt lõi")}
+          </Btn>
+          <span className="text-xs text-[var(--ink-500)]">{tr("Tạo đơn TG12-NSKX bên linh-kien-app bằng tài khoản của bạn — lõi đã có đơn sẽ không đặt lại.")}</span>
+        </div>
+      )}
+      {moDat && (
+        <DatLoiNskxModal
+          caseIds={[caseId]}
+          onClose={() => {
+            setMoDat(false);
+            qc.invalidateQueries({ queryKey: ["ql-nskx", "ca", caseId] });
+          }}
+        />
+      )}
 
       {data.duoc_xac_nhan ? (
         <XacNhanForm

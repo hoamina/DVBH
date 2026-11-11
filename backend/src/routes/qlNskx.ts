@@ -9,6 +9,9 @@
  *                             POST /api/partner/v1/don-loi-loc, nhan lai ca nao da co don loai "HỖ TRỢ NGOÀI BẢO HÀNH TG12…"
  *                             (bo don huy/tu choi) -> nskx_don_lk. Chi ghi dong thay doi.
  *  - GET  /bao-cao            bao cao nhanh theo khu vuc / KTV cua 1 thang.
+ *  - GET  /dat-loi/ung-vien   ca da xac nhan "Co thay loi" + chua len don (tu 11/2026, khu vuc nguoi bam) - danh sach dat hang loat.
+ *  - POST /dat-loi/xem-truoc  ke hoach dat (gom theo nguoi nhan, bo loi da co don / ngoai danh muc) [+ kiem tra truoc tung phieu].
+ *  - POST /dat-loi/tao        dat that sang linh-kien-app voi tai khoan nguoi bam (lib/nskxDatLoi.ts - doc ky phan "an toan").
  * Trang thai don: da_len_don (co don con hieu luc) > khong_can (GS xac nhan khong thay loi) > chua_len_don (con lai).
  * Doc song (khong cachedReport): so ca NSKX/thang nho (vai tram), loc qua partial index idx_case_doi_tac.
  * Frontend KHONG gan ?pv= cho /ql-nskx (api/client.ts) - menu nay tu loc NSKX, khong phu thuoc nut "Pham vi bao cao".
@@ -23,6 +26,10 @@ import { hasModule } from "../lib/moduleAccess";
 import { ageExpr } from "../lib/ageCalc";
 import { boDau, locCotClause, parseLocCot, type Kieu } from "../lib/locCot";
 import { nowVN } from "../lib/vnTime";
+import {
+  CA_TOI_DA_MOI_LAN, LoiLinhKienApp, NSKX_DAT_LOI_TU_NGAY, docDonLoiLocSong, ghiDonLk, khoaCa, kiemTraPhieu, lapKeHoach, moKhoaCa, moTaLoi, taoPhieu,
+  type KetQuaTao,
+} from "../lib/nskxDatLoi";
 
 const qlNskx = new Hono<{ Bindings: Env }>();
 qlNskx.use("*", verifySessionMiddleware, loadUser);
@@ -379,6 +386,93 @@ qlNskx.get("/bao-cao", async (c) => {
     .bind(...goc.binds)
     .all();
   return c.json({ rows: results });
+});
+
+// ======================= DAT LOI LOC SANG linh-kien-app (2026-11-11, v1.571 - lib/nskxDatLoi.ts) =======================
+function docIds(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const ids = [...new Set(raw.map((x) => String(x ?? "").trim()).filter(Boolean))];
+  return ids.length && ids.length <= CA_TOI_DA_MOI_LAN ? ids : null;
+}
+const loiLk = (c: { json: (b: unknown, s: 500 | 502) => Response }, err: unknown) =>
+  err instanceof LoiLinhKienApp ? c.json({ error: "UPSTREAM", message: err.message }, err.status === 500 ? 500 : 502) : null;
+
+qlNskx.get("/dat-loi/ung-vien", async (c) => {
+  if (!duocXacNhan(c.get("user").vai_tro)) return c.json({ error: "FORBIDDEN" }, 403);
+  const scope = scopeByKhuVuc(c);
+  const sc = khuVucWhereClause(scope, "c.khu_vuc");
+  const kv = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.id ${FROM_NSKX} WHERE ${DK_NSKX} AND c.thoi_gian_cskh_tiep_nhan >= ? AND n.thay_loi = 1 AND COALESCE(d.co_don, 0) = 0${sc.sql}${kv.sql}
+     ORDER BY c.thoi_gian_cskh_tiep_nhan LIMIT ${CA_TOI_DA_MOI_LAN}`,
+  )
+    .bind(NSKX_DAT_LOI_TU_NGAY, ...sc.binds, ...kv.binds)
+    .all<{ id: string }>();
+  return c.json({ ids: results.map((r) => String(r.id)), toi_da: CA_TOI_DA_MOI_LAN });
+});
+
+qlNskx.post("/dat-loi/xem-truoc", async (c) => {
+  const user = c.get("user");
+  if (!duocXacNhan(user.vai_tro)) return c.json({ error: "FORBIDDEN", message: "Chỉ Giám sát / TBP DVBH / Admin được đặt lõi." }, 403);
+  const body = await c.req.json<{ case_ids?: unknown; kiem_tra?: unknown }>().catch(() => ({}) as { case_ids?: unknown; kiem_tra?: unknown });
+  const ids = docIds(body.case_ids);
+  if (!ids) return c.json({ error: "INVALID", message: `Chọn 1–${CA_TOI_DA_MOI_LAN} ca.` }, 400);
+  const sc = khuVucWhereClause(scopeByKhuVuc(c), "c.khu_vuc");
+  try {
+    const { keHoach, donSong } = await lapKeHoach(c.env, c.env.DB, ids, sc);
+    await ghiDonLk(c.env.DB, donSong);
+    // Kiem tra truoc (khong ghi) - chi khi it phieu (dat le / nhom nho); dat hang loat se kiem tra lai luc tao tung phieu.
+    const kiemTra = body.kiem_tra === true && keHoach.phieu.length <= 5;
+    const phieu = [];
+    for (const p of keHoach.phieu) {
+      if (!kiemTra) {
+        phieu.push({ ...p, loi_phieu: null, dong: p.dong.map((d) => ({ ...d, trang_thai: null, loi: null, thong_diep: null })) });
+        continue;
+      }
+      const kt = await kiemTraPhieu(c.env, p, user.email);
+      phieu.push({ ...p, loi_phieu: moTaLoi(kt.loi_phieu), dong: kt.dong });
+    }
+    return c.json({ phieu, bo_qua: keHoach.bo_qua, da_kiem_tra: kiemTra });
+  } catch (err) {
+    const r = loiLk(c, err);
+    if (r) return r;
+    throw err;
+  }
+});
+
+qlNskx.post("/dat-loi/tao", async (c) => {
+  const user = c.get("user");
+  if (!duocXacNhan(user.vai_tro)) return c.json({ error: "FORBIDDEN", message: "Chỉ Giám sát / TBP DVBH / Admin được đặt lõi." }, 403);
+  const body = await c.req.json<{ case_ids?: unknown }>().catch(() => ({}) as { case_ids?: unknown });
+  const ids = docIds(body.case_ids);
+  if (!ids) return c.json({ error: "INVALID", message: `Chọn 1–${CA_TOI_DA_MOI_LAN} ca.` }, 400);
+  const sc = khuVucWhereClause(scopeByKhuVuc(c), "c.khu_vuc");
+  const db = c.env.DB;
+  const khoa = await khoaCa(db, ids, user.email);
+  const boQuaKhoa = khoa.nguoiKhac.map((id) => ({ case_id: id, ly_do: "Đang có người khác đặt lõi cho ca này — thử lại sau ít phút" }));
+  try {
+    if (!khoa.cuaMinh.length) return c.json({ ket_qua: [], bo_qua: boQuaKhoa });
+    // Lap ke hoach NGAY LUC DAT (doc song don TG12) - khong tin ke hoach xem truoc tren may nguoi dung.
+    const { keHoach } = await lapKeHoach(c.env, db, khoa.cuaMinh, sc);
+    const ketQua: KetQuaTao[] = [];
+    for (const p of keHoach.phieu) ketQua.push(await taoPhieu(c.env, db, p, user.email)); // TUAN TU - khong Promise.all
+    // Cap nhat trang thai don cua cac ca vua dat (doc song lai, ghi dong thay doi) - loi doc lai khong lam hong ket qua dat.
+    const daDat = [...new Set(ketQua.filter((k) => k.phieu_id).flatMap((k) => k.ca))];
+    if (daDat.length) {
+      try {
+        await ghiDonLk(db, await docDonLoiLocSong(c.env, db, daDat));
+      } catch (err) {
+        console.warn("[nskx-dat-loi] cap nhat nskx_don_lk sau khi dat loi", String(err));
+      }
+    }
+    return c.json({ ket_qua: ketQua, bo_qua: [...boQuaKhoa, ...keHoach.bo_qua] });
+  } catch (err) {
+    const r = loiLk(c, err);
+    if (r) return r;
+    throw err;
+  } finally {
+    await moKhoaCa(db, khoa.cuaMinh, user.email);
+  }
 });
 
 export default qlNskx;

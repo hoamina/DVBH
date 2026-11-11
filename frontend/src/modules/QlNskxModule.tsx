@@ -21,6 +21,7 @@ import { fmtDateTime } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useExportRunner } from "../hooks/useExportRunner";
 import { useAuth } from "../auth/AuthContext";
+import { DatLoiNskxModal } from "../components/DatLoiNskxModal";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { parseLinhKienLoi } from "../components/LoiLinhKienPanel";
@@ -127,6 +128,13 @@ export function QlNskxModule({ openCase, headerExtra }: { openCase: (id: string,
   const qc = useQueryClient();
   const toast = useToast();
   const [dangDongBo, setDangDongBo] = useState(false);
+  // Dat loi hang loat (v1.571): ca da xac nhan "Co thay loi" + chua len don (tu 11/2026, khu vuc dang chon / khu vuc cua minh).
+  const [datLoiIds, setDatLoiIds] = useState<string[] | null>(null);
+  const { data: ungVien } = useQuery({
+    queryKey: ["ql-nskx", "dat-loi-ung-vien", khuVuc],
+    queryFn: () => api.get<{ ids: string[]; toi_da: number }>(`/ql-nskx/dat-loi/ung-vien${khuVuc ? `?khu_vuc=${encodeURIComponent(khuVuc)}` : ""}`),
+    enabled: duocXacNhan,
+  });
 
   const { data: thangData } = useQuery({ queryKey: ["ql-nskx-thang"], queryFn: () => api.get<ThangPayload>("/ql-nskx/thang") });
   const { data: filtersData } = useQuery({ queryKey: ["dashboard-filters"], queryFn: () => api.get<{ khuVuc: string[] }>("/dashboard/filters") });
@@ -184,6 +192,17 @@ export function QlNskxModule({ openCase, headerExtra }: { openCase: (id: string,
             {tr("⟳ Đồng bộ đơn lõi lọc từ linh-kien-app (ca từ 11/2026)")}
           </Btn>
         )}
+        {duocXacNhan && (
+          <Btn
+            size="sm"
+            onClick={() => setDatLoiIds(ungVien?.ids ?? [])}
+            disabled={!ungVien?.ids.length}
+            title={tr("Ca đã xác nhận “Có thay lõi” nhưng chưa có đơn TG12 (tiếp nhận từ 11/2026, theo khu vực đang chọn)")}
+          >
+            {tr("🛒 Đặt lõi hàng loạt ({0} ca chưa đặt)", ungVien?.ids.length ?? 0)}
+          </Btn>
+        )}
+        {datLoiIds && datLoiIds.length > 0 && <DatLoiNskxModal caseIds={datLoiIds} onClose={() => setDatLoiIds(null)} />}
         {db?.luc ? (
           <span>
             {tr("Lần đồng bộ gần nhất: {0} — {1} ca, {2} đã lên đơn, {3} chưa lên đơn", fmtDateTime(db.luc), db.so_ca, db.da_len_don, db.chua_len_don)}

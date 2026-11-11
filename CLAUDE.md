@@ -209,6 +209,13 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     Migration 0161: `thay_loi` 2 = không áp dụng + `nskx_loi_loc_log` (history). An unconfirmed COMPLETED case with no "lõi" part counts
     as `tu_dong_khong_thay`. CaseDetail tab "nskx" (`components/NskxPanel.tsx`, prop `coNskx`, in App `VALID_TABS`) = flow + confirm
     form + history + TG12 orders from the SAME `useLinhKienTimeline` data as tab "Mua hàng"; QL NSKX rows open the case on this tab. Live reads, no cache.
+    **Đặt lõi** (v1.571, migration 0162, `lib/nskxDatLoi.ts`, `components/DatLoiNskxModal.tsx`): `POST /dat-loi/xem-truoc` + `/dat-loi/tao`
+    call linh-kien-app `POST /api/partner/v1/dat-hang(/kiem-tra)` (v1.470+) AS THE CLICKING USER (`email_nguoi_dat`; the DVBH key needs
+    "đặt thay đúng người bấm" turned on there, v1.473), recipient = `(ma)` of `ktv_trien_khai` else `ky_thuat_vien`, type
+    "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX", `ma_yeu_cau_su_co` = case id; only confirmed cores (`thay_loi = 1`), cases from 2026-11-01.
+    Anti-duplicate: live TG12 read right before ordering, per-case lock `nskx_dat_loi_khoa` (5 min), deterministic `ma_yeu_cau`
+    (re-send returns the old slip). One slip per recipient ≤30 lines, created SEQUENTIALLY; blocked lines are dropped after kiem-tra.
+    Every call logged in `nskx_dat_loi_log`. Single (tab NSKX) and bulk (menu button, `GET /dat-loi/ung-vien`, ≤500 cases).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -453,7 +460,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0161`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0162`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

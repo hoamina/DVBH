@@ -5664,3 +5664,8 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   "Có thay lõi" dù chưa có trong danh mục `linh_kien` — tên theo báo cáo, giao diện ghi "(theo báo cáo linh kiện của ca)" thay vì báo
   đỏ. Mã không có ở cả 2 nguồn vẫn bị chặn (400 INVALID_MA). Thử local ca SC261003410: lưu qua API + nút "Lưu xác nhận" OK, lịch sử ghi đúng.
   Các mã này vẫn nên bổ sung vào danh mục bên linh-kien-app để chọn được từ ô tìm.
+- v1.571 (migration 0162): **Đặt lõi lọc NSKX trực tiếp sang linh-kien-app** — nút "🛒 Đặt lõi" ở tab NSKX (đặt lẻ, có kiểm tra trước) và
+  "🛒 Đặt lõi hàng loạt" ở menu QL NSKX (ca đã xác nhận Có thay lõi, chưa có đơn, từ 11/2026, ≤500 ca). Người đặt = tài khoản người bấm,
+  người nhận = KTV triển khai / Trạm, loại TG12-NSKX, mã YCSC = mã ca. Chống trùng 3 lớp (đọc sống đơn TG12, khoá tạm theo ca, mã yêu cầu tất
+  định). Phía linh-kien-app: API v1.470/v1.473 (đã deploy). **Việc của Admin linh-kien-app**: bật "đặt thay đúng người bấm" cho khoá API DVBH.
+  Thử local DVBH: xem trước / bỏ qua / validate đúng; luồng tạo phiếu thật đã thử ở local linh-kien-app (xem nhật ký bên đó).

@@ -364,6 +364,8 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   **đã hoàn thành** + chưa đánh giá; ca đã hoàn thành mà linh kiện sửa chữa không có lõi tự tính **"Không thay lõi (tự động)"**.
 - v1.568: tab NSKX đứng sau "Tiến trình chung"; ô chọn lõi thu gọn, chỉ mở khi bấm nhập; cạnh mỗi lõi hiện "Đã đặt: <trạng thái>" /
   "Chưa có đơn đặt mã này" theo đơn linh-kien-app của chính ca đó, kèm gợi ý lõi đã đặt mà chưa chọn (tính trên trình duyệt, không ghi D1).
+- v1.571: **Đặt lõi** sang linh-kien-app ngay trong hệ (lẻ ở tab NSKX, hàng loạt ở menu): đơn loại "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX",
+  người đặt = người bấm, người nhận = KTV triển khai (không có thì Trạm), chỉ lõi đã xác nhận (dây / cút đặt ngoài), lõi đã có đơn không đặt lại.
 - Tab **Báo cáo**: theo khu vực / KTV (`ky_thuat_vien`): tổng ca, đã hoàn thành, tỷ lệ 24h, tỷ lệ SLA (cùng công thức Tổng quát — trên ca
   tính KPI), đã đặt lõi, không thay lõi, chưa đặt lõi, chưa đánh giá lõi; bấm số → mở Danh sách đã lọc đúng nhóm.
 
