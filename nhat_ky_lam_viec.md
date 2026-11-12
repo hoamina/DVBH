@@ -5705,3 +5705,10 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   liên tục → mỗi giờ 8h–18h chỉ hỏi đơn chưa kết thúc, 08:00 hỏi lại tất cả; mở chi tiết ca làm mới ngay. Chỉ ghi dòng thay đổi; lỗi giữ dữ liệu cũ.
 - Mã trong giải trình là ID Google Sheet mua hàng cũ → hiện tạm từ sheet (chữ nghiêng, không lọc server).
 - Rủi ro còn mở: chưa đối chiếu được dữ liệu thật ô "Mã xuất hàng liên quan" (lệnh đọc D1 production bị chặn); trạng thái trễ tối đa 1 giờ.
+
+## 2026-11-12 — v1.577: Báo cáo lũy kế "Bảng chi tiết" kiểu bảng Excel
+
+- Trước: sắp cứng theo "Tổng SL" giảm dần (nhóm theo Tháng ra 2024-05, 2024-08, 2024-06…). Nay dùng PaginatedTable: mặc định sắp theo cột nhóm
+  tăng dần (tháng/năm theo thời gian, chữ theo ABC, so tự nhiên), bấm tiêu đề để sắp tăng/giảm, lọc trên tiêu đề (nhóm: chọn nhiều giá trị; số và %: khoảng từ–đến).
+  Đổi "nhóm theo" thì bộ lọc/sắp xếp về mặc định. Excel xuất đúng thứ tự + bộ lọc đang xem.
+- Helper dùng chung `lib/locCotClient.ts` (`locDong`/`sapXepDong`/`giaTriCot`): lọc/sắp xếp phía trình duyệt cho bảng nhỏ tính sẵn, cùng định dạng `LocCot` với bảng phân trang server.

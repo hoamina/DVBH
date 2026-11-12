@@ -21,6 +21,9 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../constants";
 import { LuyKeTocDoMien } from "../components/LuyKeTocDoMien";
 import { tr } from "../i18n/tr";
+import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
+import type { LocCot } from "../components/ui/LocCotPopover";
+import { giaTriCot, locDong, sapXepDong, type LayGiaTriCot } from "../lib/locCotClient";
 
 // Anh xa dung tieu de cot file Excel mau (xem sheet "Sheet1" cua "Phân tích báo cáo lũy kế.xlsx")
 // sang field noi bo - dung truc tiep cho parseSpreadsheet(), khong qua columnMapUrl vi schema co
@@ -107,6 +110,20 @@ const GROUP_OPTIONS: { value: keyof LuyKeRow; label: string }[] = [
   { value: "doi_tuong", label: tr("Đối tượng") },
   { value: "kh_vip", label: "KH VIP" },
 ];
+
+interface GroupRow {
+  nhom: string;
+  tong: number;
+  dungHan: number;
+  quaHan: number;
+  duoi24h: number;
+  tyLeDungHan: number | null;
+  tyLe24h: number | null;
+}
+/** Ty le % (1 so le) de loc/sap xep theo so; null khi khong co mau. */
+function tyLe(n: number, d: number): number | null {
+  return d > 0 ? Math.round((n / d) * 1000) / 10 : null;
+}
 
 function pct(n: number, d: number): string {
   return d > 0 ? `${((n / d) * 100).toFixed(1)}%` : "—";
@@ -397,10 +414,58 @@ export function LuyKeModule() {
     }
     return [...map.entries()]
       .map(([nhom, v]) => ({ nhom, tong: v.tong, dungHan: v.dungHan, quaHan: v.tong - v.dungHan, duoi24h: v.duoi24h }))
-      .sort((a, b) => b.tong - a.tong);
+      .map((r) => ({ ...r, tyLeDungHan: tyLe(r.dungHan, r.tong), tyLe24h: tyLe(r.duoi24h, r.tong) }));
   }, [filtered, groupBy]);
+  // "Bảng chi tiết" kieu Excel (2026-11-12, chu he thong): mac dinh sap theo cot nhom TANG DAN (thang/nam theo thoi gian,
+  // khu vuc... theo ABC) thay cho "Tổng SL" giam dan; bam tieu de de sap xep, loc tren tieu de - loc/sap phia trinh duyet
+  // (lib/locCotClient.ts) vi bang da tinh san o client. Doi "nhóm theo" -> bo loc + sap xep ve mac dinh.
+  const [bangLoc, setBangLoc] = useState<Record<string, LocCot>>({});
+  const [bangSap, setBangSap] = useState<{ by: string; dir: "asc" | "desc" }>({ by: "nhom", dir: "asc" });
+  const [groupByTruoc, setGroupByTruoc] = useState(groupBy);
+  if (groupByTruoc !== groupBy) {
+    setGroupByTruoc(groupBy);
+    setBangLoc({});
+    setBangSap({ by: "nhom", dir: "asc" });
+  }
+  const layCot: Record<string, LayGiaTriCot<GroupRow>> = {
+    nhom: (r) => r.nhom,
+    tong: (r) => r.tong,
+    dungHan: (r) => r.dungHan,
+    quaHan: (r) => r.quaHan,
+    tyLeDungHan: (r) => r.tyLeDungHan,
+    duoi24h: (r) => r.duoi24h,
+    tyLe24h: (r) => r.tyLe24h,
+  };
+  const bangRows = useMemo(
+    () => sapXepDong(locDong(groupRows, bangLoc, layCot), layCot[bangSap.by], bangSap.dir),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groupRows, bangLoc, bangSap],
+  );
 
   const labelFor = (field: keyof LuyKeRow, value: string) => (field === "khu_vuc" ? shortKhuVuc(value) : value);
+  const soCol = (key: keyof GroupRow, header: string, hien: (r: GroupRow) => string): Column<GroupRow> => ({
+    key,
+    header,
+    sortKey: key,
+    filter: "number",
+    render: (r) => <span className="font-mono">{hien(r)}</span>,
+  });
+  const cotBang: Column<GroupRow>[] = [
+    {
+      key: "nhom",
+      header: GROUP_OPTIONS.find((g) => g.value === groupBy)?.label ?? tr("Nhóm"),
+      sortKey: "nhom",
+      filter: "list",
+      filterValueLabel: (v) => labelFor(groupBy, v),
+      render: (r) => <span className="font-semibold">{labelFor(groupBy, r.nhom)}</span>,
+    },
+    soCol("tong", tr("Tổng SL"), (r) => r.tong.toLocaleString("vi-VN")),
+    soCol("dungHan", tr("Đúng hạn"), (r) => r.dungHan.toLocaleString("vi-VN")),
+    soCol("quaHan", tr("Quá hạn"), (r) => r.quaHan.toLocaleString("vi-VN")),
+    soCol("tyLeDungHan", tr("% Đúng hạn"), (r) => pct(r.dungHan, r.tong)),
+    soCol("duoi24h", tr("SL Dưới 24h"), (r) => r.duoi24h.toLocaleString("vi-VN")),
+    soCol("tyLe24h", tr("% Dưới 24h"), (r) => pct(r.duoi24h, r.tong)),
+  ];
 
   return (
     <div className="anim-in">
@@ -589,7 +654,7 @@ export function LuyKeModule() {
                     size="sm"
                     onClick={() =>
                       exportRowsToExcel(
-                        groupRows.map((r) => ({ ...r, nhom: labelFor(groupBy, r.nhom), tyLeDungHan: pct(r.dungHan, r.tong), tyLe24h: pct(r.duoi24h, r.tong) })),
+                        bangRows.map((r) => ({ ...r, nhom: labelFor(groupBy, r.nhom), tyLeDungHan: pct(r.dungHan, r.tong), tyLe24h: pct(r.duoi24h, r.tong) })),
                         `bao_cao_luy_ke_${groupBy}.xlsx`,
                         "Data",
                         {
@@ -606,40 +671,25 @@ export function LuyKeModule() {
                   >
                     {tr("⬇ Xuất Excel")}</Btn>
                 </div>
-                <div className="overflow-x-auto">
-                <table className="dense w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
-                      <th className="py-2 pr-3">{GROUP_OPTIONS.find((g) => g.value === groupBy)?.label}</th>
-                      <th className="py-2 pr-3">{tr("Tổng SL")}</th>
-                      <th className="py-2 pr-3">{tr("Đúng hạn")}</th>
-                      <th className="py-2 pr-3">{tr("Quá hạn")}</th>
-                      <th className="py-2 pr-3">{tr("% Đúng hạn")}</th>
-                      <th className="py-2 pr-3">{tr("SL Dưới 24h")}</th>
-                      <th className="py-2 pr-3">{tr("% Dưới 24h")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupRows.map((r) => (
-                      <tr key={r.nhom} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                        <td className="py-2 pr-3 font-semibold">{labelFor(groupBy, r.nhom)}</td>
-                        <td className="py-2 pr-3 font-mono">{r.tong.toLocaleString("vi-VN")}</td>
-                        <td className="py-2 pr-3 font-mono">{r.dungHan.toLocaleString("vi-VN")}</td>
-                        <td className="py-2 pr-3 font-mono">{r.quaHan.toLocaleString("vi-VN")}</td>
-                        <td className="py-2 pr-3 font-mono">{pct(r.dungHan, r.tong)}</td>
-                        <td className="py-2 pr-3 font-mono">{r.duoi24h.toLocaleString("vi-VN")}</td>
-                        <td className="py-2 pr-3 font-mono">{pct(r.duoi24h, r.tong)}</td>
-                      </tr>
-                    ))}
-                    {groupRows.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                          {tr("Không có dữ liệu khớp bộ lọc.")}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-                </div>
+                <PaginatedTable<GroupRow>
+                  columns={cotBang}
+                  rows={bangRows}
+                  isLoading={false}
+                  isError={false}
+                  page={1}
+                  pageSize={Math.max(1, bangRows.length)}
+                  total={bangRows.length}
+                  onPageChange={() => {}}
+                  rowKey={(r) => r.nhom}
+                  emptyText={tr("Không có dữ liệu khớp bộ lọc.")}
+                  sortBy={bangSap.by}
+                  sortDir={bangSap.dir}
+                  onSortChange={(by, dir) => setBangSap({ by, dir })}
+                  colFilters={bangLoc}
+                  onColFiltersChange={setBangLoc}
+                  loadFilterValues={async (cot) => giaTriCot(groupRows, bangLoc, layCot, cot)}
+                  totalUnfiltered={groupRows.length}
+                />
               </Card>
             </>
           )}
