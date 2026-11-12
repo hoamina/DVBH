@@ -47,7 +47,12 @@ export const BUSINESS_FIELDS = [
 // 7 nhom Odoo bo sung (2026-11-07, migration 0155) - moi nhom 1 object JSON: hien_tuong_odoo, sla_odoo,
 // bao_hanh_nha_may, phi_odoo, khao_sat_odoo, thong_so_nuoc, ktv_odoo (xem ODOO_BO_SUNG_FIELDS).
 export const ODOO_BO_SUNG_FIELDS = ["hien_tuong_odoo", "sla_odoo", "bao_hanh_nha_may", "phi_odoo", "khao_sat_odoo", "thong_so_nuoc", "ktv_odoo"] as const;
-export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat", "ghi_chu_loai_dv", "so_gio_xu_ly_klt", "dung_han_klt", ...ODOO_BO_SUNG_FIELDS] as const;
+// "anh_video_odoo" (2026-11-12, migration 0166): GOM het moi nhom anh/video (ben trong/ngoai/bao cao/
+// tem serial/bang chung huy, video, anh linh kien hong, anh bang chung lich hen...) thanh 1 mang JSON
+// - "media_url" cua Odoo la permalink ON DINH (public_token luu co dinh trong DB), khong phai link ky
+// so het han nhu "so_luong_anh" (chi dem so luong) tung gia dinh - nen luu duoc link that, mo truc
+// tiep tu UI. Thay the/bo sung cho so_luong_anh (van giu ca 2, so_luong_anh la ban dem nhanh).
+export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat", "ghi_chu_loai_dv", "so_gio_xu_ly_klt", "dung_han_klt", "anh_video_odoo", ...ODOO_BO_SUNG_FIELDS] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
@@ -254,6 +259,7 @@ export function businessFieldValue(field: string, incoming: Record<string, unkno
   if (field === "lich_hen") return normalizeLichHen(incoming[field]);
   if (field === "so_luong_anh") return normalizeSoLuongAnh(incoming[field]);
   if (field === "yeu_cau_huy") return normalizeLichHen(incoming[field]); // cung dang mang JSON, dung chung ham
+  if (field === "anh_video_odoo") return normalizeLichHen(incoming[field]); // cung dang mang JSON, dung chung ham
   if ((ODOO_BO_SUNG_FIELDS as readonly string[]).includes(field)) return normalizeJsonObject(incoming[field]);
   if (field === "so_gio_xu_ly_klt") return normalizeOptionalNumber(incoming[field]);
   if ((OPTIONAL_FIELDS as readonly string[]).includes(field) && incoming[field] === "") return null;

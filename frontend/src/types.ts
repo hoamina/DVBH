@@ -64,6 +64,9 @@ export interface CaseRow {
   // Migration 0144 - chi ca Odoo: trang thai xin huy HIEN TAI (chuoi JSON CancelRequestItem[], 1 phan
   // tu - Odoo khong luu lich su nhieu lan, xin lai thi ghi de).
   yeu_cau_huy?: string | null;
+  // Migration 0166 - chi ca Odoo: toan bo anh/video (goc het moi nhom), chuoi JSON AnhVideoOdooItem[].
+  // "url" moi phan tu la permalink on dinh cua Odoo, mo truc tiep duoc tu UI.
+  anh_video_odoo?: string | null;
   // Migration 0155 - chi ca Odoo: 7 nhom thong tin bo sung, moi cot 1 chuoi JSON object (xem lib/odooBoSung.ts).
   hien_tuong_odoo?: string | null;
   sla_odoo?: string | null;
@@ -729,6 +732,18 @@ export interface SoLuongAnh {
   bao_cao: number;
   tem_serial: number;
   bang_chung_huy: number;
+}
+
+// 1 file anh/video tu Odoo (case_dvbh.anh_video_odoo, migration 0166) - "url" la permalink ON DINH
+// (public_token Odoo), mo truc tiep duoc. Xem components/CaseImageGallery.tsx parseAnhVideoOdoo().
+export interface AnhVideoOdooItem {
+  stt: number;
+  kind: string | null; // vd image_in/image_out/image_report/image_serial/image_cancel/video_after_close...
+  ten_file: string | null;
+  loai_file: string | null; // mime type, vd image/jpeg, video/mp4
+  dung_luong: number | null; // byte
+  url: string;
+  ngay_tao: string | null; // gio VN
 }
 
 // Don bao hanh linh kien tu Odoo (bang don_bao_hanh_odoo, migration 0122).

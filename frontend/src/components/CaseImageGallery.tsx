@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import type { SoLuongAnh } from "../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { AnhVideoOdooItem, SoLuongAnh } from "../types";
 import { tr } from "../i18n/tr";
 
 
@@ -84,9 +84,10 @@ const ZOOM_MIN = 1;
 const ZOOM_MAX = 6;
 const ZOOM_DBLCLICK = 2.5;
 
-// "Số lượng ảnh" (case_dvbh.so_luong_anh, migration 0143) - dem anh/video theo 5 nhom that cua Odoo
-// (nguon Odoo CHUA co link anh xem duoc lau dai, xem types.ts) -> chi hien badge tom tat tong so, xem
-// CaseDetail.tsx. Tra null khi khong co/khong hop le/tong = 0 (an badge).
+// "Số lượng ảnh" (case_dvbh.so_luong_anh, migration 0143) - dem anh/video theo 5 nhom that cua Odoo.
+// Tu migration 0166 "anh_video_odoo" da co link xem duoc that su (xem parseAnhVideoOdoo ben duoi) -
+// cot nay van giu lam badge tom tat nhanh tong so, khong phai fallback nua. Tra null khi khong co/
+// khong hop le/tong = 0 (an badge).
 export function parseSoLuongAnh(raw: string | null | undefined): SoLuongAnh | null {
   if (!raw) return null;
   try {
@@ -106,8 +107,38 @@ export function parseSoLuongAnh(raw: string | null | undefined): SoLuongAnh | nu
   }
 }
 
-export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null | undefined }) {
-  const urls = parseLinkHinhAnh(linkHinhAnh);
+// "Ảnh & Video Odoo" (case_dvbh.anh_video_odoo, migration 0166) - toan bo anh/video goc, "url" la
+// permalink on dinh cua Odoo (mo truc tiep duoc, khong can dang nhap Odoo). Dung voi CaseImageGallery
+// prop "extraItems" (isVideo suy tu mime_type vi URL khong co duoi file).
+export function parseAnhVideoOdoo(raw: string | null | undefined): AnhVideoOdooItem[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.map((p, i) => ({ ...p, stt: Number(p?.stt) || i + 1 })) : [];
+  } catch {
+    return [];
+  }
+}
+
+// extraItems: nguon anh/video KHONG the suy loai (video/anh) tu duoi URL nhu link_hinh_anh - vd permalink
+// Odoo "ts/media/<token>" khong co duoi file. Dung "isVideo" (biet truoc tu mime_type) de render dung
+// <video>/<img> thay vi do doan qua DUOI_FILE_RE.
+export function CaseImageGallery({
+  linkHinhAnh,
+  extraItems,
+}: {
+  linkHinhAnh: string | null | undefined;
+  extraItems?: { url: string; isVideo?: boolean }[];
+}) {
+  const baseUrls = parseLinkHinhAnh(linkHinhAnh);
+  const videoSet = useMemo(() => new Set((extraItems ?? []).filter((i) => i.isVideo).map((i) => i.url)), [extraItems]);
+  const urls = useMemo(() => {
+    const seen = new Set(baseUrls);
+    const extra = (extraItems ?? []).map((i) => i.url).filter((u) => !seen.has(u));
+    return [...baseUrls, ...extra];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkHinhAnh, extraItems]);
+  const isVid = (url: string) => isVideoUrl(url) || videoSet.has(url);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
@@ -217,9 +248,9 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               type="button"
               onClick={() => setLightboxIndex(i)}
               className="focus-ring relative aspect-square rounded-lg border border-[var(--line)] overflow-hidden hover:opacity-80 transition-opacity"
-              title={`${isVideoUrl(url) ? "Video" : tr("Ảnh")} ${i + 1}/${urls.length}`}
+              title={`${isVid(url) ? "Video" : tr("Ảnh")} ${i + 1}/${urls.length}`}
             >
-              {isVideoUrl(url) ? (
+              {isVid(url) ? (
                 <>
                   <video
                     src={url}
@@ -274,7 +305,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
             </button>
           )}
 
-          {isVideoUrl(urls[lightboxIndex]) ? (
+          {isVid(urls[lightboxIndex]) ? (
             <video
               key={urls[lightboxIndex]}
               src={urls[lightboxIndex]}
@@ -329,7 +360,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
             className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 text-white text-xs bg-black/40 rounded-full px-3 py-1.5 z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            {!isVideoUrl(urls[lightboxIndex]) && !brokenUrls.has(urls[lightboxIndex]) && (
+            {!isVid(urls[lightboxIndex]) && !brokenUrls.has(urls[lightboxIndex]) && (
               <>
                 <button
                   type="button"
@@ -384,7 +415,7 @@ export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null |
               rel="noreferrer"
               className="underline font-semibold"
             >
-              {isVideoUrl(urls[lightboxIndex]) ? tr("Mở video gốc") : brokenUrls.has(urls[lightboxIndex]) ? tr("Mở qua CRM Media") : tr("Mở ảnh gốc")}
+              {isVid(urls[lightboxIndex]) ? tr("Mở video gốc") : brokenUrls.has(urls[lightboxIndex]) ? tr("Mở qua CRM Media") : tr("Mở ảnh gốc")}
             </a>
           </div>
         </div>
