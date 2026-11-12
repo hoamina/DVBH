@@ -146,7 +146,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     (purchase/missing-part/PXK/return logs for one case) via Service Binding `LINHKIEN_APP` + secret
     `LINHKIEN_APP_API_KEY` (`lib/linhKienTimeline.ts`); called on demand when a case is opened, nothing
     stored in D1. Merged into CaseDetail "Tiến trình chung" alongside the AppSheet Google Sheet source
-    (kept in parallel by decision 2026-09-30).
+    (was kept in parallel with the AppSheet sheets 2026-09-30; since 2026-11-12, v1.581, CaseDetail no longer shows the 3 AppSheet sources — mua hàng / bảo hành / thiếu hàng — anywhere: tabs, "Gửi BH", Tiến trình chung, badges. The sheet data is still loaded for Quản lý tồn "SL đơn mua" + Hồ sơ linh kiện; PO đặt hàng / QC thực tế tabs unchanged).
   - `externalImport.ts` `POST /don-bao-hanh-odoo` — "danh sách đơn bảo hành từ Odoo" (OCRM model
     `technical.service.warranty`) pushed by the auto qs pipeline (`ocrm/warranty.py`), upserted into
     `don_bao_hanh_odoo` by Odoo id (skips rows whose `ngay_cap_nhat_odoo` didn't change), bumps domain

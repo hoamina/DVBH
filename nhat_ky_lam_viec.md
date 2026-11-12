@@ -5725,3 +5725,8 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 
 - v1.580 (2026-11-12): tab NSKX - nút chọn nhanh 3 lõi thường dùng (2004020297 / 2004020299 / 2004020298 Lõi lọc thô KAROFI Smax Pro v1/v2/v3) trong form
   "Lõi lọc đã thay"; ẩn mã đã có trong báo cáo linh kiện của KTV (`linh_kien_loi`) hoặc đã chọn. Bấm = thêm SL 1. Thử local ca SC261003410.
+
+- v1.581 (2026-11-12): bỏ nguồn AppSheet (Google Sheet mua hàng / bảo hành / thiếu hàng) khỏi chi tiết ca theo chủ hệ thống: tab Bảo hành
+  chỉ còn app Gửi bảo hành, Mua hàng / Thiếu hàng chỉ còn hệ Đặt mua LK, thẻ "Gửi BH" chỉ còn đơn Odoo, Tiến trình chung bỏ mốc "(AppSheet)",
+  số trên tab không cộng dòng sheet. "Thời gian sửa chữa bảo hành" nay tính từ mốc đã xong của app Gửi bảo hành. Dữ liệu sheet vẫn tải cho
+  Quản lý tồn (SL đơn mua) + Hồ sơ linh kiện; tab PO đặt hàng / QC thực tế giữ nguyên.

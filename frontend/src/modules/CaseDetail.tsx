@@ -51,7 +51,7 @@ import { fetchWithHashCache } from "../lib/staticListCache";
 import { trangThaiLapOf } from "../lib/caLapStatus";
 import { computeCaseTickers } from "../lib/caseTickers";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
-import { matchMuaHang, matchBaoHanh, matchThieuHang, matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purchaseWarrantyMatch";
+import { matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purchaseWarrantyMatch";
 import { parseRawRow } from "../lib/purchaseWarrantySync";
 import { NskxPanel, NSKX_DOI_TAC } from "../components/NskxPanel";
 import { useLinhKienTimeline, linhKienEventLabel, linhKienSourceLabel, linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienActorDisplay, linhKienIsoToVnLocal, linhKienSlThucXuat } from "../lib/linhKienTimeline";
@@ -1225,19 +1225,16 @@ export function CaseDetail({
   const serialHistorySeri = serialHistorySource === "root" ? c?.seri_san_pham : serialHistorySource === "compare" ? compareC?.seri_san_pham : null;
   const serialHistoryActiveId = serialHistorySource === "root" ? caseId : serialHistorySource === "compare" ? compareId : null;
 
-  // Doi chieu "Don mua hang/bao hanh/xu ly thieu hang lien quan" - du lieu 3 Google Sheet da dong
-  // bo NGAM ve cache trinh duyet (xem hooks/usePurchaseWarrantyData.ts, kich hoat tu App.tsx),
-  // KHONG qua server. Chi tinh lai khi caseId/giaiTrinhList hoac du lieu sheet doi.
-  const { muaHang, baoHanh, thieuHang, qcThucTe, poDatHang, isSyncing: purchaseSyncing, isRefreshing: purchaseRefreshing, lastSyncedAt: purchaseSyncedAt, refreshAll: refreshPurchaseData } =
+  // Doi chieu PO dat hang / QC thuc te - du lieu Google Sheet da dong bo NGAM ve cache trinh duyet (hooks/usePurchaseWarrantyData.ts,
+  // kich hoat tu App.tsx), KHONG qua server. 3 nguon AppSheet cu (mua hang / bao hanh / xu ly thieu hang) DA BO khoi chi tiet ca
+  // (chu he thong 2026-11-12) - thay bang he Dat mua LK (linh-kien-app) + Gui bao hanh (suachua) + don Odoo; du lieu sheet do
+  // van dung o Quan ly ton (SL don mua) + Ho so linh kien.
+  const { qcThucTe, poDatHang, isSyncing: purchaseSyncing, isRefreshing: purchaseRefreshing, lastSyncedAt: purchaseSyncedAt, refreshAll: refreshPurchaseData } =
     usePurchaseWarrantyData();
-  const muaHangMatched = useMemo(() => (c ? matchMuaHang(c.id, giaiTrinhList, muaHang) : []), [c, giaiTrinhList, muaHang]);
-  const baoHanhMatched = useMemo(() => (c ? matchBaoHanh(c.id, baoHanh) : []), [c, baoHanh]);
-  const compareBaoHanhMatched = useMemo(() => (compareC ? matchBaoHanh(compareC.id, baoHanh) : []), [compareC, baoHanh]);
   const compareLoiList = useMemo(() => parseLinhKienLoi(compareC?.linh_kien_loi), [compareC]);
   const compareLichHenList = useMemo(() => parseLichHen(compareC?.lich_hen), [compareC]);
   const compareYeuCauHuyList = useMemo(() => parseCancelRequest(compareC?.yeu_cau_huy), [compareC]);
   const compareOrders = useMemo(() => compareData?.donBaoHanhOdoo ?? [], [compareData]);
-  const thieuHangMatched = useMemo(() => matchThieuHang(muaHangMatched, baoHanhMatched, thieuHang), [muaHangMatched, baoHanhMatched, thieuHang]);
   const qcThucTeMatched = useMemo(() => (c ? matchQcThucTe(c.id, qcThucTe) : []), [c, qcThucTe]);
   // Sap moi tao len tren - xem parseSheetDateTime() ve ly do khong dung localeCompare truc tiep tren
   // chuoi DD/MM/YYYY cua cot "Ngay tao".
@@ -1477,32 +1474,6 @@ export function CaseDetail({
     // SRS_tong_hop.md (chot 2026-08-22, da doi chieu header that qua curl truoc khi viet). Tone co
     // dinh 1 mau/nguon (khong con doi theo trang thai duyet/ket qua nhu truoc) de phan biet NGUON
     // log ngay tu mau sac trong tab "Tien trinh chung" - trang thai cu the van doc duoc qua typeLabel.
-    for (const r of muaHangMatched) {
-      pushSheet({ key: `mh-${r.id}-1`, rawTs: r.ngayTao, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Tạo đề xuất"), summary: r.loaiDeXuat || "—", jumpTab: "mua-hang" });
-      pushSheet({
-        key: `mh-${r.id}-2`,
-        rawTs: r.ngayXacNhan,
-        tone: "amber",
-        typeLabel: tr("Mua hàng (AppSheet): Tác nghiệp tiếp nhận"),
-        summary: r.trangThaiDuyet && r.trangThaiDuyet !== "ĐỒNG Ý" ? tr("Trạng thái duyệt: {0}", r.trangThaiDuyet) : "—",
-        jumpTab: "mua-hang",
-      });
-      pushSheet({ key: `mh-${r.id}-3`, rawTs: r.ngayAdminTaoDonXuat, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Tác nghiệp tạo phiếu"), summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-4`, rawTs: r.ngayKeToanDuyet, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Kế toán duyệt phiếu"), summary: "—", jumpTab: "mua-hang" });
-      pushSheet({ key: `mh-${r.id}-5`, rawTs: r.ngayKhoXacNhan, tone: "amber", typeLabel: tr("Mua hàng (AppSheet): Kho duyệt xuất hàng"), summary: "—", jumpTab: "mua-hang" });
-    }
-
-    for (const r of baoHanhMatched) {
-      pushSheet({ key: `bh-${r.id}-1`, rawTs: r.thoiGianTao, tone: "rose", typeLabel: tr("Bảo hành: Tạo đơn bảo hành"), summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-2`, rawTs: r.ngayGui, tone: "rose", typeLabel: tr("Bảo hành: KTV gửi đơn bảo hành"), summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-3`, rawTs: r.ngayKhoNhanHang, tone: "rose", typeLabel: tr("Bảo hành: Kho nhận hàng"), summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-4`, rawTs: r.ngayGioAdminNhanTuKho, tone: "rose", typeLabel: tr("Bảo hành: Admin nhận được linh kiện"), summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-5`, rawTs: r.ngayGioSuaXong, tone: "rose", typeLabel: tr("Bảo hành: Đã sửa xong"), summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-6`, rawTs: r.ngayKhoNhanHangTuAdmin, tone: "rose", typeLabel: tr("Bảo hành: Kế toán duyệt phiếu"), summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-7`, rawTs: r.ngayKhoGuiHangChoKtv, tone: "rose", typeLabel: tr("Bảo hành: Kho gửi linh kiện cho KTV"), summary: "—", jumpTab: "bao-hanh" });
-      pushSheet({ key: `bh-${r.id}-8`, rawTs: r.ngayKtvNhanHang, tone: "rose", typeLabel: tr("Bảo hành: KTV đã nhận được linh kiện"), summary: "—", jumpTab: "bao-hanh" });
-    }
-
     for (const o of donBaoHanhOdooList) {
       const lk = o.ten_linh_kien || o.ma_linh_kien || "—";
       pushDb({ key: `bho-${o.odoo_id}-1`, rawTs: o.ngay_tao, tone: "rose", typeLabel: tr("Bảo hành (Odoo): Tạo đơn {0}", o.ma_don ?? ""), actor: o.nguoi_tao, summary: lk, jumpTab: "loi-linh-kien" });
@@ -1535,13 +1506,6 @@ export function CaseDetail({
           });
         }
       }
-    }
-
-    for (const r of thieuHangMatched) {
-      pushSheet({ key: `th-${r.id}-1`, rawTs: r.ngayTao, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Tạo yêu cầu"), summary: r.lyDoLuaChon || "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-2`, rawTs: r.ngayTiepNhan, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Kho đã tiếp nhận"), summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-3`, rawTs: r.ngayKhoXacNhan, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Kho xác nhận hàng về"), summary: "—", jumpTab: "thieu-hang" });
-      pushSheet({ key: `th-${r.id}-4`, rawTs: r.ngayAdminXuLy, tone: "lime", typeLabel: tr("Thiếu hàng (AppSheet): Admin kết thúc"), summary: "—", jumpTab: "thieu-hang" });
     }
 
     // He "Dat mua linh kien" (linh-kien-app) - moi dong log cua don/ticket thieu LK/phieu xuat kho/tra
@@ -1618,7 +1582,7 @@ export function CaseDetail({
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
-  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, muaHangMatched, baoHanhMatched, thieuHangMatched, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList, mailTimeline, scDonList]);
+  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList, mailTimeline, scDonList]);
 
   // "Tieu de tom tat" (chot 2026-08-22) - 5 khoang thoi gian tinh theo "kieu bao trum" (min moc dau -
   // max moc cuoi cua CHINH nhom do, hoac "hien tai" neu con dang mo - CHI ap dung cho case/tranh chap
@@ -1652,25 +1616,16 @@ export function CaseDetail({
 
     const lkStamps = (pred: (source: string) => boolean) =>
       lkOrders.flatMap((o) => o.timeline.filter((e) => pred(e.source)).map((e) => parseFlexibleDbDate(linhKienIsoToVnLocal(e.at)).getTime()));
-    const datHangDuration = envelopeDays(
-      muaHangMatched,
-      ["ngayTao", "ngayXacNhan", "ngayAdminTaoDonXuat", "ngayKeToanDuyet", "ngayKhoXacNhan"],
-      lkStamps((src) => src === "mua_hang" || src === "phieu_xuat_kho"),
+    const datHangDuration = envelopeDays([], [], lkStamps((src) => src === "mua_hang" || src === "phieu_xuat_kho"));
+    // Sua chua bao hanh: moc da xong cua he Gui bao hanh (suachua) - thay nguon AppSheet cu (bo 2026-11-12).
+    const scStamps = scDonList.flatMap((d) =>
+      [...(d.luong ?? []), ...d.don_vi.flatMap((u) => u.luong ?? [])].filter((m) => m.at && m.trang_thai === "xong").map((m) => parseFlexibleDbDate(m.at!).getTime()),
     );
-    const baoHanhDuration = envelopeDays(baoHanhMatched, [
-      "thoiGianTao",
-      "ngayGui",
-      "ngayKhoNhanHang",
-      "ngayGioAdminNhanTuKho",
-      "ngayGioSuaXong",
-      "ngayKhoNhanHangTuAdmin",
-      "ngayKhoGuiHangChoKtv",
-      "ngayKtvNhanHang",
-    ]);
-    const thieuHangDuration = envelopeDays(thieuHangMatched, ["ngayTao", "ngayTiepNhan", "ngayKhoXacNhan", "ngayAdminXuLy"], lkStamps((src) => src === "thieu_lk"));
+    const baoHanhDuration = envelopeDays([], [], scStamps.filter((x) => !Number.isNaN(x)));
+    const thieuHangDuration = envelopeDays([], [], lkStamps((src) => src === "thieu_lk"));
 
     return { caseDuration, tranhChapDuration, datHangDuration, baoHanhDuration, thieuHangDuration };
-  }, [c, tienTrinhListForCase, muaHangMatched, baoHanhMatched, thieuHangMatched, lkOrders]);
+  }, [c, tienTrinhListForCase, scDonList, lkOrders]);
 
   const summaryItems: { label: string; value: number | null }[] = [
     { label: tr("Thời gian xử lý case"), value: tienTrinhChungSummary.caseDuration },
@@ -2374,14 +2329,8 @@ export function CaseDetail({
     </div>
   );
 
-  // 3 tab tra cuu du lieu Google Sheet mua hang/bao hanh/xu ly thieu hang - CHOT 2026-08-02, xem
-  // hooks/usePurchaseWarrantyData.ts + lib/purchaseWarrantyMatch.ts. Dung chung 1 banner dong bo
-  // (CacheBanner) o dau moi tab vi ca 3 tap du lieu duoc dong bo CUNG LUC boi refreshAll().
-  function muaHangTone(trangThai: string): BadgeTone {
-    if (trangThai.includes("ĐỒNG Ý")) return "teal";
-    if (trangThai.includes("TỪ CHỐI")) return "coral";
-    return "gray";
-  }
+  // Tab PO dat hang / QC thuc te tra cuu du lieu Google Sheet (hooks/usePurchaseWarrantyData.ts + lib/purchaseWarrantyMatch.ts) -
+  // dung chung 1 banner dong bo (CacheBanner). 3 nguon AppSheet mua hang / bao hanh / thieu hang da bo khoi chi tiet ca (2026-11-12).
   function statusWordTone(text: string): BadgeTone {
     const t = text.toLowerCase();
     if (t.includes("hoàn thành") || t.includes("xong") || t.includes("đã xử lý")) return "teal";
@@ -2495,39 +2444,6 @@ export function CaseDetail({
   const muaHangContent = (
     <div>
       {lkOrdersBlock}
-      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
-      {purchaseSyncBanner}
-      {!purchaseSyncing && muaHangMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn mua hàng liên quan đến ca này.")}</div>
-      )}
-      <div className="space-y-3">
-        {muaHangMatched.map((r) => (
-          <Card key={r.id} className="p-3">
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.linhKien || tr("(chưa rõ linh kiện)")}</span>
-              <div className="flex items-center gap-1.5">
-                {r._region && <Badge tone="gray">{r._region}</Badge>}
-                {r.trangThaiDuyet && <Badge tone={muaHangTone(r.trangThaiDuyet)}>{r.trangThaiDuyet}</Badge>}
-              </div>
-            </div>
-            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label={tr("Mã linh kiện")} value={r.maLinhKien ? <MaLinhKienLink ma={r.maLinhKien} /> : "—"} />
-              <Field label={tr("Loại đề xuất")} value={r.loaiDeXuat || "—"} />
-              <Field label={tr("SL đề xuất / thực xuất")} value={`${r.soLuongDeXuat || "—"} / ${r.soLuongThucXuat || "—"}`} />
-              <Field label={tr("Giá đề xuất")} value={r.giaDeXuat || "—"} />
-              <Field label={tr("Ngày tạo")} value={r.ngayTao || "—"} />
-              <Field label={tr("Ngày KTV nhận hàng")} value={r.ngayKtvNhanHang || "—"} />
-              <Field label={tr("Trạng thái gửi hàng")} value={r.trangThaiGuiHang || "—"} />
-              {r.lyDoTuChoi && <Field label={tr("Lý do từ chối")} value={r.lyDoTuChoi} />}
-            </div>
-            <div className="flex justify-end mt-2">
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: tr("Đơn mua hàng {0}", r.id), raw: parseRawRow(r) })}>
-                {tr("🔍 Xem đầy đủ")}</Btn>
-            </div>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 
@@ -2543,75 +2459,21 @@ export function CaseDetail({
   // Dung chung cho ca goc + cot ca doi chieu (2026-10-08) - moi ben truyen du lieu cua chinh ca do.
   // hienBanner (2026-10-30): banner dong bo mua hang/bao hanh chi hien 1 lan tren man hinh - an o day khi cot phai (expanded)
   // dang mo 1 tab cung nguon da co banner, va luon an o cot ca doi chieu.
-  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[], matched: typeof baoHanhMatched, hienBanner = true) {
+  // Don bao hanh Odoo cua 1 ca (the "Gửi BH" trong Thong tin xu ly) - nguon AppSheet cu da bo (chu he thong 2026-11-12).
+  function renderBaoHanh(parts: ReturnType<typeof parseLinhKienLoi>, orders: DonBaoHanhOdooRow[]) {
+    if (!orders.length) return <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn bảo hành liên quan đến ca này.")}</div>;
     return (
       <div>
-        {orders.length > 0 && (
-          <div className="mb-4">
-            <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn Odoo (")}{orders.length}{tr(") — chi tiết theo linh kiện ở mục \"Lỗi\"")}</div>
-            <DonBaoHanhOdooList parts={parts} orders={orders} />
-            <div className="text-xs font-semibold text-[var(--ink-500)] mt-4 mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
-          </div>
-        )}
-        {hienBanner && purchaseSyncBanner}
-        {!purchaseSyncing && matched.length === 0 && (
-          <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn bảo hành liên quan đến ca này.")}</div>
-        )}
-        <div className="space-y-3">
-          {matched.map((r) => (
-            <Card key={r.id} className="p-3">
-              <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-                <span className="font-semibold text-sm">{r.modelSanPham || tr("(chưa rõ model)")}</span>
-                <div className="flex items-center gap-1.5">
-                  {r._region && <Badge tone="gray">{r._region}</Badge>}
-                  {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
-                </div>
-              </div>
-              <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-                <Field label="Serial" value={r.serial || "—"} />
-                <Field label={tr("Hãng")} value={r.hang || "—"} />
-                <Field label={tr("Linh kiện sửa")} value={r.linhKienSua || "—"} />
-                <Field label={tr("Tình trạng hư hỏng")} value={r.tinhTrangHuHong || "—"} />
-                <Field label={tr("Phương án xử lý")} value={r.phuongAnXuLy || "—"} />
-                <Field label={tr("Cách thức xử lý")} value={r.cachThucXuLy || "—"} />
-                <Field label={tr("Nguyên nhân chậm")} value={r.nguyenNhanCham || "—"} />
-                <Field label={tr("Người sửa")} value={r.nguoiSua || "—"} />
-                <Field label={tr("Ngày gửi")} value={r.ngayGui || "—"} />
-                <Field label={tr("Ngày giờ trả xong")} value={r.ngayGioTraXong || "—"} />
-                {r.danhGiaKetQua && <Field label={tr("Đánh giá kết quả sau sửa chữa")} value={r.danhGiaKetQua} />}
-                {r.ghiChu && <Field label={tr("Ghi chú")} value={r.ghiChu} />}
-              </div>
-              <div className="flex justify-end mt-2">
-                <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: tr("Đơn bảo hành {0}", r.id), raw: parseRawRow(r) })}>
-                  {tr("🔍 Xem đầy đủ")}</Btn>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn Odoo (")}{orders.length}{tr(") — chi tiết theo linh kiện ở mục \"Lỗi\"")}</div>
+        <DonBaoHanhOdooList parts={parts} orders={orders} />
       </div>
     );
   }
-  const baoHanhContent = renderBaoHanh(
-    linhKienLoiList,
-    donBaoHanhOdooList,
-    baoHanhMatched,
-    !(viewMode === "expanded" && ["mua-hang", "thieu-hang", "po-dat-hang", "qc-thuc-te", "bao-hanh-app"].includes(tab)),
-  );
+  const baoHanhContent = renderBaoHanh(linhKienLoiList, donBaoHanhOdooList);
 
-  // Tab "Bảo hành" (2026-11-06 vong 2, cung khuon tab "Mua hàng"): App Gửi bảo hành (suachua, luong quy trinh tung don)
-  // + nguon AppSheet bao hanh cu ben duoi. Don Odoo + ban dong bo van o Thong tin case > Gửi BH.
-  const baoHanhAppContent = (
-    <div>
-      <SuaChuaPanel data={scTimeline} isLoading={scLoading} />
-      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
-      {purchaseSyncBanner}
-      {!purchaseSyncing && baoHanhMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy đơn bảo hành liên quan đến ca này.")}</div>
-      )}
-      {baoHanhMatched.length > 0 && renderBaoHanh([], [], baoHanhMatched, false)}
-    </div>
-  );
+  // Tab "Bảo hành" (2026-11-06 vong 2, cung khuon tab "Mua hàng"): App Gửi bảo hành (suachua, luong quy trinh tung don).
+  // Don Odoo van o Thong tin case > Gửi BH. Nguon AppSheet bao hanh cu da bo (2026-11-12).
+  const baoHanhAppContent = <SuaChuaPanel data={scTimeline} isLoading={scLoading} />;
 
   // Cot doi chieu (Phan 1) - thuan tham khao, khong nut hanh dong, chi hien khi co compareId.
   const compareContent = compareId && (
@@ -2664,7 +2526,7 @@ export function CaseDetail({
               onAnChange: changeAnTruong,
               cardRef: compareCardRef,
               countLoi: compareLoiList.length,
-              countBaoHanh: compareBaoHanhMatched.length + compareOrders.length,
+              countBaoHanh: compareOrders.length,
               countLichHen: compareLichHenList.length,
               countYeuCauHuy: compareYeuCauHuyList.length,
               panels: {
@@ -2674,7 +2536,7 @@ export function CaseDetail({
                     <LoiLinhKienPanel parts={compareLoiList} orders={compareOrders} />
                   </>
                 ),
-                "bao-hanh": renderBaoHanh(compareLoiList, compareOrders, compareBaoHanhMatched, false),
+                "bao-hanh": renderBaoHanh(compareLoiList, compareOrders),
                 "lich-hen": <LichHenPanel items={compareLichHenList} />,
                 "yeu-cau-huy": <CancelRequestPanel items={compareYeuCauHuyList} />,
               },
@@ -2724,7 +2586,7 @@ export function CaseDetail({
           onAnChange: changeAnTruong,
           cardRef: xuLyCardRef,
           countLoi: linhKienLoiList.length,
-          countBaoHanh: baoHanhMatched.length + donBaoHanhOdooList.length,
+          countBaoHanh: donBaoHanhOdooList.length,
           countLichHen: lichHenList.length,
           countYeuCauHuy: yeuCauHuyList.length,
           panels: {
@@ -2759,30 +2621,6 @@ export function CaseDetail({
   const thieuHangContent = (
     <div>
       {lkThieuBlock}
-      <div className="text-xs font-semibold text-[var(--ink-500)] mb-2">{tr("Nguồn AppSheet (Google Sheet)")}</div>
-      {purchaseSyncBanner}
-      {!purchaseSyncing && thieuHangMatched.length === 0 && (
-        <div className="text-sm text-[var(--ink-400)] italic">{tr("Không có yêu cầu xử lý thiếu hàng liên quan đến ca này.")}</div>
-      )}
-      <div className="space-y-3">
-        {thieuHangMatched.map((r) => (
-          <Card key={r.id} className="p-3">
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.lyDoLuaChon || tr("(chưa rõ lý do)")}</span>
-              {r.trangThaiXuLy && <Badge tone={statusWordTone(r.trangThaiXuLy)}>{r.trangThaiXuLy}</Badge>}
-            </div>
-            <div className="text-xs text-[var(--ink-400)] font-mono mb-2">{r.id}</div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label={tr("Nguồn")} value={r.nguon || "—"} />
-              <Field label={tr("Ngày dự kiến có hàng")} value={r.ngayDuKienCoHang || "—"} />
-              <Field label={tr("Ngày kho xác nhận hàng về")} value={r.ngayKhoXacNhan || "—"} />
-              <Field label={tr("Thay đổi ngày dự kiến")} value={r.thayDoiNgayDuKien || "—"} />
-              {r.giaiThichLyDo && <Field label={tr("Giải thích lý do thiếu hàng")} value={r.giaiThichLyDo} />}
-              {r.ghiChu && <Field label={tr("Ghi chú")} value={r.ghiChu} />}
-            </div>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 
@@ -2933,9 +2771,9 @@ export function CaseDetail({
           { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length + (coKhaoSatOdoo(data?.case) ? 1 : 0) },
           { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
-          { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length + baoHanhMatched.length },
-          { key: "mua-hang", label: tr("Mua hàng"), count: muaHangMatched.length + lkOrders.length },
-          { key: "thieu-hang", label: tr("Thiếu hàng"), count: thieuHangMatched.length + lkThieuCount },
+          { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length },
+          { key: "mua-hang", label: tr("Mua hàng"), count: lkOrders.length },
+          { key: "thieu-hang", label: tr("Thiếu hàng"), count: lkThieuCount },
           { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: tr("QC thực tế"), count: qcThucTeMatched.length },
           { key: "tranh-chap", label: tr("Tranh chấp"), count: tienTrinhListForCase.length },
@@ -2950,9 +2788,9 @@ export function CaseDetail({
           { key: "khao-sat", label: tr("Khảo sát"), count: ketQuaGoiList.length + (coKhaoSatOdoo(data?.case) ? 1 : 0) },
           { key: "ca-lap", label: tr("Ca lặp"), count: caLap?.detection ? 1 : 0 },
           { key: "nap-gas", label: tr("Nạp gas"), count: napGasDanhGia ? 1 : 0 },
-          { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length + baoHanhMatched.length },
-          { key: "mua-hang", label: tr("Mua hàng"), count: muaHangMatched.length + lkOrders.length },
-          { key: "thieu-hang", label: tr("Thiếu hàng"), count: thieuHangMatched.length + lkThieuCount },
+          { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length },
+          { key: "mua-hang", label: tr("Mua hàng"), count: lkOrders.length },
+          { key: "thieu-hang", label: tr("Thiếu hàng"), count: lkThieuCount },
           { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
           { key: "qc-thuc-te", label: tr("QC thực tế"), count: qcThucTeMatched.length },
           { key: "tranh-chap", label: tr("Tranh chấp"), count: tienTrinhListForCase.length },
