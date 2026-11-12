@@ -5712,3 +5712,13 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   tăng dần (tháng/năm theo thời gian, chữ theo ABC, so tự nhiên), bấm tiêu đề để sắp tăng/giảm, lọc trên tiêu đề (nhóm: chọn nhiều giá trị; số và %: khoảng từ–đến).
   Đổi "nhóm theo" thì bộ lọc/sắp xếp về mặc định. Excel xuất đúng thứ tự + bộ lọc đang xem.
 - Helper dùng chung `lib/locCotClient.ts` (`locDong`/`sapXepDong`/`giaTriCot`): lọc/sắp xếp phía trình duyệt cho bảng nhỏ tính sẵn, cùng định dạng `LocCot` với bảng phân trang server.
+
+## 2026-11-12 — v1.579: Hồ sơ linh kiện — Linh kiện tương đương
+
+- Kéo định kỳ danh sách nhóm linh kiện thay thế từ App Đặt hàng LK (`GET /api/partner/v1/lk-thay-the`) về bảng `lk_thay_the` (migration 0165):
+  mỗi giờ 8h–18h, 1 request, chỉ ghi lại khi `phien_ban` đổi; nút "↻ Đồng bộ ngay" trong tab.
+- Hồ sơ linh kiện có 2 view: "Hồ sơ mã này" | "Linh kiện tương đương (n · m còn hàng)". View chính thêm dải tóm tắt (số mã tương đương, mã còn
+  hàng, tổng MB/MN/KTV, 4 mã nhiều hàng nhất) — bấm để xem chi tiết.
+- Tab tương đương: thẻ tổng (MB/MN/kho khác/KTV cộng các mã tương đương) + bảng từng mã: tổng còn, MB, MN, kho khác, KTV giữ (số người),
+  khu vực KTV có hàng, kho có hàng; mã đang xem tô xanh, mã còn hàng tô nền, mã đã tắt/ngoài danh mục có nhãn.
+- Bấm mã tương đương → mở hồ sơ mã đó trong cùng popup; "← Quay lại" / "⤒ Hồ sơ gốc" + dòng đường đi (A → B).

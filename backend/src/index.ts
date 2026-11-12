@@ -49,6 +49,7 @@ import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
 import { autoSyncTonKhoLk } from "./lib/tonKhoLk";
 import { dongBoDonLkGanNhat } from "./lib/donLkGanNhat";
+import { syncLkThayThe } from "./lib/lkThayThe";
 import tonKhoLkRoutes from "./routes/tonKhoLk";
 import diaGioiRoutes from "./routes/diaGioi";
 import quocGiaRoutes from "./routes/quocGia";
@@ -325,6 +326,13 @@ export default {
         await autoSyncTonKhoLk(env, event.scheduledTime);
       } catch (err) {
         console.error("[cron-ton-kho-lk] loi khong mong doi:", err instanceof Error ? err.message : String(err));
+      }
+      // Nhom linh kien tuong duong (Ho so linh kien, lib/lkThayThe.ts): 1 request / gio, chi ghi khi phien ban doi.
+      try {
+        const r = await syncLkThayThe(env, { actor: "cron" });
+        if (!r.ok) console.error("[cron-lk-thay-the] loi:", r.loi);
+      } catch (err) {
+        console.error("[cron-lk-thay-the] loi:", err instanceof Error ? err.message : String(err));
       }
       // "ID đặt hàng gần nhất" (Quan ly ton, lib/donLkGanNhat.ts, 2026-11-12): moi gio chi hoi ca chua co / don chua ket thuc;
       // 08:00 VN (gio UTC 1) hoi lai moi ca ung vien + don dong cua ca het la ung vien.

@@ -13857,5 +13857,137 @@
  "Ngày xuất hàng": [
   "Dispatch date",
   "Tanggal pengiriman"
+ ],
+ "Hồ sơ mã này": [
+  "This part profile",
+  "Profil kode ini"
+ ],
+ "Linh kiện tương đương ({0} · {1} còn hàng)": [
+  "Equivalent parts ({0} · {1} in stock)",
+  "Suku cadang setara ({0} · {1} ada stok)"
+ ],
+ "Linh kiện tương đương": [
+  "Equivalent parts",
+  "Suku cadang setara"
+ ],
+ "← Quay lại {0}": [
+  "← Back to {0}",
+  "← Kembali ke {0}"
+ ],
+ "⤒ Hồ sơ gốc {0}": [
+  "⤒ Original profile {0}",
+  "⤒ Profil awal {0}"
+ ],
+ "{0} mã tương đương": [
+  "{0} equivalent codes",
+  "{0} kode setara"
+ ],
+ "{0} mã còn hàng · MB {1} · MN {2} · KTV {3}": [
+  "{0} codes in stock · North {1} · South {2} · Tech {3}",
+  "{0} kode ada stok · Utara {1} · Selatan {2} · Teknisi {3}"
+ ],
+ "đều đang hết hàng": [
+  "all out of stock",
+  "semua habis"
+ ],
+ "Xem chi tiết →": [
+  "View details →",
+  "Lihat detail →"
+ ],
+ "Danh sách tương đương lấy từ App Đặt hàng LK": [
+  "Equivalent list from the Parts Ordering app",
+  "Daftar setara dari aplikasi Pemesanan Suku Cadang"
+ ],
+ "cập nhật {0}": [
+  "updated {0}",
+  "diperbarui {0}"
+ ],
+ "tồn kho theo file MISA mới nhất": [
+  "stock from latest MISA file",
+  "stok dari file MISA terbaru"
+ ],
+ "Lần đồng bộ gần nhất lỗi: {0}": [
+  "Last sync failed: {0}",
+  "Sinkronisasi terakhir gagal: {0}"
+ ],
+ "↻ Đồng bộ ngay": [
+  "↻ Sync now",
+  "↻ Sinkronkan"
+ ],
+ "Không đồng bộ được.": [
+  "Sync failed.",
+  "Gagal sinkronisasi."
+ ],
+ "Không tải được danh sách linh kiện tương đương.": [
+  "Could not load equivalent parts.",
+  "Gagal memuat suku cadang setara."
+ ],
+ "Mã {0} chưa thuộc nhóm linh kiện tương đương nào.": [
+  "Code {0} is not in any equivalent group.",
+  "Kode {0} belum masuk grup setara mana pun."
+ ],
+ "Mã tương đương": [
+  "Equivalent codes",
+  "Kode setara"
+ ],
+ "{0} còn hàng": [
+  "{0} in stock",
+  "{0} ada stok"
+ ],
+ "cộng các mã tương đương": [
+  "sum of equivalent codes",
+  "total kode setara"
+ ],
+ "Kho khác": [
+  "Other warehouses",
+  "Gudang lain"
+ ],
+ "kho chưa xếp MB/MN": [
+  "warehouses not set North/South",
+  "gudang belum diatur Utara/Selatan"
+ ],
+ "Nhóm #{0}": [
+  "Group #{0}",
+  "Grup #{0}"
+ ],
+ "{0} mã": [
+  "{0} codes",
+  "{0} kode"
+ ],
+ "Tổng còn": [
+  "Total left",
+  "Total sisa"
+ ],
+ "KTV giữ": [
+  "Held by techs",
+  "Dipegang teknisi"
+ ],
+ "Khu vực có hàng (KTV)": [
+  "Regions with stock (techs)",
+  "Wilayah ada stok (teknisi)"
+ ],
+ "Mở hồ sơ linh kiện {0}": [
+  "Open part profile {0}",
+  "Buka profil suku cadang {0}"
+ ],
+ "đang xem": [
+  "viewing",
+  "sedang dilihat"
+ ],
+ "đã tắt": [
+  "disabled",
+  "nonaktif"
+ ],
+ "ngoài danh mục": [
+  "not in catalog",
+  "di luar katalog"
+ ],
+ "Hết": [
+  "Out",
+  "Habis"
+ ],
+ "{0} KTV": [
+  "{0} techs",
+  "{0} teknisi"
  ]
 }

@@ -16,8 +16,11 @@ export function useMoHoSoLinhKien(): MoHoSo | null {
 }
 
 export function HoSoLinhKienProvider({ enabled, openCase, children }: { enabled: boolean; openCase: (id: string, tab?: string) => void; children: ReactNode }) {
-  const [dangMo, setDangMo] = useState<{ ma: string; ten: string | null } | null>(null);
-  const mo: MoHoSo = (ma, ten) => setDangMo({ ma: ma.trim(), ten: ten ?? null });
+  // Lich su trong popup (2026-11-12): mo ma tuong duong tu tab "Linh kiện tương đương" -> day vao ngan xep, nut quay lai / ve ho so goc.
+  const [ngan, setNgan] = useState<{ ma: string; ten: string | null }[]>([]);
+  const dangMo = ngan.length ? ngan[ngan.length - 1] : null;
+  const mo: MoHoSo = (ma, ten) => setNgan([{ ma: ma.trim(), ten: ten ?? null }]);
+  const setDangMo = (v: null) => v === null && setNgan([]);
   return (
     <HoSoLinhKienContext.Provider value={enabled ? mo : null}>
       {children}
@@ -25,6 +28,9 @@ export function HoSoLinhKienProvider({ enabled, openCase, children }: { enabled:
         <HoSoModal
           ma={dangMo.ma}
           ten={dangMo.ten}
+          lichSu={ngan.slice(0, -1)}
+          onMoMa={(ma, ten) => setNgan((x) => (x[x.length - 1]?.ma === ma ? x : [...x, { ma, ten }]))}
+          onQuayLai={(n) => setNgan((x) => x.slice(0, n + 1))}
           onClose={() => setDangMo(null)}
           openCase={(id, tab) => {
             setDangMo(null);
@@ -38,7 +44,24 @@ export function HoSoLinhKienProvider({ enabled, openCase, children }: { enabled:
 
 // Noi mo chi co ma (GT ton, ...) -> lay ten tu GET /ton-kho-lk/ma/:ma (`ten`). Cung queryKey voi HoSoLinhKien nen
 // react-query gop thanh 1 request, khong goi them.
-function HoSoModal({ ma, ten, onClose, openCase }: { ma: string; ten: string | null; onClose: () => void; openCase: (id: string, tab?: string) => void }) {
+function HoSoModal({
+  ma,
+  ten,
+  lichSu,
+  onMoMa,
+  onQuayLai,
+  onClose,
+  openCase,
+}: {
+  ma: string;
+  ten: string | null;
+  lichSu: { ma: string; ten: string | null }[];
+  onMoMa: (ma: string, ten: string | null) => void;
+  /** quay ve muc thu n trong lichSu (0 = ho so goc) */
+  onQuayLai: (n: number) => void;
+  onClose: () => void;
+  openCase: (id: string, tab?: string) => void;
+}) {
   const tonQ = useQuery({
     queryKey: ["ton-kho-lk-ma", ma],
     queryFn: () => api.get<{ rows: unknown[]; ten?: string | null }>(`/ton-kho-lk/ma/${encodeURIComponent(ma)}`),
@@ -46,7 +69,22 @@ function HoSoModal({ ma, ten, onClose, openCase }: { ma: string; ten: string | n
   const tenHien = ten || tonQ.data?.ten || null;
   return (
     <Modal open title={tr("Hồ sơ linh kiện {0}{1}", ma, tenHien ? ` — ${tenHien}` : "")} onClose={onClose} width="max-w-[1800px]" height="h-[calc(100vh-2rem)]">
-      <HoSoLinhKien maLk={ma} openCase={openCase} />
+      {lichSu.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-[var(--bg)] px-3 py-2 text-sm">
+          <button type="button" onClick={() => onQuayLai(lichSu.length - 1)} className="focus-ring rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 font-semibold hover:bg-[var(--surface-100)]">
+            {tr("← Quay lại {0}", lichSu[lichSu.length - 1].ma)}
+          </button>
+          {lichSu.length > 1 && (
+            <button type="button" onClick={() => onQuayLai(0)} className="focus-ring rounded-md border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 font-semibold hover:bg-[var(--surface-100)]">
+              {tr("⤒ Hồ sơ gốc {0}", lichSu[0].ma)}
+            </button>
+          )}
+          <span className="text-xs text-[var(--ink-500)]">
+            {[...lichSu.map((x) => x.ma), ma].join(" → ")}
+          </span>
+        </div>
+      )}
+      <HoSoLinhKien key={`${lichSu.length}:${ma}`} maLk={ma} openCase={openCase} onMoMa={onMoMa} />
     </Modal>
   );
 }

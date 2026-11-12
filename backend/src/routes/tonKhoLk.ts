@@ -8,6 +8,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { getTonKhoLkMeta, syncTonKhoLk, callLinhKienPartner } from "../lib/tonKhoLk";
 import { nowVN } from "../lib/vnTime";
 import { timTonKho } from "../lib/tonKhoTim";
+import { docTuongDuong, getLkThayTheMeta, syncLkThayThe } from "../lib/lkThayThe";
 
 // /api/ton-kho-lk - ton kho linh kien keo tu linh-kien-app (2026-10-08, xem lib/tonKhoLk.ts). Dung trong module
 // "Ca thiếu linh kiện" (cot "Tồn kho MB/MN" tab Linh kien thieu + tab "Cấu hình kho"). Ton kho la so lieu toan
@@ -125,6 +126,21 @@ tonKhoLk.get("/ma/:ma", async (c) => {
   const rows = ton.results as { ten_hang: string | null }[];
   const ten = (dm.results[0] as { ten_linh_kien?: string } | undefined)?.ten_linh_kien || rows.find((r) => r.ten_hang)?.ten_hang || null;
   return c.json({ rows, ten });
+});
+
+// GET /ma/:ma/tuong-duong - "Ho so linh kien" tab "Linh kiện tương đương" (2026-11-12): cac nhom thay the chua ma nay (bang lk_thay_the
+// keo dinh ky tu linh-kien-app, lib/lkThayThe.ts) + ton MB/MN/kho khac/KTV (theo khu vuc) cua TUNG ma trong nhom. 2 cau theo index ma.
+tonKhoLk.get("/ma/:ma/tuong-duong", async (c) => {
+  const ma = c.req.param("ma").trim();
+  const [nhom, meta] = await Promise.all([docTuongDuong(c.env.DB, ma), getLkThayTheMeta(c.env.DB)]);
+  return c.json({ nhom, dong_bo: meta });
+});
+
+// POST /lk-thay-the/sync - nut "Đồng bộ ngay" danh sach nhom tuong duong (ai vao module cung bam duoc; force = keo lai du phien ban khong doi).
+tonKhoLk.post("/lk-thay-the/sync", async (c) => {
+  const r = await syncLkThayThe(c.env, { force: true, actor: c.get("user").email });
+  if (!r.ok) return c.json({ error: "SYNC_FAILED", message: r.loi }, 502);
+  return c.json({ ok: true, changed: r.changed, dong_bo: await getLkThayTheMeta(c.env.DB) });
 });
 
 // GET /ma/:ma/lich-su - don dat hang gan nhat + ticket thieu hang cua 1 ma ben linh-kien-app (goi THEO YEU CAU luc mo

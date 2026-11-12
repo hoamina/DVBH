@@ -1,5 +1,5 @@
 import { dl } from "../lib/banDichDuLieu";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { fmtDate, fmtDateTime, type Paged } from "../types";
@@ -16,6 +16,7 @@ import { poSortKey } from "../lib/poDatHangEo";
 import { soNguyen, poBiHuy, poDangCho, poNgayVe } from "../lib/ngayHangVeTheoKv";
 import { MaAppLink, MoAppLink, LINHKIEN_URL } from "./MoAppLink";
 import { tr } from "../i18n/tr";
+import { LkTuongDuongView, TuongDuongBanner, useLkTuongDuong } from "./LkTuongDuong";
 
 
 // "Ho so linh kien" (GD2 ton kho linh kien, 2026-10-08) - bam 1 ma LK o tab "Linh kiện thiếu": tra loi nhanh
@@ -320,7 +321,40 @@ const TH = "py-1.5 px-2";
 const THEAD = "sticky top-0 z-[1] bg-[var(--surface)]";
 const TR = "border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60";
 
-export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id: string, tab?: string) => void }) {
+// 2 view (2026-11-12): "Hồ sơ mã này" (mac dinh) | "Linh kiện tương đương" - onMoMa = mo ho so 1 ma tuong duong (Provider giu lich su).
+export function HoSoLinhKien({ maLk, openCase, onMoMa }: { maLk: string; openCase?: (id: string, tab?: string) => void; onMoMa?: (ma: string, ten: string | null) => void }) {
+  const [view, setView] = useState<"ho-so" | "tuong-duong">("ho-so");
+  const td = useLkTuongDuong(maLk);
+  const tabs = (
+    <div className="flex items-center gap-1 border-b border-[var(--line)]">
+      {(
+        [
+          ["ho-so", tr("Hồ sơ mã này")],
+          ["tuong-duong", td.khac.length ? tr("Linh kiện tương đương ({0} · {1} còn hàng)", td.khac.length, td.conHang.length) : tr("Linh kiện tương đương")],
+        ] as const
+      ).map(([k, nhan]) => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => setView(k)}
+          className={`focus-ring px-3 py-2 text-sm font-semibold -mb-px border-b-2 ${view === k ? "border-[var(--ocean-500)] text-[var(--ocean-600)]" : "border-transparent text-[var(--ink-500)] hover:text-[var(--ink-900)]"}`}
+        >
+          {nhan}
+        </button>
+      ))}
+    </div>
+  );
+  if (view === "tuong-duong")
+    return (
+      <div className="space-y-4">
+        {tabs}
+        <LkTuongDuongView maLk={maLk} onMoMa={onMoMa} />
+      </div>
+    );
+  return <HoSoChinh maLk={maLk} openCase={openCase} tabs={tabs} onXemTuongDuong={() => setView("tuong-duong")} />;
+}
+
+function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; openCase?: (id: string, tab?: string) => void; tabs: ReactNode; onXemTuongDuong: () => void }) {
   const { poDatHang, muaHang, baoHanh } = usePurchaseWarrantyData();
   const poTatCa = useMemo(() => matchPoDatHangByLinhKien(maLk, poDatHang), [maLk, poDatHang]);
   // Bo PO huy / SL dat = 0; PO dang cho hang len dau, trong moi nhom moi ban hanh truoc.
@@ -463,6 +497,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
 
   return (
     <div className="space-y-6">
+      {tabs}
       {/* Diem nhan: the so lieu chinh + nhan dinh */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-3">
@@ -490,6 +525,7 @@ export function HoSoLinhKien({ maLk, openCase }: { maLk: string; openCase?: (id:
             </div>
           </div>
         )}
+        <TuongDuongBanner maLk={maLk} onXem={onXemTuongDuong} />
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
           <div className="text-xs font-bold uppercase tracking-wide text-[var(--ink-500)] mb-2">{tr("Tình hình cung ứng")}</div>
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">

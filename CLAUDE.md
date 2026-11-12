@@ -250,6 +250,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     — (since 2026-11-07 the morning "08:00" chốt runs at 07:30 from `CHOT_0730_1730_CRON`, heavy tails at 12:00 = UTC hour 5); this avoids a 5th Cron
     Trigger (see the ETX_SYNC_CRON note on the silently dropped triggers). `ton_kho_nhom_kho` = which `ma_kho`
     sum into "Tồn kho MB"/"Tồn kho MN" (tab "Cấu hình kho", Admin/TBP DVBH edit). UI: `components/TonKhoLk.tsx`.
+    "Linh kiện tương đương" (2026-11-12, v1.579, migration 0165 `lk_thay_the`, `lib/lkThayThe.ts`): nhóm thay thế kéo từ linh-kien-app
+    `GET /v1/lk-thay-the` mỗi lần fire `DAILY_SNAPSHOT_CRON` (chỉ ghi khi `phien_ban` đổi; trạng thái ở `cai_dat_he_thong` `lk_thay_the_dong_bo`;
+    `POST /api/ton-kho-lk/lk-thay-the/sync` ép kéo). `GET /ma/:ma/tuong-duong` = các nhóm chứa mã + tồn MB/MN/kho khác/KTV theo khu vực của
+    từng mã (đọc `ton_kho_lk`). UI: tab "Linh kiện tương đương" + dải tóm tắt trong Hồ sơ (`components/LkTuongDuong.tsx`); bấm mã mở hồ sơ mã
+    đó, `HoSoLinhKienProvider` giữ ngăn xếp (← Quay lại / ⤒ Hồ sơ gốc).
     GĐ2 "Hồ sơ linh kiện" (`components/HoSoLinhKien.tsx`): per-part stock `GET /ma/:ma`, order history + shortage
     tickets proxied on demand from linh-kien-app `GET /ma/:ma/lich-su` (not stored), cases via `/api/missing-parts?ma_lk=`.
     TopBar box "Tra tồn LK" (`components/TonKhoSearch.tsx`, 2026-10-20): `GET /tim?q=` accent-insensitive search on code+name
@@ -473,7 +478,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0164`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0165`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
