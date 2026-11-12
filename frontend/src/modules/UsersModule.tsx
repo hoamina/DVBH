@@ -514,11 +514,51 @@ function EditUserModal({
   // thuc te la ma doi nhom CRM (vd "(qldvbh.mb2) Quan ly khu vuc MB2"), khong phai ten tinh/thanh.
   // "full_khu_vuc=true" - Admin van can gan duoc khu_vuc_phu_trach cho 2 khu_vuc "an khoi bao cao"
   // (van la don vi kinh doanh that, chi khong hien trong thong ke tong hop), khac bo loc bao cao.
+  // "Đa quốc gia" (2026-11-12): /dashboard/filters chi tra khu vuc cua nuoc DANG XEM -> ep qg=VN (tham so dau tien thang, api/client
+  // noi qg hien tai phia sau) cho nhom VN, + khu vuc tung nuoc khac (/users/khu-vuc-theo-nuoc) de gan quyen cho Giam sat PH...
   const { data: filters } = useQuery({
-    queryKey: ["dashboard-filters", "full"],
-    queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters?full_khu_vuc=true"),
+    queryKey: ["dashboard-filters", "full", "VN"],
+    queryFn: () => api.get<{ khuVuc: string[]; hang: string[] }>("/dashboard/filters?full_khu_vuc=true&qg=VN"),
   });
-  const khuVucOptions = filters?.khuVuc ?? [];
+  const { data: kvNuocKhac } = useQuery({
+    queryKey: ["users-khu-vuc-theo-nuoc"],
+    queryFn: () => api.get<{ nuoc: Record<string, string[]> }>("/users/khu-vuc-theo-nuoc"),
+  });
+  const nhomKhuVuc = useMemo(() => {
+    const khac = Object.entries(kvNuocKhac?.nuoc ?? {}).filter(([, ds]) => ds.length);
+    const daCo = new Set(khac.flatMap(([, ds]) => ds));
+    const vn = (filters?.khuVuc ?? []).filter((k): k is string => !!k && !daCo.has(k));
+    // Khu vuc da gan nhung khong con trong du lieu nuoc nao -> van hien de bo chon duoc.
+    const tatCa = new Set([...vn, ...daCo]);
+    const mo = [...new Set([...user.khu_vuc_phu_trach, ...user.khu_vuc_duoc_xem])].filter((k) => !tatCa.has(k));
+    return [
+      { nuoc: "VN", ds: vn },
+      ...khac.map(([nuoc, ds]) => ({ nuoc, ds })),
+      ...(mo.length ? [{ nuoc: tr("Khác"), ds: mo }] : []),
+    ].filter((g) => g.ds.length);
+  }, [filters, kvNuocKhac, user.khu_vuc_phu_trach, user.khu_vuc_duoc_xem]);
+  const khuVucOptions = nhomKhuVuc.flatMap((g) => g.ds);
+  const nhieuNuoc = nhomKhuVuc.length > 1;
+  const chipNhom = (chon: Set<string>, bat: (k: string) => void, mauBat: string) => (
+    <div className="space-y-1.5">
+      {nhomKhuVuc.map((g) => (
+        <div key={g.nuoc} className="flex flex-wrap items-center gap-1.5">
+          {nhieuNuoc && <span className="w-9 shrink-0 text-[11px] font-bold text-[var(--ink-500)]">{g.nuoc}</span>}
+          {g.ds.map((k) => (
+            <button
+              key={k}
+              onClick={() => bat(k)}
+              className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${chon.has(k) ? `${mauBat} text-white` : "border-[var(--line)] text-[var(--ink-600)]"}`}
+              title={k}
+            >
+              {shortKhuVuc(k)}
+            </button>
+          ))}
+        </div>
+      ))}
+      {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có dữ liệu khu vực (chưa import case nào).")}</span>}
+    </div>
+  );
 
   function toggle(k: string) {
     const s = new Set(kv);
@@ -554,19 +594,7 @@ function EditUserModal({
           <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">
             {role === "Giam sat" ? tr("Khu vực phụ trách báo cáo (Giám sát)") : tr("Khu vực được xem / quản lý")}
           </label>
-          <div className="flex flex-wrap gap-1.5">
-            {khuVucOptions.map((k) => (
-              <button
-                key={k}
-                onClick={() => toggle(k)}
-                className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${kv.has(k) ? "bg-[var(--ocean-500)] text-white border-[var(--ocean-500)]" : "border-[var(--line)] text-[var(--ink-600)]"}`}
-                title={k}
-              >
-                {shortKhuVuc(k)}
-              </button>
-            ))}
-            {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có dữ liệu khu vực (chưa import case nào).")}</span>}
-          </div>
+          {chipNhom(kv, toggle, "bg-[var(--ocean-500)] border-[var(--ocean-500)]")}
           {role === "Giam sat" && (
             <div className="text-xs text-[var(--ink-400)] mt-1">
               {tr("Quyết định phạm vi xem VÀ được tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này.")}</div>
@@ -575,19 +603,7 @@ function EditUserModal({
         {role === "Giam sat" && (
           <div>
             <label className="text-xs font-semibold text-[var(--ink-400)] block mb-1.5">{tr("Khu vực được nhìn thấy (chỉ xem)")}</label>
-            <div className="flex flex-wrap gap-1.5">
-              {khuVucOptions.map((k) => (
-                <button
-                  key={k}
-                  onClick={() => toggleXem(k)}
-                  className={`focus-ring px-2.5 py-1 rounded-lg text-xs font-semibold border ${kvXem.has(k) ? "bg-[var(--amber-500)] text-white border-[var(--amber-500)]" : "border-[var(--line)] text-[var(--ink-600)]"}`}
-                  title={k}
-                >
-                  {shortKhuVuc(k)}
-                </button>
-              ))}
-              {khuVucOptions.length === 0 && <span className="text-xs text-[var(--ink-400)] italic">{tr("Chưa có dữ liệu khu vực (chưa import case nào).")}</span>}
-            </div>
+            {chipNhom(kvXem, toggleXem, "bg-[var(--amber-500)] border-[var(--amber-500)]")}
             <div className="text-xs text-[var(--ink-400)] mt-1">
               {tr("Mở rộng quyền xem danh sách/ca ở các khu vực này, nhưng KHÔNG tính vào thẻ báo cáo/khảo sát vi phạm cá nhân của Giám sát này (chỉ khu vực phụ trách báo cáo ở trên mới được tính).")}</div>
           </div>

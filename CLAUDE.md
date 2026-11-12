@@ -305,6 +305,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   quyền vào nước = `pham_vi_quoc_gia`). Áp ngay trong `apPhamViQuocGia` (`c.set("user")`) nên mọi `scopeByKhuVuc` + chốt/snapshot Giám sát theo;
   danh sách khu vực mỗi nước cache 10 phút trong isolate. Frontend: `KhuVucFilterControl` bỏ chip khu vực đã gán không có trong options của nước
   đang xem; `api/client.ts` (`boKhuVucDaGanKhoiPath`) bỏ `khu_vuc=` chỉ gồm khu vực đã gán khỏi request của nước khác.
+  Gán khu vực cho Giám sát nước khác (v1.583): màn Phân quyền (`UsersModule.tsx`) nhóm chip theo nước — VN từ `/dashboard/filters?qg=VN`
+  (ép `qg` đứng đầu, client nối `qg` hiện tại phía sau, Hono lấy giá trị đầu), nước khác từ `GET /api/users/khu-vuc-theo-nuoc` (Admin, DISTINCT
+  khu_vuc mỗi nước đang bật qua index riêng). GS PH: gán khu vực PH + `pham_vi_quoc_gia` có PH.
   Every user views ONE country at a time — the "Tất cả quốc gia" option was removed 2026-11-11 (owner); a full-scope user
   without/with an invalid `?qg=` gets VN (`chonQuocGia`), the mixed base scope is now only for cron/partner/import.
   Since 2026-11-11 the import also accepts an explicit `quoc_gia` field per row (auto qs `SEND_QUOC_GIA`, by download

@@ -5,7 +5,8 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { toJsonArray, fromJsonArray } from "../lib/jsonArray";
-import { docPhamViQuocGia, RE_MA_QUOC_GIA } from "../lib/quocGia";
+import { docPhamViQuocGia, RE_MA_QUOC_GIA, dsQuocGiaKichHoat, QUOC_GIA_MAC_DINH } from "../lib/quocGia";
+import { dbGoc } from "../lib/phamVi";
 import { bumpVersions } from "../lib/dataVersions";
 import { nowVN } from "../lib/vnTime";
 import { parseModulesColumn } from "../lib/moduleAccess";
@@ -70,6 +71,24 @@ users.get("/", async (c) => {
 
 // GET /api/users/login-log?email=&page=&pageSize= - nhat ky dang nhap, Admin-only (khoa boi
 // middleware "*" o tren). Loc theo email neu co, sap theo thoi gian gan nhat.
+// GET /khu-vuc-theo-nuoc (2026-11-12): khu vuc cua tung nuoc KHAC VN dang bat (vd PH "MM"/"Retail") de Admin gan khu vuc phu trach /
+// duoc xem cho Giam sat nuoc do - man Phan quyen truoc chi lay /dashboard/filters (chi nuoc dang xem = VN). Moi nuoc 1 DISTINCT qua index
+// rieng cua nuoc (migration 0157 / quocGiaKichHoat), doc bang goc (khong qua proxy nuoc dang xem). Khu vuc VN van lay tu /dashboard/filters.
+users.get("/khu-vuc-theo-nuoc", async (c) => {
+  const db = dbGoc(c.env.DB);
+  const ds = (await dsQuocGiaKichHoat(db)).filter((m) => m !== QUOC_GIA_MAC_DINH && RE_MA_QUOC_GIA.test(m));
+  const kq: Record<string, string[]> = {};
+  if (ds.length) {
+    const res = await db.batch(
+      ds.map((qg) => db.prepare(`SELECT DISTINCT khu_vuc FROM case_dvbh WHERE quoc_gia = '${qg}' AND khu_vuc IS NOT NULL ORDER BY khu_vuc`)),
+    );
+    ds.forEach((qg, i) => {
+      kq[qg] = ((res[i].results ?? []) as { khu_vuc: string }[]).map((r) => r.khu_vuc);
+    });
+  }
+  return c.json({ nuoc: kq });
+});
+
 users.get("/login-log", async (c) => {
   const email = c.req.query("email")?.trim();
   const page = Math.max(1, Number(c.req.query("page") ?? 1));

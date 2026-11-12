@@ -5739,3 +5739,10 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   nước do Admin cấp ở `pham_vi_quoc_gia`). Sau này gán khu vực PH cho 1 người thì người đó vẫn bị giới hạn đúng khu vực PH.
 - Sửa giao diện: không hiện chip "Khu vực: MB1…" / không tự chọn khu vực VN khi xem nước khác; request nước khác bỏ bộ lọc khu vực chỉ gồm
   khu vực VN đã gán.
+
+## 2026-11-12 — v1.583: gán khu vực PH cho Giám sát PH
+
+- Màn "Phân quyền" trước chỉ liệt kê khu vực của nước Admin đang xem (VN) → không gán được khu vực PH. Nay chip khu vực (phụ trách + được xem)
+  nhóm theo nước: dòng VN + 1 dòng mỗi nước khác đang bật (PH có 2 khu vực hiện có), API mới `GET /api/users/khu-vuc-theo-nuoc`.
+- Khu vực đã gán nhưng không còn trong dữ liệu nước nào hiện ở nhóm "Khác" để bỏ chọn.
+- Phân quyền GS PH: gán khu vực PH + quyền quốc gia có PH → khi xem PH chỉ thấy đúng khu vực đó (logic v1.582 giữ khu vực thuộc nước đang xem).
