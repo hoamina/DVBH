@@ -13989,5 +13989,7 @@
  "{0} KTV": [
   "{0} techs",
   "{0} teknisi"
- ]
+ ],
+  "Lõi thường dùng:": ["Common cores:", "Inti yang umum:"],
+  "Bấm để thêm vào lõi đã thay": ["Click to add to replaced cores", "Klik untuk menambah ke inti yang diganti"]
 }

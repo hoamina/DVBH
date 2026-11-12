@@ -5722,3 +5722,6 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
 - Tab tương đương: thẻ tổng (MB/MN/kho khác/KTV cộng các mã tương đương) + bảng từng mã: tổng còn, MB, MN, kho khác, KTV giữ (số người),
   khu vực KTV có hàng, kho có hàng; mã đang xem tô xanh, mã còn hàng tô nền, mã đã tắt/ngoài danh mục có nhãn.
 - Bấm mã tương đương → mở hồ sơ mã đó trong cùng popup; "← Quay lại" / "⤒ Hồ sơ gốc" + dòng đường đi (A → B).
+
+- v1.580 (2026-11-12): tab NSKX - nút chọn nhanh 3 lõi thường dùng (2004020297 / 2004020299 / 2004020298 Lõi lọc thô KAROFI Smax Pro v1/v2/v3) trong form
+  "Lõi lọc đã thay"; ẩn mã đã có trong báo cáo linh kiện của KTV (`linh_kien_loi`) hoặc đã chọn. Bấm = thêm SL 1. Thử local ca SC261003410.

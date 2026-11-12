@@ -18,6 +18,12 @@ import { tr } from "../i18n/tr";
 import { DatLoiNskxModal } from "./DatLoiNskxModal";
 
 export const NSKX_DOI_TAC = ["NSKX", "[NSKX]"];
+// 3 loi thuong dung (chu he thong 2026-11-12): nut chon nhanh trong form danh gia, an ma da co trong bao cao linh kien cua KTV / da chon.
+const LOI_THUONG_DUNG: { ma: string; ten: string }[] = [
+  { ma: "2004020297", ten: "Lõi lọc thô KAROFI Smax Pro v 1" },
+  { ma: "2004020299", ten: "Lõi lọc thô KAROFI Smax Pro v 2" },
+  { ma: "2004020298", ten: "Lõi lọc thô KAROFI Smax Pro v 3" },
+];
 const LOAI_DE_XUAT_LOI = "HỖ TRỢ NGOÀI BẢO HÀNH TG12";
 const DON_HUY = ["TN tu choi", "Tu choi", "Da huy"];
 const donHuy = (o: LinhKienOrder) => DON_HUY.includes(o.trang_thai_hien_tai ?? "");
@@ -435,6 +441,26 @@ function XacNhanForm({
               ))}
             </div>
           )}
+          {(() => {
+            const nhanh = LOI_THUONG_DUNG.filter((l) => !tenTheoBaoCao.has(l.ma) && !ds.some((x) => x.ma_linh_kien === l.ma));
+            if (!nhanh.length) return null;
+            return (
+              <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                <span className="text-[var(--ink-500)]">{tr("Lõi thường dùng:")}</span>
+                {nhanh.map((l) => (
+                  <button
+                    key={l.ma}
+                    type="button"
+                    title={tr("Bấm để thêm vào lõi đã thay")}
+                    onClick={() => setDs([...ds, { ma_linh_kien: l.ma, so_luong: 1 }])}
+                    className="focus-ring rounded-full border border-[var(--ocean-300,#9cc9e0)] bg-[var(--ocean-50,#eef7fb)] px-2.5 py-1 hover:bg-[var(--ocean-100,#dcefF7)]"
+                  >
+                    + <span className="font-mono">{l.ma}</span> {tenTheoMa.get(l.ma) ?? l.ten}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
           <div className="flex items-center gap-2">
             <input
               type="text"
