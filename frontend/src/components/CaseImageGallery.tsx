@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AnhVideoOdooItem, SoLuongAnh } from "../types";
 import { tr } from "../i18n/tr";
 
@@ -84,10 +84,9 @@ const ZOOM_MIN = 1;
 const ZOOM_MAX = 6;
 const ZOOM_DBLCLICK = 2.5;
 
-// "Số lượng ảnh" (case_dvbh.so_luong_anh, migration 0143) - dem anh/video theo 5 nhom that cua Odoo.
-// Tu migration 0166 "anh_video_odoo" da co link xem duoc that su (xem parseAnhVideoOdoo ben duoi) -
-// cot nay van giu lam badge tom tat nhanh tong so, khong phai fallback nua. Tra null khi khong co/
-// khong hop le/tong = 0 (an badge).
+// "Số lượng ảnh" (case_dvbh.so_luong_anh, migration 0143) - dem anh/video theo 5 nhom that cua Odoo
+// (nguon Odoo CHUA co link anh xem duoc lau dai, xem types.ts) -> chi hien badge tom tat tong so, xem
+// CaseDetail.tsx. Tra null khi khong co/khong hop le/tong = 0 (an badge).
 export function parseSoLuongAnh(raw: string | null | undefined): SoLuongAnh | null {
   if (!raw) return null;
   try {
@@ -107,38 +106,8 @@ export function parseSoLuongAnh(raw: string | null | undefined): SoLuongAnh | nu
   }
 }
 
-// "Ảnh & Video Odoo" (case_dvbh.anh_video_odoo, migration 0166) - toan bo anh/video goc, "url" la
-// permalink on dinh cua Odoo (mo truc tiep duoc, khong can dang nhap Odoo). Dung voi CaseImageGallery
-// prop "extraItems" (isVideo suy tu mime_type vi URL khong co duoi file).
-export function parseAnhVideoOdoo(raw: string | null | undefined): AnhVideoOdooItem[] {
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.map((p, i) => ({ ...p, stt: Number(p?.stt) || i + 1 })) : [];
-  } catch {
-    return [];
-  }
-}
-
-// extraItems: nguon anh/video KHONG the suy loai (video/anh) tu duoi URL nhu link_hinh_anh - vd permalink
-// Odoo "ts/media/<token>" khong co duoi file. Dung "isVideo" (biet truoc tu mime_type) de render dung
-// <video>/<img> thay vi do doan qua DUOI_FILE_RE.
-export function CaseImageGallery({
-  linkHinhAnh,
-  extraItems,
-}: {
-  linkHinhAnh: string | null | undefined;
-  extraItems?: { url: string; isVideo?: boolean }[];
-}) {
-  const baseUrls = parseLinkHinhAnh(linkHinhAnh);
-  const videoSet = useMemo(() => new Set((extraItems ?? []).filter((i) => i.isVideo).map((i) => i.url)), [extraItems]);
-  const urls = useMemo(() => {
-    const seen = new Set(baseUrls);
-    const extra = (extraItems ?? []).map((i) => i.url).filter((u) => !seen.has(u));
-    return [...baseUrls, ...extra];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkHinhAnh, extraItems]);
-  const isVid = (url: string) => isVideoUrl(url) || videoSet.has(url);
+export function CaseImageGallery({ linkHinhAnh }: { linkHinhAnh: string | null | undefined }) {
+  const urls = parseLinkHinhAnh(linkHinhAnh);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
@@ -248,9 +217,9 @@ export function CaseImageGallery({
               type="button"
               onClick={() => setLightboxIndex(i)}
               className="focus-ring relative aspect-square rounded-lg border border-[var(--line)] overflow-hidden hover:opacity-80 transition-opacity"
-              title={`${isVid(url) ? "Video" : tr("Ảnh")} ${i + 1}/${urls.length}`}
+              title={`${isVideoUrl(url) ? "Video" : tr("Ảnh")} ${i + 1}/${urls.length}`}
             >
-              {isVid(url) ? (
+              {isVideoUrl(url) ? (
                 <>
                   <video
                     src={url}
@@ -305,7 +274,7 @@ export function CaseImageGallery({
             </button>
           )}
 
-          {isVid(urls[lightboxIndex]) ? (
+          {isVideoUrl(urls[lightboxIndex]) ? (
             <video
               key={urls[lightboxIndex]}
               src={urls[lightboxIndex]}
@@ -360,7 +329,7 @@ export function CaseImageGallery({
             className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 text-white text-xs bg-black/40 rounded-full px-3 py-1.5 z-10"
             onClick={(e) => e.stopPropagation()}
           >
-            {!isVid(urls[lightboxIndex]) && !brokenUrls.has(urls[lightboxIndex]) && (
+            {!isVideoUrl(urls[lightboxIndex]) && !brokenUrls.has(urls[lightboxIndex]) && (
               <>
                 <button
                   type="button"
@@ -415,11 +384,83 @@ export function CaseImageGallery({
               rel="noreferrer"
               className="underline font-semibold"
             >
-              {isVid(urls[lightboxIndex]) ? tr("Mở video gốc") : brokenUrls.has(urls[lightboxIndex]) ? tr("Mở qua CRM Media") : tr("Mở ảnh gốc")}
+              {isVideoUrl(urls[lightboxIndex]) ? tr("Mở video gốc") : brokenUrls.has(urls[lightboxIndex]) ? tr("Mở qua CRM Media") : tr("Mở ảnh gốc")}
             </a>
           </div>
         </div>
       )}
     </>
+  );
+}
+
+// "Ảnh & Video Odoo" (case_dvbh.anh_video_odoo, migration 0166) - toan bo anh/video cua phieu Odoo, "url" =
+// https://ocrm.happinno.com/ts/media/<public_token>. Da thu that 2026-11-12: link nay CAN phien dang nhap
+// OCRM (chua dang nhap -> 404; dang nhap -> chuyen huong sang link ky so prodktv.happinno.com het han ~15
+// phut), va cookie OCRM KHONG duoc gui khi nhung <img> tu trang khac ten mien -> nhung anh thang luon loi.
+// Vi vay chi hien dang LINK mo tab moi (dieu huong cap cao nhat thi cookie OCRM duoc gui), khong <img>.
+export function parseAnhVideoOdoo(raw: string | null | undefined): AnhVideoOdooItem[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((p) => p && typeof p.url === "string" && /^https?:\/\//i.test(p.url))
+      .map((p, i) => ({ ...p, stt: Number(p.stt) || i + 1 }));
+  } catch {
+    return [];
+  }
+}
+
+// Nhan nhom anh theo "kind" cua Odoo (khop 5 nhom cua so_luong_anh: in = ben trong, out = ben ngoai).
+const NHAN_KIND_ODOO: Record<string, string> = {
+  image_in: "Ảnh bên trong",
+  image_out: "Ảnh bên ngoài",
+  image_report: "Ảnh báo cáo",
+  image_serial: "Ảnh tem serial",
+  image_cancel: "Ảnh bằng chứng huỷ",
+  image_appointment: "Ảnh lịch hẹn",
+};
+
+function nhanKindOdoo(m: AnhVideoOdooItem): string {
+  const k = m.kind ?? "";
+  if (NHAN_KIND_ODOO[k]) return tr(NHAN_KIND_ODOO[k]);
+  if (k.startsWith("video") || (m.loai_file ?? "").startsWith("video/")) return "Video";
+  return k || tr("Ảnh");
+}
+
+function ngayGioNgan(s: string | null): string {
+  const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : "";
+}
+
+export function OdooMediaLinks({ items }: { items: AnhVideoOdooItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <div className="text-xs text-[var(--ink-500)] mb-1.5">
+        {tr("Ảnh & video Odoo — bấm để mở ở tab mới (cần đăng nhập OCRM)")}
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+        {items.map((m, i) => {
+          const laVideo = (m.loai_file ?? "").startsWith("video/") || (m.kind ?? "").startsWith("video");
+          const ngay = ngayGioNgan(m.ngay_tao);
+          return (
+            <a
+              key={`${m.url}-${i}`}
+              href={m.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={[nhanKindOdoo(m), m.ten_file, m.ngay_tao].filter(Boolean).join(" · ")}
+              className="focus-ring aspect-square rounded-lg border border-[var(--line)] bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-0.5 p-1 text-center text-[11px] text-[var(--ink-600)] transition-colors"
+            >
+              <span className="text-xl">{laVideo ? "🎬" : "🖼️"}</span>
+              <span className="font-semibold leading-tight">{nhanKindOdoo(m)}</span>
+              {ngay && <span className="text-[10px] text-[var(--ink-400)]">{ngay}</span>}
+              <span className="text-[10px] text-[var(--brand-600,#2563eb)]">↗ {tr("Mở")}</span>
+            </a>
+          );
+        })}
+      </div>
+    </div>
   );
 }

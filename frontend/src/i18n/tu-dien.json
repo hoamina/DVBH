@@ -13996,5 +13996,37 @@
  "Khác": [
   "Other",
   "Lainnya"
+ ],
+ "Ảnh bên trong": [
+  "Inside photo",
+  "Foto bagian dalam"
+ ],
+ "Ảnh bên ngoài": [
+  "Outside photo",
+  "Foto bagian luar"
+ ],
+ "Ảnh báo cáo": [
+  "Report photo",
+  "Foto laporan"
+ ],
+ "Ảnh tem serial": [
+  "Serial label photo",
+  "Foto label serial"
+ ],
+ "Ảnh bằng chứng huỷ": [
+  "Cancellation evidence photo",
+  "Foto bukti pembatalan"
+ ],
+ "Ảnh lịch hẹn": [
+  "Appointment photo",
+  "Foto janji temu"
+ ],
+ "Ảnh & video Odoo — bấm để mở ở tab mới (cần đăng nhập OCRM)": [
+  "Odoo photos & videos — click to open in a new tab (OCRM login required)",
+  "Foto & video Odoo — klik untuk membuka di tab baru (perlu login OCRM)"
+ ],
+ "Mở": [
+  "Open",
+  "Buka"
  ]
 }

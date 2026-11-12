@@ -50,8 +50,8 @@ export const ODOO_BO_SUNG_FIELDS = ["hien_tuong_odoo", "sla_odoo", "bao_hanh_nha
 // "anh_video_odoo" (2026-11-12, migration 0166): GOM het moi nhom anh/video (ben trong/ngoai/bao cao/
 // tem serial/bang chung huy, video, anh linh kien hong, anh bang chung lich hen...) thanh 1 mang JSON
 // - "media_url" cua Odoo la permalink ON DINH (public_token luu co dinh trong DB), khong phai link ky
-// so het han nhu "so_luong_anh" (chi dem so luong) tung gia dinh - nen luu duoc link that, mo truc
-// tiep tu UI. Thay the/bo sung cho so_luong_anh (van giu ca 2, so_luong_anh la ban dem nhanh).
+// so het han - nen luu duoc link that. Mo link CAN phien dang nhap OCRM (UI hien link mo tab moi, khong
+// nhung anh duoc). Thay the/bo sung cho so_luong_anh (van giu ca 2, so_luong_anh la ban dem nhanh).
 export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat", "ghi_chu_loai_dv", "so_gio_xu_ly_klt", "dung_han_klt", "anh_video_odoo", ...ODOO_BO_SUNG_FIELDS] as const;
 
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan

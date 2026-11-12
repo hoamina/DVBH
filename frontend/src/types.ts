@@ -735,7 +735,7 @@ export interface SoLuongAnh {
 }
 
 // 1 file anh/video tu Odoo (case_dvbh.anh_video_odoo, migration 0166) - "url" la permalink ON DINH
-// (public_token Odoo), mo truc tiep duoc. Xem components/CaseImageGallery.tsx parseAnhVideoOdoo().
+// (public_token Odoo), mo can dang nhap OCRM -> UI chi hien link mo tab moi. Xem components/CaseImageGallery.tsx parseAnhVideoOdoo().
 export interface AnhVideoOdooItem {
   stt: number;
   kind: string | null; // vd image_in/image_out/image_report/image_serial/image_cancel/video_after_close...

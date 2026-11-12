@@ -13,7 +13,7 @@ import { Tabs, type TabItem } from "../components/ui/Tabs";
 import { Modal } from "../components/ui/Modal";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { CacheBanner } from "../components/ui/CacheBanner";
-import { CaseImageGallery, parseAnhVideoOdoo, parseLinkHinhAnh, parseSoLuongAnh } from "../components/CaseImageGallery";
+import { CaseImageGallery, OdooMediaLinks, parseAnhVideoOdoo, parseLinkHinhAnh, parseSoLuongAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
@@ -555,8 +555,8 @@ function renderCaseFieldsGrid(
       )}
     </div>
   );
-  // "Ảnh & Video Odoo" (migration 0166) gop chung vao CUNG gallery voi link_hinh_anh (QuickSight) -
-  // isVideo suy tu mime_type (loai_file) vi permalink Odoo khong co duoi file de tu nhan dien.
+  // "Ảnh & Video Odoo" (migration 0166): link OCRM can phien dang nhap OCRM, khong nhung <img> duoc tu ten
+  // mien nay -> hien rieng duoi gallery dang o link mo tab moi (xem OdooMediaLinks).
   const anhVideoOdoo = parseAnhVideoOdoo(c.anh_video_odoo);
   const soAnhTong = parseLinkHinhAnh(c.link_hinh_anh).length + anhVideoOdoo.length;
   const hinhAnhSection = (
@@ -564,10 +564,8 @@ function renderCaseFieldsGrid(
       <div className="font-display font-bold text-sm mb-3">
         {tr("Hình ảnh báo cáo công việc")}{soAnhTong > 0 && ` (${soAnhTong})`}
       </div>
-      <CaseImageGallery
-        linkHinhAnh={c.link_hinh_anh}
-        extraItems={anhVideoOdoo.map((m) => ({ url: m.url, isVideo: (m.loai_file ?? "").startsWith("video/") }))}
-      />
+      {(parseLinkHinhAnh(c.link_hinh_anh).length > 0 || anhVideoOdoo.length === 0) && <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />}
+      <OdooMediaLinks items={anhVideoOdoo} />
     </>
   );
   const coPhi = hien("Thu phí") && coPhiOdoo(c);

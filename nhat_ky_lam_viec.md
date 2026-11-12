@@ -5746,3 +5746,13 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   nhóm theo nước: dòng VN + 1 dòng mỗi nước khác đang bật (PH có 2 khu vực hiện có), API mới `GET /api/users/khu-vuc-theo-nuoc`.
 - Khu vực đã gán nhưng không còn trong dữ liệu nước nào hiện ở nhóm "Khác" để bỏ chọn.
 - Phân quyền GS PH: gán khu vực PH + quyền quốc gia có PH → khi xem PH chỉ thấy đúng khu vực đó (logic v1.582 giữ khu vực thuộc nước đang xem).
+
+## 2026-11-12 — Ảnh & video Odoo trong chi tiết ca (v1.584)
+
+Thử thật link `https://ocrm.happinno.com/ts/media/<public_token>`: chưa đăng nhập OCRM → 404; đã đăng nhập → chuyển
+hướng sang `prodktv.happinno.com/api/odoo-media?key=…&exp=…&sig=…` (ảnh JPEG, xem không cần cookie nhưng hết hạn ~15 phút,
+CSP `frame-ancestors 'self'` nên không iframe được). Nhúng `<img>` link OCRM từ tên miền khác → lỗi cả 5 ảnh dù đang đăng
+nhập (cookie phiên OCRM không gửi khi nhúng chéo trang). Vì vậy cột `anh_video_odoo` (migration 0166, commit 28b50ec) KHÔNG
+gộp vào gallery `<img>` nữa: `OdooMediaLinks` (CaseImageGallery.tsx) hiện mỗi ảnh/video là 1 ô link mở tab mới, có nhãn
+nhóm (bên trong/bên ngoài/báo cáo/tem serial/bằng chứng huỷ/lịch hẹn) + giờ tạo. Muốn xem ngay trong ca thì cần Worker xin
+link ký số bằng 1 tài khoản OCRM chỉ xem, hoặc Happinno bật xem công khai/cấp API — chưa làm.
