@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { hauToPhamVi } from "../lib/phamVi";
+import { coNhomDvbh, hauToPhamVi, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
@@ -136,7 +136,9 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useLocalStorageState("filters:ca-lap-view", "tong-quan");
-  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:ca-lap-khu-vuc", "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useLocalStorageState("filters:ca-lap-khu-vuc", "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   const [thang, setThang] = useLocalStorageState("filters:ca-lap-thang", new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
   const [trangThai, setTrangThai] = useLocalStorageState("filters:ca-lap-trang-thai", role === "Giam sat" ? "can-danh-gia" : role === "QC" ? "cho-qc" : "");
   const [page, setPage] = useState(1);
@@ -453,7 +455,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
       }}
       options={[
         { value: "", label: tr("Tất cả khu vực") },
-        { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
+        ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []),
         ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
       ]}
       myAreas={myAreas}

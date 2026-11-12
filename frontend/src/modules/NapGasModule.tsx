@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
@@ -85,7 +86,9 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
   const [view, setView] = useLocalStorageState("filters:nap-gas-view", "tong-quan");
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:nap-gas-khu-vuc", "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useLocalStorageState("filters:nap-gas-khu-vuc", "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   const [reportDim, setReportDim] = useLocalStorageState("filters:nap-gas-report-dim", "khu_vuc");
   const [drillDim, setDrillDim] = useState("khu_vuc");
   const [drillValue, setDrillValue] = useState("");
@@ -219,7 +222,7 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
       }}
       options={[
         { value: "", label: tr("Tất cả khu vực") },
-        { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
+        ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []),
         ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
       ]}
       myAreas={myAreas}

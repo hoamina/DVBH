@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { dl } from "../lib/banDichDuLieu";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -427,7 +428,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     setPage(1);
   }
 
-  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:survey-khu-vuc", "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useLocalStorageState("filters:survey-khu-vuc", "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   // Thang cho "Danh sach chi tiet" (tab can-khao-sat/qua-han-khao-sat) - CHOT 2026-08-02: gioi han
   // theo thoi_gian_cskh_tiep_nhan (thoi diem mo ca), xem GET /survey/candidates. Khong anh huong
   // cho-qc/da-xu-ly (khac nguon du lieu, van khong gioi han thang nhu truoc).
@@ -988,7 +991,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
           }}
           options={[
             { value: "", label: tr("Tất cả khu vực") },
-            { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
+            ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []),
             ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
           myAreas={myAreas}

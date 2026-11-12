@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { dl } from "../lib/banDichDuLieu";
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -219,7 +220,9 @@ export function TranhChapModule({
 
   const [view, setView] = useLocalStorageState("filters:tranh-chap-view", "cho-xu-ly");
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:tranh-chap-khu-vuc", "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useLocalStorageState("filters:tranh-chap-khu-vuc", "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   // CHOT 2026-08-20: bo loc "Tinh" (chon nhieu tinh cung luc) - chi luu localStorage phia client,
   // khong can dong bo server (giong moi bo loc khac cua module nay, xem useLocalStorageState).
   const [tinhFilter, setTinhFilter] = useLocalStorageState("filters:tranh-chap-tinh", "");
@@ -650,7 +653,7 @@ export function TranhChapModule({
 
   const khuVucSelectOptions = [
     { value: "", label: tr("Tất cả khu vực") },
-    { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
+    ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []),
     ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
   ];
 

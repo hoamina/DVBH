@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { dl } from "../lib/banDichDuLieu";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -98,7 +99,9 @@ export function SurveyCallWorkspace({
   const addToast = useToast();
   const qc = useQueryClient();
 
-  const [khuVucFilter, setKhuVucFilter] = useState(initialKhuVuc ?? "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useState(initialKhuVuc ?? "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   // CHOT 2026-08-02: hang doi gioi han theo thang mo ca (thoi_gian_cskh_tiep_nhan) - mac dinh thang
   // hien tai, xem hooks/useSurveyCandidates.ts + backend/src/routes/survey.ts GET /candidates.
   const [thang, setThang] = useState(new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
@@ -594,7 +597,7 @@ export function SurveyCallWorkspace({
             setKhuVucFilter(v);
             setIndex(0);
           }}
-          options={[{ value: "", label: tr("Tất cả khu vực") }, { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }, ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? [])]}
+          options={[{ value: "", label: tr("Tất cả khu vực") }, ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []), ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? [])]}
           myAreas={myAreas}
         />
         <Select

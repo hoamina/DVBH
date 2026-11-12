@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useMemo, useState } from "react";
 import { dl } from "../lib/banDichDuLieu";
 import { createPortal } from "react-dom";
@@ -534,7 +535,9 @@ export function MissingPartsModule({
   const [view, setView] = useLocalStorageState("filters:missing-parts-view", "bao-cao");
   const [trangThai, setTrangThai] = useLocalStorageState("filters:missing-parts-trang-thai", "dang-ton");
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:missing-parts-khu-vuc", "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useLocalStorageState("filters:missing-parts-khu-vuc", "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   // CHOT 2026-08-12: bo loc chung "Model"/"Doi tac" - doc lap voi reportDim (dim CHI dung de nhom
   // bang pivot/drill-down, khong phai bo loc dai han) - ap dung dong thoi cho ca bao cao pivot lan
   // "Danh sach chi tiet", giong y nghia cua khuVucFilter.
@@ -829,7 +832,7 @@ export function MissingPartsModule({
               }}
               options={[
                 { value: "", label: tr("Tất cả khu vực") },
-                { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
+                ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []),
                 ...(khuVucOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
               ]}
               myAreas={myAreas}

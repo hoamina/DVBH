@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useQuery } from "@tanstack/react-query";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "./KhuVucFilterControl";
@@ -37,9 +38,11 @@ export function FilterBar({
     queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
   });
 
+  // Nuoc khac VN: "Tất cả DVBH" hien nhu "Tất cả khu vực" (request da bo khu_vuc nay o api/client.ts).
+  const khuVucHienThi = useKhuVucHieuLuc(filters.khu_vuc, ALL_KHU_VUC);
   const khuVucOptions = [
     ALL_KHU_VUC,
-    { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả QLDVBH (MB/MN...)") },
+    ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả QLDVBH (MB/MN...)") }] : []),
     ...(data?.khuVuc ?? []).map((k) => ({ value: k, label: k })),
   ];
   // Chot 2026-07-24: chi cho chon 1 thang co dinh, khong con tuy chon "Tat ca cac thang" (lap he
@@ -49,7 +52,7 @@ export function FilterBar({
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
-      <KhuVucFilterControl value={filters.khu_vuc} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
+      <KhuVucFilterControl value={khuVucHienThi} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
       <Select value={filters.hang} onChange={(v) => setFilters({ ...filters, hang: v })} options={[ALL_HANG, ...(data?.hang ?? [])]} />
       <Select value={filters.thang} onChange={(v) => setFilters({ ...filters, thang: v })} options={thangOptions} />
       {onExport && (

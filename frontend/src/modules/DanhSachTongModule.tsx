@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
@@ -48,7 +49,9 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
   const [tab, setTab] = useLocalStorageState("filters:danh-sach-tong-tab", TABS[0].key);
   const [thang, setThang] = useLocalStorageState("filters:danh-sach-tong-thang", currentMonthValue());
   const [page, setPage] = useState(1);
-  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:danh-sach-tong-khu-vuc", "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useLocalStorageState("filters:danh-sach-tong-khu-vuc", "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   const [hangFilter, setHangFilter] = useLocalStorageState("filters:danh-sach-tong-hang", "");
   const [idSearch, setIdSearch] = useState("");
 
@@ -177,7 +180,7 @@ export function DanhSachTongModule({ openCase }: { openCase: (id: string) => voi
           }}
           options={[
             { value: "", label: tr("Tất cả khu vực") },
-            { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
+            ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []),
             ...(filterOptions?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
           ]}
           myAreas={myAreas}

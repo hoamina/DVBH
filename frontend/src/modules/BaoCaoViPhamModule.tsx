@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "../components/ui/Card";
@@ -304,9 +305,11 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
     queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
   });
 
+  // Nuoc khac VN: "Tất cả DVBH" hien nhu "Tất cả khu vực" (request da bo khu_vuc nay o api/client.ts).
+  const khuVucHienThi = useKhuVucHieuLuc(filters.khu_vuc, ALL_KHU_VUC);
   const khuVucOptions = [
     ALL_KHU_VUC,
-    { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả QLDVBH (MB/MN...)") },
+    ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả QLDVBH (MB/MN...)") }] : []),
     ...(filterOptions?.khuVuc ?? []).map((k) => ({ value: k, label: k })),
   ];
   const thangOptions = [{ value: CURRENT_MONTH_VALUE, label: tr("Tháng hiện tại") }, ...(monthOptions?.months ?? [])];
@@ -411,7 +414,7 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
   return (
     <div className="anim-in">
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <KhuVucFilterControl value={filters.khu_vuc} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
+        <KhuVucFilterControl value={khuVucHienThi} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
         <Select value={filters.ky_thuat_vien} onChange={(v) => setFilters({ ...filters, ky_thuat_vien: v })} options={ktvOptions} />
         <Select value={filters.nhom_kh} onChange={(v) => setFilters({ ...filters, nhom_kh: v })} options={nhomKhOptions} />
         <Select value={filters.nguon_crm} onChange={(v) => setFilters({ ...filters, nguon_crm: v })} options={[ALL_NGUON_CRM, { value: "crm_3t", label: "CRM 3T" }, { value: "crm_krf", label: "CRM KRF" }]} />

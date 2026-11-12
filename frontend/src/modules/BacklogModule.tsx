@@ -1,3 +1,4 @@
+import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useEffect, useMemo, useState } from "react";
 import { dl } from "../lib/banDichDuLieu";
 import { createPortal } from "react-dom";
@@ -1091,7 +1092,9 @@ export function BacklogModule({
 
   // CHOT 2026-08-01: bo het bo loc phu (tinh/doi tac/hang/model/nhom KH/nganh/KTV) khoi thanh loc
   // chung (sharedFilterParams) theo yeu cau - chi con giu lai khu_vuc o do.
-  const [khuVucFilter, setKhuVucFilter] = useLocalStorageState("filters:backlog-khu-vuc", "");
+  const [khuVucFilterLuu, setKhuVucFilter] = useLocalStorageState("filters:backlog-khu-vuc", "");
+  // Nuoc khac VN: "Tất cả DVBH" = "Tất cả khu vực" (lib/phamVi.ts khuVucHieuLuc), gia tri da luu giu nguyen.
+  const khuVucFilter = useKhuVucHieuLuc(khuVucFilterLuu);
   // CHOT 2026-08-01: rieng KTV duoc them LAI nhung CHI cho tab "Danh sach chi tiet" (khong dua vao
   // sharedFilterParams - khong anh huong isDefaultBacklogFilter/isFrozenEligible cua khoi Bao cao).
   // 2026-11-10: loc kieu Excel tren tieu de cot + thanh "Bộ lọc" (thay cho 2 o KTV / Nhom KH cu) - gui len server qua "loc_cot"
@@ -1918,7 +1921,7 @@ export function BacklogModule({
             onChange={setKhuVucFilter}
             options={[
               { value: "", label: tr("Tất cả khu vực") },
-              { value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") },
+              ...(coNhomDvbh() ? [{ value: QLDVBH_FILTER_VALUE, label: tr("Tất cả DVBH (MB/MN...)") }] : []),
               ...(filtersData?.khuVuc.map((k) => ({ value: k, label: k })) ?? []),
             ]}
             myAreas={myAreas}

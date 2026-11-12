@@ -111,3 +111,21 @@ export function locTheoPhamVi<T>(rows: T[], laNskx: (r: T) => boolean, v: PhamVi
   if (v === "tat_ca") return rows;
   return rows.filter((r) => laNskx(r) === (v === "nskx"));
 }
+
+/*
+ * Bo loc khu vuc "Tất cả DVBH (MB/MN...)" (gia tri ao "__QLDVBH__" = khu_vuc co chua "qldvbh") CHI co y nghia voi VN:
+ * nuoc khac co khu vuc rieng (PH: "MM", "Retail"...) nen loc nay ra 0 ca (loi 2026-11-12: PH "Quản lý tồn" hien 0 du co 56
+ * ca ton). Khi dang xem nuoc khac VN: an lua chon nay va coi nhu "Tất cả khu vực" - KHONG ghi de gia tri da luu, quay lai VN
+ * van la "Tất cả DVBH". api/client.ts con bo "khu_vuc=__QLDVBH__" khoi request cua nuoc khac lam chot chan cuoi.
+ */
+export const GIA_TRI_NHOM_DVBH = "__QLDVBH__"; // = constants.ts QLDVBH_FILTER_VALUE (khong import de tranh vong phu thuoc)
+export function coNhomDvbh(qg: string | null = quocGiaHienTai()): boolean {
+  return qg === null || qg === QUOC_GIA_CO_NSKX;
+}
+/** Gia tri khu vuc dung that (nuoc khac VN + "Tất cả DVBH" -> macDinh = gia tri "Tất cả khu vực" cua man do). */
+export function khuVucHieuLuc(v: string, macDinh = "", qg: string | null = quocGiaHienTai()): string {
+  return v === GIA_TRI_NHOM_DVBH && !coNhomDvbh(qg) ? macDinh : v;
+}
+export function useKhuVucHieuLuc(v: string, macDinh = ""): string {
+  return khuVucHieuLuc(v, macDinh, useQuocGiaDangXem());
+}

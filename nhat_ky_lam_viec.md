@@ -5686,3 +5686,10 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   Dự kiến = ngày dự kiến gần nhất sớm nhất của PO đang chờ; về gần nhất = `ngay_ve_dung_kho` app EO (mới map thành `ngayVeDungKho`) hoặc ngày về thực tế/phiếu nhập AMIS;
   NM cam kết = của PO có dự kiến sớm nhất, không có thì PO đang chờ gần nhất có nhập. Tính ở trình duyệt → không lọc/sắp xếp theo cột được (như "SL đơn mua").
   Helper PO (`poBiHuy/poDangCho/poNgayVe`) chuyển từ HoSoLinhKien sang lib dùng chung.
+
+## 2026-11-12 — v1.576: PH "Quản lý tồn" hiện 0 tồn do bộ lọc "Tất cả DVBH (MB/MN...)"
+
+- Triệu chứng: chọn quốc gia PH, Quản lý tồn toàn 0. DB có 131 ca PH (56 đang tồn), view/bảng `_ph` đủ, số chốt 07:40 có 56 → dữ liệu đúng.
+  Nguyên nhân: bộ lọc khu vực (lưu localStorage theo màn, không theo nước) đang là "Tất cả DVBH" = khu vực chứa "qldvbh"; ca PH khu vực "MM"/"Retail" → bị lọc hết.
+- Sửa (10 màn có lựa chọn này + FilterBar): nước ≠ VN thì ẩn "Tất cả DVBH" và coi như "Tất cả khu vực" (`lib/phamVi.ts coNhomDvbh / useKhuVucHieuLuc`),
+  giá trị đã lưu giữ nguyên (quay lại VN vẫn là "Tất cả DVBH"); `api/client.ts` bỏ `khu_vuc=__QLDVBH__` khỏi GET của nước khác làm chốt chặn.

@@ -1,4 +1,4 @@
-import { phamViHienTai, quocGiaHienTai } from "../lib/phamVi";
+import { coNhomDvbh, phamViHienTai, quocGiaHienTai } from "../lib/phamVi";
 
 const BASE = "/api";
 
@@ -12,6 +12,8 @@ function ganPhamVi(path: string, init?: RequestInit): string {
   if (init?.method && init.method !== "GET") return path;
   const them: string[] = [];
   const qg = quocGiaHienTai();
+  // Nuoc khac VN khong co nhom "Tất cả DVBH" (lib/phamVi.ts khuVucHieuLuc) - bo khu_vuc=__QLDVBH__ = "Tất cả khu vực".
+  if (!coNhomDvbh(qg)) path = path.replace(/([?&])khu_vuc=__QLDVBH__(&|$)/, (_m, a: string, b: string) => (b ? a : "")).replace(/\?$/, "");
   if (qg && !KHONG_GAN_QUOC_GIA.test(path)) them.push(`qg=${encodeURIComponent(qg)}`);
   const pv = phamViHienTai();
   if (pv !== "tat_ca" && !KHONG_GAN_PHAM_VI.test(path)) them.push(`pv=${pv}`);
