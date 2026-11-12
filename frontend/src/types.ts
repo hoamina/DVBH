@@ -100,6 +100,18 @@ export interface CaseRow {
   // tinh "SL don mua" (BacklogModule.tsx, khop logic voi matchMuaHang() dang dung o CaseDetail.tsx).
   last_ma_linh_kien_thieu?: string | null;
   last_ma_xuat_hang_lien_quan?: string | null;
+  // "ID đặt hàng gần nhất" (backend lib/donLkGanNhat.ts, bang don_lk_gan_nhat, 2026-11-12) - chi co voi ca dang ton thieu LK.
+  don_lk_id?: string | null;
+  don_lk_trang_thai?: string | null;
+  don_lk_ngay_dat?: string | null;
+  don_lk_ngay_duyet?: string | null;
+  don_lk_ngay_xuat?: string | null;
+  don_lk_ngay_ktv_nhan?: string | null;
+  don_lk_nguon?: string | null;
+  don_lk_khop_ma_lk?: number | null;
+  don_lk_ma_lk?: string | null;
+  don_lk_so_don?: number | null;
+  don_lk_cap_nhat_luc?: string | null;
   last_noi_dung_giai_trinh?: string | null;
   // "Danh sach chi tiet" (BacklogModule.tsx), them 2026-08-22 - tai dung dung logic trang thai/tuoi
   // cua module Tranh chap (xem CASE_TRANH_CHAP_STATUS_EXPR o backend). "Chua xu ly" = ca chua tung co

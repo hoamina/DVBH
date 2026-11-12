@@ -1131,6 +1131,43 @@ export function BacklogModule({
   // 2026-11-11: 3 cot ngay hang ve theo KV cho ca co "Mã linh kiện thiếu" - doi chieu PO dat hang (cung nguon menu Thiếu linh kiện).
   const poTheoMaLk = useMemo(() => indexPoTheoMaLk(poDatHang), [poDatHang]);
   const ngayHangVe = (c: CaseRow) => ngayHangVeTheoKv(c.last_ma_linh_kien_thieu, c.khu_vuc, poTheoMaLk);
+  // "ID đặt hàng gần nhất" (2026-11-12): nguon chinh = don linh-kien-app da luu server (don_lk_*, cap nhat moi gio + khi mo ca).
+  // Ca chua co don tren app ma "Mã xuất hàng liên quan" cua giai trinh trung 1 ID tren Google Sheet mua hang cu (AppSheet) -> hien
+  // tam tu sheet (chi o trinh duyet, khong loc/sap xep server duoc).
+  const muaHangTheoId = useMemo(() => new Map(muaHang.map((r) => [r.id, r])), [muaHang]);
+  const donLk = (c: CaseRow) => {
+    if (!c.last_ma_linh_kien_thieu) return null;
+    if (c.don_lk_id) {
+      const nguon = c.don_lk_nguon === "giai_trinh" ? tr("mã ghi trong giải trình") : c.don_lk_nguon === "lada" ? tr("khớp ID Lada") : tr("đơn ghi mã ca");
+      return {
+        id: c.don_lk_id,
+        trangThai: c.don_lk_trang_thai ?? "",
+        ngayDat: fmtDateTime(c.don_lk_ngay_dat),
+        ngayDuyet: c.don_lk_ngay_duyet ? fmtDateTime(c.don_lk_ngay_duyet) : "",
+        ngayXuat: c.don_lk_ngay_xuat ? fmtDateTime(c.don_lk_ngay_xuat) : "",
+        sheet: false,
+        title: [
+          tr("Nguồn: {0}", nguon),
+          tr("Mã LK của đơn: {0}", c.don_lk_ma_lk ?? "") + (c.don_lk_khop_ma_lk ? "" : " " + tr("(khác mã LK thiếu {0})", c.last_ma_linh_kien_thieu)),
+          tr("Số đơn của ca: {0}", String(c.don_lk_so_don ?? 0)),
+          c.don_lk_ngay_ktv_nhan ? tr("KTV nhận: {0}", fmtDateTime(c.don_lk_ngay_ktv_nhan)) : "",
+          tr("Cập nhật: {0}", fmtDateTime(c.don_lk_cap_nhat_luc)),
+        ].filter(Boolean).join("\n"),
+      };
+    }
+    const ma = (c.last_ma_xuat_hang_lien_quan ?? "").trim();
+    const r = ma ? muaHangTheoId.get(ma) : undefined;
+    if (!r) return null;
+    return {
+      id: r.id,
+      trangThai: r.trangThaiGuiHang || r.trangThaiDuyet || "",
+      ngayDat: r.ngayTao ?? "",
+      ngayDuyet: r.ngayXacNhan ?? "",
+      ngayXuat: r.ngayKhoXacNhan ?? "",
+      sheet: true,
+      title: tr("Nguồn: Google Sheet mua hàng cũ (mã ghi trong giải trình)"),
+    };
+  };
   // CHOT 2026-08-11: cac the so o tab "Bao cao" (vd "Tong can giai trinh") co the doi CHI VI thoi
   // gian troi qua (1 ca vuot moc tuoi ton 3/5/7/14 ngay) hoac do NGUOI KHAC thao tac (giai trinh 1 ca,
   // import CRM...) - khong co mutation cuc bo nao de invalidateQueries khi do, nen neu nguoi dung cu
@@ -1533,6 +1570,11 @@ export function BacklogModule({
     ngay_hang_ve_du_kien_kv: "Ngày hàng về dự kiến theo KV",
     ngay_ve_gan_nhat_kv: "Ngày về gần nhất theo KV",
     ngay_nm_cam_ket: "Ngày NM cam kết có hàng",
+    don_lk_id: "ID đặt hàng gần nhất",
+    don_lk_trang_thai: "Trạng thái đơn hàng",
+    don_lk_ngay_dat: "Ngày đặt hàng",
+    don_lk_ngay_duyet: "Ngày duyệt đơn",
+    don_lk_ngay_xuat: "Ngày xuất hàng",
   };
 
   // Nhan cot cho bang pivot "Bao cao ton theo ..." - khop dung thead cua bang o duoi (cot "nhom" doi
@@ -1570,8 +1612,14 @@ export function BacklogModule({
     // xuat, giu nguyen cac cot con lai tu API.
     const enriched = all.rows.map((r) => {
       const nv = ngayHangVe(r);
+      const dl = donLk(r);
       return {
       ...r,
+      don_lk_id: dl?.id ?? null,
+      don_lk_trang_thai: dl?.trangThai || null,
+      don_lk_ngay_dat: dl?.sheet ? dl.ngayDat : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_dat : null) ?? null,
+      don_lk_ngay_duyet: dl?.sheet ? dl.ngayDuyet : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_duyet : null) ?? null,
+      don_lk_ngay_xuat: dl?.sheet ? dl.ngayXuat : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_xuat : null) ?? null,
       ngay_hang_ve_du_kien_kv: nv.duKien,
       ngay_ve_gan_nhat_kv: nv.veGanNhat,
       ngay_nm_cam_ket: nv.nmCamKet,
@@ -1757,6 +1805,37 @@ export function BacklogModule({
             <span className="text-xs whitespace-nowrap" title={tr("Mã linh kiện thiếu: {0}", c.last_ma_linh_kien_thieu ?? "")}>{v}</span>
           ) : (
             <span className="text-[var(--ink-400)] text-xs">—</span>
+          );
+        },
+      }),
+    ),
+    // 2026-11-12 (chu he thong): "ID đặt hàng gần nhất" + trang thai / ngay dat / duyet / xuat cua don do (backend lib/donLkGanNhat.ts).
+    // Loc + sap xep tren server (COT_LOC don_lk_*). Dong lay tu Google Sheet cu (chu xam, nghieng) chi hien, khong loc duoc.
+    ...(
+      [
+        ["don_lk_id", tr("ID đặt hàng gần nhất"), "id", "text"],
+        ["don_lk_trang_thai", tr("Trạng thái đơn hàng"), "trangThai", "list"],
+        ["don_lk_ngay_dat", tr("Ngày đặt hàng"), "ngayDat", "date"],
+        ["don_lk_ngay_duyet", tr("Ngày duyệt đơn"), "ngayDuyet", "date"],
+        ["don_lk_ngay_xuat", tr("Ngày xuất hàng"), "ngayXuat", "date"],
+      ] as const
+    ).map(
+      ([key, header, f, filter]): Column<CaseRow> => ({
+        key,
+        header,
+        sortKey: key,
+        filter,
+        render: (c) => {
+          const d = donLk(c);
+          const v = d?.[f];
+          if (!d || !v || v === "—") return <span className="text-[var(--ink-400)] text-xs">—</span>;
+          return (
+            <span
+              className={`text-xs whitespace-nowrap ${f === "id" ? "font-mono" : ""} ${d.sheet ? "italic text-[var(--ink-400)]" : ""}`}
+              title={d.title}
+            >
+              {v}
+            </span>
           );
         },
       }),

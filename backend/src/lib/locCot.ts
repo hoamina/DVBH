@@ -57,6 +57,20 @@ export const COT_LOC: Record<string, { expr: string; kieu: Kieu }> = {
   last_ngay_giai_trinh: { expr: "lg.ngay_giai_trinh", kieu: "date" },
   last_noi_dung_giai_trinh: { expr: "lg.noi_dung", kieu: "text" },
   last_ma_linh_kien_thieu: { expr: "lg.linh_kien_thieu", kieu: "list" },
+  // "ID đặt hàng gần nhất" (lib/donLkGanNhat.ts, 2026-11-12) - subquery theo khoa chinh, chi chay khi dang loc/sap xep cot nay.
+  // Dieu kien "lg.linh_kien_thieu" de khop dung cai dang hien (frontend chi hien khi ca co ma LK thieu).
+  ...Object.fromEntries(
+    ([
+      ["don_lk_id", "don_id", "text"],
+      ["don_lk_trang_thai", "trang_thai", "list"],
+      ["don_lk_ngay_dat", "ngay_dat", "date"],
+      ["don_lk_ngay_duyet", "ngay_duyet", "date"],
+      ["don_lk_ngay_xuat", "ngay_xuat", "date"],
+    ] as const).map(([k, cot, kieu]) => [
+      k,
+      { expr: `(CASE WHEN COALESCE(lg.linh_kien_thieu, '') <> '' THEN (SELECT x.${cot} FROM don_lk_gan_nhat x WHERE x.case_id = c.id) END)`, kieu },
+    ]),
+  ),
 };
 
 /** Cot "Nhom ton": gia tri = key need_* (khop NHOM_TON_BADGES frontend) -> dieu kien NEED_* tuong ung (OR). */

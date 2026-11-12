@@ -221,6 +221,14 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     Every call logged in `nskx_dat_loi_log`. Single (tab NSKX) and bulk (v1.572: button in the list toolbar, `GET /dat-loi/ung-vien` takes the SAME filters as `/danh-sach`
     via shared `whereTheoLoc`, ≤500 cases; a Giám sát whose list includes cases outside `khu_vuc_phu_trach` is asked whether to include
     them; the preview always runs kiem-tra (≤20 slips) and groups lines per KTV with a per-core summary).
+  - `lib/donLkGanNhat.ts` (2026-11-12, migration 0164 `don_lk_gan_nhat`, v1.577) — Quản lý tồn > Danh sách chi tiết cột "ID đặt hàng
+    gần nhất" + trạng thái / ngày đặt / duyệt / xuất hàng cho ca đang tồn có "Mã linh kiện thiếu" ở giải trình gần nhất. Kéo từ linh-kien-app
+    `POST /api/partner/v1/don-gan-nhat-theo-ca` (bên đó chọn 1 đơn/ca: bỏ trả hàng/từ chối/huỷ, ưu tiên đúng mã LK thiếu kể cả mã thay thế,
+    rồi mới nhất; khớp mã ca > ID Lada > mã `DDH-…` trong "Mã xuất hàng liên quan"). Mỗi giờ 8h–18h (piggyback `DAILY_SNAPSHOT_CRON`) chỉ hỏi
+    ca chưa có dòng / đơn chưa kết thúc / đổi mã LK; 08:00 hỏi lại tất cả + xoá dòng ca hết là ứng viên; mở chi tiết ca (`/:id/linh-kien-timeline`)
+    làm mới ca đó. Chỉ ghi dòng có cột đổi; lỗi giữ dữ liệu cũ (tóm tắt ở `cai_dat_he_thong` `don_lk_gan_nhat_dong_bo`). List đọc bảng theo khoá
+    chính cho đúng các ca của trang (`layDuCotCa`), lọc/sắp xếp qua `COT_LOC` `don_lk_*` (subquery). Ca chưa có đơn trên app mà mã trong giải trình
+    trùng ID Google Sheet mua hàng cũ → frontend hiện tạm từ sheet (nghiêng, không lọc server).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -465,7 +473,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0162`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0164`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

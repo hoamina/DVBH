@@ -13797,5 +13797,65 @@
  "Mã linh kiện thiếu: {0}": [
   "Missing part code: {0}",
   "Kode suku cadang kurang: {0}"
+ ],
+ "mã ghi trong giải trình": [
+  "code entered in explanation",
+  "kode di penjelasan"
+ ],
+ "khớp ID Lada": [
+  "matched Lada ID",
+  "cocok ID Lada"
+ ],
+ "đơn ghi mã ca": [
+  "order tagged with case ID",
+  "pesanan dengan ID kasus"
+ ],
+ "Nguồn: {0}": [
+  "Source: {0}",
+  "Sumber: {0}"
+ ],
+ "Mã LK của đơn: {0}": [
+  "Order part code: {0}",
+  "Kode suku cadang pesanan: {0}"
+ ],
+ "(khác mã LK thiếu {0})": [
+  "(differs from missing part {0})",
+  "(berbeda dari suku cadang kurang {0})"
+ ],
+ "Số đơn của ca: {0}": [
+  "Orders of case: {0}",
+  "Jumlah pesanan kasus: {0}"
+ ],
+ "KTV nhận: {0}": [
+  "Technician received: {0}",
+  "Teknisi menerima: {0}"
+ ],
+ "Cập nhật: {0}": [
+  "Updated: {0}",
+  "Diperbarui: {0}"
+ ],
+ "Nguồn: Google Sheet mua hàng cũ (mã ghi trong giải trình)": [
+  "Source: old purchasing Google Sheet (code in explanation)",
+  "Sumber: Google Sheet pembelian lama (kode di penjelasan)"
+ ],
+ "ID đặt hàng gần nhất": [
+  "Latest order ID",
+  "ID pesanan terakhir"
+ ],
+ "Trạng thái đơn hàng": [
+  "Order status",
+  "Status pesanan"
+ ],
+ "Ngày đặt hàng": [
+  "Order date",
+  "Tanggal pesan"
+ ],
+ "Ngày duyệt đơn": [
+  "Order approval date",
+  "Tanggal persetujuan pesanan"
+ ],
+ "Ngày xuất hàng": [
+  "Dispatch date",
+  "Tanggal pengiriman"
  ]
 }

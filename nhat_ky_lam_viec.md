@@ -5693,3 +5693,15 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   Nguyên nhân: bộ lọc khu vực (lưu localStorage theo màn, không theo nước) đang là "Tất cả DVBH" = khu vực chứa "qldvbh"; ca PH khu vực "MM"/"Retail" → bị lọc hết.
 - Sửa (10 màn có lựa chọn này + FilterBar): nước ≠ VN thì ẩn "Tất cả DVBH" và coi như "Tất cả khu vực" (`lib/phamVi.ts coNhomDvbh / useKhuVucHieuLuc`),
   giá trị đã lưu giữ nguyên (quay lại VN vẫn là "Tất cả DVBH"); `api/client.ts` bỏ `khu_vuc=__QLDVBH__` khỏi GET của nước khác làm chốt chặn.
+
+## 2026-11-12 — v1.577: "ID đặt hàng gần nhất" ở Quản lý tồn (+ linh-kien-app v1.475)
+
+- Danh sách chi tiết thêm 5 cột (bảng + Excel, lọc/sắp xếp kiểu Excel trên server): **ID đặt hàng gần nhất**, **Trạng thái đơn hàng**,
+  **Ngày đặt hàng**, **Ngày duyệt đơn** (lần đầu "TN đã duyệt"), **Ngày xuất hàng** (lần đầu phiếu xuất kho "Đang gửi KTV" — chủ hệ thống
+  đồng ý mặc định). Chỉ ca có "Mã linh kiện thiếu" ở giải trình gần nhất. Rê chuột: nguồn khớp, mã LK của đơn, số đơn, ngày KTV nhận, giờ cập nhật.
+- linh-kien-app v1.475: API gộp `POST /api/partner/v1/don-gan-nhat-theo-ca` (≤1000 ca/lần, ~2 câu truy vấn). Chọn đơn: bỏ trả hàng/từ chối/huỷ,
+  ưu tiên đơn đúng mã LK thiếu (kể cả mã cùng nhóm thay thế) rồi mới nhất; khớp qua mã ca trên đơn, ID Lada, hoặc mã `DDH-…` ghi trong giải trình.
+- DVBH lưu bảng `don_lk_gan_nhat` (migration 0164). Phân loại cập nhật: ID đơn/ngày đặt cố định; ngày duyệt/xuất ghi 1 lần; trạng thái đổi
+  liên tục → mỗi giờ 8h–18h chỉ hỏi đơn chưa kết thúc, 08:00 hỏi lại tất cả; mở chi tiết ca làm mới ngay. Chỉ ghi dòng thay đổi; lỗi giữ dữ liệu cũ.
+- Mã trong giải trình là ID Google Sheet mua hàng cũ → hiện tạm từ sheet (chữ nghiêng, không lọc server).
+- Rủi ro còn mở: chưa đối chiếu được dữ liệu thật ô "Mã xuất hàng liên quan" (lệnh đọc D1 production bị chặn); trạng thái trễ tối đa 1 giờ.

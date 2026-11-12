@@ -42,6 +42,7 @@ import { CAP2_KEYS } from "../lib/canhBaoCap2GiaiTrinh";
 import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc, computeCanhBaoTonProgressToday, type CanhBaoTonMetricKey } from "../lib/canhBaoTon";
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, canWriteTranhChap } from "../lib/tranhChapTienTrinh";
+import { dongBoDonLkGanNhat } from "../lib/donLkGanNhat";
 import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
 import { fetchSuaChuaTimeline } from "../lib/suaChuaTimeline";
 import { fetchMailTimeline, postDoiTraAction, type DoiTraAction } from "../lib/mailTimeline";
@@ -729,7 +730,17 @@ cases.get("/", async (c) => {
       .bind(JSON.stringify(dong.map((r) => r.id)))
       .all<Record<string, unknown>>();
     const theoId = new Map(full.map((r) => [String(r.id), r]));
-    return dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...r }));
+    // "ID đặt hàng gần nhất" (lib/donLkGanNhat.ts) - doc theo khoa chinh cho DUNG cac ca cua trang, khong JOIN vao cau loc/dem.
+    const { results: dl } = await c.env.DB.prepare(
+      `SELECT case_id, don_id AS don_lk_id, trang_thai AS don_lk_trang_thai, ngay_dat AS don_lk_ngay_dat, ngay_duyet AS don_lk_ngay_duyet,
+              ngay_xuat AS don_lk_ngay_xuat, ngay_ktv_nhan AS don_lk_ngay_ktv_nhan, nguon AS don_lk_nguon, khop_ma_lk AS don_lk_khop_ma_lk,
+              ma_lk_don AS don_lk_ma_lk, so_don AS don_lk_so_don, cap_nhat_luc AS don_lk_cap_nhat_luc
+       FROM don_lk_gan_nhat WHERE case_id IN (SELECT value FROM json_each(?))`,
+    )
+      .bind(JSON.stringify(dong.map((r) => r.id)))
+      .all<Record<string, unknown>>();
+    const dlTheoId = new Map(dl.map(({ case_id, ...r }) => [String(case_id), r]));
+    return dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...(dlTheoId.get(String(r.id)) ?? {}), ...r }));
   };
 
   if (isExport) {
@@ -1330,6 +1341,10 @@ cases.get("/:id/linh-kien-timeline", async (c) => {
   if (scope !== null && !scope.includes(String(caseRow.khu_vuc))) {
     return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
   }
+  // Mo chi tiet ca -> lam moi "ID đặt hàng gần nhất" cua ca nay (chi khi ca la ung vien: dang ton + thieu LK; chi ghi khi doi).
+  c.executionCtx.waitUntil(
+    dongBoDonLkGanNhat(c.env, { caseIds: [id] }).catch((err) => console.error("[don-lk-gan-nhat] lam moi 1 ca loi:", err)),
+  );
   return c.json(await fetchLinhKienTimeline(c.env, id));
 });
 

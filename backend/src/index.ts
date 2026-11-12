@@ -48,6 +48,7 @@ import { selfHealCanKhaoSat } from "./lib/canKhaoSat";
 import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
 import { autoSyncTonKhoLk } from "./lib/tonKhoLk";
+import { dongBoDonLkGanNhat } from "./lib/donLkGanNhat";
 import tonKhoLkRoutes from "./routes/tonKhoLk";
 import diaGioiRoutes from "./routes/diaGioi";
 import quocGiaRoutes from "./routes/quocGia";
@@ -324,6 +325,13 @@ export default {
         await autoSyncTonKhoLk(env, event.scheduledTime);
       } catch (err) {
         console.error("[cron-ton-kho-lk] loi khong mong doi:", err instanceof Error ? err.message : String(err));
+      }
+      // "ID đặt hàng gần nhất" (Quan ly ton, lib/donLkGanNhat.ts, 2026-11-12): moi gio chi hoi ca chua co / don chua ket thuc;
+      // 08:00 VN (gio UTC 1) hoi lai moi ca ung vien + don dong cua ca het la ung vien.
+      try {
+        await dongBoDonLkGanNhat(env, { toanBo: gio === 1 });
+      } catch (err) {
+        console.error("[cron-don-lk-gan-nhat] loi:", err instanceof Error ? err.message : String(err));
       }
       // Chi tieu "Luong doi tra" cua the Canh bao ton doc tu he theodoidoimay - neu luc chot 07:30 khong goi duoc
       // (hoac snapshot chot truoc khi co chi tieu) thi moi lan fire 8h-18h VN thu lai (lib/canhBaoTon.ts).
