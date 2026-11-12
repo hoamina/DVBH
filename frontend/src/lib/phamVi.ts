@@ -129,3 +129,29 @@ export function khuVucHieuLuc(v: string, macDinh = "", qg: string | null = quocG
 export function useKhuVucHieuLuc(v: string, macDinh = ""): string {
   return khuVucHieuLuc(v, macDinh, useQuocGiaDangXem());
 }
+
+/*
+ * Khu vuc da gan cua user (khu_vuc_phu_trach + khu_vuc_duoc_xem) - toan la khu vuc VN tru khi Admin gan khu vuc rieng cua nuoc
+ * khac. Loi 2026-11-12: nguoi gan MB1..MN3 chon PH thi 0 du lieu. Server (backend lib/phamVi.ts khuVucTheoNuocDangXem) da bo
+ * khu vuc khong thuoc nuoc dang xem; o day: (1) KhuVucFilterControl khong hien chip / tu chon khu vuc VN khi xem nuoc khac,
+ * (2) api/client.ts bo tham so khu_vuc chi gom khu vuc da gan (bo loc VN da luu) khoi request cua nuoc khac.
+ */
+let khuVucDaGan: string[] = [];
+export function datKhuVucDaGan(ds: string[]) {
+  khuVucDaGan = ds;
+}
+export function boKhuVucDaGanKhoiPath(path: string, qg: string | null = quocGiaHienTai()): string {
+  if (coNhomDvbh(qg) || !khuVucDaGan.length) return path;
+  const m = path.match(/([?&])khu_vuc=([^&]*)(&|$)/);
+  if (!m) return path;
+  let giaTri = "";
+  try {
+    giaTri = decodeURIComponent(m[2].replace(/\+/g, " "));
+  } catch {
+    return path;
+  }
+  const ds = giaTri.split(",").map((x) => x.trim()).filter(Boolean);
+  if (!ds.length || !ds.every((k) => khuVucDaGan.includes(k))) return path;
+  return path.replace(m[0], m[3] ? m[1] : "").replace(/\?$/, "");
+}
+

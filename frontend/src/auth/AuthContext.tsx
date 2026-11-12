@@ -1,4 +1,4 @@
-import { datQuyenQuocGia } from "../lib/phamVi";
+import { datKhuVucDaGan, datQuyenQuocGia } from "../lib/phamVi";
 import { napBanDichDuLieu } from "../lib/banDichDuLieu";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { apDungNgonNgu, chuanHoaNgonNgu, layNgonNguChoDongBo, type NgonNgu } from "../i18n";
@@ -96,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           // "Đa quốc gia": quyen xem theo nuoc - phai co TRUOC khi cac module goi API (api/client.ts gan ?qg=).
           datQuyenQuocGia(user.pham_vi_quoc_gia ?? null);
+          datKhuVucDaGan([...(user.khu_vuc_phu_trach ?? []), ...((user as { khu_vuc_duoc_xem?: string[] }).khu_vuc_duoc_xem ?? [])]);
           // Ban dich cac lua chon Cai dat (Q3, lib/banDichDuLieu.ts) - chi nap khi ngon ngu khac tieng Viet.
           await napBanDichDuLieu();
           if (cancelled) return;

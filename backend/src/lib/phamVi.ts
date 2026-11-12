@@ -240,4 +240,48 @@ export async function apPhamViQuocGia(c: Context<{ Bindings: Env }>, user: AppUs
   const qg = await chonQuocGia(dbGoc(c.env.DB), user.pham_vi_quoc_gia, c.req.query("qg"));
   if (qg === null) return;
   c.env = { ...c.env, DB: bocPhamVi(c.env.DB, { qg, pv: phamViCua(c.env.DB) }) };
+  if (qg !== QUOC_GIA_MAC_DINH) {
+    const moi = await khuVucTheoNuocDangXem(dbGoc(c.env.DB), qg, user);
+    if (moi) c.set("user", { ...user, ...moi });
+  }
+}
+
+/*
+ * Khu vuc phu trach khi xem NUOC KHAC VN (loi 2026-11-12: nguoi bi gan khu vuc VN MB1..MN3 chon PH thi moi man = 0 vi ca PH thuoc
+ * khu vuc rieng cua PH "MM"/"Retail"...). Khu vuc da gan chi co nghia o nuoc co khu vuc do:
+ *   - Giu cac khu vuc da gan CO trong du lieu nuoc dang xem (sau nay gan khu vuc PH cho 1 Giam sat PH -> van bi gioi han dung).
+ *   - Khong khu vuc nao thuoc nuoc do -> xem TOAN BO nuoc do (quyen vao nuoc = users.pham_vi_quoc_gia, Admin cap).
+ * Vai tro xem toan bo (scope null) / Viewer chua gan khu vuc khong doi. Thay ca khu_vuc_phu_trach (chot so / the theo Giam sat)
+ * lan khu_vuc_duoc_xem, nen 68 cho goi scopeByKhuVuc + dailySnapshot/dailyReport deu theo, khong sua tung route.
+ * Danh sach khu vuc cua nuoc: 1 truy van DISTINCT qua index rieng tung nuoc (migration 0157), cache trong isolate 10 phut.
+ */
+const KV_NUOC_TTL_MS = 10 * 60 * 1000;
+const khuVucNuocCache = new Map<string, { luc: number; ds: Set<string> }>();
+
+async function dsKhuVucCuaNuoc(db: D1Database, qg: string): Promise<Set<string>> {
+  const c = khuVucNuocCache.get(qg);
+  if (c && Date.now() - c.luc < KV_NUOC_TTL_MS) return c.ds;
+  const { results } = await db
+    .prepare(`SELECT DISTINCT khu_vuc FROM case_dvbh WHERE quoc_gia = '${qg}' AND khu_vuc IS NOT NULL`)
+    .all<{ khu_vuc: string }>();
+  const ds = new Set(results.map((r) => r.khu_vuc));
+  khuVucNuocCache.set(qg, { luc: Date.now(), ds });
+  return ds;
+}
+
+export async function khuVucTheoNuocDangXem(
+  db: D1Database,
+  qg: string,
+  user: AppUser,
+): Promise<Pick<AppUser, "khu_vuc_phu_trach" | "khu_vuc_duoc_xem"> | null> {
+  const daGan = [...(user.khu_vuc_phu_trach ?? []), ...(user.khu_vuc_duoc_xem ?? [])];
+  if (daGan.length === 0 || !RE_MA_QUOC_GIA.test(qg)) return null; // chua gan gi: giu nguyen hanh vi cu theo vai tro
+  const cuaNuoc = await dsKhuVucCuaNuoc(db, qg);
+  const pt = (user.khu_vuc_phu_trach ?? []).filter((k) => cuaNuoc.has(k));
+  const dx = (user.khu_vuc_duoc_xem ?? []).filter((k) => cuaNuoc.has(k));
+  if (pt.length + dx.length > 0) {
+    if (pt.length === (user.khu_vuc_phu_trach ?? []).length && dx.length === (user.khu_vuc_duoc_xem ?? []).length) return null;
+    return { khu_vuc_phu_trach: pt, khu_vuc_duoc_xem: dx };
+  }
+  return { khu_vuc_phu_trach: [...cuaNuoc].sort(), khu_vuc_duoc_xem: [] };
 }

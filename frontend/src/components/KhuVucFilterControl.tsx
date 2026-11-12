@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Select, type SelectOption } from "./ui/Select";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { tr } from "../i18n/tr";
+import { coNhomDvbh, useQuocGiaDangXem } from "../lib/phamVi";
 
 /**
  * Bo loc "khu vuc" dung chung cho moi module (FilterBar + 6 module co Select khu_vuc rieng le).
@@ -24,13 +25,16 @@ export function KhuVucFilterControl({
   value,
   onChange,
   options,
-  myAreas,
+  myAreas: myAreasGoc,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
   myAreas: string[];
 }) {
+  // Nuoc khac VN (2026-11-12): khu vuc da gan la khu vuc VN -> khong hien chip / khong tu chon, chi Select khu vuc cua nuoc do.
+  const qg = useQuocGiaDangXem();
+  const myAreas = coNhomDvbh(qg) ? myAreasGoc : myAreasGoc.filter((a) => options.some((o) => (typeof o === "string" ? o : o.value) === a));
   const [showFullList, setShowFullList] = useState(false);
   const firstOption = options[0];
   const allValue = typeof firstOption === "string" ? firstOption : (firstOption?.value ?? "");

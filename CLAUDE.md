@@ -300,6 +300,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   NSKX only exists for VN) **plus** every plain `FROM/JOIN case_dvbh [alias]` becomes a `quoc_gia`-filtered subquery
   (so a case of another country is "not found", child-table joins are filtered too); non-GET → only that case_dvbh filter
   over ALL the user's countries (`bocGhiTheoNuoc`). Skipped: `/auth`, `/partner`, `/external-import`, `/import`.
+  **Khu vực phụ trách ở nước khác VN** (2026-11-12, v1.582, `lib/phamVi.ts khuVucTheoNuocDangXem`): GET của nước ≠ VN chỉ giữ khu vực đã gán
+  (`khu_vuc_phu_trach`/`khu_vuc_duoc_xem`) có trong dữ liệu nước đó; không còn khu vực nào → thay bằng mọi khu vực của nước (xem toàn bộ nước,
+  quyền vào nước = `pham_vi_quoc_gia`). Áp ngay trong `apPhamViQuocGia` (`c.set("user")`) nên mọi `scopeByKhuVuc` + chốt/snapshot Giám sát theo;
+  danh sách khu vực mỗi nước cache 10 phút trong isolate. Frontend: `KhuVucFilterControl` bỏ chip khu vực đã gán không có trong options của nước
+  đang xem; `api/client.ts` (`boKhuVucDaGanKhoiPath`) bỏ `khu_vuc=` chỉ gồm khu vực đã gán khỏi request của nước khác.
   Every user views ONE country at a time — the "Tất cả quốc gia" option was removed 2026-11-11 (owner); a full-scope user
   without/with an invalid `?qg=` gets VN (`chonQuocGia`), the mixed base scope is now only for cron/partner/import.
   Since 2026-11-11 the import also accepts an explicit `quoc_gia` field per row (auto qs `SEND_QUOC_GIA`, by download

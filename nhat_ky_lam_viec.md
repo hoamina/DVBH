@@ -5730,3 +5730,12 @@ width → Excel coi cột rộng 0. Sửa: `!cols` là mảng thưa, chỉ đặ
   chỉ còn app Gửi bảo hành, Mua hàng / Thiếu hàng chỉ còn hệ Đặt mua LK, thẻ "Gửi BH" chỉ còn đơn Odoo, Tiến trình chung bỏ mốc "(AppSheet)",
   số trên tab không cộng dòng sheet. "Thời gian sửa chữa bảo hành" nay tính từ mốc đã xong của app Gửi bảo hành. Dữ liệu sheet vẫn tải cho
   Quản lý tồn (SL đơn mua) + Hồ sơ linh kiện; tab PO đặt hàng / QC thực tế giữ nguyên.
+
+## 2026-11-12 — v1.582: chọn nước PH nhưng tài khoản gán khu vực VN → không thấy dữ liệu
+
+- Nguyên nhân: phạm vi khu vực (`scopeByKhuVuc`) của Giám sát/CSKH… = khu vực VN đã gán (MB1…MN3); ca PH thuộc khu vực riêng của PH
+  ("MM", "Retail"…) → mọi màn = 0. Thêm nữa giao diện có thể tự chọn / gửi lại bộ lọc khu vực VN đã lưu.
+- Sửa máy chủ: khi xem nước khác VN, chỉ giữ khu vực đã gán có trong dữ liệu nước đó; không còn khu vực nào → xem toàn bộ nước đó (quyền vào
+  nước do Admin cấp ở `pham_vi_quoc_gia`). Sau này gán khu vực PH cho 1 người thì người đó vẫn bị giới hạn đúng khu vực PH.
+- Sửa giao diện: không hiện chip "Khu vực: MB1…" / không tự chọn khu vực VN khi xem nước khác; request nước khác bỏ bộ lọc khu vực chỉ gồm
+  khu vực VN đã gán.
