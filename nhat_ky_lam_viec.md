@@ -5831,3 +5831,9 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   Có mã LK thiếu → khối "Linh kiện liên quan" lên đầu: mỗi mã 1 thẻ tóm tắt (số giải trình, báo thiếu từ ngày / số ngày, YC có hàng + số
   lần lùi + quá hẹn, các lý do, nội dung gần nhất) + chip tình trạng sống: đơn Mua hàng cùng mã hoặc trùng mã xuất hàng, ticket Thiếu hàng,
   PO cùng mã (bấm mở tab tương ứng); mã xuất hàng không thấy đơn trên app hiện chip nét đứt. Nhật ký hệ thống (Tồn TBP/CEO) giữ nguyên.
+
+## 2026-11-13 — v1.595: bỏ lặp đơn bảo hành Odoo ở thẻ thông tin ca (chế độ "Tất cả")
+
+- Chế độ "Tất cả" xếp cả mục "Lỗi" (đã hiện mọi đơn BH Odoo: dưới từng linh kiện + nhóm "không khớp") lẫn mục "Gửi BH" (liệt kê lại
+  đúng các đơn đó) → bỏ mục "Gửi BH" khỏi chế độ này, giữ mốc `data-sec="bao-hanh"` trong mục Lỗi để nhảy tới vẫn cuộn đúng.
+  Tab con "Gửi BH" riêng không đổi.

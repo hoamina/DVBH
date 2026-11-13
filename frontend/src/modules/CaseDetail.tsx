@@ -704,8 +704,15 @@ function renderCaseFieldsGrid(
             {active === "tat-ca" &&
               stack([
                 ...noiDung,
-                sec("loi-linh-kien", xuLyTabs.panels["loi-linh-kien"]),
-                sec("bao-hanh", xuLyTabs.panels["bao-hanh"]),
+                // Muc "Lỗi" da hien MOI don BH Odoo (gan duoi tung linh kien + nhom "không khớp") -> khong xep them muc "Gửi BH"
+                // (lap y het, chu he thong 2026-11-13). Giu moc data-sec="bao-hanh" de nhay toi van cuon dung cho.
+                sec(
+                  "loi-linh-kien",
+                  <>
+                    <span data-sec="bao-hanh" className="block scroll-mt-4" />
+                    {xuLyTabs.panels["loi-linh-kien"]}
+                  </>,
+                ),
                 sec("lich-hen", xuLyTabs.panels["lich-hen"]),
                 sec("yeu-cau-huy", xuLyTabs.panels["yeu-cau-huy"]),
               ])}
