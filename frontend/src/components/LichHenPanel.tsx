@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Badge, type BadgeTone } from "./ui/Badge";
 import { Card } from "./ui/Card";
-import { CaseImageGallery } from "./CaseImageGallery";
 import { fmtDateTime, type LichHenItem } from "../types";
 import { tr } from "../i18n/tr";
 
@@ -74,7 +73,27 @@ function LichHenItemCard({ item, isGanNhat }: { item: LichHenItem; isGanNhat: bo
       {anh.length > 0 && (
         <div className="mt-3">
           <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Ảnh bằng chứng (")}{anh.length})</div>
-          <CaseImageGallery linkHinhAnh={JSON.stringify(anh.map((a) => a.url))} />
+          {/* Link OCRM ts/media can phien dang nhap OCRM, nhung <img> tu ten mien khac luon loi -> hien dang
+              LINK mo tab moi, cung kieu o "Ảnh & video Odoo" (OdooMediaLinks, v1.584). */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            {anh.filter((a) => /^https?:\/\//i.test(a.url ?? "")).map((a, i) => {
+              const laVideo = (a.loai_file ?? "").startsWith("video/");
+              return (
+                <a
+                  key={`${a.url}-${i}`}
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`${laVideo ? "Video" : tr("Ảnh")} ${i + 1}/${anh.length}`}
+                  className="focus-ring aspect-square rounded-lg border border-[var(--line)] bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-0.5 p-1 text-center text-[11px] text-[var(--ink-600)] transition-colors"
+                >
+                  <span className="text-xl">{laVideo ? "🎬" : "🖼️"}</span>
+                  <span className="font-semibold leading-tight">{laVideo ? "Video" : tr("Ảnh")} {i + 1}</span>
+                  <span className="text-[10px] text-[var(--brand-600,#2563eb)]">↗ {tr("Mở")}</span>
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
       {item.ngay_tao && <div className="text-[11px] text-[var(--ink-400)] mt-2">{tr("Tạo lúc")} {fmtDateTime(item.ngay_tao)}</div>}

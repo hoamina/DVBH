@@ -5756,3 +5756,10 @@ nhập (cookie phiên OCRM không gửi khi nhúng chéo trang). Vì vậy cột
 gộp vào gallery `<img>` nữa: `OdooMediaLinks` (CaseImageGallery.tsx) hiện mỗi ảnh/video là 1 ô link mở tab mới, có nhãn
 nhóm (bên trong/bên ngoài/báo cáo/tem serial/bằng chứng huỷ/lịch hẹn) + giờ tạo. Muốn xem ngay trong ca thì cần Worker xin
 link ký số bằng 1 tài khoản OCRM chỉ xem, hoặc Happinno bật xem công khai/cấp API — chưa làm.
+
+## 2026-11-13 — Ảnh bằng chứng lịch hẹn mở tab mới (v1.586)
+
+Tab "Lịch hẹn" (`LichHenPanel.tsx`): "Ảnh bằng chứng" trước nhúng `CaseImageGallery` (`<img>` link OCRM `ts/media` → luôn lỗi
+vì cookie OCRM không gửi khi nhúng chéo trang, hiện ô "Bấm để xem"). Nay mỗi ảnh là 1 ô link `target=_blank` mở ảnh gốc ở tab
+mới, cùng kiểu ô của "Ảnh & video Odoo" (`OdooMediaLinks`, v1.584): icon + "Ảnh n" + "↗ Mở". Chỉ nhận URL http(s). Xem được
+khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không proxy hay lưu ảnh.
