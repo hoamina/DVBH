@@ -108,7 +108,8 @@ function ngayNgan(at: string | null): string {
 }
 
 /** Luong NGANG gon (mac dinh): 1 duong thang cac buoc, nhan ngan + ngay gio; buoc dang cho to noi. Re chuot xem day du. */
-export function LuongNgang({ moc }: { moc: SuaChuaMoc[] }) {
+/** anGhiChu: chi hien ghi chu khi re chuot (the da tu hien so lieu chinh, vd tab PO). */
+export function LuongNgang({ moc, anGhiChu = false }: { moc: SuaChuaMoc[]; anGhiChu?: boolean }) {
   return (
     <div className="overflow-x-auto pb-1 min-w-0">
       <ol className="flex min-w-max items-start">
@@ -127,18 +128,57 @@ export function LuongNgang({ moc }: { moc: SuaChuaMoc[] }) {
           );
         })}
       </ol>
-      {/* Ghi chu cua cac buoc da toi (huong xu ly, ket qua, van don, ly do...) hien luon - khong bat re chuot moi thay. */}
-      {moc.some((m) => m.ghi_chu && m.trang_thai !== "chua") && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {moc
-            .filter((m) => m.ghi_chu && m.trang_thai !== "chua")
-            .map((m, i) => (
-              <span key={m.key + i} className="rounded-md border-l-4 border-[var(--amber-500)] bg-[var(--amber-100)] px-2 py-0.5 text-[13px] text-[var(--ink-900)]">
-                <span className="font-semibold">{tr(NHAN_NGAN[m.key] ?? m.label)}:</span> {m.ghi_chu}
-              </span>
-            ))}
-        </div>
-      )}
+      {!anGhiChu && <GhiChuMocThuGon moc={moc} />}
+    </div>
+  );
+}
+
+/** Ghi chu cac buoc da toi (huong xu ly, ket qua, ly do...) - 2026-11-13 (chu he thong): MAC DINH THU GON thanh 1 dong
+ * (so ghi chu + xem truoc ghi chu moi nhat), bam de mo. Buoc co ghi chu trung nhau gop 1 dong ("Duyệt, Hàng về: ..."). */
+export function GhiChuMocThuGon({ moc }: { moc: SuaChuaMoc[] }) {
+  const [mo, setMo] = useState(false);
+  const nhom: { nhan: string[]; ghi_chu: string; loi: boolean }[] = [];
+  for (const m of moc) {
+    if (!m.ghi_chu || m.trang_thai === "chua") continue;
+    const nhan = tr(NHAN_NGAN[m.key] ?? m.label);
+    const g = nhom.find((x) => x.ghi_chu === m.ghi_chu);
+    if (g) {
+      if (!g.nhan.includes(nhan)) g.nhan.push(nhan);
+      g.loi ||= m.trang_thai === "loi";
+    } else nhom.push({ nhan: [nhan], ghi_chu: m.ghi_chu, loi: m.trang_thai === "loi" });
+  }
+  if (!nhom.length) return null;
+  const moiNhat = nhom[nhom.length - 1];
+  if (!mo)
+    return (
+      <button
+        type="button"
+        onClick={() => setMo(true)}
+        className="focus-ring mt-1.5 flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left text-xs text-[var(--ink-500)] hover:bg-[var(--surface-100)]"
+        title={tr("Bấm để xem ghi chú các bước")}
+      >
+        <span className="shrink-0 text-[var(--ink-400)]">▸</span>
+        <span className="shrink-0 font-semibold text-[var(--amber-600)]">📝 {tr("{0} ghi chú", nhom.length)}</span>
+        <span className="min-w-0 truncate">
+          · <span className="font-medium">{moiNhat.nhan.join(", ")}:</span> {moiNhat.ghi_chu}
+        </span>
+      </button>
+    );
+  return (
+    <div className="mt-1.5">
+      <button type="button" onClick={() => setMo(false)} className="mb-1 px-1.5 text-xs font-semibold text-[var(--amber-600)] hover:underline">
+        ▾ 📝 {tr("{0} ghi chú", nhom.length)} · {tr("Thu gọn")}
+      </button>
+      <div className="flex flex-col gap-1">
+        {nhom.map((g, i) => (
+          <div
+            key={i}
+            className={`rounded-md border-l-4 px-2 py-0.5 text-[13px] text-[var(--ink-900)] ${g.loi ? "border-[var(--coral-500)] bg-[var(--coral-100)]" : "border-[var(--amber-500)] bg-[var(--amber-100)]"}`}
+          >
+            <span className="font-semibold">{g.nhan.join(", ")}:</span> {g.ghi_chu}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -5816,3 +5816,18 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Ticket huỷ / kho từ chối / mua hàng từ chối thu gọn 1 dòng, xếp cuối; thứ tự: đang chờ (hẹn sớm trước) → đã về chưa giao → đã giao → huỷ.
   "▾ Xem chi tiết": mốc dọc + nhật ký ticket + loại đề xuất, người nhận.
 - Sự kiện thiếu hàng trong timeline gắn theo đơn (không có mã ticket) → đơn nhiều ticket chia sự kiện theo ngày tạo từng ticket.
+
+## 2026-11-13 — v1.594: thu gọn ghi chú bước, tab "PO đặt hàng" + "GT tồn" kiểu mới
+
+- `SuaChuaPanel.tsx GhiChuMocThuGon`: ghi chú các bước dưới luồng ngang (tab Mua hàng / Bảo hành / Thiếu hàng) MẶC ĐỊNH THU GỌN thành
+  1 dòng "📝 N ghi chú · <ghi chú mới nhất>" (bấm mở / thu gọn); bước có ghi chú trùng nhau gộp 1 dòng ("Duyệt, Hàng về: …"), bước lỗi viền đỏ.
+  `LuongNgang` có thêm prop `anGhiChu` (chỉ hiện khi rê chuột).
+- `components/PoDatHangPanel.tsx`: tab PO đặt hàng cùng khuôn — luồng ngang Tạo đề xuất → Ban hành PO → NM cam kết → Hàng về (Về một phần)
+  → Đủ hàng; dải số liệu chính (SL đặt/về/còn thiếu, dự kiến gần nhất — quá hạn tô đỏ, hàng về thực tế, tốc độ); cảnh báo / cấp CEO /
+  kế hoạch / ghi chú thu gọn; "▾ Xem chi tiết" = mốc dọc + lưới thông tin cũ; nút Mở EO / Xem đầy đủ để ngoài. Thứ tự: quá hạn → đang chờ →
+  về một phần → đủ → huỷ.
+- `components/GiaiTrinhLichSu.tsx` (tab GT tồn): giải trình LIÊN TIẾP cùng lý do + cùng mã LK gộp 1 khối (bản mới nhất + "×N lần",
+  khoảng ngày, người, ngày YC có hàng "đã lùi K lần (a → b → c)", mã xuất hàng; bấm xem các lần trước; nút "Hiện từng giải trình").
+  Có mã LK thiếu → khối "Linh kiện liên quan" lên đầu: mỗi mã 1 thẻ tóm tắt (số giải trình, báo thiếu từ ngày / số ngày, YC có hàng + số
+  lần lùi + quá hẹn, các lý do, nội dung gần nhất) + chip tình trạng sống: đơn Mua hàng cùng mã hoặc trùng mã xuất hàng, ticket Thiếu hàng,
+  PO cùng mã (bấm mở tab tương ứng); mã xuất hàng không thấy đơn trên app hiện chip nét đứt. Nhật ký hệ thống (Tồn TBP/CEO) giữ nguyên.

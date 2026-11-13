@@ -42,6 +42,8 @@ import { MoAppLink, LINHKIEN_URL } from "../components/MoAppLink";
 import { LadaIds, type CaseLadaRow } from "../components/LadaPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
+import { PoDatHangList } from "../components/PoDatHangPanel";
+import { GiaiTrinhLichSu } from "../components/GiaiTrinhLichSu";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { LoadingInline } from "../components/ui/LoadingInline";
 import { TiepNhanModal, TienTrinhPanel } from "../components/TienTrinhPanel";
@@ -1851,25 +1853,14 @@ export function CaseDetail({
         </div>
       )}
 
-      <div>
-        <div className="font-display font-bold text-sm mb-3">{tr("Lịch sử giải trình")}</div>
-        {giaiTrinhList.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có giải trình nào cho ca này.")}</div>}
-        <div className="space-y-3">
-          {giaiTrinhList.map((l) => (
-            <div key={l.id} className="relative pl-4 border-l-2 border-[var(--ocean-100)]">
-              <div className="absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-[var(--ocean-500)]"></div>
-              <div className="text-xs text-[var(--ink-400)] mb-0.5">
-                {fmtDateTime(l.ngay_giai_trinh)} · {formatPersonDisplay(l.nguoi_giai_trinh, personDir)}
-              </div>
-              <div className="text-sm font-semibold">{dl(l.ly_do_cham)}</div>
-              <div className="text-sm text-[var(--ink-600)]">{l.noi_dung}</div>
-              {l.linh_kien_thieu && <div className="text-xs text-[var(--amber-500)] font-semibold mt-0.5">{tr("Linh kiện thiếu:")} <MaLinhKienLink ma={l.linh_kien_thieu} ten={l.ten_linh_kien_thieu} />{l.ten_linh_kien_thieu && <span className="font-normal text-[var(--ink-600)]"> — {l.ten_linh_kien_thieu}</span>}</div>}
-              {l.ngay_yeu_cau_co_hang && <div className="text-xs text-[var(--ink-400)] mt-0.5">{tr("Ngày yêu cầu có hàng:")} {fmtDate(l.ngay_yeu_cau_co_hang)}</div>}
-              {l.ma_xuat_hang_lien_quan && <div className="text-xs text-[var(--ink-400)]">{tr("Mã xuất hàng liên quan:")} {l.ma_xuat_hang_lien_quan}</div>}
-            </div>
-          ))}
-        </div>
-      </div>
+      <GiaiTrinhLichSu
+        list={giaiTrinhList}
+        tenNguoi={(e) => formatPersonDisplay(e, personDir)}
+        lkOrders={lkOrders}
+        poRows={poDatHangMatched}
+        onMoTab={onTabChange}
+        daXong={!!c.thoi_gian_hoan_thanh}
+      />
 
       {chuyenCapLogList.length > 0 && (
         <div className="mt-6">
@@ -2599,48 +2590,7 @@ export function CaseDetail({
       {!purchaseSyncing && poDatHangMatched.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy PO đặt hàng liên quan đến ca này.")}</div>
       )}
-      <div className="space-y-3">
-        {poDatHangMatched.map((r, i) => (
-          <Card key={`${r.id}-${i}`} className="p-3">
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-              <span className="font-semibold text-sm">{r.tenLinhKien || tr("(chưa rõ linh kiện)")}</span>
-              {r.trangThai && <Badge tone={statusWordTone(r.trangThai)}>{r.trangThai}</Badge>}
-            </div>
-            <div className="text-xs text-[var(--ink-400)] font-mono mb-2 flex items-center gap-1.5 flex-wrap">
-              <span>{r.id}</span>
-              {r._nguon === "app" ? <Badge tone="ocean">App EO</Badge> : r._nguon === "sheet" ? <Badge tone="gray">Google Sheet</Badge> : null}
-              {r.maPheDuyet && <span>· {r.maPheDuyet}</span>}
-              {r.trangThaiEo && <span>· EO {r.trangThaiEo}</span>}
-              {r.capCeo && <span title={r.capCeo}><Badge tone="coral">{tr("Cấp CEO")}</Badge></span>}
-              {r.soLoiTheoDoi && !r.capCeo && <span className="text-[var(--coral-500)]">· {r.soLoiTheoDoi}  {tr("lỗi theo dõi")}</span>}
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-              <Field label={tr("Mã linh kiện đề xuất")} value={r.maLinhKienDeXuat ? <MaLinhKienLink ma={r.maLinhKienDeXuat} /> : "—"} />
-              <Field label={tr("Đối tác")} value={r.doiTac || "—"} />
-              <Field label={tr("Kho cần đặt hàng")} value={r.khoCanDat || "—"} />
-              <Field label={tr("SL đặt / nhập Amis / còn thiếu")} value={`${r.soLuongDat || "—"} / ${r.slNhapTheoAmis || "—"} / ${r.soLuongConThieu || "—"}`} />
-              <Field label={tr("Tốc độ hàng về")} value={r.tocDoHangVe || "—"} />
-              <Field label={tr("Ngày dự kiến gần nhất")} value={r.ngayDuKienGanNhat || "—"} />
-              <Field label={tr("Ngày về gần nhất toàn quốc")} value={r.ngayVeGanNhatToanQuoc || "—"} />
-              <Field label={tr("Ngày ban hành PO")} value={r.ngayBanHanh || "—"} />
-              <Field label={tr("Hàng về thực tế (PO)")} value={r.ngayVeThucTe ? <span title={r.phieuNhap ? tr("Phiếu nhập: {0}", r.phieuNhap) : undefined}>{r.ngayVeThucTe}</span> : "—"} />
-              <Field label={tr("NM cam kết")} value={r.nmCamKet || "—"} />
-              <Field label={tr("Ngày tạo")} value={r.ngayTao || "—"} />
-              {r.canhBao && <Field label={tr("Cảnh báo")} value={r.canhBao} />}
-              {r.ghiChu && <Field label={tr("Ghi chú")} value={r.ghiChu} />}
-              {r.maLinhKienGoc && <Field label={tr("Thay từ mã")} value={r.maLinhKienGoc} />}
-              {r.keHoachHangVe && <Field label={tr("Kế hoạch hàng về")} value={r.keHoachHangVe} />}
-            </div>
-            <div className="flex justify-end gap-1.5 mt-2">
-              {r.linkEo && (
-                <a href={r.linkEo} target="_blank" rel="noopener noreferrer" className="text-xs underline self-center text-[var(--ink-500)]">{tr("Mở EO ↗")}</a>
-              )}
-              <Btn size="sm" variant="ghost" onClick={() => setDetailModalRow({ title: tr("PO đặt hàng {0}", r.id), raw: parseRawRow(r) })}>
-                {tr("🔍 Xem đầy đủ")}</Btn>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <PoDatHangList rows={poDatHangMatched} onXemDayDu={(title, raw) => setDetailModalRow({ title, raw })} />
     </div>
   );
 
