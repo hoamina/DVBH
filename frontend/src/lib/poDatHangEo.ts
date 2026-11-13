@@ -139,6 +139,8 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     linkEo: p.link ?? "",
     capCeo: p.theo_doi?.cap_ceo ? p.theo_doi.ceo_ly_do.join("; ") : "",
     soLoiTheoDoi: p.theo_doi?.so_loi ? String(p.theo_doi.so_loi) : "",
+    // 2026-11-13: so lan lui ngay du kien (app EO "Theo dõi") - cot "Số lần lùi ngày DK" o Quan ly ton.
+    soLanLuiDk: num(p.theo_doi?.so_lan_lui),
   };
 }
 

@@ -66,7 +66,8 @@ export function useQuocGiaDangXem(): string | null {
   return useSyncExternalStore(subscribe, quocGiaHienTai);
 }
 
-function subscribe(cb: () => void) {
+/** Dang ky nghe doi nuoc dang xem / pham vi (dung ngoai file, vd lib/diaGioi.ts). */
+export function subscribe(cb: () => void) {
   listeners.add(cb);
   const onStorage = (e: StorageEvent) => (e.key === KEY || e.key === KEY_QG) && cb();
   window.addEventListener("storage", onStorage);

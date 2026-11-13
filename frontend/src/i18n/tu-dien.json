@@ -14366,5 +14366,8 @@
  "+{0} tab trống ▾": [
   "+{0} empty tabs ▾",
   "+{0} tab kosong ▾"
- ]
+ ],
+  "Số lần lùi ngày DK": ["Times ETA postponed","Kali ETA diundur"],
+  "Nước đang xem không có dữ liệu tỉnh cũ - luôn dùng địa giới mới": ["This country has no old-province data - new boundaries are always used","Negara ini tidak memiliki data provinsi lama - selalu memakai batas wilayah baru"],
+  "dữ liệu PO đặt hàng đang tải, thử lại sau vài giây": ["purchase-order data is still loading, try again in a few seconds","data PO masih dimuat, coba lagi dalam beberapa detik"]
 }

@@ -31,6 +31,7 @@ import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { indexPoTheoMaLk, ngayHangVeTheoKv } from "../lib/ngayHangVeTheoKv";
+import { useTonKhoTongHop, useLayTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 import { matchMuaHang, matchBaoHanh } from "../lib/purchaseWarrantyMatch";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
@@ -1132,7 +1133,10 @@ export function BacklogModule({
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
   });
   const linhKienTenMap = useMemo(() => new Map((linhKienData?.rows ?? []).map((r) => [r.ma_linh_kien, r.ten_linh_kien])), [linhKienData]);
-  const { muaHang, baoHanh, poDatHang } = usePurchaseWarrantyData();
+  const { muaHang, baoHanh, poDatHang, isSyncing: poDangTai } = usePurchaseWarrantyData();
+  // 2026-11-13: ton kho MB/MN cua "Mã linh kiện thiếu" - cung nguon cot "Tồn kho MB/MN" menu Thiếu linh kiện (/ton-kho-lk/tong-hop).
+  const { map: tonKhoMap } = useTonKhoTongHop();
+  const layTonKhoTongHop = useLayTonKhoTongHop();
   // 2026-11-11: 3 cot ngay hang ve theo KV cho ca co "Mã linh kiện thiếu" - doi chieu PO dat hang (cung nguon menu Thiếu linh kiện).
   const poTheoMaLk = useMemo(() => indexPoTheoMaLk(poDatHang), [poDatHang]);
   const ngayHangVe = (c: CaseRow) => ngayHangVeTheoKv(c.last_ma_linh_kien_thieu, c.khu_vuc, poTheoMaLk);
@@ -1573,8 +1577,11 @@ export function BacklogModule({
     sl_don_bao_hanh: "SL đơn bảo hành",
     khoang_ton: "Khoảng tồn",
     ngay_hang_ve_du_kien_kv: "Ngày hàng về dự kiến theo KV",
+    so_lan_lui_dk: "Số lần lùi ngày DK",
     ngay_ve_gan_nhat_kv: "Ngày về gần nhất theo KV",
     ngay_nm_cam_ket: "Ngày NM cam kết có hàng",
+    ton_kho_mb: "Tồn kho MB",
+    ton_kho_mn: "Tồn kho MN",
     don_lk_id: "ID đặt hàng gần nhất",
     don_lk_trang_thai: "Trạng thái đơn hàng",
     don_lk_ngay_dat: "Ngày đặt hàng",
@@ -1611,7 +1618,12 @@ export function BacklogModule({
 
   const exportRunner = useExportRunner();
   async function handleExport() {
-    const all = await api.get<{ rows: CaseRow[] }>(`/cases${buildQuery({ ...listParams, page: undefined, pageSize: undefined, export: true })}`);
+    // Cot ngay hang ve / so lan lui tinh tu du lieu PO o trinh duyet - con dang tai thi file se trong cac cot do.
+    if (poDangTai) throw new Error(tr("dữ liệu PO đặt hàng đang tải, thử lại sau vài giây"));
+    const [all, tonKho] = await Promise.all([
+      api.get<{ rows: CaseRow[] }>(`/cases${buildQuery({ ...listParams, page: undefined, pageSize: undefined, export: true })}`),
+      layTonKhoTongHop(),
+    ]);
     // Cot "Ten linh kien thieu gan nhat"/"SL don mua"/"SL don bao hanh" chi co tren frontend (tra
     // cuu qua linhKienTenMap/matchMuaHang/matchBaoHanh da cache san) - ghi de vao TUNG dong truoc khi
     // xuat, giu nguyen cac cot con lai tu API.
@@ -1626,8 +1638,11 @@ export function BacklogModule({
       don_lk_ngay_duyet: dl?.sheet ? dl.ngayDuyet : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_duyet : null) ?? null,
       don_lk_ngay_xuat: dl?.sheet ? dl.ngayXuat : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_xuat : null) ?? null,
       ngay_hang_ve_du_kien_kv: nv.duKien,
+      so_lan_lui_dk: nv.soLanLuiDk === "" ? null : Number(nv.soLanLuiDk),
       ngay_ve_gan_nhat_kv: nv.veGanNhat,
       ngay_nm_cam_ket: nv.nmCamKet,
+      ton_kho_mb: r.last_ma_linh_kien_thieu ? (tonKho.get(r.last_ma_linh_kien_thieu)?.ton_mb ?? 0) : null,
+      ton_kho_mn: r.last_ma_linh_kien_thieu ? (tonKho.get(r.last_ma_linh_kien_thieu)?.ton_mn ?? 0) : null,
       khu_vuc: shortKhuVuc(r.khu_vuc),
       last_ten_linh_kien_thieu: r.last_ma_linh_kien_thieu ? (linhKienTenMap.get(r.last_ma_linh_kien_thieu) ?? r.last_ma_linh_kien_thieu) : null,
       sl_don_mua: slDonMua(r),
@@ -1797,6 +1812,7 @@ export function BacklogModule({
     ...(
       [
         ["ngay_hang_ve_du_kien_kv", tr("Ngày hàng về dự kiến theo KV"), "duKien"],
+        ["so_lan_lui_dk", tr("Số lần lùi ngày DK"), "soLanLuiDk"],
         ["ngay_ve_gan_nhat_kv", tr("Ngày về gần nhất theo KV"), "veGanNhat"],
         ["ngay_nm_cam_ket", tr("Ngày NM cam kết có hàng"), "nmCamKet"],
       ] as const
@@ -1810,6 +1826,27 @@ export function BacklogModule({
             <span className="text-xs whitespace-nowrap" title={tr("Mã linh kiện thiếu: {0}", c.last_ma_linh_kien_thieu ?? "")}>{v}</span>
           ) : (
             <span className="text-[var(--ink-400)] text-xs">—</span>
+          );
+        },
+      }),
+    ),
+    // 2026-11-13: ton kho MB/MN cua "Mã linh kiện thiếu" (cung so voi menu Thiếu linh kiện). Ma khong co trong ton kho = 0.
+    ...(
+      [
+        ["ton_kho_mb", tr("Tồn kho MB"), "ton_mb"],
+        ["ton_kho_mn", tr("Tồn kho MN"), "ton_mn"],
+      ] as const
+    ).map(
+      ([key, header, f]): Column<CaseRow> => ({
+        key,
+        header,
+        render: (c) => {
+          if (!c.last_ma_linh_kien_thieu || !tonKhoMap) return <span className="text-[var(--ink-400)] text-xs">—</span>;
+          const v = tonKhoMap.get(c.last_ma_linh_kien_thieu)?.[f] ?? 0;
+          return (
+            <span className={`text-xs tabular-nums ${v > 0 ? "font-semibold text-[var(--ocean-600)]" : "text-[var(--coral-500)]"}`} title={tr("Mã linh kiện thiếu: {0}", c.last_ma_linh_kien_thieu)}>
+              {fmtSl(v)}
+            </span>
           );
         },
       }),

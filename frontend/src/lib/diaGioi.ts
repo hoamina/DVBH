@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { tr } from "../i18n/tr";
+import { quocGiaHienTai, subscribe as subscribeQuocGia } from "./phamVi";
 
 /*
  * "Dia gioi cu / moi" (2026-10-10) - xu ly HOAN TOAN o client (server chi tra du lieu tho, xem backend
@@ -21,7 +22,12 @@ export type DiaGioiMode = "cu" | "moi";
 
 const MODE_KEY = "dvbh_dia_gioi_mode";
 const listeners = new Set<() => void>();
+/** Chi VN co dia gioi cu (tinh/huyen truoc sap nhap 2025). Nuoc khac khong co tinh cu -> luon "moi" (2026-11-13, chu he thong). */
+export function coDiaGioiCu(qg: string | null = quocGiaHienTai()): boolean {
+  return !qg || qg === "VN";
+}
 function readMode(): DiaGioiMode {
+  if (!coDiaGioiCu()) return "moi";
   try {
     return localStorage.getItem(MODE_KEY) === "moi" ? "moi" : "cu";
   } catch {
@@ -32,9 +38,11 @@ function subscribe(cb: () => void) {
   listeners.add(cb);
   const onStorage = (e: StorageEvent) => e.key === MODE_KEY && cb();
   window.addEventListener("storage", onStorage);
+  const huyQg = subscribeQuocGia(cb); // doi nuoc dang xem -> che do hieu luc co the doi (VN <-> nuoc khac)
   return () => {
     listeners.delete(cb);
     window.removeEventListener("storage", onStorage);
+    huyQg();
   };
 }
 /** Che do hien tai (doc ngoai React, vd luc xuat Excel). */

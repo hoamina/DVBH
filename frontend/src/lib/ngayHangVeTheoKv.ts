@@ -79,8 +79,10 @@ export interface NgayHangVeKv {
   duKien: string;
   veGanNhat: string;
   nmCamKet: string;
+  /** So lan lui ngay du kien (app EO) cua PO cho ra "duKien"; khong co PO do -> lon nhat trong cac PO dang cho cua mien. "" = chua co so lieu. */
+  soLanLuiDk: string;
 }
-const RONG: NgayHangVeKv = { duKien: "", veGanNhat: "", nmCamKet: "" };
+const RONG: NgayHangVeKv = { duKien: "", veGanNhat: "", nmCamKet: "", soLanLuiDk: "" };
 const chiNgay = (s: string | undefined) => (s ? s.split(" ")[0] : "");
 
 export function ngayHangVeTheoKv(maLk: string | null | undefined, khuVuc: string | null | undefined, idx: Map<string, SheetRow[]>): NgayHangVeKv {
@@ -110,5 +112,10 @@ export function ngayHangVeTheoKv(maLk: string | null | undefined, khuVuc: string
     for (const r of cho) if (r.nmCamKet && poSortKey(r.nmCamKet) > poSortKey(best)) best = r.nmCamKet;
     nm = best;
   }
-  return { duKien: chiNgay(somNhat?.ngayDuKienGanNhat), veGanNhat: chiNgay(veGanNhat), nmCamKet: chiNgay(nm) };
+  let lui = somNhat ? soNguyen(somNhat.soLanLuiDk) : null;
+  if (lui === null) for (const r of cho) {
+    const x = soNguyen(r.soLanLuiDk);
+    if (x !== null && (lui === null || x > lui)) lui = x;
+  }
+  return { duKien: chiNgay(somNhat?.ngayDuKienGanNhat), veGanNhat: chiNgay(veGanNhat), nmCamKet: chiNgay(nm), soLanLuiDk: lui === null ? "" : String(lui) };
 }
