@@ -388,7 +388,7 @@ function LuongNgayGiaiTrinh({
               <li key={d} className="relative flex flex-col items-center w-[22px] shrink-0" title={title}>
                 {i > 0 && <span className={`absolute top-[8px] right-1/2 w-full h-0.5 ${sauDong ? "bg-slate-100" : "bg-slate-200"}`} />}
                 {/* Ngay dong ca: vong vien ngoai xanh bao quanh cham (van giu mau ly do neu hom do co giai trinh). */}
-                {laNgayDong && <span className="absolute z-0 top-[-3px] left-1/2 -translate-x-1/2 w-[24px] h-[24px] rounded-full border-2 border-[var(--teal-600)] bg-white" />}
+                {laNgayDong && <span className="absolute z-0 top-[-3px] left-1/2 -translate-x-1/2 w-[24px] h-[24px] rounded-[3px] border-2 border-[var(--teal-600)] bg-white" />}
                 {gs ? (
                   <span
                     className={`relative z-10 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold text-white ${doi ? "ring-2 ring-offset-1 ring-[var(--ink-900)]" : ""}`}
@@ -423,7 +423,7 @@ function LuongNgayGiaiTrinh({
         </span>
         {ngayDong && (
           <span className="inline-flex items-center gap-1 text-[var(--ink-400)]">
-            <span className="w-3 h-3 rounded-full border-2 border-[var(--teal-600)] bg-white" /> {tr("ngày đóng ca")}
+            <span className="w-3 h-3 rounded-[2px] border-2 border-[var(--teal-600)] bg-white" /> {tr("ngày đóng ca")}
           </span>
         )}
       </div>

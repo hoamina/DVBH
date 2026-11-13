@@ -5862,3 +5862,4 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Ca đã đóng (hoàn thành / thất bại…): chấm ngày đóng có vòng viền ngoài màu xanh + chữ "Đóng" dưới ngày, rê chuột thấy giờ đóng; chú thích
   thêm "ngày đóng ca". Giải trình SAU ngày đóng vẫn vẽ; ngày trống sau khi đóng nhạt màu, không tính "bỏ sót". Ca đóng trước lần giải trình
   đầu tiên → luồng bắt đầu từ ngày đóng để vẫn thấy mốc (`components/GiaiTrinhLichSu.tsx`).
+- v1.599: viền ngày đóng ca đổi sang HÌNH VUÔNG (dễ phân biệt với chấm tròn / vòng đổi lý do), chú thích cũng vuông.
