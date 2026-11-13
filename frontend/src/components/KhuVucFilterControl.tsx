@@ -34,7 +34,10 @@ export function KhuVucFilterControl({
 }) {
   // Nuoc khac VN (2026-11-12): khu vuc da gan la khu vuc VN -> khong hien chip / khong tu chon, chi Select khu vuc cua nuoc do.
   const qg = useQuocGiaDangXem();
-  const myAreas = coNhomDvbh(qg) ? myAreasGoc : myAreasGoc.filter((a) => options.some((o) => (typeof o === "string" ? o : o.value) === a));
+  // VN (2026-11-13): nguoi xem ca VN + PH -> bo chip khu vuc PH (khong co trong options VN). Chi loc khi options da tai (>1),
+  // tranh mat chip trong luc dang tai danh sach.
+  const coTrongOptions = (a: string) => options.some((o) => (typeof o === "string" ? o : o.value) === a);
+  const myAreas = coNhomDvbh(qg) ? (options.length > 1 ? myAreasGoc.filter(coTrongOptions) : myAreasGoc) : myAreasGoc.filter(coTrongOptions);
   const [showFullList, setShowFullList] = useState(false);
   const firstOption = options[0];
   const allValue = typeof firstOption === "string" ? firstOption : (firstOption?.value ?? "");

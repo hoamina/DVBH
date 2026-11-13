@@ -1,4 +1,4 @@
-import { NGON_NGU_TRANG } from "../i18n/tr";
+import { NGON_NGU_TRANG, tr } from "../i18n/tr";
 
 /*
  * Ban dich cac lua chon trong Cai dat (ly do cham, loai loi vi pham, phan loai / ket qua / ly do ton tranh chap, loai de
@@ -28,4 +28,30 @@ export function dl<T>(v: T): T | string;
 export function dl(v: unknown): unknown {
   if (typeof v !== "string" || !bang) return v;
   return bang.get(v) ?? bang.get(v.trim()) ?? v;
+}
+
+/**
+ * Dich 1 GIA TRI du lieu CRM/Odoo de HIEN THI (hinh thuc bao hanh, tien do, ly do qua han/huy, nhom yeu cau, hien tuong
+ * loi...) - 2026-11-13: ca nuoc ngoai (PH) xem bang tieng Anh ma cac gia tri nay van tieng Viet. Thu ban dich lua chon
+ * Cai dat dl() truoc, roi tu dien tr() (cac gia tri co dinh cua CRM/Odoo nam trong tu-dien.json). Khong co = giu nguyen.
+ * Chi boc o cho render (giong dl).
+ */
+export function gt(v: string): string;
+export function gt<T>(v: T): T | string;
+export function gt(v: unknown): unknown {
+  if (typeof v !== "string" || NGON_NGU_TRANG === "vi") return v;
+  const d = dl(v);
+  if (d !== v) return d;
+  return tr(v.trim());
+}
+
+/** "Cach thuc xu ly" Odoo dang "<hien tuong>: [<linh kien>] <hanh dong>, [<linh kien>] <hanh dong>": dich hien tuong + hanh dong,
+ * giu nguyen ten/ma linh kien. */
+export function gtCachThuc(v: string | null | undefined): string | null | undefined {
+  if (!v || NGON_NGU_TRANG === "vi") return v;
+  const m = /^([^:[\]]+):\s*(.*)$/s.exec(v);
+  const dau = m ? `${gt(m[1].trim())}: ` : "";
+  const than = m ? m[2] : v;
+  if (!m && !than.includes("[")) return gt(v);
+  return dau + than.replace(/\]\s+([^,[\]]+?)(?=\s*(,|$|NOTE:))/g, (_s, hd: string) => `] ${gt(hd.trim())}`);
 }

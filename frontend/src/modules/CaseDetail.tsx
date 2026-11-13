@@ -1,4 +1,4 @@
-import { dl } from "../lib/banDichDuLieu";
+import { dl, gt, gtCachThuc } from "../lib/banDichDuLieu";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, statusTone, type BadgeTone, type AnyBadgeTone } from "../components/ui/Badge";
@@ -543,15 +543,15 @@ function renderCaseFieldsGrid(
   );
   const xuLyGrid = (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-      {hien("Nhóm / Loại yêu cầu") && <Field label={tr("Nhóm / Loại yêu cầu")} value={`${c.nhom_yeu_cau ?? "—"} — ${dl(c.loai_yeu_cau) ?? "—"}`} />}
+      {hien("Nhóm / Loại yêu cầu") && <Field label={tr("Nhóm / Loại yêu cầu")} value={`${gt(c.nhom_yeu_cau) ?? "—"} — ${gt(c.loai_yeu_cau) ?? "—"}`} />}
       {hien("Mức độ") && <Field label={tr("Mức độ")} value={mucDoBadge(c.muc_do) ?? "—"} />}
-      {hien("Cách thức xử lý") && <Field label={tr("Cách thức xử lý")} value={c.cach_thuc_xu_ly ?? "—"} />}
+      {hien("Cách thức xử lý") && <Field label={tr("Cách thức xử lý")} value={gtCachThuc(c.cach_thuc_xu_ly) ?? "—"} />}
       {hien("Sản phẩm bảo hành") && <Field label={tr("Sản phẩm bảo hành")} value={c.san_pham_bao_hanh ?? "—"} />}
-      {hien("Hình thức bảo hành") && <Field label={tr("Hình thức bảo hành")} value={c.hinh_thuc_bao_hanh ?? "—"} />}
+      {hien("Hình thức bảo hành") && <Field label={tr("Hình thức bảo hành")} value={gt(c.hinh_thuc_bao_hanh) ?? "—"} />}
       {c.ghi_chu_loai_dv && <Field label={tr("Ghi chú loại dịch vụ")} value={c.ghi_chu_loai_dv} />}
-      {hien("Tiến độ hoàn thành") && <Field label={tr("Tiến độ hoàn thành")} value={c.tien_do_hoan_thanh ?? "—"} />}
-      {hien("Lý do hủy") && <Field label={tr("Lý do hủy")} value={c.ly_do_huy ?? "—"} />}
-      {hien("Lý do quá hạn") && <Field label={tr("Lý do quá hạn")} value={c.ly_do_qua_han ?? "—"} />}
+      {hien("Tiến độ hoàn thành") && <Field label={tr("Tiến độ hoàn thành")} value={gt(c.tien_do_hoan_thanh) ?? "—"} />}
+      {hien("Lý do hủy") && <Field label={tr("Lý do hủy")} value={gt(c.ly_do_huy) ?? "—"} />}
+      {hien("Lý do quá hạn") && <Field label={tr("Lý do quá hạn")} value={gt(c.ly_do_qua_han) ?? "—"} />}
       {hien("Hiện tượng lỗi") && coHienTuongOdoo(c) && (
         <div className="col-span-2">
           <Field label={tr("Hiện tượng lỗi")} value={<HienTuongOdooValue c={c} />} />

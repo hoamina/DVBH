@@ -5870,3 +5870,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Nút "+ Thêm giải trình" (tab GT tồn) nằm trên hàng tiêu đề "Lịch sử giải trình" (`GiaiTrinhLichSu` prop `nutThem`); ca chưa có giải trình:
   nút cùng hàng câu "Chưa có giải trình nào". Không còn hàng trống chỉ chứa nút.
 - Deploy build từ worktree sạch của commit (phiên khác đang sửa dở `CaseDetail.tsx`/`tu-dien.json`/`banDichDuLieu.ts` chưa commit).
+
+## 2026-11-13 — v1.601: dịch giá trị CRM/Odoo trong chi tiết ca + khu vực nước khác khi xem VN
+
+- Giao diện EN/ID: Hình thức bảo hành, Tiến độ hoàn thành, Lý do quá hạn / hủy, Nhóm yêu cầu, Hiện tượng lỗi (KH báo / KTV xác định),
+  Cách thức xử lý (dịch hiện tượng + hành động, giữ tên/mã linh kiện) nay dịch khi hiển thị qua `gt()` / `gtCachThuc()`
+  (`lib/banDichDuLieu.ts`: thử `dl()` rồi `tu-dien.json`). ~98 giá trị cố định lấy từ dữ liệu thật thêm vào `tu-dien.json`. Dữ liệu lưu vẫn tiếng Việt.
+- Lỗi: người xem cả VN + PH, sang VN vẫn thấy chip khu vực PH và phạm vi tính cả khu vực PH. Backend `apPhamViQuocGia` khi xem VN bỏ khu vực
+  thuộc nước khác đang bật (`boKhuVucNuocKhacKhiXemVn`, đọc khu vực nước khác qua index 0157, không quét VN); frontend `KhuVucFilterControl`
+  ở VN cũng lọc chip theo options (chỉ khi options đã tải).

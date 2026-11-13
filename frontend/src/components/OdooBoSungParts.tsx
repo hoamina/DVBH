@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { tr } from "../i18n/tr";
+import { gt } from "../lib/banDichDuLieu";
 import { Badge } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { Field } from "./ui/Field";
@@ -132,7 +133,7 @@ export function HienTuongOdooValue({ c }: { c: CaseRow }) {
       <span className="flex flex-wrap gap-1">
         {(ds ?? []).length > 0 ? (ds ?? []).map((x) => (
           <Badge key={x} tone={khac.has(x) ? "amber" : "gray"}>
-            {x}
+            {gt(x)}
           </Badge>
         )) : <span className={muted}>—</span>}
       </span>

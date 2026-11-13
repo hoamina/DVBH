@@ -240,10 +240,35 @@ export async function apPhamViQuocGia(c: Context<{ Bindings: Env }>, user: AppUs
   const qg = await chonQuocGia(dbGoc(c.env.DB), user.pham_vi_quoc_gia, c.req.query("qg"));
   if (qg === null) return;
   c.env = { ...c.env, DB: bocPhamVi(c.env.DB, { qg, pv: phamViCua(c.env.DB) }) };
-  if (qg !== QUOC_GIA_MAC_DINH) {
-    const moi = await khuVucTheoNuocDangXem(dbGoc(c.env.DB), qg, user);
-    if (moi) c.set("user", { ...user, ...moi });
-  }
+  const moi =
+    qg !== QUOC_GIA_MAC_DINH
+      ? await khuVucTheoNuocDangXem(dbGoc(c.env.DB), qg, user)
+      : await boKhuVucNuocKhacKhiXemVn(dbGoc(c.env.DB), user);
+  if (moi) c.set("user", { ...user, ...moi });
+}
+
+/*
+ * Xem VN ma da duoc gan ca khu vuc nuoc khac (loi 2026-11-13: nguoi xem ca VN + PH, sang VN van hien chip khu vuc PH va
+ * pham vi / chot so Giam sat tinh ca khu vuc PH). Bo cac khu vuc thuoc nuoc khac dang bat. KHONG doc DISTINCT khu_vuc cua VN
+ * (quet ca bang) - chi doc khu vuc cac nuoc khac qua index rieng (migration 0157), cache 10 phut. Chi con khu vuc nuoc
+ * khac -> giu nguyen (hanh vi cu).
+ */
+async function boKhuVucNuocKhacKhiXemVn(
+  db: D1Database,
+  user: AppUser,
+): Promise<Pick<AppUser, "khu_vuc_phu_trach" | "khu_vuc_duoc_xem"> | null> {
+  const pt0 = user.khu_vuc_phu_trach ?? [];
+  const dx0 = user.khu_vuc_duoc_xem ?? [];
+  if (pt0.length + dx0.length === 0) return null;
+  const nuocKhac = (await dsQuocGiaKichHoat(db)).filter((q) => q !== QUOC_GIA_MAC_DINH);
+  if (!nuocKhac.length) return null;
+  const khac = new Set<string>();
+  for (const q of nuocKhac) for (const k of await dsKhuVucCuaNuoc(db, q)) khac.add(k);
+  const pt = pt0.filter((k) => !khac.has(k));
+  const dx = dx0.filter((k) => !khac.has(k));
+  if (pt.length === pt0.length && dx.length === dx0.length) return null;
+  if (pt.length + dx.length === 0) return null;
+  return { khu_vuc_phu_trach: pt, khu_vuc_duoc_xem: dx };
 }
 
 /*
