@@ -14237,5 +14237,18 @@
   "Về một phần": ["Partly received", "Diterima sebagian"],
   "Đủ hàng": ["Fully received", "Lengkap"],
   "SL {0} / nhận {1}": ["Qty {0} / received {1}", "Jml {0} / diterima {1}"],
-  "KTV: {0}": ["Technician: {0}", "Teknisi: {0}"]
+  "KTV: {0}": ["Technician: {0}", "Teknisi: {0}"],
+  "Luồng giải trình theo ngày": ["Daily explanation timeline", "Alur penjelasan per hari"],
+  "hôm nay": ["today", "hari ini"],
+  "{0} ngày có GT": ["{0} days explained", "{0} hari ada penjelasan"],
+  "{0} ngày bỏ sót": ["{0} days missed", "{0} hari terlewat"],
+  "đổi lý do {0} lần": ["reason changed {0} times", "alasan berubah {0} kali"],
+  "ngày bỏ sót": ["missed day", "hari terlewat"],
+  "ngày đổi lý do": ["reason changed", "alasan berubah"],
+  "hiện {0} ngày gần nhất": ["showing last {0} days", "menampilkan {0} hari terakhir"],
+  "Chủ nhật — không giải trình": ["Sunday — no explanation", "Minggu — tanpa penjelasan"],
+  "Không có giải trình": ["No explanation", "Tidak ada penjelasan"],
+  "▸ Xem {0} mốc trước": ["▸ Show {0} earlier entries", "▸ Lihat {0} entri sebelumnya"],
+  "▸ Xem {0} mốc (cùng nội dung)": ["▸ Show {0} entries (same content)", "▸ Lihat {0} entri (isi sama)"],
+  "Hôm nay — chưa giải trình": ["Today — not explained yet", "Hari ini — belum ada penjelasan"]
 }

@@ -5845,3 +5845,14 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - `SuaChuaPanel.tsx DonCard`: đầu thẻ gọn (tên LK; mã đơn DH, thùng, mã LK, SL khai/nhận, KTV trên 1 dòng; badge Odoo/app + giai đoạn),
   luồng ngang ngay dưới, dải thông tin chính (hướng xử lý, KTV đề xuất, ngày tạo, đã xử lý được / tổng thời gian), "▾ Xem chi tiết" chứa
   KTV gửi đầy đủ, SL + lý do chênh, sự cố tiếp nhận, mô tả lỗi, mốc dọc, chi tiết từng đơn vị, nhật ký.
+
+## 2026-11-13 — v1.597: Tiến trình chung gộp mốc tương tự + luồng ngày giải trình ở GT tồn
+
+- Tab "Tiến trình chung": các mốc LIÊN TIẾP cùng loại (cùng nhãn + tab đích; GT tồn thì cùng lý do — trường `nhomKey`) gộp 1 khối:
+  mốc mới nhất + "×N" + khoảng thời gian + người; bấm "Xem N mốc trước" (hoặc "Xem N mốc (cùng nội dung)" khi nội dung trùng) để mở.
+  "Cách mốc trước" tính giữa các nhóm.
+- Tab "GT tồn" (`GiaiTrinhLichSu.tsx LuongNgayGiaiTrinh`): trên cùng 1 đường thẳng từ ngày giải trình đầu tiên tới hôm nay (ca mở) /
+  ngày hoàn thành, mỗi ngày 1 chấm: có GT = màu của lý do (cùng lý do cùng màu, chú giải màu + số lần), ngày đổi lý do có viền đậm,
+  nhiều GT trong ngày hiện số; ngày không GT = chấm rỗng viền đỏ nét đứt (bỏ sót); Chủ nhật và hôm nay chưa hết ngày nhạt, không tính
+  bỏ sót. Nhãn tóm tắt: N ngày có GT / M ngày bỏ sót / đổi lý do K lần. Dài quá 120 ngày → chỉ vẽ 120 ngày gần nhất. Rê chuột xem
+  giờ, lý do, nội dung, người.

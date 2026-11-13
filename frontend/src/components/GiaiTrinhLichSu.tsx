@@ -272,6 +272,148 @@ function LinhKienTomTat({
   );
 }
 
+// ---------------------------------------------------------------------------------------------------------------------------
+// Luong NGAY giai trinh (2026-11-13, chu he thong): 1 duong thang tu ngay giai trinh dau tien toi hom nay (ca con mo) / ngay hoan
+// thanh; moi ngay 1 cham. Ngay co giai trinh to theo MAU CUA LY DO (cung ly do = cung mau, doi ly do = mau khac + vien dam);
+// ngay khong co giai trinh = cham rong vien net dut do (bo sot); Chu nhat bo trong to nhat, khong tinh la bo sot.
+// ---------------------------------------------------------------------------------------------------------------------------
+const MAU_LY_DO = [
+  "var(--ocean-500)",
+  "var(--amber-500)",
+  "var(--teal-500)",
+  "var(--violet-500)",
+  "var(--orange-500)",
+  "var(--indigo-500)",
+  "#db2777",
+  "#0891b2",
+  "#65a30d",
+  "#78716c",
+];
+
+const congNgay = (d: string, n: number) => {
+  const t = new Date(`${d}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
+};
+const laChuNhat = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay() === 0;
+const MAX_NGAY = 120; // luong qua dai -> chi ve 120 ngay gan nhat
+
+function LuongNgayGiaiTrinh({
+  ds,
+  daXong,
+  ngayHoanThanh,
+  tenNguoi,
+}: {
+  ds: GiaiTrinhRow[]; // moi -> cu
+  daXong: boolean;
+  ngayHoanThanh: string | null;
+  tenNguoi: (e: string) => string;
+}) {
+  const cuToiMoi = [...ds].reverse();
+  const theoNgay = new Map<string, GiaiTrinhRow[]>();
+  for (const g of cuToiMoi) {
+    const d = ngay(g.ngay_giai_trinh);
+    if (!d) continue;
+    if (!theoNgay.has(d)) theoNgay.set(d, []);
+    theoNgay.get(d)!.push(g);
+  }
+  const ngayCo = [...theoNgay.keys()].sort();
+  if (!ngayCo.length) return null;
+  const lyDoNgay = (d: string) => theoNgay.get(d)![theoNgay.get(d)!.length - 1].ly_do_cham;
+  const mau = new Map<string, string>();
+  for (const g of cuToiMoi) if (!mau.has(g.ly_do_cham)) mau.set(g.ly_do_cham, MAU_LY_DO[mau.size % MAU_LY_DO.length]);
+
+  const dau = ngayCo[0];
+  const cuoiGt = ngayCo[ngayCo.length - 1];
+  let cuoi = daXong ? ngay(ngayHoanThanh) || cuoiGt : homNay();
+  if (cuoi < cuoiGt) cuoi = cuoiGt;
+  const tong = soNgay(dau, cuoi) + 1;
+  const batDau = tong > MAX_NGAY ? congNgay(cuoi, -(MAX_NGAY - 1)) : dau;
+  const ngays: string[] = [];
+  for (let d = batDau; d <= cuoi; d = congNgay(d, 1)) ngays.push(d);
+
+  // Ly do cua ngay co GT gan nhat TRUOC khung ve (de danh dau "doi ly do" dung ngay tu cham dau).
+  let truocKhung: string | null = null;
+  for (const d of ngayCo) if (d < batDau) truocKhung = lyDoNgay(d);
+  // Hom nay chua het ngay (ca con mo) -> chua tinh la bo sot, ve nhu Chu nhat.
+  const homNayMo = daXong ? null : homNay();
+  const khongTinh = (d: string) => laChuNhat(d) || d === homNayMo;
+  const soSot = ngays.filter((d) => !theoNgay.has(d) && !khongTinh(d)).length;
+  let soDoi = 0;
+  for (let i = 1; i < ngayCo.length; i++) if (lyDoNgay(ngayCo[i]) !== lyDoNgay(ngayCo[i - 1])) soDoi++;
+
+  let lyDoTruoc = truocKhung;
+  const cham = ngays.map((d, i) => {
+    const gs = theoNgay.get(d);
+    const lyDo = gs ? lyDoNgay(d) : null;
+    const doi = !!lyDo && !!lyDoTruoc && lyDo !== lyDoTruoc;
+    if (lyDo) lyDoTruoc = lyDo;
+    return { d, i, gs, lyDo, doi };
+  });
+
+  return (
+    <div className="rounded-lg border border-[var(--line)] px-3 pt-2 pb-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+        <div className="text-xs font-semibold text-[var(--ink-600)]">
+          {tr("Luồng giải trình theo ngày")}
+          <span className="font-normal text-[var(--ink-400)]">
+            {" "}
+            · {fmtDate(dau)} → {daXong ? fmtDate(cuoi) : tr("hôm nay")}
+            {tong > MAX_NGAY && ` (${tr("hiện {0} ngày gần nhất", MAX_NGAY)})`}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge tone="ocean">{tr("{0} ngày có GT", ngayCo.length)}</Badge>
+          <Badge tone={soSot > 0 ? "coral" : "teal"}>{tr("{0} ngày bỏ sót", soSot)}</Badge>
+          {soDoi > 0 && <Badge tone="amber">{tr("đổi lý do {0} lần", soDoi)}</Badge>}
+        </div>
+      </div>
+      <div className="overflow-x-auto pb-1">
+        <ol className="flex min-w-max items-start">
+          {cham.map(({ d, i, gs, lyDo, doi }) => {
+            const cn = khongTinh(d);
+            const dauThang = i === 0 || d.slice(8) === "01";
+            const title = gs
+              ? [fmtDate(d), ...gs.map((g) => `${fmtDateTime(g.ngay_giai_trinh)} · ${dl(g.ly_do_cham)}${g.noi_dung ? ` — ${g.noi_dung}` : ""} (${tenNguoi(g.nguoi_giai_trinh)})`)].join("\n")
+              : `${fmtDate(d)} · ${d === homNayMo ? tr("Hôm nay — chưa giải trình") : cn ? tr("Chủ nhật — không giải trình") : tr("Không có giải trình")}`;
+            return (
+              <li key={d} className="relative flex flex-col items-center w-[22px] shrink-0" title={title}>
+                {i > 0 && <span className="absolute top-[8px] right-1/2 w-full h-0.5 bg-slate-200" />}
+                {gs ? (
+                  <span
+                    className={`relative z-10 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold text-white ${doi ? "ring-2 ring-offset-1 ring-[var(--ink-900)]" : ""}`}
+                    style={{ background: mau.get(lyDo!) }}
+                  >
+                    {gs.length > 1 ? gs.length : ""}
+                  </span>
+                ) : (
+                  <span className={`relative z-10 w-[18px] h-[18px] rounded-full border-2 border-dashed bg-white ${cn ? "border-slate-200" : "border-[var(--coral-500)]"}`} />
+                )}
+                <span className={`mt-0.5 text-[9px] leading-none ${cn && !gs ? "text-slate-300" : gs ? "text-[var(--ink-600)]" : "text-[var(--coral-600)]"}`}>{d.slice(8)}</span>
+                <span className="h-2.5 text-[8px] leading-tight text-[var(--ink-400)]">{dauThang ? `T${Number(d.slice(5, 7))}` : ""}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--ink-600)]">
+        {[...mau].map(([l, m]) => (
+          <span key={l} className="inline-flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: m }} />
+            {dl(l)} <span className="text-[var(--ink-400)]">({ds.filter((g) => g.ly_do_cham === l).length})</span>
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1 text-[var(--ink-400)]">
+          <span className="w-2.5 h-2.5 rounded-full border-2 border-dashed border-[var(--coral-500)]" /> {tr("ngày bỏ sót")}
+        </span>
+        <span className="inline-flex items-center gap-1 text-[var(--ink-400)]">
+          <span className="w-2.5 h-2.5 rounded-full bg-slate-400 ring-2 ring-offset-1 ring-[var(--ink-900)]" /> {tr("ngày đổi lý do")}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function GiaiTrinhLichSu({
   list,
   tenNguoi,
@@ -279,6 +421,7 @@ export function GiaiTrinhLichSu({
   poRows,
   onMoTab,
   daXong,
+  ngayHoanThanh = null,
 }: {
   list: GiaiTrinhRow[];
   tenNguoi: (email: string) => string;
@@ -287,6 +430,8 @@ export function GiaiTrinhLichSu({
   onMoTab?: (tab: string) => void;
   /** Ca da hoan thanh -> khong canh bao qua hen / so ngay bao thieu. */
   daXong: boolean;
+  /** Thoi gian hoan thanh ca (ket thuc luong ngay giai trinh khi ca da dong). */
+  ngayHoanThanh?: string | null;
 }) {
   const [hienTungDong, setHienTungDong] = useState(false);
   const ds = useMemo(() => [...list].sort((a, b) => (b.ngay_giai_trinh ?? "").localeCompare(a.ngay_giai_trinh ?? "")), [list]);
@@ -308,6 +453,7 @@ export function GiaiTrinhLichSu({
 
   return (
     <div className="space-y-4">
+      <LuongNgayGiaiTrinh ds={ds} daXong={daXong} ngayHoanThanh={ngayHoanThanh} tenNguoi={tenNguoi} />
       {theoLk.length > 0 && (
         <div>
           <div className="font-display font-bold text-sm mb-2">{tr("Linh kiện liên quan ({0})", theoLk.length)}</div>

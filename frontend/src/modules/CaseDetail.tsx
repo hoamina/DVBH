@@ -797,6 +797,8 @@ interface LichSuChungEvent {
   // null = khong the/khong can nhay tab (vd moc "Case duoc mo/dong" - thong tin ca da hien san o cot
   // trai khi xem "mo rong", nhay sang "info" se ra man hinh trong o che do nay).
   jumpTab: string | null;
+  /** Khoa gop "tuong tu" o Tien trinh chung (mac dinh = loai moc); GT ton gop theo ly do. */
+  nhomKey?: string;
 }
 
 export function CaseDetail({
@@ -1036,6 +1038,8 @@ export function CaseDetail({
   // "raw" = TOAN BO cot goc tren sheet (xem SheetRow._raw trong lib/purchaseWarrantySync.ts), khong
   // chi tap con field da alias hoa cho the rut gon - modal "Xem day du" hien dung MOI thu da tai ve.
   const [detailModalRow, setDetailModalRow] = useState<{ title: string; raw: Record<string, string> } | null>(null);
+  // Tien trinh chung: nhom moc lien tiep cung loai dang mo rong (key = key moc moi nhat cua nhom).
+  const [ttcMoNhom, setTtcMoNhom] = useState<Set<string>>(() => new Set());
   const [huyCaConfirmOpen, setHuyCaConfirmOpen] = useState(false);
   const [huyCaLyDo, setHuyCaLyDo] = useState("");
   // Popup "Cac ca trung serial" (bam vao gia tri Serial o luoi thong tin khach hang) - tai su dung
@@ -1345,7 +1349,7 @@ export function CaseDetail({
   const tienTrinhChungEvents = useMemo<LichSuChungEvent[]>(() => {
     const events: LichSuChungEvent[] = [];
 
-    const pushDb = (opts: { key: string; rawTs: string | null | undefined; tone: AnyBadgeTone; typeLabel: string; actor: string | null; summary: string; jumpTab: string | null }) => {
+    const pushDb = (opts: { key: string; rawTs: string | null | undefined; tone: AnyBadgeTone; typeLabel: string; actor: string | null; summary: string; jumpTab: string | null; nhomKey?: string }) => {
       if (!opts.rawTs) return;
       events.push({
         key: opts.key,
@@ -1356,6 +1360,7 @@ export function CaseDetail({
         actor: opts.actor,
         summary: opts.summary,
         jumpTab: opts.jumpTab,
+        nhomKey: opts.nhomKey,
       });
     };
     // Nguon Google Sheet KHONG co truong "nguoi thuc hien" nhat quan giua cac moc (chu he thong chi
@@ -1385,6 +1390,7 @@ export function CaseDetail({
         actor: l.nguoi_giai_trinh,
         summary: l.noi_dung ? `${dl(l.ly_do_cham)}: ${l.noi_dung}` : dl(l.ly_do_cham),
         jumpTab: "giai-trinh",
+        nhomKey: `gt|${l.ly_do_cham}`,
       });
     }
 
@@ -1668,6 +1674,15 @@ export function CaseDetail({
     { label: tr("Thời gian xử lý thiếu hàng"), value: tienTrinhChungSummary.thieuHangDuration },
   ].filter((it) => it.value !== null);
 
+  // Gop moc LIEN TIEP cung loai (typeLabel + tab dich) - thu tu moi -> cu giu nguyen.
+  const ttcNhom: LichSuChungEvent[][] = [];
+  for (const e of tienTrinhChungEvents) {
+    const last = ttcNhom[ttcNhom.length - 1];
+    const k = (x: LichSuChungEvent) => x.nhomKey ?? `${x.typeLabel}|${x.jumpTab}|${x.tone}`;
+    if (last && k(last[0]) === k(e)) last.push(e);
+    else ttcNhom.push([e]);
+  }
+
   const tienTrinhChungContent = (
     <div>
       <div className="text-xs text-[var(--ink-400)] italic mb-3">
@@ -1682,18 +1697,28 @@ export function CaseDetail({
         </div>
       )}
       {tienTrinhChungEvents.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có mốc nào cho ca này.")}</div>}
+      {/* 2026-11-13 (chu he thong): cac moc LIEN TIEP cung loai (vd nhieu lan GT ton, chuoi su kien Mua hang) gop 1 khoi: hien moc
+          moi nhat + "×N" + khoang thoi gian; noi dung trung nhau thi khong lap lai; bam "Xem N mốc" de mo tung moc. */}
       <div className="space-y-0">
-        {tienTrinhChungEvents.map((e, i) => {
-          const next = tienTrinhChungEvents[i + 1];
-          const gapDays = next ? (e.sortMs - next.sortMs) / 86400000 : null;
+        {ttcNhom.map((g, i) => {
+          const e = g[0];
+          const cu = g[g.length - 1];
+          const nextG = ttcNhom[i + 1];
+          const gapDays = nextG ? (cu.sortMs - nextG[0].sortMs) / 86400000 : null;
+          const nhieu = g.length > 1;
+          const mo = ttcMoNhom.has(e.key);
+          const noiDungKhac = new Set(g.map((x) => x.summary)).size;
+          const nguoi = [...new Set(g.map((x) => x.actor).filter(Boolean) as string[])].map((a) => formatPersonDisplay(a, personDir));
           const inner = (
             <>
               <div className={`absolute -left-[5px] top-1 w-2 h-2 rounded-full ${TIMELINE_TONE_DOT[e.tone]}`}></div>
               <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                 <Badge tone={e.tone}>{e.typeLabel}</Badge>
+                {nhieu && <Badge tone="gray">×{g.length}</Badge>}
                 <span className="text-xs text-[var(--ink-400)]">
                   {e.displayTime}
-                  {e.actor ? ` · ${formatPersonDisplay(e.actor, personDir)}` : ""}
+                  {nhieu && ` ← ${cu.displayTime}`}
+                  {nguoi.length > 0 ? ` · ${nguoi.join(", ")}` : ""}
                 </span>
               </div>
               <div className="text-sm text-[var(--ink-600)] whitespace-pre-wrap">{e.summary}</div>
@@ -1711,6 +1736,35 @@ export function CaseDetail({
                 </button>
               ) : (
                 <div className={`relative pl-4 border-l-2 ${TIMELINE_TONE_BORDER[e.tone]}`}>{inner}</div>
+              )}
+              {nhieu && (
+                <div className="pl-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTtcMoNhom((s) => {
+                        const n = new Set(s);
+                        if (n.has(e.key)) n.delete(e.key);
+                        else n.add(e.key);
+                        return n;
+                      })
+                    }
+                    className="mt-0.5 text-xs font-semibold text-[var(--ocean-600)] hover:underline"
+                  >
+                    {mo ? tr("▴ Thu gọn") : noiDungKhac > 1 ? tr("▸ Xem {0} mốc trước", g.length - 1) : tr("▸ Xem {0} mốc (cùng nội dung)", g.length)}
+                  </button>
+                  {mo && (
+                    <ol className="mt-1 space-y-1 border-l border-dashed border-[var(--line)] pl-3">
+                      {g.slice(noiDungKhac > 1 ? 1 : 0).map((x) => (
+                        <li key={x.key} className="text-xs text-[var(--ink-600)]">
+                          <span className="text-[var(--ink-400)]">{x.displayTime}</span>
+                          {x.actor && <span className="text-[var(--ink-400)]"> · {formatPersonDisplay(x.actor, personDir)}</span>}
+                          {noiDungKhac > 1 && <span className="text-[var(--ink-800)] whitespace-pre-wrap"> — {x.summary}</span>}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
               )}
               {gapDays !== null && gapDays > 0.05 && (
                 <div className="text-[11px] text-[var(--ink-400)] pl-4 pt-1.5">
@@ -1867,6 +1921,7 @@ export function CaseDetail({
         poRows={poDatHangMatched}
         onMoTab={onTabChange}
         daXong={!!c.thoi_gian_hoan_thanh}
+        ngayHoanThanh={c.thoi_gian_hoan_thanh}
       />
 
       {chuyenCapLogList.length > 0 && (
