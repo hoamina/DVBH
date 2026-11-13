@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { AnhVideoOdooItem, SoLuongAnh } from "../types";
 import { tr } from "../i18n/tr";
+import { OdooMediaTile, THU_TU_MINH_HOA, loaiMinhHoa, type LoaiMinhHoa } from "./OdooMediaTile";
 
 
 // Loc trung URL ngay tai day (nguon dung chung cho ca tieu de dem so anh lan gallery ben duoi) -
@@ -455,34 +456,42 @@ function ngayGioNgan(s: string | null): string {
   return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : "";
 }
 
+// 2026-11-13 (chu he thong): NHOM theo loai ("Ảnh bên ngoài (4)", "Ảnh bên trong (4)"...) + moi o 1 hinh minh hoa rieng theo loai
+// (components/OdooMediaTile.tsx), nhan "<loai> (n)" danh so trong nhom, so thu tu toan phieu o goc - de phan biet nhanh loai anh.
 export function OdooMediaLinks({ items }: { items: AnhVideoOdooItem[] }) {
   if (items.length === 0) return null;
+  const nhom = new Map<string, { loai: LoaiMinhHoa; nhan: string; ds: AnhVideoOdooItem[] }>();
+  for (const m of [...items].sort((a, b) => a.stt - b.stt)) {
+    const loai = loaiMinhHoa(m.kind, m.loai_file);
+    const nhan = nhanKindOdoo(m);
+    const key = `${THU_TU_MINH_HOA.indexOf(loai)}|${nhan}`;
+    if (!nhom.has(key)) nhom.set(key, { loai, nhan, ds: [] });
+    nhom.get(key)!.ds.push(m);
+  }
+  const dsNhom = [...nhom.entries()].sort(([a], [b]) => Number(a.split("|")[0]) - Number(b.split("|")[0]) || a.localeCompare(b)).map(([, g]) => g);
   return (
-    <div className="mt-3">
-      <div className="text-xs text-[var(--ink-500)] mb-1.5">
-        {tr("Ảnh & video Odoo — bấm để mở ở tab mới (cần đăng nhập OCRM)")}
-      </div>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-        {items.map((m, i) => {
-          const laVideo = laVideoOdoo(m);
-          const ngay = ngayGioNgan(m.ngay_tao);
-          return (
-            <a
-              key={`${m.url}-${i}`}
-              href={m.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={[nhanKindOdoo(m), m.ten_file, m.ngay_tao].filter(Boolean).join(" · ")}
-              className="focus-ring aspect-square rounded-lg border border-[var(--line)] bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-0.5 p-1 text-center text-[11px] text-[var(--ink-600)] transition-colors"
-            >
-              <span className="text-xl">{laVideo ? "🎬" : "🖼️"}</span>
-              <span className="font-semibold leading-tight">{nhanKindOdoo(m)}</span>
-              {ngay && <span className="text-[10px] text-[var(--ink-400)]">{ngay}</span>}
-              <span className="text-[10px] text-[var(--brand-600,#2563eb)]">↗ {tr("Mở")}</span>
-            </a>
-          );
-        })}
-      </div>
+    <div className="mt-3 space-y-3">
+      <div className="text-xs text-[var(--ink-500)]">{tr("Ảnh & video Odoo — bấm để mở ở tab mới (cần đăng nhập OCRM)")}</div>
+      {dsNhom.map((g) => (
+        <div key={g.nhan}>
+          <div className="text-xs font-bold text-[var(--ink-700)] mb-1.5">
+            {g.nhan} <span className="font-semibold text-[var(--ink-400)]">({g.ds.length})</span>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(76px,92px))] gap-2">
+            {g.ds.map((m, i) => (
+              <OdooMediaTile
+                key={`${m.url}-${i}`}
+                url={m.url}
+                loai={g.loai}
+                so={m.stt}
+                nhan={`${g.nhan.replace(/^Ảnh (.)/, (_m, c: string) => c.toUpperCase())} (${i + 1})`}
+                phu={ngayGioNgan(m.ngay_tao)}
+                title={[g.nhan, m.ten_file, m.ngay_tao].filter(Boolean).join(" · ")}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Badge, type BadgeTone } from "./ui/Badge";
 import { Card } from "./ui/Card";
 import { fmtDateTime, type LichHenItem } from "../types";
 import { tr } from "../i18n/tr";
+import { OdooMediaTile } from "./OdooMediaTile";
 
 // Tab "Lịch hẹn" (CaseDetail, trong card "Thông tin xử lý") - nguon Odoo OCRM (model
 // technical.service.appointment). 1 ca co the hen nhieu lan (hen lai/doi lich) - hien thi TOAN BO
@@ -75,22 +76,19 @@ function LichHenItemCard({ item, isGanNhat }: { item: LichHenItem; isGanNhat: bo
           <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Ảnh bằng chứng (")}{anh.length})</div>
           {/* Link OCRM ts/media can phien dang nhap OCRM, nhung <img> tu ten mien khac luon loi -> hien dang
               LINK mo tab moi, cung kieu o "Ảnh & video Odoo" (OdooMediaLinks, v1.584). */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(76px,92px))] gap-2">
             {anh.filter((a) => /^https?:\/\//i.test(a.url ?? "")).map((a, i) => {
               const laVideo = (a.loai_file ?? "").startsWith("video/");
+              const nhan = laVideo ? "Video" : tr("Ảnh lịch hẹn");
               return (
-                <a
+                <OdooMediaTile
                   key={`${a.url}-${i}`}
-                  href={a.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`${laVideo ? "Video" : tr("Ảnh")} ${i + 1}/${anh.length}`}
-                  className="focus-ring aspect-square rounded-lg border border-[var(--line)] bg-slate-50 hover:bg-slate-100 flex flex-col items-center justify-center gap-0.5 p-1 text-center text-[11px] text-[var(--ink-600)] transition-colors"
-                >
-                  <span className="text-xl">{laVideo ? "🎬" : "🖼️"}</span>
-                  <span className="font-semibold leading-tight">{laVideo ? "Video" : tr("Ảnh")} {i + 1}</span>
-                  <span className="text-[10px] text-[var(--brand-600,#2563eb)]">↗ {tr("Mở")}</span>
-                </a>
+                  url={a.url}
+                  loai={laVideo ? "video" : "lich_hen"}
+                  so={i + 1}
+                  nhan={`${nhan} (${i + 1})`}
+                  title={`${nhan} ${i + 1}/${anh.length}`}
+                />
               );
             })}
           </div>

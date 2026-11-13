@@ -5770,3 +5770,11 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   bằng chứng huỷ), mục ảnh đếm mọi file `anh_video_odoo` (thêm ảnh lịch hẹn + video).
 - Sửa: ca có `anh_video_odoo` → cả 2 chỗ đếm chung `demAnhVideoOdoo` (`CaseImageGallery.tsx`), tách ảnh / video: "📷 16 ảnh · 🎬 2 video (Odoo)",
   rê chuột xem số từng nhóm; mục ảnh "(16 ảnh · 2 video)". Ca chưa có `anh_video_odoo` giữ cách đếm cũ. `laVideoOdoo` nhận cả kind `clip`/`location_clip`.
+
+## 2026-11-13 — v1.588: ảnh & video Odoo nhóm theo loại + hình minh hoạ riêng từng loại
+
+- Mục "Hình ảnh báo cáo công việc": ô ảnh Odoo chia nhóm có tiêu đề + số lượng ("Ảnh bên ngoài (4)", "Ảnh bên trong (4)", "Ảnh báo cáo (7)",
+  "Ảnh lịch hẹn (1)", "Video (2)"…), thứ tự ngoài → trong → báo cáo → tem serial → huỷ → lịch hẹn → video.
+- Mỗi ô = hình minh hoạ SVG dùng chung theo loại (`components/OdooMediaTile.tsx`: thân máy, máy mở cửa thấy lõi lọc, phiếu báo cáo có dấu,
+  tem mã vạch, phiếu gạch chéo, nhật ký cuộc gọi, máy quay) + số thứ tự toàn phiếu ở góc (giống lưới ảnh app Odoo) + nhãn "Bên ngoài (1)"…
+  Vẫn là link mở tab mới (ảnh thật cần đăng nhập OCRM). Ảnh bằng chứng tab Lịch hẹn dùng cùng kiểu ô.
