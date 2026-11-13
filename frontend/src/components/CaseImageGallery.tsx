@@ -419,6 +419,9 @@ const NHAN_KIND_ODOO: Record<string, string> = {
   image_serial: "Ảnh tem serial",
   image_cancel: "Ảnh bằng chứng huỷ",
   image_appointment: "Ảnh lịch hẹn",
+  clip: "Video",
+  video_after_close: "Video sau đóng ca",
+  location_clip: "Video vị trí",
 };
 
 function nhanKindOdoo(m: AnhVideoOdooItem): string {
