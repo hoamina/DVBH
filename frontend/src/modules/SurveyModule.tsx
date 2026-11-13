@@ -1489,7 +1489,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
               { key: "qua-han-khao-sat", label: tr("Quá hạn khảo sát"), count: counts?.["qua-han-khao-sat"] },
               { key: "cho-qc", label: tr("Chờ QC chốt cấp 2"), count: counts?.["cho-qc"] },
               { key: "vi-pham-da-chot", label: tr("Vi phạm đã chốt"), count: counts?.["vi-pham-da-chot"] },
-              { key: "da-xu-ly", label: tr("Đã xử lý xong"), count: counts?.["da-xu-ly"] },
+              { key: "da-xu-ly", label: tr("Đã xử lý xong") },
               { key: "lich-su-khao-sat", label: tr("Lịch sử khảo sát") },
             ]}
           />

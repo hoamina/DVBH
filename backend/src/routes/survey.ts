@@ -330,12 +330,9 @@ survey.get("/", async (c) => {
       LIMIT ?
     `;
     const { results } = await c.env.DB.prepare(query).bind(...scopeClause.binds, ...extraBinds, limit).all();
-    // Chi loc khu vuc (truong hop pho bien) -> dung bang dem chung theo khu vuc (xem daXuLyTheoKhuVuc).
-    const chiLocKhuVuc = Object.entries(totalCasesParams).every(([k, v]) => k === "khu_vuc" || !v);
-    const totalCases =
-      chiLocKhuVuc && c.req.query("export") !== "true"
-        ? await daXuLyTheoPhamVi(c.env.DB, scope, totalCasesParams.khu_vuc)
-        : await totalCasesFor("(v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)");
+    // 2026-11-14 (chu he thong): tab "Da xu ly" KHONG dem tong nua - so cong don tu 08/2026 (~30k ca, 94% la
+    // "Khong loi"), phai dem lai ~42k dong vi_pham sau MOI cuoc goi khao sat (~19M rows_read/ngay) ma khong ai can.
+    const totalCases = null;
     return c.json({ rows: results, totalCases });
   }
 
@@ -372,24 +369,6 @@ export interface SurveyCountsParams {
   [key: string]: string | undefined;
 }
 
-// So ca "da-xu-ly" theo TUNG khu_vuc, cache CHUNG cho moi nguoi dung (key khong chua scope) - RA SOAT
-// D1 2026-10-15: cau COUNT(DISTINCT) nay khop ~36k/38k dong vi_pham (index khong giup duoc), chay rieng
-// cho TUNG scope khu vuc x moi lan bump "vi_pham" (moi cuoc goi khao sat) -> ~360M rows_read/tuan. Gio
-// tinh 1 lan / version, moi scope chi cong lai trong JS (daXuLyTheoPhamVi). Khu vuc khong giao nhau
-// giua cac ca nen cong COUNT(DISTINCT) tung khu vuc = COUNT(DISTINCT) tren hop.
-async function daXuLyTheoKhuVuc(db: D1Database): Promise<{ khu_vuc: string; n: number }[]> {
-  return cachedReport(db, "survey/da-xu-ly-theo-kv-v1", ["cases", "vi_pham"], async () => {
-    const { results } = await db
-      .prepare(
-        `SELECT c.khu_vuc as khu_vuc, COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
-         WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL) AND c.khu_vuc IS NOT NULL
-         GROUP BY c.khu_vuc`,
-      )
-      .all<{ khu_vuc: string; n: number }>();
-    return results;
-  });
-}
-
 // Ban JS cua khuVucWhereClause + khuVucReportExclusionClause + khuVucAdHocClause - PHAI khop dung 3 ham do.
 function khuVucKhop(kv: string, scope: string[] | null, khuVucFilter: string | undefined): boolean {
   if (KHU_VUC_AN_KHOI_BAO_CAO.includes(kv)) return false;
@@ -399,11 +378,6 @@ function khuVucKhop(kv: string, scope: string[] | null, khuVucFilter: string | u
   if (khuVucFilter === QLDVBH_FILTER_VALUE) return kv.toLowerCase().includes("qldvbh");
   const values = khuVucFilter.split(",").map((v) => v.trim()).filter(Boolean);
   return values.length === 0 || values.includes(kv);
-}
-
-async function daXuLyTheoPhamVi(db: D1Database, scope: string[] | null, khuVucFilter: string | undefined): Promise<number> {
-  const rows = await daXuLyTheoKhuVuc(db);
-  return rows.reduce((s, r) => (khuVucKhop(r.khu_vuc, scope, khuVucFilter) ? s + r.n : s), 0);
 }
 
 // Tach rieng phan tinh toan cua /counts - dung chung cho compute-on-miss va warm-up (R7).
@@ -436,24 +410,16 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
     SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL${scopeClause.sql}${extraFilter}
   `;
-  const daXuLyQuery = `
-    SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
-    WHERE (v.ket_qua_cap_1 = 'Khong loi' OR v.chot_bo_cap_2 IS NOT NULL)${scopeClause.sql}${extraFilter}
-  `;
   const viPhamDaChotQuery = `
     SELECT COUNT(DISTINCT v.case_id) as n FROM vi_pham v CROSS JOIN case_hieu_luc c ON c.id = v.case_id
     WHERE v.chot_bo_cap_2 = 1${scopeClause.sql}${extraFilter}
   `;
 
-  // Khong loc tuoi -> "da-xu-ly" lay tu bang dem chung theo khu vuc (xem daXuLyTheoKhuVuc).
-  const coLocTuoi = ageClause.sql !== "";
-  const [canKhaoSat, quaHanKhaoSat, choQc, daXuLy, viPhamDaChot] = await Promise.all([
+  // "da-xu-ly" bo dem tu 2026-11-14 (xem nhanh tab "da-xu-ly" o GET "/").
+  const [canKhaoSat, quaHanKhaoSat, choQc, viPhamDaChot] = await Promise.all([
     db.prepare(canKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds, ...monthBinds).first<{ n: number }>(),
     db.prepare(quaHanKhaoSatQuery).bind(...scopeClause.binds, ...extraBinds, ...monthBinds).first<{ n: number }>(),
     db.prepare(choQcQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
-    coLocTuoi
-      ? db.prepare(daXuLyQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>()
-      : daXuLyTheoPhamVi(db, scope, params.khu_vuc).then((n) => ({ n })),
     db.prepare(viPhamDaChotQuery).bind(...scopeClause.binds, ...extraBinds).first<{ n: number }>(),
   ]);
 
@@ -461,7 +427,6 @@ export async function computeSurveyCounts(db: D1Database, params: SurveyCountsPa
     "can-khao-sat": canKhaoSat?.n ?? 0,
     "qua-han-khao-sat": quaHanKhaoSat?.n ?? 0,
     "cho-qc": choQc?.n ?? 0,
-    "da-xu-ly": daXuLy?.n ?? 0,
     "vi-pham-da-chot": viPhamDaChot?.n ?? 0,
   };
 }
@@ -516,27 +481,24 @@ export async function computeSurveyByKhuVuc(db: D1Database, params: SurveyByKhuV
     WHERE v.ket_qua_cap_1 IS NOT NULL AND v.ket_qua_cap_1 != 'Khong loi' AND v.chot_bo_cap_2 IS NULL AND c.khu_vuc IS NOT NULL${scopeClause.sql}${khuVucClause.sql}
     GROUP BY c.khu_vuc
   `;
-  // "da-xu-ly": loc tu bang dem chung theo khu vuc (xem daXuLyTheoKhuVuc), khong query rieng theo scope.
-  const [canKhaoSat, quaHanKhaoSat, choQc, daXuLyTatCa] = await Promise.all([
+  // "da-xu-ly" bo dem tu 2026-11-14 (xem nhanh tab "da-xu-ly" o GET "/").
+  const [canKhaoSat, quaHanKhaoSat, choQc] = await Promise.all([
     db.prepare(canKhaoSatQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
     db.prepare(quaHanKhaoSatQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
     db.prepare(choQcQuery).bind(...scopeClause.binds, ...khuVucClause.binds).all<{ khu_vuc: string; n: number }>(),
-    daXuLyTheoKhuVuc(db),
   ]);
-  const daXuLy = { results: daXuLyTatCa.filter((r) => khuVucKhop(r.khu_vuc, scope, params.khu_vuc)) };
 
   interface Row {
     khu_vuc: string;
     can_khao_sat: number;
     qua_han_khao_sat: number;
     cho_qc: number;
-    da_xu_ly: number;
   }
   const map = new Map<string, Row>();
   const ensure = (khuVuc: string): Row => {
     let row = map.get(khuVuc);
     if (!row) {
-      row = { khu_vuc: khuVuc, can_khao_sat: 0, qua_han_khao_sat: 0, cho_qc: 0, da_xu_ly: 0 };
+      row = { khu_vuc: khuVuc, can_khao_sat: 0, qua_han_khao_sat: 0, cho_qc: 0 };
       map.set(khuVuc, row);
     }
     return row;
@@ -544,7 +506,6 @@ export async function computeSurveyByKhuVuc(db: D1Database, params: SurveyByKhuV
   for (const r of canKhaoSat.results) ensure(r.khu_vuc).can_khao_sat = r.n;
   for (const r of quaHanKhaoSat.results) ensure(r.khu_vuc).qua_han_khao_sat = r.n;
   for (const r of choQc.results) ensure(r.khu_vuc).cho_qc = r.n;
-  for (const r of daXuLy.results) ensure(r.khu_vuc).da_xu_ly = r.n;
 
   const rows = Array.from(map.values()).sort((a, b) => b.can_khao_sat + b.qua_han_khao_sat - (a.can_khao_sat + a.qua_han_khao_sat));
   return { rows };

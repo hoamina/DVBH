@@ -5879,3 +5879,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Lỗi: người xem cả VN + PH, sang VN vẫn thấy chip khu vực PH và phạm vi tính cả khu vực PH. Backend `apPhamViQuocGia` khi xem VN bỏ khu vực
   thuộc nước khác đang bật (`boKhuVucNuocKhacKhiXemVn`, đọc khu vực nước khác qua index 0157, không quét VN); frontend `KhuVucFilterControl`
   ở VN cũng lọc chip theo options (chỉ khi options đã tải).
+
+## 2026-11-14 — Bỏ đếm "Đã xử lý xong (N)" ở Khảo sát (v1.603)
+- Đo D1 13/11: câu đếm "đã xử lý theo khu vực" (`daXuLyTheoKhuVuc`) chạy 149 lần/ngày × ~128k dòng = 19M rows_read (~22% DB dvbh).
+  `vi_pham` 43.911 dòng, 94% là "Khong loi" (mỗi cuộc khảo sát không lỗi tạo 1 dòng); số cộng dồn từ 04/08 nên phải đếm lại toàn bộ sau
+  MỖI cuộc gọi (bump `vi_pham`). Chủ hệ thống: bỏ số (N) của tab, không cần đếm.
+- `survey.ts`: bỏ `daXuLyTheoKhuVuc`/`daXuLyTheoPhamVi`, `/counts` không còn khoá `da-xu-ly`, `/by-khu-vuc` bỏ cột `da_xu_ly` (endpoint
+  hiện không có màn nào gọi), tab "da-xu-ly" trả `totalCases: null`. Danh sách tab vẫn như cũ.
