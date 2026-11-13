@@ -21,7 +21,7 @@ export function QuocGiaSettings() {
   const loi = (e: Error) => toast(e.message);
 
   const luuNuoc = useMutation({
-    mutationFn: (b: { ma: string; ten: string; thu_tu: number; kich_hoat: boolean; telegram_chat_id?: string | null }) => api.put("/quoc-gia/nuoc", b),
+    mutationFn: (b: { ma: string; ten: string; thu_tu: number; kich_hoat: boolean; telegram_chat_id?: string | null; moc_ton_giai_trinh?: number }) => api.put("/quoc-gia/nuoc", b),
     onSuccess: () => {
       lamMoi();
       toast(tr("Đã lưu quốc gia"));
@@ -76,6 +76,9 @@ export function QuocGiaSettings() {
               <th>{tr("Thứ tự")}</th>
               <th>{tr("Bật")}</th>
               <th>{tr("Nhóm Telegram (mã chat)")}</th>
+              <th title={tr("Ca chưa giải trình tồn từ số ngày này trở lên được tính vào \"Tổng cần giải trình\" (VN 5, PH 1)")}>
+                {tr("Mốc tồn cần GT (ngày)")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -105,6 +108,25 @@ export function QuocGiaSettings() {
                       }}
                     />
                   ) : null}
+                </td>
+                <td>
+                  {canEdit ? (
+                    <input
+                      key={`${q.ma}-moc-${q.moc_ton_giai_trinh ?? 5}`}
+                      type="number"
+                      min={1}
+                      max={60}
+                      className={`${O_NHAP} w-20`}
+                      defaultValue={q.moc_ton_giai_trinh ?? 5}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isInteger(v) && v >= 1 && v <= 60 && v !== (q.moc_ton_giai_trinh ?? 5))
+                          luuNuoc.mutate({ ma: q.ma, ten: q.ten, thu_tu: q.thu_tu, kich_hoat: !!q.kich_hoat, moc_ton_giai_trinh: v });
+                      }}
+                    />
+                  ) : (
+                    <span>{q.moc_ton_giai_trinh ?? 5}</span>
+                  )}
                 </td>
               </tr>
             ))}

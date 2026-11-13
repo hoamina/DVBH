@@ -1,5 +1,6 @@
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useEffect, useMemo, useState } from "react";
+import { nhanTheoMoc, useMocTonGiaiTrinh } from "../lib/quocGia";
 import { dl } from "../lib/banDichDuLieu";
 import { createPortal } from "react-dom";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
@@ -1073,6 +1074,10 @@ export function BacklogModule({
 }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
+  // "Mốc tồn cần giải trình" theo nuoc dang xem (2026-11-13, migration 0167: VN 5, PH 1) - nhan "Chưa GT >N ngày".
+  const moc = useMocTonGiaiTrinh();
+  const nhomTonBadges = useMemo(() => NHOM_TON_BADGES.map((b) => (b.key === "need_chua_gt_5_ngay" ? { ...b, label: nhanTheoMoc(b.label, moc) } : b)), [moc]);
+  const nhomOptions = useMemo(() => NHOM_OPTIONS.map((o) => (o.value === "can-giai-trinh:chua_gt_5_ngay" ? { ...o, label: nhanTheoMoc(o.label, moc) } : o)), [moc]);
   const [view, setView] = useLocalStorageState("filters:backlog-view", "bao-cao");
   const [page, setPage] = useState(1);
   // Drill-down tu bao cao 08:00 phai giu ca da dong trong ngay trong danh sach can giai trinh.
@@ -1555,7 +1560,7 @@ export function BacklogModule({
     need_lo_ke_hoach: "Lỡ kế hoạch",
     need_tai_giai_trinh: "Tái giải trình",
     need_chua_gt_3_ngay: "Chưa GT >3 ngày",
-    need_chua_gt_5_ngay: "Chưa GT >5 ngày",
+    need_chua_gt_5_ngay: nhanTheoMoc("Chưa GT >5 ngày", moc),
     need_dieu_hoa: "Điều hòa",
     need_b2b: "B2B",
     need_nskx: "NSKX",
@@ -1596,7 +1601,7 @@ export function BacklogModule({
       lo_ke_hoach: "Lỡ kế hoạch",
       cho_giai_trinh_lai: "Tái giải trình",
       dmx_chua_gt_3_ngay: "ĐMX chưa GT >3 ngày",
-      chua_gt_5_ngay: "Chưa GT >5 ngày",
+      chua_gt_5_ngay: nhanTheoMoc("Chưa GT >5 ngày", moc),
       dieu_hoa_1_ngay: "Điều hòa >1 ngày",
       b2b_1_ngay: "B2B >1 ngày",
       nskx_2_ngay: "NSKX >=2 ngày",
@@ -1665,7 +1670,7 @@ export function BacklogModule({
       kieu: "list",
       nhanGiaTri: (v) => (v === "cap2" ? tr("Cấp 2 — CEO") : v === "cap1" ? tr("Cấp 1 — TBP/TP DVBH") : v),
     },
-    { key: "nhom_ton", label: tr("Nhóm tồn"), kieu: "list", nhanGiaTri: (v) => NHOM_TON_BADGES.find((b) => b.key === v)?.label ?? v },
+    { key: "nhom_ton", label: tr("Nhóm tồn"), kieu: "list", nhanGiaTri: (v) => nhomTonBadges.find((b) => b.key === v)?.label ?? v },
   ];
 
   const columns: Column<CaseRow>[] = [
@@ -1756,9 +1761,9 @@ export function BacklogModule({
       key: "nhom_ton",
       header: tr("Nhóm tồn"),
       filter: "list",
-      filterValueLabel: (v) => NHOM_TON_BADGES.find((b) => b.key === v)?.label ?? v,
+      filterValueLabel: (v) => nhomTonBadges.find((b) => b.key === v)?.label ?? v,
       render: (c) => {
-        const active = NHOM_TON_BADGES.filter((b) => c[b.key]);
+        const active = nhomTonBadges.filter((b) => c[b.key]);
         return active.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {active.map((b) => (
@@ -2143,7 +2148,7 @@ export function BacklogModule({
               />
               <StatCard
                 size="sm"
-                label={tr("Chưa giải trình >5 ngày")}
+                label={nhanTheoMoc(tr("Chưa giải trình >5 ngày"), moc)}
                 value={backlogDaily.canGiaiTrinh.chuaGt5Ngay.remaining}
                 sub={deltaSub(backlogDaily.canGiaiTrinh.chuaGt5Ngay)}
                 tone="coral"
@@ -2226,7 +2231,7 @@ export function BacklogModule({
               />
               <StatCard
                 size="sm"
-                label={tr("Chưa giải trình >5 ngày")}
+                label={nhanTheoMoc(tr("Chưa giải trình >5 ngày"), moc)}
                 value={counts?.chua_gt_5_ngay ?? 0}
                 tone="coral"
                 muted={!counts?.chua_gt_5_ngay}
@@ -2673,7 +2678,7 @@ export function BacklogModule({
                 setDsTuoiTu("");
                 setPage(1);
               }}
-              options={NHOM_OPTIONS}
+              options={nhomOptions}
             />
             {dsTab === "ton-hien-tai" && (
               <Select

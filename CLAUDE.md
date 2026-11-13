@@ -308,6 +308,10 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   Gán khu vực cho Giám sát nước khác (v1.583): màn Phân quyền (`UsersModule.tsx`) nhóm chip theo nước — VN từ `/dashboard/filters?qg=VN`
   (ép `qg` đứng đầu, client nối `qg` hiện tại phía sau, Hono lấy giá trị đầu), nước khác từ `GET /api/users/khu-vuc-theo-nuoc` (Admin, DISTINCT
   khu_vuc mỗi nước đang bật qua index riêng). GS PH: gán khu vực PH + `pham_vi_quoc_gia` có PH.
+  **"Mốc tồn cần giải trình" theo nước** (2026-11-13, v1.591, migration 0167 `quoc_gia.moc_ton_giai_trinh`, VN 5 / PH 1): nhánh "Chưa GT >N ngày"
+  (`needGiaiTrinh.ts NEED_CHUA_GT_5_NGAY`, tên giữ nguyên) = `AGE >= MOC_TON_GIAI_TRINH_EXPR` (subquery `quoc_gia` theo `c.quoc_gia`, mặc định 5) →
+  NEED_TONG, thẻ, cột nhóm tồn, chốt số đều theo. Mọi nơi dùng NEED_* phải có alias `c` là case_dvbh/case_hieu_luc (cần cột `quoc_gia`).
+  Admin sửa ở Cài đặt > Quốc gia (PUT /api/quoc-gia/nuoc `moc_ton_giai_trinh`, bump settings/cases/giai_trinh). UI đổi nhãn qua `nhanTheoMoc`.
   Every user views ONE country at a time — the "Tất cả quốc gia" option was removed 2026-11-11 (owner); a full-scope user
   without/with an invalid `?qg=` gets VN (`chonQuocGia`), the mixed base scope is now only for cron/partner/import.
   Since 2026-11-11 the import also accepts an explicit `quoc_gia` field per row (auto qs `SEND_QUOC_GIA`, by download
@@ -486,7 +490,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0166`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0167`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

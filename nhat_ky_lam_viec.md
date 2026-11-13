@@ -5789,3 +5789,11 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 
 - Lỗi: gõ "sc261026817" không ra ca SC261026817 (so khớp chính xác). Sửa `GET /api/cases/search`: khớp 3 biến thể (nguyên văn / HOA / thường)
   qua `json_each`, vẫn tìm theo index khoá chính + `idx_case_seri` (không dùng COLLATE NOCASE vì sẽ quét cả bảng). Câu báo lý do khi không thấy cũng dùng cùng cách.
+
+## 2026-11-13 — v1.591: "Mốc tồn cần giải trình" theo quốc gia (PH 1 ngày, VN 5 ngày)
+
+- Yêu cầu: với PH, "Tổng cần giải trình" tính mọi ca tồn ≥1 ngày chưa giải trình; mốc này cài được theo từng quốc gia.
+- Migration 0167: `quoc_gia.moc_ton_giai_trinh` (mặc định 5, PH = 1). Nhánh "Chưa GT >N ngày" của Tổng cần giải trình lấy N theo nước của ca
+  (`MOC_TON_GIAI_TRINH_EXPR`) → thẻ "Chưa giải trình >N ngày", cột/bộ lọc "Nhóm tồn", số chốt 08:00, báo cáo theo khu vực tự theo. VN không đổi.
+- Cài đặt > Quốc gia thêm cột "Mốc tồn cần GT (ngày)" (Admin, 1–60). Nhãn trên Quản lý tồn hiện đúng số ngày của nước đang xem.
+- Số chốt 08:00 hôm nay của PH vẫn theo mốc cũ; từ lần chốt tiếp theo (hoặc tự tính lại khi mở) mới theo mốc mới.

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bumpVersions } from "../lib/dataVersions";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -20,6 +21,7 @@ interface QuocGiaRow {
   thu_tu: number;
   kich_hoat: number;
   telegram_chat_id: string | null;
+  moc_ton_giai_trinh: number;
   nguoi_sua: string | null;
   ngay_sua: string | null;
 }
@@ -38,7 +40,7 @@ interface MauIdRow {
 quocGia.get("/", async (c) => {
   const laAdmin = c.get("user").vai_tro === "Admin";
   const [{ results: nuoc }, mau] = await Promise.all([
-    c.env.DB.prepare("SELECT ma, ten, thu_tu, kich_hoat, telegram_chat_id, nguoi_sua, ngay_sua FROM quoc_gia ORDER BY thu_tu, ma").all<QuocGiaRow>(),
+    c.env.DB.prepare("SELECT ma, ten, thu_tu, kich_hoat, telegram_chat_id, moc_ton_giai_trinh, nguoi_sua, ngay_sua FROM quoc_gia ORDER BY thu_tu, ma").all<QuocGiaRow>(),
     laAdmin
       ? c.env.DB.prepare(
           "SELECT id, mau_glob, ma_quoc_gia, nguon, do_uu_tien, ghi_chu, nguoi_sua, ngay_sua FROM quoc_gia_mau_id ORDER BY do_uu_tien, length(mau_glob) DESC, mau_glob",
@@ -53,7 +55,7 @@ quocGia.get("/", async (c) => {
 // PUT /nuoc {ma, ten, thu_tu?, kich_hoat?, telegram_chat_id?} - them/sua 1 quoc gia (khong xoa: ca/user da gan ma nay).
 // telegram_chat_id: nhom nhan anh 08:00/17:30 cua nuoc (migration 0150) - undefined = giu nguyen, "" = khong gui.
 quocGia.put("/nuoc", adminOnly, async (c) => {
-  const body = await c.req.json<{ ma?: string; ten?: string; thu_tu?: number; kich_hoat?: boolean; telegram_chat_id?: string | null }>();
+  const body = await c.req.json<{ ma?: string; ten?: string; thu_tu?: number; kich_hoat?: boolean; telegram_chat_id?: string | null; moc_ton_giai_trinh?: number }>();
   const ma = body.ma?.trim().toUpperCase() ?? "";
   const ten = body.ten?.trim() ?? "";
   if (!RE_MA_QUOC_GIA.test(ma)) return c.json({ error: "INVALID", message: "Mã quốc gia phải là 2-5 chữ in hoa (vd VN, ID)" }, 400);
@@ -68,6 +70,15 @@ quocGia.put("/nuoc", adminOnly, async (c) => {
   )
     .bind(ma, ten, Number.isFinite(body.thu_tu) ? Number(body.thu_tu) : 0, body.kich_hoat === false ? 0 : 1, chat ?? null, c.get("user").email, nowVN(), chat === undefined ? 0 : 1)
     .run();
+  // "Mốc tồn cần giải trình" (migration 0167): undefined = giu nguyen. Doi moc lam doi NEED_TONG -> bump cache bao cao.
+  if (body.moc_ton_giai_trinh !== undefined) {
+    const moc = Number(body.moc_ton_giai_trinh);
+    if (!Number.isInteger(moc) || moc < 1 || moc > 60) return c.json({ error: "INVALID", message: "Mốc tồn cần giải trình phải là số ngày 1-60" }, 400);
+    await c.env.DB.prepare("UPDATE quoc_gia SET moc_ton_giai_trinh = ?, nguoi_sua = ?, ngay_sua = ? WHERE ma = ? AND moc_ton_giai_trinh IS NOT ?")
+      .bind(moc, c.get("user").email, nowVN(), ma, moc)
+      .run();
+    await bumpVersions(c.env.DB, ["settings", "cases", "giai_trinh"]);
+  }
   xoaCacheQuocGia();
   // Nuoc dang bat phai co san view/bang theo pham vi (lib/phamVi.ts) truoc khi ai chon xem - tao ngay (chi cai con thieu).
   if (body.kich_hoat !== false) await damBaoBangQuocGia(c.env.DB, [ma]);

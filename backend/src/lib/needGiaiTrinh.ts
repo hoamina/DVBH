@@ -80,7 +80,11 @@ const AGE_C = ageExpr("c.thoi_gian_cskh_tiep_nhan");
 export const NEED_LO_KE_HOACH = `(lg.ngay_du_kien_hoan_thanh IS NOT NULL AND date(lg.ngay_du_kien_hoan_thanh) < date(${AGE_ANCHOR}))`;
 export const NEED_TAI_GIAI_TRINH = `(lg.case_id IS NOT NULL AND ${ageExpr("lg.ngay_giai_trinh")} >= 3)`;
 export const NEED_CHUA_GT_3_NGAY = `(lg.case_id IS NULL AND ${AGE_C} >= 3)`;
-export const NEED_CHUA_GT_5_NGAY = `(lg.case_id IS NULL AND ${AGE_C} >= 5)`;
+// "Mốc tồn cần giải trình" THEO QUOC GIA (2026-11-13, migration 0167 quoc_gia.moc_ton_giai_trinh): VN = 5 (nhu cu), PH = 1. Ten bien
+// giu "5_NGAY" de khong doi moi noi dung (the / cot / chot so / NEED_TONG deu tu theo). Subquery theo khoa chinh quoc_gia (vai dong),
+// ca khong co quoc_gia / nuoc chua cau hinh -> 5. Moi noi dung bieu thuc nay deu FROM case_dvbh / case_hieu_luc alias c.
+export const MOC_TON_GIAI_TRINH_EXPR = `COALESCE((SELECT qg_moc.moc_ton_giai_trinh FROM quoc_gia qg_moc WHERE qg_moc.ma = COALESCE(c.quoc_gia, 'VN')), 5)`;
+export const NEED_CHUA_GT_5_NGAY = `(lg.case_id IS NULL AND ${AGE_C} >= ${MOC_TON_GIAI_TRINH_EXPR})`;
 export const NEED_DIEU_HOA_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = 'Điều hòa' AND ${AGE_C} >= 1)`;
 export const NEED_B2B_1_NGAY = `(lg.case_id IS NULL AND c.doi_tac LIKE '%b2b%' AND ${AGE_C} >= 1)`;
 export const NEED_NSKX_2_NGAY = `(lg.case_id IS NULL AND c.doi_tac = 'NSKX' AND ${AGE_C} >= 2)`;
