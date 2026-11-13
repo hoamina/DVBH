@@ -5806,3 +5806,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Thông tin giao hàng hiện ngoài: trạng thái gửi hàng, ngày gửi KTV, ngày KTV nhận, phiếu xuất kho.
 - Ticket thiếu hàng gắn ngay trong thẻ đơn (lý do, đang chờ / đã về, ngày tạo, dự kiến, ngày về) + nhãn "Thiếu hàng" ở đầu thẻ.
 - Đơn huỷ / từ chối thu gọn 1 dòng (bấm mở), xếp cuối; đang xử lý trên, đã xong giữa. "▾ Xem chi tiết": mốc dọc kèm người + nhật ký đầy đủ.
+
+## 2026-11-13 — v1.593: thiết kế lại tab "Thiếu hàng" trong chi tiết ca
+
+- `components/ThieuHangPanel.tsx`: mỗi ticket thiếu hàng 1 thẻ, luồng ngang Tạo yêu cầu → Kho tiếp nhận → (Mua hàng đặt, khi kho chuyển mua)
+  → Hàng về → Kho gửi KTV → KTV nhận (2 bước cuối lấy từ phiếu xuất kho của đơn SAU lúc hàng về). Bước đang chờ "Hàng về" kèm ngày dự kiến.
+- Thông tin chính ngoài thẻ: dự kiến có hàng (quá hẹn tô đỏ + viền đỏ), hàng về thực tế, số ngày đã chờ / thời gian chờ, đơn liên quan.
+  Nhãn trạng thái: Đang chờ hàng / Quá hẹn có hàng / Hàng đã về – chờ giao KTV / Đã giao KTV.
+- Ticket huỷ / kho từ chối / mua hàng từ chối thu gọn 1 dòng, xếp cuối; thứ tự: đang chờ (hẹn sớm trước) → đã về chưa giao → đã giao → huỷ.
+  "▾ Xem chi tiết": mốc dọc + nhật ký ticket + loại đề xuất, người nhận.
+- Sự kiện thiếu hàng trong timeline gắn theo đơn (không có mã ticket) → đơn nhiều ticket chia sự kiện theo ngày tạo từng ticket.

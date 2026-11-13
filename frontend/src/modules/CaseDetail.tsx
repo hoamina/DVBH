@@ -14,6 +14,7 @@ import { Modal } from "../components/ui/Modal";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { CacheBanner } from "../components/ui/CacheBanner";
 import { MuaHangDonList } from "../components/MuaHangPanel";
+import { ThieuHangTicketList } from "../components/ThieuHangPanel";
 import { CaseImageGallery, OdooMediaLinks, demAnhVideoOdoo, parseAnhVideoOdoo, parseLinkHinhAnh, parseSoLuongAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
@@ -2404,29 +2405,8 @@ export function CaseDetail({
             : tr("Không có yêu cầu thiếu linh kiện nào.")}
         </div>
       )}
-      <div className="space-y-3">
-        {lkThieuTickets.map(({ order: o, ticket: t }) => {
-          const lastThieu = [...o.timeline].reverse().find((e) => e.source === "thieu_lk");
-          const trangThai = lastThieu ? linhKienEventLabel(lastThieu.event) : "—";
-          return (
-            <Card key={t.id} className="p-3">
-              <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-                <span className="font-semibold text-sm">{t.ly_do || tr("(chưa rõ lý do)")}</span>
-                <Badge tone={statusWordTone(trangThai)}>{trangThai}</Badge>
-              </div>
-              <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
-                <MoAppLink base={LINHKIEN_URL} id={t.id} /> · <MoAppLink base={LINHKIEN_URL} id={o.order_id} />
-              </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-                <Field label={tr("Linh kiện")} value={<MaLinhKienLink ma={o.ma_lk} ten={o.ten_lk}>{`${o.ma_lk}${o.ten_lk ? ` – ${o.ten_lk}` : ""}`}</MaLinhKienLink>} />
-                <Field label={tr("Ngày tạo")} value={fmtDateTime(linhKienIsoToVnLocal(t.ngay_tao))} />
-                <Field label={tr("Ngày dự kiến có hàng")} value={t.ngay_du_kien_co_hang ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_du_kien_co_hang)) : "—"} />
-                <Field label={tr("Ngày hàng về thực tế")} value={t.ngay_hang_ve_thuc_te ? fmtDateTime(linhKienIsoToVnLocal(t.ngay_hang_ve_thuc_te)) : "—"} />
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Thiet ke lai 2026-11-13: luong ngang tung ticket + thu gon ticket huy (components/ThieuHangPanel.tsx). */}
+      <ThieuHangTicketList items={lkThieuTickets} />
     </div>
   );
 

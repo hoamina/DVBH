@@ -14148,5 +14148,57 @@
  "TN duyệt tổng": [
   "TN final approval",
   "Persetujuan akhir TN"
+ ],
+ "Bấm để xem ticket": [
+  "Click to view ticket",
+  "Klik untuk lihat tiket"
+ ],
+ "Hàng đã về – chờ giao KTV": [
+  "Arrived – waiting to send to tech",
+  "Sudah tiba – menunggu dikirim ke teknisi"
+ ],
+ "Mở ticket trên app Đặt mua linh kiện": [
+  "Open ticket in Parts Ordering app",
+  "Buka tiket di aplikasi Pemesanan Suku Cadang"
+ ],
+ "Nhật ký ticket ({0})": [
+  "Ticket log ({0})",
+  "Log tiket ({0})"
+ ],
+ "Quá hẹn có hàng": [
+  "Past expected date",
+  "Lewat tanggal perkiraan"
+ ],
+ "Thời gian chờ hàng": [
+  "Waiting time",
+  "Waktu tunggu"
+ ],
+ "{0} ticket hủy / từ chối đã thu gọn — bấm để xem.": [
+  "{0} cancelled / rejected tickets collapsed — click to view.",
+  "{0} tiket batal / ditolak diciutkan — klik untuk lihat."
+ ],
+ "Đã chờ": [
+  "Waited",
+  "Sudah menunggu"
+ ],
+ "Đã giao KTV": [
+  "Delivered to tech",
+  "Sudah dikirim ke teknisi"
+ ],
+ "Đơn liên quan": [
+  "Related order",
+  "Pesanan terkait"
+ ],
+ "Tạo yêu cầu": [
+  "Request created",
+  "Permintaan dibuat"
+ ],
+ "Kho tiếp nhận": [
+  "Warehouse received",
+  "Gudang terima"
+ ],
+ "Mua hàng đặt": [
+  "Purchasing ordered",
+  "Pembelian dipesan"
  ]
 }

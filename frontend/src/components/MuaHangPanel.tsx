@@ -37,16 +37,16 @@ export function donBiHuy(o: LinhKienOrder): boolean {
   return !!last && HUY_EVENTS.has(last.event);
 }
 
-const vn = (iso: string | null | undefined) => (iso ? linhKienIsoToVnLocal(iso) : null);
-const dauTien = (tl: LinhKienTimelineEvent[], ev: string | string[]) => {
+export const vn = (iso: string | null | undefined) => (iso ? linhKienIsoToVnLocal(iso) : null);
+export const dauTien = (tl: LinhKienTimelineEvent[], ev: string | string[]) => {
   const ds = Array.isArray(ev) ? ev : [ev];
   return tl.find((e) => ds.includes(e.event)) ?? null;
 };
-const cuoiCung = (tl: LinhKienTimelineEvent[], ev: string | string[]) => {
+export const cuoiCung = (tl: LinhKienTimelineEvent[], ev: string | string[]) => {
   const ds = Array.isArray(ev) ? ev : [ev];
   return [...tl].reverse().find((e) => ds.includes(e.event)) ?? null;
 };
-const moc = (key: string, label: string, e: LinhKienTimelineEvent | null, trangThai: SuaChuaMoc["trang_thai"] = e ? "xong" : "chua"): SuaChuaMoc => ({
+export const moc = (key: string, label: string, e: LinhKienTimelineEvent | null, trangThai: SuaChuaMoc["trang_thai"] = e ? "xong" : "chua"): SuaChuaMoc => ({
   key,
   label,
   trang_thai: trangThai,
