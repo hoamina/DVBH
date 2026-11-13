@@ -238,48 +238,33 @@ function DonCard({ d }: { d: SuaChuaDon }) {
   const tongMs = d.tao_luc ? (xongHet && cuoi ? msOf(cuoi) : Date.now()) - msOf(d.tao_luc) : NaN;
   return (
     <Card className="p-3">
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
-        <span className="font-semibold text-sm">{d.ten_lk || d.ma_lk || tr("(chưa rõ linh kiện)")}</span>
+      {/* 2026-11-13 (chu he thong): cung khuon tab Mua hang - dau the gon, luong ngang, dai thong tin chinh; mo ta loi / su co /
+          chi tiet tung don vi / nhat ky nam trong "▾ Xem chi tiet". */}
+      <div className="flex items-start justify-between flex-wrap gap-1.5">
+        <div className="min-w-0">
+          <div className="font-semibold text-sm">{d.ten_lk || d.ma_lk || tr("(chưa rõ linh kiện)")}</div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--ink-500)] mt-0.5">
+            <MoAppLink base={SUACHUA_URL} id={d.id} title={tr("Mở đơn trên app Gửi bảo hành")} />
+            {g && (
+              <span>
+                {tr("Thùng")} <MoAppLink base={SUACHUA_URL} id={g.id} title={tr("Mở thùng gửi trên app Gửi bảo hành")} />
+              </span>
+            )}
+            {d.ma_lk && <MaLinhKienLink ma={d.ma_lk} ten={d.ten_lk} />}
+            <span>· {tr("SL {0} / nhận {1}", d.so_luong_khai ?? "—", d.so_luong_thuc_nhan ?? "—")}</span>
+            {g?.ktv && <span>· {tr("KTV: {0}", g.ktv)}</span>}
+          </div>
+        </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge tone="gray">{d.odoo_id ? tr("Đơn Odoo #{0}", d.odoo_id) : tr("Tạo trên app")}</Badge>
           <Badge tone={giaiDoanTone(gd.code)}>{gd.label}</Badge>
           {gd.detail && <span className="text-xs text-[var(--ink-500)]">{gd.detail}</span>}
         </div>
       </div>
-      <div className="text-xs text-[var(--ink-400)] font-mono mb-2">
-        <MoAppLink base={SUACHUA_URL} id={d.id} title={tr("Mở đơn trên app Gửi bảo hành")} />
-        {g && (
-          <>
-            {" · "}
-            {tr("Thùng")} <MoAppLink base={SUACHUA_URL} id={g.id} title={tr("Mở thùng gửi trên app Gửi bảo hành")} />
-          </>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)]">
-        <Field label={tr("Mã linh kiện")} value={d.ma_lk ? <MaLinhKienLink ma={d.ma_lk} ten={d.ten_lk} /> : "—"} />
-        <Field label={tr("SL khai / thực nhận")} value={`${d.so_luong_khai ?? "—"} / ${d.so_luong_thuc_nhan ?? "—"}${d.ly_do_chenh_lech_sl ? ` (${d.ly_do_chenh_lech_sl})` : ""}`} />
-        <Field label={tr("KTV gửi")} value={g?.ktv ? `${g.ktv}${g.ma_ktv ? ` (${g.ma_ktv})` : ""}` : "—"} />
-        <Field label={tr("Ngày tạo")} value={fmtDateTime(d.tao_luc)} />
-        <Field label={tr("Hướng xử lý")} value={huong || "—"} />
-        <Field label={xongHet ? tr("Tổng thời gian xử lý") : tr("Đã xử lý được")} value={Number.isFinite(tongMs) ? khoangThoiGian(tongMs) : "—"} />
-        {d.loai_doi_tru_de_xuat && <Field label={tr("KTV đề xuất")} value={d.loai_doi_tru_de_xuat} />}
-        {g?.su_co && <Field label={tr("Sự cố tiếp nhận")} value={g.su_co} />}
-      </div>
-      {d.mo_ta_loi && (
-        <div className="text-xs mt-2 px-2.5 py-1.5 rounded-lg bg-[var(--coral-100,#fdecec)] text-[var(--ink-800)]">
-          <span className="font-semibold">{tr("Lỗi:")}</span> {d.mo_ta_loi}
-        </div>
-      )}
 
-      <div className="mt-3 pt-3 border-t border-[var(--line)]">
-        <div className="flex items-center justify-between mb-2 gap-2">
-          <div className="text-xs font-semibold text-[var(--ink-500)]">{tr("Luồng quy trình bảo hành")}</div>
-          <button type="button" className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline shrink-0" onClick={() => setMoRong((v) => !v)}>
-            {moRong ? tr("▴ Thu gọn") : tr("▾ Xem chi tiết")}
-          </button>
-        </div>
-        {!moRong &&
-          (nhieu ? (
+      {!moRong && (
+        <div className="mt-2">
+          {nhieu ? (
             <div className="space-y-2">
               {d.don_vi.map((u) => (
                 <div key={u.id} className="flex items-start gap-2">
@@ -292,9 +277,35 @@ function DonCard({ d }: { d: SuaChuaDon }) {
             </div>
           ) : (
             <LuongNgang moc={d.don_vi[0]?.luong ?? d.luong ?? []} />
-          ))}
+          )}
+        </div>
+      )}
+
+      <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)] rounded-lg bg-[var(--surface-100)] px-3 py-2">
+        <Field label={tr("Hướng xử lý")} value={<span className="font-semibold text-[var(--ink-900)]">{huong || "—"}</span>} />
+        <Field label={tr("KTV đề xuất")} value={d.loai_doi_tru_de_xuat || "—"} />
+        <Field label={tr("Ngày tạo")} value={fmtDateTime(d.tao_luc)} />
+        <Field label={xongHet ? tr("Tổng thời gian xử lý") : tr("Đã xử lý được")} value={Number.isFinite(tongMs) ? khoangThoiGian(tongMs) : "—"} />
+      </div>
+
+      <button type="button" className="focus-ring mt-2 text-xs font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => setMoRong((v) => !v)}>
+        {moRong ? tr("▴ Thu gọn") : tr("▾ Xem chi tiết")}
+      </button>
+
+      <div>
         {moRong && (
-          <>
+          <div className="mt-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--ink-600)] mb-2">
+              <Field label={tr("KTV gửi")} value={g?.ktv ? `${g.ktv}${g.ma_ktv ? ` (${g.ma_ktv})` : ""}` : "—"} />
+              <Field label={tr("SL khai / thực nhận")} value={`${d.so_luong_khai ?? "—"} / ${d.so_luong_thuc_nhan ?? "—"}${d.ly_do_chenh_lech_sl ? ` (${d.ly_do_chenh_lech_sl})` : ""}`} />
+              {g?.su_co && <Field label={tr("Sự cố tiếp nhận")} value={g.su_co} />}
+            </div>
+            {d.mo_ta_loi && (
+              <div className="text-xs mb-2 px-2.5 py-1.5 rounded-lg bg-[var(--coral-100,#fdecec)] text-[var(--ink-800)]">
+                <span className="font-semibold">{tr("Lỗi:")}</span> {d.mo_ta_loi}
+              </div>
+            )}
+            <div className="text-xs font-semibold text-[var(--ink-500)] mb-1.5">{tr("Các mốc")}</div>
             <Luong moc={luongChung} />
             {nhieu &&
               d.don_vi.map((u) => (
@@ -334,7 +345,7 @@ function DonCard({ d }: { d: SuaChuaDon }) {
                 )}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </Card>

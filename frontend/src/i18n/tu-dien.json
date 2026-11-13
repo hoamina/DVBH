@@ -14235,5 +14235,7 @@
   "Tạo đề xuất": ["Request created", "Permintaan dibuat"],
   "Ban hành PO": ["PO issued", "PO diterbitkan"],
   "Về một phần": ["Partly received", "Diterima sebagian"],
-  "Đủ hàng": ["Fully received", "Lengkap"]
+  "Đủ hàng": ["Fully received", "Lengkap"],
+  "SL {0} / nhận {1}": ["Qty {0} / received {1}", "Jml {0} / diterima {1}"],
+  "KTV: {0}": ["Technician: {0}", "Teknisi: {0}"]
 }

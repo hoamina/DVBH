@@ -5837,3 +5837,11 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Chế độ "Tất cả" xếp cả mục "Lỗi" (đã hiện mọi đơn BH Odoo: dưới từng linh kiện + nhóm "không khớp") lẫn mục "Gửi BH" (liệt kê lại
   đúng các đơn đó) → bỏ mục "Gửi BH" khỏi chế độ này, giữ mốc `data-sec="bao-hanh"` trong mục Lỗi để nhảy tới vẫn cuộn đúng.
   Tab con "Gửi BH" riêng không đổi.
+
+## 2026-11-13 — v1.596: tab "Bảo hành" cùng khuôn tab Mua hàng
+
+- Chủ hệ thống báo tab Bảo hành "bị đẩy về bản cũ": kiểm tra thì không có bản nào bị ghi đè (không commit nào hôm nay làm lại thẻ này,
+  production = commit mới nhất) — sáng nay chỉ Mua hàng (v1.592) / Thiếu hàng (v1.593) đổi khuôn, Bảo hành còn lưới thông tin cũ.
+- `SuaChuaPanel.tsx DonCard`: đầu thẻ gọn (tên LK; mã đơn DH, thùng, mã LK, SL khai/nhận, KTV trên 1 dòng; badge Odoo/app + giai đoạn),
+  luồng ngang ngay dưới, dải thông tin chính (hướng xử lý, KTV đề xuất, ngày tạo, đã xử lý được / tổng thời gian), "▾ Xem chi tiết" chứa
+  KTV gửi đầy đủ, SL + lý do chênh, sự cố tiếp nhận, mô tả lỗi, mốc dọc, chi tiết từng đơn vị, nhật ký.
