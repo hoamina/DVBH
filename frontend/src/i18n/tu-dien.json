@@ -14040,5 +14040,25 @@
  "Video": [
   "Video",
   "Video"
+ ],
+ "(nguồn Odoo)": [
+  "(Odoo source)",
+  "(sumber Odoo)"
+ ],
+ "video": [
+  "video",
+  "video"
+ ],
+ "(Odoo)": [
+  "(Odoo)",
+  "(Odoo)"
+ ],
+ "{0} ảnh": [
+  "{0} photos",
+  "{0} foto"
+ ],
+ "{0} video": [
+  "{0} videos",
+  "{0} video"
  ]
 }

@@ -5763,3 +5763,10 @@ Tab "Lịch hẹn" (`LichHenPanel.tsx`): "Ảnh bằng chứng" trước nhúng 
 vì cookie OCRM không gửi khi nhúng chéo trang, hiện ô "Bấm để xem"). Nay mỗi ảnh là 1 ô link `target=_blank` mở ảnh gốc ở tab
 mới, cùng kiểu ô của "Ảnh & video Odoo" (`OdooMediaLinks`, v1.584): icon + "Ảnh n" + "↗ Mở". Chỉ nhận URL http(s). Xem được
 khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không proxy hay lưu ảnh.
+
+## 2026-11-13 — v1.587: số ảnh ở nhãn đầu chi tiết ca khớp mục "Hình ảnh báo cáo công việc"
+
+- Lệch (vd SC2611120597: nhãn "15 ảnh (Odoo)" vs mục ảnh "18"): nhãn đếm `so_luong_anh` (chỉ 5 nhóm ảnh: bên trong/ngoài/báo cáo/tem serial/
+  bằng chứng huỷ), mục ảnh đếm mọi file `anh_video_odoo` (thêm ảnh lịch hẹn + video).
+- Sửa: ca có `anh_video_odoo` → cả 2 chỗ đếm chung `demAnhVideoOdoo` (`CaseImageGallery.tsx`), tách ảnh / video: "📷 16 ảnh · 🎬 2 video (Odoo)",
+  rê chuột xem số từng nhóm; mục ảnh "(16 ảnh · 2 video)". Ca chưa có `anh_video_odoo` giữ cách đếm cũ. `laVideoOdoo` nhận cả kind `clip`/`location_clip`.

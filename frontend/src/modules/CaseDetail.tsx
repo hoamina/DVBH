@@ -13,7 +13,7 @@ import { Tabs, type TabItem } from "../components/ui/Tabs";
 import { Modal } from "../components/ui/Modal";
 import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { CacheBanner } from "../components/ui/CacheBanner";
-import { CaseImageGallery, OdooMediaLinks, parseAnhVideoOdoo, parseLinkHinhAnh, parseSoLuongAnh } from "../components/CaseImageGallery";
+import { CaseImageGallery, OdooMediaLinks, demAnhVideoOdoo, parseAnhVideoOdoo, parseLinkHinhAnh, parseSoLuongAnh } from "../components/CaseImageGallery";
 import { CachThucXuLyLine } from "../components/CachThucXuLyLine";
 import { LoiLinhKienPanel, DonBaoHanhOdooList, parseLinhKienLoi, donBhTrangThai } from "../components/LoiLinhKienPanel";
 import { LichHenPanel, parseLichHen } from "../components/LichHenPanel";
@@ -198,6 +198,21 @@ function caseStatusBadge(c: CaseRow) {
 // xem duoc tu dvbh (link goc can dang nhap Odoo, link cong khai chi song ~15 phut, xem types.ts) nen
 // chi hien SO LUONG de nguoi doc xac dinh nhanh case co anh gi, title la breakdown theo 5 nhom.
 function soLuongAnhBadge(c: CaseRow) {
+  // Co danh sach anh & video Odoo (migration 0166) -> dem tu do, khop muc "Hình ảnh báo cáo công việc" (2026-11-13).
+  const media = parseAnhVideoOdoo(c.anh_video_odoo);
+  if (media.length) {
+    const d = demAnhVideoOdoo(media);
+    return (
+      <span title={d.theoNhom.map(([n, k]) => `${n} ${k}`).join(" · ") + " " + tr("(nguồn Odoo)")}>
+        <Badge tone="ocean">
+          {d.anh > 0 && `📷 ${d.anh} ${tr("ảnh")}`}
+          {d.anh > 0 && d.video > 0 && " · "}
+          {d.video > 0 && `🎬 ${d.video} ${tr("video")}`}
+          {" "}{tr("(Odoo)")}
+        </Badge>
+      </span>
+    );
+  }
   const sl = parseSoLuongAnh(c.so_luong_anh);
   if (!sl) return null;
   const total = sl.ben_trong + sl.ben_ngoai + sl.bao_cao + sl.tem_serial + sl.bang_chung_huy;
@@ -558,11 +573,13 @@ function renderCaseFieldsGrid(
   // "Ảnh & Video Odoo" (migration 0166): link OCRM can phien dang nhap OCRM, khong nhung <img> duoc tu ten
   // mien nay -> hien rieng duoi gallery dang o link mo tab moi (xem OdooMediaLinks).
   const anhVideoOdoo = parseAnhVideoOdoo(c.anh_video_odoo);
-  const soAnhTong = parseLinkHinhAnh(c.link_hinh_anh).length + anhVideoOdoo.length;
+  const demOdoo = demAnhVideoOdoo(anhVideoOdoo);
+  const soAnh = parseLinkHinhAnh(c.link_hinh_anh).length + demOdoo.anh;
+  const nhanSoAnh = [soAnh > 0 ? tr("{0} ảnh", soAnh) : "", demOdoo.video > 0 ? tr("{0} video", demOdoo.video) : ""].filter(Boolean).join(" · ");
   const hinhAnhSection = (
     <>
       <div className="font-display font-bold text-sm mb-3">
-        {tr("Hình ảnh báo cáo công việc")}{soAnhTong > 0 && ` (${soAnhTong})`}
+        {tr("Hình ảnh báo cáo công việc")}{nhanSoAnh && ` (${nhanSoAnh})`}
       </div>
       {(parseLinkHinhAnh(c.link_hinh_anh).length > 0 || anhVideoOdoo.length === 0) && <CaseImageGallery linkHinhAnh={c.link_hinh_anh} />}
       <OdooMediaLinks items={anhVideoOdoo} />

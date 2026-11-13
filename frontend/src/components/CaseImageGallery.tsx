@@ -431,6 +431,25 @@ function nhanKindOdoo(m: AnhVideoOdooItem): string {
   return k || tr("Ảnh");
 }
 
+// Video = loai_file video/* hoac kind clip / location_clip / video_* (v1.585 them nhan clip - truoc chi xet "video*").
+export function laVideoOdoo(m: AnhVideoOdooItem): boolean {
+  const k = m.kind ?? "";
+  return (m.loai_file ?? "").startsWith("video/") || k.startsWith("video") || k === "clip" || k.endsWith("_clip");
+}
+
+/** Dem anh / video tu anh_video_odoo + so theo tung nhom (nhan da dich) - DUNG CHUNG cho badge dau chi tiet ca va tieu de
+ * "Hình ảnh báo cáo công việc" (2026-11-13: badge cu dem so_luong_anh chi 5 nhom anh -> 15, muc anh dem moi file -> 18). */
+export function demAnhVideoOdoo(items: AnhVideoOdooItem[]): { anh: number; video: number; theoNhom: [string, number][] } {
+  const nhom = new Map<string, number>();
+  let video = 0;
+  for (const m of items) {
+    if (laVideoOdoo(m)) video++;
+    const n = nhanKindOdoo(m);
+    nhom.set(n, (nhom.get(n) ?? 0) + 1);
+  }
+  return { anh: items.length - video, video, theoNhom: [...nhom.entries()] };
+}
+
 function ngayGioNgan(s: string | null): string {
   const m = s?.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
   return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : "";
@@ -445,7 +464,7 @@ export function OdooMediaLinks({ items }: { items: AnhVideoOdooItem[] }) {
       </div>
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
         {items.map((m, i) => {
-          const laVideo = (m.loai_file ?? "").startsWith("video/") || (m.kind ?? "").startsWith("video");
+          const laVideo = laVideoOdoo(m);
           const ngay = ngayGioNgan(m.ngay_tao);
           return (
             <a
