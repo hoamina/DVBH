@@ -5784,3 +5784,8 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Chủ hệ thống gửi lưới ảnh thật trên app Odoo + ảnh nhật ký cuộc gọi → cắt thành ảnh mẫu 160px (`frontend/src/assets/odoo-demo/`:
   bên ngoài = ảnh 1, bên trong = ảnh 6, báo cáo = ảnh 7, tem serial = ảnh 8, lịch hẹn = nhật ký cuộc gọi), cắt phần dưới số thứ tự cũ.
   `OdooMediaTile` hiện ảnh mẫu theo loại (mọi ô cùng loại dùng chung); huỷ / video / khác chưa có ảnh mẫu → giữ hình vẽ SVG.
+
+## 2026-11-13 — v1.590: tra cứu ID/Serial không phân biệt hoa/thường
+
+- Lỗi: gõ "sc261026817" không ra ca SC261026817 (so khớp chính xác). Sửa `GET /api/cases/search`: khớp 3 biến thể (nguyên văn / HOA / thường)
+  qua `json_each`, vẫn tìm theo index khoá chính + `idx_case_seri` (không dùng COLLATE NOCASE vì sẽ quét cả bảng). Câu báo lý do khi không thấy cũng dùng cùng cách.

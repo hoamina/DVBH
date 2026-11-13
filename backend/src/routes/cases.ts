@@ -861,6 +861,9 @@ cases.post("/da-dong-chunks", async (c) => {
 cases.get("/search", async (c) => {
   const q = (c.req.query("q") ?? "").trim();
   if (!q) return c.json({ matches: [] });
+  // Khong phan biet hoa/thuong (loi 2026-11-13: go "sc261026817" khong ra SC261026817). KHONG dung COLLATE NOCASE (bo index
+  // khoa chinh / seri -> quet ca bang) - khop 3 bien the nguyen van / HOA / thuong, moi bien the van la index seek.
+  const bienThe = JSON.stringify([...new Set([q, q.toUpperCase(), q.toLowerCase()])]);
 
   const scope = scopeByKhuVuc(c);
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");
@@ -877,10 +880,10 @@ cases.get("/search", async (c) => {
              AND (julianday(c.thoi_gian_hoan_thanh) - julianday(c.ca_lap_prior_ht)) <= ${NGUONG_NGAY_LAP}
              AND gl.chot_danh_gia_lap IS NULL) as can_giai_trinh_lap
      FROM case_hieu_luc c LEFT JOIN giai_trinh_lap gl ON gl.case_id = c.id
-     WHERE (c.id = ? OR c.seri_san_pham = ?)${scopeClause.sql}
+     WHERE (c.id IN (SELECT value FROM json_each(?)) OR c.seri_san_pham IN (SELECT value FROM json_each(?)))${scopeClause.sql}
      ORDER BY c.thoi_gian_hoan_thanh DESC LIMIT 20`,
   )
-    .bind(q, q, ...scopeClause.binds)
+    .bind(bienThe, bienThe, ...scopeClause.binds)
     .all();
 
   if (results.length > 0) return c.json({ matches: results });
@@ -890,9 +893,9 @@ cases.get("/search", async (c) => {
   // ca nuoc khac khong lo), khong loc khu vuc/huy - chi tra ma ly do, khong tra du lieu ca ngoai quyen. Toi da vai dong
   // theo id/seri (index seek), chi chay khi khong co ket qua.
   const { results: tho } = await c.env.DB.prepare(
-    `SELECT c.khu_vuc, c.huy_bo_at FROM case_dvbh c WHERE (c.id = ? OR c.seri_san_pham = ?) LIMIT 20`,
+    `SELECT c.khu_vuc, c.huy_bo_at FROM case_dvbh c WHERE (c.id IN (SELECT value FROM json_each(?)) OR c.seri_san_pham IN (SELECT value FROM json_each(?))) LIMIT 20`,
   )
-    .bind(q, q)
+    .bind(bienThe, bienThe)
     .all<{ khu_vuc: string | null; huy_bo_at: string | null }>();
   let ly_do: "khong_co" | "da_huy" | "ngoai_khu_vuc" = "khong_co";
   if (tho.length > 0) {
