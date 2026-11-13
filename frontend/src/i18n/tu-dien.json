@@ -14060,5 +14060,93 @@
  "{0} video": [
   "{0} videos",
   "{0} video"
+ ],
+ "Chưa vào phiếu xuất": [
+  "Not yet on a dispatch slip",
+  "Belum masuk slip keluar"
+ ],
+ "Ngày gửi KTV": [
+  "Sent to tech",
+  "Dikirim ke teknisi"
+ ],
+ "Thiếu hàng ({0} ticket)": [
+  "Shortage ({0} tickets)",
+  "Kekurangan ({0} tiket)"
+ ],
+ "gần nhất: {0}": [
+  "latest: {0}",
+  "terakhir: {0}"
+ ],
+ "Đang chờ hàng": [
+  "Waiting for stock",
+  "Menunggu stok"
+ ],
+ "tạo {0}": [
+  "created {0}",
+  "dibuat {0}"
+ ],
+ "dự kiến {0}": [
+  "expected {0}",
+  "perkiraan {0}"
+ ],
+ "về {0}": [
+  "arrived {0}",
+  "tiba {0}"
+ ],
+ "Bấm để xem đơn": [
+  "Click to view order",
+  "Klik untuk lihat pesanan"
+ ],
+ "SL {0} / xuất {1}": [
+  "Qty {0} / issued {1}",
+  "Jml {0} / keluar {1}"
+ ],
+ "Nhận: {0}": [
+  "Receiver: {0}",
+  "Penerima: {0}"
+ ],
+ "Thu gọn": [
+  "Collapse",
+  "Ciutkan"
+ ],
+ "Các mốc": [
+  "Milestones",
+  "Tahapan"
+ ],
+ "Nhật ký ({0})": [
+  "Log ({0})",
+  "Log ({0})"
+ ],
+ "{0} đơn hủy / từ chối đã thu gọn — bấm để xem.": [
+  "{0} cancelled / rejected orders collapsed — click to view.",
+  "{0} pesanan batal / ditolak diciutkan — klik untuk lihat."
+ ],
+ "Hàng về": [
+  "Stock arrived",
+  "Stok tiba"
+ ],
+ "Phiếu xuất": [
+  "Dispatch slip",
+  "Slip keluar"
+ ],
+ "KT chốt": [
+  "Acct. closed",
+  "Akunting tutup"
+ ],
+ "Kho gửi KTV": [
+  "Sent to tech",
+  "Dikirim ke teknisi"
+ ],
+ "Kho xác nhận": [
+  "Warehouse confirmed",
+  "Gudang konfirmasi"
+ ],
+ "QC xác nhận": [
+  "QC confirmed",
+  "QC konfirmasi"
+ ],
+ "TN duyệt tổng": [
+  "TN final approval",
+  "Persetujuan akhir TN"
  ]
 }

@@ -53,7 +53,7 @@ const MOC_STYLE: Record<SuaChuaMoc["trang_thai"], { dot: string; text: string; i
 };
 
 /** Luong quy trinh dang cac buoc doc. prevAt = moc truoc khoi (de tinh "+x" cho moc dau khi luong bi tach). */
-function Luong({ moc, prevAt = null }: { moc: SuaChuaMoc[]; prevAt?: string | null }) {
+export function Luong({ moc, prevAt = null }: { moc: SuaChuaMoc[]; prevAt?: string | null }) {
   let truoc = prevAt;
   return (
     <ol className="relative">
@@ -108,7 +108,7 @@ function ngayNgan(at: string | null): string {
 }
 
 /** Luong NGANG gon (mac dinh): 1 duong thang cac buoc, nhan ngan + ngay gio; buoc dang cho to noi. Re chuot xem day du. */
-function LuongNgang({ moc }: { moc: SuaChuaMoc[] }) {
+export function LuongNgang({ moc }: { moc: SuaChuaMoc[] }) {
   return (
     <div className="overflow-x-auto pb-1 min-w-0">
       <ol className="flex min-w-max items-start">

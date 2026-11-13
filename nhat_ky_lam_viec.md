@@ -5797,3 +5797,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   (`MOC_TON_GIAI_TRINH_EXPR`) → thẻ "Chưa giải trình >N ngày", cột/bộ lọc "Nhóm tồn", số chốt 08:00, báo cáo theo khu vực tự theo. VN không đổi.
 - Cài đặt > Quốc gia thêm cột "Mốc tồn cần GT (ngày)" (Admin, 1–60). Nhãn trên Quản lý tồn hiện đúng số ngày của nước đang xem.
 - Số chốt 08:00 hôm nay của PH vẫn theo mốc cũ; từ lần chốt tiếp theo (hoặc tự tính lại khi mở) mới theo mốc mới.
+
+## 2026-11-13 — v1.592: thiết kế lại tab "Mua hàng" trong chi tiết ca
+
+- `components/MuaHangPanel.tsx` (dùng lại `Luong`/`LuongNgang` của tab Bảo hành): mỗi đơn 1 luồng ngang Đặt → Giao:
+  Tạo đơn → Duyệt → (Hàng về, chỉ khi đơn thiếu hàng) → Phiếu xuất → KT chốt → Kho gửi KTV → KTV nhận; bước đang chờ tô nổi + ghi chú trạng thái
+  chi tiết (vd "Chờ TN duyệt"). Đơn trả hàng: Tạo phiếu trả → KT duyệt → Kho xác nhận → QC xác nhận → TN duyệt tổng.
+- Thông tin giao hàng hiện ngoài: trạng thái gửi hàng, ngày gửi KTV, ngày KTV nhận, phiếu xuất kho.
+- Ticket thiếu hàng gắn ngay trong thẻ đơn (lý do, đang chờ / đã về, ngày tạo, dự kiến, ngày về) + nhãn "Thiếu hàng" ở đầu thẻ.
+- Đơn huỷ / từ chối thu gọn 1 dòng (bấm mở), xếp cuối; đang xử lý trên, đã xong giữa. "▾ Xem chi tiết": mốc dọc kèm người + nhật ký đầy đủ.
