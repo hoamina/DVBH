@@ -14250,5 +14250,18 @@
   "Không có giải trình": ["No explanation", "Tidak ada penjelasan"],
   "▸ Xem {0} mốc trước": ["▸ Show {0} earlier entries", "▸ Lihat {0} entri sebelumnya"],
   "▸ Xem {0} mốc (cùng nội dung)": ["▸ Show {0} entries (same content)", "▸ Lihat {0} entri (isi sama)"],
-  "Hôm nay — chưa giải trình": ["Today — not explained yet", "Hari ini — belum ada penjelasan"]
+  "Hôm nay — chưa giải trình": ["Today — not explained yet", "Hari ini — belum ada penjelasan"
+ ],
+ "Sau ngày đóng ca": [
+  "After case closed",
+  "Setelah kasus ditutup"
+ ],
+ "Ngày đóng ca: {0}": [
+  "Case closed: {0}",
+  "Kasus ditutup: {0}"
+ ],
+ "ngày đóng ca": [
+  "case closed day",
+  "hari kasus ditutup"
+ ]
 }

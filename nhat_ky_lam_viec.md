@@ -5856,3 +5856,9 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   nhiều GT trong ngày hiện số; ngày không GT = chấm rỗng viền đỏ nét đứt (bỏ sót); Chủ nhật và hôm nay chưa hết ngày nhạt, không tính
   bỏ sót. Nhãn tóm tắt: N ngày có GT / M ngày bỏ sót / đổi lý do K lần. Dài quá 120 ngày → chỉ vẽ 120 ngày gần nhất. Rê chuột xem
   giờ, lý do, nội dung, người.
+
+## 2026-11-13 — v1.598: luồng giải trình theo ngày đánh dấu ngày đóng ca
+
+- Ca đã đóng (hoàn thành / thất bại…): chấm ngày đóng có vòng viền ngoài màu xanh + chữ "Đóng" dưới ngày, rê chuột thấy giờ đóng; chú thích
+  thêm "ngày đóng ca". Giải trình SAU ngày đóng vẫn vẽ; ngày trống sau khi đóng nhạt màu, không tính "bỏ sót". Ca đóng trước lần giải trình
+  đầu tiên → luồng bắt đầu từ ngày đóng để vẫn thấy mốc (`components/GiaiTrinhLichSu.tsx`).

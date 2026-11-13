@@ -323,7 +323,9 @@ function LuongNgayGiaiTrinh({
   const mau = new Map<string, string>();
   for (const g of cuToiMoi) if (!mau.has(g.ly_do_cham)) mau.set(g.ly_do_cham, MAU_LY_DO[mau.size % MAU_LY_DO.length]);
 
-  const dau = ngayCo[0];
+  // Ca dong TRUOC lan giai trinh dau tien (giai trinh bo sung sau khi dong) -> luong bat dau tu ngay dong de van thay moc dong.
+  const ngayDongSom = daXong ? ngay(ngayHoanThanh) : "";
+  const dau = ngayDongSom && ngayDongSom < ngayCo[0] ? ngayDongSom : ngayCo[0];
   const cuoiGt = ngayCo[ngayCo.length - 1];
   let cuoi = daXong ? ngay(ngayHoanThanh) || cuoiGt : homNay();
   if (cuoi < cuoiGt) cuoi = cuoiGt;
@@ -337,7 +339,10 @@ function LuongNgayGiaiTrinh({
   for (const d of ngayCo) if (d < batDau) truocKhung = lyDoNgay(d);
   // Hom nay chua het ngay (ca con mo) -> chua tinh la bo sot, ve nhu Chu nhat.
   const homNayMo = daXong ? null : homNay();
-  const khongTinh = (d: string) => laChuNhat(d) || d === homNayMo;
+  // Ngay dong ca (2026-11-13, chu he thong): vong vien ngoai + chu "Đóng" de nhin ra ngay ca dong (hoan thanh / that bai...).
+  // Giai trinh SAU ngay dong van ve binh thuong; ngay trong sau dong khong tinh la bo sot.
+  const ngayDong = daXong ? ngay(ngayHoanThanh) || null : null;
+  const khongTinh = (d: string) => laChuNhat(d) || d === homNayMo || (!!ngayDong && d > ngayDong);
   const soSot = ngays.filter((d) => !theoNgay.has(d) && !khongTinh(d)).length;
   let soDoi = 0;
   for (let i = 1; i < ngayCo.length; i++) if (lyDoNgay(ngayCo[i]) !== lyDoNgay(ngayCo[i - 1])) soDoi++;
@@ -373,12 +378,17 @@ function LuongNgayGiaiTrinh({
           {cham.map(({ d, i, gs, lyDo, doi }) => {
             const cn = khongTinh(d);
             const dauThang = i === 0 || d.slice(8) === "01";
-            const title = gs
+            const laNgayDong = d === ngayDong;
+            const sauDong = !!ngayDong && d > ngayDong;
+            const title0 = gs
               ? [fmtDate(d), ...gs.map((g) => `${fmtDateTime(g.ngay_giai_trinh)} · ${dl(g.ly_do_cham)}${g.noi_dung ? ` — ${g.noi_dung}` : ""} (${tenNguoi(g.nguoi_giai_trinh)})`)].join("\n")
-              : `${fmtDate(d)} · ${d === homNayMo ? tr("Hôm nay — chưa giải trình") : cn ? tr("Chủ nhật — không giải trình") : tr("Không có giải trình")}`;
+              : `${fmtDate(d)} · ${d === homNayMo ? tr("Hôm nay — chưa giải trình") : sauDong ? tr("Sau ngày đóng ca") : laChuNhat(d) ? tr("Chủ nhật — không giải trình") : tr("Không có giải trình")}`;
+            const title = laNgayDong ? `${tr("Ngày đóng ca: {0}", fmtDateTime(ngayHoanThanh))}\n${title0}` : title0;
             return (
               <li key={d} className="relative flex flex-col items-center w-[22px] shrink-0" title={title}>
-                {i > 0 && <span className="absolute top-[8px] right-1/2 w-full h-0.5 bg-slate-200" />}
+                {i > 0 && <span className={`absolute top-[8px] right-1/2 w-full h-0.5 ${sauDong ? "bg-slate-100" : "bg-slate-200"}`} />}
+                {/* Ngay dong ca: vong vien ngoai xanh bao quanh cham (van giu mau ly do neu hom do co giai trinh). */}
+                {laNgayDong && <span className="absolute z-0 top-[-3px] left-1/2 -translate-x-1/2 w-[24px] h-[24px] rounded-full border-2 border-[var(--teal-600)] bg-white" />}
                 {gs ? (
                   <span
                     className={`relative z-10 w-[18px] h-[18px] rounded-full flex items-center justify-center text-[9px] font-bold text-white ${doi ? "ring-2 ring-offset-1 ring-[var(--ink-900)]" : ""}`}
@@ -390,7 +400,9 @@ function LuongNgayGiaiTrinh({
                   <span className={`relative z-10 w-[18px] h-[18px] rounded-full border-2 border-dashed bg-white ${cn ? "border-slate-200" : "border-[var(--coral-500)]"}`} />
                 )}
                 <span className={`mt-0.5 text-[9px] leading-none ${cn && !gs ? "text-slate-300" : gs ? "text-[var(--ink-600)]" : "text-[var(--coral-600)]"}`}>{d.slice(8)}</span>
-                <span className="h-2.5 text-[8px] leading-tight text-[var(--ink-400)]">{dauThang ? `T${Number(d.slice(5, 7))}` : ""}</span>
+                <span className={`h-2.5 text-[8px] leading-tight ${laNgayDong ? "font-bold text-[var(--teal-600)]" : "text-[var(--ink-400)]"}`}>
+                  {laNgayDong ? tr("Đóng") : dauThang ? `T${Number(d.slice(5, 7))}` : ""}
+                </span>
               </li>
             );
           })}
@@ -409,6 +421,11 @@ function LuongNgayGiaiTrinh({
         <span className="inline-flex items-center gap-1 text-[var(--ink-400)]">
           <span className="w-2.5 h-2.5 rounded-full bg-slate-400 ring-2 ring-offset-1 ring-[var(--ink-900)]" /> {tr("ngày đổi lý do")}
         </span>
+        {ngayDong && (
+          <span className="inline-flex items-center gap-1 text-[var(--ink-400)]">
+            <span className="w-3 h-3 rounded-full border-2 border-[var(--teal-600)] bg-white" /> {tr("ngày đóng ca")}
+          </span>
+        )}
       </div>
     </div>
   );
