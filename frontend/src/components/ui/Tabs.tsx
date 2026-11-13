@@ -1,10 +1,21 @@
+import type { ReactNode } from "react";
 export interface TabItem {
   key: string;
   label: string;
   count?: number;
 }
 
-export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: string; onChange: (key: string) => void }) {
+/** extra (2026-11-13): noi dung phu nam CUNG HANG ben phai thanh tab (vd "Xem thêm N tab trống") - khong ton 1 hang rieng. */
+export function Tabs({ tabs, active, onChange, extra }: { tabs: TabItem[]; active: string; onChange: (key: string) => void; extra?: ReactNode }) {
+  if (extra)
+    return (
+      <div className="flex items-end gap-2 border-b border-[var(--line)] mb-4">
+        <div className="flex-1 min-w-0 [&>div]:border-b-0 [&>div]:mb-0">
+          <Tabs tabs={tabs} active={active} onChange={onChange} />
+        </div>
+        <div className="shrink-0 pb-2">{extra}</div>
+      </div>
+    );
   return (
     // Dien thoai (<768px, 2026-11-07): tab XUONG DONG thay vi cuon ngang (Settings ~2400px, Import ~1200px phai vuot
     // ngang moi thay tab cuoi); tu md tro len giu 1 hang cuon ngang nhu cu.

@@ -5863,3 +5863,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   thêm "ngày đóng ca". Giải trình SAU ngày đóng vẫn vẽ; ngày trống sau khi đóng nhạt màu, không tính "bỏ sót". Ca đóng trước lần giải trình
   đầu tiên → luồng bắt đầu từ ngày đóng để vẫn thấy mốc (`components/GiaiTrinhLichSu.tsx`).
 - v1.599: viền ngày đóng ca đổi sang HÌNH VUÔNG (dễ phân biệt với chấm tròn / vòng đổi lý do), chú thích cũng vuông.
+
+## 2026-11-13 — v1.600: chi tiết ca bớt vùng trống
+
+- Nút "Xem thêm N tab trống" (đổi nhãn gọn "+N tab trống ▾") nằm CÙNG HÀNG thanh tab (`Tabs` prop `extra`), không còn 1 hàng riêng phía trên.
+- Nút "+ Thêm giải trình" (tab GT tồn) nằm trên hàng tiêu đề "Lịch sử giải trình" (`GiaiTrinhLichSu` prop `nutThem`); ca chưa có giải trình:
+  nút cùng hàng câu "Chưa có giải trình nào". Không còn hàng trống chỉ chứa nút.
+- Deploy build từ worktree sạch của commit (phiên khác đang sửa dở `CaseDetail.tsx`/`tu-dien.json`/`banDichDuLieu.ts` chưa commit).

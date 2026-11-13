@@ -4,7 +4,7 @@
 //  2. Co ma linh kien thieu -> khoi "Linh kiện liên quan" DAY LEN DAU: moi ma 1 the tom tat (so lan bao thieu, tu ngay nao,
 //     ngay YC co hang + so lan lui, ma xuat hang da neu, ly do) + tinh trang song tu don Mua hang / ticket Thieu hang / PO cua
 //     dung ma do (bam de mo tab tuong ung).
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Badge } from "./ui/Badge";
 import { MaLinhKienLink } from "./HoSoLinhKienProvider";
 import { fmtDate, fmtDateTime, type GiaiTrinhRow } from "../types";
@@ -439,7 +439,10 @@ export function GiaiTrinhLichSu({
   onMoTab,
   daXong,
   ngayHoanThanh = null,
+  nutThem = null,
 }: {
+  /** Nut "+ Thêm giải trình" - ve tren hang tieu de "Lịch sử giải trình" (khong ton 1 hang rieng). */
+  nutThem?: ReactNode;
   list: GiaiTrinhRow[];
   tenNguoi: (email: string) => string;
   lkOrders: LinhKienOrder[];
@@ -464,7 +467,13 @@ export function GiaiTrinhLichSu({
     return [...m]; // thu tu = ma co giai trinh moi nhat truoc
   }, [ds]);
 
-  if (!ds.length) return <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có giải trình nào cho ca này.")}</div>;
+  if (!ds.length)
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có giải trình nào cho ca này.")}</div>
+        {nutThem}
+      </div>
+    );
 
   const hienThi: Nhom[] = hienTungDong ? ds.map((g) => ({ key: g.id, ly_do: g.ly_do_cham, lk: g.linh_kien_thieu?.trim() || null, ds: [g] })) : nhom;
 
@@ -489,11 +498,14 @@ export function GiaiTrinhLichSu({
               <span className="ml-1.5 text-xs font-normal text-[var(--ink-400)]">{tr("({0} giải trình, gộp còn {1} nhóm)", ds.length, nhom.length)}</span>
             )}
           </div>
-          {nhom.length < ds.length && (
-            <button type="button" onClick={() => setHienTungDong((v) => !v)} className="text-xs font-semibold text-[var(--ocean-600)] hover:underline">
-              {hienTungDong ? tr("Gộp lý do giống nhau") : tr("Hiện từng giải trình")}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {nhom.length < ds.length && (
+              <button type="button" onClick={() => setHienTungDong((v) => !v)} className="text-xs font-semibold text-[var(--ocean-600)] hover:underline">
+                {hienTungDong ? tr("Gộp lý do giống nhau") : tr("Hiện từng giải trình")}
+              </button>
+            )}
+            {nutThem}
+          </div>
         </div>
         <div className="space-y-3">
           {hienThi.map((n) => (

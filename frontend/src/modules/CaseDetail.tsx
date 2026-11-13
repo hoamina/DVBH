@@ -1907,14 +1907,15 @@ export function CaseDetail({
 
   const giaiTrinhContent = c && (
     <>
-      {canGiaiTrinh && (
-        <div className="flex justify-end mb-4">
-          <Btn size="sm" onClick={openGiaiTrinhModal}>
-            {tr("+ Thêm giải trình")}</Btn>
-        </div>
-      )}
-
+      {/* 2026-11-13: nut "+ Thêm giải trình" nam tren hang tieu de "Lịch sử giải trình" (GiaiTrinhLichSu nutThem), khong con 1 hang rieng. */}
       <GiaiTrinhLichSu
+        nutThem={
+          canGiaiTrinh ? (
+            <Btn size="sm" onClick={openGiaiTrinhModal}>
+              {tr("+ Thêm giải trình")}
+            </Btn>
+          ) : null
+        }
         list={giaiTrinhList}
         tenNguoi={(e) => formatPersonDisplay(e, personDir)}
         lkOrders={lkOrders}
@@ -2784,21 +2785,24 @@ export function CaseDetail({
   const emptyTabKeys = new Set(fullTabsList.filter((t) => !CORE_TAB_KEYS.has(t.key) && t.key !== tab && !t.count).map((t) => t.key));
   const tabsList = showAllTabs ? fullTabsList : fullTabsList.filter((t) => !emptyTabKeys.has(t.key));
 
+  // 2026-11-13 (tiet kiem cho trong): nut "Xem thêm N tab trống" nam CUNG HANG thanh tab, khong con 1 hang rieng phia tren.
   const tabsBar = (
-    <div>
-      {emptyTabKeys.size > 0 && (
-        <div className="flex justify-end -mt-1 mb-1.5">
+    <Tabs
+      active={tab}
+      onChange={onTabChange}
+      tabs={tabsList}
+      extra={
+        emptyTabKeys.size > 0 ? (
           <button
             type="button"
             onClick={() => setShowAllTabs((v) => !v)}
-            className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline"
+            className="focus-ring text-xs font-semibold text-[var(--ocean-600)] hover:underline whitespace-nowrap"
           >
-            {showAllTabs ? tr("Thu gọn ▲") : tr("Xem thêm {0} tab trống ▾", emptyTabKeys.size)}
+            {showAllTabs ? tr("Thu gọn ▲") : tr("+{0} tab trống ▾", emptyTabKeys.size)}
           </button>
-        </div>
-      )}
-      <Tabs active={tab} onChange={onTabChange} tabs={tabsList} />
-    </div>
+        ) : undefined
+      }
+    />
   );
 
   const viewModeToggle = (

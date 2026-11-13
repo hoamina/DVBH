@@ -14263,5 +14263,9 @@
  "ngày đóng ca": [
   "case closed day",
   "hari kasus ditutup"
+ ],
+ "+{0} tab trống ▾": [
+  "+{0} empty tabs ▾",
+  "+{0} tab kosong ▾"
  ]
 }
