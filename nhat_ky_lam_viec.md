@@ -5778,3 +5778,9 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Mỗi ô = hình minh hoạ SVG dùng chung theo loại (`components/OdooMediaTile.tsx`: thân máy, máy mở cửa thấy lõi lọc, phiếu báo cáo có dấu,
   tem mã vạch, phiếu gạch chéo, nhật ký cuộc gọi, máy quay) + số thứ tự toàn phiếu ở góc (giống lưới ảnh app Odoo) + nhãn "Bên ngoài (1)"…
   Vẫn là link mở tab mới (ảnh thật cần đăng nhập OCRM). Ảnh bằng chứng tab Lịch hẹn dùng cùng kiểu ô.
+
+## 2026-11-13 — v1.589: ô ảnh Odoo dùng ảnh mẫu cắt từ ảnh thật
+
+- Chủ hệ thống gửi lưới ảnh thật trên app Odoo + ảnh nhật ký cuộc gọi → cắt thành ảnh mẫu 160px (`frontend/src/assets/odoo-demo/`:
+  bên ngoài = ảnh 1, bên trong = ảnh 6, báo cáo = ảnh 7, tem serial = ảnh 8, lịch hẹn = nhật ký cuộc gọi), cắt phần dưới số thứ tự cũ.
+  `OdooMediaTile` hiện ảnh mẫu theo loại (mọi ô cùng loại dùng chung); huỷ / video / khác chưa có ảnh mẫu → giữ hình vẽ SVG.

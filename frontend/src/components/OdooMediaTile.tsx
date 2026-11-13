@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
 import { tr } from "../i18n/tr";
+import anhBenNgoai from "../assets/odoo-demo/ben_ngoai.jpg";
+import anhBenTrong from "../assets/odoo-demo/ben_trong.jpg";
+import anhBaoCao from "../assets/odoo-demo/bao_cao.jpg";
+import anhTemSerial from "../assets/odoo-demo/tem_serial.jpg";
+import anhLichHen from "../assets/odoo-demo/lich_hen.jpg";
 
-// Hinh minh hoa (demo) cho TUNG LOAI anh/video Odoo (2026-11-13, chu he thong): anh that can phien dang nhap OCRM nen khong
+// Hinh minh hoa (demo) cho TUNG LOAI (anh cat san o assets/odoo-demo, loai khong co anh -> SVG) anh/video Odoo (2026-11-13, chu he thong): anh that can phien dang nhap OCRM nen khong
 // nhung duoc -> moi o hien 1 hinh minh hoa dung chung theo loai (may ben ngoai, may mo cua thay loi loc, phieu bao cao, tem
 // serial, phieu huy, nhat ky cuoc goi lich hen, video) + so thu tu goc phai giong luoi anh tren app Odoo. Ve bang SVG noi tuyen
 // (khong tai file ngoai).
@@ -22,6 +27,16 @@ export function loaiMinhHoa(kind: string | null | undefined, loaiFile?: string |
 
 /** Thu tu nhom hien thi. */
 export const THU_TU_MINH_HOA: LoaiMinhHoa[] = ["ben_ngoai", "ben_trong", "bao_cao", "tem_serial", "huy", "lich_hen", "video", "khac"];
+
+// Anh mau (2026-11-13, chu he thong gui luoi anh that tren app Odoo + anh nhat ky cuoc goi): cat tu anh that, ~5KB/anh, dung CHUNG
+// cho moi o cung loai. Loai chua co anh mau (huy, video, khac) van dung hinh ve SVG ben duoi.
+const ANH_MAU: Partial<Record<LoaiMinhHoa, string>> = {
+  ben_ngoai: anhBenNgoai,
+  ben_trong: anhBenTrong,
+  bao_cao: anhBaoCao,
+  tem_serial: anhTemSerial,
+  lich_hen: anhLichHen,
+};
 
 const NEN: Record<LoaiMinhHoa, string> = {
   ben_ngoai: "#e0f2fe",
@@ -147,9 +162,13 @@ export function OdooMediaTile({
       className="focus-ring group block rounded-lg border border-[var(--line)] bg-white hover:border-[var(--ocean-500)] hover:shadow-sm transition-colors overflow-hidden"
     >
       <div className="relative aspect-square" style={{ background: NEN[loai] }}>
-        <svg viewBox="0 0 100 100" className="w-full h-full" aria-hidden>
-          <MinhHoa loai={loai} />
-        </svg>
+        {ANH_MAU[loai] ? (
+          <img src={ANH_MAU[loai]} alt="" loading="lazy" className="w-full h-full object-cover" />
+        ) : (
+          <svg viewBox="0 0 100 100" className="w-full h-full" aria-hidden>
+            <MinhHoa loai={loai} />
+          </svg>
+        )}
         <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded bg-[#0e8a8a] text-white text-[10px] font-bold flex items-center justify-center">
           {so}
         </span>
