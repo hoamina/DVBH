@@ -4,7 +4,7 @@ import { nhanTheoMoc, useMocTonGiaiTrinh } from "../lib/quocGia";
 import { dl } from "../lib/banDichDuLieu";
 import { createPortal } from "react-dom";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
@@ -1133,7 +1133,23 @@ export function BacklogModule({
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
   });
   const linhKienTenMap = useMemo(() => new Map((linhKienData?.rows ?? []).map((r) => [r.ma_linh_kien, r.ten_linh_kien])), [linhKienData]);
-  const { muaHang, baoHanh, poDatHang, isSyncing: poDangTai } = usePurchaseWarrantyData();
+  const { muaHang, baoHanh, poDatHang, isSyncing: poDangTai, refreshSome, lastSyncedAt: pwSyncedAt } = usePurchaseWarrantyData();
+  const queryClient = useQueryClient();
+  // 2026-11-14: nut "Đồng bộ trước khi tải" - cac cot PO / don mua / don BH / ton kho / don LK gan nhat lay tu 5 nguon khac nhau,
+  // moi nguon tu lam moi theo chu ky rieng (2h / 5 phut / 5 phut / moi gio). Bam 1 lan = lam moi dung cac nguon man nay dung,
+  // roi moi xuat Excel - thay vi phai doi het chu ky hoac F5 (F5 keo lai ca 5 tap Google Sheet ~39MB).
+  const [dongBo, setDongBo] = useState<{ dang: boolean; luc: string | null; loi: string | null }>({ dang: false, luc: null, loi: null });
+  async function dongBoTruocKhiTai() {
+    setDongBo((s) => ({ ...s, dang: true, loi: null }));
+    const loi: string[] = [];
+    await Promise.all([
+      refreshSome(["po-dat-hang", "mua-hang", "bao-hanh"]).catch(() => loi.push(tr("PO / đơn mua / đơn BH"))),
+      queryClient.invalidateQueries({ queryKey: ["ton-kho-lk-tong-hop"] }).catch(() => loi.push(tr("tồn kho"))),
+      api.post("/cases/don-lk-gan-nhat/dong-bo", {}).catch(() => loi.push(tr("đơn LK gần nhất"))),
+    ]);
+    await refetch();
+    setDongBo({ dang: false, luc: new Date().toISOString(), loi: loi.length ? loi.join(", ") : null });
+  }
   // 2026-11-13: ton kho MB/MN cua "Mã linh kiện thiếu" - cung nguon cot "Tồn kho MB/MN" menu Thiếu linh kiện (/ton-kho-lk/tong-hop).
   const { map: tonKhoMap } = useTonKhoTongHop();
   const layTonKhoTongHop = useLayTonKhoTongHop();
@@ -2740,8 +2756,19 @@ export function BacklogModule({
               />
             )}
             {dsTab !== "da-dong" && (
-              <div className="ml-auto">
-                <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy}>
+              <div className="ml-auto flex items-center gap-2">
+                <span
+                  className={`text-[11px] ${dongBo.loi ? "text-[var(--coral-500)]" : "text-[var(--ink-400)]"}`}
+                  title={tr("PO / đơn mua / đơn bảo hành: Google Sheet tự làm mới mỗi 2 giờ, app EO mỗi 5 phút; tồn kho mỗi 5 phút; ID đặt hàng gần nhất mỗi giờ.")}
+                >
+                  {dongBo.loi
+                    ? tr("Lỗi đồng bộ: {0}", dongBo.loi)
+                    : tr("Dữ liệu PO cập nhật {0}", fmtDateTime(dongBo.luc ?? pwSyncedAt) || "—")}
+                </span>
+                <Btn variant="ghost" size="sm" onClick={dongBoTruocKhiTai} disabled={dongBo.dang || poDangTai || exportRunner.busy}>
+                  {dongBo.dang ? tr("⏳ Đang đồng bộ…") : tr("⟳ Đồng bộ trước khi tải")}
+                </Btn>
+                <Btn variant="ghost" size="sm" onClick={exportRunner.run(handleExport)} disabled={exportRunner.busy || dongBo.dang}>
                   {exportRunner.busy ? tr("⏳ Đang xuất…") : tr("⬇ Xuất Excel")}
                 </Btn>
               </div>

@@ -5886,3 +5886,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   MỖI cuộc gọi (bump `vi_pham`). Chủ hệ thống: bỏ số (N) của tab, không cần đếm.
 - `survey.ts`: bỏ `daXuLyTheoKhuVuc`/`daXuLyTheoPhamVi`, `/counts` không còn khoá `da-xu-ly`, `/by-khu-vuc` bỏ cột `da_xu_ly` (endpoint
   hiện không có màn nào gọi), tab "da-xu-ly" trả `totalCases: null`. Danh sách tab vẫn như cũ.
+
+## 2026-11-14 — Quản lý tồn > Danh sách chi tiết: phân tích nguồn dữ liệu cột PO + nút "Đồng bộ trước khi tải" (v1.604)
+- Các cột thêm gần đây lấy từ 5 nguồn, mỗi nguồn tự làm mới theo chu kỳ riêng:
+  (1) "SL đơn mua" = Google Sheet mua hàng MB 1,9MB + MN 7,9MB; (2) "SL đơn bảo hành" = sheet BH MB 7,8MB + MN 8,9MB;
+  (3) ngày hàng về / NM cam kết / số lần lùi DK = sheet PO 3,4MB + app EO `/api/po-dat-hang` (9.122 dòng, 11,25MB JSON);
+  (4) Tồn kho MB/MN = `/ton-kho-lk/tong-hop`; (5) ID đặt hàng gần nhất + trạng thái/ngày = bảng `don_lk_gan_nhat` (server, cron mỗi giờ).
+  `App.tsx` gọi `usePurchaseWarrantyData()` ngay khi đăng nhập → MỌI người dùng kéo 5 tập sheet (~39MB, kể cả `qc-thuc-te` 9MB chỉ
+  CaseDetail dùng) mỗi 2 giờ dù không mở màn này. App EO: bất kỳ thay đổi 1 dòng → version đổi → mọi client tải lại đủ 11MB (D1 13/11:
+  97 lần `SELECT payload FROM po_dat_hang_eo` × 9.121 dòng). Đối chiếu SL đơn mua/BH = `filter` cả tập cho TỪNG ca mỗi lần render.
+- Nút "⟳ Đồng bộ trước khi tải" (cạnh Xuất Excel): làm mới đúng 3 tập PO / mua hàng / bảo hành (`refreshSome`, không kéo
+  qc-thuc-te/thiếu hàng), tồn kho, và `POST /api/cases/don-lk-gan-nhat/dong-bo` (1 lượt đồng bộ kiểu cron; lần chạy gần nhất < 3 phút
+  thì bỏ qua, dùng chung mọi người) rồi tải lại danh sách. Hiện "Dữ liệu PO cập nhật …" / lỗi từng nguồn.
+- Chưa làm (chờ chủ hệ thống quyết): bỏ tải sheet ngầm lúc đăng nhập; EO trả phần thay đổi (delta) thay vì cả 11MB; tắt nguồn sheet PO cũ.

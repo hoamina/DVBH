@@ -38,8 +38,13 @@ export function usePurchaseWarrantyData() {
   const lastSyncedAt = cachedAts.length > 0 ? cachedAts.reduce((a, b) => (a > b ? a : b)) : null;
 
   async function refreshAll() {
+    await refreshSome(DATASETS);
+  }
+
+  // 2026-11-14: lam moi CHI cac tap can dung (vd Quan ly ton chi can PO + don mua + don BH, khong keo qc-thuc-te ~9MB).
+  async function refreshSome(ds: PurchaseWarrantyDataset[]) {
     await Promise.all(
-      DATASETS.map(async (d) => {
+      ds.map(async (d) => {
         const result = await getDataset(d, { force: true });
         queryClient.setQueryData(["purchase-warranty", d], result);
       }),
@@ -60,5 +65,6 @@ export function usePurchaseWarrantyData() {
     poSyncedAt: poDatHangQ.data?.cachedAt ?? null,
     poError: poDatHangQ.error ? String((poDatHangQ.error as Error).message ?? poDatHangQ.error) : null,
     refreshAll,
+    refreshSome,
   };
 }

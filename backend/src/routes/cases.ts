@@ -1336,6 +1336,23 @@ cases.get("/detail-version", async (c) => c.json({ detailVersion: await getVersi
 // Log "Dat mua linh kien" cua 1 ca tu he linh-kien-app (xem lib/linhKienTimeline.ts) - FE ghep vao
 // tab "Tien trinh chung"/"Mua hang"/"Thieu hang" cua CaseDetail. Cung kiem tra pham vi khu vuc voi
 // GET /:id ben duoi (1 PK lookup) truoc khi goi sang he ngoai.
+// POST /api/cases/don-lk-gan-nhat/dong-bo (2026-11-14) - nut "Đồng bộ trước khi tải" o Quan ly ton > Danh sach chi tiet:
+// chay NGAY 1 luot dong bo "ID đặt hàng gần nhất" theo kieu cron hang gio (chi hoi ca chua co dong / don chua ket thuc /
+// doi ma LK - khong hoi lai toan bo). Dung chung cho moi nguoi: lan chay gan nhat (cron hoac nut) < 3 phut thi bo qua, tra
+// lai ket qua lan do - nhieu nguoi cung bam khong nhan len so lan goi linh-kien-app.
+cases.post("/don-lk-gan-nhat/dong-bo", async (c) => {
+  const db = dbGoc(c.env.DB);
+  const gan = await db
+    .prepare(
+      `SELECT gia_tri, updated_at FROM cai_dat_he_thong WHERE khoa = 'don_lk_gan_nhat_dong_bo'
+         AND datetime(updated_at) > datetime('now', '+7 hours', '-3 minutes')`,
+    )
+    .first<{ gia_tri: string; updated_at: string }>();
+  if (gan) return c.json({ bo_qua: true, luc: gan.updated_at, ket_qua: JSON.parse(gan.gia_tri) });
+  const kq = await dongBoDonLkGanNhat(c.env, {});
+  return c.json({ bo_qua: false, luc: nowVN(), ket_qua: kq });
+});
+
 cases.get("/:id/linh-kien-timeline", async (c) => {
   const id = c.req.param("id");
   const caseRow = await c.env.DB.prepare("SELECT khu_vuc FROM case_dvbh WHERE id = ?").bind(id).first<{ khu_vuc: string | null }>();

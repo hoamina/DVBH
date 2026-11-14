@@ -14369,5 +14369,12 @@
  ],
   "Số lần lùi ngày DK": ["Times ETA postponed","Kali ETA diundur"],
   "Nước đang xem không có dữ liệu tỉnh cũ - luôn dùng địa giới mới": ["This country has no old-province data - new boundaries are always used","Negara ini tidak memiliki data provinsi lama - selalu memakai batas wilayah baru"],
-  "dữ liệu PO đặt hàng đang tải, thử lại sau vài giây": ["purchase-order data is still loading, try again in a few seconds","data PO masih dimuat, coba lagi dalam beberapa detik"]
+  "dữ liệu PO đặt hàng đang tải, thử lại sau vài giây": ["purchase-order data is still loading, try again in a few seconds","data PO masih dimuat, coba lagi dalam beberapa detik"],
+  "⟳ Đồng bộ trước khi tải": ["⟳ Sync before download","⟳ Sinkronkan sebelum unduh"],
+  "Lỗi đồng bộ: {0}": ["Sync error: {0}","Kesalahan sinkronisasi: {0}"],
+  "Dữ liệu PO cập nhật {0}": ["PO data updated {0}","Data PO diperbarui {0}"],
+  "PO / đơn mua / đơn BH": ["PO / purchase orders / warranty orders","PO / pesanan beli / pesanan garansi"],
+  "tồn kho": ["stock","stok"],
+  "đơn LK gần nhất": ["latest parts order","pesanan suku cadang terakhir"],
+  "PO / đơn mua / đơn bảo hành: Google Sheet tự làm mới mỗi 2 giờ, app EO mỗi 5 phút; tồn kho mỗi 5 phút; ID đặt hàng gần nhất mỗi giờ.": ["PO / purchase / warranty orders: Google Sheet refreshes every 2 hours, EO app every 5 minutes; stock every 5 minutes; latest order ID hourly.","PO / pesanan beli / garansi: Google Sheet diperbarui tiap 2 jam, aplikasi EO tiap 5 menit; stok tiap 5 menit; ID pesanan terakhir tiap jam."]
 }
