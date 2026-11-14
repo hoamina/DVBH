@@ -32,7 +32,6 @@ import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { indexPoTheoMaLk, ngayHangVeTheoKv } from "../lib/ngayHangVeTheoKv";
 import { useTonKhoTongHop, useLayTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
-import { matchMuaHang, matchBaoHanh } from "../lib/purchaseWarrantyMatch";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
@@ -1133,7 +1132,7 @@ export function BacklogModule({
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
   });
   const linhKienTenMap = useMemo(() => new Map((linhKienData?.rows ?? []).map((r) => [r.ma_linh_kien, r.ten_linh_kien])), [linhKienData]);
-  const { muaHang, baoHanh, poDatHang, isSyncing: poDangTai, refreshSome, lastSyncedAt: pwSyncedAt } = usePurchaseWarrantyData();
+  const { poDatHang, isSyncing: poDangTai, refreshSome, lastSyncedAt: pwSyncedAt } = usePurchaseWarrantyData();
   const queryClient = useQueryClient();
   // 2026-11-14: nut "Đồng bộ trước khi tải" - cac cot PO / don mua / don BH / ton kho / don LK gan nhat lay tu 5 nguon khac nhau,
   // moi nguon tu lam moi theo chu ky rieng (2h / 5 phut / 5 phut / moi gio). Bam 1 lan = lam moi dung cac nguon man nay dung,
@@ -1143,7 +1142,7 @@ export function BacklogModule({
     setDongBo((s) => ({ ...s, dang: true, loi: null }));
     const loi: string[] = [];
     await Promise.all([
-      refreshSome(["po-dat-hang", "mua-hang", "bao-hanh"]).catch(() => loi.push(tr("PO / đơn mua / đơn BH"))),
+      refreshSome(["po-dat-hang"]).catch(() => loi.push(tr("PO đặt hàng"))),
       queryClient.invalidateQueries({ queryKey: ["ton-kho-lk-tong-hop"] }).catch(() => loi.push(tr("tồn kho"))),
       api.post("/cases/don-lk-gan-nhat/dong-bo", {}).catch(() => loi.push(tr("đơn LK gần nhất"))),
     ]);
@@ -1156,10 +1155,8 @@ export function BacklogModule({
   // 2026-11-11: 3 cot ngay hang ve theo KV cho ca co "Mã linh kiện thiếu" - doi chieu PO dat hang (cung nguon menu Thiếu linh kiện).
   const poTheoMaLk = useMemo(() => indexPoTheoMaLk(poDatHang), [poDatHang]);
   const ngayHangVe = (c: CaseRow) => ngayHangVeTheoKv(c.last_ma_linh_kien_thieu, c.khu_vuc, poTheoMaLk);
-  // "ID đặt hàng gần nhất" (2026-11-12): nguon chinh = don linh-kien-app da luu server (don_lk_*, cap nhat moi gio + khi mo ca).
-  // Ca chua co don tren app ma "Mã xuất hàng liên quan" cua giai trinh trung 1 ID tren Google Sheet mua hang cu (AppSheet) -> hien
-  // tam tu sheet (chi o trinh duyet, khong loc/sap xep server duoc).
-  const muaHangTheoId = useMemo(() => new Map(muaHang.map((r) => [r.id, r])), [muaHang]);
+  // "ID đặt hàng gần nhất" (2026-11-12): don linh-kien-app da luu server (don_lk_*, cap nhat moi gio + khi mo ca). Nhanh hien tam
+  // tu Google Sheet mua hang cu da bo 2026-11-14 (bo dong bo Google Sheet).
   const donLk = (c: CaseRow) => {
     if (!c.last_ma_linh_kien_thieu) return null;
     if (c.don_lk_id) {
@@ -1170,7 +1167,6 @@ export function BacklogModule({
         ngayDat: fmtDateTime(c.don_lk_ngay_dat),
         ngayDuyet: c.don_lk_ngay_duyet ? fmtDateTime(c.don_lk_ngay_duyet) : "",
         ngayXuat: c.don_lk_ngay_xuat ? fmtDateTime(c.don_lk_ngay_xuat) : "",
-        sheet: false,
         title: [
           tr("Nguồn: {0}", nguon),
           tr("Mã LK của đơn: {0}", c.don_lk_ma_lk ?? "") + (c.don_lk_khop_ma_lk ? "" : " " + tr("(khác mã LK thiếu {0})", c.last_ma_linh_kien_thieu)),
@@ -1180,18 +1176,7 @@ export function BacklogModule({
         ].filter(Boolean).join("\n"),
       };
     }
-    const ma = (c.last_ma_xuat_hang_lien_quan ?? "").trim();
-    const r = ma ? muaHangTheoId.get(ma) : undefined;
-    if (!r) return null;
-    return {
-      id: r.id,
-      trangThai: r.trangThaiGuiHang || r.trangThaiDuyet || "",
-      ngayDat: r.ngayTao ?? "",
-      ngayDuyet: r.ngayXacNhan ?? "",
-      ngayXuat: r.ngayKhoXacNhan ?? "",
-      sheet: true,
-      title: tr("Nguồn: Google Sheet mua hàng cũ (mã ghi trong giải trình)"),
-    };
+    return null;
   };
   // CHOT 2026-08-11: cac the so o tab "Bao cao" (vd "Tong can giai trinh") co the doi CHI VI thoi
   // gian troi qua (1 ca vuot moc tuoi ton 3/5/7/14 ngay) hoac do NGUOI KHAC thao tac (giai trinh 1 ca,
@@ -1589,8 +1574,6 @@ export function BacklogModule({
     tuoi_ton: "Tuổi tồn",
     // CHOT 2026-08-06: cac cot tinh rieng o frontend (khong co san tren CaseRow tu API) - xem enrichForExport().
     last_ten_linh_kien_thieu: "Tên linh kiện thiếu gần nhất",
-    sl_don_mua: "SL đơn mua",
-    sl_don_bao_hanh: "SL đơn bảo hành",
     khoang_ton: "Khoảng tồn",
     ngay_hang_ve_du_kien_kv: "Ngày hàng về dự kiến theo KV",
     so_lan_lui_dk: "Số lần lùi ngày DK",
@@ -1650,9 +1633,9 @@ export function BacklogModule({
       ...r,
       don_lk_id: dl?.id ?? null,
       don_lk_trang_thai: dl?.trangThai || null,
-      don_lk_ngay_dat: dl?.sheet ? dl.ngayDat : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_dat : null) ?? null,
-      don_lk_ngay_duyet: dl?.sheet ? dl.ngayDuyet : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_duyet : null) ?? null,
-      don_lk_ngay_xuat: dl?.sheet ? dl.ngayXuat : (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_xuat : null) ?? null,
+      don_lk_ngay_dat: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_dat : null) ?? null,
+      don_lk_ngay_duyet: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_duyet : null) ?? null,
+      don_lk_ngay_xuat: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_xuat : null) ?? null,
       ngay_hang_ve_du_kien_kv: nv.duKien,
       so_lan_lui_dk: nv.soLanLuiDk === "" ? null : Number(nv.soLanLuiDk),
       ngay_ve_gan_nhat_kv: nv.veGanNhat,
@@ -1661,8 +1644,6 @@ export function BacklogModule({
       ton_kho_mn: r.last_ma_linh_kien_thieu ? (tonKho.get(r.last_ma_linh_kien_thieu)?.ton_mn ?? 0) : null,
       khu_vuc: shortKhuVuc(r.khu_vuc),
       last_ten_linh_kien_thieu: r.last_ma_linh_kien_thieu ? (linhKienTenMap.get(r.last_ma_linh_kien_thieu) ?? r.last_ma_linh_kien_thieu) : null,
-      sl_don_mua: slDonMua(r),
-      sl_don_bao_hanh: slDonBaoHanh(r),
       khoang_ton: khoangTon(r),
       };
     });
@@ -1889,7 +1870,7 @@ export function BacklogModule({
           if (!d || !v || v === "—") return <span className="text-[var(--ink-400)] text-xs">—</span>;
           return (
             <span
-              className={`text-xs whitespace-nowrap ${f === "id" ? "font-mono" : ""} ${d.sheet ? "italic text-[var(--ink-400)]" : ""}`}
+              className={`text-xs whitespace-nowrap ${f === "id" ? "font-mono" : ""}`}
               title={d.title}
             >
               {v}
@@ -1927,15 +1908,6 @@ export function BacklogModule({
     filter: "number",
     render: (c) => <span className="text-xs font-mono">{fmtVND(c[key] as unknown as number | null)}</span>,
   });
-  // "SL don mua"/"SL don bao hanh" - dung LAI matchMuaHang/matchBaoHanh (lib/purchaseWarrantyMatch.ts,
-  // dang dung o CaseDetail.tsx) tren 2 tap Google Sheet da cache o trinh duyet - xem chu thich uoc
-  // luong o cot "sl_don_mua" ben duoi ve gioi han cua "last_ma_xuat_hang_lien_quan".
-  function slDonMua(c: CaseRow): number {
-    return matchMuaHang(c.id, c.last_ma_xuat_hang_lien_quan ? [{ ma_xuat_hang_lien_quan: c.last_ma_xuat_hang_lien_quan }] : [], muaHang).length;
-  }
-  function slDonBaoHanh(c: CaseRow): number {
-    return matchBaoHanh(c.id, baoHanh).length;
-  }
   // "Khoang ton" (CHOT 2026-08-06) - nhom tu cot "Tuoi ton" (c.tuoi_ton, da tinh san server-side, xem
   // AGE_EXPR trong backend/src/routes/cases.ts) thanh dai, hoan toan frontend - khong doi gi backend.
   // Moc duoi cua moi dai la ">=" (khop quy uoc "Cho >=X ngay" da dung o TranhChapModule.tsx), moc
@@ -2003,23 +1975,6 @@ export function BacklogModule({
       key: "last_ten_linh_kien_thieu",
       header: tr("Tên linh kiện thiếu gần nhất"),
       render: (c) => <span className="text-xs">{c.last_ma_linh_kien_thieu ? (linhKienTenMap.get(c.last_ma_linh_kien_thieu) ?? c.last_ma_linh_kien_thieu) : "—"}</span>,
-    },
-    {
-      // Dem tren 2 tap du lieu Google Sheet (mua hang/bao hanh) da cache san o trinh duyet qua
-      // usePurchaseWarrantyData() - dung LAI y het logic doi chieu cua CaseDetail.tsx
-      // (matchMuaHang/matchBaoHanh, lib/purchaseWarrantyMatch.ts), khong tinh toan rieng o day de
-      // khong lech ket qua giua 2 man hinh. matchMuaHang can du lieu giai_trinh cua ca de doi chieu
-      // ma xuat hang - "Danh sach chi tiet" chi co giai trinh GAN NHAT (last_ma_xuat_hang_lien_quan,
-      // tu lg.* co san) chu khong co ca lich su, nen SL don mua o day la UOC LUONG (co the thap hon
-      // so voi xem chi tiet 1 ca neu ma xuat hang gan voi 1 lan giai trinh CU hon lan gan nhat).
-      key: "sl_don_mua",
-      header: tr("SL đơn mua"),
-      render: (c) => <span className="text-xs font-mono">{slDonMua(c)}</span>,
-    },
-    {
-      key: "sl_don_bao_hanh",
-      header: tr("SL đơn bảo hành"),
-      render: (c) => <span className="text-xs font-mono">{slDonBaoHanh(c)}</span>,
     },
     {
       key: "link_crm",
@@ -2759,7 +2714,7 @@ export function BacklogModule({
               <div className="ml-auto flex items-center gap-2">
                 <span
                   className={`text-[11px] ${dongBo.loi ? "text-[var(--coral-500)]" : "text-[var(--ink-400)]"}`}
-                  title={tr("PO / đơn mua / đơn bảo hành: Google Sheet tự làm mới mỗi 2 giờ, app EO mỗi 5 phút; tồn kho mỗi 5 phút; ID đặt hàng gần nhất mỗi giờ.")}
+                  title={tr("PO đặt hàng (app EO) tự làm mới mỗi 5 phút; tồn kho mỗi 5 phút; ID đặt hàng gần nhất mỗi giờ.")}
                 >
                   {dongBo.loi
                     ? tr("Lỗi đồng bộ: {0}", dongBo.loi)
@@ -2849,7 +2804,7 @@ export function BacklogModule({
               loadFilterValues={layGiaTriCot}
               totalUnfiltered={data?.total_chua_loc}
               optionalColumns={optionalCaseColumns}
-              defaultVisibleOptionalKeys={["sl_don_mua", "sl_don_bao_hanh", "ly_do_ton_tranh_chap_gan_nhat"]}
+              defaultVisibleOptionalKeys={["ly_do_ton_tranh_chap_gan_nhat"]}
             />
           )}
         </div>

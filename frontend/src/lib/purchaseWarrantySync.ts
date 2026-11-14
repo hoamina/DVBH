@@ -42,24 +42,17 @@ interface SourceSheet {
   region: "MB" | "MN" | "";
 }
 
+// 2026-11-14 (chu he thong: "bỏ việc đồng bộ từ google sheet", giu QC thuc te): bo 4 sheet mua hang / bao hanh / thieu hang /
+// PO cu (~36MB moi nguoi moi 2 gio). PO chi con tu app EO Mua hang; cac tap da bo luon tra rong, khong goi mang.
+export const DATASET_DA_BO: ReadonlySet<PurchaseWarrantyDataset> = new Set(["mua-hang", "bao-hanh", "thieu-hang"]);
 const SOURCES: Record<PurchaseWarrantyDataset, SourceSheet[]> = {
-  "mua-hang": [
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ02aMyUHGYZC59csU07jfbzDX0M3vRPipKCN1ZAwhGU6p6JWElulY1GFn5aAAJuAJ3VegHivyEKsfN/pub?gid=925169848&single=true&output=tsv", region: "MB" },
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT7CgwA2tuwtoGq9MzKkWFjK-5n41r-grhvSzZAPf2JVJL8XTyBELDNGnrUfl3XieRBlo4bv_HgZPzC/pub?gid=935630667&single=true&output=tsv", region: "MN" },
-  ],
-  "bao-hanh": [
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8PEyHRH8FoyFh_wYsCOM01qvj09DiQ1Fc2eillVV-8b04wpxvWm6YGr7HxmBqyaYZoZis8KXF06H3/pub?gid=165964439&single=true&output=tsv", region: "MB" },
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTr13_z0YA9ZQyCz59iapFqQtYVxoZY-NX-j87dPUDGA6oD5rXlqFg1v9Z7P2s3QYyLH3-usnJPCQwY/pub?gid=0&single=true&output=tsv", region: "MN" },
-  ],
-  "thieu-hang": [
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ02aMyUHGYZC59csU07jfbzDX0M3vRPipKCN1ZAwhGU6p6JWElulY1GFn5aAAJuAJ3VegHivyEKsfN/pub?gid=658175112&single=true&output=tsv", region: "" },
-  ],
+  "mua-hang": [  ],
+  "bao-hanh": [  ],
+  "thieu-hang": [  ],
   "qc-thuc-te": [
     { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSSguxu-zqNnF_L1hvJCNSZzQPA8iMwjiY8qo_7mppz39xgdloucRTlBOGfT0B5PoXbg0Di_S41XQMc/pub?output=tsv", region: "" },
   ],
-  "po-dat-hang": [
-    { url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRvxxjz1QNWcRGsPSF9cxws8OU9-TUY3jYIBkIe89rFn6yA5chVz0ZGW1ArYcy7XO7ab4u1VfOSv0S0/pub?gid=819742813&single=true&output=tsv", region: "" },
-  ],
+  "po-dat-hang": [  ],
 };
 
 // Moi truong hang - moi field co the co nhieu ten cot khac nhau giua sheet MB/MN (khac ca chu hoa
@@ -236,14 +229,24 @@ export async function getDataset(dataset: PurchaseWarrantyDataset, opts?: { forc
   // goi deu hoi version /api/po-dat-hang?v=, khong doi chi ton 1 dong doc). Fix 2026-10-20: truoc day gop chung
   // 1 cache 2h -> ai mo DVBH truoc khi app EO day lan dau bi ket danh sach khong co EO suot 2 gio.
   if (dataset === "po-dat-hang") {
-    const [sheet, app] = await Promise.all([
-      getSheetDataset(dataset, opts).catch(() => ({ rows: [] as SheetRow[], cachedAt: "" })),
-      fetchPoEoRows(!!opts?.force),
-    ]);
-    if (sheet.rows.length === 0 && app.length === 0) throw new Error(tr("Không tải được PO từ Google Sheet lẫn app EO"));
-    return { rows: mergePoRows(sheet.rows, app), cachedAt: new Date().toISOString() };
+    // 2026-11-14: chi con app EO (bo sheet PO cu).
+    const app = await fetchPoEoRows(!!opts?.force);
+    if (app.length === 0) throw new Error(tr("Không tải được PO từ app EO"));
+    return { rows: mergePoRows([], app), cachedAt: new Date().toISOString() };
+  }
+  if (DATASET_DA_BO.has(dataset)) {
+    xoaCacheSheetDaBo();
+    return { rows: [], cachedAt: "" };
   }
   return getSheetDataset(dataset, opts);
+}
+
+// Xoa 1 lan/phien cache IndexedDB cua cac sheet da bo (mua hang/bao hanh/thieu hang/PO cu, ~36MB tren may nguoi dung).
+let daXoaCacheCu = false;
+function xoaCacheSheetDaBo() {
+  if (daXoaCacheCu) return;
+  daXoaCacheCu = true;
+  for (const ds of ["mua-hang", "bao-hanh", "thieu-hang", "po-dat-hang"]) void setCachedEntry(cacheKey(ds as PurchaseWarrantyDataset), []).catch(() => undefined);
 }
 
 async function getSheetDataset(dataset: PurchaseWarrantyDataset, opts?: { force?: boolean }): Promise<{ rows: SheetRow[]; cachedAt: string }> {

@@ -10,7 +10,7 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienSlThucXuat } from "../lib/linhKienTimeline";
 import { fmtSl, TonKhoCapNhatLine } from "./TonKhoLk";
 import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
-import { matchPoDatHangByLinhKien, matchMuaHangByLinhKien, matchBaoHanhByLinhKien } from "../lib/purchaseWarrantyMatch";
+import { matchPoDatHangByLinhKien } from "../lib/purchaseWarrantyMatch";
 import type { SheetRow } from "../lib/purchaseWarrantySync";
 import { poSortKey } from "../lib/poDatHangEo";
 import { soNguyen, poBiHuy, poDangCho, poNgayVe } from "../lib/ngayHangVeTheoKv";
@@ -24,7 +24,7 @@ import { LkTuongDuongView, TuongDuongBanner, useLkTuongDuong } from "./LkTuongDu
 //   - Ton tung kho / KTV: ton_kho_lk (keo tu linh-kien-app, /api/ton-kho-lk/ma/:ma).
 //   - Ca dang bao thieu: /api/missing-parts?ma_lk= (dung scope khu vuc cua nguoi xem).
 //   - Lich su dat hang + ticket thieu hang: linh-kien-app, goi luc mo (/api/ton-kho-lk/ma/:ma/lich-su, khong luu).
-//   - PO / mua hang / bao hanh (Google Sheet, usePurchaseWarrantyData - cache IndexedDB san co).
+//   - PO (app EO Mua hang, usePurchaseWarrantyData). Muc mua hang / bao hanh tu Google Sheet da bo 2026-11-14.
 // Mo tu BAT KY dau qua HoSoLinhKienProvider / <MaLinhKienLink> (2026-10-08).
 
 interface TonRow {
@@ -261,62 +261,6 @@ function PoTable({ rows, khoMau, openCase }: { rows: SheetRow[]; khoMau: Map<str
   );
 }
 
-const MUA_HANG_COLS: { key: string; label: string }[] = [
-  { key: "id", label: "ID" },
-  { key: "loaiDeXuat", label: tr("Loại đề xuất") },
-  { key: "soLuongDeXuat", label: tr("SL đề xuất") },
-  { key: "trangThaiDuyet", label: tr("Trạng thái duyệt") },
-  { key: "soLuongThucXuat", label: tr("SL thực xuất") },
-  { key: "trangThaiGuiHang", label: tr("Trạng thái gửi hàng") },
-  { key: "ngayKtvNhanHang", label: tr("Ngày KTV nhận") },
-  { key: "giaDeXuat", label: tr("Giá đề xuất") },
-];
-
-const BAO_HANH_COLS: { key: string; label: string }[] = [
-  { key: "id", label: "ID" },
-  { key: "trangThai", label: tr("Trạng thái") },
-  { key: "modelSanPham", label: "Model" },
-  { key: "serial", label: "Serial" },
-  { key: "phuongAnXuLy", label: tr("Phương án xử lý") },
-  { key: "ngayGui", label: tr("Ngày gửi") },
-  { key: "ngayGioTraXong", label: tr("Ngày trả xong") },
-  { key: "nguoiSua", label: tr("Người sửa") },
-];
-
-function SheetRowsTable({ rows, columns }: { rows: SheetRow[]; columns: { key: string; label: string; titleKey?: string }[] }) {
-  if (rows.length === 0) return <Empty text={tr("Không có dữ liệu liên quan.")} />;
-  return (
-    <div className="overflow-auto max-h-72">
-      <table className="dense w-full text-xs">
-        <thead className={THEAD}>
-          <tr className="text-left text-[var(--ink-400)] uppercase border-b border-[var(--line)]">
-            {columns.map((c) => (
-              <th key={c.key} className="py-1.5 px-2 whitespace-nowrap">
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} className="border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60">
-              {columns.map((c) => (
-                <td
-                  key={c.key}
-                  className={`py-1.5 px-2 ${c.titleKey && r[c.titleKey] ? "cursor-help underline decoration-dotted underline-offset-2" : ""}`}
-                  title={c.titleKey && r[c.titleKey] ? tr("Phiếu nhập: {0}", r[c.titleKey]) : undefined}
-                >
-                  {c.key === "id" ? <MaAppLink id={r.id} /> : r[c.key] || "—"}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 const TH = "py-1.5 px-2";
 const THEAD = "sticky top-0 z-[1] bg-[var(--surface)]";
 const TR = "border-b border-[var(--line)] last:border-0 even:bg-[var(--surface-100)]/60";
@@ -355,7 +299,7 @@ export function HoSoLinhKien({ maLk, openCase, onMoMa }: { maLk: string; openCas
 }
 
 function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; openCase?: (id: string, tab?: string) => void; tabs: ReactNode; onXemTuongDuong: () => void }) {
-  const { poDatHang, muaHang, baoHanh } = usePurchaseWarrantyData();
+  const { poDatHang } = usePurchaseWarrantyData();
   const poTatCa = useMemo(() => matchPoDatHangByLinhKien(maLk, poDatHang), [maLk, poDatHang]);
   // Bo PO huy / SL dat = 0; PO dang cho hang len dau, trong moi nhom moi ban hanh truoc.
   const po = useMemo(() => {
@@ -377,8 +321,6 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
     for (const r of po) if (r.idCrm) m.set(r.idCrm, [...(m.get(r.idCrm) ?? []), r]);
     return m;
   }, [po]);
-  const muaHangRows = useMemo(() => matchMuaHangByLinhKien(maLk, muaHang), [maLk, muaHang]);
-  const baoHanhRows = useMemo(() => matchBaoHanhByLinhKien(maLk, baoHanh), [maLk, baoHanh]);
   const tonQ = useQuery({ queryKey: ["ton-kho-lk-ma", maLk], queryFn: () => api.get<{ rows: TonRow[]; ten?: string | null }>(`/ton-kho-lk/ma/${encodeURIComponent(maLk)}`) });
   const caQ = useQuery({
     queryKey: ["missing-parts-ma-lk", maLk],
@@ -487,11 +429,6 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
       value: cases.length ? `${caCoPo}/${cases.length}` : "—",
       sub: cases.length ? tr("PO gắn đúng ID ca") : undefined,
       tone: cases.length && caCoPo < cases.length ? "coral" : "gray",
-    },
-    {
-      label: tr("Bảo hành liên quan"),
-      value: baoHanhRows.length,
-      tone: baoHanhRows.length ? "ocean" : "gray",
     },
   ];
 
@@ -819,16 +756,6 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
         </Section>
       </Zone>
 
-      <Zone n={4} title={tr("Tham khảo")} hint={tr("dữ liệu AppSheet / Google Sheet")}>
-        <div className="grid xl:grid-cols-2 gap-3 [&>*]:min-w-0">
-          <Section title={tr("Đơn mua hàng — Google Sheet")} icon="🧮" tone="gray" count={muaHangRows.length} emptyText={muaHangRows.length === 0 ? tr("Không có.") : null}>
-            <SheetRowsTable rows={muaHangRows} columns={MUA_HANG_COLS} />
-          </Section>
-          <Section title={tr("Bảo hành liên quan")} icon="🛠️" tone="gray" count={baoHanhRows.length} emptyText={baoHanhRows.length === 0 ? tr("Không có.") : null}>
-            <SheetRowsTable rows={baoHanhRows} columns={BAO_HANH_COLS} />
-          </Section>
-        </div>
-      </Zone>
     </div>
   );
 }
