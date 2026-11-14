@@ -32,6 +32,7 @@ import { baseJoin as thieuLinhKienJoin } from "./missingParts";
 import { ageExpr, ageFilterClause } from "../lib/ageCalc";
 import { khuVucAdHocClause, dimAdHocClause } from "../lib/filterParams";
 import { getThongKeKtv } from "../lib/thongKeKtv";
+import { capNhatPoHangVe } from "../lib/poHangVeMien";
 
 /**
  * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
@@ -672,6 +673,10 @@ partnerApi.post("/sync/po-dat-hang", async (c) => {
     ).bind(nguon, nowVN(), JSON.stringify(tuples.slice(i, i + 200))));
   }
   if (!stmts.length) return c.json({ received: 0, changed: 0 });
+  // Ma LK cu cua cac dong nhan duoc (truoc khi ghi de) - de tinh lai ca ma bi doi di (po_hang_ve_mien, lib/poHangVeMien.ts).
+  const { results: maCu } = await c.env.DB.prepare(
+    "SELECT ma_lk, ma_lk_goc FROM po_dat_hang_eo WHERE id_dat_lk IN (SELECT value FROM json_each(?))",
+  ).bind(JSON.stringify(body.rows.map((r) => r.id_dat_lk))).all<{ ma_lk: string | null; ma_lk_goc: string | null }>();
   // 2026-11-14 (GET /api/po-dat-hang chi gui dong thay doi): dong doi ghi phien_ban = version + 1, roi tang version TRONG CUNG
   // batch (1 giao dich) chi khi co dong mang phien_ban do -> client da co version N luon nhan du dong phien_ban > N, khong lot.
   const res = await c.env.DB.batch([
@@ -683,6 +688,14 @@ partnerApi.post("/sync/po-dat-hang", async (c) => {
     ),
   ]);
   const changed = res.slice(1, -1).reduce((s, r) => s + (r.meta?.changes ?? 0), 0);
+  if (changed > 0) {
+    const maLks = new Set<string>();
+    for (const r of maCu) for (const m of [r.ma_lk, r.ma_lk_goc]) if (m) maLks.add(m);
+    for (const r of body.rows) for (const m of [str(r.ma_lk), str(r.ma_lk_goc)]) if (m) maLks.add(m);
+    c.executionCtx.waitUntil(
+      capNhatPoHangVe(c.env.DB, [...maLks]).catch((err) => console.error("[po-hang-ve-mien] loi:", err instanceof Error ? err.message : String(err))),
+    );
+  }
   return c.json({ received: body.rows.length, changed });
 });
 

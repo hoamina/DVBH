@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
+import { requireRole } from "../middleware/requireRole";
+import { capNhatPoHangVe } from "../lib/poHangVeMien";
 
 /**
  * GET /api/po-dat-hang?v=<version da co> - PO dat hang day tu app "EO Mua hang" (bang po_dat_hang_eo,
@@ -31,5 +33,8 @@ poDatHang.get("/", async (c) => {
     "Content-Type": "application/json; charset=utf-8",
   });
 });
+
+// POST /api/po-dat-hang/tinh-lai-hang-ve (Admin) - tinh lai toan bo bang po_hang_ve_mien ngay (khong doi cron moi gio).
+poDatHang.post("/tinh-lai-hang-ve", requireRole("Admin"), async (c) => c.json(await capNhatPoHangVe(c.env.DB)));
 
 export default poDatHang;

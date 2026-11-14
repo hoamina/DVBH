@@ -105,6 +105,11 @@ export interface CaseRow {
   last_ma_xuat_hang_lien_quan?: string | null;
   // "ID đặt hàng gần nhất" (backend lib/donLkGanNhat.ts, bang don_lk_gan_nhat, 2026-11-12) - chi co voi ca dang ton thieu LK.
   don_lk_id?: string | null;
+  // 4 cot PO theo KV (backend lib/poHangVeMien.ts, 2026-11-14) - ngay YYYY-MM-DD.
+  ngay_hang_ve_du_kien_kv?: string | null;
+  ngay_ve_gan_nhat_kv?: string | null;
+  ngay_nm_cam_ket?: string | null;
+  so_lan_lui_dk?: number | null;
   don_lk_trang_thai?: string | null;
   don_lk_ngay_dat?: string | null;
   don_lk_ngay_duyet?: string | null;

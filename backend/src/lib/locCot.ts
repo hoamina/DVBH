@@ -12,6 +12,7 @@ import { ageExpr } from "./ageCalc";
 import { NEED_GIAI_TRINH_CATEGORIES } from "./needGiaiTrinh";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG } from "./tranhChapTienTrinh";
 import { diaGioiLoc } from "./filterParams";
+import { MIEN_CA_SQL } from "./poHangVeMien";
 
 export const GIA_TRI_TRONG = "__TRONG__";
 
@@ -19,6 +20,10 @@ export type Kieu = "list" | "text" | "date" | "number";
 
 const tranhChapDongList = TRANH_CHAP_TRANG_THAI_DONG.map((s) => `'${s}'`).join(", ");
 const latestTienTrinhNgayTaoExpr = `(SELECT tt.ngay_tao FROM tranh_chap_tien_trinh tt WHERE tt.id = ${LATEST_TIEN_TRINH_ID_OF_CASE})`;
+const TUOI_TON_EXPR = ageExpr("c.thoi_gian_cskh_tiep_nhan");
+export const KHOANG_TON_EXPR = `(CASE WHEN ${TUOI_TON_EXPR} IS NULL THEN NULL WHEN ${TUOI_TON_EXPR} < 1 THEN 'lt1' WHEN ${TUOI_TON_EXPR} < 3 THEN '1-3'
+  WHEN ${TUOI_TON_EXPR} < 5 THEN '3-5' WHEN ${TUOI_TON_EXPR} < 7 THEN '5-7' WHEN ${TUOI_TON_EXPR} < 10 THEN '7-10'
+  WHEN ${TUOI_TON_EXPR} < 14 THEN '10-14' ELSE 'gt14' END)`;
 export const TUOI_TC_EXPR = `(CASE WHEN ${CASE_TRANH_CHAP_STATUS_EXPR} NOT IN ('Chua xu ly', ${tranhChapDongList}) THEN ${ageExpr(latestTienTrinhNgayTaoExpr)} ELSE NULL END)`;
 
 /** key cot (trung key cot o frontend BacklogModule) -> bieu thuc SQL (alias c = case, lg = giai trinh gan nhat) + kieu loc. */
@@ -71,6 +76,38 @@ export const COT_LOC: Record<string, { expr: string; kieu: Kieu }> = {
       { expr: `(CASE WHEN COALESCE(lg.linh_kien_thieu, '') <> '' THEN (SELECT x.${cot} FROM don_lk_gan_nhat x WHERE x.case_id = c.id) END)`, kieu },
     ]),
   ),
+  // 2026-11-14: them loc / sap xep cho cac cot con thieu cua Danh sach chi tiet.
+  // 4 cot PO theo mien cua ca - bang tinh san po_hang_ve_mien (lib/poHangVeMien.ts), cung so voi cai dang hien.
+  ...Object.fromEntries(
+    ([
+      ["ngay_hang_ve_du_kien_kv", "du_kien", "date"],
+      ["so_lan_lui_dk", "so_lan_lui", "number"],
+      ["ngay_ve_gan_nhat_kv", "ve_gan_nhat", "date"],
+      ["ngay_nm_cam_ket", "nm_cam_ket", "date"],
+    ] as const).map(([k, cot, kieu]) => [
+      k,
+      { expr: `(CASE WHEN COALESCE(lg.linh_kien_thieu, '') <> '' THEN (SELECT p.${cot} FROM po_hang_ve_mien p WHERE p.ma_lk = lg.linh_kien_thieu AND p.mien = ${MIEN_CA_SQL}) END)`, kieu },
+    ]),
+  ),
+  // Ton kho MB/MN cua ma LK thieu (cung cach tinh /ton-kho-lk/tong-hop; ma khong co trong ton kho = 0).
+  ...Object.fromEntries(
+    (["MB", "MN"] as const).map((n) => [
+      `ton_kho_${n.toLowerCase()}`,
+      {
+        expr: `(CASE WHEN COALESCE(lg.linh_kien_thieu, '') <> '' THEN COALESCE((SELECT SUM(t.cuoi_ky) FROM ton_kho_lk t JOIN ton_kho_nhom_kho n ON n.ma_kho = t.ma_kho WHERE t.ma_hang = lg.linh_kien_thieu AND n.nhom = '${n}'), 0) END)`,
+        kieu: "number" as Kieu,
+      },
+    ]),
+  ),
+  last_ten_linh_kien_thieu: {
+    expr: "(CASE WHEN COALESCE(lg.linh_kien_thieu, '') <> '' THEN COALESCE((SELECT lk.ten_linh_kien FROM linh_kien lk WHERE lk.ma_linh_kien = lg.linh_kien_thieu), lg.linh_kien_thieu) END)",
+    kieu: "text",
+  },
+  // Khoang ton: gia tri = khoa dai (frontend KHOANG_TON_BUCKETS doi ra nhan); moc duoi >=, moc tren <.
+  khoang_ton: { expr: KHOANG_TON_EXPR, kieu: "list" },
+  quan_huyen: { expr: "c.quan_huyen", kieu: "list" },
+  xa_moi: { expr: "c.xa_moi", kieu: "list" },
+  link_crm: { expr: "c.link_crm", kieu: "text" },
 };
 
 /** Cot "Nhom ton": gia tri = key need_* (khop NHOM_TON_BADGES frontend) -> dieu kien NEED_* tuong ung (OR). */

@@ -5909,3 +5909,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   ghi `phien_ban = version+1` cho dòng đổi và tăng version trong CÙNG batch (chỉ khi có dòng đổi). `GET /api/po-dat-hang?v=N` trả chỉ
   dòng `phien_ban > N` (`delta:true`); client trộn theo `id_dat_lk`, luôn gửi v (kể cả nút đồng bộ). Khoá cache đổi `-v2` → mỗi máy tải
   full 1 lần sau deploy. Trước: mỗi thay đổi 1 dòng → mọi client tải lại 11,25MB (97 lần/ngày ngày 13/11). Đã giả lập logic trên SQLite.
+
+## 2026-11-14 — Danh sách chi tiết: lọc + sắp xếp kiểu Excel cho các cột còn thiếu (v1.606)
+- Chủ hệ thống: "bổ sung thêm logic lọc và filter excel cho các cột trong danh sách chi tiết". Thêm vào `COT_LOC` (lọc + sắp xếp server):
+  Khoảng tồn (list, khoá `lt1/1-3/…/gt14`, sắp theo tuổi tồn), Mã LK thiếu (list), Tên LK thiếu (text, theo danh mục `linh_kien`),
+  Tồn kho MB/MN (number, cùng cách tính `/ton-kho-lk/tong-hop`), Quận/huyện ↔ Xã mới theo chế độ địa giới (`Column.filterKey`), Link CRM.
+- 4 cột PO theo KV (ngày hàng về dự kiến / số lần lùi DK / ngày về gần nhất / NM cam kết) chuyển từ tính ở trình duyệt sang server:
+  migration 0169 `po_hang_ve_mien` (mã LK × miền MB/MN/*), `lib/poHangVeMien.ts` port đúng `frontend/lib/ngayHangVeTheoKv.ts`
+  (đối chiếu trên 9.122 PO thật: 4.719 cặp mã×miền, 0 lệch; miền khu vực SQL vs JS: 22 khu vực, 0 lệch). Cập nhật theo mã LK mỗi khi app EO
+  đẩy dòng đổi (gồm cả mã cũ trước khi ghi đè), toàn bộ khi version PO đổi (cron mỗi giờ) / lần đầu có người mở danh sách / Admin
+  `POST /api/po-dat-hang/tinh-lai-hang-ve`; chỉ ghi dòng đổi. `/cases` trả kèm 4 giá trị cho từng dòng → hiển thị, lọc, Excel cùng 1 số;
+  màn Quản lý tồn không còn tải 11MB PO về trình duyệt. Nhân tiện sửa lỗi cũ: giao diện EN/ID nhận diện PO huỷ theo nhãn đã dịch
+  ("hủy"/"từ chối") nên không bỏ được PO huỷ — server dùng mã trạng thái EO.

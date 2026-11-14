@@ -49,6 +49,7 @@ import { syncGiaiTrinhTonB2B, hasSucceededToday } from "./lib/etxGiaiTrinhSync";
 import { syncViPhamFromSheet } from "./lib/viPhamSheetSync";
 import { autoSyncTonKhoLk } from "./lib/tonKhoLk";
 import { dongBoDonLkGanNhat } from "./lib/donLkGanNhat";
+import { capNhatPoHangVeNeuCan } from "./lib/poHangVeMien";
 import { syncLkThayThe } from "./lib/lkThayThe";
 import tonKhoLkRoutes from "./routes/tonKhoLk";
 import diaGioiRoutes from "./routes/diaGioi";
@@ -333,6 +334,12 @@ export default {
         if (!r.ok) console.error("[cron-lk-thay-the] loi:", r.loi);
       } catch (err) {
         console.error("[cron-lk-thay-the] loi:", err instanceof Error ? err.message : String(err));
+      }
+      // 4 cot PO theo KV cua Quan ly ton (lib/poHangVeMien.ts, 2026-11-14): version PO doi ma chua tinh toan bo -> tinh lai (luoi an toan).
+      try {
+        await capNhatPoHangVeNeuCan(env.DB);
+      } catch (err) {
+        console.error("[cron-po-hang-ve-mien] loi:", err instanceof Error ? err.message : String(err));
       }
       // "ID đặt hàng gần nhất" (Quan ly ton, lib/donLkGanNhat.ts, 2026-11-12): moi gio chi hoi ca chua co / don chua ket thuc;
       // 08:00 VN (gio UTC 1) hoi lai moi ca ung vien + don dong cua ca het la ung vien.

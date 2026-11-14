@@ -18,6 +18,8 @@ export interface Column<T> {
   filter?: KieuLocCot;
   /** Nhan hien thi cua 1 gia tri trong popup loc (vd rut gon khu vuc, dich trang thai). */
   filterValueLabel?: (v: string) => string;
+  /** Ten cot loc gui len server neu khac key (vd cot cap 2 dia gioi: "quan_huyen" / "xa_moi" theo che do). */
+  filterKey?: string;
 }
 
 const MIN_COL_WIDTH = 60;
@@ -360,9 +362,9 @@ export function PaginatedTable<T>({
                         <LocCotPopover
                           kieu={col.filter}
                           tieuDe={col.header}
-                          value={colFilters?.[col.key]}
-                          onChange={(v) => datLocCot(col.key, v)}
-                          layGiaTri={loadFilterValues ? () => loadFilterValues(col.key) : undefined}
+                          value={colFilters?.[col.filterKey ?? col.key]}
+                          onChange={(v) => datLocCot(col.filterKey ?? col.key, v)}
+                          layGiaTri={loadFilterValues ? () => loadFilterValues(col.filterKey ?? col.key) : undefined}
                           nhanGiaTri={col.filterValueLabel}
                           sapXep={
                             sortable
@@ -389,7 +391,7 @@ export function PaginatedTable<T>({
                                 <button
                                   type="button"
                                   draggable={false}
-                                  onClick={() => datLocCot(col.key, undefined)}
+                                  onClick={() => datLocCot(col.filterKey ?? col.key, undefined)}
                                   title={tr("Xóa lọc cột này")}
                                   className="ml-0.5 text-[11px] text-[var(--coral-600)] hover:text-[var(--coral-500)]"
                                 >

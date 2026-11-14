@@ -43,6 +43,7 @@ import { getCanhBaoTonSnapshot, getCanhBaoTonTrendDeltas, filterBucketsByKhuVuc,
 import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, canWriteTranhChap } from "../lib/tranhChapTienTrinh";
 import { dongBoDonLkGanNhat } from "../lib/donLkGanNhat";
+import { mienCaKey, damBaoPoHangVe } from "../lib/poHangVeMien";
 import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
 import { fetchSuaChuaTimeline } from "../lib/suaChuaTimeline";
 import { fetchMailTimeline, postDoiTraAction, type DoiTraAction } from "../lib/mailTimeline";
@@ -726,6 +727,7 @@ cases.get("/", async (c) => {
   // Ghep du cot case_dvbh (theo khoa chinh, 1 bind json_each) vao cac dong da loc/sap xep - giu thu tu, cot tinh them de len sau.
   const layDuCotCa = async (dong: Record<string, unknown>[]) => {
     if (!dong.length) return dong;
+    c.executionCtx.waitUntil(damBaoPoHangVe(c.env.DB));
     const { results: full } = await c.env.DB.prepare("SELECT * FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))")
       .bind(JSON.stringify(dong.map((r) => r.id)))
       .all<Record<string, unknown>>();
@@ -740,7 +742,21 @@ cases.get("/", async (c) => {
       .bind(JSON.stringify(dong.map((r) => r.id)))
       .all<Record<string, unknown>>();
     const dlTheoId = new Map(dl.map(({ case_id, ...r }) => [String(case_id), r]));
-    return dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...(dlTheoId.get(String(r.id)) ?? {}), ...r }));
+    const gop = dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...(dlTheoId.get(String(r.id)) ?? {}), ...r }));
+    // 4 cot PO theo mien cua ca (lib/poHangVeMien.ts, 2026-11-14) - cung bang voi loc/sap xep COT_LOC, doc theo ma LK cua trang.
+    const maLks = [...new Set(gop.map((r) => r.last_ma_linh_kien_thieu).filter((v): v is string => typeof v === "string" && v !== ""))];
+    if (!maLks.length) return gop;
+    const { results: hv } = await c.env.DB.prepare("SELECT * FROM po_hang_ve_mien WHERE ma_lk IN (SELECT value FROM json_each(?))")
+      .bind(JSON.stringify(maLks))
+      .all<{ ma_lk: string; mien: string; du_kien: string | null; ve_gan_nhat: string | null; nm_cam_ket: string | null; so_lan_lui: number | null }>();
+    const hvMap = new Map(hv.map((h) => [`${h.ma_lk}|${h.mien}`, h]));
+    return gop.map((r) => {
+      const ma = r.last_ma_linh_kien_thieu;
+      const h = typeof ma === "string" && ma ? hvMap.get(`${ma}|${mienCaKey(r.khu_vuc as string | null)}`) : undefined;
+      return h
+        ? { ...r, ngay_hang_ve_du_kien_kv: h.du_kien, ngay_ve_gan_nhat_kv: h.ve_gan_nhat, ngay_nm_cam_ket: h.nm_cam_ket, so_lan_lui_dk: h.so_lan_lui }
+        : r;
+    });
   };
 
   if (isExport) {

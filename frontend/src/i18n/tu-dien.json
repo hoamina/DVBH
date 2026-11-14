@@ -14376,5 +14376,7 @@
   "PO / đơn mua / đơn BH": ["PO / purchase orders / warranty orders","PO / pesanan beli / pesanan garansi"],
   "tồn kho": ["stock","stok"],
   "đơn LK gần nhất": ["latest parts order","pesanan suku cadang terakhir"],
-  "PO / đơn mua / đơn bảo hành: Google Sheet tự làm mới mỗi 2 giờ, app EO mỗi 5 phút; tồn kho mỗi 5 phút; ID đặt hàng gần nhất mỗi giờ.": ["PO / purchase / warranty orders: Google Sheet refreshes every 2 hours, EO app every 5 minutes; stock every 5 minutes; latest order ID hourly.","PO / pesanan beli / garansi: Google Sheet diperbarui tiap 2 jam, aplikasi EO tiap 5 menit; stok tiap 5 menit; ID pesanan terakhir tiap jam."]
+  "PO / đơn mua / đơn bảo hành: Google Sheet tự làm mới mỗi 2 giờ, app EO mỗi 5 phút; tồn kho mỗi 5 phút; ID đặt hàng gần nhất mỗi giờ.": ["PO / purchase / warranty orders: Google Sheet refreshes every 2 hours, EO app every 5 minutes; stock every 5 minutes; latest order ID hourly.","PO / pesanan beli / garansi: Google Sheet diperbarui tiap 2 jam, aplikasi EO tiap 5 menit; stok tiap 5 menit; ID pesanan terakhir tiap jam."],
+  "Đã đồng bộ lúc {0}": ["Synced at {0}","Disinkronkan pada {0}"],
+  "Ngày hàng về theo KV cập nhật ngay khi app EO gửi thay đổi; tồn kho mỗi 5 phút; ID đặt hàng gần nhất mỗi giờ.": ["Arrival dates by region update as soon as the EO app sends changes; stock every 5 minutes; latest order ID hourly.","Tanggal kedatangan per wilayah diperbarui begitu aplikasi EO mengirim perubahan; stok tiap 5 menit; ID pesanan terakhir tiap jam."]
 }
