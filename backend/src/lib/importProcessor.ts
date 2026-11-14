@@ -237,6 +237,15 @@ function buildFullOverwrite(
       values.push(v);
       continue;
     }
+    if (field === "dt_san_pham" || field === "dt_linh_kien" || field === "dt_dich_vu") {
+      // Doanh thu chuan da sua tay / Excel (migration 0170) -> GIU so da sua, chi cap nhat ban CRM moi nhat vao <cot>_crm.
+      const v = businessFieldValue(field, incoming);
+      setClauses.push(`${field} = CASE WHEN dt_sua_at IS NOT NULL THEN ${field} ELSE ? END`);
+      values.push(v);
+      setClauses.push(`${field}_crm = CASE WHEN dt_sua_at IS NOT NULL THEN ? ELSE ${field}_crm END`);
+      values.push(v);
+      continue;
+    }
     setClauses.push(`${field} = ?`);
     values.push(businessFieldValue(field, incoming));
   }

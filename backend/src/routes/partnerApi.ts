@@ -33,6 +33,7 @@ import { ageExpr, ageFilterClause } from "../lib/ageCalc";
 import { khuVucAdHocClause, dimAdHocClause } from "../lib/filterParams";
 import { getThongKeKtv } from "../lib/thongKeKtv";
 import { capNhatPoHangVe } from "../lib/poHangVeMien";
+import { ghiDonHoaDon, DON_HOA_DON_TOI_DA, type DonHoaDonVao } from "../lib/hoaDonLk";
 
 /**
  * API cho doi tac ben ngoai quet dinh ky lay du lieu CRM (xem PARTNER_API_GUIDE.md) - khong dung
@@ -927,6 +928,20 @@ partnerApi.post("/sync/sua-chua-trang-thai", async (c) => {
   }
   if (capNhat > 0) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["don_bao_hanh_odoo"]));
   return c.json({ cap_nhat: capNhat, bo_qua: stmts.length - capNhat, loi });
+});
+
+// POST /api/partner/sync/don-hoa-don (2026-11-14, migration 0170) - linh-kien-app DAY cac dong don co yeu cau XUAT HOA DON ngay khi
+// Ke toan chot phieu xuat kho (best-effort ben do). Body {rows: DonHoaDonVao[]} - xem lib/hoaDonLk.ts. Upsert theo (don, ca khop),
+// chi ghi dong doi. Khong logPartnerApiCall (moi lan chot 1 phieu goi 1 lan).
+partnerApi.post("/sync/don-hoa-don", async (c) => {
+  const keyRow = await requirePartnerKey(c);
+  if (keyRow === "RATE_LIMITED") return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
+  if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
+  const body = await c.req.json<{ rows?: DonHoaDonVao[] }>().catch(() => null);
+  if (!body || !Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  if (body.rows.length > DON_HOA_DON_TOI_DA) return c.json({ error: "TOO_MANY_ROWS", max: DON_HOA_DON_TOI_DA }, 400);
+  const kq = await ghiDonHoaDon(c.env.DB, body.rows, "push");
+  return c.json({ ok: true, ...kq });
 });
 
 export default partnerApi;

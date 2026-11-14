@@ -39,7 +39,9 @@
 // 0151) - chi CaseDetail doc (CASE_DETAIL_DOMAINS), bump toi da vai lan/ngay khi co dong moi.
 // "lada" (2026-11-03): lien ket ca <-> ID Lada (case_lada, migration 0153) ghi luc dong bo ETX (lib/etxGiaiTrinhSync.ts
 // ghiLienKetLada) - chi CaseDetail doc (CASE_DETAIL_DOMAINS), chi bump khi co don moi/doi.
-const ALL_DOMAINS = ["blacklist", "canh_bao_ton_log", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "khao_sat_loai_tru", "lada", "nap_gas_danh_gia", "po_dat_hang", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
+// "hd_bh" (2026-11-14, migration 0170): danh gia tay xuat hoa don / con-het bao hanh (case_hd_bh) + don hoa don tu linh-kien-app
+// (don_hoa_don_lk) - chi CaseDetail + module "Sửa DT · HĐ · BH" doc (doc song), khong bao cao tinh san nao.
+const ALL_DOMAINS = ["blacklist", "canh_bao_ton_log", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "hd_bh", "ket_qua_goi", "khao_sat_loai_tru", "lada", "nap_gas_danh_gia", "po_dat_hang", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay

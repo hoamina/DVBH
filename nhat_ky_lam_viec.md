@@ -5921,3 +5921,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   `POST /api/po-dat-hang/tinh-lai-hang-ve`; chỉ ghi dòng đổi. `/cases` trả kèm 4 giá trị cho từng dòng → hiển thị, lọc, Excel cùng 1 số;
   màn Quản lý tồn không còn tải 11MB PO về trình duyệt. Nhân tiện sửa lỗi cũ: giao diện EN/ID nhận diện PO huỷ theo nhãn đã dịch
   ("hủy"/"từ chối") nên không bỏ được PO huỷ — server dùng mã trạng thái EO.
+
+
+## 2026-11-14 — Sửa doanh thu chuẩn · Đơn xuất hóa đơn · Hạn bảo hành (v1.607, migration 0170)
+
+- Menu mới "Sửa DT · HĐ · BH" (3 tab, lọc/sắp xếp kiểu Excel) + khối sửa trong mục Doanh thu của chi tiết ca + import Excel (xem trước rồi ghi).
+- Chốt chủ hệ thống: DT sửa **thay thế** DT CRM trong mọi báo cáo (CRM gốc giữ ở `dt_*_crm`, import CRM không ghi đè); nhập theo 3 thành
+  phần SP/LK/DV; người sửa: GS (khu vực mình), CSKH, TN CSKH, TBP, Admin — không cần duyệt, có nhật ký.
+- Xuất hóa đơn: app linh kiện tự đẩy đơn có yêu cầu HĐ khi Kế toán chốt phiếu xuất kho (linh-kien-app v1.493) + nút đồng bộ kéo bù.
+  GS sửa tay Có/Không/Tự động.
+- Hạn bảo hành: ngày mua +24 tháng / ngày SX +36 tháng (mốc đến trước); ngày tiếp nhận > hạn = Hết BH; chỉ ca tiếp nhận từ 01/11/2026; GS sửa tay.
+- Hạn chế: chunk R2 "Ca đã đóng" và Báo cáo ngày 08:00 đã chốt giữ số DT cũ tới lần ghi lại kế tiếp. Tài khoản đã tuỳ chỉnh danh sách
+  module (users.modules khác NULL) phải được Admin cấp thêm module "sua-doanh-thu".

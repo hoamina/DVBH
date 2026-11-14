@@ -32,7 +32,7 @@ import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersion
 // ghi tu NOI KHAC (import Excel, QC, dong bo Sheet, nguoi dung khac) khong hien (bug 2026-09-30, ca
 // 1341623: import bao "da co" nhung chi tiet ca khong thay). Nay tra kem detailVersion = version-tag cac
 // domain nay; FE so voi GET /cases/detail-version truoc khi dung cache.
-const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
+const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "hd_bh", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
 import { cachedReport, buildReportKey, getVnDateStr, chayGomDoc } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey, buildKhuVucFilterScopeKey } from "../lib/dailySnapshot";

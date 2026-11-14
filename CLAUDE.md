@@ -229,6 +229,19 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     làm mới ca đó. Chỉ ghi dòng có cột đổi; lỗi giữ dữ liệu cũ (tóm tắt ở `cai_dat_he_thong` `don_lk_gan_nhat_dong_bo`). List đọc bảng theo khoá
     chính cho đúng các ca của trang (`layDuCotCa`), lọc/sắp xếp qua `COT_LOC` `don_lk_*` (subquery). Ca chưa có đơn trên app mà mã trong giải trình
     trùng ID Google Sheet mua hàng cũ → frontend hiện tạm từ sheet (nghiêng, không lọc server).
+  - `suaDoanhThu.ts` (2026-11-14, migration 0170, module `sua-doanh-thu` "Sửa DT · HĐ · BH", `modules/SuaDoanhThuModule.tsx`,
+    CaseDetail block `components/DtHdBhPanel.tsx` in the "Doanh thu" section). Editors: GS (own `khu_vuc_phu_trach` only) / CSKH /
+    TN CSKH / TBP DVBH / TBP CSKH / Admin, no approval, every change logged in `case_sua_log`. (1) **Doanh thu chuẩn**: the 3 `dt_*`
+    columns are OVERWRITTEN with the corrected values (owner: corrected revenue replaces CRM revenue in every report), CRM originals
+    kept in `dt_*_crm`; `importProcessor buildFullOverwrite` keeps `dt_*` when `dt_sua_at IS NOT NULL` (same pattern as
+    `khu_vuc_sua_at`); edits bump `cases`. R2 "đã đóng" chunks / the frozen 08:00 snapshot keep old numbers until rewritten. (2) **Xuất
+    hóa đơn**: linh-kien-app PUSHES invoice-requested order lines when Kế toán chốt a PXK (`POST /api/partner/sync/don-hoa-don`, its
+    `lib/hoaDonDvbh.ts`) + manual pull button (`GET {LINHKIEN_APP_URL}/api/partner/v1/don-hoa-don?tu_ngay=`), both via
+    `lib/hoaDonLk.ts ghiDonHoaDon` → `don_hoa_don_lk` (matched by case id on the order > `case_lada`, only changed rows written).
+    Case = "có HĐ" automatically when it has a non-cancelled line; manual override in `case_hd_bh.xuat_hoa_don`. (3) **Hạn bảo hành**
+    (`lib/hanBaoHanh.ts`, frontend copy `lib/hanBaoHanh.ts`): hạn = min(ngày mua +24T, ngày SX +36T); tiếp nhận > hạn → hết BH; only
+    cases received from 2026-11-01; computed at read time, manual override `case_hd_bh.con_bao_hanh`. Excel import
+    `POST /import?commit=0|1`. Domain `hd_bh` (in `CASE_DETAIL_DOMAINS`). Live reads, no cache.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -490,7 +503,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0169`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0170`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

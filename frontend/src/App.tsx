@@ -22,6 +22,7 @@ import { BaoCaoViPhamModule } from "./modules/BaoCaoViPhamModule";
 import { CaLapModule } from "./modules/CaLapModule";
 import { DanhSachTongModule } from "./modules/DanhSachTongModule";
 import { QlNskxModule } from "./modules/QlNskxModule";
+import { SuaDoanhThuModule } from "./modules/SuaDoanhThuModule";
 import { ImportModule } from "./modules/ImportModule";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
@@ -299,6 +300,7 @@ function MainApp({
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}
           {active === "danh-sach-tong" && <DanhSachTongModule openCase={openCase} />}
           {active === "ql-nskx" && <QlNskxModule openCase={openCase} headerExtra={headerExtraEl} />}
+          {active === "sua-doanh-thu" && <SuaDoanhThuModule openCase={openCase} />}
           {active === "import" && <ImportModule openCase={openCase} />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}

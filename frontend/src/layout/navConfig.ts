@@ -39,6 +39,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "ca-lap", label: tr("Ca lặp"), icon: "🔁", countKey: "caLap" },
       { key: "danh-sach-tong", label: tr("Danh sách tổng"), icon: "📋" },
       { key: "ql-nskx", label: tr("QL NSKX"), icon: "💧" },
+      // 2026-11-14 (migration 0170): sua doanh thu chuan / don xuat hoa don / han bao hanh - xem backend routes/suaDoanhThu.ts.
+      { key: "sua-doanh-thu", label: tr("Sửa DT · HĐ · BH"), icon: "🧾" },
       // "tra-hang" la 1 tab CON cua module dat-mua-lk (App.tsx render lai DatMuaLinhKienModule voi
       // forceView) - datMuaLk badge da GOM CA bucket tra hang, chi gan countKey o "dat-mua-lk" de
       // tranh hien trung 1 con so o 2 dong sidebar gay hieu nham cong don.
@@ -71,16 +73,16 @@ export const NAV_GROUPS: NavGroup[] = [
 // localStorage active-module dang luu cua nguoi dung hien tai.
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "giao-dien"],
-  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "giao-dien"],
-  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "tra-hang", "giao-dien"],
+  Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "sua-doanh-thu", "giao-dien"],
+  QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "sua-doanh-thu", "giao-dien"],
+  "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "dat-mua-lk", "tra-hang", "sua-doanh-thu", "giao-dien"],
   // "dat-mua-lk"/"tra-hang" KHONG con hardcode o day tu 2026-08-16 (migration 0081) - Tac nghiep
   // tach doc lap khoi vai_tro (xem App.tsx dong cap them tu dong theo la_tac_nghiep, khop dung
   // DEFAULT_MODULES_BY_ROLE["TBP DVBH"] o backend/src/lib/moduleAccess.ts).
-  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "giao-dien"],
-  CSKH: ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "giao-dien"],
-  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "bao-cao-vi-pham", "danh-sach-tong", "giao-dien"],
+  "TBP DVBH": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "sua-doanh-thu", "giao-dien"],
+  CSKH: ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "sua-doanh-thu", "giao-dien"],
+  "TN CSKH": ["dashboard", "survey", "danh-sach-tong", "dat-mua-lk", "sua-doanh-thu", "giao-dien"],
+  "TBP CSKH": ["dashboard", "revenue", "luy-ke", "survey", "bao-cao-vi-pham", "danh-sach-tong", "sua-doanh-thu", "giao-dien"],
   // KSNB Doi tac: CHI xem (khong con giai trinh duoc, chot 2026-07-24 - xem canGiaiTrinh trong
   // App.tsx) bao cao tranh chap, khong duoc vao module nao khac (quyet dinh nghiep vu rieng - xem
   // scopeTranhChap() trong tranhChap.ts).
@@ -100,6 +102,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "ca-lap": tr("Ca lặp"),
   "danh-sach-tong": tr("Danh sách tổng"),
   "ql-nskx": tr("QL NSKX"),
+  "sua-doanh-thu": tr("Sửa doanh thu · Xuất hóa đơn · Hạn bảo hành"),
   import: "Import data",
   settings: "Settings",
   users: tr("Quản lý User"),

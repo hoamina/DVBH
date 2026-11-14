@@ -58,6 +58,7 @@ import { usePurchaseWarrantyData } from "../hooks/usePurchaseWarrantyData";
 import { matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purchaseWarrantyMatch";
 import { parseRawRow } from "../lib/purchaseWarrantySync";
 import { NskxPanel, NSKX_DOI_TAC } from "../components/NskxPanel";
+import { DtHdBhPanel } from "../components/DtHdBhPanel";
 import { useLinhKienTimeline, linhKienEventLabel, linhKienSourceLabel, linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienActorDisplay, linhKienIsoToVnLocal, linhKienSlThucXuat } from "../lib/linhKienTimeline";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
@@ -298,6 +299,16 @@ function DiaChiCaCu({ c, hienMoi = true, hienCu = true }: { c: CaseRow; hienMoi?
 
 // Admin sua tay khu vuc cua DUNG ca nay (backend PATCH/DELETE /cases/:id/khu-vuc, migration 0133) -
 // gia tri sua tay song sot qua import CRM; CRM van cap nhat khu_vuc_crm de "Khoi phuc theo CRM".
+// Tai lai 1 ca sau khi sua (khu vuc / doanh thu chuan) - ghi de cache IndexedDB voi ca da dong.
+async function lamMoiCa(qc: ReturnType<typeof useQueryClient>, id: string) {
+  const fresh = await fetchCaseDetail(id);
+  const newEntry = fresh.case.thoi_gian_hoan_thanh ? await setCachedEntry(`case-${id}`, fresh) : { data: fresh, cachedAt: new Date().toISOString() };
+  qc.setQueryData(["case", id], newEntry);
+}
+function DtHdBhCaPanel({ c }: { c: CaseRow }) {
+  const qc = useQueryClient();
+  return <DtHdBhPanel c={c} onCaseChanged={() => lamMoiCa(qc, String(c.id))} />;
+}
 function KhuVucField({ c }: { c: CaseRow }) {
   const auth = useAuth();
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
@@ -602,6 +613,7 @@ function renderCaseFieldsGrid(
             <Field label={tr("Thu phí (Odoo)")} value={<PhiOdooLine c={c} />} />
           </div>
         )}
+        <DtHdBhCaPanel c={c} />
       </div>
     </>
   );
