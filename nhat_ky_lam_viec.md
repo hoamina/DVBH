@@ -5899,3 +5899,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   qc-thuc-te/thiếu hàng), tồn kho, và `POST /api/cases/don-lk-gan-nhat/dong-bo` (1 lượt đồng bộ kiểu cron; lần chạy gần nhất < 3 phút
   thì bỏ qua, dùng chung mọi người) rồi tải lại danh sách. Hiện "Dữ liệu PO cập nhật …" / lỗi từng nguồn.
 - Chưa làm (chờ chủ hệ thống quyết): bỏ tải sheet ngầm lúc đăng nhập; EO trả phần thay đổi (delta) thay vì cả 11MB; tắt nguồn sheet PO cũ.
+
+## 2026-11-14 — Bỏ đồng bộ Google Sheet (giữ QC thực tế) + PO app EO chỉ gửi dòng thay đổi (v1.605)
+- Chủ hệ thống: "bỏ việc đồng bộ từ google sheet" → chọn "Bỏ sheet, giữ QC thực tế". Không còn tải sheet mua hàng MB/MN, bảo hành
+  MB/MN, thiếu hàng, PO cũ (~36MB/người/2 giờ, kể cả lúc đăng nhập). Bỏ cột "SL đơn mua"/"SL đơn bảo hành" (Quản lý tồn + Excel), nhánh
+  hiện tạm "ID đặt hàng gần nhất" từ sheet mua hàng cũ, mục "Tham khảo" (đơn mua / bảo hành Google Sheet) + thẻ "Bảo hành liên quan" ở
+  Hồ sơ linh kiện. Cache IndexedDB các sheet đã bỏ được ghi đè rỗng 1 lần.
+- "xử lý dữ liệu PO chỉ gửi dữ liệu khi thay đổi": migration 0168 `po_dat_hang_eo.phien_ban` + index. `POST /partner/sync/po-dat-hang`
+  ghi `phien_ban = version+1` cho dòng đổi và tăng version trong CÙNG batch (chỉ khi có dòng đổi). `GET /api/po-dat-hang?v=N` trả chỉ
+  dòng `phien_ban > N` (`delta:true`); client trộn theo `id_dat_lk`, luôn gửi v (kể cả nút đồng bộ). Khoá cache đổi `-v2` → mỗi máy tải
+  full 1 lần sau deploy. Trước: mỗi thay đổi 1 dòng → mọi client tải lại 11,25MB (97 lần/ngày ngày 13/11). Đã giả lập logic trên SQLite.

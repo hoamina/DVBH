@@ -657,22 +657,32 @@ partnerApi.post("/sync/po-dat-hang", async (c) => {
   for (let i = 0; i < tuples.length; i += 200) {
     stmts.push(c.env.DB.prepare(
       `INSERT INTO po_dat_hang_eo (id_dat_lk, eo_item_id, eo_id, ma_phe_duyet, ma_lk, ma_lk_goc, id_crm, trang_thai,
-         ngay_cap_nhat_nguon, payload, row_hash, nguon, synced_at)
+         ngay_cap_nhat_nguon, payload, row_hash, nguon, synced_at, phien_ban)
        SELECT json_extract(value,'$[0]'), json_extract(value,'$[1]'), json_extract(value,'$[2]'), json_extract(value,'$[3]'),
               json_extract(value,'$[4]'), json_extract(value,'$[5]'), json_extract(value,'$[6]'), json_extract(value,'$[7]'),
-              json_extract(value,'$[8]'), json_extract(value,'$[9]'), json_extract(value,'$[10]'), ?, ?
+              json_extract(value,'$[8]'), json_extract(value,'$[9]'), json_extract(value,'$[10]'), ?, ?,
+              (SELECT version + 1 FROM data_versions WHERE domain = 'po_dat_hang')
        FROM json_each(?) WHERE 1
        ON CONFLICT(id_dat_lk) DO UPDATE SET
          eo_item_id = excluded.eo_item_id, eo_id = excluded.eo_id, ma_phe_duyet = excluded.ma_phe_duyet,
          ma_lk = excluded.ma_lk, ma_lk_goc = excluded.ma_lk_goc, id_crm = excluded.id_crm, trang_thai = excluded.trang_thai,
          ngay_cap_nhat_nguon = excluded.ngay_cap_nhat_nguon, payload = excluded.payload, row_hash = excluded.row_hash,
-         nguon = excluded.nguon, synced_at = excluded.synced_at
+         nguon = excluded.nguon, synced_at = excluded.synced_at, phien_ban = excluded.phien_ban
        WHERE po_dat_hang_eo.row_hash <> excluded.row_hash`,
     ).bind(nguon, nowVN(), JSON.stringify(tuples.slice(i, i + 200))));
   }
-  const res = stmts.length ? await c.env.DB.batch(stmts) : [];
-  const changed = res.reduce((s, r) => s + (r.meta?.changes ?? 0), 0);
-  if (changed > 0) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["po_dat_hang"]));
+  if (!stmts.length) return c.json({ received: 0, changed: 0 });
+  // 2026-11-14 (GET /api/po-dat-hang chi gui dong thay doi): dong doi ghi phien_ban = version + 1, roi tang version TRONG CUNG
+  // batch (1 giao dich) chi khi co dong mang phien_ban do -> client da co version N luon nhan du dong phien_ban > N, khong lot.
+  const res = await c.env.DB.batch([
+    c.env.DB.prepare("INSERT OR IGNORE INTO data_versions (domain, version, updated_at) VALUES ('po_dat_hang', 0, datetime('now'))"),
+    ...stmts,
+    c.env.DB.prepare(
+      `UPDATE data_versions SET version = version + 1, updated_at = datetime('now') WHERE domain = 'po_dat_hang'
+         AND EXISTS (SELECT 1 FROM po_dat_hang_eo WHERE phien_ban = data_versions.version + 1)`,
+    ),
+  ]);
+  const changed = res.slice(1, -1).reduce((s, r) => s + (r.meta?.changes ?? 0), 0);
   return c.json({ received: body.rows.length, changed });
 });
 

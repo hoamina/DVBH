@@ -13,13 +13,21 @@ import { loadUser } from "../middleware/loadUser";
 const poDatHang = new Hono<{ Bindings: Env }>();
 poDatHang.use("*", verifySessionMiddleware, loadUser);
 
+// 2026-11-14: CHI GUI DONG THAY DOI. ?v=N (version client dang co, N < hien tai) -> chi dong phien_ban > N (qua index, migration
+// 0168), kem "delta":true; client tron vao cache theo id_dat_lk. Khong co v / v la (lon hon hien tai...) -> gui full.
 poDatHang.get("/", async (c) => {
   const row = await c.env.DB.prepare("SELECT version FROM data_versions WHERE domain = 'po_dat_hang'").first<{ version: number }>();
-  const v = String(row?.version ?? 0);
-  if (c.req.query("v") === v) return c.json({ v, unchanged: true });
-  const { results } = await c.env.DB.prepare("SELECT payload FROM po_dat_hang_eo").all<{ payload: string }>();
+  const cur = row?.version ?? 0;
+  const v = String(cur);
+  const q = c.req.query("v");
+  if (q === v) return c.json({ v, unchanged: true });
+  const tu = q !== undefined && /^\d+$/.test(q) && Number(q) < cur ? Number(q) : null;
+  const { results } =
+    tu === null
+      ? await c.env.DB.prepare("SELECT payload FROM po_dat_hang_eo").all<{ payload: string }>()
+      : await c.env.DB.prepare("SELECT payload FROM po_dat_hang_eo WHERE phien_ban > ?").bind(tu).all<{ payload: string }>();
   // ghep chuoi JSON san co thay vi parse + stringify lai ~8k object
-  return c.body(`{"v":${JSON.stringify(v)},"rows":[${results.map((r) => r.payload).join(",")}]}`, 200, {
+  return c.body(`{"v":${JSON.stringify(v)},"delta":${tu !== null},"rows":[${results.map((r) => r.payload).join(",")}]}`, 200, {
     "Content-Type": "application/json; charset=utf-8",
   });
 });

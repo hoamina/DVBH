@@ -146,7 +146,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     (purchase/missing-part/PXK/return logs for one case) via Service Binding `LINHKIEN_APP` + secret
     `LINHKIEN_APP_API_KEY` (`lib/linhKienTimeline.ts`); called on demand when a case is opened, nothing
     stored in D1. Merged into CaseDetail "Tiến trình chung" alongside the AppSheet Google Sheet source
-    (was kept in parallel with the AppSheet sheets 2026-09-30; since 2026-11-12, v1.581, CaseDetail no longer shows the 3 AppSheet sources — mua hàng / bảo hành / thiếu hàng — anywhere: tabs, "Gửi BH", Tiến trình chung, badges. The sheet data is still loaded for Quản lý tồn "SL đơn mua" + Hồ sơ linh kiện; PO đặt hàng / QC thực tế tabs unchanged).
+    (was kept in parallel with the AppSheet sheets 2026-09-30; since 2026-11-12, v1.581, CaseDetail no longer shows the 3 AppSheet sources — mua hàng / bảo hành / thiếu hàng — anywhere: tabs, "Gửi BH", Tiến trình chung, badges. Since 2026-11-14 the mua hàng / bảo hành / thiếu hàng / PO Google Sheets are NOT loaded at all (`purchaseWarrantySync.ts DATASET_DA_BO`); only the QC thực tế sheet remains; PO = app EO only).
   - `externalImport.ts` `POST /don-bao-hanh-odoo` — "danh sách đơn bảo hành từ Odoo" (OCRM model
     `technical.service.warranty`) pushed by the auto qs pipeline (`ocrm/warranty.py`), upserted into
     `don_bao_hanh_odoo` by Odoo id (skips rows whose `ngay_cap_nhat_odoo` didn't change), bumps domain
@@ -178,11 +178,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   - `partnerApi.ts` `POST /sync/po-dat-hang` + `routes/poDatHang.ts` `GET /api/po-dat-hang` (2026-10-20, migration 0139,
     PARTNER_API_GUIDE §13) — the "EO Mua hàng" Worker (`muahang`, repo `../EO MUA HANG/eomua`) PUSHES every EO line
     (PO) it changed, upserted into `po_dat_hang_eo` by `id_dat_lk` (`LK-…` legacy / `EOI-<id>` new), skipping
-    rows whose `row_hash` is unchanged; bumps domain `po_dat_hang` only when something changed. The client
-    (`lib/poDatHangEo.ts`) fetches with `?v=<version>` (unchanged → 1 row read) and MERGES it into the
-    "po-dat-hang" dataset next to the legacy Google Sheet (`purchaseWarrantySync.ts`, app row wins on the same
-    "ID ĐẶT LK") — both sources run in parallel ~1 month until the owner switches the sheet off; then drop the
-    sheet source. Mapped to the sheet's field names/date format so CaseDetail / Linh kiện thiếu / Hồ sơ LK are
+    rows whose `row_hash` is unchanged; changed rows get `phien_ban` = new version and the version bump runs IN THE SAME
+    batch only when some row carries it (migration 0168, 2026-11-14). The client (`lib/poDatHangEo.ts`, cache key
+    `po-dat-hang-eo-v2`) always sends `?v=<version>`: unchanged → 1 row read; older → ONLY rows with `phien_ban > v`
+    (`"delta":true`, merged by `id_dat_lk`); no/invalid v → full. No row is ever deleted (delta has no tombstones — add
+    them before adding a delete path). The legacy Google Sheet PO source was dropped 2026-11-14 (app EO only). Mapped to the sheet's field names/date format so CaseDetail / Linh kiện thiếu / Hồ sơ LK are
     unchanged; `maLinhKienGoc` (equivalent-part swap) also matches.
   - `auth.ts` 3T Pet toggles (2026-10-29, migration 0147) — the "3T Pet" widget (Worker `3t-pet`) is NOT in `index.html`;
     `frontend/src/lib/pet3t.ts` injects its script only when system flag (`cai_dat_he_thong` key `bat_pet_3t`, returned as
@@ -490,7 +490,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0167`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0168`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

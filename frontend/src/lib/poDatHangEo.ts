@@ -29,7 +29,8 @@ export interface PoEoPayload {
     so_lan_lui: number; so_loi: number; so_loi_cho_giai_trinh: number; cap_ceo: boolean; ceo_ly_do: string[] } | null;
 }
 
-const CACHE_KEY = "po-dat-hang-eo-v1";
+// v2 (2026-11-14): server gui delta theo phien_ban - doi khoa de moi may tai full 1 lan (cache v1 co the thieu dong).
+const CACHE_KEY = "po-dat-hang-eo-v2";
 
 /** 'YYYY-MM-DD[ HH:MM:SS]' -> 'dd/mm/yyyy[ HH:MM:SS]' (dinh dang sheet). */
 function fmt(s: string | null | undefined, withTime = false): string {
@@ -148,11 +149,19 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
 export async function fetchPoEoRows(force = false): Promise<SheetRow[]> {
   const cached = await getCachedEntry<{ v: string; rows: PoEoPayload[] }>(CACHE_KEY);
   try {
-    const v = !force && cached?.data?.v ? `?v=${encodeURIComponent(cached.data.v)}` : "";
-    const r = await api.get<{ v: string; unchanged?: boolean; rows?: PoEoPayload[] }>(`/po-dat-hang${v}`);
+    // 2026-11-14: luon gui version dang co (ke ca "force") - server chi tra dong doi, khong tai lai ca 11MB.
+    void force;
+    const v = cached?.data?.v ? `?v=${encodeURIComponent(cached.data.v)}` : "";
+    const r = await api.get<{ v: string; unchanged?: boolean; delta?: boolean; rows?: PoEoPayload[] }>(`/po-dat-hang${v}`);
     let rows: PoEoPayload[];
     if (r.unchanged && cached) rows = cached.data.rows;
-    else {
+    else if (r.delta && cached) {
+      // 2026-11-14: server chi gui dong doi - thay theo id_dat_lk, dong moi them vao.
+      const map = new Map(cached.data.rows.map((x) => [x.id_dat_lk, x]));
+      for (const x of r.rows ?? []) map.set(x.id_dat_lk, x);
+      rows = [...map.values()];
+      await setCachedEntry(CACHE_KEY, { v: r.v, rows });
+    } else {
       rows = r.rows ?? [];
       await setCachedEntry(CACHE_KEY, { v: r.v, rows });
     }
