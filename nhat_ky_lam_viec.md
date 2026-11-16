@@ -5947,3 +5947,14 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   `tranh_chap`. Ratchet giữ 1 qua các lần import sau; ca Odoo MỚI có lý do này vẫn theo dữ liệu pipeline gửi lên.
 - v1.617: "Báo cáo tranh chấp, khiếu nại theo khu vực" loại ca "bỏ qua" (chưa có tiến trình, hoàn thành > 60 ngày) khỏi TOÀN BỘ báo cáo
   (trước chỉ trừ ở cột "Chưa xử lý", cột "Nghi ngờ tranh chấp" vẫn đếm).
+
+
+## 16/11/2026 — Bổ sung 6 yêu cầu Tổng quát / Quản lý tồn
+
+- Khảo sát DashboardModule, dashboardCompute, cache/snapshot; BacklogModule, giai_trinh_daily_log, exclusion settings và latestGiaiTrinhJoin; cơ chế proxy quốc gia và scope khu vực. Phân tích và tự phản biện được ghi trong phần bổ sung SRS cùng ngày.
+- Thêm lọc năm/tuần ISO cho Tổng quát; tuần thay tháng, dùng ngày hoàn thành, đúng biên giao năm. Thêm chiều pivot Nhóm yêu cầu và SLA giờ 8/24/48/72, tổng/Excel tính lại từ số đếm.
+- Nhóm PH cục bộ: KRF phần dư, Brills và nhóm tùy tạo; gán trạm độc quyền giữa các nhóm; thu gọn KTV bằng dữ liệu KTV × trạm, giữ nguyên top KTV. Không migration D1.
+- Bảng tỷ lệ giải trình xem theo tháng, tổng lũy kế trên tiêu đề, bỏ Chủ nhật/ngày loại trừ; bảng và Excel cùng nguồn dữ liệu, tôn trọng bộ lọc khu vực, hiển thị “Loại trừ”.
+- Tab lý do cuối trong tháng: mỗi ca một lần; theo khu vực/trạm/nhóm PH, lọc nhóm và xuất Excel; cache theo versions, bảo toàn quyền quốc gia và khu vực. Nhóm dùng cấu hình máy hiện tại, cơ cấu khu vực/trạm theo ca hiện tại.
+- Thêm script kiểm thử nghiệp vụ SQLite/TypeScript `scripts/check-report-enhancements.cjs` và EN/ID cho chuỗi UI mới. Typecheck backend, frontend và production build được kiểm tra. Build có cảnh báo kích thước chunk lớn của ứng dụng; không phải lỗi build.
+- Chưa deploy production, chưa đổi APP_VERSION vì chưa thực hiện deploy; không chạy migration hay thay đổi dữ liệu server.

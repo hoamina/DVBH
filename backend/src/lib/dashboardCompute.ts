@@ -20,6 +20,8 @@ export interface DashboardFilterParams {
   // tong ("Filter tong") lan "Bang pivot phan tich da chieu" (ca 2 deu dung chung
   // buildDashboardFilterClause ben duoi).
   nhom_san_pham?: string;
+  tu_ngay?: string;
+  den_ngay?: string;
   // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
   // undefined>) khi bien da duoc gan kieu ten (interface) thay vi object literal - xem lib/reportCache.ts.
   [key: string]: string | undefined;
@@ -80,6 +82,12 @@ export function buildDashboardFilterClause(params: DashboardFilterParams, scope:
   // gian") - "thang" rong/thieu mac dinh ve CURRENT_MONTH_VALUE ngay o day, phong truong hop 1 loi
   // goi API truc tiep khong kem "thang" (FE luon gui san, day la lop phong ve thu 2).
   const thang = params.thang || CURRENT_MONTH_VALUE;
+  if (params.tu_ngay && params.den_ngay) {
+    sql = ` AND ${prefix}archived_at IS NULL AND ${prefix}huy_bo_at IS NULL${sql}`;
+    sql += ` AND ${prefix}thoi_gian_hoan_thanh >= ? AND ${prefix}thoi_gian_hoan_thanh < ?`;
+    binds.push(params.tu_ngay, params.den_ngay);
+    return { from: prefix ? `case_dvbh ${alias}` : "case_dvbh", sql, binds };
+  }
   if (thang === CURRENT_MONTH_VALUE) {
     return { from: currentMonthOrOpenSource(alias), sql, binds };
   }
@@ -185,6 +193,7 @@ export const PIVOT_DIMS: Record<string, string> = {
   doi_tac: "doi_tac",
   hang: "hang",
   ky_thuat_vien: "ky_thuat_vien",
+  nhom_yeu_cau: "nhom_yeu_cau",
 };
 
 // Tach rieng phan tinh toan cua /pivot - dung chung cho compute-on-miss (fallback) va "Bao cao ngay
@@ -208,9 +217,17 @@ export async function computeDashboardPivot(
   const tinhLoc = diaGioiLoc(params.dg_loc, "");
   const sql = filter.sql + tinhLoc.sql;
   const binds = [...filter.binds, ...tinhLoc.binds];
+  // Station-level rows are only requested for local PH grouping. Keep normal KTV ranking unchanged.
+  const byStation = params.dimKey === "ky_thuat_vien" && params.theo_tram === "1";
+  const stationSelect = byStation ? ", ky_thuat_vien AS tram" : "";
+  const stationGroup = byStation ? ", ky_thuat_vien" : "";
+  const gioHopLe = "tinh_vao_kpi = 1 AND thoi_gian_hoan_thanh IS NOT NULL AND so_gio_xu_ly >= 0 AND so_gio_xu_ly < 8760";
+  const slaHours = [8, 24, 48, 72].map((h) => `SUM(CASE WHEN ${gioHopLe} AND so_gio_xu_ly <= ${h} THEN 1 ELSE 0 END) AS sla_${h}h`).join(", ");
 
   const { results } = await db.prepare(
-    `SELECT ${dim} as nhom,
+    `SELECT ${dim} as nhom${stationSelect},
+       ${slaHours},
+       SUM(CASE WHEN ${gioHopLe} THEN 1 ELSE 0 END) AS co_tinh_gio,
        SUM(CASE WHEN tien_do_hoan_thanh IN ('Hoàn thành XLSC', 'Không hoàn thành XLSC') THEN 1 ELSE 0 END) as total,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND tien_do_hoan_thanh = 'Hoàn thành XLSC' THEN 1 ELSE 0 END) as ht_tinh_kpi,
        SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) as sla_ok,
@@ -221,7 +238,7 @@ export async function computeDashboardPivot(
        SUM(loi_120p) as loi_120p, SUM(loi_qua_han_24h) as loi_qua_han_24h,
        SUM(loi_lo_ke_hoach) as loi_lo_ke_hoach, SUM(loi_kh_hen_lai) as loi_kh_hen_lai
      FROM ${from} WHERE ${dim} IS NOT NULL${sql}
-     GROUP BY ${dim}
+     GROUP BY ${dim}${stationGroup}
      ORDER BY total DESC`,
   )
     .bind(...binds)

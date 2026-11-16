@@ -1,3 +1,4 @@
+import { ExplanationReasonReport } from "../components/ExplanationReasonReport";
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useEffect, useMemo, useState } from "react";
 import { nhanTheoMoc, useMocTonGiaiTrinh } from "../lib/quocGia";
@@ -589,6 +590,7 @@ const REPORT_DIM_OPTIONS = [
 // dong - theo phan hoi khong muon 2 cap "lan" vao chung 1 man hinh.
 const VIEWS = [
   { key: "bao-cao", label: tr("Báo cáo") },
+  { key: "ly-do-thang", label: tr("Lý do giải trình theo tháng") },
   { key: "tuoi-ton-tb", label: tr("Tuổi tồn TB") },
   { key: "canh-bao-ton-cap1", label: tr("Cảnh báo tồn · Cấp 1 (TP DVBH)") },
   { key: "canh-bao-ton-cap2", label: tr("Cảnh báo tồn · Cấp 2 (CEO)") },
@@ -814,9 +816,13 @@ function daysInMonthList(thang: string): string[] {
 
 // Xuat Excel bang "Ty le giai trinh theo ngay" - moi ngay tach rieng 2 cot SO (khong gop chuoi
 // "da/can") de dung thang lam bao cao/cong thuc tiep, giu dong "Tong cong" o dau giong hien thi tren
-// man hinh. Dung chung cho ca bang 14-ngay-gan-nhat (tu cache giaiTrinhTrend) lan nut "Tai ca thang"
-// (tu 1 lan goi API rieng theo tu_ngay/den_ngay).
-function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[]): Record<string, string | number>[] {
+// man hinh. Bang va file cung dung thang duoc chon; ngay loai tru hien chu thay vi so.
+function exclusionChecker(rows: ExcludedNgayRow[]) {
+  const keys = new Set(rows.map((r) => `${r.ngay}|${r.khu_vuc}`));
+  return (day: string, kv: string) => new Date(`${day}T00:00:00Z`).getUTCDay() === 0 || keys.has(`${day}|__ALL__`) || keys.has(`${day}|${kv}`);
+}
+function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[], excludedNgay: ExcludedNgayRow[] = []): Record<string, string | number>[] {
+  const isExcluded = exclusionChecker(excludedNgay);
   const sorted = [...rows].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi"));
   const totalByDay: Record<string, { can: number; da: number }> = {};
   for (const day of days) {
@@ -824,7 +830,7 @@ function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[]): Record
     let da = 0;
     for (const row of sorted) {
       const found = row.days.find((d) => d.ngay === day);
-      if (found) {
+      if (found && !isExcluded(day, row.khu_vuc)) {
         can += found.can_giai_trinh;
         da += found.da_giai_trinh;
       }
@@ -835,16 +841,21 @@ function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[]): Record
     const out: Record<string, string | number> = { "Khu vực": khuVuc };
     for (const day of days) {
       const found = dayLookup(day);
+      if (khuVuc !== "Tổng cộng" && isExcluded(day, khuVuc) || khuVuc === "Tổng cộng" && sorted.length > 0 && sorted.every((r) => isExcluded(day, r.khu_vuc))) {
+        out[`${fmtDayShort(day)} - Đã GT`] = "Loại trừ";
+        out[`${fmtDayShort(day)} - Cần GT`] = "Loại trừ";
+        continue;
+      }
       out[`${fmtDayShort(day)} - Đã GT`] = found?.da ?? 0;
       out[`${fmtDayShort(day)} - Cần GT`] = found?.can ?? 0;
     }
     return out;
   };
   const exportRows: Record<string, string | number>[] = [];
-  if (sorted.length > 0) exportRows.push(rowToExport("Tong cong", (day) => totalByDay[day]));
+  if (sorted.length > 0) exportRows.push(rowToExport("Tổng cộng", (day) => totalByDay[day]));
   for (const row of sorted) {
     exportRows.push(
-      rowToExport(shortKhuVuc(row.khu_vuc), (day) => {
+      rowToExport(row.khu_vuc, (day) => {
         const found = row.days.find((d) => d.ngay === day);
         return found ? { can: found.can_giai_trinh, da: found.da_giai_trinh } : undefined;
       }),
@@ -1183,19 +1194,17 @@ export function BacklogModule({
   // khong remount/focus) - backend da co cachedReport()/tinh delta re (xem dailySnapshot.ts), polling
   // vai phut/lan khong dang ke so voi ngan sach doc D1.
   const BACKLOG_REPORT_REFETCH_MS = 3 * 60_000;
-  // 2026-11-07: man Quan ly ton KEO 1 LAN - 1 request GET /cases/man-quan-ly-ton thay cho 4 request rieng (backlog-stats, counts,
-  // backlog-daily, giai-trinh-daily-trend); server gom doc cache cua ca 4 phan vao 1 luot D1. queryKey bat dau bang "backlog-stats"
-  // de cac cho dang invalidateQueries(["backlog-stats"]) (CaseDetail, ImportModule) van lam moi duoc man nay. Bang tỷ lệ giải trình
-  // chi kem khi dang o tab Bao cao (giong enabled cu). "Theo nhom" (dim) va "ton theo moc" van query rieng (bo loc tuong tac).
+  // Request gop cho the/tong quan. Bang ty le theo thang doc rieng theo thang/khu_vuc ben duoi;
+  // khong tai them 14 ngay khong su dung. Key backlog-stats giu invalidate tu CaseDetail/Import.
   const { data: manQlt } = useQuery({
-    queryKey: ["backlog-stats", "man-quan-ly-ton", khuVucFilter || null, view === "bao-cao"],
+    queryKey: ["backlog-stats", "man-quan-ly-ton", khuVucFilter || null],
     queryFn: () =>
       api.get<{
         stats: BacklogStats;
         counts: CanGiaiTrinhCounts;
         backlogDaily: BacklogDailyPayload | null;
         giaiTrinhTrend: { rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] } | null;
-      }>(`/cases/man-quan-ly-ton${buildQuery({ khu_vuc: khuVucFilter, xu_huong: view === "bao-cao" ? "1" : undefined, days: view === "bao-cao" ? "14" : undefined })}`),
+      }>(`/cases/man-quan-ly-ton${buildQuery({ khu_vuc: khuVucFilter })}`),
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
     placeholderData: (prev) => prev,
   });
@@ -1230,10 +1239,16 @@ export function BacklogModule({
   });
   // Lay tu request gop o tren (truoc la query rieng, enabled: isFrozenEligible - khong du dieu kien thi coi nhu khong co).
   const backlogDaily = isFrozenEligible ? manQlt?.backlogDaily : undefined;
-  // Bang lich su "Ty le giai trinh theo ngay" (chot 17h30, xem giai_trinh_daily_log) - KHONG phu
-  // thuoc bo loc phu (chi loc theo pham vi khu_vuc cua nguoi xem o backend), nen luon fetch khi dang
-  // xem tab Bao cao, khong gate theo isFrozenEligible.
-  const giaiTrinhTrend = view === "bao-cao" ? (manQlt?.giaiTrinhTrend ?? undefined) : undefined;
+  // Bang thang tu log chot ngay; bo loc khu_vuc dung chung, khong phu thuoc snapshot 08:00.
+  const [trendMonth, setTrendMonth] = useState(() => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7));
+  const monthDays = daysInMonthList(trendMonth);
+  const monthlyTrendQ = useQuery({
+    queryKey: ["backlog-stats", "giai-trinh-monthly-trend", trendMonth, khuVucFilter],
+    queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] }>(`/cases/giai-trinh-daily-trend${buildQuery({ tu_ngay: monthDays[0], den_ngay: monthDays[monthDays.length - 1], khu_vuc: khuVucFilter })}`),
+    enabled: view === "bao-cao" && monthDays.length > 0,
+    refetchInterval: BACKLOG_REPORT_REFETCH_MS,
+  });
+  const giaiTrinhTrend = monthlyTrendQ.data;
   // "So ca ton theo moc thoi gian" (cuoi tab Bao cao) - bo loc tu ngay/den ngay, mac dinh 30 ngay gan
   // nhat. Doc thang tu daily_snapshot (GET /cases/ton-trend) - khong tinh song, xem chu thich route.
   const [tonTrendFrom, setTonTrendFrom] = useState(() => vnDateOffsetStr(30));
@@ -1275,16 +1290,12 @@ export function BacklogModule({
   // "Ngay loai tru" khoi luy ke/ty le thang - Chu nhat (quy tac cung) HOAC co trong danh sach Admin
   // them tay (khu_vuc "__ALL__" ap dung ca he thong) - dung de to mau khac trong bang "Ty le giai
   // trinh theo ngay", KHOP DUNG logic backend (buildNgayExcludedChecker trong dailySnapshot.ts).
-  const isNgayExcluded = useMemo(() => {
-    const rows = giaiTrinhTrend?.excludedNgay ?? [];
-    const manualSet = new Set(rows.map((r) => `${r.ngay}|${r.khu_vuc}`));
-    const allSet = new Set(rows.filter((r) => r.khu_vuc === "__ALL__").map((r) => r.ngay));
-    return (ngay: string, khuVuc: string) => {
-      const isSunday = new Date(`${ngay}T00:00:00Z`).getUTCDay() === 0;
-      return isSunday || allSet.has(ngay) || manualSet.has(`${ngay}|${khuVuc}`);
-    };
-  }, [giaiTrinhTrend]);
-  const trendDays = last14Days();
+  const isNgayExcluded = useMemo(() => exclusionChecker(giaiTrinhTrend?.excludedNgay ?? []), [giaiTrinhTrend]);
+  const trendDays = monthDays;
+  const monthlyExplanationTotal = (giaiTrinhTrend?.rows ?? []).reduce((total, row) => {
+    for (const day of row.days) if (!isNgayExcluded(day.ngay, row.khu_vuc)) { total.can += day.can_giai_trinh; total.da += day.da_giai_trinh; }
+    return total;
+  }, { can: 0, da: 0 });
   // Cot dau tien (Khu vuc) sap A-Z.
   const sortedTrendRows: GiaiTrinhTrendRow[] = [...(giaiTrinhTrend?.rows ?? [])].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi"));
   // Dong "Tong cong" cho bang "Ty le giai trinh theo ngay" - MOI cot ngay cong rieng can_giai_trinh/
@@ -1298,7 +1309,7 @@ export function BacklogModule({
       let da = 0;
       for (const row of rows) {
         const found = row.days.find((d) => d.ngay === day);
-        if (found) {
+        if (found && !isNgayExcluded(day, row.khu_vuc)) {
           can += found.can_giai_trinh;
           da += found.da_giai_trinh;
         }
@@ -1317,34 +1328,17 @@ export function BacklogModule({
       let total = 0;
       let excluded = 0;
       for (const row of sortedTrendRows) {
-        if (row.days.find((d) => d.ngay === day)) {
-          total++;
-          if (isNgayExcluded(day, row.khu_vuc)) excluded++;
-        }
+        total++;
+        if (isNgayExcluded(day, row.khu_vuc)) excluded++;
       }
       result[day] = total === 0 || excluded === 0 ? "none" : excluded === total ? "full" : "partial";
     }
     return result;
   }, [sortedTrendRows, trendDays, isNgayExcluded]);
-  // Xuat Excel bang "Ty le giai trinh theo ngay" (14 ngay gan nhat, tu cache giaiTrinhTrend) - xem
-  // buildTrendExportRows() o dau file, dung chung voi nut "Tai ca thang".
-  const trendExportRows = useMemo(() => buildTrendExportRows(giaiTrinhTrend?.rows ?? [], trendDays), [giaiTrinhTrend, trendDays]);
-  // Nut "Tai ca thang" - chon 1 thang bat ky (khong gioi han 14 ngay gan nhat nhu bang hien thi tren
-  // man hinh), goi rieng 1 lan API voi tu_ngay/den_ngay = ngay 01/ngay cuoi thang do (backend them
-  // 2026-08-28, xem routes/cases.ts) roi xuat Excel ngay, khong luu vao state hien thi.
-  const [trendMonth, setTrendMonth] = useState(() => new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7));
-  const [trendMonthDownloading, setTrendMonthDownloading] = useState(false);
-  async function downloadTrendMonth() {
-    const monthDays = daysInMonthList(trendMonth);
-    setTrendMonthDownloading(true);
-    try {
-      const res = await api.get<{ rows: GiaiTrinhTrendRow[] }>(
-        `/cases/giai-trinh-daily-trend${buildQuery({ tu_ngay: monthDays[0], den_ngay: monthDays[monthDays.length - 1] })}`,
-      );
-      exportRowsToExcel(buildTrendExportRows(res.rows, monthDays), `ty_le_giai_trinh_thang_${trendMonth}.xlsx`);
-    } finally {
-      setTrendMonthDownloading(false);
-    }
+  // File thang dung cung du lieu va ngay loai tru voi bang dang xem.
+  const trendExportRows = useMemo(() => buildTrendExportRows(giaiTrinhTrend?.rows ?? [], trendDays, giaiTrinhTrend?.excludedNgay ?? []), [giaiTrinhTrend, trendMonth]);
+  function downloadTrendMonth() {
+    exportRowsToExcel(trendExportRows, `ty_le_giai_trinh_thang_${trendMonth}.xlsx`);
   }
   // 3 cot moi cua bang "Bao cao ton theo khu vuc" (Can giai trinh trong ngay/Da giai trinh/Ty le) -
   // CHI khi dang nhom theo Khu vuc (yeu cau goc "chi can ty le theo Khu vuc") VA co dong bang (mac
@@ -2037,7 +2031,9 @@ export function BacklogModule({
 
       <Tabs active={view} onChange={setView} tabs={VIEWS} />
 
-      {view === "tuoi-ton-tb" ? (
+      {view === "ly-do-thang" ? (
+        <ExplanationReasonReport khuVuc={khuVucFilter} />
+      ) : view === "tuoi-ton-tb" ? (
         <BacklogAgeReportTab />
       ) : view === "bao-cao" ? (
         <>
@@ -2459,21 +2455,21 @@ export function BacklogModule({
 
           <Card className="p-3 mt-3">
             <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-              <div className="font-display font-bold text-sm">{tr("Tỷ lệ giải trình theo ngày")}</div>
+              <div className="font-display font-bold text-sm">{tr("Tỷ lệ giải trình theo ngày")} · {monthlyTrendQ.data ? tr("Lũy kế {0}: {1}/{2} ({3}%)", trendMonth, monthlyExplanationTotal.da, monthlyExplanationTotal.can, pct(monthlyExplanationTotal.da, monthlyExplanationTotal.can)) : monthlyTrendQ.isError ? tr("Chưa tải được") : tr("Đang tải…")}</div>
               <div className="flex items-center gap-2 flex-wrap">
-                <Btn variant="ghost" size="sm" onClick={() => exportRowsToExcel(trendExportRows, "ty_le_giai_trinh_theo_ngay.xlsx")}>
-                  {tr("⬇ Xuất Excel")}</Btn>
                 <input
                   type="month"
                   value={trendMonth}
-                  onChange={(e) => setTrendMonth(e.target.value)}
+                  onChange={(e) => { if (e.target.value) setTrendMonth(e.target.value); }}
                   className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
-                <Btn variant="ghost" size="sm" onClick={downloadTrendMonth} loading={trendMonthDownloading}>
+                <Btn variant="ghost" size="sm" onClick={downloadTrendMonth} disabled={monthlyTrendQ.isFetching || !monthlyTrendQ.data}>
                   {tr("⬇ Tải cả tháng")}</Btn>
               </div>
             </div>
-            <div className="text-xs text-[var(--ink-400)] mb-2">{tr("Chốt lúc 17h30 mỗi ngày, theo khu vực — 14 ngày gần nhất.")}</div>
+            <div className="text-xs text-[var(--ink-400)] mb-2">{tr("Chốt theo ngày, theo khu vực — tháng {0}. Lũy kế bỏ Chủ nhật và ngày loại trừ; tổng ngày chỉ cộng khu vực không bị loại trừ.", trendMonth)}</div>
+            {monthlyTrendQ.isPending && <p>{tr("Đang tải báo cáo tháng…")}</p>}
+            {monthlyTrendQ.isError && <p role="alert">{tr("Không tải được báo cáo tháng.")} <button onClick={() => void monthlyTrendQ.refetch()}>{tr("Thử lại")}</button></p>}
             <div className="overflow-x-auto">
               <table className="dense w-full text-sm">
                 <thead>
@@ -2496,7 +2492,7 @@ export function BacklogModule({
                         const cellBg = status === "partial" ? "bg-[var(--coral-100)]" : status === "full" ? "bg-[var(--amber-100)]" : "";
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
-                            {t && t.can > 0 ? (
+                            {status === "full" ? <span>{tr("Loại trừ")}</span> : t && t.can > 0 ? (
                               <div>
                                 <div className="font-mono">{pct(t.da, t.can)}%</div>
                                 <div className="text-[10px] text-[var(--ink-400)] font-normal">
@@ -2516,10 +2512,10 @@ export function BacklogModule({
                       <td className="py-2 pr-3 font-semibold sticky left-0 bg-[var(--surface)] group-hover:bg-slate-50 z-10">{shortKhuVuc(row.khu_vuc)}</td>
                       {trendDays.map((day) => {
                         const found = row.days.find((d) => d.ngay === day);
-                        const excluded = found && isNgayExcluded(day, row.khu_vuc);
+                        const excluded = isNgayExcluded(day, row.khu_vuc);
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
-                            {found ? (
+                            {excluded ? <span>{tr("Loại trừ")}</span> : found ? (
                               <div>
                                 <div className="font-mono font-semibold">{pct(found.da_giai_trinh, found.can_giai_trinh)}%</div>
                                 <div className="text-[10px] text-[var(--ink-400)]">

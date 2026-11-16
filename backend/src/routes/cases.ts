@@ -1,3 +1,4 @@
+import { computeExplanationReasons } from "../lib/explanationReasonReport";
 import { Hono } from "hono";
 import { layKhuVucQldvbh } from "../lib/khuVucQldvbh";
 import { bocPhamVi, chonQuocGia, dbGoc } from "../lib/phamVi";
@@ -1041,13 +1042,14 @@ cases.get("/backlog-daily", async (c) => {
 // GET /api/cases/giai-trinh-daily-trend?days=14 (hoac ?tu_ngay=&den_ngay=) - bang lich su "ty le giai
 // trinh trong ngay" theo khu vuc, chot 1 lan/ngay luc 17h30 (xem giai_trinh_daily_log migration 0040
 // + cron DAILY_LOG_1730_CRON trong index.ts). Day la du lieu LICH SU (khong the tinh song theo bo
-// loc tuy y) - chi loc duoc theo pham vi khu_vuc cua nguoi xem (scopeByKhuVuc), khong nhan them tham
-// so loc nao khac. "tu_ngay"/"den_ngay" (them 2026-08-28, phuc vu nut "Tai ca thang" cua
+// loc tuy y) - loc theo quyen khu vuc (scopeByKhuVuc) va lua chon khu_vuc chung; khong loc theo cac
+// thuoc tinh ca khong duoc luu trong log. "tu_ngay"/"den_ngay" (them 2026-08-28, phuc vu nut "Tai ca thang" cua
 // BacklogModule.tsx) - khi truyen CA HAI, uu tien dung khoang ngay tuong minh nay THAY THE "days"
 // (khong gioi han 60 ngay nhu "days", vi 1 thang bat ky <=31 ngay la du an toan).
 async function docGiaiTrinhTrend(c: Context<{ Bindings: Env }>) {
   const scope = scopeByKhuVuc(c);
   const scopeClause = khuVucWhereClause(scope, "khu_vuc");
+  const area = khuVucAdHocClause("khu_vuc", c.req.query("khu_vuc"));
   const tuNgay = c.req.query("tu_ngay");
   const denNgay = c.req.query("den_ngay");
   const useRange = !!tuNgay && !!denNgay;
@@ -1060,10 +1062,10 @@ async function docGiaiTrinhTrend(c: Context<{ Bindings: Env }>) {
   const [{ results }, { results: exclusionResults }] = await Promise.all([
     c.env.DB.prepare(
       `SELECT ngay, khu_vuc, can_giai_trinh, da_giai_trinh FROM giai_trinh_daily_log
-       WHERE ${ngayWhereSql}${scopeClause.sql}
+       WHERE ${ngayWhereSql}${scopeClause.sql}${area.sql}
        ORDER BY khu_vuc ASC, ngay DESC`,
     )
-      .bind(...ngayBinds, ...scopeClause.binds)
+      .bind(...ngayBinds, ...scopeClause.binds, ...area.binds)
       .all<{ ngay: string; khu_vuc: string; can_giai_trinh: number; da_giai_trinh: number }>(),
     c.env.DB.prepare(`SELECT ngay, khu_vuc FROM settings_giai_trinh_exclude_ngay WHERE ${ngayWhereSql}`)
       .bind(...ngayBinds)
@@ -1079,6 +1081,19 @@ async function docGiaiTrinhTrend(c: Context<{ Bindings: Env }>) {
   const rows = Array.from(byKhuVuc.entries()).map(([khu_vuc, days]) => ({ khu_vuc, days }));
   return { rows, excludedNgay: exclusionResults };
 }
+
+// Each case contributes its last explanation WITHIN the requested month, including closed cases.
+// Drive by idx_giai_trinh_ngay; correlated lookup uses idx_giai_trinh_case_ngay.
+cases.get("/giai-trinh-ly-do-thang", async (c) => {
+  const thang = c.req.query("thang") ?? "";
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(thang)) return c.json({ error: "INVALID_MONTH" }, 400);
+  const scope = scopeByKhuVuc(c);
+  const areaParam = c.req.query("khu_vuc");
+  const key = buildReportKey("cases/giai-trinh-ly-do-thang-v1", { thang, khu_vuc: areaParam }, scope);
+  return c.json(await cachedReport(c.env.DB, key, ["cases", "giai_trinh"], async () => {
+    return computeExplanationReasons(c.env.DB, thang, scope, areaParam);
+  }));
+});
 
 cases.get("/giai-trinh-daily-trend", async (c) => c.json(await docGiaiTrinhTrend(c)));
 

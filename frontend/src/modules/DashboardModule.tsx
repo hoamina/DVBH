@@ -1,3 +1,6 @@
+import { useQuocGiaDangXem } from "../lib/phamVi";
+import { usePhReportGroups, phGroupForStation, sumReportRows } from "../lib/phReportGroups";
+import { isoWeekRange, isoWeeksInYear } from "../lib/isoWeek";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BaoCaoDangTai } from "../components/ui/BaoCaoDangTai";
@@ -52,6 +55,12 @@ interface Kpis {
 
 interface PivotRow {
   nhom: string;
+  tram?: string;
+  sla_8h: number;
+  sla_24h: number;
+  sla_48h: number;
+  sla_72h: number;
+  co_tinh_gio: number;
   total: number;
   ht_tinh_kpi: number;
   sla_ok: number;
@@ -73,12 +82,19 @@ const ALL_MODEL = "Tất cả Model";
 
 export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) => void } = {}) {
   const [filters, setFilters] = useLocalStorageState<DashboardFilters>("filters:dashboard", { khu_vuc: ALL_KHU_VUC, hang: ALL_HANG, thang: CURRENT_MONTH_VALUE });
+  const isPH = useQuocGiaDangXem() === "PH";
+  const [phGroups] = usePhReportGroups();
+  const [collapseKtv, setCollapseKtv] = useLocalStorageState("filters:dashboard-ph-collapse", false);
+  const [week, setWeek] = useLocalStorageState("filters:dashboard-week", "");
+  const [weekYear, setWeekYear] = useLocalStorageState("filters:dashboard-week-year", String(new Date(Date.now() + 7 * 3600000).getUTCFullYear()));
+  const weekRange: { tu_ngay?: string; den_ngay?: string } = week ? isoWeekRange(Number(weekYear), Number(week)) : {};
   const [pivotDim, setPivotDim] = useLocalStorageState("filters:dashboard-pivot-dim", "khu_vuc");
   // Loc phu "Tinh" (chon nhieu, "|") cho bang pivot - CHI khi nhom theo KTV (2026-10-23): xem KTV dang xu ly ca o tinh
   // can kiem tra. Gia tri theo che do Dia gioi cu/moi -> doi che do thi xoa loc (gia tri cu khong con nghia).
   const [pivotTinh, setPivotTinh] = useLocalStorageState("filters:dashboard-pivot-tinh", "");
   const diaGioiLoc = useDiaGioiLoc();
   useOnDiaGioiModeChange(() => setPivotTinh(""));
+  const groupPH = isPH && collapseKtv && pivotDim === "ky_thuat_vien";
   const pivotDgLoc = pivotDim === "ky_thuat_vien" && pivotTinh ? (diaGioiLoc.buildDgLoc(pivotTinh.split("|")) ?? undefined) : undefined;
   const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
   // CHOT 2026-08-12: bo loc "Model" rieng cho the "Tong quan" (khong dua vao FilterBar/DashboardFilters
@@ -95,6 +111,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
     khu_vuc: filters.khu_vuc !== ALL_KHU_VUC ? filters.khu_vuc : undefined,
     hang: filters.hang !== ALL_HANG ? filters.hang : undefined,
     thang: filters.thang,
+    ...weekRange,
     nhom_san_pham: modelFilter !== ALL_MODEL ? modelFilter : undefined,
   };
   const query = buildQuery(filterParams);
@@ -112,14 +129,14 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   });
   const manTq = manTqQ.data;
   const pivotLocTinhQ = useQuery({
-    queryKey: ["dashboard-pivot", pivotDim, query, pivotDgLoc],
-    queryFn: () => api.get<{ rows: PivotRow[] }>(`/dashboard/pivot${buildQuery({ ...filterParams, dim: pivotDim, dg_loc: pivotDgLoc })}`),
-    enabled: !!pivotDgLoc,
+    queryKey: ["dashboard-pivot", pivotDim, query, pivotDgLoc, groupPH],
+    queryFn: () => api.get<{ rows: PivotRow[] }>(`/dashboard/pivot${buildQuery({ ...filterParams, dim: pivotDim, dg_loc: pivotDgLoc, theo_tram: groupPH ? "1" : undefined })}`),
+    enabled: !!pivotDgLoc || groupPH,
   });
   const pivotLocTinh = pivotLocTinhQ.data;
   const dailyReport = manTq?.dailyReport;
   const kpi = manTq?.kpis;
-  const pivot = pivotDgLoc ? pivotLocTinh : manTq?.pivot;
+  const pivot = (pivotDgLoc || groupPH) ? pivotLocTinh : manTq?.pivot;
   const pivotKtv = manTq?.pivotKtv;
 
   // Dong "Tong cong" dau bang pivot - cong don cac cot so tren cac dong dang hien (tu doi theo
@@ -129,6 +146,11 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
     const rows = pivot?.rows ?? [];
     const sum = (key: keyof PivotRow) => rows.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
     return {
+      sla_8h: sum("sla_8h"),
+      sla_24h: sum("sla_24h"),
+      sla_48h: sum("sla_48h"),
+      sla_72h: sum("sla_72h"),
+      co_tinh_gio: sum("co_tinh_gio"),
       total: sum("total"),
       ht_tinh_kpi: sum("ht_tinh_kpi"),
       sla_ok: sum("sla_ok"),
@@ -149,7 +171,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   const sortedPivotRows =
     pivotDim === "tinh"
       ? gopBangTheoTinh(pivot?.rows ?? [], dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
-      : [...(pivot?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+      : (groupPH ? sumReportRows(pivot?.rows ?? [], (r) => phGroupForStation(r.tram, phGroups)) : [...(pivot?.rows ?? [])]).sort((a, b) => (a.nhom ?? "").localeCompare(b.nhom ?? "", "vi"));
 
   // KTV chi xet nhung ai co du luong (>=5 ca) de tranh nhieu do mau nho, lay top 10 nhieu ca nhat sap theo ty le SLA tang dan (thap nhat truoc)
   const ktvRanked = [...(pivotKtv?.rows ?? [])]
@@ -164,7 +186,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
         loi={manTqQ.error ?? pivotLocTinhQ.error}
         onThuLai={() => {
           void manTqQ.refetch();
-          if (pivotDgLoc) void pivotLocTinhQ.refetch();
+          if (pivotDgLoc || groupPH) void pivotLocTinhQ.refetch();
         }}
       />
       {dailyReport && (
@@ -218,7 +240,13 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
           </div>
         </Card>
       )}
-      <FilterBar filters={filters} setFilters={setFilters} />
+      <FilterBar filters={filters} setFilters={(next) => { if (next.thang !== filters.thang) setWeek(""); setFilters(next); }} />
+      <div className="flex flex-wrap gap-2 items-center mb-4 text-sm">
+        <span>{tr("Tuần trong năm (ISO):")}</span>
+        <input aria-label={tr("Năm của tuần")} type="number" min="2000" max="2100" value={weekYear} className="border rounded-lg p-1.5 w-24" onChange={(e) => { const y = Number(e.target.value); if (y >= 2000 && y <= 2100) { setWeekYear(String(y)); setWeek(""); } }} />
+        <Select value={week} onChange={setWeek} options={[{ value: "", label: tr("Theo tháng") }, ...Array.from({ length: isoWeeksInYear(Number(weekYear)) }, (_, i) => ({ value: String(i + 1), label: tr("Tuần {0}", i + 1) }))]} />
+        {week && <span className="text-xs text-[var(--ink-400)]">{weekRange.tu_ngay} → {new Date(Date.parse(weekRange.den_ngay!) - 86400000).toISOString().slice(0, 10)} · {tr("Theo ngày hoàn thành")}</span>}
+      </div>
       <div className="flex flex-wrap items-center gap-2 -mt-3 mb-4">
         <span className="text-xs font-semibold text-[var(--ink-400)]">Model:</span>
         <Select
@@ -261,21 +289,26 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                 { value: "tinh", label: tr("Tỉnh") },
                 { value: "doi_tac", label: tr("Đối tác") },
                 { value: "hang", label: tr("Hãng") },
+                { value: "nhom_yeu_cau", label: tr("Nhóm yêu cầu") },
                 { value: "ky_thuat_vien", label: "KTV" },
               ]}
             />
             {pivotDim === "ky_thuat_vien" && (
               <MultiSelectFilter label={NHAN_CAP_1[diaGioiLoc.mode]} value={pivotTinh} onChange={setPivotTinh} options={diaGioiLoc.tinhOptions} />
             )}
+            {isPH && pivotDim === "ky_thuat_vien" && <label className="text-xs flex gap-1 items-center"><input type="checkbox" checked={collapseKtv} onChange={(e) => setCollapseKtv(e.target.checked)} />{tr("Thu gọn theo nhóm PH")}</label>}
             <Btn
               variant="ghost"
               size="sm"
+              disabled={manTqQ.isFetching || ((!!pivotDgLoc || groupPH) && pivotLocTinhQ.isFetching)}
               onClick={() =>
                 exportRowsToExcel(
                   sortedPivotRows.map((r) => ({
                     nhom: pivotDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom,
                     ty_le_sla: `${pct(r.sla_ok, r.dung_han_tinh)}%`,
                     ty_le_24h: `${pct(r.duoi_24h_count, r.co_tinh_24h)}%`,
+                    ...Object.fromEntries(([8, 24, 48, 72] as const).map((h) => [`ty_le_sla_${h}h`, r.co_tinh_gio ? `${pct(r[`sla_${h}h`], r.co_tinh_gio)}%` : "—"])),
+                    co_tinh_gio: r.co_tinh_gio,
                     ty_le_nghi_ngo_vp: `${pct(r.nghi_ngo, r.total)}%`,
                     // "Ty le loi vi pham" dung chung nguon voi "Ty le nghi ngo VP" (nghi_ngo/total) -
                     // theo yeu cau bo sung cot rieng cho bao cao ngoai, khong phai 1 cach tinh khac.
@@ -298,6 +331,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                     nhom: "Nhóm",
                     ty_le_sla: "Tỷ lệ SLA",
                     ty_le_24h: "Tỷ lệ ≤24h",
+                    ty_le_sla_8h: "Tỷ lệ SLA ≤8h", ty_le_sla_24h: "Tỷ lệ SLA ≤24h", ty_le_sla_48h: "Tỷ lệ SLA ≤48h", ty_le_sla_72h: "Tỷ lệ SLA ≤72h", co_tinh_gio: "Số ca có giờ xử lý hợp lệ",
                     ty_le_nghi_ngo_vp: "Tỷ lệ nghi ngờ VP",
                     ty_le_loi_vi_pham: "Tỷ lệ lỗi vi phạm",
                     total: "Số ca đã đóng",
@@ -318,6 +352,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
               {tr("⬇ Xuất Excel")}</Btn>
           </div>
         </div>
+        <p className="text-xs text-[var(--ink-400)] mb-2">{tr("SLA 8/24/48/72h: ca tính KPI đã hoàn thành, có số giờ xử lý hợp lệ (0–8760h); cùng mẫu số, không ước lượng khi thiếu giờ. Tỷ lệ ≤24h cũ dùng bucket CRM.")}</p>
         <div className="overflow-x-auto">
           <table className="dense w-full text-sm">
             <thead>
@@ -325,6 +360,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                 <th className="py-2 pr-3">{tr("Nhóm")}</th>
                 <th className="py-2 pr-3">{tr("Tỷ lệ SLA")}</th>
                 <th className="py-2 pr-3">{tr("Tỷ lệ ≤24h")}</th>
+                {[8, 24, 48, 72].map((h) => <th key={h} className="py-2 pr-3">SLA ≤{h}h</th>)}
                 <th className="py-2 pr-3">{tr("Tỷ lệ nghi ngờ VP")}</th>
                 <th className="py-2 pr-3 border-l border-[var(--line)] pl-3">{tr("Số ca đã đóng")}</th>
                 <th className="py-2 pr-3">{tr("Số ca HT tính KPIS")}</th>
@@ -343,6 +379,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                   <td className="py-2 pr-3">{tr("Tổng cộng")}</td>
                   <td className="py-2 pr-3 font-mono">{pct(pivotTotal.sla_ok, pivotTotal.dung_han_tinh)}%</td>
                   <td className="py-2 pr-3 font-mono">{pct(pivotTotal.duoi_24h_count, pivotTotal.co_tinh_24h)}%</td>
+                  {([8, 24, 48, 72] as const).map((h) => <td key={h} className="py-2 pr-3 font-mono" title={tr("{0} ca có giờ xử lý", pivotTotal.co_tinh_gio)}>{pivotTotal.co_tinh_gio ? `${pct(pivotTotal[`sla_${h}h`], pivotTotal.co_tinh_gio)}%` : "—"}</td>)}
                   <td className="py-2 pr-3 font-mono">{pct(pivotTotal.nghi_ngo, pivotTotal.total)}%</td>
                   <td className="py-2 pr-3 border-l border-[var(--line)] pl-3 font-mono">{pivotTotal.total}</td>
                   <td className="py-2 pr-3 font-mono">{pivotTotal.ht_tinh_kpi}</td>
@@ -359,6 +396,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                   <td className="py-2 pr-3 font-semibold">{pivotDim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td>
                   <td className="py-2 pr-3 font-mono">{pct(r.sla_ok, r.dung_han_tinh)}%</td>
                   <td className="py-2 pr-3 font-mono">{pct(r.duoi_24h_count, r.co_tinh_24h)}%</td>
+                  {([8, 24, 48, 72] as const).map((h) => <td key={h} className="py-2 pr-3 font-mono" title={tr("{0} ca có giờ xử lý", r.co_tinh_gio)}>{r.co_tinh_gio ? `${pct(r[`sla_${h}h`], r.co_tinh_gio)}%` : "—"}</td>)}
                   <td className="py-2 pr-3 font-mono">{pct(r.nghi_ngo, r.total)}%</td>
                   <td className="py-2 pr-3 border-l border-[var(--line)] pl-3 font-mono">{r.total}</td>
                   <td className="py-2 pr-3 font-mono">{r.ht_tinh_kpi}</td>
@@ -372,7 +410,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
               ))}
               {sortedPivotRows.length === 0 && (
                 <tr>
-                  <td colSpan={8 + LOAI_LOI_KEYS.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
+                  <td colSpan={12 + LOAI_LOI_KEYS.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
                     {tr("Không có dữ liệu.")}</td>
                 </tr>
               )}

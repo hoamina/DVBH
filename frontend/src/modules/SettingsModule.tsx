@@ -1,3 +1,5 @@
+import { PhReportGroupSettings } from "../components/PhReportGroupSettings";
+import { useQuocGiaDangXem } from "../lib/phamVi";
 import { useState } from "react";
 import { BanDichCell } from "../components/BanDichCell";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -122,6 +124,7 @@ function cotBanDich<T>(bang: string, queryKey: string[], truong: "ban_dich" | "n
 }
 
 export function SettingsModule() {
+  const isPH = useQuocGiaDangXem() === "PH";
   const [tab, setTab] = useState("ly-do");
   const addToast = useToast();
   const qc = useQueryClient();
@@ -1041,6 +1044,7 @@ export function SettingsModule() {
         active={tab}
         onChange={setTab}
         tabs={[
+          ...(isPH ? [{ key: "nhom-tram-ph", label: tr("Nhóm trạm PH (cục bộ)") }] : []),
           { key: "ly-do", label: tr("Lý do chậm") },
           { key: "loai-vi-pham", label: tr("Loại lỗi vi phạm") },
           { key: "ktv-lien-he", label: tr("Danh sách KTV") },
@@ -1060,6 +1064,7 @@ export function SettingsModule() {
           { key: "quoc-gia", label: tr("Quốc gia") },
         ]}
       />
+      {isPH && tab === "nhom-tram-ph" && <PhReportGroupSettings />}
       {tab === "quy-doi-tinh" && <TinhQuyDoiSettings />}
       {tab === "quoc-gia" && <QuocGiaSettings />}
       {tab === "google-drive" && (

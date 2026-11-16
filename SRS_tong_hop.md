@@ -371,3 +371,34 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Tab **Báo cáo**: theo khu vực / KTV (`ky_thuat_vien`): tổng ca, đã hoàn thành, tỷ lệ 24h, tỷ lệ SLA (cùng công thức Tổng quát — trên ca
   tính KPI), đã đặt lõi, không thay lõi, chưa đặt lõi, chưa đánh giá lõi; bấm số → mở Danh sách đã lọc đúng nhóm.
 
+
+
+### Bổ sung 16/11/2026 — Tổng quát và báo cáo giải trình tháng
+
+**Khảo sát và phương án chốt**
+
+- Tổng quát dùng `/dashboard/man-tong-quat` và truy vấn pivot theo bộ lọc, có cache phiên bản dữ liệu. Chiều KTV hiện là `COALESCE(ktv_trien_khai, ky_thuat_vien)`; không được đổi ngầm trở lại trạm. Phân nhóm PH cần lấy thêm trạm bên cạnh KTV trước khi cộng trên trình duyệt.
+- `so_gio_xu_ly` đã lưu giờ, không phải ngày. Bucket CRM ≤24h độc lập và đôi lúc có dữ liệu trước cột giờ. Vì vậy giữ tỷ lệ ≤24h cũ và thêm SLA giờ riêng; không ước lượng mốc 8h từ bucket 24h. SLA dùng ca tính KPI đã hoàn thành, có `0 <= so_gio_xu_ly < 8760`; tử số là số ca có giờ <= mốc, mẫu số chung là số ca có giờ hợp lệ. Không có mẫu số hiển thị “—”. Tổng/nhóm cộng tử số và mẫu số rồi tính lại tỷ lệ.
+- Báo cáo giải trình cũ xem 14 ngày nhưng chọn tháng chỉ ảnh hưởng tải file. Chốt đổi bảng sang tháng đang chọn để tiêu đề lũy kế, bảng và Excel cùng một nguồn. Nguồn là log chốt ngày, không tính lại từ dữ liệu sống.
+
+**Tự phản biện và cách xử lý**
+
+1. Tuần đầu/cuối năm có ngày thuộc năm khác: dùng tuần ISO (thứ Hai–Chủ nhật), tuần 1 chứa ngày 04/01; năm có 52/53 tuần. Tuần thay phạm vi tháng theo ngày hoàn thành, không giao cắt với tháng khiến mất ngày. Chuyển tháng khác sẽ bỏ chọn tuần; lựa chọn “Theo tháng” khôi phục bộ lọc tháng. Backend kiểm tra khoảng ngày hợp lệ tối đa 7 ngày và tách cache theo khoảng ngày.
+2. Một KTV làm nhiều trạm: khi thu gọn PH, API trả KTV × trạm; frontend gán theo trạm rồi cộng. Bảng top 10 vẫn dùng KTV triển khai như trước. Không bình quân các tỷ lệ nhóm.
+3. Trạm bị gán hai nhóm: giao diện chuyển trạm khỏi nhóm cũ khi gán nhóm mới. KRF là nhóm phần dư, không sửa trực tiếp; xóa nhóm trả trạm về KRF. Tên nhóm không trống/trùng/KRF. Brills có sẵn nhưng chưa gán trạm, không tự suy đoán thành viên.
+4. Một ngày chỉ loại trừ vài khu vực: bỏ các khu vực đó khỏi tổng ngày và lũy kế; ô khu vực ghi “Loại trừ”; chỉ khi toàn bộ khu vực bị loại trừ thì tổng ngày cũng ghi “Loại trừ”. Chủ nhật tự loại trừ. Excel áp dụng cùng quy tắc cho cả hai cột đã/cần.
+5. Một ca giải trình nhiều lần hoặc có thêm giải trình tháng sau: báo cáo lý do lấy đúng một dòng cuối **trong tháng**, theo `ngay_giai_trinh DESC, id DESC`, không lấy lý do mới nhất toàn thời gian. Báo cáo gồm ca đang tồn/đã đóng có giải trình trong tháng, bỏ hủy/lưu trữ; ngày loại trừ của báo cáo tỷ lệ không áp dụng ở báo cáo phân loại lý do.
+6. Báo cáo tháng cũ không phải ảnh chụp bất biến của cơ cấu: khu vực/trạm lấy từ ca hiện tại, nhóm PH từ cấu hình cục bộ hiện tại; không có lịch sử thay đổi cơ cấu để phục hồi. Chỉnh lịch sử giải trình hoặc hủy/lưu trữ ca cũng có thể làm số thay đổi. Không tuyên bố đây là snapshot phân nhóm lịch sử.
+
+**Sáu yêu cầu đã triển khai trong mã nguồn**
+
+1. Tổng quát: chọn năm và tuần ISO, có ngày đầu/cuối tuần; áp dụng KPI, pivot và bảng top 10. Banner vấn đề trong ngày vẫn phản ánh ngày hiện tại.
+2. Pivot: thêm SLA ≤8h, ≤24h, ≤48h, ≤72h cạnh tỷ lệ ≤24h cũ, trên từng dòng/tổng cộng và Excel; thêm mẫu số giờ hợp lệ vào Excel.
+3. Settings khi xem PH: “Nhóm trạm PH (cục bộ)”, tạo/xóa nhóm và chọn nhiều trạm; lưu localStorage `reports:PH:station-groups:v1`. Pivot KTV có “Thu gọn theo nhóm PH”. Không thêm cột/bảng/migration D1; tên và thành viên nhóm không gửi server.
+4. Pivot: thêm chiều “Nhóm yêu cầu” (`nhom_yeu_cau`) vào lựa chọn “Nhóm theo”.
+5. Quản lý tồn: xem bảng theo tháng được chọn, tiêu đề `Lũy kế YYYY-MM: xx/yy (zz%)` từ tổng ca-ngày đã/cần giải trình sau loại trừ. Áp dụng bộ lọc khu vực chung cùng quyền xem; file tháng ghi “Loại trừ” đúng ô, tổng chỉ cộng số không loại trừ. Có trạng thái tải/lỗi và khóa tải file khi chưa xong.
+6. Quản lý tồn: tab “Lý do giải trình theo tháng”, nhóm theo khu vực/trạm hoặc nhóm PH; lọc nhóm PH, số ca, tỷ trọng tổng, tổng cộng, Excel. Endpoint `/cases/giai-trinh-ly-do-thang?thang=YYYY-MM&khu_vuc=...` dùng cache theo tháng/phạm vi và versions cases/giai_trinh. Bảo toàn proxy quốc gia/NSKX và quyền khu vực.
+
+**Kiểm chứng**
+
+`node scripts/check-report-enhancements.cjs`: thực thi SQL thật trên SQLite in-memory với dữ liệu thử; kiểm tra tuần giao năm/53 tuần, đúng biên SLA/giờ thiếu/giờ sai, nhóm KTV nhiều trạm, quyền nước/khu vực, lý do cuối trong tháng và tie-break, Excel loại trừ một phần/toàn bộ/Chủ nhật. EXPLAIN xác nhận khoảng hoàn thành dùng `idx_case_hoan_thanh_not_null`, lý do dùng `idx_giai_trinh_ngay`, tra lần cuối dùng `idx_giai_trinh_case_ngay`. Không đo rows_read production và không truy cập dữ liệu production cho kiểm thử này. Có bổ sung bản dịch EN/ID cho giao diện mới.

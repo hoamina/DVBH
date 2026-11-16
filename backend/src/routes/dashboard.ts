@@ -12,6 +12,16 @@ import { KHU_VUC_AN_KHOI_BAO_CAO } from "../lib/filterParams";
 
 const dashboard = new Hono<{ Bindings: Env }>();
 dashboard.use("*", verifySessionMiddleware, loadUser);
+dashboard.use("*", async (c, next) => {
+  const from = c.req.query("tu_ngay"), to = c.req.query("den_ngay");
+  if (from || to) {
+    const valid = (v?: string) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
+    const days = (Date.parse(to ?? "") - Date.parse(from ?? "")) / 86400000;
+    if (!valid(from) || !valid(to) || days <= 0 || days > 7) return c.json({ error: "INVALID_DATE_RANGE" }, 400);
+  }
+  await next();
+});
+
 
 export interface DashboardFiltersPayload {
   khuVuc: (string | null)[];
@@ -199,6 +209,8 @@ async function docKpis(c: Context<{ Bindings: Env }>, laySnap: LaySnap) {
     hang: c.req.query("hang"),
     thang: c.req.query("thang"),
     nhom_san_pham: c.req.query("nhom_san_pham"),
+    tu_ngay: c.req.query("tu_ngay"),
+    den_ngay: c.req.query("den_ngay"),
   };
   if (isDefaultReportParams(params)) {
     const snap = await laySnap();
@@ -221,21 +233,24 @@ async function docPivot(c: Context<{ Bindings: Env }>, dimKey: string, dgLoc: st
   const scope = scopeByKhuVuc(c);
   const params = {
     dimKey,
+    theo_tram: c.req.query("theo_tram"),
     khu_vuc: c.req.query("khu_vuc"),
     hang: c.req.query("hang"),
     thang: c.req.query("thang"),
     nhom_san_pham: c.req.query("nhom_san_pham"),
+    tu_ngay: c.req.query("tu_ngay"),
+    den_ngay: c.req.query("den_ngay"),
     // Loc phu "Tinh" (chon nhieu) cua bang pivot khi nhom theo KTV (2026-10-23) - JSON gia tri tho theo che do Dia gioi
     // cu/moi (frontend lib/diaGioi.ts buildDgLoc), ap qua filterParams.ts diaGioiLoc. Co loc -> tinh song (cache theo key).
     dg_loc: dgLoc || undefined,
   };
-  if (isDefaultReportParams(params) && !params.dg_loc) {
+  if (isDefaultReportParams(params) && !params.dg_loc && !params.theo_tram) {
     const snap = await laySnap();
     const pivotByDim = snap?.payload.pivotByDim;
-    if (pivotByDim && (dimKey !== "ky_thuat_vien" || snap.payload.pivotKtvTrienKhai)) return { rows: pivotByDim[dimKey] ?? [] };
+    if (pivotByDim?.[dimKey]?.every((r) => "co_tinh_gio" in r) && (dimKey !== "ky_thuat_vien" || snap?.payload.pivotKtvTrienKhai)) return { rows: pivotByDim[dimKey] ?? [] };
   }
   // "v2" (2026-10-22): dim KTV doi sang KTV trien khai - bo envelope cache cu nhom theo tram.
-  const key = buildReportKey("dashboard/pivot-v2", params, scope);
+  const key = buildReportKey("dashboard/pivot-v3", params, scope);
   return cachedReport(c.env.DB, key, ["cases"], () => computeDashboardPivot(c.env.DB, params, scope));
 }
 
