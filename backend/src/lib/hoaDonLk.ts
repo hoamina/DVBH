@@ -77,8 +77,10 @@ export async function ghiDonHoaDon(dbVao: D1Database, rows: DonHoaDonVao[], nguo
     const donId = r.don_id.trim();
     if (laHdTram(r.yeu_cau_hoa_don)) continue;
     const maCa = dsMaCa(r.ma_ca);
-    let caIds = maCa.filter((id) => caTonTai.has(id));
     const maLada = s(r.ma_lada);
+    // Đơn KHÔNG có cả mã ca lẫn ID Lada (chủ hệ thống 2026-11-16): không thể thuộc ca nào -> bỏ qua (dòng cũ, nếu có, bị xoá như trên).
+    if (!maCa.length && !maLada) continue;
+    let caIds = maCa.filter((id) => caTonTai.has(id));
     if (!caIds.length && maLada && ladaCa.has(maLada)) caIds = [ladaCa.get(maLada)!];
     if (!caIds.length) {
       caIds = [""];
