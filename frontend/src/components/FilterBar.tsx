@@ -1,4 +1,5 @@
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "./KhuVucFilterControl";
@@ -49,6 +50,18 @@ export function FilterBar({
   // thong quet toan bo lich su moi lan chon) - mac dinh luon la thang hien tai (xem filters.thang
   // khoi tao CURRENT_MONTH_VALUE o DashboardModule.tsx/RevenueModule.tsx).
   const thangOptions = [{ value: CURRENT_MONTH_VALUE, label: tr("Tháng hiện tại") }, ...(monthsData?.months ?? [])];
+
+  // 2026-11-16: bo loc luu localStorage dung chung moi quoc gia -> sang PH van giu thang/hang cua VN (vd 2026-10, PH chua co
+  // du lieu). <select> khong co gia tri do nen HIEN "Tháng hiện tại" nhung van gui thang cu -> bao cao trong. Gia tri da luu
+  // khong con trong danh sach cua nuoc dang xem -> ve mac dinh.
+  useEffect(() => {
+    if (!monthsData || !data) return;
+    const thangHopLe = filters.thang === CURRENT_MONTH_VALUE || monthsData.months.includes(filters.thang);
+    const hangHopLe = filters.hang === ALL_HANG || data.hang.includes(filters.hang);
+    if (!thangHopLe || !hangHopLe) {
+      setFilters({ ...filters, thang: thangHopLe ? filters.thang : CURRENT_MONTH_VALUE, hang: hangHopLe ? filters.hang : ALL_HANG });
+    }
+  }, [monthsData, data, filters, setFilters]);
 
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
