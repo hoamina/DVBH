@@ -5942,3 +5942,6 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   ≤2000 ca mới nhất, chỉ tải khi mở tab, phân trang/sắp xếp phía client). Ca "GQKN đẩy lại GS" (đã có tiến trình) không bị bỏ qua.
 - Vẫn tiếp nhận được từ chi tiết ca như thường; tiếp nhận xong ca có tiến trình → tự rời danh sách bỏ qua. Hằng số
   `TRANH_CHAP_BO_QUA_SO_NGAY` trong `routes/tranhChap.ts`.
+- Cập nhật dữ liệu 1 lần (chủ hệ thống, chỉ đổi trạng thái, KHÔNG sửa quy tắc import): ca Odoo (`SC…` VN + `PH-SC…` PH) có lý do quá hạn
+  "Chưa thống nhất phương án xử lý" → `nghi_ngo_tranh_chap = 1` (297 ca từ 0 lên 1; tổng 322 ca Odoo có lý do này đều = 1), bump domain
+  `tranh_chap`. Ratchet giữ 1 qua các lần import sau; ca Odoo MỚI có lý do này vẫn theo dữ liệu pipeline gửi lên.
