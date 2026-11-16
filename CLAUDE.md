@@ -249,6 +249,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     All 3 list GETs require `?thang=YYYY-MM` (sửa month / Kế toán chốt month, range on their indexes, cap 10k + `vuotTran`) so cost
     stays one month's rows forever. "Đồng bộ" pulls INCREMENTALLY from MAX(chot_ke_toan_luc) − 7 days (linh-kien-app returns only the
     newest 2.000 rows; `co_the_thieu` when it hits that); Admin `?tat_ca=1` pulls from 01/11/2026.
+    Rows with `yeu_cau_hoa_don` "…xuất cho Trạm" are skipped on ingest (and deleted if an order switches to it). v1.614: the list
+    tables have quick-edit buttons (`SuaNhanhModal` by case ID, inline `ChonNhanh` Có/Không/Tự động) calling the same `PUT /ca/:id/*`;
+    `GET /ca/:id` also returns `ca` (summary + computed hạn BH).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the

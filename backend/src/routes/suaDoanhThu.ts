@@ -129,16 +129,22 @@ r.get("/ca/:id", async (c) => {
   const id = c.req.param("id");
   const db = c.env.DB;
   const [caKq, hdBh, don, log] = await db.batch([
-    db.prepare("SELECT id, khu_vuc FROM case_dvbh WHERE id = ?").bind(id),
+    // Cột tóm tắt cho form "sửa nhanh" trong bảng của module (2026-11-16) - chi tiết ca vẫn đọc ở CaseDetail.
+    db.prepare(
+      `SELECT id, khu_vuc, khach_hang, ky_thuat_vien, tien_do_hoan_thanh, thoi_gian_cskh_tiep_nhan, thoi_gian_hoan_thanh, ngay_mua, ngay_san_xuat,
+              dt_san_pham, dt_linh_kien, dt_dich_vu, dt_san_pham_crm, dt_linh_kien_crm, dt_dich_vu_crm, dt_sua_at
+       FROM case_dvbh WHERE id = ?`,
+    ).bind(id),
     db.prepare("SELECT * FROM case_hd_bh WHERE case_id = ?").bind(id),
     db.prepare("SELECT * FROM don_hoa_don_lk WHERE case_id = ? ORDER BY chot_ke_toan_luc DESC").bind(id),
     db.prepare("SELECT * FROM case_sua_log WHERE case_id = ? ORDER BY id DESC LIMIT 100").bind(id),
   ]);
-  const ca = caKq.results[0] as { id: string; khu_vuc: string | null } | undefined;
-  if (!ca) return c.json({ error: "NOT_FOUND" }, 404);
+  const ca = caKq.results[0] as (Record<string, unknown> & { id: string; khu_vuc: string | null; ngay_mua: string | null; ngay_san_xuat: string | null; thoi_gian_cskh_tiep_nhan: string | null }) | undefined;
+  if (!ca) return c.json({ error: "NOT_FOUND", message: "Không tìm thấy ca." }, 404);
   const scope = scopeByKhuVuc(c);
-  if (scope !== null && !scope.includes(String(ca.khu_vuc))) return c.json({ error: "FORBIDDEN_KHU_VUC" }, 403);
-  return c.json({ hdBh: hdBh.results[0] ?? null, donHoaDon: don.results, log: log.results, duocSua: duocSua(c, ca.khu_vuc) });
+  if (scope !== null && !scope.includes(String(ca.khu_vuc))) return c.json({ error: "FORBIDDEN_KHU_VUC", message: "Ca ngoài khu vực bạn được xem." }, 403);
+  const han = tinhHanBaoHanh(ca.ngay_mua, ca.ngay_san_xuat, ca.thoi_gian_cskh_tiep_nhan);
+  return c.json({ ca: { ...ca, han_bh: han.han, han_theo: han.theo, bh_tu_dong: han.tu_dong }, hdBh: hdBh.results[0] ?? null, donHoaDon: don.results, log: log.results, duocSua: duocSua(c, ca.khu_vuc) });
 });
 
 r.put("/ca/:id/doanh-thu", async (c) => {

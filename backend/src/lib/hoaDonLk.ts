@@ -34,6 +34,9 @@ export interface DonHoaDonVao {
 }
 
 export const DON_HOA_DON_TOI_DA = 2000;
+// "Yêu cầu hóa đơn (xuất cho Trạm)" - hóa đơn xuất cho trạm, không phải hóa đơn của ca/khách (chủ hệ thống 2026-11-16): KHÔNG đưa vào
+// danh sách. Dòng đã lưu trước đó mà nay đổi sang loại này bị xoá ở lần đẩy/kéo kế tiếp (không vào conGiu).
+const laHdTram = (v: string | null | undefined) => (v ?? "").normalize("NFC").toLowerCase().includes("xuất cho trạm");
 const LO = 200;
 const s = (v: unknown) => (v === null || v === undefined || String(v).trim() === "" ? null : String(v).trim());
 
@@ -72,6 +75,7 @@ export async function ghiDonHoaDon(dbVao: D1Database, rows: DonHoaDonVao[], nguo
   let chuaKhop = 0;
   for (const r of hopLe) {
     const donId = r.don_id.trim();
+    if (laHdTram(r.yeu_cau_hoa_don)) continue;
     const maCa = dsMaCa(r.ma_ca);
     let caIds = maCa.filter((id) => caTonTai.has(id));
     const maLada = s(r.ma_lada);
