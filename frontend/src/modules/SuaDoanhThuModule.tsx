@@ -23,6 +23,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { HAN_BH_TU_NGAY, NHAN_BH, type TrangThaiBh } from "../lib/hanBaoHanh";
 import { tr } from "../i18n/tr";
+import { docBanLuuHanBh, taiHanBh } from "../lib/hanBhCache";
 
 type OpenCase = (id: string, tab?: string) => void;
 // 2026-11-16: giữ dữ liệu 30 phút sau khi rời module -> vào lại hiện ngay, rồi hỏi lại server ngầm. Server trả ETag theo version dữ liệu:
@@ -362,14 +363,13 @@ function HoaDonTab({ openCase }: { openCase: OpenCase }) {
 }
 
 // ---------------- Tab 3 ----------------
+// Chỉ các cột hiển thị (chi tiết ca mở theo ID). Tải theo delta + lưu IndexedDB: lib/hanBhCache.ts.
 interface BhRow {
   id: string;
-  khach_hang: string | null;
   khu_vuc: string | null;
   ky_thuat_vien: string | null;
   hang: string | null;
   san_pham_bao_hanh: string | null;
-  seri_san_pham: string | null;
   loai_yeu_cau: string | null;
   hinh_thuc_bao_hanh: string | null;
   thoi_gian_cskh_tiep_nhan: string | null;
@@ -385,12 +385,15 @@ interface BhRow {
 function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
   const [thang, setThang] = useLocalStorageState("filters:sua-dt-thang", thangHienTai());
   const thangOk = thang >= HAN_BH_TU_NGAY.slice(0, 7) ? thang : thangHienTai();
-  const { data, isLoading, isError, error } = useQuery({
+  // Bản lưu trên máy hiện ngay; cùng lúc hỏi server phần thay đổi rồi thay bằng bảng đã trộn.
+  const luu = useQuery({ queryKey: ["sua-dt", "bao-hanh-luu", thangOk], queryFn: () => docBanLuuHanBh<BhRow>(thangOk), staleTime: Infinity, ...GIU_DU_LIEU });
+  const { data, isLoading: dangTaiServer, isError, error } = useQuery({
     ...GIU_DU_LIEU,
     queryKey: ["sua-dt", "bao-hanh", thangOk],
-    queryFn: () => api.get<{ rows: BhRow[] }>(`/sua-doanh-thu/bao-hanh?thang=${thangOk}`),
+    queryFn: async () => ({ rows: await taiHanBh<BhRow>(thangOk) }),
   });
-  const rows = data?.rows ?? [];
+  const rows = data?.rows ?? luu.data ?? [];
+  const isLoading = dangTaiServer && !luu.data;
   const nhan = (s: TrangThaiBh) => tr(NHAN_BH[s]);
   const lay: Record<string, LayGiaTriCot<BhRow>> = {
     id: (r) => r.id,
@@ -445,7 +448,7 @@ function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
         <span>{tr("Chưa đủ dữ liệu")}: <b>{dem("khong_ro")}</b></span>
         <span className="text-xs text-[var(--ink-400)]">{tr("Hạn = ngày mua +24 tháng / ngày SX +36 tháng, mốc nào đến trước. Mở ca để sửa tay.")}</span>
       </div>
-      {isError ? (
+      {isError && !luu.data ? (
         <div className="text-sm text-[var(--coral-500)]">{error instanceof ApiError ? (error.detail ?? error.message) : String(error)}</div>
       ) : isLoading ? (
         <div className="text-sm text-[var(--ink-400)]">{tr("Đang tải…")}</div>
