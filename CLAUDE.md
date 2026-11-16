@@ -241,7 +241,8 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     Case = "có HĐ" automatically when it has a non-cancelled line; manual override in `case_hd_bh.xuat_hoa_don`. (3) **Hạn bảo hành**
     (`lib/hanBaoHanh.ts`, frontend copy `lib/hanBaoHanh.ts`): hạn = min(ngày mua +24T, ngày SX +36T); tiếp nhận > hạn → hết BH; only
     cases received from 2026-11-01; computed at read time, manual override `case_hd_bh.con_bao_hanh`. Excel import
-    `POST /import?commit=0|1`. Domain `hd_bh` (in `CASE_DETAIL_DOMAINS`). Live reads, no cache.
+    `POST /import?commit=0|1`. Domain `hd_bh` (in `CASE_DETAIL_DOMAINS`). Live reads (no cachedReport) but the 3 list GETs return a weak ETag
+    over (user, scope, URL, domain versions) → 304 when unchanged (`kiemTraEtag`); every write in the module bumps with `await`, not `waitUntil`.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
