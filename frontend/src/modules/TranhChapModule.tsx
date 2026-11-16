@@ -1232,6 +1232,9 @@ export function TranhChapModule({
               <div className="mb-3">
                 <div className="font-display font-bold text-sm">{tr("Báo cáo tranh chấp, khiếu nại theo khu vực")}</div>
                 <div className="text-xs text-[var(--ink-400)] mt-0.5">{thangFilterLabelBaoCao}</div>
+                <div className="text-xs text-[var(--ink-500)] mt-1">
+                  {tr("\"Nghi ngờ tranh chấp\" = mọi ca nghi ngờ (kể cả ca đã tiếp nhận / đã xử lý); \"Chưa xử lý\" = ca chưa ai tiếp nhận — khớp với thẻ \"Tổng ca chờ xử lý\". Không tính ca \"Tranh chấp bỏ qua\" (chưa tiếp nhận quá 60 ngày).")}
+                </div>
               </div>
               {reportLoading ? (
                 <div className="text-center py-4 text-xs text-[var(--ink-400)]">{tr("Đang tải báo cáo...")}</div>
