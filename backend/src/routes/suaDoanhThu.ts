@@ -2,7 +2,7 @@
  * Module "Sửa DT · HĐ · BH" (2026-11-14, chủ hệ thống, migration 0170):
  *  1) Doanh thu chuẩn: GS (khu vực mình phụ trách) / CSKH / TN CSKH / TBP DVBH / TBP CSKH / Admin sửa lại 3 thành phần doanh thu
  *     thực tế (tay trên chi tiết ca hoặc import Excel). Số sửa ghi thẳng vào dt_* (=> mọi báo cáo doanh thu dùng số sửa), bản CRM
- *     gốc ở dt_*_crm; import CRM sau đó không ghi đè (importProcessor). Bump "cases" để báo cáo doanh thu tính lại (như sửa khu vực).
+ *     gốc ở dt_*_crm; import CRM sau đó không ghi đè (importProcessor). Bump "doanh_thu" (KHÔNG "cases" - xem dataVersions.ts) để Báo cáo doanh thu / banner DT tính lại.
  *     Lưu ý: chunk R2 "Ca đã đóng" giữ số cũ tới lần import kế tiếp ghi lại ngày đó (không thêm điểm ghi R2 - quy tắc CLAUDE.md);
  *     "Báo cáo ngày 08:00" đã chốt giữ số cũ tới lần chốt sau.
  *  2) Đơn xuất hóa đơn: tự động từ app Đặt mua linh kiện (lib/hoaDonLk.ts, đẩy khi Kế toán chốt + nút đồng bộ) - GS sửa tay được.
@@ -13,12 +13,13 @@
  *  DELETE /ca/:id/doanh-thu       khôi phục theo CRM
  *  PUT    /ca/:id/hoa-don         {xuat_hoa_don: 1|0|null, ghi_chu?}
  *  PUT    /ca/:id/bao-hanh        {con_bao_hanh: 1|0|null, ghi_chu?}
- *  GET    /doanh-thu              bảng "Ca đã sửa doanh thu"
- *  GET    /hoa-don                bảng "Đơn xuất hóa đơn" (+ ca đánh giá tay)
- *  POST   /hoa-don/dong-bo        kéo đơn hóa đơn từ app linh kiện
- *  GET    /bao-hanh               bảng "Hạn bảo hành" = chỉ ca đã sửa tay
+ *  GET    /doanh-thu?thang=YYYY-MM bảng "Ca đã sửa doanh thu" theo tháng sửa
+ *  GET    /hoa-don?thang=YYYY-MM  bảng "Đơn xuất hóa đơn" theo tháng Kế toán chốt (+ ca đánh giá tay theo tháng sửa)
+ *  POST   /hoa-don/dong-bo        kéo đơn hóa đơn từ app linh kiện (tăng dần: 7 ngày trước lần chốt mới nhất đã có)
+ *  GET    /bao-hanh?thang=YYYY-MM bảng "Hạn bảo hành" = chỉ ca đã sửa tay, theo tháng sửa
  *  POST   /import?commit=0|1      import Excel {rows:[{id, dt_san_pham?, dt_linh_kien?, dt_dich_vu?, ly_do?, xuat_hoa_don?, con_bao_hanh?}]}
- * Đọc sống (không cachedReport) nhưng có ETag theo version domain -> không đổi thì 304 (xem kiemTraEtag): bảng 1-2 nhỏ (quét partial index), bảng 3 = ca sửa tay qua idx_case_hd_bh_bh.
+ * Đọc sống (không cachedReport) nhưng có ETag theo version domain -> không đổi thì 304 (xem kiemTraEtag). MỌI bảng lọc theo 1 THÁNG
+ * (2026-11-16, phân tích chi phí 3 năm): số dòng đọc / tải về chỉ bằng dữ liệu 1 tháng, không tăng theo thời gian, không bị cắt mốc 5.000: bảng 1-2 nhỏ (quét partial index), bảng 3 = ca sửa tay qua idx_case_hd_bh_bh.
  */
 import { Hono, type Context } from "hono";
 import type { AppUser, Env } from "../types";
@@ -28,7 +29,7 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { hasModule } from "../lib/moduleAccess";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions, versionTagStatement, type DataDomain } from "../lib/dataVersions";
-import { tinhHanBaoHanh, trangThaiBhCuoi } from "../lib/hanBaoHanh";
+import { HAN_BH_TU_NGAY, tinhHanBaoHanh, trangThaiBhCuoi } from "../lib/hanBaoHanh";
 import { keoDonHoaDon, LoiKeoHoaDon } from "../lib/hoaDonLk";
 
 type C = Context<{ Bindings: Env }>;
@@ -157,7 +158,7 @@ r.put("/ca/:id/doanh-thu", async (c) => {
     stmtSuaDt(c.env.DB, id, moi, lyDo, user.email, luc),
     stmtLog(c.env.DB, id, "dt", [ca.dt_san_pham, ca.dt_linh_kien, ca.dt_dich_vu], moi, lyDo, "tay", user.email, luc),
   ]);
-  await bumpVersions(c.env.DB, ["cases"]);
+  await bumpVersions(c.env.DB, ["doanh_thu"]);
   return c.json({ ok: true });
 });
 
@@ -177,7 +178,7 @@ r.delete("/ca/:id/doanh-thu", async (c) => {
     ).bind(id),
     stmtLog(c.env.DB, id, "dt", [ca.dt_san_pham, ca.dt_linh_kien, ca.dt_dich_vu], "CRM", "Khôi phục theo CRM", "khoi_phuc", user.email, luc),
   ]);
-  await bumpVersions(c.env.DB, ["cases"]);
+  await bumpVersions(c.env.DB, ["doanh_thu"]);
   return c.json({ ok: true });
 });
 
@@ -226,10 +227,24 @@ function tra304(c: C, etag: string) {
   return c.body(null, 304, { ETag: etag, ...CACHE_HDR });
 }
 
+/** Tham số ?thang=YYYY-MM (từ 11/2026) -> [đầu tháng, đầu tháng sau) dạng 'YYYY-MM-DD' để so khoảng theo index. */
+function khoangThang(c: C): { tu: string; den: string } | null {
+  const t = c.req.query("thang") ?? "";
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(t) || `${t}-01` < HAN_BH_TU_NGAY) return null;
+  const [y, m] = t.split("-").map(Number);
+  const den = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+  return { tu: `${t}-01`, den };
+}
+const LOI_THANG = { error: "INVALID_THANG", message: `Tháng không hợp lệ (YYYY-MM, từ ${HAN_BH_TU_NGAY.slice(0, 7)}).` };
+// Trần an toàn / tháng (dữ liệu thật dự kiến ≤ vài nghìn) - chạm trần thì trả vuotTran để giao diện báo, không âm thầm cắt.
+const TRAN_THANG = 10000;
+
 // ---------- Bảng theo dõi ----------
 r.get("/doanh-thu", async (c) => {
   if (!canModule(c)) return c.json({ error: "FORBIDDEN" }, 403);
-  const et = await kiemTraEtag(c, ["cases", "users"]);
+  const k = khoangThang(c);
+  if (!k) return c.json(LOI_THANG, 400);
+  const et = await kiemTraEtag(c, ["cases", "doanh_thu", "users"]);
   if (et.khongDoi) return tra304(c, et.etag);
   const sc = khuVucWhereClause(scopeByKhuVuc(c), "c.khu_vuc");
   const { results } = await c.env.DB.prepare(
@@ -238,12 +253,12 @@ r.get("/doanh-thu", async (c) => {
             c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu, c.dt_san_pham_crm, c.dt_linh_kien_crm, c.dt_dich_vu_crm,
             c.dt_sua_at, c.dt_sua_by, c.dt_sua_ly_do,
             (SELECT COALESCE(u.ten, u.email) FROM users u WHERE u.email = c.dt_sua_by) AS dt_sua_ten
-     FROM case_hieu_luc c WHERE c.dt_sua_at IS NOT NULL${sc.sql}
-     ORDER BY c.dt_sua_at DESC LIMIT 5000`,
+     FROM case_hieu_luc c WHERE c.dt_sua_at >= ? AND c.dt_sua_at < ?${sc.sql}
+     ORDER BY c.dt_sua_at DESC LIMIT ${TRAN_THANG}`,
   )
-    .bind(...sc.binds)
+    .bind(k.tu, k.den, ...sc.binds)
     .all();
-  return c.json({ rows: results, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
+  return c.json({ rows: results, vuotTran: results.length >= TRAN_THANG, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
 });
 
 r.get("/hoa-don", async (c) => {
@@ -252,7 +267,9 @@ r.get("/hoa-don", async (c) => {
   const sc = khuVucWhereClause(scope, "c.khu_vuc");
   const db = c.env.DB;
   // Tóm tắt lần đồng bộ (cai_dat_he_thong) ghi cả khi không có đơn đổi -> đưa updated_at vào ETag để "Đồng bộ lúc" luôn mới.
-  const et = await kiemTraEtag(c, ["cases", "hd_bh"], [db.prepare("SELECT updated_at FROM cai_dat_he_thong WHERE khoa = 'don_hoa_don_dong_bo'")]);
+  const k = khoangThang(c);
+  if (!k) return c.json(LOI_THANG, 400);
+  const et = await kiemTraEtag(c, ["cases", "doanh_thu", "hd_bh"], [db.prepare("SELECT updated_at FROM cai_dat_he_thong WHERE khoa = 'don_hoa_don_dong_bo'")]);
   if (et.khongDoi) return tra304(c, et.etag);
   // Đơn chưa khớp ca (case_id = '') chỉ người xem toàn bộ mới thấy.
   const [don, tay, tt] = await db.batch([
@@ -261,29 +278,32 @@ r.get("/hoa-don", async (c) => {
               d.da_huy, d.yeu_cau_hoa_don, d.ma_lk, d.ten_lk, d.so_luong, d.loai_de_xuat, d.nguoi_nhan_hang, d.dong_bo_luc,
               c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.thoi_gian_hoan_thanh,
               c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu, h.xuat_hoa_don AS hd_tay, h.hd_sua_by, h.hd_sua_at
-       FROM don_hoa_don_lk d
+       FROM don_hoa_don_lk d INDEXED BY idx_don_hd_lk_chot
        LEFT JOIN case_dvbh c ON c.id = d.case_id
        LEFT JOIN case_hd_bh h ON h.case_id = d.case_id
-       WHERE ${scope === null ? "1=1" : "c.id IS NOT NULL"}${sc.sql}
-       ORDER BY d.chot_ke_toan_luc DESC LIMIT 5000`,
-    ).bind(...sc.binds),
+       WHERE d.chot_ke_toan_luc >= ? AND d.chot_ke_toan_luc < ?${scope === null ? "" : " AND c.id IS NOT NULL"}${sc.sql}
+       ORDER BY d.chot_ke_toan_luc DESC LIMIT ${TRAN_THANG}`,
+    ).bind(k.tu, k.den, ...sc.binds),
     db.prepare(
       `SELECT h.case_id, h.xuat_hoa_don AS hd_tay, h.hd_sua_by, h.hd_sua_at, h.ghi_chu,
               c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.thoi_gian_hoan_thanh, c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu
        FROM case_hd_bh h INDEXED BY idx_case_hd_bh_hd CROSS JOIN case_dvbh c ON c.id = h.case_id
-       WHERE h.xuat_hoa_don IS NOT NULL AND NOT EXISTS (SELECT 1 FROM don_hoa_don_lk d WHERE d.case_id = h.case_id)${sc.sql}
-       ORDER BY h.hd_sua_at DESC LIMIT 5000`,
-    ).bind(...sc.binds),
+       WHERE h.xuat_hoa_don IS NOT NULL AND h.hd_sua_at >= ? AND h.hd_sua_at < ?
+         AND NOT EXISTS (SELECT 1 FROM don_hoa_don_lk d WHERE d.case_id = h.case_id)${sc.sql}
+       ORDER BY h.hd_sua_at DESC LIMIT ${TRAN_THANG}`,
+    ).bind(k.tu, k.den, ...sc.binds),
     db.prepare("SELECT gia_tri, updated_at FROM cai_dat_he_thong WHERE khoa = 'don_hoa_don_dong_bo'"),
   ]);
   const dongBo = tt.results[0] as { gia_tri: string; updated_at: string } | undefined;
-  return c.json({ don: don.results, tay: tay.results, dongBo: dongBo ? { ...JSON.parse(dongBo.gia_tri), luc: dongBo.updated_at } : null, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
+  return c.json({ don: don.results, tay: tay.results, vuotTran: don.results.length >= TRAN_THANG || tay.results.length >= TRAN_THANG, dongBo: dongBo ? { ...JSON.parse(dongBo.gia_tri), luc: dongBo.updated_at } : null, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
 });
 
 r.post("/hoa-don/dong-bo", async (c) => {
   if (!canModule(c) || !coVaiTroSua(c)) return c.json({ error: "FORBIDDEN" }, 403);
   try {
-    return c.json({ ok: true, ...(await keoDonHoaDon(c.env)) });
+    // ?tat_ca=1 (Admin): kéo lại từ 01/11/2026 - app linh kiện chỉ trả 2.000 dòng MỚI NHẤT nên chỉ hữu ích khi tổng còn nhỏ.
+    const tatCa = c.req.query("tat_ca") === "1" && (c.get("user") as AppUser).vai_tro === "Admin";
+    return c.json({ ok: true, ...(await keoDonHoaDon(c.env, tatCa ? HAN_BH_TU_NGAY : undefined)) });
   } catch (e) {
     const message = e instanceof LoiKeoHoaDon ? e.message : `Lỗi đồng bộ: ${String(e).slice(0, 200)}`;
     return c.json({ error: "DONG_BO_LOI", message }, 502);
@@ -295,6 +315,8 @@ r.post("/hoa-don/dong-bo", async (c) => {
 type DongBh = Record<string, unknown> & { ngay_mua: string | null; ngay_san_xuat: string | null; thoi_gian_cskh_tiep_nhan: string | null; bh_tay: number | null };
 r.get("/bao-hanh", async (c) => {
   if (!canModule(c)) return c.json({ error: "FORBIDDEN" }, 403);
+  const k = khoangThang(c);
+  if (!k) return c.json(LOI_THANG, 400);
   const et = await kiemTraEtag(c, ["cases", "hd_bh", "users"]);
   if (et.khongDoi) return tra304(c, et.etag);
   const sc = khuVucWhereClause(scopeByKhuVuc(c), "c.khu_vuc");
@@ -304,16 +326,16 @@ r.get("/bao-hanh", async (c) => {
             h.con_bao_hanh AS bh_tay, h.bh_sua_by, h.bh_sua_at, h.ghi_chu,
             (SELECT COALESCE(u.ten, u.email) FROM users u WHERE u.email = h.bh_sua_by) AS bh_sua_ten
      FROM case_hd_bh h INDEXED BY idx_case_hd_bh_bh CROSS JOIN case_hieu_luc c ON c.id = h.case_id
-     WHERE h.con_bao_hanh IS NOT NULL${sc.sql}
-     ORDER BY h.bh_sua_at DESC LIMIT 5000`,
+     WHERE h.con_bao_hanh IS NOT NULL AND h.bh_sua_at >= ? AND h.bh_sua_at < ?${sc.sql}
+     ORDER BY h.bh_sua_at DESC LIMIT ${TRAN_THANG}`,
   )
-    .bind(...sc.binds)
+    .bind(k.tu, k.den, ...sc.binds)
     .all<DongBh>();
   const rows = results.map((x) => {
     const k = tinhHanBaoHanh(x.ngay_mua, x.ngay_san_xuat, x.thoi_gian_cskh_tiep_nhan);
     return { ...x, han_bh: k.han, han_theo: k.theo, bh_tu_dong: k.tu_dong, bh_cuoi: trangThaiBhCuoi(x.bh_tay, k.tu_dong) };
   });
-  return c.json({ rows, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
+  return c.json({ rows, vuotTran: rows.length >= TRAN_THANG, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
 });
 
 // ---------- Import Excel ----------
@@ -421,7 +443,7 @@ r.post("/import", async (c) => {
   if (commit && stmts.length) {
     for (let i = 0; i < stmts.length; i += 100) await db.batch(stmts.slice(i, i + 100));
     const domains: DataDomain[] = [];
-    if (dem.doanh_thu) domains.push("cases");
+    if (dem.doanh_thu) domains.push("doanh_thu");
     if (dem.hoa_don || dem.bao_hanh) domains.push("hd_bh");
     if (domains.length) await bumpVersions(db, domains);
   }

@@ -42,7 +42,7 @@ Ngày lập: 2026-07-23. Mục tiêu: mọi endpoint BÁO CÁO/THỐNG KÊ trả
 | GET /missing-parts/by-khu-vuc | missingParts.ts | cases, giai_trinh, settings |
 | GET /missing-parts/linh-kien-thieu (thêm 2026-08-16) | missingParts.ts | cases, giai_trinh, settings |
 | GET /notifications/count | notifications.ts | cases, giai_trinh, vi_pham, ket_qua_goi (thêm 2026-08-20 — badge "khaoSat" loại trừ ca có can_goi_lai=0 trên ket_qua_goi, ghi này không luôn kèm bump vi_pham, xem sửa lỗi bên dưới), giai_trinh_lap, blacklist, nap_gas_danh_gia, tranh_chap, dat_mua_lk (thêm 2026-08-14, xem R10) |
-| GET /dashboard/daily-report | dailyReport.ts (computeDailyReport) | cases, giai_trinh, vi_pham, settings |
+| GET /dashboard/daily-report | dailyReport.ts (computeDailyReport) | cases, doanh_thu, giai_trinh, vi_pham, settings |
 | GET /nap-gas/by-khu-vuc (thêm 2026-07-24) | napGas.ts | cases, nap_gas_danh_gia |
 | GET /tranh-chap/tien-trinh/stats (thêm 2026-07-29, nhận thêm `phan_loai` optional 2026-08-21 — key có `phan_loai` khi truyền) | tranhChap.ts | cases, tranh_chap |
 | GET /tranh-chap/count (thêm 2026-07-29) | tranhChap.ts | cases, tranh_chap |
@@ -60,7 +60,7 @@ Lưu ý: KHÔNG bọc các endpoint trả danh sách phân trang (GET /cases, /m
 |---|---|---|
 | GET /dashboard/kpis | dashboard.ts | cases, vi_pham, giai_trinh (+ xem CHỐT 2026-08-01 dưới) |
 | GET /dashboard/pivot | dashboard.ts | cases (+ xem CHỐT 2026-08-01 dưới) |
-| GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases (+users cho giam-sat) (+ xem CHỐT 2026-08-01 dưới) |
+| GET /revenue, /revenue/trend, /revenue/giam-sat | revenue.ts | cases, doanh_thu (sửa DT tay, 2026-11-16) (+users cho giam-sat) (+ xem CHỐT 2026-08-01 dưới) |
 | GET /survey/counts, /by-khu-vuc | survey.ts | cases, vi_pham, ket_qua_goi — phần "da-xu-ly" đọc từ key chung `survey/da-xu-ly-theo-kv-v1` (cases, vi_pham), không theo scope (2026-10-15) |
 | GET /dashboard/pivot | dashboard.ts | cases — key `dashboard/pivot-v2` (2026-10-22: dim KTV = COALESCE(ktv_trien_khai, ky_thuat_vien)) |
 | GET /survey/loai-tru/theo-doi | survey.ts | cases, khao_sat_loai_tru (domain mới 2026-10-17, chỉ POST/DELETE /survey/loai-tru bump; key chung mọi scope, lọc khu vực trong JS) |

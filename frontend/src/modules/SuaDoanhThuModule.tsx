@@ -2,7 +2,7 @@
 //  - Ca đã sửa doanh thu: DT CRM gốc vs DT chuẩn, chênh lệch, người sửa, lý do.
 //  - Đơn xuất hóa đơn: đơn có yêu cầu HĐ từ app Đặt mua linh kiện (đẩy khi Kế toán chốt + nút Đồng bộ) + ca GS đánh giá tay.
 //  - Hạn bảo hành: ca tiếp nhận theo tháng (từ 11/2026), hạn tự tính (ngày mua +24T / ngày SX +36T, mốc nào trước), GS sửa tay.
-// Bảng lọc + sắp xếp kiểu Excel phía trình duyệt (lib/locCotClient.ts). Tải lại chỉ khi dữ liệu đổi (ETag/304 + gcTime 30 phút).
+// Bảng lọc + sắp xếp kiểu Excel phía trình duyệt (lib/locCotClient.ts), 20 dòng/trang. Tải theo 1 tháng; tải lại chỉ khi dữ liệu đổi (ETag/304 + gcTime 30 phút).
 // Import Excel: cột ID + DT sản phẩm / DT linh kiện / DT dịch vụ / Lý do / Xuất hóa đơn (Có/Không) / Bảo hành (Còn/Hết); xem trước rồi ghi.
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
+import { Select } from "../components/ui/Select";
 import { useToast } from "../components/ui/Toast";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import type { KieuLocCot, LocCot } from "../components/ui/LocCotPopover";
@@ -20,7 +21,7 @@ import { fmtDate, fmtDateTime, fmtVND } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
-import { NHAN_BH, type TrangThaiBh } from "../lib/hanBaoHanh";
+import { HAN_BH_TU_NGAY, NHAN_BH, type TrangThaiBh } from "../lib/hanBaoHanh";
 import { tr } from "../i18n/tr";
 
 type OpenCase = (id: string, tab?: string) => void;
@@ -34,6 +35,28 @@ const VIEWS = [
 ];
 
 const tong = (a: number | null, b: number | null, c: number | null) => (a ?? 0) + (b ?? 0) + (c ?? 0);
+
+// 2026-11-16 (phân tích chi phí 3 năm): mọi bảng tải theo 1 THÁNG - số dòng đọc / tải về không tăng dần theo thời gian.
+// Tab 1/3: tháng sửa; tab 2: tháng Kế toán chốt (ca đánh giá tay: tháng sửa). Dùng chung 1 ô chọn cho 3 tab.
+const THANG_DAU = HAN_BH_TU_NGAY.slice(0, 7);
+function thangHienTai() {
+  return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 7);
+}
+function dsThang(): string[] {
+  const out: string[] = [];
+  let t = thangHienTai();
+  while (t >= THANG_DAU) {
+    out.push(t);
+    const [y, m] = t.split("-").map(Number);
+    t = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+  }
+  return out;
+}
+const NHAN_THANG: Record<string, string> = { "doanh-thu": "Tháng sửa", "hoa-don": "Tháng KT chốt", "bao-hanh": "Tháng sửa" };
+function CanhBaoTran({ vuot }: { vuot?: boolean }) {
+  if (!vuot) return null;
+  return <div className="mb-2 text-xs text-[var(--coral-500)]">{tr("Tháng này vượt 10.000 dòng - chỉ hiện 10.000 dòng mới nhất, hãy báo quản trị.")}</div>;
+}
 
 const SO_DONG_TRANG = 20;
 /** Bang dung chung: loc + sap xep + phan trang 20 dong phia trinh duyet. */
@@ -87,6 +110,8 @@ function BangLoc<T>({ rows, cot, lay, rowKey, onRowClick, storageKey, sapMacDinh
 
 export function SuaDoanhThuModule({ openCase }: { openCase: OpenCase }) {
   const [view, setView] = useLocalStorageState("filters:sua-dt-view", "doanh-thu");
+  const [thangLuu, setThang] = useLocalStorageState("filters:sua-dt-thang", thangHienTai());
+  const thang = thangLuu >= THANG_DAU && thangLuu <= thangHienTai() ? thangLuu : thangHienTai();
   const [moImport, setMoImport] = useState(false);
   return (
     <div className="anim-in">
@@ -95,12 +120,19 @@ export function SuaDoanhThuModule({ openCase }: { openCase: OpenCase }) {
         onChange={setView}
         tabs={VIEWS}
         extra={
-          <Btn size="sm" variant="subtle" onClick={() => setMoImport(true)}>
-            {tr("⇩ Import Excel sửa DT / HĐ / BH")}
-          </Btn>
+          <div className="flex items-center gap-2">
+            <Select
+              value={thang}
+              onChange={setThang}
+              options={dsThang().map((t) => ({ value: t, label: `${tr(NHAN_THANG[view] ?? "Tháng sửa")} ${t.slice(5)}/${t.slice(0, 4)}` }))}
+            />
+            <Btn size="sm" variant="subtle" onClick={() => setMoImport(true)}>
+              {tr("⇩ Import Excel sửa DT / HĐ / BH")}
+            </Btn>
+          </div>
         }
       />
-      {view === "hoa-don" ? <HoaDonTab openCase={openCase} /> : view === "bao-hanh" ? <BaoHanhTab openCase={openCase} /> : <DoanhThuTab openCase={openCase} />}
+      {view === "hoa-don" ? <HoaDonTab openCase={openCase} thang={thang} /> : view === "bao-hanh" ? <BaoHanhTab openCase={openCase} thang={thang} /> : <DoanhThuTab openCase={openCase} thang={thang} />}
       <ImportModal open={moImport} onClose={() => setMoImport(false)} />
     </div>
   );
@@ -126,8 +158,12 @@ interface DtRow {
   dt_sua_ten: string | null;
   dt_sua_ly_do: string | null;
 }
-function DoanhThuTab({ openCase }: { openCase: OpenCase }) {
-  const { data, isLoading, isError, refetch } = useQuery({ ...GIU_DU_LIEU, queryKey: ["sua-dt", "doanh-thu"], queryFn: () => api.get<{ rows: DtRow[] }>("/sua-doanh-thu/doanh-thu") });
+function DoanhThuTab({ openCase, thang }: { openCase: OpenCase; thang: string }) {
+  const { data, isLoading, isError, refetch } = useQuery({
+    ...GIU_DU_LIEU,
+    queryKey: ["sua-dt", "doanh-thu", thang],
+    queryFn: () => api.get<{ rows: DtRow[]; vuotTran?: boolean }>(`/sua-doanh-thu/doanh-thu?thang=${thang}`),
+  });
   const rows = data?.rows ?? [];
   const crm = (r: DtRow) => tong(r.dt_san_pham_crm, r.dt_linh_kien_crm, r.dt_dich_vu_crm);
   const chuan = (r: DtRow) => tong(r.dt_san_pham, r.dt_linh_kien, r.dt_dich_vu);
@@ -207,6 +243,7 @@ function DoanhThuTab({ openCase }: { openCase: OpenCase }) {
           {tr("⬇ Xuất Excel")}
         </Btn>
       </div>
+      <CanhBaoTran vuot={data?.vuotTran} />
       {isError ? (
         <Btn size="sm" onClick={() => refetch()}>{tr("Thử lại")}</Btn>
       ) : isLoading ? (
@@ -240,14 +277,15 @@ interface HdRow {
 interface HdPayload {
   don: (Record<string, unknown> & { don_id: string; case_id: string; da_huy: number; hd_tay: number | null })[];
   tay: (Record<string, unknown> & { case_id: string; hd_tay: number })[];
-  dongBo: { luc: string; nhan: number; ghi: number; chua_khop: number } | null;
+  dongBo: { luc: string; nhan: number; ghi: number; chua_khop: number; tu_ngay?: string; co_the_thieu?: boolean } | null;
+  vuotTran?: boolean;
   duocSua: boolean;
 }
-function HoaDonTab({ openCase }: { openCase: OpenCase }) {
+function HoaDonTab({ openCase, thang }: { openCase: OpenCase; thang: string }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [dangDb, setDangDb] = useState(false);
-  const { data, isLoading } = useQuery({ ...GIU_DU_LIEU, queryKey: ["sua-dt", "hoa-don"], queryFn: () => api.get<HdPayload>("/sua-doanh-thu/hoa-don") });
+  const { data, isLoading } = useQuery({ ...GIU_DU_LIEU, queryKey: ["sua-dt", "hoa-don", thang], queryFn: () => api.get<HdPayload>(`/sua-doanh-thu/hoa-don?thang=${thang}`) });
   const rows: HdRow[] = useMemo(() => {
     const s = (v: unknown) => (v == null ? null : String(v));
     const n = (v: unknown) => (v == null ? null : Number(v));
@@ -297,8 +335,11 @@ function HoaDonTab({ openCase }: { openCase: OpenCase }) {
   async function dongBo() {
     setDangDb(true);
     try {
-      const r = await api.post<{ nhan: number; ghi: number; xoa: number; chua_khop: number }>("/sua-doanh-thu/hoa-don/dong-bo");
-      toast(tr("Đồng bộ xong: nhận {0} đơn, {1} dòng thay đổi, {2} đơn chưa khớp ca", r.nhan, r.ghi, r.chua_khop));
+      const r = await api.post<{ nhan: number; ghi: number; xoa: number; chua_khop: number; tu_ngay: string; co_the_thieu: boolean }>("/sua-doanh-thu/hoa-don/dong-bo");
+      toast(
+        tr("Đồng bộ xong (từ {0}): nhận {1} đơn, {2} dòng thay đổi, {3} đơn chưa khớp ca", fmtDate(r.tu_ngay), r.nhan, r.ghi, r.chua_khop) +
+          (r.co_the_thieu ? ` - ${tr("app linh kiện trả đủ 2.000 dòng, có thể còn thiếu đơn cũ hơn")}` : ""),
+      );
       qc.invalidateQueries({ queryKey: ["sua-dt"] });
     } catch (e) {
       toast(e instanceof ApiError ? (e.detail ?? e.message) : String(e));
@@ -345,10 +386,13 @@ function HoaDonTab({ openCase }: { openCase: OpenCase }) {
         )}
         <span>
           {db
-            ? tr("Kéo gần nhất: {0} — {1} đơn, {2} chưa khớp ca", fmtDateTime(db.luc), db.nhan, db.chua_khop)
+            ? tr("Kéo gần nhất: {0} — {1} đơn, {2} chưa khớp ca", fmtDateTime(db.luc), db.nhan, db.chua_khop) +
+              (db.tu_ngay ? ` (${tr("từ {0}", fmtDate(db.tu_ngay))})` : "") +
+              (db.co_the_thieu ? ` - ${tr("có thể còn thiếu đơn cũ hơn")}` : "")
             : tr("Đơn mới được app linh kiện tự đẩy sang khi Kế toán chốt phiếu; bấm Đồng bộ để kéo bù.")}
         </span>
       </div>
+      <CanhBaoTran vuot={data?.vuotTran} />
       {isLoading ? (
         <div className="text-sm text-[var(--ink-400)]">{tr("Đang tải…")}</div>
       ) : (
@@ -381,12 +425,12 @@ interface BhRow {
   bh_sua_at: string | null;
   ghi_chu: string | null;
 }
-function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
+function BaoHanhTab({ openCase, thang }: { openCase: OpenCase; thang: string }) {
   // Chỉ ca đã sửa tay hạn BH (2026-11-16) - ca tự tính xem ở chi tiết ca.
   const { data, isLoading, isError, error } = useQuery({
     ...GIU_DU_LIEU,
-    queryKey: ["sua-dt", "bao-hanh"],
-    queryFn: () => api.get<{ rows: BhRow[] }>("/sua-doanh-thu/bao-hanh"),
+    queryKey: ["sua-dt", "bao-hanh", thang],
+    queryFn: () => api.get<{ rows: BhRow[]; vuotTran?: boolean }>(`/sua-doanh-thu/bao-hanh?thang=${thang}`),
   });
   const rows = data?.rows ?? [];
   const nhan = (s: TrangThaiBh) => tr(NHAN_BH[s]);
@@ -445,6 +489,7 @@ function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
         <span>{tr("Hết BH")}: <b>{dem("het")}</b></span>
         <span className="text-xs text-[var(--ink-400)]">{tr("Chỉ liệt kê ca đã sửa tay. Hạn tự tính = ngày mua +24 tháng / ngày SX +36 tháng, mốc nào đến trước - xem và sửa trong chi tiết ca.")}</span>
       </div>
+      <CanhBaoTran vuot={data?.vuotTran} />
       {isError ? (
         <div className="text-sm text-[var(--coral-500)]">{error instanceof ApiError ? (error.detail ?? error.message) : String(error)}</div>
       ) : isLoading ? (

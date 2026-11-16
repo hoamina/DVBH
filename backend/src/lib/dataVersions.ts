@@ -41,7 +41,9 @@
 // ghiLienKetLada) - chi CaseDetail doc (CASE_DETAIL_DOMAINS), chi bump khi co don moi/doi.
 // "hd_bh" (2026-11-14, migration 0170): danh gia tay xuat hoa don / con-het bao hanh (case_hd_bh) + don hoa don tu linh-kien-app
 // (don_hoa_don_lk) - chi CaseDetail + module "Sửa DT · HĐ · BH" doc (doc song), khong bao cao tinh san nao.
-const ALL_DOMAINS = ["blacklist", "canh_bao_ton_log", "cases", "dat_mua_lk", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "hd_bh", "ket_qua_goi", "khao_sat_loai_tru", "lada", "nap_gas_danh_gia", "po_dat_hang", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
+// "doanh_thu" (2026-11-16): sửa doanh thu chuẩn bằng tay / import (module Sửa DT · HĐ · BH) - KHÔNG bump "cases" (31 báo cáo phụ thuộc,
+// mỗi lần GS sửa 1 ca sẽ làm hết hạn cache toàn hệ thống). Chỉ báo cáo có đọc dt_* khai báo: revenue.ts, dailyReport.ts (banner DT).
+const ALL_DOMAINS = ["blacklist", "canh_bao_ton_log", "cases", "dat_mua_lk", "doanh_thu", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "hd_bh", "ket_qua_goi", "khao_sat_loai_tru", "lada", "nap_gas_danh_gia", "po_dat_hang", "settings", "ton_kho", "tranh_chap", "users", "vi_pham", "vi_pham_giai_trinh"] as const;
 export type DataDomain = (typeof ALL_DOMAINS)[number];
 
 /** Tang version them 1 cho tung domain trong danh sach (1 cau UPSERT nhieu dong VALUES) - goi ngay

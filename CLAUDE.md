@@ -234,7 +234,8 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     TN CSKH / TBP DVBH / TBP CSKH / Admin, no approval, every change logged in `case_sua_log`. (1) **Doanh thu chuẩn**: the 3 `dt_*`
     columns are OVERWRITTEN with the corrected values (owner: corrected revenue replaces CRM revenue in every report), CRM originals
     kept in `dt_*_crm`; `importProcessor buildFullOverwrite` keeps `dt_*` when `dt_sua_at IS NOT NULL` (same pattern as
-    `khu_vuc_sua_at`); edits bump `cases`. R2 "đã đóng" chunks / the frozen 08:00 snapshot keep old numbers until rewritten. (2) **Xuất
+    `khu_vuc_sua_at`); edits bump domain `doanh_thu`, NOT `cases` (v1.613 — `cases` would expire 31 cached reports system-wide per edit;
+    only `revenue.ts` + `dailyReport.ts` declare `doanh_thu`). R2 "đã đóng" chunks / the frozen 08:00 snapshot keep old numbers until rewritten. (2) **Xuất
     hóa đơn**: linh-kien-app PUSHES invoice-requested order lines when Kế toán chốt a PXK (`POST /api/partner/sync/don-hoa-don`, its
     `lib/hoaDonDvbh.ts`) + manual pull button (`GET {LINHKIEN_APP_URL}/api/partner/v1/don-hoa-don?tu_ngay=`), both via
     `lib/hoaDonLk.ts ghiDonHoaDon` → `don_hoa_don_lk` (matched by case id on the order > `case_lada`, only changed rows written).
@@ -245,6 +246,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     over (user, scope, URL, domain versions) → 304 when unchanged (`kiemTraEtag`); every write in the module bumps with `await`, not `waitUntil`.
     Tab Hạn bảo hành lists ONLY manually-fixed cases (`case_hd_bh.con_bao_hanh IS NOT NULL`, partial index `idx_case_hd_bh_bh`,
     migration 0171, owner 2026-11-16) — auto-computed ones are only shown in CaseDetail. Tables paginate 20 rows client-side.
+    All 3 list GETs require `?thang=YYYY-MM` (sửa month / Kế toán chốt month, range on their indexes, cap 10k + `vuotTran`) so cost
+    stays one month's rows forever. "Đồng bộ" pulls INCREMENTALLY from MAX(chot_ke_toan_luc) − 7 days (linh-kien-app returns only the
+    newest 2.000 rows; `co_the_thieu` when it hits that); Admin `?tat_ca=1` pulls from 01/11/2026.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the

@@ -166,5 +166,5 @@ export async function computeDailyReport(db: D1Database, user: AppUser): Promise
   const isGiamSat = user.vai_tro === "Giam sat";
   const scope: string[] | null = isGiamSat ? user.khu_vuc_phu_trach : null;
   const key = buildReportKey("dashboard/daily-report", { vai_tro: user.vai_tro ?? "" }, scope);
-  return cachedReport(db, key, ["cases", "giai_trinh", "vi_pham", "settings", "giai_trinh_lap", "blacklist"], () => computeDailyReportData(db, user));
+  return cachedReport(db, key, ["cases", "doanh_thu", "giai_trinh", "vi_pham", "settings", "giai_trinh_lap", "blacklist"], () => computeDailyReportData(db, user));
 }

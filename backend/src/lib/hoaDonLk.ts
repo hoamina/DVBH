@@ -130,9 +130,22 @@ export async function ghiDonHoaDon(dbVao: D1Database, rows: DonHoaDonVao[], nguo
 
 export class LoiKeoHoaDon extends Error {}
 
-/** Kéo toàn bộ đơn hóa đơn đã chốt từ `tuNgay` (mặc định 01/11/2026) từ linh-kien-app rồi ghi. */
-export async function keoDonHoaDon(env: Env, tuNgay = HAN_BH_TU_NGAY): Promise<KetQuaGhiHd & { tu_ngay: string }> {
+// linh-kien-app GET /v1/don-hoa-don trả tối đa 2.000 dòng, MỚI NHẤT trước (ORDER BY chot_ke_toan_luc DESC) - kéo từ 01/11/2026 sẽ âm thầm
+// sót đơn cũ khi tổng > 2.000. Nên mặc định kéo TĂNG DẦN (2026-11-16): từ 7 ngày trước lần chốt mới nhất đã có (bù đơn đổi trạng thái /
+// huỷ gần đây; đơn cũ hơn do đường ĐẨY lo). Kết quả đủ 2.000 dòng -> co_the_thieu = true để giao diện cảnh báo.
+const KEO_GIOI_HAN_BEN_LK = 2000;
+const KEO_LUI_NGAY = 7;
+
+/** Kéo đơn hóa đơn đã chốt từ `tuNgayVao` (mặc định: tăng dần, xem trên) từ linh-kien-app rồi ghi. */
+export async function keoDonHoaDon(env: Env, tuNgayVao?: string): Promise<KetQuaGhiHd & { tu_ngay: string; co_the_thieu: boolean }> {
   if (!env.LINHKIEN_APP_URL || !env.LINHKIEN_APP_API_KEY) throw new LoiKeoHoaDon("Chưa cấu hình kết nối app Đặt mua linh kiện.");
+  let tuNgay = tuNgayVao ?? HAN_BH_TU_NGAY;
+  if (!tuNgayVao) {
+    const r = await dbGoc(env.DB)
+      .prepare(`SELECT date(MAX(chot_ke_toan_luc), '-${KEO_LUI_NGAY} days') AS tu FROM don_hoa_don_lk`)
+      .first<{ tu: string | null }>();
+    if (r?.tu && r.tu > tuNgay) tuNgay = r.tu;
+  }
   const url = `${env.LINHKIEN_APP_URL}/api/partner/v1/don-hoa-don?tu_ngay=${encodeURIComponent(tuNgay)}`;
   const init: RequestInit = { headers: { "X-API-Key": env.LINHKIEN_APP_API_KEY }, signal: AbortSignal.timeout(20000) };
   const res = env.LINHKIEN_APP ? await env.LINHKIEN_APP.fetch(url, init) : await fetch(url, init);
@@ -143,12 +156,13 @@ export async function keoDonHoaDon(env: Env, tuNgay = HAN_BH_TU_NGAY): Promise<K
   const body = (await res.json()) as { rows?: DonHoaDonVao[] };
   const rows = Array.isArray(body.rows) ? body.rows : [];
   const kq = await ghiDonHoaDon(env.DB, rows, "pull");
+  const coTheThieu = rows.length >= KEO_GIOI_HAN_BEN_LK;
   await dbGoc(env.DB)
     .prepare(
       `INSERT INTO cai_dat_he_thong (khoa, gia_tri, updated_at, updated_by) VALUES ('don_hoa_don_dong_bo', ?, ?, 'pull')
        ON CONFLICT(khoa) DO UPDATE SET gia_tri = excluded.gia_tri, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
     )
-    .bind(JSON.stringify({ ...kq, tu_ngay: tuNgay }), nowVN())
+    .bind(JSON.stringify({ ...kq, tu_ngay: tuNgay, co_the_thieu: coTheThieu }), nowVN())
     .run();
-  return { ...kq, tu_ngay: tuNgay };
+  return { ...kq, tu_ngay: tuNgay, co_the_thieu: coTheThieu };
 }
