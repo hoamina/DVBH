@@ -243,9 +243,8 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     cases received from 2026-11-01; computed at read time, manual override `case_hd_bh.con_bao_hanh`. Excel import
     `POST /import?commit=0|1`. Domain `hd_bh` (in `CASE_DETAIL_DOMAINS`). Live reads (no cachedReport) but the 3 list GETs return a weak ETag
     over (user, scope, URL, domain versions) → 304 when unchanged (`kiemTraEtag`); every write in the module bumps with `await`, not `waitUntil`.
-    Tab Hạn bảo hành = DELTA (v1.611, frontend `lib/hanBhCache.ts` IndexedDB): client sends `moc`/`khoa`; same `khoa` (VN date + domain
-    `ca_cau_truc` (bumped by huỷ/bỏ huỷ/sửa khu vực in cases.ts) + scope hash) → only cases of the month with `updated_at > moc-7h05`
-    (INSERT stores UTC, UPDATE VN) + `bh_sua_at > moc`, plus `xoa` ids; otherwise the full month (≥1 full/day = safety net).
+    Tab Hạn bảo hành lists ONLY manually-fixed cases (`case_hd_bh.con_bao_hanh IS NOT NULL`, partial index `idx_case_hd_bh_bh`,
+    migration 0171, owner 2026-11-16) — auto-computed ones are only shown in CaseDetail. Tables paginate 20 rows client-side.
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the
@@ -512,7 +511,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0170`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0171`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`

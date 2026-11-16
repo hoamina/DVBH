@@ -1679,7 +1679,7 @@ cases.post("/:id/huy", requireRole("Admin"), async (c) => {
 
   // Bump "cases" - huy ca anh huong KPI/backlog/khao sat/ca lap (khac assigned_to o survey.ts von
   // co y bo qua bump vi khong anh huong bao cao nao).
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases", "ca_cau_truc"]));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
   // Ca lap: ca huy roi khoi chuoi lap cua serial (eligibleClause) - huy khong doi updated_at nen luoi an toan cron khong thay,
   // tinh lai ngay serial nay (2026-11-11; truoc day cho lan tinh lai toan bo tinh co chay sau do).
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB, [caseRow.seri_san_pham ?? ""]));
@@ -1699,7 +1699,7 @@ cases.post("/:id/bo-huy", requireRole("Admin"), async (c) => {
     .bind(id)
     .run();
 
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases", "ca_cau_truc"]));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
   c.executionCtx.waitUntil(refreshCaLapPrecompute(c.env.DB, [caseRow.seri_san_pham ?? ""])); // xem /:id/huy
 
   return c.json({ ok: true });
@@ -1724,7 +1724,7 @@ cases.patch("/:id/khu-vuc", requireRole("Admin"), async (c) => {
     .bind(khuVuc, user.email, nowVN(), id)
     .run();
   if (!result.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases", "ca_cau_truc"]));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
   return c.json({ ok: true });
 });
 
@@ -1738,7 +1738,7 @@ cases.delete("/:id/khu-vuc", requireRole("Admin"), async (c) => {
     .bind(id)
     .run();
   if (!result.meta.changes) return c.json({ error: "KHONG_CO_SUA_TAY" }, 404);
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases", "ca_cau_truc"]));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
   return c.json({ ok: true });
 });
 
@@ -1817,7 +1817,7 @@ cases.post("/huy-bulk/commit", requireRole("Admin"), async (c) => {
   const summary = await processBulkHuy(c.env.DB, body.rows, user.email, true);
 
   if (summary.thanhCong > 0) {
-    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases", "ca_cau_truc"]));
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
     c.executionCtx.waitUntil(
       logImportHistory(c.env.DB, {
         loai: "huy_ca_bulk",

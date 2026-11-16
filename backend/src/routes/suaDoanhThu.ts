@@ -6,7 +6,7 @@
  *     Lưu ý: chunk R2 "Ca đã đóng" giữ số cũ tới lần import kế tiếp ghi lại ngày đó (không thêm điểm ghi R2 - quy tắc CLAUDE.md);
  *     "Báo cáo ngày 08:00" đã chốt giữ số cũ tới lần chốt sau.
  *  2) Đơn xuất hóa đơn: tự động từ app Đặt mua linh kiện (lib/hoaDonLk.ts, đẩy khi Kế toán chốt + nút đồng bộ) - GS sửa tay được.
- *  3) Hạn bảo hành: tự tính (lib/hanBaoHanh.ts, ca tiếp nhận từ 01/11/2026) - GS sửa tay được.
+ *  3) Hạn bảo hành: tự tính (lib/hanBaoHanh.ts, ca tiếp nhận từ 01/11/2026) - GS sửa tay được; bảng chỉ liệt kê ca sửa tay.
  *
  *  GET    /ca/:id                 dữ liệu cho chi tiết ca (đánh giá tay, đơn HĐ, nhật ký, quyền sửa)
  *  PUT    /ca/:id/doanh-thu       {dt_san_pham, dt_linh_kien, dt_dich_vu, ly_do}
@@ -16,9 +16,9 @@
  *  GET    /doanh-thu              bảng "Ca đã sửa doanh thu"
  *  GET    /hoa-don                bảng "Đơn xuất hóa đơn" (+ ca đánh giá tay)
  *  POST   /hoa-don/dong-bo        kéo đơn hóa đơn từ app linh kiện
- *  GET    /bao-hanh?thang=YYYY-MM[&moc&khoa] bảng "Hạn bảo hành" theo tháng tiếp nhận (từ 11/2026) - full hoặc delta
+ *  GET    /bao-hanh               bảng "Hạn bảo hành" = chỉ ca đã sửa tay
  *  POST   /import?commit=0|1      import Excel {rows:[{id, dt_san_pham?, dt_linh_kien?, dt_dich_vu?, ly_do?, xuat_hoa_don?, con_bao_hanh?}]}
- * Đọc sống (không cachedReport) nhưng có ETag theo version domain -> không đổi thì 304 (xem kiemTraEtag): bảng 1-2 nhỏ (quét partial index), bảng 3 theo 1 tháng qua idx_case_thoi_gian_tiep_nhan.
+ * Đọc sống (không cachedReport) nhưng có ETag theo version domain -> không đổi thì 304 (xem kiemTraEtag): bảng 1-2 nhỏ (quét partial index), bảng 3 = ca sửa tay qua idx_case_hd_bh_bh.
  */
 import { Hono, type Context } from "hono";
 import type { AppUser, Env } from "../types";
@@ -28,7 +28,7 @@ import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { hasModule } from "../lib/moduleAccess";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions, versionTagStatement, type DataDomain } from "../lib/dataVersions";
-import { HAN_BH_TU_NGAY, tinhHanBaoHanh, trangThaiBhCuoi } from "../lib/hanBaoHanh";
+import { tinhHanBaoHanh, trangThaiBhCuoi } from "../lib/hanBaoHanh";
 import { keoDonHoaDon, LoiKeoHoaDon } from "../lib/hoaDonLk";
 
 type C = Context<{ Bindings: Env }>;
@@ -290,80 +290,30 @@ r.post("/hoa-don/dong-bo", async (c) => {
   }
 });
 
-// Hạn bảo hành - TẢI THEO DELTA (2026-11-16, chủ hệ thống: "chỉ load ca có thay đổi, lưu sẵn, bấm mới xem chi tiết"):
-//  - Trình duyệt giữ bảng của tháng trong IndexedDB (frontend lib/hanBhCache.ts) và gửi lại {moc, khoa} của lần tải trước.
-//  - khoa = ngày VN + version "ca_cau_truc" (huỷ / bỏ huỷ / sửa khu vực - không đổi updated_at) + băm phạm vi người xem.
-//    Khác (sang ngày mới, có ca bị huỷ/đổi khu vực, đổi phân quyền) hoặc không có -> trả CẢ tháng (full). Mỗi ngày full 1 lần cũng là
-//    lưới an toàn cho ca bị lưu trữ / đổi ngày tiếp nhận.
-//  - Còn lại chỉ trả ca của tháng có updated_at > moc (ca đóng: idx_case_updated_at_closed, ca mở: idx_case_ton) + ca có bh_sua_at > moc.
-//    updated_at: INSERT ghi giờ UTC (DEFAULT datetime('now')), UPDATE ghi giờ VN -> so với moc - 7h05 (thừa vài dòng, không sót).
-//    Ca trong delta đã huỷ / ra ngoài phạm vi -> trả trong "xoa".
-//  - Chỉ trả cột hiển thị trên bảng; chi tiết ca mở theo ID (CaseDetail).
-const COT_BH = `c.id, c.khu_vuc, c.ky_thuat_vien, c.hang, c.san_pham_bao_hanh, c.loai_yeu_cau, c.hinh_thuc_bao_hanh,
-            c.thoi_gian_cskh_tiep_nhan, c.ngay_mua, c.ngay_san_xuat, h.con_bao_hanh AS bh_tay, h.bh_sua_by`;
-type DongBh = Record<string, unknown> & { id: string; khu_vuc: string | null; ngay_mua: string | null; ngay_san_xuat: string | null; thoi_gian_cskh_tiep_nhan: string | null; bh_tay: number | null; huy_bo_at?: string | null };
-function lui(vn: string, phut: number): string {
-  const t = Date.parse(vn.replace(" ", "T") + "Z") - phut * 60_000;
-  return new Date(t).toISOString().slice(0, 19).replace("T", " ");
-}
-function tinhDongBh(x: DongBh) {
-  const { huy_bo_at: _h, ...dong } = x;
-  const k = tinhHanBaoHanh(x.ngay_mua, x.ngay_san_xuat, x.thoi_gian_cskh_tiep_nhan);
-  return { ...dong, han_bh: k.han, han_theo: k.theo, bh_tu_dong: k.tu_dong, bh_cuoi: trangThaiBhCuoi(x.bh_tay, k.tu_dong) };
-}
-
+// Hạn bảo hành (2026-11-16, chủ hệ thống): bảng CHỈ gồm ca đã sửa tay hạn bảo hành (case_hd_bh.con_bao_hanh IS NOT NULL) - không tải
+// cả tháng; ca tự tính xem ở chi tiết ca (DtHdBhPanel). Đi từ partial index idx_case_hd_bh_bh (migration 0171), ETag như 2 bảng kia.
+type DongBh = Record<string, unknown> & { ngay_mua: string | null; ngay_san_xuat: string | null; thoi_gian_cskh_tiep_nhan: string | null; bh_tay: number | null };
 r.get("/bao-hanh", async (c) => {
   if (!canModule(c)) return c.json({ error: "FORBIDDEN" }, 403);
-  const thang = c.req.query("thang") ?? "";
-  if (!/^\d{4}-\d{2}$/.test(thang) || `${thang}-01` < HAN_BH_TU_NGAY) {
-    return c.json({ error: "INVALID_THANG", message: `Chỉ tính hạn bảo hành cho ca tiếp nhận từ ${HAN_BH_TU_NGAY}.` }, 400);
-  }
-  const db = c.env.DB;
-  const scope = scopeByKhuVuc(c);
-  const user = c.get("user") as AppUser;
-  const moi = nowVN();
-  const [vStmt, ghepVer] = versionTagStatement(db, ["ca_cau_truc"]);
-  const ver = ghepVer((await vStmt!.all<{ domain: string; version: number }>()).results);
-  const bam = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(`${user.email}|${user.vai_tro}|${JSON.stringify(scope)}`));
-  const khoa = `${moi.slice(0, 10)}|${ver}|${[...new Uint8Array(bam)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("")}|1`;
-  const mocCu = c.req.query("moc") ?? "";
-  const delta = c.req.query("khoa") === khoa && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(mocCu);
-  const dkThang = "c.thoi_gian_cskh_tiep_nhan >= ? || '-01' AND c.thoi_gian_cskh_tiep_nhan < date(? || '-01', '+1 month')";
-
-  if (!delta) {
-    const sc = khuVucWhereClause(scope, "c.khu_vuc");
-    const { results } = await db
-      .prepare(`SELECT ${COT_BH} FROM case_hieu_luc c LEFT JOIN case_hd_bh h ON h.case_id = c.id WHERE ${dkThang}${sc.sql}`)
-      .bind(thang, thang, ...sc.binds)
-      .all<DongBh>();
-    return c.json({ full: true, rows: results.map(tinhDongBh), xoa: [], moc: moi, khoa, duocSua: coVaiTroSua(c) });
-  }
-
-  const mocCa = lui(mocCu, 7 * 60 + 5);
-  const mocBh = lui(mocCu, 5);
-  const [dong, mo, bh] = await db.batch([
-    db.prepare(
-      `SELECT ${COT_BH}, c.huy_bo_at FROM case_dvbh c INDEXED BY idx_case_updated_at_closed LEFT JOIN case_hd_bh h ON h.case_id = c.id
-       WHERE c.thoi_gian_hoan_thanh IS NOT NULL AND c.updated_at > ? AND ${dkThang}`,
-    ).bind(mocCa, thang, thang),
-    db.prepare(
-      `SELECT ${COT_BH}, c.huy_bo_at FROM case_dvbh c INDEXED BY idx_case_ton LEFT JOIN case_hd_bh h ON h.case_id = c.id
-       WHERE c.thoi_gian_hoan_thanh IS NULL AND c.updated_at > ? AND ${dkThang}`,
-    ).bind(mocCa, thang, thang),
-    db.prepare(
-      `SELECT ${COT_BH}, c.huy_bo_at FROM case_hd_bh h CROSS JOIN case_dvbh c ON c.id = h.case_id
-       WHERE h.bh_sua_at > ? AND ${dkThang}`,
-    ).bind(mocBh, thang, thang),
-  ]);
-  const theoId = new Map<string, DongBh>();
-  for (const kq of [dong, mo, bh]) for (const x of kq.results as DongBh[]) theoId.set(x.id, x);
-  const rows: ReturnType<typeof tinhDongBh>[] = [];
-  const xoa: string[] = [];
-  for (const x of theoId.values()) {
-    if (x.huy_bo_at || (scope !== null && !(x.khu_vuc && scope.includes(x.khu_vuc)))) xoa.push(x.id);
-    else rows.push(tinhDongBh(x));
-  }
-  return c.json({ full: false, rows, xoa, moc: moi, khoa, duocSua: coVaiTroSua(c) });
+  const et = await kiemTraEtag(c, ["cases", "hd_bh", "users"]);
+  if (et.khongDoi) return tra304(c, et.etag);
+  const sc = khuVucWhereClause(scopeByKhuVuc(c), "c.khu_vuc");
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.id, c.khu_vuc, c.ky_thuat_vien, c.hang, c.san_pham_bao_hanh, c.loai_yeu_cau, c.hinh_thuc_bao_hanh,
+            c.thoi_gian_cskh_tiep_nhan, c.ngay_mua, c.ngay_san_xuat,
+            h.con_bao_hanh AS bh_tay, h.bh_sua_by, h.bh_sua_at, h.ghi_chu,
+            (SELECT COALESCE(u.ten, u.email) FROM users u WHERE u.email = h.bh_sua_by) AS bh_sua_ten
+     FROM case_hd_bh h INDEXED BY idx_case_hd_bh_bh CROSS JOIN case_hieu_luc c ON c.id = h.case_id
+     WHERE h.con_bao_hanh IS NOT NULL${sc.sql}
+     ORDER BY h.bh_sua_at DESC LIMIT 5000`,
+  )
+    .bind(...sc.binds)
+    .all<DongBh>();
+  const rows = results.map((x) => {
+    const k = tinhHanBaoHanh(x.ngay_mua, x.ngay_san_xuat, x.thoi_gian_cskh_tiep_nhan);
+    return { ...x, han_bh: k.han, han_theo: k.theo, bh_tu_dong: k.tu_dong, bh_cuoi: trangThaiBhCuoi(x.bh_tay, k.tu_dong) };
+  });
+  return c.json({ rows, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
 });
 
 // ---------- Import Excel ----------

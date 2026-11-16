@@ -10,7 +10,6 @@ import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
 import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
-import { Select } from "../components/ui/Select";
 import { Modal } from "../components/ui/Modal";
 import { useToast } from "../components/ui/Toast";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
@@ -21,9 +20,8 @@ import { fmtDate, fmtDateTime, fmtVND } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
-import { HAN_BH_TU_NGAY, NHAN_BH, type TrangThaiBh } from "../lib/hanBaoHanh";
+import { NHAN_BH, type TrangThaiBh } from "../lib/hanBaoHanh";
 import { tr } from "../i18n/tr";
-import { docBanLuuHanBh, taiHanBh } from "../lib/hanBhCache";
 
 type OpenCase = (id: string, tab?: string) => void;
 // 2026-11-16: giữ dữ liệu 30 phút sau khi rời module -> vào lại hiện ngay, rồi hỏi lại server ngầm. Server trả ETag theo version dữ liệu:
@@ -35,23 +33,10 @@ const VIEWS = [
   { key: "bao-hanh", label: tr("Hạn bảo hành") },
 ];
 
-function thangHienTai() {
-  const d = new Date(Date.now() + 7 * 3600 * 1000);
-  return d.toISOString().slice(0, 7);
-}
-function dsThang(): string[] {
-  const out: string[] = [];
-  let t = thangHienTai();
-  while (t >= HAN_BH_TU_NGAY.slice(0, 7)) {
-    out.push(t);
-    const [y, m] = t.split("-").map(Number);
-    t = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
-  }
-  return out;
-}
 const tong = (a: number | null, b: number | null, c: number | null) => (a ?? 0) + (b ?? 0) + (c ?? 0);
 
-/** Bang dung chung: loc + sap xep phia trinh duyet. */
+const SO_DONG_TRANG = 20;
+/** Bang dung chung: loc + sap xep + phan trang 20 dong phia trinh duyet. */
 function BangLoc<T>({ rows, cot, lay, rowKey, onRowClick, storageKey, sapMacDinh }: {
   rows: T[];
   cot: (Column<T> & { kieu: KieuLocCot })[];
@@ -63,25 +48,36 @@ function BangLoc<T>({ rows, cot, lay, rowKey, onRowClick, storageKey, sapMacDinh
 }) {
   const [loc, setLoc] = useState<Record<string, LocCot>>({});
   const [sap, setSap] = useState(sapMacDinh);
+  const [trang, setTrang] = useState(1);
   const hien = useMemo(() => sapXepDong(locDong(rows, loc, lay), lay[sap.by], sap.dir), [rows, loc, sap, lay]);
+  // 20 dòng / trang (chủ hệ thống 2026-11-16) - trước đây vẽ cả bảng trên 1 trang.
+  const soTrang = Math.max(1, Math.ceil(hien.length / SO_DONG_TRANG));
+  const trangOk = Math.min(trang, soTrang);
+  const dongTrang = useMemo(() => hien.slice((trangOk - 1) * SO_DONG_TRANG, trangOk * SO_DONG_TRANG), [hien, trangOk]);
   return (
     <PaginatedTable<T>
       columns={cot.map((c) => ({ ...c, sortKey: c.key, filter: c.kieu }))}
-      rows={hien}
+      rows={dongTrang}
       isLoading={false}
       isError={false}
-      page={1}
-      pageSize={Math.max(1, hien.length)}
+      page={trangOk}
+      pageSize={SO_DONG_TRANG}
       total={hien.length}
-      onPageChange={() => {}}
+      onPageChange={setTrang}
       rowKey={rowKey}
       onRowClick={onRowClick}
       emptyText={tr("Không có dữ liệu khớp bộ lọc.")}
       sortBy={sap.by}
       sortDir={sap.dir}
-      onSortChange={(by, dir) => setSap({ by, dir })}
+      onSortChange={(by, dir) => {
+        setSap({ by, dir });
+        setTrang(1);
+      }}
       colFilters={loc}
-      onColFiltersChange={setLoc}
+      onColFiltersChange={(v) => {
+        setLoc(v);
+        setTrang(1);
+      }}
       loadFilterValues={async (k) => giaTriCot(rows, loc, lay, k)}
       totalUnfiltered={rows.length}
       storageKey={storageKey}
@@ -363,7 +359,7 @@ function HoaDonTab({ openCase }: { openCase: OpenCase }) {
 }
 
 // ---------------- Tab 3 ----------------
-// Chỉ các cột hiển thị (chi tiết ca mở theo ID). Tải theo delta + lưu IndexedDB: lib/hanBhCache.ts.
+// Chỉ ca sửa tay, chỉ cột hiển thị (chi tiết ca mở theo ID).
 interface BhRow {
   id: string;
   khu_vuc: string | null;
@@ -381,19 +377,18 @@ interface BhRow {
   bh_tay: number | null;
   bh_cuoi: TrangThaiBh;
   bh_sua_by: string | null;
+  bh_sua_ten: string | null;
+  bh_sua_at: string | null;
+  ghi_chu: string | null;
 }
 function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
-  const [thang, setThang] = useLocalStorageState("filters:sua-dt-thang", thangHienTai());
-  const thangOk = thang >= HAN_BH_TU_NGAY.slice(0, 7) ? thang : thangHienTai();
-  // Bản lưu trên máy hiện ngay; cùng lúc hỏi server phần thay đổi rồi thay bằng bảng đã trộn.
-  const luu = useQuery({ queryKey: ["sua-dt", "bao-hanh-luu", thangOk], queryFn: () => docBanLuuHanBh<BhRow>(thangOk), staleTime: Infinity, ...GIU_DU_LIEU });
-  const { data, isLoading: dangTaiServer, isError, error } = useQuery({
+  // Chỉ ca đã sửa tay hạn BH (2026-11-16) - ca tự tính xem ở chi tiết ca.
+  const { data, isLoading, isError, error } = useQuery({
     ...GIU_DU_LIEU,
-    queryKey: ["sua-dt", "bao-hanh", thangOk],
-    queryFn: async () => ({ rows: await taiHanBh<BhRow>(thangOk) }),
+    queryKey: ["sua-dt", "bao-hanh"],
+    queryFn: () => api.get<{ rows: BhRow[] }>("/sua-doanh-thu/bao-hanh"),
   });
-  const rows = data?.rows ?? luu.data ?? [];
-  const isLoading = dangTaiServer && !luu.data;
+  const rows = data?.rows ?? [];
   const nhan = (s: TrangThaiBh) => tr(NHAN_BH[s]);
   const lay: Record<string, LayGiaTriCot<BhRow>> = {
     id: (r) => r.id,
@@ -409,7 +404,9 @@ function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
     han: (r) => r.han_bh,
     tu_dong: (r) => nhan(r.bh_tu_dong),
     cuoi: (r) => nhan(r.bh_cuoi),
-    sua: (r) => (r.bh_tay === null ? tr("Tự động") : tr("Sửa tay")),
+    sua_luc: (r) => r.bh_sua_at,
+    nguoi_sua: (r) => r.bh_sua_ten ?? r.bh_sua_by,
+    ghi_chu: (r) => r.ghi_chu,
   };
   const cot: (Column<BhRow> & { kieu: KieuLocCot })[] = [
     { key: "id", header: tr("ID ca"), kieu: "text", render: (r) => <span className="font-mono">{r.id}</span> },
@@ -435,25 +432,25 @@ function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
       kieu: "list",
       render: (r) => <Badge tone={r.bh_cuoi === "con" ? "teal" : r.bh_cuoi === "het" ? "coral" : "gray"}>{nhan(r.bh_cuoi)}</Badge>,
     },
-    { key: "sua", header: tr("Nguồn"), kieu: "list", render: (r) => (r.bh_tay === null ? tr("Tự động") : `${tr("Sửa tay")} · ${r.bh_sua_by ?? ""}`) },
+    { key: "sua_luc", header: tr("Sửa lúc"), kieu: "date", render: (r) => fmtDateTime(r.bh_sua_at) },
+    { key: "nguoi_sua", header: tr("Người sửa"), kieu: "list", render: (r) => r.bh_sua_ten ?? r.bh_sua_by ?? "—" },
+    { key: "ghi_chu", header: tr("Ghi chú"), kieu: "text", render: (r) => r.ghi_chu ?? "" },
   ];
   const dem = (s: TrangThaiBh) => rows.filter((r) => r.bh_cuoi === s).length;
   return (
     <Card className="p-3">
       <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
-        <Select value={thangOk} onChange={setThang} options={dsThang().map((t) => ({ value: t, label: tr("Tiếp nhận tháng {0}", `${t.slice(5)}/${t.slice(0, 4)}`) }))} />
-        <span>{tr("{0} ca", rows.length)}</span>
+        <span>{tr("{0} ca sửa tay hạn bảo hành", rows.length)}</span>
         <span>{tr("Còn BH")}: <b>{dem("con")}</b></span>
         <span>{tr("Hết BH")}: <b>{dem("het")}</b></span>
-        <span>{tr("Chưa đủ dữ liệu")}: <b>{dem("khong_ro")}</b></span>
-        <span className="text-xs text-[var(--ink-400)]">{tr("Hạn = ngày mua +24 tháng / ngày SX +36 tháng, mốc nào đến trước. Mở ca để sửa tay.")}</span>
+        <span className="text-xs text-[var(--ink-400)]">{tr("Chỉ liệt kê ca đã sửa tay. Hạn tự tính = ngày mua +24 tháng / ngày SX +36 tháng, mốc nào đến trước - xem và sửa trong chi tiết ca.")}</span>
       </div>
-      {isError && !luu.data ? (
+      {isError ? (
         <div className="text-sm text-[var(--coral-500)]">{error instanceof ApiError ? (error.detail ?? error.message) : String(error)}</div>
       ) : isLoading ? (
         <div className="text-sm text-[var(--ink-400)]">{tr("Đang tải…")}</div>
       ) : (
-        <BangLoc rows={rows} cot={cot} lay={lay} rowKey={(r) => r.id} onRowClick={(r) => openCase(r.id)} storageKey="sua-dt-bao-hanh" sapMacDinh={{ by: "tiep_nhan", dir: "desc" }} />
+        <BangLoc rows={rows} cot={cot} lay={lay} rowKey={(r) => r.id} onRowClick={(r) => openCase(r.id)} storageKey="sua-dt-bao-hanh" sapMacDinh={{ by: "sua_luc", dir: "desc" }} />
       )}
     </Card>
   );
