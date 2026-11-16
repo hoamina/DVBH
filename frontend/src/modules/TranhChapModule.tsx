@@ -80,6 +80,7 @@ const VIEWS = [
   { key: "theo-doi-doi-tra", label: tr("Theo dõi đổi trả") },
   { key: "luong-doi-tra", label: tr("Luồng duyệt đổi trả") },
   { key: "tien-trinh", label: tr("Quản lý tiến trình") },
+  { key: "bo-qua", label: tr("Tranh chấp bỏ qua") },
 ];
 
 // CHOT 2026-08-21: gia tri settings_phan_loai_tranh_chap.ten_phan_loai dung de loc tab "Đòi đổi máy"
@@ -454,6 +455,50 @@ export function TranhChapModule({
           <span className="text-xs text-[var(--ink-400)] italic">{tr("Không có quyền")}</span>
         ),
     },
+  ];
+
+  // ---------- Tab "Tranh chấp bỏ qua" (2026-11-16): ca chưa có tiến trình, hoàn thành quá 60 ngày — rời "Chờ xử lý".
+  // Không đếm/badge, chỉ tải khi mở tab; backend trả 1 lần (≤2000 dòng), phân trang + sắp xếp phía client.
+  const [bqPage, setBqPage] = useState(1);
+  const [bqKhuVuc, setBqKhuVuc] = useLocalStorageState("filters:tranh-chap-bq-khu-vuc", "");
+  const [bqIdSearch, setBqIdSearch] = useState("");
+  const [bqSort, setBqSort] = useState<{ by: string; dir: "asc" | "desc" }>({ by: "hoan_thanh", dir: "desc" });
+  const { data: bqData, isLoading: bqLoading, isError: bqError, refetch: refetchBq } = useQuery({
+    queryKey: ["tranh-chap-bo-qua", bqKhuVuc, bqIdSearch],
+    queryFn: () =>
+      api.get<{ rows: ChoXuLyRow[]; vuotTran: boolean; soNgay: number }>(
+        `/tranh-chap/bo-qua${buildQuery({ khu_vuc: bqKhuVuc, id: bqIdSearch || undefined })}`,
+      ),
+    enabled: view === "bo-qua",
+  });
+  const bqRowsSorted = useMemo(() => {
+    const rows = [...(bqData?.rows ?? [])];
+    const key = (r: ChoXuLyRow): string | number =>
+      bqSort.by === "id" ? r.id : bqSort.by === "khach_hang" ? (r.khach_hang ?? "") : bqSort.by === "khu_vuc" ? (r.khu_vuc ?? "") : bqSort.by === "ly_do" ? (r.last_ly_do_cham ?? "") : (r.thoi_gian_hoan_thanh ?? "");
+    rows.sort((a, b) => {
+      const x = key(a), y = key(b);
+      const cmp = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "vi");
+      return bqSort.dir === "asc" ? cmp : -cmp;
+    });
+    return rows;
+  }, [bqData, bqSort]);
+  const bqColumns: Column<ChoXuLyRow>[] = [
+    { key: "id", header: "ID", sortKey: "id", render: (c) => <span className="font-mono text-[var(--ocean-600)] font-semibold">{c.id}</span> },
+    {
+      key: "khach_hang",
+      header: tr("Khách hàng"),
+      sortKey: "khach_hang",
+      render: (c) => (
+        <>
+          {isVipKh(c.nhom_kh) && <VipBadge />}
+          {c.khach_hang ?? "—"}
+        </>
+      ),
+    },
+    { key: "khu_vuc", header: tr("Khu vực"), sortKey: "khu_vuc", render: (c) => shortKhuVuc(c.khu_vuc) },
+    { key: "hoan_thanh", header: tr("Hoàn thành"), sortKey: "hoan_thanh", render: (c) => <span className="text-xs">{fmtDateTime(c.thoi_gian_hoan_thanh)}</span> },
+    { key: "so_ngay_cho", header: tr("Số ngày chờ"), sortKey: "hoan_thanh", render: (c) => soNgayChoPill(c.so_ngay_cho) },
+    { key: "ly_do", header: tr("Lý do quá hạn"), sortKey: "ly_do", render: (c) => <span className="text-xs">{c.last_ly_do_cham ?? "—"}</span> },
   ];
 
   // ---------- Tab "Theo dõi đổi trả" (theo_doi_doi_tra, CHOT 2026-09-03) ----------
@@ -1487,6 +1532,42 @@ export function TranhChapModule({
             rowClassName={(r) => vipRowClassName(r.nhom_kh)}
             emptyText={tr("Không có tiến trình 'đòi đổi máy' nào khớp bộ lọc.")}
             storageKey="tranh-chap-doi-may"
+          />
+        </div>
+      ) : view === "bo-qua" ? (
+        <div className="mt-4">
+          <div className="text-sm text-[var(--ink-600)] mb-4">
+            {tr("Ca tranh chấp, khiếu nại chưa được tiếp nhận xử lý quá {0} ngày kể từ khi hoàn thành — đã rời khỏi \"Chờ xử lý\" và không tính vào số đếm. Mở ca để tiếp nhận nếu vẫn cần xử lý.", bqData?.soNgay ?? 60)}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <KhuVucFilterControl value={bqKhuVuc} onChange={(v) => { setBqKhuVuc(v); setBqPage(1); }} options={khuVucSelectOptions} myAreas={myAreas} />
+            <IdSerialSearchInput
+              value={bqIdSearch}
+              onChange={(v) => {
+                setBqIdSearch(v);
+                setBqPage(1);
+              }}
+            />
+            {bqData?.vuotTran && <span className="text-xs text-[var(--amber-500)]">{tr("Chỉ hiện 2000 ca mới nhất — lọc khu vực / tìm ID để xem ca cũ hơn.")}</span>}
+          </div>
+          <PaginatedTable
+            columns={bqColumns}
+            rows={bqRowsSorted.slice((bqPage - 1) * 20, bqPage * 20)}
+            isLoading={bqLoading}
+            isError={bqError}
+            onRetry={refetchBq}
+            page={bqPage}
+            pageSize={20}
+            total={bqRowsSorted.length}
+            onPageChange={setBqPage}
+            sortBy={bqSort.by}
+            sortDir={bqSort.dir}
+            onSortChange={(by, dir) => { setBqSort({ by, dir }); setBqPage(1); }}
+            onRowClick={(c) => openCase(c.id, "tranh-chap")}
+            rowKey={(c) => c.id}
+            rowClassName={(c) => vipRowClassName(c.nhom_kh)}
+            emptyText={tr("Không có ca tranh chấp nào bị bỏ qua.")}
+            storageKey="tranh-chap-bo-qua"
           />
         </div>
       ) : view === "cho-xac-nhan-ai" ? (

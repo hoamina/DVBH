@@ -5933,3 +5933,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Hạn bảo hành: ngày mua +24 tháng / ngày SX +36 tháng (mốc đến trước); ngày tiếp nhận > hạn = Hết BH; chỉ ca tiếp nhận từ 01/11/2026; GS sửa tay.
 - Hạn chế: chunk R2 "Ca đã đóng" và Báo cáo ngày 08:00 đã chốt giữ số DT cũ tới lần ghi lại kế tiếp. Tài khoản đã tuỳ chỉnh danh sách
   module (users.modules khác NULL) phải được Admin cấp thêm module "sua-doanh-thu".
+
+## 2026-11-16 — Tab "Tranh chấp bỏ qua" (v1.616)
+
+- Menu "Quản lý tranh chấp, KN": ca chưa từng có tiến trình (tranh chấp đủ điều kiện / theo dõi đổi trả đã xác nhận) đã hoàn thành
+  **quá 60 ngày** không ai tiếp nhận → rời tab "Chờ xử lý" (danh sách, 4 thẻ số, badge tab), badge sidebar "Tranh chấp, KN" và cột
+  "chưa xử lý" của báo cáo khu vực; chỉ hiện ở tab mới **"Tranh chấp bỏ qua"** (`GET /api/tranh-chap/bo-qua`, 1 query không COUNT,
+  ≤2000 ca mới nhất, chỉ tải khi mở tab, phân trang/sắp xếp phía client). Ca "GQKN đẩy lại GS" (đã có tiến trình) không bị bỏ qua.
+- Vẫn tiếp nhận được từ chi tiết ca như thường; tiếp nhận xong ca có tiến trình → tự rời danh sách bỏ qua. Hằng số
+  `TRANH_CHAP_BO_QUA_SO_NGAY` trong `routes/tranhChap.ts`.

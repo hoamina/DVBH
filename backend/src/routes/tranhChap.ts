@@ -272,7 +272,8 @@ tranhChap.get("/cho-xu-ly", async (c) => {
   // ELIGIBLE) de xu ly nhu 1 khieu nai binh thuong qua 1 hang doi duy nhat - KHONG dong bo voi
   // nghi_ngo_tranh_chap (2 co dam bao doc lap, tranh anh huong bao cao/thong ke dang doc rieng
   // nghi_ngo_tranh_chap).
-  const baseWhereSql = `${TRANH_CHAP_UNG_VIEN_CHO_XU_LY} AND (${TRANH_CHAP_ELIGIBLE} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${THEO_DOI_DOI_TRA_DA_XAC_NHAN} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${IS_GQKN_DAY_LAI_GS_EXPR})${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
+  // 2026-11-16: ca chua co tien trinh qua TRANH_CHAP_BO_QUA_SO_NGAY ngay -> tab "Tranh chap bo qua" (KHONG_BO_QUA).
+  const baseWhereSql = `${TRANH_CHAP_UNG_VIEN_CHO_XU_LY} AND (${TRANH_CHAP_ELIGIBLE} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${THEO_DOI_DOI_TRA_DA_XAC_NHAN} AND NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id) OR ${IS_GQKN_DAY_LAI_GS_EXPR}) AND ${KHONG_BO_QUA}${scopeClause.sql}${khuVucClause.sql}${tinhClause.sql}${nhomKhClause.sql}${monthClauseSql}`;
   const listWhereSql = `${baseWhereSql}${minDaysClauseSql}${idClauseSql}`;
   const binds = [...scopeClause.binds, ...khuVucClause.binds, ...tinhClause.binds, ...nhomKhClause.binds, ...monthBinds];
   const listBinds = [...binds, ...idBinds];
@@ -444,6 +445,43 @@ tranhChap.post("/:caseId/xac-nhan-ai", async (c) => {
 // ============================================================
 const THEO_DOI_DOI_TRA_CHO_DANH_GIA = `c.theo_doi_doi_tra = 2`;
 const THEO_DOI_DOI_TRA_DA_XAC_NHAN = `c.theo_doi_doi_tra = 1`;
+
+// "Tranh chap bo qua" (chu he thong 2026-11-16): ca thuoc hang doi "Cho xu ly" nhanh CHUA TUNG co tien trinh (ELIGIBLE / theo doi
+// doi tra da xac nhan) ma da hoan thanh QUA 60 ngay khong ai tiep nhan -> roi khoi "Cho xu ly" (danh sach, the so, badge sidebar,
+// count_chua_xu_ly bao cao khu vuc), chi hien o tab "Tranh chap bo qua" (tai khi co nguoi mo, khong dem/badge). Ca "GQKN day lai GS"
+// DA co tien trinh nen khong bao gio vao day. Van "Tiep nhan" duoc tu CaseDetail nhu thuong (POST /:caseId/tiep-nhan khong doi);
+// tiep nhan xong ca co tien trinh -> tu roi khoi danh sach bo qua.
+const TRANH_CHAP_BO_QUA_SO_NGAY = 60;
+const TUOI_HOAN_THANH_EXPR = `CAST((julianday(${AGE_ANCHOR}) - julianday(c.thoi_gian_hoan_thanh)) AS INTEGER)`;
+const CHUA_CO_TIEN_TRINH = `NOT EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id)`;
+/** Dung (true) khi ca KHONG thuoc dien bo qua: da co tien trinh, hoac chua qua 60 ngay (thoi_gian_hoan_thanh NULL = khong bo qua). */
+const KHONG_BO_QUA = `(NOT ${CHUA_CO_TIEN_TRINH} OR COALESCE(${TUOI_HOAN_THANH_EXPR}, 0) <= ${TRANH_CHAP_BO_QUA_SO_NGAY})`;
+const TRANH_CHAP_BO_QUA = `((${TRANH_CHAP_ELIGIBLE}) OR ${THEO_DOI_DOI_TRA_DA_XAC_NHAN}) AND ${CHUA_CO_TIEN_TRINH} AND ${TUOI_HOAN_THANH_EXPR} > ${TRANH_CHAP_BO_QUA_SO_NGAY}`;
+
+// GET /api/tranh-chap/bo-qua?khu_vuc=&id= - tab "Tranh chap bo qua": 1 query, khong COUNT/the so, toi da 2000 dong (moi nhat truoc),
+// phan trang phia client. Chi chay khi nguoi dung mo tab.
+const BO_QUA_TRAN = 2000;
+tranhChap.get("/bo-qua", async (c) => {
+  const scope = scopeTranhChap(c);
+  const scopeClauseBase = khuVucWhereClause(scope, "c.khu_vuc");
+  const exclusion = khuVucReportExclusionClause("c.khu_vuc");
+  const khuVucClause = khuVucAdHocClause("c.khu_vuc", c.req.query("khu_vuc"));
+  const idFilter = (c.req.query("id") ?? "").trim();
+  const idClauseSql = idFilter ? " AND (c.id LIKE ? OR c.seri_san_pham LIKE ?)" : "";
+  const idBinds = idFilter ? [`%${idFilter}%`, `%${idFilter}%`] : [];
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.id, c.khach_hang, c.khu_vuc, c.nhom_kh, c.thoi_gian_hoan_thanh, c.ly_do_qua_han as last_ly_do_cham,
+       ${TUOI_HOAN_THANH_EXPR} as so_ngay_cho
+     FROM case_hieu_luc c
+     WHERE ${TRANH_CHAP_UNG_VIEN_CHO_XU_LY} AND ${TRANH_CHAP_BO_QUA}${scopeClauseBase.sql}${exclusion.sql}${khuVucClause.sql}${idClauseSql}
+     ORDER BY c.thoi_gian_hoan_thanh DESC
+     LIMIT ?`,
+  )
+    .bind(...scopeClauseBase.binds, ...exclusion.binds, ...khuVucClause.binds, ...idBinds, BO_QUA_TRAN + 1)
+    .all();
+  const vuotTran = results.length > BO_QUA_TRAN;
+  return c.json({ rows: vuotTran ? results.slice(0, BO_QUA_TRAN) : results, vuotTran, soNgay: TRANH_CHAP_BO_QUA_SO_NGAY });
+});
 
 // GET /api/tranh-chap/theo-doi-doi-tra/cho-danh-gia?khu_vuc=&tinh=&nhom_kh=&thang=&id=&page=&pageSize=
 // - danh sach case KHOP dieu kien tu dong (theo_doi_doi_tra = 2), dang cho con nguoi xac nhan "Dung"/
@@ -718,7 +756,7 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
       khu_vuc,
       SUM(CASE WHEN nghi_ngo_tranh_chap = 1 THEN 1 ELSE 0 END) as count_nghi_ngo,
       SUM(CASE WHEN COALESCE(nghi_ngo_tranh_chap, 0) <> 1 AND status <> 'Chua xu ly' THEN 1 ELSE 0 END) as count_phat_sinh_ngoai,
-      SUM(CASE WHEN (nghi_ngo_tranh_chap = 1 AND status = 'Chua xu ly') OR is_gqkn_day_lai_gs = 1 THEN 1 ELSE 0 END) as count_chua_xu_ly,
+      SUM(CASE WHEN (nghi_ngo_tranh_chap = 1 AND status = 'Chua xu ly' AND khong_bo_qua = 1) OR is_gqkn_day_lai_gs = 1 THEN 1 ELSE 0 END) as count_chua_xu_ly,
       SUM(CASE WHEN status <> 'Chua xu ly' THEN 1 ELSE 0 END) as count_da_xu_ly,
       SUM(CASE WHEN status NOT IN ('Chua xu ly', 'Giam sat chua xu ly') THEN 1 ELSE 0 END) as count_gs_da_xu_ly,
       SUM(CASE WHEN status = 'Giam sat dang xu ly' THEN 1 ELSE 0 END) as count_gs_dang_xu_ly,
@@ -732,7 +770,8 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
         c.khu_vuc,
         c.nghi_ngo_tranh_chap,
         ${CASE_TRANH_CHAP_STATUS_EXPR} as status,
-        ${IS_GQKN_DAY_LAI_GS_EXPR} as is_gqkn_day_lai_gs
+        ${IS_GQKN_DAY_LAI_GS_EXPR} as is_gqkn_day_lai_gs,
+        CASE WHEN ${KHONG_BO_QUA} THEN 1 ELSE 0 END as khong_bo_qua
       FROM case_hieu_luc c
       WHERE ${TRANH_CHAP_UNG_VIEN} AND ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))
         ${scopeClause.sql}
@@ -1552,6 +1591,7 @@ export async function computeTranhChapCount(db: D1Database, scope: string[] | nu
       `SELECT COUNT(*) as n FROM case_hieu_luc c
        WHERE ${TRANH_CHAP_UNG_VIEN} AND ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))${scopeClause.sql}
          AND c.thoi_gian_hoan_thanh >= ?
+         AND ${KHONG_BO_QUA}
          AND ${CASE_TRANH_CHAP_STATUS_EXPR} ${cond} (${statusList.map(() => "?").join(", ")})`,
     )
     .bind(...scopeClause.binds, TRANH_CHAP_COUNT_TU_NGAY, ...statusList)
