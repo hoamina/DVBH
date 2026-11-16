@@ -464,6 +464,11 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
   also queues separately — batch independent reads with `db.batch` (done in `loadUser` + `cachedReport`, v1.536). Before a
   recreate-table migration, re-create EVERY index of the old table: migration 0022 silently lost `idx_ket_qua_goi_ngay`
   (restored in 0154) and call-history-by-month scanned the whole table at ~5.5 s for months.
+- **Max 100 COLUMNS per result set** (D1, "too many columns in result set"). `case_dvbh` has 99 columns since migration
+  0170, so `c.*` / `SELECT *` from it (or `case_hieu_luc`) leaves room for ONE extra column only. Adding a 2nd silently broke
+  the 08:00 chốt (via the `CA_LAP_CTE`), Ca lặp, Ca thiếu LK and Nạp gas lists on 15–16/11 (fixed v1.608). List queries must
+  select `c.id` + their own columns, then `lib/ghepCotCa.ts ghepDuCotCa()` fetches the full case row by id; never `SELECT *`
+  inside a CTE that adds computed columns. Adding a column to `case_dvbh` → grep for `c.*` / `SELECT *,` first.
 - **Max 100 bound parameters per statement** (D1-specific; plain SQLite allows ~32k). A dynamic
   `IN (?, ?, ...)` built from a data-driven list (ids, emails) fails with "too many SQL variables" once
   the list + other binds pass 100 — the Ca lặp Excel export did exactly this with ~3-4k prior ids
