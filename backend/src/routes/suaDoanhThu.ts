@@ -18,7 +18,7 @@
  *  POST   /hoa-don/dong-bo        kéo đơn hóa đơn từ app linh kiện
  *  GET    /bao-hanh?thang=YYYY-MM bảng "Hạn bảo hành" theo tháng tiếp nhận (từ 11/2026)
  *  POST   /import?commit=0|1      import Excel {rows:[{id, dt_san_pham?, dt_linh_kien?, dt_dich_vu?, ly_do?, xuat_hoa_don?, con_bao_hanh?}]}
- * Đọc sống (không cachedReport): bảng 1-2 nhỏ (quét partial index), bảng 3 theo 1 tháng qua idx_case_thoi_gian_tiep_nhan.
+ * Đọc sống (không cachedReport) nhưng có ETag theo version domain -> không đổi thì 304 (xem kiemTraEtag): bảng 1-2 nhỏ (quét partial index), bảng 3 theo 1 tháng qua idx_case_thoi_gian_tiep_nhan.
  */
 import { Hono, type Context } from "hono";
 import type { AppUser, Env } from "../types";
@@ -27,7 +27,7 @@ import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { hasModule } from "../lib/moduleAccess";
 import { nowVN } from "../lib/vnTime";
-import { bumpVersions, type DataDomain } from "../lib/dataVersions";
+import { bumpVersions, versionTagStatement, type DataDomain } from "../lib/dataVersions";
 import { HAN_BH_TU_NGAY, tinhHanBaoHanh, trangThaiBhCuoi } from "../lib/hanBaoHanh";
 import { keoDonHoaDon, LoiKeoHoaDon } from "../lib/hoaDonLk";
 
@@ -157,7 +157,7 @@ r.put("/ca/:id/doanh-thu", async (c) => {
     stmtSuaDt(c.env.DB, id, moi, lyDo, user.email, luc),
     stmtLog(c.env.DB, id, "dt", [ca.dt_san_pham, ca.dt_linh_kien, ca.dt_dich_vu], moi, lyDo, "tay", user.email, luc),
   ]);
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+  await bumpVersions(c.env.DB, ["cases"]);
   return c.json({ ok: true });
 });
 
@@ -177,7 +177,7 @@ r.delete("/ca/:id/doanh-thu", async (c) => {
     ).bind(id),
     stmtLog(c.env.DB, id, "dt", [ca.dt_san_pham, ca.dt_linh_kien, ca.dt_dich_vu], "CRM", "Khôi phục theo CRM", "khoi_phuc", user.email, luc),
   ]);
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["cases"]));
+  await bumpVersions(c.env.DB, ["cases"]);
   return c.json({ ok: true });
 });
 
@@ -197,15 +197,40 @@ async function suaHdBh(c: C, loai: "hd" | "bh") {
     loai === "hd" ? stmtHd(c.env.DB, id, v, user.email, luc, ghiChu) : stmtBh(c.env.DB, id, v, user.email, luc, ghiChu),
     stmtLog(c.env.DB, id, loai, cu?.v ?? null, v, ghiChu, "tay", user.email, luc),
   ]);
-  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["hd_bh"]));
+  await bumpVersions(c.env.DB, ["hd_bh"]);
   return c.json({ ok: true });
 }
 r.put("/ca/:id/hoa-don", (c) => suaHdBh(c, "hd"));
 r.put("/ca/:id/bao-hanh", (c) => suaHdBh(c, "bh"));
 
+// ---------- Chỉ tải lại khi dữ liệu đổi (2026-11-16) ----------
+// Mỗi bảng theo dõi trả ETag = băm(người xem + phạm vi + URL (đã gồm ?qg/?pv/?thang) + version các domain đọc + mốc phụ). Trình duyệt
+// tự lưu bản trả về (Cache-Control private, no-cache) và lần sau gửi If-None-Match: version không đổi -> 304 rỗng, chỉ tốn 1 lượt đọc
+// data_versions (vài dòng) thay vì cả truy vấn (bảng Hạn bảo hành ~10k ca/tháng). Mọi đường ghi của module bump domain bằng await
+// (không waitUntil) để lần tải ngay sau khi sửa luôn thấy version mới.
+const CACHE_HDR = { "Cache-Control": "private, no-cache" };
+async function kiemTraEtag(c: C, domains: DataDomain[], phu: D1PreparedStatement[] = []): Promise<{ etag: string; khongDoi: boolean }> {
+  const db = c.env.DB;
+  const [stmt, ghep] = versionTagStatement(db, domains);
+  const kq = await db.batch([stmt!, ...phu]);
+  const ver = ghep(kq[0].results as { domain: string; version: number }[]);
+  const phuTag = kq.slice(1).map((r) => JSON.stringify(r.results)).join("|");
+  const user = c.get("user") as AppUser;
+  const nguon = [user.email, user.vai_tro, JSON.stringify(scopeByKhuVuc(c)), c.req.url, ver, phuTag, "1"].join("");
+  const bam = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(nguon));
+  const etag = `W/"sdt-${[...new Uint8Array(bam)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 24)}"`;
+  const inm = c.req.header("If-None-Match") ?? "";
+  return { etag, khongDoi: inm.split(",").some((t) => t.trim() === etag) };
+}
+function tra304(c: C, etag: string) {
+  return c.body(null, 304, { ETag: etag, ...CACHE_HDR });
+}
+
 // ---------- Bảng theo dõi ----------
 r.get("/doanh-thu", async (c) => {
   if (!canModule(c)) return c.json({ error: "FORBIDDEN" }, 403);
+  const et = await kiemTraEtag(c, ["cases", "users"]);
+  if (et.khongDoi) return tra304(c, et.etag);
   const sc = khuVucWhereClause(scopeByKhuVuc(c), "c.khu_vuc");
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.hang, c.loai_yeu_cau, c.tien_do_hoan_thanh,
@@ -218,7 +243,7 @@ r.get("/doanh-thu", async (c) => {
   )
     .bind(...sc.binds)
     .all();
-  return c.json({ rows: results, duocSua: coVaiTroSua(c) });
+  return c.json({ rows: results, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
 });
 
 r.get("/hoa-don", async (c) => {
@@ -226,6 +251,9 @@ r.get("/hoa-don", async (c) => {
   const scope = scopeByKhuVuc(c);
   const sc = khuVucWhereClause(scope, "c.khu_vuc");
   const db = c.env.DB;
+  // Tóm tắt lần đồng bộ (cai_dat_he_thong) ghi cả khi không có đơn đổi -> đưa updated_at vào ETag để "Đồng bộ lúc" luôn mới.
+  const et = await kiemTraEtag(c, ["cases", "hd_bh"], [db.prepare("SELECT updated_at FROM cai_dat_he_thong WHERE khoa = 'don_hoa_don_dong_bo'")]);
+  if (et.khongDoi) return tra304(c, et.etag);
   // Đơn chưa khớp ca (case_id = '') chỉ người xem toàn bộ mới thấy.
   const [don, tay, tt] = await db.batch([
     db.prepare(
@@ -242,14 +270,14 @@ r.get("/hoa-don", async (c) => {
     db.prepare(
       `SELECT h.case_id, h.xuat_hoa_don AS hd_tay, h.hd_sua_by, h.hd_sua_at, h.ghi_chu,
               c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.thoi_gian_hoan_thanh, c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu
-       FROM case_hd_bh h JOIN case_dvbh c ON c.id = h.case_id
+       FROM case_hd_bh h INDEXED BY idx_case_hd_bh_hd CROSS JOIN case_dvbh c ON c.id = h.case_id
        WHERE h.xuat_hoa_don IS NOT NULL AND NOT EXISTS (SELECT 1 FROM don_hoa_don_lk d WHERE d.case_id = h.case_id)${sc.sql}
        ORDER BY h.hd_sua_at DESC LIMIT 5000`,
     ).bind(...sc.binds),
     db.prepare("SELECT gia_tri, updated_at FROM cai_dat_he_thong WHERE khoa = 'don_hoa_don_dong_bo'"),
   ]);
   const dongBo = tt.results[0] as { gia_tri: string; updated_at: string } | undefined;
-  return c.json({ don: don.results, tay: tay.results, dongBo: dongBo ? { ...JSON.parse(dongBo.gia_tri), luc: dongBo.updated_at } : null, duocSua: coVaiTroSua(c) });
+  return c.json({ don: don.results, tay: tay.results, dongBo: dongBo ? { ...JSON.parse(dongBo.gia_tri), luc: dongBo.updated_at } : null, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
 });
 
 r.post("/hoa-don/dong-bo", async (c) => {
@@ -268,6 +296,8 @@ r.get("/bao-hanh", async (c) => {
   if (!/^\d{4}-\d{2}$/.test(thang) || `${thang}-01` < HAN_BH_TU_NGAY) {
     return c.json({ error: "INVALID_THANG", message: `Chỉ tính hạn bảo hành cho ca tiếp nhận từ ${HAN_BH_TU_NGAY}.` }, 400);
   }
+  const et = await kiemTraEtag(c, ["cases", "hd_bh"]);
+  if (et.khongDoi) return tra304(c, et.etag);
   const sc = khuVucWhereClause(scopeByKhuVuc(c), "c.khu_vuc");
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.hang, c.san_pham_bao_hanh, c.seri_san_pham, c.loai_yeu_cau, c.hinh_thuc_bao_hanh,
@@ -283,7 +313,7 @@ r.get("/bao-hanh", async (c) => {
     const k = tinhHanBaoHanh(x.ngay_mua, x.ngay_san_xuat, x.thoi_gian_cskh_tiep_nhan);
     return { ...x, han_bh: k.han, han_theo: k.theo, bh_tu_dong: k.tu_dong, bh_cuoi: trangThaiBhCuoi(x.bh_tay, k.tu_dong) };
   });
-  return c.json({ rows, duocSua: coVaiTroSua(c) });
+  return c.json({ rows, duocSua: coVaiTroSua(c) }, 200, { ETag: et.etag, ...CACHE_HDR });
 });
 
 // ---------- Import Excel ----------
@@ -393,7 +423,7 @@ r.post("/import", async (c) => {
     const domains: DataDomain[] = [];
     if (dem.doanh_thu) domains.push("cases");
     if (dem.hoa_don || dem.bao_hanh) domains.push("hd_bh");
-    if (domains.length) c.executionCtx.waitUntil(bumpVersions(db, domains));
+    if (domains.length) await bumpVersions(db, domains);
   }
   return c.json({ commit, ...dem, loi, mau });
 });

@@ -2,7 +2,7 @@
 //  - Ca đã sửa doanh thu: DT CRM gốc vs DT chuẩn, chênh lệch, người sửa, lý do.
 //  - Đơn xuất hóa đơn: đơn có yêu cầu HĐ từ app Đặt mua linh kiện (đẩy khi Kế toán chốt + nút Đồng bộ) + ca GS đánh giá tay.
 //  - Hạn bảo hành: ca tiếp nhận theo tháng (từ 11/2026), hạn tự tính (ngày mua +24T / ngày SX +36T, mốc nào trước), GS sửa tay.
-// Bảng lọc + sắp xếp kiểu Excel phía trình duyệt (lib/locCotClient.ts) - danh sách nhỏ, đọc 1 lần.
+// Bảng lọc + sắp xếp kiểu Excel phía trình duyệt (lib/locCotClient.ts). Tải lại chỉ khi dữ liệu đổi (ETag/304 + gcTime 30 phút).
 // Import Excel: cột ID + DT sản phẩm / DT linh kiện / DT dịch vụ / Lý do / Xuất hóa đơn (Có/Không) / Bảo hành (Còn/Hết); xem trước rồi ghi.
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +25,9 @@ import { HAN_BH_TU_NGAY, NHAN_BH, type TrangThaiBh } from "../lib/hanBaoHanh";
 import { tr } from "../i18n/tr";
 
 type OpenCase = (id: string, tab?: string) => void;
+// 2026-11-16: giữ dữ liệu 30 phút sau khi rời module -> vào lại hiện ngay, rồi hỏi lại server ngầm. Server trả ETag theo version dữ liệu:
+// không đổi -> 304 (trình duyệt dùng lại bản đã lưu), không quét lại D1 / không tải lại cả bảng.
+const GIU_DU_LIEU = { gcTime: 30 * 60_000 };
 const VIEWS = [
   { key: "doanh-thu", label: tr("Ca đã sửa doanh thu") },
   { key: "hoa-don", label: tr("Đơn xuất hóa đơn") },
@@ -127,7 +130,7 @@ interface DtRow {
   dt_sua_ly_do: string | null;
 }
 function DoanhThuTab({ openCase }: { openCase: OpenCase }) {
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["sua-dt", "doanh-thu"], queryFn: () => api.get<{ rows: DtRow[] }>("/sua-doanh-thu/doanh-thu") });
+  const { data, isLoading, isError, refetch } = useQuery({ ...GIU_DU_LIEU, queryKey: ["sua-dt", "doanh-thu"], queryFn: () => api.get<{ rows: DtRow[] }>("/sua-doanh-thu/doanh-thu") });
   const rows = data?.rows ?? [];
   const crm = (r: DtRow) => tong(r.dt_san_pham_crm, r.dt_linh_kien_crm, r.dt_dich_vu_crm);
   const chuan = (r: DtRow) => tong(r.dt_san_pham, r.dt_linh_kien, r.dt_dich_vu);
@@ -247,7 +250,7 @@ function HoaDonTab({ openCase }: { openCase: OpenCase }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [dangDb, setDangDb] = useState(false);
-  const { data, isLoading } = useQuery({ queryKey: ["sua-dt", "hoa-don"], queryFn: () => api.get<HdPayload>("/sua-doanh-thu/hoa-don") });
+  const { data, isLoading } = useQuery({ ...GIU_DU_LIEU, queryKey: ["sua-dt", "hoa-don"], queryFn: () => api.get<HdPayload>("/sua-doanh-thu/hoa-don") });
   const rows: HdRow[] = useMemo(() => {
     const s = (v: unknown) => (v == null ? null : String(v));
     const n = (v: unknown) => (v == null ? null : Number(v));
@@ -383,6 +386,7 @@ function BaoHanhTab({ openCase }: { openCase: OpenCase }) {
   const [thang, setThang] = useLocalStorageState("filters:sua-dt-thang", thangHienTai());
   const thangOk = thang >= HAN_BH_TU_NGAY.slice(0, 7) ? thang : thangHienTai();
   const { data, isLoading, isError, error } = useQuery({
+    ...GIU_DU_LIEU,
     queryKey: ["sua-dt", "bao-hanh", thangOk],
     queryFn: () => api.get<{ rows: BhRow[] }>(`/sua-doanh-thu/bao-hanh?thang=${thangOk}`),
   });
