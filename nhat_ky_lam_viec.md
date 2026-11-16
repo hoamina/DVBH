@@ -5945,3 +5945,5 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Cập nhật dữ liệu 1 lần (chủ hệ thống, chỉ đổi trạng thái, KHÔNG sửa quy tắc import): ca Odoo (`SC…` VN + `PH-SC…` PH) có lý do quá hạn
   "Chưa thống nhất phương án xử lý" → `nghi_ngo_tranh_chap = 1` (297 ca từ 0 lên 1; tổng 322 ca Odoo có lý do này đều = 1), bump domain
   `tranh_chap`. Ratchet giữ 1 qua các lần import sau; ca Odoo MỚI có lý do này vẫn theo dữ liệu pipeline gửi lên.
+- v1.617: "Báo cáo tranh chấp, khiếu nại theo khu vực" loại ca "bỏ qua" (chưa có tiến trình, hoàn thành > 60 ngày) khỏi TOÀN BỘ báo cáo
+  (trước chỉ trừ ở cột "Chưa xử lý", cột "Nghi ngờ tranh chấp" vẫn đếm).

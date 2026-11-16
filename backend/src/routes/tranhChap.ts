@@ -756,7 +756,7 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
       khu_vuc,
       SUM(CASE WHEN nghi_ngo_tranh_chap = 1 THEN 1 ELSE 0 END) as count_nghi_ngo,
       SUM(CASE WHEN COALESCE(nghi_ngo_tranh_chap, 0) <> 1 AND status <> 'Chua xu ly' THEN 1 ELSE 0 END) as count_phat_sinh_ngoai,
-      SUM(CASE WHEN (nghi_ngo_tranh_chap = 1 AND status = 'Chua xu ly' AND khong_bo_qua = 1) OR is_gqkn_day_lai_gs = 1 THEN 1 ELSE 0 END) as count_chua_xu_ly,
+      SUM(CASE WHEN (nghi_ngo_tranh_chap = 1 AND status = 'Chua xu ly') OR is_gqkn_day_lai_gs = 1 THEN 1 ELSE 0 END) as count_chua_xu_ly,
       SUM(CASE WHEN status <> 'Chua xu ly' THEN 1 ELSE 0 END) as count_da_xu_ly,
       SUM(CASE WHEN status NOT IN ('Chua xu ly', 'Giam sat chua xu ly') THEN 1 ELSE 0 END) as count_gs_da_xu_ly,
       SUM(CASE WHEN status = 'Giam sat dang xu ly' THEN 1 ELSE 0 END) as count_gs_dang_xu_ly,
@@ -770,10 +770,10 @@ tranhChap.get("/bao-cao-khu-vuc", async (c) => {
         c.khu_vuc,
         c.nghi_ngo_tranh_chap,
         ${CASE_TRANH_CHAP_STATUS_EXPR} as status,
-        ${IS_GQKN_DAY_LAI_GS_EXPR} as is_gqkn_day_lai_gs,
-        CASE WHEN ${KHONG_BO_QUA} THEN 1 ELSE 0 END as khong_bo_qua
+        ${IS_GQKN_DAY_LAI_GS_EXPR} as is_gqkn_day_lai_gs
       FROM case_hieu_luc c
       WHERE ${TRANH_CHAP_UNG_VIEN} AND ((${TRANH_CHAP_ELIGIBLE}) OR EXISTS (SELECT 1 FROM tranh_chap_tien_trinh tt WHERE tt.case_id = c.id))
+        AND ${KHONG_BO_QUA}
         ${scopeClause.sql}
         ${monthClauseSql}
     )
