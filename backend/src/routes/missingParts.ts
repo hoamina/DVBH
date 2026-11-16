@@ -1,3 +1,4 @@
+import { ghepDuCotCa } from "../lib/ghepCotCa";
 import { Hono } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -37,7 +38,8 @@ export function baseJoin(caseFilterSql: string): string {
 // CHOT 2026-08-12: them "tuoi_ton" (${AGE_EXPR}, giong pattern cases.ts GET "/") cho cot "Tuoi ton"
 // o "Danh sach chi tiet" - "last_ly_do_cham" da co san tu truoc, dung thang cho cot "Ly do ton gan
 // nhat" (khong can them field moi).
-const SELECT_COLS = `c.*, lg.ly_do_cham as last_ly_do_cham, lg.linh_kien_thieu as last_linh_kien_thieu,
+// 2026-11-16: c.id thay c.* (D1 gioi han 100 cot/ket qua, case_dvbh 99 cot) - du cot ca ghep sau qua ghepDuCotCa.
+const SELECT_COLS = `c.id AS id, lg.ly_do_cham as last_ly_do_cham, lg.linh_kien_thieu as last_linh_kien_thieu,
        lg.ngay_yeu_cau_co_hang as last_ngay_yeu_cau_co_hang, lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh,
        ${AGE_EXPR} as tuoi_ton`;
 
@@ -138,7 +140,7 @@ missingParts.get("/", async (c) => {
     .all<Record<string, unknown> & { total_count: number }>();
 
   const total = results.length > 0 ? Number(results[0].total_count) : 0;
-  const rows = results.map(({ total_count, ...rest }) => rest);
+  const rows = await ghepDuCotCa(c.env.DB, results.map(({ total_count, ...rest }) => rest));
 
   return c.json({ rows, page, pageSize, total });
 });

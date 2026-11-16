@@ -1,3 +1,4 @@
+import { ghepDuCotCa } from "../lib/ghepCotCa";
 import { Hono } from "hono";
 import { dbGoc } from "../lib/phamVi";
 import type { Env } from "../types";
@@ -72,9 +73,13 @@ function monthBounds(thang: string): { start: string; end: string } {
 // not_null theo range - quet ~17.9 nghin ca da dong moi lan goi thay vi 816 dong (do thuc te bang
 // d1 insights 2026-07-23, xac nhan bang EXPLAIN QUERY PLAN). Neu index nay bi xoa, cau lenh se BAO
 // LOI ngay (fail-fast) thay vi am tham quet cham - dung quen apply migration 0017 truoc khi deploy.
+// SUA 2026-11-16: KHONG dung "SELECT *" trong CTE nua - migration 0170 dua case_dvbh len 99 cot, "*" + 3 cot tinh = 102 > gioi han
+// 100 cot/ket qua cua D1 -> MOI cau dung "lap" bao "too many columns in result set" (chot 08:00 Quan ly ton loi tu 15/11, module Ca
+// lap, badge). Chi lay dung cac cot cac cau doc qua "lap." dang dung; can them cot thi them vao day (danh sach dung ghepDuCotCa).
+const LAP_COT_CTE = "id, khu_vuc, doi_tac, quoc_gia, ky_thuat_vien, seri_san_pham, tinh, nhom_kh, thoi_gian_hoan_thanh, huy_bo_at";
 const CA_LAP_CTE_BODY = `
   lap AS (
-    SELECT *, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
+    SELECT ${LAP_COT_CTE}, ca_lap_prior_id AS prior_id, ca_lap_prior_ht AS prior_ht,
       (julianday(thoi_gian_hoan_thanh) - julianday(ca_lap_prior_ht)) AS gap_days
     FROM case_dvbh INDEXED BY idx_case_lap_ht
     WHERE ca_lap_prior_ht IS NOT NULL AND huy_bo_at IS NULL
@@ -89,15 +94,6 @@ export const CA_LAP_CTE = `WITH ${CA_LAP_CTE_BODY}`;
 // roi ghepDuCotCa() lay du cot case_dvbh theo khoa chinh (1 bind json_each) - them cot vao case_dvbh khong lam vo danh sach nua.
 const LAP_COT_RIENG = "lap.id AS id, lap.prior_id, lap.prior_ht, lap.gap_days";
 
-async function ghepDuCotCa(db: D1Database, dong: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
-  if (!dong.length) return dong;
-  const { results: full } = await db
-    .prepare("SELECT * FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))")
-    .bind(JSON.stringify(dong.map((r) => r.id)))
-    .all<Record<string, unknown>>();
-  const theoId = new Map(full.map((r) => [String(r.id), r]));
-  return dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...r }));
-}
 
 const GT_LAP_COLUMNS = `
   gl.id as gt_id, gl.chot_danh_gia_lap, gl.chot_hinh_thuc_xu_ly, gl.dien_giai_lap,

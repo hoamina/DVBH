@@ -1,3 +1,4 @@
+import { ghepDuCotCa } from "../lib/ghepCotCa";
 import { Hono } from "hono";
 import type { Env } from "../types";
 import { NAP_GAS_DANH_GIA_KEYS, NAP_GAS_PHI_DICH_VU_KEYS } from "../types";
@@ -30,7 +31,8 @@ const NAP_GAS_ELIGIBLE = "c.nghi_ngo_nap_gas = 1 AND c.tien_do_hoan_thanh = 'HoÃ
 // "Da danh gia" = co dong trong nap_gas_danh_gia (bang log rieng, xem migration 0025) - THAY THE
 // cach cu dua vao bang giai_trinh chung (von thiet ke cho "giai trinh ca ton", khac muc dich).
 const JOIN_DANH_GIA = "LEFT JOIN nap_gas_danh_gia ndg ON ndg.case_id = c.id";
-const SELECT_COLS = `c.*, ndg.danh_gia_nap_gas, ndg.phi_dich_vu, ndg.nguoi_chot, ndg.ngay_chot,
+// 2026-11-16: c.id thay c.* (D1 gioi han 100 cot/ket qua, case_dvbh 99 cot) - du cot ca ghep sau qua ghepDuCotCa.
+const SELECT_COLS = `c.id AS id, ndg.danh_gia_nap_gas, ndg.phi_dich_vu, ndg.nguoi_chot, ndg.ngay_chot,
   CASE WHEN ndg.case_id IS NOT NULL THEN 1 ELSE 0 END as da_danh_gia`;
 
 // "trang_thai" query param - loc them theo da/chua danh gia, dung cho nut drill-down "Chua danh
@@ -99,9 +101,9 @@ napGas.get("/", async (c) => {
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(`${query} ORDER BY c.thoi_gian_hoan_thanh DESC LIMIT ? OFFSET ?`)
     .bind(...binds, pageSize, offset)
-    .all();
+    .all<Record<string, unknown>>();
 
-  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0, chuaDanhGia: chuaDanhGiaRow?.total ?? 0, thang });
+  return c.json({ rows: await ghepDuCotCa(c.env.DB, results), page, pageSize, total: countRow?.total ?? 0, chuaDanhGia: chuaDanhGiaRow?.total ?? 0, thang });
 });
 
 // PATCH /api/nap-gas/:id/danh-gia - chot (hoac chot lai, ghi de) danh gia nap gas cho 1 ca. UPSERT
