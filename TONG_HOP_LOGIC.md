@@ -1,0 +1,82 @@
+# Tổng hợp logic — Hệ DVBH (Quản lý giải trình tồn DVBH, Worker `dvbh`)
+
+> Mô tả logic **đang chạy thật** (theo code + `CLAUDE.md`, `HANDOFF.md`, `SRS_tong_hop.md` tới 17/11/2026). Yêu cầu đã chốt và lịch sử
+> thiết kế: `SRS_tong_hop.md`; nhật ký: `nhat_ky_lam_viec.md`; chi tiết kỹ thuật (D1, R2, cron, giới hạn): `CLAUDE.md`. File này là bản
+> tóm tắt nghiệp vụ để nắm nhanh — logic đổi thì sửa đè đúng mục. Không ghi tài khoản, mật khẩu, khoá.
+
+## 1. Hệ thống là gì
+
+- Quản lý **ca dịch vụ bảo hành (DVBH)** nhập từ CRM / Odoo: SLA, ca tồn và giải trình tồn, khảo sát CSKH & chốt vi phạm, doanh thu,
+  ca lặp, nạp gas, tranh chấp, thiếu linh kiện, báo cáo NSKX…
+- 1 Worker (Hono) phục vụ API + React build; D1 là CSDL duy nhất; R2 cho ảnh chụp JSON lớn chỉ-đọc (ca đã đóng theo ngày); Cron Triggers.
+  Google OAuth tự triển khai, tài khoản mới chờ Admin duyệt + gán vai trò / khu vực. Đa ngôn ngữ VI / EN / ID, đa quốc gia (VN, ID…).
+
+## 2. Vai trò
+
+| Vai trò | Quyền chính |
+|---|---|
+| Admin | Toàn quyền |
+| Viewer | Xem toàn bộ |
+| QC | Như Viewer + chốt / bỏ vi phạm cấp 2 |
+| Giám sát | Xem + giải trình theo khu vực phụ trách |
+| TBP DVBH | Quản lý nhiều Giám sát |
+| CSKH | Khảo sát + chốt vi phạm cấp 1 |
+| TN CSKH | Như CSKH + phân công khảo sát, sửa dữ liệu khảo sát nhầm |
+| TBP CSKH | Như TN CSKH + xem toàn bộ |
+| KSNB Đối tác | Phạm vi đối tác riêng |
+
+KTV không có tài khoản, chỉ là dữ liệu trên ca. Phạm vi xem theo khu vực, quốc gia và "Phạm vi báo cáo" (Tất cả / NSKX / Không NSKX).
+
+## 3. Import ca hằng ngày
+
+- So khớp theo ID ca, 4 nhánh mỗi dòng: **GHI_MOI** (ID mới) / **BO_QUA** (ca đã hoàn thành + không đổi) / **CAP_NHAT_MOC_THOI_GIAN**
+  (ca tồn không đổi — chỉ cập nhật mốc + ratchet) / **GHI_DE** (có thay đổi).
+- 4 cột nghi vi phạm (Lỗi 120', Quá hẹn 24h, Lỡ kế hoạch, KH hẹn lại) do CRM tính sẵn; **ratchet 1 chiều**: đã true thì giữ true, false
+  thì nhận true từ import; rỗng = false.
+- Cột "TBP" của file = Khu vực. Link ảnh tách thành mảng URL lúc import (≤ 30 ảnh / ca).
+- Ca huỷ (`huy_bo_at`) bị loại ở mọi nơi qua VIEW `case_hieu_luc`. Báo cáo KTV gom theo MÃ KTV, hiện tên mới nhất.
+
+## 4. Ca tồn & giải trình
+
+- Ca tồn = chưa có thời gian hoàn thành. Giám sát giải trình định kỳ; mỗi lần 1 dòng log, không ghi đè, lưu vĩnh viễn.
+- Báo cáo tồn chốt 08:00 mỗi ngày (theo mốc tuổi tồn, theo KTV × ngày trong tháng), lũy kế tháng đã / cần giải trình (Chủ nhật và ngày
+  loại trừ không tính), lý do giải trình theo tháng (lấy dòng cuối trong tháng).
+
+## 5. Khảo sát & chốt vi phạm 2 cấp
+
+CSKH gọi khảo sát (1 cuộc có thể nhiều loại lỗi) → chốt cấp 1 → QC chốt / bỏ cấp 2 (final). Không nhảy cấp.
+Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗi"). Có danh sách loại trừ khảo sát.
+
+## 6. Mô-đun liên quan
+
+- **Ca lặp** (cùng serial), **nạp gas**, **tranh chấp** (log riêng), **doanh thu** (sửa doanh thu có kiểm soát).
+- **Thiếu linh kiện**: tồn kho MB / MN / KTV kéo từ app Đặt linh kiện (mỗi giờ 8h–18h T2–T7, 1 phiên bản), tình trạng từng mã
+  (kho có hàng → KTV giữ → hết hàng chưa / trễ / chờ PO), hồ sơ linh kiện.
+- **PO đặt hàng**: nhận từ app EO mua hàng (mỗi dòng EO = 1 PO).
+- **QL NSKX**: báo cáo ca đối tác NSKX theo tháng tiếp nhận, đánh giá lõi lọc (Có / Không thay), đặt lõi sang app Đặt linh kiện bằng tài
+  khoản người bấm (đơn "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX"), đồng bộ trạng thái đơn lõi.
+- Chi tiết ca: tab "Tiến trình chung" (gộp log nhiều nguồn), tab Mua hàng / Thiếu hàng (từ app Đặt linh kiện), luồng gửi bảo hành (từ app Bảo hành đổi trả).
+
+## 7. Tổng quát & báo cáo
+
+KPI, pivot theo nhiều chiều (khu vực, KTV, nhóm yêu cầu…), chọn tháng / tuần ISO, SLA ≤8h / ≤24h / ≤48h / ≤72h cạnh tỷ lệ ≤24h CRM,
+top 10. Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.
+
+## 8. Lịch chạy tự động (UTC, `wrangler.smarttrade.jsonc`)
+
+| Lịch | Việc |
+|---|---|
+| `0 1-11 * * *` (8h–18h VN) | Tự chữa ảnh chụp R2 ca đã đóng, làm mới ca lặp, làm ấm cache báo cáo, kéo tồn kho LK |
+| `30,40 0,10 * * *`, `15,20,25 10 * * *` | Chốt báo cáo ngày / các đợt thử lại |
+| `0 20 * * *` (03:00 VN) | Lưu trữ ca hoàn thành quá 3 tháng (ca tồn giữ vĩnh viễn, log giữ vĩnh viễn) |
+| 3 lần / ngày | Đồng bộ 4 Google Sheet cũ (giải trình, giải trình lặp, khảo sát, nạp gas) |
+
+## 9. Kết nối hệ khác
+
+App Đặt linh kiện (tra ca cho đơn, tồn kho, lịch sử LK, đơn theo ca, đặt lõi) · App Bảo hành đổi trả · App EO mua hàng (PO) · App Khiếu nại
+(tra ca CRM) · Vi phạm (`vipham`, Service Binding) · Pipeline QuickSight (import tự động + làm mới báo cáo) · Odoo. API đối tác: `PARTNER_API_GUIDE.md`.
+
+## 10. Quy ước bắt buộc
+
+Mọi thời gian lưu giờ Việt Nam (`nowVN()`), không dựa vào DEFAULT UTC của schema. D1: ≤ 100 tham số / câu, ≤ 100 cột / bảng, tính phí theo
+dòng quét — giữ ngân sách đọc (`KE_HOACH_TOI_UU_D1.md`).
