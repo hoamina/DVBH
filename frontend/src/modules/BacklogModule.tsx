@@ -1937,7 +1937,18 @@ export function BacklogModule({
     { key: "muc_do", header: CASE_FIELD_LABELS.muc_do, sortKey: "muc_do", filter: "list", render: (c) => mucDoBadge(c.muc_do) ?? <span className="text-xs">—</span> },
     textCol("hinh_thuc_bao_hanh", CASE_FIELD_LABELS.hinh_thuc_bao_hanh),
     textCol("ghi_chu_loai_dv", CASE_FIELD_LABELS.ghi_chu_loai_dv, "text"),
-    textCol("tien_do_hoan_thanh", CASE_FIELD_LABELS.tien_do_hoan_thanh),
+    {
+      ...textCol("tien_do_hoan_thanh", CASE_FIELD_LABELS.tien_do_hoan_thanh),
+      // Trang thai chung + trang thai con Odoo (trang_thai_odoo, migration 0173) ngay duoi.
+      render: (c) => (
+        <span className="text-xs">
+          {dl(c.tien_do_hoan_thanh) ?? "—"}
+          {c.trang_thai_odoo && <span className="block text-[11px] text-[var(--ink-400)]">↳ {c.trang_thai_odoo}</span>}
+        </span>
+      ),
+    },
+    // Cot rieng de loc / sap xep / dem theo trang thai con (bao cao nhanh tien do con cua ca ton) - loc phia server (locCot.ts).
+    textCol("trang_thai_odoo", CASE_FIELD_LABELS.trang_thai_odoo),
     textCol("noi_dung_xu_ly", CASE_FIELD_LABELS.noi_dung_xu_ly, "text"),
     textCol("ly_do_ton_tranh_chap_gan_nhat", CASE_FIELD_LABELS.ly_do_ton_tranh_chap_gan_nhat),
     moneyCol("dt_san_pham", CASE_FIELD_LABELS.dt_san_pham),

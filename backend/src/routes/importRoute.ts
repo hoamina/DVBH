@@ -118,7 +118,7 @@ async function runBgTask(env: Env, importHistoryId: number, label: string, task:
 // luot) khong co rui ro dua tranh nay nen giu nguyen warm=true.
 export function scheduleCaLapRefreshIfChanged(
   c: Context<{ Bindings: Env }>,
-  summary: { GHI_MOI: number; GHI_DE: number; affectedSerials: string[]; affectedDates: string[] },
+  summary: { GHI_MOI: number; GHI_DE: number; affectedSerials: string[]; affectedDates: string[]; MO_RONG?: number },
   importHistoryId: number,
   options?: { warmReports?: boolean },
 ) {
@@ -153,6 +153,10 @@ export function scheduleCaLapRefreshIfChanged(
     c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "snapshot R2 ca da dong", recomputeDaDongDayChunks(c.env, summary.affectedDates)));
     // Ca "can giai trinh" chot 08:00 vua ket thuc trong ngay -> tu ghi log "Case da duoc ket thuc" (lib/autoLogCaKetThuc.ts).
     c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "tu ghi log ca ket thuc", autoLogCaKetThucTrongNgay(c.env.DB)));
+  }
+  // Bang mo rong (case_dvbh_mo_rong) doi doc lap GHI_MOI/GHI_DE (vd chi trang thai con Odoo doi) -> bump rieng domain cua no.
+  if ((summary.MO_RONG ?? 0) > 0) {
+    c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "bump case_mo_rong", bumpVersions(c.env.DB, ["case_mo_rong"])));
   }
   // Don rac "rpt:%" chay moi lan import (khong dieu kien GHI_MOI/GHI_DE, xem cleanupOldReportCache).
   c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "don rac rpt cache", cleanupOldReportCache(c.env.DB)));

@@ -51,6 +51,8 @@ export const COT_LOC: Record<string, { expr: string; kieu: Kieu }> = {
   muc_do: { expr: "c.muc_do", kieu: "list" },
   hinh_thuc_bao_hanh: { expr: "c.hinh_thuc_bao_hanh", kieu: "list" },
   tien_do_hoan_thanh: { expr: "c.tien_do_hoan_thanh", kieu: "list" },
+  // Trang thai con Odoo - bang mo rong case_dvbh_mo_rong (migration 0173), tra theo khoa chinh tung ca (khong JOIN vao cau loc).
+  trang_thai_odoo: { expr: "(SELECT m.trang_thai_odoo FROM case_dvbh_mo_rong m WHERE m.case_id = c.id)", kieu: "list" },
   noi_dung_xu_ly: { expr: "c.noi_dung_xu_ly", kieu: "text" },
   ly_do_ton_tranh_chap_gan_nhat: { expr: "c.ly_do_ton_tranh_chap_gan_nhat", kieu: "list" },
   dt_san_pham: { expr: "c.dt_san_pham", kieu: "number" },

@@ -59,6 +59,9 @@ export interface CaseRow {
   so_luong_anh?: string | null;
   ngay_san_xuat?: string | null; // Odoo manufacturing_date (migration 0145), QuickSight NULL
   ghi_chu_loai_dv?: string | null; // Odoo implement_process_note "Ghi chú loại dịch vụ" (migration 0156), QuickSight NULL
+  // Trang thai GOC Odoo (Đã gửi, Đã gọi / Đã hẹn, Đang triển khai, Đã đóng ca...) - bang mo rong case_dvbh_mo_rong (migration 0173),
+  // backend tron vao dong ca. tien_do_hoan_thanh = ban quy ve 3 trang thai chung; UI hien trang thai con nay ngay duoi.
+  trang_thai_odoo?: string | null;
   so_gio_xu_ly_klt?: number | null; // SLA khong loai tru (migration 0163): gio tu tiep nhan -> hoan thanh, khong bo "KH hen lai lich"
   dung_han_klt?: string | null; // "Đúng hạn"/"Quá hạn" khong loai tru (migration 0163)
   // Migration 0144 - chi ca Odoo: trang thai xin huy HIEN TAI (chuoi JSON CancelRequestItem[], 1 phan

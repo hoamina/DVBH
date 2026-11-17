@@ -5915,6 +5915,10 @@
   "Service type note",
   "Catatan jenis layanan"
  ],
+ "Trạng thái Odoo": [
+  "Odoo status",
+  "Status Odoo"
+ ],
  "Hình thức xử lý": [
   "Handling method",
   "Cara penanganan"

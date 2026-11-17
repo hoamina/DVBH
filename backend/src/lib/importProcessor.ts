@@ -9,6 +9,9 @@ import {
   ratchetNghiNgoTranhChap,
   computeCrmHash,
   businessFieldValue,
+  MO_RONG_FIELDS,
+  moRongFieldValue,
+  computeMoRongHash,
 } from "./ratchet";
 import { nowVN } from "./vnTime";
 import { recomputeCanKhaoSatBatch } from "./canKhaoSat";
@@ -52,13 +55,16 @@ export interface ImportSummary {
   // (truoc khi ghi de) lan ngay MOI, phong truong hop 1 case doi ngay hoan thanh giua 2 lan import
   // (vd sua lai ngay dong ca, hoac case dang ton moi duoc danh dau hoan thanh).
   affectedDates: string[];
+  // So ca co bang mo rong (case_dvbh_mo_rong, migration 0173) duoc ghi/xoa - doc lap GHI_MOI/GHI_DE/BO_QUA (vd chi trang thai
+  // con Odoo doi, crm_hash giu nguyen -> dong van BO_QUA nhung MO_RONG +1). > 0 -> bump domain "case_mo_rong".
+  MO_RONG: number;
 }
 
 const CHUNK_SIZE_SELECT = 100; // an toan voi gioi han bind-param cua SQLite
 const CHUNK_SIZE_BATCH = 500; // duoi gioi han batch 1000 (free tier D1)
 
 function emptySummary(): ImportSummary {
-  return { GHI_MOI: 0, BO_QUA: 0, GHI_DE: 0, LOI: 0, errors: [], affectedSerials: [], affectedDates: [] };
+  return { GHI_MOI: 0, BO_QUA: 0, GHI_DE: 0, LOI: 0, errors: [], affectedSerials: [], affectedDates: [], MO_RONG: 0 };
 }
 
 // Them 1 gia tri seri_san_pham (co the la unknown tho tu file import hoac tu dong DB cu) vao tap
@@ -168,7 +174,12 @@ async function fetchExistingRows(
     const placeholders = chunk.map(() => "?").join(", ");
     const { results } = await db
       // co_dt_sua: ca dang co doanh thu sua tay (bang case_dt_sua, migration 0172) -> buildFullOverwrite giu dt_*, chi cap nhat ban CRM.
-      .prepare(`SELECT ${EXISTING_ROW_COLUMNS.join(", ")}, EXISTS (SELECT 1 FROM case_dt_sua s WHERE s.case_id = case_dvbh.id) AS co_dt_sua FROM case_dvbh WHERE id IN (${placeholders})`)
+      // hash_mo_rong: hash bang mo rong hien co (migration 0173) - NULL khi ca chua co dong o do.
+      .prepare(
+        `SELECT ${EXISTING_ROW_COLUMNS.join(", ")}, EXISTS (SELECT 1 FROM case_dt_sua s WHERE s.case_id = case_dvbh.id) AS co_dt_sua,
+         (SELECT m.hash_mo_rong FROM case_dvbh_mo_rong m WHERE m.case_id = case_dvbh.id) AS hash_mo_rong
+         FROM case_dvbh WHERE id IN (${placeholders})`,
+      )
       .bind(...chunk)
       .all();
     for (const row of results as Record<string, unknown>[]) {
@@ -213,6 +224,27 @@ function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, 
   return db
     .prepare(`INSERT INTO case_dvbh (${fields.join(", ")}) VALUES (${placeholders})`)
     .bind(...fields.map((f) => values[f as keyof typeof values]));
+}
+
+/**
+ * Bang mo rong (case_dvbh_mo_rong, migration 0173): tra ve lenh ghi khi gia tri mo rong cua dong import KHAC hash dang luu, null
+ * khi khong can ghi. Chi xet truong dong import CO gui key (MO_RONG_FIELDS) - dong khong gui truong nao (QuickSight, import Excel
+ * tay) khong dong toi bang. Gui key nhung moi truong deu rong -> xoa dong (ve mac dinh).
+ */
+async function stmtGhiMoRong(db: D1Database, incoming: ImportRow, hashCu: unknown, now: string): Promise<D1PreparedStatement | null> {
+  const coKey = MO_RONG_FIELDS.filter((f) => Object.prototype.hasOwnProperty.call(incoming, f));
+  if (coKey.length === 0) return null;
+  const hashMoi = await computeMoRongHash(incoming);
+  const cu = hashCu === null || hashCu === undefined ? null : String(hashCu);
+  if (hashMoi === cu) return null;
+  if (hashMoi === null) return db.prepare("DELETE FROM case_dvbh_mo_rong WHERE case_id = ?").bind(incoming.id);
+  const cot = [...coKey, "hash_mo_rong", "updated_at"];
+  return db
+    .prepare(
+      `INSERT INTO case_dvbh_mo_rong (case_id, ${cot.join(", ")}) VALUES (?, ${cot.map(() => "?").join(", ")})
+       ON CONFLICT(case_id) DO UPDATE SET ${cot.map((f) => `${f} = excluded.${f}`).join(", ")}`,
+    )
+    .bind(incoming.id, ...coKey.map((f) => moRongFieldValue(f, incoming)), hashMoi, now);
 }
 
 /** Ca co doanh thu sua tay: cap nhat ban CRM moi nhat (hien "CRM gốc" + dung khi "Khôi phục theo CRM"). */
@@ -334,6 +366,13 @@ export async function processImport(
     const incomingNghiNgoTranhChap = normalizeNghiNgoTranhChapRaw(incoming.nghi_ngo_tranh_chap);
     const incomingHash = await computeCrmHash(incoming);
     const quocGia = quocGiaGuiKem(incoming, dsMaQuocGia, loiQuocGia);
+    // Bang mo rong ghi DOC LAP voi quyet dinh GHI_MOI/GHI_DE/BO_QUA cua case_dvbh (hash rieng) - dat TRUOC cac nhanh "continue".
+    // Ca moi: lenh nay di SAU INSERT case_dvbh trong cung lo (push o duoi theo thu tu) - khong FK nen thu tu khong bat buoc.
+    const lenhMoRong = await stmtGhiMoRong(db, incoming, existing?.hash_mo_rong, now);
+    if (lenhMoRong) summary.MO_RONG++;
+    const dayMoRong = () => {
+      if (commit && lenhMoRong) statements.push(lenhMoRong);
+    };
 
     if (!existing) {
       summary.GHI_MOI++;
@@ -341,6 +380,7 @@ export async function processImport(
       addAffectedDate(affectedDates, businessFieldValue("thoi_gian_hoan_thanh", incoming));
       canKhaoSatIds.add(incoming.id);
       if (commit) statements.push(buildInsertStatement(db, incoming, now, incomingHash, doiTraSets, boMauId, quocGia));
+      dayMoRong();
       continue;
     }
 
@@ -362,6 +402,7 @@ export async function processImport(
     // gi khac). Them dieu kien "&& !nghiNgoTranhChapChanged" de KHONG bo qua khi rieng co nay THAT SU
     // doi (0/2 -> 1/2/3) - 5 cot VIOLATION_FIELDS con lai VAN giu nguyen hanh vi cu (quyet dinh nghiep
     // vu 2026-07-28 rieng, khong dong cham toi o day).
+    dayMoRong();
     if (existing.thoi_gian_hoan_thanh && !dataChanged && !nghiNgoTranhChapChanged) {
       summary.BO_QUA++;
       continue; // da hoan thanh, khong doi (ke ca nghi_ngo_tranh_chap) -> bo qua hoan toan

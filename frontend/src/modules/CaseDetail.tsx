@@ -560,7 +560,22 @@ function renderCaseFieldsGrid(
       {hien("Sản phẩm bảo hành") && <Field label={tr("Sản phẩm bảo hành")} value={c.san_pham_bao_hanh ?? "—"} />}
       {hien("Hình thức bảo hành") && <Field label={tr("Hình thức bảo hành")} value={gt(c.hinh_thuc_bao_hanh) ?? "—"} />}
       {c.ghi_chu_loai_dv && <Field label={tr("Ghi chú loại dịch vụ")} value={c.ghi_chu_loai_dv} />}
-      {hien("Tiến độ hoàn thành") && <Field label={tr("Tiến độ hoàn thành")} value={gt(c.tien_do_hoan_thanh) ?? "—"} />}
+      {hien("Tiến độ hoàn thành") && (
+        <Field
+          label={tr("Tiến độ hoàn thành")}
+          value={
+            // Trang thai con Odoo (migration 0173) ngay duoi trang thai chung - ca QuickSight khong co -> chi 1 dong nhu cu.
+            c.trang_thai_odoo ? (
+              <span className="block">
+                <span className="block">{gt(c.tien_do_hoan_thanh) ?? "—"}</span>
+                <span className="block text-xs text-[var(--ink-400)]" title={tr("Trạng thái Odoo")}>↳ {c.trang_thai_odoo}</span>
+              </span>
+            ) : (
+              gt(c.tien_do_hoan_thanh) ?? "—"
+            )
+          }
+        />
+      )}
       {hien("Lý do hủy") && <Field label={tr("Lý do hủy")} value={gt(c.ly_do_huy) ?? "—"} />}
       {hien("Lý do quá hạn") && <Field label={tr("Lý do quá hạn")} value={gt(c.ly_do_qua_han) ?? "—"} />}
       {hien("Hiện tượng lỗi") && coHienTuongOdoo(c) && (

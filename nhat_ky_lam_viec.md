@@ -5973,3 +5973,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Migration 0173 (xoá 6 cột trong 1 lần) **thất bại trên production** với lỗi nội bộ D1 (7500) và đã rollback sạch (vẫn 99 cột, không mất
   dữ liệu; chưa có ca nào từng sửa DT). Nguyên nhân: `DROP COLUMN` ghi lại toàn bộ bảng ~160k ca. Đã gỡ file 0173 khỏi `migrations/`
   (chưa áp dụng ở remote nên gỡ an toàn). 6 cột hiện không còn được code dùng; còn chờ xoá từng cột một vào giờ thấp điểm.
+- v1.620 (2026-11-17): **tạo bảng mở rộng `case_dvbh_mo_rong`** (migration 0173 — số 0173 cũ đã gỡ, chưa từng áp dụng ở remote) với
+  trường đầu tiên `trang_thai_odoo` = trạng thái GỐC của Odoo (Đã gửi, Đã gọi / Đã hẹn, Đang triển khai, Đã đóng ca, Hoàn thành, Thất
+  bại...) trước khi pipeline quy về 3 trạng thái chung. Import (`importProcessor.ts stmtGhiMoRong`) ghi bảng này bằng lệnh riêng theo
+  `hash_mo_rong` riêng (`ratchet.ts MO_RONG_FIELDS/computeMoRongHash`), độc lập GHI_MOI/GHI_DE/BO_QUA → chỉ đổi trạng thái con (crm_hash
+  giữ nguyên) vẫn được ghi; dòng không gửi key (QuickSight, import tay) không đụng; gửi rỗng → xoá dòng. Summary thêm `MO_RONG`, > 0 →
+  bump domain `case_mo_rong` (trong `CASE_DETAIL_DOMAINS`). UI: chi tiết ca + cột "Tiến độ hoàn thành" của Danh sách chi tiết hiện
+  "↳ <trạng thái con>" ngay dưới trạng thái chung; thêm cột tuỳ chọn "Trạng thái Odoo" lọc/sắp xếp phía server (`locCot.ts`) — nền
+  cho báo cáo nhanh tiến độ con của ca tồn. Đã thử local 6 tình huống (mới / gửi lại y hệt / chỉ đổi trạng thái con / không gửi key /
+  gửi rỗng / gửi lại giá trị).

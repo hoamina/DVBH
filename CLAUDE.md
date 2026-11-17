@@ -497,6 +497,11 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
      **Exception:** keep it in `case_dvbh` only when a side table would really hurt analysis/computation — filtered/grouped over
      ALL cases in hot report / `NEED_*` / chốt SQL, or needed by import per row — e.g. `huy_bo_at` (view `case_hieu_luc`),
      `nghi_ngo_tranh_chap`, `can_khao_sat`, `theo_doi_doi_tra`, `ca_lap_prior_*`, `khu_vuc` itself.
+  **Side table now EXISTS (v1.620, migration 0173):** `case_dvbh_mo_rong` (`case_id` PK, `hash_mo_rong`, `updated_at` + one column per
+  field; first field `trang_thai_odoo` = raw Odoo sub-status). New import field there = add a column (new migration) + its name in
+  `ratchet.ts MO_RONG_FIELDS`; import writes it via `importProcessor.ts stmtGhiMoRong` (own hash, independent of crm_hash/BO_QUA),
+  case detail merges the row into `case`, lists read it with a correlated PK lookup (`locCot.ts COT_LOC.trang_thai_odoo`) — never
+  `JOIN`/`c.*` it into `case_dvbh` result sets.
   3. **Budget full (> 95):** first move more system columns out (candidates: `khu_vuc_crm`/`khu_vuc_sua_by`/`khu_vuc_sua_at`,
      `huy_bo_by`/`huy_bo_ly_do`, `nghi_ngo_tranh_chap_xac_nhan_*`, `theo_doi_doi_tra_xac_nhan_*`, `assigned_to`). Only if still
      full, new import fields go to a side table `case_dvbh_mo_rong` with its own `hash_mo_rong` (never folded into `crm_hash`),

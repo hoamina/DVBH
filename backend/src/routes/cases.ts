@@ -33,7 +33,7 @@ import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersion
 // ghi tu NOI KHAC (import Excel, QC, dong bo Sheet, nguoi dung khac) khong hien (bug 2026-09-30, ca
 // 1341623: import bao "da co" nhung chi tiet ca khong thay). Nay tra kem detailVersion = version-tag cac
 // domain nay; FE so voi GET /cases/detail-version truoc khi dung cache.
-const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "hd_bh", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
+const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "case_mo_rong", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "hd_bh", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
 import { cachedReport, buildReportKey, getVnDateStr, chayGomDoc } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
 import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey, buildKhuVucFilterScopeKey } from "../lib/dailySnapshot";
@@ -718,7 +718,8 @@ cases.get("/", async (c) => {
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.nskx} THEN 1 ELSE 0 END) as need_nskx,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.loc_tong_bcn} THEN 1 ELSE 0 END) as need_loc_tong_bcn,
            (CASE WHEN ${NEED_GIAI_TRINH_CATEGORIES.vip_24h} THEN 1 ELSE 0 END) as need_vip_24h,
-           ${AGE_EXPR} as tuoi_ton
+           ${AGE_EXPR} as tuoi_ton,
+           ${COT_LOC.trang_thai_odoo.expr} as trang_thai_odoo
     FROM ${listFrom} c
     ${join}
     ${whereSql}
@@ -1533,11 +1534,15 @@ cases.get("/:id", async (c) => {
       lo("SELECT id, cap, ngay, chi_tieu, created_at FROM canh_bao_ton_chuyen_cap_log WHERE case_id = ? ORDER BY id DESC"),
       // ID Lada lien quan (migration 0153, ghi luc dong bo ETX) - 1 ca co the co nhieu don Lada, moi nhat truoc.
       lo("SELECT * FROM case_lada WHERE case_id = ? ORDER BY ngay_khoi_tao DESC, order_id DESC"),
+      // Truong import o bang mo rong (migration 0173, vd trang_thai_odoo) - tron vao "case" ben duoi nhu cot cua ca.
+      lo("SELECT * FROM case_dvbh_mo_rong WHERE case_id = ?"),
     ]),
     getCaLapDetection(db, id),
   ]);
-  const [caseKq, giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, napGas, bienBanHop, donBaoHanhOdoo, chuyenCapLog, lada] = ketQuaLo;
-  const caseRow = (caseKq.results[0] as Record<string, unknown> | undefined) ?? null;
+  const [caseKq, giaiTrinhLog, ketQuaGoi, viPham, viPhamGiaiTrinh, viPhamPushLog, napGas, bienBanHop, donBaoHanhOdoo, chuyenCapLog, lada, moRongKq] = ketQuaLo;
+  const caseGoc = (caseKq.results[0] as Record<string, unknown> | undefined) ?? null;
+  const { case_id: _moRongId, hash_mo_rong: _moRongHash, updated_at: _moRongAt, ...moRong } = (moRongKq.results[0] as Record<string, unknown> | undefined) ?? {};
+  const caseRow = caseGoc ? { ...caseGoc, ...moRong } : null;
   if (!caseRow) return c.json({ error: "NOT_FOUND" }, 404);
 
   const scope = scopeByKhuVuc(c);

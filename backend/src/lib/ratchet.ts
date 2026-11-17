@@ -54,6 +54,32 @@ export const ODOO_BO_SUNG_FIELDS = ["hien_tuong_odoo", "sla_odoo", "bao_hanh_nha
 // nhung anh duoc). Thay the/bo sung cho so_luong_anh (van giu ca 2, so_luong_anh la ban dem nhanh).
 export const OPTIONAL_FIELDS = ["tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi", "tinh_moi", "xa_moi", "muc_do", "id_khach_hang", "ktv_trien_khai", "lich_hen", "so_luong_anh", "yeu_cau_huy", "ngay_san_xuat", "ghi_chu_loai_dv", "so_gio_xu_ly_klt", "dung_han_klt", "anh_video_odoo", ...ODOO_BO_SUNG_FIELDS] as const;
 
+// Truong import luu o BANG MO RONG case_dvbh_mo_rong (migration 0173, 2026-11-17) - case_dvbh het ngan sach cot (99/100,
+// quy tac <= 95, xem CLAUDE.md). Cung quy uoc OPTIONAL_FIELDS: chi ghi khi dong import CO key (ca QuickSight khong gui ->
+// giu nguyen), nhung KHONG nam trong crm_hash - so khac biet bang hash_mo_rong rieng (computeMoRongHash), ghi bang lenh rieng
+// trong importProcessor.ts. Them truong moi: them ten vao day + cot cung ten trong case_dvbh_mo_rong (migration moi).
+// "trang_thai_odoo": trang thai GOC Odoo (Đã gửi, Đã gọi / Đã hẹn, Đang triển khai, Đã đóng ca...) - tien_do_hoan_thanh la
+// ban da quy ve 3 trang thai chung; UI hien trang thai con nay ngay duoi.
+export const MO_RONG_FIELDS = ["trang_thai_odoo"] as const;
+
+/** Gia tri ghi bang mo rong: chuoi da trim, rong -> NULL. */
+export function moRongFieldValue(field: string, incoming: Record<string, unknown>): string | null {
+  const v = incoming[field];
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
+}
+
+/** Hash cac truong mo rong CO GIA TRI (giong optionalHashParts) - null khi khong co gia tri nao (khong can dong). */
+export async function computeMoRongHash(incoming: Record<string, unknown>): Promise<string | null> {
+  const parts: string[] = [];
+  for (const f of MO_RONG_FIELDS) {
+    const v = moRongFieldValue(f, incoming);
+    if (v !== null) parts.push(`${f}=${v}`);
+  }
+  return parts.length ? sha256Hex(parts.join("|")) : null;
+}
+
 // CHOT 2026-08-20: "nghi_ngo_tranh_chap" TACH RIENG khoi danh sach nay - khac 5 cot con lai (thuan
 // boolean 0/1 qua ratchetFlag()), no can 4 trang thai (0/1/2/3, xem normalizeNghiNgoTranhChapRaw()/
 // ratchetNghiNgoTranhChap() ben duoi) de phan biet "AI phat hien, cho xac nhan" (2) voi "da xac nhan
