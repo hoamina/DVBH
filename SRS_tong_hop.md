@@ -17,9 +17,9 @@ Xem chi tiết: `ban-yeu-cau-he-thong-giai-trinh-ton-DVBH_260715-v2.md`
 Xem chi tiết kiến trúc, API, migrations trong mã nguồn thư mục `backend/` và `frontend/`.
 
 ### 2.1. Tài khoản Cloudflare (cập nhật 2026-07-22)
-Dự án ban đầu chạy trên tài khoản `meomeo3101@gmail.com` (Worker `dvbh-suite`, D1 `dvbh-db`) —
+Dự án ban đầu chạy trên tài khoản tài khoản Cloudflare cũ (cá nhân) (Worker `dvbh-suite`, D1 `dvbh-db`) —
 **tài khoản này đã DỪNG sử dụng**, không còn thao tác gì thêm lên đó. Toàn bộ công việc từ
-2026-07-22 chuyển hẳn sang tài khoản `smarttrade.vp@gmail.com`:
+2026-07-22 chuyển hẳn sang tài khoản tài khoản vận hành smarttrade:
 - Worker: `dvbh` — domain `https://dvbh.dichvu3t.workers.dev`
 - D1: `dvbh-db-smarttrade` (cùng schema/migrations với D1 cũ, không copy data thật)
 - Config riêng: `wrangler.smarttrade.jsonc` (khác `wrangler.jsonc` cũ, KHÔNG dùng chung)

@@ -17,3 +17,9 @@ Thumbs.db
 .claude/scheduled_tasks.lock
 *.tsbuildinfo
 .tmp/
+
+# Ban ghi ra soat bao mat chi luu tren may (khong day len repo cong khai)
+**/*bao_mat*.md
+**/*BAO_CAO_BAO_MAT*
+**/*SECURITY_AUDIT*
+docs/audit/
