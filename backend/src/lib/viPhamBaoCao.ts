@@ -14,6 +14,7 @@
 // phai loi khong nhat quan.
 import { khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { khuVucAdHocClause, khuVucReportExclusionClause, multiValueAdHocClause, nguonCrmClause } from "./filterParams";
+import { layBangTenKtv, gopDongTheoKtv, tenKtvChuan, ktvLocClause } from "./ktvTen";
 
 // KHONG them gio "00:00:00" vao bound - xem giai thich chi tiet o monthBounds() trong cases.ts (ban
 // sao cuc bo, cung 1 ham nho da duoc lap lai o vi pham.ts/cases.ts theo dung tien le co san).
@@ -53,8 +54,10 @@ function buildCaseFilter(params: ViPhamBaoCaoParams, scope: string[] | null): { 
   const khuVucClause = khuVucAdHocClause("c.khu_vuc", params.khu_vuc);
   const nhomKhClause = multiValueAdHocClause("c.nhom_kh", params.nhom_kh);
   const nguonCrm = nguonCrmClause(params.nguon_crm);
-  const ktvSql = params.ky_thuat_vien ? " AND c.ky_thuat_vien = ?" : "";
-  const ktvBinds = params.ky_thuat_vien ? [params.ky_thuat_vien] : [];
+  // Loc KTV khop MOI ten cua cung ma (ten cu + ten moi sau doi ten tram) - lib/ktvTen.ts.
+  const ktvLoc = params.ky_thuat_vien ? ktvLocClause("c.ky_thuat_vien", params.ky_thuat_vien) : { sql: "", binds: [] };
+  const ktvSql = ktvLoc.sql;
+  const ktvBinds = ktvLoc.binds;
   return {
     sql: scopeClauseBase.sql + exclusion.sql + khuVucClause.sql + nhomKhClause.sql + nguonCrm.sql + ktvSql,
     binds: [...scopeClauseBase.binds, ...exclusion.binds, ...khuVucClause.binds, ...nhomKhClause.binds, ...nguonCrm.binds, ...ktvBinds],
@@ -92,8 +95,9 @@ function buildKtvFilter(params: ViPhamBaoCaoParams, scope: string[] | null): { s
   const scopeClauseBase = khuVucWhereClause(scope, "vk.khu_vuc");
   const exclusion = khuVucReportExclusionClause("vk.khu_vuc");
   const khuVucClause = khuVucAdHocClause("vk.khu_vuc", params.khu_vuc);
-  const ktvSql = params.ky_thuat_vien ? " AND vk.ky_thuat_vien = ?" : "";
-  const ktvBinds = params.ky_thuat_vien ? [params.ky_thuat_vien] : [];
+  const ktvLoc = params.ky_thuat_vien ? ktvLocClause("vk.ky_thuat_vien", params.ky_thuat_vien) : { sql: "", binds: [] };
+  const ktvSql = ktvLoc.sql;
+  const ktvBinds = ktvLoc.binds;
   return {
     sql: scopeClauseBase.sql + exclusion.sql + khuVucClause.sql + ktvSql,
     binds: [...scopeClauseBase.binds, ...exclusion.binds, ...khuVucClause.binds, ...ktvBinds],
@@ -251,7 +255,7 @@ export async function computeViPhamBaoCaoDaChieu(
   // computeViPhamBaoCaoTongQuan (daGiaiTrinhExists) de nhat quan giua 2 tab, chi khac la GROUP BY
   // theo tung nhom thay vi 1 tong duy nhat.
   const daGiaiTrinhExists = "EXISTS (SELECT 1 FROM vi_pham_giai_trinh gt WHERE gt.vi_pham_id = v.id)";
-  const { results } = await db
+  let { results } = await db
     .prepare(
       `SELECT ${dimExpr} as nhom,
          COUNT(*) as so_ghi_nhan,
@@ -293,6 +297,19 @@ export async function computeViPhamBaoCaoDaChieu(
       .bind(start, end, ...caseFilter.binds)
       .all<{ nhom: string; n: number }>();
     for (const r of dong) caDongByNhom.set(r.nhom, r.n);
+  }
+  // Nhom theo KTV: gom theo MA, hien ten moi nhat (lib/ktvTen.ts, 2026-11-17).
+  if (params.nhom === "ky_thuat_vien") {
+    const bang = await layBangTenKtv(db);
+    results = gopDongTheoKtv(results, bang, ["nhom"]);
+    const gopCaDong = new Map<string, number>();
+    for (const [k, n] of caDongByNhom) {
+      const ten = tenKtvChuan(bang, k);
+      gopCaDong.set(ten, (gopCaDong.get(ten) ?? 0) + n);
+    }
+    caDongByNhom.clear();
+    for (const [k, n] of gopCaDong) caDongByNhom.set(k, n);
+    results.sort((a, b) => b.so_ghi_nhan - a.so_ghi_nhan);
   }
   const daCo = new Set(results.map((r) => r.nhom));
   const chiCoCaDong = [...caDongByNhom.keys()]
@@ -361,8 +378,11 @@ export async function computeViPhamDiemThe(db: D1Database, params: ViPhamBaoCaoP
     .bind(...binds)
     .all<{ ky_thuat_vien: string; khu_vuc: string | null; so_vi_pham: number; tong_diem: number }>();
 
+  // Gom theo MA KTV, hien ten moi nhat (lib/ktvTen.ts, 2026-11-17).
+  const gop = gopDongTheoKtv(results, await layBangTenKtv(db), ["ky_thuat_vien"]).sort((a, b) => b.tong_diem - a.tong_diem);
+
   return {
-    rows: results.map((r) => ({
+    rows: gop.map((r) => ({
       kyThuatVien: r.ky_thuat_vien,
       khuVuc: r.khu_vuc,
       soViPham: r.so_vi_pham,
@@ -515,13 +535,14 @@ export async function computeViPhamDanhSach(db: D1Database, params: ViPhamBaoCao
       giai_trinh_gs_ngay: string | null;
     }>();
 
+  const bangTenKtv = await layBangTenKtv(db); // hien ten KTV moi nhat theo ma (lib/ktvTen.ts)
   return {
     rows: results.map((r) => ({
       id: r.id,
       source: r.source,
       caseId: r.case_id,
       khuVuc: r.khu_vuc,
-      kyThuatVien: r.ky_thuat_vien,
+      kyThuatVien: tenKtvChuan(bangTenKtv, r.ky_thuat_vien),
       khachHang: r.khach_hang,
       loaiLoi: r.loai_loi,
       ketQuaCap1: r.ket_qua_cap_1,

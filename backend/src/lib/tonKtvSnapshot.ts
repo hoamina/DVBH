@@ -101,6 +101,8 @@ export async function getTonKtvMonth(
   matchesKhuVuc: (kv: string) => boolean,
   tuoiTu: number | null,
   tuoiDen: number | null,
+  // Doi ten KTV truoc khi gop (lib/ktvTen.ts tenKtvChuan: gom theo MA, ten moi nhat) - cac ten cu cua cung ma cong don vao 1 dong.
+  doiTen: (ktv: string) => string = (k) => k,
 ): Promise<TonKtvReport> {
   const days = daysOfMonth(thang);
   const ngayTruoc = prevDay(days[0]);
@@ -129,7 +131,8 @@ export async function getTonKtvMonth(
     else ngayCoDuLieu.push(snap.ngay);
 
     const payload = JSON.parse(snap.payload) as TonKtvPayload;
-    for (const [ktv, kv, hist] of payload.rows) {
+    for (const [ktvTho, kv, hist] of payload.rows) {
+      const ktv = ktvTho ? doiTen(ktvTho) : ktvTho;
       if (!matchesKhuVuc(kv)) continue;
       let n = 0;
       for (let i = 0; i < hist.length; i += 2) if (matchesTuoi(hist[i])) n += hist[i + 1];
@@ -140,8 +143,8 @@ export async function getTonKtvMonth(
         row = { ktv, khu_vuc: kv, truoc: null, so: days.map(() => null) };
         rowMap.set(key, row);
       }
-      if (laNgayTruoc) row.truoc = n;
-      else row.so[idx!] = n;
+      if (laNgayTruoc) row.truoc = (row.truoc ?? 0) + n;
+      else row.so[idx!] = (row.so[idx!] ?? 0) + n;
     }
   }
 

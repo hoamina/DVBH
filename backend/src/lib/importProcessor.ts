@@ -15,6 +15,7 @@ import {
 } from "./ratchet";
 import { nowVN } from "./vnTime";
 import { recomputeCanKhaoSatBatch } from "./canKhaoSat";
+import { capNhatTenKtvTuImport } from "./ktvTen";
 import { computeTheoDoiDoiTra } from "./theoDoiDoiTra";
 import { docBoMauId, taoBoMauId, xacDinhQuocGia, QUOC_GIA_MAC_DINH, type BoMauId } from "./quocGia";
 
@@ -469,6 +470,12 @@ export async function processImport(
     // Tinh lai can_khao_sat SAU KHI cac dong INSERT/UPDATE o tren da ghi xong (can gia tri loi_* moi
     // nhat trong DB de NEED_SURVEY_CONDITION danh gia dung) - xem lib/canKhaoSat.ts.
     await recomputeCanKhaoSatBatch(db, [...canKhaoSatIds]);
+    // Ten KTV/tram moi nhat theo ma (lib/ktvTen.ts, migration 0174) - loi khong lam hong import.
+    try {
+      await capNhatTenKtvTuImport(db, valid as Record<string, unknown>[]);
+    } catch (e) {
+      console.error("[import] capNhatTenKtvTuImport loi:", e);
+    }
   }
 
   return summary;

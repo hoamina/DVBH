@@ -49,6 +49,7 @@ import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
 import { fetchSuaChuaTimeline } from "../lib/suaChuaTimeline";
 import { fetchMailTimeline, postDoiTraAction, type DoiTraAction } from "../lib/mailTimeline";
 import { getTonKtvMonth } from "../lib/tonKtvSnapshot";
+import { gopDongTheoKtv, ktvLocClause, layBangTenKtv, tenKtvChuan } from "../lib/ktvTen";
 import { fetchLadaDon } from "../lib/etxGiaiTrinhSync";
 
 const cases = new Hono<{ Bindings: Env }>();
@@ -158,8 +159,10 @@ function sharedReportFiltersFromParams(params: Record<string, string | undefined
     }
   }
   if (params.ky_thuat_vien) {
-    sql += ` AND ${prefix}ky_thuat_vien = ?`;
-    binds.push(params.ky_thuat_vien);
+    // Khop moi ten cua cung ma KTV (ten cu + ten moi) - lib/ktvTen.ts.
+    const ktvLoc = ktvLocClause(`${prefix}ky_thuat_vien`, params.ky_thuat_vien);
+    sql += ktvLoc.sql;
+    binds.push(...ktvLoc.binds);
   }
   const dg = diaGioiLoc(params.dg_loc, prefix);
   return { sql: sql + dg.sql, binds: [...binds, ...dg.binds] };
@@ -506,7 +509,7 @@ cases.get("/", async (c) => {
   const khuVucClause = frozenPerKhuVuc ? noClause : khuVucAdHocClause("c.khu_vuc", khuVucFilter);
   const ageClause = ageFilterClause(c.req.query("tuoi_tu"), c.req.query("tuoi_den"));
   const ktv = c.req.query("ky_thuat_vien");
-  const ktvClause: { sql: string; binds: unknown[] } = ktv ? { sql: " AND c.ky_thuat_vien = ?", binds: [ktv] } : { sql: "", binds: [] };
+  const ktvClause: { sql: string; binds: unknown[] } = ktv ? ktvLocClause("c.ky_thuat_vien", ktv) : { sql: "", binds: [] };
   const exclusionClause = frozenPerKhuVuc ? noClause : khuVucReportExclusionClause("c.khu_vuc");
   const extraFilter = khuVucClause.sql + ageClause.sql + dimClause.sql + sharedClause.sql + idClause.sql + ktvClause.sql + exclusionClause.sql;
   // D1 gioi han 100 bind parameters/cau. Snapshot toan he thong co the co hang tram ID, nen
@@ -1093,6 +1096,10 @@ cases.get("/giai-trinh-ly-do-thang", async (c) => {
   const key = buildReportKey("cases/giai-trinh-ly-do-thang-v1", { thang, khu_vuc: areaParam }, scope);
   return c.json(await cachedReport(c.env.DB, key, ["cases", "giai_trinh"], async () => {
     return computeExplanationReasons(c.env.DB, thang, scope, areaParam);
+  }).then(async (kq) => {
+    // Gom theo MA tram/KTV, hien ten moi nhat (lib/ktvTen.ts, 2026-11-17).
+    const bang = await layBangTenKtv(c.env.DB);
+    return { ...kq, rows: gopDongTheoKtv(kq.rows as Record<string, unknown>[], bang, ["tram"], ["khu_vuc", "ly_do"]) };
   }));
 });
 
@@ -1223,7 +1230,8 @@ cases.get("/ton-ktv", async (c) => {
 
   const matchesFilter = khuVucNameMatcher(c.req.query("khu_vuc") || undefined);
   const matchesKhuVuc = phamVi ? (kv: string) => phamVi.includes(kv) && matchesFilter(kv) : matchesFilter;
-  return c.json(await getTonKtvMonth(c.env.DB, thang, matchesKhuVuc, parseTuoi(c.req.query("tuoi_tu")), parseTuoi(c.req.query("tuoi_den"))));
+  const bangTenKtv = await layBangTenKtv(c.env.DB);
+  return c.json(await getTonKtvMonth(c.env.DB, thang, matchesKhuVuc, parseTuoi(c.req.query("tuoi_tu")), parseTuoi(c.req.query("tuoi_den")), (k) => tenKtvChuan(bangTenKtv, k)));
 });
 
 // GET /api/cases/canh-bao-ton?khu_vuc= - 8 so dem "Canh bao ton danh cho QL" cua snapshot dong bang

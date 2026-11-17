@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { gopDongTheoKtv, ktvLocClause, layBangTenKtv } from "../lib/ktvTen";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -124,8 +125,9 @@ export async function computeViPhamFunnel(db: D1Database, params: ViPhamFunnelPa
   const tinhClause = gopClause(dimAdHocClause("c.tinh", "tinh", params.tinh), diaGioiLoc(params.dg_loc));
   const quanHuyenSql = params.tinh && params.quan_huyen ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = params.tinh && params.quan_huyen ? [params.quan_huyen] : [];
-  const ktvSql = params.ky_thuat_vien ? " AND c.ky_thuat_vien = ?" : "";
-  const ktvBinds = params.ky_thuat_vien ? [params.ky_thuat_vien] : [];
+  const ktvLoc = params.ky_thuat_vien ? ktvLocClause("c.ky_thuat_vien", params.ky_thuat_vien) : { sql: "", binds: [] as unknown[] };
+  const ktvSql = ktvLoc.sql;
+  const ktvBinds = ktvLoc.binds;
   const extraClause = extraDimFiltersFromParams(params);
   const nguonCrm = nguonCrmClause(params.nguon_crm);
   const scopeClauseC = {
@@ -356,11 +358,13 @@ export async function computeViPhamLeaderboard(db: D1Database, params: ViPhamLea
          AND c.thoi_gian_cskh_tiep_nhan >= ? AND c.thoi_gian_cskh_tiep_nhan < ?${scopeClauseC.sql}
        GROUP BY c.ky_thuat_vien
        ORDER BY so_vi_pham DESC
-       LIMIT 10`,
+       LIMIT 30`,
     )
       .bind(start, end, ...scopeClauseC2.binds, start, end, ...scopeClauseC.binds)
       .all<{ nhom: string; so_vi_pham: number; tong_ca: number }>();
-    return { rows: withTyLe(results) };
+    // Gom theo MA KTV (ten cu + ten moi), hien ten moi nhat (lib/ktvTen.ts, 2026-11-17) - lay du 30 dong roi moi cat top 10.
+    const gop = gopDongTheoKtv(results, await layBangTenKtv(db), ["nhom"]).sort((a, b) => b.so_vi_pham - a.so_vi_pham).slice(0, 10);
+    return { rows: withTyLe(gop) };
   }
 
   const scopeClauseC2Base = khuVucWhereClause(scope, "c2.khu_vuc");

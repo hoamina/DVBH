@@ -5982,3 +5982,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   "↳ <trạng thái con>" ngay dưới trạng thái chung; thêm cột tuỳ chọn "Trạng thái Odoo" lọc/sắp xếp phía server (`locCot.ts`) — nền
   cho báo cáo nhanh tiến độ con của ca tồn. Đã thử local 6 tình huống (mới / gửi lại y hệt / chỉ đổi trạng thái con / không gửi key /
   gửi rỗng / gửi lại giá trị).
+
+## 2026-11-17 — Đổi tên trạm hàng loạt: báo cáo KTV gom theo mã (v1.621)
+
+- Kiểm tra dữ liệu production (chỉ SELECT): 288 mã KTV, 12 mã đang có >1 chuỗi tên (CRM cũ vs Odoo — vd `ktv3t.ptdv-vn` "PTDV 3T -
+  Tài khoản nhận sự cố" 6.098 ca vs "PTDV 3T" 2.690 ca; `annl.dvkh` khác nhau chỉ do Unicode NFD/NFC; hậu tố "(hủy)"...). Tên mới của
+  đợt đổi tên trạm chưa về D1 lúc kiểm tra; khi pipeline đẩy về, chỉ ca được gửi lại mới mang tên mới → trước bản này mỗi trạm sẽ
+  bị tách 2 dòng ở các báo cáo gom theo KTV, và lọc theo tên mới sẽ không ra ca cũ.
+- Sửa (chủ hệ thống: "ưu tiên ID KTV, hiển thị tên gần nhất"): bảng `ktv_ten_moi_nhat` (migration 0174, khởi tạo từ case_dvbh, import
+  cập nhật), các route báo cáo KTV gộp dòng theo mã lúc đọc (cả số chốt 08:00 cũ), mọi bộ lọc KTV khớp theo mã. Chi tiết ở CLAUDE.md.
+- Danh sách ca (Danh sách chi tiết, chi tiết ca...) vẫn hiện tên lưu trên từng ca. Thử local: migration, upsert 5 tình huống, hàm gộp.

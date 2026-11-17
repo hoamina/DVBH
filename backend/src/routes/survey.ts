@@ -1,4 +1,5 @@
 import { extractMaKtv } from "../lib/ktvCode";
+import { ktvLocClause } from "../lib/ktvTen";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { docViPhamFunnel, docViPhamLeaderboard } from "./viPham";
@@ -80,8 +81,9 @@ survey.get("/candidates", async (c) => {
   const quanHuyenSql = c.req.query("tinh") && c.req.query("quan_huyen") ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = c.req.query("tinh") && c.req.query("quan_huyen") ? [c.req.query("quan_huyen")] : [];
   const ktv = c.req.query("ky_thuat_vien");
-  const ktvSql = ktv ? " AND c.ky_thuat_vien = ?" : "";
-  const ktvBinds = ktv ? [ktv] : [];
+  const ktvLoc = ktv ? ktvLocClause("c.ky_thuat_vien", ktv) : { sql: "", binds: [] as unknown[] };
+  const ktvSql = ktvLoc.sql;
+  const ktvBinds = ktvLoc.binds;
   const extraFilter = khuVucClause.sql + tinhClause.sql + quanHuyenSql + ktvSql;
   const extraBinds = [...khuVucClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds];
 
@@ -150,8 +152,9 @@ survey.get("/call-history", async (c) => {
   const quanHuyenSql = c.req.query("tinh") && c.req.query("quan_huyen") ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = c.req.query("tinh") && c.req.query("quan_huyen") ? [c.req.query("quan_huyen")] : [];
   const ktv = c.req.query("ky_thuat_vien");
-  const ktvSql = ktv ? " AND c.ky_thuat_vien = ?" : "";
-  const ktvBinds = ktv ? [ktv] : [];
+  const ktvLoc = ktv ? ktvLocClause("c.ky_thuat_vien", ktv) : { sql: "", binds: [] as unknown[] };
+  const ktvSql = ktvLoc.sql;
+  const ktvBinds = ktvLoc.binds;
   const extraFilter = khuVucClause.sql + tinhClause.sql + quanHuyenSql + ktvSql;
   const extraBinds = [...khuVucClause.binds, ...tinhClause.binds, ...quanHuyenBinds, ...ktvBinds];
 
@@ -219,8 +222,9 @@ survey.get("/", async (c) => {
   const quanHuyenSql = c.req.query("tinh") && c.req.query("quan_huyen") ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = c.req.query("tinh") && c.req.query("quan_huyen") ? [c.req.query("quan_huyen")] : [];
   const ktv = c.req.query("ky_thuat_vien");
-  const ktvSql = ktv ? " AND c.ky_thuat_vien = ?" : "";
-  const ktvBinds = ktv ? [ktv] : [];
+  const ktvLoc = ktv ? ktvLocClause("c.ky_thuat_vien", ktv) : { sql: "", binds: [] as unknown[] };
+  const ktvSql = ktvLoc.sql;
+  const ktvBinds = ktvLoc.binds;
   // "ngay_tu"/"ngay_den" (CHOT 2026-09-04): loc theo v.ngay_ghi_nhan NGAY TRONG SQL, khong con loc
   // client-side sau khi da LIMIT 200/5000 - truoc day tab "cho-qc"/"da-xu-ly" chi LIMIT theo
   // ngay_ghi_nhan DESC roi frontend moi loc ngay tren tap da bi cat, nen bang hien thi bao thieu rat
@@ -690,8 +694,9 @@ export async function computeSurveyKhuVucReport(db: D1Database, params: SurveyKh
   // huyen, vd "Thanh pho" o nhieu tinh khac nhau).
   const quanHuyenSql = params.tinh && params.quan_huyen ? " AND c.quan_huyen = ?" : "";
   const quanHuyenBinds = params.tinh && params.quan_huyen ? [params.quan_huyen] : [];
-  const ktvSql = params.ky_thuat_vien ? " AND c.ky_thuat_vien = ?" : "";
-  const ktvBinds = params.ky_thuat_vien ? [params.ky_thuat_vien] : [];
+  const ktvLoc = params.ky_thuat_vien ? ktvLocClause("c.ky_thuat_vien", params.ky_thuat_vien) : { sql: "", binds: [] as unknown[] };
+  const ktvSql = ktvLoc.sql;
+  const ktvBinds = ktvLoc.binds;
   const extraClause = extraDimFiltersFromParams(params);
   const nguonCrm = nguonCrmClause(params.nguon_crm);
 

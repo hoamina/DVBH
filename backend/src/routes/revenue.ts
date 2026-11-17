@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { layBangTenKtv, gopDongTheoKtv } from "../lib/ktvTen";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -39,12 +40,21 @@ revenue.get("/", async (c) => {
   if (REVENUE_SNAPSHOT_FIELD[dim] && isDefaultReportParams(params)) {
     const snap = await getSnapshotForUserAnToan(c.env.DB, c.get("user"), (p) => c.executionCtx.waitUntil(p));
     const tuSnap = snap?.payload[REVENUE_SNAPSHOT_FIELD[dim]];
-    if (tuSnap) return c.json(tuSnap);
+    if (tuSnap) return c.json(await gopTheoMaKtv(c.env.DB, dim, tuSnap));
   }
   // "rv": doi khi doi output compute() (2 = them so_ca_co_dt, 2026-10-09) - cache cu cung ngay khong tu het han.
   const key = buildReportKey("revenue", { ...params, rv: "3" }, scope);
   const payload = await cachedReport(c.env.DB, key, ["cases", "doanh_thu"], () => computeRevenue(c.env.DB, params, scope));
-  return c.json(payload);
+  return c.json(await gopTheoMaKtv(c.env.DB, dim, payload));
 });
+
+// Doanh thu theo KTV: gom theo MA KTV, hien ten moi nhat (lib/ktvTen.ts, 2026-11-17) - ap luc doc (ca so chot 08:00 cu).
+async function gopTheoMaKtv<T extends { byDim: unknown[] }>(db: D1Database, dim: string, payload: T): Promise<T> {
+  if (dim !== "ky_thuat_vien" && dim !== "ky_thuat_vien_tinh") return payload;
+  const bang = await layBangTenKtv(db);
+  const byDim = gopDongTheoKtv(payload.byDim as Record<string, unknown>[], bang, ["nhom"], dim === "ky_thuat_vien_tinh" ? ["tinh", "tinh_moi"] : []);
+  if (dim === "ky_thuat_vien") byDim.sort((a, b) => (Number(b.doanh_thu) || 0) - (Number(a.doanh_thu) || 0));
+  return { ...payload, byDim };
+}
 
 export default revenue;

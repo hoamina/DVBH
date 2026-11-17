@@ -1,5 +1,6 @@
 import { cachedReport } from "./reportCache";
 import { nowVN } from "./vnTime";
+import { layBangTenKtv } from "./ktvTen";
 
 /**
  * So lieu cong viec theo KTV cho 1 thang - nguon cua GET /api/partner/thong-ke-ktv (PARTNER_API_GUIDE.md muc 14),
@@ -178,6 +179,10 @@ async function computeThongKeKtv(db: D1Database, thang: string): Promise<ThongKe
     r.vi_pham_da_khao_sat = Number(v.da_khao_sat) || 0;
     r.vi_pham_xac_nhan = Number(v.xac_nhan) || 0;
   }
+
+  // Ten hien thi = ten moi nhat cua ma (lib/ktvTen.ts, 2026-11-17) thay cho MAX() theo chu cai (co the la ten cu truoc doi ten).
+  const bangTen = await layBangTenKtv(db);
+  for (const r of map.values()) r.ten_ktv = bangTen.get(r.ma_ktv) ?? r.ten_ktv;
 
   return {
     thang,

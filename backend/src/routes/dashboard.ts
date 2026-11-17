@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { layBangTenKtv, gopDongTheoKtv, tenKtvChuan } from "../lib/ktvTen";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -114,10 +115,14 @@ export async function computeDashboardFilters(db: D1Database, scope: string[] | 
 dashboard.get("/filters", async (c) => {
   const scope = scopeByKhuVuc(c);
   // Toan he thong: 1 dong cache san. Theo pham vi: ghep trong bo nho tu bang theo khu_vuc (khong quet D1, khong cache rieng).
-  const payload =
+  let payload =
     scope === null
       ? await getOrCompute(c.env.DB, DASHBOARD_FILTERS_CACHE_KEY, () => computeDashboardFilters(c.env.DB, null))
       : await computeDashboardFilters(c.env.DB, scope);
+  // Dropdown KTV: 1 dong / ma, ten moi nhat (lib/ktvTen.ts) - loc theo KTV khop moi ten cua cung ma (ktvLocClause).
+  const bang = await layBangTenKtv(c.env.DB);
+  const kyThuatVien = [...new Set(payload.kyThuatVien.map((v) => tenKtvChuan(bang, v)))].sort((a, b) => ((a ?? "") < (b ?? "") ? -1 : (a ?? "") > (b ?? "") ? 1 : 0));
+  payload = { ...payload, kyThuatVien };
   // CHOT 2026-08-01: dropdown loc khu_vuc dung CHUNG cho MOI module (Tong quat/Doanh thu/Quan ly
   // ton/Ca lap/Nap gas/Khao sat/Tranh chap/Thieu linh kien) khong duoc hien 2 khu_vuc "an khoi bao
   // cao" - CHI "Danh sach tong" (route /cases/tong-hop, khong ap dung khuVucReportExclusionClause)
@@ -229,6 +234,16 @@ dashboard.get("/kpis", async (c) => c.json(await docKpis(c, taoLaySnap(c))));
 // reportCache song nhu truoc.
 // null = dim khong hop le (route tra 400).
 async function docPivot(c: Context<{ Bindings: Env }>, dimKey: string, dgLoc: string | undefined, laySnap: LaySnap) {
+  const kq = await docPivotTho(c, dimKey, dgLoc, laySnap);
+  if (!kq || dimKey !== "ky_thuat_vien") return kq;
+  // Gom theo MA KTV, hien ten moi nhat (lib/ktvTen.ts, 2026-11-17) - ap luc doc nen so chot 08:00 cu cung gop dung.
+  const bang = await layBangTenKtv(c.env.DB);
+  const rows = gopDongTheoKtv(kq.rows as Record<string, unknown>[], bang, c.req.query("theo_tram") ? ["nhom", "tram"] : ["nhom"]);
+  rows.sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+  return { rows };
+}
+
+async function docPivotTho(c: Context<{ Bindings: Env }>, dimKey: string, dgLoc: string | undefined, laySnap: LaySnap) {
   if (!PIVOT_DIMS[dimKey]) return null;
   const scope = scopeByKhuVuc(c);
   const params = {

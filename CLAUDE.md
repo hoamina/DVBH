@@ -302,6 +302,15 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   `ODOO_SEND_KTV_TRIEN_KHAI=true`. Read it as `COALESCE(ktv_trien_khai, ky_thuat_vien)`; reports still group by
   `ky_thuat_vien` until the owner decides otherwise — exception (owner, 2026-10-22): Tổng quát pivot dim KTV
   (`dashboardCompute.ts PIVOT_KTV_TRIEN_KHAI_EXPR`, snapshot flag `pivotKtvTrienKhai`, cache key `dashboard/pivot-v2`).
+- **KTV reports group by KTV CODE, show the LATEST name (owner, 2026-11-17, v1.621, migration 0174, `lib/ktvTen.ts`)**: `ky_thuat_vien`
+  strings change when stations are renamed in Odoo (only re-sent cases get the new name), plus NFD/NFC and "(hủy)" variants → the same
+  `(ma)` had several rows. Table `ktv_ten_moi_nhat` (ma → name of the most recently CSKH-received case; updated at the end of every
+  committed `processImport` via `capNhatTenKtvTuImport`, ≤1 write/code/day unless the name changes). Report routes keep their SQL and
+  snapshots unchanged and merge rows AT READ TIME with `gopDongTheoKtv` (rename via `tenKtvChuan`, sum numeric columns): Tổng quát pivot
+  KTV (+theo_tram), Doanh thu KTV (+KTV×tỉnh), Tuổi tồn TB dim KTV (manifest hash carries the name-table version), Tồn KTV theo ngày,
+  Lý do giải trình theo trạm, Báo cáo vi phạm (đa chiều KTV / điểm thẻ / danh sách / leaderboard), partner `thong-ke-ktv` name, and
+  the `/dashboard/filters` KTV dropdown (one entry per code). Every `ky_thuat_vien = ?` filter uses `ktvLocClause` (matches every name
+  of the code). New KTV report → apply the same helpers. Case LISTS still show each case's own stored string.
 - **"Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (`lib/phamVi.ts`, migration 0136, 2026-10-13)**: TopBar toggle that
   only affects VIEWING reports/lists. The frontend `api/client.ts` appends `?pv=nskx|khong_nskx` to every GET (except
   `/notifications`, `/auth`); `phamViMiddleware` then swaps `c.env.DB` for a wrapper that **rewrites table names in
@@ -554,7 +563,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0172`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0174`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
