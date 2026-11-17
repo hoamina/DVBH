@@ -872,6 +872,23 @@ function vnDateOffsetStr(daysAgo: number): string {
 // Bang lich su 1 chi tieu cua "Canh bao ton danh cho QL" (khu_vuc x 14 ngay, chi hien so dem thuan -
 // KHONG ty le/phan so nhu "Ty le giai trinh theo ngay", vi day khong phai cap "da xu ly/tong" ma la
 // so ca dat nguong tuoi). Dung chung cho ca 8 chi tieu, tranh lap JSX 8 lan.
+/** O "tam tinh" cua ngay hom nay trong bang Ty le giai trinh theo ngay - vien net dut + chu nghieng, chua phai so chot. */
+function TamTinhCell({ can, da, gio, dam }: { can: number; da: number; gio: string; dam?: boolean }) {
+  return (
+    <td className="py-2 px-2 text-center bg-sky-50 outline-1 outline-dashed outline-sky-400 -outline-offset-2" title={tr("Tạm tính lúc {0}, chưa chốt", gio)}>
+      {can > 0 ? (
+        <div className="italic">
+          <div className={`font-mono ${dam ? "" : "font-semibold"} text-sky-800`}>{pct(da, can)}%</div>
+          <div className="text-[10px] text-[var(--ink-400)] font-normal">{da}/{can}</div>
+          <div className="text-[9px] text-sky-700 font-normal">{tr("tạm {0}", gio)}</div>
+        </div>
+      ) : (
+        <span className="text-[var(--ink-400)] italic text-[10px]">{tr("tạm {0}: 0 ca", gio)}</span>
+      )}
+    </td>
+  );
+}
+
 function DailyCountTrendTable({ title, metricCol, rows, trendDays }: { title: string; metricCol: string; rows: CanhBaoTonTrendRow[]; trendDays: string[] }) {
   const sorted = useMemo(() => [...rows].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi")), [rows]);
   const valueOf = (day: CanhBaoTonTrendDay | undefined): number | undefined => (day ? (day as unknown as Record<string, number>)[metricCol] : undefined);
@@ -1249,6 +1266,21 @@ export function BacklogModule({
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
   const giaiTrinhTrend = monthlyTrendQ.data;
+  // "Kiem tra hom nay" (2026-11-17, v1.622): so ngay hom nay chi co sau cron chot 17:30 - truoc do bang hien "—". Bam nut ->
+  // GET /cases/giai-trinh-tam-tinh tinh SO TAM THOI (cung cong thuc chot, khong ghi DB), chi hien tren giao dien, KHONG cong vao
+  // luy ke. enabled:false = khong tu goi (do luot doc D1), chi chay khi bam.
+  const ngayHomNay = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
+  const homNayTrongThang = monthDays.includes(ngayHomNay);
+  const homNayDaChot = (giaiTrinhTrend?.rows ?? []).some((r) => r.days.some((d) => d.ngay === ngayHomNay));
+  const tamTinhQ = useQuery({
+    queryKey: ["giai-trinh-tam-tinh", khuVucFilter || null, ngayHomNay],
+    queryFn: () => api.get<{ ngay: string; tinh_luc: string; rows: { khu_vuc: string; can_giai_trinh: number; da_giai_trinh: number }[] }>(`/cases/giai-trinh-tam-tinh${buildQuery({ khu_vuc: khuVucFilter })}`),
+    enabled: false,
+    retry: false,
+  });
+  const tamTinh = homNayTrongThang && !homNayDaChot && tamTinhQ.data?.ngay === ngayHomNay ? tamTinhQ.data : undefined;
+  const tamTinhGio = tamTinh ? tamTinh.tinh_luc.slice(11, 16) : "";
+  const tamTinhCuaKhuVuc = (khuVuc: string) => tamTinh?.rows.find((r) => r.khu_vuc === khuVuc);
   // "So ca ton theo moc thoi gian" (cuoi tab Bao cao) - bo loc tu ngay/den ngay, mac dinh 30 ngay gan
   // nhat. Doc thang tu daily_snapshot (GET /cases/ton-trend) - khong tinh song, xem chu thich route.
   const [tonTrendFrom, setTonTrendFrom] = useState(() => vnDateOffsetStr(30));
@@ -2474,11 +2506,29 @@ export function BacklogModule({
                   onChange={(e) => { if (e.target.value) setTrendMonth(e.target.value); }}
                   className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
+                {homNayTrongThang && !homNayDaChot && monthlyTrendQ.data && (
+                  <Btn
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void tamTinhQ.refetch()}
+                    disabled={tamTinhQ.isFetching}
+                    title={tr("Tính tạm tỷ lệ giải trình hôm nay tại thời điểm bấm (số chính thức chốt lúc 17:30)")}
+                  >
+                    {tamTinhQ.isFetching ? tr("Đang tính…") : tr("🔄 Kiểm tra hôm nay")}</Btn>
+                )}
                 <Btn variant="ghost" size="sm" onClick={downloadTrendMonth} disabled={monthlyTrendQ.isFetching || !monthlyTrendQ.data}>
                   {tr("⬇ Tải cả tháng")}</Btn>
               </div>
             </div>
             <div className="text-xs text-[var(--ink-400)] mb-2">{tr("Chốt theo ngày, theo khu vực — tháng {0}. Lũy kế bỏ Chủ nhật và ngày loại trừ; tổng ngày chỉ cộng khu vực không bị loại trừ.", trendMonth)}</div>
+            {tamTinh && (
+              <div className="text-xs mb-2 text-[var(--accent-700,#1d4ed8)]">
+                {tr("Cột {0}: tạm tính lúc {1}, chưa chốt (chốt chính thức 17:30) — không cộng vào lũy kế.", fmtDayShort(ngayHomNay), tamTinhGio)}
+              </div>
+            )}
+            {homNayTrongThang && !homNayDaChot && tamTinhQ.isError && (
+              <p role="alert" className="text-xs mb-2">{tamTinhQ.error instanceof Error ? tamTinhQ.error.message : tr("Không tạm tính được.")}</p>
+            )}
             {monthlyTrendQ.isPending && <p>{tr("Đang tải báo cáo tháng…")}</p>}
             {monthlyTrendQ.isError && <p role="alert">{tr("Không tải được báo cáo tháng.")} <button onClick={() => void monthlyTrendQ.refetch()}>{tr("Thử lại")}</button></p>}
             <div className="overflow-x-auto">
@@ -2500,6 +2550,15 @@ export function BacklogModule({
                       {trendDays.map((day) => {
                         const t = trendTotalByDay[day];
                         const status = trendDayExclusionStatus[day];
+                        if (tamTinh && day === ngayHomNay && status !== "full") {
+                          let can = 0;
+                          let da = 0;
+                          for (const row of sortedTrendRows) {
+                            const r = tamTinhCuaKhuVuc(row.khu_vuc);
+                            if (r && !isNgayExcluded(day, row.khu_vuc)) { can += r.can_giai_trinh; da += r.da_giai_trinh; }
+                          }
+                          return <TamTinhCell key={day} can={can} da={da} gio={tamTinhGio} dam />;
+                        }
                         const cellBg = status === "partial" ? "bg-[var(--coral-100)]" : status === "full" ? "bg-[var(--amber-100)]" : "";
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
@@ -2524,6 +2583,8 @@ export function BacklogModule({
                       {trendDays.map((day) => {
                         const found = row.days.find((d) => d.ngay === day);
                         const excluded = isNgayExcluded(day, row.khu_vuc);
+                        const tam = tamTinh && day === ngayHomNay && !excluded && !found ? tamTinhCuaKhuVuc(row.khu_vuc) : undefined;
+                        if (tam) return <TamTinhCell key={day} can={tam.can_giai_trinh} da={tam.da_giai_trinh} gio={tamTinhGio} />;
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
                             {excluded ? <span>{tr("Loại trừ")}</span> : found ? (

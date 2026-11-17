@@ -254,6 +254,11 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     already-stored order becomes so). v1.614: the list
     tables have quick-edit buttons (`SuaNhanhModal` by case ID, inline `ChonNhanh` Có/Không/Tự động) calling the same `PUT /ca/:id/*`;
     `GET /ca/:id` also returns `ca` (summary + computed hạn BH).
+  - `cases.ts` `GET /giai-trinh-tam-tinh` (2026-11-17, v1.622) — "🔄 Kiểm tra hôm nay" button on Quản lý tồn's "Tỷ lệ giải trình
+    theo ngày" table: today's column is only filled by the 17:30 chốt (`giai_trinh_daily_log`), so before that it shows "—". The
+    button computes a PROVISIONAL figure with the same `computeTonDailyEntries` as the chốt, writes nothing to D1, 60 s in-isolate
+    cache per (country, NSKX scope, day). Shown with a dashed/italic "tạm HH:MM" style and not added to the month total; the query is
+    `enabled:false` (runs only on click).
   - `greeting.ts` — one-time greeting popup system (`greeting` table, migration 0044).
   - `survey.ts` `/loai-tru` (2026-10-09, migration 0128 `khao_sat_loai_tru`) — "Danh sách loại trừ" khảo sát: KTV
     (`ma_ktv`, matched as the `(ma)` prefix of `case_dvbh.ky_thuat_vien`) + loai_loi + `[tu_ngay, den_ngay]` vs the

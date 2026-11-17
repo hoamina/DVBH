@@ -14422,5 +14422,13 @@
   "Chưa tải được": ["Could not load", "Gagal memuat"],
   "Chốt theo ngày, theo khu vực — tháng {0}. Lũy kế bỏ Chủ nhật và ngày loại trừ; tổng ngày chỉ cộng khu vực không bị loại trừ.": ["Daily closing by area — {0}. Monthly totals exclude Sundays and excluded dates; daily totals only include nonexcluded areas.", "Rekap harian per wilayah — {0}. Total bulanan tidak mencakup hari Minggu dan tanggal pengecualian; total harian hanya mencakup wilayah yang tidak dikecualikan."],
   "Đang tải báo cáo tháng…": ["Loading monthly report…", "Memuat laporan bulanan…"],
-  "Không tải được báo cáo tháng.": ["Could not load the monthly report.", "Tidak dapat memuat laporan bulanan."]
+  "Không tải được báo cáo tháng.": ["Could not load the monthly report.", "Tidak dapat memuat laporan bulanan."],
+  "Tính tạm tỷ lệ giải trình hôm nay tại thời điểm bấm (số chính thức chốt lúc 17:30)": ["Compute today's provisional explanation rate now (official figures are closed at 17:30)", "Hitung sementara tingkat penjelasan hari ini sekarang (angka resmi ditutup pukul 17:30)"],
+  "Đang tính…": ["Calculating…", "Menghitung…"],
+  "🔄 Kiểm tra hôm nay": ["🔄 Check today", "🔄 Cek hari ini"],
+  "Cột {0}: tạm tính lúc {1}, chưa chốt (chốt chính thức 17:30) — không cộng vào lũy kế.": ["Column {0}: provisional at {1}, not closed yet (official close 17:30) — not added to the cumulative total.", "Kolom {0}: sementara pukul {1}, belum ditutup (penutupan resmi 17:30) — tidak dihitung ke kumulatif."],
+  "Không tạm tính được.": ["Could not compute provisional figures.", "Tidak dapat menghitung angka sementara."],
+  "Tạm tính lúc {0}, chưa chốt": ["Provisional at {0}, not closed yet", "Sementara pukul {0}, belum ditutup"],
+  "tạm {0}": ["prov. {0}", "smt {0}"],
+  "tạm {0}: 0 ca": ["prov. {0}: 0 cases", "smt {0}: 0 kasus"]
 }

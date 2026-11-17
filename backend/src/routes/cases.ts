@@ -1,7 +1,7 @@
 import { computeExplanationReasons } from "../lib/explanationReasonReport";
 import { Hono } from "hono";
 import { layKhuVucQldvbh } from "../lib/khuVucQldvbh";
-import { bocPhamVi, chonQuocGia, dbGoc } from "../lib/phamVi";
+import { bocPhamVi, chonQuocGia, dbGoc, phamViCua, quocGiaCua } from "../lib/phamVi";
 import { QUOC_GIA_MAC_DINH } from "../lib/quocGia";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -36,7 +36,7 @@ import { bumpVersions, getVersionTag, type DataDomain } from "../lib/dataVersion
 const CASE_DETAIL_DOMAINS: DataDomain[] = ["blacklist", "canh_bao_ton_log", "case_mo_rong", "cases", "don_bao_hanh_odoo", "giai_trinh", "giai_trinh_lap", "hd_bh", "ket_qua_goi", "lada", "nap_gas_danh_gia", "tranh_chap", "vi_pham", "vi_pham_giai_trinh"];
 import { cachedReport, buildReportKey, getVnDateStr, chayGomDoc } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
-import { getBacklogDailyWithDelta, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey, buildKhuVucFilterScopeKey } from "../lib/dailySnapshot";
+import { getBacklogDailyWithDelta, computeTonDailyEntries, getBacklogDailyForKhuVuc, getBacklogDailyForKhuVucGroup, getBacklogSnapshotIds, roleVariantOf, buildSnapshotScopeKey, buildKhuVucFilterScopeKey } from "../lib/dailySnapshot";
 import { parseLocCot, locCotClause, coLocCot, COT_LOC, NHOM_TON_NEED, boDau } from "../lib/locCot";
 import { CAP1_KEYS } from "../lib/canhBaoTon";
 import { CAP2_KEYS } from "../lib/canhBaoCap2GiaiTrinh";
@@ -1104,6 +1104,37 @@ cases.get("/giai-trinh-ly-do-thang", async (c) => {
 });
 
 cases.get("/giai-trinh-daily-trend", async (c) => c.json(await docGiaiTrinhTrend(c)));
+
+// GET /api/cases/giai-trinh-tam-tinh?khu_vuc= (2026-11-17, v1.622) - nut "Kiem tra hom nay" cua bang "Ty le giai trinh theo ngay":
+// SO TAM TINH cua ngay hom nay truoc khi cron 17:30 chot vao giai_trinh_daily_log. DUNG CHUNG computeTonDailyEntries voi
+// chotGiaiTrinhDailyLog (snapshot 08:00 "khac|all" cua pham vi/quoc gia dang xem + ca da giai trinh tu luc do) nen so khop
+// voi so se chot (tru cac giai trinh phat sinh sau luc bam). KHONG ghi gi vao D1 (khong log chot, khong precomputed_cache).
+// Chi chay khi nguoi dung bam (frontend enabled:false) - ~1 dong snapshot + so dong giai_trinh tu 08:00 hom nay. Cache trong
+// isolate 60 giay theo (quoc gia, pham vi NSKX, ngay) de bam lien tuc / nhieu nguoi cung luc khong doc lai; quyen khu vuc +
+// bo loc khu_vuc ap TRONG BO NHO sau cache.
+const tamTinhGiaiTrinhCache = new Map<string, { het: number; ngay: string; tinhLuc: string; rows: { khu_vuc: string; can_giai_trinh: number; da_giai_trinh: number }[] } | null>();
+cases.get("/giai-trinh-tam-tinh", async (c) => {
+  const db = c.env.DB;
+  const khoa = `${quocGiaCua(db) ?? "*"}|${phamViCua(db)}|${nowVN().slice(0, 10)}`;
+  let kq = tamTinhGiaiTrinhCache.get(khoa);
+  if (!kq || kq.het < Date.now()) {
+    const computed = await computeTonDailyEntries(db);
+    kq = computed
+      ? {
+          het: Date.now() + 60_000,
+          ngay: computed.ngay,
+          tinhLuc: nowVN(),
+          rows: computed.entries.map(([khu_vuc, bucket], i) => ({ khu_vuc, can_giai_trinh: bucket.count, da_giai_trinh: computed.resolvedList[i] })),
+        }
+      : null;
+    if (kq) tamTinhGiaiTrinhCache.set(khoa, kq);
+  }
+  if (!kq) return c.json({ error: "SNAPSHOT_NOT_READY", message: "Chưa có báo cáo 08:00 hôm nay nên chưa tạm tính được." }, 409);
+  const scope = scopeByKhuVuc(c);
+  const khop = khuVucNameMatcher(c.req.query("khu_vuc"));
+  const rows = kq.rows.filter((r) => (scope === null || scope.includes(r.khu_vuc)) && khop(r.khu_vuc));
+  return c.json({ ngay: kq.ngay, tinh_luc: kq.tinhLuc, rows });
+});
 
 // GET /api/cases/man-quan-ly-ton?khu_vuc=&xu_huong=1&days=14 (2026-11-07) - man "Quan ly ton" KEO 1 LAN: gop 4 API truoc day goi
 // rieng (backlog-stats, counts, backlog-daily, giai-trinh-daily-trend) vao 1 request -> 1 lan xac thuc/doc user thay vi 4, va moi

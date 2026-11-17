@@ -5992,3 +5992,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Sửa (chủ hệ thống: "ưu tiên ID KTV, hiển thị tên gần nhất"): bảng `ktv_ten_moi_nhat` (migration 0174, khởi tạo từ case_dvbh, import
   cập nhật), các route báo cáo KTV gộp dòng theo mã lúc đọc (cả số chốt 08:00 cũ), mọi bộ lọc KTV khớp theo mã. Chi tiết ở CLAUDE.md.
 - Danh sách ca (Danh sách chi tiết, chi tiết ca...) vẫn hiện tên lưu trên từng ca. Thử local: migration, upsert 5 tình huống, hàm gộp.
+
+## 2026-11-17 — Tỷ lệ giải trình theo ngày: nút "Kiểm tra hôm nay" (v1.622)
+
+- Câu hỏi: vì sao cột 17/11 trong bảng "Tỷ lệ giải trình theo ngày" (Quản lý tồn) còn "—" khi 16/11 đã có số.
+- Nguyên nhân: **không phải chốt lỗi**. Bảng chỉ đọc `giai_trinh_daily_log`, bảng này được cron 17:30/17:40 ghi mỗi ngày
+  (18:00 chạy bù). Lúc người dùng hỏi là 15:50 VN, log hôm nay chưa có dòng nào. Snapshot 08:00 hôm nay (`daily_snapshot_vn`
+  `khac|all`, lúc 07:31) đã có, 16/11 đã chốt đủ 12 khu vực (SELECT trên D1 remote).
+- Thêm `GET /api/cases/giai-trinh-tam-tinh?khu_vuc=` (`routes/cases.ts`): dùng đúng `computeTonDailyEntries` của bản chốt
+  17:30 (snapshot 08:00 + ca đã giải trình từ lúc đó) → SỐ TẠM, **không ghi gì vào D1**. Cache trong isolate 60 giây theo (quốc
+  gia, phạm vi NSKX, ngày). Quyền khu vực + bộ lọc khu vực áp trong bộ nhớ. Chưa có snapshot 08:00 thì trả 409.
+- Frontend (`BacklogModule.tsx`): nút "🔄 Kiểm tra hôm nay" chỉ hiện khi đang xem tháng hiện tại và hôm nay chưa chốt. Query
+  `enabled:false` nên chỉ chạy khi bấm. Ô hôm nay hiện số tạm (viền nét đứt, chữ nghiêng, "tạm HH:MM") + dòng ghi chú "tạm tính
+  lúc HH:MM, chưa chốt — không cộng vào lũy kế". Sau khi chốt 17:30 thì nút ẩn, ô hiện số chốt như cũ.
