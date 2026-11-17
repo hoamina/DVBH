@@ -167,7 +167,8 @@ async function fetchExistingRows(
     if (chunk.length === 0) continue;
     const placeholders = chunk.map(() => "?").join(", ");
     const { results } = await db
-      .prepare(`SELECT ${EXISTING_ROW_COLUMNS.join(", ")} FROM case_dvbh WHERE id IN (${placeholders})`)
+      // co_dt_sua: ca dang co doanh thu sua tay (bang case_dt_sua, migration 0172) -> buildFullOverwrite giu dt_*, chi cap nhat ban CRM.
+      .prepare(`SELECT ${EXISTING_ROW_COLUMNS.join(", ")}, EXISTS (SELECT 1 FROM case_dt_sua s WHERE s.case_id = case_dvbh.id) AS co_dt_sua FROM case_dvbh WHERE id IN (${placeholders})`)
       .bind(...chunk)
       .all();
     for (const row of results as Record<string, unknown>[]) {
@@ -214,6 +215,13 @@ function buildInsertStatement(db: D1Database, incoming: ImportRow, now: string, 
     .bind(...fields.map((f) => values[f as keyof typeof values]));
 }
 
+/** Ca co doanh thu sua tay: cap nhat ban CRM moi nhat (hien "CRM gốc" + dung khi "Khôi phục theo CRM"). */
+function stmtCapNhatDtCrm(db: D1Database, incoming: ImportRow): D1PreparedStatement {
+  return db
+    .prepare("UPDATE case_dt_sua SET dt_san_pham_crm = ?, dt_linh_kien_crm = ?, dt_dich_vu_crm = ? WHERE case_id = ?")
+    .bind(businessFieldValue("dt_san_pham", incoming), businessFieldValue("dt_linh_kien", incoming), businessFieldValue("dt_dich_vu", incoming), incoming.id);
+}
+
 function buildFullOverwrite(
   db: D1Database,
   incoming: ImportRow,
@@ -238,12 +246,10 @@ function buildFullOverwrite(
       continue;
     }
     if (field === "dt_san_pham" || field === "dt_linh_kien" || field === "dt_dich_vu") {
-      // Doanh thu chuan da sua tay / Excel (migration 0170) -> GIU so da sua, chi cap nhat ban CRM moi nhat vao <cot>_crm.
-      const v = businessFieldValue(field, incoming);
-      setClauses.push(`${field} = CASE WHEN dt_sua_at IS NOT NULL THEN ${field} ELSE ? END`);
-      values.push(v);
-      setClauses.push(`${field}_crm = CASE WHEN dt_sua_at IS NOT NULL THEN ? ELSE ${field}_crm END`);
-      values.push(v);
+      // Doanh thu chuan da sua tay / Excel (bang case_dt_sua, migration 0172) -> GIU so da sua; ban CRM moi nhat ghi vao
+      // case_dt_sua bang lenh rieng (stmtCapNhatDtCrm) - chi cho ca co dong o do.
+      setClauses.push(`${field} = CASE WHEN EXISTS (SELECT 1 FROM case_dt_sua s WHERE s.case_id = case_dvbh.id) THEN ${field} ELSE ? END`);
+      values.push(businessFieldValue(field, incoming));
       continue;
     }
     setClauses.push(`${field} = ?`);
@@ -402,7 +408,10 @@ export async function processImport(
       doiTraSets.loaiYeuCauSet,
       doiTraSets.luuYLoiLinhKienSet,
     );
-    if (commit) statements.push(buildFullOverwrite(db, incoming, finalFlags, finalNghiNgoTranhChap, finalTheoDoiDoiTra, now, incomingHash, quocGiaChanged ? quocGia : undefined));
+    if (commit) {
+      statements.push(buildFullOverwrite(db, incoming, finalFlags, finalNghiNgoTranhChap, finalTheoDoiDoiTra, now, incomingHash, quocGiaChanged ? quocGia : undefined));
+      if (Number(existing.co_dt_sua)) statements.push(stmtCapNhatDtCrm(db, incoming));
+    }
   }
 
   summary.affectedSerials = [...affectedSerials];

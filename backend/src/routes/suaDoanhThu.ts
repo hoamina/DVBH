@@ -2,7 +2,7 @@
  * Module "Sửa DT · HĐ · BH" (2026-11-14, chủ hệ thống, migration 0170):
  *  1) Doanh thu chuẩn: GS (khu vực mình phụ trách) / CSKH / TN CSKH / TBP DVBH / TBP CSKH / Admin sửa lại 3 thành phần doanh thu
  *     thực tế (tay trên chi tiết ca hoặc import Excel). Số sửa ghi thẳng vào dt_* (=> mọi báo cáo doanh thu dùng số sửa), bản CRM
- *     gốc ở dt_*_crm; import CRM sau đó không ghi đè (importProcessor). Bump "doanh_thu" (KHÔNG "cases" - xem dataVersions.ts) để Báo cáo doanh thu / banner DT tính lại.
+ *     gốc + người/lúc/lý do sửa ở bảng 1-1 case_dt_sua (migration 0172 - tách khỏi case_dvbh); import CRM sau đó không ghi đè (importProcessor). Bump "doanh_thu" (KHÔNG "cases" - xem dataVersions.ts) để Báo cáo doanh thu / banner DT tính lại.
  *     Lưu ý: chunk R2 "Ca đã đóng" giữ số cũ tới lần import kế tiếp ghi lại ngày đó (không thêm điểm ghi R2 - quy tắc CLAUDE.md);
  *     "Báo cáo ngày 08:00" đã chốt giữ số cũ tới lần chốt sau.
  *  2) Đơn xuất hóa đơn: tự động từ app Đặt mua linh kiện (lib/hoaDonLk.ts, đẩy khi Kế toán chốt + nút đồng bộ) - GS sửa tay được.
@@ -65,8 +65,13 @@ interface CaGoc {
   dt_sua_at: string | null;
 }
 
+// 2026-11-17 (migration 0172/0173): ban CRM goc + nguoi/luc/ly do sua DT nam o bang 1-1 case_dt_sua (KHONG con trong case_dvbh -
+// danh cho du lieu import, tran D1 100 cot). Co dong = ca dang co DT sua tay; "Khoi phuc theo CRM" = xoa dong.
+const SELECT_CA_GOC = `SELECT c.id, c.khu_vuc, c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu, s.sua_at AS dt_sua_at
+  FROM case_dvbh c LEFT JOIN case_dt_sua s ON s.case_id = c.id`;
+
 async function docCa(db: D1Database, id: string): Promise<CaGoc | null> {
-  return db.prepare("SELECT id, khu_vuc, dt_san_pham, dt_linh_kien, dt_dich_vu, dt_sua_at FROM case_dvbh WHERE id = ?").bind(id).first<CaGoc>();
+  return db.prepare(`${SELECT_CA_GOC} WHERE c.id = ?`).bind(id).first<CaGoc>();
 }
 
 function soTien(v: unknown): number | null | "loi" {
@@ -77,17 +82,19 @@ function soTien(v: unknown): number | null | "loi" {
   return Math.round(n);
 }
 
-function stmtSuaDt(db: D1Database, id: string, dt: [number | null, number | null, number | null], lyDo: string | null, nguoi: string, luc: string) {
-  return db
-    .prepare(
-      `UPDATE case_dvbh SET
-         dt_san_pham_crm = CASE WHEN dt_sua_at IS NULL THEN dt_san_pham ELSE dt_san_pham_crm END,
-         dt_linh_kien_crm = CASE WHEN dt_sua_at IS NULL THEN dt_linh_kien ELSE dt_linh_kien_crm END,
-         dt_dich_vu_crm = CASE WHEN dt_sua_at IS NULL THEN dt_dich_vu ELSE dt_dich_vu_crm END,
-         dt_san_pham = ?, dt_linh_kien = ?, dt_dich_vu = ?, dt_sua_at = ?, dt_sua_by = ?, dt_sua_ly_do = ?
-       WHERE id = ?`,
-    )
-    .bind(dt[0], dt[1], dt[2], luc, nguoi, lyDo, id);
+/** 2 lenh, THU TU quan trong: (1) lan sua DAU chep DT CRM hien tai cua case_dvbh vao case_dt_sua (lan sau giu ban CRM cu, chi doi
+ * nguoi/luc/ly do); (2) ghi DT moi vao case_dvbh. Tra mang de spread vao db.batch. */
+function stmtSuaDt(db: D1Database, id: string, dt: [number | null, number | null, number | null], lyDo: string | null, nguoi: string, luc: string): D1PreparedStatement[] {
+  return [
+    db
+      .prepare(
+        `INSERT INTO case_dt_sua (case_id, dt_san_pham_crm, dt_linh_kien_crm, dt_dich_vu_crm, sua_at, sua_by, ly_do)
+         SELECT id, dt_san_pham, dt_linh_kien, dt_dich_vu, ?, ?, ? FROM case_dvbh WHERE id = ?
+         ON CONFLICT(case_id) DO UPDATE SET sua_at = excluded.sua_at, sua_by = excluded.sua_by, ly_do = excluded.ly_do`,
+      )
+      .bind(luc, nguoi, lyDo, id),
+    db.prepare("UPDATE case_dvbh SET dt_san_pham = ?, dt_linh_kien = ?, dt_dich_vu = ? WHERE id = ?").bind(dt[0], dt[1], dt[2], id),
+  ];
 }
 
 function stmtLog(db: D1Database, caseId: string, loai: "dt" | "hd" | "bh", cu: unknown, moi: unknown, lyDo: string | null, nguon: string, nguoi: string, luc: string) {
@@ -131,9 +138,10 @@ r.get("/ca/:id", async (c) => {
   const [caKq, hdBh, don, log] = await db.batch([
     // Cột tóm tắt cho form "sửa nhanh" trong bảng của module (2026-11-16) - chi tiết ca vẫn đọc ở CaseDetail.
     db.prepare(
-      `SELECT id, khu_vuc, khach_hang, ky_thuat_vien, tien_do_hoan_thanh, thoi_gian_cskh_tiep_nhan, thoi_gian_hoan_thanh, ngay_mua, ngay_san_xuat,
-              dt_san_pham, dt_linh_kien, dt_dich_vu, dt_san_pham_crm, dt_linh_kien_crm, dt_dich_vu_crm, dt_sua_at
-       FROM case_dvbh WHERE id = ?`,
+      `SELECT c.id, c.khu_vuc, c.khach_hang, c.ky_thuat_vien, c.tien_do_hoan_thanh, c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hoan_thanh, c.ngay_mua, c.ngay_san_xuat,
+              c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu, s.dt_san_pham_crm, s.dt_linh_kien_crm, s.dt_dich_vu_crm,
+              s.sua_at AS dt_sua_at, s.sua_by AS dt_sua_by, s.ly_do AS dt_sua_ly_do
+       FROM case_dvbh c LEFT JOIN case_dt_sua s ON s.case_id = c.id WHERE c.id = ?`,
     ).bind(id),
     db.prepare("SELECT * FROM case_hd_bh WHERE case_id = ?").bind(id),
     db.prepare("SELECT * FROM don_hoa_don_lk WHERE case_id = ? ORDER BY chot_ke_toan_luc DESC").bind(id),
@@ -161,7 +169,7 @@ r.put("/ca/:id/doanh-thu", async (c) => {
   const luc = nowVN();
   const moi = dt as [number | null, number | null, number | null];
   await c.env.DB.batch([
-    stmtSuaDt(c.env.DB, id, moi, lyDo, user.email, luc),
+    ...stmtSuaDt(c.env.DB, id, moi, lyDo, user.email, luc),
     stmtLog(c.env.DB, id, "dt", [ca.dt_san_pham, ca.dt_linh_kien, ca.dt_dich_vu], moi, lyDo, "tay", user.email, luc),
   ]);
   await bumpVersions(c.env.DB, ["doanh_thu"]);
@@ -177,11 +185,15 @@ r.delete("/ca/:id/doanh-thu", async (c) => {
   const user = c.get("user") as AppUser;
   const luc = nowVN();
   await c.env.DB.batch([
+    // Tra DT CRM goc ve case_dvbh TRUOC, roi moi xoa dong case_dt_sua.
     c.env.DB.prepare(
-      `UPDATE case_dvbh SET dt_san_pham = dt_san_pham_crm, dt_linh_kien = dt_linh_kien_crm, dt_dich_vu = dt_dich_vu_crm,
-         dt_san_pham_crm = NULL, dt_linh_kien_crm = NULL, dt_dich_vu_crm = NULL, dt_sua_at = NULL, dt_sua_by = NULL, dt_sua_ly_do = NULL
-       WHERE id = ? AND dt_sua_at IS NOT NULL`,
+      `UPDATE case_dvbh SET
+         dt_san_pham = (SELECT s.dt_san_pham_crm FROM case_dt_sua s WHERE s.case_id = case_dvbh.id),
+         dt_linh_kien = (SELECT s.dt_linh_kien_crm FROM case_dt_sua s WHERE s.case_id = case_dvbh.id),
+         dt_dich_vu = (SELECT s.dt_dich_vu_crm FROM case_dt_sua s WHERE s.case_id = case_dvbh.id)
+       WHERE id = ? AND EXISTS (SELECT 1 FROM case_dt_sua s WHERE s.case_id = case_dvbh.id)`,
     ).bind(id),
+    c.env.DB.prepare("DELETE FROM case_dt_sua WHERE case_id = ?").bind(id),
     stmtLog(c.env.DB, id, "dt", [ca.dt_san_pham, ca.dt_linh_kien, ca.dt_dich_vu], "CRM", "Khôi phục theo CRM", "khoi_phuc", user.email, luc),
   ]);
   await bumpVersions(c.env.DB, ["doanh_thu"]);
@@ -256,11 +268,12 @@ r.get("/doanh-thu", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT c.id, c.khach_hang, c.khu_vuc, c.ky_thuat_vien, c.hang, c.loai_yeu_cau, c.tien_do_hoan_thanh,
             c.thoi_gian_cskh_tiep_nhan, c.thoi_gian_hoan_thanh,
-            c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu, c.dt_san_pham_crm, c.dt_linh_kien_crm, c.dt_dich_vu_crm,
-            c.dt_sua_at, c.dt_sua_by, c.dt_sua_ly_do,
-            (SELECT COALESCE(u.ten, u.email) FROM users u WHERE u.email = c.dt_sua_by) AS dt_sua_ten
-     FROM case_hieu_luc c WHERE c.dt_sua_at >= ? AND c.dt_sua_at < ?${sc.sql}
-     ORDER BY c.dt_sua_at DESC LIMIT ${TRAN_THANG}`,
+            c.dt_san_pham, c.dt_linh_kien, c.dt_dich_vu, s.dt_san_pham_crm, s.dt_linh_kien_crm, s.dt_dich_vu_crm,
+            s.sua_at AS dt_sua_at, s.sua_by AS dt_sua_by, s.ly_do AS dt_sua_ly_do,
+            (SELECT COALESCE(u.ten, u.email) FROM users u WHERE u.email = s.sua_by) AS dt_sua_ten
+     FROM case_dt_sua s CROSS JOIN case_hieu_luc c ON c.id = s.case_id
+     WHERE s.sua_at >= ? AND s.sua_at < ?${sc.sql}
+     ORDER BY s.sua_at DESC LIMIT ${TRAN_THANG}`,
   )
     .bind(k.tu, k.den, ...sc.binds)
     .all();
@@ -385,7 +398,7 @@ r.post("/import", async (c) => {
   for (let i = 0; i < ids.length; i += 500) {
     const j = JSON.stringify(ids.slice(i, i + 500));
     const [a, b] = await db.batch([
-      db.prepare("SELECT id, khu_vuc, dt_san_pham, dt_linh_kien, dt_dich_vu, dt_sua_at FROM case_dvbh WHERE id IN (SELECT value FROM json_each(?))").bind(j),
+      db.prepare(`${SELECT_CA_GOC} WHERE c.id IN (SELECT value FROM json_each(?))`).bind(j),
       db.prepare("SELECT case_id, xuat_hoa_don, con_bao_hanh FROM case_hd_bh WHERE case_id IN (SELECT value FROM json_each(?))").bind(j),
     ]);
     for (const x of a.results as unknown as CaGoc[]) caMap.set(x.id, x);
@@ -427,7 +440,7 @@ r.post("/import", async (c) => {
         dem.doanh_thu++;
         doi = true;
         if (mau.length < 50) mau.push({ id, loai: "dt", cu, moi });
-        stmts.push(stmtSuaDt(db, id, moi, lyDo, user.email, luc), stmtLog(db, id, "dt", cu, moi, lyDo, "excel", user.email, luc));
+        stmts.push(...stmtSuaDt(db, id, moi, lyDo, user.email, luc), stmtLog(db, id, "dt", cu, moi, lyDo, "excel", user.email, luc));
       }
     }
     const hb = hdBhMap.get(id);

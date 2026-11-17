@@ -35,6 +35,15 @@ interface SuaLog {
   luc: string;
 }
 interface CaPayload {
+  // Ban CRM goc + nguoi/luc/ly do sua DT (bang case_dt_sua, migration 0172) - khong con nam trong ban ghi ca (CaseRow).
+  ca: {
+    dt_san_pham_crm: number | null;
+    dt_linh_kien_crm: number | null;
+    dt_dich_vu_crm: number | null;
+    dt_sua_at: string | null;
+    dt_sua_by: string | null;
+    dt_sua_ly_do: string | null;
+  } | null;
   hdBh: { xuat_hoa_don: number | null; hd_sua_by: string | null; hd_sua_at: string | null; con_bao_hanh: number | null; bh_sua_by: string | null; bh_sua_at: string | null; ghi_chu: string | null } | null;
   donHoaDon: DonHoaDonRow[];
   log: SuaLog[];
@@ -71,6 +80,7 @@ export function DtHdBhPanel({ c, onCaseChanged }: { c: CaseRow; onCaseChanged: (
   const [dangLuu, setDangLuu] = useState(false);
   const [xemLog, setXemLog] = useState(false);
   const duocSua = !!data?.duocSua;
+  const sua = data?.ca?.dt_sua_at ? data.ca : null;
 
   async function goi(fn: () => Promise<unknown>, ok: string, doiDt: boolean) {
     setDangLuu(true);
@@ -140,13 +150,13 @@ export function DtHdBhPanel({ c, onCaseChanged }: { c: CaseRow; onCaseChanged: (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[var(--ink-500)] text-xs font-semibold">{tr("Doanh thu chuẩn")}:</span>
           <b>{fmtVND((c.dt_san_pham ?? 0) + (c.dt_linh_kien ?? 0) + (c.dt_dich_vu ?? 0))}</b>
-          {c.dt_sua_at ? <Badge tone="amber">{tr("Đã sửa")}</Badge> : <span className={muted}>{tr("(theo CRM)")}</span>}
+          {sua ? <Badge tone="amber">{tr("Đã sửa")}</Badge> : <span className={muted}>{tr("(theo CRM)")}</span>}
           {duocSua && !suaDt && (
             <button type="button" onClick={moSuaDt} className="text-xs font-semibold text-[var(--ocean-600)] hover:underline">
               ✎ {tr("Sửa doanh thu")}
             </button>
           )}
-          {duocSua && c.dt_sua_at && !suaDt && (
+          {duocSua && sua && !suaDt && (
             <button
               type="button"
               disabled={dangLuu}
@@ -157,10 +167,10 @@ export function DtHdBhPanel({ c, onCaseChanged }: { c: CaseRow; onCaseChanged: (
             </button>
           )}
         </div>
-        {c.dt_sua_at && (
+        {sua && (
           <div className={muted}>
-            {tr("CRM gốc")}: SP {fmtVND(c.dt_san_pham_crm)} · LK {fmtVND(c.dt_linh_kien_crm)} · DV {fmtVND(c.dt_dich_vu_crm)} — {c.dt_sua_by} · {fmtDateTime(c.dt_sua_at)}
-            {c.dt_sua_ly_do ? ` · ${tr("Lý do")}: ${c.dt_sua_ly_do}` : ""}
+            {tr("CRM gốc")}: SP {fmtVND(sua.dt_san_pham_crm)} · LK {fmtVND(sua.dt_linh_kien_crm)} · DV {fmtVND(sua.dt_dich_vu_crm)} — {sua.dt_sua_by} · {fmtDateTime(sua.dt_sua_at)}
+            {sua.dt_sua_ly_do ? ` · ${tr("Lý do")}: ${sua.dt_sua_ly_do}` : ""}
           </div>
         )}
         {suaDt && (

@@ -86,13 +86,8 @@ export interface CaseRow {
   khu_vuc_crm?: string | null;
   khu_vuc_sua_by?: string | null;
   khu_vuc_sua_at?: string | null;
-  // Migration 0170 - doanh thu chuan da sua (dt_* = gia tri hieu luc, dt_*_crm = gia tri CRM goc)
-  dt_san_pham_crm?: number | null;
-  dt_linh_kien_crm?: number | null;
-  dt_dich_vu_crm?: number | null;
-  dt_sua_at?: string | null;
-  dt_sua_by?: string | null;
-  dt_sua_ly_do?: string | null;
+  // dt_* = doanh thu HIEU LUC (da gom so sua tay). Ban CRM goc + thong tin sua nam o bang case_dt_sua (migration 0172),
+  // lay qua GET /sua-doanh-thu/ca/:id - khong co trong ban ghi ca.
   loi_120p: number;
   loi_qua_han_24h: number;
   loi_lo_ke_hoach: number;

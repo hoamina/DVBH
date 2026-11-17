@@ -5965,3 +5965,8 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   nhiều trường → mọi cột mới vào bảng 1-1 `case_dvbh_mo_rong` (tạo khi có trường đầu tiên), hash riêng `hash_mo_rong`, domain
   `case_mo_rong`, không gộp vào `crm_hash`; pipeline gửi sau cờ env; màn nào cần thì LEFT JOIN. Quy trình chi tiết ở CLAUDE.md.
 - Đã rà 99 cột: cột nào cũng còn được code dùng, không có cột thừa để xoá.
+- **Sửa lại nguyên tắc cùng ngày (chủ hệ thống):** thay "đóng băng 99 cột" bằng **ngân sách cột**: giá trị IMPORT ưu tiên thêm vào
+  `case_dvbh` (giữ ≤ 95 cột); dữ liệu hệ thống/app tự sinh để ở bảng phụ 1-1 theo ID ca, trừ khi để ở bảng phụ gây khó cho phân
+  tích/tính toán (lọc/nhóm trên toàn bộ ca, NEED_*, chốt số). Chi tiết ở CLAUDE.md.
+- v1.619: tách 6 cột "sửa doanh thu" (`dt_*_crm`, `dt_sua_at/by/ly_do`) khỏi `case_dvbh` sang bảng `case_dt_sua` (migration 0172 tạo +
+  chép, deploy code, rồi 0173 chép bù + xoá cột) → `case_dvbh` còn 93 cột. Báo cáo doanh thu không đổi (`dt_*` vẫn là số hiệu lực).

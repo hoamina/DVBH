@@ -233,8 +233,9 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     CaseDetail block `components/DtHdBhPanel.tsx` in the "Doanh thu" section). Editors: GS (own `khu_vuc_phu_trach` only) / CSKH /
     TN CSKH / TBP DVBH / TBP CSKH / Admin, no approval, every change logged in `case_sua_log`. (1) **Doanh thu chuẩn**: the 3 `dt_*`
     columns are OVERWRITTEN with the corrected values (owner: corrected revenue replaces CRM revenue in every report), CRM originals
-    kept in `dt_*_crm`; `importProcessor buildFullOverwrite` keeps `dt_*` when `dt_sua_at IS NOT NULL` (same pattern as
-    `khu_vuc_sua_at`); edits bump domain `doanh_thu`, NOT `cases` (v1.613 — `cases` would expire 31 cached reports system-wide per edit;
+    + who/when/why live in side table `case_dt_sua` (migration 0172, v1.619 — moved out of `case_dvbh`; a row = case has a
+    manual revenue, "Khôi phục theo CRM" deletes it); `importProcessor buildFullOverwrite` keeps `dt_*` when that row EXISTS and
+    updates its `dt_*_crm` with a separate statement; edits bump domain `doanh_thu`, NOT `cases` (v1.613 — `cases` would expire 31 cached reports system-wide per edit;
     only `revenue.ts` + `dailyReport.ts` declare `doanh_thu`). R2 "đã đóng" chunks / the frozen 08:00 snapshot keep old numbers until rewritten. (2) **Xuất
     hóa đơn**: linh-kien-app PUSHES invoice-requested order lines when Kế toán chốt a PXK (`POST /api/partner/sync/don-hoa-don`, its
     `lib/hoaDonDvbh.ts`) + manual pull button (`GET {LINHKIEN_APP_URL}/api/partner/v1/don-hoa-don?tu_ngay=`), both via
@@ -475,31 +476,37 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
   also queues separately — batch independent reads with `db.batch` (done in `loadUser` + `cachedReport`, v1.536). Before a
   recreate-table migration, re-create EVERY index of the old table: migration 0022 silently lost `idx_ket_qua_goi_ngay`
   (restored in 0154) and call-history-by-month scanned the whole table at ~5.5 s for months.
-- **Max 100 COLUMNS per result set** (D1, "too many columns in result set"). `case_dvbh` has 99 columns since migration
-  0170, so `c.*` / `SELECT *` from it (or `case_hieu_luc`) leaves room for ONE extra column only. Adding a 2nd silently broke
-  the 08:00 chốt (via the `CA_LAP_CTE`), Ca lặp, Ca thiếu LK and Nạp gas lists on 15–16/11 (fixed v1.608). List queries must
-  select `c.id` + their own columns, then `lib/ghepCotCa.ts ghepDuCotCa()` fetches the full case row by id; never `SELECT *`
-  inside a CTE that adds computed columns. Adding a column to `case_dvbh` → grep for `c.*` / `SELECT *,` first.
-- **RULE (owner, 2026-11-17): `case_dvbh` is FROZEN at 99 columns — NEVER `ALTER TABLE case_dvbh ADD COLUMN` again.** D1 also
-  caps a TABLE at 100 columns, and every `c.*` / view `case_hieu_luc*` / `phamVi.ts` `(SELECT * FROM case_dvbh …)` rewrite would
-  hit the result-set cap. The auto QuickSight/Odoo pipeline will add many new fields soon; they ALL go to a 1-1 side table
-  **`case_dvbh_mo_rong`** (`id TEXT PRIMARY KEY REFERENCES case_dvbh(id)`, one column per new field + `hash_mo_rong`), created
-  by the migration of the FIRST such field. How a new pipeline field lands:
-  1. Until declared, unknown row keys are silently ignored by import (only `BUSINESS_FIELDS`/`OPTIONAL_FIELDS`/
-     `ODOO_BO_SUNG_FIELDS` are read) — the pipeline may start sending a field before this side is ready.
-  2. Declare it in a separate list (`MO_RONG_FIELDS` in `ratchet.ts`), NOT in `BUSINESS_FIELDS`/`OPTIONAL_FIELDS`/`COLUMN_MAP`;
-     add the column to `case_dvbh_mo_rong` (plain `ALTER TABLE ADD COLUMN` on the side table — no FK children, safe).
-  3. `importProcessor.ts` writes it with `INSERT … ON CONFLICT(id) DO UPDATE` in the SAME `db.batch` as the case write, ONLY
-     for keys present in the row (manual Excel / old CRM rows must not null Odoo values), skipping rows whose `hash_mo_rong`
-     is unchanged. Its own hash — NEVER fold these fields into `crm_hash`: that would re-write every `case_dvbh` row, bump
-     `cases` (expires all reports) and recompute R2 chunks the day the pipeline starts sending the field. Side-table-only
-     changes bump a dedicated domain `case_mo_rong` (add to `CASE_DETAIL_DOMAINS`), never `cases`.
-  4. Pipeline side sends it behind an env flag (pattern `SEND_SLA_KHONG_LOAI_TRU` / `SEND_QUOC_GIA`).
-  5. Showing it is opt-in per screen: CaseDetail / a list → `LEFT JOIN case_dvbh_mo_rong m ON m.id = c.id` selecting only the
-     needed columns (index on the side table if filtered over all cases). The R2 "đã đóng" chunks (`daDongDayChunks.ts`,
-     `c.*`) will NOT contain it — adding it changes R2 content → ask the owner first (R2 rules). A cached report that reads
-     the side table must declare `case_mo_rong` in its `cachedReport` domains.
-  Live column list: `SELECT name, type FROM pragma_table_info('case_dvbh')` on the smarttrade DB (99 on 2026-11-17).
+- **Max 100 COLUMNS per result set** (D1, "too many columns in result set") — and D1 also caps a TABLE at 100 columns.
+  `case_dvbh` has **93 columns since migration 0173** (it was 99: the 6 "sửa DT" columns moved to `case_dt_sua`, v1.619). `c.*` /
+  `SELECT *` from it (or `case_hieu_luc`) + computed columns must stay ≤ 100: at 99 columns a 2nd extra column silently broke the
+  08:00 chốt (via the `CA_LAP_CTE`), Ca lặp, Ca thiếu LK and Nạp gas lists on 15–16/11 (fixed v1.608). List queries select `c.id`
+  + their own columns, then `lib/ghepCotCa.ts ghepDuCotCa()` fetches the full case row by id; never `SELECT *` inside a CTE that
+  adds computed columns. Adding a column to `case_dvbh` → grep for `c.*` / `SELECT *,` first.
+- **RULE — column budget of `case_dvbh` (owner, 2026-11-17): IMPORTED values first, system-generated data in side tables.**
+  The auto QuickSight/Odoo pipeline will add many new fields; `case_dvbh` slots are reserved for them.
+  1. **Imported values** (CRM / Odoo / QuickSight source data) → columns of `case_dvbh`, OPTIONAL_FIELDS pattern (`ratchet.ts`:
+     written only when the row has the key, hashed only when non-empty, NOT in `COLUMN_MAP`), while the table stays **≤ 95
+     columns** (keep ≥ 5 free so `c.*` + a few computed columns fit in one result set). Until declared, unknown row keys are
+     silently ignored by import, so the pipeline may start sending a field first, behind an env flag (pattern
+     `SEND_SLA_KHONG_LOAI_TRU` / `SEND_QUOC_GIA`). Turning a new hashed field on rewrites every case that has a value ONCE (hash
+     changes) — expected, same as earlier optional fields.
+  2. **Data generated by the system/app** (manual edits + the CRM original they replace, who/when/why, confirmations, sync
+     status, precomputes) → **1-1 side table keyed by case id**, pattern `case_dt_sua` (0172) / `case_hd_bh` / `case_lada`: NO FK
+     to `case_dvbh` (keeps recreate-table possible), a row only when there is data, deleting the row = back to default.
+     **Exception:** keep it in `case_dvbh` only when a side table would really hurt analysis/computation — filtered/grouped over
+     ALL cases in hot report / `NEED_*` / chốt SQL, or needed by import per row — e.g. `huy_bo_at` (view `case_hieu_luc`),
+     `nghi_ngo_tranh_chap`, `can_khao_sat`, `theo_doi_doi_tra`, `ca_lap_prior_*`, `khu_vuc` itself.
+  3. **Budget full (> 95):** first move more system columns out (candidates: `khu_vuc_crm`/`khu_vuc_sua_by`/`khu_vuc_sua_at`,
+     `huy_bo_by`/`huy_bo_ly_do`, `nghi_ngo_tranh_chap_xac_nhan_*`, `theo_doi_doi_tra_xac_nhan_*`, `assigned_to`). Only if still
+     full, new import fields go to a side table `case_dvbh_mo_rong` with its own `hash_mo_rong` (never folded into `crm_hash`),
+     domain `case_mo_rong` (in `CASE_DETAIL_DOMAINS`), `LEFT JOIN` where shown.
+  4. **How to move columns out** (done for `dt_*_crm`/`dt_sua_*`, v1.619): migration A creates the side table + copies (old code
+     still works) → deploy code that reads/writes the side table → migration B re-copies with `INSERT OR IGNORE` (edits made in
+     between) then `DROP INDEX` on the column + `ALTER TABLE case_dvbh DROP COLUMN` (the `SELECT *` views `case_hieu_luc*`
+     survive it — verified). Never put migration B in `migrations/` before the deploy: `db:migrate:smarttrade` applies every
+     pending file. Import keeps manual values via `EXISTS (SELECT 1 FROM <side> WHERE …)` in `buildFullOverwrite` + a separate
+     statement for the side table, flagged per row in `fetchExistingRows` (see `co_dt_sua`).
+  Live column list: `SELECT name, type FROM pragma_table_info('case_dvbh')` on the smarttrade DB.
 - **Max 100 bound parameters per statement** (D1-specific; plain SQLite allows ~32k). A dynamic
   `IN (?, ?, ...)` built from a data-driven list (ids, emails) fails with "too many SQL variables" once
   the list + other binds pass 100 — the Ca lặp Excel export did exactly this with ~3-4k prior ids
@@ -539,7 +546,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0171`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0173`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
