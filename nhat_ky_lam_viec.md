@@ -5969,4 +5969,7 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   `case_dvbh` (giữ ≤ 95 cột); dữ liệu hệ thống/app tự sinh để ở bảng phụ 1-1 theo ID ca, trừ khi để ở bảng phụ gây khó cho phân
   tích/tính toán (lọc/nhóm trên toàn bộ ca, NEED_*, chốt số). Chi tiết ở CLAUDE.md.
 - v1.619: tách 6 cột "sửa doanh thu" (`dt_*_crm`, `dt_sua_at/by/ly_do`) khỏi `case_dvbh` sang bảng `case_dt_sua` (migration 0172 tạo +
-  chép, deploy code, rồi 0173 chép bù + xoá cột) → `case_dvbh` còn 93 cột. Báo cáo doanh thu không đổi (`dt_*` vẫn là số hiệu lực).
+  chép, deploy code, rồi 0173 chép bù + xoá cột) → (dự kiến) còn 93 cột. Báo cáo doanh thu không đổi (`dt_*` vẫn là số hiệu lực).
+- Migration 0173 (xoá 6 cột trong 1 lần) **thất bại trên production** với lỗi nội bộ D1 (7500) và đã rollback sạch (vẫn 99 cột, không mất
+  dữ liệu; chưa có ca nào từng sửa DT). Nguyên nhân: `DROP COLUMN` ghi lại toàn bộ bảng ~160k ca. Đã gỡ file 0173 khỏi `migrations/`
+  (chưa áp dụng ở remote nên gỡ an toàn). 6 cột hiện không còn được code dùng; còn chờ xoá từng cột một vào giờ thấp điểm.

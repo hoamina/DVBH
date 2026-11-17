@@ -477,7 +477,8 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
   recreate-table migration, re-create EVERY index of the old table: migration 0022 silently lost `idx_ket_qua_goi_ngay`
   (restored in 0154) and call-history-by-month scanned the whole table at ~5.5 s for months.
 - **Max 100 COLUMNS per result set** (D1, "too many columns in result set") — and D1 also caps a TABLE at 100 columns.
-  `case_dvbh` has **93 columns since migration 0173** (it was 99: the 6 "sửa DT" columns moved to `case_dt_sua`, v1.619). `c.*` /
+  `case_dvbh` has **99 columns**: the 6 "sửa DT" columns (`dt_*_crm`, `dt_sua_*`) moved to `case_dt_sua` (0172, v1.619) and are
+  UNUSED by code, but still physically there — dropping them is pending (see step 4 below). `c.*` /
   `SELECT *` from it (or `case_hieu_luc`) + computed columns must stay ≤ 100: at 99 columns a 2nd extra column silently broke the
   08:00 chốt (via the `CA_LAP_CTE`), Ca lặp, Ca thiếu LK and Nạp gas lists on 15–16/11 (fixed v1.608). List queries select `c.id`
   + their own columns, then `lib/ghepCotCa.ts ghepDuCotCa()` fetches the full case row by id; never `SELECT *` inside a CTE that
@@ -503,8 +504,10 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
   4. **How to move columns out** (done for `dt_*_crm`/`dt_sua_*`, v1.619): migration A creates the side table + copies (old code
      still works) → deploy code that reads/writes the side table → migration B re-copies with `INSERT OR IGNORE` (edits made in
      between) then `DROP INDEX` on the column + `ALTER TABLE case_dvbh DROP COLUMN` (the `SELECT *` views `case_hieu_luc*`
-     survive it — verified). Never put migration B in `migrations/` before the deploy: `db:migrate:smarttrade` applies every
-     pending file. Import keeps manual values via `EXISTS (SELECT 1 FROM <side> WHERE …)` in `buildFullOverwrite` + a separate
+     survive it — verified locally). Never put migration B in `migrations/` before the deploy: `db:migrate:smarttrade` applies
+     every pending file. **`DROP COLUMN` rewrites the WHOLE table** (~160k rows, DB ~900 MB): 6 drops in one migration failed on
+     production 2026-11-17 with D1 "internal error" (7500) and rolled back cleanly — so drop ONE column per migration, off-hours
+     (it holds the D1 queue while running), and check `pragma_table_info` after each. Import keeps manual values via `EXISTS (SELECT 1 FROM <side> WHERE …)` in `buildFullOverwrite` + a separate
      statement for the side table, flagged per row in `fetchExistingRows` (see `co_dt_sua`).
   Live column list: `SELECT name, type FROM pragma_table_info('case_dvbh')` on the smarttrade DB.
 - **Max 100 bound parameters per statement** (D1-specific; plain SQLite allows ~32k). A dynamic
@@ -546,7 +549,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0173`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0172`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
