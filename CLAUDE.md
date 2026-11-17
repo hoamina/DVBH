@@ -480,6 +480,26 @@ Before proposing a D1 query optimization, know what actually moves the billed nu
   the 08:00 chốt (via the `CA_LAP_CTE`), Ca lặp, Ca thiếu LK and Nạp gas lists on 15–16/11 (fixed v1.608). List queries must
   select `c.id` + their own columns, then `lib/ghepCotCa.ts ghepDuCotCa()` fetches the full case row by id; never `SELECT *`
   inside a CTE that adds computed columns. Adding a column to `case_dvbh` → grep for `c.*` / `SELECT *,` first.
+- **RULE (owner, 2026-11-17): `case_dvbh` is FROZEN at 99 columns — NEVER `ALTER TABLE case_dvbh ADD COLUMN` again.** D1 also
+  caps a TABLE at 100 columns, and every `c.*` / view `case_hieu_luc*` / `phamVi.ts` `(SELECT * FROM case_dvbh …)` rewrite would
+  hit the result-set cap. The auto QuickSight/Odoo pipeline will add many new fields soon; they ALL go to a 1-1 side table
+  **`case_dvbh_mo_rong`** (`id TEXT PRIMARY KEY REFERENCES case_dvbh(id)`, one column per new field + `hash_mo_rong`), created
+  by the migration of the FIRST such field. How a new pipeline field lands:
+  1. Until declared, unknown row keys are silently ignored by import (only `BUSINESS_FIELDS`/`OPTIONAL_FIELDS`/
+     `ODOO_BO_SUNG_FIELDS` are read) — the pipeline may start sending a field before this side is ready.
+  2. Declare it in a separate list (`MO_RONG_FIELDS` in `ratchet.ts`), NOT in `BUSINESS_FIELDS`/`OPTIONAL_FIELDS`/`COLUMN_MAP`;
+     add the column to `case_dvbh_mo_rong` (plain `ALTER TABLE ADD COLUMN` on the side table — no FK children, safe).
+  3. `importProcessor.ts` writes it with `INSERT … ON CONFLICT(id) DO UPDATE` in the SAME `db.batch` as the case write, ONLY
+     for keys present in the row (manual Excel / old CRM rows must not null Odoo values), skipping rows whose `hash_mo_rong`
+     is unchanged. Its own hash — NEVER fold these fields into `crm_hash`: that would re-write every `case_dvbh` row, bump
+     `cases` (expires all reports) and recompute R2 chunks the day the pipeline starts sending the field. Side-table-only
+     changes bump a dedicated domain `case_mo_rong` (add to `CASE_DETAIL_DOMAINS`), never `cases`.
+  4. Pipeline side sends it behind an env flag (pattern `SEND_SLA_KHONG_LOAI_TRU` / `SEND_QUOC_GIA`).
+  5. Showing it is opt-in per screen: CaseDetail / a list → `LEFT JOIN case_dvbh_mo_rong m ON m.id = c.id` selecting only the
+     needed columns (index on the side table if filtered over all cases). The R2 "đã đóng" chunks (`daDongDayChunks.ts`,
+     `c.*`) will NOT contain it — adding it changes R2 content → ask the owner first (R2 rules). A cached report that reads
+     the side table must declare `case_mo_rong` in its `cachedReport` domains.
+  Live column list: `SELECT name, type FROM pragma_table_info('case_dvbh')` on the smarttrade DB (99 on 2026-11-17).
 - **Max 100 bound parameters per statement** (D1-specific; plain SQLite allows ~32k). A dynamic
   `IN (?, ?, ...)` built from a data-driven list (ids, emails) fails with "too many SQL variables" once
   the list + other binds pass 100 — the Ca lặp Excel export did exactly this with ~3-4k prior ids

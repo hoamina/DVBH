@@ -5958,3 +5958,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Tab lý do cuối trong tháng: mỗi ca một lần; theo khu vực/trạm/nhóm PH, lọc nhóm và xuất Excel; cache theo versions, bảo toàn quyền quốc gia và khu vực. Nhóm dùng cấu hình máy hiện tại, cơ cấu khu vực/trạm theo ca hiện tại.
 - Thêm script kiểm thử nghiệp vụ SQLite/TypeScript `scripts/check-report-enhancements.cjs` và EN/ID cho chuỗi UI mới. Typecheck backend, frontend và production build được kiểm tra. Build có cảnh báo kích thước chunk lớn của ứng dụng; không phải lỗi build.
 - Chưa deploy production, chưa đổi APP_VERSION vì chưa thực hiện deploy; không chạy migration hay thay đổi dữ liệu server.
+
+## 2026-11-17 — Nguyên tắc cột mới cho `case_dvbh`
+
+- Chủ hệ thống chốt: `case_dvbh` **đóng băng ở 99 cột** (D1 trần 100 cột/bảng và /kết quả truy vấn). Auto QuickSight sắp bổ sung
+  nhiều trường → mọi cột mới vào bảng 1-1 `case_dvbh_mo_rong` (tạo khi có trường đầu tiên), hash riêng `hash_mo_rong`, domain
+  `case_mo_rong`, không gộp vào `crm_hash`; pipeline gửi sau cờ env; màn nào cần thì LEFT JOIN. Quy trình chi tiết ở CLAUDE.md.
+- Đã rà 99 cột: cột nào cũng còn được code dùng, không có cột thừa để xoá.
