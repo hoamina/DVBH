@@ -3623,9 +3623,9 @@
   "The data is walking up from the warehouse, let it catch its breath.",
   "Data sedang jalan kaki dari gudang, biarkan dia ambil napas dulu."
  ],
- "DỊCH VỤ 3T - DVBH": [
-  "3T SERVICE - DVBH",
-  "LAYANAN 3T - DVBH"
+ "ÔNG THỢ 3T - DVBH": [
+  "3T HANDYMAN - DVBH",
+  "TUKANG 3T - DVBH"
  ],
  "DIỄN GIẢI / GHI CHÚ": [
   "DIỄN GIẢI / GHI CHÚ (explanation / note)",
@@ -14430,5 +14430,42 @@
   "Không tạm tính được.": ["Could not compute provisional figures.", "Tidak dapat menghitung angka sementara."],
   "Tạm tính lúc {0}, chưa chốt": ["Provisional at {0}, not closed yet", "Sementara pukul {0}, belum ditutup"],
   "tạm {0}": ["prov. {0}", "smt {0}"],
-  "tạm {0}: 0 ca": ["prov. {0}: 0 cases", "smt {0}: 0 kasus"]
+  "tạm {0}: 0 ca": ["prov. {0}: 0 cases", "smt {0}: 0 kasus"],
+  "{0} bước": ["{0} steps", "{0} langkah"],
+  "Bấm để mở tab chi tiết": ["Click to open the detail tab", "Klik untuk membuka tab detail"],
+  "▸ Xem {0} log (gồm {1} log phụ)": ["▸ View {0} logs (incl. {1} minor)", "▸ Lihat {0} log (termasuk {1} log minor)"],
+  "▸ Xem {0} log": ["▸ View {0} logs", "▸ Lihat {0} log"],
+  "▸ Xem thêm": ["▸ Show more", "▸ Selengkapnya"],
+  "Luồng xử lý ca": ["Case processing flow", "Alur penanganan kasus"],
+  "Đang ẩn - bấm để hiện": ["Hidden - click to show", "Tersembunyi - klik untuk menampilkan"],
+  "Bấm để ẩn": ["Click to hide", "Klik untuk menyembunyikan"],
+  "Hiện log phụ ({0})": ["Show minor logs ({0})", "Tampilkan log minor ({0})"],
+  "Không có mốc nào theo bộ lọc nguồn đang chọn.": ["No milestones for the selected source filters.", "Tidak ada tonggak untuk filter sumber yang dipilih."],
+  "Lưu mã đơn hàng": ["Saved order code", "Simpan kode pesanan"],
+  "Lưu mã MISA": ["Saved MISA code", "Simpan kode MISA"],
+  "Tải ảnh biên bản": ["Uploaded handover photo", "Unggah foto berita acara"],
+  "Thêm đơn vào phiếu": ["Added order to slip", "Tambah pesanan ke slip"],
+  "Vi phạm ({0})": ["Violation ({0})", "Pelanggaran ({0})"],
+  "Cuộc gọi khảo sát": ["Survey call", "Panggilan survei"],
+  "Phản hồi": ["Reply", "Balasan"],
+  "Đánh giá ca lặp": ["Repeat case review", "Penilaian kasus berulang"],
+  "Bảo hành (Odoo)": ["Warranty (Odoo)", "Garansi (Odoo)"],
+  "Bảo hành (app)": ["Warranty (app)", "Garansi (aplikasi)"],
+  "Có ảnh biên bản": ["Has handover photo", "Ada foto berita acara"],
+  "Mua hàng LK": ["Parts purchase", "Pembelian suku cadang"],
+  "{0} lần": ["{0} times", "{0} kali"],
+  "Chờ chốt cấp 2": ["Awaiting level-2 decision", "Menunggu keputusan level 2"],
+  "Vi phạm · Khảo sát": ["Violation · Survey", "Pelanggaran · Survei"],
+  "Mua hàng · Xuất kho": ["Purchase · Dispatch", "Pembelian · Pengeluaran"],
+  "CN": ["Sun", "Min"],
+  "T2": ["Mon", "Sen"],
+  "T3": ["Tue", "Sel"],
+  "T4": ["Wed", "Rab"],
+  "T5": ["Thu", "Kam"],
+  "T6": ["Fri", "Jum"],
+  "T7": ["Sat", "Sab"],
+  "Đặt LK": ["Order parts", "Pesan suku cadang"],
+  "Giao LK": ["Parts delivery", "Kirim suku cadang"],
+  "Đóng ca": ["Close case", "Tutup kasus"],
+  "Đổi thành công": ["Exchanged", "Berhasil ditukar"]
 }

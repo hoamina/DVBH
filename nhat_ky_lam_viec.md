@@ -5937,3 +5937,21 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Frontend (`BacklogModule.tsx`): nút "🔄 Kiểm tra hôm nay" chỉ hiện khi đang xem tháng hiện tại và hôm nay chưa chốt. Query
   `enabled:false` nên chỉ chạy khi bấm. Ô hôm nay hiện số tạm (viền nét đứt, chữ nghiêng, "tạm HH:MM") + dòng ghi chú "tạm tính
   lúc HH:MM, chưa chốt — không cộng vào lũy kế". Sau khi chốt 17:30 thì nút ẩn, ô hiện số chốt như cũ.
+
+## 2026-11-18 — Tiến trình chung thu gọn + đổi tên app "Ông Thợ 3T - DVBH" (v1.623)
+
+- Yêu cầu 1 (nguyên văn): "log tiến trình chung trong UI chi tiết case cần làm gọn lại với các bước liên tục gần nhau => với vai trò
+  phân tích dữ liệu và xây dựng giao diện => lập phương án thu gọn log tiến trình chung => đảm bảo dễ nhìn, dễ xác nhận các thông tin
+  nhanh nhưng vẫn đủ (các log phụ có thể ẩn bớt, tạo 1 tiến trình dạng ngang... )" → duyệt phương án, "Triển khai luôn".
+- Nguyên nhân rối: cũ chỉ gộp mốc liền nhau TRÙNG NHÃN, nên 1 phiếu xuất kho 7 bước (mỗi bước 1 nhãn) ra 7 dòng; log "chỉ ghi dữ
+  liệu" của PXK (lưu mã MISA / mã đơn hàng / thêm đơn vào phiếu) hiện ngang hàng bước quy trình và hiện mã thô `pxk_Da luu ma MISA`.
+- Làm: tách giao diện ra `components/TienTrinhChung.tsx`. (1) Luồng xử lý ca dạng ngang ở đầu tab (Tiếp nhận → GT tồn → Đặt LK →
+  Giao LK → Bảo hành → Đổi trả → Khảo sát → Vi phạm → Tranh chấp → Đóng ca, chỉ nhánh có phát sinh). (2) Gộp theo ĐỐI TƯỢNG: 1 đơn
+  linh kiện (đặt + thiếu LK + PXK), 1 đơn bảo hành, 1 luồng đổi trả, 1 tiến trình tranh chấp, cặp khảo sát + vi phạm ghi nhận cùng
+  người lệch ≤5 phút = "Cuộc gọi khảo sát"; thẻ có luồng ngang mini của đối tượng + bước mới nhất + "▸ Xem N log". (3) Log phụ ẩn
+  mặc định, rút thành chip (vd "Mã MISA: CK04969BN", chỉ giữ giá trị mới nhất). (4) Chia theo ngày, trong dòng chỉ HH:mm, người làm
+  chỉ hiện tên. (5) Chip lọc theo nguồn + ô "Hiện log phụ" (nhớ trong localStorage). Không thêm API/đọc D1.
+- Yêu cầu 2 (nguyên văn): "đổi tên thành "ÔNG THỢ 3T - DVBH" tiếng EN và ID cũng đổi phù hợp" → sidebar, màn đăng nhập, tiêu đề tab,
+  manifest; EN "3T HANDYMAN - DVBH", ID "TUKANG 3T - DVBH".
+- Kiểm thử: typecheck + build; local mở ca có GT tồn / khảo sát / vi phạm; giả lập phản hồi linh-kien-app của phiếu PCN-002515 (8 log
+  → 1 thẻ, 4 log phụ ẩn, mở rộng đủ 8 dòng). Chưa thử với dữ liệu bảo hành / đổi trả thật (local không có 2 hệ đó).

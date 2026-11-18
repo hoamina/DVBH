@@ -99,8 +99,25 @@ const EVENT_LABELS: Record<string, string> = {
   tra_hang_da_huy: tr("Đã hủy"),
 };
 
+// Log "chi ghi du lieu" cua phieu xuat kho (linh-kien-app migration 0028: ghi chung bang phieu_xuat_kho_log nhung KHONG phai buoc
+// quy trinh) - partnerTimeline ben do tra nguyen `pxk_<trang_thai>`. Tien trinh chung xep vao LOG PHU (an mac dinh).
+const LOG_PHU_LABELS: Record<string, string> = {
+  "pxk_Da luu ma don hang": tr("Lưu mã đơn hàng"),
+  "pxk_Da luu ma MISA": tr("Lưu mã MISA"),
+  "pxk_Da tai anh bien ban": tr("Tải ảnh biên bản"),
+  "pxk_Da them don vao phieu": tr("Thêm đơn vào phiếu"),
+  "pxk_Da yeu cau KTV chuyen tien": tr("Yêu cầu KTV chuyển tiền"),
+  "pxk_Da dinh bang chung chuyen tien": tr("KTV đính bằng chứng chuyển tiền"),
+  "pxk_Ke toan da duyet bang chung chuyen tien": tr("Kế toán duyệt chuyển tiền"),
+};
+
 export function linhKienEventLabel(event: string): string {
-  return EVENT_LABELS[event] ?? event;
+  return EVENT_LABELS[event] ?? LOG_PHU_LABELS[event] ?? event;
+}
+
+/** Su kien PXK khong nam trong enum buoc quy trinh = log chi ghi du lieu (luu ma, tai anh, them don vao phieu...). */
+export function linhKienEventLaLogPhu(event: string): boolean {
+  return event.startsWith("pxk_") && !EVENT_LABELS[event];
 }
 
 const SOURCE_LABELS: Record<LinhKienTimelineEvent["source"], string> = {

@@ -70,7 +70,7 @@ export function Sidebar({
         <img src="/icon-192.png" alt="DVBH 3T" width={30} height={30} className="shrink-0 rounded-md" />
         {(!collapsed || isMobile) && (
           <div className="leading-tight">
-            <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">{tr("DỊCH VỤ 3T - DVBH")}</div>
+            <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">{tr("ÔNG THỢ 3T - DVBH")}</div>
             <div className="text-[10px] text-[var(--sidebar-ink-dim)] font-medium">{t("sidebar.subtitle")}</div>
           </div>
         )}

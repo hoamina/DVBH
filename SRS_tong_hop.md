@@ -402,3 +402,20 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 **Kiểm chứng**
 
 `node scripts/check-report-enhancements.cjs`: thực thi SQL thật trên SQLite in-memory với dữ liệu thử; kiểm tra tuần giao năm/53 tuần, đúng biên SLA/giờ thiếu/giờ sai, nhóm KTV nhiều trạm, quyền nước/khu vực, lý do cuối trong tháng và tie-break, Excel loại trừ một phần/toàn bộ/Chủ nhật. EXPLAIN xác nhận khoảng hoàn thành dùng `idx_case_hoan_thanh_not_null`, lý do dùng `idx_giai_trinh_ngay`, tra lần cuối dùng `idx_giai_trinh_case_ngay`. Không đo rows_read production và không truy cập dữ liệu production cho kiểm thử này. Có bổ sung bản dịch EN/ID cho giao diện mới.
+
+## 14. Tab "Tiến trình chung" — giao diện thu gọn (chốt 2026-11-18, v1.623)
+
+- Đầu tab: **luồng xử lý ca dạng ngang** (dùng lại `LuongNgang` của tab Bảo hành): Tiếp nhận → GT tồn → Đặt LK → Giao LK → Bảo hành →
+  Đổi trả → Khảo sát → Vi phạm → Tranh chấp → Đóng ca; chỉ hiện nhánh có phát sinh; bước đang chờ tô nổi. Ca chưa đóng và không nhánh
+  nào đang chờ → "Đóng ca" là bước đang chờ.
+- Danh sách chia theo **ngày** (tiêu đề ngày + thứ, khoảng cách tới ngày trước), trong dòng chỉ giờ:phút; người làm chỉ hiện tên
+  (rê chuột xem đầy đủ).
+- **Gộp theo đối tượng**: các mốc LIỀN NHAU cùng đối tượng = 1 thẻ — đơn linh kiện (đặt + thiếu LK + phiếu xuất kho của đơn), đơn bảo
+  hành (Odoo / app), luồng đổi trả, tiến trình tranh chấp, ca lặp, GT tồn cùng lý do, mở/đóng ca; khảo sát + vi phạm ghi nhận cùng
+  người lệch ≤ 5 phút = "Cuộc gọi khảo sát". Thẻ ≤ 2 mốc hiện đủ từng dòng; thẻ lớn hơn hiện luồng ngang mini (nếu có) + bước mới
+  nhất + "▸ Xem N log".
+- **Log phụ** = log chỉ ghi dữ liệu của phiếu xuất kho (sự kiện `pxk_*` ngoài danh sách bước quy trình: lưu mã đơn hàng, lưu mã MISA,
+  tải ảnh biên bản, thêm đơn vào phiếu…): ẩn mặc định, thông tin rút thành chip trên thẻ (mỗi loại giữ giá trị mới nhất), vẫn xem
+  được khi mở "Xem N log" hoặc tick "Hiện log phụ".
+- Chip lọc theo nguồn: Ca · GT tồn · Vi phạm/Khảo sát · Mua hàng/Xuất kho · Bảo hành · Đổi trả · Tranh chấp · Khác; lựa chọn lọc và
+  "Hiện log phụ" nhớ theo trình duyệt. Bấm thẻ = mở tab chi tiết nguồn (như cũ).
