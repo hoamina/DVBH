@@ -2334,7 +2334,7 @@ export function BacklogModule({
                     <th className="py-2 px-2 text-center">{tr("Lỡ KH")}</th>
                     <th className="py-2 px-2 text-center">{tr("Tái GT")}</th>
                     <th className="py-2 px-2 text-center">{tr("ĐMX chưa GT >3n")}</th>
-                    <th className="py-2 px-2 text-center">{tr("Chưa GT >5n")}</th>
+                    <th className="py-2 px-2 text-center">{nhanTheoMoc(tr("Chưa GT >5n"), moc)}</th>
                     <th className="py-2 px-2 text-center">{tr("Điều hòa >1n")}</th>
                     <th className="py-2 px-2 text-center">{tr("B2B >1n")}</th>
                     <th className="py-2 px-2 text-center">{tr("NSKX >=2n")}</th>

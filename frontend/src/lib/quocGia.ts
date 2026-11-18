@@ -51,6 +51,6 @@ export function useMocTonGiaiTrinh(): number {
 }
 /** Doi so "5" trong nhan "Chưa GT >5 ngày" (moi ngon ngu) thanh moc cua nuoc dang xem. */
 export function nhanTheoMoc(s: string, moc: number): string {
-  return moc === 5 ? s : s.replace(/>\s*5/, `>${moc}`);
+  return moc === 5 ? s : s.replace(/>\s*5(?!\d)/, `>${moc}`);
 }
 

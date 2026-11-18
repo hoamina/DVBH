@@ -1,5 +1,5 @@
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "./KhuVucFilterControl";
@@ -22,10 +22,13 @@ export function FilterBar({
   filters,
   setFilters,
   onExport,
+  renderThang,
 }: {
   filters: DashboardFilters;
   setFilters: (f: DashboardFilters) => void;
   onExport?: () => void;
+  /** Thay o chon thang (Tong quat: cong tac Thang/Tuan bao quanh, che do Tuan an o thang). */
+  renderThang?: (oThang: ReactNode) => ReactNode;
 }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
@@ -63,11 +66,12 @@ export function FilterBar({
     }
   }, [monthsData, data, filters, setFilters]);
 
+  const oThang = <Select value={filters.thang} onChange={(v) => setFilters({ ...filters, thang: v })} options={thangOptions} />;
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
       <KhuVucFilterControl value={khuVucHienThi} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
       <Select value={filters.hang} onChange={(v) => setFilters({ ...filters, hang: v })} options={[ALL_HANG, ...(data?.hang ?? [])]} />
-      <Select value={filters.thang} onChange={(v) => setFilters({ ...filters, thang: v })} options={thangOptions} />
+      {renderThang ? renderThang(oThang) : oThang}
       {onExport && (
         <div className="ml-auto">
           <Btn variant="ghost" size="sm" onClick={onExport}>

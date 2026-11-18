@@ -1,6 +1,6 @@
 import { useQuocGiaDangXem } from "../lib/phamVi";
 import { usePhReportGroups, phGroupForStation, sumReportRows } from "../lib/phReportGroups";
-import { isoWeekRange, isoWeeksInYear } from "../lib/isoWeek";
+import { isoWeekOf, isoWeekRange, isoWeeksInYear } from "../lib/isoWeek";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BaoCaoDangTai } from "../components/ui/BaoCaoDangTai";
@@ -88,6 +88,37 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   const [week, setWeek] = useLocalStorageState("filters:dashboard-week", "");
   const [weekYear, setWeekYear] = useLocalStorageState("filters:dashboard-week-year", String(new Date(Date.now() + 7 * 3600000).getUTCFullYear()));
   const weekRange: { tu_ngay?: string; den_ngay?: string } = week ? isoWeekRange(Number(weekYear), Number(week)) : {};
+  // Ky xem theo tuan (2026-11-18): danh sach tuan cua nam dang chon + nam truoc, moi muc ghi khoang ngay; khong cho chon tuan chua toi.
+  const tuanNay = isoWeekOf();
+  const laTuanNay = !!week && Number(weekYear) === tuanNay.year && Number(week) === tuanNay.week;
+  const chonTuan = (t: { year: number; week: number }) => {
+    setWeekYear(String(t.year));
+    setWeek(String(t.week));
+  };
+  const doiTuan = (buoc: number) => {
+    if (!week) return;
+    const r = isoWeekRange(Number(weekYear), Number(week));
+    const moc = new Date(Date.parse(r.tu_ngay) + buoc * 7 * 86400000).toISOString().slice(0, 10);
+    const t = isoWeekOf(moc);
+    if (t.year > tuanNay.year || (t.year === tuanNay.year && t.week > tuanNay.week)) return;
+    chonTuan(t);
+  };
+  const ngayVn = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const tuanOptions = [tuanNay.year, tuanNay.year - 1].flatMap((y) =>
+    Array.from({ length: isoWeeksInYear(y) }, (_, i) => i + 1)
+      .filter((w) => y < tuanNay.year || w <= tuanNay.week)
+      .reverse()
+      .map((w) => {
+        const r = isoWeekRange(y, w);
+        const den = new Date(Date.parse(r.den_ngay) - 86400000).toISOString().slice(0, 10);
+        const nay = y === tuanNay.year && w === tuanNay.week;
+        return { value: `${y}-${w}`, label: `${tr("Tuần {0}/{1}", w, y)} · ${ngayVn(r.tu_ngay)}–${ngayVn(den)}${nay ? ` (${tr("tuần này")})` : ""}` };
+      }),
+  );
+  const thangHienThi = (() => {
+    const v = filters.thang === CURRENT_MONTH_VALUE ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7) : filters.thang;
+    return /^\d{4}-\d{2}$/.test(v) ? `${v.slice(5, 7)}/${v.slice(0, 4)}` : v;
+  })();
   const [pivotDim, setPivotDim] = useLocalStorageState("filters:dashboard-pivot-dim", "khu_vuc");
   // Loc phu "Tinh" (chon nhieu, "|") cho bang pivot - CHI khi nhom theo KTV (2026-10-23): xem KTV dang xu ly ca o tinh
   // can kiem tra. Gia tri theo che do Dia gioi cu/moi -> doi che do thi xoa loc (gia tri cu khong con nghia).
@@ -240,12 +271,62 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
           </div>
         </Card>
       )}
-      <FilterBar filters={filters} setFilters={(next) => { if (next.thang !== filters.thang) setWeek(""); setFilters(next); }} />
-      <div className="flex flex-wrap gap-2 items-center mb-4 text-sm">
-        <span>{tr("Tuần trong năm (ISO):")}</span>
-        <input aria-label={tr("Năm của tuần")} type="number" min="2000" max="2100" value={weekYear} className="border rounded-lg p-1.5 w-24" onChange={(e) => { const y = Number(e.target.value); if (y >= 2000 && y <= 2100) { setWeekYear(String(y)); setWeek(""); } }} />
-        <Select value={week} onChange={setWeek} options={[{ value: "", label: tr("Theo tháng") }, ...Array.from({ length: isoWeeksInYear(Number(weekYear)) }, (_, i) => ({ value: String(i + 1), label: tr("Tuần {0}", i + 1) }))]} />
-        {week && <span className="text-xs text-[var(--ink-400)]">{weekRange.tu_ngay} → {new Date(Date.parse(weekRange.den_ngay!) - 86400000).toISOString().slice(0, 10)} · {tr("Theo ngày hoàn thành")}</span>}
+      {/* 2026-11-18 (chu he thong): ky xem RO RANG - cong tac Thang | Tuan; che do Tuan AN o chon thang (truoc day 2 bo chon cung hien,
+          khong biet dang xem theo gi), mac dinh tuan hien tai, moi tuan ghi khoang ngay, co ◀ ▶ / "Tuần này". */}
+      <FilterBar
+        filters={filters}
+        setFilters={setFilters}
+        renderThang={(oThang) => (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-lg border border-[var(--line)] overflow-hidden text-sm" role="group" aria-label={tr("Xem theo")}>
+              {(["thang", "tuan"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => (k === "thang" ? setWeek("") : !week && chonTuan(isoWeekOf()))}
+                  className={`px-3 py-1.5 ${(k === "tuan") === !!week ? "bg-[var(--ocean-600)] text-white font-semibold" : "bg-white text-[var(--ink-600)] hover:bg-[var(--surface-100)]"}`}
+                >
+                  {k === "thang" ? tr("Theo tháng") : tr("Theo tuần")}
+                </button>
+              ))}
+            </div>
+            {!week ? (
+              oThang
+            ) : (
+              <>
+                <button type="button" className="px-2 py-1.5 rounded-lg border border-[var(--line)] text-sm hover:bg-[var(--surface-100)]" title={tr("Tuần trước")} onClick={() => doiTuan(-1)}>◀</button>
+                <Select
+                  value={`${weekYear}-${week}`}
+                  onChange={(v) => {
+                    const [y, w] = v.split("-");
+                    chonTuan({ year: Number(y), week: Number(w) });
+                  }}
+                  options={tuanOptions}
+                />
+                <button type="button" className="px-2 py-1.5 rounded-lg border border-[var(--line)] text-sm hover:bg-[var(--surface-100)] disabled:opacity-40" title={tr("Tuần sau")} disabled={laTuanNay} onClick={() => doiTuan(1)}>▶</button>
+                {!laTuanNay && (
+                  <button type="button" className="px-2 py-1.5 rounded-lg text-sm font-semibold text-[var(--ocean-600)] hover:underline" onClick={() => chonTuan(tuanNay)}>
+                    {tr("Tuần này")}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      />
+      <div className="-mt-2 mb-4 inline-flex flex-wrap items-center gap-1.5 rounded-lg bg-[var(--ocean-100)] px-2.5 py-1 text-xs text-[var(--ocean-800)]">
+        <span className="font-semibold">{tr("Đang xem:")}</span>
+        {week ? (
+          <span>
+            {tr("Tuần {0}/{1}", week, weekYear)} · {ngayVn(weekRange.tu_ngay!)} → {ngayVn(new Date(Date.parse(weekRange.den_ngay!) - 86400000).toISOString().slice(0, 10))}
+            {laTuanNay ? ` (${tr("tuần này")})` : ""} · {tr("tính theo ngày hoàn thành")}
+          </span>
+        ) : (
+          <span>
+            {tr("Tháng {0}", thangHienThi)}
+            {filters.thang === CURRENT_MONTH_VALUE ? ` (${tr("tháng hiện tại")})` : ""}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2 -mt-3 mb-4">
         <span className="text-xs font-semibold text-[var(--ink-400)]">Model:</span>

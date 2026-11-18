@@ -14467,5 +14467,15 @@
   "Đặt LK": ["Order parts", "Pesan suku cadang"],
   "Giao LK": ["Parts delivery", "Kirim suku cadang"],
   "Đóng ca": ["Close case", "Tutup kasus"],
-  "Đổi thành công": ["Exchanged", "Berhasil ditukar"]
+  "Đổi thành công": ["Exchanged", "Berhasil ditukar"],
+  "Xem theo": ["View by", "Lihat per"],
+  "Theo tuần": ["By week", "Per minggu"],
+  "Tuần trước": ["Previous week", "Minggu lalu"],
+  "Tuần sau": ["Next week", "Minggu depan"],
+  "Tuần này": ["This week", "Minggu ini"],
+  "tuần này": ["this week", "minggu ini"],
+  "Đang xem:": ["Viewing:", "Melihat:"],
+  "Tuần {0}/{1}": ["Week {0}/{1}", "Minggu {0}/{1}"],
+  "tính theo ngày hoàn thành": ["by completion date", "berdasarkan tanggal selesai"],
+  "tháng hiện tại": ["current month", "bulan ini"]
 }

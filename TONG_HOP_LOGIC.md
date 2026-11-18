@@ -61,6 +61,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 
 ## 7. Tổng quát & báo cáo
 
+- Kỳ xem Tổng quát: chọn "Theo tháng" (1 tháng) HOẶC "Theo tuần" (tuần ISO, thứ 2 → CN, tính theo ngày hoàn thành; mặc định tuần hiện tại),
+  không xem chồng 2 loại; luôn có dòng "Đang xem: …".
 KPI, pivot theo nhiều chiều (khu vực, KTV, nhóm yêu cầu…), chọn tháng / tuần ISO, SLA ≤8h / ≤24h / ≤48h / ≤72h cạnh tỷ lệ ≤24h CRM,
 top 10. Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.
 

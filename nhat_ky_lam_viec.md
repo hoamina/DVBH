@@ -5955,3 +5955,18 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   manifest; EN "3T HANDYMAN - DVBH", ID "TUKANG 3T - DVBH".
 - Kiểm thử: typecheck + build; local mở ca có GT tồn / khảo sát / vi phạm; giả lập phản hồi linh-kien-app của phiếu PCN-002515 (8 log
   → 1 thẻ, 4 log phụ ẩn, mở rộng đủ 8 dòng). Chưa thử với dữ liệu bảo hành / đổi trả thật (local không có 2 hệ đó).
+
+## 2026-11-18 — Nhãn mốc giải trình theo nước + Tổng quát chọn Tháng/Tuần rõ ràng (v1.624)
+
+- Yêu cầu 3 (nguyên văn): "bên PH, settings yêu cầu giải trình ca tồn >= 1 ngày nhưng các tiêu đề vẫn đang để chung với việt nam là
+  >=5 ngày. kiểm tra các vùng hiện thị tên sai và fix lại cho phù hợp theo settings".
+  Nguyên nhân: regex trong `lib/quocGia.ts nhanTheoMoc` chứa 1 KÝ TỰ BACKSPACE thật (0x08) thay cho `` → không bao giờ khớp, mọi nhãn
+  "Chưa GT >5 ngày" (thẻ Quản lý tồn, nhóm tồn, lọc nhóm, cột Excel/danh sách) luôn hiện 5 dù số liệu đã tính theo mốc 1 của PH. Sửa
+  regex (`>\s*5(?!\d)`) + tiêu đề cột "Chưa GT >5n" ở bảng báo cáo tồn theo khu vực giờ cũng theo mốc. Các nhãn "≥5 ngày" của Cảnh báo
+  tồn cấp 2 / Tồn trên 5 ngày là mốc tuổi tồn cố định, không phải mốc giải trình → giữ nguyên. Thử local: đặt mốc ID = 1 → thẻ hiện ">1 ngày".
+- Yêu cầu 4 (nguyên văn): "trong báo cáo tổng quát. việc chia tuần này chưa hợp lý. đang bị trùng với chọn tháng cũng không cảnh báo hay
+  nhắc nhở gì là đang xem theo tuần hay theo tháng. không biết tuần hiện tại là tuần nào để xem".
+  Làm: công tắc "Theo tháng | Theo tuần" thay chỗ ô chọn tháng (`FilterBar renderThang`); chế độ tuần ẩn ô tháng, mặc định tuần hiện tại
+  (`lib/isoWeek.ts isoWeekOf`), danh sách tuần năm nay + năm trước (mới nhất trên, không có tuần chưa tới) kèm khoảng ngày, ◀ ▶ + "Tuần
+  này"; dòng "Đang xem: Tháng 11/2026 (tháng hiện tại)" / "Tuần 47/2026 · 16/11 → 22/11 (tuần này) · tính theo ngày hoàn thành" luôn
+  hiện. Backend không đổi. Thử local: chuyển chế độ, lùi tuần, request gửi đúng tu_ngay/den_ngay.
