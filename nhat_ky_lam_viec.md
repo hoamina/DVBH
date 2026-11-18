@@ -5960,7 +5960,7 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 
 - Yêu cầu 3 (nguyên văn): "bên PH, settings yêu cầu giải trình ca tồn >= 1 ngày nhưng các tiêu đề vẫn đang để chung với việt nam là
   >=5 ngày. kiểm tra các vùng hiện thị tên sai và fix lại cho phù hợp theo settings".
-  Nguyên nhân: regex trong `lib/quocGia.ts nhanTheoMoc` chứa 1 KÝ TỰ BACKSPACE thật (0x08) thay cho `` → không bao giờ khớp, mọi nhãn
+  Nguyên nhân: regex trong `lib/quocGia.ts nhanTheoMoc` chứa 1 KÝ TỰ BACKSPACE thật (0x08) thay cho `\b` → không bao giờ khớp, mọi nhãn
   "Chưa GT >5 ngày" (thẻ Quản lý tồn, nhóm tồn, lọc nhóm, cột Excel/danh sách) luôn hiện 5 dù số liệu đã tính theo mốc 1 của PH. Sửa
   regex (`>\s*5(?!\d)`) + tiêu đề cột "Chưa GT >5n" ở bảng báo cáo tồn theo khu vực giờ cũng theo mốc. Các nhãn "≥5 ngày" của Cảnh báo
   tồn cấp 2 / Tồn trên 5 ngày là mốc tuổi tồn cố định, không phải mốc giải trình → giữ nguyên. Thử local: đặt mốc ID = 1 → thẻ hiện ">1 ngày".
