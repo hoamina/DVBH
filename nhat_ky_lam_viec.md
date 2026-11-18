@@ -5970,3 +5970,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   (`lib/isoWeek.ts isoWeekOf`), danh sách tuần năm nay + năm trước (mới nhất trên, không có tuần chưa tới) kèm khoảng ngày, ◀ ▶ + "Tuần
   này"; dòng "Đang xem: Tháng 11/2026 (tháng hiện tại)" / "Tuần 47/2026 · 16/11 → 22/11 (tuần này) · tính theo ngày hoàn thành" luôn
   hiện. Backend không đổi. Thử local: chuyển chế độ, lùi tuần, request gửi đúng tu_ngay/den_ngay.
+
+## 2026-11-18 — Quản lý tồn › Lý do giải trình theo tháng: 2 biểu đồ (v1.625)
+
+- Yêu cầu (nguyên văn): "ở "Quản lý tồn" => "Lý do giải trình cuối cùng theo tháng" 1. thêm 1 chart báo cáo lý do tồn theo tỷ lệ trong
+  tháng đang chọn 2. 1 báo cáo chart theo lý do theo từng lý do chia theo khu vực MB1, MB2, MB3.... để biết cùng 1 lý do đó khu vực nào
+  đang chọn nhiều hơn trong tháng".
+- Làm (`components/LyDoGiaiTrinhCharts.tsx`, gắn trên bảng của `ExplanationReasonReport.tsx`): (1) "Tỷ lệ lý do tồn trong tháng" — thanh
+  ngang giảm dần, ghi %, rê chuột xem số ca; quá 13 lý do thì từ lý do thứ 13 gộp "Khác". (2) "Lý do theo khu vực" — top 12 lý do, mỗi lý do
+  1 thanh chồng màu theo khu vực, công tắc Số ca / % trong lý do; chọn 1 lý do → cột theo từng khu vực giảm dần. PH đang xem "Theo nhóm PH"
+  thì chia theo nhóm; cùng bộ lọc khu vực / nhóm PH với bảng. Dùng đúng dữ liệu bảng đã tải — không thêm API, không thêm lượt đọc D1.
+- Kiểm thử: typecheck; local giả lập 46 dòng (6 khu vực × 8 lý do): 2 chart đúng tổng, % trong lý do cộng đủ 100%, chọn 1 lý do ra cột
+  theo khu vực. Chưa xem với dữ liệu production.

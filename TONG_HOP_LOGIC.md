@@ -55,6 +55,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 - **PO đặt hàng**: nhận từ app EO mua hàng (mỗi dòng EO = 1 PO).
 - **QL NSKX**: báo cáo ca đối tác NSKX theo tháng tiếp nhận, đánh giá lõi lọc (Có / Không thay), đặt lõi sang app Đặt linh kiện bằng tài
   khoản người bấm (đơn "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX"), đồng bộ trạng thái đơn lõi.
+- Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),
+  tính trên trình duyệt từ cùng dữ liệu bảng.
 - Chi tiết ca: tab "Tiến trình chung" (gộp log nhiều nguồn; đầu tab là luồng xử lý ca dạng ngang, mốc liền nhau cùng đối tượng — 1 đơn
   linh kiện / đơn bảo hành / luồng đổi trả / tranh chấp / cuộc gọi khảo sát + vi phạm — gộp 1 thẻ có luồng ngang mini; log chỉ ghi dữ liệu
   của phiếu xuất kho là log phụ, ẩn mặc định và rút thành chip; chia theo ngày; lọc theo nguồn), tab Mua hàng / Thiếu hàng (từ app Đặt linh kiện), luồng gửi bảo hành (từ app Bảo hành đổi trả).

@@ -14477,5 +14477,16 @@
   "Đang xem:": ["Viewing:", "Melihat:"],
   "Tuần {0}/{1}": ["Week {0}/{1}", "Minggu {0}/{1}"],
   "tính theo ngày hoàn thành": ["by completion date", "berdasarkan tanggal selesai"],
-  "tháng hiện tại": ["current month", "bulan ini"]
+  "tháng hiện tại": ["current month", "bulan ini"],
+  "Khác ({0} lý do)": ["Other ({0} reasons)", "Lainnya ({0} alasan)"],
+  "Tỷ lệ lý do tồn trong tháng": ["Backlog reason share this month", "Proporsi alasan tunggakan bulan ini"],
+  "{0} ca · % trên tổng số ca có giải trình trong tháng": ["{0} cases · % of all explained cases this month", "{0} kasus · % dari semua kasus berpenjelasan bulan ini"],
+  "Tỷ lệ (%)": ["Share (%)", "Proporsi (%)"],
+  "{0}% · {1} ca": ["{0}% · {1} cases", "{0}% · {1} kasus"],
+  "Lý do theo khu vực": ["Reasons by area", "Alasan per area"],
+  "Top {0} lý do (chồng theo khu vực)": ["Top {0} reasons (stacked by area)", "{0} alasan teratas (bertumpuk per area)"],
+  "% trong lý do": ["% within reason", "% dalam alasan"],
+  "{0}: {1} ca · cột = số ca từng khu vực, rê chuột xem % trong lý do": ["{0}: {1} cases · bar = cases per area, hover for % within reason", "{0}: {1} kasus · batang = kasus per area, arahkan kursor untuk % dalam alasan"],
+  "{0} ca · {1}% trong lý do": ["{0} cases · {1}% within reason", "{0} kasus · {1}% dalam alasan"],
+  "{0}: {1} ca · {2}% trong lý do": ["{0}: {1} cases · {2}% within reason", "{0}: {1} kasus · {2}% dalam alasan"]
 }
