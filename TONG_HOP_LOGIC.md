@@ -50,6 +50,9 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 ## 6. Mô-đun liên quan
 
 - **Ca lặp** (cùng serial), **nạp gas**, **tranh chấp** (log riêng), **doanh thu** (sửa doanh thu có kiểm soát).
+- **Nạp gas — ca cần đánh giá** = cờ `nghi_ngo_nap_gas` = 1 (pipeline auto qs tính, app chỉ ratchet) VÀ "Hoàn thành XLSC", theo tháng hoàn thành.
+  Luật cờ (CRM và Odoo như nhau): lý do quá hạn "KTV/CTV/Trạm tự nạp gas, làm block" HOẶC "Cách thức xử lý" chứa ga / nạp / sạc / nap / sac
+  (phân biệt hoa thường). Odoo bị tắt cờ 04/10–18/11/2026; ca VN hoàn thành từ 01/10 đã được bật bù bằng migration 0175.
 - **Thiếu linh kiện**: tồn kho MB / MN / KTV kéo từ app Đặt linh kiện (mỗi giờ 8h–18h T2–T7, 1 phiên bản), tình trạng từng mã
   (kho có hàng → KTV giữ → hết hàng chưa / trễ / chờ PO), hồ sơ linh kiện.
 - **PO đặt hàng**: nhận từ app EO mua hàng (mỗi dòng EO = 1 PO).

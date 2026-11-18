@@ -5982,3 +5982,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   thì chia theo nhóm; cùng bộ lọc khu vực / nhóm PH với bảng. Dùng đúng dữ liệu bảng đã tải — không thêm API, không thêm lượt đọc D1.
 - Kiểm thử: typecheck; local giả lập 46 dòng (6 khu vực × 8 lý do): 2 chart đúng tổng, % trong lý do cộng đủ 100%, chọn 1 lý do ra cột
   theo khu vực. Chưa xem với dữ liệu production.
+
+## 2026-11-18 — Nạp gas: tháng 11 gần như 0 ca cần đánh giá (migration 0175, không đổi code app)
+
+- Yêu cầu (nguyên văn): "Check bug: tháng 11 số lượng ca cần đánh giá nạp gas rất thấp=> xác định nguyên nhân. KTV chọn lý do quá hạn
+  "nạp gas" có đang được tính là nghi ngờ nạp gas không" → sau đó "không cần chạy lại, trên app dvbh chỉ cần bật các ca nghi ngờ nạp gas
+  đang có sẵn lên là đc. tiết kiệm nguồn lực và D1".
+- Nguyên nhân: app không tự tính cờ, lấy cột "Nghi ngờ nạp gas" từ pipeline auto qs; pipeline ép cờ = 0 cho mọi ca Odoo từ 04/10
+  (`ocrm/transform_odoo.py`). Từ T10 gần hết ca là Odoo → T11: 0 ca có cờ, dù 77 ca Odoo ghi lý do quá hạn "KTV/CTV/Trạm tự nạp gas, làm block".
+- Làm: (1) repo auto qs commit 06e37c5 — Odoo dùng lại đúng luật CRM cho ca mới; (2) migration 0175 bật cờ cho ca Odoo VN đã nhập theo
+  cùng luật (hoàn thành từ 01/10, chưa huỷ): 367 ca (T10 211, T11 156 ≈ 1,5% — bằng tỉ lệ CRM T6–T9), bump domain `nap_gas_danh_gia`
+  (không bump `cases`). Không chạy lại pipeline. PH (2 ca khớp) không bật.
+- Lưu ý: luật từ khoá có nhiễu sẵn như CRM ("nước sạch" chứa "sạc"…) — Giám sát loại khi đánh giá. Ca Odoo trong DB lưu "Cách thức xử lý"
+  bản tóm tắt, pipeline xét bản chi tiết → vài ca có thể lệch nhẹ; ca nào pipeline gửi lại sau này sẽ tự bật theo bản chi tiết (ratchet).
