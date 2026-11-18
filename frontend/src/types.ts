@@ -125,6 +125,16 @@ export interface CaseRow {
   don_lk_ma_lk?: string | null;
   don_lk_so_don?: number | null;
   don_lk_cap_nhat_luc?: string | null;
+  // Gui bao hanh theo ca (backend lib/guiBhCa.ts, 2026-11-18) - so tho, nhan / so ngay tinh o frontend lib/guiBhCa.ts.
+  gui_bh_so_lk?: number | null;
+  gui_bh_gd_json?: string | null;
+  gui_bh_trang_thai?: string | null;
+  gui_bh_ngay_gui_cuoi?: string | null;
+  gui_bh_hoan_tat?: number | null;
+  gui_bh_xu_ly_max_ngay?: number | null;
+  gui_bh_cap_nhat?: string | null;
+  so_lk_odoo_bh?: number | null;
+  han_bh_tay?: number | null;
   last_noi_dung_giai_trinh?: string | null;
   // "Danh sach chi tiet" (BacklogModule.tsx), them 2026-08-22 - tai dung dung logic trang thai/tuoi
   // cua module Tranh chap (xem CASE_TRANH_CHAP_STATUS_EXPR o backend). "Chua xu ly" = ca chua tung co

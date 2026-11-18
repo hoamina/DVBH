@@ -41,6 +41,12 @@ KTV không có tài khoản, chỉ là dữ liệu trên ca. Phạm vi xem theo 
 - Ca tồn = chưa có thời gian hoàn thành. Giám sát giải trình định kỳ; mỗi lần 1 dòng log, không ghi đè, lưu vĩnh viễn.
 - Báo cáo tồn chốt 08:00 mỗi ngày (theo mốc tuổi tồn, theo KTV × ngày trong tháng), lũy kế tháng đã / cần giải trình (Chủ nhật và ngày
   loại trừ không tính), lý do giải trình theo tháng (lấy dòng cuối trong tháng).
+- Danh sách chi tiết có thêm cột gửi bảo hành (v1.626): **Hạn BH** (ngày mua +24T / ngày SX +36T, mốc đến trước; chỉ ca tiếp nhận từ
+  01/11/2026; GS sửa tay thắng), **Số LK Odoo báo gửi BH** (tổng SL đơn bảo hành Odoo của ca, bỏ huỷ / từ chối / lưu trữ), **Số LK thực tế đã
+  gửi**, **Trạng thái đổi trả BH** (giai đoạn THẤP NHẤT trong các LK) + diễn giải ("2 LK Hoàn tất, 1 LK Thùng nháp"), **Tốc độ tồn đổi trả** =
+  0h hôm nay − lần KTV bấm gửi xe cuối; ca đã xong hết thì = thời gian xử lý lâu nhất (gửi xe → kết thúc). 3 cột sau lấy từ app Gửi bảo hành
+  (suachua): bỏ đơn huỷ / từ chối, đơn chưa tách = SL KTV khai; suachua tự đẩy tóm tắt theo ca 15 phút/lần (chỉ ca có thay đổi) cùng lần đẩy
+  trạng thái đơn Odoo.
 
 ## 5. Khảo sát & chốt vi phạm 2 cấp
 

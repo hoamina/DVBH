@@ -426,3 +426,16 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Biểu đồ 1 "Tỷ lệ lý do tồn trong tháng": % mỗi lý do trên tổng số ca, thanh ngang giảm dần; quá 13 lý do thì gộp phần đuôi thành "Khác".
 - Biểu đồ 2 "Lý do theo khu vực": top 12 lý do, mỗi lý do chồng theo khu vực (MB1, MB2…), xem theo Số ca hoặc % trong lý do; chọn 1 lý do
   → cột số ca theo từng khu vực (giảm dần), rê chuột xem % trong lý do. PH xem "Theo nhóm PH" thì chia theo nhóm PH.
+
+## 16. Quản lý tồn › Danh sách chi tiết — cột gửi bảo hành (chốt 2026-11-18, v1.626)
+
+- 6 cột tuỳ chọn (bật qua "⚙ Tùy chỉnh cột"), có trong Excel, mỗi cột lọc + sắp xếp kiểu Excel (lọc phía server):
+  1. Hạn bảo hành: Còn / Hết / Chưa đủ dữ liệu / Không tính (trước 11/2026) — cùng quy tắc tab Hạn BH của "Sửa DT · HĐ · BH", sửa tay thắng.
+  2. Số LK Odoo báo gửi BH: tổng số lượng các đơn bảo hành Odoo KTV tạo cho ca (bỏ đơn huỷ / từ chối / lưu trữ).
+  3. Số LK thực tế đã gửi BH: theo app Gửi bảo hành ở mọi trạng thái, trừ đơn bị huỷ / từ chối (thùng huỷ, đơn vị huỷ bảo hành).
+  4. Trạng thái đổi trả BH = trạng thái THẤP NHẤT của các LK; cột "Diễn giải đổi trả BH" liệt kê số LK theo từng trạng thái.
+  5. Tốc độ tồn đổi trả (ngày) = 0h hôm nay − lần KTV bấm gửi xe cuối (đơn chưa gửi xe không tính mốc); khi mọi LK đã kết thúc (KTV đã nhận /
+     kết thúc không gửi / chuyển kho) = thời gian xử lý lâu nhất trong các đơn (gửi xe → kết thúc), hiện kèm ✓.
+- Phi chức năng (chủ hệ thống): tận dụng API sẵn có, không kéo riêng cho từng báo cáo; xử lý được trên máy người dùng thì không xử lý trên
+  server → app Gửi bảo hành đẩy tóm tắt theo ca cùng request 15 phút đã có, DVBH lưu 1 bảng dùng chung (`gui_bh_ca`); nhãn, diễn giải, số
+  ngày, hạn BH tính trên trình duyệt; server chỉ tính khi lọc / sắp xếp.

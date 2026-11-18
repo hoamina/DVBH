@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { ghiTomTatGuiBhCa, type TomTatGuiBhCa } from "../lib/guiBhCa";
 import type { Env } from "../types";
 import { CASE_FILTER_TON } from "../lib/needGiaiTrinh";
 import {
@@ -901,9 +902,12 @@ partnerApi.post("/sync/sua-chua-trang-thai", async (c) => {
   if (keyRow === "RATE_LIMITED") return c.json({ error: "TOO_MANY_REQUESTS_KEY" }, 429);
   if (!keyRow) return c.json({ error: "INVALID_API_KEY" }, 401);
 
-  const body = await c.req.json<{ rows: SuaChuaTrangThaiRow[] }>().catch(() => ({ rows: null as unknown as SuaChuaTrangThaiRow[] }));
+  const body = await c.req
+    .json<{ rows: SuaChuaTrangThaiRow[]; ca?: TomTatGuiBhCa[] }>()
+    .catch(() => ({ rows: null as unknown as SuaChuaTrangThaiRow[], ca: undefined }));
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
   if (body.rows.length > SYNC_MAX_ROWS) return c.json({ error: "TOO_MANY_ROWS" }, 400);
+  if (body.ca !== undefined && (!Array.isArray(body.ca) || body.ca.length > SYNC_MAX_ROWS)) return c.json({ error: "INVALID_CA" }, 400);
 
   const now = nowVN();
   const stmts: D1PreparedStatement[] = [];
@@ -927,7 +931,9 @@ partnerApi.post("/sync/sua-chua-trang-thai", async (c) => {
     capNhat = res.reduce((s, x) => s + (x.meta?.changes ?? 0), 0);
   }
   if (capNhat > 0) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["don_bao_hanh_odoo"]));
-  return c.json({ cap_nhat: capNhat, bo_qua: stmts.length - capNhat, loi });
+  // 2026-11-18: tom tat gui BH theo ca (lib/guiBhCa.ts) di kem cung lan day - khong mo endpoint/luong keo moi.
+  const ca = body.ca?.length ? await ghiTomTatGuiBhCa(c.env.DB, body.ca, now) : undefined;
+  return c.json({ cap_nhat: capNhat, bo_qua: stmts.length - capNhat, loi, ca });
 });
 
 // POST /api/partner/sync/don-hoa-don (2026-11-14, migration 0170) - linh-kien-app DAY cac dong don co yeu cau XUAT HOA DON ngay khi

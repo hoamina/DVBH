@@ -14488,5 +14488,117 @@
   "% trong lý do": ["% within reason", "% dalam alasan"],
   "{0}: {1} ca · cột = số ca từng khu vực, rê chuột xem % trong lý do": ["{0}: {1} cases · bar = cases per area, hover for % within reason", "{0}: {1} kasus · batang = kasus per area, arahkan kursor untuk % dalam alasan"],
   "{0} ca · {1}% trong lý do": ["{0} cases · {1}% within reason", "{0} kasus · {1}% dalam alasan"],
-  "{0}: {1} ca · {2}% trong lý do": ["{0}: {1} cases · {2}% within reason", "{0}: {1} kasus · {2}% dalam alasan"]
+  "{0}: {1} ca · {2}% trong lý do": ["{0}: {1} cases · {2}% within reason", "{0}: {1} kasus · {2}% dalam alasan"],
+  "Hạn bảo hành": [
+    "Warranty status",
+    "Status garansi"
+  ],
+  "Số LK Odoo báo gửi BH": [
+    "Parts reported for warranty (Odoo)",
+    "Suku cadang dilaporkan garansi (Odoo)"
+  ],
+  "Số LK thực tế đã gửi BH": [
+    "Parts actually sent for warranty",
+    "Suku cadang benar-benar dikirim garansi"
+  ],
+  "Trạng thái đổi trả BH": [
+    "Warranty return status",
+    "Status retur garansi"
+  ],
+  "Diễn giải đổi trả BH": [
+    "Warranty return details",
+    "Rincian retur garansi"
+  ],
+  "Tốc độ tồn đổi trả (ngày)": [
+    "Warranty return pending (days)",
+    "Retur garansi tertunda (hari)"
+  ],
+  "Hạn: {0}": [
+    "Expiry: {0}",
+    "Berakhir: {0}"
+  ],
+  "Đã sửa tay": [
+    "Edited manually",
+    "Diubah manual"
+  ],
+  "Gửi xe lần cuối: {0}": [
+    "Last shipped: {0}",
+    "Terakhir dikirim: {0}"
+  ],
+  "Đã xong hết: thời gian xử lý lâu nhất trong các đơn": [
+    "All done: longest processing time among orders",
+    "Semua selesai: waktu proses terlama di antara pesanan"
+  ],
+  "{0} LK {1}": [
+    "{0} part(s) {1}",
+    "{0} suku cadang {1}"
+  ],
+  "Thùng nháp — KTV chưa gửi": [
+    "Draft box — not sent by technician",
+    "Kotak draf — belum dikirim teknisi"
+  ],
+  "Admin từ chối thùng — chờ Kho / KTV phản hồi": [
+    "Box rejected — awaiting warehouse / technician",
+    "Kotak ditolak — menunggu gudang / teknisi"
+  ],
+  "Đang gửi về Kho": [
+    "Shipping to warehouse",
+    "Dikirim ke gudang"
+  ],
+  "Kho đã nhận — chờ Admin nhận": [
+    "Warehouse received — awaiting admin",
+    "Gudang menerima — menunggu admin"
+  ],
+  "Chờ xác nhận SL": [
+    "Awaiting quantity check",
+    "Menunggu cek jumlah"
+  ],
+  "Chờ phân loại": [
+    "Awaiting classification",
+    "Menunggu klasifikasi"
+  ],
+  "Admin cần xem lại": [
+    "Admin review needed",
+    "Perlu ditinjau admin"
+  ],
+  "Chờ KTV bổ sung": [
+    "Awaiting technician info",
+    "Menunggu info teknisi"
+  ],
+  "Đang sửa chữa (NV)": [
+    "Under repair",
+    "Sedang diperbaiki"
+  ],
+  "Chờ Admin xác nhận": [
+    "Awaiting admin confirmation",
+    "Menunggu konfirmasi admin"
+  ],
+  "Chờ tạo phiếu trả": [
+    "Awaiting return slip",
+    "Menunggu slip retur"
+  ],
+  "Phiếu trả nháp (Admin)": [
+    "Draft return slip",
+    "Slip retur draf"
+  ],
+  "Chờ Kho đóng gói / gửi": [
+    "Awaiting packing / shipping",
+    "Menunggu pengemasan / pengiriman"
+  ],
+  "Đang gửi trả KTV": [
+    "Returning to technician",
+    "Dikembalikan ke teknisi"
+  ],
+  "KTV báo không nhận được": [
+    "Technician reports not received",
+    "Teknisi melaporkan tidak diterima"
+  ],
+  "Hoàn tất (KTV đã nhận)": [
+    "Done (technician received)",
+    "Selesai (teknisi menerima)"
+  ],
+  "Kết thúc, không gửi": [
+    "Closed, not shipped",
+    "Ditutup, tidak dikirim"
+  ]
 }

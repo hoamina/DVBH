@@ -13,6 +13,7 @@ import { NEED_GIAI_TRINH_CATEGORIES } from "./needGiaiTrinh";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG } from "./tranhChapTienTrinh";
 import { diaGioiLoc } from "./filterParams";
 import { MIEN_CA_SQL } from "./poHangVeMien";
+import { GUI_BH_SO_LK_EXPR, GUI_BH_TON_NGAY_EXPR, GUI_BH_TRANG_THAI_EXPR, HAN_BH_EXPR, SO_LK_ODOO_BH_EXPR } from "./guiBhCa";
 
 export const GIA_TRI_TRONG = "__TRONG__";
 
@@ -105,6 +106,12 @@ export const COT_LOC: Record<string, { expr: string; kieu: Kieu }> = {
     expr: "(CASE WHEN COALESCE(lg.linh_kien_thieu, '') <> '' THEN COALESCE((SELECT lk.ten_linh_kien FROM linh_kien lk WHERE lk.ma_linh_kien = lg.linh_kien_thieu), lg.linh_kien_thieu) END)",
     kieu: "text",
   },
+  // 2026-11-18: gui bao hanh theo ca (lib/guiBhCa.ts) - subquery theo khoa chinh, chi chay khi dang loc / sap xep cot nay.
+  han_bh: { expr: HAN_BH_EXPR, kieu: "list" },
+  so_lk_odoo_bh: { expr: SO_LK_ODOO_BH_EXPR, kieu: "number" },
+  gui_bh_so_lk: { expr: GUI_BH_SO_LK_EXPR, kieu: "number" },
+  gui_bh_trang_thai: { expr: GUI_BH_TRANG_THAI_EXPR, kieu: "list" },
+  gui_bh_ton_ngay: { expr: GUI_BH_TON_NGAY_EXPR, kieu: "number" },
   // Khoang ton: gia tri = khoa dai (frontend KHOANG_TON_BUCKETS doi ra nhan); moc duoi >=, moc tren <.
   khoang_ton: { expr: KHOANG_TON_EXPR, kieu: "list" },
   quan_huyen: { expr: "c.quan_huyen", kieu: "list" },

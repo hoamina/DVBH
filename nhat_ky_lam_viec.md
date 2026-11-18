@@ -5995,3 +5995,23 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   (không bump `cases`). Không chạy lại pipeline. PH (2 ca khớp) không bật.
 - Lưu ý: luật từ khoá có nhiễu sẵn như CRM ("nước sạch" chứa "sạc"…) — Giám sát loại khi đánh giá. Ca Odoo trong DB lưu "Cách thức xử lý"
   bản tóm tắt, pipeline xét bản chi tiết → vài ca có thể lệch nhẹ; ca nào pipeline gửi lại sau này sẽ tự bật theo bản chi tiết (ratchet).
+
+## 2026-11-18 — Quản lý tồn › Danh sách chi tiết: 6 cột gửi bảo hành (v1.626, migration 0176; suachua v1.147)
+
+- Yêu cầu (nguyên văn): "menu "Quản lý tồn" => danh sách chi tiết, bổ sung thêm cột có thể xem và tải về: 1. Cột hạn bảo hành: còn hạn, hết
+  hạn (đã có, chỉ cần show ra) 2. Số linh kiện odoo bảo gửi về BH (dựa vào số đơn odoo ktv tạo gửi về bảo hành) 3. Số lk thực tế đã gửi về (dựa
+  theo api bảo hành đã tạo ở tất cả các trạng thái - trừ đơn bị từ chối, bị hủy) 4. Trạng thái đổi trả BH: trạng thái của đơn gửi đổi trả thấp
+  nhất từ app suachua.dichvu3t (ví dụ 3 lk gửi 2 lk hoàn thành, 1 lk chưa tiếp nhận thì hiện trạng thái chưa tiếp nhận)+ 1 cột diễn giải " 2 lk
+  hoàn thành, 1 lk chưa tiếp nhận". 5. Tốc độ tồn đổi trả: tính số ngày tồn từ 0h đến hôm nay - đi thời gian KTV ấn gửi đơn cuối cùng." +
+  "6. tận dụng tối đa các API đã có sẵn dùng cho nhiều mục đích, các dữ liệu kéo về không dàn trải mỗi 1 báo cáo lại kéo 1 lần. các dữ liệu
+  ưu tiên xử lý trực tiếp trên máy người dùng được thì không cần xử lý trên server".
+- Chốt với chủ hệ thống: mốc "gửi đơn" = lúc KTV bấm gửi xe; ca đã xong hết → "tính theo thời gian xử lý lâu nhất trong danh sách các đơn gửi đổi trả".
+- Làm: app suachua (repo gui-bao-hanh-linh-kien v1.147, `lib/tomTatCa.ts`) đẩy tóm tắt theo ca kèm field `ca` trong
+  `POST /api/partner/sync/sua-chua-trang-thai` sẵn có (cron 15 phút, chỉ ca đổi) → `lib/guiBhCa.ts ghiTomTatGuiBhCa` → bảng `gui_bh_ca`
+  (migration 0176, dùng chung). Danh sách: `layDuCotCa` đọc theo khoá chính cho đúng các ca của trang (1 `db.batch`: gui_bh_ca + tổng SL
+  `don_bao_hanh_odoo` + `case_hd_bh.con_bao_hanh`); `COT_LOC` thêm `han_bh` / `so_lk_odoo_bh` / `gui_bh_so_lk` / `gui_bh_trang_thai` /
+  `gui_bh_ton_ngay` (subquery chỉ chạy khi lọc / sắp xếp). Frontend `lib/guiBhCa.ts` tính nhãn, diễn giải, số ngày, hạn BH (dùng lại
+  `lib/hanBaoHanh.ts`); 6 cột tuỳ chọn trong `BacklogModule` + Excel (bỏ trường thô, thêm "Ngày gửi xe BH cuối"); bản dịch EN/ID.
+- Kiểm thử: typecheck + build; local: đẩy 3 ca (ghi 2, bản tin cũ hơn bị bỏ qua), lọc han_bh con/het, trạng thái, số ngày ≥5, số LK Odoo, danh
+  sách giá trị lọc; bảng hiện "1 LK Thùng nháp — KTV chưa gửi, 2 LK Hoàn tất (KTV đã nhận)", tồn 5 ngày, ca xong "6.4 ✓". Hàm tóm tắt suachua
+  chạy trên D1 local 38 ca đúng. Chưa xem với dữ liệu production (bảng đầy sau lần cron 15 phút đầu tiên của suachua).

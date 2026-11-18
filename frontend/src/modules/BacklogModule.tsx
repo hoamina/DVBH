@@ -38,6 +38,7 @@ import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
 import { useDiaGioiIndex, useDiaGioiLoc, gopBangTheoTinh, soSanhTen, tachNhomDiaGioi, nhanTinh, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
+import { dienGiaiGuiBh, hanBhCa, nhanGiaiDoanBh, nhanHanBh, tonDoiTraNgay } from "../lib/guiBhCa";
 
 
 function pct(a: number, b: number) {
@@ -1608,6 +1609,13 @@ export function BacklogModule({
     don_lk_ngay_dat: "Ngày đặt hàng",
     don_lk_ngay_duyet: "Ngày duyệt đơn",
     don_lk_ngay_xuat: "Ngày xuất hàng",
+    han_bh: "Hạn bảo hành",
+    so_lk_odoo_bh: "Số LK Odoo báo gửi BH",
+    gui_bh_so_lk: "Số LK thực tế đã gửi BH",
+    gui_bh_trang_thai: "Trạng thái đổi trả BH",
+    gui_bh_dien_giai: "Diễn giải đổi trả BH",
+    gui_bh_ton_ngay: "Tốc độ tồn đổi trả (ngày)",
+    gui_bh_ngay_gui_cuoi: "Ngày gửi xe BH cuối",
   };
 
   // Nhan cot cho bang pivot "Bao cao ton theo ..." - khop dung thead cua bang o duoi (cot "nhom" doi
@@ -1648,8 +1656,11 @@ export function BacklogModule({
     // xuat, giu nguyen cac cot con lai tu API.
     const enriched = all.rows.map((r) => {
       const dl = donLk(r);
+      // So tho gui BH (gd_json, co hoan tat...) chi de tinh cot ben duoi - khong dua vao file.
+      const { gui_bh_gd_json: _gd, gui_bh_hoan_tat: _ht, gui_bh_xu_ly_max_ngay: _xl, gui_bh_cap_nhat: _cn, han_bh_tay: _bt, ...goc } = r;
+      void _gd; void _ht; void _xl; void _cn; void _bt;
       return {
-      ...r,
+      ...goc,
       don_lk_id: dl?.id ?? null,
       don_lk_trang_thai: dl?.trangThai || null,
       don_lk_ngay_dat: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_dat : null) ?? null,
@@ -1664,6 +1675,13 @@ export function BacklogModule({
       khu_vuc: shortKhuVuc(r.khu_vuc),
       last_ten_linh_kien_thieu: r.last_ma_linh_kien_thieu ? (linhKienTenMap.get(r.last_ma_linh_kien_thieu) ?? r.last_ma_linh_kien_thieu) : null,
       khoang_ton: khoangTon(r),
+      // Gui bao hanh theo ca (2026-11-18) - tinh tren may nguoi dung tu so tho server tra.
+      han_bh: nhanHanBh(hanBhCa(r).ma),
+      so_lk_odoo_bh: r.so_lk_odoo_bh ?? null,
+      gui_bh_so_lk: r.gui_bh_so_lk ?? null,
+      gui_bh_trang_thai: nhanGiaiDoanBh(r.gui_bh_trang_thai) || null,
+      gui_bh_dien_giai: dienGiaiGuiBh(r) || null,
+      gui_bh_ton_ngay: tonDoiTraNgay(r),
       };
     });
     await exportRowsToExcel(enriched, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
@@ -1990,6 +2008,75 @@ export function BacklogModule({
     dateCol("ngay_san_xuat", CASE_FIELD_LABELS.ngay_san_xuat),
     dateCol("last_ngay_giai_trinh", CASE_FIELD_LABELS.last_ngay_giai_trinh),
     textCol("last_noi_dung_giai_trinh", CASE_FIELD_LABELS.last_noi_dung_giai_trinh, "text"),
+    // 2026-11-18 (chu he thong): han BH + gui bao hanh theo ca. Loc / sap xep tren server (locCot.ts COT_LOC), hien thi tinh tai may.
+    {
+      key: "han_bh",
+      header: tr("Hạn bảo hành"),
+      sortKey: "han_bh",
+      filter: "list",
+      filterValueLabel: (v) => (v === GIA_TRI_TRONG ? tr("(Trống)") : nhanHanBh(v)),
+      render: (c) => {
+        const { ma, han } = hanBhCa(c);
+        const mau = ma === "het" ? "text-[var(--coral-500)] font-semibold" : ma === "con" ? "text-[var(--ocean-600)]" : "text-[var(--ink-400)]";
+        return (
+          <span className={`text-xs whitespace-nowrap ${mau}`} title={[han ? tr("Hạn: {0}", ngayVn(han)) : "", c.han_bh_tay != null ? tr("Đã sửa tay") : ""].filter(Boolean).join(" · ")}>
+            {nhanHanBh(ma)}
+          </span>
+        );
+      },
+    },
+    {
+      key: "so_lk_odoo_bh",
+      header: tr("Số LK Odoo báo gửi BH"),
+      sortKey: "so_lk_odoo_bh",
+      filter: "number",
+      render: (c) => <span className="text-xs tabular-nums">{c.so_lk_odoo_bh ?? "—"}</span>,
+    },
+    {
+      key: "gui_bh_so_lk",
+      header: tr("Số LK thực tế đã gửi BH"),
+      sortKey: "gui_bh_so_lk",
+      filter: "number",
+      render: (c) => <span className="text-xs tabular-nums" title={c.gui_bh_cap_nhat ? tr("Cập nhật: {0}", fmtDateTime(c.gui_bh_cap_nhat)) : undefined}>{c.gui_bh_so_lk ?? "—"}</span>,
+    },
+    {
+      key: "gui_bh_trang_thai",
+      header: tr("Trạng thái đổi trả BH"),
+      sortKey: "gui_bh_trang_thai",
+      filter: "list",
+      filterValueLabel: (v) => (v === GIA_TRI_TRONG ? tr("(Trống)") : nhanGiaiDoanBh(v)),
+      render: (c) =>
+        c.gui_bh_trang_thai ? (
+          <span className={`text-xs ${c.gui_bh_hoan_tat === 1 ? "text-[var(--ocean-600)]" : "font-semibold"}`}>{nhanGiaiDoanBh(c.gui_bh_trang_thai)}</span>
+        ) : (
+          <span className="text-[var(--ink-400)] text-xs">—</span>
+        ),
+    },
+    {
+      key: "gui_bh_dien_giai",
+      header: tr("Diễn giải đổi trả BH"),
+      render: (c) => <span className="text-xs">{dienGiaiGuiBh(c) || "—"}</span>,
+    },
+    {
+      key: "gui_bh_ton_ngay",
+      header: tr("Tốc độ tồn đổi trả (ngày)"),
+      sortKey: "gui_bh_ton_ngay",
+      filter: "number",
+      render: (c) => {
+        const n = tonDoiTraNgay(c);
+        if (n == null) return <span className="text-[var(--ink-400)] text-xs">—</span>;
+        const xong = c.gui_bh_hoan_tat === 1;
+        return (
+          <span
+            className={`text-xs tabular-nums ${xong ? "text-[var(--ink-500)]" : n >= 7 ? "text-[var(--coral-500)] font-semibold" : ""}`}
+            title={xong ? tr("Đã xong hết: thời gian xử lý lâu nhất trong các đơn") : c.gui_bh_ngay_gui_cuoi ? tr("Gửi xe lần cuối: {0}", fmtDateTime(c.gui_bh_ngay_gui_cuoi)) : undefined}
+          >
+            {n}
+            {xong ? " ✓" : ""}
+          </span>
+        );
+      },
+    },
     {
       key: "khoang_ton",
       header: tr("Khoảng tồn"),

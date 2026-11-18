@@ -1,4 +1,5 @@
 import { computeExplanationReasons } from "../lib/explanationReasonReport";
+import { layGuiBhTheoCa } from "../lib/guiBhCa";
 import { Hono } from "hono";
 import { layKhuVucQldvbh } from "../lib/khuVucQldvbh";
 import { bocPhamVi, chonQuocGia, dbGoc, phamViCua, quocGiaCua } from "../lib/phamVi";
@@ -747,7 +748,9 @@ cases.get("/", async (c) => {
       .bind(JSON.stringify(dong.map((r) => r.id)))
       .all<Record<string, unknown>>();
     const dlTheoId = new Map(dl.map(({ case_id, ...r }) => [String(case_id), r]));
-    const gop = dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...(dlTheoId.get(String(r.id)) ?? {}), ...r }));
+    // Gui bao hanh theo ca + so LK Odoo bao gui BH + han BH sua tay (lib/guiBhCa.ts, 2026-11-18) - so tho, frontend tinh nhan / so ngay.
+    const bh = await layGuiBhTheoCa(c.env.DB, dong.map((r) => String(r.id)));
+    const gop = dong.map((r) => ({ ...(theoId.get(String(r.id)) ?? {}), ...(dlTheoId.get(String(r.id)) ?? {}), ...(bh.get(String(r.id)) ?? {}), ...r }));
     // 4 cot PO theo mien cua ca (lib/poHangVeMien.ts, 2026-11-14) - cung bang voi loc/sap xep COT_LOC, doc theo ma LK cua trang.
     const maLks = [...new Set(gop.map((r) => r.last_ma_linh_kien_thieu).filter((v): v is string => typeof v === "string" && v !== ""))];
     if (!maLks.length) return gop;
