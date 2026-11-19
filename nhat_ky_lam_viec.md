@@ -6025,3 +6025,18 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   Backend chỉ thêm cột `ghi_chu` vào câu SELECT sẵn có của `/cases/giai-trinh-daily-trend` (không thêm truy vấn, cùng số dòng đọc).
 - Kiểm thử: typecheck 2 phía; local thêm tạm 1 ngày loại trừ "Nghỉ phép" → ô 10/11 hiện "Loại trừ / Nghỉ phép", Chủ nhật hiện "chủ nhật";
   đã xoá dòng thử.
+
+## 2026-11-19 — File tải về: dịch đủ tiêu đề + cột doanh thu sửa tay trong Danh sách chi tiết (v1.628)
+
+- Yêu cầu (nguyên văn): "1. các file tải về, tiêu đề dịch sang ngôn ngữ tương ứng ví dụ "SL đơn bảo hành" 2. Cột tải về danh sách chi tiết
+  trong Quản lý tồn đã bổ sung các cột doanh thu fix, hạn bảo hành (hết/còn bảo hành) chưa? 3. Trạng thái bảo hành đổi gia trị thay vì để
+  tên mã".
+- (1) Mọi file tải về đã dịch tiêu đề qua từ điển (`lib/excelChung.ts tieuDeExcel`); chỗ còn tiếng Việt là tiêu đề CHƯA có trong từ điển. Thêm
+  script `frontend/scripts/i18n-tieu-de-excel.mjs` liệt kê nhãn cột Excel thiếu bản dịch (dò theo mẫu, có lẫn chuỗi không phải tiêu đề) +
+  thêm 25 bản dịch (Ngày gửi xe BH cuối, tỷ lệ SLA ≤8/24/48/72h, Tháng/Năm hoàn thành, Chênh lệch, Lúc sửa, Lõi đã thay...). Cột
+  `anh_video_odoo` trước hiện nguyên tên trường → nhãn "Ảnh / video Odoo". Xuất thử Danh sách chi tiết ở EN: 0 tiêu đề còn tiếng Việt.
+- (2) Hạn BH ("Còn / Hết bảo hành / Không tính") đã có từ v1.626. Doanh thu: 3 cột DT trong file đã là số SAU sửa (thay CRM) nhưng không
+  biết ca nào đã sửa → thêm 5 cột "DT đã sửa tay", "DT sản phẩm/linh kiện/dịch vụ (CRM gốc)", "Lý do sửa DT" (đọc `case_dt_sua` theo khoá
+  chính, cùng lượt `db.batch` của `lib/guiBhCa.ts layGuiBhTheoCa`). Thử local: ca có dòng sửa DT ra "Có" + số CRM gốc + lý do.
+- (3) Chưa tìm thấy chỗ hiện mã: cột "Trạng thái đổi trả BH", "Hạn bảo hành", badge đơn bảo hành Odoo / sửa chữa đều đã đổi mã → tên và đối
+  chiếu đủ mã với suachua + Odoo. Chờ chủ hệ thống chỉ màn hình / file cụ thể.

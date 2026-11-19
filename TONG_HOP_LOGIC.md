@@ -64,6 +64,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 - **PO đặt hàng**: nhận từ app EO mua hàng (mỗi dòng EO = 1 PO).
 - **QL NSKX**: báo cáo ca đối tác NSKX theo tháng tiếp nhận, đánh giá lõi lọc (Có / Không thay), đặt lõi sang app Đặt linh kiện bằng tài
   khoản người bấm (đơn "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX"), đồng bộ trạng thái đơn lõi.
+- File tải về Danh sách chi tiết (Quản lý tồn): DT sản phẩm / linh kiện / dịch vụ = số SAU sửa tay; kèm "DT đã sửa tay" + 3 số CRM gốc
+  + lý do (bảng `case_dt_sua`), Hạn bảo hành (Còn / Hết / Không tính). Tiêu đề file theo ngôn ngữ người dùng.
 - Tỷ lệ giải trình theo ngày (Quản lý tồn): ngày loại trừ (Chủ nhật + ngày Admin thêm ở Cài đặt) hiện "Loại trừ" + lý do ngắn
   ("chủ nhật" / ghi chú Admin nhập / "ngày nghỉ"), không cộng vào lũy kế / tỷ lệ tháng.
 - Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),

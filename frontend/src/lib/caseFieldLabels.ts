@@ -40,6 +40,7 @@ export const CASE_FIELD_LABELS: Record<string, string> = {
   dt_san_pham: tr("DT sản phẩm"),
   dt_linh_kien: tr("DT linh kiện"),
   dt_dich_vu: tr("DT dịch vụ"),
+  anh_video_odoo: tr("Ảnh / video Odoo"),
   dung_han: tr("Đúng hạn"),
   xu_ly_24h_bucket: tr("Nhóm xử lý 24h"),
   ngay_mua: tr("Ngày mua"),

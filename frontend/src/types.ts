@@ -135,6 +135,12 @@ export interface CaseRow {
   gui_bh_cap_nhat?: string | null;
   so_lk_odoo_bh?: number | null;
   han_bh_tay?: number | null;
+  // Doanh thu sua tay (case_dt_sua) - chi co khi ca da sua DT; dt_* cua ca la so sau sua (2026-11-19).
+  dt_da_sua?: number | null;
+  dt_san_pham_crm?: number | null;
+  dt_linh_kien_crm?: number | null;
+  dt_dich_vu_crm?: number | null;
+  dt_sua_ly_do?: string | null;
   last_noi_dung_giai_trinh?: string | null;
   // "Danh sach chi tiet" (BacklogModule.tsx), them 2026-08-22 - tai dung dung logic trang thai/tuoi
   // cua module Tranh chap (xem CASE_TRANH_CHAP_STATUS_EXPR o backend). "Chua xu ly" = ca chua tung co

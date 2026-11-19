@@ -14600,5 +14600,30 @@
   "Kết thúc, không gửi": [
     "Closed, not shipped",
     "Ditutup, tidak dikirim"
-  ]
+  ],
+  "Ngày gửi xe BH cuối": ["Last warranty shipment date", "Tanggal kirim garansi terakhir"],
+  "Ảnh / video Odoo": ["Odoo photos / videos", "Foto / video Odoo"],
+  "DT đã sửa tay": ["Revenue edited manually", "Pendapatan diubah manual"],
+  "DT sản phẩm (CRM gốc)": ["Product revenue (original CRM)", "Pendapatan produk (CRM asli)"],
+  "DT linh kiện (CRM gốc)": ["Parts revenue (original CRM)", "Pendapatan suku cadang (CRM asli)"],
+  "DT dịch vụ (CRM gốc)": ["Service revenue (original CRM)", "Pendapatan layanan (CRM asli)"],
+  "Lý do sửa DT": ["Revenue edit reason", "Alasan ubah pendapatan"],
+  "Đã giải trình (tháng)": ["Explained (month)", "Dijelaskan (bulan)"],
+  "Cần giải trình (lũy kế)": ["Needs explanation (cumulative)", "Perlu penjelasan (kumulatif)"],
+  "CEO cần giải trình": ["CEO needs explanation", "CEO perlu penjelasan"],
+  "Tháng hoàn thành": ["Completion month", "Bulan selesai"],
+  "Năm hoàn thành": ["Completion year", "Tahun selesai"],
+  "Trên 96h": ["Over 96h", "Lebih dari 96 jam"],
+  "Tỷ lệ SLA ≤8h": ["SLA rate ≤8h", "Rasio SLA ≤8 jam"],
+  "Tỷ lệ SLA ≤24h": ["SLA rate ≤24h", "Rasio SLA ≤24 jam"],
+  "Tỷ lệ SLA ≤48h": ["SLA rate ≤48h", "Rasio SLA ≤48 jam"],
+  "Tỷ lệ SLA ≤72h": ["SLA rate ≤72h", "Rasio SLA ≤72 jam"],
+  "Số ca có giờ xử lý hợp lệ": ["Cases with valid handling hours", "Kasus dengan jam penanganan valid"],
+  "Chênh lệch": ["Difference", "Selisih"],
+  "Lúc sửa": ["Edited at", "Diubah pada"],
+  "Tháng KT chốt": ["Accounting closing month", "Bulan tutup akuntansi"],
+  "Tháng sửa": ["Edit month", "Bulan perubahan"],
+  "Lõi đã thay": ["Replaced cores", "Inti yang diganti"],
+  "Ngày xác nhận lõi": ["Core confirmation date", "Tanggal konfirmasi inti"],
+  "Đơn đặt lõi (linh-kien-app)": ["Core orders (parts app)", "Pesanan inti (aplikasi suku cadang)"]
 }

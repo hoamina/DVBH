@@ -105,7 +105,7 @@ export async function layGuiBhTheoCa(db: D1Database, ids: string[]): Promise<Map
   const out = new Map<string, Record<string, unknown>>();
   if (!ids.length) return out;
   const json = JSON.stringify(ids);
-  const [g, o, h] = await db.batch([
+  const [g, o, h, d] = await db.batch([
     db.prepare(
       `SELECT case_id, so_lk AS gui_bh_so_lk, gd_json AS gui_bh_gd_json, gd_thap_nhat AS gui_bh_trang_thai, ngay_gui_cuoi AS gui_bh_ngay_gui_cuoi,
               hoan_tat AS gui_bh_hoan_tat, xu_ly_max_ngay AS gui_bh_xu_ly_max_ngay, cap_nhat_nguon AS gui_bh_cap_nhat
@@ -117,8 +117,13 @@ export async function layGuiBhTheoCa(db: D1Database, ids: string[]): Promise<Map
        GROUP BY d.case_id`,
     ).bind(json),
     db.prepare("SELECT case_id, con_bao_hanh AS han_bh_tay FROM case_hd_bh WHERE case_id IN (SELECT value FROM json_each(?)) AND con_bao_hanh IS NOT NULL").bind(json),
+    // Doanh thu sua tay (case_dt_sua, migration 0172): co dong = ca da sua DT; dt_* cua ca da la so sau sua, day la so CRM goc (2026-11-19).
+    db.prepare(
+      `SELECT case_id, 1 AS dt_da_sua, dt_san_pham_crm, dt_linh_kien_crm, dt_dich_vu_crm, ly_do AS dt_sua_ly_do
+       FROM case_dt_sua WHERE case_id IN (SELECT value FROM json_each(?))`,
+    ).bind(json),
   ]);
-  for (const res of [g, o, h]) {
+  for (const res of [g, o, h, d]) {
     for (const r of (res.results ?? []) as Record<string, unknown>[]) {
       const { case_id, ...rest } = r;
       const k = String(case_id);

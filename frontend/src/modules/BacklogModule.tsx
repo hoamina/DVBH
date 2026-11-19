@@ -1645,6 +1645,12 @@ export function BacklogModule({
     gui_bh_dien_giai: "Diễn giải đổi trả BH",
     gui_bh_ton_ngay: "Tốc độ tồn đổi trả (ngày)",
     gui_bh_ngay_gui_cuoi: "Ngày gửi xe BH cuối",
+    // 2026-11-19: dt_* trong file la doanh thu SAU sua (thay CRM); 5 cot duoi cho biet ca nao da sua + so CRM goc.
+    dt_da_sua: "DT đã sửa tay",
+    dt_san_pham_crm: "DT sản phẩm (CRM gốc)",
+    dt_linh_kien_crm: "DT linh kiện (CRM gốc)",
+    dt_dich_vu_crm: "DT dịch vụ (CRM gốc)",
+    dt_sua_ly_do: "Lý do sửa DT",
   };
 
   // Nhan cot cho bang pivot "Bao cao ton theo ..." - khop dung thead cua bang o duoi (cot "nhom" doi
@@ -1711,6 +1717,11 @@ export function BacklogModule({
       gui_bh_trang_thai: nhanGiaiDoanBh(r.gui_bh_trang_thai) || null,
       gui_bh_dien_giai: dienGiaiGuiBh(r) || null,
       gui_bh_ton_ngay: tonDoiTraNgay(r),
+      dt_da_sua: r.dt_da_sua ? "Có" : null,
+      dt_san_pham_crm: r.dt_da_sua ? (r.dt_san_pham_crm ?? null) : null,
+      dt_linh_kien_crm: r.dt_da_sua ? (r.dt_linh_kien_crm ?? null) : null,
+      dt_dich_vu_crm: r.dt_da_sua ? (r.dt_dich_vu_crm ?? null) : null,
+      dt_sua_ly_do: r.dt_da_sua ? (r.dt_sua_ly_do ?? null) : null,
       };
     });
     await exportRowsToExcel(enriched, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
