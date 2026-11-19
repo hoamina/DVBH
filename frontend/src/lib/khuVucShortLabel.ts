@@ -23,3 +23,45 @@ export function shortKhuVuc(raw: string | null | undefined): string {
   if (!raw) return "—";
   return KHU_VUC_SHORT_LABELS[raw] ?? raw;
 }
+
+/**
+ * Gop khu vuc "la" ve khu vuc chuan DE HIEN THI bao cao theo khu vuc (2026-11-19, chu he thong chon "gop vao khu vuc chuan"):
+ *  - CRM doi ma B2B tu 10/2026: "(qlb2b.b2b-mb) Quản lý B2B Miền Nam" (moi) = "(qlb2b.b2b-mn) Quản lý B2B Miền Nam" (cu); tuong tu
+ *    Mien Bac nguoc lai. KHONG doi du lieu (quyen GS dang gan theo ca 2 ma) - chi gop dong khi hien thi.
+ *  - Tai khoan CTV/TEST bi ghi vao cot khu vuc: du lieu da sua ve khu vuc chuan (migration 0177 + importProcessor), nhung so chot
+ *    theo ngay da luu (giai_trinh_daily_log...) van mang ten cu -> gop o day.
+ * Khu vuc khong co trong bang -> giu nguyen.
+ */
+export const KHU_VUC_GOP: Record<string, string> = {
+  "(qlb2b.b2b-mb) Quản lý B2B Miền Nam": "(qlb2b.b2b-mn) Quản lý B2B Miền Nam",
+  "(qlb2b.b2b-mb) Quản lý B2B Miền Bắc": "(qlb2b.b2b-mn) Quản lý B2B Miền Bắc",
+  "(huydg.bn-mb) CTV Bắc Ninh - Đào Gia Huy - NS-3919": "(qldvbh.mb3) Quản lý khu vực MB3",
+  "(huydg.bn-mb) CTV Bắc Ninh - Đào Gia Huy - NS-3919 - NS-3919": "(qldvbh.mb3) Quản lý khu vực MB3",
+  "(hoant.hd-mb) CTV Hải Dương - Nguyễn Thị Hoa - NS - 3959": "(qldvbh.mb3) Quản lý khu vực MB3",
+  "(gskv.test) GS Khu Vực-TEST": "(teamkdbl.krf) Kinh doanh bán lẻ KRF",
+};
+
+export function khuVucGop(raw: string): string {
+  return KHU_VUC_GOP[raw] ?? raw;
+}
+
+/** Gop cac dong { khu_vuc, days: [{ ngay, ...so }] } co cung khu vuc chuan - cong cac cot so theo tung ngay. */
+export function gopDongTheoKhuVuc<D extends { ngay: string }, R extends { khu_vuc: string; days: D[] }>(rows: R[]): R[] {
+  const theo = new Map<string, R>();
+  for (const r of rows) {
+    const k = khuVucGop(r.khu_vuc);
+    const cu = theo.get(k);
+    if (!cu) {
+      theo.set(k, { ...r, khu_vuc: k, days: r.days.map((d) => ({ ...d })) });
+      continue;
+    }
+    for (const d of r.days) {
+      const dd = cu.days.find((x) => x.ngay === d.ngay);
+      if (!dd) { cu.days.push({ ...d }); continue; }
+      for (const [key, v] of Object.entries(d)) {
+        if (typeof v === "number") (dd as Record<string, unknown>)[key] = (Number((dd as Record<string, unknown>)[key]) || 0) + v;
+      }
+    }
+  }
+  return [...theo.values()];
+}

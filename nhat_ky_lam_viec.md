@@ -6077,3 +6077,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   (`filters:tranh-chap-thang`) còn "2026-10" — tháng không có trong danh sách tháng của PH, nên ô chọn hiện "còn tồn" mà
   danh sách/báo cáo vẫn lọc theo tháng 10.
 - Sửa: `TranhChapModule` khi danh sách tháng tải xong mà tháng đang lưu không có trong đó → tự đưa về "Các ca tranh chấp, KN còn tồn".
+
+## 2026-11-19 — v1.634: "Tỷ lệ giải trình theo ngày" hiện dòng khu vực lạ
+
+- Yêu cầu: "bug" (ảnh bảng có dòng "(gskv.test) GS Khu Vực-TEST", "(huydg.bn-mb) CTV Bắc Ninh…", "(qlb2b.b2b-mb) Quản lý B2B Miền Nam").
+  Chủ hệ thống chọn: gộp vào khu vực chuẩn.
+- Nguyên nhân: (1) CRM/Odoo ghi tài khoản CTV/TEST vào cột khu vực (3 ca đang mở); (2) CRM đổi mã B2B từ 10/2026
+  ("b2b-mb … Miền Nam" thay "b2b-mn … Miền Nam", ngược lại cho Miền Bắc) nên 1 khu vực có 2 tên.
+- Sửa: migration 0177 chuyển ca CTV Bắc Ninh / Hải Dương → MB3 (cả 3 tỉnh đều thuộc MB3), TEST → KRF bán lẻ (ẩn khỏi báo cáo), đánh dấu
+  như sửa tay (`khu_vuc_crm` giữ giá trị cũ); import áp `khuVucChuanTuTaiKhoan` (`lib/khuVucTheoKtv.ts`) cho ca mới. B2B KHÔNG đổi dữ liệu
+  (GS đang được gán theo cả 2 mã) — chỉ gộp khi hiển thị. Bảng tỷ lệ gộp dòng theo `KHU_VUC_GOP` (`frontend/src/lib/khuVucShortLabel.ts`),
+  cộng số theo ngày (cả số chốt cũ còn mang tên cũ), bỏ dòng thuộc khu vực ẩn.
+- Còn lại: CTV mới bị ghi vào cột khu vực phải thêm mã vào `MA_KHU_VUC_TAI_KHOAN` + `KHU_VUC_GOP`.

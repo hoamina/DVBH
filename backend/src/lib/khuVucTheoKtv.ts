@@ -18,3 +18,20 @@ export function laKtvVeKrfBanLe(kyThuatVien: unknown): boolean {
   if (ma && MA_KTV_VE_KRF.some((m) => m.toLowerCase() === ma)) return true;
   return TEN_CHUAN.has(chuan(v));
 }
+
+// Khu vuc la TAI KHOAN CTV/TEST (CRM/Odoo ghi tai khoan vao cot khu vuc thay vi khu vuc quan ly) -> khu vuc chuan (2026-11-19,
+// chu he thong chon "gop vao khu vuc chuan"; tinh cua ca: Bac Ninh / Hai Duong / Thai Binh deu thuoc MB3). So khop theo ma
+// "(ma)" dau chuoi khu vuc - ca bien the duoi ten khac nhau ("... - NS-3919 - NS-3919") deu khop. Ca da co: migration 0177.
+// CTV moi xuat hien -> them ma vao day + 1 migration chuyen ca cu.
+export const KHU_VUC_MB3 = "(qldvbh.mb3) Quản lý khu vực MB3";
+const MA_KHU_VUC_TAI_KHOAN: Record<string, string> = {
+  "huydg.bn-mb": KHU_VUC_MB3,
+  "hoant.hd-mb": KHU_VUC_MB3,
+  "gskv.test": KHU_VUC_KRF_BAN_LE,
+};
+
+export function khuVucChuanTuTaiKhoan(khuVuc: unknown): string | null {
+  if (typeof khuVuc !== "string") return null;
+  const ma = /^\(([^)]+)\)/.exec(khuVuc.trim())?.[1]?.trim().toLowerCase();
+  return ma ? (MA_KHU_VUC_TAI_KHOAN[ma] ?? null) : null;
+}

@@ -32,7 +32,7 @@ import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { useTonKhoTongHop, useLayTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, gopDongTheoKhuVuc, khuVucGop } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
@@ -1298,7 +1298,13 @@ export function BacklogModule({
     enabled: view === "bao-cao" && monthDays.length > 0,
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
-  const giaiTrinhTrend = monthlyTrendQ.data;
+  // 2026-11-19: gop khu vuc la (B2B doi ma, tai khoan CTV/TEST ghi vao cot khu vuc) ve khu vuc chuan - lib/khuVucShortLabel KHU_VUC_GOP.
+  // Dong gop ve khu vuc an khoi bao cao (TEST -> KRF ban le) thi bo.
+  const giaiTrinhTrend = useMemo(() => {
+    const d = monthlyTrendQ.data;
+    if (!d) return d;
+    return { ...d, rows: gopDongTheoKhuVuc(d.rows).filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)) };
+  }, [monthlyTrendQ.data]);
   // "Kiem tra hom nay" (2026-11-17, v1.622): so ngay hom nay chi co sau cron chot 17:30 - truoc do bang hien "—". Bam nut ->
   // GET /cases/giai-trinh-tam-tinh tinh SO TAM THOI (cung cong thuc chot, khong ghi DB), chi hien tren giao dien, KHONG cong vao
   // luy ke. enabled:false = khong tu goi (do luot doc D1), chi chay khi bam.
@@ -1313,7 +1319,11 @@ export function BacklogModule({
   });
   const tamTinh = homNayTrongThang && !homNayDaChot && tamTinhQ.data?.ngay === ngayHomNay ? tamTinhQ.data : undefined;
   const tamTinhGio = tamTinh ? tamTinh.tinh_luc.slice(11, 16) : "";
-  const tamTinhCuaKhuVuc = (khuVuc: string) => tamTinh?.rows.find((r) => r.khu_vuc === khuVuc);
+  const tamTinhCuaKhuVuc = (khuVuc: string) => {
+    const ds = tamTinh?.rows.filter((r) => khuVucGop(r.khu_vuc) === khuVuc) ?? [];
+    if (!ds.length) return undefined;
+    return { khu_vuc: khuVuc, can_giai_trinh: ds.reduce((t, r) => t + r.can_giai_trinh, 0), da_giai_trinh: ds.reduce((t, r) => t + r.da_giai_trinh, 0) };
+  };
   // "So ca ton theo moc thoi gian" (cuoi tab Bao cao) - bo loc tu ngay/den ngay, mac dinh 30 ngay gan
   // nhat. Doc thang tu daily_snapshot (GET /cases/ton-trend) - khong tinh song, xem chu thich route.
   const [tonTrendFrom, setTonTrendFrom] = useState(() => vnDateOffsetStr(30));
