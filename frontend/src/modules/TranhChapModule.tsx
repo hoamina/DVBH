@@ -1,6 +1,6 @@
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
 import { dl } from "../lib/banDichDuLieu";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
@@ -723,6 +723,13 @@ export function TranhChapModule({
     setAiPage(1);
     setLdPage(1);
   };
+  // SUA LOI 2026-11-19: thang luu o localStorage (vd "2026-10") khong con trong danh sach thang cua nuoc dang xem -> o chon hien
+  // "còn tồn" (lua chon dau) nhung danh sach van loc theo thang cu: GS PH thay badge 4 ma bang 0 ca. Dua ve "còn tồn".
+  useEffect(() => {
+    if (!monthData || thangFilter === TRANH_CHAP_CON_TON_FILTER_VALUE) return;
+    if (!monthData.months.includes(thangFilter)) handleThangFilterChange(TRANH_CHAP_CON_TON_FILTER_VALUE);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthData, thangFilter]);
 
   // ---------- Tab "Cho xu ly" ----------
   const [minDaysFilter, setMinDaysFilter] = useState<number | null>(null);

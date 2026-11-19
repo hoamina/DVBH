@@ -6069,3 +6069,11 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   đổi khoá thành "Còn BH"/"Hết BH" (khoá "Còn" đang dịch nhầm "Another").
 - Dịch giá trị: Nhóm SP, Nhóm KH, Ngành / Loại ngành (`gt()`), ~42 giá trị mới trong `tu-dien.json`. Đối tác (tên hãng), tên KH,
   mô tả/ghi chú gõ tay giữ nguyên.
+
+## 2026-11-19 — v1.633: Tranh chấp — Giám sát PH thấy badge 4 nhưng bảng "Chờ xử lý" trống
+
+- Yêu cầu: "ca tranh chấp vai trò giám sát không thấy 4 đơn trong khi admin vẫn thấy".
+- Nguyên nhân: 4 ca PH (khu vực MM, hoàn thành 11/2026) đúng phạm vi GS, nhưng bộ lọc tháng của module lưu localStorage
+  (`filters:tranh-chap-thang`) còn "2026-10" — tháng không có trong danh sách tháng của PH, nên ô chọn hiện "còn tồn" mà
+  danh sách/báo cáo vẫn lọc theo tháng 10.
+- Sửa: `TranhChapModule` khi danh sách tháng tải xong mà tháng đang lưu không có trong đó → tự đưa về "Các ca tranh chấp, KN còn tồn".
