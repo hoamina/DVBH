@@ -534,7 +534,7 @@ function renderCaseFieldsGrid(
         </>
       )}
       {hien("Hãng / Nhóm SP") && <Field label={tr("Hãng / Nhóm SP")} value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />}
-      {hien("Trạm triển khai") && <Field label={tr("Trạm triển khai")} value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} />} />}
+      {hien("Trạm triển khai") && <Field label={tr("Trạm triển khai")} value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} phoneBelow />} />}
       {hien("KTV triển khai") && <Field
         label={tr("KTV triển khai")}
         value={

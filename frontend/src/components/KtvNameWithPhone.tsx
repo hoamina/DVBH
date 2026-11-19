@@ -13,16 +13,21 @@ import { tr } from "../i18n/tr";
  * backend/src/routes/settings.ts, giu 2 noi nay dong bo neu doi quyen. */
 export const KTV_PHONE_EDIT_ROLES: VaiTro[] = ["Admin", "CSKH", "TN CSKH", "TBP CSKH"];
 
-export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string | null | undefined; canEdit: boolean }) {
+export function KtvNameWithPhone({ kyThuatVien, canEdit, phoneBelow = false }: {
+  kyThuatVien: string | null | undefined;
+  canEdit: boolean;
+  phoneBelow?: boolean;
+}) {
   const maKtv = extractMaKtv(kyThuatVien);
   const map = useKtvPhoneMap();
   const [open, setOpen] = useState(false);
   const addToast = useToast();
 
   if (!kyThuatVien) return <span>—</span>;
-  if (!maKtv) return <span>{kyThuatVien}</span>;
+  if (!maKtv) return <span className={phoneBelow ? "block truncate" : undefined} title={phoneBelow ? kyThuatVien : undefined}>{kyThuatVien}</span>;
 
   const entry = map.get(maKtv);
+  const stackPhone = phoneBelow && !!entry?.sdt;
 
   async function copyPhone(e: React.MouseEvent) {
     e.stopPropagation();
@@ -41,7 +46,7 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
           tranh nham lan voi popup chi tiet); bam ten/icon "i" moi mo popup xem/sua day du. Dung
           inline-flex + min-w-0 + truncate cho ten de khong bi tran ra ngoai o bang khi ten dai
           (bug cu: button gop chung ten+sdt dai khong wrap duoc trong <td> "white-space: nowrap"). */}
-      <span className="inline-flex items-center gap-1 max-w-full">
+      <span className={stackPhone ? "flex flex-wrap items-center gap-x-1" : "inline-flex items-center gap-1 max-w-full"}>
         <button
           type="button"
           onClick={(e) => {
@@ -49,7 +54,7 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
             setOpen(true);
           }}
           title={kyThuatVien}
-          className="focus-ring min-w-0 truncate text-left hover:underline decoration-dotted underline-offset-2"
+          className={`focus-ring min-w-0 truncate text-left hover:underline decoration-dotted underline-offset-2 ${stackPhone ? "w-full" : ""}`}
         >
           {kyThuatVien}
         </button>
@@ -58,7 +63,7 @@ export function KtvNameWithPhone({ kyThuatVien, canEdit }: { kyThuatVien: string
             type="button"
             onClick={copyPhone}
             title={tr("Bấm để sao chép số điện thoại")}
-            className="focus-ring shrink-0 inline-flex items-center gap-0.5 text-[var(--ocean-600)] hover:text-[var(--ocean-700)]"
+            className={`focus-ring shrink-0 inline-flex items-center gap-0.5 text-[var(--ocean-600)] hover:text-[var(--ocean-700)] ${stackPhone ? "text-xs" : ""}`}
           >
             📞 {entry.sdt}
             <span aria-hidden className="text-xs">⧉</span>
