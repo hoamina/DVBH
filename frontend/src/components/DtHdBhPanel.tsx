@@ -246,7 +246,7 @@ export function DtHdBhPanel({ c, onCaseChanged }: { c: CaseRow; onCaseChanged: (
             : tr("không có ngày mua / ngày sản xuất")}
           {bhTay !== null ? ` · ${tr("sửa tay — {0} · {1}", data?.hdBh?.bh_sua_by ?? "", fmtDateTime(data?.hdBh?.bh_sua_at))}` : ""}
         </span>
-        {nutChon(bhTay, "bao-hanh", "con_bao_hanh", tr("Còn"), tr("Hết"))}
+        {nutChon(bhTay, "bao-hanh", "con_bao_hanh", tr("Còn BH"), tr("Hết BH"))}
       </div>
 
       {(data?.log.length ?? 0) > 0 && (

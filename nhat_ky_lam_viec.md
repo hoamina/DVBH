@@ -6059,3 +6059,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Bọc `gt()` thêm: Đúng hạn / Xử lý 24h / Đúng hạn không loại trừ (CaseDetail), nguồn nước (`ThongSoNuocStrip`), tab Lỗi linh kiện
   (`LoiLinhKienPanel`: hiện tượng, nhóm lỗi, nguyên nhân, cách thức xử lý, nhóm linh kiện, nguồn gốc lỗi).
 - ~124 giá trị lấy từ dữ liệu thật (cả nước ngoài) thêm vào `tu-dien.json`. Nguyên nhân lỗi dạng câu dài chưa dịch hết (vẫn tiếng Việt).
+
+## 2026-11-19 — v1.632: rà toàn bộ UI chi tiết ca còn tiếng Việt (EN/ID)
+
+- Yêu cầu: "check toàn bộ UI chi tiết case xem có sót chỗ nào không" (ảnh khối Doanh thu / Đơn xuất hóa đơn / Hạn bảo hành).
+- Cách rà: lấy cây import của `CaseDetail.tsx` (67 file), lọc kết quả `scripts/i18n-kiem-tra.mjs` (câu `tr()` chưa có bản dịch +
+  chuỗi chưa bọc) theo các file đó.
+- Thêm ~45 câu giao diện còn thiếu (DtHdBhPanel, DatLoiNskxModal, nhãn luồng đổi trả, hạn BH...). Nút "Còn/Hết" ở Hạn bảo hành
+  đổi khoá thành "Còn BH"/"Hết BH" (khoá "Còn" đang dịch nhầm "Another").
+- Dịch giá trị: Nhóm SP, Nhóm KH, Ngành / Loại ngành (`gt()`), ~42 giá trị mới trong `tu-dien.json`. Đối tác (tên hãng), tên KH,
+  mô tả/ghi chú gõ tay giữ nguyên.

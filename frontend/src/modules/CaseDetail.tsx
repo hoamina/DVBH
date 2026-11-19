@@ -533,7 +533,7 @@ function renderCaseFieldsGrid(
           )}
         </>
       )}
-      {hien("Hãng / Nhóm SP") && <Field label={tr("Hãng / Nhóm SP")} value={`${c.hang ?? "—"} — ${c.nhom_san_pham ?? "—"}`} />}
+      {hien("Hãng / Nhóm SP") && <Field label={tr("Hãng / Nhóm SP")} value={`${c.hang ?? "—"} — ${gt(c.nhom_san_pham) ?? "—"}`} />}
       {hien("Trạm triển khai") && <Field label={tr("Trạm triển khai")} value={<KtvNameWithPhone kyThuatVien={c.ky_thuat_vien} canEdit={!!canEditKtvPhone} phoneBelow />} />}
       {hien("KTV triển khai") && <Field
         label={tr("KTV triển khai")}
@@ -641,9 +641,9 @@ function renderCaseFieldsGrid(
         <Field label={tr("Đối tác")} value={c.doi_tac ?? "—"} />
         <Field label={tr("Ngày mua")} value={fmtDate(c.ngay_mua)} />
         <Field label={tr("Ngày sản xuất")} value={fmtDate(c.ngay_san_xuat)} />
-        <Field label={tr("Nhóm khách hàng")} value={c.nhom_kh ?? "—"} />
+        <Field label={tr("Nhóm khách hàng")} value={gt(c.nhom_kh) ?? "—"} />
         {hien("Bảo hành nhà máy") && <BaoHanhNhaMayField c={c} />}
-        <Field label={tr("Ngành / Loại ngành")} value={`${c.nganh ?? "—"} — ${c.loai_nganh ?? "—"}`} />
+        <Field label={tr("Ngành / Loại ngành")} value={`${gt(c.nganh) ?? "—"} — ${gt(c.loai_nganh) ?? "—"}`} />
         <Field
           label="Link CRM"
           value={
