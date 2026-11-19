@@ -14625,5 +14625,9 @@
   "Tháng sửa": ["Edit month", "Bulan perubahan"],
   "Lõi đã thay": ["Replaced cores", "Inti yang diganti"],
   "Ngày xác nhận lõi": ["Core confirmation date", "Tanggal konfirmasi inti"],
-  "Đơn đặt lõi (linh-kien-app)": ["Core orders (parts app)", "Pesanan inti (aplikasi suku cadang)"]
+  "Đơn đặt lõi (linh-kien-app)": ["Core orders (parts app)", "Pesanan inti (aplikasi suku cadang)"],
+  "Mã LK của đơn": ["Order part code", "Kode suku cadang pesanan"],
+  "Đơn đúng mã LK thiếu": ["Order matches missing part", "Pesanan sesuai suku cadang kurang"],
+  "Cách khớp đơn": ["Order match method", "Cara pencocokan pesanan"],
+  "Số đơn đặt của ca": ["Orders for case", "Jumlah pesanan kasus"]
 }

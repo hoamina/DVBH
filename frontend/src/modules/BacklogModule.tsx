@@ -820,6 +820,10 @@ function daysInMonthList(thang: string): string[] {
 // Xuat Excel bang "Ty le giai trinh theo ngay" - moi ngay tach rieng 2 cot SO (khong gop chuoi
 // "da/can") de dung thang lam bao cao/cong thuc tiep, giu dong "Tong cong" o dau giong hien thi tren
 // man hinh. Bang va file cung dung thang duoc chon; ngay loai tru hien chu thay vi so.
+// File Danh sach chi tiet: truong khong co trong DANH_SACH_EXPORT_LABELS nhung lib/exportExcel.ts tu dat ten / tach cot (2026-11-19).
+const TRUONG_EXPORT_TU_XU_LY = new Set(["tinh", "quan_huyen", "tinh_moi", "xa_moi", "tinh_cu", "huyen_cu", "xa_cu", "linh_kien_loi"]);
+// "Cach khop don" (don_lk_gan_nhat.nguon, migration 0164) - ma -> ten.
+const NGUON_DON_LK: Record<string, string> = { lien_ket: "Đơn ghi mã ca", lada: "Khớp ID Lada", giai_trinh: "Mã ghi trong giải trình" };
 function exclusionChecker(rows: ExcludedNgayRow[]) {
   const keys = new Set(rows.map((r) => `${r.ngay}|${r.khu_vuc}`));
   return (day: string, kv: string) => new Date(`${day}T00:00:00Z`).getUTCDay() === 0 || keys.has(`${day}|__ALL__`) || keys.has(`${day}|${kv}`);
@@ -1638,6 +1642,12 @@ export function BacklogModule({
     don_lk_ngay_dat: "Ngày đặt hàng",
     don_lk_ngay_duyet: "Ngày duyệt đơn",
     don_lk_ngay_xuat: "Ngày xuất hàng",
+    // 2026-11-19: 5 truong don_lk_* server gui kem truoc day ra file voi ten truong tho - dat nhan, doi ma -> ten (khop_ma_lk/nguon).
+    don_lk_ngay_ktv_nhan: "Ngày KTV nhận hàng",
+    don_lk_ma_lk: "Mã LK của đơn",
+    don_lk_khop_ma_lk: "Đơn đúng mã LK thiếu",
+    don_lk_nguon: "Cách khớp đơn",
+    don_lk_so_don: "Số đơn đặt của ca",
     han_bh: "Hạn bảo hành",
     so_lk_odoo_bh: "Số LK Odoo báo gửi BH",
     gui_bh_so_lk: "Số LK thực tế đã gửi BH",
@@ -1701,6 +1711,11 @@ export function BacklogModule({
       don_lk_ngay_dat: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_dat : null) ?? null,
       don_lk_ngay_duyet: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_duyet : null) ?? null,
       don_lk_ngay_xuat: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_xuat : null) ?? null,
+      don_lk_ngay_ktv_nhan: (r.last_ma_linh_kien_thieu ? r.don_lk_ngay_ktv_nhan : null) ?? null,
+      don_lk_ma_lk: (r.last_ma_linh_kien_thieu ? r.don_lk_ma_lk : null) ?? null,
+      don_lk_khop_ma_lk: r.last_ma_linh_kien_thieu && dl?.id ? (r.don_lk_khop_ma_lk ? "Có" : "Không") : null,
+      don_lk_nguon: r.last_ma_linh_kien_thieu && r.don_lk_nguon ? (NGUON_DON_LK[r.don_lk_nguon] ?? r.don_lk_nguon) : null,
+      don_lk_so_don: (r.last_ma_linh_kien_thieu ? r.don_lk_so_don : null) ?? null,
       ngay_hang_ve_du_kien_kv: ngayVn(r.ngay_hang_ve_du_kien_kv),
       so_lan_lui_dk: r.so_lan_lui_dk ?? null,
       ngay_ve_gan_nhat_kv: ngayVn(r.ngay_ve_gan_nhat_kv),
@@ -1724,7 +1739,11 @@ export function BacklogModule({
       dt_sua_ly_do: r.dt_da_sua ? (r.dt_sua_ly_do ?? null) : null,
       };
     });
-    await exportRowsToExcel(enriched, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
+    // 2026-11-19: chi giu truong CO NHAN (+ truong exportExcel tu doi: dia chi / dia gioi, linh kien loi) - truong server gui kem ma chua
+    // dat nhan (vd don_lk_cap_nhat_luc) bi bo, khong ra file voi ten truong tho nua. Them cot moi -> them nhan vao DANH_SACH_EXPORT_LABELS.
+    const coNhan = (k: string) => k in DANH_SACH_EXPORT_LABELS || TRUONG_EXPORT_TU_XU_LY.has(k);
+    const sach = enriched.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => coNhan(k))));
+    await exportRowsToExcel(sach, "quan_ly_ton.xlsx", "Data", DANH_SACH_EXPORT_LABELS);
   }
 
   // Uu tien mo the "Tranh chap" khi bam vao 1 don dang co tranh chap TON DONG (khac "Chua xu ly" - ca

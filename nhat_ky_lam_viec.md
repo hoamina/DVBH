@@ -6040,3 +6040,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   chính, cùng lượt `db.batch` của `lib/guiBhCa.ts layGuiBhTheoCa`). Thử local: ca có dòng sửa DT ra "Có" + số CRM gốc + lý do.
 - (3) Chưa tìm thấy chỗ hiện mã: cột "Trạng thái đổi trả BH", "Hạn bảo hành", badge đơn bảo hành Odoo / sửa chữa đều đã đổi mã → tên và đối
   chiếu đủ mã với suachua + Odoo. Chờ chủ hệ thống chỉ màn hình / file cụ thể.
+
+## 2026-11-19 — File Danh sách chi tiết còn 6 cột tên trường thô don_lk_* (v1.629)
+
+- Phản hồi (ảnh chụp file tải về): tiêu đề "don_lk_ngay_ktv_nhan, don_lk_nguon, don_lk_khop_ma_lk, don_lk_ma_lk, don_lk_so_don, don_lk_cap_nhat_luc".
+- Nguyên nhân: server ghép đủ cột bảng `don_lk_gan_nhat` vào dòng xuất, frontend chỉ đặt nhãn 5 cột → 6 cột còn lại ra file với tên trường. Local
+  không có dữ liệu bảng này nên lần thử v1.628 không thấy. Đối chiếu mọi trường server gửi cho file (cột `case_dvbh` + cột tính thêm + bảng ghép) với
+  nhãn đang có: chỉ còn đúng 6 cột này.
+- Sửa: đặt nhãn + đổi mã → tên cho 5 cột có ích — "Ngày KTV nhận hàng", "Mã LK của đơn", "Đơn đúng mã LK thiếu" (Có / Không), "Cách khớp đơn"
+  (Đơn ghi mã ca / Khớp ID Lada / Mã ghi trong giải trình), "Số đơn đặt của ca"; bỏ `don_lk_cap_nhat_luc` (giờ đồng bộ nội bộ). Chốt chặn: file
+  này chỉ giữ trường có nhãn (+ cột địa chỉ / linh kiện lỗi do `exportExcel` tự xử lý) → cột server thêm sau mà chưa đặt nhãn sẽ không ra tên thô.
+- Kiểm thử: local thêm tạm 1 dòng đơn LK gần nhất → file 144 cột, 0 tiêu đề tên trường, 5 cột ra đúng giá trị; đã xoá dòng thử.
+- Mã "thung_nhap" chủ hệ thống thấy ở file trước: bản production v1.628 có đổi mã → tên cho cột "Trạng thái đổi trả BH" (đã kiểm bản JS đang chạy).
