@@ -539,6 +539,8 @@ interface CanhBaoTonTrendRow {
 interface ExcludedNgayRow {
   ngay: string;
   khu_vuc: string;
+  /** Ghi chu Admin nhap khi them ngay loai tru (vd "nghỉ phép") - hien ngan duoi chu "Loại trừ" (2026-11-19). */
+  ghi_chu?: string | null;
 }
 
 // "So ca ton theo moc thoi gian" (cuoi tab Bao cao) - 1 dong/ngay, doc thang tu snapshot dong bang
@@ -822,8 +824,33 @@ function exclusionChecker(rows: ExcludedNgayRow[]) {
   const keys = new Set(rows.map((r) => `${r.ngay}|${r.khu_vuc}`));
   return (day: string, kv: string) => new Date(`${day}T00:00:00Z`).getUTCDay() === 0 || keys.has(`${day}|__ALL__`) || keys.has(`${day}|${kv}`);
 }
+// Ly do ngan cua 1 ngay loai tru (2026-11-19, chu he thong): Chu nhat -> "chủ nhật"; ngay Admin them tay -> ghi chu (cat <= 24 ky tu),
+// trong -> "ngày nghỉ". Khu vuc rieng uu tien hon "__ALL__". kv = null (dong Tong cong) -> ly do chung cua ngay.
+const LY_DO_NGAN_TOI_DA = 24;
+function exclusionReason(rows: ExcludedNgayRow[]) {
+  const ghiChu = new Map(rows.map((r) => [`${r.ngay}|${r.khu_vuc}`, (r.ghi_chu ?? "").trim()]));
+  const ngan = (s: string) => (s.length > LY_DO_NGAN_TOI_DA ? s.slice(0, LY_DO_NGAN_TOI_DA - 1) + "…" : s);
+  return (day: string, kv: string | null): string => {
+    if (new Date(`${day}T00:00:00Z`).getUTCDay() === 0) return "chủ nhật";
+    const rieng = kv ? ghiChu.get(`${day}|${kv}`) : undefined;
+    const chung = ghiChu.get(`${day}|__ALL__`);
+    const motKv = kv === null ? rows.find((r) => r.ngay === day && (r.ghi_chu ?? "").trim())?.ghi_chu?.trim() : undefined;
+    const g = rieng || chung || motKv;
+    return g ? ngan(g) : "ngày nghỉ";
+  };
+}
+/** O "Loại trừ" + ly do ngan ben duoi (re chuot xem day du). */
+function OLoaiTru({ lyDo }: { lyDo: string }) {
+  return (
+    <span className="inline-flex flex-col items-center leading-tight">
+      <span>{tr("Loại trừ")}</span>
+      <span className="text-[10px] italic text-[var(--ink-500)] max-w-[7rem] truncate" title={lyDo}>{lyDo === "chủ nhật" || lyDo === "ngày nghỉ" ? tr(lyDo) : lyDo}</span>
+    </span>
+  );
+}
 function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[], excludedNgay: ExcludedNgayRow[] = []): Record<string, string | number>[] {
   const isExcluded = exclusionChecker(excludedNgay);
+  const lyDoLoaiTru = exclusionReason(excludedNgay);
   const sorted = [...rows].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi"));
   const totalByDay: Record<string, { can: number; da: number }> = {};
   for (const day of days) {
@@ -843,8 +870,9 @@ function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[], exclude
     for (const day of days) {
       const found = dayLookup(day);
       if (khuVuc !== "Tổng cộng" && isExcluded(day, khuVuc) || khuVuc === "Tổng cộng" && sorted.length > 0 && sorted.every((r) => isExcluded(day, r.khu_vuc))) {
-        out[`${fmtDayShort(day)} - Đã GT`] = "Loại trừ";
-        out[`${fmtDayShort(day)} - Cần GT`] = "Loại trừ";
+        const nhan = `Loại trừ (${lyDoLoaiTru(day, khuVuc === "Tổng cộng" ? null : khuVuc)})`;
+        out[`${fmtDayShort(day)} - Đã GT`] = nhan;
+        out[`${fmtDayShort(day)} - Cần GT`] = nhan;
         continue;
       }
       out[`${fmtDayShort(day)} - Đã GT`] = found?.da ?? 0;
@@ -1324,6 +1352,7 @@ export function BacklogModule({
   // them tay (khu_vuc "__ALL__" ap dung ca he thong) - dung de to mau khac trong bang "Ty le giai
   // trinh theo ngay", KHOP DUNG logic backend (buildNgayExcludedChecker trong dailySnapshot.ts).
   const isNgayExcluded = useMemo(() => exclusionChecker(giaiTrinhTrend?.excludedNgay ?? []), [giaiTrinhTrend]);
+  const lyDoNgayLoaiTru = useMemo(() => exclusionReason(giaiTrinhTrend?.excludedNgay ?? []), [giaiTrinhTrend]);
   const trendDays = monthDays;
   const monthlyExplanationTotal = (giaiTrinhTrend?.rows ?? []).reduce((total, row) => {
     for (const day of row.days) if (!isNgayExcluded(day.ngay, row.khu_vuc)) { total.can += day.can_giai_trinh; total.da += day.da_giai_trinh; }
@@ -2649,7 +2678,7 @@ export function BacklogModule({
                         const cellBg = status === "partial" ? "bg-[var(--coral-100)]" : status === "full" ? "bg-[var(--amber-100)]" : "";
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
-                            {status === "full" ? <span>{tr("Loại trừ")}</span> : t && t.can > 0 ? (
+                            {status === "full" ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, null)} /> : t && t.can > 0 ? (
                               <div>
                                 <div className="font-mono">{pct(t.da, t.can)}%</div>
                                 <div className="text-[10px] text-[var(--ink-400)] font-normal">
@@ -2674,7 +2703,7 @@ export function BacklogModule({
                         if (tam) return <TamTinhCell key={day} can={tam.can_giai_trinh} da={tam.da_giai_trinh} gio={tamTinhGio} />;
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
-                            {excluded ? <span>{tr("Loại trừ")}</span> : found ? (
+                            {excluded ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, row.khu_vuc)} /> : found ? (
                               <div>
                                 <div className="font-mono font-semibold">{pct(found.da_giai_trinh, found.can_giai_trinh)}%</div>
                                 <div className="text-[10px] text-[var(--ink-400)]">

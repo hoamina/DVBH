@@ -6015,3 +6015,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: typecheck + build; local: đẩy 3 ca (ghi 2, bản tin cũ hơn bị bỏ qua), lọc han_bh con/het, trạng thái, số ngày ≥5, số LK Odoo, danh
   sách giá trị lọc; bảng hiện "1 LK Thùng nháp — KTV chưa gửi, 2 LK Hoàn tất (KTV đã nhận)", tồn 5 ngày, ca xong "6.4 ✓". Hàm tóm tắt suachua
   chạy trên D1 local 38 ca đúng. Chưa xem với dữ liệu production (bảng đầy sau lần cron 15 phút đầu tiên của suachua).
+
+## 2026-11-19 — Tỷ lệ giải trình theo ngày: ô "Loại trừ" ghi lý do ngắn (v1.627)
+
+- Yêu cầu (nguyên văn): ""Quản lý tồn" =>"Tỷ lệ giải trình theo ngày " => các ngày "Loại trừ" bổ sung thêm lý do ngắn ngọn bên dưới.
+  "Loại trừ chủ nhật" "Loại trừ nghỉ phép"".
+- Làm: dưới chữ "Loại trừ" thêm 1 dòng nhỏ in nghiêng — Chủ nhật → "chủ nhật"; ngày Admin thêm ở Cài đặt → ghi chú đã nhập khi thêm (cắt
+  ≤ 24 ký tự, rê chuột xem đủ; khu vực riêng ưu tiên hơn "toàn hệ thống"), trống → "ngày nghỉ". File Excel ghi "Loại trừ (lý do)".
+  Backend chỉ thêm cột `ghi_chu` vào câu SELECT sẵn có của `/cases/giai-trinh-daily-trend` (không thêm truy vấn, cùng số dòng đọc).
+- Kiểm thử: typecheck 2 phía; local thêm tạm 1 ngày loại trừ "Nghỉ phép" → ô 10/11 hiện "Loại trừ / Nghỉ phép", Chủ nhật hiện "chủ nhật";
+  đã xoá dòng thử.

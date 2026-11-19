@@ -1074,9 +1074,9 @@ async function docGiaiTrinhTrend(c: Context<{ Bindings: Env }>) {
     )
       .bind(...ngayBinds, ...scopeClause.binds, ...area.binds)
       .all<{ ngay: string; khu_vuc: string; can_giai_trinh: number; da_giai_trinh: number }>(),
-    c.env.DB.prepare(`SELECT ngay, khu_vuc FROM settings_giai_trinh_exclude_ngay WHERE ${ngayWhereSql}`)
+    c.env.DB.prepare(`SELECT ngay, khu_vuc, ghi_chu FROM settings_giai_trinh_exclude_ngay WHERE ${ngayWhereSql}`)
       .bind(...ngayBinds)
-      .all<{ ngay: string; khu_vuc: string }>(),
+      .all<{ ngay: string; khu_vuc: string; ghi_chu: string | null }>(),
   ]);
 
   const byKhuVuc = new Map<string, { ngay: string; can_giai_trinh: number; da_giai_trinh: number }[]>();
