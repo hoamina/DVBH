@@ -6052,3 +6052,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   này chỉ giữ trường có nhãn (+ cột địa chỉ / linh kiện lỗi do `exportExcel` tự xử lý) → cột server thêm sau mà chưa đặt nhãn sẽ không ra tên thô.
 - Kiểm thử: local thêm tạm 1 dòng đơn LK gần nhất → file 144 cột, 0 tiêu đề tên trường, 5 cột ra đúng giá trị; đã xoá dòng thử.
 - Mã "thung_nhap" chủ hệ thống thấy ở file trước: bản production v1.628 có đổi mã → tên cho cột "Trạng thái đổi trả BH" (đã kiểm bản JS đang chạy).
+
+## 2026-11-19 — v1.631: dịch thêm giá trị CRM/Odoo còn tiếng Việt (EN/ID)
+
+- Yêu cầu: "1 số khu vực vẫn hiện thị tiếng việt" (ảnh ca PH: Đúng hạn / Xử lý 24h, Hình thức bảo hành, Thông số nước, tab Lỗi).
+- Bọc `gt()` thêm: Đúng hạn / Xử lý 24h / Đúng hạn không loại trừ (CaseDetail), nguồn nước (`ThongSoNuocStrip`), tab Lỗi linh kiện
+  (`LoiLinhKienPanel`: hiện tượng, nhóm lỗi, nguyên nhân, cách thức xử lý, nhóm linh kiện, nguồn gốc lỗi).
+- ~124 giá trị lấy từ dữ liệu thật (cả nước ngoài) thêm vào `tu-dien.json`. Nguyên nhân lỗi dạng câu dài chưa dịch hết (vẫn tiếng Việt).

@@ -469,14 +469,14 @@ function renderCaseFieldsGrid(
       <Field key="dk" label={tr("Dự kiến hoàn thành (giải trình gần nhất)")} value={fmtDateTime(c.last_ngay_du_kien_hoan_thanh)} />
     ),
     hien("Đúng hạn / Xử lý 24h") && (
-      <Field key="dh" label={tr("Đúng hạn / Xử lý 24h")} value={`${c.dung_han ?? "—"} / ${c.xu_ly_24h_bucket ?? "—"}`} />
+      <Field key="dh" label={tr("Đúng hạn / Xử lý 24h")} value={`${gt(c.dung_han) ?? "—"} / ${gt(c.xu_ly_24h_bucket) ?? "—"}`} />
     ),
     // SLA khong loai tru (migration 0163) - chi hien khi pipeline da gui (SEND_SLA_KHONG_LOAI_TRU).
     hien("Đúng hạn / Xử lý 24h") && (c.dung_han_klt || c.so_gio_xu_ly_klt != null) && (
       <Field
         key="dhklt"
         label={tr("Đúng hạn không loại trừ")}
-        value={`${c.dung_han_klt ?? "—"}${c.so_gio_xu_ly_klt != null ? ` (${Math.round(c.so_gio_xu_ly_klt * 10) / 10}h)` : ""}`}
+        value={`${gt(c.dung_han_klt) ?? "—"}${c.so_gio_xu_ly_klt != null ? ` (${Math.round(c.so_gio_xu_ly_klt * 10) / 10}h)` : ""}`}
       />
     ),
   ].filter(Boolean);

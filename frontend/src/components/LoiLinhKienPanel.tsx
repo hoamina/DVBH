@@ -5,6 +5,7 @@ import { MaLinhKienLink } from "./HoSoLinhKienProvider";
 import { Modal } from "./ui/Modal";
 import { fmtDateTime, fmtVND, type DonBaoHanhOdooRow, type LinhKienLoiItem } from "../types";
 import { tr } from "../i18n/tr";
+import { gt } from "../lib/banDichDuLieu";
 import { GhiChuBox } from "./MoAppLink";
 
 // Tab "Loi linh kien" (CaseDetail) - nguon Odoo OCRM. Logic Odoo: don bao hanh linh kien
@@ -268,12 +269,12 @@ export function DonBaoHanhOdooModal({
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-6 h-6 rounded-full bg-[var(--ocean-500)] text-white text-xs font-bold flex items-center justify-center">{parent.stt}</span>
                 <span className="font-semibold text-sm">{parent.ten_linh_kien}</span>
-                {parent.nguon_goc_loi && <Badge tone={nguonGocTone(parent.nguon_goc_loi)}>{parent.nguon_goc_loi}</Badge>}
+                {parent.nguon_goc_loi && <Badge tone={nguonGocTone(parent.nguon_goc_loi)}>{gt(parent.nguon_goc_loi)}</Badge>}
               </div>
-              <InfoRow label={tr("Hiện tượng lỗi")} value={[parent.hien_tuong_loi, parent.mo_ta_hien_tuong].filter(Boolean).join(" — ")} />
-              <InfoRow label={tr("Nhóm lỗi — Nguyên nhân")} value={[parent.nhom_loi, parent.nguyen_nhan_loi, parent.mo_ta_nguyen_nhan].filter(Boolean).join(" — ")} />
-              {parent.nhom_linh_kien && <InfoRow label={tr("Nhóm linh kiện")} value={parent.nhom_linh_kien} />}
-              <InfoRow label={tr("Cách thức xử lý")} value={[parent.cach_thuc_xu_ly, parent.mo_ta_cach_xu_ly].filter(Boolean).join(" — ")} />
+              <InfoRow label={tr("Hiện tượng lỗi")} value={[gt(parent.hien_tuong_loi), parent.mo_ta_hien_tuong].filter(Boolean).join(" — ")} />
+              <InfoRow label={tr("Nhóm lỗi — Nguyên nhân")} value={[gt(parent.nhom_loi), gt(parent.nguyen_nhan_loi), parent.mo_ta_nguyen_nhan].filter(Boolean).join(" — ")} />
+              {parent.nhom_linh_kien && <InfoRow label={tr("Nhóm linh kiện")} value={gt(parent.nhom_linh_kien)} />}
+              <InfoRow label={tr("Cách thức xử lý")} value={[gt(parent.cach_thuc_xu_ly), parent.mo_ta_cach_xu_ly].filter(Boolean).join(" — ")} />
               {parent.ghi_chu && <InfoRow label={tr("Ghi chú")} value={parent.ghi_chu} />}
             </>
           ) : (
@@ -333,7 +334,7 @@ function Step({ label, main, desc, tone }: { label: string; main: string; desc?:
 }
 
 function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHanhOdooRow[]; onOpen: (o: DonBaoHanhOdooRow) => void }) {
-  const nguyenNhan = [p.nhom_loi, p.nguyen_nhan_loi].filter(Boolean).join(" — ");
+  const nguyenNhan = [gt(p.nhom_loi), gt(p.nguyen_nhan_loi)].filter(Boolean).join(" — ");
   const coDon = orders.length > 0;
   return (
     <Card className={`p-4 border-l-4 ${coDon ? "border-l-[var(--teal-500)]" : "border-l-slate-300"}`}>
@@ -348,21 +349,21 @@ function PartCard({ p, orders, onOpen }: { p: LinhKienLoiItem; orders: DonBaoHan
               <div className="text-xs text-[var(--ink-400)]">
                 {p.ma_linh_kien && <MaLinhKienLink ma={p.ma_linh_kien} ten={p.ten_linh_kien} className="font-mono" />}
                 {p.ma_linh_kien && p.nhom_linh_kien && " · "}
-                {p.nhom_linh_kien && <span>{tr("Nhóm LK:")} {p.nhom_linh_kien}</span>}
+                {p.nhom_linh_kien && <span>{tr("Nhóm LK:")} {gt(p.nhom_linh_kien)}</span>}
               </div>
             )}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           {coDon ? <Badge tone="teal">{tr("✓ Đã tạo đơn BH (")}{orders.length})</Badge> : <Badge tone="gray">{tr("Không tạo đơn BH")}</Badge>}
-          {p.nguon_goc_loi && <Badge tone={nguonGocTone(p.nguon_goc_loi)}>{p.nguon_goc_loi}</Badge>}
+          {p.nguon_goc_loi && <Badge tone={nguonGocTone(p.nguon_goc_loi)}>{gt(p.nguon_goc_loi)}</Badge>}
         </div>
       </div>
 
       <div className="space-y-2.5 border-l-2 border-[var(--line)] ml-3 pl-2">
-        <Step label={tr("Hiện tượng lỗi")} main={p.hien_tuong_loi} desc={p.mo_ta_hien_tuong} tone="bg-[var(--coral-500)]" />
+        <Step label={tr("Hiện tượng lỗi")} main={gt(p.hien_tuong_loi)} desc={p.mo_ta_hien_tuong} tone="bg-[var(--coral-500)]" />
         <Step label={tr("Nhóm lỗi — Nguyên nhân")} main={nguyenNhan} desc={p.mo_ta_nguyen_nhan} tone="bg-[var(--amber-500)]" />
-        <Step label={tr("Cách thức xử lý")} main={p.cach_thuc_xu_ly} desc={p.mo_ta_cach_xu_ly} tone="bg-[var(--teal-500)]" />
+        <Step label={tr("Cách thức xử lý")} main={gt(p.cach_thuc_xu_ly)} desc={p.mo_ta_cach_xu_ly} tone="bg-[var(--teal-500)]" />
       </div>
       {p.ghi_chu && <GhiChuBox className="mt-2 ml-3" label={tr("Ghi chú:")}>{p.ghi_chu}</GhiChuBox>}
 

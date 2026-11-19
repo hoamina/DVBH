@@ -215,7 +215,7 @@ export function ThongSoNuocStrip({ c }: { c: CaseRow | null | undefined }) {
   return (
     <div className="mb-3 rounded-lg border border-[var(--line)] px-3 py-2 text-sm">
       <div className="text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">{tr("Thông số nước tại nhà KH")}</div>
-      <div>{[n.nguon_nuoc, ...tds].filter(Boolean).join(" · ")}</div>
+      <div>{[gt(n.nguon_nuoc), ...tds].filter(Boolean).join(" · ")}</div>
     </div>
   );
 }
