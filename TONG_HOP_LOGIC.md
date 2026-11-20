@@ -105,13 +105,17 @@ Phạm vi gốc "Tất cả quốc gia" chỉ còn dòng hệ thống: `canh_bao
 vi NSKX / Không NSKX không gắn nước thôi chốt. Cache báo cáo `rpt:%` quá 7 ngày (giữ ≤ 1000 khoá mới nhất) được dọn ở bảng gốc **và mọi bản sao
 theo phạm vi** sau mỗi lần import.
 
+**Lưu số chốt 08:00 (v1.647):** giữ đầy đủ 35 ngày gần nhất. Ngày cũ hơn được thu gọn lúc 03:00 VN (`lib/thuGonSnapshot.ts`): chỉ còn tổng
+tồn, tồn trên 3/5/7/14 ngày và số theo khu vực (đủ cho biểu đồ "Số ca tồn theo mốc thời gian"), bỏ danh sách ID ca; dòng `canh_bao_ton|all`
+giữ nguyên. Không tra lại được danh sách ca của một ngày quá 35 ngày.
+
 ## 8. Lịch chạy tự động (UTC, `wrangler.smarttrade.jsonc`)
 
 | Lịch | Việc |
 |---|---|
 | `0 1-11 * * *` (8h–18h VN) | Tự chữa ảnh chụp R2 ca đã đóng, làm mới ca lặp, làm ấm cache báo cáo, kéo tồn kho LK |
 | `30,40 0,10 * * *`, `15,20,25 10 * * *` | Chốt báo cáo ngày / các đợt thử lại |
-| `0 20 * * *` (03:00 VN) | Lưu trữ ca hoàn thành quá 3 tháng (ca tồn giữ vĩnh viễn, log giữ vĩnh viễn) |
+| `0 20 * * *` (03:00 VN) | Đồng bộ vi phạm từ Sheet QC; thu gọn số chốt 08:00 cũ hơn 35 ngày; ngày 1: lưu trữ ca hoàn thành quá 3 tháng (ca tồn giữ vĩnh viễn, log giữ vĩnh viễn) |
 | 3 lần / ngày | Đồng bộ 4 Google Sheet cũ (giải trình, giải trình lặp, khảo sát, nạp gas) |
 
 ## 9. Kết nối hệ khác

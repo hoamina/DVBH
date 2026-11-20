@@ -41,6 +41,7 @@ import { warmDefaultReports } from "./lib/reportWarmup";
 import { retryLuongDoiTraSnapshot } from "./lib/canhBaoTon";
 import { chotNhom, chotBuNeuThieu, nhomTheoPhut, tatCaNhom } from "./lib/chotTon";
 import { autoLogCaKetThucTrongNgay } from "./lib/autoLogCaKetThuc";
+import { thuGonSnapshotCu } from "./lib/thuGonSnapshot";
 import { autoLogGiaiTrinhQuaTranhChap } from "./lib/canhBaoCap2GiaiTrinh";
 import { phamViMiddleware } from "./lib/phamVi";
 import { chotGiaiTrinhNhom, retryLuongDoiTraPhamVi, envVn } from "./lib/phamViChot";
@@ -281,6 +282,13 @@ export default {
 
     if (event.cron === VI_PHAM_SHEET_SYNC_CRON) {
       await runSheetSync("vi_pham_ngoai", () => syncViPhamFromSheet(env, VI_PHAM_SHEET_SYNC_ACTOR_EMAIL));
+      // Thu gon so chot 08:00 cu hon 35 ngay (lib/thuGonSnapshot.ts, v1.647) - 03:00 VN, ngoai gio lam.
+      try {
+        const n = await thuGonSnapshotCu(env);
+        if (n > 0) console.log(`[thu-gon-snapshot] da thu gon ${n} dong`);
+      } catch (err) {
+        console.error("[thu-gon-snapshot] loi:", err instanceof Error ? err.message : String(err));
+      }
       // Archive gop chung vao day (truoc la ARCHIVE_CRON rieng "0 20 1 * *") - guard bang ngay UTC
       // thay vi truong "ngay" cua cron de giu dung lich cu "ngay 1 UTC = 03h VN ngay 2", van chi
       // chay 1 lan/thang du entry cron nay fire moi ngay.

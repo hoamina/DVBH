@@ -6267,3 +6267,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - (3) chưa làm, chỉ phân tích: snapshot ngày cũ chỉ còn biểu đồ "Số ca tồn theo mốc thời gian" (`/cases/ton-trend`, đọc các số tổng +
   `khuVucReportRows`) đọc; xoá hẳn sẽ mất lịch sử biểu đồ đó → phương án an toàn là thu gọn payload ngày cũ (bỏ mảng `ids`), chờ chủ hệ thống chốt.
 - Kiểm thử: typecheck backend; 2 migration chạy được trên D1 local.
+
+## 2026-11-20 — v1.647: thu gọn số chốt 08:00 cũ hơn 35 ngày
+
+- Yêu cầu: sau phân tích mục 3 (xoá hẳn sẽ mất lịch sử biểu đồ "Số ca tồn theo mốc thời gian") → "Thu gọn, giữ 35 ngày".
+- Làm: `lib/thuGonSnapshot.ts thuGonSnapshotCu` — mỗi đêm 03:00 VN (cron `0 20 * * *`, chung với đồng bộ vi phạm), trên bảng gốc + mọi bảng
+  theo nước: dòng `daily_snapshot` có `ngay` quá 35 ngày (trừ `canh_bao_ton|all`, `chot_xong|all`) được ghi lại payload chỉ gồm
+  `backlogTongTon.count`, `backlogTren3/5/7/14`, `khuVucReportRows` + cờ `thuGon: 1`; lô 100 dòng, tuần tự từng bảng, tối đa 60 lô / bảng / đêm.
+- Kiểm thử local: thu gọn 100 dòng `daily_snapshot_vn` (08–10/2026): các số biểu đồ đọc (tổng, trên 7 ngày, `khuVucReportRows`) khớp 100%
+  trước/sau, `khuVucReportRows` vẫn là object; 6,3 MB → 0,29 MB. Typecheck backend.
+- Lần chạy đầu trên production: đêm 20→21/11 lúc 03:00 VN (chưa kiểm được lúc deploy).
