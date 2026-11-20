@@ -32,11 +32,11 @@ import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { useTonKhoTongHop, useLayTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
-import { shortKhuVuc, gopDongTheoKhuVuc, khuVucGop, soSanhNhom } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, gopDongTheoKhuVuc, khuVucGop, soSanhNhom, gopTheoKhuVuc, gopMapTheoKhuVuc, maGocTheoKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
-import { useDiaGioiIndex, useDiaGioiLoc, gopBangTheoTinh, soSanhTen, tachNhomDiaGioi, nhanTinh, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
+import { useDiaGioiIndex, useDiaGioiLoc, gopBangTheoTinh, congDong, soSanhTen, tachNhomDiaGioi, nhanTinh, NHAN_CAP_1, NHAN_CAP_2 } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
 import { dienGiaiGuiBh, hanBhCa, nhanGiaiDoanBh, nhanHanBh, tonDoiTraNgay } from "../lib/guiBhCa";
 
@@ -183,9 +183,15 @@ function BacklogAgeReportTab() {
   const [thang, setThang] = useState(currentMonth);
   const [dim, setDim] = useState("khu_vuc");
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState("avg");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  // Xem theo Khu vuc: mac dinh xep theo thu tu khu vuc co dinh (MB1-3, MN1-3, B2B, KDDV, SCVP); dim khac: TB tuoi ton giam dan.
+  const [sortBy, setSortBy] = useState("gia_tri");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const pageSize = 15;
+  const doiDim = (d: string) => {
+    setDim(d);
+    setSortBy(d === "khu_vuc" ? "gia_tri" : "avg");
+    setSortDir(d === "khu_vuc" ? "asc" : "desc");
+  };
 
   const { rows, months, isLoading, isError, refetch } = useBacklogAgeReport(thang);
   // Dim "tinh" (2026-10-10): gia_tri = cap tho (tinh, tinh_moi) tu snapshot moi / chi tinh cu o snapshot cu - gom theo
@@ -222,7 +228,9 @@ function BacklogAgeReportTab() {
     const map = new Map<string, AgeReportAggRow>();
     for (const r of rows) {
       if (r.dim !== dim || r.gia_tri === "__nhom_qldvbh__") continue;
-      const giaTri = dim === "tinh" ? nhanTinh(dgMode, dgIdx.tinh(dgMode, tachNhomDiaGioi(r.gia_tri))) : r.gia_tri;
+      // Khu vuc: gop ma la (B2B doi ma, CTV/TEST) ve khu vuc chuan - so chot cu van mang ten goc (2026-11-20).
+      const giaTri = dim === "tinh" ? nhanTinh(dgMode, dgIdx.tinh(dgMode, tachNhomDiaGioi(r.gia_tri))) : dim === "khu_vuc" ? khuVucGop(r.gia_tri) : r.gia_tri;
+      if (dim === "khu_vuc" && KHU_VUC_AN_KHOI_BAO_CAO.includes(giaTri)) continue;
       const cur = map.get(giaTri) ?? { gia_tri: giaTri, so_ca: 0, tong_tuoi: 0 };
       cur.so_ca += r.so_ca;
       cur.tong_tuoi += r.tong_tuoi;
@@ -231,7 +239,7 @@ function BacklogAgeReportTab() {
     const list = [...map.values()];
     list.sort((a, b) => {
       if (sortBy === "gia_tri") {
-        const c = dim === "tinh" ? soSanhTen(a.gia_tri, b.gia_tri) : a.gia_tri.localeCompare(b.gia_tri);
+        const c = dim === "tinh" ? soSanhTen(a.gia_tri, b.gia_tri) : soSanhNhom(a.gia_tri, b.gia_tri);
         return sortDir === "asc" ? c : -c;
       }
       const av = sortBy === "so_ca" ? a.so_ca : sortBy === "tong_tuoi" ? a.tong_tuoi : avgTuoiTon(a);
@@ -285,7 +293,7 @@ function BacklogAgeReportTab() {
         <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Tháng:")}</span>
         <Select value={thang} onChange={setThang} options={monthOptions} />
         <span className="text-xs font-semibold text-[var(--ink-400)] ml-2">Xem theo:</span>
-        <Select value={dim} onChange={setDim} options={AGE_REPORT_DIM_OPTIONS} />
+        <Select value={dim} onChange={doiDim} options={AGE_REPORT_DIM_OPTIONS} />
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <StatCard
@@ -1288,7 +1296,20 @@ export function BacklogModule({
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
   // Lay tu request gop o tren (truoc la query rieng, enabled: isFrozenEligible - khong du dieu kien thi coi nhu khong co).
-  const backlogDaily = isFrozenEligible ? manQlt?.backlogDaily : undefined;
+  // 2026-11-20: so chot theo khu vuc gop ma la (B2B ma cu/moi, CTV/TEST) ve khu vuc chuan -> 1 dong / khu vuc (truoc hien 2 dong "B2B MN").
+  const backlogDailyGoc = isFrozenEligible ? manQlt?.backlogDaily : undefined;
+  const backlogDaily = useMemo(
+    () =>
+      backlogDailyGoc
+        ? {
+            ...backlogDailyGoc,
+            byKhuVuc: gopMapTheoKhuVuc(backlogDailyGoc.byKhuVuc),
+            khuVucRows: Object.fromEntries(Object.entries(gopMapTheoKhuVuc(backlogDailyGoc.khuVucRows)).filter(([k]) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(k))),
+            byKhuVucMonthly: gopMapTheoKhuVuc(backlogDailyGoc.byKhuVucMonthly),
+          }
+        : undefined,
+    [backlogDailyGoc],
+  );
   // Bang thang tu log chot ngay; bo loc khu_vuc dung chung, khong phu thuoc snapshot 08:00.
   const [trendMonth, setTrendMonth] = useState(() => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7));
   const monthDays = daysInMonthList(trendMonth);
@@ -1357,11 +1378,16 @@ export function BacklogModule({
     enabled: isCanhBaoTonView,
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
-  const { data: canhBaoTonTrend } = useQuery({
+  const { data: canhBaoTonTrendGoc } = useQuery({
     queryKey: ["canh-bao-ton-daily-trend", khuVucFilter],
     queryFn: () => api.get<{ rows: CanhBaoTonTrendRow[] }>(`/cases/canh-bao-ton-daily-trend${buildQuery({ days: 14, khu_vuc: khuVucFilter })}`),
     enabled: isCanhBaoTonView,
   });
+  // 2026-11-20: gop khu vuc la ve khu vuc chuan nhu bang "Tỷ lệ giải trình theo ngày".
+  const canhBaoTonTrend = useMemo(
+    () => (canhBaoTonTrendGoc ? { rows: gopDongTheoKhuVuc(canhBaoTonTrendGoc.rows).filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)) } : undefined),
+    [canhBaoTonTrendGoc],
+  );
   // "Ngay loai tru" khoi luy ke/ty le thang - Chu nhat (quy tac cung) HOAC co trong danh sach Admin
   // them tay (khu_vuc "__ALL__" ap dung ca he thong) - dung de to mau khac trong bang "Ty le giai
   // trinh theo ngay", KHOP DUNG logic backend (buildNgayExcludedChecker trong dailySnapshot.ts).
@@ -1451,7 +1477,14 @@ export function BacklogModule({
       .sort((a, b) => soSanhNhom(a.nhom, b.nhom));
   }, [showDailyCols, backlogDaily]);
   // CHOT 2026-08-01: cot dau tien (nhom) sap A-Z - ap dung du nguon la dong bang hay song.
-  const liveKhuVucRows = khuVucStats?.rows ?? [];
+  const liveKhuVucRowsGoc = khuVucStats?.rows ?? [];
+  const liveKhuVucRows =
+    reportDim === "khu_vuc" ? gopTheoKhuVuc(liveKhuVucRowsGoc, (r) => r.nhom, (ds, k) => congDong(ds, { nhom: k }), KHU_VUC_AN_KHOI_BAO_CAO) : liveKhuVucRowsGoc;
+  // Bam 1 dong khu vuc da gop -> loc theo MOI ma goc cua no (vd ca 2 ma B2B Mien Nam).
+  const maGocKv = useMemo(
+    () => maGocTheoKhuVuc([...liveKhuVucRowsGoc.map((r) => r.nhom), ...Object.keys(backlogDailyGoc?.khuVucRows ?? {})]),
+    [liveKhuVucRowsGoc, backlogDailyGoc],
+  );
   const displayKhuVucRows: KhuVucRow[] =
     reportDim === "tinh" && !showDailyCols
       ? gopBangTheoTinh(liveKhuVucRows, dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
@@ -1612,7 +1645,7 @@ export function BacklogModule({
   // nen danh sach cung doc song (khong doc tap ID chot 08:00).
   function drillDown(value: string | null, nhom: string, tuoiTu?: string) {
     if (reportDim === "khu_vuc" && value !== null) {
-      setKhuVucFilter(value);
+      setKhuVucFilter(maGocKv[value] ?? value);
     }
     goToDanhSach(nhom, tuoiTu);
     if (reportDim !== "khu_vuc") {

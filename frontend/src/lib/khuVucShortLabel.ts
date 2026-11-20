@@ -60,8 +60,12 @@ export const KHU_VUC_GOP: Record<string, string> = {
   "(gskv.test) GS Khu Vực-TEST": "(teamkdbl.krf) Kinh doanh bán lẻ KRF",
 };
 
+// Gia tri ghi thang bang ten rut gon ("MB2", "B2B MN"...) -> ten day du (khu vuc chuan dau tien co nhan do).
+const TEN_DAY_DU_THEO_NHAN: Record<string, string> = {};
+for (const [goc, nhan] of Object.entries(KHU_VUC_SHORT_LABELS)) if (!(nhan in TEN_DAY_DU_THEO_NHAN) && !(goc in KHU_VUC_GOP)) TEN_DAY_DU_THEO_NHAN[nhan] = goc;
+
 export function khuVucGop(raw: string): string {
-  return KHU_VUC_GOP[raw] ?? raw;
+  return KHU_VUC_GOP[raw] ?? TEN_DAY_DU_THEO_NHAN[raw] ?? raw;
 }
 
 /** Gop cac dong { khu_vuc, days: [{ ngay, ...so }] } co cung khu vuc chuan - cong cac cot so theo tung ngay. */
@@ -83,4 +87,42 @@ export function gopDongTheoKhuVuc<D extends { ngay: string }, R extends { khu_vu
     }
   }
   return [...theo.values()];
+}
+
+/** Gop cac dong bao cao THEO KHU VUC co cung khu vuc chuan (khuVucGop) thanh 1 dong (2026-11-20, chu he thong: "báo cáo có lựa chọn
+ * khu vực đang nhảy nhầm khu vực"). `cong(nhom, kvChuan)` cong cac dong cua 1 nhom (tinh lai ty le tu tu/mau). Dong tra ve co `_kv` =
+ * cac ma goc noi bang dau phay (backend khuVucAdHocClause nhan nhieu gia tri) - dung khi bam dong de loc / drill-down, khong mat ca cua
+ * ma cu. Nhom chi 1 dong giu nguyen dong goc (chi doi khu_vuc ve ma chuan qua `cong`). Bo khu vuc an khoi bao cao sau khi gop
+ * (vd "(gskv.test)" -> KRF ban le). Ket qua da xep theo thu tu co dinh (soSanhNhom). */
+export function gopTheoKhuVuc<T>(rows: T[], layKv: (r: T) => string, cong: (nhom: T[], kvChuan: string) => T, anKhoi: readonly string[] = []): (T & { _kv: string })[] {
+  const theo = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = khuVucGop(layKv(r) ?? "");
+    const ds = theo.get(k);
+    if (ds) ds.push(r);
+    else theo.set(k, [r]);
+  }
+  return [...theo.entries()]
+    .filter(([k]) => !anKhoi.includes(k))
+    .map(([k, ds]) => ({ ...(ds.length === 1 && layKv(ds[0]) === k ? ds[0] : cong(ds, k)), _kv: [...new Set(ds.map(layKv))].join(",") }))
+    .sort((a, b) => soSanhNhom(layKv(a), layKv(b)));
+}
+
+/** Gop 1 map { khu_vuc goc: {so...} } theo khu vuc chuan - cong cac truong so (nong). Dung cho payload so chot theo khu vuc. */
+export function gopMapTheoKhuVuc<V extends object>(map: Record<string, V> | undefined): Record<string, V> {
+  const out: Record<string, V> = {};
+  for (const [kv, v] of Object.entries(map ?? {})) {
+    const k = khuVucGop(kv);
+    const cu = out[k] as Record<string, unknown> | undefined;
+    if (!cu) { out[k] = { ...v }; continue; }
+    for (const [f, x] of Object.entries(v as Record<string, unknown>)) if (typeof x === "number") cu[f] = (Number(cu[f]) || 0) + x;
+  }
+  return out;
+}
+
+/** { khu vuc chuan: "ma goc 1,ma goc 2" } tu danh sach ma goc - de bam 1 dong da gop van loc dung ca cac ma cu. */
+export function maGocTheoKhuVuc(dsGoc: Iterable<string>): Record<string, string> {
+  const theo: Record<string, Set<string>> = {};
+  for (const g of dsGoc) (theo[khuVucGop(g)] ??= new Set()).add(g);
+  return Object.fromEntries(Object.entries(theo).map(([k, s]) => [k, [...s].join(",")]));
 }

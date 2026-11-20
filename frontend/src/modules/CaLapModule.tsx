@@ -25,7 +25,8 @@ import {
 } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useExportRunner } from "../hooks/useExportRunner";
-import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, gopTheoKhuVuc } from "../lib/khuVucShortLabel";
+import { congDong } from "../lib/diaGioi";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { trangThaiLapOf, trangThaiKeyOf } from "../lib/caLapStatus";
 import { fetchWithHashCache } from "../lib/staticListCache";
@@ -192,7 +193,11 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
 
   // Cot dau tien sap A-Z (chi bang "Bao cao theo khu vuc" - bang "10 KTV co nhieu ca lap nhat" ben
   // duoi la bang xep hang, khong sap A-Z).
-  const sortedKhuVucRows = [...(tq?.khuVuc ?? [])].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
+  // 2026-11-20: gop ma khu vuc la (B2B ma cu/moi, CTV/TEST) ve khu vuc chuan, _dg = cac ma goc (bam dong loc du ca 2 ma).
+  const sortedKhuVucRows = gopTheoKhuVuc(tq?.khuVuc ?? [], (r) => r.nhom, (ds, k) => {
+    const g = congDong(ds, { nhom: k });
+    return { ...g, ty_le_serial_sai: g.raSoat ? Math.round((g.serial_sai / g.raSoat) * 1000) / 10 : 0 };
+  });
 
   // Danh sach ca lap tach lam 2 phan (xem backend/src/routes/caLap.ts): "list" ON DINH (cache theo
   // hash /ca-lap/version, chi doi khi import/blacklist kich hoat tinh lai) + "status" DONG (giai_trinh_lap,

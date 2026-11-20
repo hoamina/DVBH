@@ -21,12 +21,12 @@ import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { exportRowsToExcel } from "../lib/exportExcel";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, gopTheoKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { ImportUploader } from "../components/ImportUploader";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
-import { useDiaGioiLoc, useOnDiaGioiModeChange, NHAN_CAP_1 } from "../lib/diaGioi";
+import { useDiaGioiLoc, useOnDiaGioiModeChange, NHAN_CAP_1, congDong } from "../lib/diaGioi";
 import { TRANG_THAI_LUONG, CA_MOI_GAN, fmtVn } from "../components/LuongMailPanel";
 import {
   TRANG_THAI_LABELS,
@@ -773,6 +773,8 @@ export function TranhChapModule({
     queryFn: () => api.get<{ rows: TranhChapKhuVucReportRow[] }>(`/tranh-chap/bao-cao-khu-vuc${buildQuery({ thang: thangFilter })}`),
     enabled: view === "cho-xu-ly",
   });
+  // 2026-11-20: gop ma khu vuc la (B2B ma cu/moi, CTV/TEST) ve khu vuc chuan; bam dong loc theo moi ma goc (_kv).
+  const reportRowsGop = useMemo(() => gopTheoKhuVuc(reportData?.rows ?? [], (r) => r.khu_vuc ?? "", (ds, k) => congDong(ds, { khu_vuc: k || null })), [reportData]);
 
   const totals = useMemo(() => {
     const rows = reportData?.rows ?? [];
@@ -1092,6 +1094,7 @@ export function TranhChapModule({
     queryFn: () => api.get<{ rows: { khu_vuc: string | null; dang_mo: number; qua_han: number }[] }>("/tranh-chap/doi-may/theo-khu-vuc"),
     enabled: view === "doi-may",
   });
+  const dmKhuVucRowsGop = useMemo(() => gopTheoKhuVuc(dmKhuVucReport?.rows ?? [] as { khu_vuc: string | null; dang_mo: number; qua_han: number }[], (r) => r.khu_vuc ?? "", (ds, k) => congDong(ds, { khu_vuc: k || null })), [dmKhuVucReport]);
 
   const { data: dmTaiKhoanTon, isLoading: dmTaiKhoanTonLoading } = useQuery({
     queryKey: ["tranh-chap-doi-may-tai-khoan-ton", dmKhuVuc],
@@ -1281,17 +1284,17 @@ export function TranhChapModule({
                         <td className="py-2 px-2 text-center font-mono">{totals.qgkn_dang_xu_ly}</td>
                         <td className="py-2 px-2 text-center font-mono">{totals.qgkn_da_dong}</td>
                       </tr>
-                      {reportData.rows.map((r, idx) => {
+                      {reportRowsGop.map((r, idx) => {
                         // background-color tren <tr> khong dam bao ve dung o moi trinh duyet (da kiem
                         // chung thuc te: rule CSS dung, nhung <tr> khong ap dung, ke ca voi style inline)
                         // - to nen tung <td> thay vi ca hang de chac chan hien thi dung moi noi.
-                        const cellStyle = khuVucFilter === r.khu_vuc ? { backgroundColor: "var(--ocean-100)" } : undefined;
+                        const cellStyle = khuVucFilter === r._kv ? { backgroundColor: "var(--ocean-100)" } : undefined;
                         return (
                           <tr
                             key={r.khu_vuc ?? idx}
                             onClick={() => {
                               if (r.khu_vuc) {
-                                setKhuVucFilter(r.khu_vuc);
+                                setKhuVucFilter(r._kv);
                                 setPage(1);
                               }
                             }}
@@ -1444,14 +1447,14 @@ export function TranhChapModule({
                       </tr>
                     </thead>
                     <tbody>
-                      {dmKhuVucReport.rows.map((r, idx) => {
-                        const cellStyle = dmKhuVuc === r.khu_vuc ? { backgroundColor: "var(--ocean-100)" } : undefined;
+                      {dmKhuVucRowsGop.map((r, idx) => {
+                        const cellStyle = dmKhuVuc === r._kv ? { backgroundColor: "var(--ocean-100)" } : undefined;
                         return (
                           <tr
                             key={r.khu_vuc ?? idx}
                             onClick={() => {
                               if (r.khu_vuc) {
-                                setDmKhuVuc(r.khu_vuc);
+                                setDmKhuVuc(r._kv);
                                 setDmPage(1);
                               }
                             }}

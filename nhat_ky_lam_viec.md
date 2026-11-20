@@ -6202,3 +6202,18 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   được đưa vào tab (trước chỉ lấy theo ID CRM / mã LK thiếu). Không thêm API (dùng dữ liệu PO + đơn LK + giải trình đã tải).
 - Kiểm thử: local giả lập 4 PO cho ca TESTPERF3 (cùng ID ca / trùng DDH của đơn LK nhưng mã thay thế / chỉ cùng mã LK / không liên quan) → 2 PO
   liên quan lên đầu đúng lý do, PO mã thay thế được thêm, PO không liên quan không xuất hiện.
+
+## 2026-11-20 — v1.642: gộp khu vực lạ trên mọi báo cáo theo khu vực + "Báo cáo theo ngành" thành tab của Tổng quát
+
+- Yêu cầu 1: "kiểm tra tất cả các báo cáo có lựa chọn khu vực đang nhảy nhầm khu vực => fix" (ảnh Quản lý tồn > Tuổi tồn TB: hiện dòng
+  "(teamkdbl.krf)…", "(gskv.test)…", "(huydg.bn-mb) CTV…", SCVP đứng trước MB1).
+- Nguyên nhân: CRM đang dùng 4 mã B2B (cũ + mới, cả 2 đều đang gán cho Giám sát nên không đổi dữ liệu) → nhiều báo cáo hiện 2 dòng "B2B MB"/"B2B MN";
+  số chốt theo ngày (tuổi tồn, cảnh báo tồn) còn mang tên tài khoản CTV/TEST cũ. Chỉ Tổng quát pivot + "Tỷ lệ giải trình theo ngày" đã gộp.
+- Làm: `lib/khuVucShortLabel.ts` thêm `gopTheoKhuVuc` (gộp dòng, tính lại tỷ lệ, `_kv` = các mã gốc để bấm dòng lọc đủ), `gopMapTheoKhuVuc`
+  (payload số chốt), `maGocTheoKhuVuc`; `khuVucGop` nhận cả giá trị ghi bằng tên rút gọn ("MB2" → MB2 đầy đủ). Áp cho: Quản lý tồn (bảng tồn theo
+  khu vực sống + số chốt 08:00, Tuổi tồn TB — mặc định xếp theo thứ tự khu vực, bỏ khu vực ẩn —, lịch sử Cảnh báo tồn, Lý do giải trình theo tháng,
+  Tồn theo KTV), Quản lý khảo sát, Ca thiếu LK, Nạp gas, Ca lặp, Doanh thu, QL NSKX, Báo cáo vi phạm (đa chiều), Tranh chấp (2 bảng khu vực), Lũy kế,
+  dòng danh sách khu vực ở Báo cáo nhanh Tổng quát.
+- Yêu cầu 2 (giữa phiên): "đẩy báo cáo ngành hàng thành tab trong menu tổng quát" → bỏ menu riêng v1.640 (nav, App, moduleAccess), Tổng quát có 2 tab
+  "Tổng quát" / "Báo cáo theo ngành" (nhớ tab trên máy, tab ngành không chạy truy vấn của Tổng quát).
+- Kiểm thử local: typecheck + build; Tuổi tồn TB ra 11 dòng MB1→SCVP MN, 1 dòng MB2 (trước 2), B2B gộp; tab ngành hiện, menu riêng không còn.

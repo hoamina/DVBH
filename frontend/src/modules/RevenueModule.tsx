@@ -11,7 +11,8 @@ import { api, buildQuery } from "../api/client";
 import { fmtVND } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom, gopTheoKhuVuc } from "../lib/khuVucShortLabel";
+import { congDong } from "../lib/diaGioi";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { useDiaGioiIndex, nhanTinh, soSanhTen, NHAN_CAP_1, DIA_GIOI_LABEL } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
@@ -56,7 +57,11 @@ export function RevenueModule() {
     queryKey: ["revenue-khuvuc", filterParams],
     queryFn: () => api.get<RevenueByDim>(`/revenue${buildQuery({ ...filterParams, dim: "khu_vuc" })}`),
   });
-  const byKhuVuc = byKhuVucQ.data;
+  // 2026-11-20: gop ma khu vuc la (B2B ma cu/moi) ve khu vuc chuan, xep theo thu tu khu vuc co dinh.
+  const byKhuVuc = useMemo(
+    () => (byKhuVucQ.data ? { ...byKhuVucQ.data, byDim: gopTheoKhuVuc(byKhuVucQ.data.byDim, (r) => r.nhom, (ds, k) => congDong(ds, { nhom: k })) } : undefined),
+    [byKhuVucQ.data],
+  );
   const byHangQ = useQuery({
     queryKey: ["revenue-hang", filterParams],
     queryFn: () => api.get<RevenueByDim>(`/revenue${buildQuery({ ...filterParams, dim: "hang" })}`),

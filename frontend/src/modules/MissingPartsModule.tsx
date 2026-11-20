@@ -25,7 +25,7 @@ import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom, gopTheoKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
 import { useToast } from "../components/ui/Toast";
@@ -667,7 +667,9 @@ export function MissingPartsModule({
       ? gomTheoDiaGioi(khuVucStats?.rows ?? [], (r) => r.nhom, diaGioi.mode, diaGioi.idx)
           .map((g) => ({ ...congDong(g.rows, { nhom: g.label }), so_ma_linh_kien: g.rows.length === 1 ? g.rows[0].so_ma_linh_kien : null, _dg: g.value }))
           .sort((a, b) => soSanhTen(a.nhom, b.nhom))
-      : [...(khuVucStats?.rows ?? [])].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
+      : reportDim === "khu_vuc"
+        ? gopTheoKhuVuc<Omit<KhuVucRow, "so_ma_linh_kien"> & { so_ma_linh_kien: number | null }>(khuVucStats?.rows ?? [], (r) => r.nhom, (ds, k) => ({ ...congDong(ds, { nhom: k }), so_ma_linh_kien: ds.length === 1 ? ds[0].so_ma_linh_kien : null })).map((r) => ({ ...r, _dg: r._kv }))
+        : [...(khuVucStats?.rows ?? [])].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
 
   function drillDown(value: string, opts?: { tuoiTu?: string; tuoiDen?: string }) {
     if (reportDim === "khu_vuc") {

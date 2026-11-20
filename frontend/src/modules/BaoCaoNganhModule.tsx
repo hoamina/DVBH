@@ -1,7 +1,7 @@
-// Menu rieng "Báo cáo theo ngành" (2026-11-20, chu he thong: "tách menu riêng" cho nhan vien lay so nhanh). Dung lai nguyen
+// Tab "Báo cáo theo ngành" trong menu Tong quat (2026-11-20, chu he thong; v1.640 la menu rieng, nay thanh tab). Dung lai nguyen
 // components/BaoCaoNganhCard (cung API GET /dashboard/bao-cao-nganh); man nay chi them o chon ky Tháng / Tuần + cong tac SLA cu/moi
 // NGAY TREN BAO CAO. Ky + bo loc Ngành / Hãng / Khu vực deu luu tren may (localStorage, khoa rieng "filters:bao-cao-nganh-*").
-// Quyen: ai xem duoc "dashboard" thi tu co menu nay (App.tsx + backend moduleAccess.effectiveModules).
+// Quyen: theo menu Tong quat (dashboard).
 import { Select } from "../components/ui/Select";
 import { BaoCaoNganhCard } from "../components/BaoCaoNganhCard";
 import { SlaCheDoToggle, useSlaCheDo } from "../components/SlaCheDoToggle";

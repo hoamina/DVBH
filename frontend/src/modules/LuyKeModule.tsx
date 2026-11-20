@@ -17,7 +17,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useLuyKeChunked, type LuyKeRow } from "../hooks/useLuyKeChunked";
 import { exportRowsToExcel } from "../lib/exportExcel";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, khuVucGop } from "../lib/khuVucShortLabel";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../constants";
 import { LuyKeTocDoMien } from "../components/LuyKeTocDoMien";
 import { tr } from "../i18n/tr";
@@ -282,7 +282,11 @@ export function LuyKeModule() {
   // kh_vip trong JSON R2 cu (undefined), va cac thang import ngay luc chua sua lai quy tac (co the
   // luu "" rong) - ca 2 truong hop deu quy ve nhan "KH thường" (CHOT: khong con de rong).
   const rows = useMemo(
-    () => rawRows.filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)).map((r) => ({ ...r, kh_vip: r.kh_vip || "KH thường" })),
+    // 2026-11-20: gop ma khu vuc la (B2B ma cu/moi, CTV/TEST) ve khu vuc chuan truoc moi tinh toan (loc, bieu do, bang).
+    () =>
+      rawRows
+        .map((r) => ({ ...r, khu_vuc: khuVucGop(r.khu_vuc ?? ""), kh_vip: r.kh_vip || "KH thường" }))
+        .filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)),
     [rawRows],
   );
   // "v2" (CHOT 2026-08-28): doi tu Select don ("__ALL__" sentinel) sang MultiSelectFilter (chuoi gia

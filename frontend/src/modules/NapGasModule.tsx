@@ -16,10 +16,10 @@ import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE } from "../constants";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom, gopTheoKhuVuc } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
-import { useDiaGioiLoc, gopBangTheoTinh, soSanhTen } from "../lib/diaGioi";
+import { useDiaGioiLoc, gopBangTheoTinh, congDong, soSanhTen } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
 
 interface NapGasCase {
@@ -131,7 +131,9 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
   const sortedKhuVucRows: (KhuVucRow & { _dg?: string })[] =
     reportDim === "tinh"
       ? gopBangTheoTinh(khuVucStats?.rows ?? [], diaGioi.mode, diaGioi.idx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
-      : [...(khuVucStats?.rows ?? [])].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
+      : reportDim === "khu_vuc"
+        ? gopTheoKhuVuc(khuVucStats?.rows ?? [], (r) => r.nhom, (ds, k) => congDong(ds, { nhom: k })).map((r) => ({ ...r, _dg: r._kv }))
+        : [...(khuVucStats?.rows ?? [])].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
 
   const tongQuanKpi = sortedKhuVucRows.reduce(
     (acc, r) => ({ tong: acc.tong + r.tong, daDanhGia: acc.daDanhGia + r.da_danh_gia, chuaDanhGia: acc.chuaDanhGia + r.chua_danh_gia }),

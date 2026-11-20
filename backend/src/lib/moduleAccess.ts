@@ -30,7 +30,7 @@ const TAM_TAT_MODULES = ["dat-mua-lk", "tra-hang"];
 // (lib/phamVi.ts). Gia tri cu con sot trong users.modules khong anh huong (khong con module/route nao).
 // "ql-nskx" (2026-11-11): menu QL NSKX - Admin/Viewer/QC/Giam sat/TBP DVBH (GS xac nhan loi loc khu vuc minh).
 export const DEFAULT_MODULES_BY_ROLE: Record<VaiTro, string[]> = {
-  Admin: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "bao-cao-nganh", "ca-lap", "danh-sach-tong", "ql-nskx", "danh-muc-lk", "import", "settings", "users", "sua-doanh-thu", "giao-dien"],
+  Admin: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "danh-muc-lk", "import", "settings", "users", "sua-doanh-thu", "giao-dien"],
   Viewer: ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "ca-lap", "danh-sach-tong", "ql-nskx", "sua-doanh-thu", "giao-dien"],
   QC: ["dashboard", "backlog", "missing-parts", "tranh-chap", "nap-gas", "survey", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "sua-doanh-thu", "giao-dien"],
   "Giam sat": ["dashboard", "revenue", "luy-ke", "backlog", "missing-parts", "tranh-chap", "nap-gas", "bao-cao-vi-pham", "ca-lap", "danh-sach-tong", "ql-nskx", "sua-doanh-thu", "giao-dien"],
@@ -66,8 +66,6 @@ export function effectiveModules(user: AppUser): string[] {
   if (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh) {
     mods = [...new Set([...mods, "dat-mua-lk", "tra-hang"])];
   }
-  // "bao-cao-nganh" (2026-11-20, menu "Báo cáo theo ngành"): cap tu dong cho ai co "dashboard" (cung API /dashboard/bao-cao-nganh).
-  if (mods.includes("dashboard")) mods = [...new Set([...mods, "bao-cao-nganh"])];
   if (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk) {
     mods = [...new Set([...mods, "danh-muc-lk"])];
   }

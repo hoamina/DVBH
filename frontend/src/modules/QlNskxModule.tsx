@@ -25,7 +25,8 @@ import { useExportRunner } from "../hooks/useExportRunner";
 import { useAuth } from "../auth/AuthContext";
 import { DatLoiNskxModal } from "../components/DatLoiNskxModal";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom, gopTheoKhuVuc } from "../lib/khuVucShortLabel";
+import { congDong } from "../lib/diaGioi";
 import { parseLinhKienLoi } from "../components/LoiLinhKienPanel";
 import { TT_DON, TT_LOI_LOC, parseJsonArr as parseJson, laLoi, deXuatLoi as deXuatLoiTu, type LoiDaThay } from "../components/NskxPanel";
 import { useDiaGioiIndex, useDiaGioiLoc, NHAN_CAP_1 } from "../lib/diaGioi";
@@ -162,7 +163,8 @@ export function QlNskxModule({ openCase, headerExtra }: { openCase: (id: string,
 
   function drill(nhom: string | null, dim: "khu_vuc" | "ktv", ttDon?: string) {
     const next: Record<string, LocCot> = {};
-    if (nhom !== null) next[dim === "ktv" ? "ky_thuat_vien" : "khu_vuc"] = { in: [nhom === "" ? GIA_TRI_TRONG : nhom] };
+    // khu_vuc: dong da gop gui "ma goc 1,ma goc 2" (gopTheoKhuVuc) -> loc theo moi ma goc.
+    if (nhom !== null) next[dim === "ktv" ? "ky_thuat_vien" : "khu_vuc"] = { in: nhom === "" ? [GIA_TRI_TRONG] : dim === "ktv" ? [nhom] : nhom.split(",") };
     if (ttDon === "da_hoan_thanh") next.trang_thai = { in: ["Đã hoàn thành"] };
     else if (ttDon === "chua_danh_gia") next.tt_loi_loc = { in: ["chua_danh_gia"] };
     else if (ttDon) next.tt_don = { in: [ttDon] };
@@ -592,14 +594,17 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
         ? { ...r, dung_han: r.dung_han_moi ?? 0, co_tinh_sla: r.co_tinh_sla_moi ?? 0, duoi_24h: r.duoi_24h_moi ?? 0, co_tinh_24h: r.co_tinh_24h_moi ?? 0 }
         : r,
     );
-    const loc = goc.filter((r) => !q || boDau(r.nhom ?? "").includes(q));
+    // 2026-11-20: xem theo Khu vuc -> gop ma la (B2B ma cu/moi, CTV/TEST) ve khu vuc chuan.
+    const gop: (BaoCaoRow & { _kv?: string })[] =
+      dim === "khu_vuc" ? gopTheoKhuVuc(goc, (r) => r.nhom ?? "", (ds, k) => congDong(ds, { nhom: k, khu_vuc: k })) : goc;
+    const loc = gop.filter((r) => !q || boDau(r.nhom ?? "").includes(q));
     return [...loc].sort((a, b) => {
       const x = giaTri(a, sapXep.cot);
       const y = giaTri(b, sapXep.cot);
       const s = sapXep.cot === "nhom" ? soSanhNhom(a.nhom, b.nhom) : typeof x === "string" ? x.localeCompare(String(y), "vi") : x - (y as number);
       return sapXep.chieu === "asc" ? s : -s;
     });
-  }, [data, timNhom, sapXep, sla.apDung]);
+  }, [data, timNhom, sapXep, sla.apDung, dim]);
   const tong = useMemo(() => {
     const t: BaoCaoRow = { nhom: null, khu_vuc: null, tong_ca: 0, da_hoan_thanh: 0, duoi_24h: 0, co_tinh_24h: 0, dung_han: 0, co_tinh_sla: 0, da_dat_loi: 0, khong_thay_loi: 0, chua_dat_loi: 0, khong_ap_dung: 0, chua_danh_gia: 0 };
     for (const r of rows) for (const k of Object.keys(t) as (keyof BaoCaoRow)[]) if (typeof r[k] === "number") (t[k] as number) += r[k] as number;
@@ -622,7 +627,7 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
     if (c.cot === "ty_sla") return pct(r.dung_han, r.co_tinh_sla);
     const v = r[c.cot as keyof BaoCaoRow] as number;
     return (
-      <button type="button" className="hover:underline text-[var(--ocean-700)]" onClick={() => onDrill(laTong ? null : (r.nhom ?? ""), dim, c.cot === "tong_ca" ? undefined : c.tt)}>
+      <button type="button" className="hover:underline text-[var(--ocean-700)]" onClick={() => onDrill(laTong ? null : ((r as { _kv?: string })._kv ?? r.nhom ?? ""), dim, c.cot === "tong_ca" ? undefined : c.tt)}>
         {v}
       </button>
     );

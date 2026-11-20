@@ -1,5 +1,5 @@
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "../components/ui/Card";
 import { StatCard } from "../components/ui/StatCard";
@@ -16,7 +16,8 @@ import { useExportRunner } from "../hooks/useExportRunner";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useAuth } from "../auth/AuthContext";
 import { QLDVBH_FILTER_VALUE, CURRENT_MONTH_VALUE } from "../constants";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, gopTheoKhuVuc } from "../lib/khuVucShortLabel";
+import { congDong } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
 
 const ALL_KHU_VUC = "Tất cả khu vực";
@@ -334,11 +335,30 @@ export function BaoCaoViPhamModule({ openCase }: { openCase: (id: string, tab?: 
       return r.tongQuan;
     },
   });
-  const { data: daChieu } = useQuery({
+  const { data: daChieuGoc } = useQuery({
     queryKey: ["bao-cao-vi-pham-da-chieu", apiParams, nhom],
     queryFn: () => api.get<{ rows: DaChieuRow[] }>(`/bao-cao-vi-pham/da-chieu${buildQuery({ ...apiParams, nhom })}`),
     enabled: tab === "da-chieu" && !!tongQuan,
   });
+  // 2026-11-20: phan tich theo Khu vuc -> gop ma la (B2B ma cu/moi, CTV/TEST) ve khu vuc chuan, tinh lai ty le tu tong.
+  const daChieu = useMemo(() => {
+    if (!daChieuGoc || nhom !== "khu_vuc") return daChieuGoc;
+    const p1 = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+    return {
+      rows: gopTheoKhuVuc(daChieuGoc.rows, (r) => r.nhom, (ds, k) => {
+        const g = congDong(ds, { nhom: k });
+        const coCaDong = ds[0].soCaDong !== null;
+        return {
+          ...g,
+          tongDiemThe: Math.round(g.tongDiemThe * 100) / 100,
+          tyLeDaChot: p1(g.soDaChot, g.soGhiNhan),
+          tyLeGiaiTrinh: p1(g.soKtvGiaiTrinh + g.soGsGiaiTrinh, g.soGhiNhan),
+          soCaDong: coCaDong ? ds.reduce((a, r) => a + (r.soCaDong ?? 0), 0) : null,
+          tyLeChotLoi: coCaDong ? p1(g.soDaChot, ds.reduce((a, r) => a + (r.soCaDong ?? 0), 0)) : null,
+        };
+      }),
+    };
+  }, [daChieuGoc, nhom]);
   const { data: diemThe } = useQuery({
     queryKey: ["bao-cao-vi-pham-diem-the", apiParams],
     queryFn: () => api.get<{ rows: DiemTheRow[] }>(`/bao-cao-vi-pham/diem-the${buildQuery(apiParams)}`),

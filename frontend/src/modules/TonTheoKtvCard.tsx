@@ -5,7 +5,7 @@ import { Btn } from "../components/ui/Btn";
 import { StatCard } from "../components/ui/StatCard";
 import { api, buildQuery } from "../api/client";
 import { exportRowsToExcel } from "../lib/exportExcel";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, khuVucGop } from "../lib/khuVucShortLabel";
 import { tr } from "../i18n/tr";
 
 // "So ca ton theo KTV" (Quan ly ton > Bao cao, CHOT 2026-10-03) - doc GET /cases/ton-ktv (chot chet
@@ -109,7 +109,7 @@ export function TonTheoKtvCard({ khuVucFilter, filterLabel }: { khuVucFilter: st
         case "ktv":
           return tenKtv(r.ktv);
         case "khu_vuc":
-          return shortKhuVuc(r.khu_vuc);
+          return shortKhuVuc(khuVucGop(r.khu_vuc));
         case "luy_ke":
           return r.luyKe;
         case "tb":
@@ -196,7 +196,7 @@ export function TonTheoKtvCard({ khuVucFilter, filterLabel }: { khuVucFilter: st
     days.forEach((d) => (labels[`d_${d}`] = fmtDay(d)));
     Object.assign(labels, { luy_ke: "Lũy kế (ca-ngày)", tb: "TB tồn/ngày", dau_ky: "Đầu kỳ", cuoi_ky: "Cuối kỳ", bien_dong: "Biến động (cuối − đầu)" });
     exportRowsToExcel(
-      [toRow("TỔNG CỘNG", "", tong), ...displayed.map((r) => toRow(tenKtv(r.ktv), shortKhuVuc(r.khu_vuc), r))],
+      [toRow("TỔNG CỘNG", "", tong), ...displayed.map((r) => toRow(tenKtv(r.ktv), shortKhuVuc(khuVucGop(r.khu_vuc)), r))],
       `ton_theo_ktv_${thang}${mode === "bien-dong" ? "_bien_dong" : ""}.xlsx`,
       mode === "so" ? "So ca ton" : "Bien dong",
       labels,
@@ -285,7 +285,7 @@ export function TonTheoKtvCard({ khuVucFilter, filterLabel }: { khuVucFilter: st
                       <li key={`${r.ktv}|${r.khu_vuc}`} className="flex items-center gap-2">
                         <span className="w-4 text-right text-[var(--ink-400)]">{i + 1}.</span>
                         <span className="flex-1 truncate">
-                          {tenKtvHien(r.ktv)} <span className="text-[var(--ink-400)]">· {shortKhuVuc(r.khu_vuc)}</span>
+                          {tenKtvHien(r.ktv)} <span className="text-[var(--ink-400)]">· {shortKhuVuc(khuVucGop(r.khu_vuc))}</span>
                         </span>
                         <span className={box.cls}>{box.val(r)}</span>
                       </li>
@@ -359,7 +359,7 @@ export function TonTheoKtvCard({ khuVucFilter, filterLabel }: { khuVucFilter: st
                 <td className="py-1.5 pr-3 font-semibold sticky left-0 bg-[var(--surface)] group-hover:bg-slate-50 z-10 max-w-[240px] truncate" title={tenKtvHien(r.ktv)}>
                   {tenKtvHien(r.ktv)}
                 </td>
-                <td className="py-1.5 px-2 whitespace-nowrap text-xs">{shortKhuVuc(r.khu_vuc)}</td>
+                <td className="py-1.5 px-2 whitespace-nowrap text-xs">{shortKhuVuc(khuVucGop(r.khu_vuc))}</td>
                 {days.map((d, i) => (
                   <td key={d} className="py-1.5 px-1.5 text-center">
                     {renderDayCell(r, i)}

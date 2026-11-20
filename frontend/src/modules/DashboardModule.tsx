@@ -22,6 +22,8 @@ import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { tr } from "../i18n/tr";
 import { SlaCheDoToggle, useSlaCheDo, type SlaCheDo } from "../components/SlaCheDoToggle";
 import { SoSanhSlaCard } from "../components/SoSanhSlaCard";
+import { Tabs } from "../components/ui/Tabs";
+import { BaoCaoNganhModule } from "./BaoCaoNganhModule";
 
 interface DailyReportBucket {
   baseline: number;
@@ -115,7 +117,26 @@ function pct(a: number, b: number) {
 
 const ALL_MODEL = "Tất cả Model";
 
+// 2026-11-20 (chu he thong): "Báo cáo theo ngành" la 1 TAB trong menu Tong quat (truoc la menu rieng). Tab dang mo nho tren may.
+// Tach component de tab nganh khong chay cac truy van cua man Tong quat.
 export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) => void } = {}) {
+  const [tab, setTab] = useLocalStorageState<"tong-quat" | "nganh">("dashboard:tab", "tong-quat");
+  return (
+    <div>
+      <Tabs
+        tabs={[
+          { key: "tong-quat", label: tr("Tổng quát") },
+          { key: "nganh", label: tr("Báo cáo theo ngành") },
+        ]}
+        active={tab}
+        onChange={(k) => setTab(k as "tong-quat" | "nganh")}
+      />
+      {tab === "nganh" ? <BaoCaoNganhModule /> : <DashboardTongQuat onNavigate={onNavigate} />}
+    </div>
+  );
+}
+
+function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => void }) {
   const [filters, setFilters] = useLocalStorageState<DashboardFilters>("filters:dashboard", { khu_vuc: ALL_KHU_VUC, hang: ALL_HANG, thang: CURRENT_MONTH_VALUE });
   const isPH = useQuocGiaDangXem() === "PH";
   const [phGroups] = usePhReportGroups();
@@ -272,7 +293,7 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
           <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
             <div className="font-display font-bold text-sm flex items-center gap-2">
               {tr("📊 Báo cáo nhanh vấn đề trong ngày")}{dailyReport.scope === "khu_vuc" && dailyReport.khuVucList.length > 0 && (
-                <span className="text-xs font-normal text-[var(--ink-400)]">— {dailyReport.khuVucList.map(shortKhuVuc).join(", ")}</span>
+                <span className="text-xs font-normal text-[var(--ink-400)]">— {[...new Set(dailyReport.khuVucList.map((k) => shortKhuVuc(khuVucGop(k))))].join(", ")}</span>
               )}
             </div>
           </div>
