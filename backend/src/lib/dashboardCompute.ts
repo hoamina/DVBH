@@ -99,6 +99,15 @@ export function buildDashboardFilterClause(params: DashboardFilterParams, scope:
   return { from, sql, binds };
 }
 
+// SLA MOI (khong loai tru, chot 2026-11-20): dung_han_klt = gio tu luc tiep nhan -> dong ca so voi moc "SLA (giờ)" Odoo
+// (18/30/42/90h), pipeline auto qs gui; ca KHONG co moc (QuickSight / Odoo cu / Odoo khong co SLA) -> dung_han_klt NULL
+// -> lui ve dung_han CU. Gio xu ly moi = so_gio_xu_ly_klt, thieu thi lui ve so_gio_xu_ly. Cung mau so voi SLA cu
+// (tinh_vao_kpi = 1). Bao cao SLA moi chi co nghia tu 11/2026 (frontend chan ky truoc).
+export const DUNG_HAN_MOI_EXPR = "COALESCE(dung_han_klt, dung_han)";
+export const GIO_XU_LY_MOI_EXPR = "COALESCE(so_gio_xu_ly_klt, so_gio_xu_ly)";
+
+const GIO_HOP_LE_MOI = `tinh_vao_kpi = 1 AND thoi_gian_hoan_thanh IS NOT NULL AND ${GIO_XU_LY_MOI_EXPR} >= 0 AND ${GIO_XU_LY_MOI_EXPR} < 8760`;
+
 export interface TrendRow {
   [key: string]: unknown;
 }
@@ -112,6 +121,8 @@ export interface DashboardKpisPayload {
   xacNhan: number;
   tySla: number;
   ty24h: number;
+  tySlaMoi: number;
+  ty24hMoi: number;
   tyGiaiTrinh: number;
   tyViPham: number;
   tyDaKhaoSat: number;
@@ -132,6 +143,10 @@ export async function computeDashboardKpis(db: D1Database, params: DashboardFilt
       SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han IS NOT NULL THEN 1 ELSE 0 END) as dung_han_tinh,
       SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket = '0. Dưới 24h' THEN 1 ELSE 0 END) as duoi_24h_count,
       SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as co_tinh_24h,
+      SUM(CASE WHEN tinh_vao_kpi = 1 AND ${DUNG_HAN_MOI_EXPR} = 'Đúng hạn' THEN 1 ELSE 0 END) as dung_han_moi_count,
+      SUM(CASE WHEN tinh_vao_kpi = 1 AND ${DUNG_HAN_MOI_EXPR} IS NOT NULL THEN 1 ELSE 0 END) as dung_han_moi_tinh,
+      SUM(CASE WHEN ${GIO_HOP_LE_MOI} AND ${GIO_XU_LY_MOI_EXPR} < 24 THEN 1 ELSE 0 END) as duoi_24h_moi,
+      SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN 1 ELSE 0 END) as co_tinh_gio_moi,
       SUM(CASE WHEN thoi_gian_hoan_thanh IS NULL THEN 1 ELSE 0 END) as ton,
       SUM(loi_120p + loi_qua_han_24h + loi_lo_ke_hoach + loi_kh_hen_lai) as nghi_ngo
     FROM ${from} WHERE 1=1${sql}`,
@@ -179,6 +194,8 @@ export async function computeDashboardKpis(db: D1Database, params: DashboardFilt
     xacNhan: xacNhan?.n ?? 0,
     tySla: pct(base?.dung_han_count ?? 0, base?.dung_han_tinh ?? 0),
     ty24h: pct(base?.duoi_24h_count ?? 0, base?.co_tinh_24h ?? 0),
+    tySlaMoi: pct(base?.dung_han_moi_count ?? 0, base?.dung_han_moi_tinh ?? 0),
+    ty24hMoi: pct(base?.duoi_24h_moi ?? 0, base?.co_tinh_gio_moi ?? 0),
     tyGiaiTrinh: pct(tonDaGiaiTrinh?.n ?? 0, ton),
     tyViPham: pct(xacNhan?.n ?? 0, nghiNgo),
     tyDaKhaoSat: pct(daKhaoSat?.n ?? 0, nghiNgo),
@@ -223,6 +240,7 @@ export async function computeDashboardPivot(
   const stationGroup = byStation ? ", ky_thuat_vien" : "";
   const gioHopLe = "tinh_vao_kpi = 1 AND thoi_gian_hoan_thanh IS NOT NULL AND so_gio_xu_ly >= 0 AND so_gio_xu_ly < 8760";
   const slaHours = [8, 24, 48, 72].map((h) => `SUM(CASE WHEN ${gioHopLe} AND so_gio_xu_ly <= ${h} THEN 1 ELSE 0 END) AS sla_${h}h`).join(", ");
+  const slaHoursMoi = [8, 24, 48, 72].map((h) => `SUM(CASE WHEN ${GIO_HOP_LE_MOI} AND ${GIO_XU_LY_MOI_EXPR} <= ${h} THEN 1 ELSE 0 END) AS sla_${h}h_moi`).join(", ");
 
   const { results } = await db.prepare(
     `SELECT ${dim} as nhom${stationSelect},
@@ -236,7 +254,17 @@ export async function computeDashboardPivot(
        SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as co_tinh_24h,
        SUM(loi_120p + loi_qua_han_24h + loi_lo_ke_hoach + loi_kh_hen_lai) as nghi_ngo,
        SUM(loi_120p) as loi_120p, SUM(loi_qua_han_24h) as loi_qua_han_24h,
-       SUM(loi_lo_ke_hoach) as loi_lo_ke_hoach, SUM(loi_kh_hen_lai) as loi_kh_hen_lai
+       SUM(loi_lo_ke_hoach) as loi_lo_ke_hoach, SUM(loi_kh_hen_lai) as loi_kh_hen_lai,
+       ${slaHoursMoi},
+       SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN 1 ELSE 0 END) AS co_tinh_gio_moi,
+       SUM(CASE WHEN ${GIO_HOP_LE_MOI} AND ${GIO_XU_LY_MOI_EXPR} < 24 THEN 1 ELSE 0 END) AS duoi_24h_moi,
+       SUM(CASE WHEN tinh_vao_kpi = 1 AND ${DUNG_HAN_MOI_EXPR} = 'Đúng hạn' THEN 1 ELSE 0 END) as sla_ok_moi,
+       SUM(CASE WHEN tinh_vao_kpi = 1 AND ${DUNG_HAN_MOI_EXPR} IS NOT NULL THEN 1 ELSE 0 END) as dung_han_tinh_moi,
+       SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han_klt IS NOT NULL THEN 1 ELSE 0 END) as co_moc_odoo,
+       SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Đúng hạn' AND dung_han_klt = 'Quá hạn' THEN 1 ELSE 0 END) as cu_dh_moi_qh,
+       SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Quá hạn' AND dung_han_klt = 'Đúng hạn' THEN 1 ELSE 0 END) as cu_qh_moi_dh,
+       SUM(CASE WHEN ${gioHopLe} THEN so_gio_xu_ly ELSE 0 END) AS tong_gio,
+       SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN ${GIO_XU_LY_MOI_EXPR} ELSE 0 END) AS tong_gio_moi
      FROM ${from} WHERE ${dim} IS NOT NULL${sql}
      GROUP BY ${dim}${stationGroup}
      ORDER BY total DESC`,

@@ -878,6 +878,7 @@ riêng 2 field tiếp nhận theo **ngày CSKH tiếp nhận**:
 | `ca_dong` | Ca đóng trong tháng (`Hoàn thành XLSC` + `Không hoàn thành XLSC`) |
 | `ca_hoan_thanh` / `ca_khong_hoan_thanh` | `Hoàn thành XLSC` tính KPI / `Không hoàn thành XLSC` |
 | `ca_dung_han` / `ca_tinh_sla` | SLA: `dung_han = 'Đúng hạn'` / có `dung_han` (chỉ ca tính KPI) |
+| `ca_dung_han_moi` / `ca_tinh_sla_moi` | SLA mới (không loại trừ, từ 2026-11-20): giờ tiếp nhận → đóng ca so với mốc SLA Odoo; ca không có mốc dùng `dung_han` cũ (chỉ ca tính KPI). Có ý nghĩa từ tháng 11/2026 |
 | `ca_duoi_24h` / `ca_tinh_24h` | `xu_ly_24h_bucket = '0. Dưới 24h'` / có bucket (chỉ ca tính KPI) |
 | `phan_bo_24h` | `{ "<nhóm xu_ly_24h_bucket>": số ca }` đúng nhãn DVBH |
 | `thoi_gian_xu_ly_tb_gio` | Trung bình `so_gio_xu_ly` (giờ) trên ca tính KPI, bỏ giá trị ngoài [0, 8760); `null` nếu không có |

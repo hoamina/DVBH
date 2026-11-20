@@ -41,6 +41,9 @@ export interface ThongKeKtvRow {
   ca_khong_hoan_thanh: number;
   ca_dung_han: number;
   ca_tinh_sla: number;
+  /** SLA moi (khong loai tru, 2026-11-20): COALESCE(dung_han_klt, dung_han) - xem dashboardCompute DUNG_HAN_MOI_EXPR. */
+  ca_dung_han_moi: number;
+  ca_tinh_sla_moi: number;
   ca_duoi_24h: number;
   ca_tinh_24h: number;
   phan_bo_24h: Record<string, number>;
@@ -67,6 +70,8 @@ function rowRong(ma: string): ThongKeKtvRow {
     ca_khong_hoan_thanh: 0,
     ca_dung_han: 0,
     ca_tinh_sla: 0,
+    ca_dung_han_moi: 0,
+    ca_tinh_sla_moi: 0,
     ca_duoi_24h: 0,
     ca_tinh_24h: 0,
     phan_bo_24h: {},
@@ -88,6 +93,8 @@ async function computeThongKeKtv(db: D1Database, thang: string): Promise<ThongKe
            SUM(CASE WHEN c.tien_do_hoan_thanh = 'Không hoàn thành XLSC' THEN 1 ELSE 0 END) as ca_khong_hoan_thanh,
            SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) as ca_dung_han,
            SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.dung_han IS NOT NULL THEN 1 ELSE 0 END) as ca_tinh_sla,
+           SUM(CASE WHEN c.tinh_vao_kpi = 1 AND COALESCE(c.dung_han_klt, c.dung_han) = 'Đúng hạn' THEN 1 ELSE 0 END) as ca_dung_han_moi,
+           SUM(CASE WHEN c.tinh_vao_kpi = 1 AND COALESCE(c.dung_han_klt, c.dung_han) IS NOT NULL THEN 1 ELSE 0 END) as ca_tinh_sla_moi,
            SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.xu_ly_24h_bucket = '0. Dưới 24h' THEN 1 ELSE 0 END) as ca_duoi_24h,
            SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) as ca_tinh_24h,
            SUM(CASE WHEN c.tinh_vao_kpi = 1 AND ${GIO_HOP_LE} THEN c.so_gio_xu_ly ELSE 0 END) as tong_gio,
@@ -149,6 +156,8 @@ async function computeThongKeKtv(db: D1Database, thang: string): Promise<ThongKe
     r.ca_khong_hoan_thanh = Number(d.ca_khong_hoan_thanh) || 0;
     r.ca_dung_han = Number(d.ca_dung_han) || 0;
     r.ca_tinh_sla = Number(d.ca_tinh_sla) || 0;
+    r.ca_dung_han_moi = Number(d.ca_dung_han_moi) || 0;
+    r.ca_tinh_sla_moi = Number(d.ca_tinh_sla_moi) || 0;
     r.ca_duoi_24h = Number(d.ca_duoi_24h) || 0;
     r.ca_tinh_24h = Number(d.ca_tinh_24h) || 0;
     const caCoGio = Number(d.ca_co_gio) || 0;
@@ -192,5 +201,5 @@ async function computeThongKeKtv(db: D1Database, thang: string): Promise<ThongKe
 }
 
 export function getThongKeKtv(db: D1Database, thang: string): Promise<ThongKeKtvPayload> {
-  return cachedReport(db, `partner/thong-ke-ktv/${thang}`, ["cases"], () => computeThongKeKtv(db, thang));
+  return cachedReport(db, `partner/thong-ke-ktv-v2/${thang}`, ["cases"], () => computeThongKeKtv(db, thang));
 }

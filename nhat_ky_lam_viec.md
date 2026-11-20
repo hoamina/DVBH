@@ -6089,3 +6089,25 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   (GS đang được gán theo cả 2 mã) — chỉ gộp khi hiển thị. Bảng tỷ lệ gộp dòng theo `KHU_VUC_GOP` (`frontend/src/lib/khuVucShortLabel.ts`),
   cộng số theo ngày (cả số chốt cũ còn mang tên cũ), bỏ dòng thuộc khu vực ẩn.
 - Còn lại: CTV mới bị ghi vào cột khu vực phải thêm mã vào `MA_KHU_VUC_TAI_KHOAN` + `KHU_VUC_GOP`.
+
+## 2026-11-20 — v1.635: SLA mới (không loại trừ) + nút chuyển SLA cũ/mới + báo cáo so sánh
+
+- Yêu cầu (chủ hệ thống, nguyên văn rút gọn): "SLA đúng hạn hiện tại gọi là cách cũ (có loại trừ yếu tố khách quan)… thêm 1 dạng SLA
+  đúng hạn (không loại trừ) tính từ lúc tiếp nhận (mở ca) đến khi đóng ca… so sánh với mốc SLA (từ odoo kéo về có sẵn)… > thì là quá hạn";
+  "Ở các báo cáo có thể tính đồng thời cả SLA cũ và SLA mới => thêm nút ấn để chuyển đổi giữa 2 tốc độ SLA + bổ sung thêm 1 báo cáo so sánh".
+- Chốt: SLA cũ giữ nguyên (QuickSight + Odoo như hiện tại). SLA mới = giờ từ "Thời điểm tiếp nhận" (Odoo) / "Thời gian NV CSKH tiếp nhận"
+  (QuickSight) đến đóng ca, liền 24/7 (không trừ lễ/CN), ca chưa đóng tính tới 00:00 ngày chạy pipeline nhưng KHÔNG vào báo cáo;
+  giờ < mốc "SLA (giờ)" Odoo (18/30/42/90h theo địa chỉ mới) = Đúng hạn; ca không có mốc dùng luôn Đúng hạn/Quá hạn cũ. Mẫu số giống SLA
+  cũ (Tính vào KPI = 1). Một công thức chung toàn hệ thống. Báo cáo SLA mới chỉ từ 11/2026. Pipeline tính và gửi (dvbh không tự tính).
+- Pipeline auto qs: `ĐÚNG HẠN không loại trừ` chỉ có giá trị khi Odoo có mốc SLA, còn lại để trống (bỏ tra SLA_MATRIX); bật mặc định
+  `SEND_SLA_KHONG_LOAI_TRU` trong workflow. dvbh: `COALESCE(dung_han_klt, dung_han)` / `COALESCE(so_gio_xu_ly_klt, so_gio_xu_ly)`
+  (`dashboardCompute.ts DUNG_HAN_MOI_EXPR / GIO_XU_LY_MOI_EXPR`).
+- Tổng quát: công tắc "SLA cũ (có loại trừ) / SLA mới (không loại trừ)" (`components/SlaCheDoToggle.tsx`, nhớ localStorage, khoá "cũ" khi kỳ
+  xem trước 11/2026) đổi thẻ Tỷ lệ SLA + ≤24h, Top 10 KTV, bảng pivot (SLA, ≤24h, SLA ≤8/24/48/72h) và Excel. Bảng mới "So sánh SLA cũ / SLA
+  mới" (`components/SoSanhSlaCard.tsx`) cùng nhóm + bộ lọc với pivot: số ca tính, SLA cũ, SLA mới, chênh lệch, ca có mốc Odoo, cũ ĐH→mới QH,
+  cũ QH→mới ĐH, ≤24h cũ/mới, giờ TB cũ/mới; sắp xếp theo cột, lọc nhóm, Excel. Khoá cache đổi `dashboard/kpis-v2`, `dashboard/pivot-v4`.
+- QL NSKX › Báo cáo: cùng công tắc. API đối tác `thong-ke-ktv`: thêm `ca_dung_han_moi` / `ca_tinh_sla_moi` (khoá cache `-v2`).
+- Kiểm thử: typecheck backend + frontend; local đưa tạm 1.062 ca sang 11/2026 với SLA mới giả → KPI 93,1% cũ / 66,9% mới, pivot + bảng so sánh +
+  công tắc hiển thị đúng; sửa lỗi trùng khoá dòng khi 2 tên khu vực rút gọn trùng nhau; trả lại dữ liệu local.
+- Còn lại: Báo cáo lũy kế (lưu R2 theo `dung_han`) chưa có SLA mới. Cần chạy tay workflow auto qs với `date_range=thang_nay` 1 lần để gửi SLA mới
+  cho các ca tháng 11; trước khi chạy, ca chưa có `dung_han_klt` sẽ dùng SLA cũ.

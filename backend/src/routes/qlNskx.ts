@@ -384,6 +384,13 @@ qlNskx.get("/bao-cao", async (c) => {
        SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) AS co_tinh_24h,
        SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) AS dung_han,
        SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.dung_han IS NOT NULL THEN 1 ELSE 0 END) AS co_tinh_sla,
+       -- SLA moi (khong loai tru, 2026-11-20) - cung dinh nghia dashboardCompute DUNG_HAN_MOI_EXPR / GIO_XU_LY_MOI_EXPR.
+       SUM(CASE WHEN c.tinh_vao_kpi = 1 AND COALESCE(c.dung_han_klt, c.dung_han) = 'Đúng hạn' THEN 1 ELSE 0 END) AS dung_han_moi,
+       SUM(CASE WHEN c.tinh_vao_kpi = 1 AND COALESCE(c.dung_han_klt, c.dung_han) IS NOT NULL THEN 1 ELSE 0 END) AS co_tinh_sla_moi,
+       SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.thoi_gian_hoan_thanh IS NOT NULL AND COALESCE(c.so_gio_xu_ly_klt, c.so_gio_xu_ly) >= 0
+                 AND COALESCE(c.so_gio_xu_ly_klt, c.so_gio_xu_ly) < 24 THEN 1 ELSE 0 END) AS duoi_24h_moi,
+       SUM(CASE WHEN c.tinh_vao_kpi = 1 AND c.thoi_gian_hoan_thanh IS NOT NULL AND COALESCE(c.so_gio_xu_ly_klt, c.so_gio_xu_ly) >= 0
+                 AND COALESCE(c.so_gio_xu_ly_klt, c.so_gio_xu_ly) < 8760 THEN 1 ELSE 0 END) AS co_tinh_24h_moi,
        SUM(CASE WHEN ${TT_DON_EXPR} = 'da_len_don' THEN 1 ELSE 0 END) AS da_dat_loi,
        SUM(CASE WHEN ${TT_DON_EXPR} = 'khong_can' THEN 1 ELSE 0 END) AS khong_thay_loi,
        SUM(CASE WHEN ${TT_DON_EXPR} = 'chua_len_don' THEN 1 ELSE 0 END) AS chua_dat_loi,

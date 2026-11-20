@@ -81,7 +81,12 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 - Kỳ xem Tổng quát: chọn "Theo tháng" (1 tháng) HOẶC "Theo tuần" (tuần ISO, thứ 2 → CN, tính theo ngày hoàn thành; mặc định tuần hiện tại),
   không xem chồng 2 loại; luôn có dòng "Đang xem: …".
 KPI, pivot theo nhiều chiều (khu vực, KTV, nhóm yêu cầu…), chọn tháng / tuần ISO, SLA ≤8h / ≤24h / ≤48h / ≤72h cạnh tỷ lệ ≤24h CRM,
-top 10. Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.
+top 10. **SLA cũ / SLA mới** (2026-11-20): SLA cũ = `dung_han` / `so_gio_xu_ly` từ pipeline (có loại trừ: QuickSight tra ma trận
+và tính từ giờ hẹn khi KH hẹn lại; Odoo theo cờ "Trễ SLA khi đóng ca"). SLA mới (không loại trừ) = giờ từ tiếp nhận → đóng ca (liền 24/7)
+so với mốc "SLA (giờ)" Odoo 18/30/42/90h, < mốc = Đúng hạn; ca không có mốc dùng SLA cũ → `COALESCE(dung_han_klt, dung_han)`, giờ
+`COALESCE(so_gio_xu_ly_klt, so_gio_xu_ly)`; pipeline tính và gửi. Cùng mẫu số (ca tính KPI đã đóng), chỉ từ 11/2026. Công tắc SLA cũ/mới ở
+Tổng quát (thẻ, Top 10 KTV, pivot) và QL NSKX; bảng "So sánh SLA cũ / SLA mới" ở Tổng quát; API `thong-ke-ktv` trả cả hai. Lũy kế chỉ SLA cũ.
+Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.
 
 ## 8. Lịch chạy tự động (UTC, `wrangler.smarttrade.jsonc`)
 

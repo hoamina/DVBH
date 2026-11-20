@@ -220,9 +220,10 @@ async function docKpis(c: Context<{ Bindings: Env }>, laySnap: LaySnap) {
   if (isDefaultReportParams(params)) {
     const snap = await laySnap();
     // So chot tu 08/11/2026 khong con kpis (lib/chotTon.ts) -> tinh qua cachedReport ben duoi.
-    if (snap?.payload.kpis) return snap.payload.kpis;
+    // "tySlaMoi" (SLA moi, 2026-11-20): so chot cu thieu cot nay -> tinh lai.
+    if (snap?.payload.kpis && "tySlaMoi" in snap.payload.kpis) return snap.payload.kpis;
   }
-  const key = buildReportKey("dashboard/kpis", params, scope);
+  const key = buildReportKey("dashboard/kpis-v2", params, scope);
   return cachedReport(c.env.DB, key, ["cases", "vi_pham", "giai_trinh"], () => computeDashboardKpis(c.env.DB, params, scope));
 }
 
@@ -262,10 +263,10 @@ async function docPivotTho(c: Context<{ Bindings: Env }>, dimKey: string, dgLoc:
   if (isDefaultReportParams(params) && !params.dg_loc && !params.theo_tram) {
     const snap = await laySnap();
     const pivotByDim = snap?.payload.pivotByDim;
-    if (pivotByDim?.[dimKey]?.every((r) => "co_tinh_gio" in r) && (dimKey !== "ky_thuat_vien" || snap?.payload.pivotKtvTrienKhai)) return { rows: pivotByDim[dimKey] ?? [] };
+    if (pivotByDim?.[dimKey]?.every((r) => "sla_ok_moi" in r) && (dimKey !== "ky_thuat_vien" || snap?.payload.pivotKtvTrienKhai)) return { rows: pivotByDim[dimKey] ?? [] };
   }
-  // "v2" (2026-10-22): dim KTV doi sang KTV trien khai - bo envelope cache cu nhom theo tram.
-  const key = buildReportKey("dashboard/pivot-v3", params, scope);
+  // "v2" (2026-10-22): dim KTV doi sang KTV trien khai - bo envelope cache cu nhom theo tram. "v4" (2026-11-20): them cot SLA moi.
+  const key = buildReportKey("dashboard/pivot-v4", params, scope);
   return cachedReport(c.env.DB, key, ["cases"], () => computeDashboardPivot(c.env.DB, params, scope));
 }
 

@@ -20,6 +20,8 @@ import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen, useDiaGioiLoc, useOnDiaGioiModeChange, NHAN_CAP_1 } from "../lib/diaGioi";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { tr } from "../i18n/tr";
+import { SlaCheDoToggle, useSlaCheDo, type SlaCheDo } from "../components/SlaCheDoToggle";
+import { SoSanhSlaCard } from "../components/SoSanhSlaCard";
 
 interface DailyReportBucket {
   baseline: number;
@@ -48,6 +50,8 @@ interface Kpis {
   xacNhan: number;
   tySla: number;
   ty24h: number;
+  tySlaMoi?: number;
+  ty24hMoi?: number;
   tyGiaiTrinh: number;
   tyViPham: number;
   tyDaKhaoSat: number;
@@ -72,6 +76,37 @@ interface PivotRow {
   loi_qua_han_24h: number;
   loi_lo_ke_hoach: number;
   loi_kh_hen_lai: number;
+  // SLA moi (khong loai tru, 2026-11-20) - dashboardCompute.ts computeDashboardPivot.
+  sla_8h_moi?: number;
+  sla_24h_moi?: number;
+  sla_48h_moi?: number;
+  sla_72h_moi?: number;
+  co_tinh_gio_moi?: number;
+  duoi_24h_moi?: number;
+  sla_ok_moi?: number;
+  dung_han_tinh_moi?: number;
+  co_moc_odoo?: number;
+  cu_dh_moi_qh?: number;
+  cu_qh_moi_dh?: number;
+  tong_gio?: number;
+  tong_gio_moi?: number;
+}
+
+/** Cong tac SLA moi: thay cac cot SLA / ≤24h / SLA ≤Xh bang ban "moi" de moi phan hien thi + Excel ben duoi giu nguyen code. */
+function theoSla<T extends PivotRow>(rows: T[], cheDo: SlaCheDo): T[] {
+  if (cheDo === "cu") return rows;
+  return rows.map((r) => ({
+    ...r,
+    sla_ok: r.sla_ok_moi ?? 0,
+    dung_han_tinh: r.dung_han_tinh_moi ?? 0,
+    duoi_24h_count: r.duoi_24h_moi ?? 0,
+    co_tinh_24h: r.co_tinh_gio_moi ?? 0,
+    sla_8h: r.sla_8h_moi ?? 0,
+    sla_24h: r.sla_24h_moi ?? 0,
+    sla_48h: r.sla_48h_moi ?? 0,
+    sla_72h: r.sla_72h_moi ?? 0,
+    co_tinh_gio: r.co_tinh_gio_moi ?? 0,
+  }));
 }
 
 function pct(a: number, b: number) {
@@ -167,8 +202,12 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   const pivotLocTinh = pivotLocTinhQ.data;
   const dailyReport = manTq?.dailyReport;
   const kpi = manTq?.kpis;
-  const pivot = (pivotDgLoc || groupPH) ? pivotLocTinh : manTq?.pivot;
-  const pivotKtv = manTq?.pivotKtv;
+  const pivotGoc = (pivotDgLoc || groupPH) ? pivotLocTinh : manTq?.pivot;
+  // SLA cu / moi (2026-11-20): 1 cong tac cho ca the KPI, Top 10 KTV, bang pivot; khoa "cu" khi ky xem truoc 11/2026.
+  const sla = useSlaCheDo(week ? weekRange.tu_ngay : filters.thang);
+  const pivot = useMemo(() => (pivotGoc ? { rows: theoSla(pivotGoc.rows, sla.apDung) } : undefined), [pivotGoc, sla.apDung]);
+  const pivotKtv = useMemo(() => (manTq?.pivotKtv ? { rows: theoSla(manTq.pivotKtv.rows, sla.apDung) } : undefined), [manTq, sla.apDung]);
+  const laSlaMoi = sla.apDung === "moi";
 
   // Dong "Tong cong" dau bang pivot - cong don cac cot so tren cac dong dang hien (tu doi theo
   // pivotDim/bo loc hien tai), roi tinh lai 3 cot ty le tu tong tu so/mau so (khong cong trung binh
@@ -199,10 +238,13 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   // Cot dau tien (Nhom) sap A-Z - CHI ap dung cho bang pivot day du, KHONG ap dung cho "ktvRanked"
   // ben duoi (bang xep hang Top 10 theo ty le SLA, sap A-Z se lam mat y nghia xep hang).
   // Nhom theo "Tinh" (2026-10-10): server tra cap tho (tinh, tinh_moi), gom theo che do "Dia gioi cu / moi".
-  const sortedPivotRows =
+  const gopVaSapXep = (rows: PivotRow[]) =>
     pivotDim === "tinh"
-      ? gopBangTheoTinh(pivot?.rows ?? [], dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
-      : (groupPH ? sumReportRows(pivot?.rows ?? [], (r) => phGroupForStation(r.tram, phGroups)) : [...(pivot?.rows ?? [])]).sort((a, b) => (a.nhom ?? "").localeCompare(b.nhom ?? "", "vi"));
+      ? gopBangTheoTinh(rows, dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
+      : (groupPH ? sumReportRows(rows, (r) => phGroupForStation(r.tram, phGroups)) : [...rows]).sort((a, b) => (a.nhom ?? "").localeCompare(b.nhom ?? "", "vi"));
+  const sortedPivotRows = gopVaSapXep(pivot?.rows ?? []);
+  // Bao cao so sanh SLA cu / moi dung so GOC (khong qua cong tac), cung nhom + cung bo loc voi bang pivot.
+  const soSanhRows = gopVaSapXep(pivotGoc?.rows ?? []);
 
   // KTV chi xet nhung ai co du luong (>=5 ca) de tranh nhieu do mau nho, lay top 10 nhieu ca nhat sap theo ty le SLA tang dan (thap nhat truoc)
   const ktvRanked = [...(pivotKtv?.rows ?? [])]
@@ -336,16 +378,31 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
           options={[ALL_MODEL, ...(modelOptionsData?.nhomSanPham.filter((v): v is string => !!v) ?? [])]}
         />
       </div>
+      <div className="flex flex-wrap items-center gap-2 -mt-2 mb-3">
+        <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Cách tính SLA:")}</span>
+        <SlaCheDoToggle value={sla.cheDo} onChange={sla.setCheDo} khoa={sla.khoa} />
+        {sla.khoa && <span className="text-xs text-[var(--ink-400)]">{tr("SLA mới chỉ tính từ tháng 11/2026")}</span>}
+      </div>
       <div className="flex flex-wrap gap-3 mb-4">
         <StatCard label={tr("Tổng số ca")} value={kpi?.total ?? 0} tone="ocean" sub={tr("{0} đã hoàn thành", kpi?.hoanThanh ?? 0)} />
-        <StatCard label={tr("Tỷ lệ đạt SLA")} value={`${kpi?.tySla ?? 0}%`} tone="teal" sub={tr("Hẹn xử lý đúng hạn")} />
-        <StatCard label={tr("Tỷ lệ xử lý ≤24h")} value={`${kpi?.ty24h ?? 0}%`} tone="ocean" sub={tr("Từ lúc tiếp nhận")} />
+        <StatCard
+          label={laSlaMoi ? tr("Tỷ lệ đạt SLA mới") : tr("Tỷ lệ đạt SLA")}
+          value={`${(laSlaMoi ? kpi?.tySlaMoi : kpi?.tySla) ?? 0}%`}
+          tone="teal"
+          sub={laSlaMoi ? tr("Không loại trừ · so với mốc SLA Odoo") : tr("Hẹn xử lý đúng hạn")}
+        />
+        <StatCard
+          label={tr("Tỷ lệ xử lý ≤24h")}
+          value={`${(laSlaMoi ? kpi?.ty24hMoi : kpi?.ty24h) ?? 0}%`}
+          tone="ocean"
+          sub={laSlaMoi ? tr("Giờ không loại trừ, từ lúc tiếp nhận") : tr("Từ lúc tiếp nhận")}
+        />
         <StatCard label={tr("Ca tồn đọng")} value={kpi?.ton ?? 0} tone="amber" sub={tr("{0}% đã giải trình", kpi?.tyGiaiTrinh ?? 0)} />
         <StatCard label={tr("Nghi ngờ vi phạm")} value={kpi?.nghiNgo ?? 0} tone="coral" sub={tr("Vi phạm {0}% · Đã khảo sát {1}%", kpi?.tyViPham ?? 0, kpi?.tyDaKhaoSat ?? 0)} />
       </div>
 
       <Card className="p-4 mb-4">
-        <div className="font-display font-bold text-sm mb-1">{tr("10 KTV có tỷ lệ SLA thấp nhất")}</div>
+        <div className="font-display font-bold text-sm mb-1">{laSlaMoi ? tr("10 KTV có tỷ lệ SLA mới thấp nhất") : tr("10 KTV có tỷ lệ SLA thấp nhất")}</div>
         <div className="text-xs text-[var(--ink-400)] mb-3">{tr("Chỉ xét KTV có từ 5 ca trở lên trong kỳ lọc hiện tại")}</div>
         <ChartCanvas
           type="bar"
@@ -406,11 +463,11 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
                     loi_lo_ke_hoach: r.loi_lo_ke_hoach,
                     loi_kh_hen_lai: r.loi_kh_hen_lai,
                   })),
-                  `pivot_${pivotDim}.xlsx`,
+                  `pivot_${pivotDim}${laSlaMoi ? "_sla_moi" : ""}.xlsx`,
                   "Data",
                   {
                     nhom: "Nhóm",
-                    ty_le_sla: "Tỷ lệ SLA",
+                    ty_le_sla: laSlaMoi ? "Tỷ lệ SLA mới (không loại trừ)" : "Tỷ lệ SLA",
                     ty_le_24h: "Tỷ lệ ≤24h",
                     ty_le_sla_8h: "Tỷ lệ SLA ≤8h", ty_le_sla_24h: "Tỷ lệ SLA ≤24h", ty_le_sla_48h: "Tỷ lệ SLA ≤48h", ty_le_sla_72h: "Tỷ lệ SLA ≤72h", co_tinh_gio: "Số ca có giờ xử lý hợp lệ",
                     ty_le_nghi_ngo_vp: "Tỷ lệ nghi ngờ VP",
@@ -433,7 +490,11 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
               {tr("⬇ Xuất Excel")}</Btn>
           </div>
         </div>
-        <p className="text-xs text-[var(--ink-400)] mb-2">{tr("SLA 8/24/48/72h: ca tính KPI đã hoàn thành, có số giờ xử lý hợp lệ (0–8760h); cùng mẫu số, không ước lượng khi thiếu giờ. Tỷ lệ ≤24h cũ dùng bucket CRM.")}</p>
+        <p className="text-xs text-[var(--ink-400)] mb-2">
+          {laSlaMoi
+            ? tr("Đang xem SLA MỚI (không loại trừ): giờ từ lúc tiếp nhận đến đóng ca; Đúng hạn khi giờ < mốc SLA Odoo, ca không có mốc dùng SLA cũ. SLA ≤Xh và ≤24h tính trên giờ không loại trừ.")
+            : tr("SLA 8/24/48/72h: ca tính KPI đã hoàn thành, có số giờ xử lý hợp lệ (0–8760h); cùng mẫu số, không ước lượng khi thiếu giờ. Tỷ lệ ≤24h cũ dùng bucket CRM.")}
+        </p>
         <div className="overflow-x-auto">
           <table className="dense w-full text-sm">
             <thead>
@@ -499,6 +560,8 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
           </table>
         </div>
       </Card>
+
+      {!sla.khoa && <SoSanhSlaCard rows={soSanhRows} nhanNhom={(n) => (pivotDim === "khu_vuc" ? shortKhuVuc(n) : n)} tenFile={`so_sanh_sla_${pivotDim}`} />}
     </div>
   );
 }

@@ -439,3 +439,17 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Phi chức năng (chủ hệ thống): tận dụng API sẵn có, không kéo riêng cho từng báo cáo; xử lý được trên máy người dùng thì không xử lý trên
   server → app Gửi bảo hành đẩy tóm tắt theo ca cùng request 15 phút đã có, DVBH lưu 1 bảng dùng chung (`gui_bh_ca`); nhãn, diễn giải, số
   ngày, hạn BH tính trên trình duyệt; server chỉ tính khi lọc / sắp xếp.
+
+## 17. SLA mới (không loại trừ) — nút chuyển SLA cũ / mới + báo cáo so sánh (chốt 2026-11-20, v1.635)
+
+- **SLA cũ (có loại trừ)**: giữ nguyên như hiện tại (QuickSight + Odoo), là toàn bộ dữ liệu `dung_han` đang có.
+- **SLA mới (không loại trừ)**: giờ xử lý = đóng ca − mở ca (Odoo "Thời điểm tiếp nhận", QuickSight "Thời gian NV CSKH tiếp nhận"), tính
+  liền cả lễ / Chủ nhật; ca chưa đóng tính tới 00:00 ngày chạy pipeline và không vào báo cáo. So với mốc "SLA (giờ)" Odoo (18/30/42/90h theo
+  địa chỉ mới, không đổi): giờ < mốc = Đúng hạn, còn lại Quá hạn. Ca không có mốc → dùng luôn kết quả SLA cũ.
+- Pipeline auto qs tính và gửi (`so_gio_xu_ly_klt`, `dung_han_klt`); dvbh không tự tính.
+- Mẫu số: ca có thời gian đóng ca và Tính vào KPI = 1 (giống SLA cũ). Một công thức chung toàn hệ thống, không chỉnh riêng khu vực.
+- Báo cáo SLA mới chỉ từ tháng 11/2026 (kỳ trước công tắc khoá ở "SLA cũ").
+- Giao diện: công tắc "SLA cũ (có loại trừ) / SLA mới (không loại trừ)" ở Tổng quát (thẻ Tỷ lệ SLA, ≤24h, Top 10 KTV, bảng pivot + Excel) và
+  QL NSKX › Báo cáo; lựa chọn nhớ trên máy. Bảng "So sánh SLA cũ / SLA mới" ở Tổng quát: cùng nhóm + bộ lọc với pivot, cột số ca tính, SLA cũ,
+  SLA mới, chênh lệch (điểm %), ca có mốc Odoo, cũ ĐH → mới QH, cũ QH → mới ĐH, ≤24h cũ / mới, giờ TB cũ / mới; sắp xếp, lọc nhóm, Excel.
+- Chưa làm: Báo cáo lũy kế (chỉ SLA cũ).

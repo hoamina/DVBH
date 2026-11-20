@@ -4,6 +4,7 @@
 //    chon lai tu danh muc linh kien dong bo tu linh-kien-app).
 //  - Bao cao: nhanh theo khu vuc / KTV.
 // Nut "Đồng bộ đơn lõi lọc" (header): hoi linh-kien-app ca nao da co don "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" (bo don huy/tu choi).
+import { SlaCheDoToggle, useSlaCheDo } from "../components/SlaCheDoToggle";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -88,6 +89,11 @@ interface BaoCaoRow {
   co_tinh_24h: number;
   dung_han: number;
   co_tinh_sla: number;
+  // SLA moi (khong loai tru) - backend tra them, cong tac SLA cu/moi doi vao 4 cot tren (rowsTheoSla).
+  dung_han_moi?: number;
+  co_tinh_sla_moi?: number;
+  duoi_24h_moi?: number;
+  co_tinh_24h_moi?: number;
   da_dat_loi: number;
   khong_thay_loi: number;
   chua_dat_loi: number;
@@ -566,6 +572,7 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
   const [dim, setDim] = useLocalStorageState<"khu_vuc" | "ktv">("filters:ql-nskx-bao-cao-dim", "khu_vuc");
   const [sapXep, setSapXep] = useState<{ cot: CotBaoCao; chieu: "asc" | "desc" }>({ cot: "tong_ca", chieu: "desc" });
   const [timNhom, setTimNhom] = useState("");
+  const sla = useSlaCheDo(thang);
   const params = { thang, khu_vuc: khuVuc || undefined, dim };
   const { data, isLoading, isError } = useQuery({
     queryKey: ["ql-nskx", "bao-cao", params],
@@ -580,14 +587,19 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
   const rows = useMemo(() => {
     const boDau = (v: string) => v.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").toLowerCase();
     const q = boDau(timNhom.trim());
-    const loc = (data?.rows ?? []).filter((r) => !q || boDau(r.nhom ?? "").includes(q));
+    const goc = (data?.rows ?? []).map((r) =>
+      sla.apDung === "moi"
+        ? { ...r, dung_han: r.dung_han_moi ?? 0, co_tinh_sla: r.co_tinh_sla_moi ?? 0, duoi_24h: r.duoi_24h_moi ?? 0, co_tinh_24h: r.co_tinh_24h_moi ?? 0 }
+        : r,
+    );
+    const loc = goc.filter((r) => !q || boDau(r.nhom ?? "").includes(q));
     return [...loc].sort((a, b) => {
       const x = giaTri(a, sapXep.cot);
       const y = giaTri(b, sapXep.cot);
       const s = typeof x === "string" ? x.localeCompare(String(y), "vi") : x - (y as number);
       return sapXep.chieu === "asc" ? s : -s;
     });
-  }, [data, timNhom, sapXep]);
+  }, [data, timNhom, sapXep, sla.apDung]);
   const tong = useMemo(() => {
     const t: BaoCaoRow = { nhom: null, khu_vuc: null, tong_ca: 0, da_hoan_thanh: 0, duoi_24h: 0, co_tinh_24h: 0, dung_han: 0, co_tinh_sla: 0, da_dat_loi: 0, khong_thay_loi: 0, chua_dat_loi: 0, khong_ap_dung: 0, chua_danh_gia: 0 };
     for (const r of rows) for (const k of Object.keys(t) as (keyof BaoCaoRow)[]) if (typeof r[k] === "number") (t[k] as number) += r[k] as number;
@@ -632,9 +644,9 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
         khong_ap_dung: r.khong_ap_dung,
         chua_danh_gia: r.chua_danh_gia,
       })),
-      `bao_cao_nskx_${thang}.xlsx`,
+      `bao_cao_nskx_${thang}${sla.apDung === "moi" ? "_sla_moi" : ""}.xlsx`,
       "Data",
-      { nhom: dim === "khu_vuc" ? "Khu vực" : "KTV", tong_ca: "Tổng ca", da_hoan_thanh: "Đã hoàn thành", ty_24h: "Tỷ lệ 24h", ty_sla: "Tỷ lệ SLA", da_dat_loi: "Đã đặt lõi", khong_thay_loi: "Không thay lõi", chua_dat_loi: "Chưa đặt lõi", khong_ap_dung: "Không áp dụng", chua_danh_gia: "Chưa đánh giá lõi" },
+      { nhom: dim === "khu_vuc" ? "Khu vực" : "KTV", tong_ca: "Tổng ca", da_hoan_thanh: "Đã hoàn thành", ty_24h: sla.apDung === "moi" ? "Tỷ lệ 24h (SLA mới)" : "Tỷ lệ 24h", ty_sla: sla.apDung === "moi" ? "Tỷ lệ SLA mới (không loại trừ)" : "Tỷ lệ SLA", da_dat_loi: "Đã đặt lõi", khong_thay_loi: "Không thay lõi", chua_dat_loi: "Chưa đặt lõi", khong_ap_dung: "Không áp dụng", chua_danh_gia: "Chưa đánh giá lõi" },
       { skipColumnPicker: true },
     );
   }
@@ -657,6 +669,7 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
           placeholder={dim === "ktv" ? tr("Lọc KTV…") : tr("Lọc khu vực…")}
           className="focus-ring w-44 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
+        <SlaCheDoToggle value={sla.cheDo} onChange={sla.setCheDo} khoa={sla.khoa} />
         <span className="text-xs text-[var(--ink-500)]">
           {tr("{0} / {1} dòng · tỷ lệ 24h / SLA tính trên ca tính KPI · bấm số để xem danh sách", rows.length, data?.rows.length ?? 0)}
         </span>
