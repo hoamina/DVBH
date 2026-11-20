@@ -2307,6 +2307,14 @@
   "Backlog alert — Level 1: Backlog ≥14 days",
   "Peringatan tunggakan — Level 1: Tunggakan ≥14 hari"
  ],
+ "Cảnh báo tồn — Cấp 1: Luồng đổi trả ≥7 ngày": [
+  "Backlog alert — Level 1: Exchange flows ≥7 days",
+  "Peringatan tunggakan — Level 1: Alur penukaran ≥7 hari"
+ ],
+ "Cảnh báo tồn — Cấp 2: Luồng đổi trả ≥10 ngày": [
+  "Backlog alert — Level 2: Exchange flows ≥10 days",
+  "Peringatan tunggakan — Level 2: Alur penukaran ≥10 hari"
+ ],
  "Cảnh báo tồn — Cấp 1: Tranh chấp/KN ≥3 ngày": [
   "Backlog alert — Level 1: Disputes/complaints ≥3 days",
   "Peringatan tunggakan — Level 1: Sengketa/keluhan ≥3 hari"

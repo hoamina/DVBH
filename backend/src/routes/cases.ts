@@ -429,7 +429,9 @@ cases.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "ton-hien-tai";
   // Drill-down tu the "Bao cao ngay 08:00" phai giu ca da dong sau 08:00: day van la
   // case thuoc baseline va Giám sát can giai trinh. Cac danh sach thong thuong van chi lay ca mo.
-  const snapshot0800 = c.req.query("snapshot_0800") === "true" && (tab === "can-giai-trinh" || tab === "da-giai-trinh-trong-ngay" || tab === "canh-bao-ton");
+  // "canh-bao-ton" chi co du lieu dong bang -> luon doc snapshot (truoc 2026-11-20 thieu co snapshot_0800 thi tra TOAN BO ca ton).
+  const snapshot0800 =
+    tab === "canh-bao-ton" || (c.req.query("snapshot_0800") === "true" && (tab === "can-giai-trinh" || tab === "da-giai-trinh-trong-ngay"));
   const khuVucFilter = c.req.query("khu_vuc");
   const isExport = c.req.query("export") === "true";
   const scopeClause = khuVucWhereClause(scope, "c.khu_vuc");

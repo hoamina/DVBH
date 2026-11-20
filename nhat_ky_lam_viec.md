@@ -6301,3 +6301,14 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - ĐMX >3 ngày: đã nằm trong Tổng từ trước (nhánh `NEED_DMX_CHUA_GT_3_NGAY`; ĐMX đã GT thì theo nhánh tái GT / lỡ kế hoạch chung) — không sửa.
 - Kiểm thử: typecheck backend.
 
+## 2026-11-20 — v1.650: Danh sách chi tiết — ô Nhóm trống, mất ô tuổi tồn
+
+- Yêu cầu: (ảnh tài khoản nhân viên, Quản lý tồn > Danh sách chi tiết, ô Nhóm trống "Gõ để tìm…", không có ô "Tất cả tuổi tồn")
+  "nhân viên bị bug không hiện filter tuổi tồn".
+- Nguyên nhân: bấm thẻ Cảnh báo tồn "Luồng đổi trả ≥7 / ≥10 ngày" lưu nhóm `canh-bao-ton:luongDoiTra7/10` vào localStorage nhưng 2 nhóm này không
+  có trong danh sách Nhóm → ô Nhóm trống; ô tuổi tồn chỉ hiện với nhóm "Tổng tồn hiện tại" nên cũng mất. Kèm lỗi thứ 2: nhóm Cảnh báo tồn sau khi
+  tải lại trang không gửi `snapshot_0800` → server trả TOÀN BỘ ca đang tồn (ảnh có cả ca tiếp nhận hôm nay).
+- Làm: thêm 2 nhóm Luồng đổi trả vào ô Nhóm (+ bản dịch EN/ID); nhóm đã lưu không còn trong danh sách → tự về "Cần giải trình (tổng)"; nhóm Cảnh báo
+  tồn luôn đọc số chốt 08:00 (frontend luôn gửi cờ, backend `GET /api/cases` tab `canh-bao-ton` luôn đọc snapshot).
+- Kiểm thử: typecheck backend, `npm run build`.
+

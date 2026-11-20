@@ -637,10 +637,12 @@ const NHOM_OPTIONS = [
   { value: "canh-bao-ton:vipSvip5", label: tr("Cảnh báo tồn — Cấp 1: VIP/S.VIP tồn ≥3 ngày") },
   { value: "canh-bao-ton:locTong3", label: tr("Cảnh báo tồn — Cấp 1: Lọc tổng tồn ≥3 ngày") },
   { value: "canh-bao-ton:tranhChap3", label: tr("Cảnh báo tồn — Cấp 1: Tranh chấp/KN ≥3 ngày") },
+  { value: "canh-bao-ton:luongDoiTra7", label: tr("Cảnh báo tồn — Cấp 1: Luồng đổi trả ≥7 ngày") },
   { value: "canh-bao-ton:ton20", label: tr("Cảnh báo tồn — Cấp 2: Tồn >20 ngày") },
   { value: "canh-bao-ton:vipSvip7", label: tr("Cảnh báo tồn — Cấp 2: VIP/S.VIP tồn ≥4 ngày") },
   { value: "canh-bao-ton:locTong5", label: tr("Cảnh báo tồn — Cấp 2: Lọc tổng tồn ≥5 ngày") },
   { value: "canh-bao-ton:tranhChap5", label: tr("Cảnh báo tồn — Cấp 2: Tranh chấp/KN ≥5 ngày") },
+  { value: "canh-bao-ton:luongDoiTra10", label: tr("Cảnh báo tồn — Cấp 2: Luồng đổi trả ≥10 ngày") },
 ];
 
 const TON_TUOI_OPTIONS = [
@@ -1153,6 +1155,11 @@ export function BacklogModule({
   // Nhom theo "Tinh" (2026-10-10): server tra cap tho (tinh, tinh_moi), gom theo che do "Dia gioi cu / moi" (lib/diaGioi.ts).
   const { mode: dgMode, idx: dgIdx } = useDiaGioiIndex();
   const [nhomKey, setNhomKey] = useLocalStorageState("filters:backlog-nhom-key", "can-giai-trinh:tong");
+  // 2026-11-20 (bug: o Nhom trong + mat o tuoi ton): gia tri da luu khong con / chua co trong NHOM_OPTIONS (vd the
+  // "Luong doi tra" truoc v1.650) -> o Nhom hien trong, nguoi dung khong biet dang xem gi -> dat lai mac dinh.
+  useEffect(() => {
+    if (!NHOM_OPTIONS.some((o) => o.value === nhomKey)) setNhomKey("can-giai-trinh:tong");
+  }, [nhomKey, setNhomKey]);
   // Chi tieu dang xem trong khoi "Canh bao ton theo ngay" - luu cache phien xem truoc theo yeu cau
   // nguoi dung (CHOT 2026-08-16), rieng cho tung tab Cap 1/Cap 2 (2 tab doc lap sau khi tach).
   const [canhBaoTonMetricCap1, setCanhBaoTonMetricCap1] = useLocalStorageState<CanhBaoTonMetricKey>(`${CANH_BAO_TON_METRIC_KEY}.cap1`, "ton14");
@@ -1594,10 +1601,11 @@ export function BacklogModule({
     pageSize,
     sortBy,
     sortDir,
-    // Nhom CEO luon doc snapshot (ke ca khi nhomKey duoc khoi phuc tu localStorage sau khi tai lai trang, luc
-    // listFromSnapshot0800 con mac dinh false).
+    // Nhom CEO + moi nhom "Canh bao ton" luon doc snapshot (ke ca khi nhomKey duoc khoi phuc tu localStorage sau khi tai
+    // lai trang, luc listFromSnapshot0800 con mac dinh false) - truoc 2026-11-20 nhom Canh bao ton sau khi tai lai trang
+    // hien TOAN BO ca dang ton.
     snapshot_0800:
-      (listFromSnapshot0800 || nhomKey === "can-giai-trinh:ceo") && (dsTab === "can-giai-trinh" || dsTab === "canh-bao-ton") ? true : undefined,
+      dsTab === "canh-bao-ton" || (dsTab === "can-giai-trinh" && (listFromSnapshot0800 || nhomKey === "can-giai-trinh:ceo")) ? true : undefined,
     ...sharedFilterParams,
     loc_cot: locCotGui === undefined ? undefined : locCotGui ?? undefined,
   };
