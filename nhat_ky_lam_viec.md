@@ -6171,3 +6171,11 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   Ngành × Hãng cho 8 bảng sổ chốt (gốc, NSKX, không NSKX, VN, VN NSKX, VN không NSKX, ID, PH — ID không có ca), ghi dim `nganh_hang`
   qua `wrangler d1 execute --file`. Đối chiếu tổng với số chốt 08:00 có sẵn (dim `tong`): lệch ≤ 0,6% (vd 20/11: 1.466 vs 1.464), riêng 09/11
   số chốt cũ 1.922 là ngày chốt lỗi; 04–08/11 và 15/11 không có số chốt cũ, nay có số tồn theo ngành. Từ 21/11 chốt 08:00 tự ghi dim này.
+
+## 2026-11-20 — v1.639: lọc Khu vực cho "Báo cáo đúng hạn theo ngành" + "Báo cáo vi phạm" lên nhóm Tổng quan
+
+- Yêu cầu: "1. thêm bộ lọc khu vực cho báo cáo theo ngành 2. Báo cáo vi phạm đẩy lên mục TỔNG QUÁT chung" (ảnh menu nhóm TỔNG QUAN).
+- (1) Sổ chốt tồn dim `nganh_hang` thêm khu vực (giá trị Ngành + U+001F + HÃNG + U+001F + khu vực gốc); API `bao-cao-nganh` gộp ca đóng thêm theo
+  khu vực (khoá cache `-v2`), lọc tồn theo khu vực phụ trách + bỏ khu vực ẩn ngay ở server → Giám sát cũng xem được tồn bình quân (trước là "—").
+  Thẻ thêm bộ lọc Khu vực (chọn nhiều, gộp mã B2B/CTV về khu vực chuẩn, nhãn rút gọn, thứ tự cố định). Ghi bù lại tồn 01–20/11 theo định dạng mới.
+- (2) `layout/navConfig.ts`: "Báo cáo vi phạm" chuyển từ nhóm Vận hành lên Tổng quan (sau Báo cáo lũy kế); quyền xem module không đổi.

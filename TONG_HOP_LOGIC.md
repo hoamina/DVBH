@@ -86,8 +86,8 @@ và tính từ giờ hẹn khi KH hẹn lại; Odoo theo cờ "Trễ SLA khi đ�
 so với mốc "SLA (giờ)" Odoo 18/30/42/90h, < mốc = Đúng hạn; ca không có mốc dùng SLA cũ → `COALESCE(dung_han_klt, dung_han)`, giờ
 `COALESCE(so_gio_xu_ly_klt, so_gio_xu_ly)`; pipeline tính và gửi. Cùng mẫu số (ca tính KPI đã đóng), chỉ từ 11/2026. Công tắc SLA cũ/mới ở
 Tổng quát (thẻ, Top 10 KTV, pivot) và QL NSKX; bảng "So sánh SLA cũ / SLA mới" ở Tổng quát; API `thong-ke-ktv` trả cả hai. Lũy kế chỉ SLA cũ.
-"Báo cáo đúng hạn theo ngành" (Tổng quát, tuần/tháng, lọc Ngành + Hãng): 24h đối tác KRF (Đối tác Karofi/Korihome/Livotec/NSKX/
-Purastar/Simple Home) / Hãng khác, SLA, RTAT (giờ TB), tồn bình quân = TB số ca tồn 08:00 mỗi ngày (sổ chốt `backlog_age_daily` dim `nganh_hang`).
+"Báo cáo đúng hạn theo ngành" (Tổng quát, tuần/tháng, lọc Khu vực + Ngành + Hãng): 24h đối tác KRF (Đối tác Karofi/Korihome/Livotec/NSKX/
+Purastar/Simple Home) / Hãng khác, SLA, RTAT (giờ TB), tồn bình quân = TB số ca tồn 08:00 mỗi ngày (sổ chốt `backlog_age_daily` dim `nganh_hang` = Ngành × Hãng × Khu vực).
 Thứ tự khu vực cố định trên mọi báo cáo: MB1–3, MN1–3, B2B, KDDV, SCVP, còn lại A-Z (`soSanhNhom`). Tải Quản lý tồn có mẫu cố định
 "Form tồn" (52 cột) + nối các cột hệ thống đang tích phía sau (không tích = nối tất cả).
 Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.

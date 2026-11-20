@@ -231,27 +231,28 @@ async function docKpis(c: Context<{ Bindings: Env }>, laySnap: LaySnap) {
 dashboard.get("/kpis", async (c) => c.json(await docKpis(c, taoLaySnap(c))));
 
 // GET /api/dashboard/bao-cao-nganh?tu=YYYY-MM-DD&den=YYYY-MM-DD (den KHONG tinh; ten "tu/den" vi middleware tren chan tu_ngay/den_ngay > 7 ngay) - "Báo cáo đúng hạn theo ngành" (2026-11-20).
-// (1) ca dong trong ky gop theo (Ngành, Hãng, nhom KRF) - cachedReport, 1 lan doc / ky / pham vi; (2) ton 08:00 tung ngay theo
-// (Ngành, Hãng) tu so chot backlog_age_daily dim "nganh_hang" (doc song, vai tram dong) -> "tồn bình quân". So chot ton KHONG tach khu
-// vuc -> chi tra cho vai tro xem toan bo (scope null); Giam sat thay "—". Bo loc Ngành / Hãng lam o trinh duyet.
+// (1) ca dong trong ky gop theo (Ngành, Hãng, Khu vực, nhom KRF) - cachedReport, 1 lan doc / ky / pham vi; (2) ton 08:00 tung ngay theo
+// (Ngành, Hãng, Khu vực) tu so chot backlog_age_daily dim "nganh_hang" (doc song) -> "tồn bình quân", loc theo khu vuc phu trach (Giam
+// sat) + bo khu vuc an khoi bao cao NGAY O DAY. Bo loc Ngành / Hãng / Khu vực lam o trinh duyet.
 dashboard.get("/bao-cao-nganh", async (c) => {
   const tu = c.req.query("tu") ?? "";
   const den = c.req.query("den") ?? "";
   const re = /^\d{4}-\d{2}-\d{2}$/;
   if (!re.test(tu) || !re.test(den) || tu >= den || Date.parse(den) - Date.parse(tu) > 31 * 86400000) return c.json({ error: "INVALID_RANGE" }, 400);
   const scope = scopeByKhuVuc(c);
-  const key = buildReportKey("dashboard/bao-cao-nganh", { tu_ngay: tu, den_ngay: den }, scope);
+  const key = buildReportKey("dashboard/bao-cao-nganh-v2", { tu_ngay: tu, den_ngay: den }, scope);
   const dong = await cachedReport(c.env.DB, key, ["cases"], () => computeBaoCaoNganh(c.env.DB, tu, den, scope));
-  let ton: { gia_tri: string; so_ca: number }[] | null = null;
-  let soNgayTon = 0;
-  if (scope === null) {
-    const [a, b] = await c.env.DB.batch([
+  const [a, b] = await c.env.DB.batch([
       c.env.DB.prepare("SELECT gia_tri, SUM(so_ca) AS so_ca FROM backlog_age_daily WHERE dim = ? AND ngay >= ? AND ngay < ? GROUP BY gia_tri").bind(DIM_NGANH_HANG, tu, den),
       c.env.DB.prepare("SELECT COUNT(DISTINCT ngay) AS n FROM backlog_age_daily WHERE dim = ? AND ngay >= ? AND ngay < ?").bind(DIM_NGANH_HANG, tu, den),
-    ]);
-    ton = a.results as { gia_tri: string; so_ca: number }[];
-    soNgayTon = Number((b.results[0] as { n?: number } | undefined)?.n) || 0;
-  }
+  ]);
+  const anKhoi = new Set<string>(KHU_VUC_AN_KHOI_BAO_CAO);
+  const phamVi = scope ? new Set(scope) : null;
+  const ton = (a.results as { gia_tri: string; so_ca: number }[]).filter((t) => {
+    const kv = t.gia_tri.split("\u001f")[2] ?? "";
+    return !anKhoi.has(kv) && (!phamVi || phamVi.has(kv));
+  });
+  const soNgayTon = Number((b.results[0] as { n?: number } | undefined)?.n) || 0;
   return c.json({ ...dong, ton, so_ngay_ton: soNgayTon });
 });
 

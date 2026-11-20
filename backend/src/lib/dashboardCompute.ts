@@ -284,6 +284,7 @@ export const DOI_TAC_KRF_EXPR = `(${["KAROFI", "KORIHOME", "LIVOTEC", "NSKX", "P
 
 export interface BaoCaoNganhNhom {
   nganh: string;
+  khu_vuc: string;
   hang: string;
   krf: number;
   ca_dong: number;
@@ -310,7 +311,7 @@ export async function computeBaoCaoNganh(db: D1Database, tuNgay: string, denNgay
   const gioHopLe = "tinh_vao_kpi = 1 AND thoi_gian_hoan_thanh IS NOT NULL AND so_gio_xu_ly >= 0 AND so_gio_xu_ly < 8760";
   const { results } = await db
     .prepare(
-      `SELECT COALESCE(TRIM(nganh), '') AS nganh, TRIM(COALESCE(hang, '')) AS hang, CASE WHEN ${DOI_TAC_KRF_EXPR} THEN 1 ELSE 0 END AS krf,
+      `SELECT COALESCE(TRIM(nganh), '') AS nganh, TRIM(COALESCE(hang, '')) AS hang, COALESCE(khu_vuc, '') AS khu_vuc, CASE WHEN ${DOI_TAC_KRF_EXPR} THEN 1 ELSE 0 END AS krf,
          SUM(CASE WHEN tinh_vao_kpi = 1 THEN 1 ELSE 0 END) AS ca_dong,
          SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket = '0. Dưới 24h' THEN 1 ELSE 0 END) AS d24_cu,
          SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) AS m24_cu,
@@ -325,7 +326,7 @@ export async function computeBaoCaoNganh(db: D1Database, tuNgay: string, denNgay
          SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN ${GIO_XU_LY_MOI_EXPR} ELSE 0 END) AS tong_gio_moi,
          SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN 1 ELSE 0 END) AS co_gio_moi
        FROM ${from} WHERE 1=1${sql}
-       GROUP BY 1, 2, 3`,
+       GROUP BY 1, 2, 3, 4`,
     )
     .bind(...binds)
     .all<BaoCaoNganhNhom>();

@@ -24,6 +24,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "dashboard", label: tr("Tổng quát"), icon: "◧" },
       { key: "revenue", label: tr("Báo cáo doanh thu"), icon: "◨" },
       { key: "luy-ke", label: tr("Báo cáo lũy kế"), icon: "📈" },
+      // 2026-11-20 (chu he thong): chuyen tu nhom "Vận hành" len "Tổng quan" - quyen xem module giu nguyen.
+      { key: "bao-cao-vi-pham", label: tr("Báo cáo vi phạm"), icon: "🛡" },
     ],
   },
   {
@@ -35,7 +37,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "tranh-chap", label: tr("Tranh chấp, KN"), icon: "⚖", countKey: "tranhChap" },
       { key: "nap-gas", label: tr("Đánh giá nạp gas"), icon: "🛢", countKey: "napGas" },
       { key: "survey", label: tr("Quản lý khảo sát"), icon: "◐", countKey: "survey" },
-      { key: "bao-cao-vi-pham", label: tr("Báo cáo vi phạm"), icon: "🛡" },
       { key: "ca-lap", label: tr("Ca lặp"), icon: "🔁", countKey: "caLap" },
       { key: "danh-sach-tong", label: tr("Danh sách tổng"), icon: "📋" },
       { key: "ql-nskx", label: tr("QL NSKX"), icon: "💧" },

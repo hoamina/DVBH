@@ -463,9 +463,10 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 
 ## 19. Báo cáo đúng hạn theo ngành — tuần / tháng (chốt 2026-11-20, v1.638)
 
-- Vị trí: Tổng quát, thẻ "Báo cáo đúng hạn theo ngành", theo kỳ Tuần / Tháng chọn ở đầu màn. Bộ lọc Ngành (cột Ngành) + Hãng, chọn nhiều.
+- Vị trí: Tổng quát, thẻ "Báo cáo đúng hạn theo ngành", theo kỳ Tuần / Tháng chọn ở đầu màn. Bộ lọc Khu vực + Ngành (cột Ngành) + Hãng, chọn nhiều
+  (v1.639 thêm Khu vực; Giám sát xem tồn bình quân theo khu vực phụ trách).
 - Chỉ số mỗi ngành + Tổng cộng (ca đóng trong kỳ theo ngày hoàn thành, tính KPI): Số ca đóng; Tỷ lệ 24h đối tác KRF (Đối tác Karofi,
   Korihome, Livotec, NSKX, Purastar, Simple Home); Tỷ lệ 24h Hãng khác (đối tác còn lại); Tỷ lệ SLA; RTAT = giờ xử lý trung bình;
   Tồn bình quân / ngày = tổng số ca tồn lúc 08:00 các ngày trong kỳ / số ngày có số chốt (tuần = 7 ngày).
-- 24h / SLA / RTAT theo nút SLA cũ / SLA mới. Tồn bình quân chỉ hiện với vai trò xem toàn hệ thống (số chốt không tách khu vực).
+- 24h / SLA / RTAT theo nút SLA cũ / SLA mới. Menu: "Báo cáo vi phạm" nằm ở nhóm Tổng quan (v1.639).
 - Số chốt tồn theo Ngành × Hãng ghi mỗi sáng từ 21/11/2026; tháng 11 ghi bù từ thời gian tiếp nhận / đóng ca.

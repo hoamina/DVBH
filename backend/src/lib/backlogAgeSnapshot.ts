@@ -17,12 +17,13 @@ import { getVnDateStr } from "./reportCache";
 import { bocPhamVi, dbGoc, phamViTheoNuoc } from "./phamVi";
 import { dsQuocGiaKichHoat } from "./quocGia";
 
-/** Dim "nganh_hang" (2026-11-20, bao cao dung han tuan/thang theo nganh): so ca TON luc 08:00 theo cap (Ngành, HÃNG viet hoa) -
- * gia_tri = nganh + "\u001f" + UPPER(TRIM(hang)) (rong = ""). Chi dung so_ca (tong_tuoi van ghi cho day du). Man Tuoi ton TB loc
+/** Dim "nganh_hang" (2026-11-20, bao cao dung han tuan/thang theo nganh): so ca TON luc 08:00 theo (Ngành, HÃNG viet hoa, Khu vực
+ * goc) - gia_tri = nganh + "\u001f" + UPPER(TRIM(hang)) + "\u001f" + khu_vuc (rong = ""). Khu vuc de loc theo pham vi Giam sat
+ * va bo loc Khu vuc cua bao cao. Chi dung so_ca (tong_tuoi van ghi cho day du). Man Tuoi ton TB loc
  * theo dim nen bo qua dim nay. */
 export const DIM_NGANH_HANG = "nganh_hang";
-export const giaTriNganhHang = (nganh: string | null | undefined, hang: string | null | undefined) =>
-  `${(nganh ?? "").trim()}\u001f${(hang ?? "").trim().toUpperCase()}`;
+export const giaTriNganhHang = (nganh: string | null | undefined, hang: string | null | undefined, khuVuc: string | null | undefined) =>
+  `${(nganh ?? "").trim()}\u001f${(hang ?? "").trim().toUpperCase()}\u001f${(khuVuc ?? "").trim()}`;
 
 const AGE_0800_EXPR = ageExprAtAnchor(TON_ANCHOR_0800, "c.thoi_gian_cskh_tiep_nhan");
 const TON_FILTER_C = caseFilterTonAt0800("c");
@@ -75,7 +76,7 @@ export async function generateBacklogAgeSnapshot(db: D1Database): Promise<void> 
     const tuoi = r.tuoi === null || r.tuoi === undefined ? null : Number(r.tuoi);
     tongTuoi += tuoi ?? 0;
     if ((r.khu_vuc ?? "").toLowerCase().includes("qldvbh")) cong("khu_vuc", "__nhom_qldvbh__", tuoi);
-    cong(DIM_NGANH_HANG, giaTriNganhHang(r.nganh, r.hang), tuoi);
+    cong(DIM_NGANH_HANG, giaTriNganhHang(r.nganh, r.hang, r.khu_vuc), tuoi);
     for (const dim of BACKLOG_AGE_DIMS) {
       if (dim === "tinh") {
         if ((r.tinh ?? "") !== "" || (r.tinh_moi ?? "") !== "") cong(dim, `${r.tinh ?? ""}\u001f${r.tinh_moi ?? ""}`, tuoi);
@@ -117,14 +118,14 @@ export async function buTonNganhHang(db: D1Database, tuNgay: string, denNgay: st
   const moc = (d: string) => `${d} 08:00:00`;
   const { results } = await db
     .prepare(
-      `SELECT c.nganh, c.hang, c.thoi_gian_cskh_tiep_nhan AS tn, c.thoi_gian_hoan_thanh AS ht
+      `SELECT c.nganh, c.hang, c.khu_vuc, c.thoi_gian_cskh_tiep_nhan AS tn, c.thoi_gian_hoan_thanh AS ht
        FROM case_dvbh c INDEXED BY idx_case_ton WHERE c.thoi_gian_hoan_thanh IS NULL AND c.huy_bo_at IS NULL AND c.archived_at IS NULL
        UNION ALL
-       SELECT c.nganh, c.hang, c.thoi_gian_cskh_tiep_nhan AS tn, c.thoi_gian_hoan_thanh AS ht
+       SELECT c.nganh, c.hang, c.khu_vuc, c.thoi_gian_cskh_tiep_nhan AS tn, c.thoi_gian_hoan_thanh AS ht
        FROM case_dvbh c INDEXED BY idx_case_hoan_thanh_not_null WHERE c.thoi_gian_hoan_thanh >= ? AND c.huy_bo_at IS NULL`,
     )
     .bind(moc(tuNgay))
-    .all<{ nganh: string | null; hang: string | null; tn: string | null; ht: string | null }>();
+    .all<{ nganh: string | null; hang: string | null; khu_vuc: string | null; tn: string | null; ht: string | null }>();
   const ngays: string[] = [];
   for (let t = Date.parse(`${tuNgay}T00:00:00Z`); t <= Date.parse(`${denNgay}T00:00:00Z`); t += 86400000) ngays.push(new Date(t).toISOString().slice(0, 10));
   const statements: D1PreparedStatement[] = [];
@@ -133,7 +134,7 @@ export async function buTonNganhHang(db: D1Database, tuNgay: string, denNgay: st
     const dem = new Map<string, number>();
     for (const r of results) {
       if (!r.tn || r.tn >= m || (r.ht !== null && r.ht < m)) continue;
-      const k = giaTriNganhHang(r.nganh, r.hang);
+      const k = giaTriNganhHang(r.nganh, r.hang, r.khu_vuc);
       dem.set(k, (dem.get(k) ?? 0) + 1);
     }
     statements.push(db.prepare("DELETE FROM backlog_age_daily WHERE ngay = ? AND dim = ?").bind(ngay, DIM_NGANH_HANG));

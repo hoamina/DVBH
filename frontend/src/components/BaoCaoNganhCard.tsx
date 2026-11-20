@@ -11,12 +11,13 @@ import { MultiSelectFilter } from "./MultiSelectFilter";
 import { api, buildQuery } from "../api/client";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { soSanhNhom } from "../lib/khuVucShortLabel";
+import { soSanhNhom, khuVucGop, shortKhuVuc } from "../lib/khuVucShortLabel";
 import type { SlaCheDo } from "./SlaCheDoToggle";
 import { tr } from "../i18n/tr";
 
 interface Nhom {
   nganh: string;
+  khu_vuc: string;
   hang: string;
   krf: number;
   ca_dong: number;
@@ -62,35 +63,42 @@ const dongRong = (nganh: string): Dong => ({ nganh, caDong: 0, d24Krf: 0, m24Krf
 export function BaoCaoNganhCard({ tuNgay, denNgay, kyLabel, sla }: { tuNgay: string; denNgay: string; kyLabel: string; sla: SlaCheDo }) {
   const [locNganh, setLocNganh] = useLocalStorageState("filters:bao-cao-nganh-nganh", "");
   const [locHang, setLocHang] = useLocalStorageState("filters:bao-cao-nganh-hang", "");
+  const [locKv, setLocKv] = useLocalStorageState("filters:bao-cao-nganh-khu-vuc", "");
   const q = useQuery({
     queryKey: ["dashboard-bao-cao-nganh", tuNgay, denNgay],
     queryFn: () => api.get<Payload>(`/dashboard/bao-cao-nganh${buildQuery({ tu: tuNgay, den: denNgay })}`),
     placeholderData: (prev) => prev,
   });
   // Hãng: server tra nguyen goc ("Karofi" / "KAROFI") -> viet hoa o day cho khop so chot ton (backend giaTriNganhHang).
-  const data = useMemo(() => (q.data ? { ...q.data, nhom: q.data.nhom.map((n) => ({ ...n, hang: n.hang.trim().toUpperCase() })) } : undefined), [q.data]);
+  // Khu vuc: gop ma la (B2B doi ma, CTV/TEST) ve khu vuc chuan - lib/khuVucShortLabel KHU_VUC_GOP.
+  const data = useMemo(
+    () => (q.data ? { ...q.data, nhom: q.data.nhom.map((n) => ({ ...n, hang: n.hang.trim().toUpperCase(), khu_vuc: khuVucGop(n.khu_vuc ?? "") })) } : undefined),
+    [q.data],
+  );
   const moi = sla === "moi";
 
   const tonDong = useMemo(
     () =>
       (data?.ton ?? []).map((t) => {
-        const [nganh, hang] = t.gia_tri.split("\u001f");
-        return { nganh: nganh ?? "", hang: hang ?? "", so_ca: Number(t.so_ca) || 0 };
+        const [nganh, hang, kv] = t.gia_tri.split("\u001f");
+        return { nganh: nganh ?? "", hang: hang ?? "", khu_vuc: khuVucGop(kv ?? ""), so_ca: Number(t.so_ca) || 0 };
       }),
     [data],
   );
   const nhanNganh = (v: string) => v || TRONG;
   const dsNganh = useMemo(() => [...new Set([...(data?.nhom ?? []).map((n) => n.nganh), ...tonDong.map((t) => t.nganh)])].sort(soSanhNhom), [data, tonDong]);
+  const dsKv = useMemo(() => [...new Set([...(data?.nhom ?? []).map((n) => n.khu_vuc), ...tonDong.map((t) => t.khu_vuc)])].filter(Boolean).sort(soSanhNhom), [data, tonDong]);
   const dsHang = useMemo(() => [...new Set([...(data?.nhom ?? []).map((n) => n.hang), ...tonDong.map((t) => t.hang)])].sort(soSanhNhom), [data, tonDong]);
 
   const { dongs, tong } = useMemo(() => {
     const chonN = new Set(locNganh ? locNganh.split(DELIM) : []);
     const chonH = new Set(locHang ? locHang.split(DELIM) : []);
-    const qua = (nganh: string, hang: string) => (!chonN.size || chonN.has(nganh)) && (!chonH.size || chonH.has(hang));
+    const chonK = new Set(locKv ? locKv.split(DELIM) : []);
+    const qua = (nganh: string, hang: string, kv: string) => (!chonN.size || chonN.has(nganh)) && (!chonH.size || chonH.has(hang)) && (!chonK.size || chonK.has(kv));
     const theo = new Map<string, Dong>();
     const lay = (nganh: string) => theo.get(nganh) ?? (theo.set(nganh, dongRong(nganh)), theo.get(nganh)!);
     for (const n of data?.nhom ?? []) {
-      if (!qua(n.nganh, n.hang)) continue;
+      if (!qua(n.nganh, n.hang, n.khu_vuc)) continue;
       const d = lay(n.nganh);
       d.caDong += Number(n.ca_dong) || 0;
       const d24 = Number(moi ? n.d24_moi : n.d24_cu) || 0;
@@ -107,12 +115,12 @@ export function BaoCaoNganhCard({ tuNgay, denNgay, kyLabel, sla }: { tuNgay: str
       d.tongGio += Number(moi ? n.tong_gio_moi : n.tong_gio) || 0;
       d.coGio += Number(moi ? n.co_gio_moi : n.co_gio) || 0;
     }
-    for (const t of tonDong) if (qua(t.nganh, t.hang)) lay(t.nganh).tonTong += t.so_ca;
+    for (const t of tonDong) if (qua(t.nganh, t.hang, t.khu_vuc)) lay(t.nganh).tonTong += t.so_ca;
     const ds = [...theo.values()].sort((a, b) => soSanhNhom(a.nganh, b.nganh));
     const t = dongRong(tr("Tổng cộng"));
     for (const d of ds) for (const k of Object.keys(t) as (keyof Dong)[]) if (k !== "nganh") (t[k] as number) += d[k] as number;
     return { dongs: ds, tong: t };
-  }, [data, tonDong, locNganh, locHang, moi]);
+  }, [data, tonDong, locNganh, locHang, locKv, moi]);
 
   const coTon = data?.ton != null;
   const soNgay = data?.so_ngay_ton ?? 0;
@@ -177,6 +185,7 @@ export function BaoCaoNganhCard({ tuNgay, denNgay, kyLabel, sla }: { tuNgay: str
           {tr("Báo cáo đúng hạn theo ngành")} <span className="font-normal text-xs text-[var(--ink-400)]">— {kyLabel}</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <MultiSelectFilter label={tr("Khu vực")} value={locKv} onChange={setLocKv} options={dsKv.map((v) => ({ value: v, label: shortKhuVuc(v) }))} />
           <MultiSelectFilter label={tr("Ngành")} value={locNganh} onChange={setLocNganh} options={dsNganh.map((v) => ({ value: v, label: nhanNganh(v) }))} />
           <MultiSelectFilter label={tr("Hãng")} value={locHang} onChange={setLocHang} options={dsHang.map((v) => ({ value: v, label: v || TRONG }))} />
           <Btn variant="ghost" size="sm" disabled={q.isFetching} onClick={xuat}>
@@ -187,7 +196,7 @@ export function BaoCaoNganhCard({ tuNgay, denNgay, kyLabel, sla }: { tuNgay: str
       <p className="text-xs text-[var(--ink-400)] mb-2">
         {tr("Ca đóng trong kỳ (theo ngày hoàn thành), tính KPI. 24h KRF = đối tác Karofi, Korihome, Livotec, NSKX, Purastar, Simple Home; còn lại là Hãng khác. RTAT = giờ xử lý trung bình. Tồn bình quân = số ca tồn lúc 08:00 trung bình mỗi ngày.")}{" "}
         {moi ? tr("Đang xem SLA mới (không loại trừ).") : tr("Đang xem SLA cũ (có loại trừ).")}{" "}
-        {coTon ? tr("Tồn tính trên {0} ngày có số chốt.", soNgay) : tr("Tồn bình quân chỉ hiện với vai trò xem toàn hệ thống.")}
+        {coTon ? tr("Tồn tính trên {0} ngày có số chốt.", soNgay) : null}
       </p>
       {q.isError ? (
         <div className="text-sm text-[var(--coral-600)]">{tr("Không tải được dữ liệu")}</div>
