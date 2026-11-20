@@ -24,6 +24,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "dashboard", label: tr("Tổng quát"), icon: "◧" },
       { key: "revenue", label: tr("Báo cáo doanh thu"), icon: "◨" },
       { key: "luy-ke", label: tr("Báo cáo lũy kế"), icon: "📈" },
+      // 2026-11-20 (chu he thong): tach "Báo cáo đúng hạn theo ngành" khoi Tong quat thanh menu rieng - tu cap cho ai co "dashboard".
+      { key: "bao-cao-nganh", label: tr("Báo cáo theo ngành"), icon: "🏷" },
       // 2026-11-20 (chu he thong): chuyen tu nhom "Vận hành" len "Tổng quan" - quyen xem module giu nguyen.
       { key: "bao-cao-vi-pham", label: tr("Báo cáo vi phạm"), icon: "🛡" },
     ],
@@ -100,6 +102,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "nap-gas": tr("Đánh giá nạp gas"),
   survey: tr("Quản lý khảo sát"),
   "bao-cao-vi-pham": tr("Báo cáo vi phạm"),
+  "bao-cao-nganh": tr("Báo cáo đúng hạn theo ngành"),
   "ca-lap": tr("Ca lặp"),
   "danh-sach-tong": tr("Danh sách tổng"),
   "ql-nskx": tr("QL NSKX"),

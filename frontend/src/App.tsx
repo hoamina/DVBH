@@ -19,6 +19,7 @@ import { TranhChapModule } from "./modules/TranhChapModule";
 import { NapGasModule } from "./modules/NapGasModule";
 import { SurveyModule } from "./modules/SurveyModule";
 import { BaoCaoViPhamModule } from "./modules/BaoCaoViPhamModule";
+import { BaoCaoNganhModule } from "./modules/BaoCaoNganhModule";
 import { CaLapModule } from "./modules/CaLapModule";
 import { DanhSachTongModule } from "./modules/DanhSachTongModule";
 import { QlNskxModule } from "./modules/QlNskxModule";
@@ -87,6 +88,10 @@ function MainApp({
   // tay.
   if (role !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh)) {
     allowedModules = [...new Set([...allowedModules, "dat-mua-lk", "tra-hang"])];
+  }
+  // "bao-cao-nganh" (2026-11-20): ai xem duoc Tong quat thi co menu nay - khop effectiveModules() o backend.
+  if (role !== "Admin" && allowedModules.includes("dashboard")) {
+    allowedModules = [...new Set([...allowedModules, "bao-cao-nganh"])];
   }
   if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
@@ -297,6 +302,7 @@ function MainApp({
           {active === "nap-gas" && <NapGasModule openCase={openCase} />}
           {active === "survey" && <SurveyModule openCase={openCase} />}
           {active === "bao-cao-vi-pham" && <BaoCaoViPhamModule openCase={openCase} />}
+          {active === "bao-cao-nganh" && <BaoCaoNganhModule />}
           {active === "ca-lap" && <CaLapModule openCase={openCase} role={role} />}
           {active === "danh-sach-tong" && <DanhSachTongModule openCase={openCase} />}
           {active === "ql-nskx" && <QlNskxModule openCase={openCase} headerExtra={headerExtraEl} />}

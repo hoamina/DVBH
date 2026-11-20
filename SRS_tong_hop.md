@@ -463,7 +463,8 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 
 ## 19. Báo cáo đúng hạn theo ngành — tuần / tháng (chốt 2026-11-20, v1.638)
 
-- Vị trí: Tổng quát, thẻ "Báo cáo đúng hạn theo ngành", theo kỳ Tuần / Tháng chọn ở đầu màn. Bộ lọc Khu vực + Ngành (cột Ngành) + Hãng, chọn nhiều
+- Vị trí (v1.640): menu riêng "Báo cáo theo ngành" ở nhóm Tổng quan (sau Báo cáo lũy kế), tự cấp cho mọi tài khoản xem được Tổng quát; đã gỡ thẻ khỏi Tổng quát.
+  Ô chọn Theo tuần (◀ ▶, Tuần này) / Theo tháng (13 tháng gần nhất) + nút SLA cũ/mới ngay trên báo cáo; kỳ + bộ lọc lưu trên máy (mặc định tuần hiện tại). Bộ lọc Khu vực + Ngành (cột Ngành) + Hãng, chọn nhiều
   (v1.639 thêm Khu vực; Giám sát xem tồn bình quân theo khu vực phụ trách).
 - Chỉ số mỗi ngành + Tổng cộng (ca đóng trong kỳ theo ngày hoàn thành, tính KPI): Số ca đóng; Tỷ lệ 24h đối tác KRF (Đối tác Karofi,
   Korihome, Livotec, NSKX, Purastar, Simple Home); Tỷ lệ 24h Hãng khác (đối tác còn lại); Tỷ lệ SLA; RTAT = giờ xử lý trung bình;

@@ -6181,3 +6181,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - (2) `layout/navConfig.ts`: "Báo cáo vi phạm" chuyển từ nhóm Vận hành lên Tổng quan (sau Báo cáo lũy kế); quyền xem module không đổi.
 - Ghi bù lại production sau deploy v1.639: tồn 08:00 ngày 01–20/11 theo Ngành × Hãng × Khu vực cho 8 bảng sổ chốt (thay dòng định dạng cũ 2 phần);
   20/11 toàn hệ thống 1.464 ca, không còn dòng định dạng cũ.
+
+## 2026-11-20 — v1.640: tách "Báo cáo đúng hạn theo ngành" thành menu riêng
+
+- Yêu cầu: "tôi cần 1 báo cáo với các chỉ số sau… tổng hợp về chung 1 báo cáo để nhân viên có thể lấy số liệu được nhanh chóng. có thể tải về.
+  tạo bộ lọc rồi lưu lại trên máy (cache)… bộ lọc Ngành Hàng, Hãng, Tuần, Tháng…" → báo cáo đã có ở Tổng quát (v1.638–1.639); chủ hệ thống chọn "Tách menu riêng".
+- Làm: `modules/BaoCaoNganhModule.tsx` (menu "Báo cáo theo ngành", nhóm Tổng quan) dùng lại `BaoCaoNganhCard`, thêm ô chọn Theo tuần / Theo tháng
+  + SLA cũ/mới ngay trên báo cáo; kỳ lưu localStorage (`filters:bao-cao-nganh-ky|tuan|thang`, rỗng = kỳ hiện tại). Quyền: tự cấp cho ai có
+  `dashboard` (App.tsx + backend `effectiveModules`), không cần sửa phân quyền từng người. Gỡ thẻ khỏi Tổng quát.
+- Kiểm thử local: typecheck + build; menu hiện, tháng 07/2026 ra đủ 8 ngành, chuyển Theo tuần ra Tuần 47 (16–22/11), kỳ nhớ sau khi tải lại.
