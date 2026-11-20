@@ -6290,3 +6290,14 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   tra khoá chính, chỉ khi có `ma_lk` nên Xuất Excel không đổi); lịch sử đơn của mã LK xin 200 đơn (trước 50).
 - Kiểm thử: chạy đúng thuật toán trên dữ liệu thật (PO DVBH + đơn/ticket app linh kiện, 44 ca, 34 mã): 0/44 → 15/44. 29 ca còn lại: 21 chưa có đơn
   đặt LK nào, 8 có đơn nhưng không PO nào ghi mã đơn / ticket của ca — cần Mua hàng ghi mã ca hoặc TLK khi đặt EO (việc quy trình).
+
+## 2026-11-20 — v1.649: Lọc tổng chưa giải trình ≥1 ngày cộng vào "Tổng cần giải trình"
+
+- Yêu cầu: (ảnh ca SC2611130375, Lọc tổng, tiếp nhận 13/11) "tại sao ca lọc tổng này có yêu cầu giải trình >1 ngày mà không thấy hiện trong ds cần
+  giải trình … từ 15,16 số lượng giải trình luôn đạt" → giải thích: "Lọc tổng >1 ngày" là chỉ tiêu phụ (chốt 12/08), không nằm trong NEED_TONG nên
+  ca chỉ vào Tổng từ 19/11 (nhánh chưa GT ≥5 ngày) → chủ hệ thống: "Có, đưa vào Tổng". Hỏi thêm "tương tự check ca ĐMX >3 ngày".
+- Làm: `NEED_TONG` thêm nhánh `NEED_LOC_TONG_BCN_1_NGAY` (7 nhánh). Thẻ "Lọc tổng >1 ngày" giữ nguyên. Số các ngày đã chốt không đổi; tính
+  lại từ lần chốt kế tiếp (17:30 hôm nay / 08:00 ngày mai).
+- ĐMX >3 ngày: đã nằm trong Tổng từ trước (nhánh `NEED_DMX_CHUA_GT_3_NGAY`; ĐMX đã GT thì theo nhánh tái GT / lỡ kế hoạch chung) — không sửa.
+- Kiểm thử: typecheck backend.
+

@@ -89,7 +89,7 @@ export const NEED_DIEU_HOA_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = '
 export const NEED_B2B_1_NGAY = `(lg.case_id IS NULL AND c.doi_tac LIKE '%b2b%' AND ${AGE_C} >= 1)`;
 export const NEED_NSKX_2_NGAY = `(lg.case_id IS NULL AND c.doi_tac = 'NSKX' AND ${AGE_C} >= 2)`;
 // CHOT 2026-08-12: "chi tieu phu" moi, cung kieu B2B/NSKX (canh bao rieng theo nhom Model, KHONG
-// cong vao NEED_TONG - xem chu thich NEED_TONG ben duoi) - ca CHUA giai trinh, Model = "Loc tong"
+// cong vao NEED_TONG - DOI 2026-11-20: NAY CO cong vao TONG, xem NEED_TONG) - ca CHUA giai trinh, Model = "Loc tong"
 // HOAC "Loc nuoc BCN", ton >=1 ngay.
 export const NEED_LOC_TONG_BCN_1_NGAY = `(lg.case_id IS NULL AND c.nhom_san_pham = 'Lọc tổng' AND ${AGE_C} >= 1)`;
 
@@ -127,7 +127,9 @@ export const NEED_TAI_GIAI_TRINH_14_NGAY = `(${NEED_TAI_GIAI_TRINH} AND ${AGE_C}
 // CHOT 2026-08-01: bo B2B_1_NGAY/NSKX_2_NGAY khoi TONG (xem chu thich "chot lai" o tren).
 // CHOT 2026-08-16 (lan 2): them NEED_VIP_CHUA_GT_24H vao TONG - dung CHINH XAC 6 nhanh, khong con 5
 // nhu truoc.
-export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_CHUA_GT_5_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_VIP_CHUA_GT_24H})`;
+// CHOT 2026-11-20 (chu he thong, v1.649): them NEED_LOC_TONG_BCN_1_NGAY vao TONG - ca Loc tong CHUA giai trinh tu 1 ngay
+// phai giai trinh ngay (truoc do chi la chi tieu phu, ca Loc tong 1-4 ngay khong vao mau so ty le giai trinh). 7 nhanh, noi OR.
+export const NEED_TONG = `(${NEED_LO_KE_HOACH} OR ${NEED_TAI_GIAI_TRINH} OR ${NEED_DMX_CHUA_GT_3_NGAY} OR ${NEED_CHUA_GT_5_NGAY} OR ${NEED_DIEU_HOA_1_NGAY} OR ${NEED_VIP_CHUA_GT_24H} OR ${NEED_LOC_TONG_BCN_1_NGAY})`;
 
 // Moc 08:00 sang VN cua NGAY HOM NAY (dung ky thuat +7h giong AGE_ANCHOR, nhung KHONG lam tron ve 0h
 // - day la moc "chot bao cao", khac moc "0h tinh tuoi ton" cua AGE_ANCHOR).

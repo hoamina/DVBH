@@ -39,6 +39,10 @@ KTV không có tài khoản, chỉ là dữ liệu trên ca. Phạm vi xem theo 
 ## 4. Ca tồn & giải trình
 
 - Ca tồn = chưa có thời gian hoàn thành. Giám sát giải trình định kỳ; mỗi lần 1 dòng log, không ghi đè, lưu vĩnh viễn.
+- **Tổng cần giải trình** (`needGiaiTrinh.ts NEED_TONG`, 7 nhánh nối HOẶC, 1 ca đếm 1 lần): lỡ kế hoạch · tái giải trình (≥3 ngày từ lần GT
+  gần nhất) · khách ĐMX chưa GT ≥3 ngày · chưa GT ≥ mốc của nước (VN 5) · Điều hòa chưa GT ≥1 ngày · VIP/S.VIP chưa GT ≥24h thực ·
+  **Lọc tổng chưa GT ≥1 ngày** (thêm 20/11/2026, v1.649). Tuổi = 0h hôm nay − giờ CSKH tiếp nhận, làm tròn xuống. B2B ≥1 ngày và NSKX ≥2 ngày
+  là chỉ tiêu phụ, không cộng vào Tổng. Tỷ lệ giải trình theo ngày lấy Tổng này làm mẫu số.
 - Báo cáo tồn chốt 08:00 mỗi ngày (theo mốc tuổi tồn, theo KTV × ngày trong tháng), lũy kế tháng đã / cần giải trình (Chủ nhật và ngày
   loại trừ không tính), lý do giải trình theo tháng (lấy dòng cuối trong tháng).
 - Danh sách chi tiết có thêm cột gửi bảo hành (v1.626): **Hạn BH** (ngày mua +24T / ngày SX +36T, mốc đến trước; chỉ ca tiếp nhận từ
