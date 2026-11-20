@@ -1,4 +1,4 @@
-import { bocPhamVi, laPhamViGoc, phamViTheoNuoc } from "./phamVi";
+import { bocPhamVi, dbGoc, laPhamViGoc, phamViTheoNuoc } from "./phamVi";
 import { dsQuocGiaKichHoat } from "./quocGia";
 /**
  * Cache JSON tinh san cho cac endpoint doc NHIEU nhung du lieu nguon CHI doi khi import ghi
@@ -92,4 +92,21 @@ export async function invalidateScopedDashboardFilters(db: D1Database): Promise<
   // khong dau ':') nen khong can dieu kien loai tru rieng.
   await db.prepare("DELETE FROM precomputed_cache WHERE key LIKE ?").bind(`${DASHBOARD_FILTERS_SCOPED_PREFIX}%`).run();
   await xoaBanPhamVi(db, "DELETE FROM precomputed_cache WHERE key LIKE ?", `${DASHBOARD_FILTERS_SCOPED_PREFIX}%`);
+}
+
+/**
+ * Don rac cache bao cao "rpt:%" (lib/reportCache.ts) qua han 7 ngay + giu toi da 1000 key moi nhat - tren bang GOC VA MOI ban
+ * sao theo pham vi (precomputed_cache_<vn|vn_nskx|ph|nskx|...>). Sua 2026-11-20 (v1.646): truoc day chi don bang goc, cac ban
+ * sao (nguoi dung xem 1 nuoc tu 11/11 -> gan nhu moi cache nam o _vn) tang mai, precomputed_cache_vn ~25 MB sau 3 tuan.
+ */
+export async function donRacCacheBaoCao(db: D1Database): Promise<void> {
+  const goc = dbGoc(db);
+  const sql = [
+    "DELETE FROM precomputed_cache WHERE key LIKE 'rpt:%' AND updated_at < datetime('now', '-7 days')",
+    `DELETE FROM precomputed_cache WHERE key LIKE 'rpt:%' AND key NOT IN (
+       SELECT key FROM (SELECT key FROM precomputed_cache WHERE key LIKE 'rpt:%' ORDER BY updated_at DESC LIMIT 1000))`,
+  ];
+  const dsDb = [goc, ...phamViTheoNuoc(await dsQuocGiaKichHoat(goc)).map((s) => bocPhamVi(goc, s))];
+  // Tuan tu tung pham vi (khong fan-out song song - quy tac D1 queue, CLAUDE.md).
+  for (const d of dsDb) await d.batch(sql.map((s) => d.prepare(s)));
 }

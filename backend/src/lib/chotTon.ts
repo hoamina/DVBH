@@ -342,9 +342,12 @@ export function gioiHanDongThoi(db: D1Database, toiDa = 2): D1Database {
   });
 }
 
-/** Cac pham vi cua 1 nhom chot: "VN" -> VN + VN x NSKX/Khong NSKX; nuoc khac -> 1 pham vi; null -> "Tất cả quốc gia" + 2 NSKX. */
+/** Cac pham vi cua 1 nhom chot: "VN" -> VN + VN x NSKX/Khong NSKX; nuoc khac -> 1 pham vi; null -> CHI "Tất cả quốc gia".
+ * Sua 2026-11-20 (v1.646, giam dung luong D1): tu 11/11 moi nguoi xem 1 nuoc (?qg bat buoc) nen 2 pham vi NSKX / Khong NSKX
+ * "toan he thong" (bang _nskx / _khong_nskx khong gan nuoc) khong con ai doc -> thoi chot. */
 export function phamViCuaNhom(nhom: string | null): PhamViDb[] {
-  if (nhom === null || nhom === QUOC_GIA_CO_NSKX) {
+  if (nhom === null) return [{ qg: null, pv: "tat_ca" }];
+  if (nhom === QUOC_GIA_CO_NSKX) {
     return (["tat_ca", "nskx", "khong_nskx"] as PhamVi[]).map((pv) => ({ qg: nhom, pv }));
   }
   return [{ qg: nhom, pv: "tat_ca" }];
@@ -424,11 +427,20 @@ export async function chotNhom(
     const ok = await buoc(`${hauToPhamVi(s)} so chot`, async () => {
       const cap2 = await withD1Retry(() => layCap2(e.DB, ngay), 6);
       const generatedAt = nowVN();
+      // Pham vi goc "Tất cả quốc gia" (nhom null): khong nguoi dung nao xem duoc nua (tu 11/11) -> chi ghi dong khac|all, la tap
+      // DAY DU ma cac tien trinh he thong doc tu bang goc (autoLogCaKetThuc: hop id cac bucket can giai trinh + moc chot;
+      // canhBaoCap2GiaiTrinh: moc chot + bo sung ca CEO). Dong qc / giam sat / khu vuc chi la tap con cua khac|all -> bo
+      // (2026-11-20, v1.646, giam dung luong D1).
+      const chiHeThong = nhom === null;
       const dong: [string, unknown][] = [
         [scopeKeyVaiTro("khac", []), tinhPayloadVaiTro(d, "khac", [], cap2)],
-        [scopeKeyVaiTro("qc", []), tinhPayloadVaiTro(d, "qc", [], cap2)],
-        ...giamSat.map((l) => [scopeKeyVaiTro("giam_sat", l), tinhPayloadVaiTro(d, "giam_sat", l, cap2)] as [string, unknown]),
-        ...d.dsKhuVuc.map((kv) => [scopeKeyKhuVuc(kv), tinhBacklogBuckets(d, [kv], cap2)] as [string, unknown]),
+        ...(chiHeThong
+          ? []
+          : [
+              [scopeKeyVaiTro("qc", []), tinhPayloadVaiTro(d, "qc", [], cap2)] as [string, unknown],
+              ...giamSat.map((l) => [scopeKeyVaiTro("giam_sat", l), tinhPayloadVaiTro(d, "giam_sat", l, cap2)] as [string, unknown]),
+              ...d.dsKhuVuc.map((kv) => [scopeKeyKhuVuc(kv), tinhBacklogBuckets(d, [kv], cap2)] as [string, unknown]),
+            ]),
       ];
       const stmts = dong.map(([k, p]) =>
         e.DB.prepare(
@@ -436,17 +448,27 @@ export async function chotNhom(
            ON CONFLICT(ngay, scope_key) DO ${giu ? "NOTHING" : "UPDATE SET generated_at = excluded.generated_at, generated_by = excluded.generated_by, payload = excluded.payload"}`,
         ).bind(ngay, k, generatedAt, generatedBy, JSON.stringify(p)),
       );
+      // Pham vi goc: dong he thong chi can 7 ngay gan nhat (tien trinh he thong chi doc hom nay); canh_bao_ton|all giu het
+      // (nho, ghiLogChuyenCapCanhBao so voi ngay truoc). Migration 0179 da don phan cu.
+      if (chiHeThong) {
+        stmts.push(
+          e.DB.prepare("DELETE FROM daily_snapshot WHERE scope_key <> 'canh_bao_ton|all' AND ngay < date(?, '-7 days')").bind(ngay),
+        );
+      }
       for (let i = 0; i < stmts.length; i += 10) {
         const lo = stmts.slice(i, i + 10);
         await withD1Retry(() => e.DB.batch(lo), 6);
       }
     });
     const daCo = async (sql: string) => giu && !!(await e.DB.prepare(sql).bind(ngay).first().catch(() => null));
+    // Tuoi ton / ton KTV chi phuc vu nguoi xem -> pham vi goc (nhom null) khong chot nua (2026-11-20).
     const okAge = await buoc(`${hauToPhamVi(s)} tuoi ton`, async () => {
+      if (nhom === null) return;
       if (await daCo("SELECT 1 AS c FROM backlog_age_daily WHERE ngay = ? LIMIT 1")) return;
       await withD1Retry(() => generateBacklogAgeSnapshot(e.DB), 6);
     });
     const okKtv = await buoc(`${hauToPhamVi(s)} ton KTV`, async () => {
+      if (nhom === null) return;
       if (await daCo("SELECT 1 AS c FROM ton_ktv_daily WHERE ngay = ?")) return;
       await withD1Retry(() => generateTonKtvSnapshot(e.DB), 6);
     });

@@ -99,6 +99,12 @@ Thứ tự khu vực cố định trên mọi báo cáo: MB1–3, MN1–3, B2B, 
 "Form tồn" (52 cột) + nối các cột hệ thống đang tích phía sau (không tích = nối tất cả).
 Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.
 
+**Phạm vi chốt (v1.646):** người dùng luôn xem 1 nước nên số chốt cho người xem chỉ ghi ở bảng theo nước (VN, VN × NSKX / Không NSKX, PH, ID…).
+Phạm vi gốc "Tất cả quốc gia" chỉ còn dòng hệ thống: `canh_bao_ton|all` (giữ hết — nhật ký chuyển cấp TBP/CEO so với ngày trước), `khac|all` +
+`chot_xong|all` (giữ 7 ngày — tự ghi log "Case đã được kết thúc", giải trình qua tranh chấp). Không chốt tuổi tồn / tồn KTV cho phạm vi gốc; 2 phạm
+vi NSKX / Không NSKX không gắn nước thôi chốt. Cache báo cáo `rpt:%` quá 7 ngày (giữ ≤ 1000 khoá mới nhất) được dọn ở bảng gốc **và mọi bản sao
+theo phạm vi** sau mỗi lần import.
+
 ## 8. Lịch chạy tự động (UTC, `wrangler.smarttrade.jsonc`)
 
 | Lịch | Việc |

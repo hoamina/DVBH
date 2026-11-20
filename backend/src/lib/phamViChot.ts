@@ -30,9 +30,8 @@ async function dsPhamViChot(env: Env): Promise<PhamViDb[]> {
   } catch (err) {
     console.error("[pham-vi] doc/tao bang quoc gia loi:", err instanceof Error ? err.message : String(err));
   }
-  // Nuoc truoc (VN = da so nguoi xem), roi 2 pham vi NSKX toan he thong.
-  const ds = phamViTheoNuoc(dsNuoc);
-  return [...ds.filter((s) => s.qg !== null), ...ds.filter((s) => s.qg === null)];
+  // Chi pham vi theo nuoc: 2 pham vi NSKX "toan he thong" (qg null) khong con chot tu 2026-11-20 (lib/chotTon.ts phamViCuaNhom).
+  return phamViTheoNuoc(dsNuoc).filter((s) => s.qg !== null);
 }
 
 /** Chot ty le giai trinh 17:30 cho 1 nhom quoc gia (lib/chotTon.ts phamViCuaNhom: VN luc 17:30, nuoc khac + "Tất cả quốc gia" luc

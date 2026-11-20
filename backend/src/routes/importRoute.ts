@@ -13,7 +13,7 @@ import { fetchCaseSheetRows } from "../lib/caseSheetSync";
 import { getSheetUrl } from "../lib/backfillSheetSync";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { refreshCaLapPrecompute } from "../lib/caLapRefresh";
-import { recompute, invalidateScopedDashboardFilters, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_FILTERS_BY_KV_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY } from "../lib/precomputedCache";
+import { recompute, invalidateScopedDashboardFilters, donRacCacheBaoCao, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_FILTERS_BY_KV_CACHE_KEY, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY } from "../lib/precomputedCache";
 import { computeDashboardFiltersByKhuVuc, deriveDashboardFilters, computeDashboardMonths } from "./dashboard";
 import type { SyncStatusPayload } from "./dashboard";
 import { bumpVersions } from "../lib/dataVersions";
@@ -42,30 +42,6 @@ async function recomputeDashboardCaches(db: D1Database): Promise<void> {
     // co import nao chay qua code nay (vd ngay sau deploy tinh nang, cache con trong).
     recompute(db, DASHBOARD_SYNC_STATUS_CACHE_KEY, async () => ({ lastSynced: nowVN() }) satisfies SyncStatusPayload),
     invalidateScopedDashboardFilters(db),
-  ]);
-}
-
-// Don rac cache bao cao "rpt:%" (xem lib/reportCache.ts) qua han 7 ngay - khac cac key
-// "dashboard-filters"/"dashboard-months" (luon duoc ghi de moi lan lien quan, khong bao gio thanh
-// rac), key "rpt:%" co the ton dong vinh vien khi bo loc/pham vi cu khong con ai doc lai (vd doi
-// khu_vuc_phu_trach cua 1 Giam sat) - don dinh ky sau moi lan import, KHONG phu thuoc GHI_MOI/GHI_DE
-// vi day chi la don rac theo tuoi, khong lien quan viec du lieu co that su doi hay khong.
-async function cleanupOldReportCache(db: D1Database): Promise<void> {
-  // Dọn dẹp các cache quá hạn 7 ngày, đồng thời giới hạn giữ lại tối đa 1000 bản ghi cache báo cáo
-  // hoạt động gần đây nhất để ngăn chặn kẻ tấn công cố tình spam làm tràn dung lượng D1.
-  await db.batch([
-    db.prepare("DELETE FROM precomputed_cache WHERE key LIKE 'rpt:%' AND updated_at < datetime('now', '-7 days')"),
-    db.prepare(`
-      DELETE FROM precomputed_cache
-      WHERE key LIKE 'rpt:%' AND key NOT IN (
-        SELECT key FROM (
-          SELECT key FROM precomputed_cache
-          WHERE key LIKE 'rpt:%'
-          ORDER BY updated_at DESC
-          LIMIT 1000
-        )
-      )
-    `),
   ]);
 }
 
@@ -158,8 +134,8 @@ export function scheduleCaLapRefreshIfChanged(
   if ((summary.MO_RONG ?? 0) > 0) {
     c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "bump case_mo_rong", bumpVersions(c.env.DB, ["case_mo_rong"])));
   }
-  // Don rac "rpt:%" chay moi lan import (khong dieu kien GHI_MOI/GHI_DE, xem cleanupOldReportCache).
-  c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "don rac rpt cache", cleanupOldReportCache(c.env.DB)));
+  // Don rac "rpt:%" chay moi lan import (khong dieu kien GHI_MOI/GHI_DE, xem donRacCacheBaoCao trong lib/precomputedCache.ts).
+  c.executionCtx.waitUntil(runBgTask(c.env, importHistoryId, "don rac rpt cache", donRacCacheBaoCao(c.env.DB)));
 }
 
 const importRoute = new Hono<{ Bindings: Env }>();

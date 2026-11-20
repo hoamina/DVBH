@@ -6248,3 +6248,22 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   doanh thu), giữ định dạng lưu cũ ("Tất cả hãng" / nối "|"), hãng đã lưu không còn trong danh sách tự bỏ; Tổng quát ô Model → `MultiSelectFilter`.
 - Kiểm thử local (tháng 07/2026): KAROFI 674 + KORIHOME 12 = chọn cả 2: 686 ca (pivot đúng 2 dòng); Doanh thu 124.414.000 + 5.496.000 =
   129.910.000; 1 giá trị ra số như trước; UI gửi `hang=KORIHOME|KAROFI`, dòng bộ lọc Tổng quát vẫn 1 dòng ở 1366px; Bỏ chọn tất cả → "Tất cả hãng".
+
+## 2026-11-20 — v1.646: giảm dung lượng D1 (dọn cache bản sao, thôi chốt phạm vi gốc, bỏ 3 index thừa)
+
+- Yêu cầu: "Total storage trên cloudflare đã lên đến 1.2g/5g khả dụng. phân tích giúp tôi 1.2g này đang tiêu tốn ở đâu? dự kiến tương lai =>
+  giải pháp nếu có" → chọn "1 + 2 + 4", hỏi thêm về 3 ("xóa bỏ có ảnh hưởng gì đến các báo cáo, hệ thống không?").
+- Đo thật (chỉ SELECT): 10 DB = 1.221 MB, `dvbh-db-smarttrade` 958 MB. Dữ liệu thô: `case_dvbh` 351 MB (`link_hinh_anh` 127 MB), bộ `daily_snapshot*`
+  ~200 MB (6 bản sao phạm vi, ~23 KB/dòng), `precomputed_cache_vn` 25 MB; còn ~330 MB là index + đệm trang. Lịch sử analytics 31 ngày: tài khoản
+  tăng ~12–13 MB/ngày (dvbh ~8,7), chạm 5 GB khoảng 09/2027 (gói Paid: quá 5 GB tính phí theo GB, không chặn).
+- Làm (1): `lib/precomputedCache.ts donRacCacheBaoCao` dọn `rpt:%` cả bảng gốc lẫn mọi `precomputed_cache_<phạm vi>` (trước chỉ bảng gốc → bản
+  `_vn` tăng mãi); `importRoute.ts` gọi hàm mới.
+- Làm (2): `chotTon.ts phamViCuaNhom(null)` chỉ còn "Tất cả" (bỏ 2 phạm vi NSKX không gắn nước, `phamViChot.ts dsPhamViChot` cũng bỏ); `chotNhom` ở
+  phạm vi gốc chỉ ghi `khac|all` (tập đầy đủ mà autoLogCaKetThuc / canhBaoCap2GiaiTrinh đọc), không chốt tuổi tồn / tồn KTV, tự xoá dòng gốc
+  cũ hơn 7 ngày (trừ `canh_bao_ton|all`). Migration 0179 dọn phần cũ (~100 MB): dòng gốc không phải hệ thống, bảng `_nskx`/`_khong_nskx`
+  không gắn nước của daily_snapshot / backlog_age / ton_ktv, tuổi tồn + tồn KTV gốc.
+- Làm (4): rà 39 index `case_dvbh` — phần lớn là index một phần và đang được dùng. Migration 0178 bỏ 3 index không truy vấn nào dùng:
+  `idx_case_assigned_to` (toàn bảng, chỉ 3 dòng có giá trị), `idx_case_dt_sua` (cột đã chuyển sang `case_dt_sua`), `idx_case_id_khach_hang`.
+- (3) chưa làm, chỉ phân tích: snapshot ngày cũ chỉ còn biểu đồ "Số ca tồn theo mốc thời gian" (`/cases/ton-trend`, đọc các số tổng +
+  `khuVucReportRows`) đọc; xoá hẳn sẽ mất lịch sử biểu đồ đó → phương án an toàn là thu gọn payload ngày cũ (bỏ mảng `ids`), chờ chủ hệ thống chốt.
+- Kiểm thử: typecheck backend; 2 migration chạy được trên D1 local.
