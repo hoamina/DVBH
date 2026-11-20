@@ -5,7 +5,7 @@
  * de doc snapshot cho duong mac dinh). File nay la lib thuan, khong import gi tu routes/*.
  */
 import { khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause, khuVucReportExclusionClause, CURRENT_MONTH_VALUE } from "./filterParams";
+import { khuVucAdHocClause, khuVucReportExclusionClause, multiValueAdHocClause, CURRENT_MONTH_VALUE } from "./filterParams";
 import { kpiEligibleClause } from "./kpiEligible";
 
 const REVENUE_EXPR = "COALESCE(dt_san_pham,0) + COALESCE(dt_linh_kien,0) + COALESCE(dt_dich_vu,0)";
@@ -44,10 +44,10 @@ export function buildRevenueFilterClause(params: RevenueFilterParams, scope: str
   sql += exclusionClause.sql;
   binds.push(...exclusionClause.binds);
 
-  if (params.hang) {
-    sql += ` AND ${prefix}hang = ?`;
-    binds.push(params.hang);
-  }
+  // Hang chon nhieu (2026-11-20, v1.645): gia tri noi "|", 1 gia tri van "= ?" nhu cu.
+  const hangClause = multiValueAdHocClause(`${prefix}hang`, params.hang);
+  sql += hangClause.sql;
+  binds.push(...hangClause.binds);
 
   // Doi strftime('%Y-%m', cot) = ... sang dang RANGE (>=, <) de planner dung duoc index tren
   // thoi_gian_hoan_thanh thay vi phai quet toan bo case_dvbh (strftime la expression tren cot nen

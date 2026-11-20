@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Select } from "../components/ui/Select";
 import { KhuVucFilterControl } from "./KhuVucFilterControl";
+import { MultiSelectFilter } from "./MultiSelectFilter";
 import { Btn } from "../components/ui/Btn";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -74,19 +75,32 @@ export function FilterBar({
   useEffect(() => {
     if (!monthsData || !data) return;
     const thangHopLe = filters.thang === CURRENT_MONTH_VALUE || monthsData.months.includes(filters.thang);
-    const hangHopLe = filters.hang === ALL_HANG || data.hang.includes(filters.hang);
+    // Hang chon nhieu (v1.645, gia tri noi "|"): giu cac hang con co, bo hang khong con; khong con hang nao -> "Tất cả hãng".
+    const hangDaChon = filters.hang === ALL_HANG ? [] : filters.hang.split("|").filter(Boolean);
+    const hangConCo = hangDaChon.filter((h) => data.hang.includes(h));
+    const hangHopLe = hangConCo.length === hangDaChon.length && (filters.hang === ALL_HANG || hangDaChon.length > 0);
     if (!thangHopLe || !hangHopLe) {
-      setFilters({ ...filters, thang: thangHopLe ? filters.thang : CURRENT_MONTH_VALUE, hang: hangHopLe ? filters.hang : ALL_HANG });
+      setFilters({ ...filters, thang: thangHopLe ? filters.thang : CURRENT_MONTH_VALUE, hang: hangHopLe ? filters.hang : hangConCo.join("|") || ALL_HANG });
     }
   }, [monthsData, data, filters, setFilters]);
 
+  // Hang: o chon nhieu (quy tac chung "bo loc mac dinh chon nhieu", 2026-11-20). filters.hang giu dinh dang cu: "Tất cả hãng"
+  // hoac cac hang noi "|" (backend multiValueAdHocClause) -> cac man dang dung filters.hang khong phai doi.
+  const oHang = (
+    <MultiSelectFilter
+      label={tr("Hãng")}
+      value={filters.hang === ALL_HANG ? "" : filters.hang}
+      onChange={(v) => setFilters({ ...filters, hang: v || ALL_HANG })}
+      options={(data?.hang ?? []).filter(Boolean)}
+    />
+  );
   const oThang = <Select value={filters.thang} onChange={(v) => setFilters({ ...filters, thang: v })} options={thangOptions} />;
   const oKy = renderThang ? renderThang(oThang) : oThang;
   if (compact)
     return (
       <div className="flex flex-wrap items-center gap-2 mb-3 py-1.5 md:sticky md:top-16 md:z-20 bg-[var(--bg)]">
         <KhuVucFilterControl value={khuVucHienThi} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
-        <Select value={filters.hang} onChange={(v) => setFilters({ ...filters, hang: v })} options={[ALL_HANG, ...(data?.hang ?? [])]} />
+        {oHang}
         {children}
         <div className="ml-auto">{oKy}</div>
       </div>
@@ -94,7 +108,7 @@ export function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
       <KhuVucFilterControl value={khuVucHienThi} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
-      <Select value={filters.hang} onChange={(v) => setFilters({ ...filters, hang: v })} options={[ALL_HANG, ...(data?.hang ?? [])]} />
+      {oHang}
       {children}
       {oKy}
       {onExport && (

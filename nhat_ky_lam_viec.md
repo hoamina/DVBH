@@ -6239,3 +6239,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   (46px) ở cả chế độ tháng và tuần, biểu đồ bắt đầu ở 453px; cuộn thì dòng bộ lọc dính ở 64px; điện thoại 375px xuống dòng, không tràn ngang.
 - Chưa làm (có trong phương án): đặt Top 10 KTV cạnh bảng pivot (bảng 16 cột quá rộng nên giữ xếp chồng); nút "Bộ lọc (n)" trên điện thoại;
   Hãng / Model chọn nhiều (cần sửa backend).
+
+## 2026-11-20 — v1.645: Hãng và Model chọn nhiều
+
+- Yêu cầu: sau v1.644 hỏi "Đổi Hãng và Model sang chọn nhiều luôn chứ?" → "Làm luôn" (quy tắc chung: bộ lọc mặc định chọn nhiều).
+- Làm: backend `dashboardCompute.ts buildDashboardFilterClause` (hang, nhom_san_pham) + `revenueCompute.ts buildRevenueFilterClause` (hang)
+  dùng `multiValueAdHocClause` (nối "|", 1 giá trị vẫn `= ?`). Frontend: `FilterBar` ô Hãng → `MultiSelectFilter` (áp cả Tổng quát và Báo cáo
+  doanh thu), giữ định dạng lưu cũ ("Tất cả hãng" / nối "|"), hãng đã lưu không còn trong danh sách tự bỏ; Tổng quát ô Model → `MultiSelectFilter`.
+- Kiểm thử local (tháng 07/2026): KAROFI 674 + KORIHOME 12 = chọn cả 2: 686 ca (pivot đúng 2 dòng); Doanh thu 124.414.000 + 5.496.000 =
+  129.910.000; 1 giá trị ra số như trước; UI gửi `hang=KORIHOME|KAROFI`, dòng bộ lọc Tổng quát vẫn 1 dòng ở 1366px; Bỏ chọn tất cả → "Tất cả hãng".

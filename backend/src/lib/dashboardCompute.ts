@@ -65,15 +65,14 @@ export function buildDashboardFilterClause(params: DashboardFilterParams, scope:
   sql += exclusionClause.sql;
   binds.push(...exclusionClause.binds);
 
-  if (params.hang) {
-    sql += ` AND ${prefix}hang = ?`;
-    binds.push(params.hang);
-  }
+  // Hang / Model chon nhieu (2026-11-20, v1.645): gia tri noi "|"; 1 gia tri van ra "= ?" nhu cu (link / bo loc da luu khong doi).
+  const hangClause = multiValueAdHocClause(`${prefix}hang`, params.hang);
+  sql += hangClause.sql;
+  binds.push(...hangClause.binds);
 
-  if (params.nhom_san_pham) {
-    sql += ` AND ${prefix}nhom_san_pham = ?`;
-    binds.push(params.nhom_san_pham);
-  }
+  const modelClause = multiValueAdHocClause(`${prefix}nhom_san_pham`, params.nhom_san_pham);
+  sql += modelClause.sql;
+  binds.push(...modelClause.binds);
 
   const nganhClause = multiValueAdHocClause(`${prefix}nganh`, params.nganh);
   sql += nganhClause.sql;

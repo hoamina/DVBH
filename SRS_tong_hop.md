@@ -466,6 +466,7 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Màn Tổng quát (v1.644, chủ hệ thống 2026-11-20 "làm gọn, filter/tab chỉ 2-3 dòng, báo cáo/biểu đồ chiếm diện tích chính"): bỏ tiêu đề trang
   (hàng tab đã ghi), Báo cáo nhanh thành 1 dải "Hôm nay" (không theo bộ lọc), mọi bộ lọc + kỳ trên 1 dòng (dính khi cuộn từ tablet trở lên),
   bỏ ô "Đang xem" (kỳ ghi trong ô chọn), thẻ KPI cỡ gọn. Màn 1366×768 thấy biểu đồ đầu tiên không cần cuộn.
+  v1.645: Hãng và Model là ô chọn nhiều (có tìm, chọn tất cả / bỏ chọn); Hãng ở Báo cáo doanh thu cũng chọn nhiều. Nhiều giá trị = HOẶC.
 - Vị trí (v1.642): tab "Báo cáo theo ngành" trong menu Tổng quát (tab thứ 2 sau "Tổng quát", tab đang mở nhớ trên máy); v1.640 từng là menu riêng.
   Ô chọn Theo tuần (◀ ▶, Tuần này) / Theo tháng (13 tháng gần nhất) + nút SLA cũ/mới ngay trên báo cáo; kỳ + bộ lọc lưu trên máy (mặc định tuần hiện tại). Bộ lọc Khu vực + Ngành (cột Ngành) + Hãng, chọn nhiều
   (v1.639 thêm Khu vực; Giám sát xem tồn bình quân theo khu vực phụ trách).

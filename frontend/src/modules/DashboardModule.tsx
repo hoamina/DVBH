@@ -372,11 +372,12 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
           </div>
         )}
       >
-        <Select
-          className="w-36"
-          value={modelFilter}
-          onChange={setModelFilter}
-          options={[ALL_MODEL, ...(modelOptionsData?.nhomSanPham.filter((v): v is string => !!v) ?? [])]}
+        {/* Model chon nhieu (v1.645): modelFilter giu dinh dang cu ("Tất cả Model" hoac cac model noi "|"). */}
+        <MultiSelectFilter
+          label="Model"
+          value={modelFilter === ALL_MODEL ? "" : modelFilter}
+          onChange={(v) => setModelFilter(v || ALL_MODEL)}
+          options={[...new Set(modelOptionsData?.nhomSanPham.filter((v): v is string => !!v) ?? [])]}
         />
         <MultiSelectFilter
           label={tr("Ngành")}
