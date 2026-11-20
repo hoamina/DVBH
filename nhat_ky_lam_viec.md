@@ -6111,3 +6111,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   công tắc hiển thị đúng; sửa lỗi trùng khoá dòng khi 2 tên khu vực rút gọn trùng nhau; trả lại dữ liệu local.
 - Còn lại: Báo cáo lũy kế (lưu R2 theo `dung_han`) chưa có SLA mới. Cần chạy tay workflow auto qs với `date_range=thang_nay` 1 lần để gửi SLA mới
   cho các ca tháng 11; trước khi chạy, ca chưa có `dung_han_klt` sẽ dùng SLA cũ.
+
+## 2026-11-20 — Ghi bù SLA mới (không loại trừ) tháng 11 từ file Odoo của chủ hệ thống
+
+- Yêu cầu: "tôi sẽ tự tính thủ công rồi gửi kết quả cho bạn đẩy lên D1" → file Odoo xuất (Mã sự vụ, Thời điểm tiếp nhận, Thời điểm đóng ca,
+  SLA (giờ)), "hãy tính tốc độ SLA không loại trừ", "Đối chiếu và ghi D1".
+- Tính: giờ = đóng ca − tiếp nhận (liền 24/7), < mốc SLA = Đúng hạn. 11.779 ca đóng từ 01/11 (bỏ 615 ca đóng trước 01/11), mọi ca đều có mốc:
+  18h 42,1% · 30h 67,2% · 42h 79,3% · 90h 87,1% → 72,7% (trên mọi ca trong file).
+- Đối chiếu D1: giờ tiếp nhận / hoàn thành khớp 100%; 254 mã chưa có trên D1 (không ghi). Ghi `so_gio_xu_ly_klt` + `dung_han_klt` cho 11.184 ca
+  có giá trị khác (phần còn lại pipeline đã tự gửi đúng), 6 lô `UPDATE … WHERE id = ?` qua `wrangler d1 execute --remote --file`, rồi bump domain
+  `cases`. Không đụng cột khác.
+- Kết quả trên ca tính KPI (Odoo, đóng 11/2026): 10.267 ca — SLA cũ 86,6%, SLA mới 77,8%; 908 ca cũ Đúng hạn → mới Quá hạn, không ca nào ngược lại.
+- Ca Odoo tháng 11 còn trống SLA mới: 1.588 ca "Không hoàn thành XLSC" (Tính vào KPI = 0, không vào báo cáo).
