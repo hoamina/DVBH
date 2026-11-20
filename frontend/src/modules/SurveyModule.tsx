@@ -23,7 +23,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { useExportRunner } from "../hooks/useExportRunner";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 
 // Khop dung field tra ve tu backend GET /survey?tab=... (xem SELECT trong backend/src/routes/survey.ts) -
@@ -709,7 +709,7 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
       ? gomTheoDiaGioi(baoCaoKhuVuc?.rows ?? [], (r) => r.nhom, diaGioi.mode, diaGioi.idx, reportDim === "tinh" ? 1 : 2)
           .map((g) => ({ ...gopDongBaoCao(g.rows, g.label), _dg: g.value }))
           .sort((a, b) => soSanhTen(a.nhom, b.nhom))
-      : [...(baoCaoKhuVuc?.rows ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+      : [...(baoCaoKhuVuc?.rows ?? [])].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
   const nhanDimBaoCao = (d: string) =>
     d === "tinh" ? NHAN_CAP_1[diaGioi.mode] : d === "quan_huyen" ? NHAN_CAP_2[diaGioi.mode] : SURVEY_REPORT_DIM_OPTIONS.find((o) => o.value === d)?.label ?? "Nhóm";
   const { data: khuVucOptions } = useQuery({

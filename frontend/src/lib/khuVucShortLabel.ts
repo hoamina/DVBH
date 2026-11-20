@@ -27,6 +27,22 @@ export function shortKhuVuc(raw: string | null | undefined): string {
   return KHU_VUC_SHORT_LABELS[raw] ?? raw;
 }
 
+/** Thu tu CO DINH cua khu vuc tren moi bao cao (2026-11-20, chu he thong: "tu dong sort cac khu vuc… khong de sap xep lung tung"):
+ * MB1-3, MN1-3, roi B2B, KDDV, SCVP; khu vuc khac xep sau theo ten (A-Z, so tu nhien). */
+const THU_TU_KHU_VUC = ["MB1", "MB2", "MB3", "MN1", "MN2", "MN3", "B2B MB", "B2B MN", "KDDV", "SCVP MB", "SCVP MN"];
+
+/** So sanh 2 ten nhom: khu vuc (ten goc hoac ten rut gon) theo THU_TU_KHU_VUC; con lai (KTV, tinh, doi tac...) A-Z tieng Viet,
+ * so tu nhien ("Trạm 2" < "Trạm 10"). Dung cho moi bang xep theo nhom. */
+export function soSanhNhom(a: string | null | undefined, b: string | null | undefined): number {
+  const ten = (x: string | null | undefined) => shortKhuVuc(khuVucGop(x ?? "")) || "";
+  const ta = ten(a);
+  const tb = ten(b);
+  const ia = THU_TU_KHU_VUC.indexOf(ta);
+  const ib = THU_TU_KHU_VUC.indexOf(tb);
+  if (ia !== ib) return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  return ta.localeCompare(tb, "vi", { numeric: true, sensitivity: "base" });
+}
+
 /**
  * Gop khu vuc "la" ve khu vuc chuan DE HIEN THI bao cao theo khu vuc (2026-11-19, chu he thong chon "gop vao khu vuc chuan"):
  *  - CRM doi ma B2B tu 10/2026: "(qlb2b.b2b-mb) Quản lý B2B Miền Nam" (moi) = "(qlb2b.b2b-mn) Quản lý B2B Miền Nam" (cu); tuong tu

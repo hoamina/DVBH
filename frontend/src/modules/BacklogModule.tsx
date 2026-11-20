@@ -32,7 +32,7 @@ import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { useTonKhoTongHop, useLayTonKhoTongHop, fmtSl } from "../components/TonKhoLk";
 import { isVipKh, vipRowClassName, VipBadge } from "../lib/vipHighlight";
-import { shortKhuVuc, gopDongTheoKhuVuc, khuVucGop } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, gopDongTheoKhuVuc, khuVucGop, soSanhNhom } from "../lib/khuVucShortLabel";
 import { IdSerialSearchInput } from "../components/IdSerialSearchInput";
 import { TonTheoKtvCard } from "./TonTheoKtvCard";
 import { TRANG_THAI_LABELS, TRANG_THAI_TONE, TRANG_THAI_DONG } from "../lib/tranhChapShared";
@@ -855,7 +855,7 @@ function OLoaiTru({ lyDo }: { lyDo: string }) {
 function buildTrendExportRows(rows: GiaiTrinhTrendRow[], days: string[], excludedNgay: ExcludedNgayRow[] = []): Record<string, string | number>[] {
   const isExcluded = exclusionChecker(excludedNgay);
   const lyDoLoaiTru = exclusionReason(excludedNgay);
-  const sorted = [...rows].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi"));
+  const sorted = [...rows].sort((a, b) => soSanhNhom(a.khu_vuc, b.khu_vuc));
   const totalByDay: Record<string, { can: number; da: number }> = {};
   for (const day of days) {
     let can = 0;
@@ -923,7 +923,7 @@ function TamTinhCell({ can, da, gio, dam }: { can: number; da: number; gio: stri
 }
 
 function DailyCountTrendTable({ title, metricCol, rows, trendDays }: { title: string; metricCol: string; rows: CanhBaoTonTrendRow[]; trendDays: string[] }) {
-  const sorted = useMemo(() => [...rows].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi")), [rows]);
+  const sorted = useMemo(() => [...rows].sort((a, b) => soSanhNhom(a.khu_vuc, b.khu_vuc)), [rows]);
   const valueOf = (day: CanhBaoTonTrendDay | undefined): number | undefined => (day ? (day as unknown as Record<string, number>)[metricCol] : undefined);
   const totalByDay: Record<string, number> = {};
   for (const day of trendDays) {
@@ -1373,7 +1373,7 @@ export function BacklogModule({
     return total;
   }, { can: 0, da: 0 });
   // Cot dau tien (Khu vuc) sap A-Z.
-  const sortedTrendRows: GiaiTrinhTrendRow[] = [...(giaiTrinhTrend?.rows ?? [])].sort((a, b) => a.khu_vuc.localeCompare(b.khu_vuc, "vi"));
+  const sortedTrendRows: GiaiTrinhTrendRow[] = [...(giaiTrinhTrend?.rows ?? [])].sort((a, b) => soSanhNhom(a.khu_vuc, b.khu_vuc));
   // Dong "Tong cong" cho bang "Ty le giai trinh theo ngay" - MOI cot ngay cong rieng can_giai_trinh/
   // da_giai_trinh cua tat ca khu vuc co du lieu ngay do, roi tinh % tu tong (khong cong trung binh
   // % tung dong).
@@ -1448,14 +1448,14 @@ export function BacklogModule({
         nskx_2_ngay: r.nskx_2_ngay,
         thieu_linh_kien: r.thieu_linh_kien,
       }))
-      .sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+      .sort((a, b) => soSanhNhom(a.nhom, b.nhom));
   }, [showDailyCols, backlogDaily]);
   // CHOT 2026-08-01: cot dau tien (nhom) sap A-Z - ap dung du nguon la dong bang hay song.
   const liveKhuVucRows = khuVucStats?.rows ?? [];
   const displayKhuVucRows: KhuVucRow[] =
     reportDim === "tinh" && !showDailyCols
       ? gopBangTheoTinh(liveKhuVucRows, dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
-      : [...(showDailyCols ? frozenKhuVucRows : liveKhuVucRows)].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+      : [...(showDailyCols ? frozenKhuVucRows : liveKhuVucRows)].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
 
   // CHOT 2026-08-06: khi showDailyCols, bang hien THEM 4 cot "trong ngay" (Ty le GT thang/Can GT
   // ngay/Da GT ngay/Ty le GT ngay - tinh tu backlogDaily.byKhuVuc, KHONG nam trong KhuVucRow) - truoc

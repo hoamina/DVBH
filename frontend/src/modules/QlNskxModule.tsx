@@ -25,7 +25,7 @@ import { useExportRunner } from "../hooks/useExportRunner";
 import { useAuth } from "../auth/AuthContext";
 import { DatLoiNskxModal } from "../components/DatLoiNskxModal";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
 import { parseLinhKienLoi } from "../components/LoiLinhKienPanel";
 import { TT_DON, TT_LOI_LOC, parseJsonArr as parseJson, laLoi, deXuatLoi as deXuatLoiTu, type LoiDaThay } from "../components/NskxPanel";
 import { useDiaGioiIndex, useDiaGioiLoc, NHAN_CAP_1 } from "../lib/diaGioi";
@@ -570,7 +570,7 @@ type CotBaoCao = "nhom" | "tong_ca" | "da_hoan_thanh" | "ty_24h" | "ty_sla" | "d
 
 function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; onDrill: (nhom: string | null, dim: "khu_vuc" | "ktv", tt?: string) => void }) {
   const [dim, setDim] = useLocalStorageState<"khu_vuc" | "ktv">("filters:ql-nskx-bao-cao-dim", "khu_vuc");
-  const [sapXep, setSapXep] = useState<{ cot: CotBaoCao; chieu: "asc" | "desc" }>({ cot: "tong_ca", chieu: "desc" });
+  const [sapXep, setSapXep] = useState<{ cot: CotBaoCao; chieu: "asc" | "desc" }>({ cot: "nhom", chieu: "asc" });
   const [timNhom, setTimNhom] = useState("");
   const sla = useSlaCheDo(thang);
   const params = { thang, khu_vuc: khuVuc || undefined, dim };
@@ -596,7 +596,7 @@ function BaoCaoTab({ thang, khuVuc, onDrill }: { thang: string; khuVuc: string; 
     return [...loc].sort((a, b) => {
       const x = giaTri(a, sapXep.cot);
       const y = giaTri(b, sapXep.cot);
-      const s = typeof x === "string" ? x.localeCompare(String(y), "vi") : x - (y as number);
+      const s = sapXep.cot === "nhom" ? soSanhNhom(a.nhom, b.nhom) : typeof x === "string" ? x.localeCompare(String(y), "vi") : x - (y as number);
       return sapXep.chieu === "asc" ? s : -s;
     });
   }, [data, timNhom, sapXep, sla.apDung]);

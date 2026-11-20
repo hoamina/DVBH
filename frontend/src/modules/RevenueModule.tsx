@@ -11,7 +11,7 @@ import { api, buildQuery } from "../api/client";
 import { fmtVND } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { useDiaGioiIndex, nhanTinh, soSanhTen, NHAN_CAP_1, DIA_GIOI_LABEL } from "../lib/diaGioi";
 import { tr } from "../i18n/tr";
@@ -159,7 +159,7 @@ export function RevenueModule() {
   );
 
   // Cot dau tien (Ky thuat vien) sap A-Z.
-  const sortedKtvRows = [...ktvRows].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  const sortedKtvRows = [...ktvRows].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
 
   const dsQ = [byKhuVucQ, byHangQ, byKtvQ, byKtvTinhQ, byTinhQ];
   return (

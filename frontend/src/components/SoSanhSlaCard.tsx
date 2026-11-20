@@ -6,6 +6,7 @@ import { Card } from "./ui/Card";
 import { Btn } from "./ui/Btn";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { tr } from "../i18n/tr";
+import { soSanhNhom } from "../lib/khuVucShortLabel";
 
 export interface SoSanhSlaRow {
   nhom: string;
@@ -90,7 +91,7 @@ const phanTram = (v: number | null) => (v === null ? "—" : `${v}%`);
 const so = (v: number | null) => (v === null ? "—" : String(v));
 
 export function SoSanhSlaCard({ rows, nhanNhom, tenFile }: { rows: SoSanhSlaRow[]; nhanNhom: (nhom: string) => string; tenFile: string }) {
-  const [sapXep, setSapXep] = useState<{ cot: Cot; chieu: "asc" | "desc" }>({ cot: "chenh", chieu: "asc" });
+  const [sapXep, setSapXep] = useState<{ cot: Cot; chieu: "asc" | "desc" }>({ cot: "nhom", chieu: "asc" });
   const [tim, setTim] = useState("");
 
   const { dongs, tong } = useMemo(() => {
@@ -102,7 +103,7 @@ export function SoSanhSlaCard({ rows, nhanNhom, tenFile }: { rows: SoSanhSlaRow[
       if (x === null && y === null) return 0;
       if (x === null) return 1; // trong luon xuong cuoi
       if (y === null) return -1;
-      const s = typeof x === "string" ? x.localeCompare(String(y), "vi") : (x as number) - (y as number);
+      const s = sapXep.cot === "nhom" ? soSanhNhom(a.khoa, b.khoa) : typeof x === "string" ? x.localeCompare(String(y), "vi") : (x as number) - (y as number);
       return sapXep.chieu === "asc" ? s : -s;
     });
     const loc = rows.filter((r) => !q || boDau(nhanNhom(r.nhom)).includes(q));

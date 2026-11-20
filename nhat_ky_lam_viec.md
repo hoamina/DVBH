@@ -6132,3 +6132,20 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Sửa: Tổng quát nhóm theo Khu vực gộp dòng qua `khuVucGop` (cộng số, tính lại tỷ lệ) cho bảng pivot + bảng so sánh SLA; `KHU_VUC_SHORT_LABELS`
   thêm 2 mã B2B mới → "B2B MN" / "B2B MB" ở mọi nơi hiển thị. Không đổi dữ liệu.
 
+## 2026-11-20 — v1.637: mẫu tải "Form tồn" + thứ tự khu vực cố định trên báo cáo
+
+- Yêu cầu: (1) file "Form tồn.xlsx" — "thêm mẫu này vào mẫu mặc định khi tải file (thêm 1 lượt chọn)… mẫu có 10 cột, còn trên hệ thống có 20
+  cột, thì 10 cột thiếu tự động bổ sung lần lượt theo thứ tự từ cột 11 trở đi (10 cột thiếu bổ sung theo tích chọn người dùng), không tích chọn
+  cột nào thì bổ sung tất cả"; (2) "tự động sort các khu vực, danh sách trên các báo cáo có trên hệ thống (không để sắp xếp lung tung như vậy)".
+- Hiện trạng trả lời: mẫu cá nhân đã lưu vốn tự nối cột mới ra cuối (bật sẵn); "Mẫu tính lương" là mẫu cố định, tải đúng cột của mẫu, không nối.
+- (1) `lib/exportMauFormTon.ts`: mẫu cố định "Form tồn" (52 cột đúng thứ tự/tiêu đề file mẫu) chỉ hiện khi tải Quản lý tồn › Danh sách chi tiết
+  (`quan_ly_ton.xlsx`). Sau cột 52 nối các cột hệ thống chưa có trong mẫu (bỏ cột cùng trường / cùng tiêu đề) theo thứ tự + tích chọn trong bảng
+  chọn cột; không tích cột nào → nối tất cả. Tiêu đề mẫu giữ tiếng Việt, cột nối thêm theo ngôn ngữ. File `quan_ly_ton_form_ton.xlsx`.
+  Ánh xạ: KQ CS sơ bộ = Nội dung xử lý; Link video / report_photo_url để trống; Kênh tiếp nhận tách từ Khách hàng; Tỉnh mới / Xã-Phường mới = 2 cột
+  địa giới theo nút Cũ/Mới; Số ngày tồn = Tuổi tồn; Lý do tồn = lý do tồn gần nhất; Giải trình gần nhất của GS = nội dung giải trình gần nhất;
+  Mã linh kiện = mã LK thiếu gần nhất; Còn bảo hành/ hết bảo hành = Hạn bảo hành; Tình trạng giao hàng cho KTV = Trạng thái đơn hàng LK gần nhất.
+  "Mẫu tính lương" không đổi.
+- (2) `lib/khuVucShortLabel.ts soSanhNhom`: thứ tự cố định MB1–3, MN1–3, B2B MB, B2B MN, KDDV, SCVP MB, SCVP MN, còn lại A-Z (số tự nhiên).
+  Áp cho: Tổng quát (pivot + so sánh SLA, mặc định xếp theo nhóm), Quản lý tồn (bảng theo khu vực, tỷ lệ giải trình theo ngày, các bảng khu vực),
+  Ca lặp, Thiếu linh kiện, Nạp gas, Khảo sát, Doanh thu KTV, QL NSKX › Báo cáo (mặc định xếp theo nhóm), ô chọn khu vực.
+- Kiểm thử local: typecheck; Quản lý tồn ra MB1→MN3→B2B→KDDV→SCVP; tải Form tồn: tích hết → 52 + 95 cột, chỉ tích "Link CRM" → 53 cột.

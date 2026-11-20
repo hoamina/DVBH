@@ -453,3 +453,10 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   QL NSKX › Báo cáo; lựa chọn nhớ trên máy. Bảng "So sánh SLA cũ / SLA mới" ở Tổng quát: cùng nhóm + bộ lọc với pivot, cột số ca tính, SLA cũ,
   SLA mới, chênh lệch (điểm %), ca có mốc Odoo, cũ ĐH → mới QH, cũ QH → mới ĐH, ≤24h cũ / mới, giờ TB cũ / mới; sắp xếp, lọc nhóm, Excel.
 - Chưa làm: Báo cáo lũy kế (chỉ SLA cũ).
+
+## 18. Mẫu tải "Form tồn" + thứ tự khu vực cố định (chốt 2026-11-20, v1.637)
+
+- Bảng chọn cột khi tải Quản lý tồn › Danh sách chi tiết có thêm mẫu cố định **"Form tồn"** (52 cột theo file mẫu, tiêu đề tiếng Việt). Các cột hệ
+  thống không có trong mẫu được nối tiếp sau cột 52 theo thứ tự và tích chọn trong bảng chọn cột; không tích cột nào thì nối tất cả.
+- Mẫu cá nhân đã lưu: cột mới tự nối cuối (bật sẵn). "Mẫu tính lương": tải đúng cột của mẫu (không nối).
+- Mọi bảng báo cáo / ô chọn theo khu vực xếp cố định: MB1, MB2, MB3, MN1, MN2, MN3, B2B MB, B2B MN, KDDV, SCVP MB, SCVP MN, rồi các nhóm khác A-Z.

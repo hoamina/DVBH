@@ -4,6 +4,7 @@ import type { LinhKienLoiItem } from "../types";
 import { pickExportColumns } from "../components/ExportColumnPicker";
 import { exportTemplateKey } from "./exportTemplate";
 import { taoSheetMauTinhLuong } from "./exportMauTinhLuong";
+import { COT_DG_1, COT_DG_2, FILE_CO_FORM_TON, cotFormTon } from "./exportMauFormTon";
 import { taoSheetTuDong } from "./excelChung";
 import { tr } from "../i18n/tr";
 import { DiaGioiIndex, NHAN_CAP_1, NHAN_CAP_2, coTienTo, diaGioiModeHienTai, khoaTen, type QuyDoiRow } from "./diaGioi";
@@ -62,9 +63,31 @@ export async function exportRowsToExcel<T extends object>(
   for (const r of exportRows) for (const k of Object.keys(r)) if (!seen.has(k)) (seen.add(k), allCols.push(k));
   let header = allCols;
   if (allCols.length > 0 && !options?.skipColumnPicker) {
+    const tplKey = exportTemplateKey(filename);
     const presets = laDanhSachCa ? [{ key: "tinh-luong", label: tr("Mẫu tính lương"), moTa: tr("Tải ngay theo đúng cột, thứ tự, tiêu đề file mẫu tính lương") }] : [];
-    const picked = await pickExportColumns(filename, allCols, exportTemplateKey(filename), presets);
+    if (laDanhSachCa && tplKey === FILE_CO_FORM_TON)
+      presets.push({ key: "form-ton", label: tr("Form tồn"), moTa: tr("Tải theo cột, thứ tự, tiêu đề file Form tồn; các cột khác đang tích nối tiếp phía sau (không tích cột nào = nối tất cả)") });
+    const picked = await pickExportColumns(filename, allCols, tplKey, presets);
     if (!picked) return; // nguoi dung huy - khong tai
+    if ("preset" in picked && picked.preset === "form-ton") {
+      // "Form tồn" (2026-11-20): 52 cot mau truoc, roi NOI cac cot he thong khong nam trong mau theo thu tu + tich chon cua bang
+      // chon cot; khong tich cot nao -> noi tat ca. Cot he thong da duoc mau thay the (cung truong tho / cung tieu de) khong lap lai.
+      const mau = cotFormTon();
+      const nhanCua = (k: string) => labels?.[k] ?? veTiengViet(k);
+      const daCo = new Set<string>([...mau.flatMap((c) => c.nguon).map(nhanCua), ...mau.map((c) => c.tieuDe)]);
+      const noiThem = (picked.cols.length ? picked.cols : picked.order).filter((c) => !daCo.has(c));
+      const tieuDeMau = mau.map((c) => c.tieuDe);
+      const dong = cleanedRows.map((r, i) => {
+        const o: Record<string, unknown> = {};
+        for (const c of mau) o[c.tieuDe] = c.lay(r);
+        for (const c of noiThem) o[c] = exportRows[i][c];
+        return o;
+      });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, taoSheetTuDong(XLSX, dong, [...tieuDeMau, ...noiThem], new Set(tieuDeMau)), sheetName);
+      XLSX.writeFile(wb, filename.replace(/(\.xlsx)?$/i, "_form_ton.xlsx"));
+      return;
+    }
     if ("preset" in picked) {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, taoSheetMauTinhLuong(XLSX, rows as Record<string, unknown>[]), "Sheet1");
@@ -106,8 +129,6 @@ function laDongCa(row: Record<string, unknown> | undefined): boolean {
   return !!row && "id" in row && "tinh" in row && "quan_huyen" in row;
 }
 
-const COT_DG_1 = "__dg_cap1";
-const COT_DG_2 = "__dg_cap2";
 // Cot dia chi THO giu lai de doi chieu (ten khac 2 cot theo che do de khong trung tieu de).
 const NHAN_COT_THO: Record<string, string> = {
   tinh: "Tỉnh (gốc)",

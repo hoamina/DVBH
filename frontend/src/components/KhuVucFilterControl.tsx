@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Select, type SelectOption } from "./ui/Select";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
 import { tr } from "../i18n/tr";
 import { coNhomDvbh, useQuocGiaDangXem } from "../lib/phamVi";
 
@@ -45,7 +45,13 @@ export function KhuVucFilterControl({
   // nay, xem lib/khuVucShortLabel.ts. Chi xu ly dang {value,label} - moi noi goi component nay deu
   // dung dang nay cho options khu_vuc (khong dung string thuan, xem cac callsite), nen KHONG dong
   // cham dang string de tranh rui ro lam value bien thanh nhan rut gon.
+  // 2026-11-20: khu vuc theo thu tu co dinh (MB1-3, MN1-3, B2B, KDDV, SCVP...) - lua chon "Tat ca" (dau danh sach) giu tren cung.
   const shortOptions: SelectOption[] = options.map((o) => (typeof o === "string" ? o : { value: o.value, label: shortKhuVuc(o.label) }));
+  if (shortOptions.length > 2) {
+    const [dau, ...con] = shortOptions;
+    const giaTri = (o: SelectOption) => (typeof o === "string" ? o : o.value);
+    shortOptions.splice(0, shortOptions.length, dau, ...con.sort((a, b) => soSanhNhom(giaTri(a), giaTri(b))));
+  }
 
   // Tu dong chon san khu vuc duy nhat cua ho ngay lan dau (chi khi dang o gia tri "Tat ca" mac
   // dinh) - chi ap dung cho truong hop CHINH XAC 1 khu vuc, vi 2+ khu vuc da co che do chip rieng

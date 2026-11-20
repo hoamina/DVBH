@@ -10,9 +10,10 @@ import { tieuDeExcel } from "../lib/excelChung";
 // may nguoi dung: mau luu localStorage (lib/exportTemplate.ts), khong goi server.
 
 type Item = { col: string; on: boolean };
-/** Mau CO DINH (vd "Mẫu tính lương" - lib/exportMauTinhLuong.ts): bam la tai ngay theo mau, bo qua lua chon cot. */
+/** Mau CO DINH (vd "Mẫu tính lương" - lib/exportMauTinhLuong.ts, "Form tồn" - lib/exportMauFormTon.ts): bam la tai ngay theo mau.
+ * Kem cot dang tich (cols) + thu tu moi cot (order) de mau nao can noi them cot he thong ngoai mau (Form tồn) dung. */
 export type ExportPreset = { key: string; label: string; moTa: string };
-export type ExportPick = { cols: string[] } | { preset: string } | null;
+export type ExportPick = { cols: string[] } | { preset: string; cols: string[]; order: string[] } | null;
 
 function ExportColumnPicker({
   filename,
@@ -80,7 +81,7 @@ function ExportColumnPicker({
                   key={p.key}
                   type="button"
                   title={p.moTa}
-                  onClick={() => onDone({ preset: p.key })}
+                  onClick={() => onDone({ preset: p.key, cols: items.filter((i) => i.on).map((i) => i.col), order: items.map((i) => i.col) })}
                   className="text-xs font-semibold px-2.5 py-1 rounded-md border border-[var(--ocean-600)] text-[var(--ocean-600)] hover:bg-[var(--surface-100)]"
                 >
                   ⬇ {p.label}

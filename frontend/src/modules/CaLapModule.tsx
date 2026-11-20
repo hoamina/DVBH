@@ -25,7 +25,7 @@ import {
 } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useExportRunner } from "../hooks/useExportRunner";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, soSanhNhom } from "../lib/khuVucShortLabel";
 import { CASE_FIELD_LABELS } from "../lib/caseFieldLabels";
 import { trangThaiLapOf, trangThaiKeyOf } from "../lib/caLapStatus";
 import { fetchWithHashCache } from "../lib/staticListCache";
@@ -192,7 +192,7 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
 
   // Cot dau tien sap A-Z (chi bang "Bao cao theo khu vuc" - bang "10 KTV co nhieu ca lap nhat" ben
   // duoi la bang xep hang, khong sap A-Z).
-  const sortedKhuVucRows = [...(tq?.khuVuc ?? [])].sort((a, b) => a.nhom.localeCompare(b.nhom, "vi"));
+  const sortedKhuVucRows = [...(tq?.khuVuc ?? [])].sort((a, b) => soSanhNhom(a.nhom, b.nhom));
 
   // Danh sach ca lap tach lam 2 phan (xem backend/src/routes/caLap.ts): "list" ON DINH (cache theo
   // hash /ca-lap/version, chi doi khi import/blacklist kich hoat tinh lai) + "status" DONG (giai_trinh_lap,

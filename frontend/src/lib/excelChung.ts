@@ -46,7 +46,7 @@ function oNgayGioExport(v: unknown): XLSXNS.CellObject | null {
 /** Dung sheet tu cac dong (khoa = cot noi bo): dong 1 = tieu de da dich. Cot ngay gio = MOI gia tri khac rong deu dang
  * "yyyy-mm-dd[ hh:mm[:ss]]" VA co it nhat 1 gia tri co gio -> o ngay that. Cac o khac giu kieu nhu json_to_sheet truoc
  * day (so/bool/chuoi, khong doi gia tri). */
-export function taoSheetTuDong(XLSX: typeof XLSXNS, rows: Record<string, unknown>[], cols: string[]): XLSXNS.WorkSheet {
+export function taoSheetTuDong(XLSX: typeof XLSXNS, rows: Record<string, unknown>[], cols: string[], giuTieuDe?: Set<string>): XLSXNS.WorkSheet {
   const ws: XLSXNS.WorkSheet = {};
   const laCotNgay = cols.map((c) => {
     let coGio = false;
@@ -60,7 +60,8 @@ export function taoSheetTuDong(XLSX: typeof XLSXNS, rows: Record<string, unknown
     return coGio;
   });
   cols.forEach((c, ci) => {
-    ws[XLSX.utils.encode_cell({ r: 0, c: ci })] = { t: "s", v: tieuDeExcel(c) };
+    // giuTieuDe: cot cua mau co dinh (vd "Form tồn") giu nguyen tieu de tieng Viet o moi ngon ngu.
+    ws[XLSX.utils.encode_cell({ r: 0, c: ci })] = { t: "s", v: giuTieuDe?.has(c) ? c : tieuDeExcel(c) };
   });
   rows.forEach((r, ri) => {
     cols.forEach((c, ci) => {
