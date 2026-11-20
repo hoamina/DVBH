@@ -15,6 +15,9 @@ export const KHU_VUC_SHORT_LABELS: Record<string, string> = {
   "(qlkddv.3t) Quản lý kinh doanh dịch vụ": "KDDV",
   "(qlb2b.b2b-mn) Quản lý B2B Miền Bắc": "B2B MB",
   "(qlb2b.b2b-mn) Quản lý B2B Miền Nam": "B2B MN",
+  // CRM doi ma B2B tu 10/2026 (xem KHU_VUC_GOP ben duoi) - ma moi cung nhan rut gon voi ma cu (2026-11-20).
+  "(qlb2b.b2b-mb) Quản lý B2B Miền Nam": "B2B MN",
+  "(qlb2b.b2b-mb) Quản lý B2B Miền Bắc": "B2B MB",
   "Phòng bảo hành 3T miền Bắc": "SCVP MB",
   "Phòng bảo hành 3T miền Nam": "SCVP MN",
 };

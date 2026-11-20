@@ -6123,3 +6123,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   `cases`. Không đụng cột khác.
 - Kết quả trên ca tính KPI (Odoo, đóng 11/2026): 10.267 ca — SLA cũ 86,6%, SLA mới 77,8%; 908 ca cũ Đúng hạn → mới Quá hạn, không ca nào ngược lại.
 - Ca Odoo tháng 11 còn trống SLA mới: 1.588 ca "Không hoàn thành XLSC" (Tính vào KPI = 0, không vào báo cáo).
+
+## 2026-11-20 — v1.636: Tổng quát còn dòng "(qlb2b.b2b-mb) Quản lý B2B Miền Nam"
+
+- Yêu cầu: ảnh bảng "So sánh SLA cũ / SLA mới" còn dòng khu vực B2B mã mới — "sao vẫn còn nhóm sai này".
+- Nguyên nhân: v1.634 chỉ gộp khu vực lạ (`KHU_VUC_GOP`) ở bảng "Tỷ lệ giải trình theo ngày"; pivot / so sánh SLA của Tổng quát chưa gộp,
+  nhãn rút gọn chưa biết 2 mã B2B mới.
+- Sửa: Tổng quát nhóm theo Khu vực gộp dòng qua `khuVucGop` (cộng số, tính lại tỷ lệ) cho bảng pivot + bảng so sánh SLA; `KHU_VUC_SHORT_LABELS`
+  thêm 2 mã B2B mới → "B2B MN" / "B2B MB" ở mọi nơi hiển thị. Không đổi dữ liệu.
+

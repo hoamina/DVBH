@@ -16,7 +16,7 @@ import { LOAI_LOI_META, LOAI_LOI_KEYS, fmtVND } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { fmtGeneratedAt } from "../lib/formatSnapshotTime";
-import { shortKhuVuc } from "../lib/khuVucShortLabel";
+import { shortKhuVuc, khuVucGop } from "../lib/khuVucShortLabel";
 import { useDiaGioiIndex, gopBangTheoTinh, soSanhTen, useDiaGioiLoc, useOnDiaGioiModeChange, NHAN_CAP_1 } from "../lib/diaGioi";
 import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { tr } from "../i18n/tr";
@@ -241,7 +241,12 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   const gopVaSapXep = (rows: PivotRow[]) =>
     pivotDim === "tinh"
       ? gopBangTheoTinh(rows, dgMode, dgIdx).sort((a, b) => soSanhTen(a.nhom, b.nhom))
-      : (groupPH ? sumReportRows(rows, (r) => phGroupForStation(r.tram, phGroups)) : [...rows]).sort((a, b) => (a.nhom ?? "").localeCompare(b.nhom ?? "", "vi"));
+      : (groupPH
+          ? sumReportRows(rows, (r) => phGroupForStation(r.tram, phGroups))
+          : pivotDim === "khu_vuc"
+            ? sumReportRows(rows, (r) => khuVucGop(r.nhom)) // 2026-11-20: gop khu vuc la (B2B doi ma, CTV/TEST) ve khu vuc chuan
+            : [...rows]
+        ).sort((a, b) => (a.nhom ?? "").localeCompare(b.nhom ?? "", "vi"));
   const sortedPivotRows = gopVaSapXep(pivot?.rows ?? []);
   // Bao cao so sanh SLA cu / moi dung so GOC (khong qua cong tac), cung nhom + cung bo loc voi bang pivot.
   const soSanhRows = gopVaSapXep(pivotGoc?.rows ?? []);
