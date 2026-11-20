@@ -6167,3 +6167,7 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Lưu ý: tham số `tu`/`den` (không phải `tu_ngay`/`den_ngay`) vì Tổng quát chặn khoảng `tu_ngay–den_ngay` > 7 ngày. UPPER của SQLite không viết
   hoa chữ có dấu → viết hoa Hãng ở trình duyệt.
 - Kiểm thử local: ghi bù 07/2026 cho 7 phạm vi; bảng tháng 07 hiện đủ 8 ngành, tồn BQ trên 31 ngày.
+- Ghi bù production (sau deploy v1.638): đọc D1 (ca đang mở + ca đóng từ 01/11 08:00, bỏ ca huỷ), đếm tồn lúc 08:00 từng ngày 01–20/11 theo
+  Ngành × Hãng cho 8 bảng sổ chốt (gốc, NSKX, không NSKX, VN, VN NSKX, VN không NSKX, ID, PH — ID không có ca), ghi dim `nganh_hang`
+  qua `wrangler d1 execute --file`. Đối chiếu tổng với số chốt 08:00 có sẵn (dim `tong`): lệch ≤ 0,6% (vd 20/11: 1.466 vs 1.464), riêng 09/11
+  số chốt cũ 1.922 là ngày chốt lỗi; 04–08/11 và 15/11 không có số chốt cũ, nay có số tồn theo ngành. Từ 21/11 chốt 08:00 tự ghi dim này.
