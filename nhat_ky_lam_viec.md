@@ -6179,3 +6179,5 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   khu vực (khoá cache `-v2`), lọc tồn theo khu vực phụ trách + bỏ khu vực ẩn ngay ở server → Giám sát cũng xem được tồn bình quân (trước là "—").
   Thẻ thêm bộ lọc Khu vực (chọn nhiều, gộp mã B2B/CTV về khu vực chuẩn, nhãn rút gọn, thứ tự cố định). Ghi bù lại tồn 01–20/11 theo định dạng mới.
 - (2) `layout/navConfig.ts`: "Báo cáo vi phạm" chuyển từ nhóm Vận hành lên Tổng quan (sau Báo cáo lũy kế); quyền xem module không đổi.
+- Ghi bù lại production sau deploy v1.639: tồn 08:00 ngày 01–20/11 theo Ngành × Hãng × Khu vực cho 8 bảng sổ chốt (thay dòng định dạng cũ 2 phần);
+  20/11 toàn hệ thống 1.464 ca, không còn dòng định dạng cũ.
