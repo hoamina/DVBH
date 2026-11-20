@@ -6277,3 +6277,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử local: thu gọn 100 dòng `daily_snapshot_vn` (08–10/2026): các số biểu đồ đọc (tổng, trên 7 ngày, `khuVucReportRows`) khớp 100%
   trước/sau, `khuVucReportRows` vẫn là object; 6,3 MB → 0,29 MB. Typecheck backend.
 - Lần chạy đầu trên production: đêm 20→21/11 lúc 03:00 VN (chưa kiểm được lúc deploy).
+
+## 2026-11-20 — v1.648: Hồ sơ linh kiện ghép PO với ca qua mã đơn / ticket
+
+- Yêu cầu: (ảnh Hồ sơ linh kiện 3004030423, "PO cho ca này" toàn "—", "Ca thiếu đã có PO riêng 0/2") "sao các ca tồn check phần lớn đều ko
+  tìm thấy PO liên quan, rà soát xem có phải do PO đặt không có mã ID case hoặc mã ID linh kiện, hay do hệ thống lỗi không hiển thị" → "Sửa luôn".
+- Rà soát (D1 production, chỉ đọc): 9.205 dòng PO, 90% ô "ID CRM" trống; ô có ghi chủ yếu là mã ticket `TLK-…` (336) / đơn `DDH-…`, mã ca Odoo
+  `SC26…` chỉ 12 dòng; nhiều ô ghi nhiều mã ("TLK-001083  THB-000091"). Hồ sơ LK chỉ so "ID CRM" = mã ca → 0/44 ca tồn có mã LK thiếu khớp.
+  2 ca trong ảnh chưa có đơn đặt LK nào → "—" là đúng dữ liệu.
+- Làm: `HoSoLinhKien.tsx` tách mọi mã trong "ID CRM" + "ID đặt hàng" của PO, ghép về ca qua mã ca / đơn DDH (case_ids của đơn từ app linh kiện +
+  `don_lk_id` của ca) / ticket TLK (→ đơn → ca), hiện lý do ghép cạnh PO; `/api/missing-parts?ma_lk=` trả thêm `don_lk_id` (bảng `don_lk_gan_nhat`,
+  tra khoá chính, chỉ khi có `ma_lk` nên Xuất Excel không đổi); lịch sử đơn của mã LK xin 200 đơn (trước 50).
+- Kiểm thử: chạy đúng thuật toán trên dữ liệu thật (PO DVBH + đơn/ticket app linh kiện, 44 ca, 34 mã): 0/44 → 15/44. 29 ca còn lại: 21 chưa có đơn
+  đặt LK nào, 8 có đơn nhưng không PO nào ghi mã đơn / ticket của ca — cần Mua hàng ghi mã ca hoặc TLK khi đặt EO (việc quy trình).

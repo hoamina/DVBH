@@ -147,7 +147,7 @@ tonKhoLk.post("/lk-thay-the/sync", async (c) => {
 // Ho so linh kien, khong luu D1 - cung chot voi lib/linhKienTimeline.ts). Loi -> 502 de UI hien "khong tai duoc".
 tonKhoLk.get("/ma/:ma/lich-su", async (c) => {
   try {
-    const data = await callLinhKienPartner(c.env, `/v1/linh-kien/lich-su?ma=${encodeURIComponent(c.req.param("ma"))}&limit=50`);
+    const data = await callLinhKienPartner(c.env, `/v1/linh-kien/lich-su?ma=${encodeURIComponent(c.req.param("ma"))}&limit=200`);
     return c.json(data);
   } catch (err) {
     return c.json({ error: "LINHKIEN_APP_ERROR", message: err instanceof Error ? err.message : String(err) }, 502);

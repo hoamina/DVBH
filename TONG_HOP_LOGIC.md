@@ -66,6 +66,10 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   khoản người bấm (đơn "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX"), đồng bộ trạng thái đơn lõi.
 - Chi tiết ca, tab PO: PO theo ID CRM / mã LK thiếu + PO có "ID đặt hàng" trùng mã đặt hàng của ca (đơn LK, mã xuất hàng trong giải trình,
   ID Lada). PO liên quan trực tiếp (ID CRM = ID ca hoặc trùng ID đặt hàng) xếp trên cùng kèm lý do; còn lại là PO cùng mã LK thiếu.
+- Hồ sơ linh kiện, cột "PO cho ca này" / ô "Ca thiếu đã có PO riêng" (v1.648): tách mọi mã trong "ID CRM" + "ID đặt hàng" của PO (ô có thể ghi
+  nhiều mã), ghép về ca khi là mã ca; mã đơn `DDH-…` của ca (đơn ghi mã ca bên app linh kiện, hoặc đơn của ca trong `don_lk_gan_nhat` — khớp
+  ID Lada / ghi trong giải trình); mã ticket `TLK-…` → đơn của ticket → ca. Ghi rõ đường ghép cạnh PO. Dữ liệu đơn/ticket = 200 đơn gần nhất
+  của mã LK (gọi app linh kiện lúc mở hồ sơ). Mua hàng không ghi mã nào của ca trên EO thì ca vẫn hiện "—" (PO đặt chung theo mã LK).
 - File tải về Danh sách chi tiết (Quản lý tồn): DT sản phẩm / linh kiện / dịch vụ = số SAU sửa tay; kèm "DT đã sửa tay" + 3 số CRM gốc
   + lý do (bảng `case_dt_sua`), Hạn bảo hành (Còn / Hết / Không tính). Tiêu đề file theo ngôn ngữ người dùng.
   Đơn LK gần nhất: ID, trạng thái, ngày đặt / duyệt / xuất / KTV nhận, mã LK của đơn, đơn đúng mã LK thiếu, cách khớp đơn, số đơn của ca.

@@ -14898,5 +14898,9 @@
   "ID Lada của ca": ["case's Lada ID", "ID Lada kasus"],
   "Hôm nay": ["Today", "Hari ini"],
   "Tuần": ["Week", "Minggu"],
-  "Số chốt trong ngày, không chạy theo bộ lọc bên dưới": ["Today's locked figures, not affected by the filters below", "Angka terkunci hari ini, tidak terpengaruh filter di bawah"]
+  "Số chốt trong ngày, không chạy theo bộ lọc bên dưới": ["Today's locked figures, not affected by the filters below", "Angka terkunci hari ini, tidak terpengaruh filter di bawah"],
+  "PO ghi đúng mã ca": ["PO has the case ID", "PO mencantumkan ID kasus"],
+  "qua ticket {0} → đơn {1}": ["via ticket {0} → order {1}", "lewat tiket {0} → pesanan {1}"],
+  "qua đơn {0}": ["via order {0}", "lewat pesanan {0}"],
+  "PO ghi mã ca / đơn / ticket của ca": ["PO references the case / its order / ticket", "PO merujuk kasus / pesanan / tiketnya"]
 }

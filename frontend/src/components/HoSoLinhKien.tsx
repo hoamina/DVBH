@@ -46,6 +46,8 @@ interface CaThieu {
   tuoi_ton: number | null;
   nhom_kh: string | null;
   last_ngay_yeu_cau_co_hang: string | null;
+  /** Don DDH gan nhat cua ca (bang don_lk_gan_nhat: don ghi ma ca / khop ID Lada / ma ghi trong giai trinh). */
+  don_lk_id?: string | null;
 }
 
 interface LichSuOrder {
@@ -315,12 +317,6 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
     [...new Set(po.map((r) => r.khoCanDat ?? "").filter(Boolean))].sort().forEach((k, i) => m.set(k, KHO_MAU[i % KHO_MAU.length]));
     return m;
   }, [po]);
-  // Ca -> PO dat rieng cho ca do (PO co gan ID CRM)
-  const poTheoCa = useMemo(() => {
-    const m = new Map<string, SheetRow[]>();
-    for (const r of po) if (r.idCrm) m.set(r.idCrm, [...(m.get(r.idCrm) ?? []), r]);
-    return m;
-  }, [po]);
   const tonQ = useQuery({ queryKey: ["ton-kho-lk-ma", maLk], queryFn: () => api.get<{ rows: TonRow[]; ten?: string | null }>(`/ton-kho-lk/ma/${encodeURIComponent(maLk)}`) });
   const caQ = useQuery({
     queryKey: ["missing-parts-ma-lk", maLk],
@@ -358,6 +354,36 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
   );
   const homNay = new Date().toISOString().slice(0, 10);
   const orders = lsQ.data?.orders ?? [];
+  // Ca -> PO lien quan (2026-11-20, chu he thong: "phan lon ca ton khong thay PO"). Mua hang hiem khi ghi ma ca vao "ID CRM" cua EO
+  // (9.205 dong PO: 90% trong, con lai chu yeu ma ticket TLK-… / don DDH-…), truoc day chi so "ID CRM" = ma ca -> 0/44 ca ton khop.
+  // Nay tach MOI ma trong "ID CRM" + "ID đặt hàng" cua PO (o co the ghi nhieu ma) va lan ve ca theo 3 duong, dung du lieu don/ticket
+  // cua ma LK nay da tai san (lsQ): ma ca -> ca; DDH-… -> ca cua don (case_ids); TLK-… -> don cua ticket -> ca cua don.
+  const poTheoCa = useMemo(() => {
+    const tachMa = (s?: string | null) => (s ?? "").split(/[^A-Za-z0-9-]+/).map((t) => t.trim().toUpperCase()).filter(Boolean);
+    const caTheoMa = new Map(cases.map((c) => [c.id.trim().toUpperCase(), c.id]));
+    const caCuaDon = new Map(orders.map((o) => [o.id.toUpperCase(), (o.case_ids ?? "").split(",").map((x) => x.trim().toUpperCase()).filter(Boolean)]));
+    // Don chi gan voi ca qua giai trinh / ID Lada (app linh kien khong ghi ma ca tren don) -> bo sung tu don_lk_id cua ca.
+    for (const c of cases) {
+      const don = (c.don_lk_id ?? "").trim().toUpperCase();
+      if (don) caCuaDon.set(don, [...new Set([...(caCuaDon.get(don) ?? []), c.id.trim().toUpperCase()])]);
+    }
+    const donCuaTicket = new Map(thieuLk.map((t) => [t.id.toUpperCase(), (t.dat_don_hang_id ?? "").toUpperCase()]));
+    const m = new Map<string, { po: SheetRow; lyDo: string }[]>();
+    const them = (maCa: string, p: SheetRow, lyDo: string) => {
+      const id = caTheoMa.get(maCa);
+      if (!id) return;
+      const ds = m.get(id) ?? [];
+      if (!ds.some((x) => x.po === p)) m.set(id, [...ds, { po: p, lyDo }]);
+    };
+    for (const p of po) {
+      for (const ma of new Set([...tachMa(p.idCrm), ...tachMa(p.idDatHang)])) {
+        if (caTheoMa.has(ma)) them(ma, p, tr("PO ghi đúng mã ca"));
+        const don = ma.startsWith("TLK-") ? donCuaTicket.get(ma) : ma;
+        for (const ca of (don && caCuaDon.get(don)) || []) them(ca, p, ma.startsWith("TLK-") ? tr("qua ticket {0} → đơn {1}", ma, don!) : tr("qua đơn {0}", ma));
+      }
+    }
+    return m;
+  }, [po, cases, orders, thieuLk]);
   const lsLoi = lsQ.isError ? tr("Không tải được dữ liệu từ hệ Đặt mua linh kiện.") : null;
 
   // Nhan dinh nhanh - thu tu uu tien xu ly: kho MB/MN co hang -> KTV cung khu vuc -> KTV noi khac -> het.
@@ -427,7 +453,7 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
     {
       label: tr("Ca thiếu đã có PO riêng"),
       value: cases.length ? `${caCoPo}/${cases.length}` : "—",
-      sub: cases.length ? tr("PO gắn đúng ID ca") : undefined,
+      sub: cases.length ? tr("PO ghi mã ca / đơn / ticket của ca") : undefined,
       tone: cases.length && caCoPo < cases.length ? "coral" : "gray",
     },
   ];
@@ -525,12 +551,13 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
                           {treHen && " " + tr("· quá hẹn")}
                         </td>
                         <td className={TH}>
-                          {(poTheoCa.get(c.id) ?? []).map((p) => (
-                            <span key={p.id} className="inline-flex items-center gap-1 mr-1.5 whitespace-nowrap">
-                              <MaAppLink id={p.id} title={tr("Đã có PO đặt cho ca này")} />
+                          {(poTheoCa.get(c.id) ?? []).map(({ po: p, lyDo }) => (
+                            <span key={p.id} className="inline-flex items-center gap-1 mr-1.5 whitespace-nowrap" title={lyDo}>
+                              <MaAppLink id={p.id} title={lyDo} />
                               <span className={poDangCho(p) ? "text-[var(--amber-600)]" : "text-[var(--teal-600)]"}>
                                 {poDangCho(p) ? (p.ngayDuKienGanNhat ? tr("DK {0}", p.ngayDuKienGanNhat) : tr("chờ hàng")) : (poNgayVe(p) ? tr("đã về {0}", poNgayVe(p)) : tr("đã xong"))}
                               </span>
+                              <span className="text-[10px] text-[var(--ink-400)]">({lyDo})</span>
                             </span>
                           ))}
                           {!poTheoCa.has(c.id) && <span className="text-[var(--ink-400)]">—</span>}

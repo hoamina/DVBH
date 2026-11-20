@@ -42,6 +42,10 @@ export function baseJoin(caseFilterSql: string): string {
 const SELECT_COLS = `c.id AS id, lg.ly_do_cham as last_ly_do_cham, lg.linh_kien_thieu as last_linh_kien_thieu,
        lg.ngay_yeu_cau_co_hang as last_ngay_yeu_cau_co_hang, lg.ngay_du_kien_hoan_thanh as last_ngay_du_kien_hoan_thanh,
        ${AGE_EXPR} as tuoi_ton`;
+// don_lk_id (2026-11-20): CHI khi goi theo ma_lk (Ho so linh kien) - don DDH gan nhat cua ca (ke ca don chi ghi trong giai trinh / khop
+// ID Lada, bang don_lk_gan_nhat) de ghep PO ghi "ID đặt hàng" = don do voi ca. Tra theo khoa chinh. Khong them vao danh sach thuong
+// (nut Xuat Excel lay moi cot cua dong).
+const COT_DON_LK = `, (SELECT dl.don_id FROM don_lk_gan_nhat dl WHERE dl.case_id = c.id) AS don_lk_id`;
 
 // KHONG them gio "00:00:00" vao bound - xem giai thich chi tiet o monthBounds() trong cases.ts
 // (mot so ca co thoi_gian_hoan_thanh chi la ngay thuan, so sanh chuoi voi bound co gio se sai).
@@ -126,7 +130,7 @@ missingParts.get("/", async (c) => {
   // moi cho" - dua VIP len dau), roi trong tung nhom sap ca ton lau nhat len truoc (thay vi ORDER BY
   // id DESC/moi nhat truoc nhu cu) - theo yeu cau uu tien xu ly ca cang tre cang truoc.
   const query = `
-    SELECT ${SELECT_COLS}, COUNT(*) OVER() as total_count
+    SELECT ${SELECT_COLS}${maLk ? COT_DON_LK : ""}, COUNT(*) OVER() as total_count
     FROM case_hieu_luc c
     ${baseJoin(CASE_FILTER_TON)}
     WHERE c.thoi_gian_hoan_thanh IS NULL AND c.archived_at IS NULL AND c.huy_bo_at IS NULL${scopeClause.sql}${extraFilter}

@@ -214,7 +214,7 @@ kho" cho kéo thủ công (ép kéo lại cùng phiên bản: Admin/TBP DVBH).
 | Cột "Tồn kho MB/MN" (tab Linh kiện thiếu) | Cộng tồn các kho gán MB/MN ở tab **Cấu hình kho** (mặc định theo linh-kien-app: MB = 6804-MB, GLMB, SNKMB, VGMB, MMMB; MN = 6803, VGMN). Kèm cột "Tồn KTV" (tổng mọi kho KTV) và "Ca lâu nhất". |
 | Tình trạng từng mã (loại trừ nhau, theo thứ tự) | **Kho có hàng** (MB+MN > 0 → điều chuyển) → **Chỉ KTV đang giữ** → **Hết hàng, chưa có PO** → **Hết hàng, PO trễ** (quá ngày dự kiến hàng về của PO gần nhất) → **Hết hàng, chờ PO**. Cờ riêng **Lệch tồn giữa miền**: ca thiếu ở miền này (khu vực qldvbh.mb*/mn*) mà kho miền này hết, kho miền kia còn. |
 | Thẻ báo cáo | 6 thẻ trên đầu tab (số mã + số ca đang chờ), bấm = lọc bảng; sắp xếp "nhiều ca / ưu tiên theo tổng ngày chờ / ca chờ lâu nhất"; Xuất Excel. |
-| Hồ sơ linh kiện (bấm 1 mã) | Nhận định nhanh + ca đang thiếu + tồn từng kho công ty + KTV đang giữ (ưu tiên cùng khu vực ca thiếu) + ticket thiếu hàng (kho xử lý tới đâu) + 50 đơn đặt hàng gần nhất (linh-kien-app, gọi lúc mở) + PO/mua hàng/bảo hành (Google Sheet). |
+| Hồ sơ linh kiện (bấm 1 mã) | Nhận định nhanh + ca đang thiếu + tồn từng kho công ty + KTV đang giữ (ưu tiên cùng khu vực ca thiếu) + ticket thiếu hàng (kho xử lý tới đâu) + 200 đơn đặt hàng gần nhất (linh-kien-app, gọi lúc mở) + PO (app EO Mua hàng). Cột "PO cho ca này" (v1.648) ghép PO về ca qua mã ca, mã đơn `DDH-…` hoặc mã ticket `TLK-…` ghi trong "ID CRM" / "ID đặt hàng" của PO, ghi rõ đường ghép. |
 
 
 ## 9. Quản lý khảo sát: "Danh sách loại trừ" (chốt 2026-10-09)
