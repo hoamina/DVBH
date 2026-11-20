@@ -6149,3 +6149,21 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   Áp cho: Tổng quát (pivot + so sánh SLA, mặc định xếp theo nhóm), Quản lý tồn (bảng theo khu vực, tỷ lệ giải trình theo ngày, các bảng khu vực),
   Ca lặp, Thiếu linh kiện, Nạp gas, Khảo sát, Doanh thu KTV, QL NSKX › Báo cáo (mặc định xếp theo nhóm), ô chọn khu vực.
 - Kiểm thử local: typecheck; Quản lý tồn ra MB1→MN3→B2B→KDDV→SCVP; tải Form tồn: tích hết → 52 + 95 cột, chỉ tích "Link CRM" → 53 cột.
+
+## 2026-11-20 — v1.638: "Báo cáo đúng hạn theo ngành" (tuần / tháng) ở Tổng quát
+
+- Yêu cầu: "các chỉ số theo tuần và theo tháng của từng ngành hàng -> có bộ lọc Ngành Hàng, Hãng, Tuần, Tháng + tỷ lệ 24h đối tác KRF +
+  tỷ lệ 24h Hãng khác + tỷ lệ SLA + RTAT + tồn bình quân 7 ngày… kiểm tra các báo cáo này đã có sẵn chưa… đẩy chung về 1 báo cáo".
+- Rà hiện trạng: SLA và ≤24h có ở Tổng quát (theo tháng/tuần, lọc Hãng/Model, không lọc Ngành, không tách KRF); RTAT chỉ có ở Báo cáo lũy kế
+  (theo tháng, theo miền); "tồn bình quân" chưa có (Quản lý tồn có tuổi tồn TB chốt 08:00 theo Hãng, không theo Ngành).
+- Chốt: Ngành = cột `nganh`; nhóm KRF = Đối tác chứa KAROFI / KORIHOME / LIVOTEC / NSKX / PURASTAR / SIMPLE HOME, còn lại (3T, ECOM, B2B-…,
+  MINH THÀNH, KHO ĐMX…) = Hãng khác; 24h / SLA / RTAT theo nút SLA cũ/mới; tồn bình quân lấy số chốt 08:00, tháng 11 tính lại từ thời gian
+  tiếp nhận / đóng ca rồi ghi vào sổ chốt.
+- Làm: sổ chốt 08:00 `backlog_age_daily` thêm dim `nganh_hang` (giá trị Ngành + U+001F + HÃNG viết hoa) — tự có mọi phạm vi (NSKX / nước);
+  `POST /api/backlog-age-report/bu-nganh-hang` (Admin) ghi bù theo ngày cho mọi phạm vi. `GET /api/dashboard/bao-cao-nganh?tu=&den=` gộp ca đóng
+  trong kỳ theo (Ngành, Hãng, nhóm KRF) — 1 lần đọc / kỳ, cachedReport — kèm tồn 08:00 từng ngày (chỉ vai trò xem toàn hệ thống). Tổng quát:
+  `components/BaoCaoNganhCard.tsx` theo kỳ Tuần/Tháng đang chọn ở đầu màn, lọc Ngành + Hãng (chọn nhiều, lọc trên trình duyệt), cột Số ca đóng,
+  24h KRF, 24h Hãng khác, Tỷ lệ SLA, RTAT (giờ), Tồn bình quân / ngày (tổng tồn 08:00 / số ngày có số chốt), xuất Excel.
+- Lưu ý: tham số `tu`/`den` (không phải `tu_ngay`/`den_ngay`) vì Tổng quát chặn khoảng `tu_ngay–den_ngay` > 7 ngày. UPPER của SQLite không viết
+  hoa chữ có dấu → viết hoa Hãng ở trình duyệt.
+- Kiểm thử local: ghi bù 07/2026 cho 7 phạm vi; bảng tháng 07 hiện đủ 8 ngành, tồn BQ trên 31 ngày.

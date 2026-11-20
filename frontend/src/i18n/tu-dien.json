@@ -14874,5 +14874,18 @@
   "10 KTV có tỷ lệ SLA mới thấp nhất": ["10 technicians with the lowest new SLA rate", "10 teknisi dengan tingkat SLA baru terendah"],
   "Đang xem SLA MỚI (không loại trừ): giờ từ lúc tiếp nhận đến đóng ca; Đúng hạn khi giờ < mốc SLA Odoo, ca không có mốc dùng SLA cũ. SLA ≤Xh và ≤24h tính trên giờ không loại trừ.": ["Viewing the NEW SLA (no exclusions): hours from reception to closing; on time when hours < the Odoo SLA target, cases without a target use the old SLA. SLA ≤Xh and ≤24h use hours without exclusions.", "Menampilkan SLA BARU (tanpa pengecualian): jam dari penerimaan hingga penutupan; tepat waktu bila jam < target SLA Odoo, kasus tanpa target memakai SLA lama. SLA ≤X jam dan ≤24 jam memakai jam tanpa pengecualian."],
   "Form tồn": ["Backlog form", "Formulir backlog"],
-  "Tải theo cột, thứ tự, tiêu đề file Form tồn; các cột khác đang tích nối tiếp phía sau (không tích cột nào = nối tất cả)": ["Download with the columns, order and headers of the Backlog form file; other ticked columns are appended after (none ticked = append all)", "Unduh sesuai kolom, urutan, dan judul file Formulir backlog; kolom lain yang dicentang ditambahkan di belakang (tidak ada yang dicentang = tambahkan semua)"]
+  "Tải theo cột, thứ tự, tiêu đề file Form tồn; các cột khác đang tích nối tiếp phía sau (không tích cột nào = nối tất cả)": ["Download with the columns, order and headers of the Backlog form file; other ticked columns are appended after (none ticked = append all)", "Unduh sesuai kolom, urutan, dan judul file Formulir backlog; kolom lain yang dicentang ditambahkan di belakang (tidak ada yang dicentang = tambahkan semua)"],
+  "{0} / {1} ca": ["{0} / {1} cases", "{0} / {1} kasus"],
+  "Báo cáo đúng hạn theo ngành": ["On-time report by industry", "Laporan tepat waktu per industri"],
+  "Ca đóng trong kỳ (theo ngày hoàn thành), tính KPI. 24h KRF = đối tác Karofi, Korihome, Livotec, NSKX, Purastar, Simple Home; còn lại là Hãng khác. RTAT = giờ xử lý trung bình. Tồn bình quân = số ca tồn lúc 08:00 trung bình mỗi ngày.": ["Cases closed in the period (by completion date), counted in KPI. 24h KRF = partners Karofi, Korihome, Livotec, NSKX, Purastar, Simple Home; the rest are Other brands. RTAT = average handling hours. Average backlog = cases open at 08:00, averaged per day.", "Kasus ditutup dalam periode (menurut tanggal selesai), dihitung KPI. 24 jam KRF = mitra Karofi, Korihome, Livotec, NSKX, Purastar, Simple Home; sisanya Merek lain. RTAT = rata-rata jam penanganan. Backlog rata-rata = kasus terbuka pukul 08:00, rata-rata per hari."],
+  "Đang xem SLA mới (không loại trừ).": ["Viewing the new SLA (no exclusions).", "Menampilkan SLA baru (tanpa pengecualian)."],
+  "Đang xem SLA cũ (có loại trừ).": ["Viewing the old SLA (with exclusions).", "Menampilkan SLA lama (dengan pengecualian)."],
+  "Tồn tính trên {0} ngày có số chốt.": ["Backlog based on {0} days with a snapshot.", "Backlog berdasarkan {0} hari dengan data harian."],
+  "Tồn bình quân chỉ hiện với vai trò xem toàn hệ thống.": ["Average backlog is only shown to system-wide roles.", "Backlog rata-rata hanya ditampilkan untuk peran seluruh sistem."],
+  "Số ca đóng (tính KPI)": ["Closed cases (KPI)", "Kasus ditutup (KPI)"],
+  "Tỷ lệ 24h đối tác KRF": ["24h rate – KRF partners", "Tingkat 24 jam – mitra KRF"],
+  "Tỷ lệ 24h Hãng khác": ["24h rate – other brands", "Tingkat 24 jam – merek lain"],
+  "Tỷ lệ SLA mới": ["New SLA rate", "Tingkat SLA baru"],
+  "RTAT (giờ)": ["RTAT (hours)", "RTAT (jam)"],
+  "Tồn bình quân / ngày": ["Average backlog / day", "Backlog rata-rata / hari"]
 }

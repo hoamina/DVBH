@@ -106,7 +106,7 @@ export function buildDashboardFilterClause(params: DashboardFilterParams, scope:
 export const DUNG_HAN_MOI_EXPR = "COALESCE(dung_han_klt, dung_han)";
 export const GIO_XU_LY_MOI_EXPR = "COALESCE(so_gio_xu_ly_klt, so_gio_xu_ly)";
 
-const GIO_HOP_LE_MOI = `tinh_vao_kpi = 1 AND thoi_gian_hoan_thanh IS NOT NULL AND ${GIO_XU_LY_MOI_EXPR} >= 0 AND ${GIO_XU_LY_MOI_EXPR} < 8760`;
+export const GIO_HOP_LE_MOI = `tinh_vao_kpi = 1 AND thoi_gian_hoan_thanh IS NOT NULL AND ${GIO_XU_LY_MOI_EXPR} >= 0 AND ${GIO_XU_LY_MOI_EXPR} < 8760`;
 
 export interface TrendRow {
   [key: string]: unknown;
@@ -274,3 +274,61 @@ export async function computeDashboardPivot(
 
   return { rows: results };
 }
+
+// ======================= BAO CAO DUNG HAN TUAN / THANG THEO NGANH (2026-11-20, chu he thong) =======================
+// Nhom "đối tác KRF" (chu he thong): Đối tác chua KAROFI / KORIHOME / LIVOTEC / NSKX / PURASTAR / SIMPLE HOME; con lai (3T, ECOM,
+// B2B-..., MINH THÀNH, KHO ĐMX, trong) = "Hãng khác". UPPER chi doi chu ASCII - cac ten nay khong dau nen du.
+export const DOI_TAC_KRF_EXPR = `(${["KAROFI", "KORIHOME", "LIVOTEC", "NSKX", "PURASTAR", "SIMPLE HOME", "SIMPE HOME"]
+  .map((t) => `UPPER(COALESCE(doi_tac, '')) LIKE '%${t}%'`)
+  .join(" OR ")})`;
+
+export interface BaoCaoNganhNhom {
+  nganh: string;
+  hang: string;
+  krf: number;
+  ca_dong: number;
+  d24_cu: number;
+  m24_cu: number;
+  d24_moi: number;
+  m24_moi: number;
+  sla_ok: number;
+  sla_tinh: number;
+  sla_ok_moi: number;
+  sla_tinh_moi: number;
+  tong_gio: number;
+  co_gio: number;
+  tong_gio_moi: number;
+  co_gio_moi: number;
+}
+
+/** Ca DONG trong [tuNgay, denNgay) (ngay hoan thanh), gop theo (Ngành, Hãng goc, nhom KRF) - viet hoa Hãng o trinh duyet (UPPER cua
+ * SQLite khong doi chu co dau: "Hãng khác" -> "HãNG KHáC"). 1 lan doc / ky, bo loc Ngành / Hãng
+ * lam o trinh duyet (khong goi lai server). Cung dinh nghia Tong quat: 24h cu = bucket CRM, 24h moi = gio khong loai tru < 24; SLA cu
+ * / moi nhu the KPI; RTAT = gio xu ly TB (ca tinh KPI, gio hop le 0-8760). */
+export async function computeBaoCaoNganh(db: D1Database, tuNgay: string, denNgay: string, scope: string[] | null): Promise<{ nhom: BaoCaoNganhNhom[] }> {
+  const { from, sql, binds } = buildDashboardFilterClause({ tu_ngay: tuNgay, den_ngay: denNgay }, scope);
+  const gioHopLe = "tinh_vao_kpi = 1 AND thoi_gian_hoan_thanh IS NOT NULL AND so_gio_xu_ly >= 0 AND so_gio_xu_ly < 8760";
+  const { results } = await db
+    .prepare(
+      `SELECT COALESCE(TRIM(nganh), '') AS nganh, TRIM(COALESCE(hang, '')) AS hang, CASE WHEN ${DOI_TAC_KRF_EXPR} THEN 1 ELSE 0 END AS krf,
+         SUM(CASE WHEN tinh_vao_kpi = 1 THEN 1 ELSE 0 END) AS ca_dong,
+         SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket = '0. Dưới 24h' THEN 1 ELSE 0 END) AS d24_cu,
+         SUM(CASE WHEN tinh_vao_kpi = 1 AND xu_ly_24h_bucket IS NOT NULL THEN 1 ELSE 0 END) AS m24_cu,
+         SUM(CASE WHEN ${GIO_HOP_LE_MOI} AND ${GIO_XU_LY_MOI_EXPR} < 24 THEN 1 ELSE 0 END) AS d24_moi,
+         SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN 1 ELSE 0 END) AS m24_moi,
+         SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han = 'Đúng hạn' THEN 1 ELSE 0 END) AS sla_ok,
+         SUM(CASE WHEN tinh_vao_kpi = 1 AND dung_han IS NOT NULL THEN 1 ELSE 0 END) AS sla_tinh,
+         SUM(CASE WHEN tinh_vao_kpi = 1 AND ${DUNG_HAN_MOI_EXPR} = 'Đúng hạn' THEN 1 ELSE 0 END) AS sla_ok_moi,
+         SUM(CASE WHEN tinh_vao_kpi = 1 AND ${DUNG_HAN_MOI_EXPR} IS NOT NULL THEN 1 ELSE 0 END) AS sla_tinh_moi,
+         SUM(CASE WHEN ${gioHopLe} THEN so_gio_xu_ly ELSE 0 END) AS tong_gio,
+         SUM(CASE WHEN ${gioHopLe} THEN 1 ELSE 0 END) AS co_gio,
+         SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN ${GIO_XU_LY_MOI_EXPR} ELSE 0 END) AS tong_gio_moi,
+         SUM(CASE WHEN ${GIO_HOP_LE_MOI} THEN 1 ELSE 0 END) AS co_gio_moi
+       FROM ${from} WHERE 1=1${sql}
+       GROUP BY 1, 2, 3`,
+    )
+    .bind(...binds)
+    .all<BaoCaoNganhNhom>();
+  return { nhom: results };
+}
+

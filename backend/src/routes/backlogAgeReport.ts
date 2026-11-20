@@ -4,7 +4,7 @@ import { ROLES_XEM_TOAN_BO } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
-import { generateBacklogAgeSnapshot, getBacklogAgeManifest, getBacklogAgeMonthRows } from "../lib/backlogAgeSnapshot";
+import { buTonNganhHangMoiPhamVi, generateBacklogAgeSnapshot, getBacklogAgeManifest, getBacklogAgeMonthRows } from "../lib/backlogAgeSnapshot";
 import { layBangTenKtvKemPhienBan, gopDongTheoKtv } from "../lib/ktvTen";
 
 // Bao cao "Tuoi ton trung binh" - du lieu tong hop TOAN HE THONG (khong cross-tab theo khu_vuc_phu_trach
@@ -42,6 +42,17 @@ backlogAgeReport.get("/data", async (c) => {
 backlogAgeReport.post("/refresh", requireRole("Admin", "TBP DVBH"), async (c) => {
   await generateBacklogAgeSnapshot(c.env.DB);
   return c.json({ ok: true });
+});
+
+// POST /api/backlog-age-report/bu-nganh-hang?tu=YYYY-MM-DD&den=YYYY-MM-DD (Admin, 2026-11-20): ghi bu so chot ton 08:00 theo
+// Ngành x Hãng (dim nganh_hang) cho cac ngay chua co - tinh tu thoi gian tiep nhan / dong ca, moi pham vi. Toi da 62 ngay.
+backlogAgeReport.post("/bu-nganh-hang", requireRole("Admin"), async (c) => {
+  const tu = c.req.query("tu") ?? "";
+  const den = c.req.query("den") ?? "";
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(tu) || !re.test(den) || tu > den || Date.parse(den) - Date.parse(tu) > 62 * 86400000) return c.json({ error: "INVALID_RANGE" }, 400);
+  const ketQua = await buTonNganhHangMoiPhamVi(c.env.DB, tu, den);
+  return c.json({ ok: true, tu, den, so_ca_doc: ketQua });
 });
 
 export default backlogAgeReport;

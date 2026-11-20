@@ -22,6 +22,7 @@ import { MultiSelectFilter } from "../components/MultiSelectFilter";
 import { tr } from "../i18n/tr";
 import { SlaCheDoToggle, useSlaCheDo, type SlaCheDo } from "../components/SlaCheDoToggle";
 import { SoSanhSlaCard } from "../components/SoSanhSlaCard";
+import { BaoCaoNganhCard } from "../components/BaoCaoNganhCard";
 
 interface DailyReportBucket {
   baseline: number;
@@ -208,6 +209,13 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
   const pivot = useMemo(() => (pivotGoc ? { rows: theoSla(pivotGoc.rows, sla.apDung) } : undefined), [pivotGoc, sla.apDung]);
   const pivotKtv = useMemo(() => (manTq?.pivotKtv ? { rows: theoSla(manTq.pivotKtv.rows, sla.apDung) } : undefined), [manTq, sla.apDung]);
   const laSlaMoi = sla.apDung === "moi";
+  // Ky [tu, den) cho "Báo cáo đúng hạn theo ngành": tuan = weekRange (den da la ngay sau CN); thang = ngay 1 -> ngay 1 thang sau.
+  const kyNganh = (() => {
+    if (week) return { tu: weekRange.tu_ngay!, den: weekRange.den_ngay! };
+    const m = filters.thang === CURRENT_MONTH_VALUE || !/^\d{4}-\d{2}$/.test(filters.thang) ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7) : filters.thang;
+    const [y, mo] = m.split("-").map(Number);
+    return { tu: `${m}-01`, den: `${mo === 12 ? y + 1 : y}-${String(mo === 12 ? 1 : mo + 1).padStart(2, "0")}-01` };
+  })();
 
   // Dong "Tong cong" dau bang pivot - cong don cac cot so tren cac dong dang hien (tu doi theo
   // pivotDim/bo loc hien tai), roi tinh lai 3 cot ty le tu tong tu so/mau so (khong cong trung binh
@@ -566,6 +574,12 @@ export function DashboardModule({ onNavigate }: { onNavigate?: (module: string) 
         </div>
       </Card>
 
+      <BaoCaoNganhCard
+        tuNgay={kyNganh.tu}
+        denNgay={kyNganh.den}
+        sla={sla.apDung}
+        kyLabel={week ? tr("Tuần {0}/{1}", week, weekYear) : tr("Tháng {0}", thangHienThi)}
+      />
       {!sla.khoa && <SoSanhSlaCard rows={soSanhRows} nhanNhom={(n) => (pivotDim === "khu_vuc" ? shortKhuVuc(n) : n)} tenFile={`so_sanh_sla_${pivotDim}`} />}
     </div>
   );

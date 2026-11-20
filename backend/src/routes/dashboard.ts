@@ -6,7 +6,8 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { scopeByKhuVuc, khuVucWhereClause } from "../middleware/scopeByKhuVuc";
 import { getDailyReportWithDelta, getSnapshotForUserAnToan, isDefaultReportParams } from "../lib/dailySnapshot";
-import { type DashboardFilterParams, computeDashboardKpis, PIVOT_DIMS, computeDashboardPivot } from "../lib/dashboardCompute";
+import { type DashboardFilterParams, computeDashboardKpis, PIVOT_DIMS, computeDashboardPivot, computeBaoCaoNganh } from "../lib/dashboardCompute";
+import { DIM_NGANH_HANG } from "../lib/backlogAgeSnapshot";
 import { getOrCompute, DASHBOARD_MONTHS_CACHE_KEY, DASHBOARD_SYNC_STATUS_CACHE_KEY, DASHBOARD_FILTERS_CACHE_KEY, DASHBOARD_FILTERS_BY_KV_CACHE_KEY } from "../lib/precomputedCache";
 import { cachedReport, buildReportKey, chayGomDoc } from "../lib/reportCache";
 import { KHU_VUC_AN_KHOI_BAO_CAO } from "../lib/filterParams";
@@ -228,6 +229,31 @@ async function docKpis(c: Context<{ Bindings: Env }>, laySnap: LaySnap) {
 }
 
 dashboard.get("/kpis", async (c) => c.json(await docKpis(c, taoLaySnap(c))));
+
+// GET /api/dashboard/bao-cao-nganh?tu=YYYY-MM-DD&den=YYYY-MM-DD (den KHONG tinh; ten "tu/den" vi middleware tren chan tu_ngay/den_ngay > 7 ngay) - "Báo cáo đúng hạn theo ngành" (2026-11-20).
+// (1) ca dong trong ky gop theo (Ngành, Hãng, nhom KRF) - cachedReport, 1 lan doc / ky / pham vi; (2) ton 08:00 tung ngay theo
+// (Ngành, Hãng) tu so chot backlog_age_daily dim "nganh_hang" (doc song, vai tram dong) -> "tồn bình quân". So chot ton KHONG tach khu
+// vuc -> chi tra cho vai tro xem toan bo (scope null); Giam sat thay "—". Bo loc Ngành / Hãng lam o trinh duyet.
+dashboard.get("/bao-cao-nganh", async (c) => {
+  const tu = c.req.query("tu") ?? "";
+  const den = c.req.query("den") ?? "";
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(tu) || !re.test(den) || tu >= den || Date.parse(den) - Date.parse(tu) > 31 * 86400000) return c.json({ error: "INVALID_RANGE" }, 400);
+  const scope = scopeByKhuVuc(c);
+  const key = buildReportKey("dashboard/bao-cao-nganh", { tu_ngay: tu, den_ngay: den }, scope);
+  const dong = await cachedReport(c.env.DB, key, ["cases"], () => computeBaoCaoNganh(c.env.DB, tu, den, scope));
+  let ton: { gia_tri: string; so_ca: number }[] | null = null;
+  let soNgayTon = 0;
+  if (scope === null) {
+    const [a, b] = await c.env.DB.batch([
+      c.env.DB.prepare("SELECT gia_tri, SUM(so_ca) AS so_ca FROM backlog_age_daily WHERE dim = ? AND ngay >= ? AND ngay < ? GROUP BY gia_tri").bind(DIM_NGANH_HANG, tu, den),
+      c.env.DB.prepare("SELECT COUNT(DISTINCT ngay) AS n FROM backlog_age_daily WHERE dim = ? AND ngay >= ? AND ngay < ?").bind(DIM_NGANH_HANG, tu, den),
+    ]);
+    ton = a.results as { gia_tri: string; so_ca: number }[];
+    soNgayTon = Number((b.results[0] as { n?: number } | undefined)?.n) || 0;
+  }
+  return c.json({ ...dong, ton, so_ngay_ton: soNgayTon });
+});
 
 // GET /api/dashboard/pivot?dim=khu_vuc|tinh|doi_tac|hang|ky_thuat_vien - CHOT 2026-08-01: voi bo loc
 // MAC DINH doc CA 5 dim tu "Bao cao ngay 08:00" (dailySnapshot.ts tinh san het, xem

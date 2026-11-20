@@ -460,3 +460,12 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   thống không có trong mẫu được nối tiếp sau cột 52 theo thứ tự và tích chọn trong bảng chọn cột; không tích cột nào thì nối tất cả.
 - Mẫu cá nhân đã lưu: cột mới tự nối cuối (bật sẵn). "Mẫu tính lương": tải đúng cột của mẫu (không nối).
 - Mọi bảng báo cáo / ô chọn theo khu vực xếp cố định: MB1, MB2, MB3, MN1, MN2, MN3, B2B MB, B2B MN, KDDV, SCVP MB, SCVP MN, rồi các nhóm khác A-Z.
+
+## 19. Báo cáo đúng hạn theo ngành — tuần / tháng (chốt 2026-11-20, v1.638)
+
+- Vị trí: Tổng quát, thẻ "Báo cáo đúng hạn theo ngành", theo kỳ Tuần / Tháng chọn ở đầu màn. Bộ lọc Ngành (cột Ngành) + Hãng, chọn nhiều.
+- Chỉ số mỗi ngành + Tổng cộng (ca đóng trong kỳ theo ngày hoàn thành, tính KPI): Số ca đóng; Tỷ lệ 24h đối tác KRF (Đối tác Karofi,
+  Korihome, Livotec, NSKX, Purastar, Simple Home); Tỷ lệ 24h Hãng khác (đối tác còn lại); Tỷ lệ SLA; RTAT = giờ xử lý trung bình;
+  Tồn bình quân / ngày = tổng số ca tồn lúc 08:00 các ngày trong kỳ / số ngày có số chốt (tuần = 7 ngày).
+- 24h / SLA / RTAT theo nút SLA cũ / SLA mới. Tồn bình quân chỉ hiện với vai trò xem toàn hệ thống (số chốt không tách khu vực).
+- Số chốt tồn theo Ngành × Hãng ghi mỗi sáng từ 21/11/2026; tháng 11 ghi bù từ thời gian tiếp nhận / đóng ca.
