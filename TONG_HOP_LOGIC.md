@@ -88,6 +88,7 @@ và tính từ giờ hẹn khi KH hẹn lại; Odoo theo cờ "Trễ SLA khi đ�
 so với mốc "SLA (giờ)" Odoo 18/30/42/90h, < mốc = Đúng hạn; ca không có mốc dùng SLA cũ → `COALESCE(dung_han_klt, dung_han)`, giờ
 `COALESCE(so_gio_xu_ly_klt, so_gio_xu_ly)`; pipeline tính và gửi. Cùng mẫu số (ca tính KPI đã đóng), chỉ từ 11/2026. Công tắc SLA cũ/mới ở
 Tổng quát (thẻ, Top 10 KTV, pivot) và QL NSKX; bảng "So sánh SLA cũ / SLA mới" ở Tổng quát; API `thong-ke-ktv` trả cả hai. Lũy kế chỉ SLA cũ.
+Tổng quát có bộ lọc Ngành (chọn nhiều, tham số `nganh` nối "|", `buildDashboardFilterClause` → `nganh IN (...)`, có lọc thì không dùng số chốt 08:00, giống Model) áp cho KPI, Top 10 KTV, pivot, so sánh SLA; thẻ Báo cáo nhanh 08:00 không đổi theo lọc.
 "Báo cáo đúng hạn theo ngành" (tab "Báo cáo theo ngành" trong menu Tổng quát; tuần/tháng chọn ngay trên báo cáo, lọc Khu vực + Ngành + Hãng, kỳ + bộ lọc lưu trên máy): 24h đối tác KRF (Đối tác Karofi/Korihome/Livotec/NSKX/
 Purastar/Simple Home) / Hãng khác, SLA, RTAT (giờ TB), tồn bình quân = TB số ca tồn 08:00 mỗi ngày (sổ chốt `backlog_age_daily` dim `nganh_hang` = Ngành × Hãng × Khu vực).
 Thứ tự khu vực cố định trên mọi báo cáo: MB1–3, MN1–3, B2B, KDDV, SCVP, còn lại A-Z (`soSanhNhom`). Mọi báo cáo nhóm theo khu vực gộp mã lạ về khu vực chuẩn trên trình duyệt (`lib/khuVucShortLabel.ts` `khuVucGop` / `gopTheoKhuVuc` / `gopMapTheoKhuVuc`: 2 mã B2B cũ/mới, tài khoản CTV/TEST, giá trị ghi bằng tên rút gọn), tính lại tỷ lệ từ tổng, bấm dòng đã gộp thì lọc theo mọi mã gốc (nối dấu phẩy). Tải Quản lý tồn có mẫu cố định

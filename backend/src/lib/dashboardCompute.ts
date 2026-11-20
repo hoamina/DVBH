@@ -7,7 +7,7 @@
  * lib/dailySnapshot.ts (duong dong bang 08:00).
  */
 import { khuVucWhereClause } from "../middleware/scopeByKhuVuc";
-import { khuVucAdHocClause, khuVucReportExclusionClause, CURRENT_MONTH_VALUE, dimGroupExpr, diaGioiLoc } from "./filterParams";
+import { khuVucAdHocClause, khuVucReportExclusionClause, multiValueAdHocClause, CURRENT_MONTH_VALUE, dimGroupExpr, diaGioiLoc } from "./filterParams";
 
 // Bo loc dung chung cho cac bao cao Dashboard (kpis/pivot) - PHIEN BAN KHONG PHU THUOC Context, khac
 // parseFilterParams(c) trong lib/filterParams.ts, vi cac ham computeXxx phai goi lai duoc tu snapshot
@@ -20,6 +20,9 @@ export interface DashboardFilterParams {
   // tong ("Filter tong") lan "Bang pivot phan tich da chieu" (ca 2 deu dung chung
   // buildDashboardFilterClause ben duoi).
   nhom_san_pham?: string;
+  // 2026-11-20 (chu he thong): loc "Ngành" chon nhieu (gia tri noi "|") - cot nganh co idx_case_nganh nhung loc nay chi thu hep
+  // tap ca da lay theo thang/tuan, khong doc them dong.
+  nganh?: string;
   tu_ngay?: string;
   den_ngay?: string;
   // Index signature bat buoc de truyen truc tiep vao buildReportKey() (Record<string, string |
@@ -71,6 +74,10 @@ export function buildDashboardFilterClause(params: DashboardFilterParams, scope:
     sql += ` AND ${prefix}nhom_san_pham = ?`;
     binds.push(params.nhom_san_pham);
   }
+
+  const nganhClause = multiValueAdHocClause(`${prefix}nganh`, params.nganh);
+  sql += nganhClause.sql;
+  binds.push(...nganhClause.binds);
 
   // Doi strftime('%Y-%m', cot) = ... sang dang RANGE (>=, <) de planner dung duoc index tren
   // thoi_gian_hoan_thanh thay vi phai quet toan bo case_dvbh (strftime la expression tren cot nen

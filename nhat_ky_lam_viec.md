@@ -6217,3 +6217,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Yêu cầu 2 (giữa phiên): "đẩy báo cáo ngành hàng thành tab trong menu tổng quát" → bỏ menu riêng v1.640 (nav, App, moduleAccess), Tổng quát có 2 tab
   "Tổng quát" / "Báo cáo theo ngành" (nhớ tab trên máy, tab ngành không chạy truy vấn của Tổng quát).
 - Kiểm thử local: typecheck + build; Tuổi tồn TB ra 11 dòng MB1→SCVP MN, 1 dòng MB2 (trước 2), B2B gộp; tab ngành hiện, menu riêng không còn.
+
+## 2026-11-20 — v1.643: bộ lọc Ngành cho Tổng quát
+
+- Yêu cầu: (ảnh Bảng pivot phân tích đa chiều) "thêm filter theo ngành thì nguồn lực cần có lớn quá không?" → đánh giá nhỏ (cùng kiểu bộ lọc Model,
+  chỉ thu hẹp tập ca đã đọc theo tháng/tuần, có cache theo bộ lọc) → "Làm luôn".
+- Làm: backend `DashboardFilterParams.nganh` + `multiValueAdHocClause` trong `buildDashboardFilterClause`; `isDefaultReportParams` coi có `nganh` là
+  không mặc định (tính sống + cache theo khoá có `nganh`); `/kpis`, `/pivot`, `/man-tong-quat` đọc `nganh`. Frontend: ô "Ngành" chọn nhiều cạnh Model
+  (`filters:dashboard-nganh`), áp cho KPI, Top 10 KTV, pivot, so sánh SLA. Thẻ Báo cáo nhanh (số chốt 08:00) không đổi theo lọc.
+- Kiểm thử local (tháng 07/2026): không lọc 1.053 ca, Ngành 1: 975, Ngành 1 + 2: 1.047 — KPI và pivot khớp nhau.

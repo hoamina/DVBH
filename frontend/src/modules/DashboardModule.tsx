@@ -189,9 +189,12 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
   // ap dung dong thoi cho ca "Filter tong" (kpi) lan "Bang pivot phan tich da chieu" qua filterParams.
   const [modelFilter, setModelFilter] = useLocalStorageState("filters:dashboard-model", ALL_MODEL);
 
+  // Loc "Ngành" chon nhieu (2026-11-20, chu he thong): gia tri noi "|", ap cho KPI + Top 10 KTV + pivot + so sanh SLA (backend
+  // buildDashboardFilterClause). The "Báo cáo nhanh" la so chot 08:00 nen khong doi theo loc (giong Model).
+  const [nganhFilter, setNganhFilter] = useLocalStorageState("filters:dashboard-nganh", "");
   const { data: modelOptionsData } = useQuery({
     queryKey: ["dashboard-filters"],
-    queryFn: () => api.get<{ nhomSanPham: (string | null)[] }>("/dashboard/filters"),
+    queryFn: () => api.get<{ nhomSanPham: (string | null)[]; nganh: (string | null)[] }>("/dashboard/filters"),
   });
 
   const filterParams = {
@@ -200,6 +203,7 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
     thang: filters.thang,
     ...weekRange,
     nhom_san_pham: modelFilter !== ALL_MODEL ? modelFilter : undefined,
+    nganh: nganhFilter || undefined,
   };
   const query = buildQuery(filterParams);
 
@@ -402,6 +406,12 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
           value={modelFilter}
           onChange={setModelFilter}
           options={[ALL_MODEL, ...(modelOptionsData?.nhomSanPham.filter((v): v is string => !!v) ?? [])]}
+        />
+        <MultiSelectFilter
+          label={tr("Ngành")}
+          value={nganhFilter}
+          onChange={setNganhFilter}
+          options={[...new Set((modelOptionsData?.nganh ?? []).filter((v): v is string => !!v))].sort(soSanhNhom)}
         />
       </div>
       <div className="flex flex-wrap items-center gap-2 -mt-2 mb-3">

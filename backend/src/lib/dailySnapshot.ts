@@ -146,8 +146,8 @@ export function buildSnapshotScopeKey(roleVariant: RoleVariant, khuVucList: stri
  * banner/Tong quat/Bao cao doanh thu hien khi moi mo trang (khong chon gi, thang hien tai) - CHI to
  * hop nay duoc phep doc tat qua daily_snapshot; moi to hop khac (nguoi dung tu doi filter, ke ca bo
  * loc Model moi CHOT 2026-08-12) van tinh song qua reportCache. */
-export function isDefaultReportParams(params: { khu_vuc?: string; hang?: string; thang?: string; nhom_san_pham?: string; tu_ngay?: string; den_ngay?: string }): boolean {
-  return !params.tu_ngay && !params.den_ngay && !params.khu_vuc && !params.hang && !params.nhom_san_pham && (!params.thang || params.thang === CURRENT_MONTH_VALUE);
+export function isDefaultReportParams(params: { khu_vuc?: string; hang?: string; thang?: string; nhom_san_pham?: string; nganh?: string; tu_ngay?: string; den_ngay?: string }): boolean {
+  return !params.tu_ngay && !params.den_ngay && !params.khu_vuc && !params.hang && !params.nhom_san_pham && !params.nganh && (!params.thang || params.thang === CURRENT_MONTH_VALUE);
 }
 
 /** Snapshot hom nay chua co bucket "canhBaoCap2" (the "CEO cần giải trình") - vd chot TRUOC khi Canh bao ton chot xong, hoac

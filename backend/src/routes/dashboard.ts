@@ -215,6 +215,7 @@ async function docKpis(c: Context<{ Bindings: Env }>, laySnap: LaySnap) {
     hang: c.req.query("hang"),
     thang: c.req.query("thang"),
     nhom_san_pham: c.req.query("nhom_san_pham"),
+    nganh: c.req.query("nganh"),
     tu_ngay: c.req.query("tu_ngay"),
     den_ngay: c.req.query("den_ngay"),
   };
@@ -281,6 +282,7 @@ async function docPivotTho(c: Context<{ Bindings: Env }>, dimKey: string, dgLoc:
     hang: c.req.query("hang"),
     thang: c.req.query("thang"),
     nhom_san_pham: c.req.query("nhom_san_pham"),
+    nganh: c.req.query("nganh"),
     tu_ngay: c.req.query("tu_ngay"),
     den_ngay: c.req.query("den_ngay"),
     // Loc phu "Tinh" (chon nhieu) cua bang pivot khi nhom theo KTV (2026-10-23) - JSON gia tri tho theo che do Dia gioi
