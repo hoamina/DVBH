@@ -6226,3 +6226,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   không mặc định (tính sống + cache theo khoá có `nganh`); `/kpis`, `/pivot`, `/man-tong-quat` đọc `nganh`. Frontend: ô "Ngành" chọn nhiều cạnh Model
   (`filters:dashboard-nganh`), áp cho KPI, Top 10 KTV, pivot, so sánh SLA. Thẻ Báo cáo nhanh (số chốt 08:00) không đổi theo lọc.
 - Kiểm thử local (tháng 07/2026): không lọc 1.053 ca, Ngành 1: 975, Ngành 1 + 2: 1.047 — KPI và pivot khớp nhau.
+
+## 2026-11-20 — v1.644: thiết kế lại gọn màn Tổng quát
+
+- Yêu cầu: (ảnh màn Tổng quát) "thiết kế lại giao diện màn hình tổng hợp => làm gọn hơn, diện tích dành cho các filter, lọc, tab... chỉ chiếm
+  2-3 dòng, các báo cáo, biểu đồ mới là nơi chiếm diện tích quan trọng" → đưa phương án + tự phản biện → "Làm luôn" (chỉ giao diện, giữ cách lọc).
+- Làm: `App.tsx` ẩn tiêu đề trang ở Tổng quát; Báo cáo nhanh → dải "Hôm nay" 1 dòng (viên số bấm được, rê chuột xem đầu ngày / đã xử lý, ghi rõ
+  không theo bộ lọc); `FilterBar` thêm kiểu `compact` + `children` (Model, Ngành chung dòng; kỳ dồn phải, nhãn "Tháng 11/2026 (hiện tại)"; dính
+  dưới thanh trên cùng từ md) — màn Doanh thu giữ kiểu cũ; bỏ ô "Đang xem" (kỳ ghi trong ô chọn, "tính theo ngày hoàn thành" ở tooltip nút Tuần);
+  công tắc Tháng/Tuần rút nhãn; thẻ KPI `size="sm"`.
+- Kiểm thử local: typecheck + build; 1600×900: biểu đồ Top 10 + đầu bảng pivot trong màn đầu (trước: không có); 1366×768: dòng bộ lọc 1 dòng
+  (46px) ở cả chế độ tháng và tuần, biểu đồ bắt đầu ở 453px; cuộn thì dòng bộ lọc dính ở 64px; điện thoại 375px xuống dòng, không tràn ngang.
+- Chưa làm (có trong phương án): đặt Top 10 KTV cạnh bảng pivot (bảng 16 cột quá rộng nên giữ xếp chồng); nút "Bộ lọc (n)" trên điện thoại;
+  Hãng / Model chọn nhiều (cần sửa backend).

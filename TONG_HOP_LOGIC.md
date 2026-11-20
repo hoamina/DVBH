@@ -81,7 +81,10 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 ## 7. Tổng quát & báo cáo
 
 - Kỳ xem Tổng quát: chọn "Theo tháng" (1 tháng) HOẶC "Theo tuần" (tuần ISO, thứ 2 → CN, tính theo ngày hoàn thành; mặc định tuần hiện tại),
-  không xem chồng 2 loại; luôn có dòng "Đang xem: …".
+  không xem chồng 2 loại; ô kỳ tự ghi đầy đủ kỳ đang xem ("Tháng 11/2026 (hiện tại)" / "Tuần 47/2026 · 17/11–23/11 (tuần này)").
+- Bố cục Tổng quát (v1.644): phần điều khiển ~3 dòng — dải "Hôm nay" (số chốt trong ngày: tồn >3 ngày cần GT, thiếu LK, ca lặp, cần
+  khảo sát, doanh thu tháng; KHÔNG theo bộ lọc; bấm sang màn tương ứng, rê chuột xem đầu ngày / đã xử lý) · 1 dòng bộ lọc (Khu vực, Hãng,
+  Model, Ngành, Tháng/Tuần + kỳ; từ màn tablet trở lên dính dưới thanh trên cùng khi cuộn) · công tắc SLA + 5 thẻ KPI thu gọn. Không có tiêu đề trang.
 KPI, pivot theo nhiều chiều (khu vực, KTV, nhóm yêu cầu…), chọn tháng / tuần ISO, SLA ≤8h / ≤24h / ≤48h / ≤72h cạnh tỷ lệ ≤24h CRM,
 top 10. **SLA cũ / SLA mới** (2026-11-20): SLA cũ = `dung_han` / `so_gio_xu_ly` từ pipeline (có loại trừ: QuickSight tra ma trận
 và tính từ giờ hẹn khi KH hẹn lại; Odoo theo cờ "Trễ SLA khi đóng ca"). SLA mới (không loại trừ) = giờ từ tiếp nhận → đóng ca (liền 24/7)

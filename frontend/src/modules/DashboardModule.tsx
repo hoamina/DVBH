@@ -171,10 +171,6 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
         return { value: `${y}-${w}`, label: `${tr("Tuần {0}/{1}", w, y)} · ${ngayVn(r.tu_ngay)}–${ngayVn(den)}${nay ? ` (${tr("tuần này")})` : ""}` };
       }),
   );
-  const thangHienThi = (() => {
-    const v = filters.thang === CURRENT_MONTH_VALUE ? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7) : filters.thang;
-    return /^\d{4}-\d{2}$/.test(v) ? `${v.slice(5, 7)}/${v.slice(0, 4)}` : v;
-  })();
   const [pivotDim, setPivotDim] = useLocalStorageState("filters:dashboard-pivot-dim", "khu_vuc");
   // Loc phu "Tinh" (chon nhieu, "|") cho bang pivot - CHI khi nhom theo KTV (2026-10-23): xem KTV dang xu ly ca o tinh
   // can kiem tra. Gia tri theo che do Dia gioi cu/moi -> doi che do thi xoa loc (gia tri cu khong con nghia).
@@ -292,60 +288,49 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
           if (pivotDgLoc || groupPH) void pivotLocTinhQ.refetch();
         }}
       />
+      {/* 2026-11-20 (chu he thong): thiet ke lai gon - phan dieu khien ~3 dong (dai "Hôm nay" · 1 dong bo loc dinh tren dau khi cuon ·
+          dong SLA + KPI thu gon), nhuong dien tich cho bieu do/bang. Dai "Hôm nay" = so chot trong ngay, KHONG chay theo bo loc. */}
       {dailyReport && (
-        <Card className="p-4 mb-4 border-[var(--coral-500)]/40 bg-gradient-to-br from-[var(--coral-100)]/50 to-transparent">
-          <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-            <div className="font-display font-bold text-sm flex items-center gap-2">
-              {tr("📊 Báo cáo nhanh vấn đề trong ngày")}{dailyReport.scope === "khu_vuc" && dailyReport.khuVucList.length > 0 && (
-                <span className="text-xs font-normal text-[var(--ink-400)]">— {[...new Set(dailyReport.khuVucList.map((k) => shortKhuVuc(khuVucGop(k))))].join(", ")}</span>
-              )}
-            </div>
-          </div>
-          <div className="text-xs text-[var(--ink-400)] mb-3">
-            {tr("Báo cáo được cập nhật lúc:")} {fmtGeneratedAt(dailyReport.generatedAt)}  {tr("bởi")}{" "}
-            {dailyReport.generatedBy === "auto" ? tr("tự động") : dailyReport.generatedBy}
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <button onClick={() => onNavigate?.("backlog")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--coral-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Tồn >3 ngày cần giải trình")}</div>
-              <div className="text-xl font-bold text-[var(--coral-500)]">{dailyReport.tonCanGiaiTrinh.remaining}</div>
-              <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                {tr("Đầu ngày:")} {dailyReport.tonCanGiaiTrinh.baseline}  {tr("· Đã xử lý:")} {dailyReport.tonCanGiaiTrinh.resolved}
-              </div>
-            </button>
-            <button onClick={() => onNavigate?.("missing-parts")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--amber-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Ca thiếu linh kiện tồn đọng")}</div>
-              <div className="text-xl font-bold text-[var(--amber-500)]">{dailyReport.thieuLinhKien.remaining}</div>
-              <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                {tr("Đầu ngày:")} {dailyReport.thieuLinhKien.baseline}  {tr("· Đã xử lý:")} {dailyReport.thieuLinhKien.resolved}
-              </div>
-            </button>
-            <button onClick={() => onNavigate?.("ca-lap")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--coral-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Ca lặp cần xử lý")}</div>
-              <div className="text-xl font-bold text-[var(--coral-500)]">{dailyReport.caLap.remaining}</div>
-              <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                {tr("Đầu ngày:")} {dailyReport.caLap.baseline}  {tr("· Đã xử lý:")} {dailyReport.caLap.resolved}
-              </div>
-            </button>
-            <button onClick={() => onNavigate?.("survey")} className="focus-ring text-left rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3 hover:border-[var(--coral-500)] transition-colors">
-              <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Ca cần khảo sát")}</div>
-              <div className="text-xl font-bold text-[var(--coral-500)]">{dailyReport.canKhaoSat.remaining}</div>
-              <div className="text-[11px] text-[var(--ink-400)] mt-0.5">
-                {tr("Đầu ngày:")} {dailyReport.canKhaoSat.baseline}  {tr("· Đã xử lý:")} {dailyReport.canKhaoSat.resolved}
-              </div>
-            </button>
-            {dailyReport.doanhThuThang !== null && (
-              <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3">
-                <div className="text-xs text-[var(--ink-400)] mb-1">{tr("Doanh thu tháng này")}</div>
-                <div className="text-xl font-bold text-[var(--teal-500)]">{fmtVND(dailyReport.doanhThuThang)}</div>
-              </div>
+        <div className="mb-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-[var(--coral-500)]/30 bg-[var(--coral-100)]/40 px-2.5 py-1.5">
+          <span className="text-xs font-bold text-[var(--coral-500)] mr-1" title={tr("Số chốt trong ngày, không chạy theo bộ lọc bên dưới")}>
+            {tr("Hôm nay")}
+            {dailyReport.scope === "khu_vuc" && dailyReport.khuVucList.length > 0 && (
+              <span className="font-normal text-[var(--ink-400)]"> · {[...new Set(dailyReport.khuVucList.map((k) => shortKhuVuc(khuVucGop(k))))].join(", ")}</span>
             )}
-          </div>
-        </Card>
+          </span>
+          {[
+            { nhan: tr("Tồn >3 ngày cần giải trình"), b: dailyReport.tonCanGiaiTrinh, mau: "var(--coral-500)", den: "backlog" },
+            { nhan: tr("Ca thiếu linh kiện tồn đọng"), b: dailyReport.thieuLinhKien, mau: "var(--amber-500)", den: "missing-parts" },
+            { nhan: tr("Ca lặp cần xử lý"), b: dailyReport.caLap, mau: "var(--coral-500)", den: "ca-lap" },
+            { nhan: tr("Ca cần khảo sát"), b: dailyReport.canKhaoSat, mau: "var(--coral-500)", den: "survey" },
+          ].map((x) => (
+            <button
+              key={x.den}
+              type="button"
+              onClick={() => onNavigate?.(x.den)}
+              title={`${tr("Đầu ngày:")} ${x.b.baseline} ${tr("· Đã xử lý:")} ${x.b.resolved}`}
+              className="focus-ring inline-flex items-baseline gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs text-[var(--ink-600)] hover:border-[var(--ocean-500)] transition-colors"
+            >
+              {x.nhan}
+              <b className="text-base font-bold leading-none" style={{ color: x.mau }}>{x.b.remaining}</b>
+              {x.b.resolved > 0 && <span className="text-[11px] text-[var(--ink-400)]">↓{x.b.resolved}/{x.b.baseline}</span>}
+            </button>
+          ))}
+          {dailyReport.doanhThuThang !== null && (
+            <span className="inline-flex items-baseline gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1 text-xs text-[var(--ink-600)]">
+              {tr("Doanh thu tháng này")}
+              <b className="text-base font-bold leading-none text-[var(--teal-500)]">{fmtVND(dailyReport.doanhThuThang)}</b>
+            </span>
+          )}
+          <span className="ml-auto text-[11px] text-[var(--ink-400)]">
+            {tr("Báo cáo được cập nhật lúc:")} {fmtGeneratedAt(dailyReport.generatedAt)} · {dailyReport.generatedBy === "auto" ? tr("tự động") : dailyReport.generatedBy}
+          </span>
+        </div>
       )}
-      {/* 2026-11-18 (chu he thong): ky xem RO RANG - cong tac Thang | Tuan; che do Tuan AN o chon thang (truoc day 2 bo chon cung hien,
-          khong biet dang xem theo gi), mac dinh tuan hien tai, moi tuan ghi khoang ngay, co ◀ ▶ / "Tuần này". */}
+      {/* 2026-11-18 (chu he thong): ky xem RO RANG - cong tac Thang | Tuan; che do Tuan AN o chon thang. 2026-11-20: bo o "Đang xem"
+          rieng - chinh o ky ghi day du "Tháng 11/2026 (tháng hiện tại)" / "Tuần 47/2026 · 17/11–23/11 (tuần này)". */}
       <FilterBar
+        compact
         filters={filters}
         setFilters={setFilters}
         renderThang={(oThang) => (
@@ -356,9 +341,10 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
                   key={k}
                   type="button"
                   onClick={() => (k === "thang" ? setWeek("") : !week && chonTuan(isoWeekOf()))}
+                  title={k === "tuan" ? tr("tính theo ngày hoàn thành") : undefined}
                   className={`px-3 py-1.5 ${(k === "tuan") === !!week ? "bg-[var(--ocean-600)] text-white font-semibold" : "bg-white text-[var(--ink-600)] hover:bg-[var(--surface-100)]"}`}
                 >
-                  {k === "thang" ? tr("Theo tháng") : tr("Theo tuần")}
+                  {k === "thang" ? tr("Tháng") : tr("Tuần")}
                 </button>
               ))}
             </div>
@@ -385,24 +371,9 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
             )}
           </div>
         )}
-      />
-      <div className="-mt-2 mb-4 inline-flex flex-wrap items-center gap-1.5 rounded-lg bg-[var(--ocean-100)] px-2.5 py-1 text-xs text-[var(--ocean-800)]">
-        <span className="font-semibold">{tr("Đang xem:")}</span>
-        {week ? (
-          <span>
-            {tr("Tuần {0}/{1}", week, weekYear)} · {ngayVn(weekRange.tu_ngay!)} → {ngayVn(new Date(Date.parse(weekRange.den_ngay!) - 86400000).toISOString().slice(0, 10))}
-            {laTuanNay ? ` (${tr("tuần này")})` : ""} · {tr("tính theo ngày hoàn thành")}
-          </span>
-        ) : (
-          <span>
-            {tr("Tháng {0}", thangHienThi)}
-            {filters.thang === CURRENT_MONTH_VALUE ? ` (${tr("tháng hiện tại")})` : ""}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 -mt-3 mb-4">
-        <span className="text-xs font-semibold text-[var(--ink-400)]">Model:</span>
+      >
         <Select
+          className="w-36"
           value={modelFilter}
           onChange={setModelFilter}
           options={[ALL_MODEL, ...(modelOptionsData?.nhomSanPham.filter((v): v is string => !!v) ?? [])]}
@@ -413,28 +384,28 @@ function DashboardTongQuat({ onNavigate }: { onNavigate?: (module: string) => vo
           onChange={setNganhFilter}
           options={[...new Set((modelOptionsData?.nganh ?? []).filter((v): v is string => !!v))].sort(soSanhNhom)}
         />
-      </div>
-      <div className="flex flex-wrap items-center gap-2 -mt-2 mb-3">
+      </FilterBar>
+      <div className="flex flex-wrap items-center gap-2 mb-1.5">
         <span className="text-xs font-semibold text-[var(--ink-400)]">{tr("Cách tính SLA:")}</span>
         <SlaCheDoToggle value={sla.cheDo} onChange={sla.setCheDo} khoa={sla.khoa} />
         {sla.khoa && <span className="text-xs text-[var(--ink-400)]">{tr("SLA mới chỉ tính từ tháng 11/2026")}</span>}
       </div>
-      <div className="flex flex-wrap gap-3 mb-4">
-        <StatCard label={tr("Tổng số ca")} value={kpi?.total ?? 0} tone="ocean" sub={tr("{0} đã hoàn thành", kpi?.hoanThanh ?? 0)} />
-        <StatCard
+      <div className="flex flex-wrap gap-2 mb-3">
+        <StatCard size="sm" label={tr("Tổng số ca")} value={kpi?.total ?? 0} tone="ocean" sub={tr("{0} đã hoàn thành", kpi?.hoanThanh ?? 0)} />
+        <StatCard size="sm"
           label={laSlaMoi ? tr("Tỷ lệ đạt SLA mới") : tr("Tỷ lệ đạt SLA")}
           value={`${(laSlaMoi ? kpi?.tySlaMoi : kpi?.tySla) ?? 0}%`}
           tone="teal"
           sub={laSlaMoi ? tr("Không loại trừ · so với mốc SLA Odoo") : tr("Hẹn xử lý đúng hạn")}
         />
-        <StatCard
+        <StatCard size="sm"
           label={tr("Tỷ lệ xử lý ≤24h")}
           value={`${(laSlaMoi ? kpi?.ty24hMoi : kpi?.ty24h) ?? 0}%`}
           tone="ocean"
           sub={laSlaMoi ? tr("Giờ không loại trừ, từ lúc tiếp nhận") : tr("Từ lúc tiếp nhận")}
         />
-        <StatCard label={tr("Ca tồn đọng")} value={kpi?.ton ?? 0} tone="amber" sub={tr("{0}% đã giải trình", kpi?.tyGiaiTrinh ?? 0)} />
-        <StatCard label={tr("Nghi ngờ vi phạm")} value={kpi?.nghiNgo ?? 0} tone="coral" sub={tr("Vi phạm {0}% · Đã khảo sát {1}%", kpi?.tyViPham ?? 0, kpi?.tyDaKhaoSat ?? 0)} />
+        <StatCard size="sm" label={tr("Ca tồn đọng")} value={kpi?.ton ?? 0} tone="amber" sub={tr("{0}% đã giải trình", kpi?.tyGiaiTrinh ?? 0)} />
+        <StatCard size="sm" label={tr("Nghi ngờ vi phạm")} value={kpi?.nghiNgo ?? 0} tone="coral" sub={tr("Vi phạm {0}% · Đã khảo sát {1}%", kpi?.tyViPham ?? 0, kpi?.tyDaKhaoSat ?? 0)} />
       </div>
 
       <Card className="p-4 mb-4">

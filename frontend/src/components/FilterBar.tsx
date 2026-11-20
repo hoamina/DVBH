@@ -23,12 +23,19 @@ export function FilterBar({
   setFilters,
   onExport,
   renderThang,
+  compact = false,
+  children,
 }: {
   filters: DashboardFilters;
   setFilters: (f: DashboardFilters) => void;
   onExport?: () => void;
   /** Thay o chon thang (Tong quat: cong tac Thang/Tuan bao quanh, che do Tuan an o thang). */
   renderThang?: (oThang: ReactNode) => ReactNode;
+  /** Kieu gon (Tong quat, 2026-11-20): 1 dong dinh tren dau khi cuon (desktop), o thang ghi "Tháng MM/YYYY (hiện tại)"
+   * thay cho o "Đang xem" rieng, ky xem day sang phai. Man khac (Doanh thu) giu kieu cu. */
+  compact?: boolean;
+  /** Bo loc phu nam CUNG DONG sau o Hang (vd Model, Ngành cua Tong quat). */
+  children?: ReactNode;
 }) {
   const auth = useAuth();
   const myAreas = auth.status === "authenticated" ? auth.user.khu_vuc_phu_trach : [];
@@ -52,7 +59,14 @@ export function FilterBar({
   // Chot 2026-07-24: chi cho chon 1 thang co dinh, khong con tuy chon "Tat ca cac thang" (lap he
   // thong quet toan bo lich su moi lan chon) - mac dinh luon la thang hien tai (xem filters.thang
   // khoi tao CURRENT_MONTH_VALUE o DashboardModule.tsx/RevenueModule.tsx).
-  const thangOptions = [{ value: CURRENT_MONTH_VALUE, label: tr("Tháng hiện tại") }, ...(monthsData?.months ?? [])];
+  const thangNay = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
+  const nhanThang = (v: string) => (/^\d{4}-\d{2}$/.test(v) ? tr("Tháng {0}", `${v.slice(5, 7)}/${v.slice(0, 4)}`) : v);
+  const thangOptions = compact
+    ? [
+        { value: CURRENT_MONTH_VALUE, label: `${nhanThang(thangNay)} ${tr("(hiện tại)")}` },
+        ...(monthsData?.months ?? []).map((m) => ({ value: m, label: nhanThang(m) })),
+      ]
+    : [{ value: CURRENT_MONTH_VALUE, label: tr("Tháng hiện tại") }, ...(monthsData?.months ?? [])];
 
   // 2026-11-16: bo loc luu localStorage dung chung moi quoc gia -> sang PH van giu thang/hang cua VN (vd 2026-10, PH chua co
   // du lieu). <select> khong co gia tri do nen HIEN "Tháng hiện tại" nhung van gui thang cu -> bao cao trong. Gia tri da luu
@@ -67,11 +81,22 @@ export function FilterBar({
   }, [monthsData, data, filters, setFilters]);
 
   const oThang = <Select value={filters.thang} onChange={(v) => setFilters({ ...filters, thang: v })} options={thangOptions} />;
+  const oKy = renderThang ? renderThang(oThang) : oThang;
+  if (compact)
+    return (
+      <div className="flex flex-wrap items-center gap-2 mb-3 py-1.5 md:sticky md:top-16 md:z-20 bg-[var(--bg)]">
+        <KhuVucFilterControl value={khuVucHienThi} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
+        <Select value={filters.hang} onChange={(v) => setFilters({ ...filters, hang: v })} options={[ALL_HANG, ...(data?.hang ?? [])]} />
+        {children}
+        <div className="ml-auto">{oKy}</div>
+      </div>
+    );
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
       <KhuVucFilterControl value={khuVucHienThi} onChange={(v) => setFilters({ ...filters, khu_vuc: v })} options={khuVucOptions} myAreas={myAreas} />
       <Select value={filters.hang} onChange={(v) => setFilters({ ...filters, hang: v })} options={[ALL_HANG, ...(data?.hang ?? [])]} />
-      {renderThang ? renderThang(oThang) : oThang}
+      {children}
+      {oKy}
       {onExport && (
         <div className="ml-auto">
           <Btn variant="ghost" size="sm" onClick={onExport}>

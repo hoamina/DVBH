@@ -276,7 +276,8 @@ function MainApp({
               min-w-0 tren ca 2 cap flex-item boc slot headerExtra - thieu no khien noi dung portal
               vao day (vd PipelineFlow o trang thai mo rong) khong the shrink/tu cuon ben trong, day
               tran ra ngoai ca trang thay vi cuon ngang gon trong khung. */}
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          {/* 2026-11-20: Tong quat bo tieu de trang (hang tab "Tổng quát | Báo cáo theo ngành" da ghi ro) de nhuong cho bao cao. */}
+          <div className={`flex items-center justify-between mb-4 flex-wrap gap-2 ${active === "dashboard" ? "hidden" : ""}`}>
             <div className="flex items-center gap-3 flex-wrap min-w-0">
               {/* SUA (phan hoi 2026-08-19: "Bỏ tiêu đề module... thay vào đó là button 'Việc của tôi:
                   N'") - CHI an h1 khi active==="dat-mua-lk"; module do tu portal nut thay the vao
