@@ -97,7 +97,7 @@ function mocCuaPo(r: SheetRow): SuaChuaMoc[] {
   return ds;
 }
 
-function PoCard({ r, onXemDayDu }: { r: SheetRow; onXemDayDu: (title: string, raw: Record<string, string>) => void }) {
+function PoCard({ r, onXemDayDu, lienQuan }: { r: SheetRow; onXemDayDu: (title: string, raw: Record<string, string>) => void; lienQuan?: string[] }) {
   const [chiTiet, setChiTiet] = useState(false);
   const [moGhiChu, setMoGhiChu] = useState(false);
   const t = tinhTrangPo(r);
@@ -112,8 +112,17 @@ function PoCard({ r, onXemDayDu }: { r: SheetRow; onXemDayDu: (title: string, ra
   return (
     <Card
       className={`p-3 ${t.huy ? "opacity-80" : ""}`}
-      style={!t.huy && !t.du ? { borderLeft: `4px solid ${t.quaHen ? "var(--coral-500)" : t.coHang ? "var(--ocean-500)" : "var(--orange-500)"}` } : undefined}
+      style={{
+        ...(!t.huy && !t.du ? { borderLeft: `4px solid ${t.quaHen ? "var(--coral-500)" : t.coHang ? "var(--ocean-500)" : "var(--orange-500)"}` } : {}),
+        ...(lienQuan?.length ? { boxShadow: "0 0 0 2px var(--indigo-500)" } : {}),
+      }}
     >
+      {lienQuan && lienQuan.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-1.5 rounded-md bg-[var(--indigo-100)] px-2 py-1 text-xs text-[var(--indigo-700)]">
+          <span className="font-semibold">★ {tr("PO liên quan trực tiếp ca này")}</span>
+          <span>· {lienQuan.join(" · ")}</span>
+        </div>
+      )}
       <div className="flex items-start justify-between flex-wrap gap-1.5">
         <div className="min-w-0">
           <div className="font-semibold text-sm">{r.tenLinhKien || tr("(chưa rõ linh kiện)")}</div>
@@ -229,17 +238,52 @@ function PoCard({ r, onXemDayDu }: { r: SheetRow; onXemDayDu: (title: string, ra
   );
 }
 
-/** Danh sach PO: dang cho (qua hen truoc) -> ve mot phan -> du hang -> huy. */
-export function PoDatHangList({ rows, onXemDayDu }: { rows: SheetRow[]; onXemDayDu: (title: string, raw: Record<string, string>) => void }) {
+/**
+ * Ly do 1 PO lien quan TRUC TIEP toi ca dang xem (2026-11-20, chu he thong): "ID CRM" cua PO = ID ca, hoac "ID đặt hàng" cua PO trung 1
+ * ma dat hang cua ca (don LK cua ca tu app linh kien, "Mã xuất hàng liên quan" trong giai trinh, ID Lada). Khong lien quan -> [].
+ * Cac PO con lai la PO cung MA LINH KIEN thieu (chung cho nhieu ca).
+ */
+export function lyDoPoLienQuan(r: SheetRow, caseId: string | null | undefined, maDatHangCuaCa: Map<string, string>): string[] {
+  const out: string[] = [];
+  if (caseId && (r.idCrm ?? "").trim() === caseId) out.push(tr("ID sự cố trên PO = {0}", caseId));
+  for (const tok of (r.idDatHang ?? "").split(/[^A-Za-z0-9-]+/)) {
+    const k = tok.trim().toUpperCase();
+    const nguon = k ? maDatHangCuaCa.get(k) : undefined;
+    if (nguon) out.push(tr("ID đặt hàng {0} ({1})", tok.trim(), nguon));
+  }
+  return out;
+}
+
+/** Danh sach PO: PO lien quan truc tiep ca dang xem len DAU; trong moi nhom: dang cho (qua hen truoc) -> ve mot phan -> du hang -> huy. */
+export function PoDatHangList({
+  rows,
+  onXemDayDu,
+  lienQuan,
+}: {
+  rows: SheetRow[];
+  onXemDayDu: (title: string, raw: Record<string, string>) => void;
+  /** Ly do lien quan truc tiep cua tung PO (rong = chi chung ma linh kien). */
+  lienQuan?: (r: SheetRow) => string[];
+}) {
   const hang = (r: SheetRow) => {
     const t = tinhTrangPo(r);
     return t.huy ? 4 : t.du ? 3 : t.coHang ? 2 : t.quaHen ? 0 : 1;
   };
-  const ds = rows.map((r, i) => ({ r, i })).sort((a, b) => hang(a.r) - hang(b.r) || a.i - b.i);
+  const ds = rows
+    .map((r, i) => ({ r, i, ly: lienQuan?.(r) ?? [] }))
+    .sort((a, b) => Number(b.ly.length > 0) - Number(a.ly.length > 0) || hang(a.r) - hang(b.r) || a.i - b.i);
+  const soLienQuan = ds.filter((x) => x.ly.length > 0).length;
   return (
     <div className="space-y-2.5">
-      {ds.map(({ r, i }) => (
-        <PoCard key={`${r.id}-${i}`} r={r} onXemDayDu={onXemDayDu} />
+      {lienQuan && rows.length > 0 && (
+        <div className="text-xs text-[var(--ink-500)]">
+          {soLienQuan > 0
+            ? tr("{0} PO liên quan trực tiếp ca này (theo ID sự cố / ID đặt hàng) xếp trên cùng · {1} PO cùng mã linh kiện thiếu", soLienQuan, rows.length - soLienQuan)
+            : tr("Không có PO ghi ID sự cố / ID đặt hàng của ca này · {0} PO cùng mã linh kiện thiếu", rows.length)}
+        </div>
+      )}
+      {ds.map(({ r, i, ly }) => (
+        <PoCard key={`${r.id}-${i}`} r={r} onXemDayDu={onXemDayDu} lienQuan={ly} />
       ))}
     </div>
   );

@@ -109,6 +109,8 @@ export function mapPoEoRow(p: PoEoPayload): SheetRow {
     _rawJson: JSON.stringify(raw),
     id: p.id_dat_lk,
     idCrm: p.id_crm ?? "",
+    // 2026-11-20: "ID đặt hàng" cua dong EO (vd DDH-xxxxxx) - CaseDetail tab PO dua PO trung ma dat hang cua ca len dau.
+    idDatHang: p.id_dat_hang ?? "",
     maLinhKienDeXuat: p.ma_lk ?? "",
     maLinhKienGoc: p.ma_lk_goc ?? "",
     tenLinhKien: p.ten_lk ?? "",

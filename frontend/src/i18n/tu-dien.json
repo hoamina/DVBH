@@ -14887,5 +14887,13 @@
   "Tỷ lệ 24h Hãng khác": ["24h rate – other brands", "Tingkat 24 jam – merek lain"],
   "Tỷ lệ SLA mới": ["New SLA rate", "Tingkat SLA baru"],
   "RTAT (giờ)": ["RTAT (hours)", "RTAT (jam)"],
-  "Tồn bình quân / ngày": ["Average backlog / day", "Backlog rata-rata / hari"]
+  "Tồn bình quân / ngày": ["Average backlog / day", "Backlog rata-rata / hari"],
+  "PO liên quan trực tiếp ca này": ["PO directly related to this case", "PO terkait langsung kasus ini"],
+  "ID sự cố trên PO = {0}": ["Case ID on PO = {0}", "ID kasus pada PO = {0}"],
+  "ID đặt hàng {0} ({1})": ["Order ID {0} ({1})", "ID pesanan {0} ({1})"],
+  "{0} PO liên quan trực tiếp ca này (theo ID sự cố / ID đặt hàng) xếp trên cùng · {1} PO cùng mã linh kiện thiếu": ["{0} PO(s) directly related to this case (by case ID / order ID) listed first · {1} PO(s) with the same missing part", "{0} PO terkait langsung kasus ini (menurut ID kasus / ID pesanan) di atas · {1} PO dengan suku cadang kurang yang sama"],
+  "Không có PO ghi ID sự cố / ID đặt hàng của ca này · {0} PO cùng mã linh kiện thiếu": ["No PO carries this case's ID / order ID · {0} PO(s) with the same missing part", "Tidak ada PO dengan ID kasus / ID pesanan ini · {0} PO dengan suku cadang kurang yang sama"],
+  "đơn LK của ca": ["case's parts order", "pesanan suku cadang kasus"],
+  "mã xuất hàng trong giải trình": ["dispatch code in explanation", "kode pengeluaran di penjelasan"],
+  "ID Lada của ca": ["case's Lada ID", "ID Lada kasus"]
 }

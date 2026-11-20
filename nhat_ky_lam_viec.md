@@ -6190,3 +6190,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   + SLA cũ/mới ngay trên báo cáo; kỳ lưu localStorage (`filters:bao-cao-nganh-ky|tuan|thang`, rỗng = kỳ hiện tại). Quyền: tự cấp cho ai có
   `dashboard` (App.tsx + backend `effectiveModules`), không cần sửa phân quyền từng người. Gỡ thẻ khỏi Tổng quát.
 - Kiểm thử local: typecheck + build; menu hiện, tháng 07/2026 ra đủ 8 ngành, chuyển Theo tuần ra Tuần 47 (16–22/11), kỳ nhớ sau khi tải lại.
+
+## 2026-11-20 — Chi tiết ca, tab PO: PO liên quan trực tiếp ca đẩy lên đầu + ghi lý do (v1.641)
+
+- Yêu cầu (nguyên văn): "tab PO, quan tâm đặc biệt đến PO liên quan đến mã chi tiết đang xem đó => đẩy lên trên cùng, note ghi chú lại (liên
+  quan dựa vào mã ID sự cố hoặc ID đặt hàng liên quan (kéo từ PO về)".
+- Làm: PO "liên quan trực tiếp" = "ID CRM" của PO = ID ca, HOẶC "ID đặt hàng" của PO (app EO, trước chưa đưa vào dòng PO — thêm `idDatHang`
+  ở `lib/poDatHangEo.ts`) trùng 1 mã đặt hàng của ca: đơn LK của ca (app linh kiện), "Mã xuất hàng liên quan" trong giải trình, ID Lada (token
+  phải có chữ số, tránh chữ thường trong ô nhập tự do khớp nhầm). Các PO này xếp trên cùng, viền nổi, dòng "★ PO liên quan trực tiếp ca này ·
+  <lý do>"; dòng tóm tắt "N PO liên quan trực tiếp · M PO cùng mã linh kiện thiếu". PO trùng ID đặt hàng nhưng KHÁC mã LK (vd mã thay thế) nay cũng
+  được đưa vào tab (trước chỉ lấy theo ID CRM / mã LK thiếu). Không thêm API (dùng dữ liệu PO + đơn LK + giải trình đã tải).
+- Kiểm thử: local giả lập 4 PO cho ca TESTPERF3 (cùng ID ca / trùng DDH của đơn LK nhưng mã thay thế / chỉ cùng mã LK / không liên quan) → 2 PO
+  liên quan lên đầu đúng lý do, PO mã thay thế được thêm, PO không liên quan không xuất hiện.

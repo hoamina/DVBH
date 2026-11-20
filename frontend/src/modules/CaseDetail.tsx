@@ -44,7 +44,7 @@ import { MoAppLink, LINHKIEN_URL } from "../components/MoAppLink";
 import { LadaIds, type CaseLadaRow } from "../components/LadaPanel";
 import { CaLapEvalModal } from "../components/CaLapEvalModal";
 import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
-import { PoDatHangList } from "../components/PoDatHangPanel";
+import { PoDatHangList, lyDoPoLienQuan } from "../components/PoDatHangPanel";
 import { GiaiTrinhLichSu } from "../components/GiaiTrinhLichSu";
 import { KtvNameWithPhone, KTV_PHONE_EDIT_ROLES } from "../components/KtvNameWithPhone";
 import { LoadingInline } from "../components/ui/LoadingInline";
@@ -1259,6 +1259,28 @@ export function CaseDetail({
   const { data: scTimeline, isLoading: scLoading } = useSuaChuaTimeline(c?.id);
   const scDonList = useMemo(() => (scTimeline?.ok ? scTimeline.don : []), [scTimeline]);
   const lkOrders = useMemo(() => lkTimeline?.orders ?? [], [lkTimeline]);
+  // Ma dat hang CUA CA (2026-11-20) -> nguon: don LK cua ca (app linh kien), "Mã xuất hàng liên quan" trong giai trinh, ID Lada.
+  // Tab PO dua PO co "ID đặt hàng" trung 1 ma nay len dau (lyDoPoLienQuan).
+  const maDatHangCuaCa = useMemo(() => {
+    const m = new Map<string, string>();
+    const them = (v: string | null | undefined, nguon: string) => {
+      for (const tok of (v ?? "").split(/[^A-Za-z0-9-]+/)) {
+        const k = tok.trim().toUpperCase();
+        if (k.length >= 4 && /\d/.test(k) && !m.has(k)) m.set(k, nguon);
+      }
+    };
+    for (const o of lkOrders) them(o.order_id, tr("đơn LK của ca"));
+    for (const g of data?.giaiTrinh ?? []) them(g.ma_xuat_hang_lien_quan, tr("mã xuất hàng trong giải trình"));
+    for (const l of data?.lada ?? []) them(l.order_id, tr("ID Lada của ca"));
+    return m;
+  }, [lkOrders, data]);
+  // Tab PO = PO theo ID CRM / ma LK thieu (matchPoDatHang) + PO co "ID đặt hàng" trung ma dat hang cua ca (ke ca khac ma LK, vd ma thay the).
+  const poTabPo = useMemo(() => {
+    if (!c) return [];
+    const da = new Set(poDatHangMatched);
+    const them = poDatHang.filter((r) => !da.has(r) && lyDoPoLienQuan(r, c.id, maDatHangCuaCa).length > 0);
+    return them.length ? [...poDatHangMatched, ...them] : poDatHangMatched;
+  }, [c, poDatHangMatched, poDatHang, maDatHangCuaCa]);
   const lkThieuTickets = useMemo(() => lkOrders.flatMap((o) => (o.thieu_lk ?? []).map((t) => ({ order: o, ticket: t }))), [lkOrders]);
   // So "yeu cau thieu LK" tu he Dat mua LK - uu tien block thieu_lk (API moi); linh-kien-app ban cu chua
   // co block nay thi dem so don co it nhat 1 su kien nguon thieu_lk.
@@ -2649,10 +2671,10 @@ export function CaseDetail({
   const poDatHangContent = (
     <div>
       {purchaseSyncBanner}
-      {!purchaseSyncing && poDatHangMatched.length === 0 && (
+      {!purchaseSyncing && poTabPo.length === 0 && (
         <div className="text-sm text-[var(--ink-400)] italic">{tr("Không tìm thấy PO đặt hàng liên quan đến ca này.")}</div>
       )}
-      <PoDatHangList rows={poDatHangMatched} onXemDayDu={(title, raw) => setDetailModalRow({ title, raw })} />
+      <PoDatHangList rows={poTabPo} onXemDayDu={(title, raw) => setDetailModalRow({ title, raw })} lienQuan={(r) => lyDoPoLienQuan(r, c?.id, maDatHangCuaCa)} />
     </div>
   );
 
@@ -2755,7 +2777,7 @@ export function CaseDetail({
           { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length },
           { key: "mua-hang", label: tr("Mua hàng"), count: lkOrders.length },
           { key: "thieu-hang", label: tr("Thiếu hàng"), count: lkThieuCount },
-          { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
+          { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poTabPo.length },
           { key: "qc-thuc-te", label: tr("QC thực tế"), count: qcThucTeMatched.length },
           { key: "tranh-chap", label: tr("Tranh chấp"), count: tienTrinhListForCase.length },
           { key: "luong-mail", label: tr("Đổi trả"), count: mailTimeline?.thu.length ?? 0 },
@@ -2772,7 +2794,7 @@ export function CaseDetail({
           { key: "bao-hanh-app", label: tr("Bảo hành"), count: scDonList.length },
           { key: "mua-hang", label: tr("Mua hàng"), count: lkOrders.length },
           { key: "thieu-hang", label: tr("Thiếu hàng"), count: lkThieuCount },
-          { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poDatHangMatched.length },
+          { key: "po-dat-hang", label: tr("PO đặt hàng"), count: poTabPo.length },
           { key: "qc-thuc-te", label: tr("QC thực tế"), count: qcThucTeMatched.length },
           { key: "tranh-chap", label: tr("Tranh chấp"), count: tienTrinhListForCase.length },
           { key: "luong-mail", label: tr("Đổi trả"), count: mailTimeline?.thu.length ?? 0 },
