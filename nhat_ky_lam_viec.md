@@ -6312,3 +6312,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   tồn luôn đọc số chốt 08:00 (frontend luôn gửi cờ, backend `GET /api/cases` tab `canh-bao-ton` luôn đọc snapshot).
 - Kiểm thử: typecheck backend, `npm run build`.
 
+## 2026-11-21 — Tính bù sổ chốt "Tuổi tồn TB" tháng 11 (không đổi code app, không deploy)
+
+- Yêu cầu: (ảnh Báo cáo theo ngành MB1 "Tồn bình quân / ngày" 19,9 và Tuổi tồn TB MB1 6,7) "tại sao cùng 1 giá trị, lại có số khác nhau?" → giải thích
+  2 chỉ số khác đơn vị (số ca / số ngày); số lượt ca-ngày cũng lệch (310 vs ~418) vì Tuổi tồn TB thiếu số chốt các ngày lỗi → chủ hệ thống: "Có, tính bù".
+- Đo production (chỉ đọc): bảng `backlog_age_daily_vn` / `_vn_khong_nskx` thiếu 04–08/11 + 15/11, 09/11 chốt lỗi (1.922 ca vs ~1.395); `_vn_nskx` thiếu
+  04–07/11 + 15/11, 09/11 lỗi; `_ph` thiếu 07–09/11 + 15/11, 10/11 lỗi (0 ca). Bảng gốc trống từ v1.646 (thôi chốt phạm vi gốc) — không bù.
+- Làm: `scripts/bu-tuoi-ton-tb.mjs` — 1 lần đọc D1 (ca đang mở + ca đóng từ 04/11 08:00, bỏ ca huỷ), tính đúng như `generateBacklogAgeSnapshot`
+  (tồn lúc 08:00, tuổi = julianday(D 08:00) − tiếp nhận, mọi chiều trừ `nganh_hang`), ghi qua `wrangler d1 execute --file` (25 ngày-phạm vi,
+  ~6,8k dòng) + đổi hash tháng 11 trong manifest để máy khách tải lại.
+- Kiểm thử: chế độ `kiem-tra` tính lại 4 ngày có số chốt đúng (10, 13, 17, 20/11) — lệch số ca ≤ 1%, tổng tuổi ≤ 0,5% (ca đổi khu vực / huỷ sau ngày chốt).
+  Sau khi ghi: mỗi ngày 01–21/11 đủ 8 chiều; MB1 tháng 11 = 21 ngày, 418 lượt ca-ngày ở cả dim khu vực lẫn ngành → 19,9 ca/ngày, tuổi TB 6,7 ngày.
+

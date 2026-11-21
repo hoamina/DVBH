@@ -45,6 +45,9 @@ KTV không có tài khoản, chỉ là dữ liệu trên ca. Phạm vi xem theo 
   là chỉ tiêu phụ, không cộng vào Tổng. Tỷ lệ giải trình theo ngày lấy Tổng này làm mẫu số.
 - Danh sách chi tiết, nhóm **Cảnh báo tồn** (Cấp 1/2, kể cả Luồng đổi trả): luôn là tập ca đã chốt 08:00, không tính sống. Ô tuổi tồn chỉ có với
   nhóm "Tổng tồn hiện tại" (các nhóm khác lọc tuổi qua bộ lọc cột "Tuổi tồn (ngày)").
+- **Tuổi tồn TB** (Quản lý tồn) và **Tồn bình quân / ngày** (Báo cáo theo ngành) cùng đọc sổ chốt tồn 08:00 (`backlog_age_daily_<phạm vi>`) nhưng
+  đo 2 thứ khác nhau: Tồn bình quân = tổng lượt ca tồn ÷ số ngày có số chốt (đơn vị **ca**); Tuổi tồn TB = tổng tuổi ÷ tổng lượt ca (đơn vị **ngày**).
+  Ngày chốt lỗi được tính bù từ giờ tiếp nhận / đóng ca (khu vực, KTV… theo giá trị hiện tại của ca) — tháng 11/2026 đã đủ 21 ngày ở mọi chiều.
 - Báo cáo tồn chốt 08:00 mỗi ngày (theo mốc tuổi tồn, theo KTV × ngày trong tháng), lũy kế tháng đã / cần giải trình (Chủ nhật và ngày
   loại trừ không tính), lý do giải trình theo tháng (lấy dòng cuối trong tháng).
 - Danh sách chi tiết có thêm cột gửi bảo hành (v1.626): **Hạn BH** (ngày mua +24T / ngày SX +36T, mốc đến trước; chỉ ca tiếp nhận từ
