@@ -12055,6 +12055,14 @@
   "Download now with the exact columns, order and headers of the payroll template file",
   "Unduh sekarang dengan kolom, urutan, dan judul persis seperti file templat penggajian"
  ],
+ "Mẫu tính báo cáo": [
+  "Reporting template",
+  "Templat laporan"
+ ],
+ "Tải ngay theo đúng 67 cột, thứ tự, tiêu đề file mẫu tính báo cáo (cột app không lưu để trống)": [
+  "Download now with the exact 67 columns, order and headers of the reporting template file (columns the app does not store are left blank)",
+  "Unduh sekarang dengan 67 kolom, urutan, dan judul persis seperti file templat laporan (kolom yang tidak disimpan aplikasi dibiarkan kosong)"
+ ],
  "Thú cưng 3T Pet": [
   "3T Pet companion",
   "Hewan peliharaan 3T Pet"

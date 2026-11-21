@@ -6324,3 +6324,14 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: chế độ `kiem-tra` tính lại 4 ngày có số chốt đúng (10, 13, 17, 20/11) — lệch số ca ≤ 1%, tổng tuổi ≤ 0,5% (ca đổi khu vực / huỷ sau ngày chốt).
   Sau khi ghi: mỗi ngày 01–21/11 đủ 8 chiều; MB1 tháng 11 = 21 ngày, 418 lượt ca-ngày ở cả dim khu vực lẫn ngành → 19,9 ca/ngày, tuổi TB 6,7 ngày.
 
+## 2026-11-21 — v1.651: mẫu tải "Mẫu tính báo cáo" (67 cột)
+
+- Yêu cầu: "tiếp tục công việc đang dở và tiếp tục (tạo mẫu tải file)" → hỏi lại (không có việc dở trong repo) → chủ hệ thống chọn "Mẫu Excel xuất ca",
+  gửi file `Mẫu tính báo cáo.xlsx` (67 cột tiêu đề kiểu file xuất CRM; các dòng dữ liệu mẫu lệch cột nên chỉ lấy hàng tiêu đề làm chuẩn).
+- Làm: `frontend/src/lib/exportMauTinhBaoCao.ts` (67 cột, khớp 1-1 tiêu đề file mẫu — đã so tự động 67/67), nút mẫu cố định "Mẫu tính báo cáo" trong
+  bảng chọn cột của mọi danh sách ca (cạnh "Mẫu tính lương"), file `<tên>_mau_tinh_bao_cao.xlsx`. `exportMauTinhLuong.ts` tách hàm chung `taoSheetMau`.
+  Quyết định cột: địa giới cũ như Mẫu tính lương; Kênh tiếp nhận = tiền tố [..] thứ 2 của Khách hàng; KQ CS sơ bộ = Nội dung xử lý; Bộ phận xử lý = Khu vực;
+  Thời gian xử lý = số giờ xử lý; Tên/Mã linh kiện, Nhóm lỗi, Nguyên nhân lỗi gộp từ Linh kiện lỗi Odoo; Lý do không trả phí = thu phí Odoo; checkin_time = check-in đầu;
+  ~27 cột app không lưu (điện thoại 1-3, NV CSKH, ảnh/URL ảnh, CoreDB, km di chuyển, trưởng BP bảo trì…) để trống.
+- Kiểm thử: typecheck + build qua; chạy thử hàm tạo sheet với 1 ca giả có dữ liệu Odoo (ngày ra ô ngày dd/mm/yyyy, số ra ô số, linh kiện trùng được gộp).
+- Còn lại: chưa bấm thử trên production; nếu cần lấp các cột đang trống phải có thêm dữ liệu nguồn (pipeline gửi thêm trường).

@@ -110,6 +110,7 @@ Tổng quát có bộ lọc Ngành (chọn nhiều, tham số `nganh` nối "|",
 Purastar/Simple Home) / Hãng khác, SLA, RTAT (giờ TB), tồn bình quân = TB số ca tồn 08:00 mỗi ngày (sổ chốt `backlog_age_daily` dim `nganh_hang` = Ngành × Hãng × Khu vực).
 Thứ tự khu vực cố định trên mọi báo cáo: MB1–3, MN1–3, B2B, KDDV, SCVP, còn lại A-Z (`soSanhNhom`). Mọi báo cáo nhóm theo khu vực gộp mã lạ về khu vực chuẩn trên trình duyệt (`lib/khuVucShortLabel.ts` `khuVucGop` / `gopTheoKhuVuc` / `gopMapTheoKhuVuc`: 2 mã B2B cũ/mới, tài khoản CTV/TEST, giá trị ghi bằng tên rút gọn), tính lại tỷ lệ từ tổng, bấm dòng đã gộp thì lọc theo mọi mã gốc (nối dấu phẩy). Tải Quản lý tồn có mẫu cố định
 "Form tồn" (52 cột) + nối các cột hệ thống đang tích phía sau (không tích = nối tất cả).
+Mọi danh sách ca có 2 mẫu cố định "Mẫu tính lương" (32 cột) và "Mẫu tính báo cáo" (67 cột = tiêu đề file xuất CRM, v1.651, `lib/exportMauTinhBaoCao.ts`): đọc dòng ca thô, tiêu đề tiếng Việt, ngày/số là ô Excel thật; Tên/Mã linh kiện, Nhóm lỗi, Nguyên nhân lỗi gộp từ "Linh kiện lỗi" Odoo (bỏ trùng, "; "); "Lý do không trả phí" = thu phí Odoo; checkin_time = check-in đầu tiên; Bộ phận xử lý = Khu vực; cột app không lưu (điện thoại, ảnh, CoreDB…) để trống.
 Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.
 
 **Phạm vi chốt (v1.646):** người dùng luôn xem 1 nước nên số chốt cho người xem chỉ ghi ở bảng theo nước (VN, VN × NSKX / Không NSKX, PH, ID…).

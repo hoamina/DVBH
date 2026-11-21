@@ -4,6 +4,7 @@ import type { LinhKienLoiItem } from "../types";
 import { pickExportColumns } from "../components/ExportColumnPicker";
 import { exportTemplateKey } from "./exportTemplate";
 import { taoSheetMauTinhLuong } from "./exportMauTinhLuong";
+import { taoSheetMauTinhBaoCao } from "./exportMauTinhBaoCao";
 import { COT_DG_1, COT_DG_2, FILE_CO_FORM_TON, cotFormTon } from "./exportMauFormTon";
 import { taoSheetTuDong } from "./excelChung";
 import { tr } from "../i18n/tr";
@@ -64,7 +65,12 @@ export async function exportRowsToExcel<T extends object>(
   let header = allCols;
   if (allCols.length > 0 && !options?.skipColumnPicker) {
     const tplKey = exportTemplateKey(filename);
-    const presets = laDanhSachCa ? [{ key: "tinh-luong", label: tr("Mẫu tính lương"), moTa: tr("Tải ngay theo đúng cột, thứ tự, tiêu đề file mẫu tính lương") }] : [];
+    const presets = laDanhSachCa
+      ? [
+          { key: "tinh-luong", label: tr("Mẫu tính lương"), moTa: tr("Tải ngay theo đúng cột, thứ tự, tiêu đề file mẫu tính lương") },
+          { key: "tinh-bao-cao", label: tr("Mẫu tính báo cáo"), moTa: tr("Tải ngay theo đúng 67 cột, thứ tự, tiêu đề file mẫu tính báo cáo (cột app không lưu để trống)") },
+        ]
+      : [];
     if (laDanhSachCa && tplKey === FILE_CO_FORM_TON)
       presets.push({ key: "form-ton", label: tr("Form tồn"), moTa: tr("Tải theo cột, thứ tự, tiêu đề file Form tồn; các cột khác đang tích nối tiếp phía sau (không tích cột nào = nối tất cả)") });
     const picked = await pickExportColumns(filename, allCols, tplKey, presets);
@@ -86,6 +92,13 @@ export async function exportRowsToExcel<T extends object>(
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, taoSheetTuDong(XLSX, dong, [...tieuDeMau, ...noiThem], new Set(tieuDeMau)), sheetName);
       XLSX.writeFile(wb, filename.replace(/(\.xlsx)?$/i, "_form_ton.xlsx"));
+      return;
+    }
+    if ("preset" in picked && picked.preset === "tinh-bao-cao") {
+      // "Mẫu tính báo cáo" (2026-11-21): 67 cot co dinh cua file mau, doc tu dong ca THO nhu Mẫu tính lương.
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, taoSheetMauTinhBaoCao(XLSX, rows as Record<string, unknown>[]), "Sheet1");
+      XLSX.writeFile(wb, filename.replace(/(\.xlsx)?$/i, "_mau_tinh_bao_cao.xlsx"));
       return;
     }
     if ("preset" in picked) {

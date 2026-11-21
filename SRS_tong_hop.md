@@ -459,6 +459,8 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Bảng chọn cột khi tải Quản lý tồn › Danh sách chi tiết có thêm mẫu cố định **"Form tồn"** (52 cột theo file mẫu, tiêu đề tiếng Việt). Các cột hệ
   thống không có trong mẫu được nối tiếp sau cột 52 theo thứ tự và tích chọn trong bảng chọn cột; không tích cột nào thì nối tất cả.
 - Mẫu cá nhân đã lưu: cột mới tự nối cuối (bật sẵn). "Mẫu tính lương": tải đúng cột của mẫu (không nối).
+- "Mẫu tính báo cáo" (chốt 2026-11-21, v1.651): mẫu cố định thứ 3 cho MỌI danh sách ca, đúng 67 cột / thứ tự / tiêu đề hàng 1 của file
+  "Mẫu tính báo cáo.xlsx" (không nối cột). Cột app không lưu để trống; cột Odoo dạng danh sách (linh kiện lỗi) gộp thành 1 ô.
 - Mọi bảng báo cáo / ô chọn theo khu vực xếp cố định: MB1, MB2, MB3, MN1, MN2, MN3, B2B MB, B2B MN, KDDV, SCVP MB, SCVP MN, rồi các nhóm khác A-Z.
 
 ## 19. Báo cáo đúng hạn theo ngành — tuần / tháng (chốt 2026-11-20, v1.638)

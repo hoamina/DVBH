@@ -17,23 +17,23 @@ import type * as XLSXNS from "xlsx";
  */
 
 type Row = Record<string, unknown>;
-type Kieu = "chu" | "so" | "ngay" | "ngay_gio" | "ma";
+export type Kieu = "chu" | "so" | "ngay" | "ngay_gio" | "ma";
 
-interface CotMau {
+export interface CotMau {
   tieuDe: string;
   lay: (r: Row) => unknown;
   kieu?: Kieu;
 }
 
-const f = (k: string) => (r: Row) => r[k];
-const dauTien = (...ks: string[]) => (r: Row) => {
+export const f = (k: string) => (r: Row) => r[k];
+export const dauTien = (...ks: string[]) => (r: Row) => {
   for (const k of ks) {
     const v = r[k];
     if (v != null && String(v).trim() !== "") return v;
   }
   return null;
 };
-const trong = () => null;
+export const trong = () => null;
 
 /** "[KH] [Hotline] Anh Hùng" -> "Hotline"; ngoac long nhau giu nguyen ("[KH] [[B2B] ORRO HOME] X" -> "[B2B] ORRO HOME");
  * khong co tien to thu 2 -> rong. */
@@ -117,19 +117,24 @@ function oExcel(v: unknown, kieu: Kieu): XLSXNS.CellObject | null {
   return { t: "s", v: String(v) };
 }
 
-/** Tao sheet "Mẫu tính lương" tu cac dong ca tho. */
-export function taoSheetMauTinhLuong(XLSX: typeof XLSXNS, rows: Row[]): XLSXNS.WorkSheet {
+/** Tao sheet theo 1 mau CO DINH (tieu de giu nguyen, ngay/so ghi thanh o that) tu cac dong ca tho. */
+export function taoSheetMau(XLSX: typeof XLSXNS, rows: Row[], cot: CotMau[]): XLSXNS.WorkSheet {
   const ws: XLSXNS.WorkSheet = {};
-  MAU_TINH_LUONG_COT.forEach((c, ci) => {
+  cot.forEach((c, ci) => {
     ws[XLSX.utils.encode_cell({ r: 0, c: ci })] = { t: "s", v: c.tieuDe };
   });
   rows.forEach((r, ri) => {
-    MAU_TINH_LUONG_COT.forEach((c, ci) => {
+    cot.forEach((c, ci) => {
       const o = oExcel(c.lay(r), c.kieu ?? "chu");
       if (o) ws[XLSX.utils.encode_cell({ r: ri + 1, c: ci })] = o;
     });
   });
-  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: MAU_TINH_LUONG_COT.length - 1 } });
-  ws["!cols"] = MAU_TINH_LUONG_COT.map((c) => ({ wch: c.kieu === "ngay_gio" ? 19 : c.kieu === "ngay" ? 11 : Math.min(30, Math.max(10, c.tieuDe.length + 2)) }));
+  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: cot.length - 1 } });
+  ws["!cols"] = cot.map((c) => ({ wch: c.kieu === "ngay_gio" ? 19 : c.kieu === "ngay" ? 11 : Math.min(30, Math.max(10, c.tieuDe.length + 2)) }));
   return ws;
+}
+
+/** Tao sheet "Mẫu tính lương" tu cac dong ca tho. */
+export function taoSheetMauTinhLuong(XLSX: typeof XLSXNS, rows: Row[]): XLSXNS.WorkSheet {
+  return taoSheetMau(XLSX, rows, MAU_TINH_LUONG_COT);
 }
