@@ -6335,3 +6335,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   ~27 cột app không lưu (điện thoại 1-3, NV CSKH, ảnh/URL ảnh, CoreDB, km di chuyển, trưởng BP bảo trì…) để trống.
 - Kiểm thử: typecheck + build qua; chạy thử hàm tạo sheet với 1 ca giả có dữ liệu Odoo (ngày ra ô ngày dd/mm/yyyy, số ra ô số, linh kiện trùng được gộp).
 - Còn lại: chưa bấm thử trên production; nếu cần lấp các cột đang trống phải có thêm dữ liệu nguồn (pipeline gửi thêm trường).
+
+## 2026-11-23 — v1.652: bỏ gộp CTV/TEST vào khu vực chuẩn ở bảng số chốt theo ngày
+
+- Yêu cầu: (ảnh Telegram 17:30 ngày 17/11 MB3 = 0 nhưng bảng "Tỷ lệ giải trình theo ngày" MB3 17/11 = 22/23) "khu vực tôi chụp ảnh trong ngày 17 MB3 ca
+  còn tồn chưa giải trình = 0, nhưng trên báo cáo thì lại còn 1 ca chưa giải trình" → chủ hệ thống chọn "Bỏ gộp ngày cũ".
+- Nguyên nhân (đo production, chỉ đọc): `giai_trinh_daily_log_vn` MB3 16–19/11 = 34/34, 22/22, 14/14, 19/19 (đúng Telegram); khu vực riêng
+  "(huydg.bn-mb) CTV Bắc Ninh…" 1/0 mỗi ngày. Từ v1.634 màn hình gộp dòng CTV đó vào MB3 (`KHU_VUC_GOP`) → MB3 bị cộng 1 ca không giải trình.
+  Từ 20/11 không còn dòng CTV (dữ liệu đã về MB3, migration 0177).
+- Làm: `frontend/src/lib/khuVucShortLabel.ts gopDongTheoKhuVuc` (chỉ dùng cho bảng số chốt theo ngày: Tỷ lệ giải trình + Cảnh báo tồn theo ngày)
+  không gộp các khu vực CTV/TEST trong `KHU_VUC_GOP` nữa (giữ gộp mã B2B cũ/mới). Các báo cáo đọc dữ liệu ca hiện tại không đổi.
+- Kiểm thử: typecheck + build frontend qua. MB3 các ngày 16–19/11 sẽ về 34/34, 22/22, 14/14, 19/19; ca CTV hiện ở dòng riêng.
+- Ghi chú: ảnh Telegram 17:30 chỉ vẽ 7 nhóm MB1–3/MN1–3/KDDV; các khu vực khác ("Phòng bảo hành 3T miền Bắc" ~10 ca, B2B MN 3–4 ca) vẫn tính vào
+  Tổng cộng của bảng nhưng không có ô trên ảnh — chưa xử lý (chờ chủ hệ thống quyết).

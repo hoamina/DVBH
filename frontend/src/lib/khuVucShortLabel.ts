@@ -68,11 +68,18 @@ export function khuVucGop(raw: string): string {
   return KHU_VUC_GOP[raw] ?? TEN_DAY_DU_THEO_NHAN[raw] ?? raw;
 }
 
-/** Gop cac dong { khu_vuc, days: [{ ngay, ...so }] } co cung khu vuc chuan - cong cac cot so theo tung ngay. */
+/** Tai khoan CTV/TEST ghi nham vao cot khu vuc: KHONG gop vao khu vuc chuan o cac bang SO CHOT THEO NGAY (2026-11-23, chu he thong
+ * "Bỏ gộp ngày cũ"). Luc chot, ca do nam o khu vuc rieng nen Giam sat khu vuc chuan khong thay de giai trinh, Telegram 17:30 cung
+ * khong tinh vao - gop lai se phat oan khu vuc chuan (vd MB3 17/11: chot 22/22, gop thanh 22/23). Tu 20/11 du lieu da ve khu vuc
+ * chuan (migration 0177) nen khong con dong ten CTV/TEST moi. B2B doi ma van gop (GS duoc gan ca 2 ma nen luc do van thay ca). */
+const KHONG_GOP_SO_CHOT = new Set(Object.keys(KHU_VUC_GOP).filter((k) => !k.startsWith("(qlb2b.")));
+
+/** Gop cac dong { khu_vuc, days: [{ ngay, ...so }] } co cung khu vuc chuan - cong cac cot so theo tung ngay.
+ * Chi dung cho bang so chot theo ngay -> bo qua KHONG_GOP_SO_CHOT (dong CTV/TEST giu khu vuc ghi luc chot). */
 export function gopDongTheoKhuVuc<D extends { ngay: string }, R extends { khu_vuc: string; days: D[] }>(rows: R[]): R[] {
   const theo = new Map<string, R>();
   for (const r of rows) {
-    const k = khuVucGop(r.khu_vuc);
+    const k = KHONG_GOP_SO_CHOT.has(r.khu_vuc) ? r.khu_vuc : khuVucGop(r.khu_vuc);
     const cu = theo.get(k);
     if (!cu) {
       theo.set(k, { ...r, khu_vuc: k, days: r.days.map((d) => ({ ...d })) });
