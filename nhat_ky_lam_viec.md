@@ -6358,3 +6358,11 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 **Kiểm thử:** build 0 lỗi; sau deploy gọi `/api/cua-so` trên production trả đúng cửa sổ đang bật. Giao diện đã xem trên linh-kien-app (cùng 1 component).
 
 **Còn dở:** đang dùng chung mã khoá với các app khác — nên xin mã riêng cho app này ở eOffice › Quản trị › Cửa sổ thông tin › Kết nối app ngoài rồi đặt lại secret `CUA_SO_KHOA`.
+
+## 24/11/2026 — Tách CLAUDE.md thành bản rút gọn + CLAUDE-full.md (không đổi code)
+
+- Yêu cầu (Trợ lý Mây theo lời Giám đốc): CLAUDE.md của các kho phải dưới ~10 KB để phiên Claude đám mây không đầy bộ nhớ; kho này ~70 KB.
+  Anh Thái: *"tạo riêng 1 file claude.md rút gọn cho đối tác, 1 file claude-full.md để dành cho việc lưu chi tiết các công việc sau này"*.
+- Đã làm: `git mv CLAUDE.md CLAUDE-full.md` (giữ nguyên nội dung, thêm đầu đề); `CLAUDE.md` mới ~9 KB: hệ thống, lệnh (đích smarttrade), 14 luật,
+  vai trò, bản đồ mã, tài liệu, mục Trợ lý Mây. Từ nay chi tiết ghi vào `CLAUDE-full.md`.
+- Kiểm thử: `wc -c CLAUDE.md` = 8.979 byte. Không đổi mã nguồn, không deploy.
