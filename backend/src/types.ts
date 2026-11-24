@@ -76,6 +76,8 @@ export const NGON_NGU_VALUES = ["vi", "en", "id"] as const;
 export type NgonNgu = (typeof NGON_NGU_VALUES)[number];
 
 export interface Env {
+  // Ma khoa API "Cua so thong tin" eOffice (popup Giam doc) - lib/cuaSoThongTin.ts. Chua dat -> khong hien popup.
+  CUA_SO_KHOA?: string;
   DB: D1Database;
   REPORTS: R2Bucket;
   ASSETS: Fetcher;

@@ -58,6 +58,7 @@ import quocGiaRoutes from "./routes/quocGia";
 import banDichRoutes from "./routes/banDich";
 import qlNskxRoutes from "./routes/qlNskx";
 import suaDoanhThuRoutes from "./routes/suaDoanhThu";
+import { layCuaSoThongTin } from "./lib/cuaSoThongTin";
 
 const app = new Hono<{ Bindings: Env }>();
 // "Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (lib/phamVi.ts) - GET co ?pv= doc/ghi bo du lieu rieng cua pham vi.
@@ -77,6 +78,9 @@ app.use("/api/*", async (c, next) => {
     dat(c.res.headers);
   }
 });
+// Cua so thong tin eOffice (2026-11-24, lib/cuaSoThongTin.ts): khong can dang nhap - hien ca o man dang nhap.
+app.get("/api/cua-so", async (c) => c.json(await layCuaSoThongTin(c.env.CUA_SO_KHOA)));
+
 app.use("/api/*", phamViMiddleware);
 
 app.route("/api/auth", authRoutes);

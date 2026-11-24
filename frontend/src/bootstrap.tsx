@@ -9,6 +9,7 @@ import { ToastProvider } from "./components/ui/Toast";
 import { App } from "./App";
 import "./styles/tokens.css";
 import "./i18n";
+import { CuaSoThongTin } from "./components/CuaSoThongTin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +29,7 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <ToastProvider>
           <App />
+          <CuaSoThongTin />
         </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>

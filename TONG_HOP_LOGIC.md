@@ -144,3 +144,7 @@ App Đặt linh kiện (tra ca cho đơn, tồn kho, lịch sử LK, đơn theo 
 
 Mọi thời gian lưu giờ Việt Nam (`nowVN()`), không dựa vào DEFAULT UTC của schema. D1: ≤ 100 tham số / câu, ≤ 100 cột / bảng, tính phí theo
 dòng quét — giữ ngân sách đọc (`KE_HOACH_TOI_UU_D1.md`).
+
+## Cửa sổ thông tin eOffice (popup Giám đốc)
+
+`GET /api/cua-so` (không cần đăng nhập) → Worker gọi `csApi` eOffice bằng secret `CUA_SO_KHOA`, đệm 60 giây, kèm tranh SVG. Frontend `CuaSoThongTin` hiện mỗi lần mở app (và khi quay lại sau ≥ 10 phút ẩn), nút "Vào app" khoá theo `khoaNutGiay`. Lỗi / chậm / chưa có khoá → không hiện, vào app bình thường. Cùng 1 bộ mã ở mọi app hệ DVBH (bản gốc ở linh-kien-app).
