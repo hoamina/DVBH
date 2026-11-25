@@ -6366,3 +6366,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Đã làm: `git mv CLAUDE.md CLAUDE-full.md` (giữ nguyên nội dung, thêm đầu đề); `CLAUDE.md` mới ~9 KB: hệ thống, lệnh (đích smarttrade), 14 luật,
   vai trò, bản đồ mã, tài liệu, mục Trợ lý Mây. Từ nay chi tiết ghi vào `CLAUDE-full.md`.
 - Kiểm thử: `wc -c CLAUDE.md` = 8.979 byte. Không đổi mã nguồn, không deploy.
+
+## 2026-11-25 — v1.654: Tỷ lệ giải trình theo ngày — ẩn dòng CTV, lọc từ ngày – đến ngày, cột Tổng
+
+- Yêu cầu: (ảnh bảng có 2 dòng "(huydg.bn-mb) CTV Bắc Ninh - Đào Gia Huy - NS-3919" / "… - NS-3919 - NS-3919") "sao vẫn bị bug này nhỉ" →
+  giải thích (do v1.652 bỏ gộp; CRM đổi tên tài khoản từ 18/11 nên 2 dòng; 1 ca chưa GT 16–19/11) → chủ hệ thống chọn "Ẩn dòng CTV".
+  Thêm: "thêm filter từ ngày đến ngày ở mục chọn tháng báo cáo"; "bổ sung thêm 1 cột tổng khóa cứng ở sau cột khu vực = tổng giải trình/tổng cần
+  giải trình trong khoảng ngày đang xem (hoặc tháng) => tỷ lệ (bỏ qua các ngày loại trừ)".
+- Làm: `khuVucShortLabel.ts gopDongTheoKhuVuc` bỏ hẳn dòng CTV/TEST (bảng Tỷ lệ giải trình + Cảnh báo tồn theo ngày) → Tổng cộng / lũy kế bớt 1 ca
+  các ngày 16–19/11 (khớp Telegram). `BacklogModule.tsx`: ô "Từ – đến" cạnh chọn tháng (`daysInRangeList`, ≤93 ngày, × xoá; đổi tháng xoá khoảng),
+  API dùng sẵn `tu_ngay/den_ngay`; tiêu đề "Lũy kế dd/mm/yyyy – dd/mm/yyyy", nút "Tải khoảng ngày"; cột "Tổng" sticky (`OTongKhoang`) + 3 cột Tổng
+  trong file tải. Bảng Cảnh báo tồn theo ngày giữ theo tháng.
+- Kiểm thử: typecheck + build qua; chạy local (dev-login) chọn 20/10–25/11: bảng ra đúng 37 ngày, tiêu đề lũy kế theo khoảng, cuộn ngang thì Khu vực + Tổng
+  đứng yên. Chưa xem trên production.

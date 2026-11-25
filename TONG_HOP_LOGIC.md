@@ -87,7 +87,11 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   ("chủ nhật" / ghi chú Admin nhập / "ngày nghỉ"), không cộng vào lũy kế / tỷ lệ tháng.
   Số chốt theo ngày (Tỷ lệ giải trình, Cảnh báo tồn theo ngày) hiển thị đúng khu vực ghi lúc chốt: dòng của tài khoản CTV/TEST bị ghi nhầm
   vào cột khu vực (vd "CTV Bắc Ninh", "GS Khu Vực-TEST") KHÔNG gộp vào khu vực chuẩn (MB3 / KRF) — lúc chốt Giám sát khu vực chuẩn không thấy
-  ca đó, Telegram 17:30 cũng không tính. Mã B2B cũ/mới vẫn gộp. Báo cáo đọc dữ liệu ca hiện tại vẫn gộp CTV/TEST về khu vực chuẩn.
+  ca đó, Telegram 17:30 cũng không tính — và từ v1.654 bị ẨN hẳn (không dòng riêng), nên Tổng cộng / lũy kế (cộng từ các dòng) cũng không tính,
+  khớp ảnh Telegram. Mã B2B cũ/mới vẫn gộp. Báo cáo đọc dữ liệu ca hiện tại vẫn gộp CTV/TEST về khu vực chuẩn.
+  Kỳ xem: chọn tháng HOẶC "Từ – đến" ngày (cả 2 ngày hợp lệ thì thay tháng, tối đa 93 ngày; chọn lại tháng xoá khoảng; bảng Cảnh báo tồn theo
+  ngày vẫn theo tháng). Cột "Tổng" khoá cứng sau Khu vực = đã GT / cần GT cộng cả kỳ đang xem, bỏ ngày loại trừ của từng khu vực (dòng Tổng cộng
+  = lũy kế của kỳ); file tải thêm 3 cột "Tổng - Đã GT / Cần GT / Tỷ lệ %".
 - Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),
   tính trên trình duyệt từ cùng dữ liệu bảng.
 - Chi tiết ca: tab "Tiến trình chung" (gộp log nhiều nguồn; đầu tab là luồng xử lý ca dạng ngang, mốc liền nhau cùng đối tượng — 1 đơn

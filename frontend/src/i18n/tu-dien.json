@@ -14918,5 +14918,13 @@
   "PO ghi đúng mã ca": ["PO has the case ID", "PO mencantumkan ID kasus"],
   "qua ticket {0} → đơn {1}": ["via ticket {0} → order {1}", "lewat tiket {0} → pesanan {1}"],
   "qua đơn {0}": ["via order {0}", "lewat pesanan {0}"],
-  "PO ghi mã ca / đơn / ticket của ca": ["PO references the case / its order / ticket", "PO merujuk kasus / pesanan / tiketnya"]
+  "PO ghi mã ca / đơn / ticket của ca": ["PO references the case / its order / ticket", "PO merujuk kasus / pesanan / tiketnya"],
+ "Đang xem theo khoảng ngày - chọn tháng để quay lại xem cả tháng": ["Viewing a date range - pick a month to go back to the whole month", "Melihat rentang tanggal - pilih bulan untuk kembali ke satu bulan penuh"],
+ "Xoá khoảng ngày, xem theo tháng": ["Clear the date range, view by month", "Hapus rentang tanggal, lihat per bulan"],
+ "⬇ Tải khoảng ngày": ["⬇ Download date range", "⬇ Unduh rentang tanggal"],
+ "Chốt theo ngày, theo khu vực — từ {0}. Lũy kế bỏ Chủ nhật và ngày loại trừ; tổng ngày chỉ cộng khu vực không bị loại trừ.": ["Closed daily, by area — {0}. Cumulative excludes Sundays and excluded days; daily totals only add areas that are not excluded.", "Ditutup harian, per area — {0}. Kumulatif tidak termasuk hari Minggu dan hari pengecualian; total harian hanya menjumlahkan area yang tidak dikecualikan."],
+ "Khoảng ngày không hợp lệ (từ ngày phải ≤ đến ngày) - đang xem theo tháng.": ["Invalid date range (from must be ≤ to) - showing the month.", "Rentang tanggal tidak valid (dari harus ≤ sampai) - menampilkan per bulan."],
+ "Tối đa 93 ngày - chỉ hiện 93 ngày đầu.": ["Up to 93 days - only the first 93 days are shown.", "Maksimal 93 hari - hanya 93 hari pertama yang ditampilkan."],
+ "Tổng": ["Total", "Total"],
+ "Tổng khoảng đang xem, bỏ ngày loại trừ": ["Total for the period shown, excluding excluded days", "Total untuk periode yang ditampilkan, tanpa hari pengecualian"]
 }

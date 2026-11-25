@@ -463,6 +463,12 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   "Mẫu tính báo cáo.xlsx" (không nối cột). Cột app không lưu để trống; cột Odoo dạng danh sách (linh kiện lỗi) gộp thành 1 ô.
 - Mọi bảng báo cáo / ô chọn theo khu vực xếp cố định: MB1, MB2, MB3, MN1, MN2, MN3, B2B MB, B2B MN, KDDV, SCVP MB, SCVP MN, rồi các nhóm khác A-Z.
 
+## 18b. Tỷ lệ giải trình theo ngày — khoảng ngày + cột Tổng (chốt 2026-11-25, v1.654)
+
+- Cạnh ô chọn tháng có "Từ … đến …" ngày: có đủ 2 ngày hợp lệ thì bảng, lũy kế và file tải theo khoảng đó (tối đa 93 ngày), nút × xoá về tháng.
+- Cột "Tổng" khoá cứng ngay sau cột Khu vực: đã giải trình / cần giải trình cộng cả kỳ đang xem → tỷ lệ, bỏ ngày loại trừ.
+- Dòng tài khoản CTV/TEST ghi nhầm vào cột khu vực bị ẩn khỏi bảng số chốt theo ngày (không cộng vào Tổng cộng), khớp ảnh Telegram 17:30.
+
 ## 19. Báo cáo đúng hạn theo ngành — tuần / tháng (chốt 2026-11-20, v1.638)
 
 - Màn Tổng quát (v1.644, chủ hệ thống 2026-11-20 "làm gọn, filter/tab chỉ 2-3 dòng, báo cáo/biểu đồ chiếm diện tích chính"): bỏ tiêu đề trang

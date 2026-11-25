@@ -675,3 +675,7 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
   đã đẩy sang hệ thống ngoài (Lada…) — chỉ liệt kê để người điều phối xử lý.
 - KHÔNG biến lỗi thành đề xuất đổi luật, KHÔNG hỏi lại Giám đốc điều luật đã chốt, KHÔNG viết dài theo khuôn làn đầy đủ.
 - Người báo hỏi thêm việc khác trong cùng báo cáo → ghi 1 dòng "Tách việc riêng: …", không gộp vào bản sửa lỗi.
+
+- **Tỷ lệ giải trình theo ngày (v1.654, 2026-11-25)**: dòng CTV/TEST (`KHONG_GOP_SO_CHOT`) bị ẩn trong `gopDongTheoKhuVuc` (Tổng cộng cộng từ các dòng
+  trên trình duyệt nên cũng không tính). Kỳ xem tháng hoặc "Từ – đến" (`daysInRangeList`, ≤93 ngày, API `tu_ngay/den_ngay` sẵn có); cột "Tổng" sticky
+  `left-[9rem]` (cột Khu vực cố định 9rem) — đổi bề rộng cột Khu vực phải đổi cả offset này.
