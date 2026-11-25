@@ -6387,3 +6387,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   và cột Tổng. Ngày Tổng cộng "1 số khu vực bị loại trừ" đổi từ nền hồng sang viền nét đứt sẫm (để nền dành cho màu cảnh báo). Dòng chú thích màu dưới
   mô tả bảng. Số "đã/cần" nhỏ dùng `opacity-70` cho đọc được trên nền màu.
 - Kiểm thử: typecheck + build qua; local với dữ liệu giả thay trong trình duyệt (100% / 96% / 85% / 50% / loại trừ) — 3 mức, Loại trừ và viền nét đứt phân biệt rõ.
+
+## 2026-11-25 — v1.656: Cài đặt "Ngày loại trừ giải trình" — cột Ngày tạo + sắp xếp
+
+- Yêu cầu: "mục "ngày loại trừ giải trình" bổ sung thêm thêm cột ngày tạo, sắp xếp theo ngày tạo".
+- Làm: `SettingsModule.tsx` thêm cột "Ngày tạo" (`created_at` lưu UTC do `DEFAULT datetime('now')` → `gioVnTuUtc` cộng 7 giờ, dd/mm/yyyy HH:MM),
+  sắp xếp phía trình duyệt (danh sách nhỏ, không phân trang), mặc định ngày tạo mới nhất trước; bấm tiêu đề "Ngày" / "Ngày tạo" đổi cột + chiều. Không đổi API.
+- Kiểm thử: typecheck + build qua; local thêm tạm 1 dòng thử → cột hiện giờ VN đúng, mặc định xếp mới tạo trước, bấm "Ngày" xếp tăng dần; đã xoá dòng thử.

@@ -1,6 +1,6 @@
 import { PhReportGroupSettings } from "../components/PhReportGroupSettings";
 import { useQuocGiaDangXem } from "../lib/phamVi";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BanDichCell } from "../components/BanDichCell";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
@@ -39,6 +39,15 @@ import { KTV_PHONE_QUERY_KEY } from "../lib/ktvPhone";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import { tr } from "../i18n/tr";
+
+/** "YYYY-MM-DD HH:MM:SS" gio UTC (DEFAULT datetime('now')) -> "dd/mm/yyyy HH:MM" gio VN. */
+function gioVnTuUtc(s: string | null | undefined): string {
+  if (!s) return "—";
+  const t = Date.parse(`${s.replace(" ", "T")}Z`);
+  if (Number.isNaN(t)) return s;
+  const d = new Date(t + 7 * 3600000).toISOString();
+  return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)} ${d.slice(11, 16)}`;
+}
 
 interface KtvImportSummary {
   thanhCong: number;
@@ -275,10 +284,16 @@ export function SettingsModule() {
     queryKey: ["settings-greeting-message"],
     queryFn: () => api.get<{ rows: GreetingMessageRow[] }>("/settings/greeting-message"),
   });
+  const [excludeNgaySort, setExcludeNgaySort] = useState<{ by: "ngay" | "created_at"; dir: "asc" | "desc" }>({ by: "created_at", dir: "desc" });
   const { data: excludeNgayRows } = useQuery({
     queryKey: ["settings-giai-trinh-exclude-ngay"],
     queryFn: () => api.get<{ rows: GiaiTrinhExcludeNgayRow[] }>("/settings/giai-trinh-exclude-ngay"),
   });
+  const excludeNgayRowsDaSap = useMemo(() => {
+    const { by, dir } = excludeNgaySort;
+    const k = dir === "asc" ? 1 : -1;
+    return [...(excludeNgayRows?.rows ?? [])].sort((a, b) => ((a[by] ?? "") < (b[by] ?? "") ? -k : (a[by] ?? "") > (b[by] ?? "") ? k : b.id - a.id));
+  }, [excludeNgayRows, excludeNgaySort]);
   const { data: dashboardFilters } = useQuery({
     queryKey: ["dashboard-filters"],
     queryFn: () => api.get<{ khuVuc: string[] }>("/dashboard/filters"),
@@ -914,8 +929,16 @@ export function SettingsModule() {
     { key: "bat_tat", header: tr("Bật / Tắt"), render: (r) => <ToggleSwitch checked={!!r.bat_tat} onChange={() => toggleGreetingMessage.mutate({ id: r.id, bat_tat: !r.bat_tat })} /> },
   ];
 
+  // "Ngày tạo" + sap xep (2026-11-25, v1.656, chu he thong): mac dinh moi tao truoc. created_at = DEFAULT datetime('now') = gio UTC
+  // (migration 0046) -> hien thi cong 7 gio (gio VN); so sanh chuoi UTC van dung thu tu.
   const excludeNgayColumns: Column<GiaiTrinhExcludeNgayRow>[] = [
-    { key: "ngay", header: tr("Ngày"), render: (r) => <span className="font-mono font-medium">{r.ngay}</span> },
+    { key: "ngay", header: tr("Ngày"), sortKey: "ngay", render: (r) => <span className="font-mono font-medium">{r.ngay}</span> },
+    {
+      key: "created_at",
+      header: tr("Ngày tạo"),
+      sortKey: "created_at",
+      render: (r) => <span className="text-xs whitespace-nowrap">{gioVnTuUtc(r.created_at)}</span>,
+    },
     {
       key: "khu_vuc",
       header: tr("Khu vực"),
@@ -1453,7 +1476,7 @@ export function SettingsModule() {
           </div>
           <PaginatedTable
             columns={excludeNgayColumns}
-            rows={excludeNgayRows?.rows ?? []}
+            rows={excludeNgayRowsDaSap}
             isLoading={false}
             isError={false}
             page={1}
@@ -1463,6 +1486,9 @@ export function SettingsModule() {
             rowKey={(r) => r.id}
             emptyText={tr("Chưa có ngày loại trừ nào ngoài Chủ nhật.")}
             storageKey="settings-giai-trinh-exclude-ngay"
+            sortBy={excludeNgaySort.by}
+            sortDir={excludeNgaySort.dir}
+            onSortChange={(by, dir) => setExcludeNgaySort({ by: by as "ngay" | "created_at", dir })}
           />
         </div>
       )}

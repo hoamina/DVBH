@@ -84,7 +84,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   Đơn LK gần nhất: ID, trạng thái, ngày đặt / duyệt / xuất / KTV nhận, mã LK của đơn, đơn đúng mã LK thiếu, cách khớp đơn, số đơn của ca.
   File chỉ giữ trường có nhãn (không bao giờ ra tên trường thô).
 - Tỷ lệ giải trình theo ngày (Quản lý tồn): ngày loại trừ (Chủ nhật + ngày Admin thêm ở Cài đặt) hiện "Loại trừ" + lý do ngắn
-  ("chủ nhật" / ghi chú Admin nhập / "ngày nghỉ"), không cộng vào lũy kế / tỷ lệ tháng.
+  ("chủ nhật" / ghi chú Admin nhập / "ngày nghỉ"), không cộng vào lũy kế / tỷ lệ tháng. Màn Cài đặt › "Ngày loại trừ giải trình" có cột "Ngày tạo"
+  (giờ VN; DB lưu UTC) và mặc định xếp ngày tạo mới nhất lên đầu; bấm tiêu đề Ngày / Ngày tạo để đổi chiều (v1.656).
   Số chốt theo ngày (Tỷ lệ giải trình, Cảnh báo tồn theo ngày) hiển thị đúng khu vực ghi lúc chốt: dòng của tài khoản CTV/TEST bị ghi nhầm
   vào cột khu vực (vd "CTV Bắc Ninh", "GS Khu Vực-TEST") KHÔNG gộp vào khu vực chuẩn (MB3 / KRF) — lúc chốt Giám sát khu vực chuẩn không thấy
   ca đó, Telegram 17:30 cũng không tính — và từ v1.654 bị ẨN hẳn (không dòng riêng), nên Tổng cộng / lũy kế (cộng từ các dòng) cũng không tính,
