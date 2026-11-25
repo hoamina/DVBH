@@ -94,7 +94,7 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   ngày vẫn theo tháng). Cột "Tổng" khoá cứng sau Khu vực = đã GT / cần GT cộng cả kỳ đang xem, bỏ ngày loại trừ của từng khu vực (dòng Tổng cộng
   = lũy kế của kỳ); file tải thêm 3 cột "Tổng - Đã GT / Cần GT / Tỷ lệ %".
   Màu cảnh báo ô < 100% (v1.655, cả ô ngày, cột Tổng, dòng Tổng cộng): 95–<100% vàng nhạt, 80–<95% cam, <80% đỏ chữ trắng; 100% / không có ca
-  không tô; "Loại trừ" giữ màu be; ngày Tổng cộng có 1 số khu vực bị loại trừ = viền nét đứt sẫm (trước là nền hồng). Có chú thích màu trên bảng.
+  không tô; "Loại trừ" = xám kẻ sọc chéo, chữ xám (v1.657, trước là be — dễ lẫn với ô vàng/cam); ngày Tổng cộng có 1 số khu vực bị loại trừ = viền nét đứt sẫm (trước là nền hồng). Có chú thích màu trên bảng.
 - Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),
   tính trên trình duyệt từ cùng dữ liệu bảng.
 - Chi tiết ca: tab "Tiến trình chung" (gộp log nhiều nguồn; đầu tab là luồng xử lý ca dạng ngang, mốc liền nhau cùng đối tượng — 1 đơn

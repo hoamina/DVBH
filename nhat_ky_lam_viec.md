@@ -6394,3 +6394,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Làm: `SettingsModule.tsx` thêm cột "Ngày tạo" (`created_at` lưu UTC do `DEFAULT datetime('now')` → `gioVnTuUtc` cộng 7 giờ, dd/mm/yyyy HH:MM),
   sắp xếp phía trình duyệt (danh sách nhỏ, không phân trang), mặc định ngày tạo mới nhất trước; bấm tiêu đề "Ngày" / "Ngày tạo" đổi cột + chiều. Không đổi API.
 - Kiểm thử: typecheck + build qua; local thêm tạm 1 dòng thử → cột hiện giờ VN đúng, mặc định xếp mới tạo trước, bấm "Ngày" xếp tăng dần; đã xoá dòng thử.
+
+## 2026-11-25 — v1.657: Tỷ lệ giải trình theo ngày — đổi màu ô "Loại trừ"
+
+- Yêu cầu: "loại trừ cho màu khác đi cho đỡ lẫn với ngày thiếu".
+- Làm: `BacklogModule.tsx MAU_LOAI_TRU` — ô Loại trừ (từng khu vực, Tổng cộng ngày toàn bộ loại trừ, chú thích màu) từ nền be `amber-100` sang xám kẻ sọc
+  chéo + chữ xám, khác hẳn 3 mức cảnh báo vàng / cam / đỏ.
+- Kiểm thử: typecheck + build qua (class sọc có trong CSS build); local với dữ liệu giả trong trình duyệt — ô Loại trừ xám sọc, tách rõ khỏi ô vàng/cam/đỏ.

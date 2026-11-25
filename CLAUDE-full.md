@@ -679,4 +679,4 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 - **Tỷ lệ giải trình theo ngày (v1.654, 2026-11-25)**: dòng CTV/TEST (`KHONG_GOP_SO_CHOT`) bị ẩn trong `gopDongTheoKhuVuc` (Tổng cộng cộng từ các dòng
   trên trình duyệt nên cũng không tính). Kỳ xem tháng hoặc "Từ – đến" (`daysInRangeList`, ≤93 ngày, API `tu_ngay/den_ngay` sẵn có); cột "Tổng" sticky
   `left-[9rem]` (cột Khu vực cố định 9rem) — đổi bề rộng cột Khu vực phải đổi cả offset này.
-  v1.655: màu cảnh báo `mauTyLe` (yellow-100 / orange-300 / red-500) — đừng dùng nền amber cho cảnh báo (trùng "Loại trừ").
+  v1.655: màu cảnh báo `mauTyLe` (yellow-100 / orange-300 / red-500) — ô "Loại trừ" = `MAU_LOAI_TRU` xám kẻ sọc (v1.657) — giữ khác hẳn màu cảnh báo.

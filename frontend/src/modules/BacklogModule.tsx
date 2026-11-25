@@ -875,8 +875,12 @@ function OLoaiTru({ lyDo }: { lyDo: string }) {
     </span>
   );
 }
+/** O "Loại trừ" (2026-11-25, v1.657, chu he thong "loại trừ cho màu khác đi cho đỡ lẫn với ngày thiếu"): xam ke soc cheo, chu xam -
+ * kieu "khong tinh", khac han 3 mau canh bao (vang / cam / do). Truoc la nen be amber-100 - de nham voi o vang/cam. */
+const MAU_LOAI_TRU = "bg-[repeating-linear-gradient(135deg,#e2e8f0_0_5px,#f8fafc_5px_10px)] text-slate-500";
+
 /** To mau canh bao o ty le giai trinh < 100% (2026-11-25, v1.655, chu he thong "ngày nào thiếu <100% tô màu cảnh báo các ô tô màu khác nhau"):
- * 3 muc khac han nhau va khac mau "Loại trừ" (amber): >=95% vang nhat, 80-<95% cam, <80% do. 100% / khong co ca -> khong to. */
+ * 3 muc khac han nhau va khac mau "Loại trừ" (xam ke soc, MAU_LOAI_TRU): >=95% vang nhat, 80-<95% cam, <80% do. 100% / khong co ca -> khong to. */
 function mauTyLe(da: number, can: number): string {
   if (can <= 0 || da >= can) return "";
   const p = (da / can) * 100;
@@ -2807,7 +2811,7 @@ export function BacklogModule({
               <span className="px-1.5 rounded bg-yellow-100 text-yellow-900">{tr("95% – dưới 100%")}</span>
               <span className="px-1.5 rounded bg-orange-300 text-orange-950">{tr("80% – dưới 95%")}</span>
               <span className="px-1.5 rounded bg-red-500 text-white">{tr("Dưới 80%")}</span>
-              <span className="px-1.5 rounded bg-[var(--amber-100)]">{tr("Loại trừ")}</span>
+              <span className={`px-1.5 rounded ${MAU_LOAI_TRU}`}>{tr("Loại trừ")}</span>
               <span className="px-1.5 rounded outline-dashed outline-2 -outline-offset-2 outline-[var(--ink-900)]">{tr("Tổng cộng: 1 số khu vực bị loại trừ")}</span>
             </div>
             {tamTinh && (
@@ -2856,7 +2860,7 @@ export function BacklogModule({
                           return <TamTinhCell key={day} can={can} da={da} gio={tamTinhGio} dam />;
                         }
                         // "partial" (1 so khu vuc bi loai tru) doi tu nen coral sang VIEN NET DUT (v1.655) de nen dung cho mau canh bao < 100%.
-                        const cellBg = status === "full" ? "bg-[var(--amber-100)]" : `${t && t.can > 0 ? mauTyLe(t.da, t.can) : ""} ${status === "partial" ? "outline-dashed outline-2 -outline-offset-4 outline-[var(--ink-900)]" : ""}`;
+                        const cellBg = status === "full" ? `${MAU_LOAI_TRU} font-normal` : `${t && t.can > 0 ? mauTyLe(t.da, t.can) : ""} ${status === "partial" ? "outline-dashed outline-2 -outline-offset-4 outline-[var(--ink-900)]" : ""}`;
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
                             {status === "full" ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, null)} /> : t && t.can > 0 ? (
@@ -2884,7 +2888,7 @@ export function BacklogModule({
                         const tam = tamTinh && day === ngayHomNay && !excluded && !found ? tamTinhCuaKhuVuc(row.khu_vuc) : undefined;
                         if (tam) return <TamTinhCell key={day} can={tam.can_giai_trinh} da={tam.da_giai_trinh} gio={tamTinhGio} />;
                         return (
-                          <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : found ? mauTyLe(found.da_giai_trinh, found.can_giai_trinh) : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
+                          <td key={day} className={`py-2 px-2 text-center ${excluded ? MAU_LOAI_TRU : found ? mauTyLe(found.da_giai_trinh, found.can_giai_trinh) : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
                             {excluded ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, row.khu_vuc)} /> : found ? (
                               <div>
                                 <div className="font-mono font-semibold">{pct(found.da_giai_trinh, found.can_giai_trinh)}%</div>
