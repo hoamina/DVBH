@@ -50,8 +50,7 @@ Không có test suite — kiểm bằng typecheck + chạy local.
     (2 file `0030_*` là cố ý). Xem số migration lớn nhất trong `migrations/` trước khi thêm.
 11. `frontend/src/layout/navConfig.ts` `ROLE_MODULES` ↔ `backend/src/lib/moduleAccess.ts` `DEFAULT_MODULES_BY_ROLE` đồng bộ tay.
 12. Cron chỉ có 4 trigger (Cloudflare tự bỏ trigger thừa) — thêm việc định kỳ thì gắn vào trigger sẵn có (`index.ts scheduled()`).
-13. Giờ Việt Nam: dùng helper ở `backend/src/lib/vnTime.ts`.
-14. Đa ngôn ngữ: chuỗi UI mới bọc `tr("<câu tiếng Việt>")` + thêm vào `i18n/tu-dien.json`, chạy `node frontend/scripts/i18n-kiem-tra.mjs`;
+13. Giờ VN: `backend/src/lib/vnTime.ts`. Đa ngôn ngữ: chuỗi UI mới bọc `tr("<câu tiếng Việt>")` + thêm vào `i18n/tu-dien.json`, chạy `node frontend/scripts/i18n-kiem-tra.mjs`;
     không bọc giá trị dùng để so sánh / gửi server / làm khoá. Dữ liệu nghiệp vụ không dịch.
 
 ## Vai trò & đăng nhập
@@ -77,7 +76,6 @@ Google OAuth trong Worker, JWT cookie `dvbh_session`. Đăng nhập mới = "Cho
 | `HANDOFF.md` | Bối cảnh nghiệp vụ gốc |
 | `TONG_HOP_LOGIC.md`, `SRS_tong_hop.md` | Logic đang chạy, đặc tả yêu cầu |
 | `nhat_ky_lam_viec.md` | Nhật ký từng đợt (mới nhất ở cuối) |
-| `KE_HOACH_TOI_UU_D1.md`, `YEU_CAU_BAO_CAO_TINH_SAN.md` | Tối ưu đọc D1, danh sách endpoint có cache |
 
 ## Nhận việc từ Trợ lý Mây
 
@@ -88,17 +86,7 @@ Google OAuth trong Worker, JWT cookie `dvbh_session`. Đăng nhập mới = "Cho
 - KHÔNG: sửa secrets / luật bảo mật, deploy trần, đổi tính năng ngoài issue, xoá dữ liệu. Không chắc → bình luận `MÂY: CẦN NGƯỜI` + lý do rồi dừng.
   Deploy do workflow `may-deploy` làm sau khi duyệt — không tự deploy trong lúc sửa.
 - Làm trong phiên thường mà giải quyết issue Mây đang mở (`gh issue list --label may:cho-duyet,may:tu-sua`) → ghi mã `MAY-xxxxx` ở dòng đầu commit.
-- **Ba làn** (Giám đốc chốt 18/11/2026; dòng đầu ý tưởng / BRD ghi `**Làn:** nhanh | thường | đầy đủ — <lý do>`; Mây xếp sai thì app ghi đúng làn):
-  - *Nhanh* (không qua duyệt): lệnh Giám đốc, cấp / thu quyền cá nhân, dữ liệu sai / trùng / kẹt, danh mục / cấu hình, lỗi rõ sửa nhỏ không đổi luật,
-    hỏi cách dùng, lấy số liệu → tra dữ liệu thật, ghi qua khối `may-thao-tac`, sửa nguyên nhân nếu là lỗi mã, báo `## BÁO CÁO KẾT QUẢ`
-    (Đã làm · Vì sao bị · Đã sửa · Không đụng tới). Cấp quyền: khai `cap_quyen` { nguoi, vai, vai_cao }.
-  - *Thường*: cải tiến nhỏ (cột, bộ lọc, nút, hiển thị, sắp xếp) — 1 bản cách làm cụ thể, duyệt 1 lần là làm.
-  - *Đầy đủ*: đổi luật / cách tính, tính năng lớn, tiền / lương / thưởng / công nợ, phân quyền nhóm, xoá thật, hồ sơ nhân sự, Upload Lada
-    → ý tưởng → BRD → thẩm định → duyệt.
-  - Phân vân → chọn làn cao hơn.
-- **Máy chạy sai luật đã chốt = LỖI → làn nhanh** (chốt 22/11/2026): sửa đúng luật, chạy lại hoặc đếm số bản ghi bị sai, báo ngắn
-  (lỗi gì · vì sao · đã sửa · bao nhiêu bản ghi). Không đụng dữ liệu đã đẩy sang hệ ngoài (Lada…) — chỉ liệt kê. Không biến lỗi thành đề xuất
-  đổi luật, không hỏi lại luật đã chốt. Việc khác trong cùng báo cáo → 1 dòng "Tách việc riêng: …".
+- Ba làn xử lý và luật "máy chạy sai luật = lỗi": xem 2 mục cuối file (workflow Mây tự đồng bộ, không sửa tay).
 
 <!-- may-ba-lan -->
 ## Ba làn xử lý của Trợ lý Mây (Giám đốc chốt 18/11/2026 — áp dụng VĨNH VIỄN cho app này)
