@@ -6412,3 +6412,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kèm (chỉ đọc, không đổi code): kiểm MB1 ngày 07/10 (7/8) — 3 ca không còn khớp vì Odoo/CRM ghi lùi giờ hoàn thành về trước 07/10; ca chưa giải trình
   là 1 trong SC261001317 / SC261001489 / SC261001530 (đều MB1, KTV Phú Thọ), không phải ca khu vực khác. MB1 ngày 28/10 = 7/7, cả 7 ca (T25669,
   SC261019893, SC26102152, SC26102143, SC261021104, 1349016, SC261004374) đều MB1 và đã giải trình trước 10:00; 28/10 không có ngày loại trừ cho MB1.
+
+## 2026-11-25 — v1.659: Admin sửa tay số đã giải trình trong bảng "Tỷ lệ giải trình theo ngày"
+
+- Yêu cầu: "trực tiếp trên giao diện cho phép admin click vào ngày để sửa số ca giải trình ví dụ 27/28 => sửa thành 28/28 (vì 1 số trường hợp GS xin
+  đánh giá muộn)".
+- Làm: migration 0180 `giai_trinh_daily_log_sua` (pham_vi, ngay, khu_vuc, can, da_cu, da_moi, ly_do, nguoi_sua, sua_luc). `PUT /api/cases/giai-trinh-daily-log`
+  (Admin): thân gửi qg + pv (request ghi không được bọc phạm vi) → `bocPhamVi` ghi đúng bảng `giai_trinh_daily_log_<phạm vi>`; nhận mọi mã gốc của dòng đã gộp
+  (B2B cũ/mới), chỉ sửa `da_giai_trinh` trong [0, can], lý do bắt buộc; UPDATE + nhật ký cùng batch, bump `giai_trinh`. `GET giai-trinh-daily-trend` trả thêm
+  `suaTay` (lọc theo hậu tố phạm vi). Frontend `components/SuaSoGiaiTrinhModal.tsx` + ô khu vực bấm được (Admin), ✎ + tooltip gốc → mới + lịch sử trong popup.
+- Ghi chú: trước đây sổ chốt 17:30 là "lịch sử vĩnh viễn, không có đường sửa tay" — nay chủ hệ thống cho Admin sửa có nhật ký. Sửa ở "Tất cả" không tự đổi
+  sổ chốt NSKX / Không NSKX; ảnh Telegram đã gửi không đổi.
+- Kiểm thử: typecheck backend + frontend, build; local (migration local, dev-login Admin): bấm MB1 07/11 0/1 → nhập 1 + lý do → ô thành ✎ 100% 1/1, cột Tổng
+  cập nhật, tooltip đúng; PUT số 5 > cần → 400 VUOT_CAN, thiếu lý do → 400 MISSING_LY_DO.

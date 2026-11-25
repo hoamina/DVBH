@@ -2,7 +2,7 @@ import { computeExplanationReasons } from "../lib/explanationReasonReport";
 import { layGuiBhTheoCa } from "../lib/guiBhCa";
 import { Hono } from "hono";
 import { layKhuVucQldvbh } from "../lib/khuVucQldvbh";
-import { bocPhamVi, chonQuocGia, dbGoc, phamViCua, quocGiaCua } from "../lib/phamVi";
+import { bocPhamVi, chonQuocGia, dbGoc, docPhamVi, hauToPhamVi, phamViCua, quocGiaCua } from "../lib/phamVi";
 import { QUOC_GIA_MAC_DINH } from "../lib/quocGia";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -1088,8 +1088,69 @@ async function docGiaiTrinhTrend(c: Context<{ Bindings: Env }>) {
     byKhuVuc.set(r.khu_vuc, arr);
   }
   const rows = Array.from(byKhuVuc.entries()).map(([khu_vuc, days]) => ({ khu_vuc, days }));
-  return { rows, excludedNgay: exclusionResults };
+  // "suaTay" (v1.659): cac lan Admin sua tay so da GT trong khoang - bang chung (khong doi ten theo pham vi) loc bang cot pham_vi.
+  // dbGoc: bang nay khong co ban sao theo pham vi. Loi doc (vd chua chay migration 0180) -> [] (khong lam hong bang chinh).
+  const phamViHauTo = hauToPhamVi({ qg: quocGiaCua(c.env.DB), pv: phamViCua(c.env.DB) });
+  let suaTay: { ngay: string; khu_vuc: string; can_giai_trinh: number; da_cu: number; da_moi: number; ly_do: string; nguoi_sua: string; sua_luc: string }[] = [];
+  if (useRange) {
+    try {
+      suaTay = (
+        await dbGoc(c.env.DB)
+          .prepare(
+            `SELECT ngay, khu_vuc, can_giai_trinh, da_cu, da_moi, ly_do, nguoi_sua, sua_luc FROM giai_trinh_daily_log_sua
+             WHERE pham_vi = ? AND ngay >= ? AND ngay <= ? ORDER BY id`,
+          )
+          .bind(phamViHauTo, tuNgay, denNgay)
+          .all<(typeof suaTay)[number]>()
+      ).results;
+    } catch (err) {
+      console.error("docGiaiTrinhTrend: doc giai_trinh_daily_log_sua loi", err);
+    }
+  }
+  return { rows, excludedNgay: exclusionResults, suaTay };
 }
+
+// PUT /api/cases/giai-trinh-daily-log (Admin, 2026-11-25 v1.659) - sua tay so "da giai trinh" cua 1 o (ngay x khu vuc) trong so chot
+// 17h30 cua DUNG pham vi dang xem (than gui qg + pv vi request ghi khong duoc boc pham vi). Than: { ngay, khu_vuc: string[] (moi ma
+// goc cua dong da gop - B2B cu/moi), da_giai_trinh, ly_do, qg?, pv? }. Chi sua da_giai_trinh trong [0, can_giai_trinh]; can giu nguyen.
+// Ghi nhat ky giai_trinh_daily_log_sua cung batch. Bump "giai_trinh" de cache "Bao cao ton theo khu vuc" (luy ke thang) tinh lai.
+// Pham vi khac (vd NSKX / Khong NSKX khi sua o "Tat ca") KHONG tu doi theo.
+cases.put("/giai-trinh-daily-log", requireRole("Admin"), async (c) => {
+  const body = await c.req.json<{ ngay?: string; khu_vuc?: string[]; da_giai_trinh?: number; ly_do?: string; qg?: string; pv?: string }>();
+  const ngay = (body.ngay ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay)) return c.json({ error: "INVALID_NGAY", message: "Ngày không hợp lệ" }, 400);
+  const dsKv = [...new Set((body.khu_vuc ?? []).map((k) => String(k).trim()).filter(Boolean))].slice(0, 20);
+  if (!dsKv.length) return c.json({ error: "MISSING_KHU_VUC", message: "Thiếu khu vực" }, 400);
+  const daMoi = Number(body.da_giai_trinh);
+  if (!Number.isInteger(daMoi) || daMoi < 0) return c.json({ error: "INVALID_SO", message: "Số đã giải trình phải là số nguyên ≥ 0" }, 400);
+  const lyDo = (body.ly_do ?? "").trim();
+  if (!lyDo) return c.json({ error: "MISSING_LY_DO", message: "Cần nhập lý do sửa" }, 400);
+  const user = c.get("user");
+  const goc = dbGoc(c.env.DB);
+  const qg = await chonQuocGia(goc, user.pham_vi_quoc_gia, body.qg);
+  const pham = { qg, pv: docPhamVi(body.pv) };
+  const db = bocPhamVi(goc, pham);
+  const { results } = await db
+    .prepare(`SELECT khu_vuc, can_giai_trinh, da_giai_trinh FROM giai_trinh_daily_log WHERE ngay = ? AND khu_vuc IN (SELECT value FROM json_each(?))`)
+    .bind(ngay, JSON.stringify(dsKv))
+    .all<{ khu_vuc: string; can_giai_trinh: number; da_giai_trinh: number }>();
+  if (results.length === 0) return c.json({ error: "NOT_FOUND", message: "Ngày này chưa có số chốt của khu vực" }, 404);
+  if (results.length > 1) return c.json({ error: "NHIEU_DONG", message: "Khu vực có nhiều dòng chốt trong ngày (mã cũ/mới) - chưa sửa được ở đây" }, 409);
+  const dong = results[0];
+  if (daMoi > dong.can_giai_trinh) return c.json({ error: "VUOT_CAN", message: `Không được lớn hơn số cần giải trình (${dong.can_giai_trinh})` }, 400);
+  if (daMoi === dong.da_giai_trinh) return c.json({ ok: true, khongDoi: true });
+  await db.batch([
+    db.prepare("UPDATE giai_trinh_daily_log SET da_giai_trinh = ? WHERE ngay = ? AND khu_vuc = ?").bind(daMoi, ngay, dong.khu_vuc),
+    goc
+      .prepare(
+        `INSERT INTO giai_trinh_daily_log_sua (pham_vi, ngay, khu_vuc, can_giai_trinh, da_cu, da_moi, ly_do, nguoi_sua, sua_luc)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(hauToPhamVi(pham), ngay, dong.khu_vuc, dong.can_giai_trinh, dong.da_giai_trinh, daMoi, lyDo, user.email, nowVN()),
+  ]);
+  await bumpVersions(goc, ["giai_trinh"]);
+  return c.json({ ok: true, khu_vuc: dong.khu_vuc, da_cu: dong.da_giai_trinh, da_moi: daMoi, can: dong.can_giai_trinh });
+});
 
 // Each case contributes its last explanation WITHIN the requested month, including closed cases.
 // Drive by idx_giai_trinh_ngay; correlated lookup uses idx_giai_trinh_case_ngay.

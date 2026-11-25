@@ -14934,5 +14934,15 @@
  "Tổng cộng: 1 số khu vực bị loại trừ": ["Total: some areas excluded", "Total: sebagian area dikecualikan"],
  "Màu:": ["Colours:", "Warna:"],
  "Đủ 100%": ["Full 100%", "Penuh 100%"],
- "Viền tím = cột / dòng tổng": ["Purple border = total column / row", "Garis ungu = kolom / baris total"]
+ "Viền tím = cột / dòng tổng": ["Purple border = total column / row", "Garis ungu = kolom / baris total"],
+ "Sửa số đã giải trình · {0} · {1}": ["Edit explained count · {0} · {1}", "Ubah jumlah sudah dijelaskan · {0} · {1}"],
+ "Số đang chốt:": ["Current closed figure:", "Angka saat ini:"],
+ "Số đã giải trình mới (0 – {0})": ["New explained count (0 – {0})", "Jumlah baru sudah dijelaskan (0 – {0})"],
+ "Lý do sửa (bắt buộc)": ["Reason for edit (required)", "Alasan perubahan (wajib)"],
+ "VD: GS xin đánh giá muộn, đã giải trình đủ ca": ["E.g. supervisor asked for late review, all cases explained", "Mis. supervisor minta penilaian terlambat, semua kasus sudah dijelaskan"],
+ "Chỉ sửa số của phạm vi đang xem (quốc gia / NSKX). Ảnh Telegram đã gửi không đổi. Mỗi lần sửa được ghi lại.": ["Only edits the scope being viewed (country / NSKX). Telegram images already sent do not change. Every edit is logged.", "Hanya mengubah cakupan yang sedang dilihat (negara / NSKX). Gambar Telegram yang sudah dikirim tidak berubah. Setiap perubahan dicatat."],
+ "Lịch sử sửa": ["Edit history", "Riwayat perubahan"],
+ "Đã sửa tay: gốc {0}/{1} → {2}/{1} ({3}, {4}) · {5}": ["Manually edited: original {0}/{1} → {2}/{1} ({3}, {4}) · {5}", "Diubah manual: asli {0}/{1} → {2}/{1} ({3}, {4}) · {5}"],
+ "Bấm để sửa số đã giải trình (Admin)": ["Click to edit the explained count (Admin)", "Klik untuk mengubah jumlah sudah dijelaskan (Admin)"],
+ "Admin: bấm vào ô của khu vực để sửa số đã giải trình (ô đã sửa có dấu ✎).": ["Admin: click an area cell to edit the explained count (edited cells show ✎).", "Admin: klik sel area untuk mengubah jumlah sudah dijelaskan (sel yang diubah bertanda ✎)."]
 }

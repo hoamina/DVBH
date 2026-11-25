@@ -94,7 +94,10 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   ngày vẫn theo tháng). Cột "Tổng" khoá cứng sau Khu vực = đã GT / cần GT cộng cả kỳ đang xem, bỏ ngày loại trừ của từng khu vực (dòng Tổng cộng
   = lũy kế của kỳ); file tải thêm 3 cột "Tổng - Đã GT / Cần GT / Tỷ lệ %".
   Màu ô (v1.658, cả ô ngày, cột Tổng, dòng Tổng cộng; nền nhạt + chữ đậm cùng tông): 100% xanh nhạt, 95–<100% vàng, 80–<95% cam, <80% đỏ; không có
-  ca không tô; cột Tổng + dòng Tổng cộng có viền tím riêng; "Loại trừ" = xám kẻ sọc chéo, chữ xám (v1.657, trước là be — dễ lẫn với ô vàng/cam); ngày Tổng cộng có 1 số khu vực bị loại trừ = viền nét đứt sẫm (trước là nền hồng). Có chú thích màu trên bảng.
+  ca không tô; cột Tổng + dòng Tổng cộng có viền tím riêng;
+  Sửa tay số chốt (v1.659, CHỈ Admin): bấm ô khu vực × ngày → sửa "đã giải trình" (0..cần, cần giữ nguyên), bắt buộc lý do; sửa đúng sổ chốt của
+  phạm vi đang xem (quốc gia / NSKX — phạm vi khác không tự đổi theo); mỗi lần sửa ghi `giai_trinh_daily_log_sua` (trước/sau, ai, lúc nào, lý do),
+  ô đã sửa có ✎ + tooltip gốc → mới. Lũy kế / Tổng / Báo cáo tồn theo khu vực dùng số đã sửa; ảnh Telegram đã gửi không đổi. "Loại trừ" = xám kẻ sọc chéo, chữ xám (v1.657, trước là be — dễ lẫn với ô vàng/cam); ngày Tổng cộng có 1 số khu vực bị loại trừ = viền nét đứt sẫm (trước là nền hồng). Có chú thích màu trên bảng.
 - Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),
   tính trên trình duyệt từ cùng dữ liệu bảng.
 - Chi tiết ca: tab "Tiến trình chung" (gộp log nhiều nguồn; đầu tab là luồng xử lý ca dạng ngang, mốc liền nhau cùng đối tượng — 1 đơn

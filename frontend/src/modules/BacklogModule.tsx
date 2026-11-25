@@ -8,6 +8,7 @@ import { MaLinhKienLink } from "../components/HoSoLinhKienProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
+import { SuaSoGiaiTrinhModal, type OSuaGiaiTrinh, type SuaTayGiaiTrinh } from "../components/SuaSoGiaiTrinhModal";
 import { Badge } from "../components/ui/Badge";
 import { mucDoBadge } from "../components/ui/MucDoBadge";
 import { Card } from "../components/ui/Card";
@@ -1400,7 +1401,7 @@ export function BacklogModule({
   const nhanKy = dungKhoang ? `${fmtDate(trendDays[0])} – ${fmtDate(trendDays[trendDays.length - 1])}` : trendMonth;
   const monthlyTrendQ = useQuery({
     queryKey: ["backlog-stats", "giai-trinh-monthly-trend", trendDays[0], trendDays[trendDays.length - 1], khuVucFilter],
-    queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[] }>(`/cases/giai-trinh-daily-trend${buildQuery({ tu_ngay: trendDays[0], den_ngay: trendDays[trendDays.length - 1], khu_vuc: khuVucFilter })}`),
+    queryFn: () => api.get<{ rows: GiaiTrinhTrendRow[]; excludedNgay: ExcludedNgayRow[]; suaTay?: SuaTayGiaiTrinh[] }>(`/cases/giai-trinh-daily-trend${buildQuery({ tu_ngay: trendDays[0], den_ngay: trendDays[trendDays.length - 1], khu_vuc: khuVucFilter })}`),
     enabled: view === "bao-cao" && trendDays.length > 0,
     refetchInterval: BACKLOG_REPORT_REFETCH_MS,
   });
@@ -1410,6 +1411,19 @@ export function BacklogModule({
     const d = monthlyTrendQ.data;
     if (!d) return d;
     return { ...d, rows: gopDongTheoKhuVuc(d.rows).filter((r) => !KHU_VUC_AN_KHOI_BAO_CAO.includes(r.khu_vuc)) };
+  }, [monthlyTrendQ.data]);
+  // Sua tay so da GT (v1.659, CHI Admin): bam o (khu vuc x ngay) -> SuaSoGiaiTrinhModal. maGocGt = ma goc cua dong da gop (B2B cu/moi);
+  // suaTayTheoO = cac lan sua theo "khu vuc chuan|ngay" de danh dau ✎ + hien lich su.
+  const laAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  const [oSua, setOSua] = useState<OSuaGiaiTrinh | null>(null);
+  const maGocGt = useMemo(() => maGocTheoKhuVuc((monthlyTrendQ.data?.rows ?? []).map((r) => r.khu_vuc)), [monthlyTrendQ.data]);
+  const suaTayTheoO = useMemo(() => {
+    const m = new Map<string, SuaTayGiaiTrinh[]>();
+    for (const x of monthlyTrendQ.data?.suaTay ?? []) {
+      const k = `${khuVucGop(x.khu_vuc)}|${x.ngay}`;
+      m.set(k, [...(m.get(k) ?? []), x]);
+    }
+    return m;
   }, [monthlyTrendQ.data]);
   // "Kiem tra hom nay" (2026-11-17, v1.622): so ngay hom nay chi co sau cron chot 17:30 - truoc do bang hien "—". Bam nut ->
   // GET /cases/giai-trinh-tam-tinh tinh SO TAM THOI (cung cong thuc chot, khong ghi DB), chi hien tren giao dien, KHONG cong vao
@@ -2835,6 +2849,15 @@ export function BacklogModule({
             {homNayTrongThang && !homNayDaChot && tamTinhQ.isError && (
               <p role="alert" className="text-xs mb-2">{tamTinhQ.error instanceof Error ? tamTinhQ.error.message : tr("Không tạm tính được.")}</p>
             )}
+            <SuaSoGiaiTrinhModal
+              o={oSua}
+              onClose={() => setOSua(null)}
+              onDone={() => {
+                void monthlyTrendQ.refetch();
+                void queryClient.invalidateQueries({ queryKey: ["backlog-stats"] });
+              }}
+            />
+            {laAdmin && <div className="text-[11px] text-[var(--ink-500)] mb-1">{tr("Admin: bấm vào ô của khu vực để sửa số đã giải trình (ô đã sửa có dấu ✎).")}</div>}
             {monthlyTrendQ.isPending && <p>{tr("Đang tải báo cáo tháng…")}</p>}
             {monthlyTrendQ.isError && <p role="alert">{tr("Không tải được báo cáo tháng.")} <button onClick={() => void monthlyTrendQ.refetch()}>{tr("Thử lại")}</button></p>}
             <div className="overflow-x-auto">
@@ -2900,8 +2923,19 @@ export function BacklogModule({
                         const excluded = isNgayExcluded(day, row.khu_vuc);
                         const tam = tamTinh && day === ngayHomNay && !excluded && !found ? tamTinhCuaKhuVuc(row.khu_vuc) : undefined;
                         if (tam) return <TamTinhCell key={day} can={tam.can_giai_trinh} da={tam.da_giai_trinh} gio={tamTinhGio} />;
+                        const lichSu = suaTayTheoO.get(`${row.khu_vuc}|${day}`) ?? [];
+                        const suaDuoc = laAdmin && !!found && !excluded && found.can_giai_trinh > 0;
+                        const goc = lichSu[0];
+                        const cuoi = lichSu[lichSu.length - 1];
+                        const titleSua = goc ? tr("Đã sửa tay: gốc {0}/{1} → {2}/{1} ({3}, {4}) · {5}", goc.da_cu, goc.can_giai_trinh, cuoi.da_moi, cuoi.nguoi_sua, cuoi.sua_luc.slice(0, 16), cuoi.ly_do) : "";
                         return (
-                          <td key={day} className={`py-2 px-2 text-center ${excluded ? MAU_LOAI_TRU : found ? mauTyLe(found.da_giai_trinh, found.can_giai_trinh) : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
+                          <td
+                            key={day}
+                            className={`py-2 px-2 text-center relative ${excluded ? MAU_LOAI_TRU : found ? mauTyLe(found.da_giai_trinh, found.can_giai_trinh) : ""} ${suaDuoc ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-indigo-400" : ""}`}
+                            title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : [titleSua, suaDuoc ? tr("Bấm để sửa số đã giải trình (Admin)") : ""].filter(Boolean).join("\n") || undefined}
+                            onClick={suaDuoc && found ? () => setOSua({ ngay: day, nhanKhuVuc: shortKhuVuc(row.khu_vuc), maGoc: (maGocGt[row.khu_vuc] ?? row.khu_vuc).split(","), can: found.can_giai_trinh, da: found.da_giai_trinh, lichSu }) : undefined}
+                          >
+                            {goc && !excluded && <span className="absolute top-0 right-0.5 text-[9px] leading-none text-indigo-600" aria-label={tr("Đã sửa tay")}>✎</span>}
                             {excluded ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, row.khu_vuc)} /> : found ? (
                               <div>
                                 <div className="font-mono font-semibold">{pct(found.da_giai_trinh, found.can_giai_trinh)}%</div>

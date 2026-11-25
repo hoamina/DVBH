@@ -576,7 +576,7 @@ no live FK children at the time). Plain `ALTER TABLE ADD COLUMN` is unaffected a
 Before proposing a recreate-table migration, `grep -rn "REFERENCES <table>" migrations/` first.
 
 Migration files are numbered sequentially, applied in filename order — check `migrations/` for the
-current max number before adding a new one (currently `0179`). **`0030` is intentionally used by two
+current max number before adding a new one (currently `0180`). **`0030` is intentionally used by two
 files** (`0030_r2_snapshot_manifest.sql` and `0030_revert_thoi_gian_wallclock_utc.sql`) — this looks
 like a bug but isn't fixable: wrangler tracks applied migrations by exact filename in the remote
 `d1_migrations` table, and `0030_r2_snapshot_manifest.sql` was already applied to the `smarttrade`
@@ -681,3 +681,5 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
   `left-[9rem]` (cột Khu vực cố định 9rem) — đổi bề rộng cột Khu vực phải đổi cả offset này.
   v1.655: màu cảnh báo `mauTyLe` (yellow-100 / orange-300 / red-500) — ô "Loại trừ" = `MAU_LOAI_TRU` xám kẻ sọc (v1.657) — giữ khác hẳn màu cảnh báo.
   v1.658: `mauTyLe` nền nhạt (emerald/yellow/orange/red -50..100), viền tím `VIEN_*` = box-shadow inset (tên class viết nguyên văn — Tailwind JIT không đọc chuỗi ghép).
+  v1.659: Admin sửa tay `da_giai_trinh` (PUT /api/cases/giai-trinh-daily-log, nhật ký `giai_trinh_daily_log_sua` migration 0180, 1 bảng chung có cột
+  `pham_vi` = hauToPhamVi) — request ghi phải tự `bocPhamVi(dbGoc(db), {qg, pv})` từ thân (middleware chỉ bọc phạm vi cho GET).
