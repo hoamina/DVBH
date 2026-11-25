@@ -1,4 +1,4 @@
-import { PHAM_VI_QUOC_GIA_MAC_DINH } from "../lib/quocGia";
+import { LOAI_TRU_TOAN_BO, PHAM_VI_QUOC_GIA_MAC_DINH, QUOC_GIA_MAC_DINH, RE_MA_QUOC_GIA, khuVucLoaiTruToanBo } from "../lib/quocGia";
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
@@ -706,18 +706,23 @@ settings.get("/giai-trinh-exclude-ngay", async (c) => {
 });
 
 // POST /api/settings/giai-trinh-exclude-ngay - than: { ngay: "YYYY-MM-DD", khuVucList: string[], ghiChu?: string }.
-// "khuVucList" chua ["__ALL__"] nghia la loai tru CA HE THONG cho ngay do (khong can liet ke tung
+// "khuVucList" chua ["__ALL__"] nghia la loai tru moi khu vuc CUA NUOC "quocGia" (luu '__ALL__:<nuoc>') cho ngay do (khong can liet ke tung
 // khu vuc); nguoc lai la danh sach cac khu_vuc cu the duoc chon (multi-select o UI). Ghi nhieu dong
 // (1 dong/khu_vuc) trong 1 lan goi - trung (ngay, khu_vuc) da co thi bo qua (UNIQUE constraint).
 settings.post("/giai-trinh-exclude-ngay", adminOnly, async (c) => {
-  const body = await c.req.json<{ ngay: string; khuVucList: string[]; ghiChu?: string }>();
+  const body = await c.req.json<{ ngay: string; khuVucList: string[]; ghiChu?: string; quocGia?: string }>();
   if (!body.ngay?.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(body.ngay.trim())) return c.json({ error: "INVALID_NGAY" }, 400);
   if (!Array.isArray(body.khuVucList) || body.khuVucList.length === 0) return c.json({ error: "MISSING_KHU_VUC" }, 400);
 
   const ngay = body.ngay.trim();
   const ghiChu = body.ghiChu?.trim() || null;
   const user = c.get("user");
-  const uniqueKhuVuc = [...new Set(body.khuVucList.map((k) => k.trim()).filter(Boolean))];
+  // "Tất cả khu vực" chi cho nuoc Admin dang xem (2026-11-25, loi nghi le VN lam PH cung bi loai tru) -> '__ALL__:<nuoc>'.
+  const qgRaw = body.quocGia?.trim().toUpperCase();
+  const quocGia = qgRaw && RE_MA_QUOC_GIA.test(qgRaw) ? qgRaw : QUOC_GIA_MAC_DINH;
+  const uniqueKhuVuc = [
+    ...new Set(body.khuVucList.map((k) => k.trim()).filter(Boolean).map((k) => (k === LOAI_TRU_TOAN_BO ? khuVucLoaiTruToanBo(quocGia) : k))),
+  ];
 
   const statements = uniqueKhuVuc.map((khuVuc) =>
     c.env.DB.prepare(

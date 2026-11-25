@@ -1,4 +1,5 @@
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
+import { useThangHopLe } from "../lib/thangHopLe";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
@@ -112,6 +113,8 @@ export function NapGasModule({ openCase }: { openCase: (id: string, tab?: string
     queryKey: ["dashboard-months"],
     queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
   });
+  // Thang da luu khong co o nuoc dang xem (vd thang cua VN khi xem PH) -> ve thang hien tai / moi nhat (lib/thangHopLe.ts).
+  useThangHopLe(thang, setThang, monthOptions?.months);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["nap-gas", page, khuVucFilter, thang, drillDim, drillValue, dimFilter, trangThai, idSearch],

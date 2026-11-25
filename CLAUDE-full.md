@@ -683,3 +683,9 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
   v1.658: `mauTyLe` nền nhạt (emerald/yellow/orange/red -50..100), viền tím `VIEN_*` = box-shadow inset (tên class viết nguyên văn — Tailwind JIT không đọc chuỗi ghép).
   v1.659: Admin sửa tay `da_giai_trinh` (PUT /api/cases/giai-trinh-daily-log, nhật ký `giai_trinh_daily_log_sua` migration 0180, 1 bảng chung có cột
   `pham_vi` = hauToPhamVi) — request ghi phải tự `bocPhamVi(dbGoc(db), {qg, pv})` từ thân (middleware chỉ bọc phạm vi cho GET).
+- **Ngày loại trừ giải trình theo nước (v1.662, migration 0181)**: `settings_giai_trinh_exclude_ngay.khu_vuc` dòng "toàn bộ" = `__ALL__:<mã nước>`
+  (`lib/quocGia.ts` `khuVucLoaiTruToanBo` / `nuocCuaLoaiTruToanBo` / `locLoaiTruTheoNuoc`; `__ALL__` trần = VN). Mọi chỗ đọc bảng này phải lọc qua
+  `locLoaiTruTheoNuoc(rows, quocGiaCua(db))`. POST Cài đặt nhận `quocGia` (request ghi không có `?qg`). UNIQUE(ngay, khu_vuc) giữ nguyên — VN và PH
+  khai cùng ngày không đụng nhau.
+- **Tháng nhớ localStorage theo nước (v1.662)**: màn tự quản tháng (`useLocalStorageState("filters:…-thang")`) phải gọi `useThangHopLe(thang, setThang,
+  months)` (`lib/thangHopLe.ts`) — đã gắn CaLap / NapGas / Survey; FilterBar tự xử lý riêng.

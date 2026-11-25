@@ -28,8 +28,9 @@ import { hasModule } from "./moduleAccess";
 import type { DashboardKpisPayload, TrendRow } from "./dashboardCompute";
 import { buildBaocaoTonRows, renderBaocaoTonImage } from "./reportImage";
 import { nhomTelegramCuaPhamVi, sendTelegramPhoto, TELEGRAM_BOT_ID } from "./telegram";
-import { QUOC_GIA_MAC_DINH } from "./quocGia";
+import { QUOC_GIA_MAC_DINH, locLoaiTruTheoNuoc } from "./quocGia";
 import { layKhuVucQldvbh } from "./khuVucQldvbh";
+import { quocGiaCua } from "./phamVi";
 
 export type RoleVariant = "giam_sat" | "qc" | "khac";
 
@@ -526,7 +527,8 @@ async function computeBacklogDeltaPayload(
       .bind(monthStart, today)
       .all<{ ngay: string; khu_vuc: string }>(),
   ]);
-  const isNgayExcluded = buildNgayExcludedChecker(exclusionRows);
+  // Dong "Tất cả khu vực" chi ap cho nuoc dang chot / xem (2026-11-25) - giai_trinh_daily_log da la ban sao theo nuoc.
+  const isNgayExcluded = buildNgayExcludedChecker(locLoaiTruTheoNuoc(exclusionRows, quocGiaCua(db)));
 
   const byKhuVucMonthly: Record<string, { canGiaiTrinhLuyKe: number; daGiaiTrinhThang: number }> = {};
   const todayFrozenResolved = new Map<string, number>(); // khu_vuc -> da_giai_trinh DA CHOT cua hom nay (neu co)

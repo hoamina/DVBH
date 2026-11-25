@@ -65,6 +65,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 ## 6. Mô-đun liên quan
 
 - **Ca lặp** (cùng serial), **nạp gas**, **tranh chấp** (log riêng), **doanh thu** (sửa doanh thu có kiểm soát).
+  Ô chọn tháng ở Ca lặp / Nạp gas / Khảo sát nhớ theo trình duyệt (dùng chung mọi nước): tháng đã nhớ không có dữ liệu ở nước đang xem → tự về
+  tháng hiện tại (hoặc tháng mới nhất) (v1.662) — tránh trang trống trong khi badge menu (đếm tháng hiện tại) vẫn có số.
 - **Nạp gas — ca cần đánh giá** = cờ `nghi_ngo_nap_gas` = 1 (pipeline auto qs tính, app chỉ ratchet) VÀ "Hoàn thành XLSC", theo tháng hoàn thành.
   Luật cờ (CRM và Odoo như nhau): lý do quá hạn "KTV/CTV/Trạm tự nạp gas, làm block" HOẶC "Cách thức xử lý" chứa ga / nạp / sạc / nap / sac
   (phân biệt hoa thường). Odoo bị tắt cờ 04/10–18/11/2026; ca VN hoàn thành từ 01/10 đã được bật bù bằng migration 0175.
@@ -86,6 +88,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 - Tỷ lệ giải trình theo ngày (Quản lý tồn): ngày loại trừ (Chủ nhật + ngày Admin thêm ở Cài đặt) hiện "Loại trừ" + lý do ngắn
   ("chủ nhật" / ghi chú Admin nhập / "ngày nghỉ"), không cộng vào lũy kế / tỷ lệ tháng. Màn Cài đặt › "Ngày loại trừ giải trình" có cột "Ngày tạo"
   (giờ VN; DB lưu UTC) và mặc định xếp ngày tạo mới nhất lên đầu; bấm tiêu đề Ngày / Ngày tạo để đổi chiều (v1.656).
+  Tick "Tất cả khu vực" chỉ áp cho **quốc gia đang xem** lúc khai (v1.662; lưu `__ALL__:<mã nước>`, cột Khu vực ghi "Tất cả khu vực (VN)") —
+  khai nghỉ lễ VN không làm PH (PLP) bị "Loại trừ". Ngày loại trừ chọn khu vực cụ thể vẫn theo tên khu vực (mỗi nước tên khác nhau).
   Số chốt theo ngày (Tỷ lệ giải trình, Cảnh báo tồn theo ngày) hiển thị đúng khu vực ghi lúc chốt: dòng của tài khoản CTV/TEST bị ghi nhầm
   vào cột khu vực (vd "CTV Bắc Ninh", "GS Khu Vực-TEST") KHÔNG gộp vào khu vực chuẩn (MB3 / KRF) — lúc chốt Giám sát khu vực chuẩn không thấy
   ca đó, Telegram 17:30 cũng không tính — và từ v1.654 bị ẨN hẳn (không dòng riêng), nên Tổng cộng / lũy kế (cộng từ các dòng) cũng không tính,

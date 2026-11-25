@@ -3,7 +3,7 @@ import { layGuiBhTheoCa } from "../lib/guiBhCa";
 import { Hono } from "hono";
 import { layKhuVucQldvbh } from "../lib/khuVucQldvbh";
 import { bocPhamVi, chonQuocGia, dbGoc, docPhamVi, hauToPhamVi, phamViCua, quocGiaCua } from "../lib/phamVi";
-import { QUOC_GIA_MAC_DINH } from "../lib/quocGia";
+import { QUOC_GIA_MAC_DINH, locLoaiTruTheoNuoc } from "../lib/quocGia";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -997,7 +997,7 @@ async function backlogDailyCached<T>(db: D1Database, bien: string, scopeKeys: st
     .prepare(
       `SELECT COALESCE(MAX(generated_at), '') AS g, COUNT(*) AS n,
               (SELECT COUNT(*) FROM giai_trinh_daily_log WHERE ngay = ?) AS l,
-              (SELECT COUNT(*) || ':' || COALESCE(MAX(rowid), 0) FROM settings_giai_trinh_exclude_ngay WHERE ngay >= ?) AS x
+              (SELECT COUNT(*) || ':' || COALESCE(MAX(rowid), 0) || ':' || COALESCE(SUM(length(khu_vuc)), 0) FROM settings_giai_trinh_exclude_ngay WHERE ngay >= ?) AS x
        FROM daily_snapshot WHERE ngay = ? AND scope_key IN (SELECT value FROM json_each(?))`,
     )
     .bind(ngay, monthStart, ngay, JSON.stringify(scopeKeys))
@@ -1107,7 +1107,8 @@ async function docGiaiTrinhTrend(c: Context<{ Bindings: Env }>) {
       console.error("docGiaiTrinhTrend: doc giai_trinh_daily_log_sua loi", err);
     }
   }
-  return { rows, excludedNgay: exclusionResults, suaTay };
+  // Dong "Tất cả khu vực" cua nuoc khac khong ap cho nuoc dang xem (2026-11-25); dong cua nuoc nay tra ve '__ALL__' nhu cu.
+  return { rows, excludedNgay: locLoaiTruTheoNuoc(exclusionResults, quocGiaCua(c.env.DB)), suaTay };
 }
 
 // PUT /api/cases/giai-trinh-daily-log (Admin, 2026-11-25 v1.659) - sua tay so "da giai trinh" cua 1 o (ngay x khu vuc) trong so chot

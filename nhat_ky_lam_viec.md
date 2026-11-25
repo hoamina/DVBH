@@ -6442,3 +6442,18 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Làm: `components/SuaSoGiaiTrinhModal.tsx` — nút "⊘ Loại trừ ngày này" bên trái chân popup: cần lý do (thành ghi chú), hỏi xác nhận, gọi sẵn có
   `POST /api/settings/giai-trinh-exclude-ngay` (Admin) với mọi mã gốc của dòng; xong tải lại bảng. Không thêm API/bảng mới.
 - Kiểm thử: build qua; local: nút mờ khi chưa có lý do; nhập lý do + bấm → ô MB2 07/11 thành "Loại trừ · <lý do>" (xám kẻ sọc); đã xoá dòng loại trừ thử.
+
+## 2026-11-25 — v1.662: ngày loại trừ "Tất cả khu vực" theo quốc gia + Ca lặp PH trống do tháng nhớ của VN
+
+- Yêu cầu: (ảnh 24/11 "Exclusion · Nghỉ lễ" ở PH) "khai báo setup bỏ qua giải trình tất cả khu vực tại vn sao lại ảnh hưởng đến PLP => kiểm soát lại";
+  "2. PLP ca lặp có đếm nhưng không hiện ca nào".
+- Lỗi 1 — vì sao: bảng `settings_giai_trinh_exclude_ngay` dùng chung mọi nước, dòng `khu_vuc='__ALL__'` được hiểu là "toàn hệ thống" nên nghỉ lễ VN 24/11
+  áp cả PH. Đã sửa: dòng "toàn bộ" lưu `__ALL__:<mã nước>` (nước Admin đang xem lúc khai; API nhận thêm `quocGia`), migration 0181 đổi dòng cũ (1 dòng
+  24/11, đã kiểm là của VN) thành `__ALL__:VN`. Đọc: `lib/quocGia.ts locLoaiTruTheoNuoc` lọc theo nước của DB đang bọc (`dailySnapshot` lũy kế tháng +
+  `giai-trinh-daily-trend`), trả về `__ALL__` cho frontend như cũ. Dấu vân tay cache backlog-daily thêm `SUM(length(khu_vuc))` để đổi dữ liệu là tính lại.
+  Cài đặt: ô tick ghi "Tất cả khu vực (VN|PH)", cột Khu vực hiện mã nước.
+- Lỗi 2 — vì sao: tháng ở màn Ca lặp nhớ localStorage dùng chung mọi nước; Giám sát xem VN tháng 2026-09 rồi sang PH → PH chưa có tháng 9 nên ô tháng
+  trống nhưng vẫn gửi `thang=2026-09` → mọi số 0; badge "26" đếm tháng hiện tại (PH 11/2026 có 26 ca lặp, đã kiểm D1). Đã sửa: hook dùng chung
+  `lib/thangHopLe.ts useThangHopLe` (cùng cách FilterBar v16/11) gắn Ca lặp, Nạp gas, Khảo sát (2 ô tháng): tháng nhớ không có ở nước đang xem → tháng
+  hiện tại / mới nhất. Không đổi số liệu.
+- Kiểm thử: typecheck backend + frontend; kiểm D1 thật (dòng `__ALL__` duy nhất 24/11; cache PH `ca-lap/tong-quan|thang=2026-09` = 0).

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useThangHopLe } from "../lib/thangHopLe";
 import { coNhomDvbh, hauToPhamVi, useKhuVucHieuLuc } from "../lib/phamVi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
@@ -164,6 +165,8 @@ export function CaLapModule({ openCase, role }: { openCase: (id: string, tab?: s
     queryKey: ["dashboard-months"],
     queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
   });
+  // Thang da luu khong co o nuoc dang xem (vd thang cua VN khi xem PH) -> ve thang hien tai / moi nhat (lib/thangHopLe.ts).
+  useThangHopLe(thang, setThang, monthOptions?.months);
 
   const { data: tq } = useQuery({
     queryKey: ["ca-lap-tong-quan", khuVucFilter, thang],

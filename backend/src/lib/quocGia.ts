@@ -19,6 +19,32 @@ export const QUOC_GIA_MAC_DINH = "VN";
 /** Gia tri users.pham_vi_quoc_gia ghi cho tai khoan moi (tru Admin bootstrap). */
 export const PHAM_VI_QUOC_GIA_MAC_DINH = JSON.stringify([QUOC_GIA_MAC_DINH]);
 
+/**
+ * Ngay loai tru "Tất cả khu vực" (settings_giai_trinh_exclude_ngay) GAN THEO NUOC (loi 2026-11-25: khai nghi le 24/11 cho VN
+ * lam PH cung bi "Loại trừ"). Dong "toan bo" luu khu_vuc = '__ALL__:<ma nuoc>' (migration 0181 doi du lieu cu); '__ALL__' tran
+ * (neu con) coi la VN. Dong khu vuc cu the giu nguyen (ten khu vuc moi nuoc khac nhau).
+ */
+export const LOAI_TRU_TOAN_BO = "__ALL__";
+export function khuVucLoaiTruToanBo(qg: string): string {
+  return `${LOAI_TRU_TOAN_BO}:${qg}`;
+}
+/** Nuoc cua 1 dong "toan bo" (null = dong khu vuc cu the). */
+export function nuocCuaLoaiTruToanBo(khuVuc: string): string | null {
+  if (khuVuc === LOAI_TRU_TOAN_BO) return QUOC_GIA_MAC_DINH;
+  return khuVuc.startsWith(`${LOAI_TRU_TOAN_BO}:`) ? khuVuc.slice(LOAI_TRU_TOAN_BO.length + 1) : null;
+}
+/** Danh sach ngay loai tru dung cho 1 nuoc: bo dong "toan bo" cua nuoc khac, dong "toan bo" cua nuoc nay doi ve '__ALL__'. */
+export function locLoaiTruTheoNuoc<T extends { khu_vuc: string }>(rows: T[], qg: string | null): T[] {
+  const nuoc = qg ?? QUOC_GIA_MAC_DINH;
+  const out: T[] = [];
+  for (const r of rows) {
+    const n = nuocCuaLoaiTruToanBo(r.khu_vuc);
+    if (n === null) out.push(r);
+    else if (n === nuoc) out.push({ ...r, khu_vuc: LOAI_TRU_TOAN_BO });
+  }
+  return out;
+}
+
 /** GLOB SQLite (* ? [..] [^..]) -> RegExp, phan biet hoa/thuong nhu GLOB. Tra null neu mau hong. */
 export function globSangRegex(glob: string): RegExp | null {
   let re = "";

@@ -133,7 +133,8 @@ function cotBanDich<T>(bang: string, queryKey: string[], truong: "ban_dich" | "n
 }
 
 export function SettingsModule() {
-  const isPH = useQuocGiaDangXem() === "PH";
+  const quocGiaDangXem = useQuocGiaDangXem();
+  const isPH = quocGiaDangXem === "PH";
   const [tab, setTab] = useState("ly-do");
   const addToast = useToast();
   const qc = useQueryClient();
@@ -606,6 +607,8 @@ export function SettingsModule() {
         ngay: newExcludeNgay.ngay,
         khuVucList: newExcludeNgay.toanBo ? ["__ALL__"] : newExcludeNgay.khuVucList,
         ghiChu: newExcludeNgay.ghiChu || undefined,
+        // "Tất cả khu vực" chi ap cho nuoc dang xem (2026-11-25) - server luu '__ALL__:<nuoc>'.
+        quocGia: quocGiaDangXem ?? undefined,
       }),
     onSuccess: () => {
       addToast(tr("Đã thêm ngày loại trừ"));
@@ -942,7 +945,14 @@ export function SettingsModule() {
     {
       key: "khu_vuc",
       header: tr("Khu vực"),
-      render: (r) => (r.khu_vuc === "__ALL__" ? <span className="font-semibold text-[var(--coral-500)]">{tr("Tất cả khu vực")}</span> : shortKhuVuc(r.khu_vuc)),
+      render: (r) => {
+        // Dong "toan bo" gan theo nuoc: '__ALL__:<nuoc>' ('__ALL__' tran = du lieu cu, coi la VN).
+        if (r.khu_vuc === "__ALL__" || r.khu_vuc.startsWith("__ALL__:")) {
+          const nuoc = r.khu_vuc.split(":")[1] ?? "VN";
+          return <span className="font-semibold text-[var(--coral-500)]">{tr("Tất cả khu vực")} ({nuoc})</span>;
+        }
+        return shortKhuVuc(r.khu_vuc);
+      },
     },
     { key: "ghi_chu", header: tr("Ghi chú"), render: (r) => <span className="text-xs text-[var(--ink-600)]">{r.ghi_chu ?? "—"}</span> },
     { key: "nguoi_tao", header: tr("Người tạo"), render: (r) => <span className="text-xs">{r.nguoi_tao ? formatPersonDisplay(r.nguoi_tao, personDir) : "—"}</span> },
@@ -1997,7 +2007,7 @@ export function SettingsModule() {
                 checked={newExcludeNgay.toanBo}
                 onChange={(e) => setNewExcludeNgay((s) => ({ ...s, toanBo: e.target.checked, khuVucList: [] }))}
               />
-              {tr("Tất cả khu vực")}</label>
+              {tr("Tất cả khu vực")} ({quocGiaDangXem ?? "VN"})</label>
             {!newExcludeNgay.toanBo && (
               <div className="max-h-48 overflow-y-auto border border-[var(--line)] rounded-lg p-2 space-y-1">
                 {(dashboardFilters?.khuVuc ?? []).map((kv) => (

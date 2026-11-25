@@ -1,4 +1,5 @@
 import { coNhomDvbh, useKhuVucHieuLuc } from "../lib/phamVi";
+import { useThangHopLe } from "../lib/thangHopLe";
 import { dl } from "../lib/banDichDuLieu";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -487,6 +488,9 @@ export function SurveyModule({ openCase }: { openCase: (id: string, tab?: string
     queryKey: ["dashboard-months"],
     queryFn: () => api.get<{ months: string[] }>("/dashboard/months"),
   });
+  // Thang da luu khong co o nuoc dang xem (vd thang cua VN khi xem PH) -> ve thang hien tai / moi nhat (lib/thangHopLe.ts).
+  useThangHopLe(thangDanhSach, setThangDanhSach, monthOptions?.months);
+  useThangHopLe(thangReport, setThangReport, monthOptions?.months);
   const currentMonth = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 7);
   const danhSachMonthOptions = (monthOptions?.months ?? []).map((m) => ({ value: m, label: m }));
   if (!danhSachMonthOptions.some((o) => o.value === currentMonth)) {
