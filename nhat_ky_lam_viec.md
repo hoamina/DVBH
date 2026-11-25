@@ -6425,3 +6425,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   sổ chốt NSKX / Không NSKX; ảnh Telegram đã gửi không đổi.
 - Kiểm thử: typecheck backend + frontend, build; local (migration local, dev-login Admin): bấm MB1 07/11 0/1 → nhập 1 + lý do → ô thành ✎ 100% 1/1, cột Tổng
   cập nhật, tooltip đúng; PUT số 5 > cần → 400 VUOT_CAN, thiếu lý do → 400 MISSING_LY_DO.
+
+## 2026-11-25 — v1.660: Tỷ lệ giải trình theo ngày — ô sửa tay có lý do + màu riêng, Chủ nhật xám đậm
+
+- Yêu cầu: "ca sửa tay số lượng có lý do, thêm lý do bên dưới (giống ca loại trừ và tô màu khác màu xanh nhạt của ca hoàn thành đúng hạn)";
+  "ngày loại trừ chủ nhật làm màu khác hẳn (xám đậm hơn)".
+- Làm: `BacklogModule.tsx` — `MAU_SUA_TAY` (sky-100) cho ô có lịch sử sửa tay + dòng lý do lần sửa cuối in nghiêng dưới số (truncate, tooltip đủ);
+  `MAU_CHU_NHAT` (slate-300, nền trơn) cho Chủ nhật qua `mauLoaiTru(ngay)`, loại trừ khác giữ `MAU_LOAI_TRU` (kẻ sọc nhạt); chú thích màu tách
+  "Chủ nhật" / "Loại trừ khác" + thêm "✎ Sửa tay (kèm lý do)".
+- Kiểm thử: typecheck + build qua; local với số giả trong trình duyệt (CN 04/10, nghỉ phép 02/10, ô MB1 07/10 sửa 7/8 → 8/8 "GS xin đánh giá muộn") —
+  3 kiểu phân biệt rõ.

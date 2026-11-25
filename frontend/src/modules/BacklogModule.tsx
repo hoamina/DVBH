@@ -879,6 +879,16 @@ function OLoaiTru({ lyDo }: { lyDo: string }) {
 /** O "Loại trừ" (2026-11-25, v1.657, chu he thong "loại trừ cho màu khác đi cho đỡ lẫn với ngày thiếu"): xam ke soc cheo, chu xam -
  * kieu "khong tinh", khac han 3 mau canh bao (vang / cam / do). Truoc la nen be amber-100 - de nham voi o vang/cam. */
 const MAU_LOAI_TRU = "bg-[repeating-linear-gradient(135deg,#e2e8f0_0_5px,#f8fafc_5px_10px)] text-slate-500";
+/** Chu nhat (loai tru cung) - xam DAM hon, nen tron, khac han loai tru Admin them (nghi phep, dao tao... = MAU_LOAI_TRU) - v1.660, chu he thong
+ * "ngày loại trừ chủ nhật làm màu khác hẳn (xám đậm hơn)". */
+const MAU_CHU_NHAT = "bg-slate-300 text-slate-700";
+function mauLoaiTru(ngay: string): string {
+  return new Date(`${ngay}T00:00:00Z`).getUTCDay() === 0 ? MAU_CHU_NHAT : MAU_LOAI_TRU;
+}
+
+/** O da duoc Admin SUA TAY so da GT (v1.660, chu he thong "tô màu khác màu xanh nhạt của ca hoàn thành đúng hạn"): xanh duong nhat (sky),
+ * khac xanh la nhat cua o du 100% (mauTyLe) - kem ly do sua in nghieng ben duoi (giong o "Loại trừ"). */
+const MAU_SUA_TAY = "bg-sky-100 text-sky-900";
 
 /** To mau canh bao o ty le giai trinh < 100% (2026-11-25, v1.655, chu he thong "ngày nào thiếu <100% tô màu cảnh báo các ô tô màu khác nhau"):
  * 3 muc khac han nhau va khac mau "Loại trừ" (xam ke soc, MAU_LOAI_TRU): >=95% vang nhat, 80-<95% cam, <80% do. 100% / khong co ca -> khong to. */
@@ -2837,7 +2847,9 @@ export function BacklogModule({
               <span className="px-1.5 rounded bg-yellow-50 text-yellow-800">{tr("95% – dưới 100%")}</span>
               <span className="px-1.5 rounded bg-orange-100 text-orange-800">{tr("80% – dưới 95%")}</span>
               <span className="px-1.5 rounded bg-red-100 text-red-700">{tr("Dưới 80%")}</span>
-              <span className={`px-1.5 rounded ${MAU_LOAI_TRU}`}>{tr("Loại trừ")}</span>
+              <span className={`px-1.5 rounded ${MAU_CHU_NHAT}`}>{tr("Chủ nhật")}</span>
+              <span className={`px-1.5 rounded ${MAU_LOAI_TRU}`}>{tr("Loại trừ khác")}</span>
+              <span className={`px-1.5 rounded ${MAU_SUA_TAY}`}>{tr("✎ Sửa tay (kèm lý do)")}</span>
               <span className="px-1.5 rounded outline-dashed outline-2 -outline-offset-2 outline-slate-500">{tr("Tổng cộng: 1 số khu vực bị loại trừ")}</span>
               <span className="px-1.5 rounded bg-indigo-50 text-indigo-700 shadow-[inset_0_0_0_2px_#6366f1]">{tr("Viền tím = cột / dòng tổng")}</span>
             </div>
@@ -2896,7 +2908,7 @@ export function BacklogModule({
                           return <TamTinhCell key={day} can={can} da={da} gio={tamTinhGio} dam />;
                         }
                         // "partial" (1 so khu vuc bi loai tru) doi tu nen coral sang VIEN NET DUT (v1.655) de nen dung cho mau canh bao < 100%.
-                        const cellBg = status === "full" ? `${MAU_LOAI_TRU} font-normal` : `${t && t.can > 0 ? mauTyLe(t.da, t.can) : ""} ${status === "partial" ? "outline-dashed outline-2 -outline-offset-4 outline-slate-500" : ""}`;
+                        const cellBg = status === "full" ? `${mauLoaiTru(day)} font-normal` : `${t && t.can > 0 ? mauTyLe(t.da, t.can) : ""} ${status === "partial" ? "outline-dashed outline-2 -outline-offset-4 outline-slate-500" : ""}`;
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${VIEN_DONG_TONG} ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
                             {status === "full" ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, null)} /> : t && t.can > 0 ? (
@@ -2931,7 +2943,7 @@ export function BacklogModule({
                         return (
                           <td
                             key={day}
-                            className={`py-2 px-2 text-center relative ${excluded ? MAU_LOAI_TRU : found ? mauTyLe(found.da_giai_trinh, found.can_giai_trinh) : ""} ${suaDuoc ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-indigo-400" : ""}`}
+                            className={`py-2 px-2 text-center relative ${excluded ? mauLoaiTru(day) : goc && found ? MAU_SUA_TAY : found ? mauTyLe(found.da_giai_trinh, found.can_giai_trinh) : ""} ${suaDuoc ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-indigo-400" : ""}`}
                             title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : [titleSua, suaDuoc ? tr("Bấm để sửa số đã giải trình (Admin)") : ""].filter(Boolean).join("\n") || undefined}
                             onClick={suaDuoc && found ? () => setOSua({ ngay: day, nhanKhuVuc: shortKhuVuc(row.khu_vuc), maGoc: (maGocGt[row.khu_vuc] ?? row.khu_vuc).split(","), can: found.can_giai_trinh, da: found.da_giai_trinh, lichSu }) : undefined}
                           >
@@ -2942,6 +2954,11 @@ export function BacklogModule({
                                 <div className="text-[10px] opacity-70">
                                   {found.da_giai_trinh}/{found.can_giai_trinh}
                                 </div>
+                                {cuoi && (
+                                  <div className="text-[10px] italic leading-tight max-w-[7rem] mx-auto truncate" title={cuoi.ly_do}>
+                                    {cuoi.ly_do}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <span className="text-[var(--ink-400)]">—</span>
