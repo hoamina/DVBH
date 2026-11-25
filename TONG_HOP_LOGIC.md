@@ -106,7 +106,7 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   chú; loại trừ áp cho MỌI phạm vi, bỏ ở Settings › Ngày loại trừ giải trình.
   Ô Chủ nhật = xám đậm nền trơn; ngày loại trừ Admin thêm (nghỉ phép, đào tạo…) = xám nhạt kẻ sọc (v1.660). Lũy kế / Tổng / Báo cáo tồn theo khu vực dùng số đã sửa; ảnh Telegram đã gửi không đổi. "Loại trừ" = xám kẻ sọc chéo, chữ xám (v1.657, trước là be — dễ lẫn với ô vàng/cam); ngày Tổng cộng có 1 số khu vực bị loại trừ = viền nét đứt sẫm (trước là nền hồng). Có chú thích màu trên bảng.
 - Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),
-  tính trên trình duyệt từ cùng dữ liệu bảng.
+  tính trên trình duyệt từ cùng dữ liệu bảng. Tên lý do hiện theo ngôn ngữ người xem (bản dịch EN/ID ở Cài đặt › Lý do, v1.663); file Excel giữ tiếng Việt.
 - Chi tiết ca: tab "Tiến trình chung" (gộp log nhiều nguồn; đầu tab là luồng xử lý ca dạng ngang, mốc liền nhau cùng đối tượng — 1 đơn
   linh kiện / đơn bảo hành / luồng đổi trả / tranh chấp / cuộc gọi khảo sát + vi phạm — gộp 1 thẻ có luồng ngang mini; log chỉ ghi dữ liệu
   của phiếu xuất kho là log phụ, ẩn mặc định và rút thành chip; chia theo ngày; lọc theo nguồn), tab Mua hàng / Thiếu hàng (từ app Đặt linh kiện), luồng gửi bảo hành (từ app Bảo hành đổi trả).

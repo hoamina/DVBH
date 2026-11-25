@@ -689,3 +689,4 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
   khai cùng ngày không đụng nhau.
 - **Tháng nhớ localStorage theo nước (v1.662)**: màn tự quản tháng (`useLocalStorageState("filters:…-thang")`) phải gọi `useThangHopLe(thang, setThang,
   months)` (`lib/thangHopLe.ts`) — đã gắn CaLap / NapGas / Survey; FilterBar tự xử lý riêng.
+- **Báo cáo lý do giải trình theo tháng (v1.663)**: tên lý do hiển thị qua `gt()` (bản dịch `settings_ly_do`); khoá nhóm / Excel vẫn tiếng Việt.

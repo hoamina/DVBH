@@ -8,6 +8,7 @@ import type { TooltipItem } from "chart.js";
 import { ChartCanvas } from "./chart/ChartCanvas";
 import { Select } from "./ui/Select";
 import { tr } from "../i18n/tr";
+import { gt } from "../lib/banDichDuLieu";
 
 export interface LyDoDong {
   nhom: string; // khu vuc (hoac nhom PH)
@@ -51,7 +52,11 @@ export function LyDoGiaiTrinhCharts({ dong, nhanNhom }: { dong: LyDoDong[]; nhan
   const lyDoChart2 = theoLyDo.slice(0, TOP_LY_DO).map((r) => r.ly_do);
   const soCa = (ly_do: string, nhom: string) => dong.filter((d) => d.ly_do === ly_do && d.nhom === nhom).reduce((s, d) => s + d.so_ca, 0);
   const tongLyDo = (ly_do: string) => theoLyDo.find((r) => r.ly_do === ly_do)?.so_ca ?? 0;
-  const catNgan = (s: string) => (s.length > 42 ? s.slice(0, 40) + "…" : s);
+  // Ly do = gia tri danh muc (tieng Viet, dung lam khoa) - chi dich luc hien thi qua gt() (lib/banDichDuLieu.ts, 2026-11-25).
+  const catNgan = (s0: string) => {
+    const s = gt(s0);
+    return s.length > 42 ? s.slice(0, 40) + "…" : s;
+  };
 
   // Chart 2 khi chon 1 ly do: cot theo khu vuc, giam dan.
   const motLyDo = lyDoChon && theoLyDo.some((r) => r.ly_do === lyDoChon) ? lyDoChon : "";
@@ -79,7 +84,7 @@ export function LyDoGiaiTrinhCharts({ dong, nhanNhom }: { dong: LyDoDong[]; nhan
             },
             plugins: {
               legend: { display: false },
-              tooltip: { callbacks: { title: (it) => top[it[0].dataIndex]?.ly_do ?? "", label: (it) => tr("{0}% · {1} ca", it.parsed.x, top[it.dataIndex]?.so_ca ?? 0) } },
+              tooltip: { callbacks: { title: (it) => gt(top[it[0].dataIndex]?.ly_do ?? ""), label: (it) => tr("{0}% · {1} ca", it.parsed.x, top[it.dataIndex]?.so_ca ?? 0) } },
             },
           }}
         />
@@ -150,7 +155,7 @@ export function LyDoGiaiTrinhCharts({ dong, nhanNhom }: { dong: LyDoDong[]; nhan
                 legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } },
                 tooltip: {
                   callbacks: {
-                    title: (it: TooltipItem<"bar">[]) => lyDoChart2[it[0].dataIndex] ?? "",
+                    title: (it: TooltipItem<"bar">[]) => gt(lyDoChart2[it[0].dataIndex] ?? ""),
                     label: (it: TooltipItem<"bar">) => {
                       const ld = lyDoChart2[it.dataIndex];
                       const n = nhoms[it.datasetIndex];

@@ -6457,3 +6457,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   `lib/thangHopLe.ts useThangHopLe` (cùng cách FilterBar v16/11) gắn Ca lặp, Nạp gas, Khảo sát (2 ô tháng): tháng nhớ không có ở nước đang xem → tháng
   hiện tại / mới nhất. Không đổi số liệu.
 - Kiểm thử: typecheck backend + frontend; kiểm D1 thật (dòng `__ALL__` duy nhất 24/11; cache PH `ca-lap/tong-quan|thang=2026-09` = 0).
+
+## 2026-11-25 — v1.663: dịch tên lý do trong báo cáo "Lý do giải trình cuối cùng theo tháng"
+
+- Yêu cầu: (ảnh báo cáo bản EN, tên lý do vẫn tiếng Việt) "báo cáo này chưa dịch".
+- Vì sao: tên lý do là giá trị danh mục `settings_ly_do` (đã có bản dịch EN/ID sẵn — kiểm D1: đủ 8 lý do trong ảnh) nhưng `LyDoGiaiTrinhCharts.tsx`
+  và `ExplanationReasonReport.tsx` hiện nguyên giá trị, không qua `gt()`.
+- Đã sửa: bọc `gt()` (lib/banDichDuLieu.ts) chỗ hiển thị — nhãn trục 2 biểu đồ, ô chọn lý do, tiêu đề tooltip, cột "Lý do cuối cùng" của bảng.
+  Giá trị dùng làm khoá / so sánh / Excel giữ tiếng Việt.
+- Kiểm thử: typecheck frontend.

@@ -1,4 +1,5 @@
 import { tr } from "../i18n/tr";
+import { gt } from "../lib/banDichDuLieu";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
@@ -54,7 +55,7 @@ export function ExplanationReasonReport({ khuVuc }: { khuVuc: string }) {
     {q.isPending ? <p>{tr("Đang tải…")}</p> : q.isError ? <p role="alert">{tr("Không tải được báo cáo.")} <button onClick={() => void q.refetch()}>{tr("Thử lại")}</button></p> : <><LyDoGiaiTrinhCharts dong={dongChart} nhanNhom={theoNhomPh ? (x) => x : shortKhuVuc} /><div className="overflow-x-auto"><table className="dense w-full text-sm">
       <thead><tr className="text-left border-b"><th>{tr("Khu vực / Nhóm / Trạm")}</th><th>{tr("Lý do cuối cùng")}</th><th>{tr("Số ca")}</th><th>{tr("Tỷ lệ tổng")}</th></tr></thead>
       <tbody><tr className="font-bold border-b"><td>{tr("Tổng cộng")}</td><td></td><td>{total}</td><td>{total ? "100%" : "—"}</td></tr>
-        {rows.map((r) => <tr key={JSON.stringify([r.nhom, r.ly_do])} className="border-b"><td className="py-2">{dim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td><td>{r.ly_do}</td><td>{r.so_ca}</td><td>{total ? Math.round(r.so_ca / total * 1000) / 10 : 0}%</td></tr>)}
+        {rows.map((r) => <tr key={JSON.stringify([r.nhom, r.ly_do])} className="border-b"><td className="py-2">{dim === "khu_vuc" ? shortKhuVuc(r.nhom) : r.nhom}</td><td>{gt(r.ly_do)}</td><td>{r.so_ca}</td><td>{total ? Math.round(r.so_ca / total * 1000) / 10 : 0}%</td></tr>)}
         {!rows.length && <tr><td colSpan={4} className="py-8 text-center">{tr("Không có giải trình trong tháng đã chọn.")}</td></tr>}
       </tbody></table></div></>}
   </Card>;
