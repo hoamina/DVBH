@@ -6435,3 +6435,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   "Chủ nhật" / "Loại trừ khác" + thêm "✎ Sửa tay (kèm lý do)".
 - Kiểm thử: typecheck + build qua; local với số giả trong trình duyệt (CN 04/10, nghỉ phép 02/10, ô MB1 07/10 sửa 7/8 → 8/8 "GS xin đánh giá muộn") —
   3 kiểu phân biệt rõ.
+
+## 2026-11-25 — v1.661: nút "Loại trừ ngày này" trong popup sửa số giải trình
+
+- Yêu cầu: (ảnh popup "Sửa số đã giải trình · MB2 · 23/11/2026") "thêm nút loại trừ trực tiếp".
+- Làm: `components/SuaSoGiaiTrinhModal.tsx` — nút "⊘ Loại trừ ngày này" bên trái chân popup: cần lý do (thành ghi chú), hỏi xác nhận, gọi sẵn có
+  `POST /api/settings/giai-trinh-exclude-ngay` (Admin) với mọi mã gốc của dòng; xong tải lại bảng. Không thêm API/bảng mới.
+- Kiểm thử: build qua; local: nút mờ khi chưa có lý do; nhập lý do + bấm → ô MB2 07/11 thành "Loại trừ · <lý do>" (xám kẻ sọc); đã xoá dòng loại trừ thử.

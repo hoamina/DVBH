@@ -469,6 +469,7 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Cột "Tổng" khoá cứng ngay sau cột Khu vực: đã giải trình / cần giải trình cộng cả kỳ đang xem → tỷ lệ, bỏ ngày loại trừ.
 - Dòng tài khoản CTV/TEST ghi nhầm vào cột khu vực bị ẩn khỏi bảng số chốt theo ngày (không cộng vào Tổng cộng), khớp ảnh Telegram 17:30.
 - (v1.655) Ô tỷ lệ < 100% tô màu cảnh báo 3 mức khác nhau: 95–<100% vàng nhạt, 80–<95% cam, <80% đỏ; có chú thích màu trên bảng.
+- (v1.661) Popup sửa số có nút "Loại trừ ngày này" (bắt buộc lý do, hỏi xác nhận): loại trừ khu vực đó ngày đó ngay trên bảng; bỏ loại trừ ở Cài đặt.
 - (v1.660) Ô đã sửa tay tô xanh dương nhạt + hiện lý do dưới số; Chủ nhật xám đậm, khác các ngày loại trừ khác (xám nhạt kẻ sọc).
 - (v1.659) Admin bấm vào ô (khu vực × ngày) để sửa số đã giải trình (vd 27/28 → 28/28 khi GS xin đánh giá muộn): nhập số 0..cần + lý do bắt buộc;
   chỉ sửa phạm vi đang xem; có nhật ký sửa, ô đã sửa có dấu ✎. Không sửa ô "Loại trừ", dòng Tổng cộng, ô chưa có số chốt.

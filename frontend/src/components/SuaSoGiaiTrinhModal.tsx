@@ -37,6 +37,7 @@ export function SuaSoGiaiTrinhModal({ o, onClose, onDone }: { o: OSuaGiaiTrinh |
   const [lyDo, setLyDo] = useState("");
   const [loi, setLoi] = useState("");
   const [dangLuu, setDangLuu] = useState(false);
+  const [dangLoaiTru, setDangLoaiTru] = useState(false);
   useEffect(() => {
     if (o) {
       setDa(String(o.can));
@@ -62,6 +63,24 @@ export function SuaSoGiaiTrinhModal({ o, onClose, onDone }: { o: OSuaGiaiTrinh |
     }
   };
   const [y, m, d] = o.ngay.split("-");
+  // "Loại trừ" truc tiep (v1.661, chu he thong "thêm nút loại trừ trực tiếp"): them ngay loai tru cho (ngay, khu vuc) qua API Cai dat
+  // POST /settings/giai-trinh-exclude-ngay (Admin) - ly do lam ghi chu (hien duoi chu "Loại trừ"). Loai tru ap cho MOI pham vi (khong theo
+  // quoc gia / NSKX). Xoa loai tru o Cai dat > Ngay loai tru giai trinh.
+  const loaiTru = async () => {
+    if (!lyDo.trim()) return;
+    if (!window.confirm(tr("Loại trừ {0} ngày {1} khỏi lũy kế / tỷ lệ giải trình?", o.nhanKhuVuc, `${d}/${m}/${y}`))) return;
+    setDangLoaiTru(true);
+    setLoi("");
+    try {
+      await api.post("/settings/giai-trinh-exclude-ngay", { ngay: o.ngay, khuVucList: o.maGoc, ghiChu: lyDo.trim() });
+      onDone();
+      onClose();
+    } catch (e) {
+      setLoi(e instanceof ApiError ? e.detail || e.code || e.message : String(e));
+    } finally {
+      setDangLoaiTru(false);
+    }
+  };
   return (
     <Modal
       open
@@ -69,11 +88,22 @@ export function SuaSoGiaiTrinhModal({ o, onClose, onDone }: { o: OSuaGiaiTrinh |
       title={tr("Sửa số đã giải trình · {0} · {1}", o.nhanKhuVuc, `${d}/${m}/${y}`)}
       width="max-w-md"
       footer={
-        <div className="flex justify-end gap-2 px-4 py-3 border-t border-[var(--line)]">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[var(--line)]">
+          <Btn
+            variant="ghost"
+            size="sm"
+            className="mr-auto text-slate-700"
+            onClick={() => void loaiTru()}
+            disabled={!lyDo.trim() || dangLuu}
+            loading={dangLoaiTru}
+            title={lyDo.trim() ? tr("Loại trừ khu vực này ngày này khỏi lũy kế / tỷ lệ (lý do làm ghi chú)") : tr("Nhập lý do trước khi loại trừ")}
+          >
+            {tr("⊘ Loại trừ ngày này")}
+          </Btn>
           <Btn variant="ghost" size="sm" onClick={onClose}>
             {tr("Huỷ")}
           </Btn>
-          <Btn size="sm" onClick={() => void luu()} disabled={!hopLe} loading={dangLuu}>
+          <Btn size="sm" onClick={() => void luu()} disabled={!hopLe || dangLoaiTru} loading={dangLuu}>
             {tr("Lưu")}
           </Btn>
         </div>
@@ -109,7 +139,8 @@ export function SuaSoGiaiTrinhModal({ o, onClose, onDone }: { o: OSuaGiaiTrinh |
           />
         </label>
         <p className="text-xs text-[var(--ink-500)]">
-          {tr("Chỉ sửa số của phạm vi đang xem (quốc gia / NSKX). Ảnh Telegram đã gửi không đổi. Mỗi lần sửa được ghi lại.")}
+          {tr("Chỉ sửa số của phạm vi đang xem (quốc gia / NSKX). Ảnh Telegram đã gửi không đổi. Mỗi lần sửa được ghi lại.")}{" "}
+          {tr("Nút Loại trừ bỏ ô này khỏi lũy kế (mọi phạm vi), lý do thành ghi chú; bỏ loại trừ ở Settings › Ngày loại trừ giải trình.")}
         </p>
         {loi && (
           <p role="alert" className="text-xs text-red-700">

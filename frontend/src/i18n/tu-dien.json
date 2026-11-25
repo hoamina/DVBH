@@ -14947,5 +14947,10 @@
  "Admin: bấm vào ô của khu vực để sửa số đã giải trình (ô đã sửa có dấu ✎).": ["Admin: click an area cell to edit the explained count (edited cells show ✎).", "Admin: klik sel area untuk mengubah jumlah sudah dijelaskan (sel yang diubah bertanda ✎)."],
  "✎ Sửa tay (kèm lý do)": ["✎ Edited manually (with reason)", "✎ Diubah manual (dengan alasan)"],
  "Chủ nhật": ["Sunday", "Minggu"],
- "Loại trừ khác": ["Other exclusion", "Pengecualian lain"]
+ "Loại trừ khác": ["Other exclusion", "Pengecualian lain"],
+ "Loại trừ {0} ngày {1} khỏi lũy kế / tỷ lệ giải trình?": ["Exclude {0} on {1} from the cumulative / explanation rate?", "Kecualikan {0} pada {1} dari kumulatif / rasio penjelasan?"],
+ "Loại trừ khu vực này ngày này khỏi lũy kế / tỷ lệ (lý do làm ghi chú)": ["Exclude this area on this day from the cumulative / rate (reason becomes the note)", "Kecualikan area ini pada hari ini dari kumulatif / rasio (alasan menjadi catatan)"],
+ "Nhập lý do trước khi loại trừ": ["Enter a reason before excluding", "Masukkan alasan sebelum mengecualikan"],
+ "⊘ Loại trừ ngày này": ["⊘ Exclude this day", "⊘ Kecualikan hari ini"],
+ "Nút Loại trừ bỏ ô này khỏi lũy kế (mọi phạm vi), lý do thành ghi chú; bỏ loại trừ ở Settings › Ngày loại trừ giải trình.": ["The Exclude button removes this cell from the cumulative (all scopes), the reason becomes the note; undo in Settings › Explanation exclusion days.", "Tombol Kecualikan menghapus sel ini dari kumulatif (semua cakupan), alasan menjadi catatan; batalkan di Settings › Hari pengecualian penjelasan."]
 }

@@ -98,6 +98,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   Sửa tay số chốt (v1.659, CHỈ Admin): bấm ô khu vực × ngày → sửa "đã giải trình" (0..cần, cần giữ nguyên), bắt buộc lý do; sửa đúng sổ chốt của
   phạm vi đang xem (quốc gia / NSKX — phạm vi khác không tự đổi theo); mỗi lần sửa ghi `giai_trinh_daily_log_sua` (trước/sau, ai, lúc nào, lý do),
   ô đã sửa có ✎ + tooltip gốc → mới, nền xanh dương nhạt (khác xanh lá của ô 100%) + lý do in nghiêng dưới số (v1.660).
+  Popup sửa có nút "⊘ Loại trừ ngày này" (v1.661, Admin): thêm ngày loại trừ cho khu vực đó (mọi mã gốc của dòng đã gộp) qua API Cài đặt, lý do = ghi
+  chú; loại trừ áp cho MỌI phạm vi, bỏ ở Settings › Ngày loại trừ giải trình.
   Ô Chủ nhật = xám đậm nền trơn; ngày loại trừ Admin thêm (nghỉ phép, đào tạo…) = xám nhạt kẻ sọc (v1.660). Lũy kế / Tổng / Báo cáo tồn theo khu vực dùng số đã sửa; ảnh Telegram đã gửi không đổi. "Loại trừ" = xám kẻ sọc chéo, chữ xám (v1.657, trước là be — dễ lẫn với ô vàng/cam); ngày Tổng cộng có 1 số khu vực bị loại trừ = viền nét đứt sẫm (trước là nền hồng). Có chú thích màu trên bảng.
 - Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),
   tính trên trình duyệt từ cùng dữ liệu bảng.
