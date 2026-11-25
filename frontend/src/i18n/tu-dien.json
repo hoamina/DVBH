@@ -14931,5 +14931,8 @@
  "95% – dưới 100%": ["95% – below 100%", "95% – di bawah 100%"],
  "80% – dưới 95%": ["80% – below 95%", "80% – di bawah 95%"],
  "Dưới 80%": ["Below 80%", "Di bawah 80%"],
- "Tổng cộng: 1 số khu vực bị loại trừ": ["Total: some areas excluded", "Total: sebagian area dikecualikan"]
+ "Tổng cộng: 1 số khu vực bị loại trừ": ["Total: some areas excluded", "Total: sebagian area dikecualikan"],
+ "Màu:": ["Colours:", "Warna:"],
+ "Đủ 100%": ["Full 100%", "Penuh 100%"],
+ "Viền tím = cột / dòng tổng": ["Purple border = total column / row", "Garis ungu = kolom / baris total"]
 }

@@ -6401,3 +6401,14 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Làm: `BacklogModule.tsx MAU_LOAI_TRU` — ô Loại trừ (từng khu vực, Tổng cộng ngày toàn bộ loại trừ, chú thích màu) từ nền be `amber-100` sang xám kẻ sọc
   chéo + chữ xám, khác hẳn 3 mức cảnh báo vàng / cam / đỏ.
 - Kiểm thử: typecheck + build qua (class sọc có trong CSS build); local với dữ liệu giả trong trình duyệt — ô Loại trừ xám sọc, tách rõ khỏi ô vàng/cam/đỏ.
+
+## 2026-11-25 — v1.658: Tỷ lệ giải trình theo ngày — màu dịu hơn, 100% xanh nhạt, viền riêng cho Tổng
+
+- Yêu cầu: "tô màu khó nhìn quá, các cột tổng cho 1 màu viền khác, các ngày đã giải trình 100% tô màu xanh nhạt."
+- Làm: `BacklogModule.tsx mauTyLe` nền nhạt + chữ đậm cùng tông (100% `emerald-50`, 95–<100% `yellow-50`, 80–<95% `orange-100`, <80% `red-100`);
+  cột Tổng + dòng Tổng cộng viền tím `#6366f1` bằng `box-shadow inset` (border mất trên ô sticky), tiêu đề "Tổng" / ô "Tổng cộng" nền tím nhạt;
+  viền nét đứt "1 số khu vực bị loại trừ" đổi sang xám; chú thích màu thêm "Đủ 100%" + "Viền tím = cột / dòng tổng".
+- Kiểm thử: typecheck + build qua (class có trong CSS build); local với dữ liệu giả trong trình duyệt — xem đủ 5 kiểu màu + viền tím.
+- Kèm (chỉ đọc, không đổi code): kiểm MB1 ngày 07/10 (7/8) — 3 ca không còn khớp vì Odoo/CRM ghi lùi giờ hoàn thành về trước 07/10; ca chưa giải trình
+  là 1 trong SC261001317 / SC261001489 / SC261001530 (đều MB1, KTV Phú Thọ), không phải ca khu vực khác. MB1 ngày 28/10 = 7/7, cả 7 ca (T25669,
+  SC261019893, SC26102152, SC26102143, SC261021104, 1349016, SC261004374) đều MB1 và đã giải trình trước 10:00; 28/10 không có ngày loại trừ cho MB1.

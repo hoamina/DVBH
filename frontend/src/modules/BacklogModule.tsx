@@ -881,17 +881,28 @@ const MAU_LOAI_TRU = "bg-[repeating-linear-gradient(135deg,#e2e8f0_0_5px,#f8fafc
 
 /** To mau canh bao o ty le giai trinh < 100% (2026-11-25, v1.655, chu he thong "ngày nào thiếu <100% tô màu cảnh báo các ô tô màu khác nhau"):
  * 3 muc khac han nhau va khac mau "Loại trừ" (xam ke soc, MAU_LOAI_TRU): >=95% vang nhat, 80-<95% cam, <80% do. 100% / khong co ca -> khong to. */
+// v1.658 (chu he thong "tô màu khó nhìn quá ... các ngày đã giải trình 100% tô màu xanh nhạt"): nen NHAT + chu dam cung tong mau thay cho
+// nen dam; 100% = xanh nhat. Khong co ca -> khong to.
 function mauTyLe(da: number, can: number): string {
-  if (can <= 0 || da >= can) return "";
+  if (can <= 0) return "";
+  if (da >= can) return "bg-emerald-50 text-emerald-800";
   const p = (da / can) * 100;
-  if (p >= 95) return "bg-yellow-100 text-yellow-900";
-  if (p >= 80) return "bg-orange-300 text-orange-950";
-  return "bg-red-500 text-white";
+  if (p >= 95) return "bg-yellow-50 text-yellow-800";
+  if (p >= 80) return "bg-orange-100 text-orange-800";
+  return "bg-red-100 text-red-700";
 }
+
+/** Vien rieng cho cot "Tổng" (trai + phai) va dong "Tổng cộng" (duoi) - v1.658 "các cột tổng cho 1 màu viền khác". Dung box-shadow inset
+ * (border thuong mat tren o sticky cua bang border-collapse). */
+// Mau vien #6366f1 (indigo) - ten class phai viet NGUYEN VAN (Tailwind JIT khong doc chuoi ghep).
+const VIEN_COT_TONG = "shadow-[inset_2px_0_0_#6366f1,inset_-2px_0_0_#6366f1]";
+const VIEN_COT_TONG_DONG_TONG = "shadow-[inset_2px_0_0_#6366f1,inset_-2px_0_0_#6366f1,inset_0_-2px_0_#6366f1]";
+const VIEN_COT_TONG_DAU = "shadow-[inset_2px_0_0_#6366f1,inset_-2px_0_0_#6366f1,inset_0_2px_0_#6366f1]";
+const VIEN_DONG_TONG = "shadow-[inset_0_-2px_0_#6366f1]";
 
 function OTongKhoang({ can, da, dam }: { can: number; da: number; dam?: boolean }) {
   return (
-    <td className={`py-2 px-2 text-center sticky left-[9rem] z-10 w-[5.5rem] min-w-[5.5rem] border-r-2 border-[var(--line)] ${mauTyLe(da, can) || (dam ? "bg-slate-50" : "bg-[var(--surface)] group-hover:bg-slate-50")}`} title={tr("Tổng khoảng đang xem, bỏ ngày loại trừ")}>
+    <td className={`py-2 px-2 text-center sticky left-[9rem] z-10 w-[5.5rem] min-w-[5.5rem] ${dam ? VIEN_COT_TONG_DONG_TONG : VIEN_COT_TONG} ${mauTyLe(da, can) || (dam ? "bg-slate-50" : "bg-[var(--surface)] group-hover:bg-slate-50")}`} title={tr("Tổng khoảng đang xem, bỏ ngày loại trừ")}>
       {can > 0 ? (
         <div>
           <div className={`font-mono ${dam ? "font-bold" : "font-semibold"}`}>{Math.round((da / can) * 1000) / 10}%</div>
@@ -2807,12 +2818,14 @@ export function BacklogModule({
               {trendTu && trendDen && !dungKhoang && <span className="text-[var(--coral-600,#dc2626)]"> {tr("Khoảng ngày không hợp lệ (từ ngày phải ≤ đến ngày) - đang xem theo tháng.")}</span>}
               {dungKhoang && daysInRangeList(trendTu, trendDen, 10000).length > 93 && <span className="text-[var(--coral-600,#dc2626)]"> {tr("Tối đa 93 ngày - chỉ hiện 93 ngày đầu.")}</span>}</div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] mb-2 text-[var(--ink-500)]">
-              <span>{tr("Màu cảnh báo:")}</span>
-              <span className="px-1.5 rounded bg-yellow-100 text-yellow-900">{tr("95% – dưới 100%")}</span>
-              <span className="px-1.5 rounded bg-orange-300 text-orange-950">{tr("80% – dưới 95%")}</span>
-              <span className="px-1.5 rounded bg-red-500 text-white">{tr("Dưới 80%")}</span>
+              <span>{tr("Màu:")}</span>
+              <span className="px-1.5 rounded bg-emerald-50 text-emerald-800">{tr("Đủ 100%")}</span>
+              <span className="px-1.5 rounded bg-yellow-50 text-yellow-800">{tr("95% – dưới 100%")}</span>
+              <span className="px-1.5 rounded bg-orange-100 text-orange-800">{tr("80% – dưới 95%")}</span>
+              <span className="px-1.5 rounded bg-red-100 text-red-700">{tr("Dưới 80%")}</span>
               <span className={`px-1.5 rounded ${MAU_LOAI_TRU}`}>{tr("Loại trừ")}</span>
-              <span className="px-1.5 rounded outline-dashed outline-2 -outline-offset-2 outline-[var(--ink-900)]">{tr("Tổng cộng: 1 số khu vực bị loại trừ")}</span>
+              <span className="px-1.5 rounded outline-dashed outline-2 -outline-offset-2 outline-slate-500">{tr("Tổng cộng: 1 số khu vực bị loại trừ")}</span>
+              <span className="px-1.5 rounded bg-indigo-50 text-indigo-700 shadow-[inset_0_0_0_2px_#6366f1]">{tr("Viền tím = cột / dòng tổng")}</span>
             </div>
             {tamTinh && (
               <div className="text-xs mb-2 text-[var(--accent-700,#1d4ed8)]">
@@ -2829,7 +2842,7 @@ export function BacklogModule({
                 <thead>
                   <tr className="text-left text-[var(--ink-400)] text-xs uppercase border-b border-[var(--line)]">
                     <th className="py-2 pr-3 sticky left-0 bg-[var(--surface)] z-10 w-[9rem] min-w-[9rem] max-w-[9rem]">{tr("Khu vực")}</th>
-                    <th className="py-2 px-2 text-center sticky left-[9rem] bg-[var(--surface)] z-10 w-[5.5rem] min-w-[5.5rem] border-r-2 border-[var(--line)]" title={tr("Tổng khoảng đang xem, bỏ ngày loại trừ")}>{tr("Tổng")}</th>
+                    <th className={`py-2 px-2 text-center sticky left-[9rem] bg-indigo-50 text-indigo-700 z-10 w-[5.5rem] min-w-[5.5rem] ${VIEN_COT_TONG_DAU}`} title={tr("Tổng khoảng đang xem, bỏ ngày loại trừ")}>{tr("Tổng")}</th>
                     {trendDays.map((day) => (
                       <th key={day} className="py-2 px-2 text-center">
                         {fmtDayShort(day)}
@@ -2840,7 +2853,7 @@ export function BacklogModule({
                 <tbody>
                   {sortedTrendRows.length > 0 && (
                     <tr className="border-b border-[var(--line)] bg-slate-50 font-bold">
-                      <td className="py-2 pr-3 sticky left-0 bg-slate-50 z-10 w-[9rem] min-w-[9rem] max-w-[9rem]">{tr("Tổng cộng")}</td>
+                      <td className={`py-2 pr-3 sticky left-0 bg-indigo-50 text-indigo-800 z-10 w-[9rem] min-w-[9rem] max-w-[9rem] ${VIEN_DONG_TONG}`}>{tr("Tổng cộng")}</td>
                       {(() => {
                         let can = 0;
                         let da = 0;
@@ -2860,9 +2873,9 @@ export function BacklogModule({
                           return <TamTinhCell key={day} can={can} da={da} gio={tamTinhGio} dam />;
                         }
                         // "partial" (1 so khu vuc bi loai tru) doi tu nen coral sang VIEN NET DUT (v1.655) de nen dung cho mau canh bao < 100%.
-                        const cellBg = status === "full" ? `${MAU_LOAI_TRU} font-normal` : `${t && t.can > 0 ? mauTyLe(t.da, t.can) : ""} ${status === "partial" ? "outline-dashed outline-2 -outline-offset-4 outline-[var(--ink-900)]" : ""}`;
+                        const cellBg = status === "full" ? `${MAU_LOAI_TRU} font-normal` : `${t && t.can > 0 ? mauTyLe(t.da, t.can) : ""} ${status === "partial" ? "outline-dashed outline-2 -outline-offset-4 outline-slate-500" : ""}`;
                         return (
-                          <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
+                          <td key={day} className={`py-2 px-2 text-center ${VIEN_DONG_TONG} ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
                             {status === "full" ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, null)} /> : t && t.can > 0 ? (
                               <div>
                                 <div className="font-mono">{pct(t.da, t.can)}%</div>

@@ -469,6 +469,7 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Cột "Tổng" khoá cứng ngay sau cột Khu vực: đã giải trình / cần giải trình cộng cả kỳ đang xem → tỷ lệ, bỏ ngày loại trừ.
 - Dòng tài khoản CTV/TEST ghi nhầm vào cột khu vực bị ẩn khỏi bảng số chốt theo ngày (không cộng vào Tổng cộng), khớp ảnh Telegram 17:30.
 - (v1.655) Ô tỷ lệ < 100% tô màu cảnh báo 3 mức khác nhau: 95–<100% vàng nhạt, 80–<95% cam, <80% đỏ; có chú thích màu trên bảng.
+- (v1.658) Màu dịu hơn (nền nhạt, chữ đậm cùng tông); ngày đủ 100% tô xanh nhạt; cột "Tổng" và dòng "Tổng cộng" có viền tím riêng.
 - (v1.657) Ô "Loại trừ" đổi sang xám kẻ sọc chéo cho khác hẳn màu cảnh báo ngày thiếu.
 - (v1.656) Cài đặt › "Ngày loại trừ giải trình": thêm cột "Ngày tạo", mặc định sắp xếp theo ngày tạo mới nhất trước; sắp xếp được theo Ngày / Ngày tạo.
 
