@@ -468,6 +468,7 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - Cạnh ô chọn tháng có "Từ … đến …" ngày: có đủ 2 ngày hợp lệ thì bảng, lũy kế và file tải theo khoảng đó (tối đa 93 ngày), nút × xoá về tháng.
 - Cột "Tổng" khoá cứng ngay sau cột Khu vực: đã giải trình / cần giải trình cộng cả kỳ đang xem → tỷ lệ, bỏ ngày loại trừ.
 - Dòng tài khoản CTV/TEST ghi nhầm vào cột khu vực bị ẩn khỏi bảng số chốt theo ngày (không cộng vào Tổng cộng), khớp ảnh Telegram 17:30.
+- (v1.655) Ô tỷ lệ < 100% tô màu cảnh báo 3 mức khác nhau: 95–<100% vàng nhạt, 80–<95% cam, <80% đỏ; có chú thích màu trên bảng.
 
 ## 19. Báo cáo đúng hạn theo ngành — tuần / tháng (chốt 2026-11-20, v1.638)
 

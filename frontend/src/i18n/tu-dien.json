@@ -14926,5 +14926,10 @@
  "Khoảng ngày không hợp lệ (từ ngày phải ≤ đến ngày) - đang xem theo tháng.": ["Invalid date range (from must be ≤ to) - showing the month.", "Rentang tanggal tidak valid (dari harus ≤ sampai) - menampilkan per bulan."],
  "Tối đa 93 ngày - chỉ hiện 93 ngày đầu.": ["Up to 93 days - only the first 93 days are shown.", "Maksimal 93 hari - hanya 93 hari pertama yang ditampilkan."],
  "Tổng": ["Total", "Total"],
- "Tổng khoảng đang xem, bỏ ngày loại trừ": ["Total for the period shown, excluding excluded days", "Total untuk periode yang ditampilkan, tanpa hari pengecualian"]
+ "Tổng khoảng đang xem, bỏ ngày loại trừ": ["Total for the period shown, excluding excluded days", "Total untuk periode yang ditampilkan, tanpa hari pengecualian"],
+ "Màu cảnh báo:": ["Warning colours:", "Warna peringatan:"],
+ "95% – dưới 100%": ["95% – below 100%", "95% – di bawah 100%"],
+ "80% – dưới 95%": ["80% – below 95%", "80% – di bawah 95%"],
+ "Dưới 80%": ["Below 80%", "Di bawah 80%"],
+ "Tổng cộng: 1 số khu vực bị loại trừ": ["Total: some areas excluded", "Total: sebagian area dikecualikan"]
 }

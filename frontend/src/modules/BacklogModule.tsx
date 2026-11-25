@@ -875,13 +875,23 @@ function OLoaiTru({ lyDo }: { lyDo: string }) {
     </span>
   );
 }
+/** To mau canh bao o ty le giai trinh < 100% (2026-11-25, v1.655, chu he thong "ngày nào thiếu <100% tô màu cảnh báo các ô tô màu khác nhau"):
+ * 3 muc khac han nhau va khac mau "Loại trừ" (amber): >=95% vang nhat, 80-<95% cam, <80% do. 100% / khong co ca -> khong to. */
+function mauTyLe(da: number, can: number): string {
+  if (can <= 0 || da >= can) return "";
+  const p = (da / can) * 100;
+  if (p >= 95) return "bg-yellow-100 text-yellow-900";
+  if (p >= 80) return "bg-orange-300 text-orange-950";
+  return "bg-red-500 text-white";
+}
+
 function OTongKhoang({ can, da, dam }: { can: number; da: number; dam?: boolean }) {
   return (
-    <td className={`py-2 px-2 text-center sticky left-[9rem] z-10 w-[5.5rem] min-w-[5.5rem] border-r-2 border-[var(--line)] ${dam ? "bg-slate-50" : "bg-[var(--surface)] group-hover:bg-slate-50"}`} title={tr("Tổng khoảng đang xem, bỏ ngày loại trừ")}>
+    <td className={`py-2 px-2 text-center sticky left-[9rem] z-10 w-[5.5rem] min-w-[5.5rem] border-r-2 border-[var(--line)] ${mauTyLe(da, can) || (dam ? "bg-slate-50" : "bg-[var(--surface)] group-hover:bg-slate-50")}`} title={tr("Tổng khoảng đang xem, bỏ ngày loại trừ")}>
       {can > 0 ? (
         <div>
           <div className={`font-mono ${dam ? "font-bold" : "font-semibold"}`}>{Math.round((da / can) * 1000) / 10}%</div>
-          <div className="text-[10px] text-[var(--ink-400)] font-normal">{da}/{can}</div>
+          <div className="text-[10px] opacity-70 font-normal">{da}/{can}</div>
         </div>
       ) : (
         <span className="text-[var(--ink-400)]">—</span>
@@ -2792,6 +2802,14 @@ export function BacklogModule({
               : tr("Chốt theo ngày, theo khu vực — tháng {0}. Lũy kế bỏ Chủ nhật và ngày loại trừ; tổng ngày chỉ cộng khu vực không bị loại trừ.", trendMonth)}
               {trendTu && trendDen && !dungKhoang && <span className="text-[var(--coral-600,#dc2626)]"> {tr("Khoảng ngày không hợp lệ (từ ngày phải ≤ đến ngày) - đang xem theo tháng.")}</span>}
               {dungKhoang && daysInRangeList(trendTu, trendDen, 10000).length > 93 && <span className="text-[var(--coral-600,#dc2626)]"> {tr("Tối đa 93 ngày - chỉ hiện 93 ngày đầu.")}</span>}</div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] mb-2 text-[var(--ink-500)]">
+              <span>{tr("Màu cảnh báo:")}</span>
+              <span className="px-1.5 rounded bg-yellow-100 text-yellow-900">{tr("95% – dưới 100%")}</span>
+              <span className="px-1.5 rounded bg-orange-300 text-orange-950">{tr("80% – dưới 95%")}</span>
+              <span className="px-1.5 rounded bg-red-500 text-white">{tr("Dưới 80%")}</span>
+              <span className="px-1.5 rounded bg-[var(--amber-100)]">{tr("Loại trừ")}</span>
+              <span className="px-1.5 rounded outline-dashed outline-2 -outline-offset-2 outline-[var(--ink-900)]">{tr("Tổng cộng: 1 số khu vực bị loại trừ")}</span>
+            </div>
             {tamTinh && (
               <div className="text-xs mb-2 text-[var(--accent-700,#1d4ed8)]">
                 {tr("Cột {0}: tạm tính lúc {1}, chưa chốt (chốt chính thức 17:30) — không cộng vào lũy kế.", fmtDayShort(ngayHomNay), tamTinhGio)}
@@ -2837,13 +2855,14 @@ export function BacklogModule({
                           }
                           return <TamTinhCell key={day} can={can} da={da} gio={tamTinhGio} dam />;
                         }
-                        const cellBg = status === "partial" ? "bg-[var(--coral-100)]" : status === "full" ? "bg-[var(--amber-100)]" : "";
+                        // "partial" (1 so khu vuc bi loai tru) doi tu nen coral sang VIEN NET DUT (v1.655) de nen dung cho mau canh bao < 100%.
+                        const cellBg = status === "full" ? "bg-[var(--amber-100)]" : `${t && t.can > 0 ? mauTyLe(t.da, t.can) : ""} ${status === "partial" ? "outline-dashed outline-2 -outline-offset-4 outline-[var(--ink-900)]" : ""}`;
                         return (
                           <td key={day} className={`py-2 px-2 text-center ${cellBg}`} title={status === "partial" ? tr("1 số khu vực ngày này bị loại trừ - Tổng cộng không đại diện đủ 100% khu vực") : status === "full" ? tr("Ngày loại trừ") : undefined}>
                             {status === "full" ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, null)} /> : t && t.can > 0 ? (
                               <div>
                                 <div className="font-mono">{pct(t.da, t.can)}%</div>
-                                <div className="text-[10px] text-[var(--ink-400)] font-normal">
+                                <div className="text-[10px] opacity-70 font-normal">
                                   {t.da}/{t.can}
                                 </div>
                               </div>
@@ -2865,11 +2884,11 @@ export function BacklogModule({
                         const tam = tamTinh && day === ngayHomNay && !excluded && !found ? tamTinhCuaKhuVuc(row.khu_vuc) : undefined;
                         if (tam) return <TamTinhCell key={day} can={tam.can_giai_trinh} da={tam.da_giai_trinh} gio={tamTinhGio} />;
                         return (
-                          <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
+                          <td key={day} className={`py-2 px-2 text-center ${excluded ? "bg-[var(--amber-100)]" : found ? mauTyLe(found.da_giai_trinh, found.can_giai_trinh) : ""}`} title={excluded ? tr("Ngày loại trừ - không tính vào lũy kế/tỷ lệ tháng") : undefined}>
                             {excluded ? <OLoaiTru lyDo={lyDoNgayLoaiTru(day, row.khu_vuc)} /> : found ? (
                               <div>
                                 <div className="font-mono font-semibold">{pct(found.da_giai_trinh, found.can_giai_trinh)}%</div>
-                                <div className="text-[10px] text-[var(--ink-400)]">
+                                <div className="text-[10px] opacity-70">
                                   {found.da_giai_trinh}/{found.can_giai_trinh}
                                 </div>
                               </div>

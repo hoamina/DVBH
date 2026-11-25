@@ -6379,3 +6379,11 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   trong file tải. Bảng Cảnh báo tồn theo ngày giữ theo tháng.
 - Kiểm thử: typecheck + build qua; chạy local (dev-login) chọn 20/10–25/11: bảng ra đúng 37 ngày, tiêu đề lũy kế theo khoảng, cuộn ngang thì Khu vực + Tổng
   đứng yên. Chưa xem trên production.
+
+## 2026-11-25 — v1.655: Tỷ lệ giải trình theo ngày — tô màu cảnh báo ô < 100%
+
+- Yêu cầu: (ảnh bảng tháng 10) "ngày nào thiếu <100% tô màu cảnh báo các ô tô màu khác nhau để dễ phân biệt".
+- Làm: `BacklogModule.tsx mauTyLe` — 3 mức: 95–<100% `yellow-100`, 80–<95% `orange-300`, <80% `red-500` chữ trắng; áp cho ô ngày từng khu vực, dòng Tổng cộng
+  và cột Tổng. Ngày Tổng cộng "1 số khu vực bị loại trừ" đổi từ nền hồng sang viền nét đứt sẫm (để nền dành cho màu cảnh báo). Dòng chú thích màu dưới
+  mô tả bảng. Số "đã/cần" nhỏ dùng `opacity-70` cho đọc được trên nền màu.
+- Kiểm thử: typecheck + build qua; local với dữ liệu giả thay trong trình duyệt (100% / 96% / 85% / 50% / loại trừ) — 3 mức, Loại trừ và viền nét đứt phân biệt rõ.
