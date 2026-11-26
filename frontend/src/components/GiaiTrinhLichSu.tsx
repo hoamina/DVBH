@@ -160,11 +160,14 @@ function LinhKienTomTat({
   const tuNgay = ngay(cuNhat.ngay_giai_trinh);
   const keoDai = tuNgay ? soNgay(tuNgay, homNay()) : 0;
 
-  const don = lkOrders.filter((o) => o.ma_lk === ma || maXuat.has(o.order_id));
+  // Ma don DDH-xxxxxx tach tu o "Mã xuất hàng liên quan" (co the ghi lan chu / nhieu ma) - backend da gui kem sang app Linh kien
+  // nen don tram dat khong chon ma ca van co trong lkOrders (2026-11-26).
+  const maDdh = new Set([...maXuat].flatMap((m) => (m.toUpperCase().match(/DDH-\d{3,}/g) ?? [])));
+  const don = lkOrders.filter((o) => o.ma_lk === ma || maXuat.has(o.order_id) || maDdh.has(o.order_id.toUpperCase()));
   const ticket = don.flatMap((o) => (o.ma_lk === ma ? (o.thieu_lk ?? []) : []));
   const po = poRows.filter((r) => r.maLinhKienDeXuat === ma || r.maLinhKienGoc === ma);
   // Ma xuat hang neu trong giai trinh nhung khong thay don tuong ung tren app -> van liet ke (co the la don sheet cu).
-  const maXuatKhongThay = [...maXuat].filter((m) => !don.some((o) => o.order_id === m));
+  const maXuatKhongThay = [...maXuat].filter((m) => !don.some((o) => o.order_id === m || m.toUpperCase().includes(o.order_id.toUpperCase())));
 
   return (
     <div className="rounded-lg border border-[var(--amber-500)]/40 bg-[var(--amber-100)]/40 px-3 py-2">

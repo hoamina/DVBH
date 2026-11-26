@@ -60,11 +60,24 @@ export interface LinhKienTimelineResult {
 
 const TIMEOUT_MS = 8000;
 
+const MA_DDH = /DDH-\d{3,}/gi;
+
 export async function fetchLinhKienTimeline(env: Env, caseId: string): Promise<LinhKienTimelineResult> {
   if (!env.LINHKIEN_APP_URL || !env.LINHKIEN_APP_API_KEY) {
     return { configured: false, ok: false, error: "NOT_CONFIGURED", orders: [] };
   }
-  const url = `${env.LINHKIEN_APP_URL}/api/partner/v1/case-timeline?id=${encodeURIComponent(caseId)}`;
+  // 2026-11-26: gui kem ma DDH-xxxxxx nguoi dung ghi o "Mã xuất hàng liên quan" cua MOI giai trinh cua ca -> don tram dat khong
+  // chon ma ca van hien o chi tiet ca (truoc chi khop theo ma ca, chip DDH hien net dut "chua thay don"). Doc qua index
+  // giai_trinh(case_id, ...) - vai dong / ca.
+  const { results: gt } = await env.DB.prepare(
+    "SELECT ma_xuat_hang_lien_quan AS m FROM giai_trinh WHERE case_id = ? AND ma_xuat_hang_lien_quan LIKE '%DDH-%'",
+  )
+    .bind(caseId)
+    .all<{ m: string }>();
+  const maDon = [...new Set(gt.flatMap((r) => (r.m.match(MA_DDH) ?? []).map((x) => x.toUpperCase())))].slice(0, 20);
+  const url =
+    `${env.LINHKIEN_APP_URL}/api/partner/v1/case-timeline?id=${encodeURIComponent(caseId)}` +
+    (maDon.length ? `&ma_don=${encodeURIComponent(maDon.join(","))}` : "");
   const init: RequestInit = { headers: { "X-API-Key": env.LINHKIEN_APP_API_KEY }, signal: AbortSignal.timeout(TIMEOUT_MS) };
   try {
     // Service Binding tren production (fetch() thang workers.dev cung tai khoan bi loi 1042 - xem

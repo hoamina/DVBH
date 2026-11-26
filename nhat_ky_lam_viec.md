@@ -6475,3 +6475,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Đã sửa: `lib/explanationReasonReport.ts` — truy vấn con chọn giải trình cuối trong tháng loại dòng có `ly_do_cham = LY_DO_CA_KET_THUC`; ca chỉ có
   dòng tự sinh thì không tính. Khoá cache `giai-trinh-ly-do-thang-v2`. Câu mô tả dưới tiêu đề báo cáo ghi rõ (VI/EN/ID).
 - Kiểm thử: typecheck backend + frontend, i18n-kiem-tra.
+
+## 2026-11-26 — v1.665: chi tiết ca nhận đơn linh kiện theo mã DDH ghi trong giải trình
+
+- Yêu cầu (nguyên văn): "ca giải trình này gs đã điền mã DDH-xxxx sao vẫn không liên kết với bên linh kiện?" (ca SC261020228, chip DDH-004676 nét đứt) → "Sửa cả 2 app".
+- Vì sao: tra D1 thật (chỉ đọc) — đơn DDH-004676 bên app Linh kiện có thật (mua 3003040380, TN đã duyệt, trạm tạo 30/10) nhưng KHÔNG gắn mã ca;
+  `/:id/linh-kien-timeline` chỉ hỏi `case-timeline?id=<mã ca>` nên không ra đơn. Cột "ID đặt hàng gần nhất" (Quản lý tồn) đã khớp được vì có dùng mã DDH.
+- Đã sửa: `lib/linhKienTimeline.ts` đọc mã `DDH-<số>` trong `ma_xuat_hang_lien_quan` của mọi giải trình của ca, gửi kèm `&ma_don=` (linh-kien-app v1.567
+  thêm tham số này). `GiaiTrinhLichSu.tsx` khớp chip đơn theo mã DDH tách từ ô mã xuất hàng (ghi lẫn chữ vẫn khớp). Không ghi dữ liệu, không gắn mã ca vào đơn.
+- Kiểm thử: typecheck backend + frontend 2 repo; gọi API thật sau deploy với ca SC261020228.
