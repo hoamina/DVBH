@@ -6466,3 +6466,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Đã sửa: bọc `gt()` (lib/banDichDuLieu.ts) chỗ hiển thị — nhãn trục 2 biểu đồ, ô chọn lý do, tiêu đề tooltip, cột "Lý do cuối cùng" của bảng.
   Giá trị dùng làm khoá / so sánh / Excel giữ tiếng Việt.
 - Kiểm thử: typecheck frontend.
+
+## 2026-11-26 — v1.664: báo cáo "Lý do giải trình cuối cùng theo tháng" bỏ qua lý do hệ thống tự sinh
+
+- Yêu cầu (nguyên văn): "Lý do \"Case đã được kết thúc\" không tính là lý do giải trình mà là do hệ thống tự sinh => bỏ qua lấy theo lý đo giải trình lần cuối."
+- Vì sao: `autoLogCaKetThuc.ts` tự ghi 1 dòng giai_trinh "Case đã được kết thúc" khi ca trong danh sách cần giải trình được đóng trong ngày; dòng này
+  thường là dòng cuối nên chiếm ~33% biểu đồ tháng 11, che lý do thật người dùng đã ghi.
+- Đã sửa: `lib/explanationReasonReport.ts` — truy vấn con chọn giải trình cuối trong tháng loại dòng có `ly_do_cham = LY_DO_CA_KET_THUC`; ca chỉ có
+  dòng tự sinh thì không tính. Khoá cache `giai-trinh-ly-do-thang-v2`. Câu mô tả dưới tiêu đề báo cáo ghi rõ (VI/EN/ID).
+- Kiểm thử: typecheck backend + frontend, i18n-kiem-tra.

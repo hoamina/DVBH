@@ -423,6 +423,8 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 ## 15. Quản lý tồn › "Lý do giải trình cuối cùng theo tháng" — biểu đồ (chốt 2026-11-18, v1.625)
 
 - Trên bảng có 2 biểu đồ, dùng cùng tháng / bộ lọc khu vực / nhóm PH với bảng (mỗi ca tính 1 lần theo giải trình cuối cùng trong tháng).
+- (2026-11-26, v1.664) Lý do "Case đã được kết thúc" do hệ thống tự sinh không tính là lý do giải trình: bỏ qua, lấy giải trình cuối cùng do người
+  ghi trong tháng; ca chỉ có dòng tự sinh thì không vào báo cáo.
 - Biểu đồ 1 "Tỷ lệ lý do tồn trong tháng": % mỗi lý do trên tổng số ca, thanh ngang giảm dần; quá 13 lý do thì gộp phần đuôi thành "Khác".
 - Biểu đồ 2 "Lý do theo khu vực": top 12 lý do, mỗi lý do chồng theo khu vực (MB1, MB2…), xem theo Số ca hoặc % trong lý do; chọn 1 lý do
   → cột số ca theo từng khu vực (giảm dần), rê chuột xem % trong lý do. PH xem "Theo nhóm PH" thì chia theo nhóm PH.

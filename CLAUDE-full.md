@@ -690,3 +690,4 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 - **Tháng nhớ localStorage theo nước (v1.662)**: màn tự quản tháng (`useLocalStorageState("filters:…-thang")`) phải gọi `useThangHopLe(thang, setThang,
   months)` (`lib/thangHopLe.ts`) — đã gắn CaLap / NapGas / Survey; FilterBar tự xử lý riêng.
 - **Báo cáo lý do giải trình theo tháng (v1.663)**: tên lý do hiển thị qua `gt()` (bản dịch `settings_ly_do`); khoá nhóm / Excel vẫn tiếng Việt.
+- **Báo cáo lý do giải trình theo tháng (v1.664)**: `lib/explanationReasonReport.ts` chọn dòng giai_trinh cuối trong tháng với điều kiện `ly_do_cham <> LY_DO_CA_KET_THUC` (dòng tự sinh của `autoLogCaKetThuc.ts`); khoá cache đổi `giai-trinh-ly-do-thang-v2` để bỏ số cũ.

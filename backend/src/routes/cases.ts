@@ -1160,7 +1160,7 @@ cases.get("/giai-trinh-ly-do-thang", async (c) => {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(thang)) return c.json({ error: "INVALID_MONTH" }, 400);
   const scope = scopeByKhuVuc(c);
   const areaParam = c.req.query("khu_vuc");
-  const key = buildReportKey("cases/giai-trinh-ly-do-thang-v1", { thang, khu_vuc: areaParam }, scope);
+  const key = buildReportKey("cases/giai-trinh-ly-do-thang-v2", { thang, khu_vuc: areaParam }, scope);
   return c.json(await cachedReport(c.env.DB, key, ["cases", "giai_trinh"], async () => {
     return computeExplanationReasons(c.env.DB, thang, scope, areaParam);
   }).then(async (kq) => {
