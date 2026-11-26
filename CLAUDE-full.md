@@ -145,7 +145,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     its own CaseDetail tab "Bảo hành" (key `bao-hanh-app`, next to "Mua hàng", same card layout; `components/SuaChuaPanel.tsx`:
     per-order card + per-unit process flow `luong` computed by suachua `lib/partnerCaseFlow.ts`, filtered log) + log rows in
     "Tiến trình chung". Shared box / return-slip logs are filtered suachua-side to transitions + lines naming this order. Covers app-created orders without an Odoo order too; the `sc_*` badge on `don_bao_hanh_odoo` stays for lists.
-  - `cases.ts` `GET /:id/linh-kien-timeline` — proxies linh-kien-app's `GET /api/partner/v1/case-timeline` (+ `&ma_don=` = mã DDH-xxxxxx tách từ `giai_trinh.ma_xuat_hang_lien_quan` của ca, ≤20, v1.665 — đơn không gắn mã ca vẫn hiện; FE `GiaiTrinhLichSu.tsx` khớp chip theo mã DDH tách ra)
+  - `cases.ts` `GET /:id/linh-kien-timeline` — proxies linh-kien-app's `GET /api/partner/v1/case-timeline` (+ `&ma_don=` = mã DDH-xxxxxx tách từ `giai_trinh.ma_xuat_hang_lien_quan` của ca, ≤20, v1.665 — đơn không gắn mã ca vẫn hiện; FE `GiaiTrinhLichSu.tsx` khớp chip theo mã DDH tách ra). **v1.666**: `case-timeline` + `linh-kien/lich-su` kèm `trang_thai_pxk` (linh-kien-app v1.568); FE `linhKienTrangThaiLabel(don, pxk)` (lib/linhKienTimeline.ts) = bản sao `nhanTrangThai` + `TRANG_THAI_PXK` của `lib/donLkGanNhat.ts` — đổi 1 bên phải đổi bên kia
     (purchase/missing-part/PXK/return logs for one case) via Service Binding `LINHKIEN_APP` + secret
     `LINHKIEN_APP_API_KEY` (`lib/linhKienTimeline.ts`); called on demand when a case is opened, nothing
     stored in D1. Merged into CaseDetail "Tiến trình chung" alongside the AppSheet Google Sheet source

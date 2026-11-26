@@ -55,6 +55,7 @@ interface LichSuOrder {
   loai_don: string;
   loai_de_xuat: string | null;
   trang_thai_hien_tai: string | null;
+  trang_thai_pxk?: string | null;
   so_luong_de_xuat: number | null;
   so_luong_thuc_xuat: number | null;
   ngay_tao: string;
@@ -439,7 +440,7 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
       value: donMoiNhat ? fmtDate(donMoiNhat.ngay_tao) : lsQ.isLoading ? "…" : "—",
       sub: donMoiNhat ? (
         <span>
-          <MoAppLink base={LINHKIEN_URL} id={donMoiNhat.id} /> {linhKienTrangThaiLabel(donMoiNhat.trang_thai_hien_tai)}
+          <MoAppLink base={LINHKIEN_URL} id={donMoiNhat.id} /> {linhKienTrangThaiLabel(donMoiNhat.trang_thai_hien_tai, donMoiNhat.trang_thai_pxk)}
         </span>
       ) : undefined,
       tone: donMoiNhat ? "ocean" : "gray",
@@ -739,7 +740,7 @@ function HoSoChinh({ maLk, openCase, tabs, onXemTuongDuong }: { maLk: string; op
                         {linhKienLoaiDonLabel(o.loai_don)}
                         {o.loai_de_xuat && <div className="text-[var(--ink-400)]">{dl(o.loai_de_xuat)}</div>}
                       </td>
-                      <td className={`${TH} font-semibold`}>{linhKienTrangThaiLabel(o.trang_thai_hien_tai)}</td>
+                      <td className={`${TH} font-semibold`}>{linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk)}</td>
                       <td className={`${TH} text-right tabular-nums`}>
                         <span className="font-semibold">{fmtSl(o.so_luong_de_xuat)}</span> / {(() => { const sl = linhKienSlThucXuat(o); return sl === null ? "—" : fmtSl(sl); })()}
                       </td>

@@ -216,7 +216,7 @@ function LinhKienTomTat({
                 title={tr("Mở tab Mua hàng")}
               >
                 🛒 <span className={`font-mono ${huy ? "line-through" : ""}`}>{o.order_id}</span>
-                <span className="text-[var(--ink-500)]">· {linhKienTrangThaiLabel(o.trang_thai_hien_tai)}</span>
+                <span className="text-[var(--ink-500)]">· {linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk)}</span>
               </button>
             );
           })}

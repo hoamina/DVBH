@@ -14952,5 +14952,13 @@
  "Loại trừ khu vực này ngày này khỏi lũy kế / tỷ lệ (lý do làm ghi chú)": ["Exclude this area on this day from the cumulative / rate (reason becomes the note)", "Kecualikan area ini pada hari ini dari kumulatif / rasio (alasan menjadi catatan)"],
  "Nhập lý do trước khi loại trừ": ["Enter a reason before excluding", "Masukkan alasan sebelum mengecualikan"],
  "⊘ Loại trừ ngày này": ["⊘ Exclude this day", "⊘ Kecualikan hari ini"],
- "Nút Loại trừ bỏ ô này khỏi lũy kế (mọi phạm vi), lý do thành ghi chú; bỏ loại trừ ở Settings › Ngày loại trừ giải trình.": ["The Exclude button removes this cell from the cumulative (all scopes), the reason becomes the note; undo in Settings › Explanation exclusion days.", "Tombol Kecualikan menghapus sel ini dari kumulatif (semua cakupan), alasan menjadi catatan; batalkan di Settings › Hari pengecualian penjelasan."]
+ "Nút Loại trừ bỏ ô này khỏi lũy kế (mọi phạm vi), lý do thành ghi chú; bỏ loại trừ ở Settings › Ngày loại trừ giải trình.": ["The Exclude button removes this cell from the cumulative (all scopes), the reason becomes the note; undo in Settings › Explanation exclusion days.", "Tombol Kecualikan menghapus sel ini dari kumulatif (semua cakupan), alasan menjadi catatan; batalkan di Settings › Hari pengecualian penjelasan."],
+  "Chờ tạo phiếu": ["Awaiting dispatch slip","Menunggu pembuatan slip"],
+  "Chờ KTV chuyển tiền": ["Awaiting technician payment","Menunggu pembayaran teknisi"],
+  "Chờ TN gửi kế toán": ["Awaiting TN to send to accounting","Menunggu TN kirim ke akuntansi"],
+  "Chờ kế toán chốt": ["Awaiting accounting closing","Menunggu akuntansi menutup"],
+  "Chờ kho gửi hàng": ["Awaiting warehouse shipment","Menunggu gudang mengirim"],
+  "Chờ kho nhận hàng trả": ["Awaiting warehouse to receive return","Menunggu gudang menerima retur"],
+  "Đã gửi, chờ KTV xác nhận": ["Shipped, awaiting technician confirmation","Dikirim, menunggu konfirmasi teknisi"],
+  "Phiếu đã hủy": ["Slip cancelled","Slip dibatalkan"]
 }

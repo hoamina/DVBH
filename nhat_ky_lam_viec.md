@@ -6484,3 +6484,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Đã sửa: `lib/linhKienTimeline.ts` đọc mã `DDH-<số>` trong `ma_xuat_hang_lien_quan` của mọi giải trình của ca, gửi kèm `&ma_don=` (linh-kien-app v1.567
   thêm tham số này). `GiaiTrinhLichSu.tsx` khớp chip đơn theo mã DDH tách từ ô mã xuất hàng (ghi lẫn chữ vẫn khớp). Không ghi dữ liệu, không gắn mã ca vào đơn.
 - Kiểm thử: typecheck backend + frontend 2 repo; gọi API thật sau deploy với ca SC261020228.
+
+## 2026-11-26 — v1.666: trạng thái đơn linh kiện hiện trạng thái MỚI NHẤT (theo phiếu xuất kho)
+
+- Yêu cầu (nguyên văn, ảnh Hồ sơ linh kiện, DDH-004676 "TN đã duyệt"): "trạng thái của đơn hàng đang dừng ở TN duyệt, tôi cần trạng thái mới nhất của đơn (nếu đơn đó vào phiếu sẽ hiện trạng thái theo phiếu)".
+- Vì sao: DVBH chỉ hiện `trang_thai_hien_tai` của đơn; sau khi TN duyệt, đơn đi tiếp trên phiếu xuất kho nhưng trạng thái đơn đứng yên. Tra D1 app Linh kiện
+  (chỉ đọc): phiếu chứa DDH-004676 đang "Chờ KTV chuyển tiền".
+- Đã sửa: linh-kien-app v1.568 trả thêm `trang_thai_pxk`; `linhKienTrangThaiLabel(don, pxk)` hiện trạng thái phiếu khi đơn đã qua bước duyệt (cùng luật
+  cột "ID đặt hàng gần nhất"), dùng cho chip GT tồn, tab Mua hàng / Thiếu hàng / NSKX, Hồ sơ linh kiện (bảng lịch sử + ô "Đơn đặt LK gần nhất"). Thêm 8 câu dịch.
+- Kiểm thử: typecheck backend + frontend, i18n-kiem-tra; biểu thức trạng thái phiếu chạy thử trên D1 thật.

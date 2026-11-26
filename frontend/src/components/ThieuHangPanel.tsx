@@ -168,7 +168,7 @@ function TicketCard({ o, t }: { o: LinhKienOrder; t: LinhKienThieuLk }) {
             label={tr("Đơn liên quan")}
             value={
               <span>
-                <MoAppLink base={LINHKIEN_URL} id={o.order_id} /> · {linhKienTrangThaiLabel(o.trang_thai_hien_tai)}
+                <MoAppLink base={LINHKIEN_URL} id={o.order_id} /> · {linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk)}
               </span>
             }
           />

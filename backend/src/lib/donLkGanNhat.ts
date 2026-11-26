@@ -42,6 +42,7 @@ const TRANG_THAI_PXK: Record<string, string> = {
   phieu_da_huy: "Phiếu đã hủy",
 };
 // Don chua duyet xong / dang cho hang -> trang thai don; da duyet -> trang thai phieu xuat kho (sau hon).
+// BAN SAO o frontend lib/linhKienTimeline.ts linhKienTrangThaiLabel (2026-11-26) - doi 1 ben phai doi ben kia.
 const DON_TRUOC_PXK = new Set(["Cho Tram duyet", "Cho TBP xac nhan", "Cho GS duyet", "Cho thanh toan", "Cho TN duyet", "Cho hang"]);
 
 export function nhanTrangThai(don: string | null, pxk: string | null): string | null {

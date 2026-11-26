@@ -234,7 +234,7 @@ export function NskxPanel({ caseId, linhKienLoi }: { caseId: string; linhKienLoi
                       </td>
                       <td className="py-1 pr-2 text-right">{o.so_luong_de_xuat ?? "—"}</td>
                       <td className="py-1 pr-2">{o.loai_de_xuat}</td>
-                      <td className="py-1 pr-2">{linhKienTrangThaiLabel(o.trang_thai_hien_tai)}</td>
+                      <td className="py-1 pr-2">{linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk)}</td>
                       <td className="py-1">{fmtDateTime(o.ngay_tao?.slice(0, 19).replace("T", " "))}</td>
                     </tr>
                   ))}
@@ -398,7 +398,7 @@ function XacNhanForm({
                       {don.length ? (
                         don.map((o) => (
                           <span key={o.order_id} title={`${o.order_id} · ${o.loai_de_xuat ?? ""} · ${o.ngay_tao?.slice(0, 10) ?? ""}`}>
-                            <Badge tone="teal">{tr("Đã đặt: {0}", linhKienTrangThaiLabel(o.trang_thai_hien_tai))}</Badge>
+                            <Badge tone="teal">{tr("Đã đặt: {0}", linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk))}</Badge>
                           </span>
                         ))
                       ) : (
@@ -428,7 +428,7 @@ function XacNhanForm({
                 <div key={o.ma_lk} className="flex items-center gap-2">
                   <span className="font-mono">{o.ma_lk}</span>
                   <span className="flex-1">
-                    {o.ten_lk} · {linhKienTrangThaiLabel(o.trang_thai_hien_tai)}
+                    {o.ten_lk} · {linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk)}
                   </span>
                   <button
                     type="button"

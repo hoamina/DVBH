@@ -181,7 +181,7 @@ function DonCard({ o, moSan = false }: { o: LinhKienOrder; moSan?: boolean }) {
   const [chiTiet, setChiTiet] = useState(false);
   const ds = mocCuaDon(o);
   const huy = donBiHuy(o);
-  const nhanTrangThai = linhKienTrangThaiLabel(o.trang_thai_hien_tai);
+  const nhanTrangThai = linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk);
   const nguoiNhan = o.nguoi_nhan_hang ? (o.nguoi_nhan_hang_ten ?? o.nguoi_nhan_hang) : null;
   const [mo, setMo] = useState(moSan || !huy);
 

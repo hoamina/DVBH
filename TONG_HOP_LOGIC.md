@@ -156,7 +156,7 @@ giữ nguyên. Không tra lại được danh sách ca của một ngày quá 35
 
 ## 9. Kết nối hệ khác
 
-App Đặt linh kiện (tra ca cho đơn, tồn kho, lịch sử LK, đơn theo ca — khớp mã ca trên đơn + mã `DDH-xxxxxx` ghi ở ô "Mã xuất hàng liên quan" của mọi giải trình của ca (v1.665, đơn trạm đặt không chọn ca vẫn hiện ở chi tiết ca), đặt lõi) · App Bảo hành đổi trả · App EO mua hàng (PO) · App Khiếu nại
+App Đặt linh kiện (tra ca cho đơn, tồn kho, lịch sử LK, đơn theo ca — khớp mã ca trên đơn + mã `DDH-xxxxxx` ghi ở ô "Mã xuất hàng liên quan" của mọi giải trình của ca (v1.665, đơn trạm đặt không chọn ca vẫn hiện ở chi tiết ca); trạng thái đơn hiện ở mọi nơi (chi tiết ca: GT tồn, Mua hàng, Thiếu hàng, NSKX; Hồ sơ linh kiện) = trạng thái MỚI NHẤT: đơn đã duyệt có phiếu xuất kho → trạng thái phiếu (vd "Chờ KTV chuyển tiền"), đơn còn chờ duyệt / chờ hàng → trạng thái đơn — cùng luật cột "ID đặt hàng gần nhất" (v1.666), đặt lõi) · App Bảo hành đổi trả · App EO mua hàng (PO) · App Khiếu nại
 (tra ca CRM) · Vi phạm (`vipham`, Service Binding) · Pipeline QuickSight (import tự động + làm mới báo cáo) · Odoo. API đối tác: `PARTNER_API_GUIDE.md`.
 
 ## 10. Quy ước bắt buộc

@@ -41,6 +41,8 @@ export interface LinhKienOrder {
   nguoi_tao_ten?: string | null;
   nguoi_nhan_hang_ten?: string | null;
   thieu_lk?: LinhKienThieuLk[];
+  // 2026-11-26 (linh-kien-app v1.568): ma trang thai phieu xuat kho chua don - xem linhKienTrangThaiLabel.
+  trang_thai_pxk?: string | null;
 }
 
 export interface LinhKienTimelineResult {
@@ -139,7 +141,30 @@ export function linhKienLoaiDonLabel(loaiDon: string): string {
 
 // trang_thai_hien_tai la gia tri DB khong dau (vd "TN da duyet") - quy ve nhan co dau qua cung bang
 // EVENT_LABELS (ma su kien = gia tri DB viet thuong, noi "_").
-export function linhKienTrangThaiLabel(raw: string | null): string {
+// Trang thai phieu xuat kho chua don (ma tu linh-kien-app TRANG_THAI_PXK_DON_SQL) - BAN SAO cua backend lib/donLkGanNhat.ts
+// TRANG_THAI_PXK + nhanTrangThai (cot "ID đặt hàng gần nhất"): doi 1 ben phai doi ben kia.
+const TRANG_THAI_PXK_LABELS: Record<string, string> = {
+  cho_tao_phieu: tr("Chờ tạo phiếu"),
+  cho_ktv_chuyen_tien: tr("Chờ KTV chuyển tiền"),
+  cho_xac_nhan_chuyen_tien: tr("Chờ xác nhận chuyển tiền"),
+  cho_gui_ke_toan: tr("Chờ TN gửi kế toán"),
+  cho_ke_toan_chot: tr("Chờ kế toán chốt"),
+  cho_kho_gui_hang: tr("Chờ kho gửi hàng"),
+  cho_kho_nhan_hang_tra: tr("Chờ kho nhận hàng trả"),
+  cho_ktv_xac_nhan: tr("Đã gửi, chờ KTV xác nhận"),
+  ktv_da_nhan: tr("KTV đã nhận"),
+  hang_tru_kho: tr("Hàng trừ kho"),
+  kho_da_ket_thuc: tr("Kho đã kết thúc"),
+  kho_da_nhan_hang_tra: tr("Kho đã nhận hàng trả"),
+  phieu_da_huy: tr("Phiếu đã hủy"),
+};
+// Don con o buoc truoc phieu (chua duyet xong / cho hang / cho thanh toan) -> hien trang thai don.
+const DON_TRUOC_PXK = new Set(["Cho Tram duyet", "Cho TBP xac nhan", "Cho GS duyet", "Cho thanh toan", "Cho TN duyet", "Cho hang"]);
+
+/** Trang thai MOI NHAT cua don (2026-11-26, chu he thong): don da duyet va co trang thai phieu xuat kho -> hien theo phieu
+ *  (vd "TN đã duyệt" -> "Chờ KTV chuyển tiền"); don con cho duyet / cho hang / bi tu choi -> trang thai don. */
+export function linhKienTrangThaiLabel(raw: string | null, pxk?: string | null): string {
+  if (pxk && !(raw && DON_TRUOC_PXK.has(raw)) && TRANG_THAI_PXK_LABELS[pxk]) return TRANG_THAI_PXK_LABELS[pxk];
   if (!raw) return "—";
   const key = raw.toLowerCase().replace(/\s+/g, "_");
   return EVENT_LABELS[key] ?? raw;
