@@ -79,6 +79,18 @@
         "SUACHUA_APP_API_KEY:localtest"
       ],
       "port": 8788
+    },
+    {
+      "name": "demo-html",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8899",
+        "--directory",
+        "docs/demo"
+      ],
+      "port": 8899
     }
   ]
 }

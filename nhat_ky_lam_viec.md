@@ -6493,3 +6493,18 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Đã sửa: linh-kien-app v1.568 trả thêm `trang_thai_pxk`; `linhKienTrangThaiLabel(don, pxk)` hiện trạng thái phiếu khi đơn đã qua bước duyệt (cùng luật
   cột "ID đặt hàng gần nhất"), dùng cho chip GT tồn, tab Mua hàng / Thiếu hàng / NSKX, Hồ sơ linh kiện (bảng lịch sử + ô "Đơn đặt LK gần nhất"). Thêm 8 câu dịch.
 - Kiểm thử: typecheck backend + frontend, i18n-kiem-tra; biểu thức trạng thái phiếu chạy thử trên D1 thật.
+
+## 2026-11-26 — Bản DEMO thiết kế lại chi tiết ca bảo hành theo 8 bước (chưa code vào app)
+
+- Yêu cầu (nguyên văn, kèm bản vẽ Excel 8 bước Khởi tạo → Xác nhận lịch hẹn → Đặt linh kiện → Mua hàng → Giao LK cho KTV → Đóng ca → Trả xác 3T → Xác nhận xác):
+  "Giao diện bảo hành phải chỉnh sửa lại 1/ Yêu cầu; Thiết kế mẫu lại trang chi tiết --> OK mới đc code 2/Gắn các mã lỗi của 1 ca bảo hành với từng bước
+  3/Menu con của ca tồn: Các bước theo quy trình này. Chứ nhìn cái giao diện quản lý tồn vẫn cảm thấy rất khó chịu => xác định các vấn đề => lập phương án
+  => đề xuất thay đổi => tạo 1 trang html full tính năng cho giao diện demo cho giám đốc tôi test".
+- Đã làm: `docs/demo/chi-tiet-ca-8-buoc.html` (1 file, chạy offline, dữ liệu giả lập 73 ca): ① chi tiết ca 8 bước (luồng ngang + chỉ số + mã lỗi dưới
+  từng bước + thẻ tóm lược "▾ Chi tiết", ghi nhận lỗi / QC chốt / giải trình tồn chạy được); ② Quản lý tồn menu con theo 8 bước (phễu, ma trận Khu vực × Bước,
+  bảng kiểu Excel lọc chọn nhiều + sắp xếp); ③ danh mục mã lỗi A…H theo bước (14 loại vi phạm hiện có chia về bước 2 và 6 + mã mới + mã tự động quá SLA bước);
+  ④ vấn đề hiện tại (15 tab, ~30 lựa chọn "Nhóm"…), phương án, ánh xạ tab cũ → bước, nguồn dữ liệu, lộ trình 4 giai đoạn, câu hỏi cần Giám đốc chốt, 5W1H.
+  Thêm cấu hình `demo-html` vào `.claude/launch.json` (python http.server cổng 8899) để xem thử.
+- Kiểm thử: mở trên trình duyệt, bấm thử từng màn, ghi lỗi, lọc / sắp xếp bảng, không lỗi console.
+- Việc còn dở: chờ Giám đốc duyệt mẫu + trả lời 6 câu hỏi ở tab ④ (thứ tự bước, quy ước mã, SLA từng bước, nghĩa "420p", nguồn dữ liệu Trả xác / Xác nhận xác,
+  mã tự động có trừ điểm không) rồi mới code. Chưa đổi TONG_HOP_LOGIC / SRS vì chưa đổi logic chạy thật.
