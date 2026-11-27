@@ -98,8 +98,8 @@ table.mini th{background:var(--surface-100);font-size:12px;color:var(--ink-500);
 .sl-b{position:relative;height:8px;border-radius:99px;background:var(--surface-200);margin-top:4px;overflow:hidden}
 .sl-b i{display:block;height:100%;border-radius:99px}
 /* luồng ngang PC — mỗi cột 1 bước, 5 hàng thẳng nhau như bản vẽ Excel */
-.flow{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:auto auto auto auto auto}
-.col{display:grid;grid-row:span 5;grid-template-rows:subgrid;padding:0 5px;min-width:0}
+.flow{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:auto auto auto auto}
+.col{display:grid;grid-row:span 4;grid-template-rows:subgrid;padding:0 5px;min-width:0}
 .shead{display:flex;align-items:baseline;gap:5px;min-height:38px;font-size:13px;line-height:1.3}
 .shead .no{font-size:11.5px;color:var(--ink-400);font-weight:700;flex:none}
 .shead .nm{font-weight:700}
@@ -328,7 +328,7 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
 /* ===== Popup Chi tiết ca (khớp CaseDetail.tsx) ===== */
 .cd{position:fixed;inset:0;z-index:50;display:none;background:rgba(6,32,51,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .cd.on{display:flex;align-items:center;justify-content:center;padding:0}
-.cd-box{background:var(--bg);border-radius:16px;box-shadow:0 25px 60px rgba(5,32,51,.35);width:99vw;height:99vh;height:99dvh;display:flex;flex-direction:column;overflow:hidden;animation:cdin .18s ease-out}
+.cd-box{background:var(--bg);border-radius:16px;box-shadow:0 25px 60px rgba(5,32,51,.35);width:98vw;height:calc(100vh - 2vw);height:calc(100dvh - 2vw);display:flex;flex-direction:column;overflow:hidden;animation:cdin .18s ease-out}
 .cd.on.compact{padding:0;justify-content:flex-end;align-items:stretch}
 .cd.compact .cd-box{width:100%;max-width:672px;height:100%;border-radius:0;animation:cdslide .2s ease-out}
 @keyframes cdin{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
@@ -383,6 +383,71 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
 .otabs button.z{color:var(--ink-400)}
 .otabs .more{border-style:dashed;color:var(--ocean-600)}
 @media (max-width:767px){ .cd-h{padding:10px 12px;flex-wrap:nowrap;align-items:flex-start}.cd-hl{flex-direction:column;align-items:stretch;gap:6px}.cd-tags{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-12px;padding-right:12px}.cd-tags::-webkit-scrollbar{display:none}.cd-b{padding:12px 12px 0}.cd-f{margin:0 -12px}.cd-hl h3{font-size:15px} }
+
+/* ===== v2: nút ẩn/hiện tiến trình + tab quạt 8 bước ===== */
+.tt-tg{flex:none}
+.tt-body{margin-bottom:6px;padding-bottom:12px;border-bottom:1px dashed var(--line2)}
+.col.sel .shead .nm{color:var(--ocean-700)}
+.col.sel .shead{box-shadow:inset 0 -3px 0 var(--ocean-500)}
+.fan{display:grid;align-items:end;padding:12px 2px 0;transition:grid-template-columns .25s ease}
+.ftab{position:relative;min-width:0;margin:0 0 -1px -8px;border:1px solid #c5e3f2;border-bottom:0;border-radius:12px 12px 0 0;background:#eef8fd;padding:10px 12px 10px 14px;min-height:160px;text-align:left;display:flex;flex-direction:column;gap:2px;box-shadow:-4px 0 10px rgba(15,37,54,.07);transform:translateY(12px);transition:transform .18s,box-shadow .18s,background .18s;cursor:pointer;color:var(--ink-900);overflow:hidden;font:inherit}
+.ftab:first-child{margin-left:0}
+.ftab:hover:not(.on):not(.skip){transform:translateY(6px)}
+.ftab:focus-visible{outline:2px solid var(--ocean-400);outline-offset:-2px}
+.ftab::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--rail)}
+.ftab.done::before{background:var(--teal-500)}.ftab.cur::before{background:var(--amber-500)}
+.ftab.cur{background:#fffaf0;border-color:#efc27c}
+.ftab.todo{background:var(--surface-100);border-color:var(--line)}
+.ftab.skip{background:var(--surface-100);border-style:dashed;cursor:default;color:var(--ink-400)}
+.ftab.skip::before{background:repeating-linear-gradient(90deg,#bccbd6 0 6px,transparent 6px 11px)}
+.ftab.on{transform:none;z-index:4;background:#fff;border-color:var(--ocean-500);box-shadow:0 -8px 24px rgba(17,118,166,.22);min-height:184px;cursor:default}
+.ftab.on::before{background:var(--ocean-600);height:5px}
+.ftab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#fff}
+.ft-h{display:flex;align-items:center;gap:6px;min-width:0}
+.ft-n{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:11px;font-weight:800;background:#fff;border:2px solid #bccbd6;color:var(--ink-500)}
+.ftab.done .ft-n{background:var(--teal-500);border-color:var(--teal-500);color:#fff}
+.ftab.cur .ft-n{background:var(--amber-500);border-color:var(--amber-500);color:#fff}
+.ftab.skip .ft-n{border-style:dashed;background:var(--surface-100)}
+.ft-t{font-weight:750;font-size:13px;line-height:1.25;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ftab.on .ft-t{font-size:15.5px;white-space:normal}
+.ft-h .chip{flex:none}
+.ft-s{font-size:11.5px;color:var(--ink-500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.ftab.cur .ft-s{color:var(--amber-600);font-weight:700}
+.ft-sub{font-size:11px;font-weight:700;color:var(--ocean-600);margin-top:5px}
+.ftab.todo .ft-sub{color:var(--ink-400)}
+.ft-b .ln{font-size:12.5px;color:var(--ink-700);line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.ftab:not(.on) .ft-b .ln:nth-child(n+3){display:none}
+.ftab.on .ft-b{display:grid;grid-template-columns:1fr 1fr;gap:3px 16px;margin-top:2px}
+.ftab.on .ft-b .ln{-webkit-line-clamp:unset;display:block;font-size:13.5px}
+.ft-m{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;padding-top:7px;border-top:1px dashed var(--line2);font-size:12.5px;align-items:center}
+.ft-m .m{line-height:1.4}
+.ft-f{margin-top:auto;padding-top:6px;font-size:12px;font-weight:700;color:var(--ocean-600)}
+.ftab.on .ft-f{color:var(--ink-400)}
+.fpanel{position:relative;z-index:3;border:1px solid var(--ocean-500);border-radius:0 0 12px 12px;background:#fff;padding:14px 16px;margin:0 2px;box-shadow:0 10px 24px rgba(17,118,166,.1);scroll-margin-top:10px}
+@container cdb (max-width: 959px){
+  .fan{display:flex!important;overflow-x:auto;scrollbar-width:none;padding:12px 0 0;margin:0 -2px}
+  .fan::-webkit-scrollbar{display:none}
+  .ftab{flex:0 0 132px;min-height:136px}
+  .ftab.on{flex-basis:min(396px,84%);min-height:150px}
+  .ftab.on .ft-b{grid-template-columns:1fr}
+  .fpanel{margin:0;border-top:3px solid var(--ocean-600);border-radius:0 0 12px 12px;padding:12px}
+}
+/* ===== v1: bố cục popup DVBH hiện tại ===== */
+.cd.v1 .cu{display:none}
+.cd.v1 .cd-b{background:#fff}
+.cd.v1x .cd-b{overflow:hidden;padding:0}
+.v1grid{display:grid;grid-template-columns:minmax(320px,38%) minmax(0,1fr);height:100%}
+.v1l,.v1r{overflow-y:auto;overscroll-behavior:contain;padding:18px 20px;min-height:0}
+.v1l{border-right:1px solid var(--line)}
+.v1one{padding-bottom:16px}
+.v1tabs,.v1sub{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;padding-bottom:8px}
+.v1tabs button,.v1sub button{border:0;background:none;padding:6px 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--ink-600);display:inline-flex;align-items:center;gap:5px}
+.v1tabs button:hover,.v1sub button:hover{background:var(--surface-100)}
+.v1tabs button.on,.v1sub button.on{background:var(--ocean-100);color:var(--ocean-700)}
+.v1tabs .c,.v1sub .c{font-size:11px;background:var(--surface-200);border-radius:99px;padding:0 6px;color:var(--ink-600)}
+.v1tabs .more{border:1px dashed var(--line2)!important;color:var(--ocean-600)!important}
+.v1sub button{font-size:12.5px;padding:4px 9px}
+.seg.ui button{min-width:34px}
 
 /* ===== Điện thoại / máy tính bảng dọc (< 980px) ===== */
 @media (max-width:979px){
@@ -883,65 +948,59 @@ function hoSoVp(c, l) {
     <div class="la">${l.tt !== "Đã bỏ" ? `<button class="btn sm" data-act="gtthay">Giải trình thay KTV</button>` : ""}${l.tt === "Đã chốt" ? `<span class="badge b-teal">✓ Đã đẩy sang app vi phạm</span>` : ""}</div></details>`;
 }
 
-/* Phần xổ chi tiết của 1 bước — gom đủ nội dung của các tab cũ thuộc bước đó */
+/* Khối nội dung dùng chung cho v2 (gom theo bước) và v1 (theo tab cũ) — 1 nơi định nghĩa, 2 giao diện cùng dữ liệu */
 let anNhom = new Set();
 const kvHTML = arr => `<div class="kv">${arr.map(([a, b]) => `<div><span>${a}</span>${esc(b)}</div>`).join("")}</div>`;
 const nhom = (ten, cu, html, n) => `<div class="grp-b"><div class="grp-h"><b>${ten}</b>${n != null ? `<span class="badge">${n}</span>` : ""}<span class="cu" title="Nội dung này đang nằm ở đâu trên DVBH hiện tại">cũ: ${cu}</span></div>${html}</div>`;
-function chiTietBuoc(c, n) {
-  const m = c.moc[n], e = ex(c), out = [];
-  if (n === 1) {
-    const g = [["co-ban", "Cơ bản", e.coBan], ["phan-loai", "Phân loại & nguồn gốc", e.phanLoai], ["xu-ly", "Thông tin xử lý", e.xuLy], ["bo-sung", "Bổ sung", e.boSung]];
+const B = {
+  thongTin(c) {
+    const e = ex(c), out = [], g = [["co-ban", "Cơ bản", e.coBan], ["phan-loai", "Phân loại & nguồn gốc", e.phanLoai], ["xu-ly", "Thông tin xử lý", e.xuLy], ["bo-sung", "Bổ sung", e.boSung]];
     out.push(`<div class="sec-h"><b>Thông tin case</b><button class="btn sm" data-act="caidat" title="Ẩn / hiện nhóm trường">⚙ Trường hiển thị</button></div>`);
     out.push(kvHTML([["Mã ca", c.id], ["Khách hàng", c.kh], ["Điện thoại", c.sdt], ["Địa chỉ", c.diaChi], ["Sản phẩm", `${c.nhom} ${c.hang} ${c.model}`], ["Khu vực", c.khuVuc], ["KTV triển khai", c.ktv], ["Tiếp nhận", fmtT(c.created) + " · " + c.moc[1].nguoi], ["Hạn SLA 72h", fmtT(addH(c.created, 72))]]));
     out.push(`<div class="kv" style="margin-top:10px"><div><span>Serial</span>${esc(c.serial)} ${e.blacklist ? `<span class="badge b-red">🚫 Đã blacklist</span>` : `<button class="btn sm" data-act="blacklist">🚫 Blacklist serial</button>`} <button class="btn sm ghost" data-act="serial">Các ca trùng serial</button></div></div>`);
     for (const [k, t, arr] of g) if (!anNhom.has(k)) out.push(nhom(t, "tab Thông tin › " + (k === "bo-sung" ? "Bổ sung" : k === "xu-ly" ? "Xử lý" : "Cơ bản"), kvHTML(arr)));
     if (anNhom.size) out.push(`<p class="small muted">Đã ẩn ${anNhom.size} nhóm (nút ⚙).</p>`);
-    out.push(nhom("Xin hủy", "tab con Xin hủy", e.xinHuy.map(x => `<div class="li"><div class="lt"><b>${esc(x.lyDo)}</b><span class="badge b-amber">${x.tt}</span></div><div class="lm">${fmtT(x.t)}</div></div>`).join("") || `<p class="empty">Không có yêu cầu hủy.</p>`, e.xinHuy.length));
-  }
-  if (n === 2) out.push(nhom("Lịch hẹn", "tab con Lịch hẹn", `<div class="n-only">${c.lichHen.map((h, i) => `<div class="li"><div class="lt"><b>Lần ${i + 1}</b>${h.kq === "KH xác nhận lịch" ? `<span class="badge b-teal">${esc(h.kq)}</span>` : `<span>${esc(h.kq)}</span>`}</div><div class="lm tnum">Liên hệ ${fmtT(h.t)} · hẹn ${fmtT(h.hen)} · ${esc(h.nguoi)}</div></div>`).join("") || `<p class="empty">Chưa có lần liên hệ nào</p>`}</div>
+    return out.join("");
+  },
+  xinHuy: c => { const e = ex(c); return nhom("Xin hủy", "tab con Xin hủy", e.xinHuy.map(x => `<div class="li"><div class="lt"><b>${esc(x.lyDo)}</b><span class="badge b-amber">${x.tt}</span></div><div class="lm">${fmtT(x.t)}</div></div>`).join("") || `<p class="empty">Không có yêu cầu hủy.</p>`, e.xinHuy.length); },
+  lichHen: c => nhom("Lịch hẹn", "tab con Lịch hẹn", `<div class="n-only">${c.lichHen.map((h, i) => `<div class="li"><div class="lt"><b>Lần ${i + 1}</b>${h.kq === "KH xác nhận lịch" ? `<span class="badge b-teal">${esc(h.kq)}</span>` : `<span>${esc(h.kq)}</span>`}</div><div class="lm tnum">Liên hệ ${fmtT(h.t)} · hẹn ${fmtT(h.hen)} · ${esc(h.nguoi)}</div></div>`).join("") || `<p class="empty">Chưa có lần liên hệ nào</p>`}</div>
     <div class="tw w-only"><table class="mini"><tr><th>#</th><th>Lúc liên hệ</th><th>Giờ hẹn</th><th>Kết quả</th><th>Người</th></tr>
     ${c.lichHen.map((h, i) => `<tr><td>${i + 1}</td><td class="tnum">${fmtT(h.t)}</td><td class="tnum">${fmtT(h.hen)}</td><td>${h.kq === "KH xác nhận lịch" ? `<span class="badge b-teal">${esc(h.kq)}</span>` : esc(h.kq)}</td><td>${esc(h.nguoi)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">Chưa có lần liên hệ nào</td></tr>`}</table></div>
-    <p class="small muted" style="margin:8px 0 0">Mốc "xong" = lần có kết quả "KH xác nhận lịch".</p>`, c.lichHen.length));
-  if (n === 3) {
-    out.push(nhom("Đơn đặt linh kiện", "tab Mua hàng", c.lk ? kvHTML([["Đơn đặt LK", c.lk.ma], ["Trạng thái mới nhất (theo phiếu)", c.lk.tt], ["Ngày đặt", m ? fmtT(m.t) : "—"]]) +
-      `<div class="tw" style="margin-top:8px"><table class="mini"><tr><th>Mã LK</th><th>Tên linh kiện</th><th>SL</th></tr>${c.lk.items.map(x => `<tr><td class="tnum">${x.ma}</td><td>${esc(x.ten)}</td><td>${x.sl}</td></tr>`).join("")}</table></div>` : `<p class="empty">KTV đang kiểm tra, chưa có đơn linh kiện.</p>`, c.lk ? 1 : 0));
-    out.push(nhom("Lỗi linh kiện", "tab con Lỗi", e.loiLk.map(x => `<div class="li"><div class="lt"><b>${esc(x.ten)}</b><span>${esc(x.loi)}</span></div></div>`).join("") || `<p class="empty">Chưa ghi lỗi linh kiện.</p>`, e.loiLk.length));
-  }
-  if (n === 4) {
-    out.push(nhom("PO đặt hàng", "tab PO đặt hàng", c.po ? kvHTML([["PO", c.po.ma], ["Nhà cung cấp", c.po.ncc], ["Hàng về dự kiến", fmtT(c.po.eta)], ["Hàng về thực tế", m ? fmtT(m.t) : "Chưa về"]]) : `<p class="empty">Chưa có PO.</p>`, c.po ? 1 : 0));
-    out.push(nhom("Thiếu hàng", "tab Thiếu hàng", c.po && c.po.lyDo ? kvHTML([["Lý do chậm", c.po.lyDo], ["Ngày yêu cầu có hàng", fmtT(c.po.eta)]]) : `<p class="empty">Không có yêu cầu thiếu linh kiện nào.</p>`, c.po && c.po.lyDo ? 1 : 0));
-  }
-  if (n === 5) out.push(nhom("Phiếu xuất kho (MISA)", "tab Mua hàng › phiếu xuất", kvHTML([["Phiếu xuất kho", c.pxk ? c.pxk.ma : "—"], ["Ngày giao", m ? fmtT(m.t) : "—"], ["Người giao", m ? m.nguoi : "—"], ["KTV nhận", c.ktv]])));
-  if (n === 6) {
-    out.push(nhom("Giải trình tồn", "tab GT tồn", `${c.cur <= 6 ? `<div class="sec-h"><span class="small muted">Mỗi lần giải trình ghi kèm bước đang kẹt</span><button class="btn pri sm" data-act="giaitrinh">+ Thêm giải trình</button></div>` : ""}
+    <p class="small muted" style="margin:8px 0 0">Mốc "xong" = lần có kết quả "KH xác nhận lịch".</p>`, c.lichHen.length),
+  muaHang: c => { const m = c.moc[3]; return nhom("Đơn đặt linh kiện", "tab Mua hàng", c.lk ? kvHTML([["Đơn đặt LK", c.lk.ma], ["Trạng thái mới nhất (theo phiếu)", c.lk.tt], ["Ngày đặt", m ? fmtT(m.t) : "—"]]) +
+      `<div class="tw" style="margin-top:8px"><table class="mini"><tr><th>Mã LK</th><th>Tên linh kiện</th><th>SL</th></tr>${c.lk.items.map(x => `<tr><td class="tnum">${x.ma}</td><td>${esc(x.ten)}</td><td>${x.sl}</td></tr>`).join("")}</table></div>` : `<p class="empty">KTV đang kiểm tra, chưa có đơn linh kiện.</p>`, c.lk ? 1 : 0); },
+  loiLk: c => { const e = ex(c); return nhom("Lỗi linh kiện", "tab con Lỗi", e.loiLk.map(x => `<div class="li"><div class="lt"><b>${esc(x.ten)}</b><span>${esc(x.loi)}</span></div></div>`).join("") || `<p class="empty">Chưa ghi lỗi linh kiện.</p>`, e.loiLk.length); },
+  po: c => nhom("PO đặt hàng", "tab PO đặt hàng", c.po ? kvHTML([["PO", c.po.ma], ["Nhà cung cấp", c.po.ncc], ["Hàng về dự kiến", fmtT(c.po.eta)], ["Hàng về thực tế", c.moc[4] ? fmtT(c.moc[4].t) : "Chưa về"]]) : `<p class="empty">Chưa có PO.</p>`, c.po ? 1 : 0),
+  thieu: c => nhom("Thiếu hàng", "tab Thiếu hàng", c.po && c.po.lyDo ? kvHTML([["Lý do chậm", c.po.lyDo], ["Ngày yêu cầu có hàng", fmtT(c.po.eta)]]) : `<p class="empty">Không có yêu cầu thiếu linh kiện nào.</p>`, c.po && c.po.lyDo ? 1 : 0),
+  pxk: c => { const m = c.moc[5]; return nhom("Phiếu xuất kho (MISA)", "tab Mua hàng › phiếu xuất", kvHTML([["Phiếu xuất kho", c.pxk ? c.pxk.ma : "—"], ["Ngày giao", m ? fmtT(m.t) : "—"], ["Người giao", m ? m.nguoi : "—"], ["KTV nhận", c.ktv]])); },
+  gt: c => { const e = ex(c); return nhom("Giải trình tồn", "tab GT tồn", `${c.cur <= 6 && !e.huy ? `<div class="sec-h"><span class="small muted">Mỗi lần giải trình ghi kèm bước đang kẹt</span><button class="btn pri sm" data-act="giaitrinh">+ Thêm giải trình</button></div>` : ""}
       ${c.gt.slice().reverse().map((g, i) => `<div class="li gt"><div class="lt"><span class="badge b-ocean">Kẹt ở bước ${g.buoc}. ${esc(STEPS[g.buoc - 1].ten)}</span><b>${esc(g.lyDo)}</b>${i === 0 && loLKH(c) ? '<span class="chip loi">Lỡ kế hoạch</span>' : ""}</div>
       <div class="lb">${esc(g.nd)}</div><div class="lm tnum">${fmtT(g.t)} · ${esc(g.nguoi)} · dự kiến xong ${fmtT(g.duKien)}</div></div>`).join("") || `<p class="empty">Chưa có giải trình.</p>`}
-      ${e.nkht.length ? `<div class="small muted" style="margin-top:8px"><b>Nhật ký hệ thống</b> (chỉ lưu log, không tính là đã giải trình)</div>${e.nkht.map(x => `<div class="li"><div class="lm tnum">${fmtT(x.t)} · Hệ thống</div><div class="lb">${x.txt}</div></div>`).join("")}` : ""}`, c.gt.length));
-    out.push(nhom("Biên bản họp", "tab Biên bản họp", `<textarea id="bbNd" rows="2" class="ta" placeholder="Ghi nội dung cuộc họp về ca này…"></textarea><div class="la"><button class="btn sm pri" data-act="bienban">+ Lưu biên bản họp</button></div>
-      ${e.bienBan.slice().reverse().map(x => `<div class="li"><div class="lm tnum">${fmtT(x.t)} · ${esc(x.nguoi)}</div><div class="lb">${esc(x.nd)}</div></div>`).join("") || `<p class="empty">Chưa có biên bản họp nào cho ca này.</p>`}`, e.bienBan.length));
-    out.push(nhom("Bảo hành (app Sửa chữa)", "tab Bảo hành", e.suaChua.map(d => `<div class="li"><div class="lt"><b>${d.ma}</b></div><div class="lflow">${d.moc.map(([t, x]) => `<span class="${x ? "ok" : ""}">${x ? "✓" : "○"} ${t}</span>`).join("")}</div></div>`).join("") || `<p class="empty">Không có đơn sửa chữa bảo hành.</p>`, e.suaChua.length));
-    out.push(nhom("Kết quả xử lý", "tab Thông tin › Bổ sung", kvHTML([["Đóng ca", m ? fmtT(m.t) : "Chưa đóng"], ["Kết quả", m ? "Hoàn thành XLSC" : "—"], ["Nội dung xử lý chi tiết", e.boSung[3][1]]])));
-    out.push(nhom("Hình ảnh báo cáo công việc", "tab Thông tin", e.anh + e.video ? `<div class="pgrid">${Array.from({ length: e.anh }, (_, i) => `<div class="pimg" title="Ảnh ${i + 1} (demo)">🖼</div>`).join("")}${e.video ? `<div class="pimg v">▶</div>` : ""}</div>` : `<p class="empty">Chưa có ảnh.</p>`, `${e.anh} ảnh${e.video ? " · " + e.video + " video" : ""}`));
-    out.push(nhom("Doanh thu và thu phí", "tab Thông tin", e.dt ? kvHTML([["DT sản phẩm", e.dt.sp.toLocaleString("vi-VN") + " đ"], ["DT linh kiện", e.dt.lk.toLocaleString("vi-VN") + " đ"], ["DT dịch vụ", e.dt.dv.toLocaleString("vi-VN") + " đ"], ["Thu phí (Odoo)", e.dt.thuPhi]]) : `<p class="empty">Chưa có — có sau khi đóng ca.</p>`));
-    out.push(nhom("QC thực tế", "tab QC thực tế", e.qc ? kvHTML([["Ngày KTV đóng ca", fmtT(m && m.t)], ["Số lượng lỗi", String(e.qc.soLoi)], ["Điểm chuẩn / trừ / thực", e.qc.diem], ["Ngày đánh giá", fmtT(e.qc.ngay)], ["Người đánh giá", e.qc.nguoi], ["Đánh giá lỗi báo cáo CRM", e.qc.dg]]) : `<p class="empty">Không tìm thấy kết quả QC thực tế liên quan đến ca này.</p>`, e.qc ? 1 : 0));
-  }
-  if (n === 7) out.push(nhom("Trả xác 3T", "mới", kvHTML([["Hạn trả xác", c.closedAt ? fmtT(addH(c.closedAt, 168)) : "7 ngày sau khi đóng ca"], ["Ngày trả", m ? fmtT(m.t) : "—"], ["Phiếu trả xác", m ? "TX-" + c.id.slice(-5) : "—"]]) + `<p class="note" style="margin:10px 0 0">Bước mới — DVBH hiện CHƯA có dữ liệu trả xác. Cần Giám đốc chốt nguồn (màn ④).</p>`));
-  if (n === 8) {
-    out.push(nhom("Xác nhận xác", "mới", kvHTML([["Người xác nhận", m ? m.nguoi : "—"], ["Kết quả", m ? "Đúng linh kiện đã cấp" : "—"]]) + `<p class="note" style="margin:10px 0 0">Bước mới — chưa có dữ liệu (màn ④).</p>`));
-    out.push(nhom("Gửi bảo hành hãng", "tab con Gửi BH", e.guiBh.map(x => `<div class="li"><div class="lt"><b>${x.ma}</b><span class="badge b-teal">${x.tt}</span></div><div class="lm">${fmtT(x.t)}</div></div>`).join("") || `<p class="empty">Chưa gửi linh kiện lỗi về hãng.</p>`, e.guiBh.length));
-  }
-  const lois = loiTai(c, n);
-  out.push(`<div class="grp-b"><div class="grp-h"><b>Mã lỗi / vi phạm của bước ${n}</b><span class="badge">${lois.filter(l => l.tt !== "Đã bỏ").length}</span><span class="cu">cũ: tab Vi phạm</span><button class="btn warn sm" style="margin-left:auto" data-act="ghiloi" data-buoc="${n}">⚠ Ghi nhận lỗi bước ${n}</button></div>
-    ${lois.map(l => { const i = c.loi.indexOf(l); return `<div class="li ${l.tt === "Đã bỏ" ? "bo" : l.tuDong ? "auto" : "loi"}"><div class="lt">${chipLoi(l)}<b>${esc(MA[l.ma].ten)}</b></div>
+      ${e.nkht.length ? `<div class="small muted" style="margin-top:8px"><b>Nhật ký hệ thống</b> (chỉ lưu log, không tính là đã giải trình)</div>${e.nkht.map(x => `<div class="li"><div class="lm tnum">${fmtT(x.t)} · Hệ thống</div><div class="lb">${x.txt}</div></div>`).join("")}` : ""}`, c.gt.length); },
+  bienBan: c => { const e = ex(c); return nhom("Biên bản họp", "tab Biên bản họp", `<textarea id="bbNd" rows="2" class="ta" placeholder="Ghi nội dung cuộc họp về ca này…"></textarea><div class="la"><button class="btn sm pri" data-act="bienban">+ Lưu biên bản họp</button></div>
+      ${e.bienBan.slice().reverse().map(x => `<div class="li"><div class="lm tnum">${fmtT(x.t)} · ${esc(x.nguoi)}</div><div class="lb">${esc(x.nd)}</div></div>`).join("") || `<p class="empty">Chưa có biên bản họp nào cho ca này.</p>`}`, e.bienBan.length); },
+  baoHanh: c => { const e = ex(c); return nhom("Bảo hành (app Sửa chữa)", "tab Bảo hành", e.suaChua.map(d => `<div class="li"><div class="lt"><b>${d.ma}</b></div><div class="lflow">${d.moc.map(([t, x]) => `<span class="${x ? "ok" : ""}">${x ? "✓" : "○"} ${t}</span>`).join("")}</div></div>`).join("") || `<p class="empty">Không có đơn sửa chữa bảo hành.</p>`, e.suaChua.length); },
+  ketQua: c => { const m = c.moc[6]; return nhom("Kết quả xử lý", "tab Thông tin › Bổ sung", kvHTML([["Đóng ca", m ? fmtT(m.t) : "Chưa đóng"], ["Kết quả", m ? "Hoàn thành XLSC" : "—"], ["Nội dung xử lý chi tiết", ex(c).boSung[3][1]]])); },
+  anh: c => { const e = ex(c); return nhom("Hình ảnh báo cáo công việc", "tab Thông tin", e.anh + e.video ? `<div class="pgrid">${Array.from({ length: e.anh }, (_, i) => `<div class="pimg" title="Ảnh ${i + 1} (demo)">🖼</div>`).join("")}${e.video ? `<div class="pimg v">▶</div>` : ""}</div>` : `<p class="empty">Chưa có ảnh.</p>`, `${e.anh} ảnh${e.video ? " · " + e.video + " video" : ""}`); },
+  dt: c => { const e = ex(c); return nhom("Doanh thu và thu phí", "tab Thông tin", e.dt ? kvHTML([["DT sản phẩm", e.dt.sp.toLocaleString("vi-VN") + " đ"], ["DT linh kiện", e.dt.lk.toLocaleString("vi-VN") + " đ"], ["DT dịch vụ", e.dt.dv.toLocaleString("vi-VN") + " đ"], ["Thu phí (Odoo)", e.dt.thuPhi]]) : `<p class="empty">Chưa có — có sau khi đóng ca.</p>`); },
+  qc: c => { const e = ex(c), m = c.moc[6]; return nhom("QC thực tế", "tab QC thực tế", e.qc ? kvHTML([["Ngày KTV đóng ca", fmtT(m && m.t)], ["Số lượng lỗi", String(e.qc.soLoi)], ["Điểm chuẩn / trừ / thực", e.qc.diem], ["Ngày đánh giá", fmtT(e.qc.ngay)], ["Người đánh giá", e.qc.nguoi], ["Đánh giá lỗi báo cáo CRM", e.qc.dg]]) : `<p class="empty">Không tìm thấy kết quả QC thực tế liên quan đến ca này.</p>`, e.qc ? 1 : 0); },
+  traXac: c => { const m = c.moc[7]; return nhom("Trả xác 3T", "mới", kvHTML([["Hạn trả xác", c.closedAt ? fmtT(addH(c.closedAt, 168)) : "7 ngày sau khi đóng ca"], ["Ngày trả", m ? fmtT(m.t) : "—"], ["Phiếu trả xác", m ? "TX-" + c.id.slice(-5) : "—"]]) + `<p class="note" style="margin:10px 0 0">Bước mới — DVBH hiện CHƯA có dữ liệu trả xác. Cần Giám đốc chốt nguồn (màn ④).</p>`); },
+  xacNhan: c => { const m = c.moc[8]; return nhom("Xác nhận xác", "mới", kvHTML([["Người xác nhận", m ? m.nguoi : "—"], ["Kết quả", m ? "Đúng linh kiện đã cấp" : "—"]]) + `<p class="note" style="margin:10px 0 0">Bước mới — chưa có dữ liệu (màn ④).</p>`); },
+  guiBh: c => { const e = ex(c); return nhom("Gửi bảo hành hãng", "tab con Gửi BH", e.guiBh.map(x => `<div class="li"><div class="lt"><b>${x.ma}</b><span class="badge b-teal">${x.tt}</span></div><div class="lm">${fmtT(x.t)}</div></div>`).join("") || `<p class="empty">Chưa gửi linh kiện lỗi về hãng.</p>`, e.guiBh.length); },
+  loi(c, lois, tieuDe, buoc) {
+    return `<div class="grp-b"><div class="grp-h"><b>${tieuDe}</b><span class="badge">${lois.filter(l => l.tt !== "Đã bỏ").length}</span><span class="cu">cũ: tab Vi phạm</span><button class="btn warn sm" style="margin-left:auto" data-act="ghiloi" ${buoc ? `data-buoc="${buoc}"` : ""}>${buoc ? `⚠ Ghi nhận lỗi bước ${buoc}` : "+ Tạo vi phạm thủ công"}</button></div>
+    ${lois.map(l => { const i = c.loi.indexOf(l); return `<div class="li ${l.tt === "Đã bỏ" ? "bo" : l.tuDong ? "auto" : "loi"}"><div class="lt">${chipLoi(l)}<b>${esc(MA[l.ma].ten)}</b>${buoc ? "" : `<span class="badge b-ocean">Bước ${l.ma === "F10" ? c.sla72Step : l.buoc}</span>`}</div>
       <div class="lm tnum">${l.tuDong ? "Máy tự phát hiện" : esc(l.nguoi)} · ${fmtT(l.t)} · ${l.tt === "Chờ QC chốt" ? '<span class="badge b-amber">Chờ QC chốt</span>' : l.tt === "Đã chốt" ? '<span class="badge b-red">Đã chốt</span>' : `<span class="badge">${esc(l.tt)}</span>`}</div>
       ${l.ghiChu ? `<div class="lb">${esc(l.ghiChu)}</div>` : ""}
-      ${!l.tuDong && l.tt === "Chờ QC chốt" ? `<div class="la"><button class="btn sm pri" data-act="chot" data-idx="${i}">✓ Chốt lỗi</button><button class="btn sm" data-act="bo" data-idx="${i}">Bỏ lỗi</button></div>` : ""}${hoSoVp(c, l)}</div>`; }).join("") || `<p class="empty">Không có lỗi ở bước này.</p>`}</div>`);
-  return out.join("");
-}
-function panelPC(c, n) {
+      ${!l.tuDong && l.tt === "Chờ QC chốt" ? `<div class="la"><button class="btn sm pri" data-act="chot" data-idx="${i}">✓ Chốt lỗi</button><button class="btn sm" data-act="bo" data-idx="${i}">Bỏ lỗi</button></div>` : ""}${hoSoVp(c, l)}</div>`; }).join("") || `<p class="empty">${buoc ? "Không có lỗi ở bước này." : "Chưa ghi nhận vi phạm nào cho ca này."}</p>`}</div>`;
+  },
+};
+const KHOI_BUOC = { 1: ["thongTin", "xinHuy"], 2: ["lichHen"], 3: ["muaHang", "loiLk"], 4: ["po", "thieu"], 5: ["pxk"], 6: ["gt", "bienBan", "baoHanh", "ketQua", "anh", "dt", "qc"], 7: ["traXac"], 8: ["xacNhan", "guiBh"] };
+function chiTietBuoc(c, n) { return KHOI_BUOC[n].map(k => B[k](c)).join("") + B.loi(c, loiTai(c, n), `Mã lỗi / vi phạm của bước ${n}`, n); }
+/* Khung chi tiết nối liền với tab đang nổi (kiểu bìa hồ sơ) */
+function panelBuoc(c, n) {
   const S = STEPS[n - 1];
-  return `<div class="panel" id="panel"><div class="ph"><span class="badge b-ocean">Bước ${n}</span><div><div class="pt">${esc(S.ten)}</div><div class="ps">${esc(S.moTa)} · Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}</div></div>
-    <button class="btn sm" data-act="mobuoc" data-buoc="${n}">▴ Thu gọn</button></div>${chiTietBuoc(c, n)}</div>`;
+  return `<div class="fpanel" id="panel"><div class="ph"><span class="badge b-ocean">Bước ${n}</span><div><div class="pt">${esc(S.ten)}</div><div class="ps">${esc(S.moTa)} · Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}</div></div></div>${chiTietBuoc(c, n)}</div>`;
 }
 
 /* Nhật ký đầy đủ = tab "Tiến trình chung" cũ */
@@ -987,14 +1046,20 @@ function phuHTML(c) {
 
 /* ----------------------------------------------------------------------
    5c. POPUP CHI TIẾT CA — đúng khung popup của app (CaseDetail.tsx):
-   Mở rộng = hộp giữa 99% × 99% màn hình · Ngắn gọn = ngăn kéo phải 672px · điện thoại luôn Ngắn gọn
+   Mở rộng = hộp giữa rộng 98% màn hình, 4 viền cách đều 1% bề rộng · Ngắn gọn = ngăn kéo phải 672px · điện thoại luôn Ngắn gọn
    ---------------------------------------------------------------------- */
 let stack = [], cdMode = "expanded";
 const getCa = () => CASES.find(c => c.id === stack[stack.length - 1]);
 const buocMobile = () => innerWidth < 768;
+/* Lựa chọn của người dùng lưu trên máy (localStorage) — mở lại popup / tải lại trang vẫn giữ */
+const LS = { get(k, d) { try { const v = localStorage.getItem("dvbh-demo:" + k); return v == null ? d : v; } catch { return d; } }, set(k, v) { try { localStorage.setItem("dvbh-demo:" + k, v); } catch {} } };
+let uiVer = LS.get("ui", "v2");                    // mặc định giao diện v2
+let hienTienTrinh = LS.get("tien-trinh", "0") === "1"; // mặc định ẩn tiến trình 8 bước
+let v1Tab = null, v1Sub = "thong-tin", v1All = false;
+const buocMacDinh = c => c.cur <= 8 && !c.skip.has(c.cur) ? c.cur : 1;
 function openCase(id, push) {
   if (push) stack.push(id); else stack = [id];
-  moBuoc = null; phuTab = "tien-trinh"; moTrong = false;
+  moBuoc = null; phuTab = "tien-trinh"; moTrong = false; v1Tab = null; v1Sub = "thong-tin";
   $("#cd").classList.add("on"); document.body.style.overflow = "hidden"; closePop(); anTip();
   renderChiTiet(); $("#cdBody").scrollTop = 0;
 }
@@ -1009,16 +1074,10 @@ function tickers(c) {
   const cho = c.loi.filter(l => l.tt === "Chờ QC chốt").length; if (cho) t.push(`<span class="badge b-amber">${cho} lỗi chờ QC chốt</span>`);
   return t.join("");
 }
-function renderChiTiet() {
-  const c = getCa(); if (!c) return;
-  const e = ex(c), tong = tuoiTonH(c), quaSla = tong > SLA_TONG_H, cur = c.cur <= 8 ? STEPS[c.cur - 1] : null, soLoi = loiSong(c).length;
-  const mode = buocMobile() ? "compact" : cdMode;
-  $("#cd").classList.toggle("compact", mode === "compact");
+function headHTML(c, mode) {
+  const e = ex(c), tong = tuoiTonH(c), quaSla = tong > SLA_TONG_H;
   const ttCa = e.huy ? "" : c.cur <= 6 ? `<span class="badge b-amber">Đang tồn · ${fmtDur(tong)}</span>` : c.cur <= 8 ? `<span class="badge b-violet">Đã đóng ca · còn tồn xác</span>` : `<span class="badge b-teal">Đã xong cả 8 bước</span>`;
-  const slaH = c.closedAt && c.cur > 6 ? (c.closedAt - c.created) / 3600e3 : tong, pct = Math.min(100, slaH / SLA_TONG_H * 100);
-  const slaMau = slaH > SLA_TONG_H ? "var(--pink-700)" : slaH > SLA_TONG_H * .75 ? "var(--amber-500)" : "var(--teal-500)";
-  const coGT = c.cur <= 6 && !e.huy;
-  $("#cdHead").innerHTML = `<div class="cd-hl">
+  return `<div class="cd-hl">
       ${stack.length > 1 ? `<div class="cd-back"><button class="btn sm ghost" data-act="back">← Quay lại</button><button class="btn sm ghost" data-act="root">⏮ Về ca ${stack[0]}</button></div>` : ""}
       <h3 id="cdTitle">Chi tiết ca ${c.id}</h3><div class="cd-tags">${ttCa}${e.huy ? `<span class="badge" style="background:var(--ink-700);color:#fff">🚫 Đã hủy: ${esc(e.huy)}</span>` : ""}
       ${c.mucDo !== "Thường" ? `<span class="badge b-red">${c.mucDo}</span>` : ""}${quaSla ? `<span class="badge b-pink">⚑ Quá SLA 72h</span>` : ""}
@@ -1026,12 +1085,50 @@ function renderChiTiet() {
       <button class="btn sm" data-act="crm">🔗 Link CRM</button>${e.huy ? `<button class="btn sm ghost" data-act="bohuy">Bỏ hủy ca</button>` : `<button class="btn sm warn" data-act="huyca">Hủy ca</button>`}
     </div></div>
     ${mode === "expanded" && c.cur > 6 ? `<div class="cd-cache">💾 Dữ liệu khách hàng đã lưu về máy bạn · 🕐 ${fmtT(addH(NOW, -3))} <button data-act="dongbo">🔄 Đồng bộ lại</button></div>` : ""}
-    <div class="cd-hr">${buocMobile() ? "" : `<div class="seg"><button class="${mode === "compact" ? "on" : ""}" data-act="mode" data-m="compact">Ngắn gọn</button><button class="${mode === "expanded" ? "on" : ""}" data-act="mode" data-m="expanded">Mở rộng</button></div>`}
+    <div class="cd-hr">${buocMobile() ? "" : `<div class="seg" title="Kiểu xem"><button class="${mode === "compact" ? "on" : ""}" data-act="mode" data-m="compact">Ngắn gọn</button><button class="${mode === "expanded" ? "on" : ""}" data-act="mode" data-m="expanded">Mở rộng</button></div>`}
+      <div class="seg ui" title="Giao diện v1 = như DVBH hiện tại · v2 = theo 8 bước (mặc định)"><button class="${uiVer === "v1" ? "on" : ""}" data-act="ui" data-u="v1">v1</button><button class="${uiVer === "v2" ? "on" : ""}" data-act="ui" data-u="v2">v2</button></div>
       <button class="cd-x" data-act="close" aria-label="Đóng">✕</button></div>`;
+}
+
+/* Tab quạt: 8 thẻ chồng mép nhau như bìa hồ sơ; thẻ đang chọn nổi lên, rộng gấp 3, nối liền khung chi tiết bên dưới */
+function fanHTML(c) {
+  const act = moBuoc;
+  const cols = STEPS.map(S => S.n === act ? "3fr" : "1fr").join(" ");
+  return `<div class="fan" id="fan" role="tablist" aria-label="8 bước" style="grid-template-columns:${cols}">${STEPS.map(S => {
+    const n = S.n, st = trangThai(c, n), on = n === act, soLoi = loiTaiSong(c, n).length, L = st === "skip" ? [] : tomLuoc(c, n);
+    return `<button class="ftab ${st}${on ? " on" : ""}" role="tab" aria-selected="${on}" data-act="chon" data-buoc="${n}" id="ft-${n}">
+      <div class="ft-h"><span class="ft-n">${st === "done" ? "✓" : st === "skip" ? "–" : n}</span><span class="ft-t">${esc(S.ten)}</span>${soLoi && on ? `<span class="chip loi">${soLoi} lỗi</span>` : ""}</div>
+      <div class="ft-s">${soLoi && !on ? `<span class="chip loi">${soLoi} lỗi</span> ` : ""}${st === "skip" ? (n === 4 ? "Bỏ qua · kho có sẵn" : "Bỏ qua · không thay LK") : whenNgan(c, n)}</div>
+      ${st === "skip" ? "" : `<div class="ft-sub">${esc(S.the)}</div><div class="ft-b">${L.map(x => `<div class="ln">${x}</div>`).join("")}</div>`}
+      ${on && st !== "skip" ? `<div class="ft-m">${metricsHTML(c, n)}</div>` : ""}
+      <div class="ft-f">${on ? "Đang xem ▾" : st === "skip" ? "" : "Xem ›"}</div></button>`;
+  }).join("")}</div>${panelBuoc(c, act)}`;
+}
+
+function v2HTML(c) {
+  const e = ex(c), tong = tuoiTonH(c), cur = c.cur <= 8 ? STEPS[c.cur - 1] : null, coGT = c.cur <= 6 && !e.huy;
+  const slaH = c.closedAt && c.cur > 6 ? (c.closedAt - c.created) / 3600e3 : tong, pct = Math.min(100, slaH / SLA_TONG_H * 100);
+  const slaMau = slaH > SLA_TONG_H ? "var(--pink-700)" : slaH > SLA_TONG_H * .75 ? "var(--amber-500)" : "var(--teal-500)";
   const legend = `<div class="legend"><span class="lg"><i style="background:var(--teal-500);border-color:var(--teal-500)"></i>Đã xong</span><span class="lg"><i style="background:var(--amber-500);border-color:var(--amber-500)"></i>Đang xử lý</span><span class="lg"><i></i>Chưa tới</span><span class="lg"><i style="border-style:dashed"></i>Bỏ qua</span>
       <span class="lg"><span class="chip loi">Lỗi B1</span> người ghi</span><span class="lg"><span class="chip auto">B6 · …</span> máy phát hiện</span><span class="lg"><span class="chip sla72">⚑ Quá SLA 72h</span> bước lúc vượt 72h</span><span class="lg"><span class="chip gt">GT: …</span> giải trình</span>
       <span class="lg">${HOVER ? "Rê chuột" : "Chạm"} vào mốc / chip để xem đủ</span></div>`;
-  $("#cdBody").innerHTML = `
+  const tienTrinh = `<div class="w-only"><div class="flow">${STEPS.map(S => {
+        const st = trangThai(c, S.n), bad = loiTaiSong(c, S.n).length > 0, m = c.moc[S.n];
+        const tip = `<b>${S.n}. ${esc(S.ten)}</b><br>${esc(S.moTa)}<br>Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}<br>` +
+          (st === "done" ? `Xong: ${fmtT(m.t)} · ${esc(m.nguoi)}${m.dur ? "<br>Mất: " + fmtDur(m.dur) : ""}` : st === "cur" ? `Đang chờ ${fmtDur(c.waitH)}` : st === "skip" ? "Bỏ qua (không áp dụng cho ca này)" : "Chưa tới");
+        return `<div class="col ${st}${bad ? " hasbad" : ""}${S.n === moBuoc ? " sel" : ""}">
+          <div class="shead"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span></div>
+          <div class="rail"><div class="dot" data-tip="${esc(tip)}" data-act="mobuoc" data-buoc="${S.n}">${dotIcon(st, S.n)}</div></div>
+          ${whenHTML(c, S.n)}<div class="metrics">${metricsHTML(c, S.n)}</div></div>`;
+      }).join("")}</div></div>
+    <div class="n-only"><div class="mrail">${STEPS.map(S => { const st = trangThai(c, S.n); return `<button class="md ${st}" data-act="mobuoc" data-buoc="${S.n}" aria-label="Bước ${S.n}"><span class="dot">${dotIcon(st, S.n)}</span><span class="dn">${S.n}</span></button>`; }).join("")}</div>
+      <div class="mlist">${STEPS.map(S => {
+        const st = trangThai(c, S.n), bad = loiTaiSong(c, S.n).length > 0;
+        if (st === "skip") return `<div class="ms skip" id="ms-${S.n}"><span class="dot">–</span><div class="ms-h"><div class="ms-m"><div class="ms-t"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span><span class="wh">bỏ qua</span></div><div class="ms-s"><span class="m muted small">${S.n === 4 ? "Kho có sẵn, không cần mua" : "Ca không thay linh kiện"}</span></div></div></div></div>`;
+        return `<div class="ms ${st}${bad ? " hasbad" : ""}" id="ms-${S.n}"><span class="dot">${dotIcon(st, S.n)}</span>
+          <div class="ms-h" data-act="mobuoc" data-buoc="${S.n}" role="button"><div class="ms-m"><div class="ms-t"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span><span class="wh">${whenNgan(c, S.n)}</span></div><div class="ms-s">${metricsHTML(c, S.n)}</div></div><span class="ms-c">›</span></div></div>`;
+      }).join("")}</div></div>${legend}`;
+  return `
   <div class="card hdr">
     <div class="hl"><div class="meta"><div><span>Khách hàng</span><b>${esc(c.kh)} · ${esc(c.sdt)}</b></div><div><span>Sản phẩm · Serial</span><b>${esc(c.nhom)} ${esc(c.hang)} ${esc(c.model)} · ${esc(c.serial)}</b></div><div><span>KTV · Khu vực</span><b>${esc(c.ktv)} · ${esc(c.khuVuc)}</b></div><div><span>Đối tác · Loại yêu cầu</span><b>${esc(c.doiTac)} · ${esc(c.loaiYc)}</b></div></div></div>
     <div class="acts">${coGT ? `<button class="btn pri" data-act="giaitrinh">✍ Giải trình tồn</button>` : ""}<button class="btn warn" data-act="ghiloi">⚠ Ghi nhận lỗi</button></div>
@@ -1039,33 +1136,63 @@ function renderChiTiet() {
   <div class="card">
     <div class="fhead"><div><div class="ftitle">Tiến trình 8 bước</div><div class="fsub">${e.huy ? `<b style="color:var(--ink-700)">Ca đã hủy</b>` : cur ? `Đang ở <b>bước ${cur.n}/8 · ${esc(cur.ten)}</b> · chờ ${fmtDur(c.waitH)} · phụ trách ${esc(cur.ai)}` : `<span style="color:var(--teal-600);font-weight:700">Đã hoàn tất cả 8 bước</span>`}</div></div>
       <div class="slabar"><div class="sl-l"><span>SLA tổng 72h (bước 1 → 6)</span><b style="color:${slaMau}">${fmtDur(slaH)}${c.cur > 6 ? " (đã đóng)" : ""}</b></div><div class="sl-b"><i style="width:${pct}%;background:${slaMau}"></i></div></div>
+      <button class="btn sm tt-tg" data-act="tientrinh" aria-expanded="${hienTienTrinh}" title="Lựa chọn được lưu trên máy">${hienTienTrinh ? "▴ Ẩn tiến trình" : "▾ Hiện tiến trình 8 bước"}</button>
     </div>
-    <div class="w-only">
-      <div class="flow">${STEPS.map(S => {
-        const st = trangThai(c, S.n), bad = loiTaiSong(c, S.n).length > 0, m = c.moc[S.n];
-        const tip = `<b>${S.n}. ${esc(S.ten)}</b><br>${esc(S.moTa)}<br>Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}<br>` +
-          (st === "done" ? `Xong: ${fmtT(m.t)} · ${esc(m.nguoi)}${m.dur ? "<br>Mất: " + fmtDur(m.dur) : ""}` : st === "cur" ? `Đang chờ ${fmtDur(c.waitH)}` : st === "skip" ? "Bỏ qua (không áp dụng cho ca này)" : "Chưa tới");
-        return `<div class="col ${st}${bad ? " hasbad" : ""}">
-          <div class="shead"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span></div>
-          <div class="rail"><div class="dot" data-tip="${esc(tip)}" data-act="mobuoc" data-buoc="${S.n}">${dotIcon(st, S.n)}</div></div>
-          ${whenHTML(c, S.n)}<div class="metrics">${metricsHTML(c, S.n)}</div>${theHTML(c, S.n)}</div>`;
-      }).join("")}</div>
-      ${moBuoc ? panelPC(c, moBuoc) : ""}
-    </div>
-    <div class="n-only">
-      <div class="mrail">${STEPS.map(S => { const st = trangThai(c, S.n); return `<button class="md ${st}" data-act="nhay" data-buoc="${S.n}" aria-label="Bước ${S.n}"><span class="dot">${dotIcon(st, S.n)}</span><span class="dn">${S.n}</span></button>`; }).join("")}</div>
-      <div class="mlist">${STEPS.map(S => {
-        const st = trangThai(c, S.n), open = moBuoc === S.n, bad = loiTaiSong(c, S.n).length > 0;
-        if (st === "skip") return `<div class="ms skip" id="ms-${S.n}"><span class="dot">–</span><div class="ms-h"><div class="ms-m"><div class="ms-t"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span><span class="wh">bỏ qua</span></div><div class="ms-s"><span class="m muted small">${S.n === 4 ? "Kho có sẵn, không cần mua" : "Ca không thay linh kiện"}</span></div></div></div></div>`;
-        return `<div class="ms ${st}${bad ? " hasbad" : ""}${open ? " open" : ""}" id="ms-${S.n}"><span class="dot">${dotIcon(st, S.n)}</span>
-          <div class="ms-h" data-act="mobuoc" data-buoc="${S.n}" role="button" aria-expanded="${open}"><div class="ms-m"><div class="ms-t"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span><span class="wh">${whenNgan(c, S.n)}</span></div><div class="ms-s">${metricsHTML(c, S.n)}</div></div><span class="ms-c">▾</span></div>
-          ${open ? `<div class="ms-b"><div class="tl"><div class="sub">${esc(S.the)} · ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}</div>${tomLuoc(c, S.n).map(x => `<div>${x}</div>`).join("")}</div>${chiTietBuoc(c, S.n)}</div>` : ""}</div>`;
-      }).join("")}</div>
-    </div>
-    ${legend}
+    ${hienTienTrinh ? `<div class="tt-body">${tienTrinh}</div>` : ""}
+    ${fanHTML(c)}
   </div>
   ${phuHTML(c)}
   <div class="cd-f">${coGT ? `<button class="btn pri" data-act="giaitrinh">✍ Giải trình</button>` : ""}<button class="btn warn" data-act="ghiloi">⚠ Ghi lỗi</button></div>`;
+}
+
+/* Giao diện v1 = đúng bố cục popup DVBH hiện tại: Mở rộng = cột trái Thông tin + cột phải 15 tab; Ngắn gọn = 1 dãy tab */
+function v1Tabs(c) {
+  const e = ex(c), phu = Object.fromEntries(phuTabs(c).map(x => [x.k, x]));
+  const ds = [
+    { k: "tien-trinh-chung", t: "Tiến trình chung", n: phu["tien-trinh"].n, h: () => nhatKy(c) },
+    { k: "giai-trinh", t: "GT tồn", n: c.gt.length, h: () => B.gt(c) },
+    { k: "bien-ban-hop", t: "Biên bản họp", n: e.bienBan.length, h: () => B.bienBan(c) },
+    { k: "vi-pham", t: "Vi phạm", n: loiSong(c).filter(l => !l.tuDong).length, h: () => B.loi(c, c.loi, "Vi phạm", null) },
+    { k: "khao-sat", t: "Khảo sát", n: e.khaoSat.length, h: () => phu["khao-sat"].html() },
+    { k: "ca-lap", t: "Ca lặp", n: e.caLap ? 1 : 0, h: () => phu["ca-lap"].html() },
+    { k: "nap-gas", t: "Nạp gas", n: e.napGas ? 1 : 0, h: () => phu["nap-gas"].html() },
+    { k: "bao-hanh-app", t: "Bảo hành", n: e.suaChua.length, h: () => B.baoHanh(c) },
+    { k: "mua-hang", t: "Mua hàng", n: c.lk ? 1 : 0, h: () => B.muaHang(c) + B.pxk(c) },
+    { k: "thieu-hang", t: "Thiếu hàng", n: c.po && c.po.lyDo ? 1 : 0, h: () => B.thieu(c) },
+    { k: "po-dat-hang", t: "PO đặt hàng", n: c.po ? 1 : 0, h: () => B.po(c) },
+    { k: "qc-thuc-te", t: "QC thực tế", n: e.qc ? 1 : 0, h: () => B.qc(c) },
+    { k: "tranh-chap", t: "Tranh chấp", n: e.tranhChap ? 1 : 0, h: () => phu["tranh-chap"].html() },
+    { k: "luong-mail", t: "Đổi trả", n: e.doiTra.length, h: () => phu["doi-tra"].html() },
+  ];
+  if (e.nskx) ds.unshift({ k: "nskx", t: "NSKX", n: 1, h: () => phu.nskx.html() });
+  return ds;
+}
+function v1Info(c) {
+  const e = ex(c), sub = [["thong-tin", "Thông tin case", null], ["loi", "Lỗi", e.loiLk.length], ["gui-bh", "Gửi BH", e.guiBh.length], ["lich-hen", "Lịch hẹn", c.lichHen.length], ["xin-huy", "Xin hủy", e.xinHuy.length]];
+  const body = v1Sub === "loi" ? B.loiLk(c) : v1Sub === "gui-bh" ? B.guiBh(c) : v1Sub === "lich-hen" ? B.lichHen(c) : v1Sub === "xin-huy" ? B.xinHuy(c) : B.thongTin(c) + B.anh(c) + B.dt(c);
+  return `<div class="v1sub">${sub.map(([k, t, n]) => `<button class="${k === v1Sub ? "on" : ""}" data-act="v1sub" data-k="${k}">${t}${n != null ? ` <span class="c">${n}</span>` : ""}</button>`).join("")}</div>${body}`;
+}
+function v1HTML(c, mode) {
+  const ds = v1Tabs(c), them = mode === "compact" ? [{ k: "info", t: "Thông tin", n: null, h: () => v1Info(c) }] : [];
+  const all = them.concat(ds);
+  if (!v1Tab || !all.some(x => x.k === v1Tab)) v1Tab = mode === "compact" ? "info" : "giai-trinh";
+  const trong = all.filter(x => x.n === 0 && x.k !== v1Tab), hien = v1All ? all : all.filter(x => x.n !== 0 || x.k === v1Tab);
+  const cur = all.find(x => x.k === v1Tab);
+  const bar = `<div class="v1tabs" role="tablist">${hien.map(x => `<button role="tab" class="${x.k === v1Tab ? "on" : ""}" data-act="v1tab" data-k="${x.k}">${x.t}${x.n != null ? `<span class="c">${x.n}</span>` : ""}</button>`).join("")}${trong.length ? `<button class="more" data-act="v1all">${v1All ? "Thu gọn ▲" : `+${trong.length} tab trống ▾`}</button>` : ""}</div>`;
+  if (mode === "compact") return `<div class="v1one">${bar}<div class="v1c">${cur.h()}</div></div>`;
+  return `<div class="v1grid"><div class="v1l">${v1Info(c)}</div><div class="v1r">${bar}<div class="v1c">${cur.h()}</div></div></div>`;
+}
+
+function renderChiTiet() {
+  const c = getCa(); if (!c) return;
+  if (!moBuoc || c.skip.has(moBuoc)) moBuoc = buocMacDinh(c);
+  const mode = buocMobile() ? "compact" : cdMode;
+  $("#cd").classList.toggle("compact", mode === "compact");
+  $("#cd").classList.toggle("v1", uiVer === "v1");
+  $("#cd").classList.toggle("v1x", uiVer === "v1" && mode === "expanded");
+  $("#cdHead").innerHTML = headHTML(c, mode);
+  $("#cdBody").innerHTML = uiVer === "v1" ? v1HTML(c, mode) : v2HTML(c);
+  if (uiVer === "v2") { const t = document.getElementById("ft-" + moBuoc); if (t && t.parentElement.scrollWidth > t.parentElement.clientWidth) t.parentElement.scrollLeft = t.offsetLeft - 12; }
 }
 
 /* Màn nền ①: danh sách ca (giống mọi màn có mã ca trong app) — bấm dòng mở popup */
@@ -1392,9 +1519,12 @@ function renderPhuongAn() {
   <h3>E. Popup Chi tiết ca — giữ đúng khung popup đang dùng</h3>
   <p>Trên DVBH, Chi tiết ca là <b>popup</b> mở từ mọi nơi bấm mã ca (Danh sách, Quản lý tồn, Vi phạm, Ca lặp…), không phải 1 trang riêng. Mẫu giữ nguyên khung đó, chỉ thay phần thân:</p>
   ${tbl(["Chế độ", "Khung (như hiện tại)", "Thân popup (mới)"], [
-    ["<b>Mở rộng</b> (máy tính, mặc định)", "Hộp giữa màn hình 99% × 99% (yêu cầu 27/11, app hiện tại 95% × 92%), nền mờ phía sau, bấm ra ngoài / ✕ / Esc để đóng", "8 cột thẳng hàng như bản vẽ; bấm \"▾ Chi tiết\" xổ khung chi tiết bước ngay dưới luồng"],
+    ["<b>Mở rộng</b> (máy tính, mặc định)", "Hộp giữa màn hình rộng 98%, 4 viền cách đều nhau (yêu cầu 27/11, app hiện tại 95% × 92%), nền mờ phía sau, bấm ra ngoài / ✕ / Esc để đóng", "8 cột thẳng hàng như bản vẽ; bấm \"▾ Chi tiết\" xổ khung chi tiết bước ngay dưới luồng"],
     ["<b>Ngắn gọn</b> (máy tính chọn, hoặc điện thoại — luôn ở chế độ này)", "Ngăn kéo bên phải rộng 672px (điện thoại: toàn màn hình)", "Thanh 8 chấm + danh sách bước dọc, chạm bước nào xổ bước đó; nút Giải trình / Ghi lỗi ghim đáy popup"],
     ["Mở ca khác trong popup", "\"← Quay lại\" · \"⏮ Về ca …\" (giữ nguyên)", "Thử: tab \"Ca lặp\" → bấm mã ca trong chuỗi serial"],
+    ["Tiến trình 8 bước (đường ngang + chỉ số + mã lỗi)", "—", "<b>Mặc định ẩn</b>; nút \"▾ Hiện tiến trình 8 bước\" để mở. Lựa chọn lưu trên máy (mở ca khác / tải lại trang vẫn giữ). Dòng \"Đang ở bước … · SLA 72h\" luôn hiện."],
+    ["8 ô thông tin tóm lược", "—", "<b>Tab quạt</b>: 8 thẻ chồng mép như bìa hồ sơ; bấm thẻ nào thẻ đó nổi lên, <b>rộng gấp 3</b>, hiện đủ thông tin tóm lược + chỉ số + mã lỗi, khung chi tiết của bước nối liền ngay dưới. Mở ca: tự chọn bước đang xử lý. Điện thoại: dãy thẻ vuốt ngang."],
+    ["Giao diện v1 / v2", "—", "Nút <b>v1 | v2</b> cạnh \"Ngắn gọn / Mở rộng\". <b>v2 (mặc định)</b> = theo 8 bước; <b>v1</b> = giữ nguyên bố cục DVBH hiện tại (Mở rộng: cột Thông tin + 15 tab, mặc định tab GT tồn; Ngắn gọn: 1 dãy tab, mặc định Thông tin). Lựa chọn lưu trên máy. Hai giao diện dùng chung 1 nguồn dữ liệu."],
     ["Hộp thoại con", "Nằm trên popup (Thêm giải trình, Tạo vi phạm, Hủy ca, Blacklist…)", "Giữ nguyên; điện thoại hiện dạng trượt từ dưới lên"],
   ])}
   <p class="small muted">Chọn bố cục theo <b>bề rộng popup</b> (không theo bề rộng màn hình): popup ≥ 960px → 8 cột; hẹp hơn (ngăn kéo, máy tính bảng, điện thoại) → danh sách dọc. Chỉ thân popup cuộn, thanh tiêu đề luôn đứng yên.</p>
@@ -1535,7 +1665,7 @@ $("#nav").onclick = e => { const b = e.target.closest("button"); if (b) doiView(
 let tId;
 function toast(s) { const t = $("#toast"); t.textContent = s; t.style.display = "block"; clearTimeout(tId); tId = setTimeout(() => t.style.display = "none", 2600); }
 function cuonToiBuoc(n) {
-  requestAnimationFrame(() => { const ms = document.getElementById("ms-" + n), el = ms && ms.offsetParent ? ms : $("#panel"); if (el) el.scrollIntoView({ block: "start" }); });
+  requestAnimationFrame(() => { const el = $("#fan"); if (el) el.scrollIntoView({ block: "start" }); });
 }
 
 $("#v-chitiet").addEventListener("click", e => { const b = e.target.closest("[data-open]"); if (b) openCase(b.dataset.open); });
@@ -1543,10 +1673,15 @@ $("#cd").addEventListener("pointerdown", e => { if (e.target.id === "cd") closeC
 $("#cd").addEventListener("click", e => {
   const a = e.target.closest("[data-act]"); if (!a) return;
   const act = a.dataset.act, c = getCa(), x = ex(c);
-  if (act === "mobuoc" || act === "nhay") {
+  if (act === "mobuoc" || act === "chon") {
     const n = +a.dataset.buoc; if (c.skip.has(n)) { toast("Bước này bỏ qua với ca này"); return; }
-    moBuoc = act === "nhay" ? n : moBuoc === n ? null : n; renderChiTiet(); if (moBuoc) cuonToiBuoc(n);
+    moBuoc = n; renderChiTiet(); if (act === "mobuoc") cuonToiBuoc(n);
   }
+  if (act === "tientrinh") { hienTienTrinh = !hienTienTrinh; LS.set("tien-trinh", hienTienTrinh ? "1" : "0"); renderChiTiet(); }
+  if (act === "ui") { uiVer = a.dataset.u; LS.set("ui", uiVer); renderChiTiet(); $("#cdBody").scrollTop = 0; toast(uiVer === "v1" ? "Giao diện v1 — như DVBH hiện tại" : "Giao diện v2 — theo 8 bước"); }
+  if (act === "v1tab") { v1Tab = a.dataset.k; renderChiTiet(); }
+  if (act === "v1sub") { v1Sub = a.dataset.k; renderChiTiet(); }
+  if (act === "v1all") { v1All = !v1All; renderChiTiet(); }
   if (act === "close") closeCase();
   if (act === "back") { stack.pop(); moBuoc = null; renderChiTiet(); $("#cdBody").scrollTop = 0; }
   if (act === "root") { stack = [stack[0]]; moBuoc = null; renderChiTiet(); $("#cdBody").scrollTop = 0; }

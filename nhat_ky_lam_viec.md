@@ -6574,3 +6574,19 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Đã làm: `docs/demo/chi-tiet-ca-8-buoc.html` — hộp popup Mở rộng 99vw × 99vh (dùng 99dvh trên trình duyệt hỗ trợ để không bị thanh địa chỉ điện thoại che), bỏ lề 24px quanh
   popup; Ngắn gọn (ngăn kéo 672px) và điện thoại giữ nguyên. Ghi chú màn ④: app hiện tại đang 95% × 92% → khi code GĐ1 đổi `w-[95vw] h-[92vh]` trong `CaseDetail.tsx`.
 - Kiểm thử: 1440×900 → hộp 1425,6 × 891px (99% × 99%), không lỗi console.
+
+## 2026-11-27 (4) — Demo chi tiết ca: tiến trình mặc định ẩn · tab quạt 8 bước · nút v1/v2 · popup 98% cách đều 4 viền
+
+- Yêu cầu (nguyên văn): "1. tiến trình 8 bước mặc định ẩn, người dùng có thể show ra (lưu lựa chọn trên cache. ô thông tin 2. 8 ô chi tiết bên dưới thiết kế dạng tab quạt.
+  ấn tab nào thì nổi tab đó lên và hiện giao diện to x3 lần để hiện thị đủ thông tin. 3. giao diện cũ hiện tại vẫn giữ lại. bên cạnh nút (ngắn gọn/mở rộng) => thêm nút
+  (tắt bật giao diện v1/v2). mặc định v2" và "fix lại 98% để 4 viền cân bằng khoảng cách".
+- Đã làm (`docs/demo/chi-tiet-ca-8-buoc.html`):
+  - Tiến trình 8 bước (đường ngang + chỉ số + mã lỗi; điện thoại: thanh 8 chấm + danh sách) mặc định ẩn, nút "▾ Hiện tiến trình 8 bước"; lựa chọn lưu localStorage
+    `dvbh-demo:tien-trinh`. Dòng "Đang ở bước … · SLA 72h" luôn hiện.
+  - 8 ô tóm lược → tab quạt: thẻ chồng mép, thẻ chọn nổi lên, cột rộng 3fr (gấp 3 thẻ khác), hiện đủ dòng tóm lược + chỉ số + mã lỗi; khung chi tiết bước nối liền dưới
+    thẻ (bỏ nút Thu gọn — luôn có 1 bước đang xem, mặc định bước đang xử lý). Hẹp (ngăn kéo / điện thoại): dãy thẻ vuốt ngang, thẻ chọn rộng ~3 lần.
+  - Nút v1 | v2 cạnh Ngắn gọn / Mở rộng (điện thoại vẫn có), mặc định v2, lưu `dvbh-demo:ui`. v1 = bố cục popup DVBH hiện tại (Mở rộng: cột Thông tin 38% + tab con
+    Thông tin case / Lỗi / Gửi BH / Lịch hẹn / Xin hủy, cột phải 15 tab có số đếm + "+N tab trống", mặc định GT tồn; Ngắn gọn: 1 dãy tab, mặc định Thông tin).
+    Nội dung tách thành khối dùng chung `B.*` — v2 ghép theo bước (`KHOI_BUOC`), v1 ghép theo tab cũ.
+  - Popup Mở rộng: rộng 98vw, cao 100vh − 2vw → 4 viền cách đều (1440×900: 14,4px mỗi viền).
+- Kiểm thử: 1440 / 375px; dựng 73 ca × 8 bước × v1/v2 × Ngắn gọn/Mở rộng (+ mọi tab v1) → không lỗi, không tràn ngang; thử lưu lựa chọn tiến trình / v1-v2 qua tải lại.
