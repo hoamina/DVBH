@@ -32,6 +32,8 @@ export interface ChiTietCaV2Props {
   hanhDong: ReactNode;
   // Ca doi chieu (bam ca khac trong chuoi serial o Ca lap) - hien canh tren dai tab phu.
   doiChieu: ReactNode;
+  // Yeu cau dieu huong tu ngoai (chip "nhay tab" cua v1, module khac mo ca thang 1 tab): mo buoc `so` hoac cuon toi dai tab phu.
+  yeuCauMo?: { so: number | null; tabPhu: boolean; seq: number } | null;
 }
 
 const MAU_BUOC: Record<number, string> = {
@@ -75,11 +77,12 @@ function gioNgan(b: BuocQuyTrinh): string {
   return b.luc ? fmtDateTime(b.luc) : "";
 }
 
-export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhuDangChon, onChonTabPhu, hanhDong, doiChieu }: ChiTietCaV2Props) {
+export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhuDangChon, onChonTabPhu, hanhDong, doiChieu, yeuCauMo }: ChiTietCaV2Props) {
   const [moBuoc, setMoBuoc] = useState<number | null>(null);
   const [chonBuoc, setChonBuoc] = useState<number | null>(kq.buocHienTai?.so ?? null);
   const [hienTabTrong, setHienTabTrong] = useState(false);
   const theRefs = useRef<Record<number, HTMLElement | null>>({});
+  const phuRef = useRef<HTMLElement | null>(null);
 
   // Doi ca (popup mo ca khac) -> ve lai buoc hien tai, dong the dang mo.
   useEffect(() => {
@@ -92,6 +95,12 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
     if (mo) setMoBuoc(so);
     requestAnimationFrame(() => theRefs.current[so]?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
+
+  useEffect(() => {
+    if (!yeuCauMo) return;
+    if (yeuCauMo.so) den(yeuCauMo.so, true);
+    else if (yeuCauMo.tabPhu) requestAnimationFrame(() => phuRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [yeuCauMo?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tomTat = useMemo(() => {
     const h = kq.buocHienTai;
@@ -249,7 +258,7 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
       {doiChieu && <section className="cdv2-card">{doiChieu}</section>}
 
       {/* Thong tin ngoai 8 buoc */}
-      <section className="cdv2-card">
+      <section className="cdv2-card" ref={phuRef} style={{ scrollMarginTop: 12 }}>
         <div className="cdv2-ftitle">{tr("Thông tin ngoài 8 bước")}</div>
         <div className="cdv2-otabs" role="tablist">
           {tabHien.map((t) => (

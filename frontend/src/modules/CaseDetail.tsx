@@ -867,6 +867,27 @@ export function CaseDetail({
   }
   // v2: tab dang chon o dai "Thong tin ngoai 8 buoc" (rieng voi `tab` cua v1).
   const [v2TabPhu, setV2TabPhu] = useState("tien-trinh-chung");
+  // v2: khoa tab cu (onTabChange / openCase(id, tab) / chip "nhay tab") -> mo dung buoc hoac dai tab phu.
+  const [v2YeuCauMo, setV2YeuCauMo] = useState<{ so: number | null; tabPhu: boolean; seq: number } | null>(null);
+  const v2TabDauRef = useRef<{ caseId: string | null; tab: string } | null>(null);
+  useEffect(() => {
+    if (giaoDienCt !== "v2") return;
+    const dau = v2TabDauRef.current;
+    v2TabDauRef.current = { caseId, tab };
+    // Lan dau mo ca voi tab MAC DINH (giai-trinh / info) -> khong tu mo buoc nao; tab khac (module ngoai chi dinh) hoac doi tab sau do -> dieu huong.
+    if ((!dau || dau.caseId !== caseId) && (tab === "giai-trinh" || tab === "info")) return;
+    if (dau && dau.caseId === caseId && dau.tab === tab) return;
+    const TAB_BUOC: Record<string, number> = {
+      info: 1, "co-ban": 1, "xu-ly": 1, "bo-sung": 1, "noi-dung": 1, "tat-ca": 1, "yeu-cau-huy": 1,
+      "lich-hen": 2, "mua-hang": 3, "loi-linh-kien": 3, "thieu-hang": 4, "po-dat-hang": 4,
+      "giai-trinh": 6, "bien-ban-hop": 6, "qc-thuc-te": 6, "bao-hanh-app": 7, "bao-hanh": 8,
+    };
+    if (TAB_BUOC[tab]) setV2YeuCauMo({ so: TAB_BUOC[tab], tabPhu: false, seq: Date.now() });
+    else {
+      setV2TabPhu(tab);
+      setV2YeuCauMo({ so: null, tabPhu: true, seq: Date.now() });
+    }
+  }, [tab, caseId, giaoDienCt]);
   // Truong an/hien (nut ⚙) - luu localStorage, dung chung ca goc + ca doi chieu.
   const [anTruong, setAnTruong] = useState<Set<string>>(readAnTruong);
   function changeAnTruong(an: Set<string>) {
@@ -3086,6 +3107,7 @@ export function CaseDetail({
               onChonTabPhu={setV2TabPhu}
               hanhDong={hanhDongV2}
               doiChieu={compareContent || null}
+              yeuCauMo={v2YeuCauMo}
             />
           </div>
         )}
