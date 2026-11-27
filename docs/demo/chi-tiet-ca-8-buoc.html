@@ -2,204 +2,408 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DEMO — Chi tiết ca bảo hành theo 8 bước quy trình</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#052033">
+<title>DEMO v2 — Chi tiết ca bảo hành theo 8 bước quy trình</title>
 <style>
+/* Bảng màu lấy đúng từ app thật (frontend/src/styles/tokens.css) để mẫu khớp khi code vào app */
 :root{
-  --ink:#0f172a;--ink2:#334155;--ink3:#64748b;--ink4:#94a3b8;--line:#e2e8f0;--bg:#f6f8fb;--card:#fff;
-  --ocean:#0b6bcb;--ocean1:#e0efff;--teal:#0f9d76;--teal1:#d9f5ec;--amber:#f59e0b;--amber1:#fff4dc;
-  --red:#dc2626;--red1:#fee2e2;--orange:#ea580c;--orange1:#ffedd5;--pink:#be185d;--pink1:#fce7f3;
-  --blue:#7cc8ef;--blue1:#e3f4fc;--violet:#7c3aed;--violet1:#ede9fe;
+  --ocean-950:#052033;--ocean-900:#06304a;--ocean-800:#0a4666;--ocean-700:#0e5d85;--ocean-600:#1176a6;--ocean-500:#1591c9;--ocean-400:#3fb0e0;--ocean-100:#ddf1fb;
+  --teal-600:#0f7d74;--teal-500:#159c93;--teal-100:#dcf5f2;
+  --amber-700:#8a5810;--amber-600:#b3730f;--amber-500:#d98a1f;--amber-100:#fbebd1;
+  --coral-600:#b23a3a;--coral-500:#d84c4c;--coral-400:#e78888;--coral-100:#fbe1e1;
+  --orange-700:#9a3412;--orange-500:#ea580c;--orange-100:#ffedd5;
+  --violet-700:#5b21b6;--violet-600:#7c3aed;--violet-100:#ede9fe;
+  --pink-700:#9d174d;--pink-100:#fce7f3;
+  --bg:#f2f6f9;--surface:#fff;--surface-100:#f5f8fa;--surface-200:#e9eff3;--line:#e1eaf0;--line2:#cfdbe4;
+  --ink-900:#0f2536;--ink-700:#24374a;--ink-600:#4c6478;--ink-500:#62798c;--ink-400:#8ca0af;
+  --rail:#d3dee6;--toph:56px;
+  --shadow:0 1px 2px rgba(15,37,54,.06),0 1px 3px rgba(15,37,54,.05);
 }
 *{box-sizing:border-box}
-body{margin:0;font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
-button{font:inherit;cursor:pointer}
-input,select,textarea{font:inherit}
-.top{position:sticky;top:0;z-index:30;background:#0b2545;color:#fff;display:flex;align-items:center;gap:16px;padding:10px 18px;flex-wrap:wrap}
-.top .brand{font-weight:700;font-size:15px}
-.top .brand small{display:block;font-weight:400;font-size:11px;color:#9fb6d6}
-.top nav{display:flex;gap:4px;flex-wrap:wrap}
-.top nav button{background:transparent;border:1px solid transparent;color:#cfe0f5;padding:7px 12px;border-radius:8px}
-.top nav button.on{background:#fff;color:#0b2545;font-weight:600}
-.top nav button:hover:not(.on){border-color:#3b5b85}
-.demo-flag{margin-left:auto;background:#f59e0b;color:#1f1300;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px}
-main{padding:16px 18px 60px;max-width:1500px;margin:0 auto}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font:14px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink-900);background:var(--bg);-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer;color:inherit}
+input,select,textarea{font:inherit;color:var(--ink-900)}
+b,strong{font-weight:650}
+.tnum{font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-500)}.small{font-size:12px}
+h2{font-size:17px;line-height:1.35;margin:0 0 4px;font-weight:700}
+h3{font-size:14.5px;line-height:1.35;margin:0 0 8px;font-weight:700}
+
+/* ===== Thanh trên ===== */
+.top{position:sticky;top:0;z-index:40;background:linear-gradient(90deg,var(--ocean-950),var(--ocean-800));color:#fff;box-shadow:0 2px 10px rgba(5,32,51,.25)}
+.top-in{max-width:1480px;margin:0 auto;display:flex;align-items:center;gap:18px;padding:0 18px;min-height:56px;position:relative}
+.brand{display:flex;align-items:center;gap:10px;flex:none}
+.logo{width:32px;height:32px;border-radius:9px;background:var(--ocean-500);display:grid;place-items:center;font-weight:800;font-size:12px;letter-spacing:.02em}
+.brand b{display:block;font-size:14px;line-height:1.25}
+.brand small{display:block;font-size:11px;color:rgba(255,255,255,.62);line-height:1.3}
+#nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+#nav::-webkit-scrollbar{display:none}
+#nav button{flex:none;background:none;border:0;color:rgba(255,255,255,.76);padding:0 14px;height:56px;border-bottom:3px solid transparent;font-weight:500;white-space:nowrap}
+#nav button:hover{color:#fff}
+#nav button.on{color:#fff;border-bottom-color:var(--ocean-400);font-weight:700}
+.demo-flag{flex:none;background:var(--amber-500);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:.03em}
+main{padding:16px 18px 64px;max-width:1480px;margin:0 auto}
 section{display:none}section.on{display:block}
-.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;color:var(--ink2)}
-.btn:hover{background:#f1f5f9}
-.btn.pri{background:var(--ocean);border-color:var(--ocean);color:#fff}
-.btn.pri:hover{background:#0957a6}
-.btn.warn{background:#fff;border-color:#fca5a5;color:var(--red)}
-.btn.sm{padding:3px 8px;font-size:12px}
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:var(--ink2);white-space:nowrap}
-.b-amber{background:var(--amber1);color:#92400e}.b-teal{background:var(--teal1);color:#065f46}.b-red{background:var(--red1);color:#991b1b}
-.b-ocean{background:var(--ocean1);color:#0b4a8b}.b-pink{background:var(--pink1);color:var(--pink)}.b-violet{background:var(--violet1);color:#5b21b6}
-.b-orange{background:var(--orange1);color:#9a3412}
-.muted{color:var(--ink3)}.small{font-size:12px}
-h2{font-size:18px;margin:0 0 6px}h3{font-size:15px;margin:0 0 8px}
-/* ===== Chi tiết ca ===== */
-.picker{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-.picker input{border:1px solid var(--line);border-radius:8px;padding:6px 10px;width:220px}
-.picker select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:420px}
-.chead{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
-.chead .id{font-size:20px;font-weight:700}
-.chead .meta{display:flex;gap:6px 18px;flex-wrap:wrap;color:var(--ink2);margin-top:4px}
-.chead .meta b{color:var(--ink)}
-.chead .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
-.flowwrap{overflow-x:auto;padding-bottom:4px}
-.flow{display:grid;grid-template-columns:repeat(8,minmax(150px,1fr));grid-template-rows:auto auto auto auto auto;min-width:1220px}
-.col{display:grid;grid-row:span 5;grid-template-rows:subgrid;padding:0 6px}
-.shead{display:flex;align-items:baseline;gap:6px;min-height:40px}
-.shead .no{font-size:12px;color:var(--ink4);font-weight:700}
-.shead .nm{font-weight:700;font-size:13px}
-.col.skip .shead .nm{color:var(--ink4);text-decoration:line-through}
-.rail{position:relative;height:34px;display:flex;align-items:center;justify-content:center}
-.rail::before{content:"";position:absolute;top:50%;height:4px;margin-top:-2px;left:-6px;right:-6px;background:#d6dde6}
+
+/* ===== Thành phần chung ===== */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.row{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;border:1px solid var(--line2);background:#fff;border-radius:9px;padding:5px 13px;color:var(--ink-700);font-weight:550;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn:hover{background:var(--surface-100)}
+.btn:focus-visible,.chip:focus-visible,#nav button:focus-visible{outline:2px solid var(--ocean-400);outline-offset:2px}
+.btn.pri{background:var(--ocean-600);border-color:var(--ocean-600);color:#fff}.btn.pri:hover{background:var(--ocean-700)}
+.btn.warn{border-color:#efb3b3;color:var(--coral-600)}.btn.warn:hover{background:var(--coral-100)}
+.btn.ghost{border-color:transparent;background:none;color:var(--ocean-600)}.btn.ghost:hover{background:var(--ocean-100)}
+.btn.sm{min-height:28px;padding:2px 9px;font-size:12.5px;border-radius:7px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;line-height:1.5;padding:1px 9px;border-radius:999px;background:var(--surface-200);color:var(--ink-700);white-space:nowrap}
+.b-amber{background:var(--amber-100);color:var(--amber-700)}.b-teal{background:var(--teal-100);color:var(--teal-600)}.b-red{background:var(--coral-100);color:var(--coral-600)}
+.b-ocean{background:var(--ocean-100);color:var(--ocean-700)}.b-pink{background:var(--pink-100);color:var(--pink-700)}.b-violet{background:var(--violet-100);color:var(--violet-700)}
+.chip{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:600;line-height:1.55;padding:0 7px;border-radius:6px;border:1px solid;width:max-content;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;background:none}
+.chip[data-tip]{cursor:help}
+.chip.loi{background:var(--coral-100);border-color:#f0b4b4;color:var(--coral-600)}
+.chip.auto{background:var(--orange-100);border-color:#fdc195;color:var(--orange-700)}
+.chip.sla72{background:var(--pink-100);border-color:#f5b1d0;color:var(--pink-700)}
+.chip.ok{background:var(--teal-100);border-color:#9fdcd5;color:var(--teal-600)}
+.chip.bo{background:var(--surface-100);border-color:var(--line2);color:var(--ink-400);text-decoration:line-through}
+.chip.gt{background:var(--violet-100);border-color:#d3c4fb;color:var(--violet-700)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.mini{border-collapse:collapse;width:100%;font-size:13px}
+table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.mini th{background:var(--surface-100);font-size:12px;color:var(--ink-500);font-weight:600;white-space:nowrap}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 18px}
+.kv>div{font-size:13.5px;min-width:0;overflow-wrap:anywhere}.kv span{display:block;font-size:11.5px;color:var(--ink-500);margin-bottom:1px}
+.note{background:#fff8ea;border:1px solid #f3d9a8;border-radius:10px;padding:9px 12px;font-size:13px;color:var(--amber-700)}
+.empty{color:var(--ink-400);font-size:13px;font-style:italic;padding:4px 0}
+.pc-only{display:block}.mo-only{display:none}
+
+/* ===== ① Chi tiết ca ===== */
+.picker{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px}
+.picker input,.picker select{border:1px solid var(--line2);border-radius:9px;padding:6px 10px;background:#fff;min-height:34px}
+.picker input{width:220px}.picker select{max-width:440px;min-width:0}
+.hdr{display:flex;gap:16px 20px;align-items:flex-start}
+.hl{flex:1;min-width:0}
+.idrow{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
+.cid{font-size:20px;font-weight:800;letter-spacing:.01em;margin-right:4px;font-variant-numeric:tabular-nums}
+.meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 18px;margin-top:10px}
+.meta>div{min-width:0}.meta span{display:block;font-size:11.5px;color:var(--ink-500)}
+.meta b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.fhead{display:flex;gap:12px 24px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.ftitle{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-400)}
+.fsub{font-size:14px;margin-top:2px}.fsub b{color:var(--amber-600)}
+.slabar{margin-left:auto;min-width:260px}
+.sl-l{font-size:12px;color:var(--ink-600);display:flex;justify-content:space-between;gap:10px}
+.sl-b{position:relative;height:8px;border-radius:99px;background:var(--surface-200);margin-top:4px;overflow:hidden}
+.sl-b i{display:block;height:100%;border-radius:99px}
+/* luồng ngang PC — mỗi cột 1 bước, 5 hàng thẳng nhau như bản vẽ Excel */
+.flow{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:auto auto auto auto auto}
+.col{display:grid;grid-row:span 5;grid-template-rows:subgrid;padding:0 5px;min-width:0}
+.shead{display:flex;align-items:baseline;gap:5px;min-height:38px;font-size:13px;line-height:1.3}
+.shead .no{font-size:11.5px;color:var(--ink-400);font-weight:700;flex:none}
+.shead .nm{font-weight:700}
+.col.skip .shead .nm{color:var(--ink-400)}
+.rail{position:relative;height:36px;display:flex;align-items:center;justify-content:center}
+.rail::before{content:"";position:absolute;top:50%;height:4px;margin-top:-2px;left:-5px;right:-5px;background:var(--rail)}
 .col:first-child .rail::before{left:50%}.col:last-child .rail::before{right:50%}
-.col.done .rail::before{background:var(--teal)}
-.col.cur .rail::before{background:linear-gradient(90deg,var(--teal) 50%,#d6dde6 50%)}
-.col.skip .rail::before{background:repeating-linear-gradient(90deg,#c3ccd8 0 6px,transparent 6px 11px)}
-.dot{position:relative;z-index:1;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid #c3ccd8;background:#fff;color:var(--ink4);cursor:pointer}
-.col.done .dot{background:var(--teal);border-color:var(--teal);color:#fff}
-.col.cur .dot{background:var(--amber);border-color:var(--amber);color:#fff;width:34px;height:34px;box-shadow:0 0 0 0 rgba(245,158,11,.6);animation:pulse 1.6s infinite}
-.col.skip .dot{border-style:dashed;background:#f8fafc}
-.col.hasbad .dot::after{content:"!";position:absolute;top:-6px;right:-6px;width:15px;height:15px;border-radius:50%;background:var(--red);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(245,158,11,.55)}70%{box-shadow:0 0 0 10px rgba(245,158,11,0)}100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}}
-.when{text-align:center;font-size:12px;min-height:34px;margin-top:2px}
-.when .t{font-weight:600}.when .gap{color:var(--ink3)}
-.col.cur .when{color:#b45309;font-weight:600}
-.col.todo .when,.col.skip .when{color:var(--ink4)}
-.metrics{min-height:90px;border-top:1px dashed var(--line);padding:6px 2px;display:flex;flex-direction:column;gap:3px;font-size:12.5px}
-.metrics .m{color:var(--ink2)}
-.chip{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;padding:1px 7px;border-radius:6px;border:1px solid;cursor:default;width:max-content;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chip.loi{background:var(--red1);border-color:#fca5a5;color:#991b1b}
-.chip.auto{background:var(--orange1);border-color:#fdba74;color:#9a3412}
-.chip.sla72{background:var(--pink1);border-color:#f9a8d4;color:var(--pink);font-weight:600}
-.chip.ok{background:var(--teal1);border-color:#86efac;color:#065f46}
-.chip.bo{background:#f1f5f9;border-color:#cbd5e1;color:var(--ink4);text-decoration:line-through}
-.scard{margin-top:8px;background:var(--blue1);border:1px solid var(--blue);border-radius:8px;padding:8px 10px;min-height:128px;display:flex;flex-direction:column;font-size:12.5px}
-.scard .ti{font-weight:700;font-size:12px;color:#075985}
-.scard .sub{font-size:11px;color:#0369a1;margin-bottom:4px}
-.scard .ln{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col.done .rail::before{background:var(--teal-500)}
+.col.cur .rail::before{background:linear-gradient(90deg,var(--teal-500) 50%,var(--rail) 50%)}
+.col.skip .rail::before{background:repeating-linear-gradient(90deg,#bccbd6 0 6px,transparent 6px 11px)}
+.dot{position:relative;z-index:1;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid #bccbd6;background:#fff;color:var(--ink-400);cursor:pointer;flex:none}
+.done .dot{background:var(--teal-500);border-color:var(--teal-500);color:#fff}
+.cur .dot{background:var(--amber-500);border-color:var(--amber-500);color:#fff;width:34px;height:34px;animation:pulse 1.8s infinite}
+.skip .dot{border-style:dashed;background:var(--surface-100)}
+.hasbad .dot::after{content:"!";position:absolute;top:-6px;right:-7px;width:16px;height:16px;border-radius:50%;background:var(--coral-500);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,138,31,.5)}70%{box-shadow:0 0 0 9px rgba(217,138,31,0)}100%{box-shadow:0 0 0 0 rgba(217,138,31,0)}}
+@media (prefers-reduced-motion:reduce){.cur .dot{animation:none;box-shadow:0 0 0 4px rgba(217,138,31,.25)}}
+.when{text-align:center;font-size:12px;line-height:1.35;min-height:34px;margin-top:3px}
+.when .t{font-weight:650}.when .gap{color:var(--ink-500)}
+.col.cur .when{color:var(--amber-600);font-weight:700}
+.col.todo .when,.col.skip .when{color:var(--ink-400)}
+.metrics{min-height:84px;border-top:1px dashed var(--line2);padding:7px 1px 4px;display:flex;flex-direction:column;gap:3px;font-size:12.5px;min-width:0}
+.metrics .m{color:var(--ink-700);line-height:1.4}
+.scard{margin-top:6px;background:#eef8fd;border:1px solid #b4dff3;border-radius:10px;padding:8px 10px;min-height:132px;display:flex;flex-direction:column;font-size:12.5px;min-width:0;transition:box-shadow .15s}
+.scard:hover{box-shadow:0 2px 8px rgba(17,118,166,.14)}
+.scard .ti{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:12px;color:var(--ocean-700)}
+.scard .sub{font-size:11px;color:var(--ocean-600);margin-bottom:4px;font-weight:600}
+.scard .ln{color:var(--ink-700);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.45;overflow-wrap:anywhere;margin-bottom:1px}
 .scard .xem{margin-top:auto;padding-top:6px}
-.scard .xem button{background:none;border:none;color:var(--ocean);font-weight:600;padding:0;font-size:12px}
-.scard.open{outline:2px solid var(--ocean);background:#fff}
-.scard.skip{background:#f8fafc;border:1px dashed #cbd5e1;color:var(--ink4);justify-content:center;text-align:center}
-.scard.todo{background:#f8fafc;border-color:#e2e8f0}
-.scard.cur{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
-.panel{border:2px solid var(--ocean);border-radius:12px;background:#fff;padding:14px 16px;margin-top:12px}
-.panel h3{display:flex;align-items:center;gap:8px}
-.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 18px}
-.kv div{font-size:13px}.kv span{display:block;font-size:11px;color:var(--ink3)}
-table.mini{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
-table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
-table.mini th{background:#f8fafc;font-size:12px;color:var(--ink3)}
-.toggle-all{margin-top:12px}
-.vlog{margin-top:10px;border-left:3px solid var(--line);padding-left:14px}
-.vlog .e{position:relative;padding:5px 0}
-.vlog .e::before{content:"";position:absolute;left:-21px;top:10px;width:11px;height:11px;border-radius:50%;background:var(--ocean)}
-.vlog .e.loi::before{background:var(--red)}.vlog .e.gt::before{background:var(--violet)}
-.vlog .e .tt{font-size:12px;color:var(--ink3)}
-.otherbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink3);margin-top:8px}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-2px;margin-right:4px;border:2px solid #c3ccd8}
-/* ===== Tồn theo bước ===== */
-.tonlayout{display:grid;grid-template-columns:230px 1fr;gap:14px}
-@media (max-width:900px){.tonlayout{grid-template-columns:1fr}}
-.side{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;align-self:start;position:sticky;top:64px}
-.side .grp{font-size:11px;color:var(--ink4);text-transform:uppercase;letter-spacing:.04em;padding:8px 8px 4px}
-.side button{display:flex;width:100%;align-items:center;gap:8px;border:none;background:none;padding:7px 8px;border-radius:8px;text-align:left;color:var(--ink2)}
-.side button:hover{background:#f1f5f9}
-.side button.on{background:var(--ocean1);color:#0b4a8b;font-weight:600}
-.side button .n{width:20px;height:20px;border-radius:50%;background:#e2e8f0;font-size:11px;display:flex;align-items:center;justify-content:center;flex:none}
-.side button.on .n{background:var(--ocean);color:#fff}
-.side button .c{margin-left:auto;font-size:12px;background:#f1f5f9;border-radius:999px;padding:0 7px}
-.side button .c.hot{background:var(--red1);color:#991b1b}
-.side button.dis{opacity:.55}
-.funnel{display:grid;grid-template-columns:repeat(8,minmax(118px,1fr));gap:0;overflow-x:auto}
-.fbox{position:relative;border:1px solid var(--line);border-right:none;padding:10px;background:#fff;cursor:pointer;min-width:118px}
-.fbox:last-child{border-right:1px solid var(--line);border-radius:0 10px 10px 0}
-.fbox:first-child{border-radius:10px 0 0 10px}
-.fbox:hover{background:#f8fbff}
-.fbox .h{font-size:11px;color:var(--ink3);font-weight:700}
-.fbox .t{font-weight:700;font-size:13px;min-height:34px}
-.fbox .big{font-size:26px;font-weight:800;color:var(--ocean)}
-.fbox .big.zero{color:var(--ink4)}
-.fbox .s{font-size:11.5px;color:var(--ink3)}
-.fbox .bar{height:5px;border-radius:3px;background:#eef2f7;margin-top:6px;overflow:hidden}
-.fbox .bar i{display:block;height:100%;background:var(--red)}
-.fbox.sel{outline:2px solid var(--ocean);outline-offset:-2px;background:#f5faff}
-table.mx{border-collapse:collapse;font-size:13px;width:100%}
-table.mx th,table.mx td{border:1px solid var(--line);padding:5px 8px;text-align:center}
-table.mx th{background:#f8fafc;font-size:12px}
-table.mx td.cl{cursor:pointer}table.mx td.cl:hover{background:var(--ocean1)}
-table.mx td.hot{background:#fff1f2;color:#9f1239;font-weight:700}
-.kpis{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
-.kpi{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:#fff;min-width:140px}
-.kpi b{display:block;font-size:20px}.kpi span{font-size:12px;color:var(--ink3)}
-.kpi.red b{color:var(--red)}
-/* ===== Bảng Excel ===== */
-.xt-bar{display:flex;gap:10px;align-items:center;margin:6px 0;flex-wrap:wrap;font-size:13px}
-.xt-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff;max-height:620px}
+.scard .xem button{background:none;border:none;color:var(--ocean-600);font-weight:700;padding:0;font-size:12px}
+.scard .xem button:hover{text-decoration:underline}
+.scard.open{border-color:var(--ocean-600);box-shadow:0 0 0 2px var(--ocean-600) inset;background:#fff}
+.scard.skip{background:var(--surface-100);border:1px dashed var(--line2);color:var(--ink-400);justify-content:center;align-items:center;text-align:center}
+.scard.todo{background:var(--surface-100);border-color:var(--line)}
+.scard.todo .ti,.scard.todo .sub{color:var(--ink-400)}
+.scard.cur{background:#fffaf0;border-color:#efc27c}
+.scard.cur .ti{color:var(--amber-700)}.scard.cur .sub{color:var(--amber-600)}
+.legend{display:flex;gap:8px 16px;flex-wrap:wrap;font-size:12px;color:var(--ink-500);margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.legend .lg{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid #bccbd6;flex:none}
+.panel{border:1px solid var(--ocean-500);border-top:4px solid var(--ocean-600);border-radius:12px;background:#fff;padding:14px 16px;margin-top:14px;scroll-margin-top:calc(var(--toph) + 10px)}
+.ph{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.ph .pt{font-weight:700;font-size:15px}.ph .ps{font-size:12.5px;color:var(--ink-500);margin-top:1px}
+.ph .btn{margin-left:auto;flex:none}
+.sec{margin-top:14px}
+.sec-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.sec-h b{font-size:13.5px}
+.sec-h .btn{margin-left:auto}
+.li{border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-top:6px;background:#fff}
+.li .lt{display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap}
+.li .lm{font-size:12px;color:var(--ink-500);margin-top:2px}
+.li .lb{font-size:13px;margin-top:3px;color:var(--ink-700)}
+.li .la{display:flex;gap:6px;margin-top:6px}
+.li.gt{border-left:4px solid var(--violet-600)}
+.li.loi{border-left:4px solid var(--coral-500)}.li.auto{border-left:4px solid var(--orange-500)}.li.bo{opacity:.6}
+.toggle-all{margin-top:14px;display:flex;justify-content:center}
+.vlog{margin-top:12px;border-left:2px solid var(--line2);padding-left:16px;margin-left:6px}
+.vlog .e{position:relative;padding:5px 0;font-size:13px}
+.vlog .e::before{content:"";position:absolute;left:-22px;top:10px;width:10px;height:10px;border-radius:50%;background:var(--teal-500);border:2px solid #fff;box-shadow:0 0 0 1px var(--teal-500)}
+.vlog .e.loi::before{background:var(--coral-500);box-shadow:0 0 0 1px var(--coral-500)}.vlog .e.gt::before{background:var(--violet-600);box-shadow:0 0 0 1px var(--violet-600)}.vlog .e.hen::before{background:var(--ocean-500);box-shadow:0 0 0 1px var(--ocean-500)}
+.vlog .e .tt{font-size:11.5px;color:var(--ink-500);font-variant-numeric:tabular-nums}
+.otherbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface-100)}
+/* luồng mobile: thanh 8 chấm + danh sách bước dọc */
+.mrail{display:flex;margin:2px 0 6px}
+.md{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;padding:0}
+.md::before{content:"";position:absolute;top:12px;right:50%;width:100%;height:3px;background:var(--rail)}
+.md:first-child::before{display:none}
+.md.done::before,.md.cur::before{background:var(--teal-500)}
+.md.skip::before{background:repeating-linear-gradient(90deg,#bccbd6 0 4px,transparent 4px 8px)}
+.md .dot{width:26px;height:26px;font-size:11px}.md.cur .dot{width:26px;height:26px}
+.md .dn{font-size:10.5px;color:var(--ink-400);font-weight:700}
+.md.cur .dn{color:var(--amber-600)}
+.mlist{margin-top:8px}
+.ms{position:relative;padding-left:42px;scroll-margin-top:calc(var(--toph) + 10px)}
+.ms::before{content:"";position:absolute;left:15px;top:0;bottom:0;width:2px;background:var(--rail)}
+.ms:first-child::before{top:18px}.ms:last-child::before{bottom:calc(100% - 18px)}
+.ms.done::before{background:var(--teal-500)}
+.ms.skip::before{background:repeating-linear-gradient(180deg,#bccbd6 0 4px,transparent 4px 8px)}
+.ms>.dot{position:absolute;left:2px;top:4px}
+.ms.cur>.dot{left:-1px;top:1px}
+.ms-h{display:flex;gap:8px;align-items:flex-start;padding:6px 0 10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ms-m{flex:1;min-width:0}
+.ms-t{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;line-height:1.35}
+.ms-t .no{font-size:11.5px;color:var(--ink-400);font-weight:700}
+.ms-t .nm{font-weight:700;font-size:14.5px}
+.ms-t .wh{margin-left:auto;font-size:12px;color:var(--ink-500);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ms.cur .ms-t .wh{color:var(--amber-600);font-weight:700}
+.ms.cur .ms-t .nm{color:var(--amber-700)}
+.ms.todo .ms-t .nm,.ms.skip .ms-t .nm{color:var(--ink-400);font-weight:600}
+.ms-s{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:4px;font-size:12.5px;color:var(--ink-700);align-items:center}
+.ms-s .m{line-height:1.4}
+.ms-c{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--ocean-600);font-size:14px;background:var(--ocean-100);margin-top:-2px;transition:transform .2s}
+.ms.open .ms-c{transform:rotate(180deg)}
+.ms.skip .ms-h{cursor:default;padding-bottom:8px}
+.ms-b{position:relative;z-index:1;margin:-2px 0 12px -34px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;box-shadow:var(--shadow)}
+.ms-b .tl{background:#eef8fd;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:4px}
+.ms-b .tl .sub{font-size:12px;font-weight:700;color:var(--ocean-700);margin-bottom:2px}
+.actbar{position:fixed;left:0;right:0;bottom:0;z-index:35;background:rgba(255,255,255,.97);border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom));gap:8px;box-shadow:0 -4px 14px rgba(15,37,54,.08)}
+.actbar .btn{flex:1;min-height:42px;padding:5px 8px}
+.actbar .btn.more{flex:0 0 46px}
+
+/* ===== ② Quản lý tồn ===== */
+.tonlayout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;align-items:start}
+.side{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px;position:sticky;top:calc(var(--toph) + 14px);box-shadow:var(--shadow)}
+.side .grp{font-size:10.5px;color:var(--ink-400);text-transform:uppercase;letter-spacing:.07em;font-weight:700;padding:10px 9px 4px}
+.side .grp:first-child{padding-top:4px}
+.side button{display:flex;width:100%;align-items:center;gap:9px;border:none;background:none;padding:7px 9px;border-radius:9px;text-align:left;color:var(--ink-700);font-size:13.5px;line-height:1.3}
+.side button:hover{background:var(--surface-100)}
+.side button.on{background:var(--ocean-100);color:var(--ocean-800);font-weight:700}
+.side .n{width:22px;height:22px;border-radius:50%;background:var(--surface-200);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;color:var(--ink-600)}
+.side button.on .n{background:var(--ocean-600);color:#fff}
+.side .c{margin-left:auto;font-size:12px;font-weight:600;background:var(--surface-200);border-radius:999px;padding:0 8px;color:var(--ink-600);font-variant-numeric:tabular-nums}
+.side .c.hot{background:var(--coral-100);color:var(--coral-600)}
+.side button.dis{color:var(--ink-500)}
+.side button.xac .n{background:var(--violet-100);color:var(--violet-700)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 12px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:#fff}
+.kpi b{display:block;font-size:22px;line-height:1.25;font-weight:800;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--ink-500)}
+.kpi.red b{color:var(--coral-600)}.kpi.pink b{color:var(--pink-700)}.kpi.violet b{color:var(--violet-700)}
+.funnel{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
+.fbox{position:relative;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#fff;cursor:pointer;min-width:0;text-align:left;transition:border-color .15s,box-shadow .15s}
+.fbox:hover{border-color:var(--ocean-400);box-shadow:0 2px 8px rgba(17,118,166,.12)}
+.fbox .h{font-size:10.5px;color:var(--ink-400);font-weight:700;letter-spacing:.05em}
+.fbox .t{font-weight:700;font-size:13px;line-height:1.3;min-height:34px}
+.fbox .big{font-size:26px;line-height:1.2;font-weight:800;color:var(--ocean-700);font-variant-numeric:tabular-nums}
+.fbox .big.zero{color:var(--ink-400)}
+.fbox .s{font-size:11.5px;color:var(--ink-500);line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbox .s.red{color:var(--coral-600);font-weight:600}
+.fbox .bar{height:5px;border-radius:3px;background:var(--surface-200);margin-top:7px;overflow:hidden}
+.fbox .bar i{display:block;height:100%;background:var(--coral-500)}
+.fbox.xac{background:#fbf9ff;border-color:#e3d9fb}.fbox.xac .big{color:var(--violet-700)}
+.fgrp{display:flex;gap:8px;margin:12px 0 6px;font-size:11.5px;font-weight:700;color:var(--ink-500);text-transform:uppercase;letter-spacing:.05em}
+.fgrp span:first-child{flex:6}.fgrp span:last-child{flex:2;color:var(--violet-700)}
+table.mx{border-collapse:separate;border-spacing:0;font-size:13px;width:100%;min-width:760px}
+table.mx th,table.mx td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:6px 8px;text-align:center;font-variant-numeric:tabular-nums}
+table.mx tr>*:first-child{position:sticky;left:0;background:#fff;text-align:left;z-index:1;border-left:1px solid var(--line);white-space:nowrap;min-width:96px}
+table.mx tr:first-child>*{border-top:1px solid var(--line);background:var(--surface-100);font-size:11.5px;color:var(--ink-600);font-weight:650;line-height:1.3}
+table.mx td.cl{cursor:pointer}table.mx td.cl:hover{background:var(--ocean-100)}
+table.mx td.hot{background:#fdf0f0;color:var(--coral-600);font-weight:700}
+table.mx td.z{color:var(--ink-400)}
+table.mx th.xac{background:#f6f2ff!important;color:var(--violet-700)!important}
+
+/* ===== Bảng kiểu Excel ===== */
+.xt-bar{display:flex;gap:8px 12px;align-items:center;margin:4px 0 8px;flex-wrap:wrap;font-size:13px}
+.xt-bar .hint{font-size:12px;color:var(--ink-500)}
+.xt-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff;max-height:640px}
 table.xt{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
-table.xt th{position:sticky;top:0;background:#f8fafc;z-index:2;border-bottom:1px solid var(--line);padding:0;text-align:left;white-space:nowrap}
-table.xt th .hw{display:flex;align-items:center;gap:2px;padding:6px 6px 6px 8px}
-table.xt th .lb{cursor:pointer;flex:1;font-size:12px;color:var(--ink2);font-weight:600;user-select:none}
-table.xt th .ar{font-size:10px;color:var(--ocean);margin-left:3px}
-table.xt th .fb{border:1px solid transparent;background:none;border-radius:5px;padding:1px 4px;color:var(--ink4);font-size:12px}
-table.xt th .fb:hover{border-color:var(--line)}
-table.xt th.act{background:#fff7e6}
-table.xt th.act .fb{color:#fff;background:var(--amber)}
-table.xt th .x{border:none;background:none;color:var(--red);font-size:13px;padding:0 3px}
-table.xt td{border-bottom:1px solid #eef2f7;padding:6px 8px;vertical-align:top}
-table.xt tbody tr{cursor:pointer}
-table.xt tbody tr:hover td{background:#f5faff}
-.pop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(15,23,42,.18);padding:10px;width:260px;font-size:13px}
-.pop input[type=text],.pop input[type=number],.pop input[type=date]{width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 7px}
-.pop .lst{max-height:220px;overflow:auto;margin:6px 0;border:1px solid #eef2f7;border-radius:6px;padding:4px}
-.pop .lst label{display:flex;gap:6px;align-items:center;padding:2px 4px;border-radius:4px}
-.pop .lst label:hover{background:#f1f5f9}
-.pop .lst .cnt{margin-left:auto;font-size:11px;color:var(--ink4)}
-.pop .two{display:flex;gap:6px}.pop .two>div{flex:1}
-.pop .ft{display:flex;gap:6px;justify-content:space-between;margin-top:8px}
+table.xt th{position:sticky;top:0;background:var(--surface-100);z-index:2;border-bottom:1px solid var(--line2);padding:0;text-align:left;white-space:nowrap}
+table.xt th .hw{display:flex;align-items:center;gap:2px;padding:6px 6px 6px 10px}
+table.xt th .lb{cursor:pointer;flex:1;font-size:12px;color:var(--ink-600);font-weight:650;user-select:none}
+table.xt th .lb:hover{color:var(--ocean-700)}
+table.xt th .ar{font-size:10px;color:var(--ocean-600);margin-left:3px}
+table.xt th .fb{border:1px solid transparent;background:none;border-radius:6px;padding:0 5px;color:var(--ink-400);font-size:12px;line-height:20px}
+table.xt th .fb:hover{border-color:var(--line2);color:var(--ink-700)}
+table.xt th.act{background:#fff6e6}
+table.xt th.act .fb{color:#fff;background:var(--amber-500)}
+table.xt th .x{border:none;background:none;color:var(--coral-600);font-size:12px;padding:0 3px}
+table.xt td{border-bottom:1px solid #edf2f6;padding:7px 10px;vertical-align:top;white-space:nowrap}
+table.xt td.wr{white-space:normal;min-width:230px}
+table.xt tbody tr.rw{cursor:pointer}
+table.xt tbody tr.rw:hover td{background:#f4fafd}
+.xt-cards{display:none}
+.xc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;margin-bottom:8px;box-shadow:var(--shadow)}
+.xc.rw{cursor:pointer}
+.xc-h{display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap;font-size:14px}
+.xc-g{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px;font-size:13px}
+.xc-g>div{min-width:0;overflow-wrap:anywhere}
+.xc-g span.l{display:block;font-size:11px;color:var(--ink-500)}
+.xc-g .w{grid-column:1/-1}
+.pop{position:fixed;z-index:60;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(15,37,54,.2);padding:12px;width:272px;font-size:13px}
+.pop input[type=text],.pop input[type=number],.pop input[type=date]{width:100%;border:1px solid var(--line2);border-radius:8px;padding:6px 8px;margin-top:6px}
+.pop .lst{max-height:230px;overflow:auto;margin:6px 0;border:1px solid var(--line);border-radius:8px;padding:4px}
+.pop .lst label{display:flex;gap:7px;align-items:center;padding:4px 6px;border-radius:6px;cursor:pointer}
+.pop .lst label:hover{background:var(--surface-100)}
+.pop .lst .cnt{margin-left:auto;font-size:11px;color:var(--ink-400);font-variant-numeric:tabular-nums}
+.pop .two{display:flex;gap:8px}.pop .two>div{flex:1;min-width:0}
+.pop .ft{display:flex;gap:6px;justify-content:space-between;margin-top:10px}
+.pop .ttl{font-weight:700}
+.pop .csr{display:flex;align-items:center;gap:6px;padding:8px 2px;border-bottom:1px solid var(--line)}
+.pop .csr .cn{flex:1;min-width:0}
+.pop .csr.act .cn{color:var(--amber-700);font-weight:700}
+.pop .csr.act .cn::after{content:" ●";color:var(--amber-500)}
+.pop .csr .btn.on{background:var(--ocean-600);color:#fff;border-color:var(--ocean-600)}
+.pop-bk{position:fixed;inset:0;background:rgba(15,37,54,.38);z-index:59}
+.grab{display:none;width:40px;height:4px;border-radius:9px;background:var(--line2);margin:-4px auto 10px}
+
 /* ===== tooltip / modal / toast ===== */
-#tip{position:fixed;z-index:80;pointer-events:none;background:#0f172a;color:#fff;font-size:12px;border-radius:8px;padding:8px 10px;max-width:320px;display:none;line-height:1.5;box-shadow:0 8px 20px rgba(0,0,0,.25)}
-#modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:70;display:none;align-items:center;justify-content:center;padding:16px}
+#tip{position:fixed;z-index:80;pointer-events:none;background:var(--ink-900);color:#fff;font-size:12px;border-radius:9px;padding:8px 11px;max-width:330px;display:none;line-height:1.55;box-shadow:0 8px 22px rgba(0,0,0,.25)}
+#tip.sheet{left:0!important;right:0;top:auto!important;bottom:0;max-width:none;border-radius:16px 16px 0 0;padding:16px 18px calc(18px + env(safe-area-inset-bottom));font-size:14px;pointer-events:auto}
+#tip.sheet::after{content:"Chạm chỗ khác để đóng";display:block;margin-top:10px;font-size:11.5px;color:rgba(255,255,255,.55)}
+#modal{position:fixed;inset:0;background:rgba(15,37,54,.45);z-index:70;display:none;align-items:center;justify-content:center;padding:16px}
 #modal.on{display:flex}
-#modal .dlg{background:#fff;border-radius:14px;width:520px;max-width:100%;padding:18px;max-height:90vh;overflow:auto}
-#modal label.f{display:block;font-size:12px;color:var(--ink3);margin:10px 0 3px}
-#modal select,#modal input,#modal textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
-#modal .ft{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
-#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:10px;z-index:90;display:none}
-/* ===== Mã lỗi + phương án ===== */
-.codegrid{display:grid;grid-template-columns:repeat(8,minmax(150px,1fr));gap:8px;overflow-x:auto}
-.codegrid .cg{border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff;min-width:150px}
-.codegrid .cg h4{margin:0 0 6px;font-size:13px}
-.codegrid .cg .it{font-size:12px;padding:3px 0;border-top:1px dashed #eef2f7}
-.codegrid .cg .it b{color:#991b1b}
-.codegrid .cg .it.a b{color:#9a3412}
-.doc h3{margin-top:18px;color:#0b2545}
+#modal .dlg{background:#fff;border-radius:16px;width:540px;max-width:100%;padding:18px 20px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+#modal h3{font-size:16px}
+#modal label.f{display:block;font-size:12px;font-weight:600;color:var(--ink-600);margin:12px 0 4px}
+#modal select,#modal input,#modal textarea{width:100%;border:1px solid var(--line2);border-radius:9px;padding:8px 10px;background:#fff}
+#modal .hint{font-size:12px;color:var(--ink-500);margin-top:4px}
+#modal .ft{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink-900);color:#fff;padding:10px 18px;border-radius:12px;z-index:90;display:none;font-size:13.5px;max-width:calc(100vw - 32px);text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.25)}
+
+/* ===== ③ Mã lỗi + ④ Phân tích ===== */
+.codegrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.cg{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;min-width:0}
+.cg h4{margin:0 0 6px;font-size:13.5px;display:flex;gap:8px;align-items:center}
+.cg h4 .k{width:24px;height:24px;border-radius:7px;background:var(--ocean-100);color:var(--ocean-700);display:grid;place-items:center;font-size:12px;flex:none}
+.cg .it{font-size:12.5px;padding:4px 0;border-top:1px dashed var(--line);display:flex;gap:7px;line-height:1.4;align-items:flex-start}
+.cg .it .chip{flex:none}
+.cg .none{font-size:12px;color:var(--ink-400);font-style:italic;border-top:1px dashed var(--line);padding-top:4px}
+.doc{max-width:1100px}
+.doc h3{margin:22px 0 8px;color:var(--ocean-800);font-size:15.5px;padding-bottom:5px;border-bottom:2px solid var(--ocean-100)}
+.doc h4{margin:14px 0 6px;font-size:14px}
+.doc p{margin:6px 0}
 .doc ol,.doc ul{margin:6px 0 6px 20px;padding:0}
-.doc li{margin:3px 0}
-.doc table{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}
-.doc td,.doc th{border:1px solid var(--line);padding:6px 8px;vertical-align:top;text-align:left}
-.doc th{background:#f8fafc}
-.note{background:#fffbea;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:13px}
-.q{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:10px 12px}
+.doc li{margin:4px 0}
+table.st{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}
+table.st td,table.st th{border:1px solid var(--line);padding:7px 9px;vertical-align:top;text-align:left}
+table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
+.req{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0}
+.rq{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface-100)}
+.rq .rn{font-size:11px;font-weight:800;color:var(--ocean-600);letter-spacing:.06em}
+.q{background:#f6f3ff;border:1px solid #ddd2fb;border-radius:12px;padding:10px 14px}
+.ok-list li::marker{content:"✓  ";color:var(--teal-600);font-weight:700}
+.crit{border-left:4px solid var(--amber-500);background:#fffaf0;border-radius:0 10px 10px 0;padding:8px 12px;margin:6px 0;font-size:13.5px}
+
+/* ===== Điện thoại / máy tính bảng dọc (< 980px) ===== */
+@media (max-width:979px){
+  body{font-size:14.5px}
+  .pc-only{display:none!important}.mo-only{display:block}
+  .actbar.mo-only{display:flex}
+  .top-in{flex-wrap:wrap;gap:0;padding:0;min-height:0}
+  .brand{padding:9px 14px 2px;width:100%}.brand small{display:none}.logo{width:26px;height:26px;font-size:10px;border-radius:7px}
+  #nav{padding:0 4px;flex-basis:100%}
+  #nav button{height:42px;padding:0 11px;font-size:13.5px}
+  .demo-flag{position:absolute;right:12px;top:11px}
+  main{padding:12px 12px 96px}
+  .card{padding:13px 14px;border-radius:14px}
+  .picker{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .picker>b{grid-column:1/-1}
+  .picker input,.picker select{width:100%;grid-column:1/-1;font-size:16px;min-height:42px}
+  .picker .btn{min-height:40px}
+  .picker .small{grid-column:1/-1}
+  .hdr{display:block}.acts{display:none}
+  .cid{font-size:18px}
+  .meta{grid-template-columns:1fr 1fr;gap:8px 14px}
+  .meta b{white-space:normal}
+  .slabar{margin-left:0;min-width:0;width:100%}
+  .fhead{margin-bottom:10px}
+  .legend{gap:6px 12px}
+  .tonlayout{grid-template-columns:minmax(0,1fr)}
+  .side{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px;border-radius:12px;top:calc(var(--toph) + 6px);z-index:20}
+  .side::-webkit-scrollbar{display:none}
+  .side .grp{display:none}
+  .side button{width:auto;flex:none;white-space:nowrap;border:1px solid var(--line);border-radius:999px;padding:6px 10px 6px 6px;font-size:13px}
+  .side button.on{border-color:var(--ocean-500)}
+  .side .c{margin-left:4px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .funnel{grid-template-columns:1fr 1fr}
+  .fgrp{display:none}
+  .fbox .t{min-height:0}
+  .xt-wrap{display:none}.xt-cards{display:block}
+  .codegrid{grid-template-columns:1fr}
+  .req{grid-template-columns:1fr}
+  .btn{min-height:40px}.btn.sm{min-height:32px}
+  .pop{left:0!important;right:0;top:auto!important;bottom:0;width:auto;border-radius:18px 18px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));max-height:82vh;overflow:auto;font-size:14.5px}
+  .pop input[type=text],.pop input[type=number],.pop input[type=date]{font-size:16px;padding:9px 10px}
+  .pop .lst{max-height:40vh}.pop .lst label{padding:8px 6px}
+  .pop .btn{min-height:40px}
+  .grab{display:block}
+  #modal{align-items:flex-end;padding:0}
+  #modal .dlg{width:100%;border-radius:18px 18px 0 0;max-height:92vh;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+  #modal select,#modal input,#modal textarea{font-size:16px}
+  #modal .ft .btn{flex:1;min-height:44px}
+  #toast{bottom:84px}
+  table.st.rs,table.st.rs tbody,table.st.rs tr,table.st.rs td{display:block;width:100%}
+  table.st.rs tr:first-child{display:none}
+  table.st.rs tr{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden}
+  table.st.rs td{border:0;border-bottom:1px solid var(--line);padding:7px 10px}
+  table.st.rs td:last-child{border-bottom:0}
+  table.st.rs td::before{content:attr(data-l);display:block;font-size:11px;font-weight:700;color:var(--ink-500);text-transform:uppercase;letter-spacing:.04em}
+  table.st.rs td:first-child{background:var(--surface-100);font-weight:650}
+  table.st.rs td:first-child::before{display:none}
+}
+@media (min-width:980px) and (max-width:1240px){
+  .brand small{display:none}#nav button{padding:0 10px}.col{padding:0 3px}.scard{padding:7px 8px}
+  .funnel{grid-template-columns:repeat(4,minmax(0,1fr))}.fgrp{display:none}
+  .codegrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tonlayout{grid-template-columns:210px minmax(0,1fr)}
+}
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="brand">DVBH · Thiết kế lại trang Chi tiết ca bảo hành<small>Bản DEMO để Giám đốc duyệt — dữ liệu giả lập, chưa nối app thật</small></div>
-  <nav id="nav">
-    <button data-v="chitiet" class="on">① Chi tiết ca (mới)</button>
-    <button data-v="ton">② Quản lý tồn theo bước</button>
-    <button data-v="maloi">③ Danh mục mã lỗi theo bước</button>
-    <button data-v="phuongan">④ Vấn đề &amp; phương án</button>
-  </nav>
-  <span class="demo-flag">DEMO</span>
+<header class="top" id="top">
+  <div class="top-in">
+    <div class="brand"><div class="logo">DV</div><div><b>Chi tiết ca bảo hành · 8 bước</b><small>Mẫu thiết kế v2 để Giám đốc duyệt — dữ liệu giả lập</small></div></div>
+    <nav id="nav" aria-label="Màn hình demo">
+      <button data-v="chitiet" class="on">① Chi tiết ca</button>
+      <button data-v="ton">② Tồn theo bước</button>
+      <button data-v="maloi">③ Mã lỗi theo bước</button>
+      <button data-v="phuongan">④ Phân tích &amp; phản biện</button>
+    </nav>
+    <span class="demo-flag">DEMO</span>
+  </div>
 </header>
 <main>
   <section id="v-chitiet" class="on"></section>
@@ -207,9 +411,9 @@ table.xt tbody tr:hover td{background:#f5faff}
   <section id="v-maloi"></section>
   <section id="v-phuongan"></section>
 </main>
-<div id="tip"></div>
-<div id="modal"><div class="dlg" id="dlg"></div></div>
-<div id="toast"></div>
+<div id="tip" role="tooltip"></div>
+<div id="modal"><div class="dlg" id="dlg" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status"></div>
 
 <script>
 "use strict";
@@ -463,173 +667,225 @@ function loiBuoc(c, n) { return c.loi.filter(l => l.buoc === n); }
 function loLKH(c) { const g = c.gt[c.gt.length - 1]; return !!(g && c.cur <= 6 && g.duKien < NOW); }
 
 /* ======================================================================
-   4. MÀN ① CHI TIẾT CA
+   4. TIỆN ÍCH GIAO DIỆN
+   ====================================================================== */
+const $ = s => document.querySelector(s);
+const MOBILE = () => matchMedia("(max-width: 979px)").matches;
+const HOVER = matchMedia("(hover: hover) and (pointer: fine)").matches;
+const tonCa = c => c.cur <= 6, tonXac = c => c.cur === 7 || c.cur === 8;
+const loiSong = c => c.loi.filter(l => l.tt !== "Đã bỏ");
+/* Lỗi hiển thị tại 1 bước: F10 (quá SLA 72h của cả ca) hiện ở bước đang diễn ra lúc vượt 72h, không ở bước 6 */
+const loiTai = (c, n) => c.loi.filter(l => l.ma === "F10" ? c.sla72Step === n : l.buoc === n);
+const loiTaiSong = (c, n) => loiTai(c, n).filter(l => l.tt !== "Đã bỏ");
+const fmtSla = h => h <= 72 ? h + "h" : Math.round(h / 24) + " ngày";
+const NGAN = { A3: "Ca lặp", B5: "Đổi hẹn ≥3 lần", B6: "Hẹn quá 24h", C3: "Đặt LK quá 24h", D4: "Hàng về quá 72h", E2: "Giao LK quá 24h", G1: "Trả xác quá 7 ngày" };
+function dotIcon(st, n) { return st === "done" ? "✓" : st === "skip" ? "–" : n; }
+function setTopH() { document.documentElement.style.setProperty("--toph", $("#top").offsetHeight + "px"); }
+addEventListener("resize", setTopH); setTopH();
+
+/* ======================================================================
+   5. MÀN ① CHI TIẾT CA
    ====================================================================== */
 let caId = CASES[0].id, moBuoc = null, moTatCa = false;
 const getCa = () => CASES.find(c => c.id === caId);
 
 function chipLoi(l) {
   const m = MA[l.ma] || { ten: l.ma };
-  const cls = l.ma === "F10" ? "sla72" : l.tuDong ? "auto" : l.tt === "Đã bỏ" ? "bo" : "loi";
-  const tip = `<b>${l.ma} · ${esc(m.ten)}</b><br>Bước ${l.buoc}. ${esc(STEPS[l.buoc - 1]?.ten || "")}<br>Nhóm: ${esc(m.nhom || "")}${m.diem ? " · " + m.diem + " điểm" : ""}<br>${l.tuDong ? "Máy tự phát hiện" : "Người ghi: " + esc(l.nguoi)} · ${fmtT(l.t)}<br>Trạng thái: ${esc(l.tt)}${l.ghiChu ? "<br>Ghi chú: " + esc(l.ghiChu) : ""}`;
-  const nhan = l.ma === "F10" ? "⚑ Quá SLA 72h" : l.tuDong ? `${l.ma} · ${esc(m.ten.replace(/^Xác nhận lịch hẹn |^Đặt linh kiện |^Giao LK /, ""))}` : `Lỗi ${l.ma}`;
-  return `<span class="chip ${cls}" data-tip="${esc(tip)}">${nhan}</span>`;
+  const cls = l.tt === "Đã bỏ" ? "bo" : l.ma === "F10" ? "sla72" : l.tuDong ? "auto" : "loi";
+  const tip = `<b>${l.ma} · ${esc(m.ten)}</b><br>Bước ${l.buoc}. ${esc(STEPS[l.buoc - 1]?.ten || "")}<br>Nhóm: ${esc(m.nhom || "")}${m.diem ? " · trừ " + m.diem + " điểm" : " · không trừ điểm"}<br>${l.tuDong ? "Máy tự phát hiện" : "Người ghi: " + esc(l.nguoi)} · ${fmtT(l.t)}<br>Trạng thái: ${esc(l.tt)}${l.ghiChu ? "<br>Ghi chú: " + esc(l.ghiChu) : ""}`;
+  const nhan = l.ma === "F10" ? "⚑ Quá SLA 72h" : l.tuDong ? `${l.ma} · ${esc(NGAN[l.ma] || m.ten)}` : `Lỗi ${l.ma}`;
+  return `<span class="chip ${cls}" tabindex="0" data-tip="${esc(tip)}">${nhan}</span>`;
 }
 
+/* Chỉ số + mã lỗi ngay dưới bước (hàng 3 của bản vẽ: "3 lần · Lỗi B1 · Lỗi B2 · 420p · Quá SLA 72h") */
 function metricsHTML(c, n) {
-  const st = trangThai(c, n), out = [];
-  const m = c.moc[n];
+  const st = trangThai(c, n), out = [], m = c.moc[n], S = STEPS[n - 1];
   if (st === "skip") return `<div class="m muted small">${n === 4 ? "Kho có sẵn, không cần mua" : "Ca không thay linh kiện"}</div>`;
-  if (n === 1) { out.push(`<div class="m"><b>${fmtT(c.created)}</b></div>`, `<div class="m">${esc(c.moc[1].nguoi)}</div>`, `<div class="m">${esc(c.mucDo)} · ${esc(c.doiTac)}</div>`); }
+  if (st === "todo") return `<div class="m muted small">Chưa tới</div>`;
+  if (n === 1) out.push(`<div class="m"><b>${esc(c.mucDo)}</b> · ${esc(c.doiTac)}</div>`, `<div class="m">${esc(c.moc[1].nguoi)}</div>`);
   if (n === 2) {
     out.push(`<div class="m"><b>${c.lichHen.length} lần</b> hẹn</div>`);
-    const d = m ? m.dur : st === "cur" ? c.waitH : null;
-    if (d != null) out.push(`<div class="m"><b>${Math.round(d * 60)}p</b> ${m ? "tạo ca → chốt hẹn" : "đang chờ"}</div>`);
-    const hen = c.lichHen[c.lichHen.length - 1]; if (hen && m) out.push(`<div class="m">Hẹn: ${fmtT(hen.hen)}</div>`);
+    const d = m ? m.dur : c.waitH;
+    out.push(`<div class="m" title="${m ? "Số phút từ lúc tạo ca tới lúc chốt được lịch hẹn" : "Số phút đã chờ kể từ lúc tạo ca"}"><b>${Math.round(d * 60)}p</b> ${m ? "tạo ca → chốt hẹn" : "đang chờ"}</div>`);
   }
   if (n === 3 && c.lk) { out.push(`<div class="m"><b>${c.lk.items.length} mã LK</b> · ${esc(c.lk.ma)}</div>`); if (m) out.push(`<div class="m">${fmtDur(m.dur)} sau chốt hẹn</div>`); }
-  if (n === 4 && c.po) { out.push(`<div class="m"><b>${esc(c.po.ma)}</b></div>`, `<div class="m">ETA ${fmtT(c.po.eta)}</div>`); if (c.po.lyDo) out.push(`<div class="m">${esc(c.po.lyDo)}</div>`); }
-  if (n === 5) { if (c.pxk) out.push(`<div class="m">PXK <b>${esc(c.pxk.ma)}</b></div>`); else out.push(`<div class="m">Chờ kho xuất</div>`); }
+  if (n === 4 && c.po) { out.push(`<div class="m"><b>${esc(c.po.ma)}</b></div>`, `<div class="m">Về dự kiến ${fmtT(c.po.eta)}</div>`); }
+  if (n === 5) out.push(c.pxk ? `<div class="m">PXK <b>${esc(c.pxk.ma)}</b></div>` : `<div class="m">Chờ kho xuất</div>`);
   if (n === 6) {
-    if (m) out.push(`<div class="m"><b>Hoàn thành</b></div>`, `<div class="m">Tổng ${fmtDur((m.t - c.created) / 3600e3)}</div>`);
-    else if (st !== "todo") { out.push(`<div class="m"><b>${c.gt.length} lần GT</b></div>`); const g = c.gt[c.gt.length - 1]; if (g) out.push(`<div class="m">Dự kiến ${fmtT(g.duKien)}</div>`); if (loLKH(c)) out.push(`<span class="chip loi" data-tip="Ngày dự kiến của giải trình gần nhất đã qua mà ca chưa đóng">Lỡ kế hoạch</span>`); }
+    if (m) out.push(`<div class="m"><b>Hoàn thành</b> · tổng ${fmtDur((m.t - c.created) / 3600e3)}</div>`);
+    else { out.push(`<div class="m"><b>${c.gt.length} lần</b> giải trình</div>`); if (loLKH(c)) out.push(`<div><span class="chip loi" tabindex="0" data-tip="Ngày dự kiến của lần giải trình gần nhất đã qua mà ca chưa đóng">Lỡ kế hoạch</span></div>`); }
   }
-  if (n === 7) { if (m) out.push(`<div class="m">Đã trả ${fmtT(m.t)}</div>`); else if (st === "cur") out.push(`<div class="m">Hạn: ${fmtT(addH(c.closedAt, 168))}</div>`); }
-  if (n === 8) { if (m) out.push(`<div class="m"><b>Đúng LK</b></div>`); }
-  const sla = STEPS[n - 1].slaH;
-  if (sla && (m || st === "cur") && n !== 2) {
+  if (n === 7) out.push(m ? `<div class="m">Đã trả xác</div>` : `<div class="m">Hạn ${fmtT(addH(c.closedAt, 168))}</div>`);
+  if (n === 8 && m) out.push(`<div class="m"><b>Đúng LK</b></div>`);
+  if (n === 8 && !m) out.push(`<div class="m">Chờ kho kiểm xác</div>`);
+  // Bước đang kẹt mà có giải trình ghi cho đúng bước này → hiện ngay tại bước (không phải mở bước 6 mới thấy)
+  if (st === "cur" && n !== 6) { const g = [...c.gt].reverse().find(x => x.buoc === n); if (g) out.push(`<div><span class="chip gt" tabindex="0" data-tip="${esc(`<b>Giải trình tồn</b><br>${esc(g.lyDo)}<br>Dự kiến xong ${fmtT(g.duKien)}<br>${esc(g.nguoi)} · ${fmtT(g.t)}`)}">GT: ${esc(g.lyDo)}</span></div>`); }
+  if (S.slaH) {
     const d = m ? m.dur : c.waitH;
-    out.push(`<div class="m"><span class="chip ${d > sla ? "auto" : "ok"}" data-tip="SLA bước ${n}: ${fmtDur(sla)}">${d > sla ? "Quá" : "Trong"} SLA ${fmtDur(sla)}</span></div>`);
+    // Quá SLA bước mà đã có mã tự động của bước (B6, C3, D4, E2, G1) thì không hiện thêm chip "Quá SLA" trùng ý
+    const coMaTuDong = AUTO_SLA[n] && loiTai(c, n).some(l => l.ma === AUTO_SLA[n]);
+    if (d <= S.slaH || !coMaTuDong) out.push(`<div><span class="chip ${d > S.slaH ? "auto" : "ok"}" tabindex="0" data-tip="SLA bước ${n}: ${fmtSla(S.slaH)} · ${m ? "đã mất" : "đang chờ"} ${fmtDur(d)}">${d > S.slaH ? "Quá hạn bước" : "Trong hạn"} ${fmtSla(S.slaH)}</span></div>`);
   }
-  if (n === 2 && sla && (m || st === "cur")) { const d = m ? m.dur : c.waitH; if (d <= sla) out.push(`<div class="m"><span class="chip ok">Trong SLA 24h</span></div>`); }
-  for (const l of loiBuoc(c, n)) if (!(l.ma === "F10")) out.push(`<div>${chipLoi(l)}</div>`);
-  if (c.sla72Step === n) out.push(`<div>${chipLoi(c.loi.find(l => l.ma === "F10"))}</div>`);
+  for (const l of loiTai(c, n)) out.push(`<div>${chipLoi(l)}</div>`);
   return out.join("");
 }
 
-function theHTML(c, n) {
-  const st = trangThai(c, n), S = STEPS[n - 1], m = c.moc[n];
-  if (st === "skip") return `<div class="scard skip">Bỏ qua</div>`;
-  const L = [];
-  if (n === 1) L.push(`${esc(c.kh)} · ${esc(c.sdt)}`, `${esc(c.nhom)} ${esc(c.hang)} ${esc(c.model)}`, `Lỗi báo: ${esc(c.hienTuong)}`, `KTV ${esc(c.ktv)} · ${esc(c.khuVuc)}`);
-  if (n === 2) { const h = c.lichHen[c.lichHen.length - 1]; L.push(h ? `Lần cuối: ${esc(h.kq)}` : "Chưa liên hệ khách", h ? `Giờ hẹn: ${fmtT(h.hen)}` : "", `Người làm: KTV ${esc(c.ktv)}`); }
-  if (n === 3) { if (c.lk) { L.push(`Đơn ${esc(c.lk.ma)}`, ...c.lk.items.slice(0, 2).map(x => "• " + esc(x.ten)), `TT: ${esc(c.lk.tt)}`); } else L.push("Chưa có đơn linh kiện"); }
-  if (n === 4) { if (c.po) L.push(`${esc(c.po.ma)} · ${esc(c.po.ncc)}`, `Hàng về dự kiến ${fmtT(c.po.eta)}`, m ? `Đã về ${fmtT(m.t)}` : `Lý do chậm: ${esc(c.po.lyDo || "—")}`); else L.push("Chưa có PO"); }
+/* Thẻ "Thông tin tóm lược" (hàng 4 của bản vẽ) — dùng chung PC + mobile */
+function tomLuoc(c, n) {
+  const st = trangThai(c, n), m = c.moc[n], L = [];
+  if (n === 1) L.push(`${esc(c.kh)} · ${esc(c.sdt)}`, `${esc(c.nhom)} ${esc(c.hang)} ${esc(c.model)}`, `Lỗi báo: ${esc(c.hienTuong)}`, `${esc(c.loaiYc)}`);
+  if (n === 2) { const h = c.lichHen[c.lichHen.length - 1]; L.push(h ? `Lần cuối: ${esc(h.kq)}` : "Chưa liên hệ khách", h ? `Giờ hẹn: ${fmtT(h.hen)}` : "", `KTV ${esc(c.ktv)}`); }
+  if (n === 3) { if (c.lk) L.push(`Đơn ${esc(c.lk.ma)}`, ...c.lk.items.slice(0, 2).map(x => "• " + esc(x.ten)), `Trạng thái: ${esc(c.lk.tt)}`); else L.push("KTV đang kiểm tra, chưa có đơn"); }
+  if (n === 4) { if (c.po) L.push(`${esc(c.po.ma)} · ${esc(c.po.ncc)}`, `Về dự kiến ${fmtT(c.po.eta)}`, m ? `Đã về ${fmtT(m.t)}` : `Lý do chậm: ${esc(c.po.lyDo || "—")}`); else L.push("Chưa có PO"); }
   if (n === 5) L.push(c.pxk ? `PXK ${esc(c.pxk.ma)}` : "Chưa có phiếu xuất", m ? `Giao ${fmtT(m.t)}` : "", m ? esc(m.nguoi) : "");
   if (n === 6) {
-    if (m) L.push(`Đóng ${fmtT(m.t)}`, `Kết quả: Hoàn thành XLSC`, `${c.gt.length} lần giải trình`);
-    else { const g = c.gt[c.gt.length - 1]; L.push(g ? `Lý do: ${esc(g.lyDo)}` : "Chưa giải trình", g ? `Dự kiến xong ${fmtT(g.duKien)}` : "", g ? `GT bởi ${esc(g.nguoi)}` : ""); }
+    if (m) L.push(`Đóng ${fmtT(m.t)}`, "Kết quả: Hoàn thành XLSC", `${c.gt.length} lần giải trình`);
+    else if (st === "cur") { const g = c.gt[c.gt.length - 1]; L.push(g ? `Lý do: ${esc(g.lyDo)}` : "Chưa giải trình", g ? `Dự kiến xong ${fmtT(g.duKien)}` : "", g ? `Bởi ${esc(g.nguoi)}` : ""); }
+    else L.push(c.gt.length ? `${c.gt.length} lần giải trình` : "Chưa giải trình", c.gt.length ? `Gần nhất: ${esc(c.gt[c.gt.length - 1].lyDo)}` : "");
   }
   if (n === 7) L.push(m ? `Trả ${fmtT(m.t)}` : st === "cur" ? `Hạn trả ${fmtT(addH(c.closedAt, 168))}` : "Chưa tới", m ? `Phiếu TX-${c.id.slice(-5)}` : "");
   if (n === 8) L.push(m ? `Xác nhận ${fmtT(m.t)}` : st === "cur" ? "Chờ kho kiểm xác" : "Chưa tới", m ? "Kết quả: Đúng linh kiện" : "");
+  return L.filter(Boolean);
+}
+
+function theHTML(c, n) {
+  const st = trangThai(c, n), S = STEPS[n - 1];
+  if (st === "skip") return `<div class="scard skip"><div><b>Bỏ qua</b><div class="small">${n === 4 ? "Kho có sẵn" : "Không thay LK"}</div></div></div>`;
   const open = moBuoc === n;
-  return `<div class="scard ${st}${open ? " open" : ""}" data-buoc="${n}">
-    <div class="ti">${n}</div><div class="sub">${esc(S.the)}</div>
-    ${L.filter(Boolean).map(x => `<div class="ln" title="${esc(x.replace(/<[^>]+>/g, ""))}">${x}</div>`).join("")}
-    <div class="xem"><button data-act="mobuoc" data-buoc="${n}">${open ? "▴ Thu gọn" : "▾ Chi tiết"}</button></div></div>`;
+  return `<div class="scard ${st}${open ? " open" : ""}">
+    <div class="ti"><span>${n}</span>${loiTaiSong(c, n).length ? `<span class="chip loi">${loiTaiSong(c, n).length} lỗi</span>` : ""}</div><div class="sub">${esc(S.the)}</div>
+    ${tomLuoc(c, n).map(x => `<div class="ln" title="${esc(x.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"))}">${x}</div>`).join("")}
+    <div class="xem"><button data-act="mobuoc" data-buoc="${n}" aria-expanded="${open}">${open ? "▴ Thu gọn" : "▾ Chi tiết"}</button></div></div>`;
 }
 
 function whenHTML(c, n) {
   const st = trangThai(c, n), m = c.moc[n];
-  if (st === "skip") return `<div class="when">— không áp dụng —</div>`;
-  if (st === "done") { const tr = mocTruoc(c, n); return `<div class="when"><div class="t">${fmtT(m.t)}</div>${n > 1 && tr ? `<div class="gap">+${fmtDur((m.t - tr.t) / 3600e3)}</div>` : ""}</div>`; }
-  if (st === "cur") return `<div class="when">ĐANG Ở ĐÂY<br>chờ ${fmtDur(c.waitH)}</div>`;
+  if (st === "skip") return `<div class="when">không áp dụng</div>`;
+  if (st === "done") { const tr = mocTruoc(c, n); return `<div class="when"><div class="t tnum">${fmtT(m.t)}</div>${n > 1 && tr ? `<div class="gap tnum">+${fmtDur((m.t - tr.t) / 3600e3)}</div>` : ""}</div>`; }
+  if (st === "cur") return `<div class="when">ĐANG Ở ĐÂY<br><span class="tnum">chờ ${fmtDur(c.waitH)}</span></div>`;
   return `<div class="when">Chưa tới</div>`;
 }
+function whenNgan(c, n) {
+  const st = trangThai(c, n), m = c.moc[n];
+  if (st === "skip") return "bỏ qua";
+  if (st === "done") { const tr = mocTruoc(c, n); return `${fmtT(m.t)}${n > 1 && tr ? ` · +${fmtDur((m.t - tr.t) / 3600e3)}` : ""}`; }
+  if (st === "cur") return `Đang ở đây · chờ ${fmtDur(c.waitH)}`;
+  return "Chưa tới";
+}
 
-function panelBuoc(c, n) {
-  const S = STEPS[n - 1], m = c.moc[n], st = trangThai(c, n);
+/* Phần xổ chi tiết của 1 bước */
+function chiTietBuoc(c, n) {
+  const m = c.moc[n];
   let body = "";
-  if (n === 1) body = `<div class="kv">
-    ${[["Mã ca", c.id], ["Khách hàng", c.kh], ["Điện thoại", c.sdt], ["Địa chỉ", c.diaChi], ["Sản phẩm", `${c.nhom} ${c.hang} ${c.model}`], ["Serial", c.serial], ["Hiện tượng lỗi", c.hienTuong],
-       ["Nhóm / loại yêu cầu", `${c.nhomYc} — ${c.loaiYc}`], ["Mức độ", c.mucDo], ["Đối tác", c.doiTac], ["Khu vực", c.khuVuc], ["KTV triển khai", c.ktv], ["Tiếp nhận CSKH", fmtT(c.created) + " · " + c.moc[1].nguoi],
-       ["Hạn SLA 72h", fmtT(addH(c.created, 72))], ["Tuổi tồn", fmtDur(tuoiTonH(c))]].map(([a, b]) => `<div><span>${a}</span>${esc(b)}</div>`).join("")}
-    </div><p class="small muted">Thay cho tab "Thông tin" (3 kiểu xem 1/5/7 tab con) hiện nay — gộp thành 1 khối, trường ít dùng ẩn bằng nút ⚙ như cũ.</p>`;
-  if (n === 2) body = `<table class="mini"><tr><th>#</th><th>Lúc liên hệ</th><th>Người</th><th>Giờ hẹn</th><th>Kết quả</th></tr>
-    ${c.lichHen.map((h, i) => `<tr><td>${i + 1}</td><td>${fmtT(h.t)}</td><td>${esc(h.nguoi)}</td><td>${fmtT(h.hen)}</td><td>${esc(h.kq)}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">Chưa có lần liên hệ nào</td></tr>`}</table>
-    <p class="small muted">Nguồn: lịch hẹn Odoo (tab con "Lịch hẹn" hiện nay). Thời gian chốt hẹn = lần có kết quả "KH xác nhận lịch".</p>`;
-  if (n === 3) body = c.lk ? `<div class="kv"><div><span>Đơn đặt LK</span>${esc(c.lk.ma)}</div><div><span>Trạng thái mới nhất (theo phiếu)</span>${esc(c.lk.tt)}</div><div><span>Ngày đặt</span>${m ? fmtT(m.t) : "—"}</div></div>
-    <table class="mini"><tr><th>Mã LK</th><th>Tên linh kiện</th><th>SL</th></tr>${c.lk.items.map(x => `<tr><td>${x.ma}</td><td>${esc(x.ten)}</td><td>${x.sl}</td></tr>`).join("")}</table>
-    <p class="small muted">Nguồn: app Đặt linh kiện (tab "Mua hàng" hiện nay).</p>` : `<p class="muted">Chưa có đơn linh kiện.</p>`;
-  if (n === 4) body = c.po ? `<div class="kv"><div><span>PO</span>${esc(c.po.ma)}</div><div><span>Nhà cung cấp</span>${esc(c.po.ncc)}</div><div><span>Hàng về dự kiến</span>${fmtT(c.po.eta)}</div><div><span>Hàng về thực tế</span>${m ? fmtT(m.t) : "Chưa về"}</div><div><span>Lý do chậm</span>${esc(c.po.lyDo || "—")}</div></div>
-    <p class="small muted">Gộp tab "PO đặt hàng" + "Thiếu hàng" hiện nay.</p>` : `<p class="muted">Chưa có PO.</p>`;
-  if (n === 5) body = `<div class="kv"><div><span>Phiếu xuất kho (MISA)</span>${c.pxk ? esc(c.pxk.ma) : "—"}</div><div><span>Ngày giao</span>${m ? fmtT(m.t) : "—"}</div><div><span>Người giao</span>${m ? esc(m.nguoi) : "—"}</div><div><span>KTV nhận</span>${esc(c.ktv)}</div></div>`;
-  if (n === 6) body = `<div class="row"><b>Lịch sử giải trình tồn (${c.gt.length})</b>${c.cur <= 6 ? `<button class="btn pri sm" data-act="giaitrinh">✍ Giải trình tồn</button>` : ""}</div>
-    <table class="mini"><tr><th>Lúc</th><th>Bước bị kẹt</th><th>Lý do</th><th>Dự kiến xong</th><th>Nội dung</th><th>Người</th></tr>
-    ${c.gt.slice().reverse().map(g => `<tr><td>${fmtT(g.t)}</td><td><span class="badge b-ocean">${g.buoc}. ${esc(STEPS[g.buoc - 1].ten)}</span></td><td>${esc(g.lyDo)}</td><td>${fmtT(g.duKien)}${g.duKien < NOW && c.cur <= 6 && g === c.gt[c.gt.length - 1] ? ' <span class="chip loi">Lỡ KH</span>' : ""}</td><td>${esc(g.nd)}</td><td>${esc(g.nguoi)}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">Chưa có giải trình</td></tr>`}</table>
-    <p class="small muted">Mới: mỗi lần giải trình ghi kèm "bước đang kẹt" → Quản lý tồn biết ca kẹt ở khâu nào. Sửa chữa bảo hành (tab "Bảo hành"), biên bản họp cũng gom về đây.</p>`;
-  if (n === 7) body = `<div class="kv"><div><span>Hạn trả xác</span>${c.closedAt ? fmtT(addH(c.closedAt, 168)) : "Sau khi đóng ca 7 ngày"}</div><div><span>Ngày trả</span>${m ? fmtT(m.t) : "—"}</div><div><span>Phiếu trả xác</span>${m ? "TX-" + c.id.slice(-5) : "—"}</div></div><p class="note small">Bước mới — DVBH hiện CHƯA có dữ liệu trả xác. Cần lấy từ app Linh kiện / kho (xem tab ④).</p>`;
-  if (n === 8) body = `<div class="kv"><div><span>Người xác nhận</span>${m ? esc(m.nguoi) : "—"}</div><div><span>Kết quả</span>${m ? "Đúng linh kiện đã cấp" : "—"}</div></div><p class="note small">Bước mới — chưa có dữ liệu (xem tab ④).</p>`;
-  const lois = loiBuoc(c, n);
-  return `<div class="panel"><h3><span class="badge b-ocean">Bước ${n}</span>${esc(S.ten)} <span class="small muted">· ${esc(S.moTa)} · Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtDur(S.slaH) : ""}</span>
-    <button class="btn sm" style="margin-left:auto" data-act="mobuoc" data-buoc="${n}">▴ Thu gọn</button></h3>${body}
-    <div style="margin-top:12px"><div class="row"><b>Mã lỗi của bước này (${lois.length})</b><button class="btn warn sm" data-act="ghiloi" data-buoc="${n}">⚠ Ghi nhận lỗi bước ${n}</button></div>
-    ${lois.length ? `<table class="mini"><tr><th>Mã</th><th>Tên lỗi</th><th>Ghi bởi</th><th>Lúc</th><th>Trạng thái</th><th>Ghi chú</th><th></th></tr>${lois.map((l, i) => `<tr><td>${chipLoi(l)}</td><td>${esc(MA[l.ma].ten)}</td><td>${l.tuDong ? "Máy tự phát hiện" : esc(l.nguoi)}</td><td>${fmtT(l.t)}</td><td>${esc(l.tt)}</td><td>${esc(l.ghiChu)}</td><td>${!l.tuDong && l.tt === "Chờ QC chốt" ? `<button class="btn sm" data-act="chot" data-idx="${c.loi.indexOf(l)}">QC chốt</button> <button class="btn sm" data-act="bo" data-idx="${c.loi.indexOf(l)}">Bỏ</button>` : ""}</td></tr>`).join("")}</table>` : `<p class="muted small">Không có lỗi.</p>`}</div></div>`;
+  const kv = arr => `<div class="kv">${arr.map(([a, b]) => `<div><span>${a}</span>${esc(b)}</div>`).join("")}</div>`;
+  if (n === 1) body = kv([["Mã ca", c.id], ["Khách hàng", c.kh], ["Điện thoại", c.sdt], ["Địa chỉ", c.diaChi], ["Sản phẩm", `${c.nhom} ${c.hang} ${c.model}`], ["Serial", c.serial], ["Hiện tượng lỗi", c.hienTuong],
+      ["Nhóm / loại yêu cầu", `${c.nhomYc} — ${c.loaiYc}`], ["Mức độ", c.mucDo], ["Đối tác", c.doiTac], ["Khu vực", c.khuVuc], ["KTV triển khai", c.ktv], ["Tiếp nhận", fmtT(c.created) + " · " + c.moc[1].nguoi],
+      ["Hạn SLA 72h", fmtT(addH(c.created, 72))], ["Tuổi tồn", fmtDur(tuoiTonH(c))]]) + `<p class="small muted" style="margin:10px 0 0">Thay cho tab "Thông tin" (3 kiểu xem 1 / 5 / 7 tab con) hiện nay.</p>`;
+  if (n === 2) body = `<div class="mo-only">${c.lichHen.map((h, i) => `<div class="li"><div class="lt"><b>Lần ${i + 1}</b>${h.kq === "KH xác nhận lịch" ? `<span class="badge b-teal">${esc(h.kq)}</span>` : `<span>${esc(h.kq)}</span>`}</div><div class="lm tnum">Liên hệ ${fmtT(h.t)} · hẹn ${fmtT(h.hen)} · ${esc(h.nguoi)}</div></div>`).join("") || `<p class="empty">Chưa có lần liên hệ nào</p>`}</div>
+    <div class="tw pc-only"><table class="mini"><tr><th>#</th><th>Lúc liên hệ</th><th>Giờ hẹn</th><th>Kết quả</th><th>Người</th></tr>
+    ${c.lichHen.map((h, i) => `<tr><td>${i + 1}</td><td class="tnum">${fmtT(h.t)}</td><td class="tnum">${fmtT(h.hen)}</td><td>${h.kq === "KH xác nhận lịch" ? `<span class="badge b-teal">${esc(h.kq)}</span>` : esc(h.kq)}</td><td>${esc(h.nguoi)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">Chưa có lần liên hệ nào</td></tr>`}</table></div>
+    <p class="small muted" style="margin:8px 0 0">Nguồn: lịch hẹn Odoo. Mốc "xong" = lần có kết quả "KH xác nhận lịch".</p>`;
+  if (n === 3) body = c.lk ? kv([["Đơn đặt LK", c.lk.ma], ["Trạng thái mới nhất (theo phiếu)", c.lk.tt], ["Ngày đặt", m ? fmtT(m.t) : "—"]]) +
+    `<div class="tw" style="margin-top:8px"><table class="mini"><tr><th>Mã LK</th><th>Tên linh kiện</th><th>SL</th></tr>${c.lk.items.map(x => `<tr><td class="tnum">${x.ma}</td><td>${esc(x.ten)}</td><td>${x.sl}</td></tr>`).join("")}</table></div>
+    <p class="small muted" style="margin:8px 0 0">Nguồn: app Đặt linh kiện (tab "Mua hàng" hiện nay).</p>` : `<p class="empty">KTV đang kiểm tra, chưa có đơn linh kiện.</p>`;
+  if (n === 4) body = c.po ? kv([["PO", c.po.ma], ["Nhà cung cấp", c.po.ncc], ["Hàng về dự kiến", fmtT(c.po.eta)], ["Hàng về thực tế", m ? fmtT(m.t) : "Chưa về"], ["Lý do chậm", c.po.lyDo || "—"]]) +
+    `<p class="small muted" style="margin:10px 0 0">Gộp tab "PO đặt hàng" + "Thiếu hàng" hiện nay.</p>` : `<p class="empty">Chưa có PO.</p>`;
+  if (n === 5) body = kv([["Phiếu xuất kho (MISA)", c.pxk ? c.pxk.ma : "—"], ["Ngày giao", m ? fmtT(m.t) : "—"], ["Người giao", m ? m.nguoi : "—"], ["KTV nhận", c.ktv]]);
+  if (n === 6) body = `<div class="sec-h"><b>Lịch sử giải trình tồn (${c.gt.length})</b>${c.cur <= 6 ? `<button class="btn pri sm" data-act="giaitrinh">✍ Giải trình tồn</button>` : ""}</div>
+    ${c.gt.slice().reverse().map((g, i) => `<div class="li gt"><div class="lt"><span class="badge b-ocean">Kẹt ở bước ${g.buoc}. ${esc(STEPS[g.buoc - 1].ten)}</span><b>${esc(g.lyDo)}</b>${i === 0 && loLKH(c) ? '<span class="chip loi">Lỡ kế hoạch</span>' : ""}</div>
+      <div class="lb">${esc(g.nd)}</div><div class="lm tnum">${fmtT(g.t)} · ${esc(g.nguoi)} · dự kiến xong ${fmtT(g.duKien)}</div></div>`).join("") || `<p class="empty">Chưa có giải trình.</p>`}
+    <p class="small muted" style="margin:8px 0 0">Mới: mỗi lần giải trình ghi kèm "bước đang kẹt" → Quản lý tồn biết ca kẹt ở khâu nào. Sửa chữa bảo hành, biên bản họp cũng gom về đây.</p>`;
+  if (n === 7) body = kv([["Hạn trả xác", c.closedAt ? fmtT(addH(c.closedAt, 168)) : "7 ngày sau khi đóng ca"], ["Ngày trả", m ? fmtT(m.t) : "—"], ["Phiếu trả xác", m ? "TX-" + c.id.slice(-5) : "—"]]) + `<p class="note" style="margin:10px 0 0">Bước mới — DVBH hiện CHƯA có dữ liệu trả xác. Cần Giám đốc chốt nguồn (tab ④).</p>`;
+  if (n === 8) body = kv([["Người xác nhận", m ? m.nguoi : "—"], ["Kết quả", m ? "Đúng linh kiện đã cấp" : "—"]]) + `<p class="note" style="margin:10px 0 0">Bước mới — chưa có dữ liệu (tab ④).</p>`;
+  const lois = loiTai(c, n);
+  return body + `<div class="sec"><div class="sec-h"><b>Mã lỗi của bước ${n} (${lois.filter(l => l.tt !== "Đã bỏ").length})</b><button class="btn warn sm" data-act="ghiloi" data-buoc="${n}">⚠ Ghi nhận lỗi bước ${n}</button></div>
+    ${lois.map(l => { const i = c.loi.indexOf(l); return `<div class="li ${l.tt === "Đã bỏ" ? "bo" : l.tuDong ? "auto" : "loi"}"><div class="lt">${chipLoi(l)}<b>${esc(MA[l.ma].ten)}</b></div>
+      <div class="lm tnum">${l.tuDong ? "Máy tự phát hiện" : esc(l.nguoi)} · ${fmtT(l.t)} · ${l.tt === "Chờ QC chốt" ? '<span class="badge b-amber">Chờ QC chốt</span>' : l.tt === "Đã chốt" ? '<span class="badge b-red">Đã chốt</span>' : `<span class="badge">${esc(l.tt)}</span>`}</div>
+      ${l.ghiChu ? `<div class="lb">${esc(l.ghiChu)}</div>` : ""}
+      ${!l.tuDong && l.tt === "Chờ QC chốt" ? `<div class="la"><button class="btn sm pri" data-act="chot" data-idx="${i}">✓ QC chốt</button><button class="btn sm" data-act="bo" data-idx="${i}">Bỏ lỗi</button></div>` : ""}</div>`; }).join("") || `<p class="empty">Không có lỗi ở bước này.</p>`}</div>`;
+}
+function panelPC(c, n) {
+  const S = STEPS[n - 1];
+  return `<div class="panel" id="panel"><div class="ph"><span class="badge b-ocean">Bước ${n}</span><div><div class="pt">${esc(S.ten)}</div><div class="ps">${esc(S.moTa)} · Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}</div></div>
+    <button class="btn sm" data-act="mobuoc" data-buoc="${n}">▴ Thu gọn</button></div>${chiTietBuoc(c, n)}</div>`;
 }
 
 function nhatKy(c) {
   const ev = [];
   for (const s of STEPS) { const m = c.moc[s.n]; if (m) ev.push({ t: m.t, cls: "", txt: `<b>${s.n}. ${esc(s.ten)}</b> — xong · ${esc(m.nguoi)}` }); }
-  for (const h of c.lichHen) ev.push({ t: h.t, cls: "", txt: `Liên hệ khách: ${esc(h.kq)} (hẹn ${fmtT(h.hen)}) · ${esc(h.nguoi)}` });
+  for (const h of c.lichHen) ev.push({ t: h.t, cls: "hen", txt: `Liên hệ khách: ${esc(h.kq)} (hẹn ${fmtT(h.hen)}) · ${esc(h.nguoi)}` });
   for (const g of c.gt) ev.push({ t: g.t, cls: "gt", txt: `Giải trình tồn [bước ${g.buoc}]: ${esc(g.lyDo)} — dự kiến ${fmtT(g.duKien)} · ${esc(g.nguoi)}` });
-  for (const l of c.loi) ev.push({ t: l.t, cls: "loi", txt: `Lỗi ${l.ma} [bước ${l.buoc}]: ${esc(MA[l.ma].ten)} · ${l.tuDong ? "máy tự phát hiện" : esc(l.nguoi)}` });
+  for (const l of c.loi) ev.push({ t: l.t, cls: "loi", txt: `Lỗi ${l.ma} [bước ${l.buoc}]: ${esc(MA[l.ma].ten)} · ${l.tuDong ? "máy tự phát hiện" : esc(l.nguoi)}${l.tt === "Đã bỏ" ? " (đã bỏ)" : ""}` });
   ev.sort((a, b) => b.t - a.t);
   return `<div class="vlog">${ev.map(e => `<div class="e ${e.cls}"><div class="tt">${fmtT(e.t)}</div>${e.txt}</div>`).join("")}</div>`;
 }
 
 function renderChiTiet() {
-  const c = getCa(), el = document.getElementById("v-chitiet");
-  const tong = tuoiTonH(c), quaSla = tong > SLA_TONG_H;
+  const c = getCa(), el = $("#v-chitiet");
+  const tong = tuoiTonH(c), quaSla = tong > SLA_TONG_H, cur = c.cur <= 8 ? STEPS[c.cur - 1] : null, soLoi = loiSong(c).length;
   const ttCa = c.cur <= 6 ? `<span class="badge b-amber">Đang tồn · ${fmtDur(tong)}</span>` : c.cur <= 8 ? `<span class="badge b-violet">Đã đóng ca · còn tồn xác</span>` : `<span class="badge b-teal">Đã xong cả 8 bước</span>`;
-  const opts = CASES.map(x => `<option value="${x.id}" ${x.id === c.id ? "selected" : ""}>${x.id} · ${esc(x.kh)} · bước ${Math.min(x.cur, 8)}${x.cur > 8 ? " (xong)" : ""}</option>`).join("");
-  const cur = c.cur <= 8 ? STEPS[c.cur - 1] : null;
+  const opts = CASES.map(x => `<option value="${x.id}" ${x.id === c.id ? "selected" : ""}>${x.id} · ${esc(x.kh)} · ${x.cur > 8 ? "xong" : "bước " + x.cur}</option>`).join("");
+  const slaH = c.closedAt && c.cur > 6 ? (c.closedAt - c.created) / 3600e3 : tong, pct = Math.min(100, slaH / SLA_TONG_H * 100);
+  const slaMau = slaH > SLA_TONG_H ? "var(--pink-700)" : slaH > SLA_TONG_H * .75 ? "var(--amber-500)" : "var(--teal-500)";
+  const acts = `${c.cur <= 6 ? `<button class="btn pri" data-act="giaitrinh">✍ Giải trình tồn</button>` : ""}<button class="btn warn" data-act="ghiloi">⚠ Ghi nhận lỗi</button><button class="btn" data-act="crm">↗ Mở CRM</button>`;
+  const legend = `<div class="legend"><span class="lg"><i style="background:var(--teal-500);border-color:var(--teal-500)"></i>Đã xong (giờ + khoảng cách mốc trước)</span><span class="lg"><i style="background:var(--amber-500);border-color:var(--amber-500)"></i>Đang xử lý</span><span class="lg"><i></i>Chưa tới</span><span class="lg"><i style="border-style:dashed"></i>Bỏ qua</span>
+      <span class="lg"><span class="chip loi">Lỗi B1</span> người ghi</span><span class="lg"><span class="chip auto">B6 · …</span> máy tự phát hiện</span><span class="lg"><span class="chip sla72">⚑ Quá SLA 72h</span> bước lúc vượt 72h</span><span class="lg"><span class="chip gt">GT: …</span> giải trình tồn</span>
+      <span class="lg">${HOVER ? "Rê chuột" : "Chạm"} vào mốc / chip để xem đầy đủ</span></div>`;
   el.innerHTML = `
-  <div class="picker"><b>Chọn ca demo:</b><input id="tim" type="text" placeholder="Gõ mã ca / tên khách…"><select id="chonCa">${opts}</select>
+  <div class="picker"><b>Chọn ca demo:</b><input id="tim" type="search" placeholder="Gõ mã ca / tên khách…" autocomplete="off"><select id="chonCa" aria-label="Chọn ca">${opts}</select>
     <button class="btn sm" data-act="ca" data-d="-1">◀ Ca trước</button><button class="btn sm" data-act="ca" data-d="1">Ca sau ▶</button>
-    <span class="small muted">Ca đầu tiên dựng đúng theo bản vẽ Excel của Giám đốc (hẹn 3 lần, lỗi B1, B2, 420p, quá SLA 72h).</span></div>
-  <div class="box">
-    <div class="chead">
-      <div><div class="id">${c.id} ${ttCa} ${quaSla ? `<span class="badge b-pink">⚑ Quá SLA 72h</span>` : `<span class="badge b-teal">Trong SLA 72h</span>`} <span class="badge ${c.mucDo === "Thường" ? "" : "b-red"}">${c.mucDo}</span></div>
-        <div class="meta"><span>Khách: <b>${esc(c.kh)}</b></span><span>SP: <b>${esc(c.nhom)} ${esc(c.hang)} ${esc(c.model)}</b></span><span>KTV: <b>${esc(c.ktv)}</b></span><span>Khu vực: <b>${esc(c.khuVuc)}</b></span>
-        <span>Đang ở: <b style="color:#b45309">${cur ? `Bước ${cur.n}. ${esc(cur.ten)}` : "Đã hoàn tất"}</b></span><span>Lỗi: <b style="color:var(--red)">${c.loi.filter(l => l.tt !== "Đã bỏ").length}</b></span></div></div>
-      <div class="acts">${c.cur <= 6 ? `<button class="btn pri" data-act="giaitrinh">✍ Giải trình tồn</button>` : ""}<button class="btn warn" data-act="ghiloi">⚠ Ghi nhận lỗi</button><button class="btn" data-act="crm">↗ Mở trên CRM</button></div>
+    <span class="small muted">Ca đầu tiên dựng đúng bản vẽ Excel của Giám đốc: hẹn 3 lần, lỗi B1, B2, 420p, quá SLA 72h.</span></div>
+  <div class="card hdr">
+    <div class="hl">
+      <div class="idrow"><span class="cid">${c.id}</span>${ttCa}${quaSla ? `<span class="badge b-pink">⚑ Quá SLA 72h</span>` : `<span class="badge b-teal">Trong SLA 72h</span>`}${c.mucDo !== "Thường" ? `<span class="badge b-red">${c.mucDo}</span>` : ""}${soLoi ? `<span class="badge b-red">${soLoi} lỗi</span>` : ""}</div>
+      <div class="meta"><div><span>Khách hàng</span><b>${esc(c.kh)}</b></div><div><span>Sản phẩm</span><b>${esc(c.nhom)} ${esc(c.hang)} ${esc(c.model)}</b></div><div><span>KTV · Khu vực</span><b>${esc(c.ktv)} · ${esc(c.khuVuc)}</b></div><div><span>Đối tác · Loại yêu cầu</span><b>${esc(c.doiTac)} · ${esc(c.loaiYc)}</b></div></div>
     </div>
+    <div class="acts">${acts}</div>
   </div>
-  <div class="box">
-    <div class="flowwrap"><div class="flow">
-      ${STEPS.map(S => {
-        const st = trangThai(c, S.n), bad = loiBuoc(c, S.n).some(l => l.tt !== "Đã bỏ" && l.ma !== "F10") || c.sla72Step === S.n;
-        const m = c.moc[S.n];
-        const tip = `<b>${S.n}. ${esc(S.ten)}</b><br>${esc(S.moTa)}<br>Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtDur(S.slaH) : ""}<br>` +
+  <div class="card">
+    <div class="fhead"><div><div class="ftitle">Tiến trình 8 bước</div><div class="fsub">${cur ? `Đang ở <b>bước ${cur.n}/8 · ${esc(cur.ten)}</b> · chờ ${fmtDur(c.waitH)} · phụ trách ${esc(cur.ai)}` : `<span style="color:var(--teal-600);font-weight:700">Đã hoàn tất cả 8 bước</span>`}</div></div>
+      <div class="slabar"><div class="sl-l"><span>SLA tổng 72h (bước 1 → 6)</span><b style="color:${slaMau}">${fmtDur(slaH)}${c.cur > 6 ? " (đã đóng)" : ""}</b></div><div class="sl-b"><i style="width:${pct}%;background:${slaMau}"></i></div></div>
+    </div>
+    <div class="pc-only">
+      <div class="flow">${STEPS.map(S => {
+        const st = trangThai(c, S.n), bad = loiTaiSong(c, S.n).length > 0, m = c.moc[S.n];
+        const tip = `<b>${S.n}. ${esc(S.ten)}</b><br>${esc(S.moTa)}<br>Phụ trách: ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}<br>` +
           (st === "done" ? `Xong: ${fmtT(m.t)} · ${esc(m.nguoi)}${m.dur ? "<br>Mất: " + fmtDur(m.dur) : ""}` : st === "cur" ? `Đang chờ ${fmtDur(c.waitH)}` : st === "skip" ? "Bỏ qua (không áp dụng cho ca này)" : "Chưa tới");
         return `<div class="col ${st}${bad ? " hasbad" : ""}">
           <div class="shead"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span></div>
-          <div class="rail"><div class="dot" data-tip="${esc(tip)}" data-act="mobuoc" data-buoc="${S.n}">${st === "done" ? "✓" : st === "skip" ? "–" : S.n}</div></div>
-          ${whenHTML(c, S.n)}
-          <div class="metrics">${metricsHTML(c, S.n)}</div>
-          ${theHTML(c, S.n)}
-        </div>`;
-      }).join("")}
-    </div></div>
-    <div class="legend"><span><i style="background:var(--teal);border-color:var(--teal)"></i>Đã xong (giờ + khoảng cách so với mốc trước)</span><span><i style="background:var(--amber);border-color:var(--amber)"></i>Đang xử lý / đang chờ</span><span><i></i>Chưa tới</span><span><i style="border-style:dashed"></i>Bỏ qua (ca không cần LK / kho có sẵn)</span>
-      <span><span class="chip loi">Lỗi B1</span> lỗi người ghi</span><span><span class="chip auto">B6 · …</span> máy tự phát hiện</span><span><span class="chip sla72">⚑ Quá SLA 72h</span> bước đang diễn ra lúc vượt 72h</span><span>Rê chuột vào mốc / chip để xem đầy đủ</span></div>
-    ${moBuoc ? panelBuoc(c, moBuoc) : ""}
-    <div class="toggle-all"><button class="btn" data-act="tatca">${moTatCa ? "▴ Thu gọn" : "▾ Xem chi tiết"} — nhật ký dọc đầy đủ + thông tin khác</button></div>
-    ${moTatCa ? `<div class="otherbar"><span class="small muted">Thông tin khác (luồng phụ, không thuộc 8 bước — chỉ hiện khi có dữ liệu):</span>${["Khảo sát CSKH", "Ca lặp", "Tranh chấp / KN", "Đổi trả", "Nạp gas", "Biên bản họp", "QC thực tế", "NSKX"].map(x => `<span class="badge">${x}</span>`).join("")}</div>${nhatKy(c)}` : ""}
-  </div>`;
+          <div class="rail"><div class="dot" data-tip="${esc(tip)}" data-act="mobuoc" data-buoc="${S.n}">${dotIcon(st, S.n)}</div></div>
+          ${whenHTML(c, S.n)}<div class="metrics">${metricsHTML(c, S.n)}</div>${theHTML(c, S.n)}</div>`;
+      }).join("")}</div>
+      ${moBuoc ? panelPC(c, moBuoc) : ""}
+    </div>
+    <div class="mo-only">
+      <div class="mrail">${STEPS.map(S => { const st = trangThai(c, S.n); return `<button class="md ${st}" data-act="nhay" data-buoc="${S.n}" aria-label="Bước ${S.n}"><span class="dot">${dotIcon(st, S.n)}</span><span class="dn">${S.n}</span></button>`; }).join("")}</div>
+      <div class="mlist">${STEPS.map(S => {
+        const st = trangThai(c, S.n), open = moBuoc === S.n, bad = loiTaiSong(c, S.n).length > 0;
+        if (st === "skip") return `<div class="ms skip" id="ms-${S.n}"><span class="dot">–</span><div class="ms-h"><div class="ms-m"><div class="ms-t"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span><span class="wh">bỏ qua</span></div><div class="ms-s"><span class="m muted small">${S.n === 4 ? "Kho có sẵn, không cần mua" : "Ca không thay linh kiện"}</span></div></div></div></div>`;
+        return `<div class="ms ${st}${bad ? " hasbad" : ""}${open ? " open" : ""}" id="ms-${S.n}"><span class="dot">${dotIcon(st, S.n)}</span>
+          <div class="ms-h" data-act="mobuoc" data-buoc="${S.n}" role="button" aria-expanded="${open}"><div class="ms-m"><div class="ms-t"><span class="no">${S.n}</span><span class="nm">${esc(S.ten)}</span><span class="wh">${whenNgan(c, S.n)}</span></div><div class="ms-s">${metricsHTML(c, S.n)}</div></div><span class="ms-c">▾</span></div>
+          ${open ? `<div class="ms-b"><div class="tl"><div class="sub">${esc(S.the)} · ${esc(S.ai)}${S.slaH ? " · SLA " + fmtSla(S.slaH) : ""}</div>${tomLuoc(c, S.n).map(x => `<div>${x}</div>`).join("")}</div>${chiTietBuoc(c, S.n)}</div>` : ""}</div>`;
+      }).join("")}</div>
+    </div>
+    ${legend}
+    <div class="toggle-all"><button class="btn" data-act="tatca" aria-expanded="${moTatCa}">${moTatCa ? "▴ Thu gọn" : "▾ Xem chi tiết"} — nhật ký đầy đủ + thông tin khác</button></div>
+    ${moTatCa ? `<div class="otherbar"><span class="small muted">Luồng phụ (không thuộc 8 bước — chỉ hiện khi ca có dữ liệu):</span>${["Khảo sát CSKH", "Ca lặp", "Tranh chấp / KN", "Đổi trả", "Nạp gas", "Biên bản họp", "QC thực tế", "NSKX"].map(x => `<span class="badge">${x}</span>`).join("")}</div>${nhatKy(c)}` : ""}
+  </div>
+  <div class="actbar mo-only">${c.cur <= 6 ? `<button class="btn pri" data-act="giaitrinh">✍ Giải trình</button>` : ""}<button class="btn warn" data-act="ghiloi">⚠ Ghi lỗi</button><button class="btn more" data-act="crm" aria-label="Mở trên CRM">↗</button></div>`;
 }
 
 /* ======================================================================
-   5. BẢNG KIỂU EXCEL DÙNG CHUNG (lọc + sắp xếp trên tiêu đề cột)
+   6. BẢNG KIỂU EXCEL DÙNG CHUNG (lọc + sắp xếp trên tiêu đề cột; mobile = thẻ + bảng lọc trượt)
    ====================================================================== */
-const XT = {}; // trạng thái theo id bảng
+const XT = {};
 function xtState(id) { return XT[id] || (XT[id] = { sort: null, f: {} }); }
 function xtVal(col, r) { return col.get ? col.get(r) : r[col.key]; }
 function xtActive(col, f) {
   if (!f) return false;
   if (col.type === "multi") return f.size > 0;
   if (col.type === "text") return !!f.trim();
-  return f.from !== "" && f.from != null || f.to !== "" && f.to != null;
+  return (f.from !== "" && f.from != null) || (f.to !== "" && f.to != null);
 }
 function xtPass(col, f, r) {
   if (!xtActive(col, f)) return true;
@@ -637,375 +893,465 @@ function xtPass(col, f, r) {
   if (col.type === "text") return boDau(v).includes(boDau(f.trim()));
   if (col.type === "multi") { const arr = Array.isArray(v) ? v : [v]; return arr.some(x => f.has(String(x))); }
   if (col.type === "num") { const n = Number(v); return (f.from === "" || n >= Number(f.from)) && (f.to === "" || n <= Number(f.to)); }
-  if (col.type === "date") { const d = v ? fmtISO(v) : ""; return (!f.from || d >= f.from) && (!f.to || d <= f.to); }
+  if (col.type === "date") { const d = v ? fmtISO(v) : ""; return d && (!f.from || d >= f.from) && (!f.to || d <= f.to); }
   return true;
 }
 const fmtISO = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+const cellHTML = (c, r) => c.render ? c.render(r) : esc(xtVal(c, r));
 function xtRender(host, id, cols, rows, onRow) {
   const s = xtState(id);
   let out = rows.filter(r => cols.every(c => xtPass(c, s.f[c.key], r)));
   if (s.sort) {
     const col = cols.find(c => c.key === s.sort.key), dir = s.sort.dir;
-    out = out.slice().sort((a, b) => {
+    if (col) out = out.slice().sort((a, b) => {
       let x = xtVal(col, a), y = xtVal(col, b);
       if (Array.isArray(x)) x = x.join(","); if (Array.isArray(y)) y = y.join(",");
       if (x instanceof Date) x = +x; if (y instanceof Date) y = +y;
+      if (x == null || x === "") return 1; if (y == null || y === "") return -1;
       if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
-      return String(x ?? "").localeCompare(String(y ?? ""), "vi") * dir;
+      return String(x).localeCompare(String(y), "vi") * dir;
     });
   }
   const nAct = cols.filter(c => xtActive(c, s.f[c.key])).length;
-  host.innerHTML = `<div class="xt-bar"><b>${out.length}</b>&nbsp;/ ${rows.length} dòng${nAct ? ` · đang lọc ${nAct} cột <button class="btn sm" data-xt="clearall">✕ Xoá tất cả lọc</button>` : ""}<span class="small muted">Bấm tiêu đề cột để sắp xếp · ⏷ để lọc · bấm dòng để mở chi tiết ca</span></div>
+  const cardCols = cols.filter(c => c.m);
+  const sortCol = s.sort && cols.find(c => c.key === s.sort.key);
+  host.innerHTML = `<div class="xt-bar"><span><b class="tnum">${out.length}</b> / ${rows.length} dòng</span>${nAct ? `<span class="badge b-amber">đang lọc ${nAct} cột</span><button class="btn sm" data-xt="clearall">✕ Xoá tất cả lọc</button>` : ""}
+      <button class="btn sm mo-only" style="display:none" data-xt="sheet">⚙ Lọc &amp; sắp xếp${nAct ? ` (${nAct})` : ""}</button>${sortCol ? `<span class="hint mo-only" style="display:none">Sắp theo ${esc(sortCol.label)} ${s.sort.dir > 0 ? "▲" : "▼"}</span>` : ""}
+      <span class="hint pc-only">Bấm tiêu đề cột để sắp xếp · ⏷ để lọc${onRow ? " · bấm dòng để mở chi tiết ca" : ""}</span></div>
   <div class="xt-wrap"><table class="xt"><thead><tr>${cols.map(c => {
     const act = xtActive(c, s.f[c.key]), ar = s.sort && s.sort.key === c.key ? (s.sort.dir > 0 ? "▲" : "▼") : "";
-    return `<th class="${act ? "act" : ""}"><div class="hw"><span class="lb" data-xt="sort" data-k="${c.key}">${esc(c.label)}<span class="ar">${ar}</span></span>${act ? `<button class="x" title="Xoá lọc cột này" data-xt="clear" data-k="${c.key}">✕</button>` : ""}<button class="fb" title="Lọc" data-xt="pop" data-k="${c.key}">⏷</button></div></th>`;
-  }).join("")}</tr></thead><tbody>${out.map((r, i) => `<tr data-i="${rows.indexOf(r)}">${cols.map(c => `<td>${c.render ? c.render(r) : esc(xtVal(c, r))}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="muted" style="text-align:center;padding:20px">Không có dòng nào khớp bộ lọc</td></tr>`}</tbody></table></div>`;
+    return `<th class="${act ? "act" : ""}"><div class="hw"><span class="lb" data-xt="sort" data-k="${c.key}" title="Bấm để sắp xếp">${esc(c.label)}<span class="ar">${ar}</span></span>${act ? `<button class="x" title="Xoá lọc cột này" data-xt="clear" data-k="${c.key}">✕</button>` : ""}<button class="fb" title="Lọc cột này" data-xt="pop" data-k="${c.key}">⏷</button></div></th>`;
+  }).join("")}</tr></thead><tbody>${out.map(r => `<tr class="${onRow ? "rw" : ""}" data-i="${rows.indexOf(r)}">${cols.map(c => `<td class="${c.w ? "wr" : ""}">${cellHTML(c, r)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${cols.length}" class="empty" style="text-align:center;padding:22px">Không có dòng nào khớp bộ lọc</td></tr>`}</tbody></table></div>
+  <div class="xt-cards">${out.map(r => `<div class="xc ${onRow ? "rw" : ""}" data-i="${rows.indexOf(r)}"><div class="xc-h">${cols.filter(c => c.h).map(c => cellHTML(c, r)).join("")}</div>
+      <div class="xc-g">${cardCols.map(c => `<div class="${c.w ? "w" : ""}"><span class="l">${esc(c.label)}</span>${cellHTML(c, r)}</div>`).join("")}</div></div>`).join("") || `<p class="empty" style="text-align:center">Không có dòng nào khớp bộ lọc</p>`}</div>`;
+  host.querySelectorAll(".xt-bar .mo-only").forEach(x => x.style.display = "");
+  const redraw = () => xtRender(host, id, cols, rows, onRow);
   host.onclick = e => {
     const t = e.target.closest("[data-xt]");
     if (t) {
       e.stopPropagation();
       const k = t.dataset.k, a = t.dataset.xt;
-      if (a === "sort") { s.sort = s.sort && s.sort.key === k ? (s.sort.dir > 0 ? { key: k, dir: -1 } : null) : { key: k, dir: 1 }; xtRender(host, id, cols, rows, onRow); }
-      if (a === "clear") { delete s.f[k]; xtRender(host, id, cols, rows, onRow); }
-      if (a === "clearall") { s.f = {}; xtRender(host, id, cols, rows, onRow); }
-      if (a === "pop") xtPop(t, host, id, cols, rows, onRow, cols.find(c => c.key === k));
+      if (a === "sort") { s.sort = s.sort && s.sort.key === k ? (s.sort.dir > 0 ? { key: k, dir: -1 } : null) : { key: k, dir: 1 }; redraw(); }
+      if (a === "clear") { delete s.f[k]; redraw(); }
+      if (a === "clearall") { s.f = {}; redraw(); }
+      if (a === "pop") xtPop(t, s, cols.find(c => c.key === k), rows, cols, redraw);
+      if (a === "sheet") xtSheet(s, cols, rows, redraw);
       return;
     }
-    const tr = e.target.closest("tbody tr[data-i]");
+    const tr = e.target.closest("[data-i]");
     if (tr && onRow) onRow(rows[+tr.dataset.i]);
   };
 }
-let popEl = null;
-function closePop() { if (popEl) { popEl.remove(); popEl = null; } }
-function xtPop(btn, host, id, cols, rows, onRow, col) {
+let popEl = null, popBk = null;
+function closePop() { if (popEl) popEl.remove(); if (popBk) popBk.remove(); popEl = popBk = null; }
+function openPop(html, anchor) {
   closePop();
-  const s = xtState(id), rr = btn.getBoundingClientRect();
-  popEl = document.createElement("div"); popEl.className = "pop";
-  popEl.style.top = Math.min(rr.bottom + 4, innerHeight - 340) + "px"; popEl.style.left = Math.max(8, Math.min(rr.left - 220, innerWidth - 270)) + "px";
-  const redraw = () => xtRender(host, id, cols, rows, onRow);
+  popEl = document.createElement("div"); popEl.className = "pop"; popEl.innerHTML = `<div class="grab"></div>` + html;
+  if (MOBILE()) { popBk = document.createElement("div"); popBk.className = "pop-bk"; popBk.onclick = closePop; document.body.appendChild(popBk); }
+  document.body.appendChild(popEl);
+  if (anchor && !MOBILE()) {
+    const rr = anchor.getBoundingClientRect(), h = popEl.offsetHeight;
+    popEl.style.top = Math.max(8, Math.min(rr.bottom + 4, innerHeight - h - 8)) + "px";
+    popEl.style.left = Math.max(8, Math.min(rr.right - 272, innerWidth - 282)) + "px";
+  }
+  return popEl;
+}
+/* Mobile: 1 bảng trượt liệt kê mọi cột → chọn cột để lọc, ▲▼ để sắp xếp (cùng trạng thái lọc với bảng PC) */
+function xtSheet(s, cols, rows, redraw) {
+  const p = openPop(`<div class="ttl">Lọc &amp; sắp xếp</div><div class="small muted">Chọn cột để lọc · ▲▼ để sắp xếp</div>
+    ${cols.map(c => { const act = xtActive(c, s.f[c.key]), so = s.sort && s.sort.key === c.key ? s.sort.dir : 0; return `<div class="csr ${act ? "act" : ""}"><span class="cn">${esc(c.label)}</span>
+      <button class="btn sm ${so > 0 ? "on" : ""}" data-s="${c.key}" data-d="1" aria-label="Tăng dần">▲</button><button class="btn sm ${so < 0 ? "on" : ""}" data-s="${c.key}" data-d="-1" aria-label="Giảm dần">▼</button><button class="btn sm" data-f="${c.key}">Lọc</button></div>`; }).join("")}
+    <div class="ft"><button class="btn" data-a="clr">Xoá tất cả lọc</button><button class="btn pri" data-a="close">Xong</button></div>`);
+  p.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.s) { const d = +b.dataset.d; s.sort = s.sort && s.sort.key === b.dataset.s && s.sort.dir === d ? null : { key: b.dataset.s, dir: d }; redraw(); xtSheet(s, cols, rows, redraw); }
+    if (b.dataset.f) xtPop(null, s, cols.find(c => c.key === b.dataset.f), rows, cols, redraw);
+    if (b.dataset.a === "clr") { s.f = {}; redraw(); xtSheet(s, cols, rows, redraw); }
+    if (b.dataset.a === "close") closePop();
+  };
+}
+function xtPop(btn, s, col, rows, cols, redraw) {
   if (col.type === "text") {
-    popEl.innerHTML = `<b>Tìm trong "${esc(col.label)}"</b><div class="small muted">Không phân biệt dấu / hoa thường</div><input type="text" value="${esc(s.f[col.key] || "")}" placeholder="Gõ từ cần tìm…">`;
-    const inp = popEl.querySelector("input"); inp.oninput = () => { s.f[col.key] = inp.value; redraw(); };
-    setTimeout(() => inp.focus(), 0);
+    const p = openPop(`<div class="ttl">Tìm trong "${esc(col.label)}"</div><div class="small muted">Không phân biệt dấu / hoa thường</div><input type="text" value="${esc(s.f[col.key] || "")}" placeholder="Gõ từ cần tìm…"><div class="ft"><button class="btn sm" data-a="clr">Xoá</button><button class="btn sm pri" data-a="close">Xong</button></div>`, btn);
+    const inp = p.querySelector("input"); inp.oninput = () => { s.f[col.key] = inp.value; redraw(); };
+    p.querySelector("[data-a=clr]").onclick = () => { delete s.f[col.key]; inp.value = ""; redraw(); };
+    p.querySelector("[data-a=close]").onclick = closePop;
+    if (!MOBILE()) setTimeout(() => inp.focus(), 0);
   } else if (col.type === "multi") {
-    // đếm giá trị trên tập đã lọc bởi các cột KHÁC
     const base = rows.filter(r => cols.every(c => c === col || xtPass(c, s.f[c.key], r)));
     const cnt = new Map();
-    for (const r of base) { const v = xtVal(col, r); for (const x of (Array.isArray(v) ? v : [v])) cnt.set(String(x), (cnt.get(String(x)) || 0) + 1); }
-    for (const r of rows) { const v = xtVal(col, r); for (const x of (Array.isArray(v) ? v : [v])) if (!cnt.has(String(x))) cnt.set(String(x), 0); }
+    for (const r of rows) { const v = xtVal(col, r); for (const x of (Array.isArray(v) ? v : [v])) cnt.set(String(x), 0); }
+    for (const r of base) { const v = xtVal(col, r); for (const x of (Array.isArray(v) ? v : [v])) cnt.set(String(x), cnt.get(String(x)) + 1); }
     const vals = [...cnt.keys()].sort((a, b) => (col.order ? col.order(a) - col.order(b) : a.localeCompare(b, "vi")));
     const sel = s.f[col.key] || new Set();
-    popEl.innerHTML = `<b>Lọc "${esc(col.label)}"</b><div class="small muted">Chọn nhiều = khớp 1 giá trị bất kỳ · không tick = không lọc</div><input type="text" placeholder="Tìm giá trị…"><div class="lst">${vals.map(v => `<label data-v="${esc(v)}"><input type="checkbox" value="${esc(v)}" ${sel.has(v) ? "checked" : ""}> <span>${esc(v)}</span><span class="cnt">${cnt.get(v)}</span></label>`).join("")}</div>
-      <div class="ft"><button class="btn sm" data-a="all">Chọn tất cả</button><button class="btn sm" data-a="none">Bỏ chọn</button><button class="btn sm pri" data-a="close">Xong</button></div>`;
-    const sync = () => { const ns = new Set([...popEl.querySelectorAll(".lst input:checked")].map(x => x.value)); s.f[col.key] = ns; redraw(); };
-    popEl.querySelectorAll(".lst input").forEach(x => x.onchange = sync);
-    popEl.querySelector("input[type=text]").oninput = e => { const q = boDau(e.target.value); popEl.querySelectorAll(".lst label").forEach(l => l.style.display = boDau(l.dataset.v).includes(q) ? "" : "none"); };
-    popEl.querySelector("[data-a=all]").onclick = () => { popEl.querySelectorAll(".lst label").forEach(l => { if (l.style.display !== "none") l.querySelector("input").checked = true; }); sync(); };
-    popEl.querySelector("[data-a=none]").onclick = () => { popEl.querySelectorAll(".lst input").forEach(x => x.checked = false); sync(); };
-    popEl.querySelector("[data-a=close]").onclick = closePop;
+    const p = openPop(`<div class="ttl">Lọc "${esc(col.label)}"</div><div class="small muted">Chọn nhiều = khớp 1 giá trị bất kỳ · không tick = không lọc</div><input type="text" placeholder="Tìm giá trị…"><div class="lst">${vals.map(v => `<label data-v="${esc(v)}"><input type="checkbox" value="${esc(v)}" ${sel.has(v) ? "checked" : ""}> <span>${esc(v)}</span><span class="cnt">${cnt.get(v)}</span></label>`).join("")}</div>
+      <div class="ft"><button class="btn sm" data-a="all">Chọn tất cả</button><button class="btn sm" data-a="none">Bỏ chọn</button><button class="btn sm pri" data-a="close">Xong</button></div>`, btn);
+    const sync = () => { s.f[col.key] = new Set([...p.querySelectorAll(".lst input:checked")].map(x => x.value)); redraw(); };
+    p.querySelectorAll(".lst input").forEach(x => x.onchange = sync);
+    p.querySelector("input[type=text]").oninput = e => { const q = boDau(e.target.value); p.querySelectorAll(".lst label").forEach(l => l.style.display = boDau(l.dataset.v).includes(q) ? "" : "none"); };
+    p.querySelector("[data-a=all]").onclick = () => { p.querySelectorAll(".lst label").forEach(l => { if (l.style.display !== "none") l.querySelector("input").checked = true; }); sync(); };
+    p.querySelector("[data-a=none]").onclick = () => { p.querySelectorAll(".lst input").forEach(x => x.checked = false); sync(); };
+    p.querySelector("[data-a=close]").onclick = closePop;
   } else {
     const f = s.f[col.key] || { from: "", to: "" }, typ = col.type === "date" ? "date" : "number";
-    popEl.innerHTML = `<b>${col.type === "date" ? "Khoảng ngày" : "Khoảng giá trị"} "${esc(col.label)}"</b><div class="two" style="margin-top:6px"><div><span class="small muted">Từ</span><input type="${typ}" data-a="from" value="${f.from}"></div><div><span class="small muted">Đến</span><input type="${typ}" data-a="to" value="${f.to}"></div></div>
-      ${col.type === "date" ? `<div class="small muted" style="margin-top:4px">Chọn 1 ngày: điền cùng 1 ngày ở cả 2 ô</div>` : ""}<div class="ft"><button class="btn sm" data-a="clr">Xoá</button><button class="btn sm pri" data-a="close">Xong</button></div>`;
-    const sync = () => { s.f[col.key] = { from: popEl.querySelector("[data-a=from]").value, to: popEl.querySelector("[data-a=to]").value }; redraw(); };
-    popEl.querySelectorAll("input").forEach(x => x.oninput = sync);
-    popEl.querySelector("[data-a=clr]").onclick = () => { delete s.f[col.key]; closePop(); redraw(); };
-    popEl.querySelector("[data-a=close]").onclick = closePop;
+    const p = openPop(`<div class="ttl">${col.type === "date" ? "Khoảng ngày" : "Khoảng giá trị"} "${esc(col.label)}"</div><div class="two" style="margin-top:6px"><div><span class="small muted">Từ</span><input type="${typ}" data-a="from" value="${f.from}"></div><div><span class="small muted">Đến</span><input type="${typ}" data-a="to" value="${f.to}"></div></div>
+      ${col.type === "date" ? `<div class="small muted" style="margin-top:6px">Chọn 1 ngày: điền cùng 1 ngày ở cả 2 ô</div>` : ""}<div class="ft"><button class="btn sm" data-a="clr">Xoá</button><button class="btn sm pri" data-a="close">Xong</button></div>`, btn);
+    const sync = () => { s.f[col.key] = { from: p.querySelector("[data-a=from]").value, to: p.querySelector("[data-a=to]").value }; redraw(); };
+    p.querySelectorAll("input").forEach(x => x.oninput = sync);
+    p.querySelector("[data-a=clr]").onclick = () => { delete s.f[col.key]; closePop(); redraw(); };
+    p.querySelector("[data-a=close]").onclick = closePop;
   }
-  document.body.appendChild(popEl);
 }
-document.addEventListener("mousedown", e => { if (popEl && !popEl.contains(e.target) && !e.target.closest("[data-xt=pop]")) closePop(); });
+document.addEventListener("pointerdown", e => { if (popEl && !MOBILE() && !popEl.contains(e.target) && !e.target.closest("[data-xt=pop]")) closePop(); });
 
 /* ======================================================================
-   6. MÀN ② QUẢN LÝ TỒN THEO BƯỚC
+   7. MÀN ② QUẢN LÝ TỒN THEO BƯỚC
    ====================================================================== */
 let tonView = "tong";
 const caTon = () => CASES.filter(c => c.cur <= 8);
-function choBuocH(c) { return c.waitH; }
-function quaSlaBuoc(c) { const s = STEPS[c.cur - 1]; return s.slaH && c.waitH > s.slaH; }
+function quaSlaBuoc(c) { const s = STEPS[c.cur - 1]; return !!(s && s.slaH && c.waitH > s.slaH); }
 
 function cotChung() {
   return [
-    { key: "id", label: "Mã ca", type: "text", render: r => `<b>${r.id}</b>` },
-    { key: "kh", label: "Khách hàng", type: "text" },
+    { key: "id", label: "Mã ca", type: "text", h: 1, render: r => `<b class="tnum">${r.id}</b>` },
+    { key: "kh", label: "Khách hàng", type: "text", m: 1 },
     { key: "sp", label: "Sản phẩm", type: "multi", get: r => r.nhom },
-    { key: "khuVuc", label: "Khu vực", type: "multi" },
-    { key: "ktv", label: "KTV", type: "multi" },
-    { key: "mucDo", label: "Mức độ", type: "multi", render: r => r.mucDo === "Thường" ? "Thường" : `<span class="badge b-red">${r.mucDo}</span>` },
-    { key: "buoc", label: "Bước đang tồn", type: "multi", get: r => `${r.cur}. ${STEPS[r.cur - 1].ten}`, order: v => parseInt(v), render: r => `<span class="badge b-amber">${r.cur}. ${esc(STEPS[r.cur - 1].ten)}</span>` },
-    { key: "tao", label: "Ngày tạo", type: "date", get: r => r.created, render: r => fmtT(r.created) },
-    { key: "tuoi", label: "Tuổi tồn (ngày)", type: "num", get: r => +(tuoiTonH(r) / 24).toFixed(1), render: r => `${(tuoiTonH(r) / 24).toFixed(1).replace(".", ",")}` },
-    { key: "cho", label: "Chờ ở bước (giờ)", type: "num", get: r => Math.round(choBuocH(r)), render: r => `<span class="${quaSlaBuoc(r) ? "chip auto" : ""}">${fmtDur(choBuocH(r))}</span>` },
-    { key: "sla", label: "SLA bước", type: "multi", get: r => quaSlaBuoc(r) ? "Quá SLA" : "Trong SLA", render: r => quaSlaBuoc(r) ? `<span class="chip auto">Quá ${fmtDur(STEPS[r.cur - 1].slaH)}</span>` : `<span class="chip ok">Trong SLA</span>` },
-    { key: "loi", label: "Mã lỗi", type: "multi", get: r => r.loi.filter(l => l.tt !== "Đã bỏ").map(l => l.ma).concat(r.loi.length ? [] : ["(không lỗi)"]), order: v => v.charCodeAt(0) * 100 + (parseInt(v.slice(1)) || 0),
-      render: r => r.loi.filter(l => l.tt !== "Đã bỏ").map(l => chipLoi(l)).join(" ") || `<span class="muted">—</span>` },
-    { key: "gt", label: "Giải trình gần nhất", type: "text", get: r => r.gt.length ? r.gt[r.gt.length - 1].lyDo : "", render: r => { const g = r.gt[r.gt.length - 1]; return g ? `${esc(g.lyDo)}<div class="small muted">dự kiến ${fmtT(g.duKien)}${loLKH(r) ? ' · <span style="color:var(--red)">lỡ kế hoạch</span>' : ""}</div>` : `<span class="muted">Chưa GT</span>`; } },
+    { key: "khuVuc", label: "Khu vực", type: "multi", m: 1 },
+    { key: "ktv", label: "KTV", type: "multi", m: 1 },
+    { key: "mucDo", label: "Mức độ", type: "multi", h: 1, render: r => r.mucDo === "Thường" ? `<span class="badge">Thường</span>` : `<span class="badge b-red">${r.mucDo}</span>` },
+    { key: "buoc", label: "Bước đang tồn", type: "multi", h: 1, get: r => `${r.cur}. ${STEPS[r.cur - 1].ten}`, order: v => parseInt(v), render: r => `<span class="badge ${r.cur >= 7 ? "b-violet" : "b-amber"}">${r.cur}. ${esc(STEPS[r.cur - 1].ten)}</span>` },
+    { key: "tao", label: "Ngày tạo", type: "date", get: r => r.created, render: r => `<span class="tnum">${fmtT(r.created)}</span>` },
+    { key: "tuoi", label: "Tuổi tồn (ngày)", type: "num", m: 1, get: r => +(tuoiTonH(r) / 24).toFixed(1), render: r => `<span class="tnum">${(tuoiTonH(r) / 24).toFixed(1).replace(".", ",")}</span>` },
+    { key: "cho", label: "Chờ ở bước", type: "num", m: 1, get: r => Math.round(r.waitH), render: r => `<span class="tnum" style="${quaSlaBuoc(r) ? "color:var(--orange-700);font-weight:700" : ""}">${fmtDur(r.waitH)}</span>` },
+    { key: "sla", label: "SLA bước", type: "multi", m: 1, get: r => quaSlaBuoc(r) ? "Quá SLA" : "Trong SLA", render: r => quaSlaBuoc(r) ? `<span class="chip auto">Quá ${fmtSla(STEPS[r.cur - 1].slaH)}</span>` : `<span class="chip ok">Trong SLA</span>` },
+    { key: "loi", label: "Mã lỗi", type: "multi", m: 1, w: 1, get: r => { const a = loiSong(r).map(l => l.ma); return a.length ? a : ["(không lỗi)"]; }, order: v => v[0] === "(" ? 0 : v.charCodeAt(0) * 100 + (parseInt(v.slice(1)) || 0),
+      render: r => loiSong(r).map(l => chipLoi(l)).join(" ") || `<span class="muted">—</span>` },
+    { key: "gt", label: "Giải trình gần nhất", type: "text", m: 1, w: 1, get: r => r.gt.length ? r.gt[r.gt.length - 1].lyDo : "", render: r => { const g = r.gt[r.gt.length - 1]; return g ? `${esc(g.lyDo)}<div class="small muted">dự kiến ${fmtT(g.duKien)}${loLKH(r) ? ' · <b style="color:var(--coral-600)">lỡ kế hoạch</b>' : ""}</div>` : `<span class="muted">Chưa giải trình</span>`; } },
   ];
 }
 function cotRieng(n) {
-  if (n === 2) return [{ key: "lan", label: "Số lần hẹn", type: "num", get: r => r.lichHen.length }, { key: "kqhen", label: "KQ liên hệ cuối", type: "multi", get: r => r.lichHen.length ? r.lichHen[r.lichHen.length - 1].kq : "Chưa liên hệ" }];
-  if (n === 3) return [{ key: "ddh", label: "Đơn LK", type: "text", get: r => r.lk ? r.lk.ma : "" }, { key: "lktt", label: "TT đơn", type: "multi", get: r => r.lk ? r.lk.tt : "Chưa có đơn" }];
-  if (n === 4) return [{ key: "po", label: "PO", type: "text", get: r => r.po ? r.po.ma : "" }, { key: "ncc", label: "NCC", type: "multi", get: r => r.po ? r.po.ncc : "" }, { key: "eta", label: "Hàng về dự kiến", type: "date", get: r => r.po ? r.po.eta : null, render: r => r.po ? fmtT(r.po.eta) + (r.po.eta < NOW ? ' <span class="chip loi">trễ</span>' : "") : "—" }, { key: "ldc", label: "Lý do chậm", type: "multi", get: r => r.po && r.po.lyDo || "—" }];
-  if (n === 5) return [{ key: "hangve", label: "Hàng về lúc", type: "date", get: r => (r.moc[4] || r.moc[3] || {}).t, render: r => fmtT((r.moc[4] || r.moc[3] || {}).t) }];
-  if (n === 6) return [{ key: "slgt", label: "Số lần GT", type: "num", get: r => r.gt.length }, { key: "lkh", label: "Lỡ kế hoạch", type: "multi", get: r => loLKH(r) ? "Lỡ kế hoạch" : "Đúng kế hoạch" }];
-  if (n === 7) return [{ key: "dong", label: "Đóng ca lúc", type: "date", get: r => r.closedAt, render: r => fmtT(r.closedAt) }, { key: "hantx", label: "Hạn trả xác", type: "date", get: r => addH(r.closedAt, 168), render: r => fmtT(addH(r.closedAt, 168)) }];
+  if (n === 2) return [{ key: "lan", label: "Số lần hẹn", type: "num", m: 1, get: r => r.lichHen.length }, { key: "kqhen", label: "KQ liên hệ cuối", type: "multi", m: 1, get: r => r.lichHen.length ? r.lichHen[r.lichHen.length - 1].kq : "Chưa liên hệ" }];
+  if (n === 3) return [{ key: "ddh", label: "Đơn LK", type: "text", m: 1, get: r => r.lk ? r.lk.ma : "" }, { key: "lktt", label: "TT đơn", type: "multi", m: 1, get: r => r.lk ? r.lk.tt : "Chưa có đơn" }];
+  if (n === 4) return [{ key: "po", label: "PO", type: "text", m: 1, get: r => r.po ? r.po.ma : "" }, { key: "ncc", label: "NCC", type: "multi", get: r => r.po ? r.po.ncc : "—" }, { key: "eta", label: "Hàng về dự kiến", type: "date", m: 1, get: r => r.po ? r.po.eta : null, render: r => r.po ? `<span class="tnum">${fmtT(r.po.eta)}</span>` + (r.po.eta < NOW ? ' <span class="chip loi">trễ</span>' : "") : "—" }, { key: "ldc", label: "Lý do chậm", type: "multi", m: 1, get: r => r.po && r.po.lyDo || "—" }];
+  if (n === 5) return [{ key: "hangve", label: "Hàng về lúc", type: "date", m: 1, get: r => (r.moc[4] || r.moc[3] || {}).t, render: r => `<span class="tnum">${fmtT((r.moc[4] || r.moc[3] || {}).t)}</span>` }];
+  if (n === 6) return [{ key: "slgt", label: "Số lần GT", type: "num", m: 1, get: r => r.gt.length }, { key: "lkh", label: "Kế hoạch", type: "multi", m: 1, get: r => loLKH(r) ? "Lỡ kế hoạch" : "Đúng kế hoạch" }];
+  if (n === 7) return [{ key: "dong", label: "Đóng ca lúc", type: "date", m: 1, get: r => r.closedAt, render: r => `<span class="tnum">${fmtT(r.closedAt)}</span>` }, { key: "hantx", label: "Hạn trả xác", type: "date", m: 1, get: r => addH(r.closedAt, 168), render: r => `<span class="tnum">${fmtT(addH(r.closedAt, 168))}</span>` }];
+  if (n === 8) return [{ key: "dong", label: "Đóng ca lúc", type: "date", m: 1, get: r => r.closedAt, render: r => `<span class="tnum">${fmtT(r.closedAt)}</span>` }];
   return [];
 }
 
 function renderTon() {
-  const el = document.getElementById("v-ton"), ton = caTon();
+  const el = $("#v-ton"), ton = caTon();
   const dem = n => ton.filter(c => c.cur === n);
-  const side = `<div class="side">
-    <div class="grp">Theo quy trình (mới)</div>
-    <button data-tv="tong" class="${tonView === "tong" ? "on" : ""}"><span class="n">∑</span>Tổng quan 8 bước<span class="c">${ton.length}</span></button>
-    ${STEPS.map(S => { const d = dem(S.n), hot = d.filter(quaSlaBuoc).length; return `<button data-tv="${S.n}" class="${tonView == S.n ? "on" : ""}"><span class="n">${S.n}</span>${esc(S.ten)}<span class="c ${hot ? "hot" : ""}" title="${hot} ca quá SLA bước">${d.length}</span></button>`; }).join("")}
+  const nutBuoc = S => { const d = dem(S.n), hot = d.filter(quaSlaBuoc).length; return `<button data-tv="${S.n}" class="${tonView == S.n ? "on" : ""} ${S.n >= 7 ? "xac" : ""}"><span class="n">${S.n}</span>${esc(S.ten)}<span class="c ${hot ? "hot" : ""}" title="${d.length} ca · ${hot} quá SLA bước">${d.length}</span></button>`; };
+  const side = `<div class="side" id="side">
+    <div class="grp">Tồn ca — khách đang chờ</div>
+    <button data-tv="tong" class="${tonView === "tong" ? "on" : ""}"><span class="n">∑</span>Tổng quan<span class="c">${ton.length}</span></button>
+    ${STEPS.filter(S => S.n <= 6).map(nutBuoc).join("")}
+    <div class="grp">Tồn xác — ca đã đóng</div>
+    ${STEPS.filter(S => S.n >= 7).map(nutBuoc).join("")}
     <div class="grp">Theo mã lỗi</div>
-    <button data-tv="loi" class="${tonView === "loi" ? "on" : ""}"><span class="n">!</span>Ca tồn có lỗi<span class="c hot">${ton.filter(c => c.loi.some(l => l.tt !== "Đã bỏ")).length}</span></button>
-    <div class="grp">Giữ nguyên (màn cũ)</div>
-    ${["Cảnh báo tồn · Cấp 1", "Cảnh báo tồn · Cấp 2 (CEO)", "Lý do giải trình theo tháng", "Tuổi tồn TB"].map(x => `<button class="dis" data-tv="cu" title="Màn cũ giữ nguyên, chuyển xuống nhóm dưới"><span class="n">·</span>${x}</button>`).join("")}
+    <button data-tv="loi" class="${tonView === "loi" ? "on" : ""}"><span class="n">!</span>Ca tồn có lỗi<span class="c hot">${ton.filter(c => loiSong(c).length).length}</span></button>
+    <div class="grp">Màn cũ (giữ nguyên)</div>
+    ${["Cảnh báo tồn cấp 1", "Cảnh báo cấp 2 (CEO)", "Lý do GT theo tháng", "Tuổi tồn TB"].map(x => `<button class="dis" data-tv="cu" title="Màn cũ giữ nguyên như app hiện tại"><span class="n">·</span>${x}</button>`).join("")}
   </div>`;
   let main = "";
   if (tonView === "tong") {
-    const funnel = `<div class="funnel">${STEPS.map(S => {
+    const ca = ton.filter(tonCa), xac = ton.filter(tonXac);
+    const funnel = `<div class="fgrp pc-only" style="display:flex"><span>Tồn ca · bước 1 → 6 (tính SLA 72h)</span><span>Tồn xác · bước 7 → 8</span></div><div class="funnel">${STEPS.map(S => {
       const d = dem(S.n), hot = d.filter(quaSlaBuoc).length, tb = d.length ? d.reduce((a, c) => a + c.waitH, 0) / d.length : 0;
-      const top = {}; d.forEach(c => c.loi.filter(l => l.buoc === S.n && l.tt !== "Đã bỏ").forEach(l => top[l.ma] = (top[l.ma] || 0) + 1));
+      const top = {}; d.forEach(c => loiTaiSong(c, S.n).forEach(l => top[l.ma] = (top[l.ma] || 0) + 1));
       const topTxt = Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([m, k]) => `${m}×${k}`).join(" · ");
-      return `<div class="fbox" data-tv="${S.n}"><div class="h">BƯỚC ${S.n}${S.n >= 7 ? " · tồn xác" : ""}</div><div class="t">${esc(S.ten)}</div><div class="big ${d.length ? "" : "zero"}">${d.length}</div>
-        <div class="s">${d.length ? `TB chờ ${fmtDur(tb)}` : "—"}</div><div class="s" style="color:${hot ? "var(--red)" : "inherit"}">${hot} quá SLA${S.slaH ? " " + fmtDur(S.slaH) : ""}</div><div class="s">${topTxt ? "Lỗi: " + topTxt : "&nbsp;"}</div>
-        <div class="bar"><i style="width:${d.length ? hot / d.length * 100 : 0}%"></i></div></div>`;
+      return `<button class="fbox ${S.n >= 7 ? "xac" : ""}" data-tv="${S.n}"><div class="h">BƯỚC ${S.n}</div><div class="t">${esc(S.ten)}</div><div class="big ${d.length ? "" : "zero"}">${d.length}</div>
+        <div class="s">${d.length ? `TB chờ ${fmtDur(tb)}` : "Không có ca"}</div><div class="s ${hot ? "red" : ""}">${hot} quá SLA${S.slaH ? " " + fmtSla(S.slaH) : ""}</div><div class="s">${topTxt ? "Lỗi: " + topTxt : "Không có lỗi"}</div>
+        <div class="bar"><i style="width:${d.length ? hot / d.length * 100 : 0}%"></i></div></button>`;
     }).join("")}</div>`;
-    const mx = `<table class="mx"><tr><th>Khu vực</th>${STEPS.map(S => `<th>${S.n}. ${esc(S.ten)}</th>`).join("")}<th>Tổng</th></tr>
-      ${KHU.map(kv => `<tr><th style="text-align:left">${kv}</th>${STEPS.map(S => { const d = ton.filter(c => c.khuVuc === kv && c.cur === S.n), hot = d.filter(quaSlaBuoc).length; return `<td class="cl ${hot ? "hot" : ""}" data-mx="${S.n}|${kv}" title="${hot} quá SLA">${d.length || "·"}</td>`; }).join("")}<td><b>${ton.filter(c => c.khuVuc === kv).length}</b></td></tr>`).join("")}</table>`;
-    main = `<div class="box"><h2>Tồn đang kẹt ở bước nào?</h2><p class="muted small" style="margin-top:0">Mỗi ô = số ca đang dừng ở bước đó · thanh đỏ = tỉ lệ quá SLA của bước · bấm ô để mở danh sách bước.</p>${funnel}</div>
-      <div class="box"><h3>Ma trận Khu vực × Bước <span class="small muted">(ô đỏ = có ca quá SLA bước · bấm ô để mở danh sách đã lọc sẵn)</span></h3>${mx}</div>
-      <div class="box"><h3>Tất cả ca tồn</h3><div id="xtHost"></div></div>`;
+    const mx = `<div class="tw"><table class="mx"><tr><th>Khu vực</th>${STEPS.map(S => `<th class="${S.n >= 7 ? "xac" : ""}">${S.n}. ${esc(S.ten)}</th>`).join("")}<th>Tổng</th></tr>
+      ${KHU.map(kv => `<tr><th>${kv}</th>${STEPS.map(S => { const d = ton.filter(c => c.khuVuc === kv && c.cur === S.n), hot = d.filter(quaSlaBuoc).length; return `<td class="cl ${hot ? "hot" : d.length ? "" : "z"}" data-mx="${S.n}|${kv}" title="${d.length} ca · ${hot} quá SLA bước">${d.length || "·"}</td>`; }).join("")}<td><b>${ton.filter(c => c.khuVuc === kv).length}</b></td></tr>`).join("")}</table></div>`;
+    main = `<div class="card"><h2>Tồn đang kẹt ở bước nào?</h2><p class="muted small" style="margin:0 0 6px">Mỗi ô = số ca đang dừng ở bước đó · thanh đỏ = tỉ lệ quá SLA của bước · bấm ô để mở danh sách bước.</p>
+        <div class="kpis"><div class="kpi"><b>${ca.length}</b><span>ca tồn (khách đang chờ)</span></div><div class="kpi pink"><b>${ca.filter(c => tuoiTonH(c) > SLA_TONG_H).length}</b><span>quá SLA tổng 72h</span></div><div class="kpi red"><b>${ca.filter(quaSlaBuoc).length}</b><span>quá SLA của bước đang ở</span></div><div class="kpi violet"><b>${xac.length}</b><span>ca còn tồn xác</span></div></div>
+        ${funnel}</div>
+      <div class="card"><h3>Ma trận Khu vực × Bước</h3><p class="muted small" style="margin:-4px 0 8px">Ô đỏ = có ca quá SLA bước · bấm ô để mở danh sách đã lọc sẵn khu vực.</p>${mx}</div>
+      <div class="card"><h3>Tất cả ca tồn</h3><div id="xtHost"></div></div>`;
   } else if (tonView === "loi") {
-    main = `<div class="box"><h2>Ca tồn có mã lỗi</h2><p class="muted small" style="margin-top:0">Lọc cột "Mã lỗi" để xem riêng 1 hoặc nhiều mã (vd B1 + B2).</p><div id="xtHost"></div></div>`;
+    main = `<div class="card"><h2>Ca tồn có mã lỗi</h2><p class="muted small" style="margin:0 0 6px">Lọc cột "Mã lỗi" để xem riêng 1 hoặc nhiều mã (vd B1 + B2).</p><div id="xtHost"></div></div>`;
   } else {
-    const n = +tonView, S = STEPS[n - 1], d = dem(n), hot = d.filter(quaSlaBuoc).length, coLoi = d.filter(c => c.loi.some(l => l.buoc === n && l.tt !== "Đã bỏ")).length;
+    const n = +tonView, S = STEPS[n - 1], d = dem(n), hot = d.filter(quaSlaBuoc).length, coLoi = d.filter(c => loiTaiSong(c, n).length).length;
     const tb = d.length ? d.reduce((a, c) => a + c.waitH, 0) / d.length : 0;
-    main = `<div class="box"><h2>Bước ${n}. ${esc(S.ten)} <span class="small muted">· ${esc(S.moTa)} · Phụ trách: ${esc(S.ai)}</span></h2>
-      <div class="kpis"><div class="kpi"><b>${d.length}</b><span>ca đang ở bước này</span></div><div class="kpi red"><b>${hot}</b><span>quá SLA bước ${S.slaH ? "(" + fmtDur(S.slaH) + ")" : ""}</span></div><div class="kpi"><b>${fmtDur(tb)}</b><span>chờ trung bình</span></div><div class="kpi red"><b>${coLoi}</b><span>ca có lỗi ở bước này</span></div></div>
-      <div class="row small muted" style="margin-bottom:4px">Mã lỗi của bước: ${MA_LOI.filter(m => m.buoc === n).map(m => `<span class="chip ${m.tuDong ? "auto" : "loi"}" data-tip="${esc(m.ten)}">${m.ma}</span>`).join(" ") || "—"}</div>
+    main = `<div class="card"><div class="row" style="align-items:flex-start"><span class="badge ${n >= 7 ? "b-violet" : "b-ocean"}" style="margin-top:2px">Bước ${n}</span><div style="flex:1;min-width:0"><h2>${esc(S.ten)}</h2><div class="small muted">${esc(S.moTa)} · Phụ trách: ${esc(S.ai)}${n >= 7 ? " · <b>tồn xác, không tính SLA 72h của khách</b>" : ""}</div></div></div>
+      <div class="kpis" style="margin-top:12px"><div class="kpi"><b>${d.length}</b><span>ca đang ở bước này</span></div><div class="kpi red"><b>${hot}</b><span>quá SLA bước ${S.slaH ? "(" + fmtSla(S.slaH) + ")" : ""}</span></div><div class="kpi"><b>${d.length ? fmtDur(tb) : "—"}</b><span>chờ trung bình</span></div><div class="kpi red"><b>${coLoi}</b><span>ca có lỗi ở bước này</span></div></div>
+      <div class="row small muted" style="margin-bottom:8px">Mã lỗi của bước: ${MA_LOI.filter(m => m.buoc === n).map(m => `<span class="chip ${m.tuDong ? "auto" : "loi"}" tabindex="0" data-tip="${esc(`<b>${m.ma}</b> · ${esc(m.ten)}`)}">${m.ma}</span>`).join(" ") || "—"}</div>
       <div id="xtHost"></div></div>`;
   }
-  el.innerHTML = `<div class="tonlayout">${side}<div>${main}</div></div>`;
-  const host = document.getElementById("xtHost");
+  el.innerHTML = `<div class="tonlayout">${side}<div style="min-width:0">${main}</div></div>`;
+  const host = $("#xtHost");
   if (host) {
-    const rows = tonView === "tong" ? ton : tonView === "loi" ? ton.filter(c => c.loi.some(l => l.tt !== "Đã bỏ")) : dem(+tonView);
+    const rows = tonView === "tong" ? ton : tonView === "loi" ? ton.filter(c => loiSong(c).length) : dem(+tonView);
     const cols = tonView === "tong" || tonView === "loi" ? cotChung() : cotChung().filter(c => c.key !== "buoc").concat(cotRieng(+tonView));
     xtRender(host, "ton-" + tonView, cols, rows, r => moCa(r.id));
   }
+  const on = $("#side button.on"); if (on && MOBILE()) on.scrollIntoView({ inline: "center", block: "nearest" });
 }
 function moCa(id) { caId = id; moBuoc = null; moTatCa = false; doiView("chitiet"); toast("Đã mở chi tiết ca " + id); }
 
 /* ======================================================================
-   7. MÀN ③ DANH MỤC MÃ LỖI
+   8. MÀN ③ DANH MỤC MÃ LỖI
    ====================================================================== */
 function renderMaLoi() {
-  const el = document.getElementById("v-maloi");
-  const demCa = ma => CASES.filter(c => c.loi.some(l => l.ma === ma && l.tt !== "Đã bỏ")).length;
-  el.innerHTML = `<div class="box"><h2>Mã lỗi gắn theo từng bước</h2>
-    <p class="small muted" style="margin-top:0">Quy ước mã = <b>chữ cái của bước + số thứ tự</b>: A = bước 1 … H = bước 8 (Lỗi B1, B2 trong bản vẽ = lỗi thuộc bước 2 "Xác nhận lịch hẹn").
-    <span class="chip loi">đỏ</span> = người ghi (QC / Giám sát, qua QC chốt như vi phạm hiện nay) · <span class="chip auto">cam</span> = máy tự phát hiện từ dữ liệu, không tính điểm, dùng để cảnh báo.</p>
-    <div class="codegrid">${STEPS.map(S => `<div class="cg"><h4>${S.k} · ${S.n}. ${esc(S.ten)}</h4>${MA_LOI.filter(m => m.buoc === S.n).map(m => `<div class="it ${m.tuDong ? "a" : ""}"><b>${m.ma}</b> ${esc(m.ten)}</div>`).join("")}</div>`).join("")}</div>
-    <p class="small muted">X1 "Lỗi khác" dùng cho mọi bước (bắt buộc ghi chú + chọn bước).</p></div>
-    <div class="box"><h3>Bảng danh mục (lọc / sắp xếp như Excel)</h3><div id="xtMa"></div></div>`;
+  const el = $("#v-maloi");
+  const demCa = ma => CASES.filter(c => loiSong(c).some(l => l.ma === ma)).length;
+  el.innerHTML = `<div class="card"><h2>Mã lỗi gắn theo từng bước</h2>
+    <p class="small muted" style="margin:0 0 12px">Quy ước mã = <b>chữ cái của bước + số thứ tự</b>: A = bước 1 … H = bước 8 (Lỗi B1, B2 trong bản vẽ = lỗi thuộc bước 2 "Xác nhận lịch hẹn").
+    <span class="chip loi">đỏ</span> người ghi (QC / Giám sát, qua QC chốt như vi phạm hiện nay) · <span class="chip auto">cam</span> máy tự phát hiện từ dữ liệu, không trừ điểm, chỉ để cảnh báo.</p>
+    <div class="codegrid">${STEPS.map(S => { const ds = MA_LOI.filter(m => m.buoc === S.n); return `<div class="cg"><h4><span class="k">${S.k}</span>${S.n}. ${esc(S.ten)}</h4>${ds.map(m => `<div class="it"><span class="chip ${m.tuDong ? "auto" : "loi"}">${m.ma}</span><span>${esc(m.ten)}</span></div>`).join("") || `<div class="none">Chưa có mã</div>`}</div>`; }).join("")}</div>
+    <p class="small muted" style="margin:10px 0 0">X1 "Lỗi khác" dùng cho mọi bước (bắt buộc ghi chú + chọn bước).</p></div>
+    <div class="card"><h3>Bảng danh mục (lọc / sắp xếp như Excel)</h3><div id="xtMa"></div></div>`;
   const cols = [
-    { key: "ma", label: "Mã", type: "text", render: r => `<span class="chip ${r.tuDong ? "auto" : "loi"}">${r.ma}</span>` },
-    { key: "buoc", label: "Bước", type: "multi", get: r => r.buoc ? `${r.buoc}. ${STEPS[r.buoc - 1].ten}` : "Mọi bước", order: v => parseInt(v) || 99 },
-    { key: "ten", label: "Tên lỗi", type: "text" },
-    { key: "nhom", label: "Nhóm", type: "multi" },
-    { key: "diem", label: "Điểm trừ", type: "num" },
-    { key: "nguon", label: "Nguồn", type: "multi", get: r => NGUON_TXT[r.nguon] },
-    { key: "cach", label: "Cách phát hiện", type: "multi", get: r => r.tuDong ? "Máy tự phát hiện" : "Người ghi + QC chốt" },
-    { key: "quyTac", label: "Quy tắc tự động", type: "text", get: r => r.quyTac || "" },
+    { key: "ma", label: "Mã", type: "text", h: 1, render: r => `<span class="chip ${r.tuDong ? "auto" : "loi"}">${r.ma}</span>` },
+    { key: "buoc", label: "Bước", type: "multi", h: 1, get: r => r.buoc ? `${r.buoc}. ${STEPS[r.buoc - 1].ten}` : "Mọi bước", order: v => parseInt(v) || 99, render: r => `<span class="badge b-ocean">${r.buoc ? `${r.buoc}. ${esc(STEPS[r.buoc - 1].ten)}` : "Mọi bước"}</span>` },
+    { key: "ten", label: "Tên lỗi", type: "text", m: 1, w: 1 },
+    { key: "nhom", label: "Nhóm", type: "multi", m: 1 },
+    { key: "diem", label: "Điểm trừ", type: "num", m: 1 },
+    { key: "nguon", label: "Nguồn", type: "multi", m: 1, get: r => NGUON_TXT[r.nguon] },
+    { key: "cach", label: "Cách phát hiện", type: "multi", m: 1, get: r => r.tuDong ? "Máy tự phát hiện" : "Người ghi + QC chốt" },
+    { key: "quyTac", label: "Quy tắc tự động", type: "text", m: 1, w: 1, get: r => r.quyTac || "" },
     { key: "so", label: "Số ca (demo)", type: "num", get: r => demCa(r.ma) },
   ];
-  xtRender(document.getElementById("xtMa"), "maloi", cols, MA_LOI, null);
+  xtRender($("#xtMa"), "maloi", cols, MA_LOI, null);
 }
 
 /* ======================================================================
-   8. MÀN ④ VẤN ĐỀ & PHƯƠNG ÁN
+   9. MÀN ④ PHÂN TÍCH · KẾ HOẠCH · PHẢN BIỆN
    ====================================================================== */
+function tbl(head, rows) { return `<table class="st rs"><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map((c, i) => `<td data-l="${esc(head[i])}">${c}</td>`).join("")}</tr>`).join("")}</table>`; }
 function renderPhuongAn() {
-  document.getElementById("v-phuongan").innerHTML = `<div class="box doc">
-  <h2>Thiết kế lại giao diện ca bảo hành — vấn đề, phương án, đề xuất</h2>
-  <p class="muted">Lập ngày 26/11/2026 theo 3 yêu cầu của Giám đốc. Bản demo này CHƯA đụng vào app thật — Giám đốc duyệt xong mới code.</p>
+  $("#v-phuongan").innerHTML = `<div class="card doc">
+  <h2>Thiết kế lại giao diện ca bảo hành — phân tích, kế hoạch, phản biện</h2>
+  <p class="muted small">Bản v2 lập 27/11/2026 (v1: 26/11). Bản demo này CHƯA đụng vào app thật — Giám đốc duyệt mẫu xong mới code.</p>
 
-  <h3>A. Yêu cầu nhận được</h3>
-  <ol><li>Thiết kế mẫu lại trang chi tiết ca bảo hành → duyệt mẫu xong mới code.</li>
-  <li>Gắn các mã lỗi của 1 ca bảo hành với từng bước.</li>
-  <li>Menu con của Quản lý tồn đi theo các bước của quy trình (giao diện quản lý tồn hiện tại khó chịu).</li></ol>
-  <p>Quy trình chuẩn theo bản vẽ: <b>1 Khởi tạo → 2 Xác nhận lịch hẹn → 3 Đặt linh kiện → 4 Mua hàng → 5 Giao LK cho KTV → 6 Đóng ca → 7 Trả xác 3T → 8 Xác nhận xác</b>.</p>
+  <h3>A. Yêu cầu của Giám đốc</h3>
+  <div class="req"><div class="rq"><div class="rn">YÊU CẦU 1</div>Thiết kế mẫu lại trang chi tiết ca → <b>duyệt mẫu xong mới code</b>.</div>
+  <div class="rq"><div class="rn">YÊU CẦU 2</div>Gắn các <b>mã lỗi</b> của 1 ca bảo hành với <b>từng bước</b>.</div>
+  <div class="rq"><div class="rn">YÊU CẦU 3</div><b>Menu con của Quản lý tồn</b> đi theo các bước của quy trình (giao diện hiện tại khó chịu).</div></div>
+  <p>Bản vẽ Excel: 8 bước <b>1 Khởi tạo → 2 Xác nhận lịch hẹn → 3 Đặt linh kiện → 4 Mua hàng → 5 Giao LK cho KTV → 6 Đóng ca → 7 Trả xác 3T → 8 Xác nhận xác</b>; mỗi bước có 4 hàng: <i>tên bước · chỉ số + mã lỗi</i> (vd bước 2: "3 lần · Lỗi B1 · Lỗi B2 · 420p · Quá SLA 72h") · <i>thẻ xanh "Thông tin tóm lược" + "Chi tiết"</i>. Bước 1 = "Thông tin ca chung", bước 6 = "Giải trình tồn".</p>
+  <p>Yêu cầu chung: luồng thông tin rõ ràng, minh bạch; dùng tốt trên <b>cả điện thoại và máy tính</b>; không lỗi thiết kế, không lỗi phông / nền; tổng thể đẹp, chuyên nghiệp.</p>
 
-  <h3>B. Vấn đề của giao diện hiện tại (đọc từ mã nguồn v1.666)</h3>
-  <table><tr><th>#</th><th>Vấn đề</th><th>Hậu quả</th></tr>
-  <tr><td>1</td><td>Trang chi tiết ca có <b>15 tab ngang</b>: Thông tin, Tiến trình chung, GT tồn, Biên bản họp, Vi phạm, Khảo sát, Ca lặp, Nạp gas, Bảo hành, Mua hàng, Thiếu hàng, PO đặt hàng, QC thực tế, Tranh chấp, Đổi trả. Riêng tab Thông tin lại có 3 kiểu xem (1 / 5 / 7 tab con).</td><td>Tab chia theo <i>nguồn dữ liệu / phòng ban</i>, không theo quy trình → mở ca không biết ngay ca đang ở bước nào, phải bấm qua nhiều tab.</td></tr>
-  <tr><td>2</td><td>Tab "Tiến trình chung" có luồng ngang nhưng là <b>nhật ký gộp theo nguồn</b>, không có 8 mốc chuẩn; chưa có mốc Trả xác / Xác nhận xác.</td><td>Không đo được mỗi khâu mất bao lâu, khâu nào làm chậm.</td></tr>
-  <tr><td>3</td><td>Vi phạm (14 loại trong Cài đặt) gắn vào <b>cả ca</b>, không có mã ngắn, không gắn bước.</td><td>Không biết lỗi phát sinh ở khâu nào, ai chịu; báo cáo lỗi theo khâu không làm được.</td></tr>
-  <tr><td>4</td><td>Quản lý tồn có 6 màn (Báo cáo, Lý do GT theo tháng, Tuổi tồn TB, Cảnh báo cấp 1, cấp 2, Danh sách chi tiết) + ô "Nhóm" <b>~30 lựa chọn lồng nhau</b> (Lỡ kế hoạch, Tái GT, ĐMX >3 ngày…).</td><td>Nhìn tồn theo "nhóm cần giải trình" chứ không theo "đang kẹt ở khâu nào" → khó giao việc đúng người.</td></tr>
-  <tr><td>5</td><td>Chỉ đo <b>tổng tuổi tồn</b> và SLA tổng 72h; không có SLA từng bước.</td><td>Quá 72h rồi mới biết; không biết 72h đó mất ở khâu hẹn, khâu mua hàng hay khâu sửa.</td></tr>
-  <tr><td>6</td><td>Giải trình tồn chỉ ghi lý do, <b>không ghi bước đang kẹt</b>.</td><td>Không gom được tồn theo khâu từ giải trình.</td></tr></table>
+  <h3>B. Phân tích + kế hoạch cho từng yêu cầu</h3>
+  <h4>Yêu cầu 1 — Trang chi tiết ca</h4>
+  ${tbl(["Mục", "Nội dung"], [
+    ["Hiện trạng", "15 tab ngang chia theo <i>nguồn dữ liệu / phòng ban</i> (Thông tin, Tiến trình chung, GT tồn, Biên bản họp, Vi phạm, Khảo sát, Ca lặp, Nạp gas, Bảo hành, Mua hàng, Thiếu hàng, PO, QC thực tế, Tranh chấp, Đổi trả); riêng tab Thông tin có 3 kiểu xem."],
+    ["Vấn đề", "Mở ca không biết ngay ca đang ở bước nào, chậm ở đâu; phải bấm qua nhiều tab. \"Tiến trình chung\" là nhật ký gộp, không có 8 mốc chuẩn."],
+    ["Kế hoạch", "1 màn theo đúng bản vẽ: hàng tên bước → luồng ngang (xanh xong · cam đang xử lý · xám chưa tới · nét đứt bỏ qua) → chỉ số + mã lỗi dưới bước → thẻ tóm lược + \"▾ Chi tiết\". Nút chính (Giải trình tồn, Ghi nhận lỗi, CRM) để ngoài. \"▾ Xem chi tiết\" cuối trang = nhật ký dọc + luồng phụ."],
+    ["Điện thoại", "8 cột không thể vừa màn 375px → điện thoại dùng <b>thanh 8 chấm</b> (vẫn là luồng ngang, nhìn 1 giây biết tới đâu) + <b>danh sách bước dọc</b>, chạm bước nào xổ bước đó tại chỗ; nút chính ghim ở đáy màn hình; chip lỗi chạm để xem (không cần rê chuột)."],
+  ])}
+  <h4>Yêu cầu 2 — Mã lỗi theo bước</h4>
+  ${tbl(["Mục", "Nội dung"], [
+    ["Hiện trạng", "14 loại vi phạm (Cài đặt → Loại vi phạm) gắn vào <i>cả ca</i>, không có mã ngắn, không gắn bước."],
+    ["Vấn đề", "Không biết lỗi phát sinh ở khâu nào → không quy được trách nhiệm theo khâu, không báo cáo lỗi theo khâu."],
+    ["Kế hoạch", "Mã = chữ cái bước + số (A…H). Chia 14 loại cũ về đúng bước (B1–B4 lịch hẹn, F1–F9 đóng ca), thêm mã cho bước chưa có, thêm mã <b>máy tự phát hiện</b> (quá SLA bước, đổi hẹn ≥ 3 lần). Luồng ghi nhận → QC chốt giữ nguyên, chỉ thêm trường \"bước\"."],
+  ])}
+  <h4>Yêu cầu 3 — Quản lý tồn theo bước</h4>
+  ${tbl(["Mục", "Nội dung"], [
+    ["Hiện trạng", "6 màn (Báo cáo, Lý do GT theo tháng, Tuổi tồn TB, Cảnh báo cấp 1, cấp 2, Danh sách) + ô \"Nhóm\" ~30 lựa chọn lồng nhau (Lỡ kế hoạch, Tái GT, ĐMX > 3 ngày…)."],
+    ["Vấn đề", "Nhìn tồn theo \"nhóm cần giải trình\" chứ không theo \"đang kẹt ở khâu nào\" → khó giao việc đúng người; chỉ đo tổng tuổi tồn, quá 72h rồi mới biết."],
+    ["Kế hoạch", "Menu con: Tổng quan (8 ô số ca kẹt mỗi bước + ma trận Khu vực × Bước) → từng bước 1…8 (cột riêng của bước: số lần hẹn, PO / ETA / lý do chậm, số lần GT, hạn trả xác…) → Ca có lỗi. Bảng kiểu Excel (lọc chọn nhiều, sắp xếp trên tiêu đề). 4 màn cũ giữ nguyên, đưa xuống nhóm dưới."],
+  ])}
 
-  <h3>C. Phương án đề xuất</h3>
-  <p><b>C1. Trang chi tiết ca = 1 màn theo 8 bước</b> (xem tab ①, giống bố cục bản vẽ Excel):</p>
-  <ul><li>Hàng 1: số + tên bước. Hàng 2: luồng ngang dạng đường — xanh = xong (giờ ngắn + "+khoảng cách"), cam nhấp nháy = đang xử lý, xám = chưa tới, nét đứt = bỏ qua (ca không thay LK thì bỏ 3, 4, 5, 7, 8; kho có sẵn thì bỏ 4).</li>
-  <li>Hàng 3: chỉ số + mã lỗi ngay dưới bước (như "3 lần · Lỗi B1 · Lỗi B2 · 420p · Quá SLA 72h").</li>
-  <li>Hàng 4: thẻ xanh "Thông tin tóm lược" mỗi bước + nút "▾ Chi tiết" xổ bảng đầy đủ của bước. Bước 1 = Thông tin ca chung, bước 6 = Giải trình tồn.</li>
-  <li>Nút thao tác chính (Giải trình tồn, Ghi nhận lỗi, Mở CRM) để ngoài, không giấu.</li>
-  <li>"▾ Xem chi tiết" cuối trang: nhật ký dọc đầy đủ + các luồng phụ không thuộc 8 bước (Khảo sát, Ca lặp, Tranh chấp, Đổi trả, Nạp gas, Biên bản họp, QC thực tế, NSKX) — chỉ hiện khi ca có dữ liệu.</li></ul>
-  <p><b>C2. Mã lỗi theo bước</b> (xem tab ③): mã = chữ cái bước + số (A…H). 14 loại vi phạm hiện có được chia về đúng bước (B1–B4 lịch hẹn, F1–F9 đóng ca), thêm mã mới cho bước chưa có, và mã <b>tự động</b> do máy phát hiện quá SLA từng bước. Luồng ghi nhận → QC chốt giữ như vi phạm hiện nay, chỉ thêm trường "bước".</p>
-  <p><b>C3. Quản lý tồn: menu con theo 8 bước</b> (xem tab ②): Tổng quan (8 ô số ca kẹt mỗi bước + ma trận Khu vực × Bước) → bấm vào bước ra danh sách riêng với cột đặc thù của bước (bước 2: số lần hẹn; bước 4: PO, ETA, lý do chậm; bước 6: số lần GT, lỡ kế hoạch…). Bảng kiểu Excel: lọc chọn nhiều, sắp xếp trên tiêu đề. 4 màn cũ (cảnh báo cấp 1/2, lý do GT, tuổi tồn) giữ nguyên, chuyển xuống nhóm dưới.</p>
+  <h3>C. Phản biện — điểm dễ sai và cách mẫu v2 xử lý</h3>
+  ${tbl(["Phản biện", "Nếu bỏ qua thì sao", "Cách xử lý trong mẫu"], [
+    ["<b>1.</b> Quy trình <b>không thẳng 1 đường</b>: ca không thay linh kiện không có bước 3, 4, 5, 7, 8; kho có sẵn thì không có bước 4.", "Luồng hiện bước xám \"chưa tới\" mãi → hiểu nhầm ca đang chờ.", "Bước không áp dụng vẽ <b>nét đứt \"bỏ qua\"</b>, khác hẳn \"chưa tới\"; không tính SLA, không cho ghi lỗi."],
+    ["<b>2.</b> Bước 7–8 (trả xác, xác nhận xác) xảy ra <b>sau khi đã đóng ca</b> với khách.", "Trộn vào tồn ca → số tồn tăng ảo, sai SLA 72h của khách.", "Tách 2 nhóm: <b>Tồn ca (bước 1–6, tính SLA 72h)</b> và <b>Tồn xác (bước 7–8)</b> — màu tím riêng ở menu, phễu, ma trận."],
+    ["<b>3.</b> Bản vẽ đặt \"Giải trình tồn\" ở bước 6, nhưng ca có thể kẹt ở bước 2, 3, 4…", "Phải mở bước 6 mới thấy lý do kẹt ở bước 4 → không rõ ràng.", "Mỗi lần giải trình <b>ghi kèm bước đang kẹt</b>; chip tím \"GT: …\" hiện ngay tại bước đó, lịch sử đầy đủ vẫn ở bước 6."],
+    ["<b>4.</b> Mã lỗi mới có thể <b>trùng / song song</b> với 14 loại vi phạm đang có.", "2 danh mục chạy song song → QC ghi 2 nơi, báo cáo lệch.", "Không tạo danh mục mới: <b>thêm cột mã + bước vào danh mục vi phạm hiện có</b>; dữ liệu cũ giữ nguyên."],
+    ["<b>5.</b> Mã máy tự phát hiện (quá SLA bước) nếu <b>trừ điểm</b> KTV sẽ phạt cả khi chậm do nhà máy / kho.", "KTV bị phạt oan, phản ứng.", "Mã tự động màu cam, <b>chỉ cảnh báo, không trừ điểm</b> (chờ Giám đốc chốt). Bước 4 dùng mã \"lý do chậm\" D1–D3, không tính điểm."],
+    ["<b>6.</b> Quá SLA 72h là <b>của cả ca</b>, không thuộc riêng 1 bước.", "Gắn nhầm vào bước 6 → tưởng lỗi do khâu sửa.", "Chip \"⚑ Quá SLA 72h\" đặt ở <b>bước đang diễn ra lúc vượt 72h</b> (ca mẫu: bước 4 Mua hàng), kèm thanh SLA tổng trên đầu."],
+    ["<b>7.</b> 1 bước có thể <b>lặp</b> (đặt lại linh kiện, hẹn lại nhiều lần).", "Chỉ lưu 1 mốc → mất lịch sử.", "Bước giữ mốc lần cuối; số lần lặp hiện thành chỉ số (\"3 lần hẹn\"), chi tiết từng lần trong phần xổ + nhật ký."],
+    ["<b>8.</b> Rê chuột (tooltip) <b>không có trên điện thoại</b>.", "Người dùng điện thoại không xem được chi tiết mã lỗi.", "Điện thoại: chạm chip → bảng trượt từ dưới lên hiện đủ thông tin."],
+    ["<b>9.</b> 8 cột không vừa màn điện thoại; bảng 13 cột không đọc được.", "Phải vuốt ngang, dễ bấm nhầm.", "Điện thoại: thanh 8 chấm + danh sách dọc; bảng chuyển thành <b>thẻ</b>, lọc / sắp xếp qua 1 nút \"⚙ Lọc & sắp xếp\" (cùng bộ lọc với máy tính)."],
+    ["<b>10.</b> Tính \"bước hiện tại\" của mọi ca mỗi lần mở Quản lý tồn sẽ <b>tốn lượt đọc D1</b>.", "Chi phí D1 tăng (từng có sự cố 5,7 triệu dòng / giờ).", "Tính 1 lần khi chốt tồn hằng ngày (đã có), lưu cột bước; màn hình chỉ đọc kết quả."],
+    ["<b>11.</b> Người dùng quen 15 tab cũ.", "Đổi đột ngột → phản ứng, tìm không thấy dữ liệu.", "Bảng ánh xạ tab cũ → bước (mục E); giữ nút \"Giao diện cũ\" 2 tuần đầu."],
+    ["<b>12.</b> Bước 7–8 hiện <b>chưa có dữ liệu</b>; \"xác nhận lịch hẹn\" chưa có cờ rõ ràng.", "Luồng có bước trống, số liệu sai.", "Giai đoạn 1 hiện \"chưa có dữ liệu\" ở bước 7–8; cần Giám đốc chốt nguồn (mục H)."],
+  ])}
 
-  <h3>D. Ánh xạ 15 tab cũ → 8 bước</h3>
-  <table><tr><th>Tab cũ</th><th>Về đâu</th></tr>
-  <tr><td>Thông tin (3 kiểu xem)</td><td>Bước 1 — Thông tin ca chung</td></tr>
-  <tr><td>Tiến trình chung</td><td>Luồng ngang 8 bước + nhật ký dọc ("▾ Xem chi tiết")</td></tr>
-  <tr><td>Lịch hẹn (tab con)</td><td>Bước 2</td></tr>
-  <tr><td>Mua hàng (đơn LK)</td><td>Bước 3</td></tr>
-  <tr><td>PO đặt hàng, Thiếu hàng</td><td>Bước 4</td></tr>
-  <tr><td>Phiếu xuất kho (trong tab Mua hàng)</td><td>Bước 5</td></tr>
-  <tr><td>GT tồn, Bảo hành (sửa chữa), Biên bản họp</td><td>Bước 6 — Giải trình tồn</td></tr>
-  <tr><td>Vi phạm, QC thực tế</td><td>Chip mã lỗi trên từng bước</td></tr>
-  <tr><td>Khảo sát, Ca lặp, Tranh chấp, Đổi trả, Nạp gas, NSKX, Gửi BH, Xin hủy</td><td>"Thông tin khác" trong phần xổ chi tiết</td></tr></table>
+  <h3>D. Luồng thông tin từng bước (ai làm · mốc \"xong\" · nguồn)</h3>
+  ${tbl(["Bước", "Ai làm", "Mốc \"xong\"", "Nguồn dữ liệu", "Có sẵn?"], [
+    ["1 Khởi tạo", "CSKH", "Giờ CSKH tiếp nhận", "case_dvbh (import CRM)", "✅"],
+    ["2 Xác nhận lịch hẹn", "KTV / Trạm", "Lần hẹn có KQ \"KH xác nhận\"", "Lịch hẹn Odoo trong ca", "✅ (cần chốt cách nhận biết \"đã xác nhận\")"],
+    ["3 Đặt linh kiện", "KTV / Giám sát", "Giờ tạo đơn DDH", "app Đặt linh kiện", "✅"],
+    ["4 Mua hàng", "Mua hàng / Kho", "Hàng về kho (hoặc kho có sẵn → bỏ qua)", "PO đặt hàng, Thiếu hàng", "✅ một phần"],
+    ["5 Giao LK cho KTV", "Kho", "Phiếu xuất kho MISA", "app Linh kiện (trạng thái phiếu)", "✅"],
+    ["6 Đóng ca", "KTV / Trạm", "Thời gian hoàn thành", "case_dvbh", "✅"],
+    ["7 Trả xác 3T", "KTV", "Ngày KTV trả xác", "—", "❌ cần nguồn"],
+    ["8 Xác nhận xác", "Kho / QC", "Kho / QC xác nhận", "—", "❌ cần nguồn"],
+  ])}
 
-  <h3>E. Nguồn dữ liệu từng bước</h3>
-  <table><tr><th>Bước</th><th>Mốc "xong"</th><th>Nguồn</th><th>Có sẵn?</th></tr>
-  <tr><td>1 Khởi tạo</td><td>Giờ CSKH tiếp nhận</td><td>case_dvbh (import CRM)</td><td>✅</td></tr>
-  <tr><td>2 Xác nhận lịch hẹn</td><td>Lần hẹn có KQ "KH xác nhận"</td><td>Lịch hẹn Odoo trong ca</td><td>✅ (cần chốt cách nhận biết "đã xác nhận")</td></tr>
-  <tr><td>3 Đặt linh kiện</td><td>Giờ tạo đơn DDH</td><td>app Đặt linh kiện</td><td>✅</td></tr>
-  <tr><td>4 Mua hàng</td><td>Hàng về kho / kho xuất có sẵn</td><td>PO đặt hàng, thiếu hàng</td><td>✅ một phần</td></tr>
-  <tr><td>5 Giao LK cho KTV</td><td>Phiếu xuất kho MISA</td><td>app Linh kiện (trạng thái phiếu, v1.666)</td><td>✅</td></tr>
-  <tr><td>6 Đóng ca</td><td>Thời gian hoàn thành</td><td>case_dvbh</td><td>✅</td></tr>
-  <tr><td>7 Trả xác 3T</td><td>Ngày KTV trả xác</td><td>—</td><td>❌ chưa có — cần nguồn</td></tr>
-  <tr><td>8 Xác nhận xác</td><td>Kho / QC xác nhận</td><td>—</td><td>❌ chưa có — cần nguồn</td></tr></table>
+  <h3>E. Ánh xạ 15 tab cũ → 8 bước</h3>
+  ${tbl(["Tab cũ", "Về đâu"], [
+    ["Thông tin (3 kiểu xem)", "Bước 1 — Thông tin ca chung"], ["Tiến trình chung", "Luồng 8 bước + nhật ký dọc (\"▾ Xem chi tiết\")"], ["Lịch hẹn (tab con)", "Bước 2"],
+    ["Mua hàng (đơn LK)", "Bước 3"], ["PO đặt hàng, Thiếu hàng", "Bước 4"], ["Phiếu xuất kho (trong tab Mua hàng)", "Bước 5"],
+    ["GT tồn, Bảo hành (sửa chữa), Biên bản họp", "Bước 6 — Giải trình tồn"], ["Vi phạm, QC thực tế", "Chip mã lỗi trên từng bước"],
+    ["Khảo sát, Ca lặp, Tranh chấp, Đổi trả, Nạp gas, NSKX, Gửi BH, Xin hủy", "\"Luồng phụ\" trong phần xổ chi tiết"],
+  ])}
 
-  <h3>F. Lộ trình triển khai (sau khi duyệt mẫu)</h3>
-  <ol><li><b>GĐ1 — Trang chi tiết 8 bước</b> (chỉ đổi giao diện, dữ liệu sẵn có, bước 7–8 hiện "chưa có dữ liệu"). Giữ nút chuyển về giao diện cũ 2 tuần.</li>
-  <li><b>GĐ2 — Mã lỗi theo bước</b>: thêm cột mã + bước vào danh mục vi phạm (ALTER ADD COLUMN, không xoá dữ liệu), gán 14 loại cũ, thêm mã mới + mã tự động.</li>
-  <li><b>GĐ3 — Quản lý tồn theo bước</b>: tính "bước hiện tại" khi chốt tồn hằng ngày (không tăng lượt đọc D1), menu con 8 bước, giải trình ghi kèm bước.</li>
+  <h3>F. Tiêu chuẩn giao diện đã áp dụng trong mẫu</h3>
+  <ul class="ok-list">
+    <li>Màu + phông chữ lấy đúng bộ màu của app thật (ocean / teal / amber / coral, phông Inter) — code vào app không lệch màu.</li>
+    <li>Nền trắng / xám nhạt thống nhất, chữ đậm đủ tương phản; không nền tối chữ tối, không chữ đè chữ, chữ dài tự cắt "…" và rê / chạm để xem đủ.</li>
+    <li>Máy tính ≥ 980px: 8 cột thẳng hàng như bản vẽ. Máy tính bảng / điện thoại &lt; 980px: thanh 8 chấm + danh sách dọc, nút chính ghim đáy.</li>
+    <li>Ô nhập trên điện thoại cỡ chữ 16px (iPhone không tự phóng to), nút bấm cao ≥ 40px, hộp thoại thành bảng trượt từ dưới lên.</li>
+    <li>Bảng dữ liệu: lọc theo kiểu cột (chữ / chọn nhiều / ngày / số), sắp xếp trên tiêu đề, cột đang lọc tô màu + nút ✕, hiện "x / tổng dòng".</li>
+    <li>Màu trạng thái dùng nhất quán: xanh = xong, cam = đang xử lý / máy cảnh báo, đỏ = lỗi người ghi, hồng = quá SLA 72h, tím = giải trình / tồn xác.</li>
+  </ul>
+
+  <h3>G. Lộ trình triển khai (sau khi duyệt mẫu)</h3>
+  <ol><li><b>GĐ1 — Trang chi tiết 8 bước</b>: chỉ đổi giao diện, dùng dữ liệu sẵn có; bước 7–8 hiện "chưa có dữ liệu". Giữ nút về giao diện cũ 2 tuần.</li>
+  <li><b>GĐ2 — Mã lỗi theo bước</b>: thêm cột mã + bước vào danh mục vi phạm (chỉ thêm cột, không xoá dữ liệu), gán 14 loại cũ, thêm mã mới + mã tự động.</li>
+  <li><b>GĐ3 — Quản lý tồn theo bước</b>: tính "bước hiện tại" khi chốt tồn hằng ngày, menu con 8 bước, giải trình ghi kèm bước.</li>
   <li><b>GĐ4 — Bước 7–8</b>: nối dữ liệu trả xác / xác nhận xác khi có nguồn.</li></ol>
 
-  <h3>G. Cần Giám đốc chốt</h3>
+  <h3>H. Cần Giám đốc chốt trước khi code</h3>
   <div class="q"><ol>
   <li>Thứ tự + tên 8 bước như bản vẽ đã đúng chưa? Ca không thay linh kiện bỏ qua bước 3, 4, 5, 7, 8 — đúng không?</li>
-  <li>Quy ước mã lỗi "chữ cái bước + số" (B1, B2 = lỗi bước 2) có đúng ý không? Danh sách mã ở tab ③ cần thêm / bớt gì?</li>
+  <li>Quy ước mã "chữ cái bước + số" (B1, B2 = lỗi bước 2) có đúng ý không? Danh sách mã ở màn ③ cần thêm / bớt gì?</li>
   <li>SLA từng bước đề xuất: hẹn 24h · đặt LK 24h · mua hàng 72h · giao LK 24h · sửa & đóng ca 24h · trả xác 7 ngày · xác nhận xác 3 ngày. Có sửa không?</li>
-  <li>"420p" trong bản vẽ = số phút từ tạo ca tới khi chốt được lịch hẹn — đúng không?</li>
-  <li>Dữ liệu Trả xác 3T / Xác nhận xác hiện nằm ở đâu (app Linh kiện, MISA hay sổ tay kho)?</li>
-  <li>Mã lỗi tự động (quá SLA bước) chỉ để cảnh báo, không trừ điểm KTV — đồng ý không?</li></ol></div>
+  <li>"420p" trong bản vẽ = số phút từ lúc tạo ca tới lúc chốt được lịch hẹn — đúng không?</li>
+  <li>Dữ liệu Trả xác 3T / Xác nhận xác hiện nằm ở đâu (app Linh kiện, MISA hay sổ kho)?</li>
+  <li>Mã lỗi máy tự phát hiện (quá SLA bước) chỉ để cảnh báo, không trừ điểm KTV — đồng ý không?</li>
+  <li>Tồn xác (bước 7–8) tách riêng khỏi tồn ca, không tính vào SLA 72h của khách — đồng ý không?</li></ol></div>
 
-  <h3>H. 5W1H</h3>
-  <table><tr><th>Who</th><td>Giám sát / TBP DVBH / QC / CSKH xem chi tiết ca; QC ghi + chốt mã lỗi; TBP DVBH, Giám đốc xem Quản lý tồn theo bước.</td></tr>
-  <tr><th>When</th><td>Mỗi lần mở 1 ca; họp tồn hằng ngày; QC soát lỗi.</td></tr>
-  <tr><th>Where</th><td>Popup Chi tiết ca (mọi nơi bấm mã ca) · menu Quản lý tồn → nhóm "Theo quy trình" · Cài đặt → Loại vi phạm (thêm cột mã + bước).</td></tr>
-  <tr><th>What</th><td>1 màn 8 bước thay 15 tab; mã lỗi gắn bước; tồn chia theo bước với SLA từng bước.</td></tr>
-  <tr><th>Why</th><td>Nhìn 1 giây biết ca đang ở đâu, chậm ở khâu nào, lỗi do khâu nào → giao việc đúng người, giảm quá SLA 72h.</td></tr>
-  <tr><th>How</th><td>Mở ca → nhìn luồng ngang (cam = đang kẹt) → bấm "▾ Chi tiết" ở thẻ bước cần xem → "⚠ Ghi nhận lỗi" chọn bước + mã → QC chốt. Quản lý tồn → bấm bước → lọc khu vực / KTV / mã lỗi → bấm dòng mở ca.</td></tr></table>
+  <h3>I. 5W1H</h3>
+  ${tbl(["", "Nội dung"], [
+    ["<b>Who</b>", "Giám sát / TBP DVBH / QC / CSKH xem chi tiết ca; QC ghi + chốt mã lỗi; TBP DVBH, Giám đốc xem Quản lý tồn theo bước."],
+    ["<b>When</b>", "Mỗi lần mở 1 ca; họp tồn hằng ngày; QC soát lỗi."],
+    ["<b>Where</b>", "Popup Chi tiết ca (mọi nơi bấm mã ca) · menu Quản lý tồn → nhóm \"Tồn ca\" / \"Tồn xác\" · Cài đặt → Loại vi phạm (thêm cột mã + bước). Máy tính và điện thoại."],
+    ["<b>What</b>", "1 màn 8 bước thay 15 tab; mã lỗi gắn bước; tồn chia theo bước với SLA từng bước."],
+    ["<b>Why</b>", "Nhìn 1 giây biết ca đang ở đâu, chậm ở khâu nào, lỗi do khâu nào → giao việc đúng người, giảm quá SLA 72h."],
+    ["<b>How</b>", "Mở ca → nhìn luồng (cam = đang kẹt) → bấm \"▾ Chi tiết\" (điện thoại: chạm bước) → \"⚠ Ghi nhận lỗi\" chọn bước + mã → QC chốt. Quản lý tồn → bấm bước → lọc khu vực / KTV / mã lỗi → bấm dòng mở ca."],
+  ])}
   </div>`;
 }
 
 /* ======================================================================
-   9. MODAL: GHI NHẬN LỖI / GIẢI TRÌNH
+   10. HỘP THOẠI: GHI NHẬN LỖI / GIẢI TRÌNH
    ====================================================================== */
-function modal(html) { document.getElementById("dlg").innerHTML = html; document.getElementById("modal").classList.add("on"); }
-function dongModal() { document.getElementById("modal").classList.remove("on"); }
-document.getElementById("modal").addEventListener("mousedown", e => { if (e.target.id === "modal") dongModal(); });
+function modal(html) { $("#dlg").innerHTML = `<div class="grab"></div>` + html; $("#modal").classList.add("on"); document.body.style.overflow = "hidden"; }
+function dongModal() { $("#modal").classList.remove("on"); document.body.style.overflow = ""; }
+$("#modal").addEventListener("pointerdown", e => { if (e.target.id === "modal") dongModal(); });
 
 function moGhiLoi(buoc) {
-  const c = getCa(), b0 = buoc || Math.min(c.cur, 8);
+  const c = getCa(), dsBuoc = STEPS.filter(S => !c.skip.has(S.n) && (trangThai(c, S.n) !== "todo")), b0 = buoc || Math.min(c.cur, 8);
   modal(`<h3>⚠ Ghi nhận lỗi — ca ${c.id}</h3>
-    <label class="f">Bước phát sinh lỗi</label><select id="mBuoc">${STEPS.filter(S => !c.skip.has(S.n)).map(S => `<option value="${S.n}" ${S.n === b0 ? "selected" : ""}>${S.n}. ${esc(S.ten)}${S.n === c.cur ? " (đang ở đây)" : ""}</option>`).join("")}</select>
-    <label class="f">Mã lỗi (chỉ hiện mã của bước đã chọn)</label><select id="mMa"></select>
-    <label class="f">Ghi chú <span id="bb" class="small"></span></label><textarea id="mGc" rows="3" placeholder="Mô tả cụ thể, bằng chứng…"></textarea>
-    <div class="small muted" style="margin-top:6px">Lỗi mới ở trạng thái "Chờ QC chốt" — QC chốt hoặc bỏ trong phần chi tiết bước.</div>
+    <label class="f" for="mBuoc">Bước phát sinh lỗi</label><select id="mBuoc">${dsBuoc.map(S => `<option value="${S.n}" ${S.n === b0 ? "selected" : ""}>${S.n}. ${esc(S.ten)}${S.n === c.cur ? " (đang ở đây)" : ""}</option>`).join("")}</select>
+    <div class="hint">Chỉ chọn được bước đã tới — bước bỏ qua / chưa tới không ghi lỗi.</div>
+    <label class="f" for="mMa">Mã lỗi (chỉ hiện mã của bước đã chọn)</label><select id="mMa"></select>
+    <label class="f" for="mGc">Ghi chú <span id="bb" style="color:var(--coral-600)"></span></label><textarea id="mGc" rows="3" placeholder="Mô tả cụ thể, bằng chứng…"></textarea>
+    <div class="hint">Lỗi mới ở trạng thái "Chờ QC chốt" — QC chốt hoặc bỏ trong phần chi tiết bước.</div>
     <div class="ft"><button class="btn" data-m="huy">Huỷ</button><button class="btn pri" data-m="luu">Ghi nhận</button></div>`);
   const fill = () => {
-    const b = +document.getElementById("mBuoc").value;
-    const ds = MA_LOI.filter(m => (m.buoc === b || m.buoc === 0) && !m.tuDong);
-    document.getElementById("mMa").innerHTML = ds.map(m => `<option value="${m.ma}">${m.ma} — ${esc(m.ten)}${m.diem ? ` (${m.diem} điểm)` : ""}</option>`).join("");
+    const b = +$("#mBuoc").value;
+    $("#mMa").innerHTML = MA_LOI.filter(m => (m.buoc === b || m.buoc === 0) && !m.tuDong).map(m => `<option value="${m.ma}">${m.ma} — ${esc(m.ten)}${m.diem ? ` (${m.diem} điểm)` : ""}</option>`).join("");
     bb();
   };
-  const bb = () => { document.getElementById("bb").textContent = document.getElementById("mMa").value === "X1" ? "(bắt buộc với Lỗi khác)" : ""; };
-  document.getElementById("mBuoc").onchange = fill; fill(); document.getElementById("mMa").onchange = bb;
-  document.querySelector("[data-m=huy]").onclick = dongModal;
-  document.querySelector("[data-m=luu]").onclick = () => {
-    const b = +document.getElementById("mBuoc").value, ma = document.getElementById("mMa").value, gc = document.getElementById("mGc").value.trim();
-    if (ma === "X1" && !gc) { toast("Lỗi khác bắt buộc nhập ghi chú"); return; }
+  const bb = () => { $("#bb").textContent = $("#mMa").value === "X1" ? "(bắt buộc với Lỗi khác)" : ""; };
+  $("#mBuoc").onchange = fill; fill(); $("#mMa").onchange = bb;
+  $("[data-m=huy]").onclick = dongModal;
+  $("[data-m=luu]").onclick = () => {
+    const b = +$("#mBuoc").value, ma = $("#mMa").value, gc = $("#mGc").value.trim();
+    if (ma === "X1" && !gc) { toast("Lỗi khác bắt buộc nhập ghi chú"); $("#mGc").focus(); return; }
     if (c.loi.some(l => l.ma === ma && l.buoc === b && l.tt !== "Đã bỏ")) { toast(`Ca này đã có lỗi ${ma} ở bước ${b}`); return; }
     c.loi.push({ ma, buoc: b, t: new Date(NOW), nguoi: "QC (bạn đang demo)", ghiChu: gc, tuDong: false, tt: "Chờ QC chốt" });
-    dongModal(); moBuoc = b; renderChiTiet(); toast(`Đã ghi nhận lỗi ${ma} vào bước ${b}. ${STEPS[b - 1].ten}`);
+    dongModal(); moBuoc = b; renderChiTiet(); cuonToiBuoc(b); toast(`Đã ghi nhận lỗi ${ma} vào bước ${b}. ${STEPS[b - 1].ten}`);
   };
 }
 function moGiaiTrinh() {
   const c = getCa(), b0 = Math.min(c.cur, 6);
   const toIso = d => `${fmtISO(d)}T${p2(d.getHours())}:${p2(d.getMinutes())}`;
   modal(`<h3>✍ Giải trình tồn — ca ${c.id}</h3>
-    <label class="f">Ca đang kẹt ở bước (mới — để Quản lý tồn chia theo bước)</label><select id="gBuoc">${STEPS.slice(1, 6).filter(S => !c.skip.has(S.n)).map(S => `<option value="${S.n}" ${S.n === b0 ? "selected" : ""}>${S.n}. ${esc(S.ten)}</option>`).join("")}</select>
-    <label class="f">Lý do (lọc theo bước)</label><select id="gLy"></select>
-    <label class="f">Ngày dự kiến hoàn thành</label><input id="gDk" type="datetime-local" value="${toIso(addH(NOW, 24))}">
-    <label class="f">Nội dung</label><textarea id="gNd" rows="3"></textarea>
+    <label class="f" for="gBuoc">Ca đang kẹt ở bước <span class="badge b-ocean">mới</span></label><select id="gBuoc">${STEPS.slice(1, 6).filter(S => !c.skip.has(S.n) && S.n <= c.cur).map(S => `<option value="${S.n}" ${S.n === b0 ? "selected" : ""}>${S.n}. ${esc(S.ten)}</option>`).join("")}</select>
+    <div class="hint">Để Quản lý tồn chia ca theo khâu đang kẹt.</div>
+    <label class="f" for="gLy">Lý do (lọc theo bước)</label><select id="gLy"></select>
+    <label class="f" for="gDk">Ngày dự kiến hoàn thành</label><input id="gDk" type="datetime-local" value="${toIso(addH(NOW, 24))}">
+    <label class="f" for="gNd">Nội dung</label><textarea id="gNd" rows="3" placeholder="Đã làm gì, chờ ai, khi nào xong…"></textarea>
     <div class="ft"><button class="btn" data-m="huy">Huỷ</button><button class="btn pri" data-m="luu">Lưu giải trình</button></div>`);
-  const fill = () => { const b = +document.getElementById("gBuoc").value; document.getElementById("gLy").innerHTML = (LYDO_GT[b] || []).concat(["Lý do khác"]).map(x => `<option>${esc(x)}</option>`).join(""); };
-  document.getElementById("gBuoc").onchange = fill; fill();
-  document.querySelector("[data-m=huy]").onclick = dongModal;
-  document.querySelector("[data-m=luu]").onclick = () => {
-    const dk = new Date(document.getElementById("gDk").value);
+  const fill = () => { const b = +$("#gBuoc").value; $("#gLy").innerHTML = (LYDO_GT[b] || []).concat(["Lý do khác"]).map(x => `<option>${esc(x)}</option>`).join(""); };
+  $("#gBuoc").onchange = fill; fill();
+  $("[data-m=huy]").onclick = dongModal;
+  $("[data-m=luu]").onclick = () => {
+    const dk = new Date($("#gDk").value);
     if (isNaN(dk) || dk <= NOW) { toast("Ngày dự kiến phải sau thời điểm hiện tại"); return; }
-    const ly = document.getElementById("gLy").value, nd = document.getElementById("gNd").value.trim();
-    if (ly === "Lý do khác" && !nd) { toast("Lý do khác bắt buộc nhập nội dung"); return; }
-    c.gt.push({ t: new Date(NOW), buoc: +document.getElementById("gBuoc").value, lyDo: ly, duKien: dk, nd: nd || ly, nguoi: "Bạn (demo)" });
-    dongModal(); moBuoc = 6; renderChiTiet(); toast("Đã lưu giải trình tồn");
+    const ly = $("#gLy").value, nd = $("#gNd").value.trim();
+    if (ly === "Lý do khác" && !nd) { toast("Lý do khác bắt buộc nhập nội dung"); $("#gNd").focus(); return; }
+    c.gt.push({ t: new Date(NOW), buoc: +$("#gBuoc").value, lyDo: ly, duKien: dk, nd: nd || ly, nguoi: "Bạn (demo)" });
+    dongModal(); moBuoc = 6; renderChiTiet(); cuonToiBuoc(6); toast("Đã lưu giải trình tồn");
   };
 }
 
 /* ======================================================================
-   10. ĐIỀU HƯỚNG + SỰ KIỆN CHUNG
+   11. ĐIỀU HƯỚNG + SỰ KIỆN CHUNG
    ====================================================================== */
 let view = "chitiet";
 function doiView(v) {
   view = v;
   document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
   document.querySelectorAll("main section").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
-  closePop();
+  closePop(); anTip();
   ({ chitiet: renderChiTiet, ton: renderTon, maloi: renderMaLoi, phuongan: renderPhuongAn })[v]();
   scrollTo(0, 0);
+  const on = $("#nav button.on"); if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
 }
-document.getElementById("nav").onclick = e => { const b = e.target.closest("button"); if (b) doiView(b.dataset.v); };
+$("#nav").onclick = e => { const b = e.target.closest("button"); if (b) doiView(b.dataset.v); };
 let tId;
-function toast(s) { const t = document.getElementById("toast"); t.textContent = s; t.style.display = "block"; clearTimeout(tId); tId = setTimeout(() => t.style.display = "none", 2600); }
+function toast(s) { const t = $("#toast"); t.textContent = s; t.style.display = "block"; clearTimeout(tId); tId = setTimeout(() => t.style.display = "none", 2600); }
+function cuonToiBuoc(n) {
+  requestAnimationFrame(() => { const el = MOBILE() ? document.getElementById("ms-" + n) : $("#panel"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); });
+}
 
-document.getElementById("v-chitiet").addEventListener("click", e => {
+$("#v-chitiet").addEventListener("click", e => {
   const a = e.target.closest("[data-act]"); if (!a) return;
   const act = a.dataset.act, c = getCa();
-  if (act === "mobuoc") { const n = +a.dataset.buoc; if (c.skip.has(n)) { toast("Bước này bỏ qua với ca này"); return; } moBuoc = moBuoc === n ? null : n; renderChiTiet(); if (moBuoc) document.querySelector(".panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
-  if (act === "tatca") { moTatCa = !moTatCa; renderChiTiet(); }
+  if (act === "mobuoc" || act === "nhay") {
+    const n = +a.dataset.buoc; if (c.skip.has(n)) { toast("Bước này bỏ qua với ca này"); return; }
+    moBuoc = act === "nhay" ? n : moBuoc === n ? null : n; renderChiTiet(); if (moBuoc) cuonToiBuoc(n);
+  }
+  if (act === "tatca") moTatCa = !moTatCa, renderChiTiet();
   if (act === "ghiloi") moGhiLoi(a.dataset.buoc ? +a.dataset.buoc : null);
   if (act === "giaitrinh") moGiaiTrinh();
   if (act === "crm") toast("Demo: mở ca trên CRM ở tab mới");
   if (act === "ca") { const i = CASES.findIndex(x => x.id === caId), j = (i + +a.dataset.d + CASES.length) % CASES.length; caId = CASES[j].id; moBuoc = null; renderChiTiet(); }
   if (act === "chot" || act === "bo") { const l = c.loi[+a.dataset.idx]; l.tt = act === "chot" ? "Đã chốt" : "Đã bỏ"; renderChiTiet(); toast(act === "chot" ? `QC đã chốt lỗi ${l.ma}` : `QC đã bỏ lỗi ${l.ma}`); }
 });
-document.getElementById("v-chitiet").addEventListener("change", e => { if (e.target.id === "chonCa") { caId = e.target.value; moBuoc = null; renderChiTiet(); } });
-document.getElementById("v-chitiet").addEventListener("input", e => {
+$("#v-chitiet").addEventListener("change", e => { if (e.target.id === "chonCa") { caId = e.target.value; moBuoc = null; renderChiTiet(); } });
+$("#v-chitiet").addEventListener("input", e => {
   if (e.target.id !== "tim") return;
-  const q = boDau(e.target.value), sel = document.getElementById("chonCa");
-  let first = null;
-  [...sel.options].forEach(o => { const ok = boDau(o.text).includes(q); o.hidden = !ok; if (ok && !first) first = o; });
-  if (first && q) { caId = first.value; moBuoc = null; const v = e.target.value; renderChiTiet(); const inp = document.getElementById("tim"); inp.value = v; inp.focus(); inp.setSelectionRange(v.length, v.length); }
+  const q = boDau(e.target.value).trim(); if (!q) return;
+  const hit = CASES.find(x => boDau(`${x.id} ${x.kh}`).includes(q));
+  if (hit && hit.id !== caId) { caId = hit.id; moBuoc = null; const v = e.target.value; renderChiTiet(); const inp = $("#tim"); inp.value = v; inp.focus(); }
 });
-document.getElementById("v-ton").addEventListener("click", e => {
+$("#v-ton").addEventListener("click", e => {
   const b = e.target.closest("[data-tv]");
-  if (b) { if (b.dataset.tv === "cu") { toast("Màn cũ giữ nguyên như app hiện tại (không dựng lại trong demo)"); return; } tonView = b.dataset.tv; renderTon(); return; }
+  if (b) { if (b.dataset.tv === "cu") { toast("Màn cũ giữ nguyên như app hiện tại (không dựng lại trong demo)"); return; } tonView = b.dataset.tv; renderTon(); if (MOBILE()) scrollTo({ top: 0, behavior: "smooth" }); return; }
   const m = e.target.closest("[data-mx]");
-  if (m) { const [n, kv] = m.dataset.mx.split("|"); tonView = n; xtState("ton-" + n).f = { khuVuc: new Set([kv]) }; renderTon(); toast(`Bước ${n} · đã lọc sẵn khu vực ${kv}`); }
+  if (m) { const [n, kv] = m.dataset.mx.split("|"); tonView = n; xtState("ton-" + n).f = { khuVuc: new Set([kv]) }; renderTon(); scrollTo({ top: 0, behavior: "smooth" }); toast(`Bước ${n} · đã lọc sẵn khu vực ${kv}`); }
 });
-// tooltip
-const tip = document.getElementById("tip");
-document.addEventListener("mouseover", e => { const t = e.target.closest("[data-tip]"); if (!t) { tip.style.display = "none"; return; } tip.innerHTML = t.dataset.tip; tip.style.display = "block"; });
-document.addEventListener("mousemove", e => { if (tip.style.display !== "block") return; const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.min(e.clientX + 14, innerWidth - w - 8) + "px"; tip.style.top = (e.clientY + 16 + h > innerHeight ? e.clientY - h - 10 : e.clientY + 16) + "px"; });
-document.addEventListener("keydown", e => { if (e.key === "Escape") { dongModal(); closePop(); } });
+
+/* Tooltip: máy tính = rê chuột; điện thoại = chạm chip → bảng trượt từ dưới lên */
+const tip = $("#tip");
+function anTip() { tip.style.display = "none"; tip.classList.remove("sheet"); }
+if (HOVER) {
+  document.addEventListener("mouseover", e => { const t = e.target.closest("[data-tip]"); if (!t) { anTip(); return; } tip.innerHTML = t.dataset.tip; tip.style.display = "block"; });
+  document.addEventListener("mousemove", e => { if (tip.style.display !== "block") return; const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.max(8, Math.min(e.clientX + 14, innerWidth - w - 8)) + "px"; tip.style.top = (e.clientY + 18 + h > innerHeight ? e.clientY - h - 10 : e.clientY + 18) + "px"; });
+}
+document.addEventListener("click", e => {
+  if (tip.classList.contains("sheet")) { anTip(); if (!e.target.closest(".chip[data-tip]")) { e.stopPropagation(); e.preventDefault(); return; } }
+  if (HOVER) return;
+  const t = e.target.closest(".chip[data-tip]"); if (!t) return;
+  e.stopPropagation(); e.preventDefault();
+  tip.innerHTML = t.dataset.tip; tip.classList.add("sheet"); tip.style.display = "block";
+}, true);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { dongModal(); closePop(); anTip(); }
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches(".chip[data-tip]") && !HOVER) e.target.click();
+});
 
 renderChiTiet();
 </script>

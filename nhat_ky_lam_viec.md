@@ -6528,3 +6528,23 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   về MM, đánh dấu như sửa tay (`khu_vuc_crm` giữ giá trị CRM), bump domain `cases` để bỏ cache báo cáo.
 - Kiểm thử: typecheck backend + frontend; sau migrate đếm lại ca PH theo khu vực trên D1.
 - Còn lại: nên báo bên PH sửa trường khu vực của Denver trên CRM. Số chốt các ngày trước (bảng Tỷ lệ giải trình theo ngày) giữ như lúc chốt.
+
+## 2026-11-27 — Bản DEMO v2: chi tiết ca 8 bước — làm lại cho cả điện thoại + máy tính, thêm phản biện (chưa code vào app)
+
+- Yêu cầu (nguyên văn, kèm bản vẽ Excel 8 bước): "1/ Yêu cầu; Thiết kế mẫu lại trang chi tiết --> OK mới đc code 2/Gắn các mã lỗi của 1 ca bảo hành với từng bước
+  3/Menu con của ca tồn: Các bước theo quy trình này. Chứ nhìn cái giao diện quản lý tồn vẫn cảm thấy rất khó chịu. Đầu tiên phân tích các yêu cầu từ giám đốc
+  => lập kế hoạch cho từng vấn đề => phản biện => yêu cầu các luồng thông tin vẫn phải rõ ràng minh bạch, phù hợp cho giao diện mobile + PC. Không để xảy ra lỗi
+  thiết kế, lỗi phông nền... => tổng thể phải đẹp, chuyên nghiệp. không bug, không lỗi thiết kế".
+- Vấn đề của v1: trên điện thoại thanh menu chiếm nửa màn, luồng 8 cột phải vuốt ngang (thấy 2 bước), ô chọn ca tràn màn, tooltip chỉ rê chuột, bảng 13 cột không đọc được.
+- Đã làm (`docs/demo/chi-tiet-ca-8-buoc.html`, ghi đè v1 — v1 còn trong commit b278ec2): giữ nguyên dữ liệu giả lập; viết lại giao diện theo bộ màu + phông của app
+  (`tokens.css`: ocean / teal / amber / coral, Inter).
+  - Máy tính ≥ 980px: 8 cột thẳng hàng như bản vẽ. < 980px: thanh 8 chấm + danh sách bước dọc chạm để xổ tại chỗ, nút Giải trình / Ghi lỗi / CRM ghim đáy,
+    chạm chip lỗi → bảng trượt hiện đủ thông tin, hộp thoại thành bảng trượt, ô nhập 16px.
+  - Bảng kiểu Excel: điện thoại chuyển thành thẻ + nút "⚙ Lọc & sắp xếp" (cùng trạng thái lọc với bảng PC); cột ngắn không xuống dòng.
+  - Theo phản biện: tách Tồn ca (bước 1–6, tính SLA 72h) / Tồn xác (bước 7–8, màu tím); chip "GT: …" hiện ngay tại bước đang kẹt; "Quá SLA 72h" (F10) chỉ hiện
+    ở bước lúc vượt 72h (không đếm vào bước 6); bỏ chip "quá hạn bước" trùng ý khi đã có mã tự động (B6/C3/D4/E2/G1); thanh SLA tổng 72h trên đầu luồng.
+  - Màn ④ viết lại: yêu cầu · phân tích + kế hoạch từng yêu cầu · 12 điểm phản biện (rủi ro → cách xử lý) · luồng thông tin từng bước · ánh xạ 15 tab ·
+    tiêu chuẩn giao diện · lộ trình · 7 câu cần Giám đốc chốt · 5W1H.
+- Kiểm thử: trình duyệt ở 375 (điện thoại), 768 (máy tính bảng), 1024, 1366, 1440; dựng lại cả 73 ca × từng bước + mọi màn tồn → không lỗi console, không tràn ngang
+  ở 375px; thử ghi lỗi, chạm chip, lọc chọn nhiều trên bảng trượt, bấm dòng mở ca.
+- Việc còn dở: chờ Giám đốc duyệt mẫu + trả lời 7 câu ở màn ④ rồi mới code GĐ1. Không đổi logic app → chưa sửa TONG_HOP_LOGIC / SRS / CLAUDE-full.
