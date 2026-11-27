@@ -91,7 +91,7 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   Tick "Tất cả khu vực" chỉ áp cho **quốc gia đang xem** lúc khai (v1.662; lưu `__ALL__:<mã nước>`, cột Khu vực ghi "Tất cả khu vực (VN)") —
   khai nghỉ lễ VN không làm PH (PLP) bị "Loại trừ". Ngày loại trừ chọn khu vực cụ thể vẫn theo tên khu vực (mỗi nước tên khác nhau).
   Số chốt theo ngày (Tỷ lệ giải trình, Cảnh báo tồn theo ngày) hiển thị đúng khu vực ghi lúc chốt: dòng của tài khoản CTV/TEST bị ghi nhầm
-  vào cột khu vực (vd "CTV Bắc Ninh", "GS Khu Vực-TEST") KHÔNG gộp vào khu vực chuẩn (MB3 / KRF) — lúc chốt Giám sát khu vực chuẩn không thấy
+  vào cột khu vực (vd "CTV Bắc Ninh", "GS Khu Vực-TEST", KTV PH "Denver Y. Maniclang") KHÔNG gộp vào khu vực chuẩn (MB3 / KRF) — lúc chốt Giám sát khu vực chuẩn không thấy
   ca đó, Telegram 17:30 cũng không tính — và từ v1.654 bị ẨN hẳn (không dòng riêng), nên Tổng cộng / lũy kế (cộng từ các dòng) cũng không tính,
   khớp ảnh Telegram. Mã B2B cũ/mới vẫn gộp. Báo cáo đọc dữ liệu ca hiện tại vẫn gộp CTV/TEST về khu vực chuẩn.
   Kỳ xem: chọn tháng HOẶC "Từ – đến" ngày (cả 2 ngày hợp lệ thì thay tháng, tối đa 93 ngày; chọn lại tháng xoá khoảng; bảng Cảnh báo tồn theo
@@ -133,7 +133,10 @@ Hãng (Tổng quát + Doanh thu) và Model (Tổng quát) chọn nhiều từ v1
 Tổng quát có bộ lọc Ngành (chọn nhiều, tham số `nganh` nối "|", `buildDashboardFilterClause` → `nganh IN (...)`, có lọc thì không dùng số chốt 08:00, giống Model) áp cho KPI, Top 10 KTV, pivot, so sánh SLA; thẻ Báo cáo nhanh 08:00 không đổi theo lọc.
 "Báo cáo đúng hạn theo ngành" (tab "Báo cáo theo ngành" trong menu Tổng quát; tuần/tháng chọn ngay trên báo cáo, lọc Khu vực + Ngành + Hãng, kỳ + bộ lọc lưu trên máy): 24h đối tác KRF (Đối tác Karofi/Korihome/Livotec/NSKX/
 Purastar/Simple Home) / Hãng khác, SLA, RTAT (giờ TB), tồn bình quân = TB số ca tồn 08:00 mỗi ngày (sổ chốt `backlog_age_daily` dim `nganh_hang` = Ngành × Hãng × Khu vực).
-Thứ tự khu vực cố định trên mọi báo cáo: MB1–3, MN1–3, B2B, KDDV, SCVP, còn lại A-Z (`soSanhNhom`). Mọi báo cáo nhóm theo khu vực gộp mã lạ về khu vực chuẩn trên trình duyệt (`lib/khuVucShortLabel.ts` `khuVucGop` / `gopTheoKhuVuc` / `gopMapTheoKhuVuc`: 2 mã B2B cũ/mới, tài khoản CTV/TEST, giá trị ghi bằng tên rút gọn), tính lại tỷ lệ từ tổng, bấm dòng đã gộp thì lọc theo mọi mã gốc (nối dấu phẩy). Tải Quản lý tồn có mẫu cố định
+Khu vực lúc import: CRM/Odoo đôi khi ghi TÀI KHOẢN người (CTV/TEST/KTV) vào cột khu vực → import tự đổi về khu vực chuẩn theo mã "(…)" đầu chuỗi
+(`lib/khuVucTheoKtv.ts` `MA_KHU_VUC_TAI_KHOAN`: CTV Bắc Ninh / Hải Dương → MB3, GS TEST → KRF bán lẻ, KTV PH Denver `denverym.svph` → MM); ca cũ chuyển bằng
+migration (0177, 0182), đánh dấu như sửa tay (`khu_vuc_crm` giữ giá trị CRM). Tài khoản mới bị ghi nhầm → thêm mã vào đây + `KHU_VUC_GOP` + 1 migration.
+Thứ tự khu vực cố định trên mọi báo cáo: MB1–3, MN1–3, B2B, KDDV, SCVP, còn lại A-Z (`soSanhNhom`). Mọi báo cáo nhóm theo khu vực gộp mã lạ về khu vực chuẩn trên trình duyệt (`lib/khuVucShortLabel.ts` `khuVucGop` / `gopTheoKhuVuc` / `gopMapTheoKhuVuc`: 2 mã B2B cũ/mới, tài khoản CTV/TEST/KTV, giá trị ghi bằng tên rút gọn), tính lại tỷ lệ từ tổng, bấm dòng đã gộp thì lọc theo mọi mã gốc (nối dấu phẩy). Tải Quản lý tồn có mẫu cố định
 "Form tồn" (52 cột) + nối các cột hệ thống đang tích phía sau (không tích = nối tất cả).
 Mọi danh sách ca có 2 mẫu cố định "Mẫu tính lương" (32 cột) và "Mẫu tính báo cáo" (67 cột = tiêu đề file xuất CRM, v1.651, `lib/exportMauTinhBaoCao.ts`): đọc dòng ca thô, tiêu đề tiếng Việt, ngày/số là ô Excel thật; Tên/Mã linh kiện, Nhóm lỗi, Nguyên nhân lỗi gộp từ "Linh kiện lỗi" Odoo (bỏ trùng, "; "); "Lý do không trả phí" = thu phí Odoo; checkin_time = check-in đầu tiên; Bộ phận xử lý = Khu vực; cột app không lưu (điện thoại, ảnh, CoreDB…) để trống.
 Báo cáo chốt ngày ghi sẵn (1 lần đọc nguồn rồi lọc theo từng phạm vi trong bộ nhớ). Ảnh báo cáo hằng ngày gửi Telegram theo phạm vi.

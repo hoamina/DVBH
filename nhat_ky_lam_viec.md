@@ -6517,3 +6517,14 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   "↻ Cập nhật ngày lễ PH" ở Cài đặt › Ngày loại trừ giải trình (khi đang xem PH). Ngày đã tự thêm mà Admin xoá thì không thêm lại; không đè ghi chú Admin.
   VN không đổi (vẫn khai tay). Giới hạn: lễ Hồi giáo PH (Eid'l Fitr / Eid'l Adha) công bố từng năm có thể thiếu → thêm tay.
 - Kiểm thử: typecheck backend + frontend, i18n-kiem-tra; gọi thử API Nager.Date PH 2026 (18 ngày). Chưa chạy ghi thật — cron 03:00 VN đầu tiên sau deploy sẽ ghi.
+
+## 2026-11-27 — v1.668: PH "Báo cáo tồn theo khu vực" hiện dòng tên KTV Denver
+
+- Yêu cầu (nguyên văn, ảnh bảng có dòng "(denverym.svph) Denver Y. Maniclang" giữa MM và Retail): "data plp sao lại hiện khu vực của ktv nào vào đây"
+  → chủ hệ thống chọn "Gộp vào MM".
+- Vì sao: tra D1 thật (chỉ đọc) — 7 ca PH có cột khu vực = đúng tài khoản KTV Denver (CRM ghi nhầm, tỉnh trống, B2C); Denver không có ca nào ở MM/Retail.
+  Bảng nhóm theo cột khu vực nên tách thành dòng riêng (cùng kiểu lỗi CTV Bắc Ninh 19/11).
+- Đã sửa: `MA_KHU_VUC_TAI_KHOAN` thêm `denverym.svph` → MM (ca import sau tự về MM); `KHU_VUC_GOP` thêm tên Denver → MM; migration 0182 chuyển 7 ca cũ
+  về MM, đánh dấu như sửa tay (`khu_vuc_crm` giữ giá trị CRM), bump domain `cases` để bỏ cache báo cáo.
+- Kiểm thử: typecheck backend + frontend; sau migrate đếm lại ca PH theo khu vực trên D1.
+- Còn lại: nên báo bên PH sửa trường khu vực của Denver trên CRM. Số chốt các ngày trước (bảng Tỷ lệ giải trình theo ngày) giữ như lúc chốt.

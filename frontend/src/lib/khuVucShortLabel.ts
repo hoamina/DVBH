@@ -58,6 +58,8 @@ export const KHU_VUC_GOP: Record<string, string> = {
   "(huydg.bn-mb) CTV Bắc Ninh - Đào Gia Huy - NS-3919 - NS-3919": "(qldvbh.mb3) Quản lý khu vực MB3",
   "(hoant.hd-mb) CTV Hải Dương - Nguyễn Thị Hoa - NS - 3959": "(qldvbh.mb3) Quản lý khu vực MB3",
   "(gskv.test) GS Khu Vực-TEST": "(teamkdbl.krf) Kinh doanh bán lẻ KRF",
+  // PH: tai khoan KTV Denver ghi vao cot khu vuc -> MM (2026-11-27, migration 0182).
+  "(denverym.svph) Denver Y. Maniclang": "MM",
 };
 
 // Gia tri ghi thang bang ten rut gon ("MB2", "B2B MN"...) -> ten day du (khu vuc chuan dau tien co nhan do).

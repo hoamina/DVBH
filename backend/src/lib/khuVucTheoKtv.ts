@@ -28,6 +28,8 @@ const MA_KHU_VUC_TAI_KHOAN: Record<string, string> = {
   "huydg.bn-mb": KHU_VUC_MB3,
   "hoant.hd-mb": KHU_VUC_MB3,
   "gskv.test": KHU_VUC_KRF_BAN_LE,
+  // PH (2026-11-27, chu he thong chon "Gop vao MM"): CRM ghi tai khoan KTV Denver vao cot khu vuc. Ca da co: migration 0182.
+  "denverym.svph": "MM",
 };
 
 export function khuVucChuanTuTaiKhoan(khuVuc: unknown): string | null {
