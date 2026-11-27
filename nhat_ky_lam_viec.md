@@ -6642,3 +6642,17 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Đã làm: `localThemeConfig.ts` `DEFAULT_LOCAL_THEME_CONFIG` và `presets.ts` `DEFAULT_THEME` đổi "ocean" → "apple". Máy chưa từng lưu giao diện tự
   mở gam Apple; máy đã lưu (kể cả "Đại dương") giữ nguyên lựa chọn — muốn đổi thì vào Cài đặt cá nhân → Giao diện chọn "Apple".
 - Kiểm thử: typecheck; local xoá `theme-config` rồi tải lại → `data-ui-style="apple"`, nền #f5f5f7, màn Quản lý tồn đúng kiểu.
+
+## 2026-11-27 (9) — v1.673: Chi tiết ca v2 "8 bước quy trình" (mặc định) + v1 Tiến trình chung có luồng 8 bước
+
+- Yêu cầu (nguyên văn): "chia vấn đề ra rồi làm đồng thời. giao diện V2 sẽ là ưu tiên. lưu cache theo lựa chọn người dùng. đảm bảo đủ thông tin cần
+  hiện thị. thông tin nào bên v2 có v1 chưa có thì bổ sung thêm vào bản v1 ở bước tiến trình chung. Bước 7, 8 lấy thông tin trả xác từ app đổi trả bảo hành."
+- Chia 3 việc song song: (1) phiên chính — bộ tính `lib/buocQuyTrinh.ts` + giao diện v2 + nút v1/v2 lưu theo máy (mặc định v2) + điều hướng khoá tab cũ;
+  (2) phiên riêng — v1 Tiến trình chung: luồng ngang 8 bước + nhãn bước từng sự kiện (`components/LuongTamBuoc.tsx`), gộp nhánh vào đây;
+  (3) phiên riêng chỉ đọc — bảng kiểm kê `docs/kiem-ke-chi-tiet-ca-v1-v2.md` (phát hiện chip nhảy tab / `openCase(id, tab)` chưa có đích ở v2 → đã sửa).
+- Bước 7–8 lấy từ App Bảo hành đổi trả (API `case-timeline` đã nối sẵn — không sửa app đó). App ngoài chưa tải được → "Chưa tải được dữ liệu", không đánh bỏ qua.
+  Sửa `lucToMs` đọc ngày không kèm giờ.
+- Kiểm thử: typecheck + build; local: ca mở (bước 3 đang xử lý) và ca đã đóng, 1280 / 1600 / 375px, nút v1/v2 lưu `case-detail-ui`, "Xem đầy đủ",
+  tab Tiến trình chung v1 có luồng 8 bước + nhãn B1/B6; không lỗi console. Chưa kiểm với dữ liệu thật của app LK / Bảo hành (local không kết nối được).
+- Còn dở: SLA từng bước, mã lỗi theo bước, Quản lý tồn theo bước (chờ Giám đốc chốt).
+

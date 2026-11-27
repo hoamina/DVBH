@@ -15032,5 +15032,14 @@
   "cũ: {0}": ["was: {0}","dulu: {0}"],
   "▾ Xem đầy đủ": ["▾ Show all","▾ Lihat lengkap"],
   "Thông tin ngoài 8 bước": ["Other information","Informasi lainnya"],
-  "+{0} mục trống ▾": ["+{0} empty ▾","+{0} kosong ▾"]
+  "+{0} mục trống ▾": ["+{0} empty ▾","+{0} kosong ▾"],
+  "Người: {0}": ["Person: {0}","Orang: {0}"],
+  "Quy trình 8 bước": ["8-step process","Proses 8 langkah"],
+  "{0}/8 xong": ["{0}/8 done","{0}/8 selesai"],
+  "Đang ở: B{0} {1}": ["Now at: S{0} {1}","Sekarang: L{0} {1}"],
+  "B{0} {1}": ["S{0} {1}","L{0} {1}"],
+  "Thuộc bước {0}: {1}": ["Belongs to step {0}: {1}","Termasuk langkah {0}: {1}"],
+  "Khách hẹn": ["Customer scheduled","Dijadwalkan pelanggan"],
+  "KTV hẹn": ["Technician scheduled","Dijadwalkan teknisi"],
+  "Lịch hẹn lần {0}": ["Appointment #{0}","Janji ke-{0}"]
 }

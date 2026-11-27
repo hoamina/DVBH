@@ -119,6 +119,17 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   tính trên trình duyệt từ cùng dữ liệu bảng. Tên lý do hiện theo ngôn ngữ người xem (bản dịch EN/ID ở Cài đặt › Lý do, v1.663); file Excel giữ tiếng Việt.
   Dòng hệ thống tự ghi "Case đã được kết thúc" (lib/autoLogCaKetThuc.ts) KHÔNG phải lý do giải trình → bỏ qua, mỗi ca lấy giải trình cuối cùng còn lại
   trong tháng; ca chỉ có dòng tự động thì không tính (v1.664).
+- **Chi tiết ca — 2 giao diện (v1.673)**: **v2 "8 bước quy trình" là mặc định**, nút **v1 | v2** trên thanh tiêu đề popup, lựa chọn lưu riêng từng máy
+  (localStorage `case-detail-ui`). 8 bước: 1 Khởi tạo (giờ CSKH tiếp nhận) · 2 Xác nhận lịch hẹn (lần hẹn Odoo đầu tiên; không có thì "thời gian hẹn
+  xử lý") · 3 Đặt linh kiện (đơn đầu tiên app Đặt mua LK) · 4 Mua hàng (yêu cầu thiếu LK / PO; xong khi mọi yêu cầu có ngày hàng về; có đơn LK mà
+  không thiếu = bỏ qua "Kho có sẵn") · 5 Giao LK cho KTV (phiếu xuất kho) · 6 Đóng ca (thời gian hoàn thành) · 7 Trả xác 3T (phiếu gửi của App Bảo
+  hành đổi trả: giờ gửi xe, không có thì giờ tạo) · 8 Xác nhận xác (kho / admin BH nhận đủ mọi phiếu gửi). Ca đã đóng không có đơn LK → bỏ qua 3–5;
+  không có cả đơn LK lẫn đơn gửi → bỏ qua 7–8; app LK / Bảo hành chưa tải được → ghi "Chưa tải được dữ liệu", KHÔNG kết luận bỏ qua. Bước "đang xử
+  lý" = bước chưa xong đầu tiên (1–6 khi ca mở; 7–8 sau khi đóng). Chỉ HIỂN THỊ: chưa có SLA từng bước, chưa có mã lỗi theo bước. Bộ tính dùng
+  chung `lib/buocQuyTrinh.ts`; nội dung từng bước v2 là nguyên khối của v1 (không đổi quyền / thao tác); khoá tab cũ (module ngoài mở ca
+  thẳng 1 tab, chip "nhảy tab") được chuyển tới đúng bước / mục ngoài 8 bước. v1: đầu tab Tiến trình chung có luồng ngang 8 bước + "Xem chi
+  tiết", mỗi sự kiện gắn nhãn bước (B1…B8), thêm sự kiện lịch hẹn Odoo và mốc gửi xác / kho nhận / admin nhận. Bảng kiểm kê nội dung v1 → v2:
+  `docs/kiem-ke-chi-tiet-ca-v1-v2.md`.
 - Chi tiết ca: tab "Tiến trình chung" (gộp log nhiều nguồn; đầu tab là luồng xử lý ca dạng ngang, mốc liền nhau cùng đối tượng — 1 đơn
   linh kiện / đơn bảo hành / luồng đổi trả / tranh chấp / cuộc gọi khảo sát + vi phạm — gộp 1 thẻ có luồng ngang mini; log chỉ ghi dữ liệu
   của phiếu xuất kho là log phụ, ẩn mặc định và rút thành chip; chia theo ngày; lọc theo nguồn), tab Mua hàng / Thiếu hàng (từ app Đặt linh kiện), luồng gửi bảo hành (từ app Bảo hành đổi trả).

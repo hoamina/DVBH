@@ -705,3 +705,18 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 - **Khu vực = tài khoản KTV PH (v1.668, migration 0182)**: CRM PH ghi `(denverym.svph) Denver Y. Maniclang` (KTV) vào cột khu vực → 7 ca thành dòng lạ ở
   "Báo cáo tồn theo khu vực". Chủ hệ thống chọn "Gộp vào MM": `MA_KHU_VUC_TAI_KHOAN["denverym.svph"] = "MM"` (`lib/khuVucTheoKtv.ts`, áp lúc import),
   `KHU_VUC_GOP` (frontend, gộp hiển thị báo cáo ca hiện tại; bảng số chốt theo ngày vẫn ẩn dòng này như CTV/TEST), migration 0182 chuyển ca cũ + bump `cases`.
+
+## Chi tiết ca v2 "8 bước" (v1.673, 2026-11-27)
+
+- `lib/buocQuyTrinh.ts` — `tinhBuocQuyTrinh({ca, lichHen, lkOrders, soPo, scDon, daTaiLk, daTaiSc})` → 8 `BuocQuyTrinh` (xong / dang / chua / bo_qua,
+  luc, nguoi, cachTruocMs, chiSo, ghiChu). Pure, reads only data CaseDetail already fetched (no extra API / D1). `lucToMs` accepts "YYYY-MM-DD HH:MM:SS"
+  (VN), ISO with offset, and date-only (→ 00:00 VN). Steps 7–8 come from suachua `case-timeline` phieu_gui (`gui_xe_luc` / `kho_nhan_luc` / `admin_nhan_luc`).
+  `daTaiLk/daTaiSc=false` (API loading / error) never yields "bo_qua".
+- `modules/chiTietCaV2/ChiTietCaV2.tsx` + `chiTietCaV2.css` (plain CSS, container query `cdv2` on `.cdv2-root`). CaseDetail computes `ketQuaBuoc` once
+  (also feeds v1 `quyTrinh8Buoc`), builds `khoiTheoBuoc` from the SAME v1 content nodes (infoContent, muaHangContent, giaiTrinhContent…), so permissions /
+  dialogs are unchanged. `giaoDienCt` state ← localStorage `case-detail-ui` (default "v2"). Old tab keys (prop `tab` from `openCase(id, tab)` /
+  `onTabChange`) are mapped to a step (`TAB_BUOC`) or a side tab via `v2YeuCauMo`; the default first tab (giai-trinh / info) on open does not auto-open a step.
+- v1: `components/LuongTamBuoc.tsx` (horizontal 8-step line + "Xem chi tiết") at the top of `TienTrinhChung` (prop `quyTrinh`), events carry `buocQt`
+  ("B3 Đặt LK"…), plus Odoo appointment events (B2) and suachua phieu-gui milestones when the suachua flow lacks them.
+- Built with 2 parallel sessions (v1 Tiến trình chung on branch `claude/v1-tien-trinh-8-buoc-176db3`, read-only inventory `docs/kiem-ke-chi-tiet-ca-v1-v2.md`).
+

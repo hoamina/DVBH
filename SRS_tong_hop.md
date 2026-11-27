@@ -504,3 +504,18 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - 13:30: ca bổ sung cộng vào "VIP/SVIP ≥24h" và "Tổng cần giải trình" của ngày (thẻ Quản lý tồn, danh sách chi tiết, badge, log + ảnh 17:30).
   Không thêm Cron Trigger mới (gắn vào trigger chốt sẵn có, giờ UTC 6).
 
+## 21. Chi tiết ca v2 — "8 bước quy trình" (chốt 2026-11-27, v1.673)
+
+- Yêu cầu (nguyên văn): "UI chi tiết tôi gửi là giao diện UI chi tiết sẽ xây dựng thay cho UI chi tiết case hiện tại. các nội dung đề được hiện thị
+  đầy đủ. chỉ là thay đổi về giao diện và cách hiện thị" · "giao diện V2 sẽ là ưu tiên. lưu cache theo lựa chọn người dùng. đảm bảo đủ thông tin
+  cần hiện thị. thông tin nào bên v2 có v1 chưa có thì bổ sung thêm vào bản v1 ở bước tiến trình chung. Bước 7, 8 lấy thông tin trả xác từ app đổi trả bảo hành."
+- Giao diện mẫu: `chi-tiet-ca-8-buoc_v5_apple.html` (phong cách Apple, skill `giao-dien-apple`).
+- Mặc định v2; người dùng chọn v1 / v2 trên thanh tiêu đề popup, lưu theo máy. Mọi vai trò thấy như nhau (quyền thao tác giữ như v1).
+- Bố cục v2: thẻ tóm tắt (bước đang xử lý + thời gian chờ, tổng thời gian, khách hàng / sản phẩm · serial / KTV / khu vực, nút "+ Thêm giải trình",
+  "+ Tạo vi phạm thủ công") → dải 8 ô → lưới thẻ 8 bước ("▾ Xem đầy đủ" mở toàn bộ nội dung của bước, ghi "cũ: tab …") → "Thông tin ngoài 8 bước"
+  (Tiến trình chung, Vi phạm, Khảo sát, Ca lặp, Nạp gas, Tranh chấp, Đổi trả, NSKX; mục trống gom "+N mục trống"). Bố cục theo bề rộng popup:
+  ≥ 960px 8 ô thẳng hàng + 3 cột thẻ; hẹp hơn cuộn ngang + 2 / 1 cột.
+- Ánh xạ nội dung v1 → bước: Thông tin case + Xin hủy → 1 · Lịch hẹn → 2 · Mua hàng (đơn LK) + Lỗi LK → 3 · Thiếu hàng + PO → 4 · Phiếu xuất kho → 5 ·
+  GT tồn + Biên bản họp + QC thực tế → 6 · Bảo hành (App Bảo hành đổi trả) → 7, 8 · Gửi BH (Odoo) → 8.
+- Giai đoạn sau (chưa làm, chờ Giám đốc chốt): SLA từng bước, mã lỗi theo bước, Quản lý tồn theo bước.
+

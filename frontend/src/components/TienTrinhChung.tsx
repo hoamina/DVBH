@@ -13,6 +13,8 @@ import { Badge, type AnyBadgeTone } from "./ui/Badge";
 import { LuongNgang } from "./SuaChuaPanel";
 import { formatPersonDisplay, type PersonDirectory } from "../lib/personDisplay";
 import type { SuaChuaMoc } from "../lib/suaChuaTimeline";
+import { DINH_NGHIA_BUOC, type KetQuaBuocQuyTrinh } from "../lib/buocQuyTrinh";
+import { LuongTamBuoc } from "./LuongTamBuoc";
 import { tr } from "../i18n/tr";
 
 // Chi dung Tailwind class TINH (JIT khong nhan class ghep dong).
@@ -87,6 +89,8 @@ export interface LichSuChungEvent {
   chip?: string;
   /** Luong ngang mini cua doi tuong (gan o moc nao cung duoc, lay moc dau tien co). */
   luong?: SuaChuaMoc[];
+  /** Buoc quy trinh 8 buoc (1-8, lib/buocQuyTrinh.ts) ma moc nay thuoc ve - hien nhan "B3 Đặt LK" (2026-11-27). */
+  buocQt?: number;
 }
 
 const cumKey = (e: LichSuChungEvent) => e.cum ?? `${e.typeLabel}|${e.jumpTab}|${e.tone}`;
@@ -128,7 +132,10 @@ export function TienTrinhChung({
   summaryItems,
   personDir,
   onJump,
+  quyTrinh,
 }: {
+  /** Ket qua tinhBuocQuyTrinh() - luong ngang 8 buoc o dau tab. */
+  quyTrinh?: KetQuaBuocQuyTrinh | null;
   events: LichSuChungEvent[];
   luongTong: SuaChuaMoc[];
   summaryItems: { label: string; value: number | null }[];
@@ -264,6 +271,17 @@ export function TienTrinhChung({
       <div className="flex items-center gap-1.5 flex-wrap">
         <span className="text-xs font-semibold tabular-nums text-[var(--ink-500)] min-w-[2.6rem]">{thoiGian}</span>
         <Badge tone={e.tone}>{laCum ? (e.cumNhan ?? e.typeLabel) : e.typeLabel}</Badge>
+        {[...new Set([...g.ds, ...g.phu].map((x) => x.buocQt).filter((n): n is number => !!n))]
+          .sort((a, b) => a - b)
+          .map((n) => (
+            <span
+              key={n}
+              className="rounded-full bg-[var(--ocean-100)] px-1.5 py-px text-[11px] font-semibold text-[var(--ocean-600)]"
+              title={tr("Thuộc bước {0}: {1}", n, DINH_NGHIA_BUOC[n - 1]?.ten ?? "")}
+            >
+              B{n} {DINH_NGHIA_BUOC[n - 1]?.tenNgan}
+            </span>
+          ))}
         {g.ds.length > 1 && <Badge tone="gray">{tr("{0} bước", g.ds.length)}</Badge>}
         {nguoi.length > 0 && (
           <span className="text-xs text-[var(--ink-400)] truncate" title={nguoi.map(tenDay).join("\n")}>
@@ -329,6 +347,7 @@ export function TienTrinhChung({
 
   return (
     <div>
+      {quyTrinh && <LuongTamBuoc kq={quyTrinh} />}
       {luongTong.length > 0 && (
         <div className="mb-3 rounded-lg border border-[var(--line)] px-3 py-2">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-400)] mb-1">{tr("Luồng xử lý ca")}</div>
