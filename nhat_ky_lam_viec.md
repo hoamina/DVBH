@@ -6548,3 +6548,22 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: trình duyệt ở 375 (điện thoại), 768 (máy tính bảng), 1024, 1366, 1440; dựng lại cả 73 ca × từng bước + mọi màn tồn → không lỗi console, không tràn ngang
   ở 375px; thử ghi lỗi, chạm chip, lọc chọn nhiều trên bảng trượt, bấm dòng mở ca.
 - Việc còn dở: chờ Giám đốc duyệt mẫu + trả lời 7 câu ở màn ④ rồi mới code GĐ1. Không đổi logic app → chưa sửa TONG_HOP_LOGIC / SRS / CLAUDE-full.
+
+## 2026-11-27 (2) — Demo chi tiết ca: đặt vào đúng khung POPUP + kiểm kê đủ nội dung popup cũ (chưa code vào app)
+
+- Yêu cầu (nguyên văn): "đây là giao diện thay đổi cho màn UI chi tiết trên DVBH, mà màn UI này đang thiết kế dạng Popup. => xem lại logic này để demo cho hợp lý"
+  và "các nội dung trên dvbh hiện tại đang có, đang hiện thị, các tích năng vẫn cần phải hiện thị đầy đủ trên giao diện mới".
+- Đã làm (`docs/demo/chi-tiet-ca-8-buoc.html`): chi tiết ca mở dạng popup đúng khung `CaseDetail.tsx` — Mở rộng (hộp giữa 95% × 92%, nền mờ) / Ngắn gọn
+  (ngăn kéo phải 672px), điện thoại luôn Ngắn gọn; thanh tiêu đề giữ đủ: mã ca, trạng thái, mức độ, ảnh / video, không hài lòng, đã hủy, nhãn cảnh báo,
+  Link CRM, Hủy ca / Bỏ hủy, banner đã lưu về máy + Đồng bộ lại, Ngắn gọn / Mở rộng, ✕, ← Quay lại / ⏮ Về ca. Bố cục chọn theo bề rộng popup (container query
+  ≥ 960px: 8 cột; hẹp hơn: danh sách dọc), chỉ thân popup cuộn, nút Giải trình / Ghi lỗi ghim đáy khi hẹp. Màn nền ① = Danh sách ca; bấm dòng ở Danh sách /
+  Quản lý tồn mở popup đè lên màn đang xem (không chuyển màn). Esc đóng lần lượt hộp thoại → bảng lọc → popup.
+- Kiểm kê popup cũ (header, cột Thông tin, tab con Lỗi / Gửi BH / Lịch hẹn / Xin hủy, 15 tab, các hộp thoại) → mỗi mục có chỗ: bước 1 (Cơ bản / Xử lý / Bổ sung /
+  Phân loại, ⚙ ẩn nhóm, serial + Blacklist + ca trùng serial, Xin hủy), bước 2 (Lịch hẹn), bước 3 (Mua hàng + Lỗi LK), bước 4 (PO + Thiếu hàng), bước 5 (PXK),
+  bước 6 (GT tồn + nhật ký hệ thống cấp 1/2, Biên bản họp, Bảo hành app, kết quả xử lý, ảnh / video, doanh thu & thu phí, QC thực tế), bước 8 (Gửi BH);
+  Vi phạm = mã lỗi trên bước + "Hồ sơ vi phạm" (cấp 1, giải trình KTV / GS, giải trình thay, chốt cấp 2, đẩy app vi phạm); dãy tab "Thông tin ngoài 8 bước" luôn hiện:
+  Tiến trình chung, Khảo sát, Ca lặp (đánh giá lặp, chuỗi serial mở ca trong popup), Nạp gas (chốt đánh giá), Tranh chấp, Đổi trả, NSKX; mục trống gom "+N mục trống".
+  Mỗi khối ghi "cũ: tab …". Màn ④ thêm mục E (popup), E2 (bảng kiểm kê), phản biện 13–14.
+- Kiểm thử: 1440 / 1366 / 375px; dựng lại 73 ca × 8 bước × 7 tab phụ ở cả 2 chế độ → không lỗi, thân popup không tràn ngang; thử Quay lại / Về ca, Ngắn gọn ↔ Mở rộng,
+  mở từ Quản lý tồn, Esc, hủy ca, blacklist, biên bản họp, chốt nạp gas.
+- Việc còn dở: chờ Giám đốc duyệt mẫu + 7 câu hỏi ở màn ④.
