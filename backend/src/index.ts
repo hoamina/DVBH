@@ -403,8 +403,9 @@ export default {
         }
         await viecNangBuoiTrua(env);
       }
-      // 14:00-18:00 VN: luoi an toan neu bo sung VIP 13:30 chua chay duoc (co dau thi bo qua ngay, 1 dong doc / pham vi).
-      if (gio >= 7) {
+      // 14:00-17:00 VN: luoi an toan neu bo sung VIP 13:30 chua chay duoc (co dau thi bo qua ngay, 1 dong doc / pham vi). Khong chay
+      // tu 18:00 - sau chot 17:30, bo sung luc do se lam lech so Quan ly ton voi log 17:30 da chot.
+      if (gio >= 7 && gio <= 10) {
         try {
           await chayBoSungVip1330(env);
         } catch (err) {

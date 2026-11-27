@@ -47,7 +47,7 @@ KTV không có tài khoản, chỉ là dữ liệu trên ca. Phạm vi xem theo 
   - **13:30 bổ sung**: ca VIP/S.VIP (`nhom_kh LIKE '%VIP%'`) CSKH tiếp nhận HÔM QUA từ 00:00 đến trước 12:00, lúc chốt sáng chưa đủ 24h thực nên
     chưa vào danh sách, đến 13:30 hôm nay VẪN TỒN (chưa hoàn thành / huỷ / lưu trữ) và không có giải trình trước mốc chốt → thêm vào nhóm
     "VIP/SVIP ≥24h" VÀ "Tổng cần giải trình" (+ theo khu vực) của mọi số chốt hôm nay; giữ nguyên mốc chốt nên giải trình sau mốc chốt (kể cả
-    trước 13:30) tính "đã giải trình". Dấu `bo_sung_vip_1330|all` (danh sách ID đã thêm) chặn chạy lại; 14:00–18:00 mỗi giờ chạy bù nếu 13:30 lỗi.
+    trước 13:30) tính "đã giải trình". Dấu `bo_sung_vip_1330|all` (danh sách ID đã thêm) chặn chạy lại; 14:00–17:00 mỗi giờ chạy bù nếu 13:30 lỗi (không chạy sau chốt 17:30).
   - **12:00 Telegram**: tin nhắn chữ vào nhóm Telegram của từng nước: số cần giải trình (chốt sáng) / đã giải trình / còn lại + %, theo khu vực,
     danh sách ca chưa giải trình (tối đa 40, ca tồn lâu nhất trước). Ca bổ sung 13:30 có trong số 17:30 (log + ảnh) của cùng ngày.
 - Danh sách chi tiết, nhóm **Cảnh báo tồn** (Cấp 1/2, kể cả Luồng đổi trả): luôn là tập ca đã chốt 08:00, không tính sống. Ô tuổi tồn chỉ có với

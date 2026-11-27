@@ -90,7 +90,7 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   `viecNangBuoiTrua` (preceded by the 12:00 VIP/S.VIP ≥24h Telegram text, `lib/vipTon24h.ts guiKetQuaVip24hTelegram`). 13:30 VN = UTC hour 6 added
   to the chốt trigger (`"30,40 0,6,10 * * *"`, v1.669, still 4 triggers): `chayBoSungVip1330` appends VIP cases opened yesterday before 12:00 that
   were <24h at chốt but still open at 13:30 into `backlogVip24h` + `tonCanGiaiTrinh(+ByKhuVuc)` of every snapshot today (keeps `generated_at`),
-  marker row `bo_sung_vip_1330|all` (payload = added ids) makes it idempotent; hourly 14:00–18:00 retries if the marker is missing. **`lib/chotTon.ts` = ONE read per country group** (~1.700 open cases with every NEED_* flag computed in the same
+  marker row `bo_sung_vip_1330|all` (payload = added ids) makes it idempotent; hourly 14:00–17:00 retries if the marker is missing (never after the 17:30 log). **`lib/chotTon.ts` = ONE read per country group** (~1.700 open cases with every NEED_* flag computed in the same
   SQL, + 4 small banner reads, ~8 queries, ~2.5s) then every scope (role / giám sát / each khu vực / NSKX subset) is filtered in memory
   and written with `db.batch`. The old per-scope SQL (~6.000 queries per chốt, `Promise.all` fan-out) overloaded D1 by itself and
   broke the chốt 04–08/11 (verified 08/11: identical results, 0 diffs on 3 scopes). Snapshots no longer hold kpis/pivot/revenue
