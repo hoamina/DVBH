@@ -56,7 +56,10 @@ export function lucToMs(v: string | null | undefined): number | null {
   if (!v) return null;
   const s = v.trim();
   if (!s) return null;
-  const iso = /T/.test(s) ? s : `${s.replace(" ", "T")}${/[+-]\d\d:?\d\d$|Z$/.test(s) ? "" : "+07:00"}`;
+  // Chi co ngay ("2026-10-04") -> 00:00 gio VN; co gio thi doi " " -> "T"; khong co mui gio -> +07:00.
+  const coGio = /T|\d{1,2}:\d{2}/.test(s);
+  const base = coGio ? s.replace(" ", "T") : `${s}T00:00:00`;
+  const iso = /[+-]\d\d:?\d\d$|Z$/.test(base) ? base : `${base}+07:00`;
   const ms = Date.parse(iso);
   return Number.isNaN(ms) ? null : ms;
 }
