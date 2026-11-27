@@ -619,6 +619,21 @@ export function SettingsModule() {
     onError: () => addToast(tr("Không thể thêm ngày loại trừ.")),
   });
 
+  // Tu them ngay le PH (lib/ngayLeTuDong.ts backend, 2026-11-27) - cron 03:00 VN da chay hang ngay, nut nay de chay ngay.
+  const ngayLeTuDongMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ ket_qua: { nuoc: string; ok: boolean; so_ngay_le: number; them_moi: string[]; loi: string | null }[] }>(
+        "/settings/giai-trinh-exclude-ngay/ngay-le-tu-dong",
+        {},
+      ),
+    onSuccess: (d) => {
+      for (const r of d.ket_qua)
+        addToast(r.ok ? tr("Ngày lễ {0}: thêm {1} ngày mới ({2} ngày lễ năm nay + năm sau)", r.nuoc, r.them_moi.length, r.so_ngay_le) : tr("Ngày lễ {0}: lỗi {1}", r.nuoc, r.loi ?? ""));
+      qc.invalidateQueries({ queryKey: ["settings-giai-trinh-exclude-ngay"] });
+    },
+    onError: () => addToast(tr("Không cập nhật được ngày lễ.")),
+  });
+
   const deleteExcludeNgayMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/settings/giai-trinh-exclude-ngay/${id}`),
     onSuccess: () => {
@@ -1481,8 +1496,21 @@ export function SettingsModule() {
           <div className="flex items-center justify-between mb-3 gap-3">
             <div className="text-sm text-[var(--ink-600)]">
               {tr("Danh sách ngày")} <b>{tr("không tính")}</b>  {tr("vào lũy kế/tỷ lệ giải trình tháng của \"Quản lý tồn\" (bảng \"Báo cáo tồn theo khu vực\" và \"Tỷ lệ giải trình theo ngày\").")} <b>{tr("Mọi Chủ nhật đã tự động bị loại trừ")}</b>{tr(", không cần thêm ở đây — chỉ thêm các ngày khác (vd nghỉ lễ).")}</div>
-            <Btn size="sm" onClick={() => setAddExcludeNgayOpen(true)}>
-              {tr("+ Thêm ngày loại trừ")}</Btn>
+            <div className="flex items-center gap-2 shrink-0">
+              {isPH && (
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  disabled={ngayLeTuDongMutation.isPending}
+                  onClick={() => ngayLeTuDongMutation.mutate()}
+                  title={tr("Ngày lễ PH tự thêm mỗi ngày lúc 03:00 (năm nay + năm sau). Ngày đã tự thêm mà bị xóa sẽ không thêm lại. Lễ Hồi giáo công bố từng năm có thể thiếu — thêm tay.")}
+                >
+                  {ngayLeTuDongMutation.isPending ? tr("Đang cập nhật…") : tr("↻ Cập nhật ngày lễ PH")}
+                </Btn>
+              )}
+              <Btn size="sm" onClick={() => setAddExcludeNgayOpen(true)}>
+                {tr("+ Thêm ngày loại trừ")}</Btn>
+            </div>
           </div>
           <PaginatedTable
             columns={excludeNgayColumns}

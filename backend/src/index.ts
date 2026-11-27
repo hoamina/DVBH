@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { tuDongThemNgayLe } from "./lib/ngayLeTuDong";
 import { danhDauMoiTruongLocal } from "./lib/telegram";
 import type { Env } from "./types";
 import authRoutes from "./routes/auth";
@@ -286,6 +287,13 @@ export default {
 
     if (event.cron === VI_PHAM_SHEET_SYNC_CRON) {
       await runSheetSync("vi_pham_ngoai", () => syncViPhamFromSheet(env, VI_PHAM_SHEET_SYNC_ACTOR_EMAIL));
+      // Tu them ngay le PH vao "Ngày loại trừ giải trình" (lib/ngayLeTuDong.ts, 2026-11-27) - 2 fetch Nager.Date, chi ghi ngay moi.
+      try {
+        const kq = await tuDongThemNgayLe(env.DB);
+        for (const r of kq) if (r.them_moi.length) console.log(`[ngay-le-tu-dong] ${r.nuoc}: them ${r.them_moi.length} ngay`);
+      } catch (err) {
+        console.error("[ngay-le-tu-dong] loi:", err instanceof Error ? err.message : String(err));
+      }
       // Thu gon so chot 08:00 cu hon 35 ngay (lib/thuGonSnapshot.ts, v1.647) - 03:00 VN, ngoai gio lam.
       try {
         const n = await thuGonSnapshotCu(env);

@@ -6508,3 +6508,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: mở trên trình duyệt, bấm thử từng màn, ghi lỗi, lọc / sắp xếp bảng, không lỗi console.
 - Việc còn dở: chờ Giám đốc duyệt mẫu + trả lời 6 câu hỏi ở tab ④ (thứ tự bước, quy ước mã, SLA từng bước, nghĩa "420p", nguồn dữ liệu Trả xác / Xác nhận xác,
   mã tự động có trừ điểm không) rồi mới code. Chưa đổi TONG_HOP_LOGIC / SRS vì chưa đổi logic chạy thật.
+
+## 2026-11-27 — v1.667: tự thêm ngày lễ PH vào "Ngày loại trừ giải trình"
+
+- Yêu cầu (nguyên văn): "bên PLP có rất nhiều ngày lễ, tự động thêm các ngày lễ này vào danh sách loại trừ giải trình".
+- Đã làm: `lib/ngayLeTuDong.ts` lấy lịch lễ toàn quốc PH (Nager.Date, năm nay + năm sau — 2026 có 18 ngày: lễ chính thức + ngày nghỉ đặc biệt),
+  ghi dòng "Tất cả khu vực (PH)" (`__ALL__:PH`) ghi chú "Lễ PH (tự động): <tên>". Chạy kèm cron 03:00 VN hằng ngày (không thêm trigger) + nút Admin
+  "↻ Cập nhật ngày lễ PH" ở Cài đặt › Ngày loại trừ giải trình (khi đang xem PH). Ngày đã tự thêm mà Admin xoá thì không thêm lại; không đè ghi chú Admin.
+  VN không đổi (vẫn khai tay). Giới hạn: lễ Hồi giáo PH (Eid'l Fitr / Eid'l Adha) công bố từng năm có thể thiếu → thêm tay.
+- Kiểm thử: typecheck backend + frontend, i18n-kiem-tra; gọi thử API Nager.Date PH 2026 (18 ngày). Chưa chạy ghi thật — cron 03:00 VN đầu tiên sau deploy sẽ ghi.

@@ -14960,5 +14960,10 @@
   "Chờ kho gửi hàng": ["Awaiting warehouse shipment","Menunggu gudang mengirim"],
   "Chờ kho nhận hàng trả": ["Awaiting warehouse to receive return","Menunggu gudang menerima retur"],
   "Đã gửi, chờ KTV xác nhận": ["Shipped, awaiting technician confirmation","Dikirim, menunggu konfirmasi teknisi"],
-  "Phiếu đã hủy": ["Slip cancelled","Slip dibatalkan"]
+  "Phiếu đã hủy": ["Slip cancelled","Slip dibatalkan"],
+  "Ngày lễ {0}: thêm {1} ngày mới ({2} ngày lễ năm nay + năm sau)": ["{0} holidays: {1} new dates added ({2} holidays this year + next year)","Hari libur {0}: {1} tanggal baru ditambahkan ({2} hari libur tahun ini + tahun depan)"],
+  "Ngày lễ {0}: lỗi {1}": ["{0} holidays: error {1}","Hari libur {0}: galat {1}"],
+  "Không cập nhật được ngày lễ.": ["Could not update holidays.","Tidak dapat memperbarui hari libur."],
+  "Ngày lễ PH tự thêm mỗi ngày lúc 03:00 (năm nay + năm sau). Ngày đã tự thêm mà bị xóa sẽ không thêm lại. Lễ Hồi giáo công bố từng năm có thể thiếu — thêm tay.": ["PH holidays are added automatically every day at 03:00 (this year + next year). An auto-added date that is deleted will not be added again. Islamic holidays proclaimed each year may be missing — add them manually.","Hari libur PH ditambahkan otomatis setiap hari pukul 03:00 (tahun ini + tahun depan). Tanggal otomatis yang dihapus tidak akan ditambahkan lagi. Hari libur Islam yang diumumkan setiap tahun mungkin tidak ada — tambahkan manual."],
+  "↻ Cập nhật ngày lễ PH": ["↻ Update PH holidays","↻ Perbarui hari libur PH"]
 }

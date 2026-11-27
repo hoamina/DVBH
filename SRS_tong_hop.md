@@ -477,6 +477,7 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   chỉ sửa phạm vi đang xem; có nhật ký sửa, ô đã sửa có dấu ✎. Không sửa ô "Loại trừ", dòng Tổng cộng, ô chưa có số chốt.
 - (v1.658) Màu dịu hơn (nền nhạt, chữ đậm cùng tông); ngày đủ 100% tô xanh nhạt; cột "Tổng" và dòng "Tổng cộng" có viền tím riêng.
 - (v1.657) Ô "Loại trừ" đổi sang xám kẻ sọc chéo cho khác hẳn màu cảnh báo ngày thiếu.
+- (v1.667, 2026-11-27) Ngày lễ PH tự động vào "Ngày loại trừ giải trình" (Tất cả khu vực của PH), cập nhật mỗi ngày 03:00 cho năm nay + năm sau; Admin xoá ngày nào thì giữ xoá; nút "↻ Cập nhật ngày lễ PH" (Admin, đang xem PH). VN vẫn khai tay.
 - (v1.656) Cài đặt › "Ngày loại trừ giải trình": thêm cột "Ngày tạo", mặc định sắp xếp theo ngày tạo mới nhất trước; sắp xếp được theo Ngày / Ngày tạo.
 
 ## 19. Báo cáo đúng hạn theo ngành — tuần / tháng (chốt 2026-11-20, v1.638)

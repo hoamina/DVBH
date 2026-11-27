@@ -104,6 +104,9 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   ô đã sửa có ✎ + tooltip gốc → mới, nền xanh dương nhạt (khác xanh lá của ô 100%) + lý do in nghiêng dưới số (v1.660).
   Popup sửa có nút "⊘ Loại trừ ngày này" (v1.661, Admin): thêm ngày loại trừ cho khu vực đó (mọi mã gốc của dòng đã gộp) qua API Cài đặt, lý do = ghi
   chú; loại trừ áp cho MỌI phạm vi, bỏ ở Settings › Ngày loại trừ giải trình.
+  Ngày lễ PH tự thêm (v1.667, `lib/ngayLeTuDong.ts`): mỗi ngày 03:00 VN lấy lịch lễ toàn quốc PH năm nay + năm sau từ Nager.Date, ghi dòng
+  "Tất cả khu vực (PH)" ghi chú "Lễ PH (tự động): …"; ngày đã tự thêm mà Admin xoá thì không thêm lại; lễ Hồi giáo PH công bố từng năm có thể thiếu → thêm tay.
+  Admin đang xem PH có nút "↻ Cập nhật ngày lễ PH" chạy ngay.
   Ô Chủ nhật = xám đậm nền trơn; ngày loại trừ Admin thêm (nghỉ phép, đào tạo…) = xám nhạt kẻ sọc (v1.660). Lũy kế / Tổng / Báo cáo tồn theo khu vực dùng số đã sửa; ảnh Telegram đã gửi không đổi. "Loại trừ" = xám kẻ sọc chéo, chữ xám (v1.657, trước là be — dễ lẫn với ô vàng/cam); ngày Tổng cộng có 1 số khu vực bị loại trừ = viền nét đứt sẫm (trước là nền hồng). Có chú thích màu trên bảng.
 - Lý do giải trình cuối cùng theo tháng (Quản lý tồn): bảng + 2 biểu đồ (tỷ lệ từng lý do; từng lý do chia theo khu vực / nhóm PH),
   tính trên trình duyệt từ cùng dữ liệu bảng. Tên lý do hiện theo ngôn ngữ người xem (bản dịch EN/ID ở Cài đặt › Lý do, v1.663); file Excel giữ tiếng Việt.
@@ -151,7 +154,7 @@ giữ nguyên. Không tra lại được danh sách ca của một ngày quá 35
 |---|---|
 | `0 1-11 * * *` (8h–18h VN) | Tự chữa ảnh chụp R2 ca đã đóng, làm mới ca lặp, làm ấm cache báo cáo, kéo tồn kho LK |
 | `30,40 0,10 * * *`, `15,20,25 10 * * *` | Chốt báo cáo ngày / các đợt thử lại |
-| `0 20 * * *` (03:00 VN) | Đồng bộ vi phạm từ Sheet QC; thu gọn số chốt 08:00 cũ hơn 35 ngày; ngày 1: lưu trữ ca hoàn thành quá 3 tháng (ca tồn giữ vĩnh viễn, log giữ vĩnh viễn) |
+| `0 20 * * *` (03:00 VN) | Đồng bộ vi phạm từ Sheet QC; tự thêm ngày lễ PH vào ngày loại trừ giải trình; thu gọn số chốt 08:00 cũ hơn 35 ngày; ngày 1: lưu trữ ca hoàn thành quá 3 tháng (ca tồn giữ vĩnh viễn, log giữ vĩnh viễn) |
 | 3 lần / ngày | Đồng bộ 4 Google Sheet cũ (giải trình, giải trình lặp, khảo sát, nạp gas) |
 
 ## 9. Kết nối hệ khác

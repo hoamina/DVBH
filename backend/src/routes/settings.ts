@@ -1,4 +1,6 @@
 import { LOAI_TRU_TOAN_BO, PHAM_VI_QUOC_GIA_MAC_DINH, QUOC_GIA_MAC_DINH, RE_MA_QUOC_GIA, khuVucLoaiTruToanBo } from "../lib/quocGia";
+import { dbGoc } from "../lib/phamVi";
+import { tuDongThemNgayLe } from "../lib/ngayLeTuDong";
 import { Hono } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
@@ -737,6 +739,9 @@ settings.post("/giai-trinh-exclude-ngay", adminOnly, async (c) => {
     .all();
   return c.json({ rows: results }, 201);
 });
+
+// POST /api/settings/giai-trinh-exclude-ngay/ngay-le-tu-dong - Admin bam "Cập nhật ngày lễ" (cung viec cron 03:00 VN, lib/ngayLeTuDong.ts).
+settings.post("/giai-trinh-exclude-ngay/ngay-le-tu-dong", adminOnly, async (c) => c.json({ ket_qua: await tuDongThemNgayLe(dbGoc(c.env.DB)) }));
 
 settings.delete("/giai-trinh-exclude-ngay/:id", adminOnly, async (c) => {
   const id = Number(c.req.param("id"));
