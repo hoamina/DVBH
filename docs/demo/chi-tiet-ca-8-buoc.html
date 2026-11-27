@@ -327,8 +327,8 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
 
 /* ===== Popup Chi tiết ca (khớp CaseDetail.tsx) ===== */
 .cd{position:fixed;inset:0;z-index:50;display:none;background:rgba(6,32,51,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
-.cd.on{display:flex;align-items:center;justify-content:center;padding:24px}
-.cd-box{background:var(--bg);border-radius:16px;box-shadow:0 25px 60px rgba(5,32,51,.35);width:95vw;max-width:2400px;height:92vh;display:flex;flex-direction:column;overflow:hidden;animation:cdin .18s ease-out}
+.cd.on{display:flex;align-items:center;justify-content:center;padding:0}
+.cd-box{background:var(--bg);border-radius:16px;box-shadow:0 25px 60px rgba(5,32,51,.35);width:99vw;height:99vh;height:99dvh;display:flex;flex-direction:column;overflow:hidden;animation:cdin .18s ease-out}
 .cd.on.compact{padding:0;justify-content:flex-end;align-items:stretch}
 .cd.compact .cd-box{width:100%;max-width:672px;height:100%;border-radius:0;animation:cdslide .2s ease-out}
 @keyframes cdin{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
@@ -987,7 +987,7 @@ function phuHTML(c) {
 
 /* ----------------------------------------------------------------------
    5c. POPUP CHI TIẾT CA — đúng khung popup của app (CaseDetail.tsx):
-   Mở rộng = hộp giữa 95% × 92% màn hình · Ngắn gọn = ngăn kéo phải 672px · điện thoại luôn Ngắn gọn
+   Mở rộng = hộp giữa 99% × 99% màn hình · Ngắn gọn = ngăn kéo phải 672px · điện thoại luôn Ngắn gọn
    ---------------------------------------------------------------------- */
 let stack = [], cdMode = "expanded";
 const getCa = () => CASES.find(c => c.id === stack[stack.length - 1]);
@@ -1392,7 +1392,7 @@ function renderPhuongAn() {
   <h3>E. Popup Chi tiết ca — giữ đúng khung popup đang dùng</h3>
   <p>Trên DVBH, Chi tiết ca là <b>popup</b> mở từ mọi nơi bấm mã ca (Danh sách, Quản lý tồn, Vi phạm, Ca lặp…), không phải 1 trang riêng. Mẫu giữ nguyên khung đó, chỉ thay phần thân:</p>
   ${tbl(["Chế độ", "Khung (như hiện tại)", "Thân popup (mới)"], [
-    ["<b>Mở rộng</b> (máy tính, mặc định)", "Hộp giữa màn hình 95% × 92%, nền mờ phía sau, bấm ra ngoài / ✕ / Esc để đóng", "8 cột thẳng hàng như bản vẽ; bấm \"▾ Chi tiết\" xổ khung chi tiết bước ngay dưới luồng"],
+    ["<b>Mở rộng</b> (máy tính, mặc định)", "Hộp giữa màn hình 99% × 99% (yêu cầu 27/11, app hiện tại 95% × 92%), nền mờ phía sau, bấm ra ngoài / ✕ / Esc để đóng", "8 cột thẳng hàng như bản vẽ; bấm \"▾ Chi tiết\" xổ khung chi tiết bước ngay dưới luồng"],
     ["<b>Ngắn gọn</b> (máy tính chọn, hoặc điện thoại — luôn ở chế độ này)", "Ngăn kéo bên phải rộng 672px (điện thoại: toàn màn hình)", "Thanh 8 chấm + danh sách bước dọc, chạm bước nào xổ bước đó; nút Giải trình / Ghi lỗi ghim đáy popup"],
     ["Mở ca khác trong popup", "\"← Quay lại\" · \"⏮ Về ca …\" (giữ nguyên)", "Thử: tab \"Ca lặp\" → bấm mã ca trong chuỗi serial"],
     ["Hộp thoại con", "Nằm trên popup (Thêm giải trình, Tạo vi phạm, Hủy ca, Blacklist…)", "Giữ nguyên; điện thoại hiện dạng trượt từ dưới lên"],

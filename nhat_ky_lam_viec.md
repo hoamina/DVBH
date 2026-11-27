@@ -6567,3 +6567,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: 1440 / 1366 / 375px; dựng lại 73 ca × 8 bước × 7 tab phụ ở cả 2 chế độ → không lỗi, thân popup không tràn ngang; thử Quay lại / Về ca, Ngắn gọn ↔ Mở rộng,
   mở từ Quản lý tồn, Esc, hủy ca, blacklist, biên bản họp, chốt nạp gas.
 - Việc còn dở: chờ Giám đốc duyệt mẫu + 7 câu hỏi ở màn ④.
+
+## 2026-11-27 (3) — Demo: popup Chi tiết ca chế độ Mở rộng chiếm 99% màn hình
+
+- Yêu cầu (nguyên văn): "sửa thành 99% diện tích màn hiện thị".
+- Đã làm: `docs/demo/chi-tiet-ca-8-buoc.html` — hộp popup Mở rộng 99vw × 99vh (dùng 99dvh trên trình duyệt hỗ trợ để không bị thanh địa chỉ điện thoại che), bỏ lề 24px quanh
+  popup; Ngắn gọn (ngăn kéo 672px) và điện thoại giữ nguyên. Ghi chú màn ④: app hiện tại đang 95% × 92% → khi code GĐ1 đổi `w-[95vw] h-[92vh]` trong `CaseDetail.tsx`.
+- Kiểm thử: 1440×900 → hộp 1425,6 × 891px (99% × 99%), không lỗi console.
