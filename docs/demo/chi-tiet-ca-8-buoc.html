@@ -389,10 +389,10 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
 .tt-body{margin-bottom:6px;padding-bottom:12px;border-bottom:1px dashed var(--line2)}
 .col.sel .shead .nm{color:var(--ocean-700)}
 .col.sel .shead{box-shadow:inset 0 -3px 0 var(--ocean-500)}
-.fan{display:grid;align-items:end;padding:12px 2px 0;transition:grid-template-columns .25s ease}
-.ftab{position:relative;min-width:0;margin:0 0 -1px -8px;border:1px solid #c5e3f2;border-bottom:0;border-radius:12px 12px 0 0;background:#eef8fd;padding:10px 12px 10px 14px;min-height:160px;text-align:left;display:flex;flex-direction:column;gap:2px;box-shadow:-4px 0 10px rgba(15,37,54,.07);transform:translateY(12px);transition:transform .18s,box-shadow .18s,background .18s;cursor:pointer;color:var(--ink-900);overflow:hidden;font:inherit}
+.fan{display:grid;align-items:stretch;padding:12px 2px 0;transition:grid-template-columns .25s ease}
+.ftab{position:relative;min-width:0;margin:0 0 -1px -8px;border:1px solid #c5e3f2;border-bottom:0;border-radius:12px 12px 0 0;background:#eef8fd;padding:10px 12px 10px 14px;min-height:160px;text-align:left;display:flex;flex-direction:column;gap:2px;box-shadow:-4px 0 10px rgba(15,37,54,.07);transform:translateY(calc(4px + var(--d, 1) * 9px));z-index:calc(30 - var(--d, 1));transition:transform .22s ease,box-shadow .18s,background .18s;cursor:pointer;color:var(--ink-900);overflow:hidden;font:inherit}
 .ftab:first-child{margin-left:0}
-.ftab:hover:not(.on):not(.skip){transform:translateY(6px)}
+.ftab:hover:not(.on):not(.skip){transform:translateY(calc(var(--d, 1) * 9px - 2px))}
 .ftab:focus-visible{outline:2px solid var(--ocean-400);outline-offset:-2px}
 .ftab::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--rail)}
 .ftab.done::before{background:var(--teal-500)}.ftab.cur::before{background:var(--amber-500)}
@@ -400,7 +400,7 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
 .ftab.todo{background:var(--surface-100);border-color:var(--line)}
 .ftab.skip{background:var(--surface-100);border-style:dashed;cursor:default;color:var(--ink-400)}
 .ftab.skip::before{background:repeating-linear-gradient(90deg,#bccbd6 0 6px,transparent 6px 11px)}
-.ftab.on{transform:none;z-index:4;background:#fff;border-color:var(--ocean-500);box-shadow:0 -8px 24px rgba(17,118,166,.22);min-height:184px;cursor:default}
+.ftab.on{transform:none;z-index:50;background:#fff;border-color:var(--ocean-500);box-shadow:0 -8px 24px rgba(17,118,166,.22);min-height:184px;cursor:default}
 .ftab.on::before{background:var(--ocean-600);height:5px}
 .ftab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#fff}
 .ft-h{display:flex;align-items:center;gap:6px;min-width:0}
@@ -421,9 +421,9 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
 .ftab.on .ft-b .ln{-webkit-line-clamp:unset;display:block;font-size:13.5px}
 .ft-m{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;padding-top:7px;border-top:1px dashed var(--line2);font-size:12.5px;align-items:center}
 .ft-m .m{line-height:1.4}
-.ft-f{margin-top:auto;padding-top:6px;font-size:12px;font-weight:700;color:var(--ocean-600)}
-.ftab.on .ft-f{color:var(--ink-400)}
-.fpanel{position:relative;z-index:3;border:1px solid var(--ocean-500);border-radius:0 0 12px 12px;background:#fff;padding:14px 16px;margin:0 2px;box-shadow:0 10px 24px rgba(17,118,166,.1);scroll-margin-top:10px}
+.ft-f{margin-top:6px;padding-top:2px;font-size:12px;font-weight:700;color:var(--ocean-600)}
+.ftab.on .ft-f{color:var(--ink-400);margin-top:auto;padding-top:6px}
+.fpanel{position:relative;z-index:40;border:1px solid var(--ocean-500);border-radius:0 0 12px 12px;background:#fff;padding:14px 16px;margin:0 2px;box-shadow:0 10px 24px rgba(17,118,166,.1);scroll-margin-top:10px}
 @container cdb (max-width: 959px){
   .fan{display:flex!important;overflow-x:auto;scrollbar-width:none;padding:12px 0 0;margin:0 -2px}
   .fan::-webkit-scrollbar{display:none}
@@ -432,6 +432,27 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
   .ftab.on .ft-b{grid-template-columns:1fr}
   .fpanel{margin:0;border-top:3px solid var(--ocean-600);border-radius:0 0 12px 12px;padding:12px}
 }
+/* thanh quy trình gọn */
+.qrail{display:flex;margin:2px 0 4px}
+.qs{flex:1;min-width:0;position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;padding:2px 2px 4px;border-radius:8px;cursor:pointer;color:var(--ink-700)}
+.qs:hover{background:var(--surface-100)}
+.qs::before{content:"";position:absolute;top:14px;right:50%;width:100%;height:3px;background:var(--rail);z-index:0}
+.qs:first-child::before{display:none}
+.qs.done::before,.qs.cur::before{background:var(--teal-500)}
+.qs.skip::before{background:repeating-linear-gradient(90deg,#bccbd6 0 4px,transparent 4px 8px)}
+.qs .dot{width:26px;height:26px;font-size:11px;position:relative;z-index:1}
+.qs.cur .dot{width:28px;height:28px;margin-top:-1px}
+.qs .qe{position:absolute;top:-6px;right:-9px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;background:var(--coral-500);color:#fff;font-size:10px;font-style:normal;font-weight:700;display:grid;place-items:center;border:2px solid #fff}
+.qs .qn{font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.qs .qt{font-size:11px;color:var(--ink-500);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-variant-numeric:tabular-nums}
+.qs.cur .qn,.qs.cur .qt{color:var(--amber-600)}
+.qs.todo .qn,.qs.skip .qn{color:var(--ink-400);font-weight:600}
+.qs.sel{background:var(--ocean-100)}
+.qs.sel .qn{color:var(--ocean-700)}
+.qs .qk{display:none;font-size:10.5px;font-weight:700;color:var(--ink-400)}
+.qs.cur .qk{color:var(--amber-600)}.qs.sel .qk{color:var(--ocean-700)}
+@container cdb (max-width: 560px){ .qs .qt,.qs .qn{display:none}.qs .qk{display:block} }
+
 /* ===== v1: bố cục popup DVBH hiện tại ===== */
 .cd.v1 .cu{display:none}
 .cd.v1 .cd-b{background:#fff}
@@ -545,14 +566,14 @@ table.st th{background:var(--surface-100);font-weight:650;color:var(--ink-700)}
    ====================================================================== */
 const NOW = new Date(2026, 10, 26, 10, 0);
 const STEPS = [
-  { n:1, k:"A", ten:"Khởi tạo",          the:"Thông tin ca chung", slaH:null, ai:"CSKH",          moTa:"CSKH tiếp nhận yêu cầu, tạo ca trên CRM/Odoo" },
-  { n:2, k:"B", ten:"Xác nhận lịch hẹn", the:"Thông tin tóm lược", slaH:24,   ai:"KTV / Trạm",    moTa:"KTV liên hệ khách, chốt giờ hẹn (tính từ lúc tạo ca)" },
-  { n:3, k:"C", ten:"Đặt linh kiện",     the:"Thông tin tóm lược", slaH:24,   ai:"KTV / Giám sát",moTa:"KTV kiểm tra, đặt đơn linh kiện (DDH) trên app Linh kiện" },
-  { n:4, k:"D", ten:"Mua hàng",          the:"Thông tin tóm lược", slaH:72,   ai:"Mua hàng / Kho",moTa:"Kho xuất có sẵn, hoặc Mua hàng đặt PO nhà máy / NCC" },
-  { n:5, k:"E", ten:"Giao LK cho KTV",   the:"Thông tin tóm lược", slaH:24,   ai:"Kho",           moTa:"Phiếu xuất kho (MISA) giao linh kiện cho KTV" },
-  { n:6, k:"F", ten:"Đóng ca",           the:"Giải trình tồn",     slaH:24,   ai:"KTV / Trạm",    moTa:"Sửa chữa xong, báo cáo, đóng ca. Ca còn mở = giải trình tồn tại đây" },
-  { n:7, k:"G", ten:"Trả xác 3T",        the:"Thông tin tóm lược", slaH:168,  ai:"KTV",           moTa:"KTV trả xác linh kiện đã thay về kho 3T" },
-  { n:8, k:"H", ten:"Xác nhận xác",      the:"Thông tin tóm lược", slaH:72,   ai:"Kho / QC",      moTa:"Kho / QC kiểm, xác nhận xác đúng linh kiện đã cấp" },
+  { n:1, k:"A", ngan:"Khởi tạo", ten:"Khởi tạo",          the:"Thông tin ca chung", slaH:null, ai:"CSKH",          moTa:"CSKH tiếp nhận yêu cầu, tạo ca trên CRM/Odoo" },
+  { n:2, k:"B", ngan:"Lịch hẹn", ten:"Xác nhận lịch hẹn", the:"Thông tin tóm lược", slaH:24,   ai:"KTV / Trạm",    moTa:"KTV liên hệ khách, chốt giờ hẹn (tính từ lúc tạo ca)" },
+  { n:3, k:"C", ngan:"Đặt LK", ten:"Đặt linh kiện",     the:"Thông tin tóm lược", slaH:24,   ai:"KTV / Giám sát",moTa:"KTV kiểm tra, đặt đơn linh kiện (DDH) trên app Linh kiện" },
+  { n:4, k:"D", ngan:"Mua hàng", ten:"Mua hàng",          the:"Thông tin tóm lược", slaH:72,   ai:"Mua hàng / Kho",moTa:"Kho xuất có sẵn, hoặc Mua hàng đặt PO nhà máy / NCC" },
+  { n:5, k:"E", ngan:"Giao LK", ten:"Giao LK cho KTV",   the:"Thông tin tóm lược", slaH:24,   ai:"Kho",           moTa:"Phiếu xuất kho (MISA) giao linh kiện cho KTV" },
+  { n:6, k:"F", ngan:"Đóng ca", ten:"Đóng ca",           the:"Giải trình tồn",     slaH:24,   ai:"KTV / Trạm",    moTa:"Sửa chữa xong, báo cáo, đóng ca. Ca còn mở = giải trình tồn tại đây" },
+  { n:7, k:"G", ngan:"Trả xác", ten:"Trả xác 3T",        the:"Thông tin tóm lược", slaH:168,  ai:"KTV",           moTa:"KTV trả xác linh kiện đã thay về kho 3T" },
+  { n:8, k:"H", ngan:"XN xác", ten:"Xác nhận xác",      the:"Thông tin tóm lược", slaH:72,   ai:"Kho / QC",      moTa:"Kho / QC kiểm, xác nhận xác đúng linh kiện đã cấp" },
 ];
 const SLA_TONG_H = 72;
 // nguon: "VP" = đang có trong danh mục vi phạm DVBH (Cài đặt → Loại vi phạm); "LD" = lấy từ lý do chậm Mua hàng; "MOI" = đề xuất mới
@@ -1096,7 +1117,7 @@ function fanHTML(c) {
   const cols = STEPS.map(S => S.n === act ? "3fr" : "1fr").join(" ");
   return `<div class="fan" id="fan" role="tablist" aria-label="8 bước" style="grid-template-columns:${cols}">${STEPS.map(S => {
     const n = S.n, st = trangThai(c, n), on = n === act, soLoi = loiTaiSong(c, n).length, L = st === "skip" ? [] : tomLuoc(c, n);
-    return `<button class="ftab ${st}${on ? " on" : ""}" role="tab" aria-selected="${on}" data-act="chon" data-buoc="${n}" id="ft-${n}">
+    return `<button class="ftab ${st}${on ? " on" : ""}" style="--d:${Math.abs(n - act)}" role="tab" aria-selected="${on}" data-act="chon" data-buoc="${n}" id="ft-${n}">
       <div class="ft-h"><span class="ft-n">${st === "done" ? "✓" : st === "skip" ? "–" : n}</span><span class="ft-t">${esc(S.ten)}</span>${soLoi && on ? `<span class="chip loi">${soLoi} lỗi</span>` : ""}</div>
       <div class="ft-s">${soLoi && !on ? `<span class="chip loi">${soLoi} lỗi</span> ` : ""}${st === "skip" ? (n === 4 ? "Bỏ qua · kho có sẵn" : "Bỏ qua · không thay LK") : whenNgan(c, n)}</div>
       ${st === "skip" ? "" : `<div class="ft-sub">${esc(S.the)}</div><div class="ft-b">${L.map(x => `<div class="ln">${x}</div>`).join("")}</div>`}
@@ -1136,13 +1157,25 @@ function v2HTML(c) {
   <div class="card">
     <div class="fhead"><div><div class="ftitle">Tiến trình 8 bước</div><div class="fsub">${e.huy ? `<b style="color:var(--ink-700)">Ca đã hủy</b>` : cur ? `Đang ở <b>bước ${cur.n}/8 · ${esc(cur.ten)}</b> · chờ ${fmtDur(c.waitH)} · phụ trách ${esc(cur.ai)}` : `<span style="color:var(--teal-600);font-weight:700">Đã hoàn tất cả 8 bước</span>`}</div></div>
       <div class="slabar"><div class="sl-l"><span>SLA tổng 72h (bước 1 → 6)</span><b style="color:${slaMau}">${fmtDur(slaH)}${c.cur > 6 ? " (đã đóng)" : ""}</b></div><div class="sl-b"><i style="width:${pct}%;background:${slaMau}"></i></div></div>
-      <button class="btn sm tt-tg" data-act="tientrinh" aria-expanded="${hienTienTrinh}" title="Lựa chọn được lưu trên máy">${hienTienTrinh ? "▴ Ẩn tiến trình" : "▾ Hiện tiến trình 8 bước"}</button>
+      <button class="btn sm tt-tg" data-act="tientrinh" aria-expanded="${hienTienTrinh}" title="Lựa chọn được lưu trên máy">${hienTienTrinh ? "▴ Thu gọn tiến trình" : "▾ Xem chi tiết tiến trình"}</button>
     </div>
-    ${hienTienTrinh ? `<div class="tt-body">${tienTrinh}</div>` : ""}
+    ${hienTienTrinh ? `<div class="tt-body">${tienTrinh}</div>` : thanhGon(c)}
     ${fanHTML(c)}
   </div>
   ${phuHTML(c)}
   <div class="cd-f">${coGT ? `<button class="btn pri" data-act="giaitrinh">✍ Giải trình</button>` : ""}<button class="btn warn" data-act="ghiloi">⚠ Ghi lỗi</button></div>`;
+}
+
+/* Thanh quy trình GỌN luôn hiện: 8 chấm nối 1 đường + tên ngắn + 1 dòng thông tin cơ bản + số lỗi. Bấm chấm = mở tab bước đó;
+   "▾ Xem chi tiết tiến trình" = mở bản đầy đủ (chỉ số + mã lỗi từng bước) */
+function thanhGon(c) {
+  return `<div class="qrail" role="list">${STEPS.map(S => {
+    const n = S.n, st = trangThai(c, n), m = c.moc[n], lc = loiTaiSong(c, n).length, tr = mocTruoc(c, n);
+    const info = st === "skip" ? "bỏ qua" : st === "done" ? (n > 1 && tr ? `+${fmtDur((m.t - tr.t) / 3600e3)}` : fmtT(m.t)) : st === "cur" ? `chờ ${fmtDur(c.waitH)}` : "chưa tới";
+    const tip = `<b>${n}. ${esc(S.ten)}</b><br>${st === "done" ? `Xong ${fmtT(m.t)} · ${esc(m.nguoi)}` : st === "cur" ? `Đang xử lý · chờ ${fmtDur(c.waitH)}` : st === "skip" ? "Bỏ qua với ca này" : "Chưa tới"}${lc ? `<br>${lc} lỗi ở bước này` : ""}`;
+    return `<button class="qs ${st}${n === moBuoc ? " sel" : ""}" role="listitem" data-act="chon" data-buoc="${n}" data-tip="${esc(tip)}" aria-label="Bước ${n} ${esc(S.ten)}">
+      <span class="dot">${dotIcon(st, n)}${lc ? `<i class="qe">${lc}</i>` : ""}</span><span class="qn">${S.ngan}</span><span class="qk">${n}</span><span class="qt">${info}</span></button>`;
+  }).join("")}</div>`;
 }
 
 /* Giao diện v1 = đúng bố cục popup DVBH hiện tại: Mở rộng = cột trái Thông tin + cột phải 15 tab; Ngắn gọn = 1 dãy tab */
@@ -1522,8 +1555,8 @@ function renderPhuongAn() {
     ["<b>Mở rộng</b> (máy tính, mặc định)", "Hộp giữa màn hình rộng 98%, 4 viền cách đều nhau (yêu cầu 27/11, app hiện tại 95% × 92%), nền mờ phía sau, bấm ra ngoài / ✕ / Esc để đóng", "8 cột thẳng hàng như bản vẽ; bấm \"▾ Chi tiết\" xổ khung chi tiết bước ngay dưới luồng"],
     ["<b>Ngắn gọn</b> (máy tính chọn, hoặc điện thoại — luôn ở chế độ này)", "Ngăn kéo bên phải rộng 672px (điện thoại: toàn màn hình)", "Thanh 8 chấm + danh sách bước dọc, chạm bước nào xổ bước đó; nút Giải trình / Ghi lỗi ghim đáy popup"],
     ["Mở ca khác trong popup", "\"← Quay lại\" · \"⏮ Về ca …\" (giữ nguyên)", "Thử: tab \"Ca lặp\" → bấm mã ca trong chuỗi serial"],
-    ["Tiến trình 8 bước (đường ngang + chỉ số + mã lỗi)", "—", "<b>Mặc định ẩn</b>; nút \"▾ Hiện tiến trình 8 bước\" để mở. Lựa chọn lưu trên máy (mở ca khác / tải lại trang vẫn giữ). Dòng \"Đang ở bước … · SLA 72h\" luôn hiện."],
-    ["8 ô thông tin tóm lược", "—", "<b>Tab quạt</b>: 8 thẻ chồng mép như bìa hồ sơ; bấm thẻ nào thẻ đó nổi lên, <b>rộng gấp 3</b>, hiện đủ thông tin tóm lược + chỉ số + mã lỗi, khung chi tiết của bước nối liền ngay dưới. Mở ca: tự chọn bước đang xử lý. Điện thoại: dãy thẻ vuốt ngang."],
+    ["Tiến trình 8 bước (đường ngang + chỉ số + mã lỗi)", "—", "<b>Luôn hiện thanh quy trình gọn</b> 1-2-3…8 (chấm + tên ngắn + 1 dòng: giờ xong / chờ bao lâu / chưa tới + số lỗi; điện thoại chỉ số bước). Bấm chấm = mở tab bước đó. Nút \"▾ Xem chi tiết tiến trình\" mở bản đầy đủ (chỉ số + mã lỗi từng bước) — lựa chọn lưu trên máy."],
+    ["8 ô thông tin tóm lược", "—", "<b>Tab quạt</b>: 8 thẻ chồng mép như bìa hồ sơ, <b>thấp dần sang 2 bên</b> tính từ thẻ đang xem; bấm thẻ nào thẻ đó nổi lên, <b>rộng gấp 3</b>, hiện đủ thông tin tóm lược + chỉ số + mã lỗi, khung chi tiết của bước nối liền ngay dưới. Mở ca: tự chọn bước đang xử lý. Điện thoại: dãy thẻ vuốt ngang."],
     ["Giao diện v1 / v2", "—", "Nút <b>v1 | v2</b> cạnh \"Ngắn gọn / Mở rộng\". <b>v2 (mặc định)</b> = theo 8 bước; <b>v1</b> = giữ nguyên bố cục DVBH hiện tại (Mở rộng: cột Thông tin + 15 tab, mặc định tab GT tồn; Ngắn gọn: 1 dãy tab, mặc định Thông tin). Lựa chọn lưu trên máy. Hai giao diện dùng chung 1 nguồn dữ liệu."],
     ["Hộp thoại con", "Nằm trên popup (Thêm giải trình, Tạo vi phạm, Hủy ca, Blacklist…)", "Giữ nguyên; điện thoại hiện dạng trượt từ dưới lên"],
   ])}

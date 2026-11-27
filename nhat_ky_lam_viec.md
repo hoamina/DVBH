@@ -6590,3 +6590,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
     Nội dung tách thành khối dùng chung `B.*` — v2 ghép theo bước (`KHOI_BUOC`), v1 ghép theo tab cũ.
   - Popup Mở rộng: rộng 98vw, cao 100vh − 2vw → 4 viền cách đều (1440×900: 14,4px mỗi viền).
 - Kiểm thử: 1440 / 375px; dựng 73 ca × 8 bước × v1/v2 × Ngắn gọn/Mở rộng (+ mọi tab v1) → không lỗi, không tràn ngang; thử lưu lựa chọn tiến trình / v1-v2 qua tải lại.
+
+## 2026-11-27 (5) — Demo chi tiết ca: tab quạt thấp dần 2 bên · thanh quy trình gọn luôn hiện
+
+- Yêu cầu (nguyên văn): "1. sắp xếp các tab quạt thấp dùng sang 2 bên từ tab đang xem 2. Luôn hiện thanh quy trình bước 1-2-3-4-5... gắn gọn, với các thông tin cơ bản
+  (gọn diện diện) => ấn vào xem chi tiết xem đầy đủ => mục tiêu là giao diện gọn nhưng vẫn đủ theo dõi. xem chi tiết thì ấn mở rộng".
+- Đã làm (`docs/demo/chi-tiet-ca-8-buoc.html`):
+  - Tab quạt: mọi thẻ cao bằng nhau, thẻ cách thẻ đang xem d bước hạ xuống 4 + 9·d px và nằm dưới thẻ gần hơn (z-index giảm theo d) → hình quạt thấp dần 2 bên;
+    phần thẻ hạ xuống khuất sau khung chi tiết.
+  - Thanh quy trình gọn LUÔN hiện (thay cho việc ẩn cả tiến trình): 8 chấm nối 1 đường, tên ngắn (`STEPS[].ngan`), 1 dòng thông tin (+khoảng cách / chờ bao lâu /
+    chưa tới / bỏ qua), số lỗi đỏ trên chấm, bước đang xem tô nền; bấm chấm = chọn tab quạt bước đó; rê / chạm xem đủ. Popup hẹp ≤ 560px chỉ hiện số bước.
+    Nút "▾ Xem chi tiết tiến trình" mở bản đầy đủ (lưu `dvbh-demo:tien-trinh`).
+- Kiểm thử: 1600 / 375px; vị trí đỉnh 8 thẻ khi xem bước 6: 385, 376, 367, 358, 349, 336, 349, 358 (đúng hình quạt); dựng 73 ca × 8 bước × 2 chế độ → không lỗi,
+  không tràn ngang.
