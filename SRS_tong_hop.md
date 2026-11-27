@@ -494,3 +494,13 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   Tồn bình quân / ngày = tổng số ca tồn lúc 08:00 các ngày trong kỳ / số ngày có số chốt (tuần = 7 ngày).
 - 24h / SLA / RTAT theo nút SLA cũ / SLA mới. Menu: "Báo cáo vi phạm" nằm ở nhóm Tổng quan (v1.639).
 - Số chốt tồn theo Ngành × Hãng ghi mỗi sáng từ 21/11/2026; tháng 11 ghi bù từ thời gian tiếp nhận / đóng ca.
+
+## 20. Ca VIP/S.VIP tồn ≥24h — tin Telegram 12:00 + bổ sung 13:30 (chốt 2026-11-27, v1.669)
+
+- Yêu cầu: (1) gửi Telegram kết quả giải trình riêng ca SVIP tồn ≥1 ngày khoảng 12h trưa hằng ngày lên nhóm; (2) bộ đếm phụ: ca mở hôm trước
+  trước 12h trưa, lúc chốt tồn chưa tính là tồn ≥24h, đến 13:30 vẫn chưa hoàn thành → đẩy vào danh sách cần giải trình tồn qua 24h SVIP.
+- Nhóm khách: giữ quy ước đã chốt của chỉ tiêu "VIP/SVIP ≥24h" — `nhom_kh` chứa "VIP" (gồm cả SVIP, GT Vip 1/2).
+- 12:00: tin nhắn chữ (không phải ảnh) vào nhóm Telegram của nước (Cài đặt → Quốc gia); nước chưa có nhóm / chưa có số chốt sáng → không gửi.
+- 13:30: ca bổ sung cộng vào "VIP/SVIP ≥24h" và "Tổng cần giải trình" của ngày (thẻ Quản lý tồn, danh sách chi tiết, badge, log + ảnh 17:30).
+  Không thêm Cron Trigger mới (gắn vào trigger chốt sẵn có, giờ UTC 6).
+

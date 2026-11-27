@@ -94,7 +94,7 @@ export function hopCap2VaoBuckets(b: BacklogLike, cap2: { id: string; khu_vuc: s
 }
 
 // Pham vi khu vuc cua 1 scope_key snapshot (xem buildSnapshotScopeKey / buildKhuVucFilterScopeKey o dailySnapshot.ts).
-function khuVucCuaScopeKey(scopeKey: string): string[] | null | undefined {
+export function khuVucCuaScopeKey(scopeKey: string): string[] | null | undefined {
   if (scopeKey === "khac|all" || scopeKey === "qc|all") return null;
   if (scopeKey.startsWith("giam_sat|")) return scopeKey.slice("giam_sat|".length).split(",");
   if (scopeKey.startsWith("khu-vuc-loc|")) return [scopeKey.slice("khu-vuc-loc|".length)];

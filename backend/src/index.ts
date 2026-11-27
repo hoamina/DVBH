@@ -60,6 +60,7 @@ import banDichRoutes from "./routes/banDich";
 import qlNskxRoutes from "./routes/qlNskx";
 import suaDoanhThuRoutes from "./routes/suaDoanhThu";
 import { layCuaSoThongTin } from "./lib/cuaSoThongTin";
+import { chayBoSungVip1330, guiKetQuaVip24hTelegram } from "./lib/vipTon24h";
 
 const app = new Hono<{ Bindings: Env }>();
 // "Phạm vi báo cáo" Tất cả / NSKX / Không NSKX (lib/phamVi.ts) - GET co ?pv= doc/ghi bo du lieu rieng cua pham vi.
@@ -181,7 +182,9 @@ const DAILY_SNAPSHOT_CRON = "0 1-11 * * *";
 // Moc dieu kien "ton tai 08:00" (TON_ANCHOR_0800) va moc tuoi ton khong doi nen so chot 07:30 = so 08:00 (import chi 07:05 / 09:04).
 // 2026-11-08: them phut 40 (VAN 1 trigger) - moi nuoc chot rieng khung gio: VN phut 30 (07:30 / 17:30), nuoc khac + "Tất cả quốc gia"
 // phut 40 (07:40 / 17:40) - xem lib/chotTon.ts nhomTheoPhut.
-const CHOT_0730_1730_CRON = "30,40 0,10 * * *";
+// 2026-11-27: them gio UTC 6 (13:30 VN, VAN 1 trigger) - bo sung ca VIP/S.VIP mo hom qua truoc 12h vao danh sach >=24h
+// (lib/vipTon24h.ts boSungVip1330). Phut 40 cua gio 6 bo qua.
+const CHOT_0730_1730_CRON = "30,40 0,6,10 * * *";
 
 // 03:00 sang gio VN = 20:00 UTC (ngay hom truoc) - dong bo hang ngay vi_pham tu Google Sheet QC tu
 // quan ly ben ngoai he thong (them 2026-09-16, xem lib/viPhamSheetSync.ts). Gop chung voi archive
@@ -391,13 +394,34 @@ export default {
       }
       // 12:00 VN (gio UTC 5): viec nang con lai cua "dot 08:00" cu - doi ra gio trua (it nguoi dung, khong trung import 07:05/09:04)
       // de gian cach luong tu dong buoi sang (2026-11-07). Chot so da chuyen sang 07:30 (CHOT_0730_1730_CRON).
-      if (gio === 5) await viecNangBuoiTrua(env);
+      if (gio === 5) {
+        // 12:00 VN: tin Telegram ket qua giai trinh rieng ca VIP/S.VIP ton >=24h (lib/vipTon24h.ts, 2026-11-27) - gui TRUOC viec nang.
+        try {
+          await guiKetQuaVip24hTelegram(env);
+        } catch (err) {
+          console.error("[vip-12h] loi:", err instanceof Error ? err.message : String(err));
+        }
+        await viecNangBuoiTrua(env);
+      }
+      // 14:00-18:00 VN: luoi an toan neu bo sung VIP 13:30 chua chay duoc (co dau thi bo qua ngay, 1 dong doc / pham vi).
+      if (gio >= 7) {
+        try {
+          await chayBoSungVip1330(env);
+        } catch (err) {
+          console.error("[vip-1330] luoi an toan loi:", err instanceof Error ? err.message : String(err));
+        }
+      }
       return;
     }
 
     if (event.cron === CHOT_0730_1730_CRON) {
       const t = new Date(event.scheduledTime);
       const phut = t.getUTCMinutes();
+      // 13:30 VN (gio UTC 6): bo sung ca VIP/S.VIP mo hom qua truoc 12h van ton -> danh sach can giai trinh >=24h.
+      if (t.getUTCHours() === 6) {
+        if (phut < 40) await chayBoSungVip1330(env);
+        return;
+      }
       // 07:30 / 07:40 VN (gio UTC 0): CHOT SO "Bao cao ngay 08:00" theo nhom nuoc - xem chotBuoiSang.
       if (t.getUTCHours() === 0) {
         await chotBuoiSang(env, phut);

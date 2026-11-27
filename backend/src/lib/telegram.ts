@@ -35,6 +35,20 @@ export async function sendTelegramPhoto(botId: string, chatId: string, png: Uint
   }
 }
 
+/** Gui 1 tin nhan text (parse_mode HTML) - dung cho tin "Giai trinh ca VIP/S.VIP ton >=24h" 12:00 (lib/vipTon24h.ts). */
+export async function sendTelegramMessage(botId: string, chatId: string, html: string): Promise<void> {
+  if (laMoiTruongLocal) {
+    console.log("[Telegram] Bo qua gui tin (moi truong dev local):\n" + html);
+    return;
+  }
+  const res = await fetch(`https://api.telegram.org/bot${botId}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: html.slice(0, 4096), parse_mode: "HTML", disable_web_page_preview: true }),
+  });
+  if (!res.ok) console.error("[Telegram] Gui tin that bai:", res.status, await res.text());
+}
+
 /**
  * "Đa quốc gia" (SRS §12, Q6 - gui rieng tung nuoc, chot 2026-10-29): anh 08:00 / 17:30 gui o lan chot cua TUNG NUOC
  * (lib/phamViChot.ts) vao nhom cua nuoc do (quoc_gia.telegram_chat_id, migration 0150; VN = nhom cu TELEGRAM_CHAT_ID).

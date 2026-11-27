@@ -6603,3 +6603,20 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
     Nút "▾ Xem chi tiết tiến trình" mở bản đầy đủ (lưu `dvbh-demo:tien-trinh`).
 - Kiểm thử: 1600 / 375px; vị trí đỉnh 8 thẻ khi xem bước 6: 385, 376, 367, 358, 349, 336, 349, 358 (đúng hình quạt); dựng 73 ca × 8 bước × 2 chế độ → không lỗi,
   không tràn ngang.
+
+## 2026-11-27 (6) — v1.669: Telegram 12:00 kết quả giải trình VIP/S.VIP ≥24h + bổ sung ca VIP lúc 13:30
+
+- Yêu cầu (nguyên văn): "1. Thêm gửi thông báo telegram kết quả giải trình riêng của ca SVIP tồn >=1 ngày vào khoảng 12h trưa hàng ngày lên nhóm
+  2. Ca SVIP sẽ thêm 1 bộ đếm phụ ca được mở trong ngày hôm trước trước 12h trưa nhưng tính đến thời điểm chốt tồn mà vẫn chưa tính là tồn >=24h
+  thì sẽ chờ đến thời điểm 13h30 ca vẫn chưa hoàn thành => thì đẩy vào danh sách cần giải trình tồn qua 24h SVIP. (ví dụ ca SC001 mở lúc 10h sáng
+  26/11) thì sáng 8h hôm nay vẫn chưa tính là tồn => nhưng đến 13h30 hôm nay trạng thái vẫn đang là tồn => đẩy vào số tồn cần giải trình."
+- Đã làm:
+  - `backend/src/lib/vipTon24h.ts` (mới): `boSungVip1330` / `chayBoSungVip1330` (bổ sung ID vào `backlogVip24h` + `tonCanGiaiTrinh` + theo khu vực của
+    mọi snapshot hôm nay, cùng khuôn bổ sung ca CEO cấp 2; dấu `bo_sung_vip_1330|all`; bump domain `giai_trinh`), `soanTinVip24h` /
+    `guiKetQuaVip24hTelegram` (tin 12:00).
+  - `telegram.ts`: thêm `sendTelegramMessage` (HTML, dev local không gửi). `canhBaoCap2GiaiTrinh.ts`: export `khuVucCuaScopeKey`.
+  - Cron: `CHOT_0730_1730_CRON` "30,40 0,10" → "30,40 0,6,10" (thêm 13:30 VN, vẫn 4 trigger) ở `index.ts` + 2 wrangler config; 12:00 gửi tin trong
+    lần fire giờ UTC 5; 14:00–18:00 chạy bù bổ sung nếu chưa có dấu.
+- Kiểm thử: typecheck backend + build; câu SQL ứng viên thử trên SQLite trong bộ nhớ (ca mở 10:00 hôm qua đang tồn → vào; mở 13:00 / đã hoàn thành /
+  không VIP / mở hôm kia → loại; ca có giải trình sau mốc chốt → vào và tính đã giải trình). Chưa chạy thật trên production (chờ 12:00 / 13:30 ngày mai).
+

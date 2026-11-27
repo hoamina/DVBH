@@ -87,7 +87,10 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
   minute 30 = VN (+VN×NSKX/Không NSKX), minute 40 = other countries + Admin's mixed "Tất cả quốc gia" scopes; same split for the
   17:30/17:40 tỷ lệ giải trình log (`phamViChot.ts chotGiaiTrinhNhom`) → 08:00–18:00 hourly safety nets (`"0 1-11 * * *"`; first
   `chotBuNeuThieu`: any scope without today's `chot_xong|all` marker row is re-chốt; 18:00 re-runs a missing 17:30 log) → 12:00
-  `viecNangBuoiTrua`. **`lib/chotTon.ts` = ONE read per country group** (~1.700 open cases with every NEED_* flag computed in the same
+  `viecNangBuoiTrua` (preceded by the 12:00 VIP/S.VIP ≥24h Telegram text, `lib/vipTon24h.ts guiKetQuaVip24hTelegram`). 13:30 VN = UTC hour 6 added
+  to the chốt trigger (`"30,40 0,6,10 * * *"`, v1.669, still 4 triggers): `chayBoSungVip1330` appends VIP cases opened yesterday before 12:00 that
+  were <24h at chốt but still open at 13:30 into `backlogVip24h` + `tonCanGiaiTrinh(+ByKhuVuc)` of every snapshot today (keeps `generated_at`),
+  marker row `bo_sung_vip_1330|all` (payload = added ids) makes it idempotent; hourly 14:00–18:00 retries if the marker is missing. **`lib/chotTon.ts` = ONE read per country group** (~1.700 open cases with every NEED_* flag computed in the same
   SQL, + 4 small banner reads, ~8 queries, ~2.5s) then every scope (role / giám sát / each khu vực / NSKX subset) is filtered in memory
   and written with `db.batch`. The old per-scope SQL (~6.000 queries per chốt, `Promise.all` fan-out) overloaded D1 by itself and
   broke the chốt 04–08/11 (verified 08/11: identical results, 0 diffs on 3 scopes). Snapshots no longer hold kpis/pivot/revenue

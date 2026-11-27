@@ -43,6 +43,13 @@ KTV không có tài khoản, chỉ là dữ liệu trên ca. Phạm vi xem theo 
   gần nhất) · khách ĐMX chưa GT ≥3 ngày · chưa GT ≥ mốc của nước (VN 5) · Điều hòa chưa GT ≥1 ngày · VIP/S.VIP chưa GT ≥24h thực ·
   **Lọc tổng chưa GT ≥1 ngày** (thêm 20/11/2026, v1.649). Tuổi = 0h hôm nay − giờ CSKH tiếp nhận, làm tròn xuống. B2B ≥1 ngày và NSKX ≥2 ngày
   là chỉ tiêu phụ, không cộng vào Tổng. Tỷ lệ giải trình theo ngày lấy Tổng này làm mẫu số.
+- **VIP/S.VIP ≥24h — 2 việc định kỳ (v1.669, `lib/vipTon24h.ts`)**:
+  - **13:30 bổ sung**: ca VIP/S.VIP (`nhom_kh LIKE '%VIP%'`) CSKH tiếp nhận HÔM QUA từ 00:00 đến trước 12:00, lúc chốt sáng chưa đủ 24h thực nên
+    chưa vào danh sách, đến 13:30 hôm nay VẪN TỒN (chưa hoàn thành / huỷ / lưu trữ) và không có giải trình trước mốc chốt → thêm vào nhóm
+    "VIP/SVIP ≥24h" VÀ "Tổng cần giải trình" (+ theo khu vực) của mọi số chốt hôm nay; giữ nguyên mốc chốt nên giải trình sau mốc chốt (kể cả
+    trước 13:30) tính "đã giải trình". Dấu `bo_sung_vip_1330|all` (danh sách ID đã thêm) chặn chạy lại; 14:00–18:00 mỗi giờ chạy bù nếu 13:30 lỗi.
+  - **12:00 Telegram**: tin nhắn chữ vào nhóm Telegram của từng nước: số cần giải trình (chốt sáng) / đã giải trình / còn lại + %, theo khu vực,
+    danh sách ca chưa giải trình (tối đa 40, ca tồn lâu nhất trước). Ca bổ sung 13:30 có trong số 17:30 (log + ảnh) của cùng ngày.
 - Danh sách chi tiết, nhóm **Cảnh báo tồn** (Cấp 1/2, kể cả Luồng đổi trả): luôn là tập ca đã chốt 08:00, không tính sống. Ô tuổi tồn chỉ có với
   nhóm "Tổng tồn hiện tại" (các nhóm khác lọc tuổi qua bộ lọc cột "Tuổi tồn (ngày)").
 - **Tuổi tồn TB** (Quản lý tồn) và **Tồn bình quân / ngày** (Báo cáo theo ngành) cùng đọc sổ chốt tồn 08:00 (`backlog_age_daily_<phạm vi>`) nhưng
