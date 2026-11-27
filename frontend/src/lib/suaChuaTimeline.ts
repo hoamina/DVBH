@@ -73,6 +73,21 @@ export interface SuaChuaDonVi {
   phieu_tra: SuaChuaPhieuTra | null;
   // Tien do tra xac (suachua v1.169, 2026-11-27) - API cu khong co truong nay.
   xac?: SuaChuaXac;
+  // Xac linh kien sau sua chua (de xuat cap LK da xuat) - suachua v1.170.
+  xac_sua_chua?: SuaChuaXacSc[];
+}
+
+export interface SuaChuaXacSc {
+  id: string;
+  ma_lk: string | null;
+  ten_lk: string | null;
+  so_luong: number;
+  tt: string | null;
+  tt_label: string;
+  xuat_luc: string | null;
+  xl_luc: string | null;
+  xl_ghi_chu: string | null;
+  thung: SuaChuaXac["thung"];
 }
 
 export interface SuaChuaXac {

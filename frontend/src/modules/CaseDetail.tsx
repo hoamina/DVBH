@@ -3133,15 +3133,15 @@ export function CaseDetail({
   );
 
   return (
-    <div className={viewMode === "expanded" ? "fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-3 sm:p-6" : "fixed inset-0 z-50"}>
+    <div className={viewMode === "expanded" ? "fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px]" : "fixed inset-0 z-50"}>
       {viewMode === "compact" && <div onClick={onClose} className="absolute inset-0 bg-[rgba(6,32,51,0.45)]"></div>}
 
       <div
         className={
           viewMode === "expanded"
             ? giaoDienCt === "v2"
-              ? "bg-[var(--bg)] rounded-[22px] shadow-2xl w-[98vw] max-w-[2400px] h-[calc(100dvh-2vw)] flex flex-col overflow-hidden anim-in"
-              : "bg-[var(--surface)] rounded-2xl shadow-2xl w-[95vw] max-w-[2400px] h-[92vh] flex flex-col overflow-hidden anim-in"
+              ? "bg-[var(--bg)] rounded-[22px] shadow-2xl w-[98vw] h-[98dvh] flex flex-col overflow-hidden anim-in"
+              : "bg-[var(--surface)] rounded-[22px] shadow-2xl w-[98vw] h-[98dvh] flex flex-col overflow-hidden anim-in"
             : "absolute right-0 top-0 h-full w-full max-w-2xl bg-[var(--surface)] shadow-2xl flex flex-col anim-in"
         }
       >

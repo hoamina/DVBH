@@ -127,7 +127,8 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   đơn gửi) tới khi mọi xác có kết quả (vào thùng trả xác / tiêu huỷ / thất lạc / không có xác / xử lý ngoài) → 7 xong; bước 8 theo thùng trả xác TX- (đang
   gom / chờ kế toán = "Chờ trả xác cho đối tác", kế toán duyệt hết = xong); xác kết thúc ngoài thùng → 8 bỏ qua; đơn đã phân loại mà hướng không có xác
   (sửa chữa, trả lại KTV…) → 7–8 bỏ qua "Không có xác". Ca đã đóng không có đơn LK → bỏ qua 3–5; app LK / Bảo hành chưa tải được → "Chưa tải được dữ liệu",
-  KHÔNG kết luận bỏ qua. v1 và v2 hiện CÙNG thông tin (cùng bộ tính, cùng câu tóm tắt "Đang ở bước … — chờ …", x/8 xong, tổng thời gian) — chỉ khác cách trình bày. Bước "đang xử
+  KHÔNG kết luận bỏ qua. Xác gồm (v1.675) xác đơn vị Đổi mới / Trừ công nợ VÀ xác linh kiện sau sửa chữa (đề xuất cấp LK đã xuất); đơn vị sửa chữa
+  chưa xong → bước 7 "Đang sửa chữa — chờ xác định xác". Popup chi tiết (Mở rộng) = 98% × 98% màn hình ở cả v1 và v2. v1 và v2 hiện CÙNG thông tin (cùng bộ tính, cùng câu tóm tắt "Đang ở bước … — chờ …", x/8 xong, tổng thời gian) — chỉ khác cách trình bày. Bước "đang xử
   lý" = bước chưa xong đầu tiên (1–6 khi ca mở; 7–8 sau khi đóng). Chỉ HIỂN THỊ: chưa có SLA từng bước, chưa có mã lỗi theo bước. Bộ tính dùng
   chung `lib/buocQuyTrinh.ts`; nội dung từng bước v2 là nguyên khối của v1 (không đổi quyền / thao tác); khoá tab cũ (module ngoài mở ca
   thẳng 1 tab, chip "nhảy tab") được chuyển tới đúng bước / mục ngoài 8 bước. v1: đầu tab Tiến trình chung có luồng ngang 8 bước + "Xem chi

@@ -15051,5 +15051,6 @@
   "{0} xác": ["{0} old parts","{0} part lama"],
   "Chờ xử lý xác ({0}/{1})": ["Awaiting old-part handling ({0}/{1})","Menunggu penanganan part lama ({0}/{1})"],
   "Admin BH": ["Warranty admin","Admin garansi"],
-  "Chờ trả xác cho đối tác": ["Awaiting return to partner","Menunggu pengembalian ke mitra"]
+  "Chờ trả xác cho đối tác": ["Awaiting return to partner","Menunggu pengembalian ke mitra"],
+  "Đang sửa chữa — chờ xác định xác": ["Under repair — old part not yet determined","Sedang diperbaiki — part lama belum ditentukan"]
 }

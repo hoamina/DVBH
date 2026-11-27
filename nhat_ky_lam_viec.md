@@ -6668,3 +6668,12 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   duyệt / tiêu huỷ) → đúng luật. Chưa kiểm với ca thật trên production.
 - Còn dở: xác sửa chữa (`de_xuat_linh_kien_bh`) chưa đưa vào bước 7–8.
 
+## 2026-11-27 (11) — v1.675: Xác linh kiện sửa chữa vào bước 7–8 · popup chi tiết 98%
+
+- Yêu cầu (nguyên văn): "1. kéo thông tin xác lk vào bước 7-8 2. UI chi tiết tăng kích thước 98% = giao diện mới".
+- App Bảo hành đổi trả v1.170 (đã deploy): `case-timeline` thêm `xac_sua_chua[]` mỗi đơn vị (đề xuất cấp LK đã xuất = xác LK cũ tháo ra) + nhãn "Lưu kho".
+- DVBH: bước 7–8 cộng cả xác đổi mới / trừ nợ và xác sửa chữa (số xác = tổng SL); đơn vị đang sửa chữa → bước 7 "Đang sửa chữa — chờ xác định xác".
+  Popup chi tiết chế độ Mở rộng = 98% × 98% cho cả v1 và v2 (v1 trước 95% × 92%; v2 bị lề ngoài ép còn ~97%).
+- Kiểm thử: typecheck + build; bộ tính với 5 bộ dữ liệu giả sửa chữa (đang sửa / sửa xong không thay LK / xác chờ xử lý / trong thùng chờ KT / trộn đổi mới đã trả +
+  sửa chữa lưu kho) → đúng; local đo popup 1600×900: v1 và v2 đều 98,0% × 98,0%. SQL xác sửa chữa chạy trên D1 local của app Bảo hành.
+

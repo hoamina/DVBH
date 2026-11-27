@@ -723,4 +723,7 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
   both "chua" with note "Chưa có linh kiện bảo hành gửi nên chưa có xác"; shipment without xác yet → 7 "dang" (luc = first shipment tao_luc); all xác have `tt` →
   7 "xong" (max `xl_luc`); 8 from box (`thung.trang_thai` / `kt_luc`), ended outside box → 8 "bo_qua". Old API without `xac` → 7 "dang". `KetQuaBuocQuyTrinh`
   now carries `choMs`, `tongMs`, `tomTat`, `tomTatTong` shown identically by v2 (`ChiTietCaV2`) and v1 (`LuongTamBuoc`); v1 tiles show `ghiChu` for any state.
+- v1.675: steps 7–8 count repair xác too (`don_vi[].xac_sua_chua[]`, suachua v1.170) together with unit xác (SL summed); a repair unit not finished
+  (no phieu_tra, trang_thai not `ket_thuc*`) keeps step 7 "dang" ("Đang sửa chữa — chờ xác định xác") instead of "no xác". Expanded popup (v1 and v2):
+  outer wrapper has no padding, box `w-[98vw] h-[98dvh]` (was 95vw × 92vh for v1; v2 was clamped to ~97% by the outer `sm:p-6`).
 
