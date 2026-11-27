@@ -15,6 +15,7 @@ import { useLockBodyScroll } from "../hooks/useLockBodyScroll";
 import { CacheBanner } from "../components/ui/CacheBanner";
 import { MuaHangDonList, mocCuaDon, donBiHuy } from "../components/MuaHangPanel";
 import { TienTrinhChung, type LichSuChungEvent, type NguonTtc } from "../components/TienTrinhChung";
+import { tinhBuocQuyTrinh } from "../lib/buocQuyTrinh";
 import type { SuaChuaMoc } from "../lib/suaChuaTimeline";
 import { ThieuHangTicketList } from "../components/ThieuHangPanel";
 import { CaseImageGallery, OdooMediaLinks, demAnhVideoOdoo, parseAnhVideoOdoo, parseLinkHinhAnh, parseSoLuongAnh } from "../components/CaseImageGallery";
@@ -1340,7 +1341,7 @@ export function CaseDetail({
   // luc do CHI can doi lai noi tao 5 nhom moc ben duoi (khong doi kien truc merge/sort/UI).
   const tienTrinhChungEvents = useMemo<LichSuChungEvent[]>(() => {
     const events: LichSuChungEvent[] = [];
-    type Them = Partial<Pick<LichSuChungEvent, "cum" | "cumNhan" | "cumTieuDe" | "buoc" | "noiDung" | "phu" | "chip" | "luong">>;
+    type Them = Partial<Pick<LichSuChungEvent, "cum" | "cumNhan" | "cumTieuDe" | "buoc" | "noiDung" | "phu" | "chip" | "luong" | "buocQt">>;
 
     const pushDb = (opts: { key: string; rawTs: string | null | undefined; tone: AnyBadgeTone; typeLabel: string; actor: string | null; summary: string; jumpTab: string | null; nguon: NguonTtc } & Them) => {
       if (!opts.rawTs) return null;
@@ -1350,22 +1351,43 @@ export function CaseDetail({
       return ev;
     };
     // Nguon Google Sheet KHONG co truong "nguoi thuc hien" nhat quan -> actor null.
-    const pushSheet = (opts: { key: string; rawTs: string | undefined; tone: AnyBadgeTone; typeLabel: string; summary: string; jumpTab: string }) => {
+    const pushSheet = (opts: { key: string; rawTs: string | undefined; tone: AnyBadgeTone; typeLabel: string; summary: string; jumpTab: string; buocQt?: number }) => {
       const ms = parseSheetDateTime(opts.rawTs);
       if (!ms) return;
-      events.push({ key: opts.key, sortMs: ms, displayTime: opts.rawTs ?? "", tone: opts.tone, typeLabel: opts.typeLabel, actor: null, summary: opts.summary, jumpTab: opts.jumpTab, nguon: "khac" });
+      events.push({ key: opts.key, sortMs: ms, displayTime: opts.rawTs ?? "", tone: opts.tone, typeLabel: opts.typeLabel, actor: null, summary: opts.summary, jumpTab: opts.jumpTab, nguon: "khac", buocQt: opts.buocQt });
     };
 
     // --- Ca: mo / dong (moc Odoo check-in, qua SLA giu rieng).
     const cumCa: Them = { cum: "ca", cumNhan: tr("Ca") };
     if (c?.thoi_gian_cskh_tiep_nhan) {
-      pushDb({ key: "case-open", rawTs: c.thoi_gian_cskh_tiep_nhan, tone: "gray", typeLabel: tr("Ca được mở"), actor: null, summary: tr("Tiếp nhận CSKH"), jumpTab: null, nguon: "ca", ...cumCa, buoc: tr("Ca được mở") });
+      pushDb({ key: "case-open", rawTs: c.thoi_gian_cskh_tiep_nhan, tone: "gray", typeLabel: tr("Ca được mở"), actor: null, summary: tr("Tiếp nhận CSKH"), jumpTab: null, nguon: "ca", ...cumCa, buoc: tr("Ca được mở"), buocQt: 1 });
     }
     for (const e of odooTimelineEvents(c)) {
       pushDb({ key: `odoo-${e.key}`, rawTs: e.rawTs, tone: e.lech ? "coral" : "cyan", typeLabel: e.typeLabel, actor: e.actor, summary: e.summary, jumpTab: "co-ban", nguon: "ca" });
     }
+    // Lich hen Odoo (B2 - 2026-11-27, bo sung tu giao dien 8 buoc): moi lan hen = 1 moc tai luc TAO lich, gop 1 cum "Lịch hẹn".
+    for (const h of lichHenList) {
+      const tt = h.trang_thai === "cancelled" ? tr("Đã hủy") : h.trang_thai === "moved" ? tr("Đã chuyển") : null;
+      const ai = h.nguoi_hen_lich === "customer" ? tr("Khách hẹn") : h.nguoi_hen_lich === "technician" ? tr("KTV hẹn") : null;
+      const noiDung = [h.thoi_gian_hen ? tr("Hẹn: {0}", fmtDateTime(h.thoi_gian_hen)) : null, ai, tt, h.ghi_chu].filter(Boolean).join(" · ");
+      pushDb({
+        key: `lich-hen-${h.stt}`,
+        rawTs: h.ngay_tao ?? h.thoi_gian_hen,
+        tone: h.trang_thai === "cancelled" ? "gray" : "sky",
+        typeLabel: tr("Lịch hẹn lần {0}", h.stt),
+        actor: null,
+        summary: noiDung || "—",
+        jumpTab: "lich-hen",
+        nguon: "ca",
+        cum: "lich-hen",
+        cumNhan: tr("Lịch hẹn"),
+        buoc: tr("Lịch hẹn lần {0}", h.stt),
+        noiDung,
+        buocQt: 2,
+      });
+    }
     if (c?.thoi_gian_hoan_thanh) {
-      pushDb({ key: "case-close", rawTs: c.thoi_gian_hoan_thanh, tone: "gray", typeLabel: tr("Ca được đóng"), actor: null, summary: c.tien_do_hoan_thanh ?? tr("Hoàn thành"), jumpTab: null, nguon: "ca", ...cumCa, buoc: tr("Ca được đóng") });
+      pushDb({ key: "case-close", rawTs: c.thoi_gian_hoan_thanh, tone: "gray", typeLabel: tr("Ca được đóng"), actor: null, summary: c.tien_do_hoan_thanh ?? tr("Hoàn thành"), jumpTab: null, nguon: "ca", ...cumCa, buoc: tr("Ca được đóng"), buocQt: 6 });
     }
 
     // --- GT ton: lien tiep cung ly do gop 1 the (giu quy uoc 2026-11-13).
@@ -1524,6 +1546,8 @@ export function CaseDetail({
 
     // --- He "Gui bao hanh linh kien" (suachua): CHI cac buoc chinh da xong (2026-11-06 vong 3). 1 don = 1 cum + luong ngang mini
     // (don 1 don vi). Moc chung cua thung 1 lan / don; tu buoc phan loai ghi theo tung don vi.
+    // Moc suachua -> buoc quy trinh 8 buoc: tao don / gui xe = B7 Tra xac 3T, kho / admin nhan = B8 Xac nhan xac.
+    const BUOC_QT_SC: Record<string, number | undefined> = { tao_don: 7, gui_xe: 7, kho_nhan: 8, admin_nhan: 8 };
     for (const d of scDonList) {
       const lk = d.ten_lk || d.ma_lk || "—";
       const nhieu = d.don_vi.length > 1;
@@ -1552,6 +1576,36 @@ export function CaseDetail({
             buoc: `${tr(m.label)}${theoDv ? ` #${u.so_thu_tu}` : ""}`,
             noiDung: m.ghi_chu ?? "",
             luong: luongMini,
+            buocQt: BUOC_QT_SC[m.key],
+          });
+        }
+      }
+      // B7/B8 (2026-11-27): luong suachua thieu moc gui xac / kho nhan / admin nhan ma phieu gui co gio -> them tu phieu gui.
+      const pg = d.phieu_gui;
+      if (pg) {
+        const bu: [string, string, string | null, string | null, string | null][] = [
+          ["gui_xe", "Gửi xe", pg.gui_xe_luc, pg.ktv, [pg.hinh_thuc_gui, pg.don_vi_van_chuyen, pg.ma_van_don].filter(Boolean).join(" · ") || null],
+          ["kho_nhan", "Kho nhận", pg.kho_nhan_luc, pg.kho_nhan, pg.su_co],
+          ["admin_nhan", "Admin nhận", pg.admin_nhan_luc, pg.admin_nhan, null],
+        ];
+        for (const [k, nhan, at, nguoi, ghiChu] of bu) {
+          if (!at || daGhiChung.has(k)) continue;
+          pushDb({
+            key: `sc-${d.id}-pg-${k}`,
+            rawTs: at,
+            tone: "rose",
+            typeLabel: tr("Bảo hành (app): {0}", tr(nhan)),
+            actor: nguoi,
+            summary: `${pg.id} · ${lk}${ghiChu ? `\n${ghiChu}` : ""}`,
+            jumpTab: "bao-hanh-app",
+            nguon: "bh",
+            cum: `sc|${d.id}`,
+            cumNhan: tr("Bảo hành (app)"),
+            cumTieuDe: `${d.id} · ${lk}`,
+            buoc: tr(nhan),
+            noiDung: ghiChu ?? "",
+            luong: luongMini,
+            buocQt: BUOC_QT_SC[k],
           });
         }
       }
@@ -1596,6 +1650,8 @@ export function CaseDetail({
           phu,
           chip,
           luong: luongMini,
+          // Don tra hang LK khong thuoc luong dat LK cho ca -> khong gan buoc.
+          buocQt: o.loai_don === "tra_hang" ? undefined : e.source === "thieu_lk" ? 4 : e.source === "phieu_xuat_kho" ? 5 : 3,
         });
       }
     }
@@ -1656,11 +1712,16 @@ export function CaseDetail({
     poDatHangMatched
       .filter((r) => r.idCrm === c?.id)
       .forEach((r, i) => {
-        pushSheet({ key: `po-${r.id}-${i}`, rawTs: r.ngayTao, tone: "fuchsia", typeLabel: tr("PO đặt hàng"), summary: r.tatCa || "—", jumpTab: "po-dat-hang" });
+        pushSheet({ key: `po-${r.id}-${i}`, rawTs: r.ngayTao, tone: "fuchsia", typeLabel: tr("PO đặt hàng"), summary: r.tatCa || "—", jumpTab: "po-dat-hang", buocQt: 4 });
       });
 
     return events.filter((e) => e.sortMs > 0).sort((a, b) => b.sortMs - a.sortMs);
-  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList, mailTimeline, scDonList]);
+  }, [c, giaiTrinhList, bienBanHopList, viPhamList, ketQuaGoiList, tienTrinhListForCase, napGasDanhGia, caLap, qcThucTeMatched, poDatHangMatched, lkOrders, donBaoHanhOdooList, mailTimeline, scDonList, lichHenList]);
+  // Luong 8 buoc (lib/buocQuyTrinh.ts, dung chung giao dien v2) - dau tab "Tiến trình chung" v1.
+  const quyTrinh8Buoc = useMemo(
+    () => (c ? tinhBuocQuyTrinh({ ca: c, lichHen: lichHenList, lkOrders, soPo: poTabPo.length, scDon: scDonList }) : null),
+    [c, lichHenList, lkOrders, poTabPo, scDonList],
+  );
 
   // "Tieu de tom tat" (chot 2026-08-22) - 5 khoang thoi gian tinh theo "kieu bao trum" (min moc dau -
   // max moc cuoi cua CHINH nhom do, hoac "hien tai" neu con dang mo - CHI ap dung cho case/tranh chap
@@ -1796,7 +1857,7 @@ export function CaseDetail({
   }, [c, giaiTrinhList, lkOrders, scDonList, donBaoHanhOdooList, mailTimeline, ketQuaGoiList, viPhamList, tienTrinhListForCase]);
 
   const tienTrinhChungContent = (
-    <TienTrinhChung events={tienTrinhChungEvents} luongTong={luongTongCa} summaryItems={summaryItems} personDir={personDir} onJump={jumpToTab} />
+    <TienTrinhChung quyTrinh={quyTrinh8Buoc} events={tienTrinhChungEvents} luongTong={luongTongCa} summaryItems={summaryItems} personDir={personDir} onJump={jumpToTab} />
   );
 
   const lapStatus = caLap?.detection
