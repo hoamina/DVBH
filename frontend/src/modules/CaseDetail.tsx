@@ -103,8 +103,21 @@ import {
   parseLoaiKhaoSat,
 } from "../types";
 import { tr } from "../i18n/tr";
+import { ChiTietCaV2, type KhoiNoiDung } from "./chiTietCaV2/ChiTietCaV2";
+import { tinhBuocQuyTrinh } from "../lib/buocQuyTrinh";
 
 type ViewMode = "compact" | "expanded";
+
+// Giao dien chi tiet ca: "v2" = 8 buoc quy trinh (MAC DINH tu 2026-11-27), "v1" = bo cuc tab cu. Luu RIENG MAY (localStorage).
+type GiaoDienCt = "v1" | "v2";
+const GIAO_DIEN_CT_KEY = "case-detail-ui";
+function readGiaoDienCt(): GiaoDienCt {
+  try {
+    return localStorage.getItem(GIAO_DIEN_CT_KEY) === "v1" ? "v1" : "v2";
+  } catch {
+    return "v2";
+  }
+}
 
 interface CaseDetailResponse {
   // Version-tag du lieu luc tai (backend CASE_DETAIL_DOMAINS) - dung de biet cache ca da dong con moi.
@@ -843,6 +856,17 @@ export function CaseDetail({
   const [compareXuLyTab, setCompareXuLyTab] = useState("co-ban");
   const compareCardRef = useRef<HTMLDivElement>(null);
   const [caseInfoLayout, setCaseInfoLayout] = useState<CaseInfoLayout>(readCaseInfoLayout);
+  const [giaoDienCt, setGiaoDienCt] = useState<GiaoDienCt>(readGiaoDienCt);
+  function changeGiaoDienCt(v: GiaoDienCt) {
+    setGiaoDienCt(v);
+    try {
+      localStorage.setItem(GIAO_DIEN_CT_KEY, v);
+    } catch {
+      /* localStorage bi chan -> chi ap dung trong phien */
+    }
+  }
+  // v2: tab dang chon o dai "Thong tin ngoai 8 buoc" (rieng voi `tab` cua v1).
+  const [v2TabPhu, setV2TabPhu] = useState("tien-trinh-chung");
   // Truong an/hien (nut ⚙) - luu localStorage, dung chung ca goc + ca doi chieu.
   const [anTruong, setAnTruong] = useState<Set<string>>(readAnTruong);
   function changeAnTruong(an: Set<string>) {
@@ -1285,6 +1309,11 @@ export function CaseDetail({
   // So "yeu cau thieu LK" tu he Dat mua LK - uu tien block thieu_lk (API moi); linh-kien-app ban cu chua
   // co block nay thi dem so don co it nhat 1 su kien nguon thieu_lk.
   const lkThieuCount = lkThieuTickets.length > 0 ? lkThieuTickets.length : lkOrders.filter((o) => o.timeline.some((e) => e.source === "thieu_lk")).length;
+  // Luong 8 buoc (giao dien v2 + tab Tien trinh chung) - chi doc du lieu da tai o tren (lib/buocQuyTrinh.ts).
+  const ketQuaBuoc = useMemo(
+    () => tinhBuocQuyTrinh({ ca: c, lichHen: lichHenList, lkOrders, soPo: poTabPo.length, scDon: scDonList, daTaiLk: !!lkTimeline?.ok, daTaiSc: !!scTimeline?.ok }),
+    [c, lichHenList, lkOrders, poTabPo, scDonList, lkTimeline, scTimeline],
+  );
 
   const viPhamList = data?.viPham ?? [];
   const viPhamGiaiTrinhList = data?.viPhamGiaiTrinh ?? [];
@@ -2843,6 +2872,108 @@ export function CaseDetail({
     </div>
   );
 
+  // Chon giao dien v1 (tab cu) / v2 (8 buoc) - hien ca tren dien thoai, luu rieng may.
+  const giaoDienToggle = (
+    <div className="flex items-center rounded-lg border border-[var(--line)] overflow-hidden text-xs font-semibold shrink-0" role="group" aria-label={tr("Giao diện chi tiết ca")}>
+      {(["v1", "v2"] as GiaoDienCt[]).map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => changeGiaoDienCt(v)}
+          aria-pressed={giaoDienCt === v}
+          title={v === "v2" ? tr("Giao diện 8 bước quy trình") : tr("Giao diện cũ (các tab)")}
+          className={`px-2.5 py-1.5 ${giaoDienCt === v ? "bg-[var(--ocean-500)] text-white" : "text-[var(--ink-400)] hover:bg-slate-50"}`}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+
+  // ===== Giao dien v2: noi dung tung buoc = DUNG LAI khoi cua v1 (khong chep logic) =====
+  const phieuXuatKhoContent = (
+    <div className="space-y-2">
+      {lkOrders.filter((o) => o.phieu_xuat_kho.length > 0 || o.timeline.some((e) => e.source === "phieu_xuat_kho")).length === 0 ? (
+        <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có phiếu xuất kho cho ca này.")}</div>
+      ) : (
+        lkOrders
+          .filter((o) => o.phieu_xuat_kho.length > 0 || o.timeline.some((e) => e.source === "phieu_xuat_kho"))
+          .map((o) => (
+            <div key={o.order_id} className="rounded-xl bg-[var(--surface-100)] px-3 py-2 text-sm">
+              <div className="font-semibold">
+                {o.order_id} · {o.ma_lk}
+                {o.ten_lk ? ` — ${o.ten_lk}` : ""}
+              </div>
+              <div className="text-xs text-[var(--ink-500)] mt-0.5">
+                {o.phieu_xuat_kho.map((p) => p.ma_xuat_kho).join(", ") || tr("Chưa có mã phiếu")}
+                {o.nguoi_nhan_hang_ten || o.nguoi_nhan_hang ? ` · ${tr("Người nhận")}: ${o.nguoi_nhan_hang_ten ?? o.nguoi_nhan_hang}` : ""}
+              </div>
+              {o.timeline
+                .filter((e) => e.source === "phieu_xuat_kho")
+                .map((e, i) => (
+                  <div key={i} className="text-xs text-[var(--ink-700)] mt-0.5">
+                    {fmtDateTime(e.at)} · {e.event}
+                    {e.actor_name || e.actor ? ` · ${e.actor_name ?? e.actor}` : ""}
+                  </div>
+                ))}
+            </div>
+          ))
+      )}
+    </div>
+  );
+  const khoiTheoBuoc: Record<number, KhoiNoiDung[]> = {
+    1: [
+      { key: "info", tieuDe: tr("Thông tin case"), cu: tr("cột Thông tin (Cơ bản · Xử lý · Bổ sung · Lỗi · Gửi BH · Lịch hẹn · Xin hủy)"), node: infoContent },
+      { key: "yeu-cau-huy", tieuDe: tr("Xin hủy"), cu: tr("tab con Xin hủy"), node: yeuCauHuyContent, dem: yeuCauHuyList.length },
+    ],
+    2: [{ key: "lich-hen", tieuDe: tr("Lịch hẹn"), cu: tr("tab con Lịch hẹn"), node: lichHenContent, dem: lichHenList.length }],
+    3: [
+      { key: "mua-hang", tieuDe: tr("Đơn linh kiện"), cu: tr("tab Mua hàng"), node: muaHangContent, dem: lkOrders.length },
+      { key: "loi-linh-kien", tieuDe: tr("Lỗi linh kiện"), cu: tr("tab con Lỗi"), node: loiLinhKienContent, dem: linhKienLoiList.length },
+    ],
+    4: [
+      { key: "thieu-hang", tieuDe: tr("Thiếu hàng"), cu: tr("tab Thiếu hàng"), node: thieuHangContent, dem: lkThieuCount },
+      { key: "po-dat-hang", tieuDe: tr("PO đặt hàng"), cu: tr("tab PO đặt hàng"), node: poDatHangContent, dem: poTabPo.length },
+    ],
+    5: [{ key: "phieu-xuat-kho", tieuDe: tr("Phiếu xuất kho"), cu: tr("tab Mua hàng"), node: phieuXuatKhoContent }],
+    6: [
+      ...(giaiTrinhContent ? [{ key: "giai-trinh", tieuDe: tr("Giải trình tồn"), cu: tr("tab GT tồn"), node: giaiTrinhContent, dem: giaiTrinhList.length }] : []),
+      { key: "bien-ban-hop", tieuDe: tr("Biên bản họp"), cu: tr("tab Biên bản họp"), node: bienBanHopContent, dem: bienBanHopList.length },
+      { key: "qc-thuc-te", tieuDe: tr("QC thực tế"), cu: tr("tab QC thực tế"), node: qcThucTeContent, dem: qcThucTeMatched.length },
+    ],
+    7: [{ key: "bao-hanh-app", tieuDe: tr("Gửi xác / bảo hành (App Bảo hành đổi trả)"), cu: tr("tab Bảo hành"), node: baoHanhAppContent, dem: scDonList.length }],
+    8: [
+      { key: "bao-hanh-app-8", tieuDe: tr("Kho / Admin BH nhận xác"), cu: tr("tab Bảo hành"), node: baoHanhAppContent, dem: scDonList.length },
+      { key: "gui-bh-odoo", tieuDe: tr("Gửi BH (Odoo)"), cu: tr("tab con Gửi BH"), node: baoHanhContent },
+    ],
+  };
+  const TAB_PHU_V2 = new Set(["tien-trinh-chung", "nskx", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"]);
+  const noiDungTabPhuV2 = (key: string) => {
+    if (key === "tien-trinh-chung") return tienTrinhChungContent;
+    if (key === "nskx") return laCaNskx && c ? <NskxPanel caseId={c.id} linhKienLoi={c.linh_kien_loi} /> : null;
+    if (key === "vi-pham") return viPhamContent;
+    if (key === "khao-sat") return khaoSatContent;
+    if (key === "ca-lap") return caLapContent;
+    if (key === "nap-gas") return napGasContent;
+    if (key === "tranh-chap") return tranhChapContent;
+    if (key === "luong-mail") return c ? <LuongMailPanel caseId={c.id} khuVuc={c.khu_vuc} onOpenCase={onOpenCase} /> : null;
+    return null;
+  };
+  const hanhDongV2 = (
+    <>
+      {canGiaiTrinh && c && (
+        <Btn size="sm" onClick={openGiaiTrinhModal}>
+          {tr("+ Thêm giải trình")}
+        </Btn>
+      )}
+      {canTaoViPhamThuCong && (
+        <Btn size="sm" variant="subtle" onClick={() => setManualViPhamOpen(true)}>
+          {tr("+ Tạo vi phạm thủ công")}
+        </Btn>
+      )}
+    </>
+  );
+
   // Ticker "nhom van de" gan sau ma ca - de nhin luot biet ca dang thuoc nhom nao (tong ton chua
   // giai trinh, lo ke hoach, ca lap can xu ly, vi pham cho khao sat...) ma khong can mo tung tab.
   const tickers = c ? computeCaseTickers(c, giaiTrinhList, viPhamList, activeLyDo, caLap) : [];
@@ -2913,6 +3044,7 @@ export function CaseDetail({
       )}
 
       <div className="flex items-center gap-2 shrink-0">
+        {giaoDienToggle}
         {viewModeToggle}
         <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)] shrink-0">
           ✕
@@ -2928,7 +3060,9 @@ export function CaseDetail({
       <div
         className={
           viewMode === "expanded"
-            ? "bg-[var(--surface)] rounded-2xl shadow-2xl w-[95vw] max-w-[2400px] h-[92vh] flex flex-col overflow-hidden anim-in"
+            ? giaoDienCt === "v2"
+              ? "bg-[var(--bg)] rounded-[22px] shadow-2xl w-[98vw] max-w-[2400px] h-[calc(100dvh-2vw)] flex flex-col overflow-hidden anim-in"
+              : "bg-[var(--surface)] rounded-2xl shadow-2xl w-[95vw] max-w-[2400px] h-[92vh] flex flex-col overflow-hidden anim-in"
             : "absolute right-0 top-0 h-full w-full max-w-2xl bg-[var(--surface)] shadow-2xl flex flex-col anim-in"
         }
       >
@@ -2940,7 +3074,23 @@ export function CaseDetail({
           </div>
         )}
 
-        {c && viewMode === "expanded" && (
+        {c && giaoDienCt === "v2" && (
+          <div className={`cdv2-root flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-5 ${viewMode === "compact" ? "bg-[var(--bg)]" : ""}`}>
+            <ChiTietCaV2
+              c={c}
+              kq={ketQuaBuoc}
+              khoiTheoBuoc={khoiTheoBuoc}
+              tabPhu={fullTabsList.filter((t) => TAB_PHU_V2.has(t.key))}
+              noiDungTabPhu={noiDungTabPhuV2}
+              tabPhuDangChon={v2TabPhu}
+              onChonTabPhu={setV2TabPhu}
+              hanhDong={hanhDongV2}
+              doiChieu={compareContent || null}
+            />
+          </div>
+        )}
+
+        {c && giaoDienCt === "v1" && viewMode === "expanded" && (
           <div
             className={`flex-1 min-h-0 grid grid-cols-1 ${
               compareId ? "md:grid-cols-[minmax(280px,36%)_minmax(280px,36%)_minmax(240px,1fr)]" : "md:grid-cols-[minmax(320px,38%)_1fr]"
@@ -2977,7 +3127,7 @@ export function CaseDetail({
           </div>
         )}
 
-        {c && viewMode === "compact" && (
+        {c && giaoDienCt === "v1" && viewMode === "compact" && (
           <div className="overflow-y-auto flex-1 p-5">
             {tabsBar}
             {tab === "info" && infoContent}

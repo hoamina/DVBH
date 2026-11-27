@@ -1,0 +1,555 @@
+/* Chi tiet ca v2 - phong cach Apple (skill giao-dien-apple, mau chi-tiet-ca-8-buoc v5). Bo cuc chon theo BE RONG POPUP
+   (container query), khong theo man hinh: popup >= 960px -> dai 8 o thang hang + luoi the 3 cot; hep hon -> cuon ngang / 1 cot.
+   Mau lay bien cua app (khi gam Apple bat thi la bang mau iOS). */
+.cdv2-root {
+  container: cdv2 / inline-size;
+}
+.cdv2 {
+  --cdv2-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 20px rgba(0, 0, 0, 0.05);
+  --cdv2-shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.05), 0 18px 44px rgba(0, 0, 0, 0.1);
+  --cdv2-rail: #e3e3e8;
+  font-size: 14px;
+  line-height: 1.47;
+  color: var(--ink-900);
+}
+.cdv2 .tnum {
+  font-variant-numeric: tabular-nums;
+}
+.cdv2-muted {
+  color: var(--ink-500);
+  font-weight: 400;
+}
+.cdv2-muted.small {
+  font-size: 12px;
+}
+.cdv2-card {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  box-shadow: var(--cdv2-shadow);
+}
+
+/* Tom tat */
+.cdv2-sum {
+  display: flex;
+  gap: 10px 20px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.cdv2-sum-t {
+  flex: 1;
+  min-width: 260px;
+  font-size: 17px;
+  letter-spacing: -0.015em;
+}
+.cdv2-sum-t b {
+  font-weight: 650;
+}
+.cdv2-acts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cdv2-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 24px;
+  margin-bottom: 16px;
+}
+.cdv2-meta > div {
+  min-width: 0;
+}
+.cdv2-meta span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-500);
+}
+.cdv2-meta b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dai 8 o */
+.cdv2-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 10px;
+}
+.cdv2-tile {
+  position: relative;
+  min-width: 0;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-100);
+  padding: 14px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink-700);
+  text-align: center;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.cdv2-tile:hover:not(:disabled) {
+  background: #fff;
+  box-shadow: var(--cdv2-shadow-lg);
+  transform: translateY(-2px);
+}
+.cdv2-tile:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.35);
+}
+.cdv2-tile.dang {
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--amber-500), 0 8px 22px rgba(255, 149, 0, 0.18);
+}
+.cdv2-tile.bo_qua {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  opacity: 0.75;
+  cursor: default;
+}
+.cdv2-tile.on {
+  box-shadow: 0 0 0 2px var(--ocean-600);
+}
+.cdv2-tile.dang.on {
+  box-shadow: 0 0 0 2px var(--amber-500), 0 0 0 5px rgba(0, 113, 227, 0.35);
+}
+.cdv2-tc {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--ink-400);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.cdv2-tile.xong .cdv2-tc {
+  background: var(--teal-500);
+  color: #fff;
+  box-shadow: none;
+}
+.cdv2-tile.dang .cdv2-tc {
+  background: var(--amber-500);
+  color: #fff;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cdv2-tile.dang .cdv2-tc {
+    animation: cdv2-pulse 2s infinite;
+  }
+}
+@keyframes cdv2-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 149, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 149, 0, 0);
+  }
+}
+.cdv2-tile.bo_qua .cdv2-tc {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+  border: 1.5px dashed transparent;
+}
+.cdv2-tn {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-900);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+.cdv2-tile.dang .cdv2-tn {
+  color: var(--amber-700);
+}
+.cdv2-tile.chua .cdv2-tn,
+.cdv2-tile.bo_qua .cdv2-tn {
+  color: var(--ink-500);
+  font-weight: 500;
+}
+.cdv2-tile.bo_qua .cdv2-tn,
+.cdv2-tile.bo_qua .cdv2-td {
+  text-decoration: line-through;
+}
+.cdv2-td {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-600);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.cdv2-tile.dang .cdv2-td,
+.cdv2-tile.dang .cdv2-ts {
+  color: var(--amber-600);
+}
+.cdv2-ts {
+  font-size: 11.5px;
+  color: var(--ink-500);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Luoi the buoc */
+.cdv2-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  grid-auto-flow: row dense;
+  margin-bottom: 16px;
+}
+.cdv2-sc {
+  --c: #0071e3;
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 20px;
+  padding: 20px 22px 12px;
+  box-shadow: var(--cdv2-shadow);
+  scroll-margin-top: 12px;
+  transition: box-shadow 0.2s;
+}
+.cdv2-sc:hover {
+  box-shadow: var(--cdv2-shadow-lg);
+}
+.cdv2-sc.dang {
+  box-shadow: 0 0 0 2px var(--amber-500), var(--cdv2-shadow-lg);
+}
+.cdv2-sc.sel:not(.dang) {
+  box-shadow: 0 0 0 2px var(--ocean-600), var(--cdv2-shadow-lg);
+}
+.cdv2-sc.bo_qua {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.cdv2-sc.chua {
+  background: rgba(255, 255, 255, 0.6);
+}
+.cdv2-sc.open {
+  grid-column: 1 / -1;
+}
+.cdv2-sc-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.cdv2-ic {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 78%, #fff), var(--c));
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--c) 35%, transparent);
+}
+.cdv2-sc.bo_qua .cdv2-ic,
+.cdv2-sc.chua .cdv2-ic {
+  background: var(--surface-200);
+  color: var(--ink-400);
+  box-shadow: none;
+}
+.cdv2-sc-t {
+  margin: 0;
+  font-size: 17.5px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  flex: 1;
+  min-width: 120px;
+  line-height: 1.3;
+}
+.cdv2-sc.bo_qua .cdv2-sc-t,
+.cdv2-sc.chua .cdv2-sc-t {
+  color: var(--ink-500);
+}
+.cdv2-no {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+}
+.cdv2-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--surface-200);
+  color: var(--ink-500);
+}
+.cdv2-pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cdv2-pill.xong {
+  background: var(--teal-100);
+  color: var(--teal-600);
+}
+.cdv2-pill.dang {
+  background: var(--amber-100);
+  color: var(--amber-600);
+}
+.cdv2-pt {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.cdv2-pt > div {
+  min-width: 0;
+}
+.cdv2-lab {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+}
+.cdv2-val {
+  font-size: 15px;
+  font-weight: 500;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  letter-spacing: -0.01em;
+}
+.cdv2-subv {
+  font-size: 12.5px;
+  color: var(--ink-500);
+  margin-top: 2px;
+}
+.cdv2-skip {
+  color: var(--ink-500);
+  font-size: 13.5px;
+  margin: 4px 0 12px;
+}
+.cdv2-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 0 4px;
+}
+.cdv2-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 550;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--ink-700);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cdv2-more {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 12px;
+}
+.cdv2-khoi + .cdv2-khoi {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.cdv2-khoi-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.cdv2-khoi-h b {
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.cdv2-dem {
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 99px;
+  padding: 0 7px;
+  color: var(--ink-600);
+}
+.cdv2-cu {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-400);
+}
+.cdv2-sc-f {
+  margin-top: auto;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.cdv2-sc-f .cdv2-muted {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cdv2-lnk {
+  border: 0;
+  background: none;
+  color: var(--ocean-600);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 980px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cdv2-lnk:hover {
+  background: var(--ocean-100);
+}
+
+/* Thong tin ngoai 8 buoc */
+.cdv2-ftitle {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-400);
+}
+.cdv2-otabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.cdv2-otabs::-webkit-scrollbar {
+  display: none;
+}
+.cdv2-otabs button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-900);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cdv2-otabs button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+.cdv2-otabs button .c {
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 99px;
+  padding: 0 6px;
+  color: var(--ink-600);
+  font-variant-numeric: tabular-nums;
+}
+.cdv2-otabs button.on {
+  background: var(--ink-900);
+  color: #fff;
+}
+.cdv2-otabs button.on .c {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.cdv2-otabs button.z {
+  color: var(--ink-400);
+}
+.cdv2-otabs button.more {
+  background: none;
+  color: var(--ocean-600);
+  font-weight: 600;
+}
+
+/* Bo cuc theo be rong popup */
+@container cdv2 (max-width: 1180px) {
+  .cdv2-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container cdv2 (max-width: 959px) {
+  .cdv2-strip {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -4px;
+    padding: 2px 4px 6px;
+  }
+  .cdv2-strip::-webkit-scrollbar {
+    display: none;
+  }
+  .cdv2-tile {
+    flex: 0 0 118px;
+  }
+  .cdv2-meta {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+  }
+  .cdv2-meta b {
+    white-space: normal;
+  }
+}
+@container cdv2 (max-width: 700px) {
+  .cdv2-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cdv2-card,
+  .cdv2-sc {
+    padding: 16px;
+    border-radius: 18px;
+  }
+  .cdv2-sum-t {
+    font-size: 15.5px;
+    min-width: 0;
+  }
+  .cdv2-acts {
+    width: 100%;
+  }
+}
+@container cdv2 (max-width: 440px) {
+  .cdv2-meta {
+    grid-template-columns: 1fr;
+  }
+}

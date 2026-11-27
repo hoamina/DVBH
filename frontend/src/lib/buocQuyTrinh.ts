@@ -39,6 +39,9 @@ export interface DauVaoBuocQuyTrinh {
   lkOrders: LinhKienOrder[];
   soPo: number; // so dong PO dat hang khop ca (tab PO dat hang)
   scDon: SuaChuaDon[]; // don gui xac / gui BH tu App Bao hanh doi tra
+  // false = API app Dat mua LK / App Bao hanh doi tra dang tai hoac loi -> KHONG ket luan "bo qua" (thieu du lieu != khong co).
+  daTaiLk?: boolean;
+  daTaiSc?: boolean;
 }
 
 export interface KetQuaBuocQuyTrinh {
@@ -186,10 +189,15 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
   }
 
   // Ca khong dat linh kien: 3,4,5 bo qua khi ca da dong; 7,8 bo qua khi khong co don gui xac.
-  if (!orders.length && daDongCa) {
+  // Chi ket luan khi DA TAI duoc du lieu nguon; tai loi -> ghi chu, giu "chua".
+  const daTaiLk = dv.daTaiLk !== false;
+  const daTaiSc = dv.daTaiSc !== false;
+  if (!daTaiLk) for (const so of [3, 4, 5]) if (b(so).trangThai === "chua") b(so).ghiChu = tr("Chưa tải được dữ liệu");
+  if (!daTaiSc) for (const so of [7, 8]) if (b(so).trangThai === "chua") b(so).ghiChu = tr("Chưa tải được dữ liệu");
+  if (!orders.length && daDongCa && daTaiLk) {
     for (const so of [3, 4, 5]) if (b(so).trangThai === "chua") Object.assign(b(so), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: tr("Không đặt linh kiện") });
   }
-  if (!orders.length && !dv.scDon.length && daDongCa) {
+  if (!orders.length && !dv.scDon.length && daDongCa && daTaiLk && daTaiSc) {
     for (const so of [7, 8]) if (b(so).trangThai === "chua") Object.assign(b(so), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: tr("Không có xác") });
   }
   // Buoc 2 khong co du lieu hen nhung ca da sang buoc sau -> coi nhu bo qua (khong de "chua toi" mai).
@@ -208,7 +216,7 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
     }
   };
   if (!daDongCa) danhDang(1, 6);
-  else if (orders.length || dv.scDon.length) danhDang(7, 8);
+  else if ((orders.length || dv.scDon.length) && daTaiSc) danhDang(7, 8);
 
   // Khoang cach toi buoc truoc co moc.
   let truoc: number | null = null;
