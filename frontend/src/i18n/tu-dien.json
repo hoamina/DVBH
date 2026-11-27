@@ -15041,5 +15041,15 @@
   "Thuộc bước {0}: {1}": ["Belongs to step {0}: {1}","Termasuk langkah {0}: {1}"],
   "Khách hẹn": ["Customer scheduled","Dijadwalkan pelanggan"],
   "KTV hẹn": ["Technician scheduled","Dijadwalkan teknisi"],
-  "Lịch hẹn lần {0}": ["Appointment #{0}","Janji ke-{0}"]
+  "Lịch hẹn lần {0}": ["Appointment #{0}","Janji ke-{0}"],
+  "KTV / Admin BH": ["Technician / Warranty admin","Teknisi / Admin garansi"],
+  "Admin BH / Kế toán": ["Warranty admin / Accounting","Admin garansi / Akuntansi"],
+  "Chưa có linh kiện bảo hành gửi nên chưa có xác": ["No warranty part sent yet,so no old part","Belum ada part garansi dikirim,jadi belum ada part lama"],
+  "{0} đơn gửi BH": ["{0} warranty shipments","{0} kiriman garansi"],
+  "Không có xác ({0})": ["No old part ({0})","Tidak ada part lama ({0})"],
+  "Chờ xử lý xác": ["Awaiting old-part handling","Menunggu penanganan part lama"],
+  "{0} xác": ["{0} old parts","{0} part lama"],
+  "Chờ xử lý xác ({0}/{1})": ["Awaiting old-part handling ({0}/{1})","Menunggu penanganan part lama ({0}/{1})"],
+  "Admin BH": ["Warranty admin","Admin garansi"],
+  "Chờ trả xác cho đối tác": ["Awaiting return to partner","Menunggu pengembalian ke mitra"]
 }

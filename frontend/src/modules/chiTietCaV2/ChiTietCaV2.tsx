@@ -2,7 +2,7 @@
 // CHI doi cach HIEN THI: moi khoi noi dung (giai trinh, don LK, PO, lich hen, bao hanh, vi pham...) la DUNG LAI nguyen khoi
 // CaseDetail.tsx da dung o v1 (truyen vao qua props) - khong chep logic, khong doi quyen, khong goi them API.
 // Luong 8 buoc tinh o lib/buocQuyTrinh.ts (dung chung voi tab Tien trinh chung cua v1).
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { CaseRow } from "../../types";
 import { fmtDateTime } from "../../types";
 import type { TabItem } from "../../components/ui/Tabs";
@@ -102,22 +102,6 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
     else if (yeuCauMo.tabPhu) requestAnimationFrame(() => phuRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, [yeuCauMo?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const tomTat = useMemo(() => {
-    const h = kq.buocHienTai;
-    if (kq.daDongCa && !h) return tr("Ca đã đóng — {0}/8 bước có dữ liệu.", kq.soXong);
-    if (!h) return tr("{0}/8 bước có dữ liệu.", kq.soXong);
-    const truoc = kq.buoc.filter((x) => x.so < h.so && x.lucMs !== null).map((x) => x.lucMs as number);
-    const cho = h.lucMs ?? (truoc.length ? Math.max(...truoc) : null);
-    const choBao = cho !== null ? fmtKhoang(Date.now() - cho) : "";
-    return choBao ? tr("Đang ở bước {0} · {1} — chờ {2}", h.so, h.ten, choBao) : tr("Đang ở bước {0} · {1}", h.so, h.ten);
-  }, [kq]);
-
-  const tongMs = (() => {
-    const dau = kq.buoc[0].lucMs;
-    const cuoi = kq.buoc[5].lucMs ?? (kq.daDongCa ? null : Date.now());
-    return dau !== null && cuoi !== null ? cuoi - dau : null;
-  })();
-
   const tabCoNoiDung = tabPhu.filter((t) => t.count === undefined || t.count > 0 || t.key === tabPhuDangChon || t.key === "tien-trinh-chung");
   const tabTrong = tabPhu.filter((t) => !tabCoNoiDung.includes(t));
   const tabHien = hienTabTrong ? tabPhu : tabCoNoiDung;
@@ -128,13 +112,12 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
       <section className="cdv2-card cdv2-strip-card">
         <div className="cdv2-sum">
           <div className="cdv2-sum-t">
-            <b>{tomTat}</b>
-            {tongMs !== null && (
-              <span className="cdv2-muted">
-                {" · "}
-                {kq.daDongCa ? tr("Tổng thời gian xử lý {0}", fmtKhoang(tongMs)) : tr("Đã mở {0}", fmtKhoang(tongMs))}
-              </span>
-            )}
+            <b>{kq.tomTat}</b>
+            <span className="cdv2-muted">
+              {" · "}
+              {tr("{0}/8 xong", kq.soXong)}
+              {kq.tomTatTong ? ` · ${kq.tomTatTong}` : ""}
+            </span>
           </div>
           <div className="cdv2-acts">{hanhDong}</div>
         </div>

@@ -42,6 +42,7 @@ export interface DauVaoBuocQuyTrinh {
   // false = API app Dat mua LK / App Bao hanh doi tra dang tai hoac loi -> KHONG ket luan "bo qua" (thieu du lieu != khong co).
   daTaiLk?: boolean;
   daTaiSc?: boolean;
+  nowMs?: number;
 }
 
 export interface KetQuaBuocQuyTrinh {
@@ -49,6 +50,11 @@ export interface KetQuaBuocQuyTrinh {
   buocHienTai: BuocQuyTrinh | null; // buoc "dang" dau tien (uu tien nhom 1-6)
   soXong: number;
   daDongCa: boolean;
+  // Dung chung v1 + v2 (cung 1 cau, cung so lieu):
+  choMs: number | null; // da cho o buoc hien tai bao lau (tu moc cua buoc / moc gan nhat truoc no)
+  tongMs: number | null; // ca da dong: tu khoi tao toi dong ca; ca mo: tu khoi tao toi nay
+  tomTat: string; // "Đang ở bước 3 · Đặt linh kiện — chờ 2 ngày" / "Ca đã đóng — 5/8 bước có dữ liệu."
+  tomTatTong: string; // "Tổng thời gian xử lý 3 ngày" / "Đã mở 17 ngày"
 }
 
 /** "YYYY-MM-DD HH:MM:SS" (gio VN) hoac ISO 8601 -> ms. Chuoi rong / sai -> null. */
@@ -101,9 +107,13 @@ export const DINH_NGHIA_BUOC: { so: BuocQuyTrinh["so"]; ten: string; tenNgan: st
   { so: 4, ten: tr("Mua hàng"), tenNgan: tr("Mua hàng"), ai: tr("Mua hàng / Kho") },
   { so: 5, ten: tr("Giao LK cho KTV"), tenNgan: tr("Giao LK"), ai: tr("Kho") },
   { so: 6, ten: tr("Đóng ca"), tenNgan: tr("Đóng ca"), ai: tr("KTV / Trạm") },
-  { so: 7, ten: tr("Trả xác 3T"), tenNgan: tr("Trả xác"), ai: "KTV" },
-  { so: 8, ten: tr("Xác nhận xác"), tenNgan: tr("XN xác"), ai: tr("Kho / Admin BH") },
+  { so: 7, ten: tr("Trả xác 3T"), tenNgan: tr("Trả xác"), ai: tr("KTV / Admin BH") },
+  { so: 8, ten: tr("Xác nhận xác"), tenNgan: tr("XN xác"), ai: tr("Admin BH / Kế toán") },
 ];
+
+function daTaiScSom(dv: DauVaoBuocQuyTrinh): boolean {
+  return dv.daTaiSc !== false;
+}
 
 export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
   const c = dv.ca;
@@ -178,17 +188,46 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
   dat(6, { luc: c?.thoi_gian_hoan_thanh ?? null, ms: lucToMs(c?.thoi_gian_hoan_thanh) }, c?.ky_thuat_vien ?? null);
   if (c?.tien_do_hoan_thanh) b(6).chiSo.push(c.tien_do_hoan_thanh);
 
-  // 7-8. Tra xac / xac nhan xac - App Bao hanh doi tra 3T (phieu gui: KTV gui -> kho nhan -> admin BH nhan).
-  const phieu = dv.scDon.map((d) => d.phieu_gui).filter((p): p is NonNullable<typeof p> => !!p);
-  if (dv.scDon.length) {
-    const gui = minLuc(phieu.map((p) => p.gui_xe_luc ?? p.tao_luc).concat(phieu.length ? [] : dv.scDon.map((d) => d.tao_luc)));
-    dat(7, gui, phieu[0]?.ktv ?? null);
-    b(7).chiSo.push(tr("{0} đơn gửi", dv.scDon.length));
-    const nhan = maxLuc(phieu.map((p) => p.admin_nhan_luc ?? p.kho_nhan_luc));
-    const tatCaDaNhan = phieu.length > 0 && phieu.every((p) => p.admin_nhan_luc || p.kho_nhan_luc);
-    if (tatCaDaNhan) dat(8, nhan, phieu.find((p) => p.admin_nhan)?.admin_nhan ?? phieu.find((p) => p.kho_nhan)?.kho_nhan ?? null);
-    const xuLy = [...new Set(dv.scDon.flatMap((d) => d.don_vi.map((u) => u.huong_xu_ly_label ?? u.xu_ly_xac)).filter((x): x is string => !!x))];
-    if (xuLy.length) b(8).chiSo.push(xuLy.join(", "));
+  // 7-8. Tien do TRA XAC linh kien - App Bao hanh doi tra 3T (chot 2026-11-27):
+  //   chua gui BH -> "Chua co linh kien bao hanh gui nen chua co xac"; co LK gui ve doi tra -> buoc 7 "Cho xu ly xac";
+  //   7 xong khi moi xac da co ket qua (vao thung tra xac / tieu huy / that lac / khong co / xu ly ngoai);
+  //   8 = thung tra xac doi tac (dang gom / cho ke toan -> ke toan duyet); xac ket thuc ngoai thung -> 8 bo qua.
+  if (daTaiScSom(dv)) {
+    const units = dv.scDon.flatMap((d) => d.don_vi);
+    if (!dv.scDon.length) {
+      for (const so of [7, 8]) b(so).ghiChu = tr("Chưa có linh kiện bảo hành gửi nên chưa có xác");
+    } else {
+      b(7).chiSo.push(tr("{0} đơn gửi BH", dv.scDon.length));
+      // Moc bat dau cho xu ly xac = luc tao don gui BH dau tien.
+      const guiDau = minLuc(dv.scDon.map((d) => d.phieu_gui?.tao_luc ?? d.tao_luc));
+      const coTruongXac = units.some((u) => u.xac);
+      const xacUnits = units.filter((u) => u.xac?.co_xac);
+      const daPhanLoaiHet = units.length > 0 && units.every((u) => !!u.huong_xu_ly);
+      if (coTruongXac && xacUnits.length === 0 && daPhanLoaiHet) {
+        const huong = [...new Set(units.map((u) => u.huong_xu_ly_label ?? u.huong_xu_ly).filter((x): x is string => !!x))].join(", ");
+        for (const so of [7, 8]) Object.assign(b(so), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: tr("Không có xác ({0})", huong) });
+      } else if (!xacUnits.length) {
+        Object.assign(b(7), { trangThai: "dang" as TrangThaiBuoc, ghiChu: tr("Chờ xử lý xác"), luc: guiDau.luc, lucMs: guiDau.ms });
+      } else {
+        const chuaXl = xacUnits.filter((u) => !u.xac?.tt);
+        const nhan = [...new Set(xacUnits.map((u) => u.xac!.tt_label))];
+        b(7).chiSo.push(tr("{0} xác", xacUnits.length), ...nhan);
+        if (chuaXl.length) {
+          Object.assign(b(7), { trangThai: "dang" as TrangThaiBuoc, ghiChu: tr("Chờ xử lý xác ({0}/{1})", chuaXl.length, xacUnits.length), luc: guiDau.luc, lucMs: guiDau.ms });
+        } else {
+          dat(7, maxLuc(xacUnits.map((u) => u.xac!.xl_luc ?? u.xac!.thung?.tao_luc ?? null)), tr("Admin BH"));
+          const trongThung = xacUnits.filter((u) => u.xac!.tt === "trong_thung" || u.xac!.tt === "da_tra");
+          if (!trongThung.length) {
+            Object.assign(b(8), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: nhan.join(", ") });
+          } else {
+            const thung = [...new Map(trongThung.map((u) => [u.xac!.thung?.id ?? "", u.xac!.thung])).values()].filter(Boolean);
+            for (const t of thung) b(8).chiSo.push([t!.id, t!.doi_tac, t!.trang_thai_label].filter(Boolean).join(" · "));
+            if (trongThung.every((u) => u.xac!.tt === "da_tra")) dat(8, maxLuc(thung.map((t) => t!.kt_luc)), tr("Kế toán"));
+            else Object.assign(b(8), { trangThai: "dang" as TrangThaiBuoc, ghiChu: tr("Chờ trả xác cho đối tác") });
+          }
+        }
+      }
+    }
   }
 
   // Ca khong dat linh kien: 3,4,5 bo qua khi ca da dong; 7,8 bo qua khi khong co don gui xac.
@@ -199,9 +238,6 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
   if (!daTaiSc) for (const so of [7, 8]) if (b(so).trangThai === "chua") b(so).ghiChu = tr("Chưa tải được dữ liệu");
   if (!orders.length && daDongCa && daTaiLk) {
     for (const so of [3, 4, 5]) if (b(so).trangThai === "chua") Object.assign(b(so), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: tr("Không đặt linh kiện") });
-  }
-  if (!orders.length && !dv.scDon.length && daDongCa && daTaiLk && daTaiSc) {
-    for (const so of [7, 8]) if (b(so).trangThai === "chua") Object.assign(b(so), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: tr("Không có xác") });
   }
   // Buoc 2 khong co du lieu hen nhung ca da sang buoc sau -> coi nhu bo qua (khong de "chua toi" mai).
   if (b(2).trangThai === "chua" && [3, 4, 5, 6].some((so) => b(so).trangThai === "xong")) {
@@ -219,7 +255,6 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
     }
   };
   if (!daDongCa) danhDang(1, 6);
-  else if ((orders.length || dv.scDon.length) && daTaiSc) danhDang(7, 8);
 
   // Khoang cach toi buoc truoc co moc.
   let truoc: number | null = null;
@@ -231,5 +266,24 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
   }
 
   const buocHienTai = ds.find((x) => x.trangThai === "dang") ?? null;
-  return { buoc: ds, buocHienTai, soXong: ds.filter((x) => x.trangThai === "xong").length, daDongCa };
+  const soXong = ds.filter((x) => x.trangThai === "xong").length;
+  const now = dv.nowMs ?? Date.now();
+  let choMs: number | null = null;
+  if (buocHienTai) {
+    const truocMs = ds.filter((x) => x.so < buocHienTai.so && x.lucMs !== null).map((x) => x.lucMs as number);
+    const tu = buocHienTai.lucMs ?? (truocMs.length ? Math.max(...truocMs) : null);
+    choMs = tu !== null && now >= tu ? now - tu : null;
+  }
+  const dau = ds[0].lucMs;
+  const cuoi = ds[5].lucMs ?? (daDongCa ? null : now);
+  const tongMs = dau !== null && cuoi !== null && cuoi >= dau ? cuoi - dau : null;
+  const tomTat = buocHienTai
+    ? choMs !== null
+      ? tr("Đang ở bước {0} · {1} — chờ {2}", buocHienTai.so, buocHienTai.ten, fmtKhoang(choMs))
+      : tr("Đang ở bước {0} · {1}", buocHienTai.so, buocHienTai.ten)
+    : daDongCa
+      ? tr("Ca đã đóng — {0}/8 bước có dữ liệu.", soXong)
+      : tr("{0}/8 bước có dữ liệu.", soXong);
+  const tomTatTong = tongMs === null ? "" : daDongCa ? tr("Tổng thời gian xử lý {0}", fmtKhoang(tongMs)) : tr("Đã mở {0}", fmtKhoang(tongMs));
+  return { buoc: ds, buocHienTai, soXong, daDongCa, choMs, tongMs, tomTat, tomTatTong };
 }

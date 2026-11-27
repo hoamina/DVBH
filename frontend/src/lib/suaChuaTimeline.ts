@@ -71,6 +71,28 @@ export interface SuaChuaDonVi {
   that_lac: boolean;
   cap_nhat: string | null;
   phieu_tra: SuaChuaPhieuTra | null;
+  // Tien do tra xac (suachua v1.169, 2026-11-27) - API cu khong co truong nay.
+  xac?: SuaChuaXac;
+}
+
+export interface SuaChuaXac {
+  co_xac: boolean;
+  xu_ly_xac: string | null;
+  // null = cho xu ly xac | trong_thung | da_tra | ngoai | tieu_huy | that_lac | khong_co
+  tt: string | null;
+  tt_label: string;
+  xl_luc: string | null;
+  xl_ghi_chu: string | null;
+  thung: {
+    id: string;
+    trang_thai: string; // nhap | cho_ke_toan | da_duyet
+    trang_thai_label: string | null;
+    doi_tac: string | null;
+    ma_eo: string | null;
+    tao_luc: string | null;
+    gui_kt_luc: string | null;
+    kt_luc: string | null;
+  } | null;
 }
 
 export interface SuaChuaLog {

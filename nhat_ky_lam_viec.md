@@ -6656,3 +6656,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   tab Tiến trình chung v1 có luồng 8 bước + nhãn B1/B6; không lỗi console. Chưa kiểm với dữ liệu thật của app LK / Bảo hành (local không kết nối được).
 - Còn dở: SLA từng bước, mã lỗi theo bước, Quản lý tồn theo bước (chờ Giám đốc chốt).
 
+## 2026-11-27 (10) — v1.674: Bước 7–8 = tiến độ trả xác (App Bảo hành đổi trả v1.169) · v1 = v2 cùng thông tin
+
+- Yêu cầu (nguyên văn): "1. 2 phiên bản chỉ là giao diện khác nhau, thông tin vẫn giống nhau 2. Bước 7 và 8 là tiến độ trả xác linh kiện từ app đổi trả bảo hành.
+  (trường hợp có gửi bh mới có trả xác - chưa có thì hiện chưa có linh kiện bảo hành gửi nên chưa có xác - nếu có link kiện gửi về đổi trả thì mới chuyển sang
+  dạng trạng thái chờ xử lý xác."
+- App Bảo hành đổi trả (repo `gui-bao-hanh-linh-kien`, v1.169, đã deploy): API `case-timeline` trả thêm khối `xac` mỗi đơn vị (trạng thái xác + thùng trả xác TX-).
+- DVBH: `lib/buocQuyTrinh.ts` viết lại bước 7–8 theo luật trên; câu tóm tắt (bước đang xử lý, chờ bao lâu, x/8 xong, tổng thời gian) chuyển vào bộ tính, v1
+  (`LuongTamBuoc`) và v2 hiện cùng câu; ô bước v1 hiện ghi chú ở mọi trạng thái.
+- Kiểm thử: typecheck + build; chạy bộ tính với 7 bộ dữ liệu giả (chưa gửi BH / gửi chưa phân loại / hướng sửa chữa / chờ xử lý xác / trong thùng chờ KT / KT đã
+  duyệt / tiêu huỷ) → đúng luật. Chưa kiểm với ca thật trên production.
+- Còn dở: xác sửa chữa (`de_xuat_linh_kien_bh`) chưa đưa vào bước 7–8.
+

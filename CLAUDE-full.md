@@ -719,4 +719,8 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 - v1: `components/LuongTamBuoc.tsx` (horizontal 8-step line + "Xem chi tiết") at the top of `TienTrinhChung` (prop `quyTrinh`), events carry `buocQt`
   ("B3 Đặt LK"…), plus Odoo appointment events (B2) and suachua phieu-gui milestones when the suachua flow lacks them.
 - Built with 2 parallel sessions (v1 Tiến trình chung on branch `claude/v1-tien-trinh-8-buoc-176db3`, read-only inventory `docs/kiem-ke-chi-tiet-ca-v1-v2.md`).
+- v1.674: steps 7–8 = part-return ("xác") progress from suachua v1.169 field `don_vi[].xac` (`SuaChuaXac` in `lib/suaChuaTimeline.ts`): no shipment →
+  both "chua" with note "Chưa có linh kiện bảo hành gửi nên chưa có xác"; shipment without xác yet → 7 "dang" (luc = first shipment tao_luc); all xác have `tt` →
+  7 "xong" (max `xl_luc`); 8 from box (`thung.trang_thai` / `kt_luc`), ended outside box → 8 "bo_qua". Old API without `xac` → 7 "dang". `KetQuaBuocQuyTrinh`
+  now carries `choMs`, `tongMs`, `tomTat`, `tomTatTong` shown identically by v2 (`ChiTietCaV2`) and v1 (`LuongTamBuoc`); v1 tiles show `ghiChu` for any state.
 

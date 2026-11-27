@@ -122,9 +122,12 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 - **Chi tiết ca — 2 giao diện (v1.673)**: **v2 "8 bước quy trình" là mặc định**, nút **v1 | v2** trên thanh tiêu đề popup, lựa chọn lưu riêng từng máy
   (localStorage `case-detail-ui`). 8 bước: 1 Khởi tạo (giờ CSKH tiếp nhận) · 2 Xác nhận lịch hẹn (lần hẹn Odoo đầu tiên; không có thì "thời gian hẹn
   xử lý") · 3 Đặt linh kiện (đơn đầu tiên app Đặt mua LK) · 4 Mua hàng (yêu cầu thiếu LK / PO; xong khi mọi yêu cầu có ngày hàng về; có đơn LK mà
-  không thiếu = bỏ qua "Kho có sẵn") · 5 Giao LK cho KTV (phiếu xuất kho) · 6 Đóng ca (thời gian hoàn thành) · 7 Trả xác 3T (phiếu gửi của App Bảo
-  hành đổi trả: giờ gửi xe, không có thì giờ tạo) · 8 Xác nhận xác (kho / admin BH nhận đủ mọi phiếu gửi). Ca đã đóng không có đơn LK → bỏ qua 3–5;
-  không có cả đơn LK lẫn đơn gửi → bỏ qua 7–8; app LK / Bảo hành chưa tải được → ghi "Chưa tải được dữ liệu", KHÔNG kết luận bỏ qua. Bước "đang xử
+  không thiếu = bỏ qua "Kho có sẵn") · 5 Giao LK cho KTV (phiếu xuất kho) · 6 Đóng ca (thời gian hoàn thành) · 7–8 = **tiến độ trả xác linh kiện** từ App Bảo hành đổi trả
+  (v1.674): chưa có đơn gửi BH → cả 2 bước ghi "Chưa có linh kiện bảo hành gửi nên chưa có xác"; có LK gửi về đổi trả → bước 7 "Chờ xử lý xác" (tính từ lúc tạo
+  đơn gửi) tới khi mọi xác có kết quả (vào thùng trả xác / tiêu huỷ / thất lạc / không có xác / xử lý ngoài) → 7 xong; bước 8 theo thùng trả xác TX- (đang
+  gom / chờ kế toán = "Chờ trả xác cho đối tác", kế toán duyệt hết = xong); xác kết thúc ngoài thùng → 8 bỏ qua; đơn đã phân loại mà hướng không có xác
+  (sửa chữa, trả lại KTV…) → 7–8 bỏ qua "Không có xác". Ca đã đóng không có đơn LK → bỏ qua 3–5; app LK / Bảo hành chưa tải được → "Chưa tải được dữ liệu",
+  KHÔNG kết luận bỏ qua. v1 và v2 hiện CÙNG thông tin (cùng bộ tính, cùng câu tóm tắt "Đang ở bước … — chờ …", x/8 xong, tổng thời gian) — chỉ khác cách trình bày. Bước "đang xử
   lý" = bước chưa xong đầu tiên (1–6 khi ca mở; 7–8 sau khi đóng). Chỉ HIỂN THỊ: chưa có SLA từng bước, chưa có mã lỗi theo bước. Bộ tính dùng
   chung `lib/buocQuyTrinh.ts`; nội dung từng bước v2 là nguyên khối của v1 (không đổi quyền / thao tác); khoá tab cũ (module ngoài mở ca
   thẳng 1 tab, chip "nhảy tab") được chuyển tới đúng bước / mục ngoài 8 bước. v1: đầu tab Tiến trình chung có luồng ngang 8 bước + "Xem chi

@@ -517,5 +517,9 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   ≥ 960px 8 ô thẳng hàng + 3 cột thẻ; hẹp hơn cuộn ngang + 2 / 1 cột.
 - Ánh xạ nội dung v1 → bước: Thông tin case + Xin hủy → 1 · Lịch hẹn → 2 · Mua hàng (đơn LK) + Lỗi LK → 3 · Thiếu hàng + PO → 4 · Phiếu xuất kho → 5 ·
   GT tồn + Biên bản họp + QC thực tế → 6 · Bảo hành (App Bảo hành đổi trả) → 7, 8 · Gửi BH (Odoo) → 8.
+- v1.674 (nguyên văn): "1. 2 phiên bản chỉ là giao diện khác nhau, thông tin vẫn giống nhau 2. Bước 7 và 8 là tiến độ trả xác linh kiện từ app đổi trả bảo hành.
+  (trường hợp có gửi bh mới có trả xác - chưa có thì hiện chưa có linh kiện bảo hành gửi nên chưa có xác - nếu có link kiện gửi về đổi trả thì mới chuyển sang
+  dạng trạng thái chờ xử lý xác." → v1 / v2 dùng chung bộ tính + câu tóm tắt; bước 7 = xử lý xác (chờ xử lý xác → có kết quả), bước 8 = thùng trả xác
+  đối tác (chờ kế toán → kế toán duyệt), xem TONG_HOP_LOGIC.
 - Giai đoạn sau (chưa làm, chờ Giám đốc chốt): SLA từng bước, mã lỗi theo bước, Quản lý tồn theo bước.
 

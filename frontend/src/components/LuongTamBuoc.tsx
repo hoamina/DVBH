@@ -81,11 +81,13 @@ export function LuongTamBuoc({ kq }: { kq: KetQuaBuocQuyTrinh }) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">{tr("Quy trình 8 bước")}</span>
         <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--ink-600)]">{tr("{0}/8 xong", kq.soXong)}</span>
-        {ht && (
-          <span className="rounded-full bg-[var(--amber-100)] px-2 py-0.5 text-[11px] font-semibold text-[var(--amber-700)]">
-            {tr("Đang ở: B{0} {1}", ht.so, ht.tenNgan)}
-          </span>
-        )}
+        {/* Cung cau tom tat voi giao dien v2 (kq.tomTat / kq.tomTatTong tinh o lib/buocQuyTrinh.ts). */}
+        <span
+          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${ht ? "bg-[var(--amber-100)] text-[var(--amber-700)]" : "bg-white text-[var(--ink-600)]"}`}
+        >
+          {kq.tomTat}
+        </span>
+        {kq.tomTatTong && <span className="text-[11px] text-[var(--ink-500)]">{kq.tomTatTong}</span>}
         <button
           type="button"
           onClick={() => setMo((v) => !v)}
@@ -107,7 +109,7 @@ export function LuongTamBuoc({ kq }: { kq: KetQuaBuocQuyTrinh }) {
             </span>
             {b.lucMs !== null ? (
               <span className={`text-[11px] leading-tight tabular-nums ${b.trangThai === "dang" ? "font-semibold text-[var(--amber-600)]" : "text-[var(--ink-500)]"}`}>{gioNganBuoc(b.lucMs)}</span>
-            ) : b.trangThai === "bo_qua" && b.ghiChu ? (
+            ) : b.ghiChu ? (
               <span className="text-[10.5px] leading-tight italic text-[var(--ink-400)]">{b.ghiChu}</span>
             ) : null}
             {b.cachTruocMs !== null && <span className="text-[10.5px] leading-tight tabular-nums text-[var(--ink-400)]">+{fmtKhoang(b.cachTruocMs)}</span>}
