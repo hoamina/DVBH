@@ -234,7 +234,8 @@ export const THEME_PRESETS: ThemePresetDef[] = [
   },
 ];
 
-export const DEFAULT_THEME: ThemeConfig = { preset: "ocean" };
+// Tu v1.672 mac dinh = "apple" (may chua tung luu giao dien). May da luu gam khac giu nguyen lua chon cua ho.
+export const DEFAULT_THEME: ThemeConfig = { preset: "apple" };
 
 export function resolveThemeColors(config: ThemeConfig | null | undefined): ThemeCustomColors {
   if (!config) return THEME_PRESETS[0].colors;

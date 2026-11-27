@@ -6635,3 +6635,10 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: typecheck + build; chạy local (dev-login) chọn gam Apple: Tổng quát, Quản lý tồn ở 1280px và 375px — menu sáng, thẻ bóng mềm, font hệ thống,
   không lỗi console; gam khác không có `data-ui-style`.
 - Còn dở: chưa đặt Apple làm mặc định (chờ chủ hệ thống quyết).
+
+## 2026-11-27 (8) — v1.672: Gam "Apple" thành giao diện mặc định
+
+- Yêu cầu (nguyên văn): "Đặt làm mặc định".
+- Đã làm: `localThemeConfig.ts` `DEFAULT_LOCAL_THEME_CONFIG` và `presets.ts` `DEFAULT_THEME` đổi "ocean" → "apple". Máy chưa từng lưu giao diện tự
+  mở gam Apple; máy đã lưu (kể cả "Đại dương") giữ nguyên lựa chọn — muốn đổi thì vào Cài đặt cá nhân → Giao diện chọn "Apple".
+- Kiểm thử: typecheck; local xoá `theme-config` rồi tải lại → `data-ui-style="apple"`, nền #f5f5f7, màn Quản lý tồn đúng kiểu.

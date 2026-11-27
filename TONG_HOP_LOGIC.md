@@ -177,7 +177,8 @@ App Đặt linh kiện (tra ca cho đơn, tồn kho, lịch sử LK, đơn theo 
 Mọi thời gian lưu giờ Việt Nam (`nowVN()`), không dựa vào DEFAULT UTC của schema. D1: ≤ 100 tham số / câu, ≤ 100 cột / bảng, tính phí theo
 dòng quét — giữ ngân sách đọc (`KE_HOACH_TOI_UU_D1.md`).
 
-**Giao diện (gam màu + phông chữ)** là tuỳ chọn riêng từng máy (localStorage `theme-config`, Cài đặt cá nhân → Giao diện), mặc định "Đại dương".
+**Giao diện (gam màu + phông chữ)** là tuỳ chọn riêng từng máy (localStorage `theme-config`, Cài đặt cá nhân → Giao diện), mặc định **"Apple"** từ v1.672
+(máy đã từng lưu gam khác giữ nguyên lựa chọn; trước đó mặc định "Đại dương").
 Gam **Apple** (v1.671, phong cách sếp chọn — skill `giao-dien-apple`): ngoài màu còn bật lớp kiểu dáng `html[data-ui-style="apple"]` trong
 `tokens.css` — bảng màu iOS, phông hệ thống kiểu San Francisco (chỉ khi đang để phông mặc định Inter), thẻ trắng bỏ viền thay bằng bóng mềm,
 bo góc lớn hơn, nút chính viên thuốc, thanh trên kính mờ, menu bên sáng. Vòng viền tím của ô nhập giữ nguyên. Gam khác không bị ảnh hưởng.

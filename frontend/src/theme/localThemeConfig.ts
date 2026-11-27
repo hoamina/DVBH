@@ -11,9 +11,9 @@ import { DEFAULT_FONT, type ThemeConfig } from "./presets";
  */
 const STORAGE_KEY = "theme-config";
 
-// Mac dinh: gam mau "ocean" (giao dien goc) + phong chu mac dinh, KHONG con o che do ngau nhien -
+// Mac dinh: gam mau "apple" (phong cach sep chon, tu v1.672 - truoc la "ocean") + phong chu mac dinh, KHONG con o che do ngau nhien -
 // ai muon ngau nhien thi tu vao "Cai dat ca nhan" bat lai (xem ThemeSettingsPanel.tsx).
-export const DEFAULT_LOCAL_THEME_CONFIG: ThemeConfig = { preset: "ocean", font: DEFAULT_FONT };
+export const DEFAULT_LOCAL_THEME_CONFIG: ThemeConfig = { preset: "apple", font: DEFAULT_FONT };
 
 export function loadLocalThemeConfig(): ThemeConfig {
   if (typeof window === "undefined") return DEFAULT_LOCAL_THEME_CONFIG;
