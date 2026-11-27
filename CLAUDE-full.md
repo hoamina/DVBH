@@ -606,6 +606,12 @@ TABLE`, fails with "already exists") — confirmed by hitting exactly this in pr
   redirects the whole page to `/api/auth/login` (session cookie expired), everything else surfaces
   as `ApiError` with the backend's `{error, message}` body.
 - `theme/` — user-customizable theme (colors/fonts), separate from role-based module access.
+  Preset **"apple"** (v1.671, 2026-11-27, boss-approved style, skill `giao-dien-apple`): `ThemeCustomColors.uiStyle = "apple"` makes
+  `applyThemeColors()` set `html[data-ui-style="apple"]` (removed for every other preset); `applyFont()` sets `html[data-font]`
+  (`customFont.ts` sets "custom"). The style layer lives at the end of `styles/tokens.css`: iOS palette vars, SF font stack only when
+  `data-font="inter"`, `.rounded-lg/xl/2xl` → 12/16/20px, white `.rounded-xl|2xl.border` cards → transparent border + soft shadow,
+  primary `button.bg-[var(--ocean-500|600)]` → pill, `header.bg-[var(--topbar-bg)]` → frosted glass. Light sidebar comes from
+  `sidebarFrom/To` (#f6f6f8/#ececf0) → `deriveSidebarInk` switches to dark ink. Input violet ring rule untouched. Default preset still "ocean".
 - `lib/closedDataCache.ts` — client-side IndexedDB cache paired with the R2 day-chunk system above;
   compares content hash from the manifest before re-fetching a day's chunk from R2.
 - `i18n/` — UI language VI/EN/ID (i18next + react-i18next, 2026-10-28). Stored per account in

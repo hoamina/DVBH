@@ -52,6 +52,7 @@ export async function applyCustomFontFromCache(): Promise<boolean> {
     await face.load();
     document.fonts.add(face);
     document.documentElement.style.setProperty("--font-body", `"${CUSTOM_FONT_FAMILY}", "Inter", ui-sans-serif, system-ui, sans-serif`);
+    document.documentElement.dataset.font = "custom";
     return true;
   } catch {
     return false;

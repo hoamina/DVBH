@@ -6620,3 +6620,18 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: typecheck backend + build; câu SQL ứng viên thử trên SQLite trong bộ nhớ (ca mở 10:00 hôm qua đang tồn → vào; mở 13:00 / đã hoàn thành /
   không VIP / mở hôm kia → loại; ca có giải trình sau mốc chốt → vào và tính đã giải trình). Chưa chạy thật trên production (chờ 12:00 / 13:30 ngày mai). v1.670: giới hạn chạy bù trong 14:00–17:00 (deploy v1.669 sau 13:30 hôm nay).
 
+
+## 2026-11-27 (7) — v1.671: Gam giao diện "Apple" (phong cách sếp chọn)
+
+- Yêu cầu (nguyên văn): "phân tích phong cách giao diện này, đây là phong cách giao diện sếp tôi thích. chúng ta cần áp dụng nó thanh skill và áp dụng
+  cho các yêu cầu giao diện từ bây giờ" (mẫu `chi-tiet-ca-8-buoc_v5_apple.html`) → "Thêm preset Apple".
+- Đã làm:
+  - Skill toàn cục `giao-dien-apple` (ngoài repo) + luật trong CLAUDE.md toàn cục: mọi yêu cầu giao diện từ nay theo phong cách này.
+  - `theme/presets.ts`: thêm preset `apple` (nút #0071e3, nền #f5f5f7, menu bên sáng) + trường `uiStyle`; `applyThemeColors` gắn / gỡ
+    `html[data-ui-style]`; `applyFont` gắn `html[data-font]` (`lib/customFont.ts` gắn "custom").
+  - `styles/tokens.css`: lớp kiểu dáng Apple (bảng màu iOS, phông San Francisco khi để phông mặc định, thẻ không viền + bóng mềm, bo góc lớn,
+    nút chính viên thuốc, thanh trên kính mờ). Mặc định toàn hệ thống vẫn "Đại dương" — người dùng tự chọn Apple ở Cài đặt cá nhân → Giao diện.
+  - Kèm commit riêng v1.670 (chạy bù VIP 14:00–17:00) của phiên trước còn nằm chưa commit.
+- Kiểm thử: typecheck + build; chạy local (dev-login) chọn gam Apple: Tổng quát, Quản lý tồn ở 1280px và 375px — menu sáng, thẻ bóng mềm, font hệ thống,
+  không lỗi console; gam khác không có `data-ui-style`.
+- Còn dở: chưa đặt Apple làm mặc định (chờ chủ hệ thống quyết).

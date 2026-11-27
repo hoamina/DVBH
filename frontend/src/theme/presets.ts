@@ -1,6 +1,7 @@
 import { tr } from "../i18n/tr";
 export type ThemePresetKey =
   | "ocean"
+  | "apple"
   | "emerald"
   | "sunset"
   | "violet"
@@ -30,6 +31,9 @@ export interface ThemeCustomColors {
   ink: string;
   sidebarFrom: string;
   sidebarTo: string;
+  // Lop kieu dang di kem bang mau (bo goc, bong, font, kinh mo...) - xem tokens.css muc
+  // html[data-ui-style="apple"]. Chi preset co khai bao moi co; "custom"/preset thuong = khong.
+  uiStyle?: "apple";
 }
 
 export type FontKey =
@@ -91,6 +95,8 @@ export const DEFAULT_FONT: Exclude<FontKey, "random"> = "inter";
 export function applyFont(key: FontKey | null | undefined) {
   const opt = FONT_OPTIONS.find((f) => f.key === key) ?? FONT_OPTIONS[0];
   document.documentElement.style.setProperty("--font-body", opt.stack);
+  // Preset Apple + font mac dinh (Inter) -> tokens.css doi sang font he thong kieu San Francisco; chon font khac thi giu font do.
+  document.documentElement.dataset.font = opt.key;
 }
 
 export interface ThemeConfig {
@@ -118,6 +124,16 @@ export const THEME_PRESETS: ThemePresetDef[] = [
     colors: {
       accent: "#1591c9", accentDark: "#1176a6", accentTint: "#ddf1fb", bg: "#f2f6f9", surface: "#ffffff", topbar: "#ffffff", line: "#e1eaf0", ink: "#0f2536",
       sidebarFrom: "#052033", sidebarTo: "#06304a",
+    },
+  },
+  {
+    // Phong cach Apple sep chon 2026-11-27 (mau chi-tiet-ca-8-buoc v5, skill giao-dien-apple): nen xam #f5f5f7, nut xanh
+    // he thong #0071e3, menu ben SANG (chu toi tu deriveSidebarInk), kem lop kieu dang uiStyle "apple" trong tokens.css.
+    key: "apple",
+    label: "Apple",
+    colors: {
+      accent: "#0a84ff", accentDark: "#0071e3", accentTint: "#e8f1fc", bg: "#f5f5f7", surface: "#ffffff", topbar: "#fbfbfd", line: "#e8e8ed", ink: "#1d1d1f",
+      sidebarFrom: "#f6f6f8", sidebarTo: "#ececf0", uiStyle: "apple",
     },
   },
   {
@@ -321,4 +337,6 @@ export function applyThemeColors(colors: ThemeCustomColors) {
   root.setProperty("--sidebar-ink-mid", ink.sidebarInkMid);
   root.setProperty("--sidebar-ink-dim", ink.sidebarInkDim);
   root.setProperty("--sidebar-highlight", ink.sidebarHighlight);
+  if (colors.uiStyle) document.documentElement.dataset.uiStyle = colors.uiStyle;
+  else delete document.documentElement.dataset.uiStyle;
 }
