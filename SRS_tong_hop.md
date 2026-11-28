@@ -531,5 +531,10 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   đối tác (chờ kế toán → kế toán duyệt), xem TONG_HOP_LOGIC.
 - v1.676 (nguyên văn): "\"Trả xác\" tích hợp chính là đơn gửi đổi trả (bước 7) - bước 8 là xác nhận trả xác thành công (hoặc tiến độ trả xác)" →
   bước 7 = đơn gửi đổi trả tới Admin BH nhận; bước 8 = tiến độ trả xác tới kế toán duyệt thùng (xem TONG_HOP_LOGIC).
+- v1.678 (nguyên văn): "1. bản v2 đang bị hiện lặp 2 lần luồng quy trình này, bên trên có, bên dưới lại hiện lại 2. Hoàn thiện lại giao diện UI chi tiết
+  cho bản mobile" → v2: tab "Tiến trình chung" (Thông tin ngoài 8 bước) KHÔNG hiện lại luồng 8 bước (v1 vẫn giữ ở đầu tab). Điện thoại / popup hẹp
+  (≤ 700px): tiêu đề + nút đóng 1 dòng; thông tin ca dạng danh sách iOS (nhãn trái – giá trị phải); dải 8 ô nhỏ cuộn ngang, tự cuộn tới bước đang
+  xử lý; thẻ bước chưa tới thu gọn; nút "+ Thêm giải trình" / "+ Tạo vi phạm thủ công" ghim thanh kính mờ dưới đáy; mọi popup (Modal dùng chung) mở dạng
+  bottom-sheet trên điện thoại (< 640px).
 - Giai đoạn sau (chưa làm, chờ Giám đốc chốt): SLA từng bước, mã lỗi theo bước, Quản lý tồn theo bước.
 

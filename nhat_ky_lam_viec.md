@@ -6699,3 +6699,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: typecheck backend + frontend, `npm run build`, i18n (11 câu mới đủ bản dịch). Chưa thử trên trình duyệt với ca thật (local không có đăng nhập +
   khoá API app linh kiện) — cần thử trên production sau deploy.
 - Không đụng: import CSV giải trình cũ, đồng bộ ETX, log tự động (không áp luật DDH-).
+
+## 2026-11-28 (3) — v1.678: v2 bỏ luồng 8 bước lặp · hoàn thiện chi tiết ca trên điện thoại
+
+- Yêu cầu (nguyên văn): "1. bản v2 đang bị hiện lặp 2 lần luồng quy trình này, bên trên có, bên dưới lại hiện lại 2. Hoàn thiện lại giao diện UI chi tiết cho bản mobile".
+- Đã làm: (1) v2 — tab "Tiến trình chung" trong "Thông tin ngoài 8 bước" không vẽ lại luồng 8 bước (dải 8 ô + thẻ bước ở trên đã có); khung "Luồng xử lý ca"
+  giữ nguyên; v1 không đổi. (2) Điện thoại / popup hẹp ≤ 700px: tiêu đề + v1/v2 + nút đóng cùng 1 dòng; thông tin ca dạng danh sách iOS; dải 8 ô gọn (84px)
+  tự cuộn ngang tới bước đang xử lý; thẻ bước "Chưa tới" thu gọn; nút thao tác chính ghim thanh kính mờ dưới đáy; popup (Modal dùng chung, vd form giải trình)
+  thành bottom-sheet; nút "Gửi giải trình" không xuống dòng.
+- Kiểm thử: typecheck + build; chạy local (dev-login) ca 1078080 ở 390×600 và 375×812: header 1 dòng, thanh nút đáy ghim đúng đáy, form giải trình bottom-sheet,
+  tab Tiến trình chung không còn "Quy trình 8 bước"; 1440×900 Mở rộng: không có thanh đáy, nút vẫn trong thẻ tóm tắt.

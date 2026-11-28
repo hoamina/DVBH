@@ -3030,7 +3030,9 @@ export function CaseDetail({
   };
   const TAB_PHU_V2 = new Set(["tien-trinh-chung", "nskx", "vi-pham", "khao-sat", "ca-lap", "nap-gas", "tranh-chap", "luong-mail"]);
   const noiDungTabPhuV2 = (key: string) => {
-    if (key === "tien-trinh-chung") return tienTrinhChungContent;
+    // v2 da co dai 8 buoc + luoi the buoc o tren -> tab Tien trinh chung KHONG lap lai luong 8 buoc (2026-11-28, chu he thong).
+    if (key === "tien-trinh-chung")
+      return <TienTrinhChung events={tienTrinhChungEvents} luongTong={luongTongCa} summaryItems={summaryItems} personDir={personDir} onJump={jumpToTab} />;
     if (key === "nskx") return laCaNskx && c ? <NskxPanel caseId={c.id} linhKienLoi={c.linh_kien_loi} /> : null;
     if (key === "vi-pham") return viPhamContent;
     if (key === "khao-sat") return khaoSatContent;
@@ -3063,7 +3065,8 @@ export function CaseDetail({
   // nut dong bo") chi hien khi "expanded" (khoang trong giua tieu de va nut dong/mo rong o ban
   // nay rat rong, con "compact" da co CacheBanner day du trong noi dung nen khong lap lai o day).
   const headerBar = (
-    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--line)] shrink-0 flex-wrap">
+    // Dien thoai: cum nut phai (v1/v2 + dong) ghim goc tren phai -> tieu de + nut dong cung 1 dong (2026-11-28).
+    <div className="relative flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-[var(--line)] shrink-0 flex-wrap">
       <div className="flex items-center gap-2 min-w-0 flex-wrap">
         {canGoBack && (
           <>
@@ -3074,7 +3077,7 @@ export function CaseDetail({
             </Btn>
           </>
         )}
-        <h3 className="font-display font-bold text-[var(--ink-900)] truncate">{tr("Chi tiết ca")} {caseId}</h3>
+        <h3 className="font-display font-bold text-[var(--ink-900)] truncate max-md:w-full max-md:pr-[96px]">{tr("Chi tiết ca")} {caseId}</h3>
         {c && caseStatusBadge(c)}
         {c && mucDoBadge(c.muc_do)}
         {c && soLuongAnhBadge(c)}
@@ -3124,7 +3127,7 @@ export function CaseDetail({
         </div>
       )}
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 max-md:absolute max-md:top-2.5 max-md:right-3">
         {giaoDienToggle}
         {viewModeToggle}
         <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)] shrink-0">
@@ -3393,7 +3396,7 @@ export function CaseDetail({
               {missingRequired && <span className="text-xs text-[var(--ink-400)] mr-auto">{tr("Vui lòng điền đủ các trường bắt buộc (*).")}</span>}
               <Btn variant="ghost" type="button" onClick={() => setGiaiTrinhModalOpen(false)}>
                 {tr("Hủy")}</Btn>
-              <Btn disabled={submit.isPending || missingRequired}>{submit.isPending ? tr("Đang gửi…") : tr("Gửi giải trình")}</Btn>
+              <Btn className="whitespace-nowrap" disabled={submit.isPending || missingRequired}>{submit.isPending ? tr("Đang gửi…") : tr("Gửi giải trình")}</Btn>
             </div>
           </form>
         </Modal>

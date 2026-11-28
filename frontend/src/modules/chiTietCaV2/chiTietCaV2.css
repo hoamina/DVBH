@@ -553,3 +553,176 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Dien thoai (2026-11-28, chu he thong "hoan thien UI chi tiet cho ban mobile") ----------
+   Popup <= 700px: dai 8 o thu gon (cuon ngang, tu cuon toi buoc dang xu ly) · thong tin ca thanh grouped list iOS ·
+   nut thao tac ghim thanh kinh mo duoi day · the buoc "chua toi" thu gon · vung cham >= 40px. */
+.cdv2-bar {
+  display: none;
+}
+@container cdv2 (max-width: 700px) {
+  .cdv2 {
+    font-size: 15px;
+  }
+  .cdv2-card,
+  .cdv2-sc {
+    padding: 14px 14px 10px;
+    margin-bottom: 12px;
+  }
+  .cdv2-sum {
+    margin-bottom: 10px;
+  }
+  .cdv2-sum-t {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .cdv2-sum .cdv2-acts {
+    display: none;
+  }
+  /* grouped list iOS: nhan trai - gia tri phai */
+  .cdv2-meta {
+    grid-template-columns: 1fr;
+    gap: 0;
+    background: var(--surface-100);
+    border-radius: 14px;
+    padding: 2px 12px;
+    margin-bottom: 12px;
+  }
+  .cdv2-meta > div {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+  }
+  .cdv2-meta > div + div {
+    border-top: 1px solid #e5e5ea;
+  }
+  .cdv2-meta span {
+    flex: none;
+    font-size: 13px;
+  }
+  .cdv2-meta b {
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+    font-size: 13.5px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  /* dai 8 o gon */
+  .cdv2-strip {
+    gap: 6px;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+  }
+  .cdv2-tile {
+    flex: 0 0 84px;
+    padding: 10px 4px 8px;
+    gap: 3px;
+    border-radius: 14px;
+    scroll-snap-align: center;
+  }
+  .cdv2-tc {
+    width: 26px;
+    height: 26px;
+    font-size: 11.5px;
+  }
+  .cdv2-tn {
+    font-size: 12.5px;
+  }
+  .cdv2-td {
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .cdv2-ts {
+    font-size: 10.5px;
+  }
+  /* the buoc */
+  .cdv2-grid {
+    gap: 12px;
+  }
+  .cdv2-sc-h {
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: nowrap;
+  }
+  .cdv2-ic {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  .cdv2-ic svg {
+    width: 17px;
+    height: 17px;
+  }
+  .cdv2-sc-t {
+    font-size: 16px;
+    min-width: 0;
+  }
+  .cdv2-pill {
+    font-size: 12px;
+    padding: 3px 10px;
+    gap: 5px;
+  }
+  .cdv2-val {
+    font-size: 14.5px;
+  }
+  .cdv2-sc.chua .cdv2-pt {
+    display: none;
+  }
+  .cdv2-sc.chua .cdv2-sc-h,
+  .cdv2-sc.bo_qua .cdv2-sc-h {
+    margin-bottom: 4px;
+  }
+  .cdv2-sc-f .cdv2-muted {
+    display: none;
+  }
+  .cdv2-lnk {
+    min-height: 40px;
+    font-size: 14.5px;
+  }
+  .cdv2-cu {
+    display: none;
+  }
+  .cdv2-more {
+    overflow-x: auto;
+  }
+  .cdv2-otabs button {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+  /* thanh nut kinh mo ghim day */
+  .cdv2-bar {
+    display: flex;
+    gap: 8px;
+    position: sticky;
+    bottom: -12px;
+    z-index: 5;
+    margin: 4px -12px -12px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(246, 246, 248, 0.82);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.06);
+  }
+  .cdv2-bar > * {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+    font-size: 15px;
+  }
+}
+.cdv2-bar:empty {
+  display: none !important;
+}
+@container cdv2 (max-width: 700px) {
+  .cdv2-sc.chua .cdv2-sc-f,
+  .cdv2-sc.bo_qua .cdv2-sc-f {
+    padding-top: 0;
+  }
+  .cdv2-sc.chua .cdv2-skip,
+  .cdv2-sc.bo_qua .cdv2-skip {
+    margin: 0 0 2px 44px;
+    font-size: 13px;
+  }
+}

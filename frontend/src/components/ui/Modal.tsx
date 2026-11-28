@@ -30,8 +30,12 @@ export function Modal({
   useLockBodyScroll(open);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-2 sm:p-4">
-      <div className={`bg-[var(--surface)] rounded-2xl w-full ${width} ${height} overflow-hidden flex flex-col anim-in shadow-2xl`}>
+    // Dien thoai (<640px): bottom-sheet (bo tron 22px phia tren, thanh keo, chua vung an toan duoi) - skill giao-dien-apple 2026-11-28.
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-0 sm:p-4">
+      <div
+        className={`bg-[var(--surface)] rounded-t-[22px] rounded-b-none sm:rounded-2xl w-full ${width} ${height} max-sm:max-h-[92dvh] overflow-hidden flex flex-col anim-in shadow-2xl pb-[env(safe-area-inset-bottom)] sm:pb-0`}
+      >
+        <div className="sm:hidden mx-auto mt-2 h-[5px] w-9 rounded-full bg-black/15 shrink-0" aria-hidden="true" />
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 sm:py-4 border-b border-[var(--line)]">
           <h3 className="font-display font-bold text-[var(--ink-900)]">{title}</h3>
           <div className="flex items-center gap-2 shrink-0">

@@ -82,6 +82,7 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
   const [chonBuoc, setChonBuoc] = useState<number | null>(kq.buocHienTai?.so ?? null);
   const [hienTabTrong, setHienTabTrong] = useState(false);
   const theRefs = useRef<Record<number, HTMLElement | null>>({});
+  const stripRef = useRef<HTMLDivElement | null>(null);
   const phuRef = useRef<HTMLElement | null>(null);
 
   // Doi ca (popup mo ca khac) -> ve lai buoc hien tai, dong the dang mo.
@@ -89,6 +90,14 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
     setMoBuoc(null);
     setChonBuoc(kq.buocHienTai?.so ?? null);
   }, [c.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dien thoai (dai 8 o cuon ngang): cuon ngang toi o dang xu ly de nhin 1 giay biet ca dang o dau (chi cuon NGANG, khong keo trang).
+  useEffect(() => {
+    const strip = stripRef.current;
+    const o = strip?.querySelector<HTMLElement>(".cdv2-tile.dang");
+    if (!strip || !o || strip.scrollWidth <= strip.clientWidth) return;
+    strip.scrollLeft = o.offsetLeft - strip.offsetLeft - (strip.clientWidth - o.offsetWidth) / 2;
+  }, [c.id, kq.buocHienTai?.so]);
 
   const den = (so: number, mo: boolean) => {
     setChonBuoc(so);
@@ -139,7 +148,7 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
             <b>{[c.khu_vuc, c.doi_tac].filter(Boolean).join(" · ") || "—"}</b>
           </div>
         </div>
-        <div className="cdv2-strip" role="list">
+        <div className="cdv2-strip" role="list" ref={stripRef}>
           {kq.buoc.map((b) => (
             <button
               key={b.so}
@@ -265,6 +274,9 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
         </div>
         <div className="cdv2-phu">{noiDungTabPhu(tabPhuDangChon)}</div>
       </section>
+
+      {/* Dien thoai: nut thao tac chinh ghim thanh kinh mo duoi day (tren may tinh nut nam trong the tom tat). */}
+      <div className="cdv2-bar">{hanhDong}</div>
     </div>
   );
 }

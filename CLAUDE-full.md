@@ -736,4 +736,9 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 - v1.676 (2026-11-28): step 7 = return shipment (`phieu_gui`: done when every phieu has `admin_nhan_luc`; dang notes from gui_xe / kho_nhan; đơn without
   phieu counts as received once it has units); step 8 = xác progress, only after 7 is done (pending xác → "Chờ xử lý xác (n/m)", `trong_thung` → "Chờ trả xác
   cho đối tác", all final → xong: `da_tra` at thung `kt_luc` "Trả xác thành công", others at `xl_luc` with result label). No-xác hướng → 8 bo_qua.
+- v1.678 (2026-11-28): v2 side tab "Tiến trình chung" renders `<TienTrinhChung>` WITHOUT `quyTrinh` (`noiDungTabPhuV2`), so the 8-step line is not
+  shown twice; v1 keeps `tienTrinhChungContent` with it. Mobile: `chiTietCaV2.css` block `@container cdv2 (max-width: 700px)` (meta grouped list, 84px
+  tiles, compact `chua` cards, `.cdv2-bar` = sticky glass bottom bar rendering `hanhDong` a 2nd time while `.cdv2-sum .cdv2-acts` is hidden; `:empty` hides
+  it); strip auto-scrolls horizontally to `.cdv2-tile.dang` (scrollLeft only). Header: right controls `max-md:absolute` top-right, title `max-md:w-full`.
+  `components/ui/Modal.tsx`: < sm = bottom-sheet (items-end, rounded-t-[22px], grab bar, safe-area padding, max-h 92dvh) — app-wide.
 
