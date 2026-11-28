@@ -521,5 +521,7 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   (trường hợp có gửi bh mới có trả xác - chưa có thì hiện chưa có linh kiện bảo hành gửi nên chưa có xác - nếu có link kiện gửi về đổi trả thì mới chuyển sang
   dạng trạng thái chờ xử lý xác." → v1 / v2 dùng chung bộ tính + câu tóm tắt; bước 7 = xử lý xác (chờ xử lý xác → có kết quả), bước 8 = thùng trả xác
   đối tác (chờ kế toán → kế toán duyệt), xem TONG_HOP_LOGIC.
+- v1.676 (nguyên văn): "\"Trả xác\" tích hợp chính là đơn gửi đổi trả (bước 7) - bước 8 là xác nhận trả xác thành công (hoặc tiến độ trả xác)" →
+  bước 7 = đơn gửi đổi trả tới Admin BH nhận; bước 8 = tiến độ trả xác tới kế toán duyệt thùng (xem TONG_HOP_LOGIC).
 - Giai đoạn sau (chưa làm, chờ Giám đốc chốt): SLA từng bước, mã lỗi theo bước, Quản lý tồn theo bước.
 

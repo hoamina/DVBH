@@ -726,4 +726,7 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 - v1.675: steps 7–8 count repair xác too (`don_vi[].xac_sua_chua[]`, suachua v1.170) together with unit xác (SL summed); a repair unit not finished
   (no phieu_tra, trang_thai not `ket_thuc*`) keeps step 7 "dang" ("Đang sửa chữa — chờ xác định xác") instead of "no xác". Expanded popup (v1 and v2):
   outer wrapper has no padding, box `w-[98vw] h-[98dvh]` (was 95vw × 92vh for v1; v2 was clamped to ~97% by the outer `sm:p-6`).
+- v1.676 (2026-11-28): step 7 = return shipment (`phieu_gui`: done when every phieu has `admin_nhan_luc`; dang notes from gui_xe / kho_nhan; đơn without
+  phieu counts as received once it has units); step 8 = xác progress, only after 7 is done (pending xác → "Chờ xử lý xác (n/m)", `trong_thung` → "Chờ trả xác
+  cho đối tác", all final → xong: `da_tra` at thung `kt_luc` "Trả xác thành công", others at `xl_luc` with result label). No-xác hướng → 8 bo_qua.
 

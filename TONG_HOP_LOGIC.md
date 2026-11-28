@@ -122,11 +122,13 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
 - **Chi tiết ca — 2 giao diện (v1.673)**: **v2 "8 bước quy trình" là mặc định**, nút **v1 | v2** trên thanh tiêu đề popup, lựa chọn lưu riêng từng máy
   (localStorage `case-detail-ui`). 8 bước: 1 Khởi tạo (giờ CSKH tiếp nhận) · 2 Xác nhận lịch hẹn (lần hẹn Odoo đầu tiên; không có thì "thời gian hẹn
   xử lý") · 3 Đặt linh kiện (đơn đầu tiên app Đặt mua LK) · 4 Mua hàng (yêu cầu thiếu LK / PO; xong khi mọi yêu cầu có ngày hàng về; có đơn LK mà
-  không thiếu = bỏ qua "Kho có sẵn") · 5 Giao LK cho KTV (phiếu xuất kho) · 6 Đóng ca (thời gian hoàn thành) · 7–8 = **tiến độ trả xác linh kiện** từ App Bảo hành đổi trả
-  (v1.674): chưa có đơn gửi BH → cả 2 bước ghi "Chưa có linh kiện bảo hành gửi nên chưa có xác"; có LK gửi về đổi trả → bước 7 "Chờ xử lý xác" (tính từ lúc tạo
-  đơn gửi) tới khi mọi xác có kết quả (vào thùng trả xác / tiêu huỷ / thất lạc / không có xác / xử lý ngoài) → 7 xong; bước 8 theo thùng trả xác TX- (đang
-  gom / chờ kế toán = "Chờ trả xác cho đối tác", kế toán duyệt hết = xong); xác kết thúc ngoài thùng → 8 bỏ qua; đơn đã phân loại mà hướng không có xác
-  (sửa chữa, trả lại KTV…) → 7–8 bỏ qua "Không có xác". Ca đã đóng không có đơn LK → bỏ qua 3–5; app LK / Bảo hành chưa tải được → "Chưa tải được dữ liệu",
+  không thiếu = bỏ qua "Kho có sẵn") · 5 Giao LK cho KTV (phiếu xuất kho) · 6 Đóng ca (thời gian hoàn thành) · 7–8 lấy từ App Bảo hành đổi trả (chốt 2026-11-28, v1.676):
+  **7 Trả xác 3T = đơn gửi đổi trả** (KTV tạo đơn → gửi xe → Kho nhận → Admin BH nhận; đang = "Chờ KTV gửi" / "Đang gửi về kho" / "Kho đã nhận — chờ
+  Admin BH nhận", xong khi Admin BH nhận đủ mọi phiếu gửi); **8 Xác nhận xác = tiến độ trả xác** (chỉ bắt đầu khi bước 7 xong: "Chờ xử lý xác" → vào thùng
+  trả xác "Chờ trả xác cho đối tác" → kế toán duyệt thùng = xong "Trả xác thành công"; xác kết thúc ngoài thùng — tiêu huỷ / thất lạc / lưu kho / không có /
+  xử lý ngoài — cũng là xong, ghi kết quả). Chưa có đơn gửi BH → cả 2 bước "Chưa có linh kiện bảo hành gửi nên chưa có xác"; đơn đã phân loại mà hướng
+  không có xác → 8 bỏ qua "Không có xác". Xác = xác đơn vị Đổi mới / Trừ công nợ + xác linh kiện sau sửa chữa; đơn vị sửa chữa chưa xong → 8 "Đang sửa
+  chữa — chờ xác định xác". Ca đã đóng không có đơn LK → bỏ qua 3–5; app LK / Bảo hành chưa tải được → "Chưa tải được dữ liệu",
   KHÔNG kết luận bỏ qua. Xác gồm (v1.675) xác đơn vị Đổi mới / Trừ công nợ VÀ xác linh kiện sau sửa chữa (đề xuất cấp LK đã xuất); đơn vị sửa chữa
   chưa xong → bước 7 "Đang sửa chữa — chờ xác định xác". Popup chi tiết (Mở rộng) = 98% × 98% màn hình ở cả v1 và v2. v1 và v2 hiện CÙNG thông tin (cùng bộ tính, cùng câu tóm tắt "Đang ở bước … — chờ …", x/8 xong, tổng thời gian) — chỉ khác cách trình bày. Bước "đang xử
   lý" = bước chưa xong đầu tiên (1–6 khi ca mở; 7–8 sau khi đóng). Chỉ HIỂN THỊ: chưa có SLA từng bước, chưa có mã lỗi theo bước. Bộ tính dùng

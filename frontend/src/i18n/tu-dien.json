@@ -15052,5 +15052,11 @@
   "Chờ xử lý xác ({0}/{1})": ["Awaiting old-part handling ({0}/{1})","Menunggu penanganan part lama ({0}/{1})"],
   "Admin BH": ["Warranty admin","Admin garansi"],
   "Chờ trả xác cho đối tác": ["Awaiting return to partner","Menunggu pengembalian ke mitra"],
-  "Đang sửa chữa — chờ xác định xác": ["Under repair — old part not yet determined","Sedang diperbaiki — part lama belum ditentukan"]
+  "Đang sửa chữa — chờ xác định xác": ["Under repair — old part not yet determined","Sedang diperbaiki — part lama belum ditentukan"],
+  "KTV / Kho / Admin BH": ["Technician / Warehouse / Warranty admin","Teknisi / Gudang / Admin garansi"],
+  "Kho đã nhận — chờ Admin BH nhận": ["Warehouse received — awaiting warranty admin","Gudang sudah terima — menunggu admin garansi"],
+  "Đang gửi về kho": ["Shipping to warehouse","Sedang dikirim ke gudang"],
+  "Chờ KTV gửi": ["Awaiting technician shipment","Menunggu teknisi mengirim"],
+  "Chờ đơn gửi đổi trả về tới Admin BH": ["Awaiting return shipment to reach warranty admin","Menunggu kiriman retur sampai ke admin garansi"],
+  "Trả xác thành công": ["Old part returned successfully","Part lama berhasil dikembalikan"]
 }

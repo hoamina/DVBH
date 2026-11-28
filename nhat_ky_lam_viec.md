@@ -6677,3 +6677,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: typecheck + build; bộ tính với 5 bộ dữ liệu giả sửa chữa (đang sửa / sửa xong không thay LK / xác chờ xử lý / trong thùng chờ KT / trộn đổi mới đã trả +
   sửa chữa lưu kho) → đúng; local đo popup 1600×900: v1 và v2 đều 98,0% × 98,0%. SQL xác sửa chữa chạy trên D1 local của app Bảo hành.
 
+## 2026-11-28 (1) — v1.676: Bước 7 = đơn gửi đổi trả · Bước 8 = tiến độ trả xác
+
+- Yêu cầu (nguyên văn): "1. còn thiếu 3 tab bên cạnh ngoài tab chính => kiểm tra xem báo lại tôi cách thêm vào như thế nào cho hợp lý 2. \"Trả xác\" tích hợp chính
+  là đơn gửi đổi trả (bước 7) - bước 8 là xác nhận trả xác thành công (hoặc tiến độ trả xác)".
+- Đã làm (mục 2): `lib/buocQuyTrinh.ts` viết lại bước 7–8 theo luật trên (v1 và v2 cùng đổi vì dùng chung bộ tính).
+- Mục 1 (chỉ báo lại, chưa làm): 3 màn còn thiếu so với mẫu `docs/demo/chi-tiet-ca-8-buoc v2.html` = ② Tồn theo bước, ③ Mã lỗi theo bước, ④ Phân tích & phản
+  biện — đề xuất cách thêm đã gửi chủ hệ thống, chờ chốt.
+- Kiểm thử: typecheck + build; bộ tính với 10 bộ dữ liệu giả (chưa gửi / nháp / đang gửi / kho nhận chờ Admin / Admin nhận chưa phân loại / xác chờ xử lý / trong
+  thùng chờ KT / KT duyệt / tiêu huỷ / sửa chữa không xác) → đúng luật.
+

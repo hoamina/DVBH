@@ -107,7 +107,7 @@ export const DINH_NGHIA_BUOC: { so: BuocQuyTrinh["so"]; ten: string; tenNgan: st
   { so: 4, ten: tr("Mua hàng"), tenNgan: tr("Mua hàng"), ai: tr("Mua hàng / Kho") },
   { so: 5, ten: tr("Giao LK cho KTV"), tenNgan: tr("Giao LK"), ai: tr("Kho") },
   { so: 6, ten: tr("Đóng ca"), tenNgan: tr("Đóng ca"), ai: tr("KTV / Trạm") },
-  { so: 7, ten: tr("Trả xác 3T"), tenNgan: tr("Trả xác"), ai: tr("KTV / Admin BH") },
+  { so: 7, ten: tr("Trả xác 3T"), tenNgan: tr("Trả xác"), ai: tr("KTV / Kho / Admin BH") },
   { so: 8, ten: tr("Xác nhận xác"), tenNgan: tr("XN xác"), ai: tr("Admin BH / Kế toán") },
 ];
 
@@ -188,20 +188,46 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
   dat(6, { luc: c?.thoi_gian_hoan_thanh ?? null, ms: lucToMs(c?.thoi_gian_hoan_thanh) }, c?.ky_thuat_vien ?? null);
   if (c?.tien_do_hoan_thanh) b(6).chiSo.push(c.tien_do_hoan_thanh);
 
-  // 7-8. Tien do TRA XAC linh kien - App Bao hanh doi tra 3T (chot 2026-11-27):
-  //   chua gui BH -> "Chua co linh kien bao hanh gui nen chua co xac"; co LK gui ve doi tra -> buoc 7 "Cho xu ly xac";
-  //   7 xong khi moi xac da co ket qua (vao thung tra xac / tieu huy / that lac / khong co / xu ly ngoai);
-  //   8 = thung tra xac doi tac (dang gom / cho ke toan -> ke toan duyet); xac ket thuc ngoai thung -> 8 bo qua.
+  // 7-8 (chot 2026-11-28) - App Bao hanh doi tra 3T:
+  //   7 "Tra xac 3T" = DON GUI DOI TRA: KTV tao don -> gui xe -> Kho nhan -> Admin BH nhan (xong khi Admin BH nhan du moi phieu gui).
+  //   8 "Xac nhan xac" = TIEN DO TRA XAC: cho xu ly xac -> vao thung tra xac -> Ke toan duyet = tra xac thanh cong (xong);
+  //     xac ket thuc ngoai thung (tieu huy / that lac / luu kho / khong co / xu ly ngoai) cung la xong (ghi ket qua).
+  //   Chua co don gui -> ca 2 buoc "Chua co linh kien bao hanh gui nen chua co xac".
+  //   Xac = xac don vi Doi moi / Tru cong no + xac linh kien sau sua chua (de xuat da xuat).
   if (daTaiScSom(dv)) {
     const units = dv.scDon.flatMap((d) => d.don_vi);
     if (!dv.scDon.length) {
       for (const so of [7, 8]) b(so).ghiChu = tr("Chưa có linh kiện bảo hành gửi nên chưa có xác");
     } else {
+      // ---- Buoc 7: don gui doi tra ----
+      const phieuMap = new Map(dv.scDon.filter((d) => d.phieu_gui).map((d) => [d.phieu_gui!.id, d.phieu_gui!]));
+      const phieu = [...phieuMap.values()];
       b(7).chiSo.push(tr("{0} đơn gửi BH", dv.scDon.length));
-      // Moc bat dau cho xu ly xac = luc tao don gui BH dau tien.
-      const guiDau = minLuc(dv.scDon.map((d) => d.phieu_gui?.tao_luc ?? d.tao_luc));
-      const coTruongXac = units.some((u) => u.xac);
+      for (const p of phieu) b(7).chiSo.push([p.id, p.trang_thai_label].filter(Boolean).join(" · "));
+      const taoDau = minLuc(dv.scDon.map((d) => d.phieu_gui?.tao_luc ?? d.tao_luc));
+      const donKhongThung = dv.scDon.filter((d) => !d.phieu_gui);
+      const daNhanHet = phieu.every((p) => p.admin_nhan_luc) && donKhongThung.every((d) => d.don_vi.length > 0);
+      if (daNhanHet) {
+        dat(
+          7,
+          phieu.length ? maxLuc(phieu.map((p) => p.admin_nhan_luc)) : maxLuc(donKhongThung.map((d) => d.tao_luc)),
+          phieu.find((p) => p.admin_nhan)?.admin_nhan ?? tr("Admin BH"),
+        );
+      } else {
+        const choAdmin = phieu.some((p) => p.kho_nhan_luc && !p.admin_nhan_luc);
+        const dangGui = phieu.some((p) => p.gui_xe_luc && !p.kho_nhan_luc);
+        Object.assign(b(7), {
+          trangThai: "dang" as TrangThaiBuoc,
+          luc: taoDau.luc,
+          lucMs: taoDau.ms,
+          nguoi: phieu[0]?.ktv ?? null,
+          ghiChu: choAdmin ? tr("Kho đã nhận — chờ Admin BH nhận") : dangGui ? tr("Đang gửi về kho") : tr("Chờ KTV gửi"),
+        });
+      }
+
+      // ---- Buoc 8: tien do tra xac ----
       // 1 "xac" = xac don vi Doi moi / Tru cong no (SL 1) + xac linh kien sau sua chua (de xuat da xuat) - cung dinh nghia man Quan ly xac ben suachua.
+      const coTruongXac = units.some((u) => u.xac);
       type Xac = { tt: string | null; tt_label: string; xl_luc: string | null; thung: NonNullable<SuaChuaDon["don_vi"][number]["xac"]>["thung"]; sl: number };
       const xacs: Xac[] = units.flatMap((u) => [
         ...(u.xac?.co_xac ? [{ tt: u.xac.tt, tt_label: u.xac.tt_label, xl_luc: u.xac.xl_luc, thung: u.xac.thung, sl: 1 }] : []),
@@ -213,41 +239,36 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
         (u) => (u.huong_xu_ly === "sua_chua" || u.huong_xu_ly === "dich_vu_tinh_phi") && !u.phieu_tra && !String(u.trang_thai).startsWith("ket_thuc"),
       );
       const soXac = xacs.reduce((n, x) => n + x.sl, 0);
+      const nhan = [...new Set(xacs.map((x) => x.tt_label))];
+      if (xacs.length) b(8).chiSo.push(tr("{0} xác", soXac), ...nhan);
+      const thung = [...new Map(xacs.filter((x) => x.thung).map((x) => [x.thung!.id, x.thung!])).values()];
+      for (const t of thung) b(8).chiSo.push([t.id, t.doi_tac, t.trang_thai_label].filter(Boolean).join(" · "));
       if (coTruongXac && xacs.length === 0 && daPhanLoaiHet && !dangSua) {
         const huong = [...new Set(units.map((u) => u.huong_xu_ly_label ?? u.huong_xu_ly).filter((x): x is string => !!x))].join(", ");
-        for (const so of [7, 8]) Object.assign(b(so), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: tr("Không có xác ({0})", huong) });
+        Object.assign(b(8), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: tr("Không có xác ({0})", huong) });
+      } else if (b(7).trangThai !== "xong") {
+        b(8).ghiChu = tr("Chờ đơn gửi đổi trả về tới Admin BH");
       } else if (!xacs.length) {
-        Object.assign(b(7), {
-          trangThai: "dang" as TrangThaiBuoc,
-          ghiChu: dangSua ? tr("Đang sửa chữa — chờ xác định xác") : tr("Chờ xử lý xác"),
-          luc: guiDau.luc,
-          lucMs: guiDau.ms,
-        });
+        Object.assign(b(8), { trangThai: "dang" as TrangThaiBuoc, ghiChu: dangSua ? tr("Đang sửa chữa — chờ xác định xác") : tr("Chờ xử lý xác") });
       } else {
         const chuaXl = xacs.filter((x) => !x.tt);
-        const nhan = [...new Set(xacs.map((x) => x.tt_label))];
-        b(7).chiSo.push(tr("{0} xác", soXac), ...nhan);
+        const trongThungChoKt = xacs.filter((x) => x.tt === "trong_thung");
         if (chuaXl.length || dangSua) {
-          Object.assign(b(7), {
+          Object.assign(b(8), {
             trangThai: "dang" as TrangThaiBuoc,
             ghiChu: chuaXl.length ? tr("Chờ xử lý xác ({0}/{1})", chuaXl.length, xacs.length) : tr("Đang sửa chữa — chờ xác định xác"),
-            luc: guiDau.luc,
-            lucMs: guiDau.ms,
           });
+        } else if (trongThungChoKt.length) {
+          Object.assign(b(8), { trangThai: "dang" as TrangThaiBuoc, ghiChu: tr("Chờ trả xác cho đối tác") });
         } else {
-          dat(7, maxLuc(xacs.map((x) => x.xl_luc ?? x.thung?.tao_luc ?? null)), tr("Admin BH"));
-        }
-        // Buoc 8 = thung tra xac doi tac (chi tinh khi buoc 7 xong).
-        if (b(7).trangThai === "xong") {
-          const trongThung = xacs.filter((x) => x.tt === "trong_thung" || x.tt === "da_tra");
-          if (!trongThung.length) {
-            Object.assign(b(8), { trangThai: "bo_qua" as TrangThaiBuoc, ghiChu: nhan.join(", ") });
-          } else {
-            const thung = [...new Map(trongThung.filter((x) => x.thung).map((x) => [x.thung!.id, x.thung!])).values()];
-            for (const t of thung) b(8).chiSo.push([t.id, t.doi_tac, t.trang_thai_label].filter(Boolean).join(" · "));
-            if (trongThung.every((x) => x.tt === "da_tra")) dat(8, maxLuc(thung.map((t) => t.kt_luc)), tr("Kế toán"));
-            else Object.assign(b(8), { trangThai: "dang" as TrangThaiBuoc, ghiChu: tr("Chờ trả xác cho đối tác") });
-          }
+          // Moi xac da co ket qua cuoi: da tra (ke toan duyet thung) hoac ket thuc ngoai thung.
+          const daTra = xacs.filter((x) => x.tt === "da_tra");
+          dat(
+            8,
+            maxLuc([...daTra.map((x) => x.thung?.kt_luc ?? null), ...xacs.filter((x) => x.tt !== "da_tra").map((x) => x.xl_luc)]),
+            daTra.length ? tr("Kế toán") : tr("Admin BH"),
+          );
+          b(8).ghiChu = daTra.length === xacs.length ? tr("Trả xác thành công") : nhan.join(", ");
         }
       }
     }
