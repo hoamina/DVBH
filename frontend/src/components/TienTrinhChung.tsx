@@ -117,6 +117,8 @@ interface Nhom {
 
 const LS_AN_NGUON = "dvbh_ttc_an_nguon";
 const LS_HIEN_PHU = "dvbh_ttc_hien_phu";
+// Che do Rut gon / Day du (2026-11-28): v2 mac dinh Rut gon (moi moc 1 dong: gio + loai + tieu de), v1 mac dinh Day du - luu rieng tung ban.
+const lsRutGon = (v2: boolean) => (v2 ? "dvbh_ttc_rut_gon_v2" : "dvbh_ttc_rut_gon");
 function docLs<T>(k: string, macDinh: T): T {
   try {
     const v = localStorage.getItem(k);
@@ -133,7 +135,10 @@ export function TienTrinhChung({
   personDir,
   onJump,
   quyTrinh,
+  v2 = false,
 }: {
+  /** Giao dien chi tiet ca v2: mac dinh Rut gon, chu to hon, man rong chia cot (CSS .ttc-v2 o chiTietCaV2.css). */
+  v2?: boolean;
   /** Ket qua tinhBuocQuyTrinh() - luong ngang 8 buoc o dau tab. */
   quyTrinh?: KetQuaBuocQuyTrinh | null;
   events: LichSuChungEvent[];
@@ -146,6 +151,14 @@ export function TienTrinhChung({
   const [hienPhu, setHienPhu] = useState<boolean>(() => docLs(LS_HIEN_PHU, false));
   const [moThe, setMoThe] = useState<Set<string>>(() => new Set());
   const [moNoiDung, setMoNoiDung] = useState<Set<string>>(() => new Set());
+  const [rutGon, setRutGon] = useState<boolean>(() => docLs(lsRutGon(v2), v2));
+  // Rut gon: cac the nguoi dung bam mo rieng.
+  const [moRg, setMoRg] = useState<Set<string>>(() => new Set());
+  const chonRutGon = (v: boolean) => {
+    localStorage.setItem(lsRutGon(v2), JSON.stringify(v));
+    setRutGon(v);
+    setMoRg(new Set());
+  };
 
   const demNguon = useMemo(() => {
     const m = new Map<NguonTtc, number>();
@@ -231,7 +244,7 @@ export function TienTrinhChung({
     });
 
   const dongCon = (x: LichSuChungEvent, cungNgay: boolean) => (
-    <li key={x.key} className={`text-xs leading-snug ${x.phu ? "text-[var(--ink-400)]" : "text-[var(--ink-600)]"}`}>
+    <li key={x.key} className={`ttc-dong text-xs leading-snug ${x.phu ? "text-[var(--ink-400)]" : "text-[var(--ink-600)]"}`}>
       <span className="tabular-nums text-[var(--ink-400)]">{cungNgay ? hhmm(x.sortMs) : `${ddmm(x.sortMs)} ${hhmm(x.sortMs)}`}</span>{" "}
       <span className={x.phu ? "italic" : "font-semibold text-[var(--ink-800)]"}>{x.buoc ?? x.typeLabel}</span>
       {x.actor && (
@@ -267,9 +280,33 @@ export function TienTrinhChung({
     const dai = noiDungDon.length > 220 || noiDungDon.split("\n").length > 3;
     const moND = moNoiDung.has(e.key);
 
+    // Rut gon: 1 dong (gio · loai · tieu de · nguoi), bam de mo rieng the nay.
+    if (rutGon && !moRg.has(e.key)) {
+      const tieuDe = e.cumTieuDe ?? (laCum ? (e.noiDung ?? e.summary) : e.summary);
+      const dongDau = (tieuDe || "").split("\n")[0];
+      return (
+        <div key={e.key + gi} className={`relative pl-4 border-l-2 ${TIMELINE_TONE_BORDER[e.tone]}`}>
+          <div className={`absolute -left-[5px] top-2.5 w-2 h-2 rounded-full ${TIMELINE_TONE_DOT[e.tone]}`}></div>
+          <button
+            type="button"
+            onClick={() => doiSet(setMoRg, e.key)}
+            className="ttc-rg w-full flex items-center gap-2 text-left rounded-lg px-1.5 -mx-1 py-1 hover:bg-[var(--bg)]"
+            title={tr("Bấm để xem chi tiết mốc này")}
+          >
+            <span className="ttc-time text-xs font-semibold tabular-nums text-[var(--ink-500)] shrink-0 min-w-[2.6rem]">{thoiGian}</span>
+            <Badge tone={e.tone}>{laCum ? (e.cumNhan ?? e.typeLabel) : e.typeLabel}</Badge>
+            <span className="ttc-rg-t min-w-0 flex-1 truncate text-sm text-[var(--ink-800)]">{dongDau}</span>
+            {g.ds.length + g.phu.length > 1 && <span className="ttc-rg-n shrink-0 text-[11px] text-[var(--ink-400)]">{tr("{0} log", g.ds.length + g.phu.length)}</span>}
+            {nguoi.length > 0 && <span className="ttc-rg-nguoi shrink-0 max-w-[30%] truncate text-xs text-[var(--ink-400)]">{nguoi.map(ten).join(", ")}</span>}
+            <span className="shrink-0 text-[var(--ink-400)]" aria-hidden="true">▸</span>
+          </button>
+        </div>
+      );
+    }
+
     const dau = (
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs font-semibold tabular-nums text-[var(--ink-500)] min-w-[2.6rem]">{thoiGian}</span>
+      <div className="ttc-dau flex items-center gap-1.5 flex-wrap">
+        <span className="ttc-time text-xs font-semibold tabular-nums text-[var(--ink-500)] min-w-[2.6rem]">{thoiGian}</span>
         <Badge tone={e.tone}>{laCum ? (e.cumNhan ?? e.typeLabel) : e.typeLabel}</Badge>
         {[...new Set([...g.ds, ...g.phu].map((x) => x.buocQt).filter((n): n is number => !!n))]
           .sort((a, b) => a - b)
@@ -284,28 +321,33 @@ export function TienTrinhChung({
           ))}
         {g.ds.length > 1 && <Badge tone="gray">{tr("{0} bước", g.ds.length)}</Badge>}
         {nguoi.length > 0 && (
-          <span className="text-xs text-[var(--ink-400)] truncate" title={nguoi.map(tenDay).join("\n")}>
+          <span className="ttc-nguoi text-xs text-[var(--ink-400)] truncate" title={nguoi.map(tenDay).join("\n")}>
             {nguoi.map(ten).join(", ")}
           </span>
+        )}
+        {rutGon && (
+          <button type="button" onClick={() => doiSet(setMoRg, e.key)} className="ml-auto text-xs font-semibold text-[var(--ocean-600)] hover:underline">
+            {tr("▴ Thu gọn")}
+          </button>
         )}
       </div>
     );
 
     return (
-      <div key={e.key + gi} className={`relative pl-4 border-l-2 pb-2.5 ${TIMELINE_TONE_BORDER[e.tone]}`}>
+      <div key={e.key + gi} className={`ttc-the relative pl-4 border-l-2 pb-2.5 ${laCum && luong && luong.length > 0 ? "co-luong" : ""} ${TIMELINE_TONE_BORDER[e.tone]}`}>
         <div className={`absolute -left-[5px] top-1.5 w-2 h-2 rounded-full ${TIMELINE_TONE_DOT[e.tone]}`}></div>
         <div
           role={e.jumpTab ? "button" : undefined}
           tabIndex={e.jumpTab ? 0 : undefined}
           onClick={e.jumpTab ? () => onJump(e.jumpTab!) : undefined}
           onKeyDown={e.jumpTab ? (ev) => ev.key === "Enter" && onJump(e.jumpTab!) : undefined}
-          className={`rounded-r-lg px-1 -mx-1 ${e.jumpTab ? "cursor-pointer hover:bg-[var(--bg)]" : ""}`}
+          className={`ttc-chinh rounded-r-lg px-1 -mx-1 ${e.jumpTab ? "cursor-pointer hover:bg-[var(--bg)]" : ""}`}
           title={e.jumpTab ? tr("Bấm để mở tab chi tiết") : undefined}
         >
           {dau}
           {laCum ? (
             <>
-              {e.cumTieuDe && <div className="text-sm font-medium text-[var(--ink-800)] mt-0.5">{e.cumTieuDe}</div>}
+              {e.cumTieuDe && <div className="ttc-tieude text-sm font-medium text-[var(--ink-800)] mt-0.5">{e.cumTieuDe}</div>}
               {ngan ? (
                 <ul className="mt-0.5 space-y-0.5">{g.ds.map((x) => dongCon(x, true))}</ul>
               ) : (
@@ -313,16 +355,16 @@ export function TienTrinhChung({
               )}
             </>
           ) : (
-            <div className={`text-sm text-[var(--ink-600)] whitespace-pre-wrap mt-0.5 ${dai && !moND ? "line-clamp-3" : ""}`}>{noiDungDon}</div>
+            <div className={`ttc-nd text-sm text-[var(--ink-600)] whitespace-pre-wrap mt-0.5 ${dai && !moND ? "line-clamp-3" : ""}`}>{noiDungDon}</div>
           )}
         </div>
         {laCum && luong && luong.length > 0 && (
-          <div className="mt-1">
+          <div className="ttc-luong mt-1">
             <LuongNgang moc={luong} anGhiChu />
           </div>
         )}
         {(chips.length > 0 || (laCum && !ngan) || dai) && (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <div className="ttc-chips mt-1 flex flex-wrap items-center gap-1.5">
             {chips.map((c) => (
               <span key={c} className="rounded bg-[var(--surface-100)] px-1.5 py-0.5 text-[11px] text-[var(--ink-600)]">
                 {c}
@@ -340,13 +382,13 @@ export function TienTrinhChung({
             )}
           </div>
         )}
-        {laCum && !ngan && mo && <ol className="mt-1 space-y-0.5 border-l border-dashed border-[var(--line)] pl-3">{tatCa.map((x) => dongCon(x, ngayKey(x.sortMs) === ngayKey(e.sortMs)))}</ol>}
+        {laCum && !ngan && mo && <ol className="ttc-log mt-1 space-y-0.5 border-l border-dashed border-[var(--line)] pl-3">{tatCa.map((x) => dongCon(x, ngayKey(x.sortMs) === ngayKey(e.sortMs)))}</ol>}
       </div>
     );
   };
 
   return (
-    <div>
+    <div className={`ttc ${v2 ? "ttc-v2" : ""}`}>
       {quyTrinh && <LuongTamBuoc kq={quyTrinh} />}
       {luongTong.length > 0 && (
         <div className="mb-3 rounded-lg border border-[var(--line)] px-3 py-2">
@@ -385,6 +427,14 @@ export function TienTrinhChung({
               {tr("Hiện log phụ ({0})", soPhu)}
             </label>
           )}
+          <div className="ttc-seg ml-auto" role="group" aria-label={tr("Cách hiện log")}>
+            <button type="button" className={rutGon ? "on" : ""} onClick={() => chonRutGon(true)} title={tr("Mỗi mốc 1 dòng: ngày giờ + tiêu đề")}>
+              {tr("Rút gọn")}
+            </button>
+            <button type="button" className={!rutGon ? "on" : ""} onClick={() => chonRutGon(false)} title={tr("Hiện đầy đủ log từng mốc")}>
+              {tr("Đầy đủ")}
+            </button>
+          </div>
         </div>
       )}
       {events.length === 0 && <div className="text-sm text-[var(--ink-400)] italic">{tr("Chưa có mốc nào cho ca này.")}</div>}
@@ -394,14 +444,14 @@ export function TienTrinhChung({
         const cuNhat = d.nhom[d.nhom.length - 1];
         const cachNgay = next ? (cuNhat.ds[cuNhat.ds.length - 1].sortMs - next.nhom[0].ds[0].sortMs) / 86400000 : null;
         return (
-          <section key={d.key} className="mb-1">
-            <div className="flex items-center gap-2 py-1 text-xs">
+          <section key={d.key} className="ttc-ngay mb-1">
+            <div className="ttc-ngay-h flex items-center gap-2 py-1 text-xs">
               <span className="font-semibold text-[var(--ink-700)]">{tieuDeNgay(d.ms)}</span>
-              <span className="h-px flex-1 bg-[var(--line)]" />
+              <span className="ttc-ngay-k h-px flex-1 bg-[var(--line)]" />
             </div>
-            <div className="pl-1">{d.nhom.map(theNhom)}</div>
-            {cachNgay !== null && cachNgay >= 0.05 && (
-              <div className="text-[11px] text-[var(--ink-400)] pl-4 pb-1">
+            <div className="ttc-ngay-b pl-1">{d.nhom.map(theNhom)}</div>
+            {!rutGon && cachNgay !== null && cachNgay >= 0.05 && (
+              <div className="ttc-cach text-[11px] text-[var(--ink-400)] pl-4 pb-1">
                 {tr("↳ cách mốc trước")} <strong className="text-[var(--ink-700)]">{cachNgay.toFixed(1)} {tr("ngày")}</strong>
               </div>
             )}

@@ -536,6 +536,10 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   (≤ 700px): tiêu đề + nút đóng 1 dòng; thông tin ca dạng danh sách iOS (nhãn trái – giá trị phải); dải 8 ô nhỏ cuộn ngang, tự cuộn tới bước đang
   xử lý; thẻ bước chưa tới thu gọn; nút "+ Thêm giải trình" / "+ Tạo vi phạm thủ công" ghim thanh kính mờ dưới đáy; mọi popup (Modal dùng chung) mở dạng
   bottom-sheet trên điện thoại (< 640px).
+- v1.679 (nguyên văn): "1. giao diện V2: thêm nút mặc định là rút gọn. tất cả các log thu gọn lại chỉ hiện ngày và tiêu đề. 2. Tận dụng diện tích màn hình rộng
+  để thể hiện thông tin, bên phải đang thừa khá nhiều. tăng kích thước phông chữ, làm rõ chữ hơn." → tab Tiến trình chung có nút **Rút gọn | Đầy đủ**
+  (v2 mặc định Rút gọn, v1 mặc định Đầy đủ, nhớ theo máy): Rút gọn = mỗi mốc 1 dòng (ngày · giờ · loại · tiêu đề · người), bấm dòng mở riêng mốc đó.
+  v2 chữ to + đậm hơn; popup ≥ 960px: ngày thành cột trái (dính khi cuộn), thẻ có luồng mini (đơn LK, bảo hành…) chia 2 cột nội dung trái – luồng phải.
 - SLA từng bước (v1.679, nguyên văn): "\"quá SLA từng bước\" (tính theo giờ làm việc 8h các việc liên quan đến ktv thì không loại trừ nửa thứ 7 và chủ nhật = 12h).
   Các mức đề xuất trong mẫu: hẹn 2h (ktv hẹn sau 2h nhận ca)· đặt LK 8h (sau khi ktv đặt BO xác nhận trong giờ làm việc) · mua hàng 8h (từ thời điểm báo thiếu) ·
   giao LK (8h sau khi tiếp nhận đơn từ KTV - hoặc hàng về nếu thiếu) · đóng ca sau 3 ngày làm việc · trả xác 7 ngày · xác nhận xác 30 ngày." Chốt thêm qua hỏi đáp:

@@ -697,7 +697,7 @@
     gap: 8px;
     position: sticky;
     bottom: -12px;
-    z-index: 5;
+    z-index: 30;
     margin: 4px -12px -12px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     background: rgba(246, 246, 248, 0.82);
@@ -756,4 +756,131 @@
 .cdv2-slaline.qua {
   color: var(--coral-600);
   font-weight: 600;
+}
+
+/* ---------- Tab "Tiến trình chung" (components/TienTrinhChung.tsx) - 2026-11-28, v1.679 ----------
+   .ttc-seg = nut Rut gon | Day du (v1 + v2). .ttc-v2 = chi ban v2: chu to + dam hon; popup rong >= 960px: cot ngay ben trai (dinh khi cuon),
+   the co luong mini (don LK...) chia 2 cot: noi dung trai - luong ngang phai. */
+.ttc-seg {
+  display: inline-flex;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 9px;
+  padding: 2px;
+  flex: none;
+}
+.ttc-seg button {
+  border: 0;
+  background: none;
+  padding: 3px 12px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+.ttc-seg button.on {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.ttc-v2 .ttc-time {
+  font-size: 13.5px;
+  color: var(--ink-600);
+}
+.ttc-v2 .ttc-nguoi,
+.ttc-v2 .ttc-rg-nguoi {
+  font-size: 13px;
+  color: var(--ink-500);
+}
+.ttc-v2 .ttc-tieude {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+}
+.ttc-v2 .ttc-nd {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-800);
+}
+.ttc-v2 .ttc-dong {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-700);
+}
+.ttc-v2 .ttc-rg {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.ttc-v2 .ttc-rg-t {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-900);
+}
+.ttc-v2 .ttc-rg-n {
+  font-size: 12px;
+}
+.ttc-v2 .ttc-ngay-h {
+  font-size: 13.5px;
+}
+.ttc-v2 .ttc-cach {
+  font-size: 12.5px;
+}
+.ttc-v2 .ttc-chips span {
+  font-size: 12.5px;
+}
+.ttc-v2 .ttc-seg button {
+  font-size: 13.5px;
+  padding: 4px 14px;
+}
+@container cdv2 (min-width: 960px) {
+  .ttc-v2 .ttc-ngay {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    column-gap: 20px;
+    padding: 8px 0 4px;
+    margin: 0;
+    border-top: 1px solid #f0f0f3;
+  }
+  .ttc-v2 .ttc-ngay-h {
+    align-self: start;
+    position: sticky;
+    top: 0;
+    padding-top: 4px;
+  }
+  .ttc-v2 .ttc-ngay-k {
+    display: none;
+  }
+  .ttc-v2 .ttc-cach {
+    grid-column: 2;
+  }
+  .ttc-v2 .ttc-the.co-luong {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 1.1fr);
+    column-gap: 32px;
+    align-items: start;
+  }
+  .ttc-v2 .ttc-the.co-luong > .ttc-chinh {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .ttc-v2 .ttc-the.co-luong > .ttc-luong {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin-top: 2px;
+  }
+  .ttc-v2 .ttc-the.co-luong > .ttc-chips,
+  .ttc-v2 .ttc-the.co-luong > .ttc-log {
+    grid-column: 1;
+  }
+}
+@container cdv2 (max-width: 700px) {
+  .ttc-v2 .ttc-rg-nguoi,
+  .ttc-v2 .ttc-rg-n {
+    display: none;
+  }
+  .ttc-seg {
+    margin-left: 0;
+  }
 }

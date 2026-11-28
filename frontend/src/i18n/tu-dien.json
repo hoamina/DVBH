@@ -15079,5 +15079,12 @@
   "Trong hạn · còn {0} (SLA {1})": ["On time · {0} left (SLA {1})","Tepat waktu · sisa {0} (SLA {1})"],
   "{0} bước quá SLA": ["{0} steps over SLA","{0} langkah lewat SLA"],
   "{0} giờ {1} phút": ["{0} h {1} min","{0} jam {1} menit"],
-  "Trong hạn": ["On time","Tepat waktu"]
+  "Trong hạn": ["On time","Tepat waktu"],
+  "Bấm để xem chi tiết mốc này": ["Click to view this milestone's details","Klik untuk melihat detail tahap ini"],
+  "{0} log": ["{0} logs","{0} log"],
+  "Cách hiện log": ["Log display mode","Mode tampilan log"],
+  "Mỗi mốc 1 dòng: ngày giờ + tiêu đề": ["One line per milestone: date/time + title","Satu baris per tahap: tanggal/jam + judul"],
+  "Rút gọn": ["Compact","Ringkas"],
+  "Hiện đầy đủ log từng mốc": ["Show full logs of each milestone","Tampilkan log lengkap setiap tahap"],
+  "Đầy đủ": ["Full","Lengkap"]
 }

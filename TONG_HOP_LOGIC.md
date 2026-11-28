@@ -128,7 +128,7 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   trong tháng; ca chỉ có dòng tự động thì không tính (v1.664).
 - **Chi tiết ca — 2 giao diện (v1.673)**: **v2 "8 bước quy trình" là mặc định**, nút **v1 | v2** trên thanh tiêu đề popup, lựa chọn lưu riêng từng máy
   (localStorage `case-detail-ui`). Luồng 8 bước hiện 1 lần: v2 ở dải 8 ô đầu popup (tab Tiến trình chung của v2 không lặp lại), v1 ở đầu tab Tiến trình
-  chung. Điện thoại / popup hẹp ≤ 700px: dải 8 ô cuộn ngang tự tới bước đang xử lý, nút thao tác ghim đáy, popup mở dạng bottom-sheet (v1.678). 8 bước: 1 Khởi tạo (giờ CSKH tiếp nhận) · 2 Xác nhận lịch hẹn (lần hẹn Odoo đầu tiên; không có thì "thời gian hẹn
+  chung. Điện thoại / popup hẹp ≤ 700px: dải 8 ô cuộn ngang tự tới bước đang xử lý, nút thao tác ghim đáy, popup mở dạng bottom-sheet (v1.678). Tab Tiến trình chung có nút Rút gọn | Đầy đủ (v2 mặc định Rút gọn: mỗi mốc 1 dòng ngày giờ + tiêu đề; v1.679). 8 bước: 1 Khởi tạo (giờ CSKH tiếp nhận) · 2 Xác nhận lịch hẹn (lần hẹn Odoo đầu tiên; không có thì "thời gian hẹn
   xử lý") · 3 Đặt linh kiện (đơn đầu tiên app Đặt mua LK) · 4 Mua hàng (yêu cầu thiếu LK / PO; xong khi mọi yêu cầu có ngày hàng về; có đơn LK mà
   không thiếu = bỏ qua "Kho có sẵn") · 5 Giao LK cho KTV (phiếu xuất kho) · 6 Đóng ca (thời gian hoàn thành) · 7–8 lấy từ App Bảo hành đổi trả (chốt 2026-11-28, v1.676):
   **7 Trả xác 3T = đơn gửi đổi trả** (KTV tạo đơn → gửi xe → Kho nhận → Admin BH nhận; đang = "Chờ KTV gửi" / "Đang gửi về kho" / "Kho đã nhận — chờ

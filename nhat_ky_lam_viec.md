@@ -6722,3 +6722,13 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Commit tách riêng: phiên song song "Kiểm tra DDH khi giải trình tồn" đang sửa dở `TienTrinhChung.tsx` / CSS `.ttc-v2` / vài câu từ điển trong cùng thư mục —
   KHÔNG gộp vào commit này; deploy từ bản sạch của commit.
 
+
+## 2026-11-28 (4) — v1.679: Tiến trình chung — nút Rút gọn / Đầy đủ · tận dụng màn rộng, chữ to hơn (v2)
+
+- Yêu cầu (nguyên văn): "1. giao diện V2: thêm nút mặc định là rút gọn. tất cả các log thu gọn lại chỉ hiện ngày và tiêu đề. 2. Tận dụng diện tích màn hình
+  rộng để thể hiện thông tin, bên phải đang thừa khá nhiều. tăng kích thước phông chữ, làm rõ chữ hơn."
+- Đã làm: nút Rút gọn | Đầy đủ ở hàng bộ lọc nguồn (v2 mặc định Rút gọn, v1 mặc định Đầy đủ, nhớ theo máy); Rút gọn: mỗi mốc 1 dòng ngày · giờ · loại ·
+  tiêu đề · người, bấm dòng mở riêng mốc. v2: chữ log 14–16px đậm hơn; popup ≥ 960px: cột ngày bên trái dính khi cuộn, thẻ có luồng mini chia 2 cột (nội dung
+  trái, luồng phải). Sửa kèm: chấm luồng nổi đè thanh nút đáy điện thoại.
+- Kiểm thử: typecheck + build + i18n; local ca 1078080 ở 1440×900 (Rút gọn / Đầy đủ, cột ngày trái; thẻ có luồng dựng thử trong trang → 2 cột đúng hàng) và
+  390×600 (Rút gọn 1 dòng, thanh nút đáy không bị đè). Dữ liệu local không có đơn LK thật nên chưa thấy luồng mini thật ở cột phải.

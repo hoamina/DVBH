@@ -3058,7 +3058,7 @@ export function CaseDetail({
   const noiDungTabPhuV2 = (key: string) => {
     // v2 da co dai 8 buoc + luoi the buoc o tren -> tab Tien trinh chung KHONG lap lai luong 8 buoc (2026-11-28, chu he thong).
     if (key === "tien-trinh-chung")
-      return <TienTrinhChung events={tienTrinhChungEvents} luongTong={luongTongCa} summaryItems={summaryItems} personDir={personDir} onJump={jumpToTab} />;
+      return <TienTrinhChung v2 events={tienTrinhChungEvents} luongTong={luongTongCa} summaryItems={summaryItems} personDir={personDir} onJump={jumpToTab} />;
     if (key === "nskx") return laCaNskx && c ? <NskxPanel caseId={c.id} linhKienLoi={c.linh_kien_loi} /> : null;
     if (key === "vi-pham") return viPhamContent;
     if (key === "khao-sat") return khaoSatContent;
