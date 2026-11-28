@@ -95,3 +95,29 @@ export async function fetchLinhKienTimeline(env: Env, caseId: string): Promise<L
     return { configured: true, ok: false, error: String(err).slice(0, 200), orders: [] };
   }
 }
+
+// ---------- Ma DDH- bat buoc khi giai trinh thieu LK (2026-11-28, chu he thong) ----------
+// GS bao thieu LK phai CHON ma DDH- cua don thieu do tu danh sach don cua ca (API case-timeline). Don da nhan hang -> CHAN.
+// "Da nhan" = phieu xuat kho cua don o 'ktv_da_nhan' | 'hang_tru_kho' | 'kho_da_ket_thuc'. Phan biet ai xac nhan qua log
+// pxk_ktv_da_nhan: ghi chu bat dau "Hệ thống tự xác nhận" (cron nhanThieu.ts ben linh-kien-app, qua 10 ngay KTV khong bam)
+// = he thong tu dong; con lai = KTV bam. BAN SAO o frontend lib/linhKienTimeline.ts donLkNhanHang - doi 1 ben phai doi ben kia.
+export const PXK_DA_NHAN = new Set(["ktv_da_nhan", "hang_tru_kho", "kho_da_ket_thuc"]);
+export const MA_DDH_DUNG = /^DDH-\d{3,}$/;
+
+export interface DonNhanHang {
+  boi: "ktv" | "he_thong" | "kho";
+  luc: string | null;
+  nguoi: string | null;
+}
+
+export function donLkNhanHang(o: LinhKienOrder & { trang_thai_pxk?: string | null }): DonNhanHang | null {
+  const pxk = o.trang_thai_pxk ?? null;
+  const ev = [...(o.timeline ?? [])].reverse().find((e) => e.event === "pxk_ktv_da_nhan");
+  if (pxk ? !PXK_DA_NHAN.has(pxk) : !ev) return null;
+  if (pxk === "hang_tru_kho" || pxk === "kho_da_ket_thuc") {
+    const k = [...(o.timeline ?? [])].reverse().find((e) => e.event === `pxk_${pxk}`);
+    return { boi: "kho", luc: k?.at ?? null, nguoi: k?.actor_name ?? k?.actor ?? null };
+  }
+  const tuDong = (ev?.note ?? "").startsWith("Hệ thống tự xác nhận");
+  return { boi: tuDong ? "he_thong" : "ktv", luc: ev?.at ?? null, nguoi: tuDong ? null : ev?.actor_name ?? ev?.actor ?? o.nguoi_nhan_hang_ten ?? null };
+}

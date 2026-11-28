@@ -227,6 +227,13 @@ reproduce this bug since it doesn't send that header. Don't remove this setting.
     Every call logged in `nskx_dat_loi_log`. Single (tab NSKX) and bulk (v1.572: button in the list toolbar, `GET /dat-loi/ung-vien` takes the SAME filters as `/danh-sach`
     via shared `whereTheoLoc`, ≤500 cases; a Giám sát whose list includes cases outside `khu_vuc_phu_trach` is asked whether to include
     them; the preview always runs kiem-tra (≤20 slips) and groups lines per KTV with a per-core summary).
+  - **v1.677 (2026-11-28) — giải trình thiếu LK bắt buộc DDH-**: `POST /cases/:id/giai-trinh` với lý do `thuoc_thieu_linh_kien` →
+    `ma_xuat_hang_lien_quan` phải khớp `MA_DDH_DUNG` (`^DDH-\d{3,}$`, viết hoa) + nằm trong `fetchLinhKienTimeline()` của ca (không phải `tra_hang`)
+    + `donLkNhanHang(order)` = null (chưa nhận). Lỗi: `INVALID_MA_DDH` / `DDH_KHONG_THUOC_CA` / `DDH_DA_NHAN_HANG` (kèm `message` tiếng Việt, FE toast
+    `err.detail`). Timeline lỗi (`ok:false`) → chỉ kiểm dạng. `donLkNhanHang`: `trang_thai_pxk` ∈ {ktv_da_nhan, hang_tru_kho, kho_da_ket_thuc}; log
+    `pxk_ktv_da_nhan` có note bắt đầu "Hệ thống tự xác nhận" (cron `nhanThieu.ts` linh-kien-app) = `he_thong`, còn lại `ktv`; trừ kho / kho kết thúc
+    = `kho`. Bản sao FE ở `frontend/src/lib/linhKienTimeline.ts` — đổi 1 bên phải đổi bên kia. FE form ở `CaseDetail.tsx` (modal giải trình) dùng
+    `useLinhKienTimeline` sẵn có (không gọi thêm API).
   - `lib/donLkGanNhat.ts` (2026-11-12, migration 0164 `don_lk_gan_nhat`, v1.577) — Quản lý tồn > Danh sách chi tiết cột "ID đặt hàng
     gần nhất" + trạng thái / ngày đặt / duyệt / xuất hàng cho ca đang tồn có "Mã linh kiện thiếu" ở giải trình gần nhất. Kéo từ linh-kien-app
     `POST /api/partner/v1/don-gan-nhat-theo-ca` (bên đó chọn 1 đơn/ca: bỏ trả hàng/từ chối/huỷ, ưu tiên đúng mã LK thiếu kể cả mã thay thế,

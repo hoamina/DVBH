@@ -6687,3 +6687,15 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
 - Kiểm thử: typecheck + build; bộ tính với 10 bộ dữ liệu giả (chưa gửi / nháp / đang gửi / kho nhận chờ Admin / Admin nhận chưa phân loại / xác chờ xử lý / trong
   thùng chờ KT / KT duyệt / tiêu huỷ / sửa chữa không xác) → đúng luật.
 
+
+## 2026-11-28 (2) — v1.677: Giải trình thiếu LK bắt buộc chọn mã đơn DDH-
+
+- Yêu cầu (nguyên văn): "Khi GS giải trình tồn, nếu báo thiếu 1 LK, yêu cầu bắt buộc phải điền mã DDH- của đơn thiếu đó => nếu ID DDH- đó đã KTV đã nhận hàng
+  (phân rõ ktv nhận hay thế thống tự động). danh sách ID đặt hàng sẽ kiểm hiện danh sách ID DDH- liên quan đến mã ID Case đó (kéo api)".
+- Chủ hệ thống chốt thêm: đơn đã nhận hàng → CHẶN, không cho chọn; mã DDH- phải chọn từ danh sách đơn của ca.
+- Đã làm: form giải trình (chi tiết ca) thay ô gõ tự do "Mã xuất hàng liên quan" bằng danh sách đơn DDH- của ca (API case-timeline app Đặt linh kiện): mã LK,
+  trạng thái mới nhất, ngày đặt; đơn đúng mã LK thiếu lên đầu; đơn đã nhận hiện xám + "KTV đã nhận hàng" / "Hệ thống tự xác nhận đã nhận" / "Kho đã kết thúc /
+  trừ kho" + người + giờ. Backend `POST /cases/:id/giai-trinh` kiểm lại (dạng DDH-, thuộc ca, chưa nhận); app linh kiện lỗi → chỉ kiểm dạng.
+- Kiểm thử: typecheck backend + frontend, `npm run build`, i18n (11 câu mới đủ bản dịch). Chưa thử trên trình duyệt với ca thật (local không có đăng nhập +
+  khoá API app linh kiện) — cần thử trên production sau deploy.
+- Không đụng: import CSV giải trình cũ, đồng bộ ETX, log tự động (không áp luật DDH-).

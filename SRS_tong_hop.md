@@ -504,6 +504,14 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
 - 13:30: ca bổ sung cộng vào "VIP/SVIP ≥24h" và "Tổng cần giải trình" của ngày (thẻ Quản lý tồn, danh sách chi tiết, badge, log + ảnh 17:30).
   Không thêm Cron Trigger mới (gắn vào trigger chốt sẵn có, giờ UTC 6).
 
+## 20b. Giải trình thiếu linh kiện — bắt buộc mã đơn DDH- (chốt 2026-11-28, v1.677)
+
+- **Ai**: Giám sát / TBP DVBH / Admin khi thêm giải trình có lý do thuộc nhóm thiếu linh kiện.
+- **Ở đâu**: Chi tiết ca › "+ Thêm giải trình" › ô "Mã đơn đặt hàng (DDH-) của linh kiện thiếu" (thay ô gõ tự do "Mã xuất hàng liên quan").
+- **Quy tắc**: bắt buộc chọn 1 đơn trong danh sách đơn đặt linh kiện của ca (kéo API app Đặt linh kiện, bỏ đơn trả hàng); đơn đúng mã LK thiếu
+  xếp lên đầu. Đơn đã nhận hàng → không chọn được, hiện rõ "KTV đã nhận hàng" / "Hệ thống tự xác nhận đã nhận" / "Kho đã kết thúc / trừ kho"
+  + người + giờ. Ca chưa có đơn nào → không lưu được (phải đặt đơn trước). Server kiểm lại khi lưu. App linh kiện lỗi → cho nhập tay đúng dạng DDH-xxxxxx.
+
 ## 21. Chi tiết ca v2 — "8 bước quy trình" (chốt 2026-11-27, v1.673)
 
 - Yêu cầu (nguyên văn): "UI chi tiết tôi gửi là giao diện UI chi tiết sẽ xây dựng thay cho UI chi tiết case hiện tại. các nội dung đề được hiện thị

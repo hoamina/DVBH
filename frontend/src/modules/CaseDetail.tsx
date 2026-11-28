@@ -61,6 +61,7 @@ import { matchQcThucTe, matchPoDatHang, parseSheetDateTime } from "../lib/purcha
 import { parseRawRow } from "../lib/purchaseWarrantySync";
 import { NskxPanel, NSKX_DOI_TAC } from "../components/NskxPanel";
 import { DtHdBhPanel } from "../components/DtHdBhPanel";
+import { donLkNhanHang, donLkNhanHangLabel, MA_DDH_DUNG } from "../lib/linhKienTimeline";
 import { useLinhKienTimeline, linhKienEventLabel, linhKienSourceLabel, linhKienLoaiDonLabel, linhKienTrangThaiLabel, linhKienActorDisplay, linhKienIsoToVnLocal, linhKienSlThucXuat, linhKienEventLaLogPhu } from "../lib/linhKienTimeline";
 import { shortKhuVuc } from "../lib/khuVucShortLabel";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
@@ -1114,7 +1115,8 @@ export function CaseDetail({
       linh_kien_thieu: last?.linh_kien_thieu ?? "",
       ngay_du_kien: "",
       ngay_yeu_cau_co_hang: "",
-      ma_xuat_hang: last?.ma_xuat_hang_lien_quan ?? "",
+      // 2026-11-28: o nay gio la ma DDH- CHON tu danh sach don cua ca -> chi giu lai ma DDH- cua lan truoc (neu co).
+      ma_xuat_hang: (last?.ma_xuat_hang_lien_quan ?? "").toUpperCase().match(/DDH-\d{3,}/)?.[0] ?? "",
     });
     setGiaiTrinhModalOpen(true);
   }
@@ -1157,7 +1159,7 @@ export function CaseDetail({
       qc.invalidateQueries({ queryKey: ["missing-parts"] });
       qc.invalidateQueries({ queryKey: ["missing-parts-by-khu-vuc"] });
     },
-    onError: () => addToast(tr("Không thể ghi nhận giải trình, thử lại sau.")),
+    onError: (err) => addToast(err instanceof ApiError && err.detail ? err.detail : tr("Không thể ghi nhận giải trình, thử lại sau.")),
   });
 
   // Giai trinh vi pham (migration 0108) - Giam sat nhap tay THAY cho KTV khi KTV khong tu giai trinh
@@ -3232,11 +3234,20 @@ export function CaseDetail({
 
       {giaiTrinhModalOpen && (() => {
         const thieuLinhKien = lyDoChon?.thuoc_thieu_linh_kien === 1;
+        // 2026-11-28: ma DDH- bat buoc, CHON tu danh sach don cua ca (API app Dat linh kien); don da nhan hang -> khong chon duoc.
+        // API loi -> cho go tay dung dang DDH-xxxxxx (backend cung chi kiem dang trong truong hop nay).
+        const lkTaiDuoc = !!lkTimeline?.ok;
+        const donDdh = lkOrders
+          .filter((o) => o.loai_don !== "tra_hang")
+          .map((o) => ({ o, nhan: donLkNhanHang(o), dungMa: !!form.linh_kien_thieu && o.ma_lk === form.linh_kien_thieu }))
+          .sort((a, b) => Number(!!a.nhan) - Number(!!b.nhan) || Number(b.dungMa) - Number(a.dungMa) || b.o.ngay_tao.localeCompare(a.o.ngay_tao));
+        const ddhChon = donDdh.find((d) => d.o.order_id.toUpperCase() === form.ma_xuat_hang.toUpperCase());
+        const ddhHopLe = lkTaiDuoc ? !!ddhChon && !ddhChon.nhan : MA_DDH_DUNG.test(form.ma_xuat_hang.trim().toUpperCase());
         const missingRequired =
           !lyDoChon ||
           !form.noi_dung.trim() ||
           !form.ngay_du_kien ||
-          (thieuLinhKien && (!form.linh_kien_thieu || !form.ngay_yeu_cau_co_hang || !form.ma_xuat_hang.trim()));
+          (thieuLinhKien && (!form.linh_kien_thieu || !form.ngay_yeu_cau_co_hang || !ddhHopLe));
         return (
       <Modal open onClose={() => setGiaiTrinhModalOpen(false)} title={tr("Thêm giải trình — Ca {0}", caseId)} width="max-w-xl">
           {giaiTrinhList.length > 0 && (
@@ -3265,7 +3276,7 @@ export function CaseDetail({
             {thieuLinhKien && (
               <>
                 <div className="text-xs text-[var(--amber-600)] bg-[var(--amber-100)]/50 rounded-lg px-3 py-2">
-                  {tr("Lý do liên quan thiếu linh kiện — bắt buộc nhập đầy đủ linh kiện thiếu, ngày yêu cầu có hàng và mã xuất hàng liên quan.")}</div>
+                  {tr("Lý do liên quan thiếu linh kiện — bắt buộc nhập đầy đủ linh kiện thiếu, ngày yêu cầu có hàng và chọn mã đơn đặt hàng (DDH-) của linh kiện thiếu.")}</div>
                 <div>
                   <label className="text-xs font-semibold text-[var(--ink-400)]">
                     {tr("Linh kiện thiếu")} <span className="text-[var(--coral-500)]">*</span>
@@ -3277,29 +3288,81 @@ export function CaseDetail({
                     options={activeLinhKien.map((l) => ({ value: l.ma_linh_kien, label: `${l.ma_linh_kien} · ${l.ten_linh_kien}` }))}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--ink-400)]">
-                      {tr("Ngày yêu cầu có hàng")} <span className="text-[var(--coral-500)]">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={form.ngay_yeu_cau_co_hang}
-                      onChange={(e) => setForm({ ...form, ngay_yeu_cau_co_hang: e.target.value })}
-                      className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-[var(--ink-400)]">
-                      {tr("Mã xuất hàng liên quan")} <span className="text-[var(--coral-500)]">*</span>
-                    </label>
-                    <input
-                      value={form.ma_xuat_hang}
-                      onChange={(e) => setForm({ ...form, ma_xuat_hang: e.target.value })}
-                      placeholder="Vd: XK-000123"
-                      className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--ink-400)]">
+                    {tr("Ngày yêu cầu có hàng")} <span className="text-[var(--coral-500)]">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={form.ngay_yeu_cau_co_hang}
+                    onChange={(e) => setForm({ ...form, ngay_yeu_cau_co_hang: e.target.value })}
+                    className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-[var(--ink-400)]">
+                    {tr("Mã đơn đặt hàng (DDH-) của linh kiện thiếu")} <span className="text-[var(--coral-500)]">*</span>
+                  </label>
+                  {lkLoading ? (
+                    <div className="mt-1 text-xs text-[var(--ink-400)]">{tr("Đang tải danh sách đơn đặt linh kiện của ca…")}</div>
+                  ) : !lkTaiDuoc ? (
+                    <>
+                      <div className="mt-1 text-xs text-[var(--amber-600)] bg-[var(--amber-100)]/50 rounded-lg px-3 py-2">
+                        {tr("Không tải được danh sách đơn từ app Đặt linh kiện — nhập tay mã DDH- của đơn thiếu.")}</div>
+                      <input
+                        value={form.ma_xuat_hang}
+                        onChange={(e) => setForm({ ...form, ma_xuat_hang: e.target.value })}
+                        placeholder="DDH-000123"
+                        className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                      />
+                    </>
+                  ) : donDdh.length === 0 ? (
+                    <div className="mt-1 text-xs text-[var(--coral-500)] bg-[var(--coral-100)]/50 rounded-lg px-3 py-2">
+                      {tr("Ca này chưa có đơn đặt linh kiện (DDH-) nào trên app Đặt linh kiện — cần đặt đơn trước khi báo thiếu linh kiện.")}</div>
+                  ) : (
+                    <div className="mt-1 space-y-1.5 max-h-60 overflow-y-auto">
+                      {donDdh.map(({ o, nhan, dungMa }) => {
+                        const chon = ddhChon?.o === o;
+                        return (
+                          <button
+                            key={o.order_id}
+                            type="button"
+                            disabled={!!nhan}
+                            onClick={() => setForm({ ...form, ma_xuat_hang: o.order_id })}
+                            title={nhan ? tr("Đơn đã nhận hàng — không chọn được") : undefined}
+                            className={`w-full text-left rounded-xl px-3 py-2 text-xs border transition ${
+                              nhan
+                                ? "bg-[#f5f5f7] border-transparent text-[var(--ink-400)] cursor-not-allowed"
+                                : chon
+                                  ? "bg-[#0071e3]/10 border-[#0071e3]"
+                                  : "bg-white border-[var(--line)] hover:border-[#0071e3]/60"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold">{chon ? "✓ " : ""}{o.order_id}</span>
+                              <span>{o.ma_lk}{o.ten_lk ? ` · ${o.ten_lk}` : ""}</span>
+                              {dungMa && !nhan && <span className="text-[#34c759] font-medium">{tr("đúng mã LK thiếu")}</span>}
+                              <span className="ml-auto">{linhKienTrangThaiLabel(o.trang_thai_hien_tai, o.trang_thai_pxk)}</span>
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-[var(--ink-400)]">
+                              {tr("Đặt")} {fmtDateTime(linhKienIsoToVnLocal(o.ngay_tao))}
+                              {nhan && (
+                                <span className="text-[var(--coral-500)] font-medium">
+                                  {" · "}{donLkNhanHangLabel(nhan)}
+                                  {nhan.nguoi ? ` (${nhan.nguoi})` : ""}
+                                  {nhan.luc ? ` ${fmtDateTime(linhKienIsoToVnLocal(nhan.luc))}` : ""}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {lkTaiDuoc && form.ma_xuat_hang && !ddhHopLe && (
+                    <div className="mt-1 text-[11px] text-[var(--coral-500)]">
+                      {tr("Mã {0} lần trước không còn chọn được (đã nhận hàng hoặc không thuộc ca) — chọn lại đơn.", form.ma_xuat_hang)}</div>
+                  )}
                 </div>
               </>
             )}

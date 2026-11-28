@@ -15058,5 +15058,16 @@
   "Đang gửi về kho": ["Shipping to warehouse","Sedang dikirim ke gudang"],
   "Chờ KTV gửi": ["Awaiting technician shipment","Menunggu teknisi mengirim"],
   "Chờ đơn gửi đổi trả về tới Admin BH": ["Awaiting return shipment to reach warranty admin","Menunggu kiriman retur sampai ke admin garansi"],
-  "Trả xác thành công": ["Old part returned successfully","Part lama berhasil dikembalikan"]
+  "Trả xác thành công": ["Old part returned successfully","Part lama berhasil dikembalikan"],
+  "Hệ thống tự xác nhận đã nhận": ["System auto-confirmed receipt","Sistem otomatis mengonfirmasi diterima"],
+  "Kho đã kết thúc / trừ kho": ["Warehouse closed / stock deducted","Gudang menutup / stok dikurangi"],
+  "Lý do liên quan thiếu linh kiện — bắt buộc nhập đầy đủ linh kiện thiếu, ngày yêu cầu có hàng và chọn mã đơn đặt hàng (DDH-) của linh kiện thiếu.": ["Reason relates to missing parts — missing part, required-by date and the part order code (DDH-) are mandatory.","Alasan terkait kekurangan suku cadang — suku cadang yang kurang, tanggal dibutuhkan, dan kode pesanan (DDH-) wajib diisi."],
+  "Mã đơn đặt hàng (DDH-) của linh kiện thiếu": ["Order code (DDH-) of the missing part","Kode pesanan (DDH-) suku cadang yang kurang"],
+  "Đang tải danh sách đơn đặt linh kiện của ca…": ["Loading this case's part orders…","Memuat daftar pesanan suku cadang kasus ini…"],
+  "Không tải được danh sách đơn từ app Đặt linh kiện — nhập tay mã DDH- của đơn thiếu.": ["Could not load orders from the Parts Ordering app — type the DDH- code of the missing order.","Gagal memuat pesanan dari aplikasi Pemesanan Suku Cadang — ketik kode DDH- pesanan yang kurang."],
+  "Ca này chưa có đơn đặt linh kiện (DDH-) nào trên app Đặt linh kiện — cần đặt đơn trước khi báo thiếu linh kiện.": ["This case has no part order (DDH-) in the Parts Ordering app — place an order before reporting a missing part.","Kasus ini belum memiliki pesanan suku cadang (DDH-) di aplikasi Pemesanan Suku Cadang — buat pesanan sebelum melaporkan kekurangan."],
+  "Đơn đã nhận hàng — không chọn được": ["Order already received — cannot be selected","Pesanan sudah diterima — tidak dapat dipilih"],
+  "đúng mã LK thiếu": ["matches missing part","sesuai suku cadang yang kurang"],
+  "Đặt": ["Ordered","Dipesan"],
+  "Mã {0} lần trước không còn chọn được (đã nhận hàng hoặc không thuộc ca) — chọn lại đơn.": ["Previous code {0} can no longer be selected (received or not in this case) — choose an order again.","Kode sebelumnya {0} tidak dapat dipilih lagi (sudah diterima atau bukan milik kasus ini) — pilih ulang pesanan."]
 }

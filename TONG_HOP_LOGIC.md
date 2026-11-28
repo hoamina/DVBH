@@ -39,6 +39,13 @@ KTV không có tài khoản, chỉ là dữ liệu trên ca. Phạm vi xem theo 
 ## 4. Ca tồn & giải trình
 
 - Ca tồn = chưa có thời gian hoàn thành. Giám sát giải trình định kỳ; mỗi lần 1 dòng log, không ghi đè, lưu vĩnh viễn.
+- **Giải trình thiếu linh kiện bắt buộc chọn đơn DDH- (v1.677)**: lý do thuộc nhóm thiếu LK → ngoài mã LK thiếu + ngày yêu cầu có hàng, GS phải
+  CHỌN mã đơn `DDH-…` của LK thiếu từ danh sách đơn của ca (API `case-timeline` app Đặt linh kiện: đơn ghi mã ca + mã DDH- đã ghi ở các giải trình
+  trước; bỏ đơn trả hàng). Đơn **đã nhận hàng** (phiếu xuất kho ở KTV đã nhận / Hàng trừ kho / Kho đã kết thúc) hiện xám, không chọn được, ghi rõ
+  ai xác nhận: **KTV đã nhận hàng** (KTV bấm) · **Hệ thống tự xác nhận đã nhận** (quá 10 ngày KTV không bấm — nhật ký phiếu ghi "Hệ thống tự xác
+  nhận…") · **Kho đã kết thúc / trừ kho**. Server kiểm lại khi lưu (sai dạng / không thuộc ca / đã nhận → từ chối kèm lý do). App linh kiện không trả
+  lời được → cho nhập tay, chỉ kiểm đúng dạng `DDH-xxxxxx`. Lưu vào cột cũ `ma_xuat_hang_lien_quan`. Import CSV giải trình cũ / ETX / log tự động
+  không áp luật này.
 - **Tổng cần giải trình** (`needGiaiTrinh.ts NEED_TONG`, 7 nhánh nối HOẶC, 1 ca đếm 1 lần): lỡ kế hoạch · tái giải trình (≥3 ngày từ lần GT
   gần nhất) · khách ĐMX chưa GT ≥3 ngày · chưa GT ≥ mốc của nước (VN 5) · Điều hòa chưa GT ≥1 ngày · VIP/S.VIP chưa GT ≥24h thực ·
   **Lọc tổng chưa GT ≥1 ngày** (thêm 20/11/2026, v1.649). Tuổi = 0h hôm nay − giờ CSKH tiếp nhận, làm tròn xuống. B2B ≥1 ngày và NSKX ≥2 ngày

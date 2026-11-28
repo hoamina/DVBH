@@ -46,7 +46,7 @@ import { hasModule } from "../lib/moduleAccess";
 import { CASE_TRANH_CHAP_STATUS_EXPR, LATEST_TIEN_TRINH_ID_OF_CASE, TRANH_CHAP_TRANG_THAI_DONG, canWriteTranhChap } from "../lib/tranhChapTienTrinh";
 import { dongBoDonLkGanNhat } from "../lib/donLkGanNhat";
 import { mienCaKey, damBaoPoHangVe } from "../lib/poHangVeMien";
-import { fetchLinhKienTimeline } from "../lib/linhKienTimeline";
+import { fetchLinhKienTimeline, donLkNhanHang, MA_DDH_DUNG } from "../lib/linhKienTimeline";
 import { fetchSuaChuaTimeline } from "../lib/suaChuaTimeline";
 import { fetchMailTimeline, postDoiTraAction, type DoiTraAction } from "../lib/mailTimeline";
 import { getTonKtvMonth } from "../lib/tonKtvSnapshot";
@@ -1754,6 +1754,24 @@ cases.post("/:id/giai-trinh", requireRole("Giam sat", "TBP DVBH", "Admin"), asyn
     if (!body.linh_kien_thieu) return c.json({ error: "MISSING_LINH_KIEN_THIEU" }, 400);
     if (!body.ngay_yeu_cau_co_hang) return c.json({ error: "MISSING_NGAY_YEU_CAU_CO_HANG" }, 400);
     if (!body.ma_xuat_hang_lien_quan) return c.json({ error: "MISSING_MA_XUAT_HANG" }, 400);
+    // 2026-11-28 (chu he thong): bat buoc ma DDH- cua don thieu, CHON tu danh sach don cua ca (API case-timeline cua
+    // linh-kien-app); don da nhan hang (KTV / he thong tu xac nhan / kho ket thuc) -> chan. linh-kien-app khong tra loi
+    // duoc -> chi kiem dung dang DDH-xxxxxx (khong chan cong viec GS vi loi he ngoai).
+    const maDdh = body.ma_xuat_hang_lien_quan.trim().toUpperCase();
+    if (!MA_DDH_DUNG.test(maDdh)) return c.json({ error: "INVALID_MA_DDH", message: "Mã đơn đặt hàng phải có dạng DDH-xxxxxx." }, 400);
+    body.ma_xuat_hang_lien_quan = maDdh;
+    const tl = await fetchLinhKienTimeline(c.env, id);
+    if (tl.ok) {
+      const don = tl.orders.find((o) => o.order_id.toUpperCase() === maDdh);
+      if (!don || don.loai_don === "tra_hang") {
+        return c.json({ error: "DDH_KHONG_THUOC_CA", message: `Đơn ${maDdh} không nằm trong danh sách đơn đặt linh kiện của ca này.` }, 400);
+      }
+      const nhan = donLkNhanHang(don);
+      if (nhan) {
+        const ai = nhan.boi === "he_thong" ? "Hệ thống tự xác nhận đã nhận" : nhan.boi === "kho" ? "Kho đã kết thúc / trừ kho" : "KTV đã nhận hàng";
+        return c.json({ error: "DDH_DA_NHAN_HANG", message: `Đơn ${maDdh} đã nhận hàng (${ai}${nhan.luc ? " " + nhan.luc.slice(0, 10) : ""}) — chọn đơn còn thiếu khác.` }, 400);
+      }
+    }
   }
 
   const giaiTrinhId = crypto.randomUUID();

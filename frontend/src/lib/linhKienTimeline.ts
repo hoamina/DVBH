@@ -200,3 +200,32 @@ export function linhKienSlThucXuat(o: {
   if (!coPxk && (!o.trang_thai_hien_tai || CHUA_XUAT_TRANG_THAI.has(o.trang_thai_hien_tai))) return null;
   return o.so_luong_de_xuat ?? null;
 }
+
+// ---------- Ma DDH- bat buoc khi giai trinh thieu LK (2026-11-28) ----------
+// BAN SAO cua backend lib/linhKienTimeline.ts donLkNhanHang (backend chan khi luu) - doi 1 ben phai doi ben kia.
+const PXK_DA_NHAN = new Set(["ktv_da_nhan", "hang_tru_kho", "kho_da_ket_thuc"]);
+export const MA_DDH_DUNG = /^DDH-\d{3,}$/;
+
+export interface DonNhanHang {
+  boi: "ktv" | "he_thong" | "kho";
+  luc: string | null;
+  nguoi: string | null;
+}
+
+export function donLkNhanHang(o: LinhKienOrder): DonNhanHang | null {
+  const pxk = o.trang_thai_pxk ?? null;
+  const ev = [...(o.timeline ?? [])].reverse().find((e) => e.event === "pxk_ktv_da_nhan");
+  if (pxk ? !PXK_DA_NHAN.has(pxk) : !ev) return null;
+  if (pxk === "hang_tru_kho" || pxk === "kho_da_ket_thuc") {
+    const k = [...(o.timeline ?? [])].reverse().find((e) => e.event === `pxk_${pxk}`);
+    return { boi: "kho", luc: k?.at ?? null, nguoi: k?.actor_name ?? k?.actor ?? null };
+  }
+  const tuDong = (ev?.note ?? "").startsWith("Hệ thống tự xác nhận");
+  return { boi: tuDong ? "he_thong" : "ktv", luc: ev?.at ?? null, nguoi: tuDong ? null : ev?.actor_name ?? ev?.actor ?? o.nguoi_nhan_hang_ten ?? null };
+}
+
+export function donLkNhanHangLabel(n: DonNhanHang): string {
+  if (n.boi === "he_thong") return tr("Hệ thống tự xác nhận đã nhận");
+  if (n.boi === "kho") return tr("Kho đã kết thúc / trừ kho");
+  return tr("KTV đã nhận hàng");
+}
