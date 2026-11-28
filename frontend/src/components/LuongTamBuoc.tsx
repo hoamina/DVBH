@@ -42,6 +42,7 @@ function tieuDeMoc(b: BuocQuyTrinh) {
     b.nguoi ? tr("Người: {0}", b.nguoi) : null,
     ...b.chiSo,
     b.ghiChu,
+    b.sla ? `SLA: ${b.sla.nhan}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -113,6 +114,7 @@ export function LuongTamBuoc({ kq }: { kq: KetQuaBuocQuyTrinh }) {
               <span className="text-[10.5px] leading-tight italic text-[var(--ink-400)]">{b.ghiChu}</span>
             ) : null}
             {b.cachTruocMs !== null && <span className="text-[10.5px] leading-tight tabular-nums text-[var(--ink-400)]">+{fmtKhoang(b.cachTruocMs)}</span>}
+            {b.sla?.quaHan && <span className="mt-0.5 rounded-full bg-[var(--coral-100)] px-1.5 text-[10px] font-semibold text-[var(--coral-600)]">{tr("Quá SLA")}</span>}
           </li>
         ))}
       </ol>
@@ -158,6 +160,7 @@ export function LuongTamBuoc({ kq }: { kq: KetQuaBuocQuyTrinh }) {
                   {b.nguoi && <span> · {b.nguoi}</span>}
                   {b.chiSo.length > 0 && <span> · {b.chiSo.join(" · ")}</span>}
                   {b.ghiChu && <span className="italic text-[var(--ink-400)]"> · {b.ghiChu}</span>}
+                  {b.sla && <span className={b.sla.quaHan ? "font-semibold text-[var(--coral-600)]" : "text-[var(--ink-500)]"}> · ⏱ {b.sla.nhan}</span>}
                 </div>
               </div>
             </li>

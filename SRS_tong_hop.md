@@ -536,5 +536,10 @@ tính theo đúng phần được xem; thêm nước mới không cần sửa co
   (≤ 700px): tiêu đề + nút đóng 1 dòng; thông tin ca dạng danh sách iOS (nhãn trái – giá trị phải); dải 8 ô nhỏ cuộn ngang, tự cuộn tới bước đang
   xử lý; thẻ bước chưa tới thu gọn; nút "+ Thêm giải trình" / "+ Tạo vi phạm thủ công" ghim thanh kính mờ dưới đáy; mọi popup (Modal dùng chung) mở dạng
   bottom-sheet trên điện thoại (< 640px).
-- Giai đoạn sau (chưa làm, chờ Giám đốc chốt): SLA từng bước, mã lỗi theo bước, Quản lý tồn theo bước.
+- SLA từng bước (v1.679, nguyên văn): "\"quá SLA từng bước\" (tính theo giờ làm việc 8h các việc liên quan đến ktv thì không loại trừ nửa thứ 7 và chủ nhật = 12h).
+  Các mức đề xuất trong mẫu: hẹn 2h (ktv hẹn sau 2h nhận ca)· đặt LK 8h (sau khi ktv đặt BO xác nhận trong giờ làm việc) · mua hàng 8h (từ thời điểm báo thiếu) ·
+  giao LK (8h sau khi tiếp nhận đơn từ KTV - hoặc hàng về nếu thiếu) · đóng ca sau 3 ngày làm việc · trả xác 7 ngày · xác nhận xác 30 ngày." Chốt thêm qua hỏi đáp:
+  giờ hành chính 8:00–12:00 + 13:30–17:30 (T7 sáng), giờ KTV 7:00–19:00 mọi ngày, ngày loại trừ giải trình trừ cho cả hai; mua hàng kết thúc khi Mua hàng phản hồi;
+  đóng ca / trả xác / xác nhận xác tính từ bước liền trước. Chi tiết mốc: TONG_HOP_LOGIC.
+- Giai đoạn sau (chưa làm, chờ Giám đốc chốt): mã lỗi theo bước, Quản lý tồn theo bước.
 

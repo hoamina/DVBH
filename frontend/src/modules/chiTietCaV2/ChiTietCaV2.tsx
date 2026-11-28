@@ -165,6 +165,7 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
                 {b.trangThai === "bo_qua" ? b.ghiChu ?? tr("Bỏ qua") : b.luc ? fmtDateTime(b.luc).slice(0, 11) : b.ghiChu ?? nhanTrangThai(b.trangThai)}
               </span>
               <span className="cdv2-ts">{b.cachTruocMs !== null ? `+${fmtKhoang(b.cachTruocMs)}` : b.trangThai === "dang" ? tr("đang chờ") : " "}</span>
+              {b.sla && <span className={`cdv2-sla ${b.sla.quaHan ? "qua" : b.sla.ketThucMs === null ? "chay" : "dat"}`}>{b.sla.quaHan ? tr("Quá SLA") : b.sla.ketThucMs === null ? tr("Trong hạn") : tr("Đạt SLA")}</span>}
             </button>
           ))}
         </div>
@@ -209,6 +210,7 @@ export function ChiTietCaV2({ c, kq, khoiTheoBuoc, tabPhu, noiDungTabPhu, tabPhu
                   </div>
                 </div>
               )}
+              {b.sla && <p className={`cdv2-slaline ${b.sla.quaHan ? "qua" : ""}`}>⏱ {b.sla.nhan}</p>}
               {b.trangThai !== "bo_qua" && b.ghiChu && <p className="cdv2-skip">{b.ghiChu}</p>}
               {b.chiSo.length > 0 && (
                 <div className="cdv2-chips">

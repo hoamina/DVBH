@@ -138,7 +138,13 @@ Tỷ lệ vi phạm = cấp 2 nếu có, không thì cấp 1 (khác "Không lỗ
   không có xác → 8 bỏ qua "Không có xác". Xác = xác đơn vị Đổi mới / Trừ công nợ + xác linh kiện sau sửa chữa; đơn vị sửa chữa chưa xong → 8 "Đang sửa
   chữa — chờ xác định xác". Ca đã đóng không có đơn LK → bỏ qua 3–5; app LK / Bảo hành chưa tải được → "Chưa tải được dữ liệu",
   KHÔNG kết luận bỏ qua. Xác gồm (v1.675) xác đơn vị Đổi mới / Trừ công nợ VÀ xác linh kiện sau sửa chữa (đề xuất cấp LK đã xuất); đơn vị sửa chữa
-  chưa xong → bước 7 "Đang sửa chữa — chờ xác định xác". Popup chi tiết (Mở rộng) = 98% × 98% màn hình ở cả v1 và v2. v1 và v2 hiện CÙNG thông tin (cùng bộ tính, cùng câu tóm tắt "Đang ở bước … — chờ …", x/8 xong, tổng thời gian) — chỉ khác cách trình bày. Bước "đang xử
+  chưa xong → bước 7 "Đang sửa chữa — chờ xác định xác". Popup chi tiết (Mở rộng) = 98% × 98% màn hình ở cả v1 và v2. **SLA từng bước** (chốt 2026-11-28, v1.679, chỉ hiển thị — chưa trừ điểm): giờ hành chính (BO / Kho / Mua hàng / Admin BH) = T2–T6 8:00–12:00 +
+  13:30–17:30, T7 8:00–12:00, nghỉ chiều T7 + Chủ nhật; giờ KTV = 7:00–19:00 mọi ngày (12h, không trừ chiều T7 / Chủ nhật); cả hai trừ "Ngày loại trừ giải
+  trình" của khu vực / nước của ca. Hẹn 2 giờ KTV (nhận ca → lần hẹn đầu) · Đặt LK 8 giờ hành chính (KTV tạo đơn → BO duyệt) · Mua hàng 8 giờ hành chính
+  (báo thiếu → Kho/Mua hàng cập nhật thông tin hoặc xác nhận hàng về) · Giao LK 8 giờ hành chính (BO duyệt — hoặc hàng về nếu thiếu → phiếu xuất kho) ·
+  Đóng ca 3 ngày làm việc KTV = 36 giờ KTV (KTV nhận LK — hoặc giao LK / hẹn nếu không cần LK → đóng ca) · Trả xác 7 ngày lịch (đóng ca → Admin BH nhận
+  đơn gửi) · Xác nhận xác 30 ngày lịch (Admin BH nhận → trả xác xong). Bước đang chạy tính tới hiện tại ("Trong hạn · còn …" / "Quá SLA …"); câu tóm tắt
+  có "N bước quá SLA". v1 và v2 hiện CÙNG thông tin (cùng bộ tính, cùng câu tóm tắt "Đang ở bước … — chờ …", x/8 xong, tổng thời gian) — chỉ khác cách trình bày. Bước "đang xử
   lý" = bước chưa xong đầu tiên (1–6 khi ca mở; 7–8 sau khi đóng). Chỉ HIỂN THỊ: chưa có SLA từng bước, chưa có mã lỗi theo bước. Bộ tính dùng
   chung `lib/buocQuyTrinh.ts`; nội dung từng bước v2 là nguyên khối của v1 (không đổi quyền / thao tác); khoá tab cũ (module ngoài mở ca
   thẳng 1 tab, chip "nhảy tab") được chuyển tới đúng bước / mục ngoài 8 bước. v1: đầu tab Tiến trình chung có luồng ngang 8 bước + "Xem chi

@@ -15069,5 +15069,15 @@
   "Đơn đã nhận hàng — không chọn được": ["Order already received — cannot be selected","Pesanan sudah diterima — tidak dapat dipilih"],
   "đúng mã LK thiếu": ["matches missing part","sesuai suku cadang yang kurang"],
   "Đặt": ["Ordered","Dipesan"],
-  "Mã {0} lần trước không còn chọn được (đã nhận hàng hoặc không thuộc ca) — chọn lại đơn.": ["Previous code {0} can no longer be selected (received or not in this case) — choose an order again.","Kode sebelumnya {0} tidak dapat dipilih lagi (sudah diterima atau bukan milik kasus ini) — pilih ulang pesanan."]
+  "Mã {0} lần trước không còn chọn được (đã nhận hàng hoặc không thuộc ca) — chọn lại đơn.": ["Previous code {0} can no longer be selected (received or not in this case) — choose an order again.","Kode sebelumnya {0} tidak dapat dipilih lagi (sudah diterima atau bukan milik kasus ini) — pilih ulang pesanan."],
+  "2 giờ KTV": ["2 technician hours","2 jam teknisi"],
+  "8 giờ hành chính": ["8 office hours","8 jam kantor"],
+  "3 ngày làm việc KTV (36 giờ)": ["3 technician working days (36 h)","3 hari kerja teknisi (36 jam)"],
+  "30 ngày": ["30 days","30 hari"],
+  "Quá SLA {0} (SLA {1})": ["Over SLA by {0} (SLA {1})","Lewat SLA {0} (SLA {1})"],
+  "Đạt SLA ({0} / {1})": ["Within SLA ({0} / {1})","Sesuai SLA ({0} / {1})"],
+  "Trong hạn · còn {0} (SLA {1})": ["On time · {0} left (SLA {1})","Tepat waktu · sisa {0} (SLA {1})"],
+  "{0} bước quá SLA": ["{0} steps over SLA","{0} langkah lewat SLA"],
+  "{0} giờ {1} phút": ["{0} h {1} min","{0} jam {1} menit"],
+  "Trong hạn": ["On time","Tepat waktu"]
 }

@@ -741,4 +741,9 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
   tiles, compact `chua` cards, `.cdv2-bar` = sticky glass bottom bar rendering `hanhDong` a 2nd time while `.cdv2-sum .cdv2-acts` is hidden; `:empty` hides
   it); strip auto-scrolls horizontally to `.cdv2-tile.dang` (scrollLeft only). Header: right controls `max-md:absolute` top-right, title `max-md:w-full`.
   `components/ui/Modal.tsx`: < sm = bottom-sheet (items-end, rounded-t-[22px], grab bar, safe-area padding, max-h 92dvh) — app-wide.
+- v1.679 (2026-11-28): per-step SLA. `lib/gioLamViec.ts` `phutLamViec(tu, den, "vp"|"ktv"|"lich", ngayNghi)` (VN time; vp = Mon–Fri 8–12 + 13:30–17:30,
+  Sat 8–12; ktv = 7–19 every day; both skip `ngayNghi`). `SLA_BUOC` + `mocSla` in `buocQuyTrinh.ts` (start/end per step, LK events `tn_da_duyet`,
+  `thieu_lk_kho_da_cap_nhat`/`thieu_lk_kho_xac_nhan_hang_ve`, `pxk_ktv_da_nhan`); `BuocQuyTrinh.sla` {hanPhut, daDungPhut, quaHan, nhan}; running steps use now.
+  CaseDetail loads `/settings/giai-trinh-exclude-ngay` (staleTime 1h) and keeps rows for `__ALL__[:<nuoc>]` or the case's khu_vuc as `ngayNghi`.
+  Shown in v2 tiles (chip Đạt / Trong hạn / Quá SLA) + card line "⏱ …", v1 LuongTamBuoc (red "Quá SLA" chip, tooltip, detail list), summary "N bước quá SLA".
 

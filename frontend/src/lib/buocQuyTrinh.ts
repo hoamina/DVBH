@@ -13,6 +13,7 @@ import type { CaseRow, LichHenItem } from "../types";
 import type { LinhKienOrder } from "./linhKienTimeline";
 import type { SuaChuaDon } from "./suaChuaTimeline";
 import { tr } from "../i18n/tr";
+import { phutLamViec, fmtPhut, type KieuGio } from "./gioLamViec";
 
 export type TrangThaiBuoc = "xong" | "dang" | "chua" | "bo_qua";
 
@@ -31,6 +32,36 @@ export interface BuocQuyTrinh {
   chiSo: string[];
   // Ly do bo qua / ghi chu ngan (da dich).
   ghiChu: string | null;
+  // SLA cua buoc (chot 2026-11-28) - null khi buoc chua bat dau / khong ap dung / thieu moc bat dau.
+  sla: SlaBuoc | null;
+}
+
+export interface SlaBuoc {
+  kieu: KieuGio;
+  hanPhut: number; // han (phut lam viec theo kieu)
+  hanNhan: string; // "2 giờ (giờ KTV)", "8 giờ hành chính", "3 ngày KTV", "7 ngày"
+  batDauMs: number;
+  ketThucMs: number | null; // null = dang chay (tinh toi hien tai)
+  daDungPhut: number;
+  quaHan: boolean;
+  nhan: string; // "Trong hạn · còn 1 giờ 20 phút" / "Quá SLA 3 giờ" / "Đạt SLA (5 giờ / 8 giờ)"
+}
+
+// SLA tung buoc - nguyen van chu he thong 2026-11-28: "hẹn 2h (ktv hẹn sau 2h nhận ca) · đặt LK 8h (sau khi ktv đặt BO xác nhận trong giờ làm việc)
+// · mua hàng 8h (từ thời điểm báo thiếu) · giao LK (8h sau khi tiếp nhận đơn từ KTV - hoặc hàng về nếu thiếu) · đóng ca sau 3 ngày làm việc
+// · trả xác 7 ngày · xác nhận xác 30 ngày" + "tính theo giờ làm việc 8h các việc liên quan đến ktv thì không loại trừ nửa thứ 7 và chủ nhật = 12h".
+export const SLA_BUOC: Record<number, { kieu: KieuGio; phut: number; nhan: string }> = {
+  2: { kieu: "ktv", phut: 2 * 60, nhan: tr("2 giờ KTV") },
+  3: { kieu: "vp", phut: 8 * 60, nhan: tr("8 giờ hành chính") },
+  4: { kieu: "vp", phut: 8 * 60, nhan: tr("8 giờ hành chính") },
+  5: { kieu: "vp", phut: 8 * 60, nhan: tr("8 giờ hành chính") },
+  6: { kieu: "ktv", phut: 3 * 12 * 60, nhan: tr("3 ngày làm việc KTV (36 giờ)") },
+  7: { kieu: "lich", phut: 7 * 24 * 60, nhan: tr("7 ngày") },
+  8: { kieu: "lich", phut: 30 * 24 * 60, nhan: tr("30 ngày") },
+};
+
+function fmtTheoKieu(phut: number, kieu: KieuGio): string {
+  return kieu === "lich" ? fmtKhoang(phut * 60_000) : fmtPhut(phut);
 }
 
 export interface DauVaoBuocQuyTrinh {
@@ -43,6 +74,8 @@ export interface DauVaoBuocQuyTrinh {
   daTaiLk?: boolean;
   daTaiSc?: boolean;
   nowMs?: number;
+  // Ngay khong lam viec (YYYY-MM-DD) cua khu vuc / nuoc cua ca - "Ngày loại trừ giải trình" (Cai dat). Chu nhat / chieu T7 da tinh san.
+  ngayNghi?: ReadonlySet<string>;
 }
 
 export interface KetQuaBuocQuyTrinh {
@@ -127,6 +160,7 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
     cachTruocMs: null,
     chiSo: [],
     ghiChu: null,
+    sla: null,
   }));
   const b = (so: number) => ds[so - 1];
   const dat = (so: number, luc: { luc: string | null; ms: number | null }, nguoi: string | null = null) => {
@@ -309,9 +343,58 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
     }
   }
 
+  const now = dv.nowMs ?? Date.now();
+
+  // ---- SLA tung buoc: moc bat dau / ket thuc ----
+  const evDau = (names: string[]) => minLuc(orders.flatMap((o) => o.timeline.filter((e) => names.includes(e.event)).map((e) => e.at)));
+  const boDuyet = evDau(["tn_da_duyet"]);
+  const mocSau = evDau(["pxk_dang_tao_phieu", "pxk_cho_ke_toan", "pxk_da_chot_don_xuat", "pxk_dang_gui_ktv", "pxk_ktv_da_nhan"]);
+  const baoThieu = minLuc([
+    ...orders.flatMap((o) => (o.thieu_lk ?? []).map((t) => t.ngay_tao)),
+    ...orders.flatMap((o) => o.timeline.filter((e) => e.event === "cho_hang" || e.event === "thieu_lk_cho_kho_xu_ly").map((e) => e.at)),
+  ]);
+  const phanHoiMua = evDau(["thieu_lk_kho_da_cap_nhat", "thieu_lk_kho_xac_nhan_hang_ve"]);
+  const hangVe = maxLuc([
+    ...orders.flatMap((o) => (o.thieu_lk ?? []).map((t) => t.ngay_hang_ve_thuc_te)),
+    ...orders.flatMap((o) => o.timeline.filter((e) => e.event === "thieu_lk_kho_xac_nhan_hang_ve").map((e) => e.at)),
+  ]);
+  const ktvNhanLk = evDau(["pxk_ktv_da_nhan"]);
+  const mocSla: Record<number, { bd: number | null; kt: number | null }> = {
+    // 2: KTV hen trong 2h (gio KTV) tu luc nhan ca.
+    2: { bd: b(1).lucMs, kt: b(2).trangThai === "xong" ? b(2).lucMs : null },
+    // 3: KTV dat don -> BO xac nhan (duyet) trong 8h hanh chinh. Don di thang phieu xuat (khong qua duyet) -> lay moc phieu xuat.
+    3: { bd: minLuc(orders.map((o) => o.ngay_tao)).ms, kt: boDuyet.ms ?? mocSau.ms },
+    // 4: bao thieu -> Mua hang phan hoi (cap nhat ngay du kien / hang ve) trong 8h hanh chinh.
+    4: { bd: b(4).trangThai === "bo_qua" ? null : baoThieu.ms, kt: phanHoiMua.ms },
+    // 5: tiep nhan don cua KTV (BO duyet) - hoac hang ve neu thieu -> phieu xuat kho trong 8h hanh chinh.
+    5: { bd: b(4).trangThai !== "bo_qua" && baoThieu.ms !== null ? hangVe.ms : boDuyet.ms ?? minLuc(orders.map((o) => o.ngay_tao)).ms, kt: b(5).trangThai === "xong" ? b(5).lucMs : null },
+    // 6: tu luc KTV nhan LK (hoac giao LK / hen neu khong can LK) -> dong ca trong 3 ngay KTV.
+    6: { bd: ktvNhanLk.ms ?? (b(5).trangThai === "xong" ? b(5).lucMs : null) ?? (orders.length ? null : b(2).lucMs ?? b(1).lucMs), kt: b(6).lucMs },
+    // 7: tu dong ca -> Admin BH nhan don gui doi tra trong 7 ngay.
+    7: { bd: dv.scDon.length ? b(6).lucMs : null, kt: b(7).trangThai === "xong" ? b(7).lucMs : null },
+    // 8: tu Admin BH nhan -> tra xac xong trong 30 ngay.
+    8: { bd: b(7).trangThai === "xong" ? b(7).lucMs : null, kt: b(8).trangThai === "xong" ? b(8).lucMs : null },
+  };
+  for (const [soStr, def] of Object.entries(SLA_BUOC)) {
+    const so = Number(soStr);
+    const x = b(so);
+    const m = mocSla[so];
+    if (!m || m.bd === null || x.trangThai === "bo_qua" || x.trangThai === "chua") continue;
+    const kt = m.kt !== null && m.kt >= m.bd ? m.kt : null;
+    const dung = phutLamViec(m.bd, kt ?? now, def.kieu, dv.ngayNghi);
+    const quaHan = dung > def.phut;
+    const nhan = kt !== null
+      ? quaHan
+        ? tr("Quá SLA {0} (SLA {1})", fmtTheoKieu(dung - def.phut, def.kieu), def.nhan)
+        : tr("Đạt SLA ({0} / {1})", fmtTheoKieu(dung, def.kieu), def.nhan)
+      : quaHan
+        ? tr("Quá SLA {0} (SLA {1})", fmtTheoKieu(dung - def.phut, def.kieu), def.nhan)
+        : tr("Trong hạn · còn {0} (SLA {1})", fmtTheoKieu(def.phut - dung, def.kieu), def.nhan);
+    x.sla = { kieu: def.kieu, hanPhut: def.phut, hanNhan: def.nhan, batDauMs: m.bd, ketThucMs: kt, daDungPhut: dung, quaHan, nhan };
+  }
+
   const buocHienTai = ds.find((x) => x.trangThai === "dang") ?? null;
   const soXong = ds.filter((x) => x.trangThai === "xong").length;
-  const now = dv.nowMs ?? Date.now();
   let choMs: number | null = null;
   if (buocHienTai) {
     const truocMs = ds.filter((x) => x.so < buocHienTai.so && x.lucMs !== null).map((x) => x.lucMs as number);
@@ -328,6 +411,12 @@ export function tinhBuocQuyTrinh(dv: DauVaoBuocQuyTrinh): KetQuaBuocQuyTrinh {
     : daDongCa
       ? tr("Ca đã đóng — {0}/8 bước có dữ liệu.", soXong)
       : tr("{0}/8 bước có dữ liệu.", soXong);
-  const tomTatTong = tongMs === null ? "" : daDongCa ? tr("Tổng thời gian xử lý {0}", fmtKhoang(tongMs)) : tr("Đã mở {0}", fmtKhoang(tongMs));
+  const soQuaSla = ds.filter((x) => x.sla?.quaHan).length;
+  const tomTatTong = [
+    tongMs === null ? "" : daDongCa ? tr("Tổng thời gian xử lý {0}", fmtKhoang(tongMs)) : tr("Đã mở {0}", fmtKhoang(tongMs)),
+    soQuaSla ? tr("{0} bước quá SLA", soQuaSla) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return { buoc: ds, buocHienTai, soXong, daDongCa, choMs, tongMs, tomTat, tomTatTong };
 }

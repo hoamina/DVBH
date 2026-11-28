@@ -6709,3 +6709,16 @@ khi trình duyệt đang đăng nhập OCRM (như ảnh báo cáo); app không p
   thành bottom-sheet; nút "Gửi giải trình" không xuống dòng.
 - Kiểm thử: typecheck + build; chạy local (dev-login) ca 1078080 ở 390×600 và 375×812: header 1 dòng, thanh nút đáy ghim đúng đáy, form giải trình bottom-sheet,
   tab Tiến trình chung không còn "Quy trình 8 bước"; 1440×900 Mở rộng: không có thanh đáy, nút vẫn trong thẻ tóm tắt.
+
+## 2026-11-28 (2) — v1.679: SLA từng bước (giờ hành chính / giờ KTV) trên Chi tiết ca v1 + v2
+
+- Yêu cầu (nguyên văn): "\"quá SLA từng bước\" (tính theo giờ làm việc 8h các việc liên quan đến ktv thì không loại trừ nửa thứ 7 và chủ nhật = 12h). Các mức đề
+  xuất trong mẫu: hẹn 2h (ktv hẹn sau 2h nhận ca)· đặt LK 8h (sau khi ktv đặt BO xác nhận trong giờ làm việc) · mua hàng 8h (từ thời điểm báo thiếu) · giao LK
+  (8h sau khi tiếp nhận đơn từ KTV - hoặc hàng về nếu thiếu) · đóng ca sau 3 ngày làm việc · trả xác 7 ngày · xác nhận xác 30 ngày." + 4 câu chốt (khung giờ VP, khung
+  giờ KTV, mốc kết thúc mua hàng, mốc bắt đầu 3 bước dài) — chọn đúng phương án đề xuất.
+- Đã làm: `lib/gioLamViec.ts` (mới), SLA trong `lib/buocQuyTrinh.ts`, hiển thị ở v2 (`ChiTietCaV2`, css) và v1 (`LuongTamBuoc`), CaseDetail nạp ngày loại trừ.
+- Kiểm thử: typecheck + build; tính giờ làm việc với 5 mốc tay (qua cuối tuần, chiều T7, nghỉ trưa, KTV đêm, ngày loại trừ) + 1 ca giả 5 bước → khớp tính tay.
+  Chưa xem trên giao diện (ô trình duyệt bị ẩn), chưa kiểm ca thật.
+- Commit tách riêng: phiên song song "Kiểm tra DDH khi giải trình tồn" đang sửa dở `TienTrinhChung.tsx` / CSS `.ttc-v2` / vài câu từ điển trong cùng thư mục —
+  KHÔNG gộp vào commit này; deploy từ bản sạch của commit.
+

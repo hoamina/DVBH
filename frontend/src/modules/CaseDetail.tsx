@@ -101,6 +101,7 @@ import {
   type NapGasDanhGiaRow,
   type KetQuaGoiRow,
   type LoaiViPhamRow,
+  type GiaiTrinhExcludeNgayRow,
   parseLoaiKhaoSat,
 } from "../types";
 import { tr } from "../i18n/tr";
@@ -1333,9 +1334,34 @@ export function CaseDetail({
   // co block nay thi dem so don co it nhat 1 su kien nguon thieu_lk.
   const lkThieuCount = lkThieuTickets.length > 0 ? lkThieuTickets.length : lkOrders.filter((o) => o.timeline.some((e) => e.source === "thieu_lk")).length;
   // Luong 8 buoc (giao dien v2 + tab Tien trinh chung) - chi doc du lieu da tai o tren (lib/buocQuyTrinh.ts).
+  // Ngay khong lam viec cho SLA tung buoc = "Ngày loại trừ giải trình" (Cai dat) ap cho khu vuc / nuoc cua ca. Bang nho, tai 1 lan / gio.
+  const { data: ngayLoaiTruData } = useQuery({
+    queryKey: ["settings-giai-trinh-exclude-ngay"],
+    queryFn: () => api.get<{ rows: GiaiTrinhExcludeNgayRow[] }>("/settings/giai-trinh-exclude-ngay"),
+    staleTime: 60 * 60 * 1000,
+  });
+  const ngayNghiCa = useMemo(() => {
+    const nuoc = c?.quoc_gia || "VN";
+    const set = new Set<string>();
+    for (const r of ngayLoaiTruData?.rows ?? []) {
+      const toanBo = r.khu_vuc === "__ALL__" ? nuoc === "VN" : r.khu_vuc === `__ALL__:${nuoc}`;
+      if (toanBo || (c?.khu_vuc && r.khu_vuc === c.khu_vuc)) set.add(String(r.ngay).slice(0, 10));
+    }
+    return set;
+  }, [ngayLoaiTruData, c]);
   const ketQuaBuoc = useMemo(
-    () => tinhBuocQuyTrinh({ ca: c, lichHen: lichHenList, lkOrders, soPo: poTabPo.length, scDon: scDonList, daTaiLk: !!lkTimeline?.ok, daTaiSc: !!scTimeline?.ok }),
-    [c, lichHenList, lkOrders, poTabPo, scDonList, lkTimeline, scTimeline],
+    () =>
+      tinhBuocQuyTrinh({
+        ca: c,
+        lichHen: lichHenList,
+        lkOrders,
+        soPo: poTabPo.length,
+        scDon: scDonList,
+        daTaiLk: !!lkTimeline?.ok,
+        daTaiSc: !!scTimeline?.ok,
+        ngayNghi: ngayNghiCa,
+      }),
+    [c, lichHenList, lkOrders, poTabPo, scDonList, lkTimeline, scTimeline, ngayNghiCa],
   );
 
   const viPhamList = data?.viPham ?? [];
